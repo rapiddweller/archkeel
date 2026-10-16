@@ -210,6 +210,14 @@
           ],
           "rationale": "Use the single typed dependency selection API; retain model compatibility exports without a second matcher.",
           "decided_by": "architect"
+        },
+        {
+          "component": "contract-version",
+          "through": [
+            "archkeel.ir.contract_version"
+          ],
+          "rationale": "The model and contract codec consume one nominal version and feature-availability policy.",
+          "decided_by": "architect"
         }
       ],
       "public": [
@@ -295,6 +303,30 @@
         "docs/architecture/archkeel.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "TARGET-CONTRACT-VERSION",
+      "label": "contract-version",
+      "role": "component",
+      "packages": [
+        "archkeel.ir.contract_version"
+      ],
+      "public": [
+        "archkeel.ir.contract_version:ContractFeature",
+        "archkeel.ir.contract_version:ContractVersion",
+        "archkeel.ir.contract_version:CONTRACT_SCHEMA_VERSION"
+      ],
+      "responsibilities": [
+        "Own supported contract schema identities and the single feature-introduction policy shared by reading and writing."
+      ],
+      "forbidden_responsibilities": [
+        "Raw JSON field parsing, source observation, rule evaluation and repository-dependent decisions."
+      ],
+      "requires": [],
+      "provenance": [
+        "docs/architecture/contract-version-types.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "rules": [
@@ -342,6 +374,16 @@
       "rationale": "The owned dependency policy API exposes typed vocabulary and immutable selections; raw record conversion stays in codec_contract.",
       "provenance": [
         "docs/architecture/dependency-selector-target.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "TARGET-CONTRACT-VERSION-BOUNDARY-TYPES",
+      "kind": "boundary_types",
+      "source": "archkeel.ir.contract_version",
+      "rationale": "Published version and feature APIs retain nominal controls and an explicit boolean availability result.",
+      "provenance": [
+        "docs/architecture/contract-version-types.md"
       ],
       "decided_by": "architect"
     }
@@ -6783,6 +6825,137 @@
             "Require explicit module-object proof support."
           ],
           "annotation": "bool",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-VERSION-contract_version",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.contract_version",
+          "parent_id": "TARGET-CONTRACT-VERSION",
+          "responsibilities": [
+            "Own contract version identity and feature availability."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-version-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-VERSION-ContractFeature",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.contract_version.ContractFeature",
+          "parent_id": "IR-VERSION-contract_version",
+          "responsibilities": [
+            "Name actual versioned contract capabilities."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-version-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-VERSION-ContractVersion",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.contract_version.ContractVersion",
+          "parent_id": "IR-VERSION-contract_version",
+          "responsibilities": [
+            "Preserve supported wire identities as one nominal model type."
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-version-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-VERSION-supports",
+          "kind": "method",
+          "qualified_name": "archkeel.ir.contract_version.ContractVersion.supports",
+          "parent_id": "IR-VERSION-ContractVersion",
+          "responsibilities": [
+            "Answer feature availability using the common introduction table."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "annotation": null,
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "feature",
+                "annotation": "ContractFeature",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "bool"
+          },
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-version-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-VERSION-ArchitectureContract",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.ArchitectureContract",
+          "parent_id": "IR-DEPENDENCY-model",
+          "responsibilities": [
+            "Carry normalized contract identity and authored architecture intent."
+          ],
+          "modifiers": [
+            "frozen"
+          ],
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-version-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-VERSION-schema_version",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.ArchitectureContract.schema_version",
+          "parent_id": "IR-VERSION-ArchitectureContract",
+          "responsibilities": [
+            "Keep schema identity nominal at the model boundary."
+          ],
+          "annotation": "ContractVersion",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/contract-version-types.md"
+          ],
           "visibility": {
             "kind": "public",
             "basis": "declared"

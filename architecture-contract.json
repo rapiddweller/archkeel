@@ -771,9 +771,10 @@
         "archkeel.ir.architecture_graph",
         "archkeel.ir.dependency",
         "archkeel.ir.state_facts",
-        "archkeel.ir.state_codec"
+        "archkeel.ir.state_codec",
+        "archkeel.ir.contract_version"
       ],
-      "rationale": "Each shared vocabulary belongs to its domain model; state_facts owns state controls and state_codec owns its private wire event tag.",
+      "rationale": "Each shared vocabulary has one coherent domain owner; contract_version owns schema identities and versioned feature availability.",
       "provenance": [
         "docs/architecture/archkeel.md"
       ],
@@ -887,6 +888,19 @@
       "rationale": "State controls use their owned enums in the domain and parser; JSON conversion does not exempt protocol-string dispatch.",
       "provenance": [
         "docs/architecture/typed-state-protocol.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "CONTRACT-VERSION-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.contract_version",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Version and feature control uses the owned nominal API, with no parser or constant-string exemption.",
+      "provenance": [
+        "docs/architecture/contract-version-types.md"
       ],
       "decided_by": "architect"
     }
