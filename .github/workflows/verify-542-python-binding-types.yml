@@ -22,18 +22,6 @@ jobs:
           python-version: "3.11.12"
       - run: uv python install 3.11.12 3.12.10
       - run: uv sync --locked
-      - name: Diagnose current binding contract
-        run: |
-          set +e
-          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json > "$RUNNER_TEMP/python-binding-diagnostic.json"
-          python - "$RUNNER_TEMP/python-binding-diagnostic.json" <<'PY'
-          import json
-          import sys
-          from pathlib import Path
-          result = json.loads(Path(sys.argv[1]).read_text())
-          print("BINDING_DIAGNOSTIC=" + json.dumps({key: result.get(key) for key in ("diagnostics", "failures", "measurements", "observation_complete")}))
-          PY
-          exit 0
       - name: Export canonical formatting patch
         run: |
           uv run --locked ruff format src/archkeel/analyzer/python/binding_types.py src/archkeel/analyzer/python/source.py src/archkeel/analyzer/python/scopes.py src/archkeel/analyzer/python/imports.py src/archkeel/analyzer/python/resolve.py src/archkeel/analyzer/python/calls.py tests/test_typed_python_bindings.py tests/test_binding_proof_reuse.py tests/test_boundary_types_aliases.py

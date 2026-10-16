@@ -31,7 +31,6 @@ from archkeel.ir.facts_codec import (
 from archkeel.ir.source_records import FRAMEWORK_BASES as FRAMEWORK_BASES
 from archkeel.ir.source_records import is_public_method_name as is_public_method_name
 
-
 from .binding_types import AliasBinding as AliasBinding
 from .binding_types import ImportKind
 
@@ -1410,7 +1409,11 @@ def _member_binding_roots(
                     changed_origins |= {imported_name if imported_alias.asname else root}
     for name, alias in module.aliases.items():
         imported_target: str = alias.target
-        origin = imported_target if alias.kind is ImportKind.MODULE else imported_target.rpartition(".")[0]
+        origin = (
+            imported_target
+            if alias.kind is ImportKind.MODULE
+            else imported_target.rpartition(".")[0]
+        )
         if origin in changed_origins:
             changed_members |= {name}
     return changed_members

@@ -222,7 +222,8 @@ def test_alias_kind_change_invalidates_import_origin_proof() -> None:
     )
     assert "second" in stable_direct_module_bindings(module)
     module.aliases.update(
-        route=AliasBinding("pkg", ImportKind.MODULE), second=AliasBinding("pkg.X", ImportKind.SYMBOL, "X")
+        route=AliasBinding("pkg", ImportKind.MODULE),
+        second=AliasBinding("pkg.X", ImportKind.SYMBOL, "X"),
     )
     assert "second" not in stable_direct_module_bindings(module)
     module.aliases["second"] = AliasBinding("pkg.X", ImportKind.MODULE, "X")
@@ -455,7 +456,9 @@ def test_rerunning_import_origins_replaces_the_map_union_proof() -> None:
     assert "SexKey" not in unproven_member_bindings(modules[1])
     imported = next(item for item in imports if item["data"]["binding"] == "SexKey")
     imported["data"]["target_module"] = "sample.missing"
-    modules[1].aliases["SexKey"] = AliasBinding("sample.missing.SexKey", ImportKind.SYMBOL, "SexKey")
+    modules[1].aliases["SexKey"] = AliasBinding(
+        "sample.missing.SexKey", ImportKind.SYMBOL, "SexKey"
+    )
     resolve_reexports(imports, {module.module: module.all_exports for module in modules}, modules)
     assert "SexKey" in unproven_member_bindings(modules[1])
 

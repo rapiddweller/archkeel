@@ -1,6 +1,6 @@
 {
   "$schema": "../../../schema/architecture-contract.schema.json",
-  "schema_version": "2.1.0",
+  "schema_version": "2.2.0",
   "components": [
     {
       "id": "TARGET-ENTRY",

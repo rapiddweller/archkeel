@@ -18,6 +18,8 @@ from test_uml_evaluation import _model
 
 from archkeel.analyzer.python.binding_types import (
     AliasBinding as OwnedAliasBinding,
+)
+from archkeel.analyzer.python.binding_types import (
     BindingKind,
     CompilerScopeKind,
     ImportKind,
@@ -57,7 +59,8 @@ def test_import_collection_and_lexical_lookup_produce_nominal_kinds(name):
     expected_import = ImportKind.MODULE if name == "engine" else ImportKind.SYMBOL
     assert module.aliases[name].kind is expected_import
     use = next(
-        node for node in ast.walk(module.tree)
+        node
+        for node in ast.walk(module.tree)
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id == name
     )
     expected_lexical = BindingKind.MODULE if name == "engine" else BindingKind.SYMBOL
@@ -65,28 +68,28 @@ def test_import_collection_and_lexical_lookup_produce_nominal_kinds(name):
 
 
 @pytest.mark.parametrize("filename,qualified_scope", CONTROL_FUNCTIONS)
-def test_actual_binding_control_functions_have_no_raw_dispatch(
-    tmp_path, filename, qualified_scope
-):
+def test_actual_binding_control_functions_have_no_raw_dispatch(tmp_path, filename, qualified_scope):
     # The module is observed in full; unrelated raw grammars may still fail its rule.
     # Only these six function observations are asserted, without a module PASS claim.
     source = (ROOT / "src/archkeel/analyzer/python" / filename).read_text()
     owner = f"sample.core.{qualified_scope}"
     result = _observe_one_rule(
         tmp_path,
-        {"kind": "forbidden_construct", "source": "sample.core",
-         "constructs": ["string_literal_compare"]},
+        {
+            "kind": "forbidden_construct",
+            "source": "sample.core",
+            "constructs": ["string_literal_compare"],
+        },
         {"core.py": source},
     )
     assert result.diagnostics == () and result.observation is not None
     observed = [
-        row for row in result.observation.records("constructs")
+        row
+        for row in result.observation.records("constructs")
         if row.kind == "string_literal_compare" and row.data.get("owner") == owner
     ]
     assert observed == [], [(row.title, row.evidence_ids) for row in observed]
-    assert not [
-        row for row in trace_valid_violations(result.observation) if owner in row.subjects
-    ]
+    assert not [row for row in trace_valid_violations(result.observation) if owner in row.subjects]
 
 
 def test_unknown_compiler_scope_kind_cannot_authorize_module_fallback():
@@ -96,9 +99,9 @@ def test_unknown_compiler_scope_kind_cannot_authorize_module_fallback():
     )
     scopes = LexicalScopes(module)
     use = next(
-        node for node in ast.walk(module.tree)
-        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
-        and node.id == "captured"
+        node
+        for node in ast.walk(module.tree)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id == "captured"
     )
     parent = scopes.by_node[use].parent
     assert parent is not None and parent.table is not None
@@ -116,26 +119,32 @@ def test_binding_types_are_nominal_and_existing_source_port_is_retained():
 
 @pytest.mark.parametrize(
     "raw,expected",
-    [("module", CompilerScopeKind.MODULE),
-     ("function", CompilerScopeKind.FUNCTION),
-     ("class", CompilerScopeKind.CLASS),
-     ("annotation", None), ("future scope", None), ("FUNCTION", None), ("", None)],
+    [
+        ("module", CompilerScopeKind.MODULE),
+        ("function", CompilerScopeKind.FUNCTION),
+        ("class", CompilerScopeKind.CLASS),
+        ("annotation", None),
+        ("future scope", None),
+        ("FUNCTION", None),
+        ("", None),
+    ],
 )
 def test_compiler_protocol_classification_preserves_unknown(raw, expected):
     assert compiler_scope_kind(raw) is expected
 
 
 def _binding_contract():
-    contract = copy.deepcopy(json.loads(
-        (ROOT / "docs/architecture/contracts/python.json").read_text()
-    ))
+    contract = copy.deepcopy(
+        json.loads((ROOT / "docs/architecture/contracts/python.json").read_text())
+    )
     contract.pop("$schema", None)
     root = json.loads((ROOT / "architecture-contract.json").read_text())
     contract["rules"] = [
         rule for rule in root["rules"] if rule["id"] == "PYTHON-BINDINGS-TYPED-CONTROL"
     ]
     contract["declarations"]["uml"]["entities"] = [
-        entity for entity in contract["declarations"]["uml"]["entities"]
+        entity
+        for entity in contract["declarations"]["uml"]["entities"]
         if entity["id"].startswith("PYTHON-BINDING-")
     ]
     return contract
@@ -167,7 +176,8 @@ def test_native_binding_api_matches_owned_target_and_model_guard(tmp_path):
     model = _model(root, config)
     assert _binding_comparison(model).status == "PASS", _binding_comparison(model)
     assessment = next(
-        row for row in rule_assessments(model, undecided_by_rule={})
+        row
+        for row in rule_assessments(model, undecided_by_rule={})
         if row.id == "PYTHON-BINDINGS-TYPED-CONTROL"
     )
     assert assessment.status == "PASS" and assessment.evaluation_proven
@@ -196,9 +206,11 @@ def test_native_binding_kind_widening_fails_unchanged_target(tmp_path, filename,
 
 @pytest.mark.parametrize(
     "probe",
-    ['def _probe(value):\n    return value == "module"\n',
-     'def _probe(value):\n    return value in ("module", "symbol")\n',
-     'def _probe(value):\n    return value == ImportKind.MODULE.value\n'],
+    [
+        'def _probe(value):\n    return value == "module"\n',
+        'def _probe(value):\n    return value in ("module", "symbol")\n',
+        "def _probe(value):\n    return value == ImportKind.MODULE.value\n",
+    ],
     ids=["raw-equality", "raw-membership", "enum-value-extraction"],
 )
 def test_native_binding_model_rejects_raw_dispatch(tmp_path, probe):
@@ -207,14 +219,16 @@ def test_native_binding_model_rejects_raw_dispatch(tmp_path, probe):
     path.write_text(path.read_text() + "\n" + probe)
     model = _model(root, config)
     assert [
-        row for row in trace_valid_violations(model)
+        row
+        for row in trace_valid_violations(model)
         if "PYTHON-BINDINGS-TYPED-CONTROL" in row.rule_ids
     ]
 
 
 def test_actual_complete_binding_model_has_positive_native_guard(self_observation):
     assessment = next(
-        row for row in rule_assessments(self_observation, undecided_by_rule={})
+        row
+        for row in rule_assessments(self_observation, undecided_by_rule={})
         if row.id == "PYTHON-BINDINGS-TYPED-CONTROL"
     )
     assert assessment.status == "PASS" and assessment.evaluation_proven

@@ -167,7 +167,11 @@ def call_result_type(
         return None
     parts = dotted.split(".")
     binding = scopes.lookup(call.func, parts[0])
-    if binding.kind not in {BindingKind.MODULE, BindingKind.SYMBOL} or binding.uncertain or len(binding.targets) != 1:
+    if (
+        binding.kind not in {BindingKind.MODULE, BindingKind.SYMBOL}
+        or binding.uncertain
+        or len(binding.targets) != 1
+    ):
         return None
     return constructor_receiver_type(".".join([binding.targets[0], *parts[1:]]))
 
