@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
+
 import hashlib
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -406,7 +408,7 @@ def require_comparable_runtime(
     if profile.analyzer != profile_for(head_profile).analyzer:
         raise DiagnosticError(
             Diagnostic(
-                "incomparable_runtime",
+                _DiagnosticKind.INCOMPARABLE_RUNTIME,
                 f"analyzer profile: {baseline_profile} -> {head_profile}",
                 "Observations from different language profiles cannot be compared.",
                 "Reobserve both revisions with the same registered analyzer profile.",
@@ -481,7 +483,7 @@ def require_comparable_runtime(
     if not comparable:
         raise DiagnosticError(
             Diagnostic(
-                "incomparable_runtime",
+                _DiagnosticKind.INCOMPARABLE_RUNTIME,
                 detail,
                 message,
                 recommendation,

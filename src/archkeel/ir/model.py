@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import builtins
 import hashlib
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -21,6 +22,7 @@ from .architecture_graph import RuleAssessment as RuleAssessment
 from .architecture_graph import RuleAssessmentStatus as RuleAssessmentStatus
 from .architecture_graph import TargetDefinition
 from .architecture_graph import contract_relative_path as contract_relative_path
+from .contract_version import ContractVersion as ContractVersion
 from .dependency import ComponentOwnership as ComponentOwnership
 from .dependency import DependencyOwner as DependencyOwner
 from .dependency import DependencySelection as DependencySelection
@@ -719,13 +721,14 @@ class ContractDeclarations:
 
 @dataclass(frozen=True, slots=True)
 class ArchitectureContract:
-    schema_version: Literal[
-        "2.1.0", "2.2.0", "2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0", "3.6.0"
-    ]
+    schema_version: ContractVersion
     components: tuple[ContractComponent, ...]
     rules: tuple[ArchitectureRule, ...]
     schema: str | None = None
     declarations: ContractDeclarations | None = None
+
+    def __post_init__(self) -> None:
+        builtins.object.__setattr__(self, "schema_version", ContractVersion(self.schema_version))
 
     def component_for(self, module: str) -> ContractComponent | None:
         """Return the only component owning a module; overlapping ownership owns nothing."""

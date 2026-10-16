@@ -11,7 +11,6 @@ import subprocess
 import sys
 from dataclasses import fields
 from pathlib import Path
-from typing import get_args
 
 import pytest
 from jsonschema import Draft202012Validator
@@ -590,8 +589,8 @@ def test_python_observation_sections_remain_required(validator, tmp_path: Path) 
 def test_result_properties_cover_the_writer(validator) -> None:
     assert set(validator.schema["properties"]) == {field.name for field in fields(RunResult)}
     diagnostic = validator.schema["$defs"]["diagnostic"]["properties"]
-    assert set(diagnostic["kind"]["enum"]) == set(get_args(DiagnosticKind))
-    assert set(diagnostic["code"]["enum"]) == set(get_args(DiagnosticCode))
+    assert set(diagnostic["kind"]["enum"]) == set(DiagnosticKind)
+    assert set(diagnostic["code"]["enum"]) == set(DiagnosticCode)
 
 
 @pytest.mark.parametrize("field", VERDICTS)

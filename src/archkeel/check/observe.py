@@ -63,7 +63,7 @@ def _contract_input_failure(error: _ContractInputError) -> ObservationResult:
         None,
         (
             Diagnostic(
-                "parse_error",
+                DiagnosticKind.PARSE_ERROR,
                 error.subject,
                 f"The contract declaration is invalid: {error}.",
                 "Correct the contract declaration at this location.",
@@ -111,7 +111,7 @@ def _contract_failure(path: Path, contract_root: Path) -> ObservationResult | No
         contract, digest = load_contract(path)
     except ContractVersionError as error:
         return _failure(
-            "parse_error",
+            DiagnosticKind.PARSE_ERROR,
             path.name,
             f"Contract schema {error.actual} cannot be validated as {CONTRACT_SCHEMA_VERSION}.",
             "Migrate the contract using docs/rules.md#migrating-from-1-1-0.",
@@ -120,7 +120,7 @@ def _contract_failure(path: Path, contract_root: Path) -> ObservationResult | No
         return _contract_input_failure(error)
     except ContractError as error:
         return _failure(
-            "parse_error",
+            DiagnosticKind.PARSE_ERROR,
             path.name,
             f"The architecture contract cannot be decoded: {error}",
             "Correct the contract structure and run report again.",
@@ -131,11 +131,11 @@ def _contract_failure(path: Path, contract_root: Path) -> ObservationResult | No
 # AD-97: a contract item the profile cannot decide is refused, never read as PASS.
 _RULE_FAILURES: Final[dict[str, tuple[DiagnosticKind, str]]] = {
     "rule-without-subjects": (
-        "rule_without_subjects",
+        DiagnosticKind.RULE_WITHOUT_SUBJECTS,
         "Correct the rule selectors or scan scope.",
     ),
     "rule-unsupported-by-profile": (
-        "rule_unsupported_by_profile",
+        DiagnosticKind.RULE_UNSUPPORTED_BY_PROFILE,
         "Remove the rule or declaration, or run a profile that supports it.",
     ),
 }
@@ -179,7 +179,7 @@ def observation_diagnostics(
     if model.coverage.files_discovered == 0:
         diagnostics.append(
             Diagnostic(
-                "scope_empty",
+                DiagnosticKind.SCOPE_EMPTY,
                 ", ".join(model.source.scope) or "scan.roots",
                 f"The configured scope contains no observable {_SOURCE_NAME[language]} files.",
                 f"Set scan.roots to an existing {_SOURCE_NAME[language]} source directory.",
@@ -188,7 +188,7 @@ def observation_diagnostics(
     if model.coverage.rules is None:
         diagnostics.append(
             Diagnostic(
-                "parse_error",
+                DiagnosticKind.PARSE_ERROR,
                 "coverage.rules",
                 "Rule applicability coverage is missing.",
                 "Reinstall a complete Archkeel distribution.",
@@ -197,7 +197,7 @@ def observation_diagnostics(
     if model.coverage.status == Verdict.FAIL and not diagnostics:
         diagnostics.append(
             Diagnostic(
-                "parse_error",
+                DiagnosticKind.PARSE_ERROR,
                 "coverage",
                 "The analyzer reported incomplete coverage without a cause.",
                 "Inspect the analyzer coverage and repair its inputs.",
@@ -299,7 +299,7 @@ def _observe(
             file_root = language == Language.TYPESCRIPT and directory.is_file()
             if not directory.is_dir() and not file_root:
                 return _failure(
-                    "scope_empty",
+                    DiagnosticKind.SCOPE_EMPTY,
                     root,
                     "The scan root does not exist.",
                     "Correct scan.roots in archkeel.toml.",
@@ -308,7 +308,7 @@ def _observe(
             for path in paths:
                 if not path.resolve().is_relative_to(source_root):
                     return _failure(
-                        "parse_error",
+                        DiagnosticKind.PARSE_ERROR,
                         str(path),
                         "Source path escapes repository.",
                         "Remove the source symlink or correct the scan scope.",
@@ -328,11 +328,11 @@ def _observe(
         facts = collector.collect(request)
         if isinstance(facts, CollectionError):
             kind: DiagnosticKind = (
-                "timeout"
+                DiagnosticKind.TIMEOUT
                 if facts.kind == CollectionErrorKind.TIMEOUT
-                else "missing_tool"
+                else DiagnosticKind.MISSING_TOOL
                 if facts.kind == CollectionErrorKind.MISSING_TOOL
-                else "parse_error"
+                else DiagnosticKind.PARSE_ERROR
             )
             return _failure(
                 kind,
@@ -358,14 +358,14 @@ def _observe(
         return _observation_result(facts, model, diagnostics, eligibility)
     except OSError as error:
         return _failure(
-            "parse_error",
+            DiagnosticKind.PARSE_ERROR,
             str(source_root),
             str(error),
             "Repair the source or contract inputs and retry.",
         )
     except (ValueError, TypeError, KeyError) as error:
         return _failure(
-            "parse_error",
+            DiagnosticKind.PARSE_ERROR,
             "source collection",
             str(error),
             "Repair the collector output to match the source facts protocol.",

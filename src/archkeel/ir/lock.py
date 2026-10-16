@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Accepted state is data; only the CI accept path may write it."""
 
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from dataclasses import dataclass
 
 from .measurements import Measurements
@@ -18,7 +19,7 @@ class LockError(DiagnosticError):
     ) -> None:
         super().__init__(
             Diagnostic(
-                "parse_error",
+                _DiagnosticKind.PARSE_ERROR,
                 subject,
                 f"The accepted reference cannot be verified: {message}",
                 "Restore the valid CI lock and its bound inputs; "

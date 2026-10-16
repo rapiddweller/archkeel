@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: MIT
 """Compose immutable inputs, host evidence and architecture checks."""
 
+from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from collections.abc import Mapping
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -132,7 +134,7 @@ def _authenticate_inputs(
     if sha256_bytes(expected_bytes) != expected_digest:
         raise DiagnosticError(
             Diagnostic(
-                "parse_error",
+                _DiagnosticKind.PARSE_ERROR,
                 expected_path,
                 "Expectation digest mismatch; the declaration cannot be authenticated.",
                 "Supply the published expectation and its correct digest.",
@@ -236,12 +238,12 @@ def _measurement_incomplete(observation: Observation, error: RatchetError) -> Ru
         2,
         diagnostics=(
             Diagnostic(
-                "contract_invalid",
+                _DiagnosticKind.CONTRACT_INVALID,
                 "measurement_budgets",
                 f"The measurement budgets cannot be decided: {error}",
                 "Repair the analyzer evidence and retry.",
                 "",
-                "observation.incomplete",
+                _DiagnosticCode.OBSERVATION_INCOMPLETE,
             ),
         ),
         coverage=observation.coverage,

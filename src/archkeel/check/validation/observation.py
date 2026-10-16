@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
+
 from archkeel.ir.model import (
     ArchitectureContract,
     Diagnostic,
@@ -82,7 +84,7 @@ def _responsibility_diagnostics(
             location = f" in {path}" if path is not None else ""
             diagnostics.append(
                 _diagnostic(
-                    "responsibility.missing",
+                    _DiagnosticCode.RESPONSIBILITY_MISSING,
                     f"/components/{index}/responsibilities",
                     f"{component.label}{location}",
                     (
@@ -139,7 +141,7 @@ def observation_diagnostics(
         )
         diagnostics.append(
             _diagnostic(
-                "rule.violated",
+                _DiagnosticCode.RULE_VIOLATED,
                 f"/rules/{index}" if index is not None else inside_pointers.get(rule_id, ""),
                 rule_id,
                 (

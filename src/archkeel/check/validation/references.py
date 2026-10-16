@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
+
 from pathlib import Path
 
 from archkeel.ir.codec import InsideContractTree, contract_digest, load_inside_contract_tree
@@ -96,7 +98,7 @@ def _entry_ownership_diagnostics(
         if contract.component_for(module) is not component:
             diagnostics.append(
                 _diagnostic(
-                    "reference.public_owner",
+                    _DiagnosticCode.REFERENCE_PUBLIC_OWNER,
                     pointer,
                     entry,
                     "The public entry's module is not owned by this component.",
@@ -106,7 +108,7 @@ def _entry_ownership_diagnostics(
         if name.startswith("_"):
             diagnostics.append(
                 _diagnostic(
-                    "reference.public_underscore",
+                    _DiagnosticCode.REFERENCE_PUBLIC_UNDERSCORE,
                     pointer,
                     entry,
                     "Underscore names are never public.",
@@ -183,7 +185,7 @@ def reference_diagnostics(
     names = _namespace_references(contract, PROFILES[config.language].sdk_libraries)
     diagnostics = [
         _diagnostic(
-            "reference.namespace",
+            _DiagnosticCode.REFERENCE_NAMESPACE,
             pointer,
             value,
             f"The reference is outside namespace {config.namespace}.",
@@ -199,7 +201,7 @@ def reference_diagnostics(
             if repository_file(repository, value) is None:
                 diagnostics.append(
                     _diagnostic(
-                        "reference.provenance",
+                        _DiagnosticCode.REFERENCE_PROVENANCE,
                         f"{pointer}/{index}",
                         value,
                         "The provenance file is missing or outside the repository.",
@@ -213,7 +215,7 @@ def reference_diagnostics(
                 if not any(in_scope(module, package) for module in modules):
                     diagnostics.append(
                         _diagnostic(
-                            "reference.package_unscanned",
+                            _DiagnosticCode.REFERENCE_PACKAGE_UNSCANNED,
                             f"/components/{component_index}/packages/{package_index}",
                             package,
                             "The component package has no scanned Python module.",
@@ -224,7 +226,7 @@ def reference_diagnostics(
                 if module not in modules:
                     diagnostics.append(
                         _diagnostic(
-                            "reference.package_unscanned",
+                            _DiagnosticCode.REFERENCE_PACKAGE_UNSCANNED,
                             f"/components/{component_index}/exact_modules/{exact_index}",
                             module,
                             "The exact module has no scanned source file.",

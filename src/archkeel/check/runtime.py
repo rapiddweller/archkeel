@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Compare the actual collector runtime with its declared requirement."""
 
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from enum import StrEnum
 
 from packaging.specifiers import SpecifierSet
@@ -44,7 +45,7 @@ def _python_metadata_diagnostic(runtime: RuntimeInfo) -> Diagnostic | None:
     metadata = "pyproject.toml"
     if runtime.requirement_state == RuntimeRequirementState.METADATA_MISSING:
         return Diagnostic(
-            "runtime_mismatch",
+            _DiagnosticKind.RUNTIME_MISMATCH,
             f"{metadata} is missing",
             "The supported Python range is not declared.",
             "Add [project].requires-python to pyproject.toml with the repository's "
@@ -52,7 +53,7 @@ def _python_metadata_diagnostic(runtime: RuntimeInfo) -> Diagnostic | None:
         )
     if runtime.requirement_state == RuntimeRequirementState.METADATA_INVALID:
         return Diagnostic(
-            "runtime_mismatch",
+            _DiagnosticKind.RUNTIME_MISMATCH,
             f"{metadata} is invalid",
             "The supported Python range cannot be read.",
             "Repair pyproject.toml as valid TOML and declare [project].requires-python.",
@@ -61,7 +62,7 @@ def _python_metadata_diagnostic(runtime: RuntimeInfo) -> Diagnostic | None:
         runtime.requirement_state == RuntimeRequirementState.DECLARED and runtime.required is None
     ):
         return Diagnostic(
-            "runtime_mismatch",
+            _DiagnosticKind.RUNTIME_MISMATCH,
             f"{metadata} has no [project].requires-python",
             "The supported Python range is not declared.",
             "Add [project].requires-python to pyproject.toml with the repository's "
@@ -69,7 +70,7 @@ def _python_metadata_diagnostic(runtime: RuntimeInfo) -> Diagnostic | None:
         )
     if runtime.requirement_state == RuntimeRequirementState.REQUIREMENT_INVALID:
         return Diagnostic(
-            "runtime_mismatch",
+            _DiagnosticKind.RUNTIME_MISMATCH,
             "pyproject.toml Python requirement is invalid or unsupported",
             "The supported Python range cannot be validated.",
             _PYTHON_REQUIREMENT_REMEDY,
@@ -119,7 +120,7 @@ def _declared_runtime_diagnostic(runtime: RuntimeInfo) -> Diagnostic | None:
             comparison = "<" if lower is not None and actual < lower else "does not satisfy"
             subject = f"{runtime.name} {runtime.version} {comparison} {label} {runtime.required}"
     return Diagnostic(
-        "runtime_mismatch",
+        _DiagnosticKind.RUNTIME_MISMATCH,
         subject,
         "AST may differ from target runtime; parse errors may be parser limitations, "
         "not source defects",

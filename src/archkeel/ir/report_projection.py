@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Project the authenticated shared report for focused architecture consumers."""
 
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from dataclasses import replace
 from posixpath import commonpath
 
@@ -304,7 +305,7 @@ def _unavailable_projection(
     if component is not None:
         raise DiagnosticError(
             Diagnostic(
-                "filter_unknown",
+                _DiagnosticKind.FILTER_UNKNOWN,
                 f"--component {component}",
                 "Selecting a component requires authenticated Target and source facts.",
                 "Restore the missing evidence and retry.",
@@ -352,7 +353,7 @@ def _selected_component(
         if selected is None:
             raise DiagnosticError(
                 Diagnostic(
-                    "filter_unknown",
+                    _DiagnosticKind.FILTER_UNKNOWN,
                     f"--component {component}",
                     "The component selector is absent or ambiguous across authenticated "
                     "IDs, scopes and labels.",

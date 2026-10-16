@@ -113,7 +113,7 @@ def _open_decision_diagnostics(observation: Observation) -> list[Diagnostic]:
         return []
     return [
         _diagnostic(
-            "decision.open",
+            DiagnosticCode.DECISION_OPEN,
             "/components",
             f"{count} open dependency decision{'s' if count != 1 else ''}",
             "Component dependency directions remain undecided.",
@@ -137,7 +137,7 @@ def closed_world_diagnostics(
     diagnostics = _open_decision_diagnostics(observation)
     diagnostics.extend(
         _pair_diagnostics(
-            "closed_world.observed_forbidden",
+            DiagnosticCode.CLOSED_WORLD_OBSERVED_FORBIDDEN,
             sorted(observed & forbidden),
             "An observed component dependency is also forbidden.",
             "Remove the dependency or correct the forbidden_dependency rule.",
@@ -145,7 +145,7 @@ def closed_world_diagnostics(
     )
     diagnostics.extend(
         _pair_diagnostics(
-            "closed_world.duplicate",
+            DiagnosticCode.CLOSED_WORLD_DUPLICATE,
             sorted(pair for pair, count in Counter(forbidden_items).items() if count > 1),
             "The component pair has duplicate forbidden_dependency rules.",
             "Keep one forbidden_dependency rule for this ordered component pair.",
@@ -153,7 +153,7 @@ def closed_world_diagnostics(
     )
     diagnostics.extend(
         _pair_diagnostics(
-            "closed_world.duplicate",
+            DiagnosticCode.CLOSED_WORLD_DUPLICATE,
             sorted(pair for pair, count in Counter(allowed_items).items() if count > 1),
             "The component pair has duplicate allowed_dependency rules.",
             "Keep one allowed_dependency rule for this ordered component pair.",
@@ -161,7 +161,7 @@ def closed_world_diagnostics(
     )
     diagnostics.extend(
         _pair_diagnostics(
-            "decision.conflict",
+            DiagnosticCode.DECISION_CONFLICT,
             sorted(allowed & forbidden),
             "The component pair has both an allowed_dependency and a forbidden_dependency rule.",
             "Keep only one decision for this ordered component pair.",

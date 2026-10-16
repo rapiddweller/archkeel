@@ -28,10 +28,10 @@ def rationale_diagnostics(contract: ArchitectureContract) -> tuple[Diagnostic, .
         rationale = rule.rationale.strip()
         code: DiagnosticCode
         if _REPEATED_RATIONALE.fullmatch(rationale):
-            code = "rationale.repeated"
+            code = DiagnosticCode.RATIONALE_REPEATED
             claim = "The rationale repeats the forbidden dependency without explaining why."
         elif _PLACEHOLDER_RATIONALE.match(rationale):
-            code = "rationale.placeholder"
+            code = DiagnosticCode.RATIONALE_PLACEHOLDER
             claim = "The rationale is a placeholder."
         else:
             continue
@@ -49,10 +49,10 @@ def rationale_diagnostics(contract: ArchitectureContract) -> tuple[Diagnostic, .
             rationale = entry.rationale.strip()
             entry_code: DiagnosticCode
             if _REPEATED_REQUIRES.fullmatch(rationale):
-                entry_code = "rationale.repeated"
+                entry_code = DiagnosticCode.RATIONALE_REPEATED
                 claim = "The rationale repeats the requires entry without explaining why."
             elif _PLACEHOLDER_RATIONALE.match(rationale):
-                entry_code = "rationale.placeholder"
+                entry_code = DiagnosticCode.RATIONALE_PLACEHOLDER
                 claim = "The rationale is a placeholder."
             else:
                 continue

@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
+
 from archkeel.ir.model import Diagnostic, DiagnosticCode, ReportLocation
 
 
@@ -18,7 +20,7 @@ def _diagnostic(
     contract_path: str | None = None,
 ) -> Diagnostic:
     return Diagnostic(
-        "contract_invalid", subject, claim, remedy, pointer, code, locations, contract_path
+        _DiagnosticKind.CONTRACT_INVALID, subject, claim, remedy, pointer, code, locations, contract_path
     )
 
 

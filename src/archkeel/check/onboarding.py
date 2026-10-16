@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
+
 import json
 import re
 import tomllib
@@ -14,7 +16,7 @@ from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing import Final
 
-from archkeel.ir.codec import CONTRACT_SCHEMA_VERSION, contract_bytes
+from archkeel.ir.codec import contract_bytes
 from archkeel.ir.decisions import (
     DOCUMENT_PATH,
     identifier,
@@ -29,6 +31,7 @@ from archkeel.ir.model import (
     ComponentOwnership,
     ComponentRole,
     ContractComponent,
+    ContractVersion,
     DecisionMaker,
     Diagnostic,
     DiagnosticError,
@@ -75,7 +78,7 @@ def detect_source(root: Path) -> tuple[str, str]:
         found = ", ".join(path.relative_to(root).as_posix() for path in packages) or "none"
         raise DiagnosticError(
             Diagnostic(
-                "scope_empty",
+                _DiagnosticKind.SCOPE_EMPTY,
                 str(base),
                 "Expected one top-level Python package, or one matching pyproject.toml's "
                 f"[project] name ({name or 'missing'}); found {found}.",
@@ -273,7 +276,7 @@ def draft_contract(
             for label in labels
         )
     labels = tuple(component.label for component in draft_components)
-    scaffold = ArchitectureContract(CONTRACT_SCHEMA_VERSION, draft_components, ())
+    scaffold = ArchitectureContract(ContractVersion.V2_1, draft_components, ())
     edges = observed_component_edges(scaffold, observation)
     sizes = scope_metrics(observation, "component", module_labels)
     public = _drafted_public(observation, scaffold)
@@ -315,7 +318,7 @@ def draft_contract(
                 "agent",
             )
         )
-    return ArchitectureContract(CONTRACT_SCHEMA_VERSION, components, tuple(rules)), edges, sizes
+    return ArchitectureContract(ContractVersion.V2_1, components, tuple(rules)), edges, sizes
 
 
 def architecture_document(
@@ -411,7 +414,7 @@ def run_init(
             # Detection reads Python package markers; a Dart package names its own root.
             raise DiagnosticError(
                 Diagnostic(
-                    "scope_empty",
+                    _DiagnosticKind.SCOPE_EMPTY,
                     str(root),
                     "A Dart package's source directory and name are not detected yet.",
                     "Pass --source lib and --namespace <pubspec name> to archkeel init.",
@@ -424,7 +427,7 @@ def run_init(
     if existing and not force:
         raise DiagnosticError(
             Diagnostic(
-                "existing_files",
+                _DiagnosticKind.EXISTING_FILES,
                 ", ".join(existing),
                 "Onboarding would replace files that already exist.",
                 "Rerun archkeel init with --force to replace them.",
@@ -444,14 +447,14 @@ def run_init(
     with TemporaryDirectory(prefix="archkeel-init-") as temporary:
         scaffold = Path(temporary)
         (scaffold / CONTRACT_PATH).write_bytes(
-            contract_bytes(ArchitectureContract(CONTRACT_SCHEMA_VERSION, (), ()))
+            contract_bytes(ArchitectureContract(ContractVersion.V2_1, (), ()))
         )
         try:
             observed = observe_repository(root, config, analyzer, contract_root=scaffold)
         except SnapshotError as error:
             raise DiagnosticError(
                 Diagnostic(
-                    "parse_error",
+                    _DiagnosticKind.PARSE_ERROR,
                     str(root),
                     f"Initialization requires a resolvable Git HEAD: {error}",
                     "Use an existing Git repository with a resolvable HEAD; for a new repository, "

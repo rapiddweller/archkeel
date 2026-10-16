@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
+
 import argparse
 import io
 import json
@@ -486,7 +488,7 @@ def github_pr_report(
             count = _events(root, raw, head_repository)
             diagnostics.append(
                 Diagnostic(
-                    "parse_error",
+                    _DiagnosticKind.PARSE_ERROR,
                     f"GitHub {repository} PR #{number} publication history",
                     HISTORY_LIMIT,
                     "Review the observations; supply authenticated complete history before gating.",
@@ -495,7 +497,7 @@ def github_pr_report(
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         diagnostics.append(
             Diagnostic(
-                "parse_error",
+                _DiagnosticKind.PARSE_ERROR,
                 f"GitHub {repository} PR #{number} API evidence",
                 str(error),
                 "Check gh authentication, PR binding and saved API responses, then retry.",

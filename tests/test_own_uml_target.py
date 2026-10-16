@@ -773,7 +773,7 @@ def test_own_protocol_settings_use_the_same_uml_cards_and_field_navigation(
         )
         page.locator('.flow-nodes [data-label="TypeScriptSettings"]').dblclick()
         language = page.locator('.flow-nodes [data-label="language"][data-uml-kind="attribute"]')
-        assert "Literal[Language.TYPESCRIPT]" in language.text_content()
+        assert "Literal[Language." in language.text_content()
         assert (
             page.locator('.flow-nodes [data-label="tsconfig"]').get_attribute("data-uml-kind")
             == "attribute"

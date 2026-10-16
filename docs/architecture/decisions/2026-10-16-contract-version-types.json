@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "02279ca79283191bc1137034db4191abc1850cf3f290e974ec1caed594f95600",
+  "after_digest": "d1aee80c1e2d237db77dbbdb981c22eef471bdc4f6de9dd9b87b7ef9b7e54bb0",
+  "before_baseline_digest": "02279ca79283191bc1137034db4191abc1850cf3f290e974ec1caed594f95600",
+  "before_digest": "a99efdb99e83f97bb0444bec8edf310f1b7e92d9496dea3d2042b37ea9b9cd7f",
+  "decided_by": "ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge",
+  "rationale": "Own contract schema identities and feature introduction in one nominal domain; authored API intent and whole-module string-control guard; preserve wire compatibility and existing debt ceilings",
+  "schema_version": "2.0.0"
+}

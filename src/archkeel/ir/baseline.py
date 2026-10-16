@@ -11,6 +11,8 @@ already on the record, and that is what this module derives, counts and compares
 
 from __future__ import annotations
 
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
+
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -241,7 +243,7 @@ def require_declared_filter(observation: Observation, report_filter: ReportFilte
     if report_filter.rule is not None and report_filter.rule not in known_rules:
         raise DiagnosticError(
             Diagnostic(
-                "filter_unknown",
+                _DiagnosticKind.FILTER_UNKNOWN,
                 f"--rule {report_filter.rule}",
                 f"{report_filter.rule!r} is not a rule id this contract declares.",
                 "Read rule_assessments[].id from archkeel report --json for the declared rule "
@@ -252,7 +254,7 @@ def require_declared_filter(observation: Observation, report_filter: ReportFilte
     if report_filter.component is not None and report_filter.component not in known_components:
         raise DiagnosticError(
             Diagnostic(
-                "filter_unknown",
+                _DiagnosticKind.FILTER_UNKNOWN,
                 f"--component {report_filter.component}",
                 f"{report_filter.component!r} is not a component this contract declares.",
                 "Read violations_by_component_pair from archkeel report --json, or the "

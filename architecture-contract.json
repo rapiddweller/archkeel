@@ -153,7 +153,12 @@
         "archkeel.ir.architecture_graph:PresenceKind",
         "archkeel.ir.architecture_graph:ResolutionKind",
         "archkeel.ir.architecture_graph:VisibilityBasis",
-        "archkeel.ir.architecture_graph:VisibilityKind"
+        "archkeel.ir.architecture_graph:VisibilityKind",
+        "archkeel.ir.diagnostics:DiagnosticKind",
+        "archkeel.ir.diagnostics:DiagnosticCode",
+        "archkeel.ir.diagnostics:Diagnostic",
+        "archkeel.ir.diagnostics:DiagnosticError",
+        "archkeel.ir.diagnostics:ReportLocation"
       ],
       "responsibilities": [
         "Own immutable source facts, protocol values, governance models and pure derivations."
@@ -789,9 +794,10 @@
         "archkeel.analyzer.runtime",
         "archkeel.cli.config",
         "archkeel.check.runtime",
+        "archkeel.ir.contract_version",
         "archkeel.ir.diagnostics"
       ],
-      "rationale": "Each closed vocabulary belongs to its domain or wire boundary: shared state and source facts own domain controls; codecs own private wire tags and consumers use published nominal types.",
+      "rationale": "Each closed vocabulary belongs to its domain or wire boundary: shared state and source facts own domain controls; codecs own private wire tags and consumers use published nominal types. Contract versions and feature availability belong to contract_version.",
       "provenance": [
         "docs/architecture/archkeel.md"
       ],
@@ -1048,6 +1054,19 @@
       "rationale": "The graph owner, parser and UML comparison use shared nominal control vocabulary without parser exceptions.",
       "provenance": [
         "docs/architecture/typed-graph-vocabulary.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "CONTRACT-VERSION-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.contract_version",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Version and feature control uses the owned nominal API, with no parser or constant-string exemption.",
+      "provenance": [
+        "docs/architecture/contract-version-types.md"
       ],
       "decided_by": "architect"
     },

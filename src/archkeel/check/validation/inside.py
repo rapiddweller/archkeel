@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
+
 from dataclasses import replace
 from pathlib import Path
 
@@ -90,7 +92,7 @@ def _inside_source_domain_diagnostics(
     """Reject nested physical claims outside the component holding the inside."""
     diagnostics = [
         _diagnostic(
-            "contract.invalid",
+            _DiagnosticCode.CONTRACT_INVALID,
             pointer,
             package,
             f"The inside claims {package}, outside {component.label}'s physical packages.",
@@ -103,7 +105,7 @@ def _inside_source_domain_diagnostics(
     for child_index, child in enumerate(inner.components):
         diagnostics.extend(
             _diagnostic(
-                "contract.invalid",
+                _DiagnosticCode.CONTRACT_INVALID,
                 f"{pointer}/components/{child_index}/exact_modules/{exact_index}",
                 module,
                 f"The inside claims {module}, outside {component.label}'s physical scope.",
@@ -268,7 +270,7 @@ def _inside_interface_lifecycle_diagnostics(
         if component.public is None and records:
             diagnostics.append(
                 _diagnostic(
-                    "interface.undeclared",
+                    _DiagnosticCode.INTERFACE_UNDECLARED,
                     f"{pointer_root}/{component_index}",
                     component.label,
                     "The component receives cross-component imports but declares "
@@ -318,7 +320,7 @@ def _inside_parent_policy_diagnostics(mount: InsideContractMount) -> list[Diagno
         if blocked:
             diagnostics.append(
                 _diagnostic(
-                    "inside.forbidden_import",
+                    _DiagnosticCode.INSIDE_FORBIDDEN_IMPORT,
                     mount.pointer,
                     f"{mount.parent_id} -> {rule.target}",
                     f"The inside allows {rule.target}, which {', '.join(sorted(blocked))} "
@@ -353,7 +355,7 @@ def inside_diagnostics(
             error = issue.input_error
             diagnostics.append(
                 _diagnostic(
-                    "contract.invalid",
+                    _DiagnosticCode.CONTRACT_INVALID,
                     f"{issue.pointer}{error.pointer}",
                     error.subject,
                     f"The architecture contract cannot be validated: {error}",
@@ -363,7 +365,7 @@ def inside_diagnostics(
         else:
             diagnostics.append(
                 _diagnostic(
-                    "contract.invalid",
+                    _DiagnosticCode.CONTRACT_INVALID,
                     issue.pointer,
                     issue.path,
                     f"The contract describing this inside cannot be loaded: {issue.reason}",

@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 from dataclasses import FrozenInstanceError
-from typing import cast, get_args
+from typing import cast
 
 import pytest
 
@@ -47,8 +47,8 @@ def test_diagnostic_has_actionable_single_line_remedy() -> None:
         Diagnostic("parse_error", "", "AST coverage", "Fix syntax.")
 
 
-def test_diagnostic_kind_uses_the_declared_literal_values() -> None:
-    for kind in get_args(DiagnosticKind):
+def test_diagnostic_kind_uses_the_owned_enum_values() -> None:
+    for kind in DiagnosticKind:
         code = "rule.violated" if kind == "contract_invalid" else None
         Diagnostic(kind, "subject", "unknown claim", "Retry.", None, code)
     with pytest.raises(ValueError, match="invalid diagnostic kind"):
@@ -94,7 +94,7 @@ def test_only_contract_invalid_diagnostics_carry_a_code() -> None:
 
 
 def test_diagnostic_code_uses_the_declared_literal_values() -> None:
-    for code in get_args(DiagnosticCode):
+    for code in DiagnosticCode:
         Diagnostic("contract_invalid", "subject", "unknown claim", "Retry.", None, code)
     with pytest.raises(ValueError, match="invalid diagnostic code"):
         Diagnostic(

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Record pure UML comparison through the existing Core rule/evidence pipeline."""
 
+from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 import json
 from dataclasses import asdict, replace
 
@@ -314,7 +315,7 @@ def evaluate_uml(result: ObservationResult) -> ObservationResult:
             diagnostics=(
                 *result.diagnostics,
                 Diagnostic(
-                    "parse_error",
+                    _DiagnosticKind.PARSE_ERROR,
                     model.contract.path,
                     f"UML comparison cannot be established: {error}",
                     "Repair the recorded facts or intent and repeat the observation.",
