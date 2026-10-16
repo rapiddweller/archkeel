@@ -232,7 +232,7 @@
           "qualified_name": "archkeel.analyzer.typescript.config",
           "parent_id": "TARGET-CONFIGURATION",
           "responsibilities": [
-            "Own the declared typed compiler/resolver API without widening it to protocol strings."
+            "Read contained TSConfig inputs, select files and translate compiler vocabulary into owned values."
           ]
         },
         {
@@ -246,7 +246,7 @@
           "qualified_name": "archkeel.analyzer.typescript.resolve",
           "parent_id": "TARGET-RESOLUTION",
           "responsibilities": [
-            "Own the declared typed compiler/resolver API without widening it to protocol strings."
+            "Resolve source specifiers under parsed compiler options and package metadata without guessing unsupported cases."
           ]
         },
         {
@@ -260,7 +260,7 @@
           "qualified_name": "archkeel.analyzer.typescript.config.ModuleKind",
           "parent_id": "TS-TYPED-CONFIG",
           "responsibilities": [
-            "Own the declared typed compiler/resolver API without widening it to protocol strings."
+            "Name supported compiler emit modes."
           ],
           "visibility": {
             "kind": "public",
@@ -278,7 +278,7 @@
           "qualified_name": "archkeel.analyzer.typescript.config.ModuleResolution",
           "parent_id": "TS-TYPED-CONFIG",
           "responsibilities": [
-            "Own the declared typed compiler/resolver API without widening it to protocol strings."
+            "Name supported lookup algorithms with one canonical value for legacy Node spelling."
           ],
           "visibility": {
             "kind": "public",
@@ -296,7 +296,7 @@
           "qualified_name": "archkeel.analyzer.typescript.config.ScriptTarget",
           "parent_id": "TS-TYPED-CONFIG",
           "responsibilities": [
-            "Own the declared typed compiler/resolver API without widening it to protocol strings."
+            "Name explicitly supplied language compilation targets."
           ],
           "visibility": {
             "kind": "public",
@@ -314,7 +314,7 @@
           "qualified_name": "archkeel.analyzer.typescript.config.PathToken",
           "parent_id": "TS-TYPED-CONFIG",
           "responsibilities": [
-            "Own the declared typed compiler/resolver API without widening it to protocol strings."
+            "Classify recognized path and glob tokens while keeping arbitrary names as data."
           ],
           "visibility": {
             "kind": "public",
@@ -332,7 +332,7 @@
           "qualified_name": "archkeel.analyzer.typescript.resolve.ModuleFormat",
           "parent_id": "TS-TYPED-RESOLVE",
           "responsibilities": [
-            "Own the declared typed compiler/resolver API without widening it to protocol strings."
+            "Distinguish ESM from CommonJS at the resolution and collection API."
           ],
           "visibility": {
             "kind": "public",
@@ -350,7 +350,7 @@
           "qualified_name": "archkeel.analyzer.typescript.resolve.SourceKind",
           "parent_id": "TS-TYPED-RESOLVE",
           "responsibilities": [
-            "Own the declared typed compiler/resolver API without widening it to protocol strings."
+            "Name TypeScript, declaration, JavaScript and JSON lookup passes."
           ],
           "visibility": {
             "kind": "public",
@@ -371,7 +371,7 @@
             "frozen"
           ],
           "responsibilities": [
-            "Own the declared typed compiler/resolver API without widening it to protocol strings."
+            "Hold explicitly parsed compiler settings and derive effective emit and resolution modes."
           ],
           "visibility": {
             "kind": "public",
@@ -390,7 +390,7 @@
           "parent_id": "TS-TYPED-Options",
           "annotation": "ModuleKind | None",
           "responsibilities": [
-            "Own the declared typed compiler/resolver API without widening it to protocol strings."
+            "Retain the explicitly selected nominal compiler emit mode, or its absence."
           ],
           "visibility": {
             "kind": "public",
@@ -409,7 +409,7 @@
           "parent_id": "TS-TYPED-Options",
           "annotation": "ModuleResolution | None",
           "responsibilities": [
-            "Own the declared typed compiler/resolver API without widening it to protocol strings."
+            "Retain the explicitly selected canonical nominal lookup algorithm, or its absence."
           ],
           "visibility": {
             "kind": "public",
@@ -428,7 +428,7 @@
           "parent_id": "TS-TYPED-Options",
           "annotation": "ScriptTarget | None",
           "responsibilities": [
-            "Own the declared typed compiler/resolver API without widening it to protocol strings."
+            "Retain the explicitly selected nominal compilation target, or its absence."
           ],
           "visibility": {
             "kind": "public",
@@ -458,7 +458,7 @@
             "returns": "ModuleKind"
           },
           "responsibilities": [
-            "Own the declared typed compiler/resolver API without widening it to protocol strings."
+            "Derive the compiler emit mode from explicit module and target settings."
           ],
           "visibility": {
             "kind": "public",
@@ -488,7 +488,7 @@
             "returns": "ModuleResolution"
           },
           "responsibilities": [
-            "Own the declared typed compiler/resolver API without widening it to protocol strings."
+            "Derive the canonical resolver mode from explicit options and compiler defaults."
           ],
           "visibility": {
             "kind": "public",
@@ -506,7 +506,7 @@
           "qualified_name": "archkeel.analyzer.typescript.resolve.Resolver",
           "parent_id": "TS-TYPED-RESOLVE",
           "responsibilities": [
-            "Own the declared typed compiler/resolver API without widening it to protocol strings."
+            "Own one contained lookup context and return a known file, an explained unknown, or no result."
           ],
           "visibility": {
             "kind": "public",
@@ -543,7 +543,7 @@
             "returns": "ModuleFormat | Unknown | None"
           },
           "responsibilities": [
-            "Own the declared typed compiler/resolver API without widening it to protocol strings."
+            "Determine ESM or CommonJS format from file suffix and nearest package manifest under Node modes."
           ],
           "visibility": {
             "kind": "public",
@@ -601,7 +601,7 @@
             "returns": "Found | Unknown | None"
           },
           "responsibilities": [
-            "Own the declared typed compiler/resolver API without widening it to protocol strings."
+            "Resolve specifiers through supported source lookup passes using a nominal loading format."
           ],
           "visibility": {
             "kind": "public",

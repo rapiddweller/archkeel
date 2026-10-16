@@ -81,12 +81,9 @@ class PathToken(Enum):
     QUESTION = "?"
     NODE_MODULES = "node_modules"
 
-    @classmethod
-    def parse(cls, value: str) -> PathToken | None:
-        try:
-            return cls(value)
-        except ValueError:
-            return None
+    @staticmethod
+    def parse(value: str) -> PathToken | None:
+        return _PATH_TOKENS.get(value)
 
 
 class _WildcardUsage(Enum):
@@ -117,13 +114,14 @@ _UNMODELED: Final = (
     "allowArbitraryExtensions",
     "noDtsResolution",
 )
-_MODULE_VALUES: Final = {member.value: member for member in ModuleKind}
-_RESOLUTION_VALUES: Final = {
+_PATH_TOKENS: Final[dict[str, PathToken]] = {member.value: member for member in PathToken}
+_MODULE_VALUES: Final[dict[str, ModuleKind]] = {member.value: member for member in ModuleKind}
+_RESOLUTION_VALUES: Final[dict[str, ModuleResolution]] = {
     **{member.value: member for member in ModuleResolution},
     "node": ModuleResolution.NODE10,
 }
-_TARGET_VALUES: Final = {member.value: member for member in ScriptTarget}
-_SHADOW_KINDS: Final = {member.value: member for member in _ShadowKind}
+_TARGET_VALUES: Final[dict[str, ScriptTarget]] = {member.value: member for member in ScriptTarget}
+_SHADOW_KINDS: Final[dict[str, _ShadowKind]] = {member.value: member for member in _ShadowKind}
 _ENUMS: Final[dict[str, dict[str, Enum]]] = {
     "module": dict(_MODULE_VALUES),
     "moduleResolution": dict(_RESOLUTION_VALUES),

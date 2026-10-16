@@ -18,6 +18,10 @@ arbitrary supplied path names. Extension families and file shadowing have local 
 classifiers. Regular expressions parse export-target syntax; lookup tables classify
 accepted compiler and extension vocabulary. Enum values are not compared as strings.
 
+Python module visibility has no supported lexical proof and is not asserted by this
+bounded Target. Public member visibility, exact types and named component ports remain
+explicit requirements.
+
 The own inner contract now separates syntax, configuration, resolution and collection.
 Crossings use named APIs. An independently authored Target pins option fields, derived
 return types and the resolver's format parameter/return. Native source mutations are
