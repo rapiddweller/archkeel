@@ -1,0 +1,53 @@
+name: Prepare reviewed source union without remote writes
+on:
+  push:
+    branches: [verify/542-readonly-source-union]
+permissions:
+  contents: read
+jobs:
+  source-union:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 70e0a60e0e7c24882ef840586bce823f59f7529e
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Calculate exact Git three-way source union and publish evidence
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          
+          def git(*args):
+              return subprocess.run(["git", *args], check=True, capture_output=True).stdout.decode()
+          
+          stages = [{"name":"local-literals","base":"5933ffbbfd588ac96e36748de937cb1f6e739655","head":"7f99d03afaaea57530c56d688ce84e4b0867152e","paths":["docs/architecture/string-comparison-observation.md","docs/superpowers/plans/2026-10-16-local-literal-observation.md","src/archkeel/analyzer/python/constructs.py","tests/test_local_string_comparisons.py"]},{"name":"cli-inputs","base":"7f99d03afaaea57530c56d688ce84e4b0867152e","head":"58e89aae1bf63e3faab01dd9fd386e44a296e8d6","paths":["docs/architecture/cli-input-types.md","docs/superpowers/plans/2026-10-16-cli-input-types.md","src/archkeel/cli/__init__.py","src/archkeel/cli/arguments.py","src/archkeel/cli/skill.py","tests/test_cli_input_target.py","tests/test_cli_typed_inputs.py"]},{"name":"physical-lines","base":"7b2a14de58eb18be716c8eadef5c43928ec464a5","head":"8ebc1da53b3ac7290f78978d5e69e4f3c59185c3","paths":["src/archkeel/analyzer/python/source.py","tests/test_python_source_evidence_lines.py"]},{"name":"binding-types","base":"7b2a14de58eb18be716c8eadef5c43928ec464a5","head":"6fba15000baaeff6a274058291654b7301f2077a","paths":["docs/architecture/typed-python-bindings.md","docs/superpowers/plans/2026-10-16-python-binding-types.md","src/archkeel/analyzer/python/binding_types.py","src/archkeel/analyzer/python/calls.py","src/archkeel/analyzer/python/imports.py","src/archkeel/analyzer/python/resolve.py","src/archkeel/analyzer/python/scopes.py","src/archkeel/analyzer/python/source.py","tests/test_binding_proof_reuse.py","tests/test_boundary_types_aliases.py","tests/test_typed_python_bindings.py"]},{"name":"receiver-types","base":"6fba15000baaeff6a274058291654b7301f2077a","head":"49922fea2c7a4b049e947d5da902c96be669140f","paths":["docs/architecture/typed-python-receivers.md","docs/superpowers/plans/2026-10-16-python-receiver-origins.md","src/archkeel/analyzer/python/calls.py","src/archkeel/analyzer/python/receiver_types.py","src/archkeel/analyzer/python/resolve.py","tests/test_typed_python_receivers.py"]},{"name":"typescript-syntax","base":"8ebc1da53b3ac7290f78978d5e69e4f3c59185c3","head":"a5d478a7f40c00ad2cd7f5ed98c82a0778f182ec","paths":["docs/architecture/typescript-control-types.md","docs/architecture/typescript-syntax-types.md","src/archkeel/analyzer/typescript/collect.py","src/archkeel/analyzer/typescript/parse.py","src/archkeel/analyzer/typescript/syntax.py","tests/test_typescript_control_target.py","tests/test_typescript_decorated_inventory.py","tests/test_typescript_inner.py","tests/test_typescript_parameter_properties.py","tests/test_typescript_parse.py","tests/test_typescript_syntax_compatibility.py","tests/test_typescript_syntax_types.py"]},{"name":"dart-syntax","base":"7b2a14de58eb18be716c8eadef5c43928ec464a5","head":"cd54501a8bd95facfd7e3e71929595c920fc2360","paths":["docs/architecture/dart-nominal-controls.md","docs/superpowers/plans/2026-10-16-dart-nominal-controls.md","src/archkeel/analyzer/dart/collect.py","src/archkeel/analyzer/dart/parse.py","src/archkeel/analyzer/dart/resolve.py","src/archkeel/analyzer/dart/snapshot.py","src/archkeel/analyzer/dart/syntax.py","tests/test_dart_target.py","tests/test_dart_typed_controls.py"]},{"name":"diagnostics","base":"5933ffbbfd588ac96e36748de937cb1f6e739655","head":"62fd95e68b07df1149e30a9690bd58f7129fa59b","paths":["docs/architecture/typed-diagnostic-owner.md","docs/superpowers/plans/2026-10-16-typed-diagnostic-owner-progress.md","docs/superpowers/plans/2026-10-16-typed-diagnostic-owner.md","docs/superpowers/specs/2026-10-16-typed-diagnostic-owner.md","src/archkeel/check/delta.py","src/archkeel/check/observe.py","src/archkeel/check/onboarding.py","src/archkeel/check/report.py","src/archkeel/check/run.py","src/archkeel/check/runtime.py","src/archkeel/check/uml.py","src/archkeel/check/uml_evaluation.py","src/archkeel/check/validation/__init__.py","src/archkeel/check/validation/closed_world.py","src/archkeel/check/validation/diagnostics.py","src/archkeel/check/validation/graphs.py","src/archkeel/check/validation/inside.py","src/archkeel/check/validation/observation.py","src/archkeel/check/validation/public_api.py","src/archkeel/check/validation/rationale.py","src/archkeel/check/validation/references.py","src/archkeel/ir/baseline.py","src/archkeel/ir/diagnostics.py","src/archkeel/ir/lock.py","src/archkeel/ir/model.py","src/archkeel/ir/report_projection.py","src/archkeel/render/html.py","src/archkeel/render/terminal.py","tests/test_diagnostics.py","tests/test_result_schema.py","tests/test_typed_diagnostic_owner.py","tools/github_pr_report.py"]},{"name":"summary-badges","base":"7f99d03afaaea57530c56d688ce84e4b0867152e","head":"b11aad0a60a26ecdf020ce36a5262d640315eb36","paths":["docs/architecture/summary-badges.md","docs/superpowers/plans/2026-10-16-summary-badge-types.md","src/archkeel/render/html.py","src/archkeel/render/summary.py","src/archkeel/render/summary_badges.py","src/archkeel/render/terminal.py","tests/test_summary_badge_target.py","tests/test_summary_badge_types.py"]}]
+          for stage in stages:
+              patch = subprocess.run(["git", "diff", "--binary", stage["base"], stage["head"], "--", *stage["paths"]], check=True, capture_output=True).stdout
+              if patch:
+                  applied = subprocess.run(["git", "apply", "--3way", "--index", "-"], input=patch, capture_output=True)
+                  if applied.returncode:
+                      print("MERGE_CONFLICT=" + stage["name"])
+                      print(applied.stderr.decode()[-6000:])
+                      print(git("diff", "--name-only", "--diff-filter=U"))
+                      raise SystemExit(1)
+              print("SOURCE_STAGE=" + stage["name"])
+          
+          paths = []
+          for line in git("diff", "--cached", "--name-status", "--no-renames", "HEAD").splitlines():
+              status, path = line.split("\t")
+              if status == "D":
+                  paths.append({"path": path, "deleted": True})
+                  continue
+              mode = git("ls-files", "--stage", "--", path).split()[0]
+              content = Path(path).read_text()
+              parts = [content[index:index + 12000] for index in range(0, len(content), 12000)] or [""]
+              paths.append({"path": path, "mode": mode, "parts": len(parts)})
+              for index, part in enumerate(parts):
+                  print("SOURCE_UNION_CHUNK=" + json.dumps({"path": path, "index": index, "content": part}, separators=(",", ":")))
+          print("SOURCE_UNION_PATHS=" + json.dumps(paths, separators=(",", ":")))
+          print("SOURCE_UNION_TREE=" + git("write-tree").strip())
+          
+          PY
