@@ -14,7 +14,6 @@ from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 
 from .scopes import LexicalScopes
 from .source import ParsedModule, add_evidence, body_is_empty, decorator_names, location
-from .symbols import _static_enum_members
 
 _BROAD_NAMES = frozenset({"Exception", "BaseException"})
 _REFLECTION_CALLS = {"setattr": "setattr_call", "delattr": "delattr_call", "vars": "vars_call"}
@@ -227,15 +226,12 @@ def _literal_collections(module: ParsedModule, scopes: LexicalScopes) -> frozens
 
 def _literal_enum_body(node: ast.ClassDef) -> bool:
     """Only ordinary literal members establish their written Enum value."""
-    members = set(_static_enum_members(node))
-    if not members:
-        return False
     for child in node.body:
         if (
             isinstance(child, ast.Assign)
             and len(child.targets) == 1
             and isinstance(child.targets[0], ast.Name)
-            and child.targets[0].id in members
+            and not child.targets[0].id.startswith("_")
             and _is_str(child.value)
         ):
             continue

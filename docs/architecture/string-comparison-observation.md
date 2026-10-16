@@ -15,7 +15,7 @@ A scoped `forbidden_construct` rule selecting `string_literal_compare` rejects:
 - direct named module literal collections whose visible loads are only membership;
 - explicit `LocalEnum.MEMBER.value` extraction when the local enum member has a
   written text/bytes value, exactly one directly proven stdlib `Enum` or `StrEnum`
-  base, and only ordinary literal member declarations (plus docstrings or `pass`);
+  base, and only ordinary, non-private literal member declarations (plus docstrings or `pass`);
   class keywords, decorators, additional bases and executable hooks prevent that
   value evidence; `IntEnum` can convert a written string to an integer and is excluded;
 - the interpreter entry comparison `__name__ == "__main__"`.

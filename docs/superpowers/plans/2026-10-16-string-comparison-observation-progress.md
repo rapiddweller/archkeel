@@ -54,7 +54,9 @@ Ruling: enum members and arbitrary data variables stay unclassified as literal n
 
 - Base 61404f1cf9e8579929119be093c3676075754661.
 - [x] Native RED for extra bases, construction/access hooks, class metaclass/decorator transformation, IntEnum conversion and namespace ignore; preserve plain Enum and StrEnum positives.
-- [ ] Admit only a single directly proven Enum/StrEnum base, no class keywords/decorators, and ordinary literal member declarations. Reuse existing static member inventory rather than MRO/runtime inference.
+- [ ] Admit only a single directly proven Enum/StrEnum base, no class keywords/decorators, and ordinary literal member declarations. Check only a local ordinary-declaration body shape; do not infer MRO/runtime behavior or duplicate the compiler member inventory.
 - [ ] Preserve nominal enum-member controls and all alias/collection restrictions; run native source/binding/State safety, Ruff/Mypy/hygiene and 65/919 baseline.
 
 - Enum review RED 38938809344: exactly 9 failed / 51 passed. Ordinary Enum/StrEnum positives and the existing own-value-property exclusion passed; each newly reported transformation produced the expected false observation before the fix.
+
+- Intermediate review run 38939305130: the 60 comparison controls and 507 focused tests passed, but the native self-report correctly rejected a private collector-to-collector inventory import (COLLECTORS-ISOLATED). The import is removed; this observer checks only its smaller ordinary-literal body shape. Existing scalar binding evidence still handles duplicate assignments. No contract exception or shared compiler API is added.
