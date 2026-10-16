@@ -1,0 +1,35 @@
+name: Concise private boundary vocabulary quality
+on:
+  push:
+    branches: [verify/542-boundary-reasons-concise]
+permissions:
+  contents: read
+jobs:
+  concise:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked ruff format src/archkeel/check/evaluation/boundary_types.py tests/test_boundary_reason_types.py
+      - run: uv run --locked python -m pytest -q tests/test_boundary_reason_types.py tests/test_repository_hygiene.py --tb=short
+      - name: Quality and source evidence
+        if: ${{ always() }}
+        run: |
+          uv run --locked ruff check src/archkeel tests/test_boundary_reason_types.py
+          uv run --locked mypy src/archkeel
+      - name: Hosted exact formatted source
+        if: ${{ always() }}
+        run: |
+          uv run --locked python - <<'PY'
+          import json
+          from pathlib import Path
+          for path in ("src/archkeel/check/evaluation/boundary_types.py","tests/test_boundary_reason_types.py"):
+              print("REASON_CONCISE="+json.dumps(dict(path=path,content=Path(path).read_text())))
+          PY

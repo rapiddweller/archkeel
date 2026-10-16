@@ -103,7 +103,7 @@ _BROAD_BOUNDARY_REASON: Final = "instead of a typed model"
 # to resolve, but one failed because nothing defines it and the other because two records do --
 # a reader who sees only the count needs the two kept apart to tell "unreadable annotation"
 # from "this name is bound twice".
-class _UndecidableReason(StrEnum):
+class _Cause(StrEnum):
     MISSING_ANNOTATION = "missing_annotation"
     INHERITED_SURFACE = "inherited_surface"
     FORWARD_REFERENCE = "forward_reference"
@@ -112,13 +112,13 @@ class _UndecidableReason(StrEnum):
     UNION = "union"
     AMBIGUOUS_BINDING = "ambiguous_binding"
     AMBIGUOUS_FACADE = "ambiguous_facade"
-    UNRESOLVED_NAME = "unresolved_name"
-    EXTERNAL_TYPE = "external_type"
+    UNRESOLVED = "unresolved_name"
+    EXTERNAL = "external_type"
     NESTED_TYPE = "nested_type"
     OTHER = "other"
 
 
-_UNDECIDABLE_KINDS: Final = tuple(str(reason) for reason in _UndecidableReason)
+_UNDECIDABLE_KINDS: Final = tuple(str(reason) for reason in _Cause)
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,7 +145,7 @@ class _Position:
     """
 
     violation: str | None = None
-    undecidable: _UndecidableReason | None = None
+    undecidable: _Cause | None = None
     unknown_context: str | None = None
     referenced_members_static: bool = True
     contains_callable: bool = False
@@ -166,7 +166,7 @@ class _Position:
 
     def __post_init__(self) -> None:
         if self.undecidable is not None:
-            builtins.object.__setattr__(self, "undecidable", _UndecidableReason(self.undecidable))
+            builtins.object.__setattr__(self, "undecidable", _Cause(self.undecidable))
 
 
 @dataclass(frozen=True, slots=True)
@@ -301,9 +301,9 @@ def _proven_type_head(
         return False
     key = (module, binding)
     if _has_star_import(module, imports_by_binding):
-        return _Position(undecidable=_UndecidableReason.OTHER)
+        return _Position(undecidable=_Cause.OTHER)
     if _binding_is_ambiguous(key, imports_by_binding, classes_by_location):
-        return _Position(undecidable=_UndecidableReason.AMBIGUOUS_BINDING)
+        return _Position(undecidable=_Cause.AMBIGUOUS_BINDING)
     if (
         member is None
         and ("builtins", binding) in origins
@@ -321,16 +321,16 @@ def _proven_type_head(
         else:
             # Import records cannot distinguish a dotted module from an alias to its root.
             if symbol is None and target == "collections.abc" and binding == "collections":
-                return _Position(undecidable=_UndecidableReason.DOTTED_NAME)
+                return _Position(undecidable=_Cause.DOTTED_NAME)
             origin_module = f"{target}.{symbol}" if symbol else target
             origin_name = member
     if (origin_module, origin_name) not in origins:
         return False
     imported = imports_by_binding.get(key)
     if isinstance(imported, dict) and imported.get("source_binding_unique") is False:
-        return _Position(undecidable=_UndecidableReason.AMBIGUOUS_BINDING)
+        return _Position(undecidable=_Cause.AMBIGUOUS_BINDING)
     if (origin_module, origin_name) in classes_by_location:
-        return _Position(undecidable=_UndecidableReason.AMBIGUOUS_BINDING)
+        return _Position(undecidable=_Cause.AMBIGUOUS_BINDING)
     return True
 
 
@@ -353,13 +353,13 @@ def _mapping_parameters(
     if not proven:
         return None
     if not expression.tuple_arguments or len(expression.arguments) != 2:
-        return _Position(undecidable=_UndecidableReason.GENERIC)
+        return _Position(undecidable=_Cause.GENERIC)
     if any(
         isinstance(arg, TypeUnpack)
         or (isinstance(arg, TypeLiteral) and arg.kind is LiteralKind.ELLIPSIS)
         for arg in expression.arguments
     ):
-        return _Position(undecidable=_UndecidableReason.GENERIC)
+        return _Position(undecidable=_Cause.GENERIC)
     return [arg.text for arg in expression.arguments]
 
 
@@ -498,16 +498,16 @@ def _collection_parameters(
     return [parameter for parameter in parameters if parameter != "..."]
 
 
-def _unresolvable_shape(annotation: str) -> _UndecidableReason:
+def _unresolvable_shape(annotation: str) -> _Cause:
     """Name why an annotation that is not one bare identifier cannot be decided (AD-67)."""
     head = annotation.split("[", 1)[0]
     if "." in head:
-        return _UndecidableReason.DOTTED_NAME
+        return _Cause.DOTTED_NAME
     if "[" in annotation:
-        return _UndecidableReason.GENERIC
+        return _Cause.GENERIC
     if "|" in annotation:
-        return _UndecidableReason.UNION
-    return _UndecidableReason.OTHER
+        return _Cause.UNION
+    return _Cause.OTHER
 
 
 def _union_parameters(
@@ -879,7 +879,7 @@ def _boundary_type_verdict(
             scoped_classes.module_bindings = classes_by_location.module_bindings
         classes_by_location = scoped_classes
     if not annotation:
-        return _Position(undecidable=_UndecidableReason.MISSING_ANNOTATION)
+        return _Position(undecidable=_Cause.MISSING_ANNOTATION)
     if annotation.startswith(("'", '"')):
         decoded = type_shapes.get(annotation)
         if decoded is not None and _quoted_builtin_type(
@@ -900,7 +900,7 @@ def _boundary_type_verdict(
                 _require_static_constant=_require_static_constant,
             )
             return _without_literal_mapping_arms(quoted)
-        return _Position(undecidable=_UndecidableReason.FORWARD_REFERENCE)
+        return _Position(undecidable=_Cause.FORWARD_REFERENCE)
     wrapped = _typing_wrapper_verdict(
         annotation,
         module,
@@ -1276,11 +1276,11 @@ def _type_alias_verdict(
     alias = symbol.get("alias")
     if not _alias_binding_static(symbol):
         return _Position(
-            undecidable=_UndecidableReason.OTHER, resolved=reached, named_origins=reached
+            undecidable=_Cause.OTHER, resolved=reached, named_origins=reached
         )
     if resolved in aliases_seen or not isinstance(alias, str) or alias == annotation:
         return _Position(
-            undecidable=_UndecidableReason.OTHER, resolved=reached, named_origins=reached
+            undecidable=_Cause.OTHER, resolved=reached, named_origins=reached
         )
     if classes_by_location.module_bindings is not None:
         classes_by_location = classes_by_location.module_bindings
@@ -1348,8 +1348,8 @@ def _unresolved_named_verdict(
     ):
         return _Position()
     if require_static_constant:
-        return _Position(undecidable=_UndecidableReason.OTHER)
-    return _Position(undecidable=_UndecidableReason.UNRESOLVED_NAME)
+        return _Position(undecidable=_Cause.OTHER)
+    return _Position(undecidable=_Cause.UNRESOLVED)
 
 
 def _is_static_literal_constant(symbol: RecordData | _AmbiguousBinding | None) -> bool:
@@ -1369,7 +1369,7 @@ def _imported_alias_verdict(
     imported = imports_by_binding.get((module, annotation))
     if imported is not None and not _alias_binding_static(imported):
         return _Position(
-            undecidable=_UndecidableReason.OTHER,
+            undecidable=_Cause.OTHER,
             resolved=alias.named_origins,
             named_origins=alias.named_origins,
         )
@@ -1414,7 +1414,7 @@ def _named_type_verdict(
         # Distinct records bind this name in `module`: Python picks whichever is textually last,
         # and nothing the scanner recorded says which that is, so the position is undecidable,
         # not a guess at either candidate (AD-74).
-        return _Position(undecidable=_UndecidableReason.AMBIGUOUS_BINDING)
+        return _Position(undecidable=_Cause.AMBIGUOUS_BINDING)
     if resolved is None:
         return _unresolved_named_verdict(
             annotation,
@@ -1430,7 +1430,7 @@ def _named_type_verdict(
         return (
             _Position()
             if _is_static_literal_constant(origin_symbol)
-            else _Position(undecidable=_UndecidableReason.OTHER)
+            else _Position(undecidable=_Cause.OTHER)
         )
     alias = _type_alias_verdict(
         origin_symbol,
@@ -1451,11 +1451,11 @@ def _named_type_verdict(
         return _imported_alias_verdict(alias, module, annotation, imports_by_binding)
     if isinstance(origin_symbol, dict) and origin_symbol.get("record_kind") == "static_constant":
         return _Position(
-            undecidable=_UndecidableReason.OTHER, resolved=reached, named_origins=reached
+            undecidable=_Cause.OTHER, resolved=reached, named_origins=reached
         )
     if isinstance(origin_symbol, dict) and origin_symbol.get("record_kind") == "dynamic_binding":
         return _Position(
-            undecidable=_UndecidableReason.OTHER, resolved=reached, named_origins=reached
+            undecidable=_Cause.OTHER, resolved=reached, named_origins=reached
         )
     # `resolve_named_type` ruled out an ambiguous location; the surviving class record carries
     # `class_kind` (AD-30).
@@ -1503,14 +1503,14 @@ def _owned_type_verdict(
         ]
         if len(claims) > 1:
             return _Position(
-                undecidable=_UndecidableReason.OTHER, resolved=reached, named_origins=(resolved,)
+                undecidable=_Cause.OTHER, resolved=reached, named_origins=(resolved,)
             )
         if claims:
             origin_component = claims[0]
             break
     if origin_component is None:
         return _Position(
-            undecidable=_UndecidableReason.EXTERNAL_TYPE,
+            undecidable=_Cause.EXTERNAL,
             resolved=reached,
             named_origins=(resolved,),
         )
@@ -1523,7 +1523,7 @@ def _owned_type_verdict(
         or (owner_facade_proof is True and not isinstance(origin_symbol, dict))
     ):
         return _Position(
-            undecidable=_UndecidableReason.UNRESOLVED_NAME,
+            undecidable=_Cause.UNRESOLVED,
             resolved=reached,
             named_origins=(resolved,),
         )
@@ -1688,7 +1688,7 @@ def _named_reference_position(
     return replace(
         verdict,
         referenced_members_static=static,
-        undecidable=_UndecidableReason.OTHER if late_unknown else verdict.undecidable,
+        undecidable=_Cause.OTHER if late_unknown else verdict.undecidable,
         unknown_context=f"Callable reference {annotation}"
         if late_unknown
         else verdict.unknown_context,
@@ -1739,7 +1739,7 @@ def _callable_signature_verdict(
     type_shapes: TypeShapeIndex,
 ) -> _Position:
     if len(shape.arguments) != 2 or not isinstance(shape.arguments[0], TypeList):
-        return _Position(undecidable=_UndecidableReason.GENERIC)
+        return _Position(undecidable=_Cause.GENERIC)
     parameters = [
         (f"argument[{index}]", element) for index, element in enumerate(shape.arguments[0].elements)
     ]
@@ -1763,7 +1763,7 @@ def _callable_signature_verdict(
             )
         )
         if not verdict.referenced_members_static:
-            verdict = replace(verdict, undecidable=verdict.undecidable or _UndecidableReason.OTHER)
+            verdict = replace(verdict, undecidable=verdict.undecidable or _Cause.OTHER)
         decided.append((parameter.text, _callable_leaf_position(route, parameter.text, verdict)))
     return replace(_combine_position_verdicts(decided), contains_callable=True)
 
@@ -3695,7 +3695,7 @@ def _declared_field_reach(
             and shape is not None
             and _base_route_member_static(shape, module, bindings, classes)
             and verdict.undecidable
-            not in {_UndecidableReason.AMBIGUOUS_BINDING, _UndecidableReason.UNRESOLVED_NAME}
+            not in {_Cause.AMBIGUOUS_BINDING, _Cause.UNRESOLVED}
         )
         if certain:
             names.update(reached)
@@ -4017,7 +4017,7 @@ def _declared_chain_positions(
                 method["id"],
                 position,
                 annotation,
-                _Position(undecidable=_UndecidableReason.INHERITED_SURFACE),
+                _Position(undecidable=_Cause.INHERITED_SURFACE),
             )
             for position, annotation in _method_signature_positions(method_data)
         )
@@ -5101,7 +5101,7 @@ def _boundary_types_violations(
             )
             for position, annotation in positions:
                 verdict = (
-                    _Position(undecidable=_UndecidableReason.AMBIGUOUS_FACADE)
+                    _Position(undecidable=_Cause.AMBIGUOUS_FACADE)
                     if ambiguous_facade
                     else _boundary_type_verdict(
                         annotation,
@@ -5394,7 +5394,7 @@ def _uncertain_facade_position_records(
                 "qualified_name": qualname,
                 "position": position,
                 "annotation": annotation,
-                "reason": _UndecidableReason.AMBIGUOUS_FACADE,
+                "reason": _Cause.AMBIGUOUS_FACADE,
                 "occurrence": occurrence,
             }
             records.append((detail, _boundary_type_position_record(rule, item, detail)))
@@ -5820,9 +5820,9 @@ def _undecidable_declared_positions(
     details: list[tuple[dict[str, object], str | None]] = []
     for position, annotation in positions:
         verdict = (
-            _Position(undecidable=_UndecidableReason.INHERITED_SURFACE)
+            _Position(undecidable=_Cause.INHERITED_SURFACE)
             if position == "inherited methods"
-            else _Position(undecidable=_UndecidableReason.AMBIGUOUS_FACADE)
+            else _Position(undecidable=_Cause.AMBIGUOUS_FACADE)
             if ambiguous_facade
             else _boundary_type_verdict(
                 annotation,
@@ -5976,7 +5976,7 @@ def _public_api_field_positions(
                 for position in positions
                 if visited
                 and position.undecidable is not None
-                and position.undecidable != _UndecidableReason.EXTERNAL_TYPE
+                and position.undecidable != _Cause.EXTERNAL
             }
         )
     ]
@@ -6112,7 +6112,7 @@ def _public_api_base(
             module,
             base_name,
             verdict.named_origins,
-            verdict.undecidable == _UndecidableReason.AMBIGUOUS_BINDING,
+            verdict.undecidable == _Cause.AMBIGUOUS_BINDING,
             type_shapes=type_shapes,
         )
         if base is None or base["kind"] != "class":
@@ -6234,7 +6234,7 @@ def public_api_exposed_types(
         module, _, name = entry.partition(":")
         position = declared_positions[entry]
         ambiguous = (
-            position.undecidable == _UndecidableReason.AMBIGUOUS_BINDING
+            position.undecidable == _Cause.AMBIGUOUS_BINDING
             and not position.named_origins
         ) or _binding_is_ambiguous((module, name), imports_by_binding, classes_by_location)
         symbol = _public_api_symbol(

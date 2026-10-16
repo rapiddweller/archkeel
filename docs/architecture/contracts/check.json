@@ -452,7 +452,7 @@
           ],
           "id": "BOUNDARY-REASON-ENUM",
           "kind": "enum",
-          "qualified_name": "archkeel.check.evaluation.boundary_types._UndecidableReason",
+          "qualified_name": "archkeel.check.evaluation.boundary_types._Cause",
           "parent_id": "BOUNDARY-REASON-MODULE",
           "visibility": {
             "kind": "private",
@@ -494,7 +494,7 @@
             "kind": "public",
             "basis": "declared"
           },
-          "annotation": "_UndecidableReason | None",
+          "annotation": "_Cause | None",
           "responsibilities": [
             "Identify why this position stayed undecidable, or retain its decided absence."
           ]
@@ -523,7 +523,7 @@
                 "default_known": true
               }
             ],
-            "returns": "_UndecidableReason"
+            "returns": "_Cause"
           },
           "responsibilities": [
             "Classify an otherwise unresolved written annotation using existing diagnostic categories."

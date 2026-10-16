@@ -43,7 +43,7 @@ REASONS = (
 
 
 def _reason_type():
-    reason = getattr(boundary, "_UndecidableReason", None)
+    reason = getattr(boundary, "_Cause", None)
     assert reason is not None, "the existing boundary owner must own its reason type"
     assert issubclass(reason, StrEnum)
     return reason
@@ -189,9 +189,9 @@ def test_native_real_private_ports_match_the_independent_target(tmp_path):
 @pytest.mark.parametrize(
     "old,new",
     [
-        ("undecidable: _UndecidableReason | None", "undecidable: str | None"),
+        ("undecidable: _Cause | None", "undecidable: str | None"),
         (
-            "def _unresolvable_shape(annotation: str) -> _UndecidableReason:",
+            "def _unresolvable_shape(annotation: str) -> _Cause:",
             "def _unresolvable_shape(annotation: str) -> str:",
         ),
     ],
@@ -212,14 +212,13 @@ def test_native_real_port_widening_fails_the_unchanged_target(tmp_path, old, new
     assert trace_valid_violations(observed)
     assert (root / "contract.json").read_bytes() == target
 
+
 def _placement_model(tmp_path, *, unrelated):
     root, config = _repository(tmp_path)
     target_path = root / "contract.json"
     target = json.loads(target_path.read_text())
     root_policy = json.loads((ROOT / "architecture-contract.json").read_text())
-    target["rules"] = [
-        row for row in root_policy["rules"] if row["id"] == "TYPES-ENUM-IN-MODEL"
-    ]
+    target["rules"] = [row for row in root_policy["rules"] if row["id"] == "TYPES-ENUM-IN-MODEL"]
     assert len(target["rules"]) == 1
     target_path.write_text(json.dumps(target))
     (root / "archkeel/ir").mkdir()
