@@ -781,7 +781,8 @@
         "archkeel.analyzer.runtime",
         "archkeel.cli.config",
         "archkeel.check.runtime",
-        "archkeel.analyzer.python.binding_types"
+        "archkeel.analyzer.python.binding_types",
+        "archkeel.analyzer.python.receiver_types"
       ],
       "rationale": "Each closed vocabulary belongs to its domain or wire boundary: shared state and source facts own domain controls; codecs own private wire tags and consumers use published nominal types. The Python Source binding model owns import, lexical binding and compiler-scope control types.",
       "provenance": [
@@ -1001,6 +1002,19 @@
       "rationale": "The Python binding model owns nominal controls and decodes compiler protocol values without raw-string dispatch. Other Python grammar modules remain pending.",
       "provenance": [
         "docs/architecture/typed-python-bindings.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "PYTHON-RECEIVERS-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.analyzer.python.receiver_types",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Receiver evidence categories have one nominal owner; consumers use that type without raw origin dispatch.",
+      "provenance": [
+        "docs/architecture/typed-python-receivers.md"
       ],
       "decided_by": "architect"
     }

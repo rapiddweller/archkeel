@@ -372,6 +372,66 @@
             "docs/architecture/typed-python-bindings.md"
           ],
           "annotation": "BindingKind"
+        },
+        {
+          "id": "PYTHON-RECEIVER-MODEL",
+          "kind": "module",
+          "qualified_name": "archkeel.analyzer.python.receiver_types",
+          "language": "python",
+          "parent_id": "TARGET-SOURCE",
+          "presence": "planned",
+          "responsibilities": [
+            "Own receiver type evidence categories and the documented method index."
+          ],
+          "provenance": [
+            "docs/architecture/typed-python-receivers.md"
+          ]
+        },
+        {
+          "id": "PYTHON-RECEIVER-TYPE",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.python.receiver_types.ReceiverType",
+          "language": "python",
+          "parent_id": "PYTHON-RECEIVER-MODEL",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain a type name and its nominal evidence origin without asserting runtime type proof."
+          ],
+          "provenance": [
+            "docs/architecture/typed-python-receivers.md"
+          ],
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "id": "PYTHON-RECEIVER-ORIGIN",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.python.receiver_types.ReceiverOrigin",
+          "language": "python",
+          "parent_id": "PYTHON-RECEIVER-MODEL",
+          "presence": "planned",
+          "responsibilities": [
+            "Distinguish literal, annotated and documented receiver evidence."
+          ],
+          "provenance": [
+            "docs/architecture/typed-python-receivers.md"
+          ]
+        },
+        {
+          "id": "PYTHON-RECEIVER-ORIGIN-FIELD",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.python.receiver_types.ReceiverType.origin",
+          "language": "python",
+          "parent_id": "PYTHON-RECEIVER-TYPE",
+          "presence": "planned",
+          "responsibilities": [
+            "Require the owned receiver evidence category."
+          ],
+          "provenance": [
+            "docs/architecture/typed-python-receivers.md"
+          ],
+          "annotation": "ReceiverOrigin"
         }
       ],
       "relationships": [],
