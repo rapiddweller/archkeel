@@ -147,16 +147,17 @@ def _rule_applies(
                 target_selector = text_value(declaration.data.get("target"))
                 source_exact = declaration.data.get("source_match") == "exact"
                 target_exact = declaration.data.get("target_match") == "exact"
+                component_labels = not (source_exact or target_exact)
                 source_match = (
                     source == source_selector
                     if source_exact
                     else module_in_ownership(source, (source_selector,), ())
-                ) or (not source_exact and source_selector in {source_id, source_intent.label})
+                ) or (component_labels and source_selector in {source_id, source_intent.label})
                 target_match = (
                     target == target_selector
                     if target_exact
                     else module_in_ownership(target, (target_selector,), ())
-                ) or (not target_exact and target_selector in {target_id, target_intent.label})
+                ) or (component_labels and target_selector in {target_id, target_intent.label})
                 if source_match and target_match:
                     return True
             elif assessment.kind == "interface_boundary":

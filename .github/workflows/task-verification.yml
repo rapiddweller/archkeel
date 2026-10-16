@@ -25,4 +25,4 @@ jobs:
           git diff --no-ext-diff > /tmp/format.patch
           python -c "import base64,pathlib; print('FORMAT_PATCH='+base64.b64encode(pathlib.Path('/tmp/format.patch').read_bytes()).decode())"
       - name: Verify exact policy end to end
-        run: uv run --locked python -m pytest -q tests/test_dependency_selectors.py::test_module_cells_obey_both_module_selectors --maxfail=1
+        run: uv run --locked python -m pytest -q tests/test_dependency_selectors.py tests/test_contract_model.py tests/test_widening.py --maxfail=3

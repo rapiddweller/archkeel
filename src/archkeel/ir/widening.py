@@ -253,8 +253,11 @@ def _forbidden_dependency_widenings(
         ),
         *[
             WideningChange(subject, name, f"{subject}.{name} narrowed from prefix to exact")
-            for name in ("source_match", "target_match")
-            if getattr(before, name) == "prefix" and getattr(after, name) == "exact"
+            for name, old, new in (
+                ("source_match", before.source_match, after.source_match),
+                ("target_match", before.target_match, after.target_match),
+            )
+            if old == "prefix" and new == "exact"
         ],
         *_generic_field_widenings(
             subject,
