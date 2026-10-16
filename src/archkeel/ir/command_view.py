@@ -7,7 +7,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Literal, TypeAlias
 
-from archkeel.ir.architecture_graph import AssessmentStatus, ComponentRole, RelationshipKind
+from archkeel.ir.architecture_graph import AssessmentStatus, ComponentRole, DecisionMaker, RelationshipKind
 from archkeel.ir.architecture_projection import (
     ComponentProjection,
     LevelProjection,
@@ -53,7 +53,7 @@ class ArchitectureComponentView:
     not_responsible_for: tuple[str, ...]
     status: AssessmentStatus
     reason: int
-    decided_by: Literal["architect", "agent"] | None
+    decided_by: DecisionMaker | None
     parent_id: str | None = None
     role: ComponentRole = ComponentRole.COMPONENT
     namespace: str | None = None

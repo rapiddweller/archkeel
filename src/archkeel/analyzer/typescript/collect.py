@@ -27,6 +27,7 @@ from archkeel.ir.facts import (
     ResolutionInput,
     ResolutionRole,
     SourceFacts,
+    SourceProfile,
     SourceInfo,
     SourceSectionName,
     UnresolvedTarget,
@@ -49,12 +50,12 @@ from .parse import Base, Definition, Reference, Site, Span, Syntax, parse
 from .resolve import Format, Found, Resolver, Unknown, is_builtin, is_relative, package_name
 
 _SECTIONS: tuple[SourceSectionName, ...] = (
-    "imports",
-    "unknowns",
-    "symbols",
-    "calls",
-    "references",
-    "bindings",
+    SourceSectionName.IMPORTS,
+    SourceSectionName.UNKNOWNS,
+    SourceSectionName.SYMBOLS,
+    SourceSectionName.CALLS,
+    SourceSectionName.REFERENCES,
+    SourceSectionName.BINDINGS,
 )
 _SOURCE: Final = (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
 _DECLARATION: Final = (".d.ts", ".d.mts", ".d.cts")
@@ -124,15 +125,15 @@ class _Collection:
             ensure_ascii=False,
         )
         records: dict[SourceSectionName, tuple[Record, ...]] = {
-            "imports": imports,
-            "unknowns": unknowns,
-            "symbols": tuple(parse_record(item) for item in symbols),
-            "calls": tuple(parse_record(item) for item in calls),
-            "references": tuple(parse_record(item) for item in references),
-            "bindings": tuple(parse_record(item) for item in bindings),
+            SourceSectionName.IMPORTS: imports,
+            SourceSectionName.UNKNOWNS: unknowns,
+            SourceSectionName.SYMBOLS: tuple(parse_record(item) for item in symbols),
+            SourceSectionName.CALLS: tuple(parse_record(item) for item in calls),
+            SourceSectionName.REFERENCES: tuple(parse_record(item) for item in references),
+            SourceSectionName.BINDINGS: tuple(parse_record(item) for item in bindings),
         }
         return SourceFacts(
-            "archkeel-typescript-imports",
+            SourceProfile.TYPESCRIPT,
             adapter,
             runtime,
             SourceInfo(

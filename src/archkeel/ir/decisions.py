@@ -1000,9 +1000,9 @@ def rule_assessments(
             receipt=receipt_complete,
             undecided=undecided,
         )
-        if declaration.kind == "layer_order" and status == "PASS":
+        if declaration.kind == "layer_order" and status == RuleAssessmentStatus.PASS:
             reason = "Declared requires permissions follow the selected layer order."
-        if status == "UNKNOWN" and scope_complete and not receipt_complete:
+        if status == RuleAssessmentStatus.UNKNOWN and scope_complete and not receipt_complete:
             ownership_reason = _ownership_blocker_reason(observation, identifier)
             if ownership_reason is not None:
                 reason = ownership_reason
@@ -1124,7 +1124,7 @@ def baseline_fingerprint_covered(
     if not all(
         (assessment := assessments.get(rule_id)) is not None
         and assessment.evaluation_proven
-        and assessment.status in {"PASS", "FAIL"}
+        and assessment.status in {RuleAssessmentStatus.PASS, RuleAssessmentStatus.FAIL}
         and assessment.undecided == 0
         and receipts[rule_id]
         for rule_id in fingerprint.rules

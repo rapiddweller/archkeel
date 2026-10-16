@@ -11,7 +11,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, TypeAlias, get_args, get_type_hints
 
-from .architecture_graph import AssessmentStatus, DecisionMaker, TargetDefinition
+from .architecture_graph import AssessmentStatus, TargetDefinition
+from .architecture_graph import DecisionMaker as DecisionMaker
 from .architecture_graph import ComponentRole as ComponentRole
 from .architecture_graph import ContractModuleTarget as ContractModuleTarget
 from .architecture_graph import ExternalDependencyScopeRule as ExternalDependencyScopeRule

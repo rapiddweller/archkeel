@@ -14,6 +14,8 @@ from enum import StrEnum
 from typing import Final, Literal, TypeAlias
 
 from .facts import Language as Language
+from .facts import SourceProfile
+from .facts import SourceSectionName as ObservedSection
 
 
 class UnmeasurableScalar(StrEnum):
@@ -26,18 +28,9 @@ class UnmeasurableScalar(StrEnum):
 DeclarationField: TypeAlias = Literal["context_roots", "facade_budgets", "coupling_budgets"]
 
 
-class ObservedSection(StrEnum):
-    SYMBOLS = "symbols"
-    REFERENCES = "references"
-    BINDINGS = "bindings"
-    CALLS = "calls"
-    TYPING_SIGNALS = "typing_signals"
-    CONSTRUCTS = "constructs"
-
-
-PYTHON_ANALYZER: Final = "archkeel-python-analyzer"
-DART_ANALYZER: Final = "archkeel-dart-analyzer"
-TYPESCRIPT_ANALYZER: Final = "archkeel-typescript-imports"
+PYTHON_ANALYZER: Final = SourceProfile.PYTHON.value
+DART_ANALYZER: Final = SourceProfile.DART.value
+TYPESCRIPT_ANALYZER: Final = SourceProfile.TYPESCRIPT.value
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,17 +152,17 @@ PROFILES: Final[dict[Language, Profile]] = {
     Language.TYPESCRIPT: TYPESCRIPT,
 }
 _ANALYZER_PROFILES: Final = {
-    PYTHON_ANALYZER: PYTHON,
-    DART_ANALYZER: DART,
-    TYPESCRIPT_ANALYZER: TYPESCRIPT,
+    SourceProfile.PYTHON: PYTHON,
+    SourceProfile.DART: DART,
+    SourceProfile.TYPESCRIPT: TYPESCRIPT,
 }
 
 
 def profile_for(analyzer: str) -> Profile:
     """Return the profile for a published analyzer identity."""
     try:
-        return _ANALYZER_PROFILES[analyzer]
-    except KeyError as error:
+        return _ANALYZER_PROFILES[SourceProfile(analyzer)]
+    except (KeyError, ValueError) as error:
         raise ValueError(f"unsupported analyzer identity: {analyzer}") from error
 
 

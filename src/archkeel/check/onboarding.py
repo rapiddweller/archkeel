@@ -14,6 +14,7 @@ from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing import Final
 
+from archkeel.ir.architecture_graph import DecisionMaker
 from archkeel.ir.codec import CONTRACT_SCHEMA_VERSION, contract_bytes
 from archkeel.ir.decisions import (
     DOCUMENT_PATH,
@@ -279,7 +280,7 @@ def draft_contract(
     # A drafted public list is the agent's interface decision, marked the way its rules are
     # (AD-50), so `agent_decisions` counts it and the architect sees what is still owed.
     components = tuple(
-        replace(component, public=entries, decided_by="agent")
+        replace(component, public=entries, decided_by=DecisionMaker.AGENT)
         if (entries := public.get(component.label)) is not None
         else component
         for component in draft_components

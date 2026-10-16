@@ -98,3 +98,47 @@ def test_programmatic_legacy_response_still_has_the_identical_v1_wire():
     assert legacy.protocol_version is ProtocolVersion.V1
     assert encode_response(CollectionResponse(legacy.facts, "1.0.0")) == encode_response(legacy)
     assert replace(legacy.facts.runtime, requirement_state="declared") == legacy.facts.runtime
+
+
+def test_response_decoder_returns_nominal_profile_and_section_names():
+    from archkeel.ir.facts import SourceProfile, SourceSectionName
+
+    raw = _response()
+    response = decode_response(json.dumps(raw).encode())
+    assert response.facts.profile is SourceProfile.PYTHON
+    assert all(
+        section.name is SourceSectionName(entry["name"])
+        for section, entry in zip(response.facts.sections, raw["facts"]["sections"], strict=True)
+    )
+    assert all(isinstance(name, SourceSectionName) for name in response.facts.capabilities.sections)
+
+
+@pytest.mark.parametrize("field", ["profile", "section"])
+@pytest.mark.parametrize("value", ["not-registered", None, True, 1, [], {}])
+def test_nominal_profile_and_section_decoders_keep_the_exact_wire_vocabulary(field, value):
+    raw = _response()
+    if field == "profile":
+        raw["facts"]["profile"] = value
+    else:
+        raw["facts"]["sections"][0]["name"] = value
+    with pytest.raises(ProtocolError, match="profile|section"):
+        decode_response(json.dumps(raw).encode())
+
+
+@pytest.mark.parametrize("language", ["python", "dart", "typescript"])
+@pytest.mark.parametrize("section", ["imports", "unknowns"])
+def test_registered_profiles_keep_imports_and_unknowns_mandatory(language, section):
+    from archkeel.ir.codec_observation import _validate_profile_sections
+    from archkeel.ir.facts import Language
+    from archkeel.ir.model import CLASSIFIED_SECTIONS
+    from archkeel.ir.profiles import PROFILES
+
+    profile = PROFILES[Language(language)]
+    model = {
+        name: None if name in profile.absent_sections else []
+        for name in CLASSIFIED_SECTIONS
+    }
+    _validate_profile_sections(model, profile)
+    model[section] = None
+    with pytest.raises(ValueError, match=section):
+        _validate_profile_sections(model, profile)

@@ -23,6 +23,7 @@ from archkeel.ir.facts import (
     LocalTarget,
     Record,
     SourceFacts,
+    SourceProfile,
     SourceInfo,
     SourceSectionName,
     UnresolvedTarget,
@@ -43,12 +44,12 @@ from .resolve import (
 from .snapshot import Snapshot, read_snapshot
 
 _SECTIONS: tuple[SourceSectionName, ...] = (
-    "imports",
-    "unknowns",
-    "symbols",
-    "calls",
-    "references",
-    "bindings",
+    SourceSectionName.IMPORTS,
+    SourceSectionName.UNKNOWNS,
+    SourceSectionName.SYMBOLS,
+    SourceSectionName.CALLS,
+    SourceSectionName.REFERENCES,
+    SourceSectionName.BINDINGS,
 )
 
 
@@ -182,26 +183,26 @@ class _Collection:
         )
         adapter, runtime = collector_provenance(Language.DART)
         records: dict[SourceSectionName, tuple[Record, ...]] = {
-            "imports": tuple(
+            SourceSectionName.IMPORTS: tuple(
                 parse_record(item) for item in sorted(self.imports, key=lambda x: x["id"])
             ),
-            "unknowns": tuple(parse_record(item) for _, item in sorted(self.gaps.items())),
-            "symbols": tuple(
+            SourceSectionName.UNKNOWNS: tuple(parse_record(item) for _, item in sorted(self.gaps.items())),
+            SourceSectionName.SYMBOLS: tuple(
                 parse_record(item) for item in sorted(self.symbols, key=lambda x: x["id"])
             ),
-            "calls": tuple(
+            SourceSectionName.CALLS: tuple(
                 parse_record(item) for item in sorted(self.calls, key=lambda x: x["id"])
             ),
-            "references": tuple(
+            SourceSectionName.REFERENCES: tuple(
                 parse_record(item) for item in sorted(self.references, key=lambda x: x["id"])
             ),
-            "bindings": tuple(
+            SourceSectionName.BINDINGS: tuple(
                 parse_record(item) for item in sorted(self.bindings, key=lambda x: x["id"])
             ),
         }
         files = tuple(sorted(self._files(), key=lambda item: item.rel_path))
         return SourceFacts(
-            "archkeel-dart-analyzer",
+            SourceProfile.DART,
             adapter,
             runtime,
             SourceInfo(
@@ -223,7 +224,7 @@ class _Collection:
                 len(self.sources),
                 len(self.parsed),
                 not self.gaps and bool(self.sources),
-                records["unknowns"],
+                records[SourceSectionName.UNKNOWNS],
             ),
             tuple(parse_evidence(item) for _, item in sorted(self.evidence.items())),
         )

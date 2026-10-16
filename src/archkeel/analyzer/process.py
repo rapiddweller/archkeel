@@ -17,7 +17,7 @@ from queue import Empty, Queue
 from threading import Thread
 from typing import BinaryIO
 
-from archkeel.ir.facts import SourceFacts, SourceProfile
+from archkeel.ir.facts import Language, SourceFacts, SourceProfile
 from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_request
 from archkeel.ir.protocol import CollectionError, CollectionRequest
 
@@ -180,10 +180,10 @@ class ProcessCollector:
 
 
 def _requested_facts(facts: SourceFacts, request: CollectionRequest) -> None:
-    profiles: dict[str, SourceProfile] = {
-        "python": "archkeel-python-analyzer",
-        "dart": "archkeel-dart-analyzer",
-        "typescript": "archkeel-typescript-imports",
+    profiles: dict[Language, SourceProfile] = {
+        Language.PYTHON: SourceProfile.PYTHON,
+        Language.DART: SourceProfile.DART,
+        Language.TYPESCRIPT: SourceProfile.TYPESCRIPT,
     }
     if facts.profile != profiles[request.resolver.language]:
         raise ProtocolError("collector profile disagrees with requested language")

@@ -30,6 +30,7 @@ from archkeel.ir.facts import (
     ResolutionInput,
     ResolutionRole,
     SourceFacts,
+    SourceProfile,
     SourceInfo,
     SourceSectionName,
     UnresolvedTarget,
@@ -52,14 +53,14 @@ from .type_shapes import collect_type_shapes, symbol_type_expressions
 from .typing_signals import collect_typing_signals
 
 _SECTION_NAMES: tuple[SourceSectionName, ...] = (
-    "symbols",
-    "imports",
-    "calls",
-    "references",
-    "bindings",
-    "typing_signals",
-    "constructs",
-    "unknowns",
+    SourceSectionName.SYMBOLS,
+    SourceSectionName.IMPORTS,
+    SourceSectionName.CALLS,
+    SourceSectionName.REFERENCES,
+    SourceSectionName.BINDINGS,
+    SourceSectionName.TYPING_SIGNALS,
+    SourceSectionName.CONSTRUCTS,
+    SourceSectionName.UNKNOWNS,
 )
 
 
@@ -124,14 +125,14 @@ def collect(request: CollectionRequest) -> SourceFacts:
     inputs, source_digest = _inputs(root, selected)
     import_targets = _import_targets(imports, files)
     records: dict[SourceSectionName, list[RawRecord]] = {
-        "symbols": symbols,
-        "imports": imports,
-        "calls": calls,
-        "references": references,
-        "bindings": bindings,
-        "typing_signals": typing_signals,
-        "constructs": constructs,
-        "unknowns": [
+        SourceSectionName.SYMBOLS: symbols,
+        SourceSectionName.IMPORTS: imports,
+        SourceSectionName.CALLS: calls,
+        SourceSectionName.REFERENCES: references,
+        SourceSectionName.BINDINGS: bindings,
+        SourceSectionName.TYPING_SIGNALS: typing_signals,
+        SourceSectionName.CONSTRUCTS: constructs,
+        SourceSectionName.UNKNOWNS: [
             *parsed_sources.failures,
             *(raw_record(record) for record in source_unknowns),
         ],
@@ -144,7 +145,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         Language.PYTHON, required=required, requirement_state=requirement_state
     )
     return SourceFacts(
-        "archkeel-python-analyzer",
+        SourceProfile.PYTHON,
         adapter,
         runtime,
         SourceInfo(

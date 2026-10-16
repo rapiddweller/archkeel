@@ -42,6 +42,9 @@ VOCABULARIES = (
     "RuleAssessmentStatus",
     "AssessmentAspect",
     "AssessmentChange",
+    "ReportSchemaVersion",
+    "DecisionMaker",
+    "ArchitectureRuleKind",
 )
 MODULES = (
     "archkeel.ir.architecture_graph",

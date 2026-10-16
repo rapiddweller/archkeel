@@ -6207,10 +6207,6 @@
           "provenance": [
             "docs/architecture/collector-wire-vocabulary.md"
           ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
           "id": "IR-COLLECTOR-PROFILES",
           "kind": "module",
           "qualified_name": "archkeel.ir.profiles",
@@ -6361,24 +6357,6 @@
           "parent_id": "archkeel.ir.protocol",
           "responsibilities": [
             "Own supported collector envelope versions and their compatibility gates."
-          ]
-        },
-        {
-          "language": "python",
-          "presence": "planned",
-          "provenance": [
-            "docs/architecture/collector-wire-vocabulary.md"
-          ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
-          "id": "IR-COLLECTOR-profiles.ObservedSection",
-          "kind": "enum",
-          "qualified_name": "archkeel.ir.profiles.ObservedSection",
-          "parent_id": "IR-COLLECTOR-PROFILES",
-          "responsibilities": [
-            "Name the source sections whose availability a profile declares."
           ]
         },
         {
@@ -7209,6 +7187,42 @@
           ],
           "provenance": [
             "docs/architecture/typed-graph-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-COLLECTOR-facts.SourceProfile",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.SourceProfile",
+          "parent_id": "archkeel.ir.facts",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Identify a registered collector source profile."
+          ],
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-COLLECTOR-facts.SourceSectionName",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.SourceSectionName",
+          "parent_id": "archkeel.ir.facts",
+          "language": "python",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the exact section vocabulary in collector source facts."
+          ],
+          "provenance": [
+            "docs/architecture/collector-wire-vocabulary.md"
           ],
           "visibility": {
             "kind": "public",

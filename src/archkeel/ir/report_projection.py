@@ -13,6 +13,9 @@ from archkeel.ir.architecture_graph import (
     ComponentIntent,
     ComponentRole,
     Entity,
+    EntityKind,
+    PresenceKind,
+    CoverageStatus,
     RelationshipKind,
     ReportFinding,
     RuleAssessment,
@@ -213,7 +216,7 @@ def _permissions(
             requires = tuple(
                 edge
                 for edge in target.relationships
-                if edge.kind == "requires" and (edge.source_id, edge.target_id) == pair
+                if edge.kind == RelationshipKind.REQUIRES and (edge.source_id, edge.target_id) == pair
             )
             deciding = _pair_permission_rules(level_rules, owners, pair, selectors)
             forbidden = tuple(
@@ -385,7 +388,7 @@ def _import_coverage(
     covered_imports = {
         item.scope_id
         for item in observed.coverage
-        if "imports" in item.relationship_kinds and item.status == "complete"
+        if RelationshipKind.IMPORTS in item.relationship_kinds and item.status == CoverageStatus.COMPLETE
     }
     imports_complete = (
         model.coverage.status == "PASS"
@@ -401,7 +404,7 @@ def _import_coverage(
             )
         )
     for edge in observed.relationships:
-        if edge.kind == "imports" and edge.target_id is None:
+        if edge.kind == RelationshipKind.IMPORTS and edge.target_id is None:
             unknowns.append(
                 UnknownProjection(
                     edge.id, edge.reason or "An observed import has no unique target."
@@ -419,7 +422,7 @@ def _usage_counts(
     counts: dict[tuple[str, str], int] = {}
     level_counts: dict[tuple[str | None, str, str], int] = {}
     for edge in observed.relationships:
-        if edge.kind != "imports" or edge.target_id is None:
+        if edge.kind != RelationshipKind.IMPORTS or edge.target_id is None:
             continue
         source, endpoint = entities[edge.source_id], entities[edge.target_id]
         source_ids, target_ids = (
@@ -462,20 +465,20 @@ def _internal_relationship_scope(
     intents: dict[str, ComponentIntent],
     names: dict[str, str],
 ) -> str | None:
-    if target_id is None or kind in {"realizes", "publishes"}:
+    if target_id is None or kind in {RelationshipKind.REALIZES, RelationshipKind.PUBLISHES}:
         return None
     owner = _entity_component(source_id, target_entities, intents)
     if owner is None or _entity_component(target_id, target_entities, intents) != owner:
         return None
     if intents[owner].role in {ComponentRole.INTERFACE, ComponentRole.CONTRACT}:
         return None
-    detail_kinds = {"class", "method", "attribute", "type_alias", "enum", "mixin"}
+    detail_kinds = {EntityKind.CLASS, EntityKind.METHOD, EntityKind.ATTRIBUTE, EntityKind.TYPE_ALIAS, EntityKind.ENUM, EntityKind.MIXIN}
     for identity in (source_id, target_id):
         entity = target_entities[identity]
         if entity.kind not in detail_kinds:
             return None
         while entity.parent_id is not None:
-            if entity.kind == "interface":
+            if entity.kind == EntityKind.INTERFACE:
                 return None
             entity = target_entities[entity.parent_id]
     return names[owner]
@@ -490,7 +493,7 @@ def _required_relationships(
     intents = {item.component_id: item for item in target.component_intents}
     relationships = []
     for edge in target.relationships:
-        if edge.kind == "requires":
+        if edge.kind == RelationshipKind.REQUIRES:
             continue
         evaluations = (
             tuple(item for item in report.comparison.assessments if item.subject_id == edge.id)
@@ -586,7 +589,7 @@ def _component_requires(
             else None,
         )
         for edge in target.relationships
-        if edge.kind == "requires"
+        if edge.kind == RelationshipKind.REQUIRES
         and edge.source_id == intent.component_id
         and edge.target_id is not None
     )
@@ -763,7 +766,7 @@ def _level_projections(
         declared: set[tuple[str, str]] = {
             (edge.source_id, edge.target_id)
             for edge in target.relationships
-            if edge.kind == "requires" and edge.source_id in ids and edge.target_id is not None
+            if edge.kind == RelationshipKind.REQUIRES and edge.source_id in ids and edge.target_id is not None
         }
         declared.update(
             (identity, permission.target_id)
@@ -983,7 +986,7 @@ def architecture_projection(
     names = _scope_names(target)
     selected = _selected_component(target, component, names, prefer_top_label=prefer_top_label)
     modules = tuple(
-        item for item in observed.entities if item.kind == "module" and item.presence == "defined"
+        item for item in observed.entities if item.kind == EntityKind.MODULE and item.presence == PresenceKind.DEFINED
     )
     ownership = {item.id: _deepest_owners(target, item.qualified_name) for item in modules}
     gaps = _ownership_gaps(modules, ownership)

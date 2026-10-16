@@ -123,10 +123,16 @@ def measure_python_ratchets(observation: Observation) -> Measurements:
             violations=len(_records(observation, "violations")),
             cycle_edges=cycle_edges,
             private_crossings=_measured(
-                unmeasured, UnmeasurableScalar.PRIVATE_CROSSINGS, len(crossing_imports(imports, private=True))
+                unmeasured,
+                UnmeasurableScalar.PRIVATE_CROSSINGS,
+                len(crossing_imports(imports, private=True)),
             ),
-            typing_positions=_measured(unmeasured, UnmeasurableScalar.TYPING_POSITIONS, typing_positions),
-            calls_unresolved=_measured(unmeasured, UnmeasurableScalar.CALLS_UNRESOLVED, coverage.calls_unresolved),
+            typing_positions=_measured(
+                unmeasured, UnmeasurableScalar.TYPING_POSITIONS, typing_positions
+            ),
+            calls_unresolved=_measured(
+                unmeasured, UnmeasurableScalar.CALLS_UNRESOLVED, coverage.calls_unresolved
+            ),
             coverage_failures=len(coverage.failures),
             untyped_private_accesses=_measured(
                 unmeasured,

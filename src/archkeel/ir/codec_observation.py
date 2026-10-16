@@ -158,7 +158,10 @@ def parse_observation(raw: object) -> Observation:
     contract = _exact(item["contract"], {"schema_version", "digest", "path"}, "contract")
     coverage = _object(item["coverage"], "coverage")
     profile = profile_for(_string(analyzer["name"], "analyzer.name"))
-    dirty_value = source_dirty(source["dirty"])
+    dirty_raw = source["dirty"]
+    if not isinstance(dirty_raw, (bool, str)):
+        raise ValueError("source.dirty is invalid")
+    dirty_value = source_dirty(dirty_raw)
     coverage_value = _parse_coverage(
         coverage,
         profile,
