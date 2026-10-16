@@ -104,6 +104,7 @@ def test_prefix_evidence_keeps_the_exact_written_call_and_native_span(tmp_path):
     source = 'def parse(value):\n    return value.startswith("import", 1)\n'
     result = _observe_one_rule(tmp_path, RULE, {"core.py": source})
     assert not result.diagnostics and result.observation is not None
+    assert len(result.observation.records("constructs")) == 1
     [construct] = result.observation.records("constructs")
     evidence = {row.id: row for row in result.observation.evidence}
     [site] = [evidence[identity] for identity in construct.evidence_ids]
@@ -115,3 +116,17 @@ def test_prefix_evidence_keeps_the_exact_written_call_and_native_span(tmp_path):
     assert [(row.kind, row.rule_ids) for row in trace_valid_violations(result.observation)] == [
         ("forbidden_construct", ("RULE",))
     ]
+
+
+def test_named_tuple_can_be_shared_by_membership_and_first_predicate_argument(tmp_path):
+    source = (
+        'PREFIXES = ("import", "export")\n'
+        "def parse(value):\n"
+        "    return value in PREFIXES or value.startswith(PREFIXES)\n"
+    )
+    result = _observe_one_rule(tmp_path, RULE, {"core.py": source})
+    assert not result.diagnostics and result.observation is not None
+    assert sorted(row.data.get("form") for row in result.observation.records("constructs")) == [
+        "membership", "startswith"
+    ]
+    assert len(trace_valid_violations(result.observation)) == 2
