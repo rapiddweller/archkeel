@@ -1,0 +1,44 @@
+name: Verify Publisher carry on current merged Main
+on:
+  push:
+    branches: [verify/566-publisher-on-main-3be]
+permissions:
+  contents: read
+jobs:
+  publication-and-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: e9d4acfdb93bdbcd67e2a01385f4960198347bcf
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Reproduce exact committed Flow runtime and check without rewriting
+        run: |
+          make browser-runtime-generate
+          git diff --exit-code -- src/archkeel/render/assets
+          make browser-runtime-check
+      - name: Actual publisher routing, required gate, CSP and unchanged size checks
+        run: uv run --locked python -m pytest -q tests/test_ci_changes.py tests/test_make_gate.py tests/test_flow_runtime_publication.py tests/test_atlas_report.py::test_default_report_is_one_authentic_repository_with_sparse_native_cells tests/test_atlas_report.py::test_atlas_inlines_pinned_elk_before_flow_script_under_offline_csp
+      - run: make lint typecheck
+      - name: No-write validation against actual predecessor without policy changes
+        run: |
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          command=["uv","run","--locked","python","-m","archkeel.cli","validate","--root",".","--baseline","architecture-baseline.json","--against","3be58cb72a831bdaf7c545fbc3b0fc6a5e0dba68","--json"]
+          result=subprocess.run(command,text=True,capture_output=True)
+          data=json.loads(result.stdout)
+          print("PUBLISHER_NATIVE="+json.dumps({k:data.get(k) for k in ("exit_code","diagnostics","failures","widenings","amendment_status","measurements")},separators=(",",":")))
+          if result.stderr:print(result.stderr[-3000:])
+          assert result.returncode==0 and data["failures"]==[] and data["diagnostics"]==[] and data["widenings"]==[],data
+          subprocess.run(["git","diff","--exit-code"],check=True)
+          PY
