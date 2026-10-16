@@ -1378,8 +1378,8 @@ def _requires_import_verdicts(
                 source,
                 target.label,
                 data["target_module"],
-                data["symbol"],
-                symbols_known=data["symbols_known"],
+                dict.get(data, "symbol"),
+                symbols_known=dict.get(data, "symbols_known", False),
             ),
         )
 

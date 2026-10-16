@@ -76,6 +76,7 @@ def _report(tmp_path, statement, *, through=("sample.core:Command",), exports=No
         ("from sample.core import Command", ("sample.core:Command",), "PASS"),
         ("from sample.core import Command as Selected", ("sample.core:Command",), "PASS"),
         ("from sample.core import Other", ("sample.core:Command",), "FAIL"),
+        ("import sample.core", ("sample.core:Command",), "FAIL"),
         ("from sample.other import Command", ("sample.core:Command",), "FAIL"),
         ("from sample.core import Other", ("sample.core",), "PASS"),
         ("from sample.other import Command", (), "PASS"),
@@ -137,6 +138,7 @@ def test_existing_requires_query_remains_compatible_and_symbol_query_is_precise(
     assert requires_covers(entries, "core")
     assert requires_covers(entries, "core", "sample.core", "Command")
     assert not requires_covers(entries, "core", "sample.core", "Other")
+    assert not requires_covers(entries, "core", "sample.core.child", "Command")
     assert not requires_covers(entries, "core", "sample.core")
     legacy = (RequiredComponent("core", "Use module.", ("sample.core",)),)
     assert requires_covers(legacy, "core", "sample.core.child")
@@ -173,7 +175,8 @@ def _api_repository(tmp_path):
         "archkeel/ir/architecture_graph.py": "from enum import StrEnum\n"
         + _source_members("src/archkeel/ir/architecture_graph.py", {"AssessmentStatus"}),
         "archkeel/ir/model.py": (
-            "from __future__ import annotations\nimport builtins\nfrom dataclasses import dataclass\n"
+            "from __future__ import annotations\nimport builtins\n"
+            "from dataclasses import dataclass\n"
             "from .dependency import ImportSymbolMarker as _ImportSymbolMarker\n"
             "from .facts import in_scope\n"
             "from .architecture_graph import AssessmentStatus as AssessmentStatus\n"
@@ -221,7 +224,8 @@ def test_native_requires_api_is_independent_and_rejects_source_widening(tmp_path
     intent = (root / "contract.json").read_bytes()
     if old == ") -> AssessmentStatus:":
         node = next(
-            item for item in ast.parse(original).body
+            item
+            for item in ast.parse(original).body
             if isinstance(item, ast.FunctionDef) and item.name == "requires_import_assessment"
         )
         segment = ast.get_source_segment(original, node)
@@ -291,3 +295,20 @@ def test_required_symbol_port_uses_wire_text_even_for_overridden_string_partitio
     assert json.loads(json.dumps(raw))["through"] == ["sample.core:Command"]
     assert requires_covers((entry,), "core", "sample.core", "Command")
     assert not requires_covers((entry,), "core", "sample.other", "Other")
+
+
+def test_legacy_module_only_import_records_need_no_symbol_fields():
+    from archkeel.check.evaluation.rules import requires_violations
+    from archkeel.ir.codec import parse_contract
+
+    caller = _component("caller")
+    caller["requires"] = [{"component": "core", "through": ["sample.core"], "rationale": "Use module."}]
+    raw = {"schema_version": "2.2.0", "components": [caller, _component("core")], "rules": [RULE]}
+    record = {
+        "id": "LEGACY-IMPORT", "kind": "import", "evidence_ids": [],
+        "data": {"source_module": "sample.caller", "target_module": "sample.core", "under_type_checking": False},
+    }
+    assert requires_violations([record], parse_contract(raw)) == []
+    caller["requires"] = []
+    [violation] = requires_violations([record], parse_contract(raw))
+    assert violation["rule_ids"] == [RULE["id"]]
