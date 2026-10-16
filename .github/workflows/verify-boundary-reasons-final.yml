@@ -1,0 +1,105 @@
+name: Boundary reason final authored-owner gates
+on:
+  push:
+    branches: [verify/542-boundary-reasons-final]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  ports-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked python -m pytest -q tests/test_boundary_reason_types.py tests/test_repository_hygiene.py --tb=short
+      - name: Exact source quality
+        if: ${{ always() }}
+        run: |
+          uv run --locked ruff check src/archkeel tests/test_boundary_reason_types.py
+          uv run --locked ruff format --check --diff src/archkeel/check/evaluation/boundary_types.py tests/test_boundary_reason_types.py
+          uv run --locked mypy src/archkeel
+      - name: Hosted test formatter
+        if: ${{ always() }}
+        run: |
+          uv run --locked ruff format tests/test_boundary_reason_types.py
+          uv run --locked python - <<'PY'
+          import json
+          from pathlib import Path
+          print("REASON_TEST_FORMAT="+json.dumps(Path("tests/test_boundary_reason_types.py").read_text()))
+          PY
+  native-final:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: boundary-reason-native-sites
+          run-id: 38982078572
+          github-token: ${{ github.token }}
+          path: reason-evidence
+      - run: |
+          uv run --locked python - <<'PY'
+          from dataclasses import asdict
+          import gzip,json,time
+          from pathlib import Path
+          from archkeel.cli.config import parse_config
+          from archkeel.cli.observe import observer_for
+          from archkeel.check.run import observe_revision,inspect_observation
+          from archkeel.ir.codec import observation_payload
+          from archkeel.ir.trace import trace_valid_violations
+          root=Path.cwd()
+          out=root/"reason-evidence"
+          head="1a47c6ce16c2834df8988d852bb3dac5d4d0112b"
+          c=parse_config((root/"archkeel.toml").read_bytes())
+          start=time.perf_counter()
+          result=observe_revision(observer_for(c.language),root,head,c,declared_at=head)
+          assert result.observation is not None,result.diagnostics
+          model=result.observation
+          measures,status=inspect_observation(model)
+          payload=observation_payload(model)
+          old=json.loads(gzip.decompress((out/"before.json.gz").read_bytes()))
+          prior=json.loads(gzip.decompress((out/"after.json.gz").read_bytes()))
+          assert payload["unknowns"]==old["unknowns"],"complete UNKNOWN records including IDs/citations changed"
+          assert payload["calls"]==prior["calls"],"policy correction must not change any actual call field/ID"
+          assert measures.scalars.violations==0 and not trace_valid_violations(model)
+          assert measures.scalars.unknown_positions==58
+          assert measures.scalars.calls_unresolved<=865
+          assert measures.scalars.typing_positions<=52
+          assert not result.diagnostics,result.diagnostics
+          (out/"final.json.gz").write_bytes(gzip.compress(json.dumps(payload,sort_keys=True).encode()))
+          print("FINAL_NATIVE="+json.dumps(dict(head=head,status=str(status),seconds=time.perf_counter()-start,measurements=asdict(measures),full_unknowns_exact=True,all_call_records_policy_exact=True)))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() }}
+        with:
+          name: boundary-reason-final-native
+          path: reason-evidence/final.json.gz
+  full-suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked python -m pytest -q -n 2 --tb=short
