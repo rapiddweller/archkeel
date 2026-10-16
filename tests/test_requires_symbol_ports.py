@@ -4,7 +4,6 @@
 """Native import facts must prove the exact required port, including uncertainty."""
 
 import json
-from pathlib import Path
 
 import pytest
 from test_analyzer import _component
@@ -90,19 +89,18 @@ def test_source_mutation_to_sibling_cannot_borrow_approved_command_port(tmp_path
 
 
 @pytest.mark.parametrize(
-    ("exports", "expected", "known"),
-    [(None, "UNKNOWN", False), (["Command"], "PASS", True), (["Command", "Other"], "FAIL", True)],
+    "exports",
+    [None, ["Command"], ["Command", "Other"]],
 )
-def test_wildcard_needs_actual_collector_name_proof(tmp_path, exports, expected, known):
+def test_unexpanded_wildcard_cannot_invent_name_proof_from_export_list(tmp_path, exports):
     _, row, model = _report(tmp_path, "from sample.core import *", exports=exports)
     imports = [item for item in model.records("imports") or () if item.data.get("source_module") == "sample.caller"]
-    assert imports and all(item.data.get("symbols_known") is known for item in imports)
-    if expected == "PASS":
-        assert {item.data.get("symbol") for item in imports} == {"Command"}
-        assert {item.data.get("target_module") for item in imports} == {"sample.core"}
-    assert row.status == expected
+    assert imports and all(item.data.get("symbols_known") is True for item in imports)
+    assert {item.data.get("symbol") for item in imports} == {"*"}
+    assert {item.data.get("target_module") for item in imports} == {"sample.core"}
+    assert row.status == "UNKNOWN"
     limits = [item for item in model.records("unknowns") or () if RULE["id"] in item.rule_ids]
-    assert bool(limits) is (expected == "UNKNOWN")
+    assert limits
 
 
 def test_unknown_wildcard_from_other_module_is_still_decisively_forbidden(tmp_path):
