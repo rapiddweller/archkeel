@@ -249,7 +249,8 @@
       ],
       "decided_by": "architect",
       "public": [],
-      "layer": "Edge"
+      "layer": "Edge",
+      "inside": "docs/architecture/contracts/cli.json"
     },
     {
       "id": "COMP-HOST",
@@ -780,7 +781,9 @@
         "archkeel.ir.profiles",
         "archkeel.analyzer.runtime",
         "archkeel.cli.config",
-        "archkeel.check.runtime"
+        "archkeel.check.runtime",
+        "archkeel.cli.arguments",
+        "archkeel.cli.skill"
       ],
       "rationale": "Each closed vocabulary belongs to its domain or wire boundary: shared state and source facts own domain controls; codecs own private wire tags and consumers use published nominal types.",
       "provenance": [

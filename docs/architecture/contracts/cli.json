@@ -1,0 +1,567 @@
+{
+  "$schema": "../../../schema/architecture-contract.schema.json",
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "CLI-ARGUMENTS",
+      "label": "arguments",
+      "role": "component",
+      "public": [
+        "archkeel.cli.arguments:CLIArguments",
+        "archkeel.cli.arguments:Command",
+        "archkeel.cli.arguments:ReportMode",
+        "archkeel.cli.arguments:SkillAction",
+        "archkeel.cli.arguments:ConfigurationSource",
+        "archkeel.cli.arguments:configuration_source",
+        "archkeel.cli.arguments:report_mode",
+        "archkeel.cli.arguments:source_language",
+        "archkeel.cli.arguments:installation_agent",
+        "archkeel.cli.arguments:skill_action"
+      ],
+      "responsibilities": [
+        "Decode closed CLI arguments into the declared Namespace fields and preserve argument wire behavior."
+      ],
+      "forbidden_responsibilities": [
+        "Executing workflows, scanning source or writing installed instructions."
+      ],
+      "provenance": [
+        "docs/architecture/cli-input-types.md"
+      ],
+      "decided_by": "architect",
+      "requires": [
+        {
+          "component": "installer",
+          "through": [
+            "archkeel.cli.skill:InstallationAgent"
+          ],
+          "rationale": "The argument decoder consumes the installer-owned agent vocabulary."
+        }
+      ],
+      "exact_modules": [
+        "archkeel.cli.arguments"
+      ],
+      "packages": []
+    },
+    {
+      "id": "CLI-INSTALLER",
+      "label": "installer",
+      "role": "component",
+      "public": [
+        "archkeel.cli.skill:InstallationAgent",
+        "archkeel.cli.skill:install_skill"
+      ],
+      "responsibilities": [
+        "Install the canonical agent instructions and parse only the owned legacy managed-section protocol."
+      ],
+      "forbidden_responsibilities": [
+        "Deciding Core rule verdicts, owning command grammar or reconstructing source evidence."
+      ],
+      "provenance": [
+        "docs/architecture/cli-input-types.md"
+      ],
+      "decided_by": "architect",
+      "exact_modules": [
+        "archkeel.cli.skill"
+      ],
+      "packages": []
+    },
+    {
+      "id": "CLI-COMPOSITION",
+      "label": "composition",
+      "role": "component",
+      "public": [
+        "archkeel.cli:main"
+      ],
+      "responsibilities": [
+        "Compose typed argument input, configuration, observation, Core workflows and rendered output."
+      ],
+      "forbidden_responsibilities": [
+        "Redefining shared language identity or reconstructing closed protocol states from literal strings."
+      ],
+      "provenance": [
+        "docs/architecture/cli-input-types.md"
+      ],
+      "decided_by": "architect",
+      "requires": [
+        {
+          "component": "arguments",
+          "rationale": "Consume the declared typed Namespace and argument decoders."
+        },
+        {
+          "component": "installer",
+          "through": [
+            "archkeel.cli.skill:InstallationAgent",
+            "archkeel.cli.skill:install_skill"
+          ],
+          "rationale": "Dispatch the selected installer through its declared API."
+        }
+      ],
+      "exact_modules": [
+        "archkeel.cli",
+        "archkeel.cli.__main__",
+        "archkeel.cli.config",
+        "archkeel.cli.observe"
+      ],
+      "packages": []
+    }
+  ],
+  "declarations": {
+    "uml": {
+      "schema_version": "1.2.0",
+      "entities": [
+        {
+          "id": "CLI-INPUT-arguments",
+          "kind": "module",
+          "qualified_name": "archkeel.cli.arguments",
+          "language": "python",
+          "parent_id": "CLI-ARGUMENTS",
+          "presence": "planned",
+          "responsibilities": [
+            "Own command grammar, typed closed Namespace fields and wire-compatible choice conversion."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ]
+        },
+        {
+          "id": "CLI-INPUT-skill",
+          "kind": "module",
+          "qualified_name": "archkeel.cli.skill",
+          "language": "python",
+          "parent_id": "CLI-INSTALLER",
+          "presence": "planned",
+          "responsibilities": [
+            "Own supported agent installation and the legacy managed-section grammar."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ]
+        },
+        {
+          "id": "CLI-INPUT-composition",
+          "kind": "module",
+          "qualified_name": "archkeel.cli",
+          "language": "python",
+          "parent_id": "CLI-COMPOSITION",
+          "presence": "planned",
+          "responsibilities": [
+            "Compose parsed inputs with configuration, Core workflows and rendered output."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ]
+        },
+        {
+          "id": "CLI-INPUT-Command",
+          "kind": "enum",
+          "qualified_name": "archkeel.cli.arguments.Command",
+          "language": "python",
+          "parent_id": "CLI-INPUT-arguments",
+          "presence": "planned",
+          "responsibilities": [
+            "Name supported CLI commands and the pre-parse failure context."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ]
+        },
+        {
+          "id": "CLI-INPUT-ReportMode",
+          "kind": "enum",
+          "qualified_name": "archkeel.cli.arguments.ReportMode",
+          "language": "python",
+          "parent_id": "CLI-INPUT-arguments",
+          "presence": "planned",
+          "responsibilities": [
+            "Name the mutually exclusive report projections selected by --only."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ]
+        },
+        {
+          "id": "CLI-INPUT-SkillAction",
+          "kind": "enum",
+          "qualified_name": "archkeel.cli.arguments.SkillAction",
+          "language": "python",
+          "parent_id": "CLI-INPUT-arguments",
+          "presence": "planned",
+          "responsibilities": [
+            "Name supported skill installation actions."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ]
+        },
+        {
+          "id": "CLI-INPUT-ConfigurationSource",
+          "kind": "enum",
+          "qualified_name": "archkeel.cli.arguments.ConfigurationSource",
+          "language": "python",
+          "parent_id": "CLI-INPUT-arguments",
+          "presence": "planned",
+          "responsibilities": [
+            "Distinguish canonical configuration requests from arbitrary selected path data."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ]
+        },
+        {
+          "id": "CLI-INPUT-InstallationAgent",
+          "kind": "enum",
+          "qualified_name": "archkeel.cli.skill.InstallationAgent",
+          "language": "python",
+          "parent_id": "CLI-INPUT-skill",
+          "presence": "planned",
+          "responsibilities": [
+            "Name supported coding agents and select their instruction installation directory."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ]
+        },
+        {
+          "id": "CLI-INPUT-CLIArguments",
+          "kind": "class",
+          "qualified_name": "archkeel.cli.arguments.CLIArguments",
+          "language": "python",
+          "parent_id": "CLI-INPUT-arguments",
+          "presence": "planned",
+          "responsibilities": [
+            "Carry the actual closed CLI parser fields as their owned types."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ]
+        },
+        {
+          "id": "CLI-INPUT-CLIArguments.command",
+          "kind": "attribute",
+          "qualified_name": "archkeel.cli.arguments.CLIArguments.command",
+          "language": "python",
+          "parent_id": "CLI-INPUT-CLIArguments",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the recognized command or absent subcommand."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ],
+          "annotation": "Command | None"
+        },
+        {
+          "id": "CLI-INPUT-CLIArguments.only",
+          "kind": "attribute",
+          "qualified_name": "archkeel.cli.arguments.CLIArguments.only",
+          "language": "python",
+          "parent_id": "CLI-INPUT-CLIArguments",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the selected report projection or an unfiltered report request."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ],
+          "annotation": "ReportMode | None"
+        },
+        {
+          "id": "CLI-INPUT-CLIArguments.action",
+          "kind": "attribute",
+          "qualified_name": "archkeel.cli.arguments.CLIArguments.action",
+          "language": "python",
+          "parent_id": "CLI-INPUT-CLIArguments",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the recognized skill installation action."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ],
+          "annotation": "SkillAction"
+        },
+        {
+          "id": "CLI-INPUT-CLIArguments.agent",
+          "kind": "attribute",
+          "qualified_name": "archkeel.cli.arguments.CLIArguments.agent",
+          "language": "python",
+          "parent_id": "CLI-INPUT-CLIArguments",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain the installer-owned coding-agent selection."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ],
+          "annotation": "InstallationAgent"
+        },
+        {
+          "id": "CLI-INPUT-CLIArguments.language",
+          "kind": "attribute",
+          "qualified_name": "archkeel.cli.arguments.CLIArguments.language",
+          "language": "python",
+          "parent_id": "CLI-INPUT-CLIArguments",
+          "presence": "planned",
+          "responsibilities": [
+            "Retain shared source-fact language identity at the CLI boundary."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ],
+          "annotation": "Language"
+        },
+        {
+          "id": "CLI-INPUT-Parser",
+          "kind": "class",
+          "qualified_name": "archkeel.cli._Parser",
+          "language": "python",
+          "parent_id": "CLI-INPUT-composition",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the typed CLI parsing entry point and preserve argparse's ordinary Namespace API."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ]
+        },
+        {
+          "id": "CLI-INPUT-Parser.parse_cli_args",
+          "kind": "method",
+          "qualified_name": "archkeel.cli._Parser.parse_cli_args",
+          "language": "python",
+          "parent_id": "CLI-INPUT-Parser",
+          "presence": "planned",
+          "responsibilities": [
+            "Parse actual CLI input into the declared Namespace without narrowing argparse's generic API."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "self",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "args",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "Sequence[str] | None",
+                "default": "None"
+              }
+            ],
+            "returns": "CLIArguments"
+          }
+        },
+        {
+          "id": "CLI-INPUT-build_parser",
+          "kind": "function",
+          "qualified_name": "archkeel.cli.build_parser",
+          "language": "python",
+          "parent_id": "CLI-INPUT-composition",
+          "presence": "planned",
+          "responsibilities": [
+            "Declare command grammar, typed subcommand defaults and option converters once."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ],
+          "signature": {
+            "parameters": [],
+            "returns": "_Parser"
+          }
+        },
+        {
+          "id": "CLI-INPUT-report_mode",
+          "kind": "function",
+          "qualified_name": "archkeel.cli.arguments.report_mode",
+          "language": "python",
+          "parent_id": "CLI-INPUT-arguments",
+          "presence": "planned",
+          "responsibilities": [
+            "Decode --only protocol text into ReportMode."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "str"
+              }
+            ],
+            "returns": "ReportMode"
+          }
+        },
+        {
+          "id": "CLI-INPUT-source_language",
+          "kind": "function",
+          "qualified_name": "archkeel.cli.arguments.source_language",
+          "language": "python",
+          "parent_id": "CLI-INPUT-arguments",
+          "presence": "planned",
+          "responsibilities": [
+            "Decode --language protocol text into the shared Language vocabulary."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "str"
+              }
+            ],
+            "returns": "Language"
+          }
+        },
+        {
+          "id": "CLI-INPUT-installation_agent",
+          "kind": "function",
+          "qualified_name": "archkeel.cli.arguments.installation_agent",
+          "language": "python",
+          "parent_id": "CLI-INPUT-arguments",
+          "presence": "planned",
+          "responsibilities": [
+            "Decode agent argument text into the installer-owned InstallationAgent vocabulary."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "str"
+              }
+            ],
+            "returns": "InstallationAgent"
+          }
+        },
+        {
+          "id": "CLI-INPUT-skill_action",
+          "kind": "function",
+          "qualified_name": "archkeel.cli.arguments.skill_action",
+          "language": "python",
+          "parent_id": "CLI-INPUT-arguments",
+          "presence": "planned",
+          "responsibilities": [
+            "Decode action argument text into SkillAction."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "str"
+              }
+            ],
+            "returns": "SkillAction"
+          }
+        },
+        {
+          "id": "CLI-INPUT-configuration_source",
+          "kind": "function",
+          "qualified_name": "archkeel.cli.arguments.configuration_source",
+          "language": "python",
+          "parent_id": "CLI-INPUT-arguments",
+          "presence": "planned",
+          "responsibilities": [
+            "Classify default configuration path data for existing diagnostic guidance."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "path",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "str | None"
+              },
+              {
+                "name": "default",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "str"
+              }
+            ],
+            "returns": "ConfigurationSource"
+          }
+        },
+        {
+          "id": "CLI-INPUT-install_skill",
+          "kind": "function",
+          "qualified_name": "archkeel.cli.skill.install_skill",
+          "language": "python",
+          "parent_id": "CLI-INPUT-skill",
+          "presence": "planned",
+          "responsibilities": [
+            "Install canonical instructions for a supported agent and migrate only a valid owned legacy section."
+          ],
+          "provenance": [
+            "docs/architecture/cli-input-types.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "root",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "Path"
+              },
+              {
+                "name": "agent",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "InstallationAgent | str"
+              }
+            ],
+            "returns": "Path"
+          }
+        }
+      ],
+      "relationships": [],
+      "scopes": []
+    }
+  },
+  "rules": [
+    {
+      "id": "CLI-INTERFACE-BOUNDARY",
+      "kind": "interface_boundary",
+      "rationale": "Argument parsing, installer policy and composition communicate through named typed interfaces.",
+      "provenance": [
+        "docs/architecture/cli-input-types.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "CLI-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.cli",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Commands, modes, agents, languages and parser protocols are converted to owned types before control decisions.",
+      "provenance": [
+        "docs/architecture/cli-input-types.md"
+      ],
+      "decided_by": "architect"
+    }
+  ]
+}
