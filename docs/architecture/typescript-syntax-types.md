@@ -15,7 +15,7 @@ A private node identity map decodes each raw kind once during one parse. Immutab
 and error metadata are captured with it. A `finally` block clears the map on every exit,
 including decoder failure; parser objects and cache state do not escape in the DTOs.
 
-Direct whole-module native comparison guards cover `parse.py` and `collect.py`, without
+Direct whole-module native comparison guards cover `parse.py`, `collect.py` and the input-owning `syntax.py`, without
 exceptions. Independent authored Target intent pins seven semantic domains and eight
 critical DTO fields, and actual source mutations are checked against fixed intent bytes.
 Class/member names, field lookup keys and query-capture names remain open lookup data.
