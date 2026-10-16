@@ -222,6 +222,9 @@ def _placement_model(tmp_path, *, unrelated):
     ]
     assert len(target["rules"]) == 1
     target_path.write_text(json.dumps(target))
+    (root / "archkeel/ir").mkdir()
+    (root / "archkeel/ir/__init__.py").write_text("")
+    (root / "archkeel/ir/model.py").write_text("# Existing allowed placement target.\n")
     if unrelated:
         (root / "archkeel/check/evaluation/unrelated.py").write_text(
             "from enum import StrEnum\nclass Unrelated(StrEnum):\n    VALUE = 'value'\n"
