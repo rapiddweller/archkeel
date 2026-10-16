@@ -1,0 +1,97 @@
+name: Read-only type and contract audit
+on:
+  push:
+    branches: [audit/typed-component-boundaries]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Observe current source and probe uncovered IR type boundary
+        run: |
+          uv run --locked python - <<'PY'
+          import ast
+          import collections
+          import json
+          import pathlib
+          import subprocess
+          import sys
+          
+          from archkeel.ir.codec import decode_canonical_model, parse_observation
+          
+          out = pathlib.Path(".task-audit")
+          out.mkdir(exist_ok=True)
+          
+          def observe(label):
+              output = out / (label + ".json")
+              run = subprocess.run(
+                  [sys.executable, "-m", "archkeel.cli", "report", "--root", ".", "--output", str(output)],
+                  capture_output=True, text=True
+              )
+              if not output.is_file():
+                  raise RuntimeError((run.returncode, run.stdout[-2000:], run.stderr[-2000:]))
+              return parse_observation(decode_canonical_model(json.loads(output.read_bytes())))
+          
+          model = observe("control")
+          constructs = [r for r in model.records("constructs") or () if r.kind == "string_literal_compare"]
+          owners = collections.Counter(r.data.get("owner") for r in constructs)
+          contract_path = pathlib.Path("architecture-contract.json")
+          original = contract_path.read_text()
+          contract = json.loads(original)
+          summary = {
+              "head": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+              "coverage": {"status": model.coverage.status, "rules": model.coverage.rules,
+                           "calls_unresolved": model.coverage.calls_unresolved},
+              "configured_violations": len(model.records("violations") or ()),
+              "string_literal_compares_observed": len(constructs),
+              "string_compare_top_owners": owners.most_common(35),
+              "construct_rule_enabled": any("string_literal_compare" in r.get("constructs", []) for r in contract["rules"]),
+              "boundary_type_sources": [r["source"] for r in contract["rules"] if r["kind"] == "boundary_types"],
+          }
+          literal_aliases = []
+          for source in sorted(pathlib.Path("src/archkeel").rglob("*.py")):
+              tree = ast.parse(source.read_bytes())
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.AnnAssign) and isinstance(node.value, ast.Subscript):
+                      name = ast.unparse(node.value.value)
+                      if name in ("Literal", "typing.Literal"):
+                          literal_aliases.append([str(source), node.lineno, ast.unparse(node.target), ast.unparse(node.value)])
+          summary["literal_aliases"] = literal_aliases
+          print("CONTROL_AUDIT=" + json.dumps(summary, sort_keys=True))
+          try:
+              contract["rules"].append({
+                  "id": "AUDIT-IR-TYPES", "kind": "boundary_types", "source": "archkeel.ir",
+                  "rationale": "Disposable audit probe for the currently uncovered shared API boundary.",
+                  "provenance": ["docs/architecture/archkeel.md"], "decided_by": "agent"
+              })
+              contract_path.write_text(json.dumps(contract, indent=2) + "\n")
+              probe = observe("ir-probe")
+              findings = [r for section in ("violations", "unknowns") for r in probe.records(section) or ()
+                          if "AUDIT-IR-TYPES" in r.rule_ids]
+              summary["ir_boundary_probe"] = {
+                  "counts": dict(collections.Counter(r.kind for r in findings)),
+                  "sample": [{"kind": r.kind, "title": r.title} for r in findings[:25]],
+              }
+          finally:
+              contract_path.write_text(original)
+          (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+          print("BOUNDARY_PROBE=" + json.dumps(summary.get("ir_boundary_probe"), sort_keys=True))
+          
+          PY
+      - name: Retain bounded audit evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: typed-component-boundary-audit
+          path: .task-audit/summary.json
+          retention-days: 7
