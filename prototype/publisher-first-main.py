@@ -10,6 +10,7 @@ PATHS = ["docs/superpowers/plans/2026-10-16-flow-runtime-publication.md","tests/
 root = Path.cwd()
 for ref in (BASE, SCENE, PUBLISHER):
     subprocess.run(["git","fetch","--no-tags","origin",ref], check=True)
+subprocess.run(["git","reset","--hard",BASE],check=True)
 patch = subprocess.check_output(["git","diff","--binary",SCENE,PUBLISHER,"--",*PATHS])
 result = subprocess.run(["git","apply","--3way","--index","-"],input=patch,capture_output=True)
 conflicts = subprocess.check_output(["git","diff","--name-only","--diff-filter=U"]).decode().splitlines()
