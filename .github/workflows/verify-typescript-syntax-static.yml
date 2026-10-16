@@ -1,0 +1,30 @@
+name: TypeScript syntax static verification
+on:
+  push:
+    branches: [verify/542-typescript-syntax-static]
+permissions:
+  contents: read
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: be25d6152ab6f1ddc14cd6514c3c8d825d8d6124
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Format and export exact changes
+        run: |
+          uv run --locked ruff check --select I --fix src/archkeel/analyzer/typescript tests/test_typescript_syntax_types.py tests/test_typescript_control_target.py tests/test_typescript_parse.py tests/test_typescript_inner.py tests/test_typescript_parameter_properties.py tests/test_typescript_decorated_inventory.py
+          uv run --locked ruff format src/archkeel/analyzer/typescript tests/test_typescript_syntax_types.py tests/test_typescript_control_target.py tests/test_typescript_parse.py tests/test_typescript_inner.py tests/test_typescript_parameter_properties.py tests/test_typescript_decorated_inventory.py
+          python - <<'PY'
+          import base64, subprocess
+          print("FORMAT_PATCH=" + base64.b64encode(subprocess.check_output(["git", "diff"])).decode())
+          PY
+      - name: Lint and typecheck
+        run: make lint typecheck
