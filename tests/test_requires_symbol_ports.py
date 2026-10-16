@@ -183,7 +183,8 @@ def _api_repository(tmp_path):
 def test_native_requires_api_is_independent_and_rejects_source_widening(tmp_path, old, new):
     root, config = _api_repository(tmp_path)
     value = _model(root, config)
-    assert architecture_report(value).comparison.status == "PASS"
+    comparison = architecture_report(value).comparison
+    assert comparison.status == "PASS", [(row.aspect, row.status, row.reason, row.target_id) for row in comparison.assessments if row.status != "PASS"]
     assert not trace_valid_violations(value)
     source = root / (
         "archkeel/ir/dependency.py" if old.startswith("class") else "archkeel/ir/model.py"
