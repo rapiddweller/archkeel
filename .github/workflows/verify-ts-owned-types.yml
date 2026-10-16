@@ -1,32 +1,42 @@
-name: TypeScript typed intent amendment
+name: TypeScript owned control types
 on:
   push:
     branches: [fix/542-typescript-owned-control-types]
 permissions:
   contents: read
 jobs:
-  native-against:
+  typed-api:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
         with:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
-      - name: Bind exact typed contract and reduced baseline
+      - name: Test typed compiler and resolver behavior
+        run: uv run --locked python -m pytest -q tests/test_typescript_owned_types.py tests/test_typescript_config.py tests/test_typescript_config_reference.py tests/test_typescript_resolve.py tests/test_typescript_collect.py tests/test_typescript_control_target.py
+      - name: Export formatting
+        if: always()
         run: |
-          set +e
-          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against a82fe0ee484e0b84f28159eed5b8cf5272767ea9 --amendment docs/architecture/decisions/issue-542-typescript-control-amendment.json --write-amendment --decided-by 'ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge' --rationale 'Typed TypeScript compiler options, resolver modes and owned grammar; 17 independent API Target entities, native whole-module guards and named component ports. Lower calls_unresolved from 919 to measured 918; no increased limit, allowance or accepted debt.' > "$RUNNER_TEMP/ts-amend-result.json"
-          task_status=$?
+          uv run --locked ruff check --select I --fix src/archkeel/analyzer/typescript tests/test_typescript_owned_types.py tests/test_typescript_config.py tests/test_typescript_resolve.py tests/test_typescript_control_target.py
+          uv run --locked ruff format src/archkeel/analyzer/typescript tests/test_typescript_owned_types.py tests/test_typescript_config.py tests/test_typescript_resolve.py tests/test_typescript_control_target.py
           python - <<'PY'
-          import json, os, pathlib
-          result = json.loads((pathlib.Path(os.environ['RUNNER_TEMP']) / 'ts-amend-result.json').read_text())
-          print('AMENDMENT_RESULT=' + json.dumps({key: result.get(key) for key in ('exit_code', 'failures', 'diagnostics', 'measurements')}))
-          print('AMENDMENT_JSON=' + pathlib.Path('docs/architecture/decisions/issue-542-typescript-control-amendment.json').read_text().replace('\n', ''))
+          import base64, subprocess
+          print("FORMAT_PATCH=" + base64.b64encode(subprocess.check_output(["git", "diff"])).decode())
           PY
-          exit "$task_status"
+      - name: Lint and typecheck
+        run: make lint typecheck
+      - name: Native baseline
+        if: always()
+        run: uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json
+      - name: Complete compiler differential
+        if: always()
+        run: make typescript-compiler-check typescript-differential

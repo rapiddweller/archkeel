@@ -189,14 +189,15 @@ def _best_pattern(
 
 def _typed_name(specifier: str) -> str:
     """The DefinitelyTyped directory of a package: `@scope/name` is stored as `scope__name`."""
-    if specifier.startswith("@") and "/" in specifier:
+    parts = specifier.split("/")
+    if specifier.startswith("@") and len(parts) > 1:
         return specifier.replace("/", "__", 1)[1:]
     return specifier
 
 
 def _strip_extension(candidate: str) -> tuple[str, str] | None:
     """Split a name into stem and extension the way the compiler does; None without a dot."""
-    if "." not in posixpath.basename(candidate):
+    if re.search(r"\.", posixpath.basename(candidate)) is None:
         return None
     known = next((ext for ext in _KNOWN_EXTENSIONS if candidate.endswith(ext)), None)
     stem = candidate[: -len(known)] if known else candidate[: candidate.rindex(".")]
@@ -476,7 +477,7 @@ class Resolver:
                 return Unknown(f"Package exports map shape is not observed: {name}")
             if exports and all(subpaths):
                 selected = exports.get(key)
-                if selected is None and rest and any("*" in item for item in exports):
+                if selected is None and rest and any(re.search(r"\*", item) for item in exports):
                     return Unknown(f"Package exports patterns are not observed: {name}/{rest}")
             else:
                 selected = exports if not rest else None
