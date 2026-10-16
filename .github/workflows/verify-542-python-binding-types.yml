@@ -24,6 +24,7 @@ jobs:
       - run: uv sync --locked
       - name: Export canonical formatting patch
         run: |
+          uv run --locked ruff format src/archkeel/analyzer/python/binding_types.py src/archkeel/analyzer/python/source.py src/archkeel/analyzer/python/scopes.py src/archkeel/analyzer/python/imports.py src/archkeel/analyzer/python/resolve.py src/archkeel/analyzer/python/calls.py tests/test_typed_python_bindings.py tests/test_binding_proof_reuse.py tests/test_boundary_types_aliases.py
           uv run --locked ruff check --fix src/archkeel/analyzer/python/binding_types.py src/archkeel/analyzer/python/source.py src/archkeel/analyzer/python/scopes.py src/archkeel/analyzer/python/imports.py src/archkeel/analyzer/python/resolve.py src/archkeel/analyzer/python/calls.py tests/test_typed_python_bindings.py tests/test_binding_proof_reuse.py tests/test_boundary_types_aliases.py
           uv run --locked ruff format src/archkeel/analyzer/python/binding_types.py src/archkeel/analyzer/python/source.py src/archkeel/analyzer/python/scopes.py src/archkeel/analyzer/python/imports.py src/archkeel/analyzer/python/resolve.py src/archkeel/analyzer/python/calls.py tests/test_typed_python_bindings.py tests/test_binding_proof_reuse.py tests/test_boundary_types_aliases.py
           python - <<'PY'
