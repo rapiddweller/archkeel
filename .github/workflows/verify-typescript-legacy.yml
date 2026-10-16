@@ -1,4 +1,4 @@
-name: TypeScript558 legacy DTO consumer RED
+name: TypeScript558 legacy DTO consumer GREEN
 on:
   push:
     branches: [verify/issue-542-typescript-legacy-dtos]
@@ -17,4 +17,7 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
-      - run: uv run --locked python -m pytest -q tests/test_typescript_syntax_compatibility.py
+      - run: uv run --locked python -m pytest -q tests/test_typescript_syntax_compatibility.py tests/test_typescript_syntax_types.py tests/test_typescript_parse.py tests/test_typescript_collect.py tests/test_typescript_decorated_inventory.py tests/test_typescript_inner.py tests/test_typescript_parameter_properties.py
+      - run: uv run --locked ruff check src/archkeel/analyzer/typescript tests/test_typescript_syntax_compatibility.py
+      - run: uv run --locked ruff format --check src/archkeel/analyzer/typescript tests/test_typescript_syntax_compatibility.py
+      - run: uv run --locked mypy src/archkeel
