@@ -1,0 +1,36 @@
+name: Probe nominal string-enum scene protocol
+on:
+  push:
+    branches: [verify/542-string-enum-protocol]
+permissions:
+  contents: read
+jobs:
+  string-enum-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - name: Strict real compiler and primitive runtime
+        run: |
+          npx --yes --package typescript@5.9.3 tsc --strict --allowJs --checkJs --noEmit --target ES2022 --module none prototype/string-enum-protocol.ts prototype/string-enum-good.js
+          npx --yes --package typescript@5.9.3 tsc --strict --target ES2022 --module none --outFile "$RUNNER_TEMP/string-enum-protocol.js" prototype/string-enum-protocol.ts
+          cat "$RUNNER_TEMP/string-enum-protocol.js" prototype/string-enum-good.js > "$RUNNER_TEMP/string-enum-runtime.js"
+          node "$RUNNER_TEMP/string-enum-runtime.js"
+      - name: Actual raw-field, cross-domain-field and widened-return rejection
+        run: |
+          set +e
+          npx --yes --package typescript@5.9.3 tsc --strict --allowJs --checkJs --noEmit --target ES2022 --module none prototype/string-enum-protocol.ts prototype/string-enum-negative.js > "$RUNNER_TEMP/string-enum-negative.txt" 2>&1
+          task_type_status=$?
+          set -e
+          cat "$RUNNER_TEMP/string-enum-negative.txt"
+          test "$task_type_status" -ne 0
+          node - "$RUNNER_TEMP/string-enum-negative.txt" <<'JS'
+          const fs = require("fs");
+          const output = fs.readFileSync(process.argv[2], "utf8");
+          if ((output.match(/error TS2322:/g) || []).length !== 3) throw new Error("Expected three nominal errors");
+          JS
