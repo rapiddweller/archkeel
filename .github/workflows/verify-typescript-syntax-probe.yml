@@ -27,6 +27,6 @@ jobs:
           old = "assert result.exit_code == 0 and encoded is not None"
           if old not in text:
               raise ValueError("diagnostic helper precondition")
-          path.write_text(text.replace(old, "print(\"NATIVE_REFUSAL=\" + repr([row.unknown_claim for row in result.diagnostics]))\n    " + old))
+          path.write_text(text.replace(old, "if encoded is not None and result.exit_code:\n        model = parse_observation(decode_canonical_model(json.loads(encoded)))\n        records = {row.id: row for section in model.sections for row in section.records}\n        evidence = {row.id: row for row in model.evidence}\n        valid = {row.id for row in trace_valid_violations(model)}\n        for violation in model.records(\"violations\"):\n            if violation.id not in valid:\n                print(\"INVALID_TRACE=\" + repr({\n                    \"violation\": violation,\n                    \"rules\": [records.get(key) for key in violation.rule_ids],\n                    \"facts\": [(records.get(key), [evidence.get(item) for item in records[key].evidence_ids] if key in records else []) for key in violation.fact_ids],\n                }))\n    " + old))
           PY
           uv run --locked python -m pytest -q 'tests/test_typescript_control_target.py::test_native_parser_and_protocol_strings_fail_without_exceptions[equality-collect]'
