@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: da2c7c53044a70b6657d1c799e3f79b008cfcbe1
+          ref: f624d99286983fa0e26aff5e87835c359ba63d55
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -54,5 +54,6 @@ jobs:
           print("FORMAT_PATCH="+base64.b64encode(patch).decode(),flush=True)
           PY
           uv run --locked ruff check src/archkeel/analyzer/python/constructs.py tests/test_string_predicate_observation.py tests/test_python_string_predicate_target.py
-      - run: uv run --locked mypy src/archkeel
+      - run: make typecheck
+      - run: make lint
       - run: uv run --locked python -m pytest -q tests/test_string_predicate_observation.py tests/test_python_string_predicate_target.py tests/test_string_comparison_observation.py tests/test_analyzer.py tests/test_python_scope_certification.py tests/test_native_violation_filter.py tests/test_enum_graph.py tests/test_enum_reference_claims.py tests/test_violations.py tests/test_trace.py tests/test_repository_hygiene.py tests/test_contract_model.py
