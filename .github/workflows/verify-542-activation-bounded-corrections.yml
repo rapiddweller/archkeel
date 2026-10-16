@@ -1,0 +1,77 @@
+name: Check bounded activation corrections
+on:
+  push:
+    branches: [verify/542-activation-bounded-corrections]
+permissions:
+  contents: read
+jobs:
+  hygiene-and-dart:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 806604354a7a1463c84264a33cee37713a9c8a99
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: |
+          make lint
+          make typecheck
+          uv run --locked python -m pytest -q tests/test_repository_hygiene.py::test_long_functions_have_a_named_reason tests/test_dart_inner_collect.py::test_native_process_collects_dart_declarations_and_member_coverage tests/test_dart_inner_collect.py::test_native_declarations_project_enum_literals_interfaces_and_signatures tests/test_dart_inner_collect.py::test_native_duplicate_attributes_do_not_publish_unique_graph_members tests/test_dart_inner_collect.py::test_native_constructor_returns_setters_and_private_names_keep_dart_semantics tests/test_dart_parse.py::test_const_redirecting_factory_and_equality_operator_metadata
+      - name: Inventory real existing legacy input uses
+        run: |
+          rg -n 'is_builtin|is_relative|\\bRole\\b' src/archkeel/analyzer/typescript tests/test_typescript_*.py docs/architecture/typescript*
+          git status --porcelain
+  actual-field-owner-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 26bb5c70dea540d5292d066834f16573b244aeaa
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Measure the real annotation without changing resolver authority
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/field-probe-before" 806604354a7a1463c84264a33cee37713a9c8a99
+          uv run --locked archkeel report --root "$RUNNER_TEMP/field-probe-before" --output "$RUNNER_TEMP/field-probe-before.json" > "$RUNNER_TEMP/field-probe-before.stdout"
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/field-probe-after.json" > "$RUNNER_TEMP/field-probe-after.stdout"
+          uv run --locked python - <<'PY'
+          import dataclasses,json,os,subprocess
+          from pathlib import Path
+          from archkeel.ir.codec import decode_canonical_model,parse_observation,value_bytes
+          from archkeel.ir.references import unreferenced_symbols
+          from archkeel.check.ratchets import measure_python_ratchets
+          from archkeel.ir.decisions import rule_uncertainty_evidence
+          def emit(marker,value): print(marker+"="+json.dumps(value,sort_keys=True,default=str),flush=True)
+          def unknown(model):
+              values=[]
+              for rule,uncertainty in rule_uncertainty_evidence(model).items():
+                  for record in uncertainty.evidence:
+                      values.append({"rule":rule,"id":record.id,"kind":record.kind,"data":json.loads(value_bytes(record.data))})
+              return sorted(values,key=lambda row:json.dumps(row,sort_keys=True))
+          temporary=Path(os.environ["RUNNER_TEMP"])
+          models={}
+          for label in ("before","after"):
+              model=parse_observation(decode_canonical_model(json.loads((temporary/("field-probe-"+label+".json")).read_bytes())))
+              models[label]=model
+              measured=measure_python_ratchets(model)
+              emit("FIELD_PROBE_NATIVE",{"label":label,"scalars":dict(measured.scalars.items()),"partial":model.coverage.calls_partially_resolved})
+              emit("FIELD_PROBE_PREDICATE_CALLS",{"label":label,"rows":[dataclasses.asdict(row) for row in model.records("calls") or () if row.data.get("expression")=="self.comparisons.predicate"]})
+              emit("FIELD_PROBE_CANDIDATES",{"label":label,"rows":[dataclasses.asdict(row) for row in unreferenced_symbols(model).candidates]})
+              emit("FIELD_PROBE_OWNER_SYMBOL",{"label":label,"rows":[dataclasses.asdict(row) for row in model.records("symbols") or () if "ConstructCollector" in str(row.data.get("qualified_name"))]})
+          before,after=unknown(models["before"]),unknown(models["after"])
+          emit("FIELD_PROBE_UNKNOWN_DIFF",{"equal":before==after,"before":len(before),"after":len(after)})
+          emit("EXACT_FIELD_PROBE",{"head":subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip(),"dirty":subprocess.check_output(["git","status","--porcelain"],text=True).strip()})
+          
+          PY
