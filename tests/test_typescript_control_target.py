@@ -150,12 +150,6 @@ def test_native_parser_and_protocol_strings_fail_without_exceptions(tmp_path, mo
 
 
 def test_own_observation_proves_both_migrated_module_guards(self_observation):
-    print("TS_OWN_UNKNOWNS=" + json.dumps([
-        {"kind": row.kind, "subjects": row.subjects, "data": dict(row.data)}
-        for row in self_observation.records("unknowns")
-        if any(str(subject).startswith(MODULE) for subject in row.subjects)
-        or str(row.data.get("qualified_name", "")).startswith(MODULE)
-    ]))
     for name in GUARDS:
         rule = _rule(self_observation, name)
         assert rule.status == "PASS" and rule.evaluation_proven, rule

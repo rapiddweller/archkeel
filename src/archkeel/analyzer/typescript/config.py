@@ -497,7 +497,7 @@ def _invalid(options: dict[str, object]) -> list[str]:
     refused = [
         f"Compiler option 6046: argument for '{name}' is not valid."
         for name, choices in _ENUMS.items()
-        if options.get(name) is not None and choices.get(_normalized(options.get(name))) is None
+        if options.get(name) is not None and choices.get(_normalized(options, name)) is None
     ]
     malformed: list[str] = []
     booleans = _BOOLEAN_OPTIONS | (frozenset(_UNMODELED) - _STRING_LIST_OPTIONS)
@@ -515,8 +515,9 @@ def _invalid(options: dict[str, object]) -> list[str]:
     return [*unknown, *refused, *malformed]
 
 
-def _normalized(value: object) -> str:
-    """Normalize raw input text only; the owned lookup decides whether it is accepted."""
+def _normalized(options: Json, key: str) -> str:
+    """Normalize one raw option; the owned lookup decides whether it is accepted."""
+    value = options.get(key)
     return value.lower() if isinstance(value, str) else ""
 
 
@@ -540,16 +541,16 @@ def _paths(raw: dict[str, object], problems: list[str]) -> tuple[tuple[str, tupl
 
 def _options(layer: _Layer, problems: list[str]) -> Options:
     raw = layer.compiler
-    resolution = _RESOLUTION_VALUES.get(_normalized(raw.get("moduleResolution")))
+    resolution = _RESOLUTION_VALUES.get(_normalized(raw, "moduleResolution"))
     paths = _paths(raw, problems)
     unmodeled = [name for name in _UNMODELED if raw.get(name) not in (None, False, [])]
     if any("${configDir}" in target for _, targets in paths for target in targets):
         unmodeled.append("paths with ${configDir}")
     json_flag = raw.get("resolveJsonModule")
     options = Options(
-        _MODULE_VALUES.get(_normalized(raw.get("module"))),
+        _MODULE_VALUES.get(_normalized(raw, "module")),
         resolution,
-        _TARGET_VALUES.get(_normalized(raw.get("target"))),
+        _TARGET_VALUES.get(_normalized(raw, "target")),
         (raw.get("allowJs") if raw.get("allowJs") is not None else raw.get("checkJs")) is True,
         layer.base_url,
         paths,
