@@ -13,7 +13,13 @@ from test_typescript_collect import _facts
 from archkeel.analyzer.typescript import parse as parser
 from archkeel.check.observation import assemble_observation
 from archkeel.ir.decisions import rule_assessments, unknown_positions_by_rule
-from archkeel.ir.facts import ConstructSupport, ForbiddenConstructKind, SourceSectionName
+from archkeel.ir.facts import (
+    ConstructSupport,
+    ForbiddenConstructKind,
+    Language,
+    SourceProfile,
+    SourceSectionName,
+)
 from archkeel.ir.trace import trace_valid_violations
 
 RULE = "WRITTEN-STRING-CONTROL"
@@ -47,7 +53,10 @@ def _model(tmp_path, source, extension="ts", options=None):
         contract_path=path,
         roots=("src",),
         namespace="app",
+        language=Language.TYPESCRIPT,
     )
+    assert observed.analyzer.name == SourceProfile.TYPESCRIPT
+    assert facts.profile is SourceProfile.TYPESCRIPT
     assert path.read_bytes() == fixed_intent
     return facts, observed
 

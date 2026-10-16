@@ -16,11 +16,11 @@ from archkeel.check.observation import _metrics
 from archkeel.check.ratchets import RatchetError, measure_python_ratchets
 from archkeel.ir.codec import (
     delta_payload,
+    observation_payload,
     parse_delta,
     parse_lock,
     parse_measurements,
     parse_observation,
-    observation_payload,
     result_payload,
 )
 from archkeel.ir.lock import LockError, verify_observation

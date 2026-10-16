@@ -35,8 +35,9 @@ Verification sequence:
 6. Run existing TypeScript suites, pinned compiler checks, repository/native gates and the project suite. Record any failures without hiding them.
 7. Return a clean capability PR for independent final Astra review. Browser migration and a real browser-asset HRC CI run remain separate work.
 
-RED evidence before product changes:
-- Hosted run 38954690071: 24 expected missing-evidence/capability assertion failures; 16 conservative controls passed. Actual pinned AST fields were recorded from TS source.
-- Hosted run 38955421952: the same 24 missing-feature failures plus the independent construct-receipt rejection; 44 controls passed, including legacy UML-array replay with constructs=null.
+RED evidence before final product integration:
+- Hosted run 38956449624 uses actual TS/JS collection and explicit Language.TYPESCRIPT assembly against unchanged product code and the fixed authored contract.
+- 25 expected failures: 24 missing-evidence/capability assertions plus the independent construct-receipt rejection. 44 controls passed, including legacy UML-array replay with constructs=null.
+- Earlier RED runs found the same missing collector facts, but their assembly helper retained the Python default. They are not the final TypeScript report-profile proof.
 - The receipt compatibility change preserves the existing optional_sections read API as a derived property. Existing symbols/calls/references/bindings remain one atomic group; constructs is independent.
 - Literal templates require known fragment/escape children. A removed/unknown interpolation kind cannot promote a dynamic template to a static literal.
