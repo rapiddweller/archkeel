@@ -26,18 +26,11 @@ jobs:
           uv run --locked archkeel report --root . --output "$RUNNER_TEMP/ts-review-after.json" > "$RUNNER_TEMP/ts-review-after.stdout"
           uv run --locked python - <<'PY'
           import collections, dataclasses, hashlib, json, os
-          from collections.abc import Mapping
           from pathlib import Path
           from archkeel.check.ratchets import measure_python_ratchets, unresolved_call_changes
           from archkeel.ir.codec import decode_canonical_model, parse_observation
+          from archkeel.ir.codec_wire import value_bytes
           from archkeel.ir.decisions import rule_uncertainty_evidence, unknown_positions_by_rule
-          
-          def plain(value):
-              if isinstance(value, Mapping) or hasattr(value, "items"):
-                  return {key: plain(item) for key, item in value.items()}
-              if isinstance(value, (tuple, list)):
-                  return [plain(item) for item in value]
-              return value
           
           def read(label):
               path = Path(os.environ["RUNNER_TEMP"]) / ("ts-review-" + label + ".json")
@@ -47,7 +40,7 @@ jobs:
               positions, routes, other = [], [], []
               for rule, uncertainty in rule_uncertainty_evidence(model).items():
                   for record in uncertainty.evidence:
-                      row = {"rule": rule, "kind": record.kind, "data": plain(record.data)}
+                      row = {"rule": rule, "kind": record.kind, "data": json.loads(value_bytes(record.data))}
                       if record.kind == "boundary_type_position":
                           if record.data.get("reason") != "external_type":
                               positions.append(row)
@@ -147,7 +140,10 @@ jobs:
               if isinstance(value, enum.Enum):
                   return value.value
               if dataclasses.is_dataclass(value):
-                  return {field.name: normalized(getattr(value, field.name)) for field in dataclasses.fields(value) if field.name!="receiver_kind"}
+                  result = {field.name: normalized(getattr(value, field.name)) for field in dataclasses.fields(value) if field.name!="receiver_kind"}
+                  if "import_bindings" in result:
+                      result["import_bindings"].sort(key=lambda row: json.dumps(row,sort_keys=True))
+                  return result
               if isinstance(value, (tuple, list)):
                   return [normalized(item) for item in value]
               return value
@@ -156,7 +152,10 @@ jobs:
               if isinstance(value, enum.Enum):
                   return value.value
               if dataclasses.is_dataclass(value):
-                  return {field.name: strict(getattr(value, field.name)) for field in dataclasses.fields(value)}
+                  result = {field.name: strict(getattr(value, field.name)) for field in dataclasses.fields(value)}
+                  if "import_bindings" in result:
+                      result["import_bindings"].sort(key=lambda row: json.dumps(row,sort_keys=True))
+                  return result
               if isinstance(value, (tuple, list)):
                   return [strict(item) for item in value]
               return value
