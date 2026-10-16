@@ -383,8 +383,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
     return contract
 
 
-def contract_bytes(contract: ArchitectureContract) -> bytes:
-    """Encode a contract in Contract 2.0 key order so parse_contract returns the same value."""
+def _validate_encoding_version(contract: ArchitectureContract) -> None:
     if contract.schema_version not in {"2.3.0", "3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0"} and (
         any(component.layer is not None for component in contract.components)
         or any(isinstance(rule, LayerOrderRule) for rule in contract.rules)
@@ -426,6 +425,11 @@ def contract_bytes(contract: ArchitectureContract) -> bytes:
         for rule in contract.rules
     ):
         raise ValueError("dependency module selectors require contract schema_version 3.4.0")
+
+
+def contract_bytes(contract: ArchitectureContract) -> bytes:
+    """Encode a contract in Contract 2.0 key order so parse_contract returns the same value."""
+    _validate_encoding_version(contract)
     fields = asdict(contract)
     # An absent permission must preserve existing amendment digests.
     for rule, encoded in zip(contract.rules, fields["rules"], strict=True):
