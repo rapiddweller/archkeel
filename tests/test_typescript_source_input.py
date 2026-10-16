@@ -313,3 +313,23 @@ def test_parser_filename_compatibility_preserves_unknown_fallback_and_newline(na
     syntax = parse(name, b"const answer = <number>1;")
     expected_error = name not in ("a.ts", "a.ts\\n")
     assert (syntax.first_error is not None) is expected_error
+
+
+def test_declaration_cts_keeps_written_commonjs_loader_semantics(tmp_path):
+    import json
+
+    from archkeel.analyzer.typescript.collect import collect
+    from archkeel.ir.facts import BuiltinTarget
+    from fixtures.typescript_differential import request_for
+
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src/main.d.cts").write_text('const fs = require("node:fs");')
+    (tmp_path / "tsconfig.json").write_text(json.dumps(
+        {"compilerOptions": {"moduleResolution": "node"}, "files": ["src/main.d.cts"]}
+    ))
+    facts = collect(request_for(tmp_path, ("src",), "app"))
+    assert any(isinstance(target, BuiltinTarget) for target in facts.imports)
+    assert not any(
+        "Unproven or shadowed require" in row.data.get("reason", "")
+        for row in facts.coverage.unknowns
+    )
