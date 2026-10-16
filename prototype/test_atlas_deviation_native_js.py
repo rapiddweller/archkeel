@@ -1,31 +1,18 @@
-"""Native observation proves the actual deviation consumer mutation without absence claims."""
+"""Actual JS deviation source supplies a trace-valid positive witness, never absence."""
 
 import json
 import sys
-
-sys.path.insert(0, "tests")
 from pathlib import Path
 
-from test_architecture_demo import _prepare_repo
+sys.path.insert(0, "tests")
+from test_typescript_collect import _facts
 
-from archkeel.analyzer.typescript.collect import collect
-from archkeel.check.ports import ScanConfig
-from archkeel.check.report import run_report
-from archkeel.cli.observe import observe
-from archkeel.ir.codec import decode_canonical_model, parse_observation
-from archkeel.ir.decisions import rule_assessments
-from archkeel.ir.facts import ConstructSupport, Language
-from archkeel.ir.model import ForbiddenConstructKind
-from archkeel.ir.protocol import CollectionRequest, SnapshotInput, SourceScope, TypeScriptSettings
+from archkeel.check.observation import assemble_observation
+from archkeel.ir.decisions import rule_assessments, unknown_positions_by_rule
+from archkeel.ir.facts import ConstructSupport, ForbiddenConstructKind, Language, SourceSectionName
 from archkeel.ir.trace import trace_valid_violations
 
 GUARD = "ATLAS-DEVIATION-NATIVE-CONTROL"
-
-
-def _model(root, config):
-    result, encoded = run_report(root, config=config, analyzer=observe)
-    assert result.exit_code == 0 and encoded is not None, result.diagnostics
-    return parse_observation(decode_canonical_model(json.loads(encoded)))
 
 
 def test_actual_deviation_source_mutation_has_trace_valid_failure(tmp_path):
@@ -33,49 +20,49 @@ def test_actual_deviation_source_mutation_has_trace_valid_failure(tmp_path):
     before = "?.kind === G.AtlasDeviationKind.UNDECLARED"
     assert source.count(before) == 1
     contract = {
-        "schema_version": "2.2.0",
-        "components": [{
-            "id": "deviation", "label": "deviation", "role": "component",
-            "packages": ["browser.deviations"], "public": [],
-            "responsibilities": ["Classify recorded Atlas deviation pairs."],
-            "forbidden_responsibilities": [], "provenance": ["docs/intent.md"],
-        }],
+        "schema_version": "2.1.0", "components": [],
         "rules": [{
-            "id": GUARD, "kind": "forbidden_construct", "source": "browser.deviations",
+            "id": GUARD, "kind": "forbidden_construct", "source": "app",
             "constructs": ["string_literal_compare"], "rationale": "Use the owned kind.",
-            "provenance": ["docs/intent.md"], "decided_by": "architect",
+            "provenance": ["architecture.md"], "decided_by": "architect",
         }],
     }
-    root = _prepare_repo(tmp_path, {
-        "src/deviations.js": source, "contract.json": json.dumps(contract),
-        "docs/intent.md": "The actual consumer uses nominal deviation kinds.\n",
-        "tsconfig.json": json.dumps({"compilerOptions": {"allowJs": True, "checkJs": True},
-                                     "files": ["src/deviations.js"]}),
-    })
-    config = ScanConfig(("src",), "browser", "contract.json", "0" * 64,
-                        language=Language.TYPESCRIPT, tsconfig="tsconfig.json")
-    intent = (root / "contract.json").read_bytes()
-    facts = collect(CollectionRequest(SnapshotInput(str(root), "a" * 40, False),
-        SourceScope(("src",), "browser"), TypeScriptSettings()))
-    from dataclasses import asdict
-    print("ATLAS_JS_FILES=" + json.dumps([asdict(item) for item in facts.files]))
-    support = next(item.status for item in facts.capabilities.constructs
-                   if item.name is ForbiddenConstructKind.STRING_LITERAL_COMPARE)
-    assert support is ConstructSupport.PARTIAL
-    original = _model(root, config)
-    original_rule = next(row for row in rule_assessments(original, undecided_by_rule={})
-                         if row.id == GUARD)
+    path = tmp_path / "contract.json"
+    path.write_text(json.dumps(contract))
+    (tmp_path / "architecture.md").write_text("The actual consumer uses nominal deviation kinds.\n")
+    intent = path.read_bytes()
+
+    def observed(content):
+        facts = _facts(tmp_path, {"src/main.js": content}, options={
+            "module": "CommonJS", "moduleResolution": "Node", "allowJs": True, "checkJs": True,
+        })
+        support = next(item.status for item in facts.capabilities.constructs
+                       if item.name is ForbiddenConstructKind.STRING_LITERAL_COMPARE)
+        assert support is ConstructSupport.PARTIAL
+        model, _ = assemble_observation(facts, contract_root=tmp_path, contract_path=path,
+            roots=("src",), namespace="app", language=Language.TYPESCRIPT)
+        rule = next(row for row in rule_assessments(model,
+            undecided_by_rule=unknown_positions_by_rule(model), complete=model.coverage.status=="PASS")
+            if row.id==GUARD)
+        records = tuple(row for section in facts.sections
+                        if section.name is SourceSectionName.CONSTRUCTS for row in section.records)
+        assert path.read_bytes() == intent
+        return facts, model, rule, records, support
+
+    _, clean, original_rule, original_records, _ = observed(source)
     assert original_rule.status == "UNKNOWN"
-    assert not any(GUARD in row.rule_ids for row in trace_valid_violations(original))
-    (root / "src/deviations.js").write_text(source.replace(before, '?.kind === "undeclared"', 1))
-    mutated = _model(root, config)
-    rule = next(row for row in rule_assessments(mutated, undecided_by_rule={}) if row.id == GUARD)
-    assert rule.status == "FAIL"
-    assert any(GUARD in row.rule_ids for row in trace_valid_violations(mutated))
-    assert (root / "contract.json").read_bytes() == intent
+    assert not original_records
+    assert not any(GUARD in row.rule_ids for row in trace_valid_violations(clean))
+    facts, changed, rule, records, support = observed(
+        source.replace(before, '?.kind === "undeclared"', 1))
+    assert rule.status == "FAIL" and len(records) == 1
+    violations = tuple(row for row in trace_valid_violations(changed) if GUARD in row.rule_ids)
+    assert len(violations) == 1 and violations[0].fact_ids == (records[0].id,)
+    evidence = {row.id: row for row in facts.evidence}
+    assert any(evidence[key].excerpt == '"undeclared"' for key in records[0].evidence_ids)
+    assert path.read_bytes() == intent
     print("ATLAS_NATIVE_JS=" + json.dumps({
         "original_status": original_rule.status, "mutated_status": rule.status,
         "trace_valid": True, "capability": support.value,
-        "construct": ForbiddenConstructKind.STRING_LITERAL_COMPARE.value,
-        "absence_pass_claimed": False,
+        "actual_construct_count": len(records), "absence_pass_claimed": False,
     }))
