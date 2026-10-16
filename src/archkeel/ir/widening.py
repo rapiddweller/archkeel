@@ -26,8 +26,6 @@ from typing import Any, ClassVar, Final, Protocol
 from .baseline import KnownViolation, cycle_contractions, violation_name
 from .measurements import MeasurementBudget, name_drift
 from .model import (
-    DependencyTargetKind,
-    SelectorMatch,
     AllowedDependencyRule,
     ArchitectureContract,
     ArchitectureRule,
@@ -37,6 +35,7 @@ from .model import (
     CompleteRequiresRule,
     ContractComponent,
     ContractDeclarations,
+    DependencyTargetKind,
     ExternalDependencyScopeRule,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
@@ -44,6 +43,7 @@ from .model import (
     NoComponentCyclesRule,
     RequiredComponent,
     RootLayoutRule,
+    SelectorMatch,
     SiblingIsolationRule,
     last_name,
 )
@@ -267,7 +267,8 @@ def _forbidden_dependency_widenings(
                     subject, "target_kind", f"{subject} now permits an absent import namespace"
                 )
             ]
-            if before.target_kind is DependencyTargetKind.MODULE and after.target_kind is DependencyTargetKind.IMPORT_NAMESPACE
+            if before.target_kind is DependencyTargetKind.MODULE
+            and after.target_kind is DependencyTargetKind.IMPORT_NAMESPACE
             else []
         ),
         *_generic_field_widenings(

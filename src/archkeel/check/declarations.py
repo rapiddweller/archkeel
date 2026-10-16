@@ -19,8 +19,6 @@ from archkeel.ir.codec import (
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawRecord, classified
 from archkeel.ir.model import (
-    DependencyTargetKind,
-    SelectorMatch,
     AllowedDependencyRule,
     ArchitectureContract,
     ArchitectureRule,
@@ -31,6 +29,7 @@ from archkeel.ir.model import (
     ContractComponent,
     ContractDeclarations,
     ContractModuleTarget,
+    DependencyTargetKind,
     EvidenceClass,
     ExternalDependencyScopeRule,
     ForbiddenConstructRule,
@@ -39,6 +38,7 @@ from archkeel.ir.model import (
     LayerOrderRule,
     NoComponentCyclesRule,
     RootLayoutRule,
+    SelectorMatch,
     SiblingIsolationRule,
     SymbolPlacementRule,
     public_api_id,
@@ -86,9 +86,21 @@ def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
             "rationale": rule.rationale,
             "allowed_sources": sorted(rule.allowed_sources),
             **({"target_symbol": rule.target_symbol} if rule.target_symbol else {}),
-            **({"source_match": rule.source_match} if rule.source_match is not SelectorMatch.PREFIX else {}),
-            **({"target_match": rule.target_match} if rule.target_match is not SelectorMatch.PREFIX else {}),
-            **({"target_kind": rule.target_kind} if rule.target_kind is not DependencyTargetKind.MODULE else {}),
+            **(
+                {"source_match": rule.source_match}
+                if rule.source_match is not SelectorMatch.PREFIX
+                else {}
+            ),
+            **(
+                {"target_match": rule.target_match}
+                if rule.target_match is not SelectorMatch.PREFIX
+                else {}
+            ),
+            **(
+                {"target_kind": rule.target_kind}
+                if rule.target_kind is not DependencyTargetKind.MODULE
+                else {}
+            ),
         }
     elif isinstance(rule, AllowedDependencyRule):
         area, title, subjects = (

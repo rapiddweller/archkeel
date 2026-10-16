@@ -31,6 +31,7 @@ from archkeel.ir.architecture_projection import (
     UnknownProjection,
     UsageProjection,
 )
+from archkeel.ir.codec_contract import parse_dependency_selector
 
 # Preserve the established command-view imports while their implementation has one owner.
 from archkeel.ir.command_view import (
@@ -69,9 +70,8 @@ from archkeel.ir.command_view import (
 from archkeel.ir.command_view import (
     unknown_groups as unknown_groups,
 )
-from archkeel.ir.codec_contract import parse_dependency_selector
-from archkeel.ir.dependency import DependencySelector
 from archkeel.ir.decisions import rule_assessment_applies_to_component
+from archkeel.ir.dependency import DependencySelector
 from archkeel.ir.facts import Record
 from archkeel.ir.model import (
     RULE_KINDS,
@@ -80,7 +80,6 @@ from archkeel.ir.model import (
     DiagnosticError,
     Observation,
     RequiredComponent,
-    declared_package_pair,
     module_in_ownership,
     requires_covers,
     text_value,
@@ -178,7 +177,8 @@ def _pair_permission_rules(
     selectors: dict[str, DependencySelector],
 ) -> tuple[Record, ...]:
     return tuple(
-        rule for rule in level_rules
+        rule
+        for rule in level_rules
         if rule.id in selectors and selectors[rule.id].component_pair(owners) == pair
     )
 

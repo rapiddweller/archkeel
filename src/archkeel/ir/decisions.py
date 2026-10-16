@@ -45,11 +45,9 @@ from .model import (
     RuntimeInfo,
     Section,
     ViolationCounts,
-    declared_package_pair,
     in_scope,
     module_in_ownership,
     stable_id,
-    text_value,
 )
 from .model import (
     RuleUncertaintyCause as RuleUncertaintyCause,

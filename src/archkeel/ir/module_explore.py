@@ -21,8 +21,8 @@ from .architecture_graph import (
     RuleAssessment,
 )
 from .codec_contract import parse_dependency_selector
-from .dependency import DependencySelector
 from .decisions import _rule_receipt_complete, rule_assessments
+from .dependency import DependencySelector
 from .interfaces import component_owners, owner_of
 from .levels import inside_levels
 from .model import (
@@ -31,7 +31,6 @@ from .model import (
     Observation,
     Record,
     in_scope,
-    module_in_ownership,
     text_value,
 )
 from .report_graph import architecture_report

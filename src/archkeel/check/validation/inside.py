@@ -10,17 +10,17 @@ from pathlib import Path
 
 from archkeel.ir.codec import InsideContractMount, InsideContractTree
 from archkeel.ir.model import (
-    DependencyTargetKind,
-    SelectorMatch,
     AllowedDependencyRule,
     ArchitectureContract,
     CompleteRequiresRule,
     ContractComponent,
+    DependencyTargetKind,
     Diagnostic,
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
     Observation,
     RecordData,
+    SelectorMatch,
     component_owns_module,
     in_scope,
     interface_covers_import,

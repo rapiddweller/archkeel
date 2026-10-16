@@ -19,6 +19,13 @@ from .architecture_graph import RootLayoutRule as RootLayoutRule
 from .architecture_graph import RuleAssessment as RuleAssessment
 from .architecture_graph import RuleAssessmentStatus as RuleAssessmentStatus
 from .architecture_graph import contract_relative_path as contract_relative_path
+from .dependency import ComponentOwnership as ComponentOwnership
+from .dependency import DependencySelection as DependencySelection
+from .dependency import DependencySelector as DependencySelector
+from .dependency import DependencyTargetKind as DependencyTargetKind
+from .dependency import ModuleSelection as ModuleSelection
+from .dependency import SelectorMatch as SelectorMatch
+from .dependency import module_in_ownership as module_in_ownership
 from .facts import (
     EVIDENCE_FIELDS as EVIDENCE_FIELDS,
 )
@@ -58,13 +65,6 @@ from .facts import (
 from .facts import (
     stable_id as stable_id,
 )
-from .dependency import ComponentOwnership as ComponentOwnership
-from .dependency import DependencySelection as DependencySelection
-from .dependency import DependencySelector as DependencySelector
-from .dependency import DependencyTargetKind as DependencyTargetKind
-from .dependency import ModuleSelection as ModuleSelection
-from .dependency import SelectorMatch as SelectorMatch
-from .dependency import module_in_ownership as module_in_ownership
 from .host_records import InitialPRHeadEvidence
 from .measurements import MeasurementBudgetName, Measurements, NameBudgetKind
 
@@ -337,8 +337,12 @@ class ForbiddenDependencyRule:
     @property
     def selector(self) -> DependencySelector:
         return DependencySelector(
-            self.source, self.target, self.target_symbol,
-            self.source_match, self.target_match, self.target_kind,
+            self.source,
+            self.target,
+            self.target_symbol,
+            self.source_match,
+            self.target_match,
+            self.target_kind,
         )
 
 
@@ -843,7 +847,11 @@ def _rule_references(
     if isinstance(rule, ForbiddenDependencyRule):
         # AD-97: a forbidden SDK library (`dart.io`) is a real target outside the namespace.
         named += [
-            ("target", (rule.target,), rule.target not in external and rule.target_kind is DependencyTargetKind.MODULE)
+            (
+                "target",
+                (rule.target,),
+                rule.target not in external and rule.target_kind is DependencyTargetKind.MODULE,
+            )
         ]
     if isinstance(
         rule,

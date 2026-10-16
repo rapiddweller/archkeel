@@ -62,8 +62,11 @@ def test_typed_selector_is_immutable_and_rejects_untyped_modes():
     selector = rule.selector
     with pytest.raises(FrozenInstanceError):
         selector.source = "other"
-    for field, value in (("source_match", "exact"), ("target_match", "prefix"),
-                         ("target_kind", "module")):
+    for field, value in (
+        ("source_match", "exact"),
+        ("target_match", "prefix"),
+        ("target_kind", "module"),
+    ):
         with pytest.raises(ValueError):
             replace(selector, **{field: value})
 
@@ -80,10 +83,17 @@ def test_record_boundary_decodes_selector_once_without_fake_metadata():
     assert selector.component_pair(_ownership(contract)) is None
 
 
-@pytest.mark.parametrize("field,value", [
-    ("source_match", "typo"), ("target_match", None), ("target_kind", "package"),
-    ("source_match", True), ("source", 7), ("target", ""),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("source_match", "typo"),
+        ("target_match", None),
+        ("target_kind", "package"),
+        ("source_match", True),
+        ("source", 7),
+        ("target", ""),
+    ],
+)
 def test_record_boundary_rejects_invalid_selector_values(field, value):
     [rule] = codec.parse_contract(_contract()).rules
     raw = project_rule_declaration(rule)

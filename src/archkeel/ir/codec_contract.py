@@ -48,11 +48,9 @@ from archkeel.ir.model import (
     ContractPath,
     ContractPathKind,
     ContractReviewScope,
+    CouplingBudget,
     DependencySelector,
     DependencyTargetKind,
-    Record,
-    SelectorMatch,
-    CouplingBudget,
     ExternalDependencyScopeRule,
     FacadeBudget,
     ForbiddenConstructKind,
@@ -61,8 +59,10 @@ from archkeel.ir.model import (
     InterfaceBoundaryRule,
     LayerOrderRule,
     NoComponentCyclesRule,
+    Record,
     RequiredComponent,
     RootLayoutRule,
+    SelectorMatch,
     SiblingIsolationRule,
     SymbolClassKind,
     SymbolPlacementRule,
@@ -445,12 +445,16 @@ def _validate_encoding_version(contract: ArchitectureContract) -> None:
         )
     if contract.schema_version not in {"3.4.0", "3.5.0"} and any(
         isinstance(rule, ForbiddenDependencyRule)
-        and (rule.source_match is not SelectorMatch.PREFIX or rule.target_match is not SelectorMatch.PREFIX)
+        and (
+            rule.source_match is not SelectorMatch.PREFIX
+            or rule.target_match is not SelectorMatch.PREFIX
+        )
         for rule in contract.rules
     ):
         raise ValueError("dependency module selectors require contract schema_version 3.4.0")
     if contract.schema_version != "3.5.0" and any(
-        isinstance(rule, ForbiddenDependencyRule) and rule.target_kind is not DependencyTargetKind.MODULE
+        isinstance(rule, ForbiddenDependencyRule)
+        and rule.target_kind is not DependencyTargetKind.MODULE
         for rule in contract.rules
     ):
         raise ValueError("import namespace targets require contract schema_version 3.5.0")
@@ -836,9 +840,15 @@ def _dependency_selector(data: dict[str, RawJson], label: str) -> DependencySele
         _nonempty(data.get("source"), f"{label}.source"),
         _nonempty(data.get("target"), f"{label}.target"),
         symbol,
-        SelectorMatch(_string(data.get("source_match", SelectorMatch.PREFIX), f"{label}.source_match")),
-        SelectorMatch(_string(data.get("target_match", SelectorMatch.PREFIX), f"{label}.target_match")),
-        DependencyTargetKind(_string(data.get("target_kind", DependencyTargetKind.MODULE), f"{label}.target_kind")),
+        SelectorMatch(
+            _string(data.get("source_match", SelectorMatch.PREFIX), f"{label}.source_match")
+        ),
+        SelectorMatch(
+            _string(data.get("target_match", SelectorMatch.PREFIX), f"{label}.target_match")
+        ),
+        DependencyTargetKind(
+            _string(data.get("target_kind", DependencyTargetKind.MODULE), f"{label}.target_kind")
+        ),
     )
 
 

@@ -72,9 +72,7 @@ class DependencySelector:
         if not isinstance(self.target_kind, DependencyTargetKind):
             raise ValueError("Dependency target kind must use DependencyTargetKind")
 
-    def component_pair(
-        self, components: tuple[ComponentOwnership, ...]
-    ) -> tuple[str, str] | None:
+    def component_pair(self, components: tuple[ComponentOwnership, ...]) -> tuple[str, str] | None:
         """Only a legacy whole-package module ban decides an entire component pair."""
         if (
             self.target_symbol is not None
