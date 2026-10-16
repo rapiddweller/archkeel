@@ -399,3 +399,19 @@ def test_resolver_outcomes_exclude_collector_only_partial_evidence_status():
         assert outcome is collect._FactStatus.UNRESOLVED
         assert record["status"] is outcome
     assert not isinstance(collect._FactStatus.PARTIALLY_RESOLVED, resolve.ResolutionStatus)
+
+
+def test_parser_keywords_do_not_misclassify_identifier_substrings():
+    result = parse.parse(
+        b"class Probe { int staticValue=1; int finalize=2; int constellation=3; "
+        b"int translate=4; static const actual=5; late final int delayed; "
+        b"void method({required int count, int requiredValue=0}) {} }"
+    )
+    members = {member.name: member for member in result.definitions[0].members}
+    for name in ("staticValue", "finalize", "constellation", "translate"):
+        member = members[name]
+        assert not any((member.static, member.constant, member.final, member.late))
+    assert members["actual"].static and members["actual"].constant
+    assert members["delayed"].final and members["delayed"].late
+    count, required_value = members["method"].parameters
+    assert count.required and not required_value.required

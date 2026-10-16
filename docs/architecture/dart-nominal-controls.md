@@ -42,19 +42,38 @@ to `syntax.py`, where ten semantic vocabularies have one owner. The private
 cache is cleared in `finally`, including failed parses. Unknown node kinds
 continue exposing their children and never become a known default.
 
-Against the final shared-wire predecessor, product Python grows by 927 lines;
+Against the final shared-wire predecessor, product Python grows by 930 lines;
 much of the diff replaces terse string comparisons with explicit owned types
 and wraps the resulting longer expressions. The inner Target grows by 1,139
 JSON lines to bind actual DTO owners, nominal fields and used APIs. It contains
 no historical report snapshots or second enumeration of the parser grammar.
 
-Verification on the final product source f7dba446749bad70baaeec7a3df29cf904e793b0:
+Verification after the final resolver/fact status-domain separation:
 
-- [Hosted source and native checks](https://github.com/rapiddweller/archkeel/actions/runs/38947340229): 356 Dart tests, strict mypy across 133 source modules, Ruff, 11 hygiene checks, native source mutations and the ordinary amendment writer passed.
+- [Hosted source and native checks](https://github.com/rapiddweller/archkeel/actions/runs/38949475367): 357 Dart tests, strict mypy across 133 source modules, Ruff, 11 hygiene checks, native source mutations and the ordinary amendment writer passed.
 - The native run measured zero violations, 52 typing positions, 58 unknown positions and 871 unresolved calls. The actual shared-wire predecessor had 918 unresolved calls; the baseline tightens to 871, with no increased allowance or exception.
-- All 111 complete Compass syntax projections match the original parser exactly. Five full-fixture parse batches measured a median 2.88 seconds originally and 4.66 seconds with nominal nodes. The additional 1.78 seconds is a real parse cost; this change makes no report-rendering performance claim.
-- [Compass, Flutter and Chromium checks](https://github.com/rapiddweller/archkeel/actions/runs/38947367733): 24 passed, including complete project reports, navigation and mutations. The existing conservative analysis unknowns remain visible.
+- All 111 complete Compass syntax projections match the original parser exactly. Five full-fixture parse batches measured a median 2.94 seconds originally and 4.80 seconds with nominal nodes. The additional 1.86 seconds is a real parse cost; this change makes no report-rendering performance claim.
+- [Compass, Flutter and Chromium checks](https://github.com/rapiddweller/archkeel/actions/runs/38949500731): 24 passed, including complete project reports, navigation and mutations. The existing conservative analysis unknowns remain visible.
 
 The normal amendment binds the actual final shared-wire predecessor
 `1f9cd588c21d2e485e8d7cf75b4c7a7e41ba793d`, the root policy and the measured
 baseline. Independent final Astra review is still required before merge.
+
+The resolver outcome domain retains its original three meanings: resolved,
+unknown and unresolved. The collector separately owns the three emitted fact
+statuses: resolved, partially resolved and unresolved. Shared spellings refer
+to the resolver enum definitions, and collector decisions retain the nominal
+fact status rather than reading it back from JSON.
+
+Independent review added a semantic comparison against the actual predecessor:
+all 58 budget-relevant UNKNOWN positions, their per-rule counts and all 20
+recorded reexport routes have no additions or removals. Location/evidence IDs
+are intentionally excluded from this semantic comparison.
+
+Keyword recognition intentionally fixes four original substring false positives:
+`staticValue`, `finalize`, `constellation` and `translate` no longer mark ordinary
+fields as static, final, const or late. Real keywords and required parameters
+remain positive. A focused regression records both sides of this distinction.
+The 111-project-file equivalence claim is specific to the Compass corpus.
+
+A smaller decoder was also measured in [a separate hosted comparison](https://github.com/rapiddweller/archkeel/actions/runs/38949613298): deriving lookup dictionaries from the actual enum members preserved all 111 projections but changed the median only from 4.668 to 4.516 seconds (~3.2%). No additional global lookup tables were added for that small measured difference.

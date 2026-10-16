@@ -1181,9 +1181,7 @@ class _Collection:
         )
         if resolved.status != ResolutionStatus.RESOLVED:
             status = (
-                _FactStatus.PARTIALLY_RESOLVED
-                if call and target_names
-                else _FactStatus.UNRESOLVED
+                _FactStatus.PARTIALLY_RESOLVED if call and target_names else _FactStatus.UNRESOLVED
             )
         if construction_status is not None:
             status = (
