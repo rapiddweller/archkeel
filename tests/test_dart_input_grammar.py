@@ -59,7 +59,6 @@ def test_old_binding_constructor_derives_owned_visibility_once(keyword):
 
 def test_actual_named_constructor_visibility_and_const_are_not_name_prefixes():
     result = parse.parse(
-        "lib/widget.dart",
         b"class constance { constance(); const constance.fixed(); constance._hidden(); }",
     )
     assert result.complete and not result.concerns
@@ -80,12 +79,12 @@ def test_actual_named_constructor_visibility_and_const_are_not_name_prefixes():
     ],
 )
 def test_comment_grammar_keeps_actual_strings_and_nested_comments(source):
-    result = parse.parse("lib/input.dart", source)
+    result = parse.parse(source)
     assert result.complete and result.first_error is None
 
 
 def test_unclosed_nested_comment_retains_concern_and_source_position():
-    result = parse.parse("lib/input.dart", b"void main() {}\n/* outer /* inner */")
+    result = parse.parse(b"void main() {}\n/* outer /* inner */")
     assert not result.complete
     assert result.concerns
     assert any(concern.span.line == 2 for concern in result.concerns)
