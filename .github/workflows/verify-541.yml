@@ -1,13 +1,13 @@
-name: Verify native dependency API
+name: Trace native alias proof dependencies
 on:
   push:
     branches: [verify/541-native-api-tests]
 permissions:
   contents: read
 jobs:
-  native:
+  trace:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -17,17 +17,32 @@ jobs:
         with:
           python-version: "3.11.12"
           version: "0.12.13"
-      - name: Lint and types
-        if: always()
+      - name: Trace candidate dependencies in the actual source closure
         run: |
-          uv run --locked ruff format src/archkeel/analyzer/python/source.py src/archkeel/analyzer/python/imports.py tests/test_dependency_api_target.py tests/test_generic_alias_union_proof.py
-          uv run --locked ruff check --fix src/archkeel/analyzer/python/source.py src/archkeel/analyzer/python/imports.py tests/test_dependency_api_target.py tests/test_generic_alias_union_proof.py
-          uv run --locked mypy src
-      - name: Formatting evidence
-        if: always()
-        run: |
-          python - <<'PY'
-          import base64,pathlib
-          for path in ("tests/test_dependency_api_target.py","tests/test_generic_alias_union_proof.py","src/archkeel/analyzer/python/source.py","src/archkeel/analyzer/python/imports.py"):
-              print("FILE:"+path+":"+base64.b64encode(pathlib.Path(path).read_bytes()).decode())
+          uv run --locked python - <<'PY'
+          import pathlib,ast
+          import archkeel.analyzer.python.imports as imported
+          from archkeel.analyzer.python.source import parse_sources,intrinsic_generic_aliases,unproven_member_bindings
+          root=pathlib.Path.cwd()
+          parsed=parse_sources(tuple(sorted((root/"src/archkeel").rglob("*.py"))),root=root,namespace="archkeel").modules
+          modules={module.module:module for module in parsed}
+          imports=imported.collect_imports(parsed,set(modules),{},namespace="archkeel")
+          original=imported._retain_type_reference_protection
+          def retain(modules,candidates,escaped,exposed,transferred):
+              for expression,deps in candidates["archkeel.ir.model"].items():
+                  if "ComponentOwnership" in ast.unparse(expression):
+                      print("CANDIDATE",ast.unparse(expression),deps)
+                      for provider,binding in deps:
+                          print("DEPENDENCY",provider,binding,{"escaped":binding in escaped[provider],"exposed":binding in exposed[provider],"transferred":binding in transferred[provider],"incoming":binding in modules[provider].incoming_member_escapes})
+              return original(modules,candidates,escaped,exposed,transferred)
+          imported._retain_type_reference_protection=retain
+          for name in ("archkeel.ir.model","archkeel.ir.dependency"):
+              print("NATIVE",name,intrinsic_generic_aliases(modules[name]))
+          imported.resolve_reexports(imports,{name:module.all_exports for name,module in modules.items()},parsed)
+          for name in ("archkeel.ir.model","archkeel.ir.dependency"):
+              print("RETAINED",name,[ast.unparse(node) for node in modules[name]._proven_map_union_expressions])
+              print("UNPROVEN",name,unproven_member_bindings(modules[name]))
+          for item in imports:
+              if item["data"]["source_module"]=="archkeel.ir.model" and item["data"]["binding"]=="ComponentOwnership":
+                  print("IMPORT",item)
           PY
