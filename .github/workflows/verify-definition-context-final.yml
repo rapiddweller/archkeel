@@ -1,0 +1,98 @@
+name: Definition context frozen final ports and real collector wire
+on:
+  push:
+    branches: [verify/542-definition-context-final]
+permissions:
+  contents: read
+jobs:
+  ports-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Native frame ports and unchanged source controls
+        run: uv run --locked python -m pytest -q tests/test_definition_context_types.py tests/test_conditional_definitions.py tests/test_repository_hygiene.py --tb=short
+      - name: Ruff
+        if: ${{ always() }}
+        run: uv run --locked ruff check src/archkeel tests/test_definition_context_types.py
+      - name: Format
+        if: ${{ always() }}
+        run: uv run --locked ruff format --check --diff src/archkeel/ir/facts.py src/archkeel/ir/architecture_graph.py src/archkeel/analyzer/python/source.py src/archkeel/analyzer/python/symbols.py src/archkeel/analyzer/python/calls.py tests/test_definition_context_types.py
+      - name: Strict types
+        if: ${{ always() }}
+        run: uv run --locked mypy src/archkeel
+      - name: Exact generated browser vocabulary
+        if: ${{ always() }}
+        run: uv run --locked python tools/browser_graph_protocol.py --check
+  wire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Bind both Core and isolated collector to the actual old and new runtimes
+        run: |
+          uv run --locked python - <<'PY'
+          import os,shutil,subprocess,sys
+          from pathlib import Path
+          root=Path.cwd()
+          out=root/"context-wire"
+          old=out/"old-runtime"
+          shutil.copytree(root/"src"/"archkeel",old/"archkeel")
+          for path in ("ir/facts.py","ir/architecture_graph.py","analyzer/python/source.py","analyzer/python/symbols.py","analyzer/python/calls.py"):
+              before=subprocess.check_output(["git","show","b06fd806ae0e76d340cba44eb7b5e84c887384d6:src/archkeel/"+path])
+              (old/"archkeel"/path).write_bytes(before)
+          driver="from __future__ import annotations\nimport importlib,json,sys,time\nfrom pathlib import Path\nfrom archkeel.cli.config import parse_config\nfrom archkeel.cli.observe import observer_for\nfrom archkeel.check.uml import assemble_uml\nfrom archkeel.check.uml_evaluation import evaluate_uml\nfrom archkeel.ir.codec import canonical_report_bytes,observation_payload\n\nroot=Path(sys.argv[1]).resolve()\nruntime=Path(sys.argv[2]).resolve()\nout=Path(sys.argv[3]).resolve()\nout.mkdir(parents=True,exist_ok=True)\nmodules=(\"archkeel.ir.facts\",\"archkeel.ir.architecture_graph\",\"archkeel.analyzer.python.source\",\"archkeel.analyzer.python.symbols\",\"archkeel.analyzer.python.calls\")\norigins={}\nfor name in modules:\n    actual=Path(importlib.import_module(name).__file__).resolve()\n    expected=runtime/Path(*name.split(\".\")).with_suffix(\".py\")\n    assert actual==expected,(name,actual,expected)\n    origins[name]=str(actual)\nlaunch=\"import importlib,runpy,sys; from pathlib import Path; sys.path.insert(0,\"+repr(str(runtime))+\"); \"\nlaunch+=\"modules=\"+repr(modules)+\"; \"\nlaunch+=\"origins={name:Path(importlib.import_module(name).__file__).resolve() for name in modules}; \"\nlaunch+=\"assert all(path==Path(\"+repr(str(runtime))+\").joinpath(*name.split('.')).with_suffix('.py') for name,path in origins.items()),origins; \"\nlaunch+=\"runpy.run_module('archkeel.analyzer.python.entry',run_name='__main__')\"\nargv=(sys.executable,\"-I\",\"-B\",\"-c\",launch)\n(out/\"runtime-provenance.json\").write_text(json.dumps(dict(core_origins=origins,collector_argv=argv),indent=2))\nfor name in (\"E-runtime\",\"F-architecture\",\"H-uml\",\"K-python-realworld\"):\n    project=root/\"fixtures\"/name\n    config=parse_config((project/\"archkeel.toml\").read_bytes())\n    start=time.perf_counter()\n    result=observer_for(config.language,collector_argv=argv)(\n        project,roots=config.roots,namespace=config.namespace,contract=config.contract,\n        git_head=\"a\"*40,dirty=False,contract_root=project,language=config.language)\n    result=evaluate_uml(assemble_uml(result,project,config.contract))\n    assert result.observation is not None,(name,result.diagnostics)\n    model=observation_payload(result.observation)\n    (out/f\"{name}.json\").write_text(json.dumps(model,sort_keys=True))\n    (out/f\"{name}.canonical.json\").write_bytes(canonical_report_bytes(result.observation))\n    print(\"CONTEXT_REAL_RUNTIME=\"+json.dumps(dict(name=name,runtime=str(runtime),seconds=time.perf_counter()-start,diagnostics=[str(x) for x in result.diagnostics],unknowns=len(model.get(\"unknowns\") or ()),violations=len(model.get(\"violations\") or ()))),flush=True)\n"
+          for label,runtime in (("old",old),("new",root/"src")):
+              env={**os.environ,"PYTHONPATH":str(runtime)}
+              subprocess.run([sys.executable,"-c",driver,str(root),str(runtime),str(out/label)],env=env,check=True)
+          PY
+      - name: Exact all-field wire comparison after the one expected collector digest
+        run: |
+          uv run --locked python - <<'PY'
+          import json
+          from pathlib import Path
+          from archkeel.ir.codec import canonical_report_bytes
+          root=Path("context-wire")
+          def diff(a,b,path=()):
+              if type(a) is not type(b):
+                  return [path]
+              if isinstance(a,dict):
+                  if a.keys()!=b.keys():return [path]
+                  return [q for key in a for q in diff(a[key],b[key],(*path,key))]
+              if isinstance(a,list):
+                  if len(a)!=len(b):return [path]
+                  return [q for i,(x,y) in enumerate(zip(a,b)) for q in diff(x,y,(*path,i))]
+              return [] if a==b else [path]
+          for name in ("E-runtime","F-architecture","H-uml","K-python-realworld"):
+              old=json.loads((root/"old"/f"{name}.json").read_text())
+              new=json.loads((root/"new"/f"{name}.json").read_text())
+              changes=diff(old,new)
+              assert changes==[("analyzer","code_digest")],(name,changes[:30])
+              new["analyzer"]["code_digest"]=old["analyzer"]["code_digest"]
+              assert canonical_report_bytes(old)==canonical_report_bytes(new),name
+              print("CONTEXT_REAL_FIXTURE_WIRE_PARITY="+json.dumps(dict(name=name,only_changed_path=changes,bytes=len(canonical_report_bytes(old)),status="PASS")))
+          
+
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() }}
+        with:
+          name: definition-context-actual-collector-wire
+          path: |
+            context-wire/old/*.json
+            context-wire/new/*.json
