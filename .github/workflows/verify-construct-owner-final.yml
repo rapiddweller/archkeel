@@ -1,0 +1,74 @@
+name: Verify frozen qualified construct-owner fix
+on:
+  push:
+    branches: [verify/issue-542-construct-owner-receipt-final]
+permissions:
+  contents: read
+jobs:
+  frozen-native-quality-and-no-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Verify exact already-tested product and unchanged intent
+        run: |
+          git diff --exit-code a0cb458217534a96fec1538ae18c9e33b99a2555 -- src/archkeel/check/evaluation/rules.py tests/test_string_comparison_observation.py docs/rules.md
+          git diff --exit-code 68b656668a3fdbbbe482881d0dab41ff89a21ca3 -- architecture-contract.json architecture-baseline.json schema docs/architecture/contracts Makefile
+      - run: |
+          uv run --locked ruff check src/archkeel/check/evaluation/rules.py tests/test_string_comparison_observation.py
+          uv run --locked ruff format --check src/archkeel/check/evaluation/rules.py tests/test_string_comparison_observation.py
+          make typecheck
+          uv run --locked python -m pytest -q tests/test_string_comparison_observation.py tests/test_repository_hygiene.py --tb=short
+      - name: Inspect the actual optional normal-writer binding
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          assert not Path("docs/architecture/decisions/issue-542-construct-owner-subjects-amendment.json").exists()
+          PY
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 68b656668a3fdbbbe482881d0dab41ff89a21ca3 --amendment docs/architecture/decisions/issue-542-construct-owner-subjects-amendment.json --write-amendment --decided-by 'ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra source review' --rationale 'Verify the unchanged intent of actual qualified construct-owner selection; no contract, budget, allowance or baseline changes; docs/architecture/construct-owner-subjects.md.' > "$RUNNER_TEMP/construct-owner-writer.json"
+          writer_status=$?
+          set -e
+          uv run --locked python - "$RUNNER_TEMP/construct-owner-writer.json" <<'PY'
+          import json,pathlib,sys
+          from archkeel.ir.amendment_codec import amendment_bytes,parse_amendment
+          value=json.loads(pathlib.Path(sys.argv[1]).read_text())
+          print("CONSTRUCT_OWNER_FINAL_WRITER="+json.dumps({key:value.get(key) for key in ("exit_code","failures","diagnostics","measurements","amendment_status")},separators=(",",":")))
+          assert value["exit_code"]==0 and not value["failures"] and not value["diagnostics"]
+          path=pathlib.Path("docs/architecture/decisions/issue-542-construct-owner-subjects-amendment.json")
+          assert path.is_file()
+          raw=json.loads(path.read_bytes())
+          artifact=parse_amendment(raw)
+          assert amendment_bytes(artifact)==path.read_bytes()
+          assert artifact.before_digest==artifact.after_digest
+          assert artifact.before_baseline_digest==artifact.after_baseline_digest
+          print("CONSTRUCT_OWNER_OPTIONAL_RECEIPT="+json.dumps(raw,separators=(",",":")))
+          path.unlink()
+          assert not path.exists()
+          PY
+          exit "$writer_status"
+      - name: Validate committed source without writing an amendment
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 68b656668a3fdbbbe482881d0dab41ff89a21ca3 > "$RUNNER_TEMP/construct-owner-no-write.json"
+          native_status=$?
+          set -e
+          python - "$RUNNER_TEMP/construct-owner-no-write.json" <<'PY'
+          import json,pathlib,sys
+          value=json.loads(pathlib.Path(sys.argv[1]).read_text())
+          assert not pathlib.Path("docs/architecture/decisions/issue-542-construct-owner-subjects-amendment.json").exists()
+          print("CONSTRUCT_OWNER_NO_WRITE="+json.dumps({key:value.get(key) for key in ("exit_code","failures","diagnostics","measurements","amendment_status")},separators=(",",":")))
+          assert value["exit_code"]==0 and not value["failures"] and not value["diagnostics"]
+          assert value["measurements"]["scalars"] == {"calls_unresolved":838,"coverage_failures":0,"cycle_edges":0,"private_crossings":0,"typing_positions":52,"unknown_positions":58,"untyped_private_accesses":0,"violations":0}
+          assert value.get("amendment_status") is None
+          PY
+          git diff --exit-code
+          exit "$native_status"
