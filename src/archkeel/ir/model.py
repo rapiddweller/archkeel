@@ -39,10 +39,10 @@ from .diagnostics import DiagnosticCode as DiagnosticCode
 from .diagnostics import DiagnosticError as DiagnosticError
 from .diagnostics import DiagnosticKind as DiagnosticKind
 from .diagnostics import ReportLocation as ReportLocation
-from .facts import FUNCTION_KINDS as FUNCTION_KINDS
 from .facts import (
     EVIDENCE_FIELDS as EVIDENCE_FIELDS,
 )
+from .facts import FUNCTION_KINDS as FUNCTION_KINDS
 from .facts import (
     RECORD_FIELDS as RECORD_FIELDS,
 )
