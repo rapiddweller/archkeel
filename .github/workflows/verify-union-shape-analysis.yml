@@ -1,0 +1,77 @@
+name: Read-only union shape port inventory and call delta
+on:
+  push:
+    branches: [verify/542-union-shape-analysis]
+permissions:
+  contents: read
+jobs:
+  actual-imports-and-callers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: aa84fab9c5bb6833b9ab58bcccbbbb443dc0a114
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Actual AST imports reexports and callers
+        run: |
+          python - <<'PY'
+          import ast,json
+          from pathlib import Path
+          names={"_union_parameters","_union_annotation_verdict","_combined_annotation_verdict","_collection_parameters","_mapping_container_verdict"}
+          rows=[]
+          for base in ("src","tests"):
+              for path in sorted(Path(base).rglob("*.py")):
+                  module=ast.parse(path.read_text(),filename=str(path))
+                  for node in ast.walk(module):
+                      if isinstance(node,ast.ImportFrom):
+                          selected=[{"name":name.name,"asname":name.asname} for name in node.names if name.name in names]
+                          if selected:
+                              rows.append({"file":str(path),"line":node.lineno,"form":"import","module":node.module,"names":selected})
+                      if isinstance(node,ast.Call):
+                          name=node.func.id if isinstance(node.func,ast.Name) else node.func.attr if isinstance(node.func,ast.Attribute) else None
+                          if name in names:
+                              rows.append({"file":str(path),"line":node.lineno,"form":"call","name":name,"expression":ast.unparse(node)})
+          for row in rows:
+              print("UNION_SHAPE_ACTUAL_PORT="+json.dumps(row,sort_keys=True),flush=True)
+          Path("union-shape-ports.json").write_text(json.dumps(rows,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: union-shape-ports
+          path: union-shape-ports.json
+  actual-first-slice-call-delta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: aa84fab9c5bb6833b9ab58bcccbbbb443dc0a114
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Actual first-slice unresolved call changes
+        run: |
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          protected=("architecture-contract.json","architecture-baseline.json","architecture-accepted.json")
+          before={p:Path(p).read_bytes() for p in protected}
+          run=subprocess.run(["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--json","--against","befb7e8ac4adfb39ba2ae4c6b9308f4c33bbd638"],capture_output=True,text=True,check=False)
+          value=json.loads(run.stdout)
+          Path("collection-shape-call-changes.json").write_text(run.stdout)
+          print("COLLECTION_SHAPE_ACTUAL_CALLS="+json.dumps({"base":"befb7e8ac4adfb39ba2ae4c6b9308f4c33bbd638","head":"aa84fab9c5bb6833b9ab58bcccbbbb443dc0a114","exit":run.returncode,"failures":value.get("failures"),"diagnostics":value.get("diagnostics"),"measurements":value.get("measurements"),"unresolved_call_changes":value.get("unresolved_call_changes")},sort_keys=True),flush=True)
+          assert all(Path(p).read_bytes()==original for p,original in before.items())
+          assert not subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: collection-shape-call-changes
+          path: collection-shape-call-changes.json
