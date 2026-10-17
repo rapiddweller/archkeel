@@ -1,3 +1,60 @@
+# ArchKeel 4.0.0 — Exact dependency rules and typed controls
+
+Declare narrower component APIs and check more native source evidence.
+
+## Highlights
+
+- **Exact dependency intent.** Opt-in contract **3.4.0** adds exact module
+  selectors; **3.5.0** can forbid an import namespace even after its module has
+  been removed. Contract **3.6.0** adds caller-scoped Python module-object grants without
+  publishing named symbols. `requires.through` also checks exact `module:Symbol`
+  ports. Unexpanded wildcard names remain UNKNOWN when an exact symbol is required.
+- **Substantive responsibilities.** Architect-attributed components containing
+  only `TODO`, `TBD` or `placeholder` markers now receive
+  `responsibility.missing`. Validation exits 2; agent drafts remain accepted.
+  Non-placeholder prose still does not prove that a responsibility is correct.
+- **More precise native controls.** Python observes supported literal equality,
+  membership, `match`, stable imported constants and guarded Enum values at their
+  actual lexical owners, preserving physical source lines. TypeScript/JavaScript
+  observes written string comparisons and switch cases as PARTIAL evidence:
+  witnessed violations can FAIL, while an empty inventory cannot prove PASS.
+  Dart local callables retain lexical precedence over imported names.
+- **Shared control types.** Covered Core, collector and browser boundaries use
+  owned nominal vocabularies, checked ingress and native regression guards.
+  This is a bounded migration; remaining string-control work in
+  [#542](https://github.com/rapiddweller/archkeel/issues/542) stays open.
+- **Less repeated collector work.** Python member-escape propagation indexes
+  dotted prefixes once per convergence pass and preserves live binding updates.
+  This removes repeated per-import scans; it does not guarantee a runtime budget
+  on every project or runner.
+- **Report and review corrections.** Published browser assets include the current
+  runtime. Direct UML scopes use more edge spacing. Repeated-logic review
+  candidates can distinguish complete, resolved call sequences; ambiguous
+  evidence retains the candidate and proves no runtime equivalence.
+
+## Upgrade from 3.0.1
+
+```sh
+uv tool upgrade archkeel
+```
+
+**Upgrade strict readers and collectors together.** New TypeScript observations
+can include a `constructs` section that the 3.0.1 report reader rejects. This is
+an incompatible profile expansion and requires the new package major. SourceFacts
+and protocol remain **3.0.0**, ArchitectureIR/Delta **2.0.0**, and command-result
+**8.0.0**; unchanged version numbers do not make the new profile readable by an
+older Core. Existing legacy TypeScript receipts remain supported by this release.
+
+CLI options, configuration and documented `archkeel.api` exports retain their
+interfaces. Existing contract versions remain supported; older releases reject
+the new opt-in contract fields. Analyzer corrections can change findings and
+identities: re-observe both revisions with the same package before comparing
+snapshots. Saved reports retain their original evidence.
+
+Static evidence still does not establish compiler parity, runtime correctness or
+complete language coverage. See [known limits](docs/known-limits.md),
+[dependency rules](docs/rules.md) and the [compatibility policy](docs/reference.md#compatibility).
+
 # ArchKeel 3.0.1 — Scoped proof and quieter reports
 
 Check the rules whose evidence is complete, while keeping real analysis limits visible.

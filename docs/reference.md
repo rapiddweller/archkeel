@@ -33,6 +33,13 @@ Version 3.0.1 introduces command-result schema 8 for confirmed FAIL alongside an
 incomplete report. Strict consumers must update their schema; version 6/7 readers
 remain supported. See the [3.0.1 upgrade notes](../RELEASE_NOTES.md#upgrade-from-200).
 
+Version 4.0.0 expands the TypeScript profile with optional PARTIAL construct
+evidence. The 3.0.1 Core/report reader rejects that receipt, even though SourceFacts
+and protocol remain 3.0.0 and ArchitectureIR remains 2.0.0. Upgrade the package,
+collectors and strict profile consumers together, then re-observe both comparison
+revisions. Current readers retain legacy TypeScript receipts. See the
+[4.0.0 upgrade notes](../RELEASE_NOTES.md#upgrade-from-301).
+
 ## Configuration
 
 [The schema](../schema/archkeel.schema.json) defines `archkeel.toml`:

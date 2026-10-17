@@ -71,7 +71,11 @@ they do not provide compiler type checking or Python-style symbol/type rules.
 Type and value definitions with the same name can match distinct UML intent;
 same-namespace duplicates, class/enum overlaps and declaration merging remain UNKNOWN
 ([AD-233](architecture/decisions/ad-233-typescript-namespace-identities.md)).
-Construct, call and private-use metrics remain unavailable. Computed/indirect
+Written string comparisons and switch cases provide PARTIAL construct evidence:
+observed prohibited forms can FAIL, but an empty inventory remains UNKNOWN.
+Other construct forms, call and private-use metrics remain unavailable. See
+[supported string controls](architecture/typescript-written-string-controls.md).
+Computed/indirect
 loaders, incomplete JavaScript closure and missing resolver inputs retain UNKNOWN, as do
 `extends` through a package, `exports` and `typesVersions` maps, and syntax the
 grammar cannot parse (`import('x').T<G>`, `export type *`).
