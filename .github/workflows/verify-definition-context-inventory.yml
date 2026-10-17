@@ -1,0 +1,32 @@
+name: Read-only Python definition context inventory
+on:
+  push:
+    branches: [verify/542-definition-context-inventory]
+permissions:
+  contents: read
+jobs:
+  references:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exact declared source
+        run: git rev-parse HEAD
+      - name: Actual references and tuple ingress
+        run: |
+          rg -n '\b(DefinitionContexts|definition_sites|control_flow_contexts|_branch_context|DefinitionContextKind|DefinitionBranchKind)\b' src tests docs/architecture/contracts tools
+          python3 - <<'PY'
+          import ast,json
+          from pathlib import Path
+          for parent in ("src","tests","tools"):
+              for path in Path(parent).rglob("*.py"):
+                  tree=ast.parse(path.read_bytes())
+                  for node in ast.walk(tree):
+                      if not isinstance(node,ast.Call):continue
+                      func=node.func
+                      name=func.id if isinstance(func,ast.Name) else func.attr if isinstance(func,ast.Attribute) else None
+                      if name in {"definition_sites","control_flow_contexts","_branch_context","_definition_symbol"}:
+                          print("CONTEXT_CALL="+json.dumps(dict(file=str(path),line=node.lineno,name=name,args=len(node.args),keywords=[k.arg for k in node.keywords],expression=ast.unparse(node))))
+          PY
