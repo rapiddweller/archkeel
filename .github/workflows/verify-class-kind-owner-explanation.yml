@@ -1,0 +1,35 @@
+name: Explain classifier alias ownership comparison
+on:
+  push:
+    branches: ["verify/542-class-kind-owner-explanation"]
+permissions:
+  contents: read
+jobs:
+  explain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 8fdddcf63435259246069b063ead4a998a988198
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: |
+          uv run --locked python - <<'PY'
+          import dataclasses,json,sys
+          import pytest
+          sys.path.insert(0,"tests")
+          import test_typed_symbol_class_kinds as test
+          original=test.architecture_report
+          def explained(model):
+              report=original(model)
+              print("ACTUAL_OWNER_COMPARISON="+json.dumps(dataclasses.asdict(report.comparison),default=str,sort_keys=True),flush=True)
+              return report
+          test.architecture_report=explained
+          assert pytest.main(["tests/test_typed_symbol_class_kinds.py","-k","weakening and owner","-q","-s"])==1
+          PY
