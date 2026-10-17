@@ -1,0 +1,56 @@
+name: Source section types bounded verification
+on:
+  push:
+    branches: [verify/542-source-section-types]
+permissions:
+  contents: read
+jobs:
+  bounded:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: b372d18248118d04eade3405a0faadb88889452e
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Existing public ScanResult construction and raw section inputs
+        run: rg -n 'observed_sections=|ScanResult\\(' src tests
+      - name: Actual owned ingress, strict controls, authored Targets and native mutations
+        run: uv run --locked pytest -q tests/test_source_section_types.py
+      - name: Strict actual product
+        if: always()
+        run: uv run --locked mypy --strict src/archkeel
+      - name: Parse actual authored Targets
+        if: always()
+        run: |
+          uv run --locked python - <<'PY'
+          import json
+          from pathlib import Path
+          from archkeel.ir.codec import parse_contract
+          for owner in ("ir","check"):
+              raw=json.loads(Path(f"docs/architecture/contracts/{owner}.json").read_text())
+              raw.pop("$schema",None)
+              parse_contract(raw)
+              print("SECTION_AUTHORED_TARGET_SCHEMA=PASS:"+owner,flush=True)
+          PY
+      - name: Capture style-only corrections
+        if: always()
+        run: |
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          paths=["tests/test_source_section_types.py"]
+          before={path:Path(path).read_text() for path in paths}
+          subprocess.run(["uv","run","--locked","ruff","check","--fix",*paths],check=True)
+          subprocess.run(["uv","run","--locked","ruff","format",*paths],check=True)
+          for path in paths:
+              source=Path(path).read_text()
+              if source!=before[path]:
+                  print("FORMATTED_SOURCE="+json.dumps(dict(path=path,content=source)),flush=True)
+          PY
