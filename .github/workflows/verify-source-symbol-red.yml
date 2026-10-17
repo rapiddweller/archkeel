@@ -1,0 +1,30 @@
+name: Verify source symbol owner RED
+on:
+  push:
+    branches: ['verify/542-source-symbol-red']
+permissions:
+  contents: read
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 7d4e146958bc24293c7bf0b7cf740f6415b2faac
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: '3.11.12'
+          version: '0.12.13'
+      - run: uv sync --locked
+      - run: |
+          uv run --locked python - <<'PY'
+          import subprocess
+          result = subprocess.run(["uv","run","--locked","pytest","-q","tests/test_source_symbol_kind_types.py::test_existing_known_symbol_owner_and_function_subset_have_one_identity"],capture_output=True,text=True)
+          print(result.stdout)
+          print(result.stderr)
+          assert result.returncode == 1 and "1 failed" in result.stdout
+          assert "one Facts-owned source symbol vocabulary" in result.stdout
+          assert "ERROR collecting" not in result.stdout
+          PY
+      - run: git diff --exit-code
