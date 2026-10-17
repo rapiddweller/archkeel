@@ -1,7 +1,7 @@
 name: Source name visibility actual native sites
 on:
   push:
-    branches: [verify/542-source-name-visibility-gates]
+    branches: [verify/542-source-name-visibility-native-debug]
 permissions:
   contents: read
 jobs:
