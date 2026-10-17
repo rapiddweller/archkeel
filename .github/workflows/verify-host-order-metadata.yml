@@ -1,85 +1,17 @@
-name: Verify complete host event owner integration
+name: Verify frozen committed host event integration
 on:
   push:
     branches: [verify/542-host-order-metadata]
 permissions:
   contents: read
 jobs:
-  affected-and-strict:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: 27775d6f2c5c22a846a9c1dfbe06d573fbbbe966
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-      - run: uv sync --locked
-      - run: uv run --locked pytest -q tests/test_typed_host_events.py tests/test_ordering.py tests/test_host_gitlab.py tests/test_initial_pr_check.py tests/test_github_initial_pr.py tests/test_github_pr_report.py tests/test_snapshot_check.py tests/test_make_gate.py tests/test_enum_graph.py tests/test_repository_hygiene.py
-      - run: |
-          make lint typecheck
-          git diff --exit-code
-      - name: Actual baseline and current host wire, error, ordering equivalence
-        run: |
-          uv run --locked python - <<'PY'
-          import dataclasses,json,subprocess,sys,types
-          from pathlib import Path
-          BASE="68b656668a3fdbbbe482881d0dab41ff89a21ca3"
-          E,H="e"*40,"c"*40
-          P,S="2026-01-01T10:00:00Z","2026-01-01T11:00:00Z"
-          def pair(ref):
-              modules=[]
-              for name,path in (("archkeel.ir.host_records","src/archkeel/ir/host_records.py"),("archkeel.check.ordering","src/archkeel/check/ordering.py")):
-                  code=subprocess.check_output(["git","show",f"{ref}:{path}"],text=True)
-                  module=types.ModuleType(name)
-                  sys.modules[name]=module
-                  exec(compile(code,path,"exec"),module.__dict__)
-                  modules.append(module)
-              return modules
-          def outcome(call):
-              try:
-                  result=call()
-                  if isinstance(result,tuple) and result and dataclasses.is_dataclass(result[0]):
-                      return ("wire",json.dumps([dataclasses.asdict(item) for item in result]))
-                  return ("result",result)
-              except Exception as error:
-                  return ("error",type(error).__name__,str(error))
-          def cases(host,ordering):
-              wire=[{"sha":E,"event":"expectation_published","timestamp":P},{"sha":H,"event":"candidate_submitted","timestamp":S}]
-              results=[]
-              parser_cases=[None,{},(),[],wire,wire[::-1],wire+[wire[0]], [{"sha":E}], [None]]
-              for event in ["future-provider-event","",None,7,True,[],{}]:
-                  for timestamp in [P,"bad"]:
-                      parser_cases.append([wire[0]|{"event":event,"timestamp":timestamp}])
-              for changes in [{"sha":"short","event":"future","timestamp":"bad"},{"timestamp":"bad"},{"extra":1}]:
-                  parser_cases.append([wire[0]|changes])
-              for raw in parser_cases:
-                  results.append(outcome(lambda raw=raw:host.parse_records(raw)))
-              order_cases=[[],wire,wire[::-1],[wire[0]], [wire[1]], [wire[0],wire[1]|{"timestamp":P}], [wire[0],wire[1]|{"timestamp":"2026-01-01T09:00:00Z"},wire[1]], [wire[0]|{"sha":H},wire[1]], [wire[0],wire[1]|{"sha":E}]]
-              for event in ["future-provider-event","",None,7,True,[],{}]:
-                  for timestamp in [P,"bad"]:
-                      order_cases.append([wire[0]|{"event":event,"timestamp":timestamp}])
-              for raw in order_cases:
-                  records=tuple(host.HostRecord(**item) for item in raw)
-                  results.append(outcome(lambda records=records:ordering.check_order(records,expectation_sha=E,candidate_sha=H)))
-              return results
-          before=cases(*pair(BASE))
-          after=cases(*pair("HEAD"))
-          assert before==after,[(i,a,b) for i,(a,b) in enumerate(zip(before,after)) if a!=b]
-          print("ACTUAL_OLD_NEW_HOST_WIRE_AND_ORDER_CASES="+str(len(before)))
-          
-          PY
-  normal-metadata:
+  frozen-committed-no-write:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 27775d6f2c5c22a846a9c1dfbe06d573fbbbe966
+          ref: f051e6deee7de905984c1e648376fb88a07cc8a2
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -87,35 +19,30 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
-      - name: Generate actual baseline and receipt through ordinary commands
+      - name: Pin the previously verified product source and unchanged baseline
+        run: |
+          test "$(git rev-parse HEAD)" = "f051e6deee7de905984c1e648376fb88a07cc8a2"
+          git diff --exit-code 27775d6f2c5c22a846a9c1dfbe06d573fbbbe966 -- src schema architecture-baseline.json architecture-contract.json docs/architecture/contracts Makefile tests
+          git diff --exit-code 68b656668a3fdbbbe482881d0dab41ff89a21ca3 -- architecture-baseline.json
+      - name: Verify actual committed receipt without any writer
         run: |
           uv run --locked python - <<'PY'
-          import json,subprocess
+          import json,os,subprocess
           from pathlib import Path
-          base=["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json"]
-          receipt="docs/architecture/decisions/issue-542-host-events-amendment.json"
-          against=["--against","68b656668a3fdbbbe482881d0dab41ff89a21ca3","--amendment",receipt]
-          for label,args in [
-              ("WRITE_BASELINE",["--write-baseline","--json"]),
-              ("WRITE_RECEIPT",against+["--write-amendment","--decided-by","ake2l","--rationale","Own host ordering events and enforce their typed API.","--json"]),
-              ("NORMAL_NO_WRITE",against+["--json"]),
-          ]:
-              result=subprocess.run(base+args,capture_output=True,text=True)
-              if result.stderr:
-                  print(result.stderr,flush=True)
-              value=json.loads(result.stdout)
-              print("HOST_"+label+"_SUMMARY="+json.dumps({key:value.get(key) for key in ("exit_code","failures","diagnostics","measurements","amendment_status","widenings")},separators=(",",":")),flush=True)
-              placement=next(row for row in value["rule_assessments"] if row["id"]=="TYPES-ENUM-IN-MODEL")
-              print("HOST_"+label+"_PLACEMENT="+json.dumps(placement,separators=(",",":")),flush=True)
-              assert result.returncode==0 and value["exit_code"]==0
-              assert not value["failures"] and not value["diagnostics"]
-              assert placement["status"]=="PASS" and placement["evaluation_proven"]
-              scalars=value["measurements"]["scalars"]
-              assert scalars["typing_positions"]==52 and scalars["unknown_positions"]==58 and scalars["violations"]==0
-              if label=="NORMAL_NO_WRITE":
-                  assert value["amendment_status"]=="valid" and not value["widenings"]
-          for path in ["architecture-baseline.json",receipt]:
-              print("HOST_GENERATED_FILE_JSON="+json.dumps({"path":path,"content":Path(path).read_text()},separators=(",",":")),flush=True)
-          subprocess.run(["git","diff","--stat"],check=True)
+          command=["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--against","68b656668a3fdbbbe482881d0dab41ff89a21ca3","--amendment","docs/architecture/decisions/issue-542-host-events-amendment.json","--json"]
+          result=subprocess.run(command,capture_output=True,text=True)
+          if result.stderr:
+              print(result.stderr,flush=True)
+          value=json.loads(result.stdout)
+          print("HOST_COMMITTED_NO_WRITE="+json.dumps({key:value.get(key) for key in ("exit_code","failures","diagnostics","measurements","amendment_status","widenings")},separators=(",",":")),flush=True)
+          placement=next(row for row in value["rule_assessments"] if row["id"]=="TYPES-ENUM-IN-MODEL")
+          print("HOST_COMMITTED_PLACEMENT="+json.dumps(placement,separators=(",",":")),flush=True)
+          assert result.returncode==0 and value["exit_code"]==0 and value["amendment_status"]=="valid"
+          assert not value["failures"] and not value["diagnostics"] and not value["widenings"]
+          assert placement["status"]=="PASS" and placement["evaluation_proven"]
+          scalars=value["measurements"]["scalars"]
+          assert scalars["typing_positions"]==52 and scalars["unknown_positions"]==58 and scalars["violations"]==0
+          assert subprocess.check_output(["git","status","--porcelain","--untracked-files=all"],text=True)==""
+          subprocess.run(["git","diff","--exit-code"],check=True)
           
           PY
