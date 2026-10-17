@@ -1447,17 +1447,13 @@ def _named_type_verdict(
     )
     if alias is not None:
         return _imported_alias_verdict(alias, module, annotation, imports_by_binding)
-    if isinstance(origin_symbol, dict) and origin_symbol.get("record_kind") == "static_constant":
-        return _Position(undecidable=_Cause.OTHER, resolved=reached, named_origins=reached)
-    if isinstance(origin_symbol, dict) and origin_symbol.get("record_kind") == "dynamic_binding":
-        return _Position(undecidable=_Cause.OTHER, resolved=reached, named_origins=reached)
-    # `resolve_named_type` ruled out an ambiguous location; the surviving class record carries
-    # `class_kind` (AD-30).
-    class_kind = (
-        parse_symbol_class_kind(origin_symbol["class_kind"])
-        if isinstance(origin_symbol, dict)
-        else None
-    )
+    class_kind: SymbolClassKind | None = None
+    if isinstance(origin_symbol, dict):
+        if origin_symbol.get("record_kind") in {"static_constant", "dynamic_binding"}:
+            return _Position(undecidable=_Cause.OTHER, resolved=reached, named_origins=reached)
+        # `resolve_named_type` ruled out an ambiguous location; the surviving class record carries
+        # `class_kind` (AD-30).
+        class_kind = parse_symbol_class_kind(origin_symbol["class_kind"])
     if class_kind is SymbolClassKind.ENUM:
         return _Position(resolved=reached, named_origins=reached)
     return _owned_type_verdict(
