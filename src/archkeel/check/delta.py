@@ -649,7 +649,7 @@ def build_architecture_delta(
             and all(
                 item.status is _ComparisonStatus.SUPPORTED
                 for item in dimensions
-                if delta_dimension_applicable(profile, item.name)
+                if delta_dimension_applicable(profile, _DeltaDimension(item.name))
             )
             else Verdict.FAIL,
             baseline.coverage.status,

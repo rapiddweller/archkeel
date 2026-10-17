@@ -128,9 +128,10 @@ def parse_expectation(raw: object) -> ArchitectureExpectation:
         raise ExpectationError(
             f"architecture expectation schema_version must be {EXPECTATION_SCHEMA_VERSION}"
         )
+    raw_evidence = expectation["evidence_class"]
     try:
-        evidence_class = _EvidenceClass(expectation["evidence_class"])
-    except (ValueError, TypeError):
+        evidence_class = _EvidenceClass(raw_evidence) if isinstance(raw_evidence, str) else None
+    except ValueError:
         evidence_class = None
     if evidence_class is not _EvidenceClass.HYPOTHESIS:
         raise ExpectationError("architecture expectation evidence_class must be HYPOTHESIS")

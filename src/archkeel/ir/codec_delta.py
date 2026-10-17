@@ -345,9 +345,10 @@ def _parse_semantic_change(raw: RawJson, index: int) -> SemanticChange:
 
 def _parse_delta_unknown(raw: RawJson) -> DeltaUnknown:
     unknown = _exact(raw, {"id", "dimension", "reason", "evidence_class"}, "unknown")
+    raw_evidence = unknown["evidence_class"]
     try:
-        evidence_class = _EvidenceClass(unknown["evidence_class"])
-    except (ValueError, TypeError):
+        evidence_class = _EvidenceClass(raw_evidence) if isinstance(raw_evidence, str) else None
+    except ValueError:
         evidence_class = None
     if evidence_class is not _EvidenceClass.UNKNOWN:
         raise ValueError("unknown.evidence_class invalid")

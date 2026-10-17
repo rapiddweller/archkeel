@@ -188,15 +188,17 @@ def _contract():
     contract = contracts[0]
     contract.pop("$schema", None)
     contract["components"] = [
+        row for row in contract["components"]
+        if row["id"] in {"TARGET-FACTS", "TARGET-PROFILES", "TARGET-GOVERNANCE"}
+    ] + [
         dict(
-            id="CORE",
-            label="core",
-            role="component",
-            packages=["archkeel"],
-            responsibilities=["Own actual current Delta control ports."],
-            forbidden_responsibilities=[],
-            provenance=[DOC],
-            public=["archkeel"],
+            id="CORE", label="core", role="component", packages=["archkeel.check"],
+            responsibilities=["Consume the actual current Delta control ports."],
+            forbidden_responsibilities=[], provenance=[DOC], public=["archkeel.check"],
+            requires=[
+                dict(component=name, rationale="Consume its declared typed API.", decided_by="architect")
+                for name in ("facts", "profiles", "governance")
+            ],
         )
     ]
     contract["declarations"] = dict(
@@ -211,7 +213,7 @@ def _contract():
         row
         for original in contracts
         for row in original["rules"]
-        if row["id"].startswith("DELTA-DIMENSION-")
+        if row["id"].startswith("DELTA-DIMENSION-") or row["id"] == "TARGET-COMPLETE_REQUIRES"
     ]
     return contract
 
@@ -353,20 +355,23 @@ def test_native_canonical_owner_relocation_fails_fixed_target(tmp_path):
     source = root / "archkeel/ir/profiles.py"
     text = source.read_text()
     node = next(
-        node for node in ast.parse(text).body
+        node
+        for node in ast.parse(text).body
         if isinstance(node, ast.ClassDef) and node.name == "DeltaDimension"
     )
     lines = text.splitlines(keepends=True)
-    definition = "".join(lines[node.lineno - 1:node.end_lineno])
+    definition = "".join(lines[node.lineno - 1 : node.end_lineno])
     source.write_text(
         "from .model import DeltaDimension\n"
-        + "".join(lines[:node.lineno - 1] + lines[node.end_lineno:])
+        + "".join(lines[: node.lineno - 1] + lines[node.end_lineno :])
     )
     destination = root / "archkeel/ir/model.py"
     destination.write_text(
         destination.read_text().replace(
             "from archkeel.ir.profiles import DeltaDimension as DeltaDimension\n", ""
-        ) + "\n" + definition
+        )
+        + "\n"
+        + definition
     )
     intent = (root / "contract.json").read_bytes()
     observed = _model(root, config)
