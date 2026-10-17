@@ -1,0 +1,53 @@
+name: Bounded graph topology level verification
+on:
+  push:
+    branches: [verify/542-graph-topology-level]
+permissions:
+  contents: read
+jobs:
+  typed-ports:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 26fc2ed7ce1a5db301bd32d4470ad407aba6bf93
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Actual wire producer, open reader, authored ports and native mutations
+        run: uv run --locked pytest -q tests/test_graph_topology_level_types.py
+      - name: Strict actual source
+        if: always()
+        run: uv run --locked mypy --strict src/archkeel
+      - name: Real authored Target schemas
+        if: always()
+        run: |
+          uv run --locked python - <<'PY'
+          import json
+          from pathlib import Path
+          from archkeel.ir.codec import parse_contract
+          for name in ("ir","check"):
+              value=json.loads(Path(f"docs/architecture/contracts/{name}.json").read_text())
+              value.pop("$schema",None)
+              parse_contract(value)
+              print("TOPOLOGY_AUTHORED_SCHEMA=PASS:"+name,flush=True)
+          PY
+      - name: Capture style corrections
+        if: always()
+        run: |
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          paths=["tests/test_graph_topology_level_types.py"]
+          before={path:Path(path).read_text() for path in paths}
+          subprocess.run(["uv","run","--locked","ruff","check","--select","I","--fix",*paths],check=True)
+          subprocess.run(["uv","run","--locked","ruff","format",*paths],check=True)
+          for path in paths:
+              if Path(path).read_text()!=before[path]:
+                  print("FORMATTED_SOURCE="+json.dumps({"path":path,"content":Path(path).read_text()}),flush=True)
+          PY
