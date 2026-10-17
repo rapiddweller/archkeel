@@ -1,0 +1,98 @@
+name: Verify result assessment ingress and unchanged presentation
+on:
+  push:
+    branches: [verify/542-result-assessment-green]
+permissions:
+  contents: read
+jobs:
+  result-assessment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: bb2d707cf6cebf8d76d0ff8200da6a3b50eff75d
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Strict source quality
+        run: make lint typecheck
+      - name: Meaningful existing result and presentation regressions
+        run: uv run --locked python -m pytest -n 2 --dist=loadfile -q tests/test_core_command_result.py tests/test_report_renderer_units.py tests/test_terminal.py tests/test_saved_report.py tests/test_report_recorded_unknowns.py tests/test_result_schema.py tests/test_architecture_projection.py
+      - name: Exact actual native control delta
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}/tests
+        run: |
+          python - <<'PY'
+          import ast, collections, dataclasses, hashlib, importlib, json, os, subprocess, sys
+          from pathlib import Path
+          from archkeel.analyzer.python.constructs import collect_constructs
+          from test_analyzer import _parsed_module
+          
+          base = "68b656668a3fdbbbe482881d0dab41ff89a21ca3"
+          paths = ("src/archkeel/ir/model.py", "src/archkeel/render/summary.py", "src/archkeel/render/html.py")
+          counters = {}
+          for version in ("before", "after"):
+              evidence = {}
+              parsed = []
+              for path in paths:
+                  source = subprocess.check_output(["git", "show", f"{base}:{path}"], text=True) if version == "before" else Path(path).read_text()
+                  module = path.removeprefix("src/").removesuffix(".py").replace("/", ".")
+                  parsed.append(_parsed_module(source, module=module, rel_path=path, package=module.rsplit(".",1)[0]))
+              rows = [row for row in collect_constructs(parsed, evidence) if row["kind"] == "string_literal_compare"]
+              counters[version] = collections.Counter(json.dumps(row["data"], sort_keys=True) for row in rows)
+              print("NATIVE_RESULT_CONTROLS="+json.dumps({"version":version,"count":len(rows)}), flush=True)
+          removed = counters["before"] - counters["after"]
+          added = counters["after"] - counters["before"]
+          print("ACTUAL_REMOVED_CONTROL_DATA="+json.dumps(dict(removed),sort_keys=True),flush=True)
+          assert sum(removed.values()) == 5, removed
+          assert not added, added
+          
+          PY
+      - name: Prepare real owner comparison
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/assessment-base" 68b656668a3fdbbbe482881d0dab41ff89a21ca3
+          cat > "$RUNNER_TEMP/assessment-profiles.py" <<'PY'
+          import dataclasses, hashlib, importlib, json, os, sys
+          from pathlib import Path
+          from archkeel.ir.architecture_graph import RuleAssessment, RuleAssessmentStatus
+          from archkeel.ir.codec import result_bytes
+          from archkeel.ir.model import RunResult
+          from archkeel.render.html import _atlas_rule_status_cards
+          from archkeel.render.summary import report_summary
+          phase = sys.argv[1]
+          expected = Path(os.environ["RUNNER_TEMP"])/"assessment-base"/"src" if phase == "before" else Path.cwd()/"src"
+          for name in ("archkeel.ir.model", "archkeel.render.summary", "archkeel.render.html"):
+              loaded = Path(importlib.import_module(name).__file__).resolve()
+              assert loaded == (expected/Path(*name.split("."))).with_suffix(".py").resolve(), (name,loaded,expected)
+              print("ACTUAL_LOADED_OWNER="+json.dumps({"phase":phase,"module":name,"path":str(loaded),"sha256":hashlib.sha256(loaded.read_bytes()).hexdigest()}),flush=True)
+          out = Path(os.environ["RUNNER_TEMP"])/("assessment-output-"+phase)
+          out.mkdir()
+          assessments = tuple(RuleAssessment(id="rule-"+str(status),kind="sample",status=status,evaluation_proven=True,count=0,undecided=0,decided_by="owner",rationale="Actual rule result",provenance=(),reason="Recorded result",scope="",components=()) for status in RuleAssessmentStatus)
+          for declared in ("PASS","FAIL","UNKNOWN"):
+              for index, rows in enumerate((None, (), assessments)):
+                  result = RunResult("report",0,declared_rules=declared,rule_assessments=rows)
+                  name = declared+"-"+str(index)
+                  (out/(name+".json")).write_bytes(result_bytes(result))
+                  (out/(name+".summary.json")).write_text(json.dumps(dataclasses.asdict(report_summary(result)),sort_keys=True))
+                  (out/(name+".legend.html")).write_text(_atlas_rule_status_cards(result))
+          print("ACTUAL_RESULT_PROFILES=9;OUTPUTS=27",flush=True)
+          
+          PY
+      - name: Actual predecessor result and presentation
+        env:
+          PYTHONPATH: ${{ runner.temp }}/assessment-base/src
+        run: .venv/bin/python "$RUNNER_TEMP/assessment-profiles.py" before
+      - name: Actual candidate result and presentation
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src
+        run: .venv/bin/python "$RUNNER_TEMP/assessment-profiles.py" after
+      - name: Preserve all valid rendered and wire outputs
+        run: |
+          diff -ru "$RUNNER_TEMP/assessment-output-before" "$RUNNER_TEMP/assessment-output-after"
+          git diff --check 68b656668a3fdbbbe482881d0dab41ff89a21ca3 bb2d707cf6cebf8d76d0ff8200da6a3b50eff75d
+          git diff --exit-code
