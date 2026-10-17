@@ -1,0 +1,40 @@
+name: Verify Git blob kind
+on:
+  push:
+    branches: [fix/issue-542-git-blob-kind]
+permissions:
+  contents: read
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Real byte control coverage
+        run: uv run --locked pytest tests/test_git_blob_types.py::test_actual_byte_comparisons_fail_the_unchanged_native_guard -q
+      - name: Native RED before product changes
+        shell: bash
+        run: |
+          set +e
+          uv run --locked pytest tests/test_git_blob_types.py::test_actual_git_blob_api_has_one_nominal_owner tests/test_git_blob_types.py::test_actual_git_blob_target_and_scoped_guards_pass -q > "$RUNNER_TEMP/git-blob-red.txt" 2>&1
+          actual_status=$?
+          set -e
+          cat "$RUNNER_TEMP/git-blob-red.txt"
+          test "$actual_status" -eq 1
+          python - "$RUNNER_TEMP/git-blob-red.txt" <<'PY'
+          import pathlib, sys
+          text = pathlib.Path(sys.argv[1]).read_text()
+          assert "2 failed" in text
+          assert "RegularGitBlobKind" in text
+          assert "AssertionError" in text
+          assert "ImportError" not in text
+          print("GIT_BLOB_RED: missing authored nominal API and native Target; production still original")
+          PY

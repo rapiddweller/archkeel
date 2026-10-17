@@ -861,6 +861,57 @@
           "responsibilities": [
             "Retain canonical source section identities after one legacy constructor normalization."
           ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/superpowers/plans/2026-10-17-git-blob-kind.md"
+          ],
+          "id": "GIT-BLOB-KIND",
+          "kind": "enum",
+          "qualified_name": "archkeel.check.snapshot.RegularGitBlobKind",
+          "parent_id": "SNAPSHOT-LANGUAGE-MODULE",
+          "responsibilities": [
+            "Name exactly the two regular Git blob mode/type pairs accepted by immutable input readers."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/superpowers/plans/2026-10-17-git-blob-kind.md"
+          ],
+          "id": "GIT-BLOB-PARSER",
+          "kind": "function",
+          "qualified_name": "archkeel.check.snapshot.regular_git_blob_kind",
+          "parent_id": "SNAPSHOT-LANGUAGE-MODULE",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "mode",
+                "annotation": "bytes",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "kind",
+                "annotation": "bytes",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "RegularGitBlobKind | None"
+          },
+          "responsibilities": [
+            "Recognize a supported regular Git blob pair once without changing path selection or reader errors."
+          ]
         }
       ],
       "relationships": [
