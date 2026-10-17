@@ -1,0 +1,90 @@
+name: Read-only remaining closed-wire site analysis
+on:
+  push:
+    branches: [verify/542-other-wire-site-analysis]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  actual-sites:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 5fc94c10298c4bbcd98fd44f8ac72b321b03a0b4
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Binary capture of the immutable original Actions artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method GET repos/rapiddweller/archkeel/actions/artifacts/12083429473/zip > "${RUNNER_TEMP}/actual-native-sites.zip"
+      - name: Read every original native site without changing source or artifact
+        run: |
+          python3 - <<'PY'
+          import gzip,json,os,zipfile
+          from pathlib import Path
+          archive=Path(os.environ["RUNNER_TEMP"])/"actual-native-sites.zip"
+          with zipfile.ZipFile(archive) as zipped:
+              names=zipped.namelist()
+              print("TRIAGE_ARCHIVE="+json.dumps(names))
+              matching=[name for name in names if name.endswith("native-control-sites.json.gz")]
+              assert len(matching)==1,matching
+              payload=json.loads(gzip.decompress(zipped.read(matching[0])))
+          print("TRIAGE_STRUCTURE="+json.dumps(dict(type=type(payload).__name__,keys=list(payload) if isinstance(payload,dict) else None)))
+          if isinstance(payload,list):
+              rows=payload
+          else:
+              candidates=[(key,value) for key,value in payload.items() if isinstance(value,list) and len(value)==780]
+              assert len(candidates)==1,[(key,len(value)) for key,value in payload.items() if isinstance(value,list)]
+              key,rows=candidates[0]
+              print("TRIAGE_SITE_KEY="+key)
+          assert len(rows)==780,len(rows)
+          import ast
+          cache={}
+          def parsed(file):
+              if file not in cache:
+                  text=Path(file).read_text()
+                  cache[file]=(text,ast.parse(text))
+              return cache[file]
+          import subprocess
+          CURRENT="5937445491094abc00a4076dd4628a03f08e9064"
+          SELECTED=[5,27,53,75,78,80,153,194,196,211,215,225,227,243,245,305,339,343,375,391,409,410,418,440,451,468,472,537,588,602,624,632,641,646,667,712,717,742,754,756,779]
+          print("OTHER_WIRE_SELECTION="+json.dumps({"original_rows":len(rows),"candidate_indices":SELECTED,"current_root":CURRENT,"classification":"candidate cohort from exact retained expressions; not a defect or progress count"}),flush=True)
+          current={}
+          def current_controls(file):
+              if file not in current:
+                  source=subprocess.check_output(["git","show",f"{CURRENT}:{file}"],text=True)
+                  tree=ast.parse(source)
+                  module=file.removeprefix("src/").removesuffix(".py").replace("/",".")
+                  controls=[]
+                  def visit(node,owner):
+                      if isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef)):
+                          owner=owner+"."+node.name
+                      if isinstance(node,ast.Compare) or isinstance(node,ast.Call) and isinstance(node.func,ast.Attribute) and node.func.attr in {"startswith","endswith"}:
+                          controls.append((owner,node))
+                      for child in ast.iter_child_nodes(node):
+                          visit(child,owner)
+                  visit(tree,module)
+                  current[file]=(source,controls)
+              return current[file]
+          for index in SELECTED:
+              row=rows[index]
+              expressions=[]
+              found=[]
+              for location in row["locations"]:
+                  source,tree=parsed(location["file"])
+                  matches=[node for node in ast.walk(tree)
+                           if ((row["form"] in {"compare","membership"} and isinstance(node,ast.Compare))
+                           or (row["form"] in {"startswith","endswith"} and isinstance(node,ast.Call)
+                               and isinstance(node.func,ast.Attribute) and node.func.attr==row["form"]))
+                           and (node.lineno,node.end_lineno,node.col_offset)==(location["line"],location["end_line"],location["column"])]
+                  assert len(matches)==1,(index,location)
+                  old=matches[0]
+                  expressions.append(ast.get_source_segment(source,old))
+                  text,controls=current_controls(location["file"])
+                  for owner,node in controls:
+                      if owner==row["owner"] and ast.dump(node,include_attributes=False)==ast.dump(old,include_attributes=False):
+                          found.append({"file":location["file"],"line":node.lineno,"end_line":node.end_lineno,"column":node.col_offset,"owner":owner,"expression":ast.get_source_segment(text,node)})
+              print("OTHER_WIRE_SITE="+json.dumps({"index":index,"row":row,"expression":expressions,"current_exact_ast_sites":found},sort_keys=True),flush=True)
+          PY
