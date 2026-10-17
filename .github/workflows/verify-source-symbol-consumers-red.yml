@@ -1,0 +1,22 @@
+name: Verify source symbol consumer RED
+on:
+  push:
+    branches: ['verify/542-source-symbol-consumers-red']
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 8492f9e9f2494909a7730233c4dae6a1be3bfb6f
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: '3.11.12'
+          version: '0.12.13'
+      - run: uv sync --locked
+      - run: uv run --locked pytest -q tests/test_source_symbol_consumers.py
+      - if: always()
+        run: git diff --exit-code
