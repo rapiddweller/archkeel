@@ -1,0 +1,70 @@
+name: Exact PermissionStatus semantic call-site proof
+on:
+  push:
+    branches: [verify/542-permission-status-site-multisets]
+permissions:
+  contents: read
+jobs:
+  semantic-sites-and-real-normalizer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: c50c420b9a8909258864fe1946ba9df7ce039d88
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - name: Obtain actual canonical predecessor and clean feature observations
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/permission-before" 5fc94c10298c4bbcd98fd44f8ac72b321b03a0b4
+          uv run --locked archkeel report --root "$RUNNER_TEMP/permission-before" --output "$RUNNER_TEMP/permission-before.json" > "$RUNNER_TEMP/permission-before-result.json"
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/permission-after.json" > "$RUNNER_TEMP/permission-after-result.json"
+      - name: Compare complete semantic rows and separately expose line movement
+        run: |
+          uv run --locked python - <<'PY'
+          import json
+          import os
+          from collections import Counter
+          from dataclasses import asdict
+          from pathlib import Path
+          from archkeel.check.ratchets import call_rows, measure_python_ratchets
+          from archkeel.ir.codec import decode_canonical_model, parse_observation
+          root = Path(os.environ["RUNNER_TEMP"])
+          before = parse_observation(decode_canonical_model(json.loads((root / "permission-before.json").read_bytes())))
+          after = parse_observation(decode_canonical_model(json.loads((root / "permission-after.json").read_bytes())))
+          fields = ("status", "path", "caller", "expression", "reason", "component")
+          old_rows, new_rows = call_rows(before), call_rows(after)
+          def semantic(row):
+              return tuple(getattr(row, field) for field in fields)
+          old, new = Counter(map(semantic, old_rows)), Counter(map(semantic, new_rows))
+          added = [dict(zip(fields, key), count=count) for key, count in (new-old).items()]
+          removed = [dict(zip(fields, key), count=count) for key, count in (old-new).items()]
+          print("PERMISSION_SEMANTIC_SITE_FIELDS=" + json.dumps(fields))
+          print("PERMISSION_SEMANTIC_SITE_DELTAS=" + json.dumps({"added":added, "removed":removed}, sort_keys=True))
+          old_full = Counter(tuple(asdict(row).values()) for row in old_rows)
+          new_full = Counter(tuple(asdict(row).values()) for row in new_rows)
+          print("PERMISSION_EXACT_ROWS_POSITION_DELTA=" + json.dumps({"added":sum((new_full-old_full).values()), "removed":sum((old_full-new_full).values())}))
+          moved = []
+          for key in sorted(set(old) | set(new), key=repr):
+              was = Counter(row.line for row in old_rows if semantic(row) == key)
+              now = Counter(row.line for row in new_rows if semantic(row) == key)
+              if was != now:
+                  moved.append({**dict(zip(fields,key)), "before_lines":dict(was), "after_lines":dict(now)})
+          print("PERMISSION_CALL_LINE_MOVEMENT=" + json.dumps(moved, sort_keys=True))
+          old_unknown = Counter(row.id for row in before.records("unknowns") or ())
+          new_unknown = Counter(row.id for row in after.records("unknowns") or ())
+          print("PERMISSION_UNKNOWN_ID_COUNTER_DELTAS=" + json.dumps({"added":list((new_unknown-old_unknown).elements()), "removed":list((old_unknown-new_unknown).elements())}))
+          normalizer = []
+          for row in after.records("calls") or ():
+              if row.data.get("source_scope") == "archkeel.ir.architecture_projection.PermissionProjection.__post_init__":
+                  normalizer.append({key:row.data.get(key) for key in ("status","source_scope","expression","reason","target","target_name")})
+          print("PERMISSION_REAL_NORMALIZER_CALLS=" + json.dumps(normalizer, default=str, sort_keys=True))
+          print("PERMISSION_SITE_METRICS=" + json.dumps({"before":asdict(measure_python_ratchets(before)), "after":asdict(measure_python_ratchets(after))}))
+          assert not added and not removed
+          assert len(normalizer) == 2 and all(row["status"] == "resolved" for row in normalizer), normalizer
+          PY
