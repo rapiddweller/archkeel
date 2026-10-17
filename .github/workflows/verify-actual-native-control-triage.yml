@@ -39,8 +39,41 @@ jobs:
               key,rows=candidates[0]
               print("TRIAGE_SITE_KEY="+key)
           assert len(rows)==780,len(rows)
+          import ast
+          cache={}
+          def parsed(file):
+              if file not in cache:
+                  text=Path(file).read_text()
+                  cache[file]=(text,ast.parse(text))
+              return cache[file]
           for index,row in enumerate(rows):
-              print("TRIAGE_ROW_JSON="+json.dumps(dict(index=index,site=row),sort_keys=True),flush=True)
+              expression=[]
+              for location in row["locations"]:
+                  text,tree=parsed(location["file"])
+                  matches=[node for node in ast.walk(tree)
+                           if isinstance(node,(ast.Compare,ast.Call,ast.MatchValue))
+                           and (node.lineno,node.end_lineno,node.col_offset)==(location["line"],location["end_line"],location["column"])]
+                  assert len(matches)==1,(index,location,[type(node).__name__ for node in matches])
+                  expression.append(ast.get_source_segment(text,matches[0]))
+              print("TRIAGE_EXACT_EXPR_JSON="+json.dumps(dict(index=index,expression=expression),sort_keys=True),flush=True)
+          for path in Path("src/archkeel").rglob("*.py"):
+              text,tree=parsed(str(path))
+              module=str(path).removeprefix("src/").removesuffix(".py").replace("/",".")
+              for node in ast.walk(tree):
+                  if not isinstance(node,ast.ClassDef):
+                      continue
+                  bases=[ast.unparse(base) for base in node.bases]
+                  if any(base.rsplit(".",1)[-1] in {"Enum","StrEnum","IntEnum","Flag","IntFlag"} for base in bases):
+                      members=[]
+                      for child in node.body:
+                          if isinstance(child,ast.Assign):
+                              members.extend((ast.unparse(target),ast.unparse(child.value)) for target in child.targets)
+                      print("TRIAGE_ENUM_JSON="+json.dumps(dict(owner=module+"."+node.name,line=node.lineno,bases=bases,members=members),sort_keys=True),flush=True)
+                  fields={child.target.id:ast.unparse(child.annotation) for child in node.body
+                          if isinstance(child,ast.AnnAssign) and isinstance(child.target,ast.Name)
+                          and child.target.id in {"kind","status","source_status","role","mode","change","format","visibility","basis","resolution","reason","section","name","family","action","version","profile","language","disposition"}}
+                  if fields:
+                      print("TRIAGE_FIELDS_JSON="+json.dumps(dict(owner=module+"."+node.name,line=node.lineno,fields=fields),sort_keys=True),flush=True)
           print("TRIAGE_EXACT_SITE_COUNT="+str(len(rows)))
           
           PY
