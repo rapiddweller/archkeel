@@ -153,7 +153,7 @@ def test_actual_byte_comparisons_fail_the_unchanged_native_guard(tmp_path, guard
     assert assessment.status == "FAIL" and assessment.evaluation_proven, assessment
     violations = [r for r in trace_valid_violations(model) if guard in r.rule_ids]
     assert violations
-    assert all(r.data.get("owner") == "archkeel.check." + ".".join(
+    assert all(r.data.get("source") == "archkeel.check." + ".".join(
         (OWNERS[guard][0][:-3], OWNERS[guard][1])
     ) for r in violations), violations
     assert (root / "contract.json").read_bytes() == intent
