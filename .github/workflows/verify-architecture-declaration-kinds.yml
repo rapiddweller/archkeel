@@ -1,0 +1,23 @@
+name: Architecture declaration control proof
+on:
+  push:
+    branches: ["verify/542-architecture-declaration-kinds"]
+permissions:
+  contents: read
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: c2e682271cd32a40899c6950e0bac3dd2831e833
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Missing owned readers and actual native raw selectors
+        run: uv run --locked pytest -q -s tests/test_typed_contract_rule_grammar.py::test_authored_declaration_readers_share_owned_kinds_and_keep_extensions_open tests/test_typed_contract_rule_native.py::test_native_actual_rule_and_declaration_selectors_use_the_owned_api
