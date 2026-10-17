@@ -270,3 +270,39 @@ D separates actual parser grammar from actual module, symbol, path and JSON fiel
 | --- | --- | --- | --- |
 | archkeel.analyzer.python.typing_signals._type_ignore_signals:74:45 | 420 | 9d3ef25770b20e1ab32c044ae5c225b2abc3290f43972248f5ff103e55cc78d6 | 38164cf3b9e73e8741909326712c07546afddafe |
 
+
+## Exact proof/policy tag decisions (29 actual sites)
+
+These are actual producer selectors, not blanket open-metadata exemptions. The aliases in the first row are literal constants, not nominal typing.
+
+| Actual owner:line | Original rows | Actual selector |
+| --- | --- | --- |
+| archkeel.ir.source_graph.validated_member_inventory_proof:335 | 19 | `r.kind == MEMBER_INVENTORY_PROOF` |
+| archkeel.check.ratchets.measure_python_ratchets:107 | 32 | `signal.kind == "missing_cross_package_annotation"` |
+| archkeel.ir.decisions._unknown_evidence_and_counts:228 | 48,184 | `record.kind == "boundary_type_position"` |
+| archkeel.ir.decisions._unknown_evidence_and_counts:238 | 48,184 | `record.kind == "boundary_type_position"` |
+| archkeel.ir.decisions._rule_uncertainty_action:303 | 85 | `record.kind == "boundary_type_position"` |
+| archkeel.ir.decisions._rule_uncertainty_action:278 | 99 | `record.kind == "rule_ownership_blocker"` |
+| archkeel.ir.decisions._dependency_gaps_complete:869 | 111 | `gap.kind != "source_resolution_gap"` |
+| archkeel.check.ratchets.measure_python_ratchets:144 | 117 | `item.kind == "private_attribute_access_limit"` |
+| archkeel.ir.decisions.rule_uncertainty_evidence:342 | 128 | `record.kind == "rule_ownership_blocker"` |
+| archkeel.ir.decisions._rule_uncertainty_action:309 | 130 | `record.kind == "boundary_type_limit"` |
+| archkeel.render.html._type_allowances:242 | 145 | `item.kind == "type_ignore_allowance"` |
+| archkeel.check.ratchets.measure_python_ratchets:103 | 155 | `signal.kind == "boundary_type_allowance"` |
+| archkeel.ir.decisions._rule_uncertainty_action:294 | 293 | `record.kind == "inside_source_domain_incomplete"` |
+| archkeel.ir.decisions._rule_uncertainty_action:285 | 296 | `record.kind == "boundary_type_route"` |
+| archkeel.ir.decisions._component_import_sites:414 | 367 | `record.kind != "module_dependency"` |
+| archkeel.check.observation._metrics:164 | 412 | `item["kind"] == "private_attribute_access_limit"` |
+| archkeel.ir.decisions._ownership_blocker_reason:755 | 446 | `record.kind == "rule_ownership_blocker"` |
+| archkeel.check.uml.assemble_uml:472 | 508 | `item.kind == "inside_contract_incomplete"` |
+| archkeel.render.atlas.boundary_permissions_payload:786 | 510 | `fact.kind != "boundary_type_allowance"` |
+| archkeel.render.html._compatibility_migration_work:1144 | 512 | `record.kind == "compatibility_migration_work"` |
+| archkeel.check.delta._logical_payload:190 | 528 | `record.kind == "boundary_type_position"` |
+| archkeel.ir.duplication._owners:77 | 533 | `record.kind == "spot_owner"` |
+| archkeel.check.observation._certify_dependency_scopes:721 | 587 | `gap.kind != "source_resolution_gap"` |
+| archkeel.check.report._validate_saved_sources:741 | 604 | `record.kind in {"boundary_type_allowance", "type_ignore_allowance"}` |
+| archkeel.render.html._type_allowances:234 | 655 | `item.kind in {"boundary_type_allowance", "type_ignore_allowance"}` |
+| archkeel.ir.decisions._rule_uncertainty_action:301 | 660 | `record.kind == "component_scope_assignment_incomplete"` |
+| archkeel.ir.decisions._unknown_evidence_and_counts:241 | 680 | `record.kind == "boundary_type_limit"` |
+| archkeel.ir.decisions._rule_uncertainty_action:287 | 686 | `record.kind == "rule-unsupported-by-profile"` |
+| archkeel.check.validation._observed_or_invalid:534 | 706 | `item.kind == "inside_contract_incomplete"` |
