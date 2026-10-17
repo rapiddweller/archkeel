@@ -1,0 +1,36 @@
+name: Python classifier RED
+on:
+  push:
+    branches: ["verify/542-python-class-kind-red"]
+permissions:
+  contents: read
+jobs:
+  expected-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 37fa718e40d991cf06160438c9d0c1323b369288
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Run focused test against unchanged source
+        run: |
+          set +e
+          uv run --locked pytest tests/test_typed_symbol_class_kinds.py -q --junitxml=/tmp/class-kind-red.xml
+          result=$?
+          set -e
+          test "$result" -eq 1
+          uv run --locked python - <<'PY'
+          import xml.etree.ElementTree as ET
+          suite = ET.parse("/tmp/class-kind-red.xml").getroot().find("testsuite")
+          assert suite is not None
+          assert int(suite.attrib["errors"]) == 0
+          assert int(suite.attrib["failures"]) == 15
+          print("EXPECTED_RED: 15 assertion failures; 0 errors; unchanged production source")
+          PY
