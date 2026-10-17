@@ -17,7 +17,7 @@
 - No old baseline or receipt is inherited; normal actual-Main output is authoritative.
 - All Source/Target scopes and atomic fixture prerequisites are reviewable before creating final metadata.
 - Old542 drafts close as incorporated only after the final normal merge, each with the exact incorporated range and merge SHA.
--598 is not approved while its unresolved-call regression remains unexplained;599 has since supplied a true-parent zero-net-debt proof and final Source approval. Do not claim full542 completion while any accepted valid scope remains outstanding.
+- Source598 and599 now have final independent approval with measured native-call changes recorded below. Four additional bounded existing-owner domains and the final fixture repair still need explicit frozen ranges. Do not claim full542 completion while accepted valid scope remains outstanding.
 
 ## Review focus
 
@@ -36,10 +36,10 @@
 |558|8ebc1da53b3ac7290f78978d5e69e4f3c59185c3 →a5d478a7f40c00ad2cd7f5ed98c82a0778f182ec|9b5abc0a990b577a920218678db525937fd390cd|e26b73764089f06138c2829045660a74047f5c20|
 |559|1f9cd588c21d2e485e8d7cf75b4c7a7e41ba793d →cd54501a8bd95facfd7e3e71929595c920fc2360|d2c2e3daf0cbb441c1fb7d3d786b469ed94be453|cef2d99ac1aa6e3be4710c5df03f89ab57c0dde5|
 |561|5933ffbbfd588ac96e36748de937cb1f6e739655 →62fd95e68b07df1149e30a9690bd58f7129fa59b|64b3a0637a40b25df6baafef5299ae85b487d587|950520fd126ca05744c19066bb28ccbef5627964|
-|572|0e3b8a7f62b9b13417cda78e11b52d0de82986cd →620374305b7d45383458f62bccd20a183fdcd82a|dace9a80e1bdc8419ba64804bfcf97f22970087f, tree-identical to source-approvedf5e9f38b5671e3f1f8eb1ecd613c78e638e75fe5|Pending exact final gates; closes570 only after merge|
-|569|0e3b8a7f62b9b13417cda78e11b52d0de82986cd →6d03204f1b804be71386a036337fd17b4c54e351 plus atomiccf963 below|Carry after actual572 merge|Pending; closes564 only after merge|
+|572|0e3b8a7f62b9b13417cda78e11b52d0de82986cd →620374305b7d45383458f62bccd20a183fdcd82a|dace9a80e1bdc8419ba64804bfcf97f22970087f, tree-identical to source-approvedf5e9f38b5671e3f1f8eb1ecd613c78e638e75fe5|3fdda84e4a58b0ac3ed15a8d28c761568d4d7809;570 closed|
+|569|0e3b8a7f62b9b13417cda78e11b52d0de82986cd →6d03204f1b804be71386a036337fd17b4c54e351 plus atomiccf963 below|98cd1e32a5849063e1f4968401e373685457d772, independently Source-approved|Pending fresh normal metadata and final gates; closes564 only after merge|
 
-Main checkpoint950520 has tree7f391949b6a6aee1143eeda972717c7afaff8fd1, byte-identical to approved64b3. #561 completed3439Core/48Report/5Publisher/2Mermaid; exact NoWrite/ordinary replay865/52/58/0. #542 remains open.
+Actual Main checkpoint3fdda84e4a58b0ac3ed15a8d28c761568d4d7809 has tree56624f122d0fcfa7f8b07a6ed725f1f22cef636d, byte-identical to final572dace9. #572 completed3450Core/48Report/5Publisher/2Mermaid and exact final NoWrite865/52/58/0. Its 80 native/quality and317 regression controls passed; full H/Compass runtime wire bytes stayed identical. Four new conservative PARTIAL sites in _binding_sites were separately matched by AST/targets/reason/multiplicity, without changed existing records or UNKNOWN identities. #570 is closed; #542 remains open.
 
 ## Known immutable remaining ranges
 
@@ -79,6 +79,7 @@ Main checkpoint950520 has tree7f391949b6a6aee1143eeda972717c7afaff8fd1, byte-ide
 |589|c725df96543d1dd7ec4e20887a486ec9a7143c8a|36624bb7d147ed2056ceac8bd2332959ee3be5d6|
 |590|cdcaa7f88537be077a9a44f7002816089ae5cde0|6776847a36bca8811a7126736cc0da2179ab73ae|
 |591|68b656668a3fdbbbe482881d0dab41ff89a21ca3|4a58d277f17ff2375a50a92349b58d3b17812124|
+|598|5937445491094abc00a4076dd4628a03f08e9064|01bc5d65beff3190f550a97bd71ea5071486594d|
 |599|7cfe1298fb285dfb5c53c1b8f829207ce05b7e97|96e70a648eff9a404475db0af5c3a4738abd86ac|
 
 Coherent571/576 activation is exactly15f1fa127c37399541e09b16ccf23ebe246f3709→4a01cf7925db9f64295ef3a0f52292cb30f8bfb1 (six commits/six files, independently checked exact mergebase). It includes PythonTarget/docs/constructs, Dartcollect, predicate test and legacy-reference fixture. Use ORIGINAL571+576+activation exactly once. Alternative already assembled571 owner-union rangec7444205d4fe87eaae0de5e2dc98b70909fd1cc7→c245e1ebda1588e2c6f885ed37bcb7fcb48b9ba9 must NOT also be applied.
@@ -87,9 +88,11 @@ Mandatory586 durable Make follow-up is exactlyb4e9089b32e48ae420e2c529a93b85ec93
 
 Root reports final Source approval for599. Its true original parent and feature both measure839, with AD10018 identities11added−11removed=0 and no unbalanced group. The inherited Root baseline838 was stale; do not treat that old measurement as a valid final Main gate or copy its metadata. Actual Main comparison/writer remains authoritative.
 
-Still awaiting the final approved598 range and Root's bounded remaining-domain ranges: StructureLevel(component/package), SourceGraphTopologyLevel(module/package), SourceNameVisibility(private/public_name), RegularGitBlobKind(two byte pairs). Each uses an existing owner. No final union freeze is inferred until these are explicitly handed over. Latest evolving Root referencebb3e498b9c43afc954ef9fe7078595983e0b3c2f is a comparison reference, not an overlay.
+Source598 is independently approved at5937445491094abc00a4076dd4628a03f08e9064→01bc5d65beff3190f550a97bd71ea5071486594d. Its six paths include two production files, PythonTarget, one document and two existing tests. Actual immutable host mutation control and326 focused tests passed. Honest standalone call cost is +2 unresolved: three new calls and one removed old call,841 versus actual parent839. Preserve the existing597 test tail and append the approved376-line feature tail; never replace the entire current test.
 
-Latest Root comparison reference at this checkpoint: fad36e2695de7587e09a87dd304fde7e586f009f. Joint329native controls and519Ruff/strict150/clean diff are green in run38999976942. Root must provide the final frozen Source SHA and current normal/full/Astra evidence before final carry.
+Awaiting Root's final explicit bounded ranges for StructureLevel(component/package), SourceGraphTopologyLevel(module/package), SourceNameVisibility(private/public_name), and RegularGitBlobKind(two byte pairs). Each uses an existing owner. No final union freeze is inferred until these and the causal predicate fixture repair are handed over.
+
+Latest evolving Root comparison referenceff885e1c7f66afb2ede2e60eb4334a824deb9c81 includes598+599 and prior approved owners. Joint normal NoWrite39001250567/job117304451620 passes838/52/58/0, empty failures/diagnostics, clean tracked/untracked state; no budget change. Quality519/strict150 passes. Joint native388 passes/eight failures are confined to the existing Python string-predicate Target fixture with missing actual declared-document provenance; Root is investigating in read-only probe5f28f27e5fc45e38fae9018746813de246debe1f. This is not yet an all-green final union gate. Root's frozen source is a comparison reference, never an overlay.
 
 ## Mandatory atomic compatibility scopes
 
@@ -118,7 +121,7 @@ Latest Root comparison reference at this checkpoint: fad36e2695de7587e09a87dd304
 
 **Files:** Existing572/569 source/test files; this ledger only. Interfaces: consumes explicit immutable ranges; produces two independent normal merge SHAs and the final actual Main base.
 
-- [ ] Finish572 exact current-base NoWrite, native/full-wire gates and strict requiredCI; normal expected-head merge, close570.
+- [x] Finish572 exact current-base NoWrite, native/full-wire gates and strict requiredCI; normal expected-head merge3fdda,570 closed.
 - [ ] Carry569 original scoped delta plus exactcf963 tests onto actual Main, preserving diagnostics and current code; independent Astra, fresh normal metadata, exact NoWrite/requiredCI; normal merge, close564.
 - [ ] Record those actual merge SHAs; fill every missing remaining explicit original pair from Root's verified ledger.
 - [ ] Freeze final Root Source after all included Source fixes have final independent approval and blocked unresolved regressions are actually solved or clearly left open.
