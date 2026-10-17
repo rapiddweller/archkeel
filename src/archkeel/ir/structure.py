@@ -25,6 +25,7 @@ from .interfaces import component_owners, owner_of
 from .model import ComparisonStatus, ComponentOwnership, Observation, int_value, text_value
 from .profiles import UnmeasurableScalar, profile_for
 
+
 class StructureLevel(StrEnum):
     COMPONENT = "component"
     PACKAGE = "package"

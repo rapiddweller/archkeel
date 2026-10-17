@@ -41,8 +41,14 @@ def test_legacy_metric_inputs_normalize_to_the_existing_owned_level_and_keep_jso
     assert get_type_hints(structure.StructureMetric)["level"] is level
     assert get_type_hints(structure.scope_metrics)["level"] is level
     assert json.loads(json.dumps(asdict(metric))) == {
-        "scope": "app", "level": raw, "modules": 2, "inner_edges": 1,
-        "fan_in": 0, "fan_out": 0, "calls": 3, "unresolved": 1,
+        "scope": "app",
+        "level": raw,
+        "modules": 2,
+        "inner_edges": 1,
+        "fan_in": 0,
+        "fan_out": 0,
+        "calls": 3,
+        "unresolved": 1,
     }
 
 
@@ -66,26 +72,34 @@ def _repository(tmp_path, *, mutation=None):
     target.pop("$schema", None)
     render = json.loads((ROOT / "docs/architecture/contracts/render.json").read_text())
     entities = [
-        item for item in target["declarations"]["uml"]["entities"]
+        item
+        for item in target["declarations"]["uml"]["entities"]
         if item["id"].startswith("IR-STRUCTURE-") or item["id"] == "IR-COMPARISON-structure"
     ]
     assert entities, "the consumed structure port needs independently authored intent"
     target["components"] = [
         {
-            "id": "TARGET-GOVERNANCE", "label": "governance", "role": "component",
+            "id": "TARGET-GOVERNANCE",
+            "label": "governance",
+            "role": "component",
             "packages": ["archkeel.ir.structure"],
             "responsibilities": ["Own pure structure measurements and their closed level."],
-            "forbidden_responsibilities": [], "provenance": [DOC],
+            "forbidden_responsibilities": [],
+            "provenance": [DOC],
         },
         {
-            "id": "renderer", "label": "renderer", "role": "component",
+            "id": "renderer",
+            "label": "renderer",
+            "role": "component",
             "packages": ["archkeel.render.html"],
             "responsibilities": ["Present the measured scope levels without reinterpreting them."],
-            "forbidden_responsibilities": [], "provenance": [DOC],
+            "forbidden_responsibilities": [],
+            "provenance": [DOC],
         },
     ]
     target["rules"] = [
-        item for item in [*target["rules"], *render["rules"]]
+        item
+        for item in [*target["rules"], *render["rules"]]
         if item["id"] in {IR_GUARD, RENDER_GUARD}
     ]
     assert {item["id"] for item in target["rules"]} == {IR_GUARD, RENDER_GUARD}
@@ -97,12 +111,14 @@ def _repository(tmp_path, *, mutation=None):
     renderer = (ROOT / "src/archkeel/render/html.py").read_text()
     tree = ast.parse(renderer)
     function = next(
-        node for node in tree.body
+        node
+        for node in tree.body
         if isinstance(node, ast.FunctionDef) and node.name == "_structure_overview_body"
     )
     renderer = (
         "from archkeel.ir.structure import StructureLevel as _StructureLevel\n"
-        + ast.get_source_segment(renderer, function) + "\n"
+        + ast.get_source_segment(renderer, function)
+        + "\n"
     )
     if mutation is not None:
         path, old, new = mutation
@@ -114,9 +130,12 @@ def _repository(tmp_path, *, mutation=None):
         else:
             renderer = source
     files = {
-        "archkeel/__init__.py": "", "archkeel/ir/__init__.py": "",
-        "archkeel/render/__init__.py": "", "archkeel/ir/structure.py": owner,
-        "archkeel/render/html.py": renderer, "contract.json": json.dumps(target),
+        "archkeel/__init__.py": "",
+        "archkeel/ir/__init__.py": "",
+        "archkeel/render/__init__.py": "",
+        "archkeel/ir/structure.py": owner,
+        "archkeel/render/html.py": renderer,
+        "contract.json": json.dumps(target),
         DOC: (ROOT / DOC).read_text(),
         "docs/architecture/comparison-support-types.md": (
             ROOT / "docs/architecture/comparison-support-types.md"
@@ -134,7 +153,8 @@ def test_native_structure_port_and_both_consumed_decisions_meet_fixed_intent(tmp
     comparison = architecture_report(model).comparison
     assert comparison is not None and comparison.status == "PASS", comparison
     selected = {
-        row.id: row for row in rule_assessments(model, undecided_by_rule={})
+        row.id: row
+        for row in rule_assessments(model, undecided_by_rule={})
         if row.id in {IR_GUARD, RENDER_GUARD}
     }
     assert set(selected) == {IR_GUARD, RENDER_GUARD}
@@ -168,11 +188,15 @@ def test_native_actual_field_or_parameter_weakening_fails_unchanged_target(tmp_p
     "path,old,new,guard",
     [
         (
-            "owner", "metric.level is StructureLevel.COMPONENT", 'metric.level == "component"',
+            "owner",
+            "metric.level is StructureLevel.COMPONENT",
+            'metric.level == "component"',
             IR_GUARD,
         ),
         (
-            "renderer", "metric.level is _StructureLevel.COMPONENT", 'metric.level == "component"',
+            "renderer",
+            "metric.level is _StructureLevel.COMPONENT",
+            'metric.level == "component"',
             RENDER_GUARD,
         ),
     ],
