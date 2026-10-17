@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 3a7be4d9e9c74d7eec5b1bc0a94b3bfe82a85d6e
+          ref: 96e70a648eff9a404475db0af5c3a4738abd86ac
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -47,6 +47,24 @@ jobs:
               parse_contract(raw)
               print("SECTION_AUTHORED_TARGET_SCHEMA=PASS:"+owner,flush=True)
           PY
+      - name: Affected section, scalar, validation, graph and profile regressions
+        if: always()
+        run: uv run --locked pytest -q tests/test_collection_protocol.py tests/test_collection_capabilities.py tests/test_source_trust_boundary.py tests/test_nullable_profile_measurements.py tests/test_profile_comparison.py tests/test_profile_comparison_commits.py tests/test_ratchets.py tests/test_source_graph.py tests/test_source_evaluation.py tests/test_declared_module_targets.py tests/test_requires_target_references.py
+      - name: Final changed-source style and formatter-only AST proof
+        if: always()
+        run: |
+          uv run --locked ruff check tests/test_source_section_types.py src/archkeel/check/evaluation/evaluate.py src/archkeel/check/observation.py src/archkeel/check/ratchets.py src/archkeel/ir/structure.py src/archkeel/ir/facts_validation.py src/archkeel/ir/source_graph.py
+          uv run --locked ruff format --check tests/test_source_section_types.py src/archkeel/check/evaluation/evaluate.py src/archkeel/check/observation.py src/archkeel/check/ratchets.py src/archkeel/ir/structure.py src/archkeel/ir/facts_validation.py src/archkeel/ir/source_graph.py
+          uv run --locked python - <<'PY'
+          import ast,subprocess
+          from pathlib import Path
+          changed=["src/archkeel/check/observation.py","src/archkeel/ir/facts_validation.py","src/archkeel/ir/source_graph.py"]
+          for path in changed:
+              old=subprocess.check_output(["git","show",f"3a7be4d9e9c74d7eec5b1bc0a94b3bfe82a85d6e:{path}"],text=True)
+              new=Path(path).read_text()
+              assert ast.dump(ast.parse(old),include_attributes=False)==ast.dump(ast.parse(new),include_attributes=False),path
+          print("SECTION_FORMATTER_ONLY_AST=PASS",flush=True)
+          PY
       - name: Capture style-only corrections
         if: always()
         run: |
@@ -62,3 +80,47 @@ jobs:
               if source!=before[path]:
                   print("FORMATTED_SOURCE="+json.dumps(dict(path=path,content=source)),flush=True)
           PY
+  normal-no-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 96e70a648eff9a404475db0af5c3a4738abd86ac
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Normal self validation without accepting or writing metadata
+        run: |
+          uv run --locked python - <<'PY'
+          import hashlib,json,subprocess
+          from pathlib import Path
+          protected=("architecture-contract.json","architecture-baseline.json","architecture-accepted.json")
+          before={path:Path(path).read_bytes() for path in protected}
+          run=subprocess.run(["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--json"],capture_output=True,text=True,check=False)
+          for path,original in before.items():
+              assert Path(path).read_bytes()==original,path
+          output=Path("source-section-normal-validation.json")
+          output.write_text(run.stdout)
+          print("SECTION_NORMAL_EXIT="+str(run.returncode),flush=True)
+          if run.stderr:
+              print("SECTION_NORMAL_STDERR="+run.stderr,flush=True)
+          if run.stdout:
+              raw=json.loads(run.stdout)
+              value=raw.get("result",raw)
+              print("SECTION_NORMAL_KEYS="+json.dumps(sorted(raw)),flush=True)
+              print("SECTION_NORMAL_RESULT="+json.dumps({key:value.get(key) for key in ("exit_code","observation_complete","declared_rules","failures","diagnostics","baseline_new","baseline_resolved")},sort_keys=True),flush=True)
+          changed=subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          assert not changed,changed
+          print("SECTION_NORMAL_PROTECTED_BYTES_UNCHANGED=PASS",flush=True)
+          raise SystemExit(run.returncode)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() }}
+        with:
+          name: source-section-normal-no-write
+          path: source-section-normal-validation.json
