@@ -1,0 +1,39 @@
+name: Read actual dimension ownership scope
+on:
+  push:
+    branches: [verify/542-delta-dimension-owner-diagnostic]
+permissions:
+  contents: read
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Read actual evaluator receipt and source gaps
+        run: |
+          uv run --locked python - <<'PY'
+          import dataclasses,json,pathlib,sys,tempfile
+          sys.path.insert(0,"tests")
+          from test_delta_dimension_types import _repository
+          from archkeel.check.report import run_report
+          from archkeel.cli.observe import observe
+          from archkeel.ir.codec import decode_canonical_model,parse_observation
+          from archkeel.ir.codec_wire import _raw_value
+          from archkeel.ir.decisions import rule_assessments
+          with tempfile.TemporaryDirectory() as directory:
+              root,config=_repository(pathlib.Path(directory))
+              result,encoded=run_report(root,config=config,analyzer=observe)
+              assert result.exit_code==0,result.diagnostics
+              observed=parse_observation(decode_canonical_model(json.loads(encoded)))
+              rows=[{"kind":row.kind,"id":row.id,"subjects":row.subjects,"rule_ids":row.rule_ids,"data":_raw_value(row.data)} for section in observed.sections for row in section.records if "TARGET-COMPLETE_REQUIRES" in row.rule_ids or section.name=="unknowns"]
+              print("DELTA_DIMENSION_OWNER_SCOPE="+json.dumps({"rows":rows,"assessment":[dataclasses.asdict(row) for row in rule_assessments(observed,undecided_by_rule={}) if row.id=="TARGET-COMPLETE_REQUIRES"]},separators=(",",":")))
+          PY
