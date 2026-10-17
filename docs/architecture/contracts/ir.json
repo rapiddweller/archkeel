@@ -493,6 +493,32 @@
         "docs/architecture/structure-level-types.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "CLASSIFIER-INTERFACE-KIND-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.interfaces._symbol_kind",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "This complete classifier projection selects canonical enum members; source names and unknown metadata remain data.",
+      "provenance": [
+        "docs/architecture/classifier-projections.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "CLASSIFIER-GRAPH-KIND-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.source_graph._classifier_kind",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "This complete classifier projection selects canonical enum members; source names and unknown metadata remain data.",
+      "provenance": [
+        "docs/architecture/classifier-projections.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {
@@ -11715,6 +11741,35 @@
               }
             ],
             "returns": "tuple[StructureMetric, ...]"
+          }
+        },
+        {
+          "id": "IR-CLASSIFIER-GRAPH-READER",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.source_graph._classifier_kind",
+          "language": "python",
+          "parent_id": "IR-UML-source_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Project known source class tags through canonical source and graph owners while retaining the caller's existing fallback."
+          ],
+          "provenance": [
+            "docs/architecture/classifier-projections.md"
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "JsonValue"
+              }
+            ],
+            "returns": "EntityKind | None"
           }
         }
       ],

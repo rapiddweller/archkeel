@@ -8,7 +8,13 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 
-from .facts import SourceNameVisibility, parse_source_name_visibility
+from .architecture_graph import EntityKind
+from .facts import (
+    SourceNameVisibility,
+    SymbolClassKind,
+    parse_source_name_visibility,
+    parse_symbol_class_kind,
+)
 from .measurements import NameBudgetKind
 from .model import (
     FUNCTION_KINDS,
@@ -21,7 +27,9 @@ from .model import (
     module_in_ownership,
 )
 
-_CLASS_KINDS = frozenset({"dataclass", "protocol", "enum"})
+_CLASS_KINDS = frozenset(
+    {SymbolClassKind.DATACLASS, SymbolClassKind.PROTOCOL, SymbolClassKind.ENUM}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,10 +154,16 @@ def _symbols_by_name(observation: Observation) -> dict[str, Record]:
 
 
 def _symbol_kind(symbol: Record) -> str:
-    if symbol.kind != "class":
+    try:
+        category = EntityKind(symbol.kind)
+    except ValueError:
         return symbol.kind
-    class_kind = symbol.data.get("class_kind")
-    return class_kind if isinstance(class_kind, str) and class_kind in _CLASS_KINDS else "class"
+    if category is not EntityKind.CLASS:
+        return symbol.kind
+    class_kind = parse_symbol_class_kind(symbol.data.get("class_kind"))
+    if class_kind is not None and class_kind in _CLASS_KINDS:
+        return class_kind.value
+    return SymbolClassKind.CLASS.value
 
 
 def _signature(symbol: Record) -> tuple[tuple[str, ...], str]:

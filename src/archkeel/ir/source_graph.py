@@ -442,6 +442,23 @@ def _definition_contexts(value: JsonValue) -> tuple[DefinitionContext, ...]:
     return tuple(result)
 
 
+def _classifier_kind(value: JsonValue) -> EntityKind | None:
+    """Read known source classifiers without promoting unrelated or future graph tags."""
+    classifier = parse_symbol_class_kind(value)
+    if classifier is not None:
+        return {
+            SymbolClassKind.PROTOCOL: EntityKind.INTERFACE,
+            SymbolClassKind.ENUM: EntityKind.ENUM,
+        }.get(classifier)
+    if not isinstance(value, str):
+        return None
+    try:
+        kind = EntityKind(value)
+    except ValueError:
+        return None
+    return kind if kind is EntityKind.MIXIN else None
+
+
 def _symbol(record: Record, language: str) -> Entity:
     data = record.data
     category = _text(data.get("symbol_category", record.kind))
@@ -449,13 +466,8 @@ def _symbol(record: Record, language: str) -> Entity:
     kind = aliases.get(category or "")
     if kind is None:
         kind = EntityKind(_vocabulary_text(category, default=EntityKind.SYMBOL))
-    if kind == EntityKind.CLASS:
-        classifier_kinds = {
-            "protocol": EntityKind.INTERFACE,
-            "enum": EntityKind.ENUM,
-            "mixin": EntityKind.MIXIN,
-        }
-        kind = classifier_kinds.get(_text(data.get("class_kind")) or "", kind)
+    if kind is EntityKind.CLASS:
+        kind = _classifier_kind(_text(data.get("class_kind"))) or kind
     modifiers: list[ModifierKind] = []
     if data.get("mixin_capable") is True:
         modifiers.append(ModifierKind.MIXIN)
