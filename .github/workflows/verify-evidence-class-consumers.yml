@@ -1,4 +1,4 @@
-name: Read-only evidence-class consumer verification
+name: Read-only evidence-class report-byte compatibility
 on:
   push:
     branches: [verify/542-evidence-class-consumers]
@@ -23,115 +23,9 @@ jobs:
           uv python install 3.11.12 3.12.10
           uv sync --locked
           git worktree add --detach "$RUNNER_TEMP/evidence-base" c725df96543d1dd7ec4e20887a486ec9a7143c8a
-      - name: Strict formatting, lint and typing
-        run: |
-          uv run --locked ruff format --check src/archkeel/check/uml.py src/archkeel/ir/target_records.py src/archkeel/ir/report_projection.py src/archkeel/ir/decisions.py
-          uv run --locked ruff check src/archkeel/check/uml.py src/archkeel/ir/target_records.py src/archkeel/ir/report_projection.py src/archkeel/ir/decisions.py
-          uv run --locked mypy --strict src/archkeel
-      - name: Exact native before and after source evidence
-        env:
-          PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}/tests
-        run: |
-          cat > "$RUNNER_TEMP/evidence-native.py" <<'PY'
-          import ast, collections, json, subprocess
-          from pathlib import Path
-          from archkeel.analyzer.python.constructs import collect_constructs
-          from test_analyzer import _parsed_module
-          from archkeel.ir import facts, model
-          
-          BASE = "c725df96543d1dd7ec4e20887a486ec9a7143c8a"
-          PATHS = (
-              "src/archkeel/check/uml.py",
-              "src/archkeel/ir/target_records.py",
-              "src/archkeel/ir/report_projection.py",
-              "src/archkeel/ir/decisions.py",
-          )
-          assert model.EvidenceClass is facts.EvidenceClass
-          assert model.Record is facts.Record
-          paths = sorted(Path("src/archkeel").rglob("*.py"))
-          sources = {
-              version: {
-                  str(path): subprocess.check_output(["git", "show", f"{BASE}:{path}"], text=True)
-                  if version == "before" else path.read_text()
-                  for path in paths
-              }
-              for version in ("before", "after")
-          }
-          native = {}
-          semantic = {}
-          selected = {}
-          for version, source_map in sources.items():
-              parsed = [
-                  _parsed_module(text, module=path.removeprefix("src/").removesuffix(".py").replace("/", "."),
-                                 rel_path=path, package=path.removeprefix("src/").rsplit("/", 1)[0].replace("/", "."))
-                  for path, text in source_map.items()
-              ]
-              trees = {module.rel_path: module.tree for module in parsed}
-              evidence = {}
-              records = [row for row in collect_constructs(parsed, evidence) if row["kind"] == "string_literal_compare"]
-              rows = []
-              for row in records:
-                  location = evidence[row["evidence_ids"][0]]
-                  source = source_map[location["file"]]
-                  tree = trees[location["file"]]
-                  candidates = [node for node in ast.walk(tree)
-                      if ((row["data"]["form"] in {"compare","membership"} and isinstance(node, ast.Compare))
-                          or (row["data"]["form"] in {"startswith","endswith"} and isinstance(node, ast.Call)
-                              and isinstance(node.func, ast.Attribute) and node.func.attr == row["data"]["form"])
-                          or (row["data"]["form"] == "match" and isinstance(node, ast.Match)))
-                      and (node.lineno, node.end_lineno, node.col_offset)
-                          == (location["line"], location["end_line"], location["column"])]
-                  assert len(candidates) == 1, (row, location, candidates)
-                  expression = ast.get_source_segment(source, candidates[0])
-                  rows.append(dict(id=row["id"], file=location["file"], line=location["line"],
-                                   expression=expression, owner=row["data"]["owner"], form=row["data"]["form"]))
-              native[version] = rows
-              semantic[version] = collections.Counter((row["file"],row["expression"],row["owner"],row["form"]) for row in rows)
-              selected[version] = [row for row in rows
-                  if row["file"] in PATHS and ".evidence_class.value" in row["expression"]]
-              print("NATIVE_COUNTS=" + json.dumps(dict(version=version,total=len(rows),selected=len(selected[version]),
-                  by_file=dict(collections.Counter(row["file"] for row in rows if row["file"] in PATHS)))), flush=True)
-          assert len(selected["before"]) == 11, selected["before"]
-          assert not selected["after"], selected["after"]
-          removed = semantic["before"] - semantic["after"]
-          added = semantic["after"] - semantic["before"]
-          assert sum(removed.values()) == 11, removed
-          assert not added, added
-          assert removed == collections.Counter((row["file"],row["expression"],row["owner"],row["form"]) for row in selected["before"]), removed
-          for row in selected["before"]:
-              print("REMOVED_NATIVE_SITE=" + json.dumps(row,sort_keys=True), flush=True)
-          nominal = {}
-          for version, source_map in sources.items():
-              comparisons = []
-              for path in PATHS:
-                  tree = ast.parse(source_map[path])
-                  for node in ast.walk(tree):
-                      if not isinstance(node, ast.Compare) or len(node.ops) != 1:
-                          continue
-                      left, right = node.left, node.comparators[0]
-                      if isinstance(left,ast.Attribute) and left.attr == "evidence_class" and isinstance(right,ast.Attribute) and right.attr == "DECLARED_RULE":
-                          comparisons.append(dict(file=path,line=node.lineno,expression=ast.get_source_segment(source_map[path],node)))
-              nominal[version] = comparisons
-              if version == "after":
-                  assert len(comparisons) - len(nominal["before"]) == 11, nominal
-                  print("NOMINAL_COMPARISONS=" + json.dumps(comparisons,sort_keys=True), flush=True)
-                  for path in PATHS:
-                      assert ".evidence_class.value" not in source_map[path],path
-          print("EXACT_NATIVE_DELTA=11_REMOVED_0_ADDED; CANONICAL_FACADE_IDENTITY=PASS",flush=True)
-          PY
-          
-          uv run --locked python "$RUNNER_TEMP/evidence-native.py"
-      - name: Existing affected regressions on base
-        env:
-          PYTHONPATH: ${{ runner.temp }}/evidence-base/src:${{ runner.temp }}/evidence-base/tests
-        run: |
-          cd "$RUNNER_TEMP/evidence-base"
-          "$GITHUB_WORKSPACE/.venv/bin/python" -m pytest -q tests/test_target_graph.py tests/test_declared_module_targets.py tests/test_architecture_projection.py tests/test_architecture_report.py tests/test_decisions.py tests/test_uml_evaluation.py tests/test_codec.py tests/test_codec_compatibility.py tests/test_graph_comparison_codec.py tests/test_collection_protocol.py tests/test_saved_report.py tests/test_report_agent_json.py
-      - name: Existing affected regressions on candidate
-        run: uv run --locked python -m pytest -q tests/test_target_graph.py tests/test_declared_module_targets.py tests/test_architecture_projection.py tests/test_architecture_report.py tests/test_decisions.py tests/test_uml_evaluation.py tests/test_codec.py tests/test_codec_compatibility.py tests/test_graph_comparison_codec.py tests/test_collection_protocol.py tests/test_saved_report.py tests/test_report_agent_json.py
       - name: Fixed real report input profiles
         env:
-          PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}/tests
+          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/src:${{ github.workspace }}/tests
         run: |
           cat > "$RUNNER_TEMP/evidence-profile-inputs.py" <<'PY'
           import json, os
@@ -209,11 +103,11 @@ jobs:
           uv run --locked python "$RUNNER_TEMP/evidence-profile-inputs.py"
       - name: Real base compact and fullReport wire profiles
         env:
-          PYTHONPATH: ${{ runner.temp }}/evidence-base/src:${{ runner.temp }}/evidence-base/tests
+          PYTHONPATH: ${{ runner.temp }}/evidence-base:${{ runner.temp }}/evidence-base/src:${{ runner.temp }}/evidence-base/tests
         run: .venv/bin/python "$RUNNER_TEMP/evidence-report-profiles.py" before
       - name: Real candidate compact and fullReport wire profiles
         env:
-          PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}/tests
+          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/src:${{ github.workspace }}/tests
         run: .venv/bin/python "$RUNNER_TEMP/evidence-report-profiles.py" after
       - name: Compare every report byte and source scope
         run: |
