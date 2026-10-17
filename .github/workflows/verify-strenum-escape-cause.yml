@@ -1,0 +1,96 @@
+name: Read-only causal StrEnum member escape trace
+on:
+  push:
+    branches: [verify/542-strenum-escape-cause]
+permissions:
+  contents: read
+jobs:
+  actual-seed-records:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 154929c9eab0e5dd1b807d3891528fb0548e7c3c
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Native actual escape seeds and minimal source reproductions
+        run: |
+          uv run --locked python - <<'PY'
+          import ast,hashlib,json,sys,tempfile
+          from pathlib import Path
+          from archkeel.analyzer.python import source
+          from archkeel.analyzer.python.collect import collect
+          from archkeel.analyzer.python.imports import collect_imports,resolve_reexports
+          from archkeel.ir.protocol import CollectionRequest,SnapshotInput,SourceScope,PythonSettings
+          from archkeel.ir.facts_codec import record_payload
+          root=Path.cwd()
+          assert Path(source.__file__).resolve()==root/"src/archkeel/analyzer/python/source.py"
+          selected=tuple(sorted((root/"src/archkeel").rglob("*.py")))
+          parsed=source.parse_sources(selected,root=root,namespace="archkeel").modules
+          imports=collect_imports(parsed,{m.module for m in parsed},{},namespace="archkeel")
+          resolve_reexports(imports,{m.module:m.all_exports for m in parsed},parsed)
+          qname="archkeel.ir.model.GraphTopologyLevel"
+          relevant={"archkeel.ir.model":{"GraphTopologyLevel","StrEnum"}}
+          routes=[]
+          for record in imports:
+              data=record["data"]
+              if data["origin_definition"]==qname:
+                  relevant.setdefault(data["source_module"],set()).add(data["binding"])
+                  routes.append(data)
+          results={"source":"154929c9eab0e5dd1b807d3891528fb0548e7c3c","source_reader_sha256":hashlib.sha256(Path(source.__file__).read_bytes()).hexdigest(),"routes":routes,"modules":[],"minimal":[]}
+          for module in parsed:
+              if module.module not in relevant:
+                  continue
+              names=relevant[module.module]
+              parents={child:parent for parent in ast.walk(module.tree) for child in ast.iter_child_nodes(parent)}
+              seeds=[]
+              def trace(frame,event,arg):
+                  if frame.f_code is not source._unproven_member_roots.__code__:
+                      return None
+                  if event=="line" and frame.f_lineno==source._unproven_member_roots.__code__.co_firstlineno+65:
+                      target=frame.f_locals.get("target")
+                      node=frame.f_locals.get("node")
+                      if isinstance(target,ast.Name) and target.id in names:
+                          seeds.append({"root":target.id,"line":target.lineno,"expression":ast.unparse(node),"node_type":type(node).__name__,"seed_line":getattr(node,"lineno",None),"parent":ast.unparse(parents.get(target,target))})
+                  return trace
+              sys.settrace(trace)
+              direct=source._unproven_member_roots(module,module.all_nodes,member_surface=True,owner_exposure_only=False,unsafe_providers=frozenset(),include_creation_uncertainty=True)
+              sys.settrace(None)
+              row={"module":module.module,"names":sorted(names),"direct":sorted(names&direct),"local_closure":sorted(names&source.unproven_member_bindings(module,incoming=frozenset())),"incoming":sorted(names&module.incoming_member_escapes),"final":sorted(names&source.unproven_member_bindings(module)),"actual_seed_uses":seeds}
+              results["modules"].append(row)
+              print("STRENUM_ACTUAL_ESCAPE="+json.dumps(row,sort_keys=True),flush=True)
+          enum="from enum import StrEnum\nclass Level(StrEnum):\n    MODULE='module'\n"
+          app="from sample.model import Level\ndef use(value:Level):\n    return value.capitalize()\n"
+          additions={"annotation-only":"","constructor-function":"def parse(value):\n    return Level(value)\n","member-read":"choice=Level.MODULE\n","isinstance-typearg":"def check(value):\n    return isinstance(value,Level)\n","issubclass-typearg":"def check(value):\n    return issubclass(value,Level)\n"}
+          for name,addition in additions.items():
+              with tempfile.TemporaryDirectory() as tmp:
+                  directory=Path(tmp);(directory/"sample").mkdir()
+                  (directory/"sample/__init__.py").write_text("")
+                  (directory/"sample/model.py").write_text(enum+addition)
+                  (directory/"sample/app.py").write_text(app)
+                  facts=collect(CollectionRequest(SnapshotInput(tmp,"a"*40,False),SourceScope((".",),"sample"),PythonSettings()))
+                  chosen=[]
+                  for section in facts.sections:
+                      for record in section.records:
+                          data=record.data
+                          if section.name=="symbols" and data.get("qualified_name")=="sample.model.Level":
+                              chosen.append(record_payload(record))
+                          if section.name=="calls" and data.get("expression")=="value.capitalize":
+                              chosen.append(record_payload(record))
+                  row={"case":name,"source":enum+addition,"records":chosen}
+                  results["minimal"].append(row)
+                  print("STRENUM_MINIMAL_ESCAPE="+json.dumps(row,sort_keys=True),flush=True)
+          Path("strenum-escape-cause.json").write_text(json.dumps(results,sort_keys=True))
+          print("STRENUM_ESCAPE_TRACE_NO_SOURCE_WRITES=PASS",flush=True)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: strenum-escape-cause
+          path: strenum-escape-cause.json
