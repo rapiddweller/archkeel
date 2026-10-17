@@ -6,7 +6,6 @@
 import json
 from dataclasses import fields
 from pathlib import Path
-from typing import get_args
 
 import pytest
 from jsonschema import Draft202012Validator
@@ -37,7 +36,7 @@ from fixtures.reproduce_typescript import Outcome, check_revisions, run_variant
 
 def test_catalog_exhausts_rule_and_measurement_vocabulary() -> None:
     assert set(RULE_EXAMPLES) == RULE_KINDS
-    assert set(NAME_BUDGET_EXAMPLES) == set(get_args(NameBudgetKind))
+    assert {NameBudgetKind(key) for key in NAME_BUDGET_EXAMPLES} == set(NameBudgetKind)
     assert set(MEASUREMENT_EXAMPLES) == set(SCALARS)
     assert set(MEASUREMENT_EXAMPLES) == {field.name for field in fields(RatchetScalars)}
     assert {field.name for field in fields(Measurements)} == {
