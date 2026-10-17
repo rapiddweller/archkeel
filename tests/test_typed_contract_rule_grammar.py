@@ -313,7 +313,9 @@ def test_authored_declaration_readers_share_owned_kinds_and_keep_extensions_open
         assert graph.parse_architecture_declaration_kind(str(member)) is member
         assert graph.parse_architecture_declaration_kind(member) is member
         assert graph.parse_architecture_rule_kind(str(member)) is None
-    assert get_type_hints(graph.parse_architecture_rule_kind)["return"] == ArchitectureRuleKind | None
+    assert (
+        get_type_hints(graph.parse_architecture_rule_kind)["return"] == ArchitectureRuleKind | None
+    )
     assert (
         get_type_hints(graph.parse_architecture_declaration_kind)["return"]
         == ArchitectureRuleKind | declaration | None
@@ -337,23 +339,42 @@ def test_actual_declaration_producers_keep_plain_tags_and_absent_public_data():
         "modules": [{"path": "src/app.py", "responsibility": "Own the app."}],
         "public_api": ["sample.core:run"],
         "public_api_provenance": ["docs/architecture/sample.md"],
-        "spot_owners": [{
-            "id": "SPOT-CORE", "label": "core", "owner": "sample.core",
-            "responsibility": "Own shared logic.", "provenance": ["docs/architecture/sample.md"],
-        }],
-        "compat": [{
-            "module": "sample.old", "target": "sample.core", "lifetime": "migration",
-        }],
+        "spot_owners": [
+            {
+                "id": "SPOT-CORE",
+                "label": "core",
+                "owner": "sample.core",
+                "responsibility": "Own shared logic.",
+                "provenance": ["docs/architecture/sample.md"],
+            }
+        ],
+        "compat": [
+            {
+                "module": "sample.old",
+                "target": "sample.core",
+                "lifetime": "migration",
+            }
+        ],
     }
     contract = parse_contract(raw)
     records = project_declarations(
-        contract, (), (), (), "contract.json",
-        type_shapes={}, unknowns=[], measured_types=False,
+        contract,
+        (),
+        (),
+        (),
+        "contract.json",
+        type_shapes={},
+        unknowns=[],
+        measured_types=False,
     )
     assert all(type(row["kind"]) is str for row in records)
     assert {row["kind"] for row in records} == {
-        "module_target", "component_responsibility", "declared_public_api",
-        "spot_owner", "compatibility_shim", "compatibility_migration_work",
+        "module_target",
+        "component_responsibility",
+        "declared_public_api",
+        "spot_owner",
+        "compatibility_shim",
+        "compatibility_migration_work",
     }
     by_id = {row["id"]: row for row in records}
     assert "public" not in by_id["COMP-CORE"]["data"]
@@ -365,7 +386,8 @@ def test_actual_declaration_producers_keep_plain_tags_and_absent_public_data():
     assert work["evidence_class"] == "DECLARED_RULE"
     inside = project_inside_declarations("core", contract, "inside.json")
     assert {row["kind"] for row in inside} == {
-        "module_target", "inside_component_responsibility",
+        "module_target",
+        "inside_component_responsibility",
     }
     assert all(type(row["kind"]) is str for row in inside)
     assert all(row["data"]["parent_id"] == "core" for row in inside)
