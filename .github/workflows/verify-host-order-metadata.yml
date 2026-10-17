@@ -1,17 +1,17 @@
-name: Read-only host test formatting and strict proof
+name: RED for the host converter accepted input domain
 on:
   push:
     branches: [verify/542-host-order-metadata]
 permissions:
   contents: read
 jobs:
-  format-and-strict:
+  accepted-input-red:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 7db534347cd6a60f7a109af216e55b1169c981ac
+          ref: bbd0c410eee543012cafb9e3a172e22dfcaa7686
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -19,14 +19,4 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
-      - name: Export exact formatter output without modifying Source
-        run: |
-          uv run --locked ruff format --stdin-filename tests/test_typed_host_events.py < tests/test_typed_host_events.py > "$RUNNER_TEMP/host-events-formatted.py"
-          python - <<'PY'
-          import json,os
-          from pathlib import Path
-          path=Path(os.environ["RUNNER_TEMP"])/"host-events-formatted.py"
-          print("HOST_FORMATTED_TEST_JSON="+json.dumps(path.read_text()))
-          PY
-          make typecheck
-          git diff --exit-code
+      - run: uv run --locked pytest -q tests/test_typed_host_events.py::test_actual_ordering_port_returns_the_owned_nominal_event
