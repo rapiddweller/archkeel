@@ -314,6 +314,32 @@
         "docs/architecture/graph-topology-level-types.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "CALL-CHANGE-VALIDATION-FILTER",
+      "kind": "forbidden_construct",
+      "source": "archkeel.check.validation._unresolved_calls_since",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Select owned control members at the actual consumer; paths, rendered text and JSON keys remain data.",
+      "provenance": [
+        "docs/architecture/unresolved-call-change-types.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "CALL-CHANGE-VALIDATION-SIDES",
+      "kind": "forbidden_construct",
+      "source": "archkeel.check.validation._one_sided_paths",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Select owned control members at the actual consumer; paths, rendered text and JSON keys remain data.",
+      "provenance": [
+        "docs/architecture/unresolved-call-change-types.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {

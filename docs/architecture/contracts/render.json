@@ -254,6 +254,32 @@
         "docs/architecture/structure-level-types.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "CALL-CHANGE-SUMMARY",
+      "kind": "forbidden_construct",
+      "source": "archkeel.render.summary._call_site_lines",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Select owned control members at the actual consumer; paths, rendered text and JSON keys remain data.",
+      "provenance": [
+        "docs/architecture/unresolved-call-change-types.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "TERMINAL-RULE-ASSESSMENT-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.render.terminal.print_result",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Select owned control members at the actual consumer; paths, rendered text and JSON keys remain data.",
+      "provenance": [
+        "docs/architecture/unresolved-call-change-types.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {

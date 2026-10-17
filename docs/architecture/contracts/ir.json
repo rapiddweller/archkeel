@@ -11771,6 +11771,35 @@
             ],
             "returns": "EntityKind | None"
           }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/unresolved-call-change-types.md"
+          ],
+          "id": "CALL-CHANGE-row",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.UnresolvedCallChange",
+          "parent_id": "IR-DEPENDENCY-model",
+          "responsibilities": [
+            "Publish the two supported unresolved-call count directions through the shared action owner."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/unresolved-call-change-types.md"
+          ],
+          "id": "CALL-CHANGE-direction",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.UnresolvedCallChange.change",
+          "parent_id": "CALL-CHANGE-row",
+          "annotation": "CallChangeKind",
+          "responsibilities": [
+            "Keep added/removed directions nominal without broadening the existing two-value domain."
+          ]
         }
       ],
       "relationships": [
