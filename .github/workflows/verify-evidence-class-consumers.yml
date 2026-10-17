@@ -23,6 +23,11 @@ jobs:
           uv python install 3.11.12 3.12.10
           uv sync --locked
           git worktree add --detach "$RUNNER_TEMP/evidence-base" c725df96543d1dd7ec4e20887a486ec9a7143c8a
+      - name: Strict formatting, lint and typing
+        run: |
+          uv run --locked ruff format --check src/archkeel/check/uml.py src/archkeel/ir/target_records.py src/archkeel/ir/report_projection.py src/archkeel/ir/decisions.py
+          uv run --locked ruff check src/archkeel/check/uml.py src/archkeel/ir/target_records.py src/archkeel/ir/report_projection.py src/archkeel/ir/decisions.py
+          uv run --locked mypy --strict src/archkeel
       - name: Exact native before and after source evidence
         env:
           PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}/tests
@@ -91,8 +96,8 @@ jobs:
           added = semantic["after"] - semantic["before"]
           assert sum(removed.values()) == 11, removed
           assert not added, added
+          assert removed == collections.Counter((row["file"],row["expression"],row["owner"],row["form"]) for row in selected["before"]), removed
           for row in selected["before"]:
-              assert removed[(row["file"],row["expression"],row["owner"],row["form"])] == 1
               print("REMOVED_NATIVE_SITE=" + json.dumps(row,sort_keys=True), flush=True)
           nominal = {}
           for version, source_map in sources.items():
@@ -115,11 +120,6 @@ jobs:
           PY
           
           uv run --locked python "$RUNNER_TEMP/evidence-native.py"
-      - name: Strict formatting, lint and typing
-        run: |
-          uv run --locked ruff format --check src/archkeel/check/uml.py src/archkeel/ir/target_records.py src/archkeel/ir/report_projection.py src/archkeel/ir/decisions.py
-          uv run --locked ruff check src/archkeel/check/uml.py src/archkeel/ir/target_records.py src/archkeel/ir/report_projection.py src/archkeel/ir/decisions.py
-          uv run --locked mypy --strict src/archkeel
       - name: Existing affected regressions on base
         env:
           PYTHONPATH: ${{ runner.temp }}/evidence-base/src:${{ runner.temp }}/evidence-base/tests
