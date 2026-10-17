@@ -23,6 +23,39 @@ class Language(StrEnum):
     TYPESCRIPT = "typescript"
 
 
+class SourceSymbolKind(StrEnum):
+    """Known source symbol/namespace tags; graph projection and open envelopes are separate."""
+
+    MODULE = "module"
+    CLASS = "class"
+    INTERFACE = "interface"
+    ENUM = "enum"
+    FUNCTION = "function"
+    METHOD = "method"
+    ALIAS = "alias"
+    ATTRIBUTE = "attribute"
+    CONSTANT = "constant"
+    BINDING = "binding"
+    TYPE_ALIAS = "type_alias"
+    STATIC_CONSTANT = "static_constant"
+    DYNAMIC_BINDING = "dynamic_binding"
+
+
+FUNCTION_KINDS = frozenset({SourceSymbolKind.FUNCTION, SourceSymbolKind.METHOD})
+
+
+def parse_source_symbol_kind(value: JsonValue | RawJson) -> SourceSymbolKind | None:
+    """Recognize one known source tag without changing unknown extension data."""
+    if isinstance(value, SourceSymbolKind):
+        return value
+    if not isinstance(value, str):
+        return None
+    try:
+        return SourceSymbolKind(value)
+    except ValueError:
+        return None
+
+
 class DefinitionContextKind(StrEnum):
     IF = "if"
     FOR = "for"

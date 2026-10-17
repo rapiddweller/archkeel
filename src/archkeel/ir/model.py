@@ -39,6 +39,7 @@ from .diagnostics import DiagnosticCode as DiagnosticCode
 from .diagnostics import DiagnosticError as DiagnosticError
 from .diagnostics import DiagnosticKind as DiagnosticKind
 from .diagnostics import ReportLocation as ReportLocation
+from .facts import FUNCTION_KINDS as FUNCTION_KINDS
 from .facts import (
     EVIDENCE_FIELDS as EVIDENCE_FIELDS,
 )
@@ -737,9 +738,6 @@ RULE_RECORD_KINDS: Final = RULE_KINDS | {UML_TARGET_KIND}
 
 # The symbol kinds that carry a signature. One set, because a record's `kind` and its
 # older `symbol_category` field hold the same three values and two copies may drift apart.
-FUNCTION_KINDS = frozenset({"function", "method"})
-
-
 def parse_graph_topology_level(value: JsonValue | RawJson) -> GraphTopologyLevel | None:
     """Recognize the owned topology domain while leaving other record metadata opaque."""
     if not isinstance(value, str):
