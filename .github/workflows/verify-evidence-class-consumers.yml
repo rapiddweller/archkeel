@@ -94,6 +94,7 @@ jobs:
           for row in selected["before"]:
               assert removed[(row["file"],row["expression"],row["owner"],row["form"])] == 1
               print("REMOVED_NATIVE_SITE=" + json.dumps(row,sort_keys=True), flush=True)
+          nominal = {}
           for version, source_map in sources.items():
               comparisons = []
               for path in PATHS:
@@ -104,8 +105,9 @@ jobs:
                       left, right = node.left, node.comparators[0]
                       if isinstance(left,ast.Attribute) and left.attr == "evidence_class" and isinstance(right,ast.Attribute) and right.attr == "DECLARED_RULE":
                           comparisons.append(dict(file=path,line=node.lineno,expression=ast.get_source_segment(source_map[path],node)))
+              nominal[version] = comparisons
               if version == "after":
-                  assert len(comparisons) == 11, comparisons
+                  assert len(comparisons) - len(nominal["before"]) == 11, nominal
                   print("NOMINAL_COMPARISONS=" + json.dumps(comparisons,sort_keys=True), flush=True)
                   for path in PATHS:
                       assert ".evidence_class.value" not in source_map[path],path
@@ -164,6 +166,16 @@ jobs:
           from archkeel.ir.report_graph import architecture_report
           
           phase=sys.argv[1]
+          import importlib
+          source_root=(Path(os.environ["RUNNER_TEMP"])/"evidence-base"/"src"
+                       if phase == "before" else Path.cwd()/"src")
+          for name in ("archkeel.check.uml","archkeel.ir.target_records","archkeel.ir.report_projection","archkeel.ir.decisions"):
+              module=importlib.import_module(name)
+              loaded=Path(module.__file__).resolve()
+              expected=(source_root/Path(*name.split("."))).with_suffix(".py").resolve()
+              assert loaded==expected,(phase,name,loaded,expected)
+              print("LOADED_PROFILE_SOURCE="+json.dumps(dict(phase=phase,module=name,path=str(loaded),
+                    sha256=hashlib.sha256(loaded.read_bytes()).hexdigest()),sort_keys=True),flush=True)
           inputs=Path(os.environ["RUNNER_TEMP"])/"evidence-profile-inputs"
           output=Path(os.environ["RUNNER_TEMP"])/("evidence-profiles-"+phase)
           output.mkdir()
