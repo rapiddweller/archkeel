@@ -1,0 +1,52 @@
+name: Verify Python binding carry on current merged Main
+on:
+  push:
+    branches: [verify/542-bindings-after-cli-main]
+permissions:
+  contents: read
+jobs:
+  cli-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: f6097369363e5c5802ba8995424f7843b036c0d5
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Normal measured baseline, amendment and exact replay
+        run: |
+          uv run --locked python - <<'PY'
+          import base64,json,subprocess
+          from pathlib import Path
+          base="b4f99068992a70ced1907b7221b37d9905c6e3a7"
+          path="docs/architecture/decisions/issue-542-python-bindings-amendment.json"
+          common=["uv","run","--locked","python","-m","archkeel.cli","validate","--root",".","--baseline","architecture-baseline.json","--json"]
+          stages=[
+              ("baseline",["--write-baseline"]),
+              ("amendment",["--against",base,"--amendment",path,"--write-amendment","--decided-by","ake2l","--rationale","Own nominal Python import, lexical binding and compiler-scope controls, preserve valid legacy constructor and reexport APIs, and add the authored binding Target and complete-model control guard without broadening resolver authority or debt ceilings."]),
+              ("replay",["--against",base,"--amendment",path]),
+          ]
+          codes=[]
+          for stage,extra in stages:
+              result=subprocess.run(common+extra,text=True,capture_output=True)
+              codes.append(result.returncode)
+              data=json.loads(result.stdout)
+              print("BINDING_RESULT="+json.dumps({"stage":stage,**{k:data.get(k) for k in ("exit_code","diagnostics","failures","widenings","amendment_status","measurements")}},separators=(",",":")))
+              if result.stderr:print("BINDING_STDERR="+result.stderr[-3000:])
+          for marker,filename in (("BINDING_BASELINE","architecture-baseline.json"),("BINDING_AMENDMENT",path)):
+              file=Path(filename)
+              if file.exists():print(marker+"="+base64.b64encode(file.read_bytes()).decode())
+          assert codes==[0,0,0],codes
+          PY
+      - name: Actual nominal binding constructors, compiler fallback and native Target mutations
+        run: uv run --locked python -m pytest -q tests/test_typed_python_bindings.py
+      - name: Binding caches, imports, boundary aliases, scope/reference and actual ownership regressions
+        run: uv run --locked python -m pytest -q tests/test_binding_proof_reuse.py tests/test_bindings.py tests/test_boundary_types_aliases.py tests/test_boundary_types_reexport_proofs.py tests/test_references.py tests/test_self.py tests/test_levels.py tests/test_python_source_evidence_lines.py
+      - name: Collector liveness, source trust, wire compatibility and hygiene
+        run: uv run --locked python -m pytest -q tests/test_source_trust_boundary.py tests/test_typed_collector_native.py tests/test_codec_compatibility.py tests/test_repository_hygiene.py
+      - run: make lint typecheck
