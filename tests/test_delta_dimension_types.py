@@ -21,6 +21,7 @@ from archkeel.check import delta, expectation
 from archkeel.check.ports import ScanConfig
 from archkeel.ir import codec_delta, model, profiles
 from archkeel.ir.codec import canonical_json_bytes, delta_payload, parse_delta
+from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
 
@@ -229,6 +230,7 @@ def _repository(tmp_path):
         "archkeel/ir/model.py": prefix
         + "from enum import StrEnum\n"
         + "from archkeel.ir.profiles import DeltaDimension as DeltaDimension\n"
+        + "from archkeel.ir.facts import Record as Record, RecordData as RecordData\n"
         + _source_members(
             "src/archkeel/ir/model.py", {"KnownSemanticChangeKind", "SemanticChange"}
         ),
@@ -261,6 +263,9 @@ def _repository(tmp_path):
             },
         ),
     }
+    for name in ("identity", "state_facts", "type_shapes"):
+        path = f"archkeel/ir/{name}.py"
+        files[path] = (ROOT / "src" / path).read_text()
     contract = _contract()
     files["contract.json"] = json.dumps(contract)
     for row in contract["declarations"]["uml"]["entities"]:
@@ -280,6 +285,9 @@ def _valid(root, config):
         if row.status != "PASS"
     ]
     assert not trace_valid_violations(observed)
+    requires = next(row for row in rule_assessments(observed, undecided_by_rule={})
+                    if row.id == "TARGET-COMPLETE_REQUIRES")
+    assert requires.status == "PASS" and requires.evaluation_proven, requires
 
 
 def test_native_actual_delta_ports_match_independent_fixed_target(tmp_path):
