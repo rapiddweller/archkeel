@@ -1,0 +1,75 @@
+name: Classifier projection actual native evidence
+on:
+  push:
+    branches: [verify/542-classifier-projections-gates]
+permissions:
+  contents: read
+jobs:
+  native-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 403199534888925df327a4b3cb861ac4b8d1bad2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: |
+          uv run --locked python - <<'PY'
+          import collections, gzip, hashlib, json, subprocess
+          from dataclasses import asdict
+          from pathlib import Path
+          from archkeel.ir.codec import decode_canonical_model, parse_observation
+          artifact=Path("/tmp/archkeel-native-current-controls")
+          artifact.mkdir()
+          report=artifact/"actual-report.json"
+          run=subprocess.run(["uv","run","--locked","archkeel","report","--root",".","--output",str(report)],capture_output=True,text=True)
+          (artifact/"actual-result.json").write_text(run.stdout)
+          print(run.stderr[-4000:],flush=True)
+          assert run.returncode==0,(run.returncode,run.stdout[-5000:])
+          result=json.loads(run.stdout)
+          assert not result["diagnostics"],result["diagnostics"]
+          assert result["observation_complete"]=="PASS",result
+          model=parse_observation(decode_canonical_model(json.loads(report.read_bytes())))
+          assert not model.records("violations"),model.records("violations")
+          scopes={"archkeel.ir.interfaces._symbol_kind","archkeel.ir.source_graph._classifier_kind"}
+          owners={row.data.get("qualified_name") for row in model.records("symbols")}
+          assert scopes <= owners,(scopes-owners)
+          controls=[row for row in model.records("constructs") if row.kind=="string_literal_compare" and row.data.get("owner") in scopes]
+          assert not controls,controls
+          assert model.coverage.calls_unresolved <= 838,model.coverage.calls_unresolved
+          print("CLASSIFIER_PROJECTION_ACTUAL_OWNERS_WITHOUT_LITERAL_COMPARE="+json.dumps(sorted(scopes)),flush=True)
+          evidence={row.id:row for row in model.evidence}
+          rows=[]
+          for item in model.records("constructs"):
+              if item.kind!="string_literal_compare": continue
+              locations=[asdict(evidence[key]) for key in item.evidence_ids]
+              rows.append({"record":asdict(item),"locations":locations,"owner":item.data.get("owner"),"form":item.data.get("form")})
+          raw=(json.dumps(rows,sort_keys=True,indent=2)+"\n").encode()
+          (artifact/"native-control-sites.json").write_bytes(raw)
+          module_counts=collections.Counter()
+          forms=collections.Counter()
+          for row in rows:
+              assert row["locations"]
+              module_counts.update({row["locations"][0]["file"]:1})
+              forms.update({row["form"]:1})
+          summary={"source":"403199534888925df327a4b3cb861ac4b8d1bad2","scope":"actual own Python native observation; supported syntax only, not semantic whole-program or defect count","constructs":len(rows),"by_file":dict(module_counts.most_common()),"forms":dict(forms),"site_payload_sha256":hashlib.sha256(raw).hexdigest(),"calls_unresolved":model.coverage.calls_unresolved}
+          (artifact/"summary.json").write_text(json.dumps(summary,sort_keys=True,indent=2)+"\n")
+          print("ACTUAL_NATIVE_CURRENT_CONTROL_AUDIT="+json.dumps(summary,sort_keys=True),flush=True)
+          print("ACTUAL_NATIVE_CONTROL_SAMPLES="+json.dumps(rows[:3],sort_keys=True),flush=True)
+          for file in list(artifact.glob("*.json")):
+              packed=file.with_suffix(file.suffix+".gz")
+              packed.write_bytes(gzip.compress(file.read_bytes(),compresslevel=1,mtime=0))
+              file.unlink()
+          subprocess.run(["git","diff","--exit-code"],check=True)
+          
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: actual-native-current-control-sites
+          path: /tmp/archkeel-native-current-controls/*.gz
