@@ -12,6 +12,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path, PurePosixPath
 from queue import Empty, Queue
 from threading import Thread
@@ -31,6 +32,18 @@ class _ProcessCleanupError(RuntimeError):
 
 
 _CLEANUP_TIMEOUT_SECONDS = 2
+
+
+class _ProcessPlatform(Enum):
+    POSIX = "posix"
+    WINDOWS = "nt"
+
+
+def _process_platform(name: str) -> _ProcessPlatform | None:
+    try:
+        return _ProcessPlatform(name)
+    except ValueError:
+        return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,7 +69,8 @@ class ProcessCollector:
             payload = encode_request(request)
             command = self.argv
             environment = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
-            if os.name == "nt":
+            platform = _process_platform(os.name)
+            if platform is _ProcessPlatform.WINDOWS:
                 search_path = os.pathsep.join((request.snapshot.root, environment.get("PATH", "")))
                 executable = shutil.which(self.argv[0], path=search_path)
                 if executable is None:
@@ -82,7 +96,7 @@ class ProcessCollector:
                 stderr=subprocess.PIPE,
                 bufsize=0,
                 env=environment,
-                start_new_session=os.name == "posix",
+                start_new_session=platform is _ProcessPlatform.POSIX,
             ) as process:
                 workers: list[Thread] = []
                 try:
@@ -207,7 +221,8 @@ def _requested_facts(facts: SourceFacts, request: CollectionRequest) -> None:
 
 
 def _terminate_process_tree(process: subprocess.Popen[bytes]) -> None:
-    if os.name == "posix":
+    platform = _process_platform(os.name)
+    if platform is _ProcessPlatform.POSIX:
         try:
             os.killpg(process.pid, signal.SIGKILL)
         except ProcessLookupError:
@@ -216,7 +231,7 @@ def _terminate_process_tree(process: subprocess.Popen[bytes]) -> None:
             raise _ProcessCleanupError(
                 "Could not terminate the collector process group."
             ) from error
-    elif os.name == "nt":
+    elif platform is _ProcessPlatform.WINDOWS:
         if process.poll() is None:
             try:
                 process.kill()
