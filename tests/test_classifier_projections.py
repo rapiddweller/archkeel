@@ -70,7 +70,6 @@ def test_mixin_projection_does_not_expand_the_existing_contract_kind_grammar():
         ("interface", "class", EntityKind.CLASS),
         ("future", "class", EntityKind.CLASS),
         (None, "class", EntityKind.CLASS),
-        (False, "class", EntityKind.CLASS),
     ),
 )
 def test_ui_and_graph_keep_their_distinct_wire_projections_and_unknown_fallbacks(tag, ui, graph):
@@ -91,3 +90,13 @@ def test_interface_names_leave_unrelated_and_future_record_kinds_open(kind):
         "SYM-X", kind=kind, qualified_name="sample.api.Name", module="sample.api", name="Name"
     )
     assert interfaces._symbol_kind(parse_record(raw)) == kind
+
+
+@pytest.mark.parametrize("value", (False, 1, (), RecordData()))
+def test_graph_projection_keeps_existing_malformed_classifier_validation(value):
+    raw = _symbol_record(
+        "SYM-X", kind="class", qualified_name="sample.api.Name", module="sample.api", name="Name"
+    )
+    raw["data"]["class_kind"] = value
+    with pytest.raises(ValueError, match="source graph expected text"):
+        source_graph._symbol(parse_record(raw), "future-language")
