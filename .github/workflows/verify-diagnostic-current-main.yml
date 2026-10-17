@@ -1,0 +1,222 @@
+name: Verify reviewed diagnostic carry on actual Main
+on:
+  push:
+    branches: [verify/542-diagnostic-current-main]
+permissions:
+  contents: read
+jobs:
+  normal-metadata:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: cbe6d61506fa0544f455f438d496be3f0a8cbdf9
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Verify exact immutable scoped source
+        run: |
+          test "$(git rev-parse HEAD)" = "cbe6d61506fa0544f455f438d496be3f0a8cbdf9"
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          def blob(ref,path):return subprocess.check_output(["git","show",ref+":"+path])
+          for path in ["docs/architecture/typed-diagnostic-owner.md","docs/superpowers/plans/2026-10-16-typed-diagnostic-owner-progress.md","docs/superpowers/plans/2026-10-16-typed-diagnostic-owner.md","docs/superpowers/specs/2026-10-16-typed-diagnostic-owner.md","src/archkeel/check/delta.py","src/archkeel/check/observe.py","src/archkeel/check/onboarding.py","src/archkeel/check/report.py","src/archkeel/check/run.py","src/archkeel/check/runtime.py","src/archkeel/check/uml.py","src/archkeel/check/uml_evaluation.py","src/archkeel/check/validation/__init__.py","src/archkeel/check/validation/closed_world.py","src/archkeel/check/validation/diagnostics.py","src/archkeel/check/validation/graphs.py","src/archkeel/check/validation/inside.py","src/archkeel/check/validation/observation.py","src/archkeel/check/validation/public_api.py","src/archkeel/check/validation/rationale.py","src/archkeel/check/validation/references.py","src/archkeel/ir/baseline.py","src/archkeel/ir/diagnostics.py","src/archkeel/ir/lock.py","src/archkeel/ir/model.py","src/archkeel/ir/report_projection.py","src/archkeel/render/terminal.py","tests/test_diagnostics.py","tests/test_result_schema.py","tests/test_typed_diagnostic_owner.py","tools/github_pr_report.py"]:
+              assert blob("HEAD",path)==blob("62fd95e68b07df1149e30a9690bd58f7129fa59b",path),path
+          for path in ("src/archkeel/analyzer/python/source.py","architecture-baseline.json"):
+              assert blob("HEAD",path)==blob("cef2d99ac1aa6e3be4710c5df03f89ab57c0dde5",path),path
+          print("DIAGNOSTIC_SCOPED_SOURCE=True")
+          PY
+      - name: Normal measured baseline, amendment and exact replay
+        run: |
+          uv run --locked python - <<'PY'
+          import base64,json,subprocess
+          from pathlib import Path
+          base="cef2d99ac1aa6e3be4710c5df03f89ab57c0dde5"
+          path="docs/architecture/decisions/issue-542-diagnostic-owner-amendment.json"
+          common=["uv","run","--locked","python","-m","archkeel.cli","validate","--root",".","--baseline","architecture-baseline.json","--json"]
+          stages=[
+              ("baseline",["--write-baseline"]),
+              ("amendment",["--against",base,"--amendment",path,"--write-amendment","--decided-by","ake2l","--rationale","Publish the reviewed canonical diagnostic owner with identical valid model and public facades, existing wire vocabulary and typed producers, preserving actual merged Main governance and conservative native evidence without additional allowances or ceiling increases."]),
+              ("replay",["--against",base,"--amendment",path]),
+          ]
+          original_baseline=json.loads(Path("architecture-baseline.json").read_bytes())
+          codes=[]
+          for stage,extra in stages:
+              result=subprocess.run(common+extra,text=True,capture_output=True)
+              codes.append(result.returncode)
+              data=json.loads(result.stdout)
+              print("DIAGNOSTIC_RESULT="+json.dumps({"stage":stage,**{k:data.get(k) for k in ("exit_code","diagnostics","failures","widenings","amendment_status","measurements")}},separators=(",",":")))
+              if result.stderr:print("DIAGNOSTIC_STDERR="+result.stderr[-3000:])
+          for marker,filename in (("DIAGNOSTIC_BASELINE","architecture-baseline.json"),("DIAGNOSTIC_AMENDMENT",path)):
+              file=Path(filename)
+              if file.exists():print(marker+"="+base64.b64encode(file.read_bytes()).decode())
+          assert codes==[0,0,0],codes
+          generated=json.loads(Path("architecture-baseline.json").read_bytes())
+          before=original_baseline["budgets"]["calls_unresolved"]
+          after=generated["budgets"]["calls_unresolved"]
+          assert after<=before,(before,after)
+          restored=json.loads(json.dumps(generated))
+          restored["budgets"]["calls_unresolved"]=before
+          assert restored==original_baseline, "ordinary writer changed another existing baseline budget or allowance"
+          print("DIAGNOSTIC_BASELINE_RATCHET="+json.dumps({"before":before,"after":after,"other_fields_unchanged":True}))
+          PY
+  diagnostic-native-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: cbe6d61506fa0544f455f438d496be3f0a8cbdf9
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: make lint typecheck
+      - name: Exercise actual diagnostic owner and independent native controls
+        run: uv run --locked python -m pytest -q tests/test_typed_diagnostic_owner.py --tb=short
+      - run: uv run --locked python -m pytest -q tests/test_repository_hygiene.py
+  diagnostic-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: cbe6d61506fa0544f455f438d496be3f0a8cbdf9
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Verify diagnostic, schema, validation and report behavior
+        run: |
+          uv run --locked python -m pytest -q tests/test_diagnostics.py tests/test_result_schema.py tests/test_check_diagnostics.py tests/test_lock_diagnostics.py tests/test_report_diagnostics.py tests/test_contract_model.py tests/test_validation.py tests/test_onboarding.py tests/test_saved_report.py tests/test_report_filter.py tests/test_uml_evaluation.py tests/test_boundary_type_unknown_verdict.py tests/test_schema_drift.py
+  native-position-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: cbe6d61506fa0544f455f438d496be3f0a8cbdf9
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Verify actual native positions and conservative call relocations
+        run: |
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/diagnostic-after.json" > "$RUNNER_TEMP/diagnostic-after-result.json"
+          git worktree add --detach "$RUNNER_TEMP/diagnostic-before" cef2d99ac1aa6e3be4710c5df03f89ab57c0dde5
+          uv run --locked archkeel report --root "$RUNNER_TEMP/diagnostic-before" --output "$RUNNER_TEMP/diagnostic-before.json" > "$RUNNER_TEMP/diagnostic-before-result.json"
+          uv run --locked python - "$RUNNER_TEMP/diagnostic-before.json" "$RUNNER_TEMP/diagnostic-after.json" <<'PY'
+          import json,pathlib,sys
+          from dataclasses import asdict
+          import ast,os,re
+          from archkeel.ir.codec import decode_canonical_model,parse_observation
+          from archkeel.check.ratchets import unknown_positions_by_rule,call_rows
+          from archkeel.ir.trace import trace_valid_violations
+          from archkeel.ir.report_graph import architecture_report
+          def read(path): return parse_observation(decode_canonical_model(json.loads(pathlib.Path(path).read_text())))
+          before,after=(read(path) for path in sys.argv[1:])
+          def types(model):
+              return {
+                  row.id: {"id":row.id,"kind":row.kind,"rule_ids":row.rule_ids,**{key:row.data.get(key) for key in ("qualified_name","position","path","annotation","nested_annotation","reason")}}
+                  for row in model.records("unknowns") or ()
+                  if row.kind in {"boundary_type_position","boundary_type_route"}
+              }
+          def stable_caller(caller):
+              return re.sub(r"<(genexpr|listcomp|dictcomp|setcomp):[0-9]+:[0-9]+>",r"<\1>",caller)
+          def unresolved(model):
+              result={}
+              for row in call_rows(model):
+                  if row.status=="unresolved":
+                      result.setdefault((row.path,stable_caller(row.caller),row.expression),[]).append(asdict(row))
+              return result
+          def partial(model):
+              result={}
+              for row in call_rows(model):
+                  if row.status=="partially_resolved":
+                      result.setdefault((row.path,stable_caller(row.caller),row.expression),[]).append(asdict(row))
+              return result
+          old_partial,new_partial=partial(before),partial(after)
+          partial_added=[{"before":old_partial.get(key,[]),"after":new_partial[key]} for key in new_partial if len(new_partial[key])>len(old_partial.get(key,[]))]
+          partial_removed=[{"before":old_partial[key],"after":new_partial.get(key,[])} for key in old_partial if len(old_partial[key])>len(new_partial.get(key,[]))]
+          old,new=types(before),types(after)
+          old_calls,new_calls=unresolved(before),unresolved(after)
+          before_root=pathlib.Path(os.environ["RUNNER_TEMP"])/"diagnostic-before"
+          def class_method(path,classname,methodname):
+              tree=ast.parse(path.read_text())
+              cls=next(node for node in tree.body if isinstance(node,ast.ClassDef) and node.name==classname)
+              return next(node for node in cls.body if isinstance(node,ast.FunctionDef) and node.name==methodname)
+          def owned_nodes(path,names):
+              tree=ast.parse(path.read_text())
+              return {node.name if isinstance(node,ast.ClassDef) else node.target.id:ast.dump(node,include_attributes=False) for node in tree.body if isinstance(node,ast.ClassDef) and node.name in names or isinstance(node,ast.AnnAssign) and isinstance(node.target,ast.Name) and node.target.id in names}
+          for path,names in (
+              ("src/archkeel/ir/model.py",{"Coverage","RunResult"}),
+              ("src/archkeel/ir/facts.py",{"Record","RecordData","JsonValue"}),
+          ):
+              previous=owned_nodes(before_root/path,names)
+              current=owned_nodes(pathlib.Path(path),names)
+              assert previous.keys()==names and previous==current,(path,previous.keys())
+          old_diagnostic=class_method(before_root/"src/archkeel/ir/model.py","Diagnostic","__post_init__")
+          new_diagnostic=class_method(pathlib.Path("src/archkeel/ir/diagnostics.py"),"Diagnostic","__post_init__")
+          old_generators=[ast.dump(node,include_attributes=False) for node in ast.walk(old_diagnostic) if isinstance(node,ast.GeneratorExp)]
+          new_generators=[ast.dump(node,include_attributes=False) for node in ast.walk(new_diagnostic) if isinstance(node,ast.GeneratorExp)]
+          assert old_generators==new_generators,"Existing diagnostic strip generator changed"
+          old_error=class_method(before_root/"src/archkeel/ir/model.py","DiagnosticError","__init__")
+          new_error=class_method(pathlib.Path("src/archkeel/ir/diagnostics.py"),"DiagnosticError","__init__")
+          assert ast.dump(old_error,include_attributes=False)==ast.dump(new_error,include_attributes=False),"Existing diagnostic exception constructor changed"
+          growing_sites=[{"before":old_calls[key],"after":new_calls[key]} for key in old_calls.keys()&new_calls.keys() if len(new_calls[key])>len(old_calls[key])]
+          assert not growing_sites,growing_sites
+          new_sites=new_calls.keys()-old_calls.keys()
+          removed_sites=old_calls.keys()-new_calls.keys()
+          relocation_pairs=[]
+          for key in sorted(new_sites):
+              old_key=(key[0].replace("src/archkeel/ir/diagnostics.py","src/archkeel/ir/model.py"),key[1].replace("archkeel.ir.diagnostics.Diagnostic","archkeel.ir.model.Diagnostic"),key[2])
+              assert old_key in removed_sites,(key,old_key)
+              assert key[2] in {"value.strip","super().__init__"},key
+              assert len(old_calls[old_key])==len(new_calls[key]),(old_calls[old_key],new_calls[key])
+              relocation_pairs.append({"before":old_calls[old_key],"after":new_calls[key]})
+          assert len(relocation_pairs)==len(removed_sites),"Unexplained removed unresolved site"
+          summary={
+              "before_ref":"cef2d99ac1aa6e3be4710c5df03f89ab57c0dde5",
+              "before_partial_calls":before.coverage.calls_partially_resolved,
+              "after_partial_calls":after.coverage.calls_partially_resolved,
+              "new_partial_sites":partial_added,
+              "removed_partial_sites":partial_removed,
+              "unchanged_legacy_coverage_record_data_nodes":True,
+              "before_calls":before.coverage.calls_unresolved,
+              "after_calls":after.coverage.calls_unresolved,
+              "before_unknown":unknown_positions_by_rule(before),
+              "after_unknown":unknown_positions_by_rule(after),
+              "new_type_positions":[new[key] for key in sorted(new.keys()-old.keys())],
+              "resolved_type_positions":[old[key] for key in sorted(old.keys()-new.keys())],
+              "changed_existing_type_positions":[{"before":old[key],"after":new[key]} for key in sorted(old.keys()&new.keys()) if old[key]!=new[key]],
+              "new_unresolved_sites":[row for key in sorted(new_calls.keys()-old_calls.keys()) for row in new_calls[key]],
+              "removed_unresolved_sites":[row for key in sorted(old_calls.keys()-new_calls.keys()) for row in old_calls[key]],
+              "proved_call_relocations":relocation_pairs,
+              "growing_existing_unresolved_sites":growing_sites,
+              "unchanged_strip_generator_and_exception_constructor":True,
+              "all_after_type_positions":[new[key] for key in sorted(new)],
+          }
+          comparison=architecture_report(after).comparison
+          summary["graph_failures"]=[asdict(row) for row in comparison.assessments if row.status=="FAIL"] if comparison else None
+          summary["violations"]=repr(trace_valid_violations(after))
+          print("DIAGNOSTIC_POSITION_EVIDENCE="+json.dumps(summary,separators=(",",":")))
+          assert not summary["new_partial_sites"],summary
+          assert not summary["new_type_positions"],summary
+          assert summary["after_calls"]<=summary["before_calls"],summary
+          assert not trace_valid_violations(after),summary
+          assert summary["graph_failures"]==[],summary
+          PY
