@@ -47,7 +47,6 @@ def test_existing_semantic_owner_has_exact_known_domain_and_open_wire_field():
     assert get_type_hints(delta._change)["kind"] is kind
     assert get_type_hints(expectation._require_change_kind)["return"] is kind
     assert get_type_hints(expectation._validate_change_counts)["change"] is kind
-    assert expectation.CHANGE_KINDS == frozenset(wire for _, wire in KINDS)
 
 
 @pytest.mark.parametrize(("name", "wire"), KINDS)

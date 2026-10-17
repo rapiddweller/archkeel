@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import builtins as _builtins
 import hashlib
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -588,7 +589,7 @@ def build_architecture_delta(
         }
         for item in current:
             fingerprints: list[str] = fingerprints_by_kind[_KnownSemanticChangeKind(item.change)]
-            list.append(fingerprints, item.fingerprint)
+            _builtins.list.append(fingerprints, item.fingerprint)
         before_count = len(baseline.coverage.failures) if dimension == "coverage" else len(before)
         after_count = len(head.coverage.failures) if dimension == "coverage" else len(after)
         dimensions.append(

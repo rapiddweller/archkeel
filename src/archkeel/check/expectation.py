@@ -46,7 +46,6 @@ GUARDRAIL_KEYS: Final = (
     "no_new_unknowns",
     "coverage_must_pass",
 )
-CHANGE_KINDS: Final = frozenset(str(kind) for kind in _KnownSemanticChangeKind)
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
