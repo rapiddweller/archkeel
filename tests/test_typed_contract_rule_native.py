@@ -280,8 +280,10 @@ def test_native_actual_rule_and_declaration_selectors_use_the_owned_api(tmp_path
             " -> ArchitectureRuleKind | ArchitectureDeclarationKind | None:",
             "value: JsonValue | RawJson,\n) -> str | None:",
         ),
-        ("def parse_architecture_rule_kind(value: JsonValue | RawJson)",
-         "def parse_architecture_rule_kind(value: object)"),
+        (
+            "def parse_architecture_rule_kind(value: JsonValue | RawJson)",
+            "def parse_architecture_rule_kind(value: object)",
+        ),
         ("class ArchitectureDeclarationKind(StrEnum):", "class ArchitectureDeclarationKind:"),
     ],
     ids=["rule-result", "declaration-result", "raw-domain", "declaration-kind"],
