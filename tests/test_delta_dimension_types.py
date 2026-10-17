@@ -363,7 +363,10 @@ def _ownership_repository(tmp_path):
         row["packages"] = [
             "archkeel.ir.profiles" if row["label"] == "profiles" else "archkeel.ir.model"
         ]
-        row["public"] = list(row["packages"])
+        row["public"] = (
+            ["archkeel.ir.profiles:DeltaDimension", "archkeel.ir.profiles:parse_delta_dimension"]
+            if row["label"] == "profiles" else ["archkeel.ir.model"]
+        )
         row["requires"] = [
             value for value in row.get("requires", ())
             if value["component"] in {"profiles", "governance"}
