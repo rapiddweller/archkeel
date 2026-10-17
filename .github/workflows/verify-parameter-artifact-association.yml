@@ -1,0 +1,224 @@
+name: Prove exact retained ParameterKind record associations
+on:
+  push:
+    branches: [verify/542-parameter-exact-artifact-association]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  exact-retained-associations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: f6099877bdb325c095959f5df8f07f406c0f0dc2
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Download the exact preserved original native artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api repos/rapiddweller/archkeel/actions/artifacts/12081643202/zip > /tmp/parameter-sites.zip
+      - name: Prove actual AST and source-record associations without observing or mutating source
+        run: |
+          python - <<'PY'
+          import ast,collections,gzip,hashlib,json,subprocess,zipfile
+          from pathlib import Path
+          
+          BASE="e99394254846318e236ba471a14c19cd160081cf"
+          AFTER="7d05e4148dd770f2ca09bdeb27859dfc5595e773"
+          FINAL="f6099877bdb325c095959f5df8f07f406c0f0dc2"
+          root=Path("/tmp/parameter-artifact")
+          out=Path("parameter-association-proof")
+          out.mkdir(exist_ok=True)
+          with zipfile.ZipFile("/tmp/parameter-sites.zip") as z:
+              z.extractall(root)
+          paths={p.name:p for p in root.rglob("*") if p.is_file()}
+          models={side:json.loads(gzip.decompress(paths[f"{side}.json.gz"].read_bytes())) for side in ("before","after")}
+          refs={"before":BASE,"after":AFTER}
+          def enc(value):return json.dumps(value,sort_keys=True,separators=(",",":"))
+          def digest(value):return hashlib.sha256(enc(value).encode()).hexdigest()
+          def source_at(rev,path):return subprocess.check_output(["git","show",f"{rev}:{path}"],text=True)
+          owners=("src/archkeel/ir/facts.py","src/archkeel/ir/architecture_graph.py","src/archkeel/analyzer/python/symbols.py")
+          assert all(source_at(AFTER,p)==source_at(FINAL,p) for p in owners)
+          evidence={s:{e["id"]:e for e in m["evidence"]} for s,m in models.items()}
+          symbols={s:{r["id"]:r for r in m["symbols"]} for s,m in models.items()}
+          asts={}
+          def syntax(side,path):
+              k=(side,path)
+              if k in asts:return asts[k]
+              source=source_at(refs[side],path)
+              tree=ast.parse(source)
+              info={}
+              occurrences=collections.Counter()
+              def visit(node,anchor=(),route=()):
+                  if isinstance(node,(ast.ClassDef,ast.FunctionDef,ast.AsyncFunctionDef)):
+                      slot=(anchor,type(node).__name__,node.name)
+                      occurrence=occurrences[slot]
+                      occurrences[slot]+=1
+                      anchor=(*anchor,(type(node).__name__,node.name,occurrence))
+                      route=()
+                  item={"node":node,"anchor":anchor,"route":route,"key":[path,anchor,route,type(node).__name__],"dump":ast.dump(node,include_attributes=False)}
+                  info[id(node)]=item
+                  for field,value in ast.iter_fields(node):
+                      if isinstance(value,ast.AST):visit(value,anchor,(*route,(field,None)))
+                      elif isinstance(value,list):
+                          for i,child in enumerate(value):
+                              if isinstance(child,ast.AST):visit(child,anchor,(*route,(field,i)))
+              visit(tree)
+              asts[k]=(source,tree,info)
+              return asts[k]
+          associations=[]
+          errors=[]
+          def cite_node(side,identifier,types=None,expression=None):
+              e=evidence[side][identifier]
+              source,tree,info=syntax(side,e["file"])
+              matches=[]
+              for item in info.values():
+                  node=item["node"]
+                  if not hasattr(node,"lineno") or types and not isinstance(node,types):continue
+                  if node.lineno!=e["line"] or e.get("column") is not None and node.col_offset!=e["column"]:continue
+                  if e.get("end_line") is not None and node.end_lineno!=e["end_line"]:continue
+                  if expression is not None and (not isinstance(node,ast.Call) or ast.unparse(node.func)!=expression):continue
+                  matches.append(item)
+              if not matches:
+                  raise AssertionError(("NO_ACTUAL_AST_NODE",side,identifier,e,expression))
+              # Expr and its value can share a complete span; retain every actual equivalent-span node.
+              tokens=sorted({enc([item["key"],item["dump"]]) for item in matches})
+              return {"id":identifier,"citation":e,"tokens":tokens,"items":matches}
+          def evidence_token(side,identifier):
+              match=cite_node(side,identifier)
+              return ["actual-ast-citation",match["tokens"]]
+          def source_definition(side,row):
+              identifier=row["data"].get("source_definition_id")
+              if identifier is None:return None
+              symbol=symbols[side][identifier]
+              assert symbol["data"]["qualified_name"]==row["data"]["source_scope"],("SOURCE_SCOPE_MISMATCH",side,row["id"],identifier,symbol["data"].get("qualified_name"),row["data"]["source_scope"])
+              assert symbol["data"]["module"]==row["data"]["source_module"]
+              kinds=(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef,ast.Lambda,ast.GeneratorExp,ast.ListComp,ast.SetComp,ast.DictComp)
+              matches=[cite_node(side,e,kinds) for e in symbol["evidence_ids"]]
+              assert len(matches)==1
+              items=matches[0]["items"]
+              assert len(items)==1,("AMBIGUOUS_DEFINITION_AST",side,identifier)
+              node=items[0]
+              return {"id":identifier,"symbol":symbol,"citation":matches[0]["citation"],"node_key":node["key"],"ast_sha256":hashlib.sha256(node["dump"].encode()).hexdigest()}
+          def call_site(side,row):
+              expression=row["data"]["expression"]
+              matches=[cite_node(side,e,(ast.Call,),expression) for e in row["evidence_ids"]]
+              assert len(matches)==1 and len(matches[0]["items"])==1,("CALL_SITE_NOT_UNIQUE",side,row["id"])
+              item=matches[0]["items"][0]
+              return {"node_key":item["key"],"ast_dump":item["dump"],"citation":matches[0]["citation"]}
+          def binding_token(side,binding):
+              assert binding["id"].startswith("VALUEBIND-")
+              matches=[cite_node(side,e) for e in binding["evidence_ids"]]
+              assert matches,("BINDING_WITHOUT_EVIDENCE",side,binding)
+              return ["actual-value-binding",binding["name"],[m["tokens"] for m in matches]]
+          def normalize_data(side,row,definition):
+              value=json.loads(json.dumps(row["data"]))
+              if definition is not None:
+                  value["source_definition_id"]=["actual-symbol-definition",definition["node_key"]]
+                  value["source_scope"]=["actual-symbol-scope",definition["node_key"]]
+              def walk(v):
+                  if isinstance(v,list):return [walk(x) for x in v]
+                  if not isinstance(v,dict):return v
+                  result={}
+                  for key,child in v.items():
+                      if key=="id" and isinstance(child,str) and child.startswith("VALUEBIND-"):
+                          result[key]=binding_token(side,v)
+                      elif key in {"evidence_ids","target_evidence_ids"}:
+                          result[key]=[evidence_token(side,identity) for identity in child]
+                      else:result[key]=walk(child)
+                  return result
+              return walk(value)
+          def sem(row):return {k:row[k] for k in ("kind","subjects","rule_ids","data")}
+          changed=json.loads(paths["call-semantic-delta.json"].read_text())
+          all_calls=json.loads(paths["call-sites.json"].read_text())
+          chosen={}
+          for side,delta_side in (("before","removed"),("after","added")):
+              groups=collections.defaultdict(list)
+              for row in all_calls[side]:groups[enc(sem(row))].append(row)
+              selected=[]
+              for encoded in changed[delta_side]:
+                  row=json.loads(encoded)
+                  selected.append(groups[enc(row)].pop())
+              assert len(selected)==84,(side,len(selected))
+              chosen[side]=selected
+          paired={}
+          for side,rows in chosen.items():
+              grouped=collections.defaultdict(list)
+              for row in rows:
+                  try:
+                      site=call_site(side,row)
+                      definition=source_definition(side,row)
+                      normalized=normalize_data(side,row,definition)
+                      subjects=[["actual-symbol-scope",definition["node_key"]] if definition and item==row["data"]["source_scope"] else item for item in row["subjects"]]
+                      payload={**sem(row),"subjects":subjects,"data":normalized}
+                      key=enc(site["node_key"])
+                      grouped[key].append({"record":row,"site":site,"definition":definition,"normalized":payload})
+                  except Exception as e:errors.append({"stage":"call-association","side":side,"record":row,"error":repr(e)})
+              paired[side]=grouped
+          for key in paired["before"].keys()|paired["after"].keys():
+              before=paired["before"].get(key,[])
+              after=paired["after"].get(key,[])
+              if len(before)!=len(after):
+                  errors.append({"stage":"call-multiplicity","key":json.loads(key),"before":before,"after":after})
+                  continue
+              before=sorted(before,key=lambda r:enc(r["normalized"]))
+              after=sorted(after,key=lambda r:enc(r["normalized"]))
+              for b,a in zip(before,after):
+                  same_call=b["site"]["ast_dump"]==a["site"]["ast_dump"]
+                  same_payload=b["normalized"]==a["normalized"]
+                  entry={"before":b,"after":a,"same_call_ast":same_call,"same_all_data_after_exact_association":same_payload}
+                  associations.append(entry)
+                  if not same_call or not same_payload:errors.append({"stage":"call-semantic-difference","pair":entry})
+          unknown=json.loads(paths["unknown-delta.json"].read_text())
+          unknown_proofs=[]
+          old_unknown={json.loads(s)["data"]["subject_id"]:json.loads(s) for s in unknown["semantic"]["removed"]}
+          new_unknown={json.loads(s)["data"]["subject_id"]:json.loads(s) for s in unknown["semantic"]["added"]}
+          assert old_unknown.keys()==new_unknown.keys()=={"ir:source-facts","ir:coverage"}
+          for subject,b in old_unknown.items():
+              a=new_unknown[subject]
+              fact_proofs=[]
+              for old_id,new_id in zip(b["data"]["fact_ids"],a["data"]["fact_ids"]):
+                  old,new=symbols["before"][old_id],symbols["after"][new_id]
+                  assert old["kind"]==new["kind"]=="class"
+                  assert old["data"]["qualified_name"]==new["data"]["qualified_name"]
+                  bo=cite_node("before",old["evidence_ids"][0],(ast.ClassDef,))
+                  ao=cite_node("after",new["evidence_ids"][0],(ast.ClassDef,))
+                  assert len(bo["items"])==len(ao["items"])==1
+                  assert bo["items"][0]["key"]==ao["items"][0]["key"]
+                  assert bo["items"][0]["dump"]==ao["items"][0]["dump"]
+                  fact_proofs.append({"before":old,"after":new,"before_citation":bo["citation"],"after_citation":ao["citation"],"same_exact_class_ast":True,"ast_sha256":hashlib.sha256(bo["items"][0]["dump"].encode()).hexdigest()})
+              assert len(fact_proofs)==1
+              expected={"aspect","change","evidence_ids","fact_ids","id","observed_ids","reason","status","subject_id"}
+              assert b["data"].keys()==a["data"].keys()==expected
+              for key in expected-{"id","evidence_ids","fact_ids","observed_ids"}:assert b["data"][key]==a["data"][key],(subject,key)
+              assert {k:v for k,v in b.items() if k!="data"}=={k:v for k,v in a.items() if k!="data"}
+              for key in ("fact_ids","observed_ids"):
+                  assert b["data"][key]==[fact_proofs[0]["before"]["id"]]
+                  assert a["data"][key]==[fact_proofs[0]["after"]["id"]]
+              for side,row in (("before",b),("after",a)):
+                  assert row["data"]["evidence_ids"]==fact_proofs[0][side]["evidence_ids"]
+              unknown_proofs.append({"subject":subject,"before":b,"after":a,"class_proofs":fact_proofs,"same_status_aspect_reason_subject_and_actual_class_ast":True})
+          old_full=collections.Counter(enc(r) for r in models["before"]["unknowns"])
+          new_full=collections.Counter(enc(r) for r in models["after"]["unknowns"])
+          assert old_full-new_full==collections.Counter(unknown["full"]["removed"])
+          assert new_full-old_full==collections.Counter(unknown["full"]["added"])
+          assert sum((old_full-new_full).values())==sum((new_full-old_full).values())==2
+          manifest={"artifact_id":12081643202,"original_run":38983197790,"before":BASE,"artifact_after":AFTER,"final_source":FINAL,"actual_three_owner_bytes_match_final":True,"input_files":{name:{"sha256":hashlib.sha256(p.read_bytes()).hexdigest(),"bytes":p.stat().st_size} for name,p in paths.items()},"changed_call_counts":{k:len(v) for k,v in changed.items()},"associated_call_pairs":len(associations),"association_errors":len(errors),"unknown_changed_pairs":len(unknown_proofs),"unchanged_full_unknown_record_multiset":sum((old_full&new_full).values())}
+          (out/"manifest.json").write_text(json.dumps(manifest,indent=2,sort_keys=True))
+          (out/"call-associations.json").write_text(json.dumps(associations,indent=2,sort_keys=True))
+          (out/"unknown-associations.json").write_text(json.dumps(unknown_proofs,indent=2,sort_keys=True))
+          (out/"association-errors.json").write_text(json.dumps(errors,indent=2,sort_keys=True))
+          print("PARAMETER_ASSOCIATION_MANIFEST="+enc(manifest))
+          print("PARAMETER_ASSOCIATION_ERRORS="+enc([{"stage":e["stage"],"side":e.get("side"),"id":e.get("record",{}).get("id"),"error":e.get("error")} for e in errors]))
+          assert not errors,("actual association differences remain",len(errors))
+          assert len(associations)==84
+          print("PARAMETER_EXACT_ARTIFACT_ASSOCIATION=PASS")
+          
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() }}
+        with:
+          name: parameter-exact-artifact-associations
+          path: parameter-association-proof
