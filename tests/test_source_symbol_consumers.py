@@ -5,6 +5,7 @@
 
 import ast
 import json
+from importlib import import_module
 from pathlib import Path
 
 import pytest
@@ -96,7 +97,17 @@ def test_actual_python_definition_writer_publishes_nominal_source_tags():
 
 
 @pytest.mark.parametrize("language", ("dart", "typescript"))
-def test_actual_language_writer_projects_parser_tags_at_the_source_boundary(tmp_path, language):
+def test_actual_language_writer_projects_parser_tags_at_the_source_boundary(tmp_path, language, monkeypatch):
+    module = import_module(f"archkeel.analyzer.{language}.collect")
+    original = module.classified
+    published = {}
+
+    def capture(**kwargs):
+        record = original(**kwargs)
+        published[record["id"]] = record
+        return record
+
+    monkeypatch.setattr(module, "classified", capture)
     if language == "dart":
         (tmp_path / "pubspec.yaml").write_text(
             "name: sample\nenvironment:\n  sdk: '>=3.9.0 <4.0.0'\n"
@@ -128,13 +139,16 @@ def test_actual_language_writer_projects_parser_tags_at_the_source_boundary(tmp_
         for row in section.records
     ]
     assert len(rows) == 4
-    assert all(type(row.kind) is SourceSymbolKind for row in rows)
-    assert all(type(row.data.get("symbol_category")) is SourceSymbolKind for row in rows)
-    alias = next(row for row in rows if row.data.get("name") == "Label")
-    assert alias.kind is (
+    actual = [published[row.id] for row in rows]
+    assert all(type(row["kind"]) is SourceSymbolKind for row in actual)
+    assert all(type(row["data"]["symbol_category"]) is SourceSymbolKind for row in actual)
+    assert all(type(row.kind) is str for row in rows)
+    assert all(type(row.data.get("symbol_category")) is str for row in rows)
+    alias = next(row for row in actual if row["data"]["name"] == "Label")
+    assert alias["kind"] is (
         SourceSymbolKind.ALIAS if language == "dart" else SourceSymbolKind.TYPE_ALIAS
     )
-    assert alias.data.get("symbol_category") is SourceSymbolKind.TYPE_ALIAS
+    assert alias["data"]["symbol_category"] is SourceSymbolKind.TYPE_ALIAS
 
 
 def _native(tmp_path, guard):
