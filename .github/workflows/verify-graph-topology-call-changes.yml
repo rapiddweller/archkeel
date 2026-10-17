@@ -1,0 +1,44 @@
+name: Actual topology feature unresolved call changes
+on:
+  push:
+    branches: [verify/542-graph-topology-call-changes]
+permissions:
+  contents: read
+jobs:
+  actual-call-records:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 5076058e5e7167d5d6df866784e99036149cd47f
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Exact actual unresolved_call_changes against immutable topology feature base
+        run: |
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          protected=("architecture-contract.json","architecture-baseline.json","architecture-accepted.json")
+          before={path:Path(path).read_bytes() for path in protected}
+          run=subprocess.run(["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--json","--against","bb3e498b9c43afc954ef9fe7078595983e0b3c2f"],capture_output=True,text=True,check=False)
+          value=json.loads(run.stdout)
+          Path("graph-topology-actual-call-changes.json").write_text(run.stdout)
+          print("TOPOLOGY_ACTUAL_CALLS="+json.dumps({"base":"bb3e498b9c43afc954ef9fe7078595983e0b3c2f","head":"5076058e5e7167d5d6df866784e99036149cd47f","exit":run.returncode,"failures":value.get("failures"),"diagnostics":value.get("diagnostics"),"measurements":value.get("measurements"),"unresolved_call_changes":value.get("unresolved_call_changes"),"unresolved_call_note":value.get("unresolved_call_note")},sort_keys=True),flush=True)
+          if run.stderr:
+              print("TOPOLOGY_ACTUAL_STDERR="+run.stderr,flush=True)
+          for path,original in before.items():
+              assert Path(path).read_bytes()==original,path
+          assert not subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          print("TOPOLOGY_ACTUAL_PROTECTED_BYTES_UNCHANGED=PASS",flush=True)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() }}
+        with:
+          name: graph-topology-actual-call-changes
+          path: graph-topology-actual-call-changes.json
