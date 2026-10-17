@@ -441,6 +441,32 @@
         "docs/architecture/source-section-consumer-types.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "SOURCE-NAME-VISIBILITY-READER-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.facts.parse_source_name_visibility",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "This complete function reads source-name visibility through the Facts owner; foreign language visibility remains distinct.",
+      "provenance": [
+        "docs/architecture/source-name-visibility.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SOURCE-NAME-VISIBILITY-INTERFACE-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.interfaces._public_symbol_names",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "This complete function reads source-name visibility through the Facts owner; foreign language visibility remains distinct.",
+      "provenance": [
+        "docs/architecture/source-name-visibility.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {
@@ -11296,6 +11322,53 @@
             "Require the named two-member source-resolution subset; resolved and unknown values cannot enter a call row."
           ],
           "annotation": "CallStatus"
+        },
+        {
+          "id": "IR-SOURCE-NAME-VISIBILITY",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.SourceNameVisibility",
+          "language": "python",
+          "parent_id": "archkeel.ir.facts",
+          "presence": "planned",
+          "responsibilities": [
+            "Own source underscore-spelling tags separately from language API visibility."
+          ],
+          "provenance": [
+            "docs/architecture/source-name-visibility.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-SOURCE-NAME-VISIBILITY-READER",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.facts.parse_source_name_visibility",
+          "language": "python",
+          "parent_id": "archkeel.ir.facts",
+          "presence": "planned",
+          "responsibilities": [
+            "Recognize source-name tags while leaving foreign or opaque visibility data unclassified."
+          ],
+          "provenance": [
+            "docs/architecture/source-name-visibility.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "JsonValue | RawJson | SourceNameVisibility"
+              }
+            ],
+            "returns": "SourceNameVisibility | None"
+          }
         },
         {
           "id": "IR-SYMBOL-CLASS-KIND",

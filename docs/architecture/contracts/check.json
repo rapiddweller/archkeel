@@ -288,6 +288,19 @@
         "docs/architecture/language-adapter-target.md"
       ],
       "decided_by": "agent"
+    },
+    {
+      "id": "SOURCE-NAME-VISIBILITY-ONBOARDING-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.check.onboarding.public_top_level_names",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "This complete function reads source-name visibility through the Facts owner; foreign language visibility remains distinct.",
+      "provenance": [
+        "docs/architecture/source-name-visibility.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {

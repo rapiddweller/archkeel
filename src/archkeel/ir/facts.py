@@ -268,6 +268,13 @@ class ParameterKind(StrEnum):
     UNKNOWN = "unknown"
 
 
+class SourceNameVisibility(StrEnum):
+    """Source underscore spelling, separate from a language's API visibility detail."""
+
+    PRIVATE = "private"
+    PUBLIC_NAME = "public_name"
+
+
 class SymbolClassKind(StrEnum):
     """The five values `class_kind` resolves to (`analyzer.python.symbols`'s fixpoint)."""
 
@@ -304,6 +311,18 @@ def parse_symbol_class_kind(value: JsonValue | RawJson | SymbolClassKind) -> Sym
         return None
     try:
         return SymbolClassKind(value)
+    except ValueError:
+        return None
+
+
+def parse_source_name_visibility(
+    value: JsonValue | RawJson | SourceNameVisibility,
+) -> SourceNameVisibility | None:
+    """Recognize spelling tags without interpreting foreign language visibility values."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return SourceNameVisibility(value)
     except ValueError:
         return None
 

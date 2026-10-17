@@ -21,6 +21,7 @@ from archkeel.ir.decisions import (
     open_decision_summary,
     open_decisions,
 )
+from archkeel.ir.facts import SourceNameVisibility, parse_source_name_visibility
 from archkeel.ir.identity import module_identity
 from archkeel.ir.model import (
     ArchitectureContract,
@@ -148,7 +149,8 @@ def public_top_level_names(symbols: Iterable[Record]) -> dict[str, set[str]]:
         if (
             symbol.data.get("parent") is None
             and not symbol.data.get("definition_contexts")
-            and symbol.data.get("visibility") == "public_name"
+            and parse_source_name_visibility(symbol.data.get("visibility"))
+            is SourceNameVisibility.PUBLIC_NAME
             and isinstance(module, str)
             and isinstance(name, str)
         ):

@@ -19,6 +19,7 @@ from archkeel.ir.facts import (
     MemberInventory,
     MemberKind,
     ParameterKind,
+    SourceNameVisibility,
     SourceResolution,
     SymbolClassKind,
     parse_symbol_class_kind,
@@ -257,7 +258,9 @@ def _symbol_data(
         "module": module.module,
         "package": module.package,
         "name": node.name,
-        "visibility": "private" if node.name.startswith("_") else "public_name",
+        "visibility": SourceNameVisibility.PRIVATE
+        if node.name.startswith("_")
+        else SourceNameVisibility.PUBLIC_NAME,
         "visibility_detail": _python_visibility(node.name),
         "declared_in_all": node.name in module.all_exports,
         "parent": parent,
@@ -881,7 +884,9 @@ def _assignment_symbol(
             "module": module.module,
             "name": name,
             "parent": None,
-            "visibility": "private" if name.startswith("_") else "public_name",
+            "visibility": SourceNameVisibility.PRIVATE
+            if name.startswith("_")
+            else SourceNameVisibility.PUBLIC_NAME,
             "visibility_detail": _python_visibility(name),
             **(
                 {

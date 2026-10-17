@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 
+from .facts import SourceNameVisibility, parse_source_name_visibility
 from .measurements import NameBudgetKind
 from .model import (
     FUNCTION_KINDS,
@@ -245,7 +246,8 @@ def _public_symbol_names(observation: Observation) -> dict[str, frozenset[str]]:
         if (
             record.data.get("parent") is None
             and not record.data.get("definition_contexts")
-            and record.data.get("visibility") == "public_name"
+            and parse_source_name_visibility(record.data.get("visibility"))
+            is SourceNameVisibility.PUBLIC_NAME
             and isinstance(module, str)
             and isinstance(name, str)
         ):
