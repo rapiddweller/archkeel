@@ -14,6 +14,7 @@ from typing import Final
 
 from archkeel.ir.baseline import CycleIdentity, is_contraction
 from archkeel.ir.digest import package_digest
+from archkeel.ir.model import ComparisonStatus as _ComparisonStatus
 from archkeel.ir.model import ArchitectureDelta, DeltaProvenance, Projection, SemanticChange
 from archkeel.ir.model import supports_nullable_delta_counts as _supports_nullable_delta_counts
 from archkeel.ir.profiles import Profile, delta_dimension_applicable, profile_for
@@ -173,7 +174,7 @@ def evaluate_expectation(
     )
 
     ratchets = delta_model.ratchets
-    if ratchets.status != "SUPPORTED" or ratchets.baseline is None or ratchets.head is None:
+    if ratchets.status is not _ComparisonStatus.SUPPORTED or ratchets.baseline is None or ratchets.head is None:
         raise ExpectationError(
             f"delta regression checks are not safely comparable: {ratchets.reason}"
         )
@@ -222,13 +223,13 @@ def _require_profile_coverage(delta: ArchitectureDelta) -> Profile:
     dimensions = {item.name: item for item in delta.dimensions}
     if len(dimensions) != len(delta.dimensions) or set(dimensions) != set(SUPPORTED_DIMENSIONS):
         raise ExpectationError("delta must contain every dimension exactly once")
-    supported = {item.name for item in delta.dimensions if item.status == "SUPPORTED"}
-    unknown = {item.name for item in delta.dimensions if item.status == "UNKNOWN"}
+    supported = {item.name for item in delta.dimensions if item.status is _ComparisonStatus.SUPPORTED}
+    unknown = {item.name for item in delta.dimensions if item.status is _ComparisonStatus.UNKNOWN}
     applicable = {
         name for name in SUPPORTED_DIMENSIONS if delta_dimension_applicable(profile, name)
     }
     for name in sorted(applicable):
-        if dimensions[name].status != "SUPPORTED":
+        if dimensions[name].status is not _ComparisonStatus.SUPPORTED:
             raise ExpectationError(f"delta dimension {name} is not safely comparable")
         _require_count(dimensions[name].before_count, f"dimensions.{name}.before_count")
         _require_count(dimensions[name].after_count, f"dimensions.{name}.after_count")
@@ -280,7 +281,7 @@ def _require_dimension_counts(
                 f"expectation dimension {dimension} is unavailable for {profile.analyzer}"
             )
         record = dimensions.get(dimension)
-        if record is None or record.status != "SUPPORTED":
+        if record is None or record.status is not _ComparisonStatus.SUPPORTED:
             raise ExpectationError(f"delta dimension {dimension} is not safely comparable")
         dimension_counts[dimension] = (
             _require_count(record.before_count, f"dimensions.{dimension}.before_count"),

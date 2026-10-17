@@ -133,7 +133,11 @@ class Verdict(StrEnum):
 PackageComponentOwnership: TypeAlias = tuple[str, tuple[str, ...]]
 ComponentOwnershipInput: TypeAlias = ComponentOwnership | PackageComponentOwnership
 RuleVerdict: TypeAlias = AssessmentStatus
-ComparisonStatus: TypeAlias = Literal["SUPPORTED", "UNKNOWN"]
+class ComparisonStatus(StrEnum):
+    SUPPORTED = "SUPPORTED"
+    UNKNOWN = "UNKNOWN"
+
+
 CLASSIFIED_SECTIONS = (
     "metrics",
     "declarations",
@@ -1222,6 +1226,10 @@ class DimensionDelta:
     relocated: tuple[str, ...] = ()
     changed: tuple[str, ...] = ()
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.status, ComparisonStatus):
+            object.__setattr__(self, "status", ComparisonStatus(self.status))
+
 
 @dataclass(frozen=True, slots=True)
 class DeltaProvenance:
@@ -1267,8 +1275,10 @@ class RatchetObservations:
     reason: str | None = None
 
     def __post_init__(self) -> None:
+        if not isinstance(self.status, ComparisonStatus):
+            object.__setattr__(self, "status", ComparisonStatus(self.status))
         measured = (self.baseline is not None, self.head is not None)
-        if measured != ((True, True) if self.status == "SUPPORTED" else (False, False)):
+        if measured != ((True, True) if self.status is ComparisonStatus.SUPPORTED else (False, False)):
             raise ValueError("measurements exist exactly when regression checks are SUPPORTED")
 
 

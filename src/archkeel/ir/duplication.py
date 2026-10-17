@@ -60,7 +60,9 @@ class OwnedLogic:
     candidates: tuple[RepeatedLogic, ...] = ()
 
     def __post_init__(self) -> None:
-        if self.status == "UNKNOWN" and (self.owners or self.functions or self.candidates):
+        if not isinstance(self.status, ComparisonStatus):
+            object.__setattr__(self, "status", ComparisonStatus(self.status))
+        if self.status is ComparisonStatus.UNKNOWN and (self.owners or self.functions or self.candidates):
             raise ValueError("an unsupported claim names no repetition")
 
 
@@ -209,14 +211,14 @@ def repeated_logic(observation: Observation) -> OwnedLogic:
     """Return the logic repeated outside its declared owner, or UNKNOWN without the signal."""
     groups = _shapes(observation)
     if groups is None:
-        return OwnedLogic("UNKNOWN")
+        return OwnedLogic(ComparisonStatus.UNKNOWN)
     owners = _owners(observation)
     calls = _resolved_calls(observation)
     candidates: list[RepeatedLogic] = []
     for owner, responsibility in owners:
         candidates.extend(_repetitions(owner, responsibility, groups, calls))
     return OwnedLogic(
-        "SUPPORTED",
+        ComparisonStatus.SUPPORTED,
         owners=len(owners),
         functions=sum(len(names) for names in groups.values()),
         candidates=tuple(

@@ -36,6 +36,7 @@ from archkeel.ir.interfaces import (
 )
 from archkeel.ir.measurements import MeasurementResolution as _MeasurementResolution
 from archkeel.ir.measurements import Measurements
+from archkeel.ir.model import ComparisonStatus as _ComparisonStatus
 from archkeel.ir.model import (
     BaselineViolationComparison,
     CallRow,
@@ -1455,7 +1456,7 @@ def _semantic_changes(result: RunResult) -> str:
 def _unavailable_dimensions(result: RunResult) -> str:
     if result.delta is None:
         return ""
-    dimensions = [item for item in result.delta.dimensions if item.status == "UNKNOWN"]
+    dimensions = [item for item in result.delta.dimensions if item.status is _ComparisonStatus.UNKNOWN]
     if not dimensions:
         return ""
     reasons = {item.dimension: item.reason for item in result.delta.unknowns}
@@ -1588,7 +1589,7 @@ def _structure_row(
 
 
 def _claim_body(claim: SymbolReferences, observation: Observation) -> str:
-    if claim.status == "UNKNOWN":
+    if claim.status is _ComparisonStatus.UNKNOWN:
         return (
             "<p>Not available: this observation carries no reference signal, so a call graph "
             "alone would report every symbol that is only handed to a table as unreferenced.</p>"
@@ -1622,7 +1623,7 @@ def _claim_body(claim: SymbolReferences, observation: Observation) -> str:
 
 
 def _binding_claim_body(claim: BindingReads) -> str:
-    if claim.status == "UNKNOWN":
+    if claim.status is _ComparisonStatus.UNKNOWN:
         return (
             "<p>Not available: this observation carries no binding signal, so nothing here can "
             "list which parameter or local the collector found unread.</p>"
@@ -1648,7 +1649,7 @@ def _binding_claim_body(claim: BindingReads) -> str:
 
 
 def _repetition_claim_body(claim: OwnedLogic) -> str:
-    if claim.status == "UNKNOWN":
+    if claim.status is _ComparisonStatus.UNKNOWN:
         return (
             "<p>Not available: this observation carries no shape signal, so nothing here can say "
             "which function repeats another.</p>"
@@ -1681,7 +1682,7 @@ def _repetition_claim_body(claim: OwnedLogic) -> str:
 
 
 def _fanin_claim_body(claim: TypeFanin) -> str:
-    if claim.status == "UNKNOWN":
+    if claim.status is _ComparisonStatus.UNKNOWN:
         return (
             "<p>Not available: this observation carries no symbols or imports section, so "
             "nothing here can say which type crosses which component boundary.</p>"
@@ -1720,7 +1721,7 @@ def _structure_overview_body(
         f"Top-level context: {components} declared components and "
         f"{sizes.component_edges} observed cross-component "
         f"edge{'s' if sizes.component_edges != 1 else ''}."
-        if sizes.status != "UNKNOWN"
+        if sizes.status is not _ComparisonStatus.UNKNOWN
         else f"Top-level context: {components} declared components; "
         "observed cross-component edges: n/a."
     )

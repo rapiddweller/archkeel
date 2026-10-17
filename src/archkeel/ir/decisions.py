@@ -659,7 +659,7 @@ def agent_decisions(observation: Observation) -> tuple[int, int]:
 
 def _named(status: ComparisonStatus, candidates: tuple[object, ...]) -> int | None:
     """An unsupported claim names nothing, which is not the same as finding nothing (AD-5)."""
-    return len(candidates) if status == "SUPPORTED" else None
+    return len(candidates) if status is ComparisonStatus.SUPPORTED else None
 
 
 def review_claims(observation: Observation) -> ReviewClaims:

@@ -35,3 +35,5 @@ All four supported Delta versions and current nullable-count policy; canonical D
 5. Focused claim/decision/Delta/parity/runtime/profile/expectation/render tests; strict Mypy/Ruff/format/hygiene.
 6. Normal amendment against this actual predecessor, committed NoWrite, unchanged budgets, complete selected UNKNOWN records and signed unresolved/PARTIAL call AST/target/reason/candidate-count multiplicity evidence.
 7. Freeze a clean independent PR (Part of #542), obtain fresh independent Astra review, and stop before any next Core stage.
+
+Hosted RED on unchanged production:38985728116/job117256625802 observed68 FAIL/15 PASS plus5 self-observation fixture errors caused by the deliberately unmet new Target. The new producer tests were isolated onto the existing real tour fixture, without changing any existing expectation. Focused actual-boundary RED38986077649/job117257738161 then observed14 FAIL/82 deselected in8.86s, with no fixture errors. The coordinating agent approved the exact two-value existing owner, all seven real DTOs, five producer/invariant families and twelve-file production scope before implementation.
