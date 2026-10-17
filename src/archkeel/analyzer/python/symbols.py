@@ -19,6 +19,7 @@ from archkeel.ir.facts import (
     MemberInventory,
     MemberKind,
     ParameterKind,
+    SourceAssignmentKind,
     SourceNameVisibility,
     SourceResolution,
     SymbolClassKind,
@@ -864,7 +865,7 @@ def _assignment_symbol(
     module: ParsedModule,
     node: ast.AST,
     name: str,
-    kind: str,
+    kind: SourceAssignmentKind,
     evidence: dict[str, RawEvidence],
     **details: object,
 ) -> RawRecord:
@@ -893,7 +894,7 @@ def _assignment_symbol(
                     "source_binding_unique": name in stable_direct_module_bindings(module),
                     "source_member_binding_static": name not in unproven_member_bindings(module),
                 }
-                if kind == "type_alias"
+                if kind is SourceAssignmentKind.TYPE_ALIAS
                 else {}
             ),
             **details,
@@ -936,9 +937,9 @@ def _pep695_alias_symbol(
         return None
     if node in module.tree.body and not node.type_params:
         return _assignment_symbol(
-            module, node, name, "type_alias", evidence, alias=annotation_text(node.value)
+            module, node, name, SourceAssignmentKind.TYPE_ALIAS, evidence, alias=annotation_text(node.value)
         )
-    return _assignment_symbol(module, node, name, "dynamic_binding", evidence)
+    return _assignment_symbol(module, node, name, SourceAssignmentKind.DYNAMIC_BINDING, evidence)
 
 
 def _module_assignment_symbols(
@@ -962,7 +963,7 @@ def _module_assignment_symbols(
         if (alias_value := admitted_type_alias_value(module, node)) is not None:
             symbols.append(
                 _assignment_symbol(
-                    module, node, name, "type_alias", evidence, alias=annotation_text(alias_value)
+                    module, node, name, SourceAssignmentKind.TYPE_ALIAS, evidence, alias=annotation_text(alias_value)
                 )
             )
         elif symbol := _pep695_alias_symbol(module, node, name, evidence):
@@ -978,7 +979,7 @@ def _module_assignment_symbols(
                     module,
                     node,
                     name,
-                    "static_constant",
+                    SourceAssignmentKind.STATIC_CONSTANT,
                     evidence,
                     **({"constant": value} if _json_literal(value) else {}),
                 )
@@ -988,7 +989,7 @@ def _module_assignment_symbols(
             or name in direct_names
             and (name[:1].isupper() or name in aliases)
         ):
-            symbols.append(_assignment_symbol(module, node, name, "dynamic_binding", evidence))
+            symbols.append(_assignment_symbol(module, node, name, SourceAssignmentKind.DYNAMIC_BINDING, evidence))
     return symbols
 
 

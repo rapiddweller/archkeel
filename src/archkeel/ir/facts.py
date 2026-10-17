@@ -268,6 +268,42 @@ class ParameterKind(StrEnum):
     UNKNOWN = "unknown"
 
 
+class ResultBindingTargetKind(StrEnum):
+    """Written assignment target forms for a recorded call result."""
+
+    NAME = "name"
+    ATTRIBUTE = "attribute"
+    SUBSCRIPT = "subscript"
+
+
+class SourceAssignmentKind(StrEnum):
+    """Source assignment categories, separate from lexical and graph kinds."""
+
+    TYPE_ALIAS = "type_alias"
+    STATIC_CONSTANT = "static_constant"
+    DYNAMIC_BINDING = "dynamic_binding"
+
+
+def parse_result_binding_target_kind(value: JsonValue | RawJson) -> ResultBindingTargetKind | None:
+    """Recognize result target tags without classifying opaque or future metadata."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return ResultBindingTargetKind(value)
+    except ValueError:
+        return None
+
+
+def parse_source_assignment_kind(value: JsonValue | RawJson) -> SourceAssignmentKind | None:
+    """Recognize assignment tags without closing the general source record kind."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return SourceAssignmentKind(value)
+    except ValueError:
+        return None
+
+
 class SourceNameVisibility(StrEnum):
     """Source underscore spelling, separate from a language's API visibility detail."""
 

@@ -26,6 +26,8 @@ from archkeel.ir.facts import (
     Language,
     LocalTarget,
     Record,
+    ResultBindingTargetKind,
+    SourceAssignmentKind,
     RuntimeRequirementState,
     SourceFacts,
     SourceInfo,
@@ -416,7 +418,7 @@ class _Collection:
         data = self._meta(
             rel, module, name, kind, qualified, parent, parent_id, definition.visibility
         )
-        data["symbol_category"] = "type_alias" if kind == DefinitionKind.TYPEDEF else record_kind
+        data["symbol_category"] = SourceAssignmentKind.TYPE_ALIAS if kind == DefinitionKind.TYPEDEF else record_kind
         data["modifiers"] = list(definition.modifiers)
         if kind in {
             DefinitionKind.CLASS,
@@ -441,7 +443,7 @@ class _Collection:
                 signature_complete=all(p["default_known"] for p in parameters),
             )
         elif kind == DefinitionKind.TYPEDEF:
-            data.update(symbol_category="type_alias", annotation=definition.alias, constant=None)
+            data.update(symbol_category=SourceAssignmentKind.TYPE_ALIAS, annotation=definition.alias, constant=None)
         elif kind == DefinitionKind.VARIABLE:
             record_kind = _SymbolKind.CONSTANT if definition.constant else _SymbolKind.ATTRIBUTE
             data.update(
@@ -752,7 +754,7 @@ class _Collection:
                 "basis": "language",
                 "spelling": name.rsplit(".", 1)[-1],
             },
-            "symbol_category": "type_alias" if kind == DefinitionKind.TYPEDEF else kind,
+            "symbol_category": SourceAssignmentKind.TYPE_ALIAS if kind == DefinitionKind.TYPEDEF else kind,
             "source_binding_unique": True,
             "source_member_binding_static": True,
             "class_header_static": True,
@@ -1012,7 +1014,7 @@ class _Collection:
                 Visibility.from_name(name),
             )
             data.update(
-                symbol_category="dynamic_binding",
+                symbol_category=SourceAssignmentKind.DYNAMIC_BINDING,
                 annotation=annotation,
                 initializer=None if raw_initializer in call_expressions else initializer,
                 definition_contexts=[],
@@ -1106,7 +1108,7 @@ class _Collection:
                 {
                     "id": item["id"],
                     "name": item["name"],
-                    "target_kind": "name",
+                    "target_kind": ResultBindingTargetKind.NAME,
                     "annotation": item["annotation"],
                     "initializer": site.expression_source or site.expression,
                     "evidence_ids": item["evidence_ids"],

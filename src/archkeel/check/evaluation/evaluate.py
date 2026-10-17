@@ -20,6 +20,7 @@ from archkeel.ir.facts import (
     ConstructSupport,
     ExternalPackageTarget,
     ForbiddenConstructKind,
+    SourceAssignmentKind,
     SourceFacts,
     SourceProfile,
     SourceResolution,
@@ -590,11 +591,11 @@ def _unproven_binding_view(item: RawRecord) -> RawRecord:
     """A conditional declaration cannot certify its runtime binding."""
     return {
         **item,
-        "kind": "dynamic_binding",
+        "kind": SourceAssignmentKind.DYNAMIC_BINDING,
         "data": {
             **item["data"],
-            "record_kind": "dynamic_binding",
-            "symbol_category": "dynamic_binding",
+            "record_kind": SourceAssignmentKind.DYNAMIC_BINDING,
+            "symbol_category": SourceAssignmentKind.DYNAMIC_BINDING,
         },
     }
 

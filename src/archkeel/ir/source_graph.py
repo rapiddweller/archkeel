@@ -41,11 +41,15 @@ from archkeel.ir.facts import (
     MethodKind,
     ResolutionInput,
     ResolutionRole,
+    ResultBindingTargetKind,
+    SourceAssignmentKind,
     SourceResolution,
     SourceSectionName,
     SymbolClassKind,
     member_inventories,
     parse_method_kind,
+    parse_result_binding_target_kind,
+    parse_source_assignment_kind,
     parse_source_resolution,
     parse_symbol_class_kind,
 )
@@ -136,7 +140,7 @@ def _inventory_selected_inputs(model: Observation, inputs: tuple[RecordData, ...
         )
     ):
         return set()
-    rows: list[dict[str, str]] = []
+    rows: list[ResolutionInput] = []
     for item in inputs:
         path, digest, role = item.get("path"), item.get("digest"), item.get("role")
         relative: PurePosixPath = PurePosixPath(str(path))
@@ -151,18 +155,22 @@ def _inventory_selected_inputs(model: Observation, inputs: tuple[RecordData, ...
             or not isinstance(digest, str)
             or re.fullmatch(r"[0-9a-f]{64}", digest) is None
             or not isinstance(role, str)
-            or role not in {"selected", "resolution"}
         ):
             return set()
-        rows.append({"path": path, "digest": digest, "role": role})
-    if len({row["path"] for row in rows}) != len(rows):
+        try:
+            role = ResolutionRole(role)
+        except ValueError:
+            return set()
+        rows.append(ResolutionInput(path, digest, role))
+    if len({row.path for row in rows}) != len(rows):
         return set()
+    payload = [asdict(row) for row in rows]
     listing: str = (
-        "".join(json.dumps(row, separators=(",", ":"), ensure_ascii=False) for row in rows)
+        "".join(json.dumps(row, separators=(",", ":"), ensure_ascii=False) for row in payload)
         if model.analyzer.name == "archkeel-dart-analyzer"
-        else json.dumps(rows, separators=(",", ":"), ensure_ascii=False)
+        else json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
     )
-    selected = {row["path"] for row in rows if row["role"] == "selected"}
+    selected = {row.path for row in rows if row.role is ResolutionRole.SELECTED}
     coverage = model.coverage
     if (
         hashlib.sha256(listing.encode()).hexdigest() != model.source.source_digest
@@ -462,8 +470,12 @@ def _classifier_kind(value: JsonValue) -> EntityKind | None:
 def _symbol(record: Record, language: str) -> Entity:
     data = record.data
     category = _text(data.get("symbol_category", record.kind))
-    aliases = {"static_constant": EntityKind.CONSTANT, "dynamic_binding": EntityKind.BINDING}
-    kind = aliases.get(category or "")
+    assignment = parse_source_assignment_kind(category)
+    aliases = {
+        SourceAssignmentKind.STATIC_CONSTANT: EntityKind.CONSTANT,
+        SourceAssignmentKind.DYNAMIC_BINDING: EntityKind.BINDING,
+    }
+    kind = aliases.get(assignment) if assignment is not None else None
     if kind is None:
         kind = EntityKind(_vocabulary_text(category, default=EntityKind.SYMBOL))
     if kind is EntityKind.CLASS:
@@ -698,19 +710,19 @@ def _reconcile_result_binding(
     owner: Entity,
     source: str,
     name: str,
-    target_kind: str,
+    target_kind: ResultBindingTargetKind,
     annotation: str | None,
     definition_contexts: tuple[DefinitionContext, ...],
 ) -> tuple[str, str | None, tuple[DefinitionContext, ...]]:
     qualified_name = f"{owner.qualified_name}.{name}"
     if previous is not None:
         if (
-            previous.kind != "binding"
+            previous.kind is not EntityKind.BINDING
             or previous.parent_id != source
             or previous.initializer is not None
         ):
             raise ValueError("static result binding identity conflicts")
-        if target_kind == "name":
+        if target_kind is ResultBindingTargetKind.NAME:
             if (
                 not previous.qualified_name.startswith(f"{owner.qualified_name}.")
                 or previous.qualified_name.rsplit(".", 1)[-1] != name
@@ -744,12 +756,12 @@ def _value_bindings(
     entities: list[Entity],
     by_name: dict[str, list[Entity]],
     language: str,
-) -> tuple[tuple[Entity, str], ...]:
+) -> tuple[tuple[Entity, ResultBindingTargetKind], ...]:
     sites = _records(record.data.get("result_bindings"))
     if not sites:
         return ()
     owner = next(item for item in entities if item.id == source)
-    result: list[tuple[Entity, str]] = []
+    result: list[tuple[Entity, ResultBindingTargetKind]] = []
     for site in sites:
         if {key for key, _ in site.entries} != {
             "id",
@@ -764,12 +776,12 @@ def _value_bindings(
         identity = _text(site.get("id")) or ""
         name = _text(site.get("name")) or ""
         initializer = _text(site.get("initializer")) or ""
-        target_kind = _text(site.get("target_kind")) or ""
+        target_kind = parse_result_binding_target_kind(_text(site.get("target_kind")))
         if (
             not identity
             or not name
             or not initializer
-            or target_kind not in {"name", "attribute", "subscript"}
+            or target_kind is None
         ):
             raise ValueError("invalid static result binding")
         previous = next((item for item in entities if item.id == identity), None)
@@ -821,7 +833,7 @@ def _value_bindings(
 def _construction_sites(
     record: Record,
     source: str,
-    bindings: tuple[tuple[Entity, str], ...],
+    bindings: tuple[tuple[Entity, ResultBindingTargetKind], ...],
     by_name: dict[str, list[Entity]],
 ) -> tuple[Relationship, ...]:
     construction = record.data.get("construction")
@@ -865,7 +877,7 @@ def _construction_sites(
     resolved = status == ResolutionKind.RESOLVED and len(targets) == 1 and not truncated
     relations: list[tuple[RelationshipKind, str, bool]] = [(RelationshipKind.CREATES, source, True)]
     relations.extend(
-        (RelationshipKind.INSTANCE_OF, binding.id, target_kind == "name")
+        (RelationshipKind.INSTANCE_OF, binding.id, target_kind is ResultBindingTargetKind.NAME)
         for binding, target_kind in bindings
     )
     result: list[Relationship] = []

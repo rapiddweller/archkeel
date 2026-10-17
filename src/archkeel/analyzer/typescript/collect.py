@@ -26,6 +26,7 @@ from archkeel.ir.facts import (
     ForbiddenConstructKind,
     ImportTarget,
     Language,
+    ResultBindingTargetKind,
     LocalTarget,
     Record,
     ResolutionInput,
@@ -803,7 +804,7 @@ class _Collection:
             {
                 "id": identity,
                 "name": site.assigned_name,
-                "target_kind": "name",
+                "target_kind": ResultBindingTargetKind.NAME,
                 "annotation": site.assignment_annotation,
                 "initializer": site.initializer,
                 "evidence_ids": [self._cite(rel, site.assignment_span)],

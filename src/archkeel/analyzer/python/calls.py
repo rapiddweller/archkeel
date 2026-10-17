@@ -9,7 +9,7 @@ import ast
 import builtins
 from collections.abc import Sequence
 
-from archkeel.ir.facts import EvidenceClass, SourceResolution, stable_id
+from archkeel.ir.facts import EvidenceClass, ResultBindingTargetKind, SourceResolution, stable_id
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 
@@ -244,11 +244,11 @@ class CallCollector(ast.NodeVisitor):
                 {
                     "id": identity,
                     "name": name,
-                    "target_kind": "name"
+                    "target_kind": ResultBindingTargetKind.NAME
                     if isinstance(target, ast.Name)
-                    else "attribute"
+                    else ResultBindingTargetKind.ATTRIBUTE
                     if isinstance(target, ast.Attribute)
-                    else "subscript",
+                    else ResultBindingTargetKind.SUBSCRIPT,
                     "annotation": annotation_text(parent.annotation)
                     if isinstance(parent, ast.AnnAssign)
                     else None,
