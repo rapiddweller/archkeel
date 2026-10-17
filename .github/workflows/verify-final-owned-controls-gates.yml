@@ -1,90 +1,17 @@
-name: Verify frozen existing backlog exact committed metadata
+name: Verify final integration history native replay
 on:
   push:
     branches: [verify/542-final-owned-controls-gates]
 permissions:
   contents: read
 jobs:
-  quality:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: b4b3621dc73ea8fe6ade5c9edb5dc2ff8efd3243
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
-        with:
-          node-version: "22"
-      - run: uv sync --locked
-      - run: make lint typecheck
-      - run: make browser-graph-check browser-runtime-check
-      - run: uv run --locked python -m pytest -q tests/test_repository_hygiene.py tests/test_ci_changes.py tests/test_make_gate.py
-      - run: git diff --exit-code
-  full-regression:
-    runs-on: ubuntu-latest
-    timeout-minutes: 100
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: b4b3621dc73ea8fe6ade5c9edb5dc2ff8efd3243
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-      - run: uv sync --locked
-      - run: make browser-install browser-runtime-install
-      - run: uv run --locked --with playwright==1.62.0 python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q --durations=20 --junitxml=test-artifacts/pytest/typed-owner-full.xml
-      - name: Show existing native modules in complete JUnit
-        if: always()
-        run: |
-          python - <<'PY'
-          import json,xml.etree.ElementTree as ET
-          tree=ET.parse("test-artifacts/pytest/typed-owner-full.xml")
-          for module in ("test_boundary_reason_types","test_dart_input_grammar","test_typed_method_descriptors"):
-              cases=[case for case in tree.iter("testcase") if module in case.attrib.get("classname","")]
-              bad=[case.attrib for case in cases if case.find("failure") is not None or case.find("error") is not None]
-              print("FULL_EXISTING_MODULE="+json.dumps({"module":module,"cases":len(cases),"failures":bad}),flush=True)
-              assert cases and not bad,module
-          PY
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: frozen-backlog-full-junit
-          path: test-artifacts/pytest/typed-owner-full.xml
-          if-no-files-found: error
-          retention-days: 1
-      - run: git diff --exit-code
-  required-report:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: b4b3621dc73ea8fe6ade5c9edb5dc2ff8efd3243
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-      - run: uv sync --locked
-      - run: make ci-pr-report-check
-      - run: git diff --exit-code
   normal-native:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: b4b3621dc73ea8fe6ade5c9edb5dc2ff8efd3243
+          ref: eb65d2f1e271c5ad7e3e87c1eb30760f1ea4b9b2
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -109,19 +36,3 @@ jobs:
           assert subprocess.check_output(["git","status","--porcelain"])==b""
           print("FINAL_PROTECTED_DIGESTS="+json.dumps({p:hashlib.sha256(content).hexdigest() for p,content in before.items()}),flush=True)
           PY
-  required-core:
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: b4b3621dc73ea8fe6ade5c9edb5dc2ff8efd3243
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-      - run: uv sync --locked
-      - run: make ci-pr-check BASE=113318809036cfa4550b2b8598dab63c0b548878
-      - run: git diff --exit-code
