@@ -164,7 +164,11 @@
         "archkeel.ir.amendment:AmendmentVersion",
         "archkeel.ir.amendment:AmendmentStatus",
         "archkeel.ir.amendment:Amendment",
-        "archkeel.ir.amendment:verify_amendment"
+        "archkeel.ir.amendment:verify_amendment",
+        "archkeel.ir.architecture_graph:ArchitectureRuleKind",
+        "archkeel.ir.architecture_graph:ArchitectureDeclarationKind",
+        "archkeel.ir.architecture_graph:parse_architecture_rule_kind",
+        "archkeel.ir.architecture_graph:parse_architecture_declaration_kind"
       ],
       "responsibilities": [
         "Own immutable source facts, protocol values, governance models and pure derivations."
@@ -173,7 +177,8 @@
         "Source parsing, process or filesystem I/O, and workflow orchestration."
       ],
       "provenance": [
-        "docs/architecture/archkeel.md"
+        "docs/architecture/archkeel.md",
+        "docs/architecture/contract-rule-grammar.md"
       ],
       "decided_by": "architect",
       "inside": "docs/architecture/contracts/ir.json",
