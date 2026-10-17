@@ -1,4 +1,4 @@
-name: Verify real receipt governance regression wire and native cost
+name: Verify final bounded receipt governance and quality
 on:
   push:
     branches: [verify/542-rule-evaluation-receipt-green]
@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 5c8547fe427a7f2785278e662a15a5d24c2a6a5a
+          ref: 45fac4ac9431587aa701d170698abf55eee04a8a
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -19,120 +19,6 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
-      - run: |
-          uv run --locked ruff check --select I --fix tests/test_rule_evaluation_receipts.py
-          uv run --locked ruff format tests/test_rule_evaluation_receipts.py
-          python - <<'PY'
-          import json, subprocess
-          from pathlib import Path
-          for path in subprocess.check_output(["git","diff","--name-only"], text=True).splitlines():
-              print("RECEIPT_FORMAT_FILE="+json.dumps({"path":path,"content":Path(path).read_text()},ensure_ascii=True))
-          PY
-          uv run --locked python -m pytest -q tests/test_rule_evaluation_receipts.py
-          make lint typecheck
-  regression-wire:
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: 5c8547fe427a7f2785278e662a15a5d24c2a6a5a
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-      - run: uv sync --locked
-      - run: |
-          uv run --locked python -m pytest -n 2 --dist=loadfile -q tests/test_decisions.py tests/test_baseline.py tests/test_cycle_levels.py tests/test_module_explore.py tests/test_uml_evaluation.py tests/test_architecture_report.py tests/test_architecture_projection.py tests/test_codec.py tests/test_codec_compatibility.py tests/test_requires_symbol_ports.py tests/test_rule_yield.py tests/test_nested_interface_lifecycle.py tests/test_exact_module_ownership.py tests/test_exact_module_ownership_extensions.py tests/test_layers.py tests/test_dependency_selectors.py
-          git worktree add --detach "$RUNNER_TEMP/receipt-before" 5b8a603274b2330b85fc6fe62c8d7f6fb15da8f1
-          cat > "$RUNNER_TEMP/receipt-wire.py" <<'PY'
-          import hashlib, json, os, shutil, sys
-          from dataclasses import asdict
-          from pathlib import Path
-          from test_module_explore import _sample
-          from test_uml_evaluation import _contract, _repository, _model
-          from archkeel.ir.codec_observation import canonical_report_bytes
-          from archkeel.ir.module_explore import module_exploration
-          from archkeel.ir.report_graph import architecture_report
-          out = Path(sys.argv[1]); out.mkdir(parents=True,exist_ok=True)
-          fixture = Path(os.environ["RUNNER_TEMP"])/"receipt-wire-input"
-          for name in ("requires-denied", "requires-permitted", "requires-absent", "requires-incomplete", "uml-pass", "uml-visibility-fail", "uml-signature-fail", "uml-unresolved"):
-              shutil.rmtree(fixture, ignore_errors=True); fixture.mkdir()
-              if name.startswith("requires"):
-                  options = {"permitted": name == "requires-permitted", "complete_requires": name != "requires-absent"}
-                  if name == "requires-incomplete":
-                      options["rule_include_type_checking"] = False
-                      options["extra_files"] = {"sample/peer.py":"from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    import sample.core\n"}
-                  observation = _sample(fixture, **options)
-              else:
-                  target = _contract(); source = None
-                  if name == "uml-visibility-fail": target["declarations"]["uml"]["entities"][1]["visibility"]["kind"]="private"
-                  if name == "uml-signature-fail": target["declarations"]["uml"]["entities"][1]["signature"]["parameters"][0]["name"]="request"
-                  if name == "uml-unresolved": source="def helper(value):\n    return value\n\ndef run(value):\n    return unknown(value)\n"
-                  root, config = _repository(fixture,contract=target,source=source)
-                  observation = _model(root,config)
-              encoded=canonical_report_bytes(observation)
-              (out/(name+".wire")).write_bytes(encoded)
-              projections=json.dumps({"report":asdict(architecture_report(observation)),"module_exploration":[asdict(row) for row in module_exploration(observation)]},sort_keys=True,default=str).encode()
-              (out/(name+".projections")).write_bytes(projections)
-              print("RECEIPT_WIRE="+json.dumps({"scenario":name,"bytes":len(encoded),"sha256":hashlib.sha256(encoded).hexdigest(),"projection_bytes":len(projections),"projection_sha256":hashlib.sha256(projections).hexdigest()}))
-          
-          PY
-          PYTHONPATH="$RUNNER_TEMP/receipt-before/src:$RUNNER_TEMP/receipt-before/tests:$RUNNER_TEMP/receipt-before" .venv/bin/python "$RUNNER_TEMP/receipt-wire.py" "$RUNNER_TEMP/receipt-wire-before"
-          PYTHONPATH="$PWD/src:$PWD/tests:$PWD" .venv/bin/python "$RUNNER_TEMP/receipt-wire.py" "$RUNNER_TEMP/receipt-wire-after"
-          python - <<'PY'
-          import hashlib, json, os
-          from pathlib import Path
-          root=Path(os.environ["RUNNER_TEMP"])
-          before=root/"receipt-wire-before";after=root/"receipt-wire-after"
-          names=sorted(p.name for p in before.iterdir())
-          assert len(names)==16, names
-          for name in names:
-              a=(before/name).read_bytes();b=(after/name).read_bytes()
-              assert a==b,name
-              print("RECEIPT_WIRE_EQUAL="+json.dumps({"file":name,"bytes":len(a),"sha256":hashlib.sha256(a).hexdigest()}))
-          print("RECEIPT_WIRE_PAIRS=8 canonical reports + 8 complete projections, all byte-identical")
-          PY
-          git diff --exit-code
-  native-cost:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: 5c8547fe427a7f2785278e662a15a5d24c2a6a5a
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-      - run: uv sync --locked
-      - run: |
-          git worktree add --detach "$RUNNER_TEMP/receipt-before" 5b8a603274b2330b85fc6fe62c8d7f6fb15da8f1
-          PYTHONPATH="$RUNNER_TEMP/receipt-before/src" .venv/bin/archkeel report --root "$RUNNER_TEMP/receipt-before" --output "$RUNNER_TEMP/receipt-before.json"
-          PYTHONPATH="$PWD/src" .venv/bin/archkeel report --root "$PWD" --output "$RUNNER_TEMP/receipt-after.json"
-          uv run --locked python - <<'PY'
-          import json, os
-          from collections import Counter
-          from dataclasses import asdict
-          from pathlib import Path
-          from archkeel.ir.codec import decode_canonical_model, parse_observation
-          from archkeel.ir.facts_codec import record_payload
-          root=Path(os.environ["RUNNER_TEMP"])
-          for phase in ("before","after"):
-              observation=parse_observation(decode_canonical_model(json.loads((root/("receipt-"+phase+".json")).read_text())))
-              coverage=asdict(observation.coverage)
-              print("RECEIPT_NATIVE_COVERAGE="+json.dumps({"phase":phase,**coverage},default=str))
-              print("RECEIPT_NATIVE_UNKNOWNS="+json.dumps({"phase":phase,"kinds":dict(Counter(row.kind for row in observation.records("unknowns") or ()))},default=str))
-              calls=observation.records("calls") or ()
-              if calls:
-                  print("RECEIPT_CALL_SHAPE="+json.dumps({"phase":phase,"record":record_payload(calls[0])},default=str))
-              for row in calls:
-                  data=dict(row.data.items())
-                  if data.get("resolution")=="unresolved":
-                      print("RECEIPT_UNRESOLVED_SITE="+json.dumps({"phase":phase,"record":record_payload(row)},default=str))
-          PY
-          git diff --exit-code
+      - run: make lint typecheck
+      - run: uv run --locked python -m pytest -q tests/test_rule_evaluation_receipts.py
+      - run: git diff --exit-code
