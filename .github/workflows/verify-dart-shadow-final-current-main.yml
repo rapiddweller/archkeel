@@ -1,0 +1,47 @@
+name: Verify Dart local shadowing on actual Main
+on:
+  push:
+    branches: [verify/570-dart-shadow-final-current-main]
+permissions:
+  contents: read
+jobs:
+  exact-no-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: dace9a80e1bdc8419ba64804bfcf97f22970087f
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Verify exact original reviewed source and bounded paths
+        run: |
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          def blob(ref,path):return subprocess.check_output(["git","show",ref+":"+path])
+          for path in ["docs/superpowers/plans/2026-10-16-dart-local-callable-shadowing.md","src/archkeel/analyzer/dart/parse.py","src/archkeel/analyzer/dart/resolve.py","tests/test_dart_local_callable_shadowing.py"]:
+              assert blob("HEAD",path)==blob("620374305b7d45383458f62bccd20a183fdcd82a",path),path
+          print("DART_SHADOW_SCOPED_CARRY=True")
+          PY
+      - name: Verify exact source-only normal replay without redundant receipt
+        run: |
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 950520fd126ca05744c19066bb28ccbef5627964 > "$RUNNER_TEMP/dart-shadow-exact.json"
+          uv run --locked python - <<'PY'
+          import json,os,subprocess
+          from pathlib import Path
+          result=json.loads((Path(os.environ["RUNNER_TEMP"])/"dart-shadow-exact.json").read_bytes())
+          head=subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip()
+          dirty=subprocess.check_output(["git","status","--porcelain"]).decode()
+          for path in ("architecture-baseline.json","architecture-contract.json"):
+              assert Path(path).read_bytes()==subprocess.check_output(["git","show","950520fd126ca05744c19066bb28ccbef5627964:"+path]),path
+          print("DART_SHADOW_EXACT="+json.dumps({"head":head,"base":"950520fd126ca05744c19066bb28ccbef5627964","dirty":dirty,**{key:result.get(key) for key in ("exit_code","amendment_status","failures","diagnostics","widenings","measurements")}},separators=(",",":")))
+          assert head=="dace9a80e1bdc8419ba64804bfcf97f22970087f"
+          assert dirty=="",dirty
+          assert result["exit_code"]==0 and result["amendment_status"] is None
+          assert not result["failures"] and not result["diagnostics"] and not result["widenings"]
+          PY
