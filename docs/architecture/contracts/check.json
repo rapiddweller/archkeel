@@ -314,6 +314,71 @@
         "docs/architecture/graph-topology-level-types.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "DELTA-DIMENSION-SEMANTIC",
+      "kind": "forbidden_construct",
+      "source": "archkeel.check.delta._semantic_payload",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "This complete migrated control port selects the canonical current Delta/evidence vocabulary; other wire fields remain outside its scope.",
+      "provenance": [
+        "docs/architecture/delta-dimension-types.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "DELTA-DIMENSION-RECORDS",
+      "kind": "forbidden_construct",
+      "source": "archkeel.check.delta._delta_records",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "This complete migrated control port selects the canonical current Delta/evidence vocabulary; other wire fields remain outside its scope.",
+      "provenance": [
+        "docs/architecture/delta-dimension-types.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "DELTA-DIMENSION-SECTION",
+      "kind": "forbidden_construct",
+      "source": "archkeel.check.delta._section",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "This complete migrated control port selects the canonical current Delta/evidence vocabulary; other wire fields remain outside its scope.",
+      "provenance": [
+        "docs/architecture/delta-dimension-types.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "DELTA-DIMENSION-INDEX",
+      "kind": "forbidden_construct",
+      "source": "archkeel.check.expectation._index_semantic_changes",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "This complete migrated control port selects the canonical current Delta/evidence vocabulary; other wire fields remain outside its scope.",
+      "provenance": [
+        "docs/architecture/delta-dimension-types.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "DELTA-DIMENSION-GUARDRAIL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.check.expectation._guardrail_failures",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "This complete migrated control port selects the canonical current Delta/evidence vocabulary; other wire fields remain outside its scope.",
+      "provenance": [
+        "docs/architecture/delta-dimension-types.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {
@@ -1046,6 +1111,95 @@
           "responsibilities": [
             "Recognize a supported regular Git blob pair once without changing path selection or reader errors."
           ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/delta-dimension-types.md"
+          ],
+          "responsibilities": [
+            "Keep current Delta control dimensions nominal without closing future public wire data."
+          ],
+          "id": "DELTA-DIMENSION-logical",
+          "kind": "function",
+          "qualified_name": "archkeel.check.delta._logical_payload",
+          "parent_id": "KNOWN-ACTION-delta",
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "dimension",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "_DeltaDimension"
+              },
+              {
+                "name": "record",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "Record"
+              }
+            ],
+            "returns": "RecordData"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/delta-dimension-types.md"
+          ],
+          "responsibilities": [
+            "Keep current Delta control dimensions nominal without closing future public wire data."
+          ],
+          "id": "DELTA-DIMENSION-semantic",
+          "kind": "function",
+          "qualified_name": "archkeel.check.delta._semantic_payload",
+          "parent_id": "KNOWN-ACTION-delta",
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "dimension",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "_DeltaDimension"
+              },
+              {
+                "name": "record",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "Record"
+              }
+            ],
+            "returns": "RecordData"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/delta-dimension-types.md"
+          ],
+          "responsibilities": [
+            "Keep current Delta control dimensions nominal without closing future public wire data."
+          ],
+          "id": "DELTA-DIMENSION-selected-dimension",
+          "kind": "attribute",
+          "qualified_name": "archkeel.check.expectation.ExpectedSemanticChange.dimension",
+          "parent_id": "KNOWN-ACTION-selected",
+          "annotation": "_DeltaDimension",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
         }
       ],
       "relationships": [

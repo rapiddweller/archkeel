@@ -106,7 +106,8 @@
         "archkeel.ir.profiles"
       ],
       "responsibilities": [
-        "Own per-language capability and rule-availability policy."
+        "Own per-language capability and rule-availability policy.",
+        "Own current Delta dimensions and their profile applicability; extension wire dimension text remains open."
       ],
       "forbidden_responsibilities": [
         "Source parsing and metric evaluation."
@@ -129,7 +130,10 @@
         "archkeel.ir.profiles:profile_for",
         "archkeel.ir.profiles:PROFILES",
         "archkeel.ir.profiles:UnmeasurableScalar",
-        "archkeel.ir.profiles:ObservedSection"
+        "archkeel.ir.profiles:ObservedSection",
+        "archkeel.ir.profiles:DeltaDimension",
+        "archkeel.ir.profiles:parse_delta_dimension",
+        "archkeel.ir.profiles:delta_dimension_applicable"
       ]
     },
     {
@@ -517,6 +521,45 @@
       "rationale": "This complete classifier projection selects canonical enum members; source names and unknown metadata remain data.",
       "provenance": [
         "docs/architecture/classifier-projections.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "DELTA-DIMENSION-PARSE",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.profiles.parse_delta_dimension",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "This complete migrated control port selects the canonical current Delta/evidence vocabulary; other wire fields remain outside its scope.",
+      "provenance": [
+        "docs/architecture/delta-dimension-types.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "DELTA-DIMENSION-APPLICABLE",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.profiles.delta_dimension_applicable",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "This complete migrated control port selects the canonical current Delta/evidence vocabulary; other wire fields remain outside its scope.",
+      "provenance": [
+        "docs/architecture/delta-dimension-types.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "DELTA-DIMENSION-UNKNOWN-EVIDENCE",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.codec_delta._parse_delta_unknown",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "This complete migrated control port selects the canonical current Delta/evidence vocabulary; other wire fields remain outside its scope.",
+      "provenance": [
+        "docs/architecture/delta-dimension-types.md"
       ],
       "decided_by": "architect"
     }
@@ -11770,6 +11813,107 @@
               }
             ],
             "returns": "EntityKind | None"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/delta-dimension-types.md"
+          ],
+          "responsibilities": [
+            "Keep current Delta control dimensions nominal without closing future public wire data."
+          ],
+          "id": "DELTA-DIMENSION-enum",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.profiles.DeltaDimension",
+          "parent_id": "IR-MODULE-OBJECT-profiles",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/delta-dimension-types.md"
+          ],
+          "responsibilities": [
+            "Keep current Delta control dimensions nominal without closing future public wire data."
+          ],
+          "id": "DELTA-DIMENSION-parse",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.profiles.parse_delta_dimension",
+          "parent_id": "IR-MODULE-OBJECT-profiles",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "str"
+              }
+            ],
+            "returns": "DeltaDimension | None"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/delta-dimension-types.md"
+          ],
+          "responsibilities": [
+            "Keep current Delta control dimensions nominal without closing future public wire data."
+          ],
+          "id": "DELTA-DIMENSION-applicable",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.profiles.delta_dimension_applicable",
+          "parent_id": "IR-MODULE-OBJECT-profiles",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "profile",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "Profile"
+              },
+              {
+                "name": "dimension",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "DeltaDimension"
+              }
+            ],
+            "returns": "bool"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/delta-dimension-types.md"
+          ],
+          "responsibilities": [
+            "Keep current Delta control dimensions nominal without closing future public wire data."
+          ],
+          "id": "DELTA-DIMENSION-wire-dimension",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.SemanticChange.dimension",
+          "parent_id": "KNOWN-ACTION-wire",
+          "annotation": "str",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
           }
         }
       ],
