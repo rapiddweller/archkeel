@@ -30,12 +30,12 @@ from archkeel.ir.graph_codec import parse_comparison
 from archkeel.ir.interfaces import component_owners, owner_of
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.model import (
-    rule_evaluation_receipt,
     TARGET_GRAPH_RECORD_KINDS,
     UML_TARGET_KIND,
     Observation,
     Record,
     Verdict,
+    rule_evaluation_receipt,
     stable_id,
 )
 from archkeel.ir.source_graph import observed_graph, validated_member_inventory_proof

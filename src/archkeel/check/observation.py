@@ -38,7 +38,6 @@ from archkeel.ir.facts_codec import (
 from archkeel.ir.facts_validation import validate_source_bindings
 from archkeel.ir.identity import module_identity
 from archkeel.ir.model import (
-    rule_evaluation_receipt,
     SCHEMA_VERSION,
     ArchitectureContract,
     EvidenceClass,
@@ -48,6 +47,7 @@ from archkeel.ir.model import (
     Section,
     contract_relative_path,
     parse_graph_topology_level,
+    rule_evaluation_receipt,
     stable_id,
 )
 from archkeel.ir.profiles import PROFILES, Language, Profile, UnmeasurableScalar
@@ -628,7 +628,8 @@ def _layer_order_evidence(
         receipts = [
             item
             for item in scan.scope_observations
-            if rule_evaluation_receipt(item) is not None and identifiers.intersection(item["rule_ids"])
+            if rule_evaluation_receipt(item) is not None
+            and identifiers.intersection(item["rule_ids"])
         ]
         try:
             contract_file: Path = root / path

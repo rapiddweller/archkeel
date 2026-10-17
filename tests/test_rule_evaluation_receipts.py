@@ -91,7 +91,11 @@ def test_future_kinds_remain_open_and_are_not_evaluator_receipts(kind):
 def test_actual_rule_producer_emits_the_shared_plain_wire_tag():
     read = _reader()
     rule = model.CompleteRequiresRule(
-        "RULE", model.ArchitectureRuleKind.COMPLETE_REQUIRES, "Keep named imports", (), model.DecisionMaker.ARCHITECT
+        "RULE",
+        model.ArchitectureRuleKind.COMPLETE_REQUIRES,
+        "Keep named imports",
+        (),
+        model.DecisionMaker.ARCHITECT,
     )
     raw = _rule_evaluation_receipt(rule, "root", ())
     assert type(raw["kind"]) is str
@@ -113,8 +117,14 @@ def test_uml_receipt_wrong_kind_or_identity_still_fails_hard(tmp_path, mutation)
     read = _reader()
     root, config = _repository(tmp_path)
     observation = _model(root, config)
-    declaration = next(row for row in observation.records("declarations") if row.kind == "uml_target")
-    receipt = next(row for row in observation.records("scope_observations") if row.data.get("comparison") is not None)
+    declaration = next(
+        row for row in observation.records("declarations") if row.kind == "uml_target"
+    )
+    receipt = next(
+        row
+        for row in observation.records("scope_observations")
+        if row.data.get("comparison") is not None
+    )
     assert type(receipt.kind) is str and receipt.kind == model.RULE_EVALUATION_KIND
     assert read(receipt) is not None
     assert architecture_report(observation).comparison is not None
@@ -135,7 +145,9 @@ def _target(include_guard=True):
     entities = target["declarations"]["uml"]["entities"]
     module = next(row for row in entities if row["qualified_name"] == "archkeel.ir.model")
     target["declarations"]["uml"]["entities"] = [
-        row for row in entities if row["id"].startswith("IR-RULE-RECEIPT-") or row["id"] == module["id"]
+        row
+        for row in entities
+        if row["id"].startswith("IR-RULE-RECEIPT-") or row["id"] == module["id"]
     ]
     assert len(target["declarations"]["uml"]["entities"]) == 6
     target["declarations"]["uml"]["relationships"] = []
@@ -153,7 +165,11 @@ def _native_repository(tmp_path, include_guard=True):
         "archkeel/ir/__init__.py": "",
         "contract.json": json.dumps(target),
     }
-    for row in [*target["components"], *target["rules"], *target["declarations"]["uml"]["entities"]]:
+    for row in [
+        *target["components"],
+        *target["rules"],
+        *target["declarations"]["uml"]["entities"],
+    ]:
         for path in row["provenance"]:
             files[path] = (ROOT / path).read_text()
     for path in ("ir/model.py", "ir/facts.py", "ir/source_records.py"):
@@ -202,14 +218,24 @@ def test_actual_reader_raw_control_mutation_is_rejected_by_the_same_native_guard
     root, config = _native_repository(tmp_path)
     path = root / "archkeel/ir/model.py"
     source = path.read_text()
-    node = next(row for row in ast.parse(source).body if isinstance(row, ast.FunctionDef) and row.name == "rule_evaluation_receipt")
-    insertion = node.body[1].lineno - 1 if isinstance(node.body[0], ast.Expr) else node.body[0].lineno - 1
+    node = next(
+        row
+        for row in ast.parse(source).body
+        if isinstance(row, ast.FunctionDef) and row.name == "rule_evaluation_receipt"
+    )
+    insertion = (
+        node.body[1].lineno - 1 if isinstance(node.body[0], ast.Expr) else node.body[0].lineno - 1
+    )
     lines = source.splitlines(keepends=True)
-    lines[insertion:insertion] = ['    if isinstance(record, Record) and record.kind == "rule_evaluation":\n        return None\n']
+    lines[insertion:insertion] = [
+        '    if isinstance(record, Record) and record.kind == "rule_evaluation":\n        return None\n'
+    ]
     authored = (root / "contract.json").read_bytes()
     path.write_text("".join(lines))
     observation = _model(root, config)
-    guard = next(row for row in rule_assessments(observation, undecided_by_rule={}) if row.id == GUARD)
+    guard = next(
+        row for row in rule_assessments(observation, undecided_by_rule={}) if row.id == GUARD
+    )
     assert guard.status == "FAIL" and guard.evaluation_proven
     assert any(GUARD in row.rule_ids for row in trace_valid_violations(observation))
     assert (root / "contract.json").read_bytes() == authored
@@ -219,7 +245,11 @@ def test_actual_marker_owner_relocation_fails_the_fixed_native_target(tmp_path):
     root, config = _native_repository(tmp_path, include_guard=False)
     owner = root / "archkeel/ir/model.py"
     source = owner.read_text()
-    marker = next(row for row in ast.parse(source).body if isinstance(row, ast.ClassDef) and row.name == "_RuleEvaluationTag")
+    marker = next(
+        row
+        for row in ast.parse(source).body
+        if isinstance(row, ast.ClassDef) and row.name == "_RuleEvaluationTag"
+    )
     lines = source.splitlines(keepends=True)
     marker_source = "".join(lines[marker.lineno - 1 : marker.end_lineno])
     lines[marker.lineno - 1 : marker.end_lineno] = []
@@ -239,8 +269,19 @@ def test_actual_marker_owner_relocation_fails_the_fixed_native_target(tmp_path):
 def test_authored_ports_use_the_existing_model_owner_and_selected_regression_gate():
     target = _target()
     parse_contract(target)
-    reader = next(row for row in target["declarations"]["uml"]["entities"] if row["id"] == "IR-RULE-RECEIPT-read")
+    reader = next(
+        row
+        for row in target["declarations"]["uml"]["entities"]
+        if row["id"] == "IR-RULE-RECEIPT-read"
+    )
     assert reader["signature"] == {
-        "parameters": [{"name": "record", "kind": "positional", "default_known": True, "annotation": "Record | RawRecord"}],
+        "parameters": [
+            {
+                "name": "record",
+                "kind": "positional",
+                "default_known": True,
+                "annotation": "Record | RawRecord",
+            }
+        ],
         "returns": "RuleEvaluationReceipt | None",
     }
