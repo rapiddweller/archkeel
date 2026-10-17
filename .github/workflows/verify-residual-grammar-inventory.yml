@@ -1,4 +1,4 @@
-name: Inventory actual remaining wildcard selector and pragma grammar
+name: Inventory exact grammar sites by owner AST and physical column
 on:
   push:
     branches: [verify/542-residual-grammar-inventory]
@@ -45,7 +45,7 @@ jobs:
               Visit().visit(ast.parse(text))
           joined=set();algorithms=Counter();unjoined=[]
           for row in rows:
-              matches=[(i,site,alg) for i,site in enumerate(sites) for alg,digest in site["hashes"].items() if site["owner"]==row["owner"] and digest==row["ast_sha256"]]
+              matches=[(i,site,alg) for i,site in enumerate(sites) for alg,digest in site["hashes"].items() if site["owner"]==row["owner"] and site["column"]==row["column"] and digest==row["ast_sha256"]]
               if not matches:
                   unjoined.append(row)
                   print("GRAMMAR_UNJOINED="+json.dumps({"row":row,"actual_candidates":[site for site in sites if site["owner"]==row["owner"]]}))
