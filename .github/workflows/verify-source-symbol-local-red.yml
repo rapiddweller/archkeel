@@ -1,0 +1,21 @@
+name: Verify local source symbol selector RED
+on:
+  push:
+    branches: ['verify/542-source-symbol-local-red']
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: f0ae1c56710a958e3db46d9660c4f257cfebfadb
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: '3.11.12'
+          version: '0.12.13'
+      - run: uv sync --locked
+      - run: uv run --locked pytest -q tests/test_source_symbol_consumers.py -k actual_source_selectors
+      - run: git diff --exit-code
