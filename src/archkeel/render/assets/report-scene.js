@@ -3,6 +3,7 @@
   function create(data) {
     const nativeGraph = ArchkeelGraphScene.create(data);
     const ATLAS = data.atlas ? structuredClone(data.atlas) : null;
+    const deviationIndex = ATLAS ? ArchkeelAtlasDeviations.create(ATLAS.deviations || []) : null;
     const DATA = { ...data, atlas: ATLAS };
     const NAV = DATA.navigation || null;
     const countLabel = (value, singular, plural = `${singular}s`) =>
@@ -117,27 +118,24 @@
         tooltip: edge.rationale, label: "requires",
       }));
       const pairKey = (source, target) => `${source}\0${target}`;
-      const deviations = new Map((ATLAS.deviations || []).filter((item) => item.level_id === level.parent_id)
-        .map((item) => [pairKey(item.source_id, item.target_id), item.kind]));
       const permitted = new Set(declared.map((edge) => pairKey(edge.source_id, edge.target_id)));
       const observedEdges = level.edges.map((edge) => {
-        const deviation = deviations.get(pairKey(edge.source_id, edge.target_id));
+        const undeclared = deviationIndex.isUndeclared(level.parent_id, edge.source_id, edge.target_id);
         const allowed = permitted.has(pairKey(edge.source_id, edge.target_id));
         const isDiff = viewMode === "diff";
         return ({
         ...edge, id: `observed:${edge.source_id}>${edge.target_id}`,
         layoutId: `observed:${edge.source_id}>${edge.target_id}`,
         source: edge.source_id, target: edge.target_id, kind: "dependency", relationshipKind: "imports",
-        state: isDiff ? deviation === "undeclared" ? "violation" : edge.status === "UNKNOWN" ? "undecided" : "observed"
+        state: isDiff ? undeclared ? "violation" : edge.status === "UNKNOWN" ? "undecided" : "observed"
           : edge.status === "FAIL" ? "violation" : edge.status === "UNKNOWN" ? "undecided" : "observed",
-        edgeClass: isDiff ? deviation === "undeclared" ? "atlas-undeclared" : allowed ? "atlas-permitted" : "atlas-observed" : "",
-        tooltip: `Observed imports: ${edge.import_sites ?? "UNKNOWN"}. Core ${edge.status}; ${deviation === "undeclared" ? "recorded as undeclared." : allowed ? "declared dependency in use." : "no deviation recorded."}`,
+        edgeClass: isDiff ? undeclared ? "atlas-undeclared" : allowed ? "atlas-permitted" : "atlas-observed" : "",
+        tooltip: `Observed imports: ${edge.import_sites ?? "UNKNOWN"}. Core ${edge.status}; ${undeclared ? "recorded as undeclared." : allowed ? "declared dependency in use." : "no deviation recorded."}`,
         label: countLabel(edge.import_sites, "import"),
       });
       });
-      const unusedPairs = [...deviations].filter(([, kind]) => kind === "allowed_unused").map(([pair]) => pair);
-      const unused = unusedPairs.map((pair) => {
-        const [source, target] = pair.split("\0");
+      const unused = deviationIndex.unused(level.parent_id).map((row) => {
+        const source = row.source_id, target = row.target_id;
         const declaration = declaredEdges.find((edge) => edge.source === source && edge.target === target);
         return {
           ...(declaration || { id: `unused:${source}>${target}`,
