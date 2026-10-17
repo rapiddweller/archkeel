@@ -240,8 +240,12 @@ def test_native_actual_rule_and_declaration_selectors_use_the_owned_api(tmp_path
     root, config = _declaration_repository(tmp_path)
     model = _model(root, config)
     comparison = architecture_report(model).comparison
-    assert comparison is not None and comparison.status == "PASS", comparison
     assessments = {row.id: row for row in rule_assessments(model, undecided_by_rule={})}
+    print("ACTUAL_DECLARATION_GUARDS=" + json.dumps({
+        key: {"status": row.status, "proven": row.evaluation_proven}
+        for key, row in assessments.items() if key in DECLARATION_GUARDS
+    }))
+    assert comparison is not None and comparison.status == "PASS", comparison
     for rule_id in DECLARATION_GUARDS:
         assert assessments[rule_id].status == "PASS" and assessments[rule_id].evaluation_proven
     assert not trace_valid_violations(model)
