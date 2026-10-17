@@ -510,6 +510,7 @@ def _platform_repository(tmp_path, *, changed=None, relocate=False, collect_prob
         tmp_path,
         {"archkeel/__init__.py": "", "archkeel/analyzer/__init__.py": "",
          "archkeel/analyzer/process.py": source, "contract.json": json.dumps(target),
+         **{name: (_PROCESS_ROOT / name).read_text() for name in placement["provenance"]},
          "docs/architecture/language-adapter-target.md":
              (_PROCESS_ROOT / "docs/architecture/language-adapter-target.md").read_text(),
          **extra},
