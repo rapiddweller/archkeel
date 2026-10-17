@@ -1,0 +1,51 @@
+name: Context graph fixture causal RED GREEN
+on:
+  push:
+    branches: [verify/542-context-graph-fixture-cause]
+permissions:
+  contents: read
+jobs:
+  cause:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Existing fixture misses the actual moved definitions; unchanged Target turns PASS only with those exact definitions
+        run: |
+          uv run --locked python - <<'PY'
+          import json,sys,tempfile
+          from dataclasses import asdict
+          from pathlib import Path
+          sys.path.insert(0,str(Path.cwd()/"tests"))
+          from test_typed_graph_vocabulary import ROOT,_repository,_comparison
+          from test_dependency_api_target import _source_members
+          from test_uml_evaluation import _model
+          from archkeel.ir.trace import trace_valid_violations
+          with tempfile.TemporaryDirectory() as directory:
+              root,config=_repository(Path(directory))
+              target=(root/"contract.json").read_bytes()
+              before=_model(root,config)
+              comparison=_comparison(before)
+              print("CONTEXT_GRAPH_FIXTURE_BEFORE="+json.dumps(dict(status=str(comparison.status),nonpass=[asdict(row) for row in comparison.assessments if str(row.status)!="PASS"])),flush=True)
+              assert str(comparison.status)=="UNKNOWN"
+              path=root/"archkeel/ir/facts.py"
+              text=path.read_text()
+              assert "class DefinitionContextKind(" not in text and "class DefinitionBranchKind(" not in text
+              path.write_text(text+"\n"+_source_members("src/archkeel/ir/facts.py",{"DefinitionContextKind","DefinitionBranchKind"}))
+              provenance=root/"docs/architecture/definition-context-ports.md"
+              provenance.write_text((ROOT/"docs/architecture/definition-context-ports.md").read_text())
+              after=_model(root,config)
+              comparison=_comparison(after)
+              print("CONTEXT_GRAPH_FIXTURE_AFTER="+json.dumps(dict(status=str(comparison.status),nonpass=[asdict(row) for row in comparison.assessments if str(row.status)!="PASS"],violations=len(trace_valid_violations(after)))),flush=True)
+              assert str(comparison.status)=="PASS"
+              assert not trace_valid_violations(after)
+              assert (root/"contract.json").read_bytes()==target
+          
+          PY
