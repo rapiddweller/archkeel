@@ -1,0 +1,62 @@
+name: Source resolution authored target verification
+on:
+  push:
+    branches: [verify/542-source-resolution-authored]
+permissions:
+  contents: read
+jobs:
+  authored-targets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: f9d76b79249eeea81043053fe691ee6ea6210a5a
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Authored target and actual source mutations with known subject-preflight dependency exposed
+        run: uv run --locked pytest -q tests/test_source_resolution_types.py
+      - name: Strict actual source remains frozen
+        if: always()
+        run: uv run --locked mypy --strict src/archkeel
+      - name: Parse both actual authored targets and assert unchanged product blobs
+        if: always()
+        run: |
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          from archkeel.ir.codec import parse_contract
+          for owner in ("ir","python"):
+              raw=json.loads(Path(f"docs/architecture/contracts/{owner}.json").read_text())
+              raw.pop("$schema",None)
+              parse_contract(raw)
+              print("SOURCE_AUTHORED_TARGET_SCHEMA=PASS:"+owner,flush=True)
+          changed=subprocess.check_output(["git","diff","--name-only","0c3f0069aa1bd04af94782db394c4276c97e4953","f9d76b79249eeea81043053fe691ee6ea6210a5a","--","src/archkeel"],text=True).splitlines()
+          assert changed==[],changed
+          print("SOURCE_PRODUCT_0C_FROZEN=PASS",flush=True)
+          PY
+      - name: Changed test style and formatting
+        if: always()
+        run: |
+          uv run --locked ruff check tests/test_source_resolution_types.py tests/test_dart_typed_controls.py
+          uv run --locked ruff format --check tests/test_source_resolution_types.py tests/test_dart_typed_controls.py
+      - name: Capture formatter-only corrections
+        if: always()
+        run: |
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          paths=["tests/test_source_resolution_types.py","tests/test_dart_typed_controls.py"]
+          before={path:Path(path).read_text() for path in paths}
+          subprocess.run(["uv","run","--locked","ruff","check","--select","I","--fix",*paths],check=True)
+          subprocess.run(["uv","run","--locked","ruff","format",*paths],check=True)
+          for path in paths:
+              source=Path(path).read_text()
+              if source!=before[path]:
+                  print("FORMATTED_SOURCE="+json.dumps(dict(path=path,content=source)),flush=True)
+          PY
