@@ -1,0 +1,42 @@
+name: Read-only ScanResult constructor call diagnosis
+on:
+  push:
+    branches: [verify/542-source-section-call-diagnostic]
+permissions:
+  contents: read
+jobs:
+  actual-native-call:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 96e70a648eff9a404475db0af5c3a4738abd86ac
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Actual native records for the only new constructor body
+        run: |
+          uv run --locked python - <<'PY'
+          import json,sys,tempfile
+          from pathlib import Path
+          sys.path.insert(0,str(Path("tests").resolve()))
+          from test_source_section_types import _native_repository
+          from test_uml_evaluation import _model
+          from archkeel.ir.facts_codec import record_payload
+          with tempfile.TemporaryDirectory() as directory:
+              root,config=_native_repository(Path(directory),include_guard=False)
+              model=_model(root,config)
+              evidence={item.id:item for item in model.evidence}
+              selected=[]
+              for record in model.records("calls") or ():
+                  if "ScanResult.__post_init__" in str(record.data.get("source_scope")):
+                      selected.append(record_payload(record))
+                      print("SECTION_CONSTRUCTOR_CALL="+json.dumps(record_payload(record),sort_keys=True),flush=True)
+                      print("SECTION_CONSTRUCTOR_EVIDENCE="+json.dumps([{"file":evidence[key].file,"line":evidence[key].line,"column":evidence[key].column} for key in record.evidence_ids]),flush=True)
+              assert len(selected)==2,selected
+          PY
