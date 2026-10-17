@@ -40,3 +40,43 @@ jobs:
                       print("SECTION_CONSTRUCTOR_EVIDENCE="+json.dumps([{"file":evidence[key].file,"line":evidence[key].line,"column":evidence[key].column} for key in record.evidence_ids]),flush=True)
               assert len(selected)==2,selected
           PY
+  actual-unresolved-call-changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 96e70a648eff9a404475db0af5c3a4738abd86ac
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Exact production unresolved_call_changes against immutable feature base
+        run: |
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          protected=("architecture-contract.json","architecture-baseline.json","architecture-accepted.json")
+          before={path:Path(path).read_bytes() for path in protected}
+          run=subprocess.run(["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--json","--against","7cfe1298fb285dfb5c53c1b8f829207ce05b7e97"],capture_output=True,text=True,check=False)
+          print("SECTION_ACTUAL_AGAINST_EXIT="+str(run.returncode),flush=True)
+          if run.stderr:
+              print("SECTION_ACTUAL_AGAINST_STDERR="+run.stderr,flush=True)
+          raw=json.loads(run.stdout)
+          Path("source-section-actual-against.json").write_text(run.stdout)
+          print("SECTION_ACTUAL_UNRESOLVED_CHANGES="+json.dumps(raw.get("unresolved_call_changes"),sort_keys=True),flush=True)
+          print("SECTION_ACTUAL_UNRESOLVED_NOTE="+json.dumps(raw.get("unresolved_call_note"),sort_keys=True),flush=True)
+          print("SECTION_ACTUAL_AGAINST_FAILURES="+json.dumps(raw.get("failures"),sort_keys=True),flush=True)
+          print("SECTION_ACTUAL_AGAINST_DIAGNOSTICS="+json.dumps(raw.get("diagnostics"),sort_keys=True),flush=True)
+          for path,original in before.items():
+              assert Path(path).read_bytes()==original,path
+          assert not subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() }}
+        with:
+          name: source-section-actual-unresolved-changes
+          path: source-section-actual-against.json
