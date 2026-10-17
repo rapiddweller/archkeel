@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 9b47ce3a620a1f450413791c00e22a81a14a631a
+          ref: c7634b570b7b7957b29bf1c6adc0519f591a766d
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -58,7 +58,7 @@ jobs:
                       evidence = {item.id: item for item in result.observation.evidence}
                       loc = [evidence[ref] for ref in row.evidence_ids]
                       lines = [item.line for item in loc]
-                      rows.append({"id": row.id, "data": dict(row.data), "locations": [asdict(item) for item in loc], "language": any(line in language_lines for line in lines)})
+                      rows.append({"id": row.id, "data": dict(row.data.entries), "locations": [asdict(item) for item in loc], "language": any(line in language_lines for line in lines)})
                   selected = [row for row in rows if row["language"]]
                   all_rows[name] = {"all_literal_comparisons": len(rows), "language": selected, "rows": rows}
                   print("NATIVE_LANGUAGE_SITES=" + json.dumps({"revision": name, "count": len(selected), "ids": [row["id"] for row in selected]}))
@@ -92,7 +92,7 @@ jobs:
                   "tsconfig.json": '{"compilerOptions":{"module":"nodenext","target":"es2022"}}\\n',
                   "contract.json": '{"schema_version":"2.3.0","components":[],"rules":[]}\\n',
               }.items():
-                  _write(repository / path, text.replace("\\\\n", "\\n"))
+                  _write(repository / path, text.replace(chr(92) + "n", chr(10)))
               _git(repository, "add", ".")
               _git(repository, "commit", "-qm", "three committed profiles")
               revision = _git(repository, "rev-parse", "HEAD")
