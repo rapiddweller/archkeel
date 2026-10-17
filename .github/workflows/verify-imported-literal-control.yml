@@ -46,7 +46,7 @@ jobs:
               contract = {"schema_version": "2.1.0", "components": components, "rules": [{
                   "id": "HOST-IMPORTED-VALUE", "kind": "forbidden_construct",
                   "source": "archkeel.check.ordering", "constructs": ["string_literal_compare"],
-                  "rationale": "Observe actual host ordering dispatch.", "decided_by": "ake2l",
+                  "rationale": "Observe actual host ordering dispatch.", "decided_by": "agent",
                   "provenance": ["docs/probe.md"]}]}
               (root / "contract.json").write_text(json.dumps(contract))
               for name, text in files.items():
