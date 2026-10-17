@@ -1,0 +1,95 @@
+name: Actual accepted 838 no-write wrapper compatibility
+on:
+  push:
+    branches: [verify/542-wrapper-tight838-nowrite]
+permissions:
+  contents: read
+jobs:
+  accepted-metadata-read-only-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 1ff6cef335117fcb35cc86a555ee2ab9db074e1f
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Apply only the actual four-file delta onto accepted metadata
+        run: |
+          python - <<'PY'
+          import hashlib,json,os,subprocess
+          from pathlib import Path
+          temporary=Path(os.environ["RUNNER_TEMP"])
+          paths=[
+          "src/archkeel/analyzer/typescript/parse.py",
+          "tests/test_typescript_string_constructs.py",
+          "docs/architecture/typescript-written-string-controls.md",
+          "docs/superpowers/plans/2026-10-17-typescript-literal-wrappers.md",
+          ]
+          basis="a25c37c564c82c1b42457f0528c931c769ee9362"
+          feature="11173d0125f0e70b6ef592ae7eec70ec37665e73"
+          accepted="1ff6cef335117fcb35cc86a555ee2ab9db074e1f"
+          assert subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip()==accepted
+          assert not subprocess.check_output(["git","status","--porcelain"],text=True)
+          patch=subprocess.check_output(["git","diff","--binary",basis,feature,"--",*paths])
+          (temporary/"wrapper-only.patch").write_bytes(patch)
+          subprocess.run(["git","apply","--3way","--index",str(temporary/"wrapper-only.patch")],check=True)
+          def staged():
+              names=subprocess.check_output(["git","diff","--cached","--name-only"],text=True).splitlines()
+              assert sorted(names)==sorted(paths),names
+              assert not subprocess.check_output(["git","diff","--name-only"],text=True)
+              return hashlib.sha256(subprocess.check_output(["git","diff","--cached","--binary"])).hexdigest()
+          before=staged()
+          for path in paths:
+              assert Path(path).read_bytes()==subprocess.check_output(["git","show",feature+":"+path]),path
+          tree=subprocess.check_output(["git","write-tree"],text=True).strip()
+          unchanged=subprocess.check_output(["git","diff","--name-only",feature,tree,"--","src","docs/architecture/contracts","architecture-contract.json"],text=True).strip()
+          assert not unchanged,unchanged
+          baseline=json.loads(Path("architecture-baseline.json").read_text())
+          print("EXACT_PATCH_BEFORE="+json.dumps({"accepted_checkout":accepted,"feature":feature,"paths":sorted(paths),"staged_diff_sha256":before,"production_and_target_match_feature":True,"baseline":baseline}),flush=True)
+          (temporary/"wrapper-patch-proof.json").write_text(json.dumps({"paths":sorted(paths),"staged_diff_sha256":before,"tree":tree}))
+          
+          PY
+      - name: Normal compatibility validation without writing source policy baseline or amendment
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --against f63840b5c912ae40eff42fa7b12fd41240566d46 --amendment docs/architecture/decisions/2026-10-17-combined-typed-owner-amendment.json --baseline architecture-baseline.json --json > "$RUNNER_TEMP/wrapper-tight838-nowrite.json"
+          task_status=$?
+          python - <<'PY'
+          import hashlib,json,os,subprocess
+          from pathlib import Path
+          temporary=Path(os.environ["RUNNER_TEMP"])
+          before=json.loads((temporary/"wrapper-patch-proof.json").read_text())
+          result=json.loads((temporary/"wrapper-tight838-nowrite.json").read_text())
+          names=subprocess.check_output(["git","diff","--cached","--name-only"],text=True).splitlines()
+          after=hashlib.sha256(subprocess.check_output(["git","diff","--cached","--binary"])).hexdigest()
+          assert sorted(names)==before["paths"],names
+          assert after==before["staged_diff_sha256"],(before["staged_diff_sha256"],after)
+          assert not subprocess.check_output(["git","diff","--name-only"],text=True)
+          subset={key:result.get(key) for key in ("exit_code","failures","diagnostics","measurements","amendment_status","widenings","unresolved_call_changes")}
+          print("STRICT_838_NOWRITE_RESULT="+json.dumps(subset,sort_keys=True),flush=True)
+          print("EXACT_PATCH_AFTER="+json.dumps({"paths":sorted(names),"staged_diff_sha256":after,"unchanged":True}),flush=True)
+          if result.get("exit_code")==0:
+              assert result["measurements"]["scalars"]["calls_unresolved"]==838,result["measurements"]
+              assert result["measurements"]["scalars"]["typing_positions"]==52,result["measurements"]
+              assert result["measurements"]["scalars"]["unknown_positions"]==58,result["measurements"]
+              print("ACTUAL_ACCEPTED_838_NO_WRITE=PASS",flush=True)
+          
+          PY
+          assertion_status=$?
+          if [ "$assertion_status" -ne 0 ]; then exit "$assertion_status"; fi
+          exit "$task_status"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: strict-838-wrapper-nowrite-replay
+          path: |
+            ${{ runner.temp }}/wrapper-tight838-nowrite.json
+            ${{ runner.temp }}/wrapper-patch-proof.json
+            ${{ runner.temp }}/wrapper-only.patch
+          retention-days: 10
