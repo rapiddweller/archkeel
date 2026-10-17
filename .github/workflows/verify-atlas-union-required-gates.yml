@@ -1,0 +1,41 @@
+name: Verify reviewed Atlas owner integration
+on:
+  push:
+    branches: [verify/542-atlas-union-required-gates]
+permissions:
+  contents: read
+jobs:
+  quality-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 5fc94c10298c4bbcd98fd44f8ac72b321b03a0b4
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: make lint typecheck
+      - run: make browser-graph-check browser-runtime-check
+      - run: uv run --locked python -m pytest -q tests/test_atlas_deviation_target.py tests/test_atlas_deviation_boundary.py tests/test_repository_hygiene.py tests/test_ci_changes.py tests/test_make_gate.py
+      - run: git diff --exit-code
+  required-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 5fc94c10298c4bbcd98fd44f8ac72b321b03a0b4
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: make ci-pr-report-check
+      - run: git diff --exit-code
