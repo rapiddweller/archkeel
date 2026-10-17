@@ -241,6 +241,19 @@
         "docs/architecture/core-command-result-types.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "RENDER-STRUCTURE-LEVEL-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.render.html._structure_overview_body",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Structure decisions consume the owner's nominal measurement level; names and JSON keys remain data.",
+      "provenance": [
+        "docs/architecture/structure-level-types.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {

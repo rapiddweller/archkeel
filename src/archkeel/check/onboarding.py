@@ -54,7 +54,7 @@ from archkeel.ir.model import (
     ExpectationOutcome as _ExpectationOutcome,
 )
 from archkeel.ir.profiles import Language
-from archkeel.ir.structure import StructureMetric, scope_metrics
+from archkeel.ir.structure import StructureLevel, StructureMetric, scope_metrics
 
 from .ports import Analyzer, FilesToWrite, ScanConfig
 from .ratchets import measure_python_ratchets
@@ -289,7 +289,7 @@ def draft_contract(
     labels = tuple(component.label for component in draft_components)
     scaffold = ArchitectureContract(ContractVersion.V2_1, draft_components, ())
     edges = observed_component_edges(scaffold, observation)
-    sizes = scope_metrics(observation, "component", module_labels)
+    sizes = scope_metrics(observation, StructureLevel.COMPONENT, module_labels)
     public = _drafted_public(observation, scaffold)
     # A drafted public list is the agent's interface decision, marked the way its rules are
     # (AD-50), so `agent_decisions` counts it and the architect sees what is still owed.

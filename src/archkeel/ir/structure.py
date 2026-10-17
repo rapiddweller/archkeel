@@ -18,7 +18,7 @@ from __future__ import annotations
 import builtins as _builtins
 from collections import Counter
 from dataclasses import dataclass
-from typing import Literal, TypeAlias
+from enum import StrEnum
 
 from .facts import SourceResolution, parse_source_resolution
 from .interfaces import component_owners, owner_of
@@ -33,7 +33,10 @@ from .model import (
 )
 from .profiles import UnmeasurableScalar, profile_for
 
-StructureLevel: TypeAlias = Literal["component", "package"]
+
+class StructureLevel(StrEnum):
+    COMPONENT = "component"
+    PACKAGE = "package"
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +51,10 @@ class StructureMetric:
     fan_out: int
     calls: int | None
     unresolved: int | None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.level, StructureLevel):
+            _builtins.object.__setattr__(self, "level", StructureLevel(self.level))
 
 
 def _module_names(observation: Observation) -> tuple[str, ...]:
@@ -153,6 +160,7 @@ def scope_metrics(
     declared, so a draft's size and a declared component's size share one aggregation
     (AD-38) instead of `init` counting modules and edges again.
     """
+    level = StructureLevel(level)
     edges = module_edges(observation)
     calls, unresolved = _calls_by_module(observation)
     return _aggregate(level, scope_of, edges, calls, unresolved)
@@ -166,8 +174,8 @@ def structure_metrics(observation: Observation) -> tuple[StructureMetric, ...]:
         module: owner for module in names if (owner := owner_of(module, components)) is not None
     }
     by_package = {module: module.rpartition(".")[0] or module for module in names}
-    return scope_metrics(observation, "component", by_component) + scope_metrics(
-        observation, "package", by_package
+    return scope_metrics(observation, StructureLevel.COMPONENT, by_component) + scope_metrics(
+        observation, StructureLevel.PACKAGE, by_package
     )
 
 
@@ -226,7 +234,7 @@ def oversized_insides(observation: Observation) -> InsideSizes:
     candidates = tuple(
         OversizedInside(metric.scope, metric.modules, metric.inner_edges)
         for metric in structure_metrics(observation)
-        if metric.level == "component"
+        if metric.level is StructureLevel.COMPONENT
         and (metric.modules > len(components) or metric.inner_edges > edges)
     )
     return InsideSizes(ComparisonStatus.SUPPORTED, len(components), edges, candidates)
