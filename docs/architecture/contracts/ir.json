@@ -11009,6 +11009,64 @@
           "responsibilities": [
             "Retain the canonical nominal component-pair permission state."
           ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/known-delta-action-types.md"
+          ],
+          "responsibilities": [
+            "Keep known Delta actions nominal at production and governance ports while preserving future-open wire data."
+          ],
+          "id": "KNOWN-ACTION-enum",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.model.KnownSemanticChangeKind",
+          "parent_id": "IR-DEPENDENCY-model",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/known-delta-action-types.md"
+          ],
+          "responsibilities": [
+            "Keep known Delta actions nominal at production and governance ports while preserving future-open wire data."
+          ],
+          "id": "KNOWN-ACTION-wire",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.SemanticChange",
+          "parent_id": "IR-DEPENDENCY-model",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/known-delta-action-types.md"
+          ],
+          "responsibilities": [
+            "Keep known Delta actions nominal at production and governance ports while preserving future-open wire data."
+          ],
+          "id": "KNOWN-ACTION-wire-change",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.SemanticChange.change",
+          "parent_id": "KNOWN-ACTION-wire",
+          "annotation": "str",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
         }
       ],
       "relationships": [

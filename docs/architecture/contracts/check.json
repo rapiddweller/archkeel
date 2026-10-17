@@ -528,6 +528,195 @@
           "responsibilities": [
             "Classify an otherwise unresolved written annotation using existing diagnostic categories."
           ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/known-delta-action-types.md"
+          ],
+          "responsibilities": [
+            "Keep known Delta actions nominal at production and governance ports while preserving future-open wire data."
+          ],
+          "id": "KNOWN-ACTION-delta",
+          "kind": "module",
+          "qualified_name": "archkeel.check.delta"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/known-delta-action-types.md"
+          ],
+          "responsibilities": [
+            "Keep known Delta actions nominal at production and governance ports while preserving future-open wire data."
+          ],
+          "id": "KNOWN-ACTION-producer",
+          "kind": "function",
+          "qualified_name": "archkeel.check.delta._change",
+          "parent_id": "KNOWN-ACTION-delta",
+          "signature": {
+            "parameters": [
+              {
+                "name": "dimension",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "kind",
+                "annotation": "_KnownSemanticChangeKind",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "fingerprint",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "before",
+                "annotation": "tuple[_DeltaRecord, ...]",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "after",
+                "annotation": "tuple[_DeltaRecord, ...]",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "SemanticChange"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/known-delta-action-types.md"
+          ],
+          "responsibilities": [
+            "Keep known Delta actions nominal at production and governance ports while preserving future-open wire data."
+          ],
+          "id": "KNOWN-ACTION-expectation",
+          "kind": "module",
+          "qualified_name": "archkeel.check.expectation"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/known-delta-action-types.md"
+          ],
+          "responsibilities": [
+            "Keep known Delta actions nominal at production and governance ports while preserving future-open wire data."
+          ],
+          "id": "KNOWN-ACTION-selected",
+          "kind": "class",
+          "qualified_name": "archkeel.check.expectation.ExpectedSemanticChange",
+          "parent_id": "KNOWN-ACTION-expectation",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/known-delta-action-types.md"
+          ],
+          "responsibilities": [
+            "Keep known Delta actions nominal at production and governance ports while preserving future-open wire data."
+          ],
+          "id": "KNOWN-ACTION-selected-change",
+          "kind": "attribute",
+          "qualified_name": "archkeel.check.expectation.ExpectedSemanticChange.change",
+          "parent_id": "KNOWN-ACTION-selected",
+          "annotation": "_KnownSemanticChangeKind",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/known-delta-action-types.md"
+          ],
+          "responsibilities": [
+            "Keep known Delta actions nominal at production and governance ports while preserving future-open wire data."
+          ],
+          "id": "KNOWN-ACTION-ingress",
+          "kind": "function",
+          "qualified_name": "archkeel.check.expectation._require_change_kind",
+          "parent_id": "KNOWN-ACTION-expectation",
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "annotation": "object",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "label",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "_KnownSemanticChangeKind"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/known-delta-action-types.md"
+          ],
+          "responsibilities": [
+            "Keep known Delta actions nominal at production and governance ports while preserving future-open wire data."
+          ],
+          "id": "KNOWN-ACTION-counts",
+          "kind": "function",
+          "qualified_name": "archkeel.check.expectation._validate_change_counts",
+          "parent_id": "KNOWN-ACTION-expectation",
+          "signature": {
+            "parameters": [
+              {
+                "name": "change",
+                "annotation": "_KnownSemanticChangeKind",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "before_count",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "after_count",
+                "annotation": "int",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "label",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          }
         }
       ],
       "relationships": [
