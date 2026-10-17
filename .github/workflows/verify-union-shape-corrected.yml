@@ -1,0 +1,82 @@
+name: Typed union fixture causal RED and full GREEN
+on:
+  push:
+    branches: [verify/542-union-shape-corrected]
+permissions:
+  contents: read
+jobs:
+  focused-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: e92cf8d8d0205da0f126fea90ae56dd1d9c66b93
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked pytest tests/test_type_shapes.py -q -ra
+      - run: uv run --locked mypy --strict src/archkeel
+      - name: Verify formatting and source style
+        run: |
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          paths=["src/archkeel/check/evaluation/boundary_types.py","tests/test_analyzer.py","tests/test_type_shapes.py"]
+          mismatches=[]
+          for path in paths:
+              before=Path(path).read_text()
+              run=subprocess.run(["uv","run","--locked","ruff","format","--stdin-filename",path],input=before,text=True,capture_output=True,check=True)
+              if before!=run.stdout:
+                  mismatches.append(path)
+                  print("UNION_FORMATTED_SOURCE="+json.dumps({"path":path,"content":run.stdout}),flush=True)
+          subprocess.run(["uv","run","--locked","ruff","check",*paths],check=True)
+          assert not mismatches, mismatches
+          assert not subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          PY
+  corrected-fixture-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: aa84fab9c5bb6833b9ab58bcccbbbb443dc0a114
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Replay corrected regression against unchanged production base
+        run: |
+          uv run --locked python - <<'PY'
+          import json, subprocess, xml.etree.ElementTree as ET
+          from pathlib import Path
+          feature="e92cf8d8d0205da0f126fea90ae56dd1d9c66b93"
+          base="aa84fab9c5bb6833b9ab58bcccbbbb443dc0a114"
+          name="test_optional_mapping_keeps_its_typed_none_without_an_index_entry"
+          content=subprocess.check_output(["git","show",feature+":tests/test_type_shapes.py"],text=True)
+          path=Path("tests/test_type_shapes_corrected_red.py")
+          path.write_text(content)
+          run=subprocess.run(["uv","run","--locked","pytest",str(path),"-k",name,"-q","-ra","--junitxml=union-shape-corrected-red.xml"],text=True,capture_output=True,check=False)
+          print(run.stdout,flush=True)
+          print(run.stderr,flush=True)
+          root=ET.parse("union-shape-corrected-red.xml").getroot()
+          cases=list(root.iter("testcase"))
+          failed=[case.attrib["name"] for case in cases if case.find("failure") is not None]
+          errors=[case.attrib["name"] for case in cases if case.find("error") is not None]
+          print("UNION_SHAPE_CORRECTED_RED="+json.dumps({"source":base,"corrected_fixture_source":feature,"exit":run.returncode,"cases":len(cases),"failed":failed,"errors":errors},sort_keys=True),flush=True)
+          assert run.returncode==1 and failed==[name] and not errors
+          assert "dict[str, str]" in run.stdout and "assert None ==" in run.stdout
+          assert not subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: union-shape-corrected-red
+          path: union-shape-corrected-red.xml
