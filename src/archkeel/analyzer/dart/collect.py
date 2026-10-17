@@ -76,7 +76,6 @@ from .syntax import (
     Visibility,
 )
 
-
 _SOURCE_SYMBOL_KINDS = {
     DefinitionKind.CLASS: SourceSymbolKind.CLASS,
     DefinitionKind.MIXIN: SourceSymbolKind.CLASS,
