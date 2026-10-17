@@ -193,9 +193,7 @@ def _contract():
     contract = contracts[0]
     contract.pop("$schema", None)
     contract["components"] = [
-        row
-        for row in contract["components"]
-        if row["id"] in {"TARGET-FACTS", "TARGET-PROFILES", "TARGET-GOVERNANCE"}
+        *contract["components"],
     ] + [
         dict(
             id="CORE",
