@@ -28,7 +28,10 @@ jobs:
           make lint typecheck
       - name: Generate reduced baseline and exact ordinary amendment
         run: |
-          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --write-baseline --json > "$RUNNER_TEMP/atlas-baseline.json"
+          atlas_baseline_status=0
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --write-baseline --json > "$RUNNER_TEMP/atlas-baseline.json" || atlas_baseline_status=$?
+          cat "$RUNNER_TEMP/atlas-baseline.json"
+          if [ "$atlas_baseline_status" -ne 0 ]; then exit "$atlas_baseline_status"; fi
           atlas_validation_status=0
           uv run --locked archkeel validate --root . --baseline architecture-baseline.json --against 0aee692c767150847089dbcfdcf1765464837ab6 --amendment docs/architecture/decisions/atlas-deviation-types-amendment.json --write-amendment --decided-by ake2l --rationale 'Own immutable recorded Atlas deviations and their deterministic producer, preserve existing wire dictionaries and expose the real checked Scene consumer.' --json > "$RUNNER_TEMP/atlas-against.json" || atlas_validation_status=$?
           python - <<'PY'
