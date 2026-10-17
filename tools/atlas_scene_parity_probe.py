@@ -4,6 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
+sys.path.insert(0, str(Path.cwd()))
 sys.path.insert(0, str(Path("tests").resolve()))
 from test_report_filter import CONFIG, _tour_root
 from archkeel.check.report import run_report
