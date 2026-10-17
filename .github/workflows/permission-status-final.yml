@@ -1,0 +1,118 @@
+name: Frozen PermissionStatus required and native proof
+on:
+  push:
+    branches: [verify/542-permission-status-final]
+permissions:
+  contents: read
+jobs:
+  ordinary-native-receipt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - name: Generate normal baseline and exact-predecessor receipt then NoWrite
+        run: |
+          permission_status=0
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --write-baseline --json > "$RUNNER_TEMP/permission-baseline.json" || permission_status=$?
+          cat "$RUNNER_TEMP/permission-baseline.json"
+          if [ "$permission_status" -ne 0 ]; then exit "$permission_status"; fi
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --against 5fc94c10298c4bbcd98fd44f8ac72b321b03a0b4 --amendment docs/architecture/decisions/permission-status-types-amendment.json --write-amendment --decided-by ake2l --rationale 'Own component-pair permission states at their existing projection value boundary and expose the canonical type to its real consumers without changing wire decisions.' --json > "$RUNNER_TEMP/permission-against.json" || permission_status=$?
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          data = json.loads((Path(os.environ["RUNNER_TEMP"]) / "permission-against.json").read_bytes())
+          keys = ("exit_code","diagnostics","failures","measurements","widenings","unresolved_call_changes","unresolved_call_note")
+          print("PERMISSION_NORMAL_NATIVE=" + json.dumps({key:data.get(key) for key in keys}))
+          PY
+          if [ "$permission_status" -ne 0 ]; then exit "$permission_status"; fi
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --against 5fc94c10298c4bbcd98fd44f8ac72b321b03a0b4 --amendment docs/architecture/decisions/permission-status-types-amendment.json --json
+      - name: Export exact generated metadata
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          paths = ["architecture-baseline.json","docs/architecture/decisions/permission-status-types-amendment.json"]
+          print("PERMISSION_GENERATED_FILES=" + json.dumps({p:Path(p).read_text() for p in paths if Path(p).is_file()}))
+          PY
+  actual-native-sites:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - name: Compare real canonical observations and actual sites
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/permission-before" 5fc94c10298c4bbcd98fd44f8ac72b321b03a0b4
+          uv run --locked archkeel report --root "$RUNNER_TEMP/permission-before" --output "$RUNNER_TEMP/permission-before.json" > "$RUNNER_TEMP/permission-before-result.json"
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/permission-after.json" > "$RUNNER_TEMP/permission-after-result.json"
+          uv run --locked python prototype/permission_native_sites.py
+      - name: Export native diagnostic summaries
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          root = Path(os.environ["RUNNER_TEMP"])
+          for name in ("permission-before-result.json","permission-after-result.json"):
+              path = root / name
+              if path.is_file():
+                  data = json.loads(path.read_bytes())
+                  print("PERMISSION_REPORT_RESULT=" + json.dumps({key:data.get(key) for key in ("diagnostics","coverage","declared_rules","violations_by_rule")}))
+          PY
+  required-pr-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - run: uv sync --locked
+      - name: Refresh inherited baseline through normal writer only
+        run: |
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --write-baseline --json > "$RUNNER_TEMP/permission-core-baseline.json"
+      - run: make ci-pr-check
+  required-report-and-budgets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - run: uv sync --locked
+      - run: make ci-pr-report-check
+      - name: Preserve existing authentic repository size limits
+        run: |
+          uv run --locked python -m pytest -q tests/test_atlas_report.py::test_default_report_is_one_authentic_repository_with_sparse_native_cells
+          git diff --exit-code -- src/archkeel/render/assets/ tests/browser_graph_scene_target.ts tools/browser_graph_protocol.py
