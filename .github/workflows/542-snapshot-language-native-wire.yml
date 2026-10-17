@@ -84,9 +84,9 @@ jobs:
               spec.loader.exec_module(old)
               repository, _ = _committed_repository(parent)
               for path, text in {
-                  "src/main.py": "def run(value: int) -> int:\\n    return value + 1\\n",
-                  "src/main.dart": "int run(int value) => value + 1;\\n",
-                  "src/main.ts": "export function run(value: number): number { return value + 1; }\\n",
+                  "src/example/main.py": "def run(value: int) -> int:\\n    return value + 1\\n",
+                  "src/example/main.dart": "int run(int value) => value + 1;\\n",
+                  "src/example/main.ts": "export function run(value: number): number { return value + 1; }\\n",
                   "pubspec.yaml": "name: example\\n",
                   "package.json": '{"type":"module"}\\n',
                   "tsconfig.json": '{"compilerOptions":{"module":"nodenext","target":"es2022"}}\\n',
@@ -106,8 +106,8 @@ jobs:
                   results = []
                   for materializer in (old.materialize_git_snapshot, snapshot.materialize_git_snapshot):
                       run.materialize_git_snapshot = materializer
-                      print("COMMITTED_SOURCE=" + repr((repository / "src/main.py").read_bytes()))
-                      ast.parse((repository / "src/main.py").read_bytes())
+                      print("COMMITTED_SOURCE=" + repr((repository / "src/example/main.py").read_bytes()))
+                      ast.parse((repository / "src/example/main.py").read_bytes())
                       result = run.observe_revision(observe, repository, revision, config, declared_at=revision)
                       print("OBSERVATION_COVERAGE=" + repr(result.coverage))
                       assert result.diagnostics == () and result.observation is not None, result.diagnostics
