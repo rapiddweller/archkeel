@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """One support type at the real claim/Delta ports; open wire data stays open."""
 
+import ast
 import copy
 import json
 from dataclasses import replace
@@ -341,8 +342,8 @@ def test_native_migrated_actual_boundary_projections_reject_raw_dispatch(tmp_pat
         (
             "codec_delta",
             "return ComparisonStatus(value)",
-            'if value == "UNKNOWN":\n            return ComparisonStatus.UNKNOWN\n'
-            "        return ComparisonStatus(value)",
+            'if value == "UNKNOWN":\n                return ComparisonStatus.UNKNOWN\n'
+            "            return ComparisonStatus(value)",
         ),
     ]
     + [
@@ -363,6 +364,8 @@ def test_native_actual_invariant_and_decoder_raw_reversion_fails_fixed_guard(
     original = source.read_text()
     assert old in original
     intent = (root / "contract.json").read_bytes()
-    source.write_text(original.replace(old, new, 1))
+    changed = original.replace(old, new, 1)
+    ast.parse(changed)
+    source.write_text(changed)
     assert any(row.rule_ids for row in trace_valid_violations(_model(root, config)))
     assert (root / "contract.json").read_bytes() == intent
