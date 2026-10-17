@@ -42,7 +42,7 @@ def test_existing_semantic_owner_has_exact_known_domain_and_open_wire_field():
     assert issubclass(kind, StrEnum) and kind.__module__ == "archkeel.ir.model"
     assert [(item.name, str(item)) for item in kind] == KINDS
     assert get_type_hints(model.SemanticChange)["change"] is str
-    assert get_type_hints(model.UnresolvedCallChange)["change"] == Literal["added", "removed"]
+    assert get_type_hints(model.UnresolvedCallChange)["change"] == Literal[kind.ADDED, kind.REMOVED]
     assert get_type_hints(expectation.ExpectedSemanticChange)["change"] is kind
     assert get_type_hints(delta._change)["kind"] is kind
     assert get_type_hints(expectation._require_change_kind)["return"] is kind

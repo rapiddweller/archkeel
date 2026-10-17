@@ -17,6 +17,7 @@ from rich.table import Table
 from rich.text import Text
 
 from archkeel.ir.diagnostics import Diagnostic as Diagnostic
+from archkeel.ir.model import RuleAssessmentStatus as _RuleAssessmentStatus
 from archkeel.ir.model import RunResult
 
 from .summary import Summary
@@ -100,7 +101,7 @@ def print_result(
     unknown_details = tuple(
         Text(line, overflow="fold")
         for item in result.rule_assessments or ()
-        if item.status == "UNKNOWN"
+        if item.status is _RuleAssessmentStatus.UNKNOWN
         for line in (item.id, item.reason)
     )
     output.print(

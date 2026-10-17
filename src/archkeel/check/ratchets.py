@@ -16,6 +16,7 @@ from archkeel.ir.measurements import (
     compare_measurements,
 )
 from archkeel.ir.measurements import MetricComparisonStatus as _MetricComparisonStatus
+from archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKind
 from archkeel.ir.model import (
     CallRow,
     CallStatus,
@@ -237,7 +238,7 @@ def unresolved_call_changes(
         calls = now if added else was
         changes.append(
             UnresolvedCallChange(
-                "added" if added else "removed",
+                _KnownSemanticChangeKind.ADDED if added else _KnownSemanticChangeKind.REMOVED,
                 caller,
                 expression,
                 calls[0].reason,

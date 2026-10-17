@@ -73,6 +73,7 @@ from archkeel.ir.model import (
     Command as _Command,
 )
 from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
+from archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKind
 from archkeel.ir.model import (
     ExpectationOutcome as _ExpectationOutcome,
 )
@@ -379,7 +380,7 @@ def _unresolved_calls_since(
     except (GitError, SnapshotError, RatchetError):
         return None, _UNCOMPARED
     named = tuple(
-        item for item in changes if item.change == "removed" or item.path not in one_sided
+        item for item in changes if item.change is _KnownSemanticChangeKind.REMOVED or item.path not in one_sided
     )
     if len(named) < len(changes):
         return named, _ONE_SIDED
@@ -400,7 +401,7 @@ def _one_sided_paths(
     archived, and one the revision tracks was left out by its own `export-ignore`.
     """
     archived = {text_value(record.data.get("file")) for record in before.records("modules") or ()}
-    added = frozenset(item.path for item in changes if item.change == "added") - archived
+    added = frozenset(item.path for item in changes if item.change is _KnownSemanticChangeKind.ADDED) - archived
     if not added:
         return frozenset()
     tracked = tracked_paths(root, before.source.git_head, config.roots)

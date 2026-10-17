@@ -1497,6 +1497,9 @@ class CallRow:
         builtins.object.__setattr__(self, "status", status)
 
 
+CallChangeKind: TypeAlias = Literal[KnownSemanticChangeKind.ADDED, KnownSemanticChangeKind.REMOVED]
+
+
 @dataclass(frozen=True, slots=True)
 class UnresolvedCallChange:
     """AD-100: one unresolved call whose count differs between two compared revisions.
@@ -1507,7 +1510,7 @@ class UnresolvedCallChange:
     which one is new cannot be decided. A removed call's lines are those of the older revision.
     """
 
-    change: Literal["added", "removed"]
+    change: CallChangeKind
     caller: str
     expression: str
     reason: str
@@ -1516,6 +1519,12 @@ class UnresolvedCallChange:
     lines: tuple[int, ...]
     before: int
     after: int
+
+    def __post_init__(self) -> None:
+        change = KnownSemanticChangeKind(self.change)
+        if change not in {KnownSemanticChangeKind.ADDED, KnownSemanticChangeKind.REMOVED}:
+            raise ValueError("call change needs an added or removed direction")
+        builtins.object.__setattr__(self, "change", change)
 
 
 @dataclass(frozen=True, slots=True)

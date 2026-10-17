@@ -17,6 +17,7 @@ from archkeel.ir.model import (
     Command as _Command,
 )
 from archkeel.ir.model import ComparisonStatus as _ComparisonStatus
+from archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKind
 from archkeel.ir.model import (
     DraftedComponentSize,
     RunResult,
@@ -199,10 +200,10 @@ def _call_site_lines(result: RunResult) -> tuple[str, ...]:
     changes = result.unresolved_call_changes
     if not changes:
         return () if note is None else (f"Unresolved call sites: {note}",)
-    added = sum(item.change == "added" for item in changes)
+    added = sum(item.change is _KnownSemanticChangeKind.ADDED for item in changes)
     lines = [f"Unresolved call sites: {added} added, {len(changes) - added} removed"]
     for item in changes[:_CALL_SITES_SHOWN]:
-        sign = "+" if item.change == "added" else "-"
+        sign = "+" if item.change is _KnownSemanticChangeKind.ADDED else "-"
         where = f"{item.path}:{','.join(str(line) for line in item.lines)}"
         count = f" ({item.before}->{item.after})" if item.before and item.after else ""
         lines.append(
