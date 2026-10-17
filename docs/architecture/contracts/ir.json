@@ -10088,6 +10088,613 @@
             ],
             "returns": "DeltaVersion"
           }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-enum",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.model.ComparisonStatus",
+          "parent_id": "IR-DEPENDENCY-model"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-bindings",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.bindings"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-BindingReads",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.bindings.BindingReads",
+          "parent_id": "IR-COMPARISON-bindings",
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-BindingReads.status",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.bindings.BindingReads.status",
+          "parent_id": "IR-COMPARISON-BindingReads",
+          "annotation": "ComparisonStatus"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-producer-bindings",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.bindings.unread_bindings",
+          "parent_id": "IR-COMPARISON-bindings",
+          "signature": {
+            "parameters": [
+              {
+                "name": "observation",
+                "annotation": "Observation",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "BindingReads"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-references",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.references"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-SymbolReferences",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.references.SymbolReferences",
+          "parent_id": "IR-COMPARISON-references",
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-SymbolReferences.status",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.references.SymbolReferences.status",
+          "parent_id": "IR-COMPARISON-SymbolReferences",
+          "annotation": "ComparisonStatus"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-producer-references",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.references.unreferenced_symbols",
+          "parent_id": "IR-COMPARISON-references",
+          "signature": {
+            "parameters": [
+              {
+                "name": "observation",
+                "annotation": "Observation",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "SymbolReferences"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-type_fanin",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.type_fanin"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-TypeFanin",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.type_fanin.TypeFanin",
+          "parent_id": "IR-COMPARISON-type_fanin",
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-TypeFanin.status",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.type_fanin.TypeFanin.status",
+          "parent_id": "IR-COMPARISON-TypeFanin",
+          "annotation": "ComparisonStatus"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-producer-type_fanin",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.type_fanin.type_fanin",
+          "parent_id": "IR-COMPARISON-type_fanin",
+          "signature": {
+            "parameters": [
+              {
+                "name": "observation",
+                "annotation": "Observation",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "TypeFanin"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-structure",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.structure"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-InsideSizes",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.structure.InsideSizes",
+          "parent_id": "IR-COMPARISON-structure",
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-InsideSizes.status",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.structure.InsideSizes.status",
+          "parent_id": "IR-COMPARISON-InsideSizes",
+          "annotation": "ComparisonStatus"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-producer-structure",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.structure.oversized_insides",
+          "parent_id": "IR-COMPARISON-structure",
+          "signature": {
+            "parameters": [
+              {
+                "name": "observation",
+                "annotation": "Observation",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "InsideSizes"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-duplication",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.duplication"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-OwnedLogic",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.duplication.OwnedLogic",
+          "parent_id": "IR-COMPARISON-duplication",
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-OwnedLogic.status",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.duplication.OwnedLogic.status",
+          "parent_id": "IR-COMPARISON-OwnedLogic",
+          "annotation": "ComparisonStatus"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-producer-duplication",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.duplication.repeated_logic",
+          "parent_id": "IR-COMPARISON-duplication",
+          "signature": {
+            "parameters": [
+              {
+                "name": "observation",
+                "annotation": "Observation",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "OwnedLogic"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-DimensionDelta",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.DimensionDelta",
+          "parent_id": "IR-DEPENDENCY-model",
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-DimensionDelta.status",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.DimensionDelta.status",
+          "parent_id": "IR-COMPARISON-DimensionDelta",
+          "annotation": "ComparisonStatus"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-RatchetObservations",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.RatchetObservations",
+          "parent_id": "IR-DEPENDENCY-model",
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-RatchetObservations.status",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.RatchetObservations.status",
+          "parent_id": "IR-COMPARISON-RatchetObservations",
+          "annotation": "ComparisonStatus"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "id": "IR-COMPARISON-decoder",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.codec_delta._parse_comparison_status",
+          "parent_id": "IR-DELTA-VERSION-codec",
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "annotation": "RawJson",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "label",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "ComparisonStatus"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-COMPARISON-decisions",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.decisions"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/comparison-support-types.md"
+          ],
+          "responsibilities": [
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+          ],
+          "id": "IR-COMPARISON-named",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.decisions._named",
+          "parent_id": "IR-COMPARISON-decisions",
+          "signature": {
+            "parameters": [
+              {
+                "name": "status",
+                "annotation": "ComparisonStatus",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "candidates",
+                "annotation": "tuple[object, ...]",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "int | None"
+          }
         }
       ],
       "relationships": [
