@@ -1,0 +1,34 @@
+name: Replay committed typed owner receipt
+on:
+  push:
+    branches: [verify/542-committed-owner-union-replay]
+permissions:
+  contents: read
+jobs:
+  no-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 1ff6cef335117fcb35cc86a555ee2ab9db074e1f
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: |
+          python - <<'PY'
+          import json, subprocess
+          result=subprocess.run(["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--against","f63840b5c912ae40eff42fa7b12fd41240566d46","--amendment","docs/architecture/decisions/2026-10-17-combined-typed-owner-amendment.json","--json"],capture_output=True,text=True)
+          if result.stderr: print(result.stderr[-6000:],flush=True)
+          data=json.loads(result.stdout)
+          print("COMMITTED_OWNER_NATIVE="+json.dumps({"exit":result.returncode,"measurements":data.get("measurements"),"amendment":data.get("amendment"),"failures":data.get("failures"),"diagnostics":data.get("diagnostics"),"widenings":data.get("widenings")}),flush=True)
+          assert result.returncode==0,result.stdout[-16000:]
+          assert not data.get("failures") and not data.get("diagnostics") and not data.get("widenings")
+          subprocess.run(["git","diff","--exit-code"],check=True)
+          print("COMMITTED_OWNER_NOWRITE_CLEAN=PASS",flush=True)
+          
+          PY
