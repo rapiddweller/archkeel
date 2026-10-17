@@ -1,17 +1,38 @@
-name: Verify final integration history native replay
+name: Verify bounded Core runtime policy repair and native replay
 on:
   push:
     branches: [verify/542-final-owned-controls-gates]
 permissions:
   contents: read
 jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ffedf4efcc73450ab7daf1251ecddcb3350fd6f8
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - run: uv sync --locked
+      - run: make lint typecheck
+      - run: make browser-graph-check browser-runtime-check
+      - run: uv run --locked python -m pytest -q tests/test_repository_hygiene.py tests/test_ci_changes.py tests/test_make_gate.py
+      - run: git diff --exit-code
   normal-native:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: eb65d2f1e271c5ad7e3e87c1eb30760f1ea4b9b2
+          ref: ffedf4efcc73450ab7daf1251ecddcb3350fd6f8
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
