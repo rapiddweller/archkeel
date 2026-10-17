@@ -1,0 +1,35 @@
+name: Final exact PermissionStatus reviewed-head receipt
+on:
+  push:
+    branches: [verify/542-permission-status-reviewed-receipt]
+permissions:
+  contents: read
+jobs:
+  no-write-on-final-source-and-ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: a91dfa9f52d9b95cfe00a9bc9ec9bd1e5bf752fc
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - run: uv sync --locked
+      - name: Validate actual final head against its actual pinned predecessor
+        run: |
+          test "$(git rev-parse HEAD)" = "a91dfa9f52d9b95cfe00a9bc9ec9bd1e5bf752fc"
+          status=0
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --against 5fc94c10298c4bbcd98fd44f8ac72b321b03a0b4 --amendment docs/architecture/decisions/permission-status-types-amendment.json --json > "$RUNNER_TEMP/permission-reviewed-nowrite.json" || status=$?
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          data = json.loads((Path(os.environ["RUNNER_TEMP"]) / "permission-reviewed-nowrite.json").read_bytes())
+          print("PERMISSION_REVIEWED_NOWRITE=" + json.dumps({key:data.get(key) for key in ("exit_code","diagnostics","failures","measurements","widenings","unresolved_call_changes","unresolved_call_note")}))
+          PY
+          if [ "$status" -ne 0 ]; then exit "$status"; fi
+          git diff --exit-code
