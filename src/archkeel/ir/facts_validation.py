@@ -254,7 +254,7 @@ def _property_bindings(records: list[Record], evidence: dict[str, Evidence]) -> 
             if (
                 previous != source_line
                 or previous_record is None
-                or previous_data.get("property_binding") is None
+                or previous_record.data.get("property_binding") is None
             ):
                 raise ValueError("property source must be the previous binding in its class")
         member_names: set[str] = members.setdefault(parent, set())

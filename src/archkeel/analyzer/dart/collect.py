@@ -405,13 +405,13 @@ class _Collection:
         name = definition.name
         qualified = f"{parent}.{name}" if parent else f"{module}.{name}"
         kind = definition.kind
-        record_kind = _SOURCE_SYMBOL_KINDS.get(kind)
+        record_kind = _SOURCE_SYMBOL_KINDS.get(kind, kind)
         symbol_id = stable_id(
             "DARTDEF",
             rel,
             definition.span.start_byte,
             qualified,
-            record_kind if record_kind is not None else kind,
+            record_kind,
         )
         self.definition_ids[(rel, definition.span.line, definition.span.column)] = symbol_id
         data = self._meta(rel, module, name, qualified, parent, parent_id, definition.visibility)
