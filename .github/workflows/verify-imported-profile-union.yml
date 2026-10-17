@@ -1,0 +1,65 @@
+name: Verify joint imported evidence and nominal consumers
+on:
+  push:
+    branches: [verify/542-imported-profile-union]
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ff885e1c7f66afb2ede2e60eb4334a824deb9c81
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: make lint typecheck
+      - run: git diff --exit-code
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ff885e1c7f66afb2ede2e60eb4334a824deb9c81
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked python -m pytest -n 2 --dist=loadfile -q tests/test_source_resolution_types.py tests/test_typed_symbol_class_kinds.py tests/test_typed_host_events.py tests/test_core_command_result.py tests/test_known_delta_action_types.py tests/test_snapshot_language_types.py tests/test_source_section_types.py tests/test_string_comparison_observation.py tests/test_python_string_predicate_target.py tests/test_target_navigation_graph.py tests/test_repository_hygiene.py tests/test_make_gate.py tests/test_validation.py::test_an_inside_may_not_grant_what_requires_never_named
+      - run: git diff --exit-code
+  normal-no-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ff885e1c7f66afb2ede2e60eb4334a824deb9c81
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Ordinary committed source with unchanged accepted ceiling
+        run: |
+          uv run --locked python - <<'PY'
+          import json, subprocess, sys
+          run = subprocess.run(["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--json"],text=True,capture_output=True)
+          data=json.loads(run.stdout)
+          print("JOINT_NORMAL_JSON",json.dumps({key:data.get(key) for key in ("exit_code","amendment_status","failures","diagnostics","widenings","measurements")}))
+          if run.returncode:
+              print(run.stdout)
+              print(run.stderr)
+              sys.exit(run.returncode)
+          status=subprocess.check_output(["git","status","--porcelain","--untracked-files=all"],text=True)
+          assert not status,status
+          print("JOINT_NO_WRITE_CLEAN",True)
+          PY
