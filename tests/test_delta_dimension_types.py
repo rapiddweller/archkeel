@@ -193,25 +193,10 @@ def _contract():
     contract = contracts[0]
     contract.pop("$schema", None)
     contract["components"] = [
-        *contract["components"],
-    ] + [
         dict(
-            id="CORE",
-            label="core",
-            role="component",
-            packages=["archkeel.check"],
-            responsibilities=["Consume the actual current Delta control ports."],
-            forbidden_responsibilities=[],
-            provenance=[DOC],
-            public=["archkeel.check"],
-            requires=[
-                dict(
-                    component=name,
-                    rationale="Consume its declared typed API.",
-                    decided_by="architect",
-                )
-                for name in ("facts", "profiles", "governance")
-            ],
+            id="CORE", label="core", role="component", packages=["archkeel"],
+            responsibilities=["Own the actual typed Delta API fixture."],
+            forbidden_responsibilities=[], provenance=[DOC], public=["archkeel"],
         )
     ]
     contract["declarations"] = dict(
@@ -227,7 +212,7 @@ def _contract():
         for original in contracts
         for row in original["rules"]
         if row["id"].startswith("DELTA-DIMENSION-")
-    ] + [next(row for row in contracts[0]["rules"] if row["id"] == "TARGET-COMPLETE_REQUIRES")]
+    ]
     return contract
 
 
@@ -275,9 +260,6 @@ def _repository(tmp_path):
             },
         ),
     }
-    for name in ("identity", "state_facts", "type_shapes"):
-        path = f"archkeel/ir/{name}.py"
-        files[path] = (ROOT / "src" / path).read_text()
     contract = _contract()
     files["contract.json"] = json.dumps(contract)
     for row in contract["declarations"]["uml"]["entities"]:
@@ -299,12 +281,7 @@ def _valid(root, config):
         if row.status != "PASS"
     ]
     assert not trace_valid_violations(observed)
-    requires = next(
-        row
-        for row in rule_assessments(observed, undecided_by_rule={})
-        if row.id == "TARGET-COMPLETE_REQUIRES"
-    )
-    assert requires.status == "PASS" and requires.evaluation_proven, requires
+
 
 
 def test_native_actual_delta_ports_match_independent_fixed_target(tmp_path):
@@ -374,31 +351,85 @@ def test_native_actual_owner_and_consumer_raw_reversion_fails(tmp_path, path, ol
     assert (root / "contract.json").read_bytes() == intent
 
 
+def _ownership_repository(tmp_path):
+    """Project the real two-owner adjacency, with complete selected source inventory."""
+    contract = json.loads((ROOT / "docs/architecture/contracts/ir.json").read_text())
+    contract.pop("$schema", None)
+    components = []
+    for original in contract["components"]:
+        if original["label"] not in {"profiles", "governance"}:
+            continue
+        row = dict(original)
+        row.pop("exact_modules", None)
+        row["packages"] = [
+            "archkeel.ir.profiles" if row["label"] == "profiles" else "archkeel.ir.model"
+        ]
+        row["public"] = list(row["packages"])
+        row["requires"] = [
+            value for value in row.get("requires", ())
+            if value["component"] in {"profiles", "governance"}
+        ]
+        components.append(row)
+    contract["components"] = components
+    contract["rules"] = [
+        row for row in contract["rules"] if row["id"] == "TARGET-COMPLETE_REQUIRES"
+    ]
+    assert len(contract["rules"]) == 1
+    target = contract["declarations"]["uml"]
+    target["entities"] = []
+    target["relationships"] = []
+    target["scopes"] = []
+    profile_source = "from enum import StrEnum\n" + _source_members(
+        "src/archkeel/ir/profiles.py", {"DeltaDimension", "parse_delta_dimension"}
+    ) + "\n"
+    original_model = (ROOT / "src/archkeel/ir/model.py").read_text()
+    facade = next(
+        node for node in ast.parse(original_model).body
+        if isinstance(node, ast.ImportFrom) and node.module == "profiles"
+        and any(alias.name == "DeltaDimension" for alias in node.names)
+    )
+    files = {
+        "archkeel/__init__.py": "", "archkeel/ir/__init__.py": "",
+        "archkeel/ir/profiles.py": profile_source,
+        "archkeel/ir/model.py": ast.get_source_segment(original_model, facade) + "\n",
+        "contract.json": json.dumps(contract),
+    }
+    for component in components:
+        for path in component["provenance"]:
+            files[path] = "Actual two-owner adjacency projection.\n"
+    for rule in contract["rules"]:
+        for path in rule["provenance"]:
+            files[path] = "Existing complete-requires policy.\n"
+    root = _prepare_repo(tmp_path, files)
+    return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
+
+
 def test_native_canonical_owner_relocation_fails_fixed_target(tmp_path):
-    root, config = _repository(tmp_path)
-    _valid(root, config)
+    root, config = _ownership_repository(tmp_path)
+    before = _model(root, config)
+    rule = next(row for row in rule_assessments(before, undecided_by_rule={})
+                if row.id == "TARGET-COMPLETE_REQUIRES")
+    assert rule.status == "PASS" and rule.evaluation_proven, rule
+    assert not trace_valid_violations(before)
     source = root / "archkeel/ir/profiles.py"
     text = source.read_text()
     node = next(
-        node
-        for node in ast.parse(text).body
+        node for node in ast.parse(text).body
         if isinstance(node, ast.ClassDef) and node.name == "DeltaDimension"
     )
     lines = text.splitlines(keepends=True)
-    definition = "".join(lines[node.lineno - 1 : node.end_lineno])
+    definition = "".join(lines[node.lineno - 1:node.end_lineno])
     source.write_text(
         "from .model import DeltaDimension\n"
-        + "".join(lines[: node.lineno - 1] + lines[node.end_lineno :])
+        + "".join(lines[:node.lineno - 1] + lines[node.end_lineno:])
     )
     destination = root / "archkeel/ir/model.py"
-    destination.write_text(
-        destination.read_text().replace(
-            "from archkeel.ir.profiles import DeltaDimension as DeltaDimension\n", ""
-        )
-        + "\n"
-        + definition
-    )
+    destination.write_text("from enum import StrEnum\n" + definition + "\n")
     intent = (root / "contract.json").read_bytes()
     observed = _model(root, config)
-    assert trace_valid_violations(observed)
+    rule = next(row for row in rule_assessments(observed, undecided_by_rule={})
+                if row.id == "TARGET-COMPLETE_REQUIRES")
+    assert rule.status == "FAIL", rule
+    assert any("TARGET-COMPLETE_REQUIRES" in row.rule_ids
+               for row in trace_valid_violations(observed))
     assert (root / "contract.json").read_bytes() == intent
