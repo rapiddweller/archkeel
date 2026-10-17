@@ -1,0 +1,59 @@
+name: Verify source symbol consumers
+on:
+  push:
+    branches: ['verify/542-source-symbol-consumers-green']
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 9ae53bfea8502c5eccc127f18b2c652d63494f94
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: '3.11.12'
+          version: '0.12.13'
+      - run: uv sync --locked
+      - run: uv run --locked pytest -q tests/test_source_symbol_consumers.py tests/test_source_symbol_kind_types.py tests/test_repository_hygiene.py
+      - run: git diff --exit-code
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 9ae53bfea8502c5eccc127f18b2c652d63494f94
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: '3.11.12'
+          version: '0.12.13'
+      - run: uv sync --locked
+      - run: uv run --locked pytest -n 2 --dist=loadfile --max-worker-restart=0 -q tests/test_boundary_types*.py tests/test_source_graph.py tests/test_source_types.py tests/test_source_evaluation.py tests/test_interfaces.py tests/test_references.py tests/test_state.py tests/test_analyzer.py tests/test_dart_inner_collect.py tests/test_dart_target.py tests/test_typescript_inner.py tests/test_typescript_namespace_identities.py tests/test_typed_python_properties.py tests/test_classifier_projections.py tests/test_typed_symbol_class_kinds.py
+      - run: git diff --exit-code
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 9ae53bfea8502c5eccc127f18b2c652d63494f94
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: '3.11.12'
+          version: '0.12.13'
+      - run: uv sync --locked
+      - run: make lint typecheck
+      - if: always()
+        run: |
+          uv run --locked python - <<'PY'
+          import subprocess
+          paths = ["src/archkeel/check/evaluation/boundary_types.py","src/archkeel/ir/facts_validation.py","src/archkeel/ir/source_graph.py","src/archkeel/analyzer/python/resolve.py","src/archkeel/analyzer/python/symbols.py","src/archkeel/check/evaluation/rules.py","src/archkeel/check/evaluation/state.py","src/archkeel/analyzer/python/typing_signals.py","src/archkeel/ir/references.py","src/archkeel/ir/interfaces.py","src/archkeel/analyzer/dart/collect.py","src/archkeel/analyzer/typescript/collect.py","tests/test_source_symbol_consumers.py"]
+          for args in (["ruff", "check", "--diff"], ["ruff", "format", "--check", "--diff"]):
+              result = subprocess.run(["uv", "run", "--locked", *args, *paths], text=True, capture_output=True)
+              print(result.stdout)
+              print(result.stderr)
+          PY
+      - run: git diff --exit-code
