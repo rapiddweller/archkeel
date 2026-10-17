@@ -1,0 +1,42 @@
+name: Exact source section feature base normal measurement
+on:
+  push:
+    branches: [verify/542-source-section-base-normal]
+permissions:
+  contents: read
+jobs:
+  immutable-base:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 7cfe1298fb285dfb5c53c1b8f829207ce05b7e97
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Direct baseline measurement without feature source or Target files
+        run: |
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          protected=("architecture-contract.json","architecture-baseline.json","architecture-accepted.json")
+          before={path:Path(path).read_bytes() for path in protected}
+          run=subprocess.run(["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--json"],capture_output=True,text=True,check=False)
+          raw=json.loads(run.stdout)
+          Path("source-section-base-normal.json").write_text(run.stdout)
+          print("SECTION_BASE_NORMAL="+json.dumps({"source":"7cfe1298fb285dfb5c53c1b8f829207ce05b7e97","exit":run.returncode,"failures":raw.get("failures"),"diagnostics":raw.get("diagnostics"),"observation_complete":raw.get("observation_complete"),"baseline_new":raw.get("baseline_new"),"baseline_resolved":raw.get("baseline_resolved"),"measurements":raw.get("measurements")},sort_keys=True),flush=True)
+          for path,original in before.items():
+              assert Path(path).read_bytes()==original,path
+          assert not subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          print("SECTION_BASE_PROTECTED_BYTES_UNCHANGED=PASS",flush=True)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() }}
+        with:
+          name: source-section-base-normal-measurement
+          path: source-section-base-normal.json
