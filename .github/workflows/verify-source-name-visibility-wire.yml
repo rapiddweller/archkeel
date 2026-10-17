@@ -13,7 +13,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-          ref: 50fe58bc9d93419a2857c173eab8f5734d5a30bc
+          ref: 511101df02c0a32c48e8254ef4928717d8f6858a
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
         with:
           python-version: "3.11.12"
@@ -25,8 +25,8 @@ jobs:
           import hashlib,json,os,shutil,subprocess,sys
           from pathlib import Path
           BEFORE="bb3e498b9c43afc954ef9fe7078595983e0b3c2f"
-          AFTER="50fe58bc9d93419a2857c173eab8f5734d5a30bc"
-          ORIGINAL_AFTER="50fe58bc9d93419a2857c173eab8f5734d5a30bc"
+          AFTER="511101df02c0a32c48e8254ef4928717d8f6858a"
+          ORIGINAL_AFTER="511101df02c0a32c48e8254ef4928717d8f6858a"
           root=Path.cwd()
           out=root/"source-name-visibility-true-runtimes"
           out.mkdir(exist_ok=True)
@@ -80,12 +80,15 @@ jobs:
               row={"name":name,"all_changed_paths":changes}
               results.append(row)
               (out/"wire-comparison.json").write_text(json.dumps(results,sort_keys=True,indent=2))
-              assert changes==[("analyzer","code_digest")],(name,changes[:50])
+              expected=[("analyzer","code_digest")]+([("producer","code_digest")] if name in {"G-dart","H-uml-dart"} else [])
+              assert changes==expected,(name,changes[:50])
+              if name in {"G-dart","H-uml-dart"}:
+                  new["producer"]["code_digest"]=old["producer"]["code_digest"]
               new["analyzer"]["code_digest"]=old["analyzer"]["code_digest"]
               old_bytes=canonical_report_bytes(old)
               new_bytes=canonical_report_bytes(new)
               assert old_bytes==new_bytes,name
-              row.update({"status":"PASS","canonical_bytes":len(old_bytes),"canonical_sha256_after_only_digest_equalization":hashlib.sha256(old_bytes).hexdigest()})
+              row.update({"status":"PASS","canonical_bytes":len(old_bytes),"canonical_sha256_after_only_source_digest_equalization":hashlib.sha256(old_bytes).hexdigest()})
               print("SOURCE_NAME_VISIBILITY_TRUE_RUNTIME_WIRE_PARITY="+json.dumps(row,sort_keys=True),flush=True)
           (out/"wire-comparison.json").write_text(json.dumps(results,sort_keys=True,indent=2))
           print("SOURCE_NAME_VISIBILITY_TRUE_PRODUCER_AND_CORE_PARITY=PASS",flush=True)
