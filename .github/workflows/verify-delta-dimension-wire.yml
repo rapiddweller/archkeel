@@ -1,0 +1,41 @@
+name: Replay actual Delta dimension wire boundaries
+on:
+  push:
+    branches: [verify/542-delta-dimension-wire]
+permissions:
+  contents: read
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Compare both actual source runtimes across Python Dart TypeScript fixtures
+        run: |
+          uv run --locked python - <<'PY'
+          import hashlib,json,pathlib,shutil,subprocess,sys,tempfile
+          base="5b8a603274b2330b85fc6fe62c8d7f6fb15da8f1"
+          script="import copy,hashlib,json,pathlib,sys\nsource=pathlib.Path(sys.argv[1])\nsys.path.insert(0,str(source))\nsys.path.insert(1,str(pathlib.Path(\"tests\").resolve()))\nfrom archkeel.check import delta,expectation\nfrom archkeel.ir import profiles,model,codec_delta\nfrom archkeel.ir.codec import canonical_json_bytes,delta_payload,parse_delta\nfrom test_profile_comparison import _observation,_expectation,_selection\nfrom test_delta import _record,_evidence\nmodules={\"delta\":delta,\"expectation\":expectation,\"profiles\":profiles,\"model\":model,\"codec_delta\":codec_delta}\nloaded={name:{\"path\":str(module.__file__),\"sha256\":hashlib.sha256(pathlib.Path(module.__file__).read_bytes()).hexdigest()} for name,module in modules.items()}\nassert all(pathlib.Path(module.__file__).is_relative_to(source) for module in modules.values())\ndef build(before,after):\n    return delta.build_architecture_delta(before,after,baseline_digest=\"b\"*64,head_digest=\"d\"*64,checker_digest=\"e\"*64)\nvalues={}\nfor language in (\"python\",\"dart\",\"typescript\"):\n    edge=_record(\"edge\",kind=\"module_dependency\",data={\"level\":\"module\",\"source\":\"app.a\",\"target\":\"app.b\"})\n    cycle=_record(\"cycle\",kind=\"component_cycle\",data={\"level\":\"component\",\"members\":[\"a\",\"b\"],\"internal_edges\":[\"a->b\",\"b->a\"]})\n    violation=_record(\"violation\",kind=\"forbidden_dependency\",evidence_class=\"VIOLATION\",data={\"source_module\":\"a\",\"target_module\":\"b\"})\n    unknown=_record(\"unknown\",kind=\"blind_spot\",evidence_class=\"UNKNOWN\",data={\"reason\":\"before\",\"undecided\":1})\n    changed=copy.deepcopy(unknown);changed[\"data\"][\"reason\"]=\"after\"\n    import_row=_record(\"import\",kind=\"symbol_import\",data={\"source_module\":\"a.x\",\"target_module\":\"b.y\",\"source_package\":\"a\",\"target_package\":\"b\",\"symbol\":\"_secret\"})\n    large=copy.deepcopy(edge)\n    large[\"evidence_ids\"]=[\"e\"+str(i) for i in range(20)]\n    evidence=[_evidence(\"e\"+str(i),i+1) for i in range(20)]\n    moved=copy.deepcopy(unknown);moved.update(id=\"moved\",evidence_ids=[\"moved-site\"])\n    cases={\n       \"same\":(_observation(language),_observation(language,head=\"2\"*40)),\n       \"edge\":(_observation(language),_observation(language,head=\"2\"*40,dependency_edges=[edge])),\n       \"cycle\":(_observation(language),_observation(language,head=\"2\"*40,cycles=[cycle])),\n       \"violation\":(_observation(language),_observation(language,head=\"2\"*40,violations=[violation])),\n       \"imports\":(_observation(language),_observation(language,head=\"2\"*40,imports=[import_row])),\n       \"unknown-changed\":(_observation(language,unknowns=[unknown]),_observation(language,head=\"2\"*40,unknowns=[changed])),\n       \"large-edge\":(_observation(language),_observation(language,head=\"2\"*40,dependency_edges=[large],evidence=evidence)),\n       \"unknown-moved\":(_observation(language,unknowns=[unknown]),_observation(language,head=\"2\"*40,unknowns=[moved],evidence=[_evidence(\"moved-site\",40)])),\n    }\n    for name,(before,after) in cases.items():\n        value=build(before,after)\n        assert all(type(item.name) is str for item in value.dimensions)\n        assert all(type(item.dimension) is str for item in value.semantic_changes)\n        payload=delta_payload(value)\n        assert canonical_json_bytes(delta_payload(parse_delta(payload)))==canonical_json_bytes(payload)\n        governance=expectation.evaluate_expectation(value,_expectation(value,[_selection(item) for item in value.semantic_changes]))\n        values[language+\":\"+name]={\"wire\":canonical_json_bytes(payload).hex(),\"governance\":list(governance.failures)}\n    values[language+\":applicability\"]={name:profiles.delta_dimension_applicable(profiles.PROFILES[language],name) for name in (*delta.SUPPORTED_DIMENSIONS,\"future\")}\nfor version in (\"1.2.0\",\"1.3.0\",\"1.4.0\",\"2.0.0\"):\n    payload=delta_payload(build(_observation(\"python\"),_observation(\"python\",head=\"2\"*40)))\n    payload[\"schema_version\"]=version\n    payload[\"semantic_changes\"].append({\"dimension\":\"vendor.future\",\"change\":\"added\",\"fingerprint\":\"f\",\"before_count\":0,\"after_count\":1,\"before\":None,\"after\":None})\n    parsed=parse_delta(payload)\n    encoded=canonical_json_bytes(delta_payload(parsed))\n    assert encoded==canonical_json_bytes(payload)\n    try:expectation._index_semantic_changes(parsed.semantic_changes)\n    except Exception as error:reject={\"error\":type(error).__name__,\"text\":str(error)}\n    else:raise AssertionError(\"unsupported governance dimension accepted\")\n    values[\"future:\"+version]={\"wire\":encoded.hex(),\"governance\":reject}\ndef outcome(operation):\n    try:return {\"value\":operation()}\n    except Exception as error:return {\"error\":type(error).__name__,\"text\":str(error)}\nfor i,raw in enumerate((None,True,1,[],{},\"\",\"FACT\",\"UNKNOWN\",\"HYPOTHESIS\")):\n    payload=_expectation(build(_observation(\"python\"),_observation(\"python\",head=\"2\"*40)))\n    from test_expectation import _expectation_payload\n    bad=_expectation_payload();bad[\"evidence_class\"]=raw;bad[\"checker_digest\"]=False\n    values[\"expectation-evidence:\"+str(i)]=outcome(lambda:expectation.parse_expectation(bad))\n    values[\"unknown-evidence:\"+str(i)]=outcome(lambda:codec_delta._parse_delta_unknown({\"id\":False,\"dimension\":False,\"reason\":False,\"evidence_class\":raw}))\nprint(json.dumps({\"values\":values,\"loaded\":loaded},sort_keys=True))\n"
+          paths=["ir/profiles.py","ir/model.py","check/delta.py","check/expectation.py","ir/codec_delta.py"]
+          outputs=[]
+          with tempfile.TemporaryDirectory() as directory:
+              for name in ("before","after"):
+                  runtime=pathlib.Path(directory)/name
+                  shutil.copytree("src",runtime)
+                  if name=="before":
+                      for path in paths:
+                          (runtime/"archkeel"/path).write_bytes(subprocess.check_output(["git","show",base+":src/archkeel/"+path]))
+                  result=json.loads(subprocess.check_output([sys.executable,"-I","-B","-c",script,str(runtime)],text=True))
+                  outputs.append(result)
+          assert outputs[0]["values"]==outputs[1]["values"],[key for key in outputs[0]["values"] if outputs[0]["values"][key]!=outputs[1]["values"][key]]
+          assert all(outputs[0]["loaded"][name]["sha256"]!=outputs[1]["loaded"][name]["sha256"] for name in outputs[0]["loaded"])
+          print("DELTA_DIMENSION_ACTUAL_WIRE="+json.dumps({"base":base,"cases":list(outputs[1]["values"]),"loaded":[item["loaded"] for item in outputs],"canonical_results_sha256":hashlib.sha256(json.dumps(outputs[1]["values"],sort_keys=True).encode()).hexdigest()},separators=(",",":")))
+          PY
