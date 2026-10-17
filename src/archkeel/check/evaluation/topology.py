@@ -23,7 +23,11 @@ from archkeel.ir.model import (
 
 
 def aggregate_edges(
-    imports: Sequence[RawRecord], *, level: GraphTopologyLevel, internal_modules: set[str], namespace: str
+    imports: Sequence[RawRecord],
+    *,
+    level: GraphTopologyLevel,
+    internal_modules: set[str],
+    namespace: str,
 ) -> tuple[list[RawRecord], list[tuple[str, str]]]:
     buckets: dict[tuple[str, str], list[str]] = defaultdict(list)
     type_checking_counts: Counter[tuple[str, str]] = Counter()
@@ -163,7 +167,12 @@ def transitive_path_records(
                 stable_id("EDGE", GraphTopologyLevel.PACKAGE, source, target)
                 for source, target in zip(path, path[1:], strict=False)
             ],
-            data={"level": GraphTopologyLevel.PACKAGE, "source": path[0], "target": path[-1], "path": path},
+            data={
+                "level": GraphTopologyLevel.PACKAGE,
+                "source": path[0],
+                "target": path[-1],
+                "path": path,
+            },
         )
         for path in transitive_paths(packages, package_edge_pairs)
     ]
@@ -258,7 +267,10 @@ def cycle_sections(
     )
     package_cycles = _backed_package_cycles(
         _cycle_records(
-            level=GraphTopologyLevel.PACKAGE, nodes=packages, edges=package_edge_pairs, edge_records=package_edges
+            level=GraphTopologyLevel.PACKAGE,
+            nodes=packages,
+            edges=package_edge_pairs,
+            edge_records=package_edges,
         ),
         module_cycles,
         {item["data"]["qualified_name"]: item["data"]["package"] for item in modules},

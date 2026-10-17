@@ -105,7 +105,10 @@ def test_actual_edge_cycle_and_transitive_producers_share_the_same_topology_doma
     assert len(module_cycles) == 1
     assert module_cycles[0]["data"]["level"] is level.MODULE
     assert {row["data"]["level"] for row in cycles} == {level.MODULE, level.PACKAGE}
-    paths = transitive_path_records(["sample.a", "sample.b"], [("sample.a", "sample.b")])
+    paths = transitive_path_records(
+        ["sample.a", "sample.b", "sample.c"],
+        [("sample.a", "sample.b"), ("sample.b", "sample.c")],
+    )
     assert paths and all(row["data"]["level"] is level.PACKAGE for row in paths)
     assert all(
         json.loads(json.dumps(row))["data"]["level"] in {"module", "package"}
@@ -327,13 +330,27 @@ from archkeel.ir.facts_codec import RawRecord
 def check(records: list[RawRecord]) -> None:
 """
     cases = {
-        "canonical": """    aggregate_edges(records,level=GraphTopologyLevel.MODULE,internal_modules=set(),namespace="sample")
+        "canonical": """    aggregate_edges(
+        records,level=GraphTopologyLevel.MODULE,internal_modules=set(),namespace="sample"
+    )
     _cycle_records(level=GraphTopologyLevel.PACKAGE,nodes=(),edges=(),edge_records=records)
 """,
-        "raw-aggregate": '    aggregate_edges(records,level="module",internal_modules=set(),namespace="sample")\n',
-        "wrong-aggregate": '    aggregate_edges(records,level=CycleLevel.MODULE,internal_modules=set(),namespace="sample")\n',
-        "raw-cycles": '    _cycle_records(level="package",nodes=(),edges=(),edge_records=records)\n',
-        "wrong-cycles": "    _cycle_records(level=CycleLevel.MODULE,nodes=(),edges=(),edge_records=records)\n",
+        "raw-aggregate": """    aggregate_edges(
+        records,level="module",internal_modules=set(),namespace="sample"
+    )
+""",
+        "wrong-aggregate": """    aggregate_edges(
+        records,level=CycleLevel.MODULE,internal_modules=set(),namespace="sample"
+    )
+""",
+        "raw-cycles": """    _cycle_records(
+        level="package",nodes=(),edges=(),edge_records=records
+    )
+""",
+        "wrong-cycles": """    _cycle_records(
+        level=CycleLevel.MODULE,nodes=(),edges=(),edge_records=records
+    )
+""",
     }
     for name, body in cases.items():
         path = tmp_path / (name.replace("-", "_") + ".py")

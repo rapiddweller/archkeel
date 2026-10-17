@@ -163,8 +163,16 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract, profile: Profile)
     private_attribute_limits = [
         item for item in scan.unknowns if item["kind"] == "private_attribute_access_limit"
     ]
-    package_cycles = [item for item in scan.cycles if parse_graph_topology_level(item["data"]["level"]) is GraphTopologyLevel.PACKAGE]
-    module_cycles = [item for item in scan.cycles if parse_graph_topology_level(item["data"]["level"]) is GraphTopologyLevel.MODULE]
+    package_cycles = [
+        item
+        for item in scan.cycles
+        if parse_graph_topology_level(item["data"]["level"]) is GraphTopologyLevel.PACKAGE
+    ]
+    module_cycles = [
+        item
+        for item in scan.cycles
+        if parse_graph_topology_level(item["data"]["level"]) is GraphTopologyLevel.MODULE
+    ]
     rollup_only = [item for item in package_cycles if not item["data"]["backed_by"]]
     unresolved_calls = [
         item
@@ -326,7 +334,8 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract, profile: Profile)
                 fact_ids=[
                     item["id"]
                     for item in scan.dependency_edges
-                    if parse_graph_topology_level(item["data"]["level"]) is GraphTopologyLevel.PACKAGE
+                    if parse_graph_topology_level(item["data"]["level"])
+                    is GraphTopologyLevel.PACKAGE
                     and (item["data"]["source"], item["data"]["target"]) in forbidden_package_edges
                 ],
             ),

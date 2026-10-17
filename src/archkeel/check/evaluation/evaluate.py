@@ -773,7 +773,10 @@ def evaluate_source(
         imports, level=GraphTopologyLevel.MODULE, internal_modules=module_names, namespace=namespace
     )
     package_edges, package_edge_pairs = aggregate_edges(
-        imports, level=GraphTopologyLevel.PACKAGE, internal_modules=module_names, namespace=namespace
+        imports,
+        level=GraphTopologyLevel.PACKAGE,
+        internal_modules=module_names,
+        namespace=namespace,
     )
     dependency_edges = sorted([*package_edges, *module_edges], key=lambda item: item["id"])
     path_observations = declared_path_observations(declarations.paths, package_edges)

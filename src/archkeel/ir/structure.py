@@ -22,7 +22,15 @@ from typing import Literal, TypeAlias
 
 from .facts import SourceResolution, parse_source_resolution
 from .interfaces import component_owners, owner_of
-from .model import ComparisonStatus, ComponentOwnership, GraphTopologyLevel, Observation, int_value, parse_graph_topology_level, text_value
+from .model import (
+    ComparisonStatus,
+    ComponentOwnership,
+    GraphTopologyLevel,
+    Observation,
+    int_value,
+    parse_graph_topology_level,
+    text_value,
+)
 from .profiles import UnmeasurableScalar, profile_for
 
 StructureLevel: TypeAlias = Literal["component", "package"]
