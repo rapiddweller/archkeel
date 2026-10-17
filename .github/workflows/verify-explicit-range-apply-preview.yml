@@ -14,7 +14,7 @@ jobs:
           ref: 98cd1e32a5849063e1f4968401e373685457d772
           fetch-depth: 0
           persist-credentials: false
-      - name: Preview exact scopes with explicit Main browser-gate preservation
+      - name: Preview exact scopes preserving actual Main and feature guard assertions
         run: |
           python3 - <<'PY'
           import ast,base64,collections,difflib,json,re,subprocess,tempfile
@@ -225,12 +225,13 @@ jobs:
                   lo=min([node.lineno]+[d.lineno for d in node.decorator_list])-1;hi=node.end_lineno
                   return lines,lo,hi,node
               parts=[section(d) for d in (o,n,c)]
-              class StripGraph(ast.NodeTransformer):
+              class StripGate(ast.NodeTransformer):
+                  def __init__(self,value):self.value=value
                   def visit_List(self,node):
                       self.generic_visit(node)
-                      node.elts=[v for v in node.elts if not (isinstance(v,ast.Constant) and v.value=="browser-graph-check")]
+                      node.elts=[v for v in node.elts if not (isinstance(v,ast.Constant) and v.value==self.value)]
                       return node
-              if ast.dump(StripGraph().visit(parts[1][3]))!=ast.dump(parts[0][3]):raise ValueError("reviewed report-gate delta contains another change")
+              if ast.dump(StripGate("browser-graph-check").visit(parts[1][3]))!=ast.dump(StripGate("browser-runtime-check").visit(parts[2][3])):raise ValueError("report-gate union differs beyond the two actual guards")
               clines,lo,hi,node=parts[2];block="".join(clines[lo:hi])
               if '"browser-graph-check"' not in block:
                   assert block.count('"browser-runtime-check",')==2
@@ -281,6 +282,10 @@ jobs:
           print("SCOPED_APPLY_SUMMARY="+json.dumps({"origin":ORIGIN,"scopes":len(PAIRS),"applied":len(applications),"paths":len(current),"conflicts":len(conflicts)},separators=(",",":")))
           for row in conflicts:print("SCOPED_CONFLICT="+json.dumps(row,separators=(",",":")))
           for row in applications:print("SCOPED_APPLIED="+json.dumps(row,separators=(",",":")))
+          for path,data in current.items():
+              if data is not None and path.endswith(".py"):ast.parse(data.decode(),filename=path)
+              if data is not None and path.endswith(".json"):json.loads(data)
+          print("SCOPED_SYNTAX_VALID=True")
           assert git("status","--porcelain")==b""
           
           PY
