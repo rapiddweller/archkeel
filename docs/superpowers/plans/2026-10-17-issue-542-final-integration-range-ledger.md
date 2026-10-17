@@ -17,7 +17,7 @@
 - No old baseline or receipt is inherited; normal actual-Main output is authoritative.
 - All Source/Target scopes and atomic fixture prerequisites are reviewable before creating final metadata.
 - Old542 drafts close as incorporated only after the final normal merge, each with the exact incorporated range and merge SHA.
--598/599 are not approved while their+5/+1 unresolved-call regressions remain unexplained. Do not claim full542 completion while any accepted valid scope remains outstanding.
+-598 is not approved while its unresolved-call regression remains unexplained;599 has since supplied a true-parent zero-net-debt proof and final Source approval. Do not claim full542 completion while any accepted valid scope remains outstanding.
 
 ## Review focus
 
@@ -57,7 +57,37 @@ Main checkpoint950520 has tree7f391949b6a6aee1143eeda972717c7afaff8fd1, byte-ide
 |595|cdcaa7f88537be077a9a44f7002816089ae5cde0|a4e7c423ba1338facdd430baf933fcbd4fc9068d|Final single-hunk refinement on0bbe7e39e6ce8c0da90cfba08b4f8168b55251ad; already canonical589 sort-only imports remain unchanged.|
 |596|68b656668a3fdbbbe482881d0dab41ff89a21ca3|61dde9cc026a07ea348fbf5f9e56a172a5bbb90b|8 paths/+11net production +5real owner HRC guards; depends597; use final joint actual evidence.|
 
-Explicit pairs still required from Root before applying573,574,575,578,579,580,581,571/576 coherent activation,582,583,585,586,587,588,589,590,591. Do not infer these from current PR bases. This ledger is incomplete until those pairs and any finally approved598/599 pairs are supplied.
+
+
+| PR | Explicit original base | Frozen feature |
+|---|---|---|
+|573|d08dfaf6a2e6992153a434341465306a88d993a2|0aee692c767150847089dbcfdcf1765464837ab6|
+|574|4493b0a944e6caf0c56802c6333d9fd0090041b4|6f9df272790f4435df7735a75979e0bfc692c1cf|
+|575|d3f7b008fedbedbf029312ddee30d4bfcafe4eb0|3dd2efdc54ef99f2b4cb742f3194cfd1f2619a84|
+|578|3dd2efdc54ef99f2b4cb742f3194cfd1f2619a84|af9f0f708142bf0529992f4f7147c7d37e3b1a99|
+|579|af9f0f708142bf0529992f4f7147c7d37e3b1a99|6452149d33186dc56d78f7072d73b5dbb988d35a|
+|580|e99394254846318e236ba471a14c19cd160081cf|f6099877bdb325c095959f5df8f07f406c0f0dc2|
+|581|f264c77eb55b1761a37a8083e479c3f1bc45f5cc|28938726de24fe8b2df69c61cd92c3f5dfb4cad1|
+|571|fa37f59600cfae64ba0528cb56e609c6bbd756e4|97615e831e15b2fceb5a6b09743601042b9552c4|
+|576|0e3b8a7f62b9b13417cda78e11b52d0de82986cd|124ab1c6ded4d7f7359a5265bc1434b96c0f9507|
+|582|0aee692c767150847089dbcfdcf1765464837ab6|3ccd073fb4bb82639f51cc0f7b09497101d5ee3d|
+|583|a25c37c564c82c1b42457f0528c931c769ee9362|11173d0125f0e70b6ef592ae7eec70ec37665e73|
+|585|5fc94c10298c4bbcd98fd44f8ac72b321b03a0b4|c94d1fa926d62042477ca149232ade6afe3e4919|
+|586|b06fd806ae0e76d340cba44eb7b5e84c887384d6|b4e9089b32e48ae420e2c529a93b85ec930db27e|
+|587|6452149d33186dc56d78f7072d73b5dbb988d35a|a7e2c7184bea0f0aeb5b7003810aebd64aaa3761|
+|588|5fc94c10298c4bbcd98fd44f8ac72b321b03a0b4|a91dfa9f52d9b95cfe00a9bc9ec9bd1e5bf752fc|
+|589|c725df96543d1dd7ec4e20887a486ec9a7143c8a|36624bb7d147ed2056ceac8bd2332959ee3be5d6|
+|590|cdcaa7f88537be077a9a44f7002816089ae5cde0|6776847a36bca8811a7126736cc0da2179ab73ae|
+|591|68b656668a3fdbbbe482881d0dab41ff89a21ca3|4a58d277f17ff2375a50a92349b58d3b17812124|
+|599|7cfe1298fb285dfb5c53c1b8f829207ce05b7e97|96e70a648eff9a404475db0af5c3a4738abd86ac|
+
+Coherent571/576 activation is exactly15f1fa127c37399541e09b16ccf23ebe246f3709→4a01cf7925db9f64295ef3a0f52292cb30f8bfb1 (six commits/six files, independently checked exact mergebase). It includes PythonTarget/docs/constructs, Dartcollect, predicate test and legacy-reference fixture. Use ORIGINAL571+576+activation exactly once. Alternative already assembled571 owner-union rangec7444205d4fe87eaae0de5e2dc98b70909fd1cc7→c245e1ebda1588e2c6f885ed37bcb7fcb48b9ba9 must NOT also be applied.
+
+Mandatory586 durable Make follow-up is exactlyb4e9089b32e48ae420e2c529a93b85ec930db27e→0000dc6789d3c2c9dd85e64f7974b0c982c1d5d6, adding only tests/test_definition_context_types.py.
+
+Root reports final Source approval for599. Its true original parent and feature both measure839, with AD10018 identities11added−11removed=0 and no unbalanced group. The inherited Root baseline838 was stale; do not treat that old measurement as a valid final Main gate or copy its metadata. Actual Main comparison/writer remains authoritative.
+
+Still awaiting the final approved598 range and Root's bounded remaining-domain ranges: StructureLevel(component/package), SourceGraphTopologyLevel(module/package), SourceNameVisibility(private/public_name), RegularGitBlobKind(two byte pairs). Each uses an existing owner. No final union freeze is inferred until these are explicitly handed over. Latest evolving Root referencebb3e498b9c43afc954ef9fe7078595983e0b3c2f is a comparison reference, not an overlay.
 
 Latest Root comparison reference at this checkpoint: fad36e2695de7587e09a87dd304fde7e586f009f. Joint329native controls and519Ruff/strict150/clean diff are green in run38999976942. Root must provide the final frozen Source SHA and current normal/full/Astra evidence before final carry.
 
