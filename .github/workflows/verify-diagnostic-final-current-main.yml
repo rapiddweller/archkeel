@@ -1,0 +1,38 @@
+name: Verify final diagnostic carry without writes
+on:
+  push:
+    branches: [verify/542-diagnostic-final-current-main]
+permissions:
+  contents: read
+jobs:
+  exact-no-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ad4c9b836a5e3e70978003b9ea92e95abcb4e867
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: make lint typecheck
+      - run: uv run --locked python -m pytest -q tests/test_typed_diagnostic_owner.py::test_existing_public_diagnostic_reexports_reach_the_canonical_owner tests/test_repository_hygiene.py
+      - name: Verify exact committed receipt and clean repository without writes
+        run: |
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against cef2d99ac1aa6e3be4710c5df03f89ab57c0dde5 --amendment docs/architecture/decisions/issue-542-diagnostic-owner-amendment.json > "$RUNNER_TEMP/diagnostic-exact.json"
+          uv run --locked python - <<'PY'
+          import json,os,subprocess
+          from pathlib import Path
+          result=json.loads((Path(os.environ["RUNNER_TEMP"])/"diagnostic-exact.json").read_bytes())
+          head=subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip()
+          dirty=subprocess.check_output(["git","status","--porcelain"]).decode()
+          print("DIAGNOSTIC_EXACT="+json.dumps({"head":head,"dirty":dirty,**{key:result.get(key) for key in ("exit_code","amendment_status","failures","diagnostics","widenings","measurements")}},separators=(",",":")))
+          assert head=="ad4c9b836a5e3e70978003b9ea92e95abcb4e867"
+          assert dirty=="",dirty
+          assert result["exit_code"]==0 and result["amendment_status"]=="valid"
+          assert not result["failures"] and not result["diagnostics"] and not result["widenings"]
+          PY
