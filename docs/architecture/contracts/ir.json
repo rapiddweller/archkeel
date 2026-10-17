@@ -519,6 +519,19 @@
         "docs/architecture/classifier-projections.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "SOURCE-SYMBOL-KIND-READER-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.facts.parse_source_symbol_kind",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Decode source tags through their one nominal owner rather than raw or aliased constant dispatch.",
+      "provenance": [
+        "docs/architecture/source-symbol-kind-types.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {
@@ -11800,6 +11813,45 @@
           "responsibilities": [
             "Keep added/removed directions nominal without broadening the existing two-value domain."
           ]
+        },
+        {
+          "id": "SOURCE-SYMBOL-KIND",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.SourceSymbolKind",
+          "parent_id": "archkeel.ir.facts",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/source-symbol-kind-types.md"
+          ],
+          "responsibilities": [
+            "Recognize known source symbol and namespace tags independently of graph projection and open record envelopes."
+          ]
+        },
+        {
+          "id": "SOURCE-SYMBOL-KIND-READER",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.facts.parse_source_symbol_kind",
+          "parent_id": "archkeel.ir.facts",
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/source-symbol-kind-types.md"
+          ],
+          "responsibilities": [
+            "Decode one scalar known source tag without rejecting or changing future record data."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "kind": "positional",
+                "annotation": "JsonValue | RawJson",
+                "default_known": true
+              }
+            ],
+            "returns": "SourceSymbolKind | None"
+          }
         }
       ],
       "relationships": [
