@@ -1,0 +1,52 @@
+name: Typed union child port verification
+on:
+  push:
+    branches: [verify/542-union-shape-green]
+permissions:
+  contents: read
+jobs:
+  focused-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: b225fe3be543872da8f3c4aa089aef5d9f6375f3
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked pytest tests/test_type_shapes.py -q -ra
+      - run: uv run --locked mypy --strict src/archkeel
+      - name: Verify formatting and source style
+        run: |
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          paths=["src/archkeel/check/evaluation/boundary_types.py","src/archkeel/check/evaluation/rules.py","tests/test_type_shapes.py"]
+          for path in paths:
+              before=Path(path).read_text()
+              run=subprocess.run(["uv","run","--locked","ruff","format","--stdin-filename",path],input=before,text=True,capture_output=True,check=True)
+              if before!=run.stdout:
+                  print("UNION_FORMATTED_SOURCE="+json.dumps({"path":path,"content":run.stdout}),flush=True)
+          subprocess.run(["uv","run","--locked","ruff","check",*paths],check=True)
+          assert not subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          PY
+  affected-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: b225fe3be543872da8f3c4aa089aef5d9f6375f3
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked pytest tests/test_analyzer.py tests/test_boundary_type_quoted_builtins.py tests/test_boundary_type_nullable_fields.py tests/test_boundary_types_aliases.py tests/test_boundary_types_mappings.py tests/test_boundary_type_unknown_verdict.py tests/test_boundary_types_chain_proof.py tests/test_callable_boundaries.py -q -ra
