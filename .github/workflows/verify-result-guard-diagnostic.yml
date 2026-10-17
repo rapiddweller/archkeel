@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: f7e01dfe273170e73a2f6b21d409829d03f40421
+          ref: 4ba11063620a23f6c9e9fdd33fb77cc8187af795
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
         with:
@@ -34,4 +34,27 @@ jobs:
               for diagnostic in result.diagnostics:
                   print("ACTUAL_DIAGNOSTIC", dataclasses.asdict(diagnostic))
               print("ENCODED_PRESENT", encoded is not None)
+          import test_target_navigation_graph as navigation
+          from archkeel.ir.codec import decode_canonical_model, parse_observation
+          import json
+          actual_report = navigation.run_report
+          def trace_report(*args, **kwargs):
+              result, encoded = actual_report(*args, **kwargs)
+              print("NAVIGATION_RESULT", result.exit_code, result.observation_complete)
+              for diagnostic in result.diagnostics:
+                  print("NAVIGATION_DIAGNOSTIC", dataclasses.asdict(diagnostic))
+              for assessment in result.rule_assessments:
+                  if str(assessment.status) == "UNKNOWN":
+                      print("NAVIGATION_UNKNOWN_RULE", assessment.id, dataclasses.asdict(assessment))
+              if encoded:
+                  model = parse_observation(decode_canonical_model(json.loads(encoded)))
+                  for row in model.records("unknowns"):
+                      print("NAVIGATION_UNKNOWN_RECORD", row.kind, row.subject, row.data)
+              return result, encoded
+          navigation.run_report = trace_report
+          with tempfile.TemporaryDirectory() as tmp:
+              try:
+                  navigation.test_own_render_contract_enforces_output_direction(Path(tmp), None)
+              except AssertionError:
+                  print("NAVIGATION_ASSERTION_FAILED")
           PY
