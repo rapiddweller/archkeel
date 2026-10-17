@@ -96,7 +96,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         modules, evidence, unsafe_typed_dict_providers=typed_dict_unsafe_providers(imports, modules)
     )
     type_shapes = collect_type_shapes(symbol_type_expressions(symbols))
-    symbol_index = build_symbol_index(symbols)
+    symbol_index = build_symbol_index(symbols, parsed=modules)
     calls = collect_calls(modules, symbol_index, evidence)
     references = collect_references(modules, symbol_index, evidence)
     bindings = collect_bindings(modules, evidence)

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import ast
 import builtins
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
@@ -28,6 +28,7 @@ from .receiver_types import (
     receiver_call_target,
 )
 from .scopes import LexicalScopes, NameBinding
+from .source import ParsedModule, stable_direct_module_bindings, unproven_member_bindings
 
 _BUILTINS = frozenset(dir(builtins))
 _NO_RECEIVERS: Mapping[str, ReceiverType] = {}
@@ -70,9 +71,98 @@ class SymbolIndex:
     constructor_results: dict[str, bool]
     binding_ids: frozenset[str]
     declaration_names: frozenset[str]
+    str_enum_classes: frozenset[str] = frozenset()
+
+    def str_enum_method_target(self, class_name: str, method: str) -> str | None:
+        """Name only an unshadowed string method on a proven populated StrEnum."""
+        if class_name not in self.str_enum_classes or method in self.enum_members[class_name]:
+            return None
+        return receiver_call_target("str", method)
 
 
-def build_symbol_index(symbols: Sequence[RawRecord]) -> SymbolIndex:
+def _literal_str_enum_body(node: ast.ClassDef, recorded_members: frozenset[str]) -> bool:
+    members: set[str] = set()
+    for child in node.body:
+        if isinstance(child, ast.Pass) or (
+            isinstance(child, ast.Expr)
+            and isinstance(child.value, ast.Constant)
+            and isinstance(child.value.value, str)
+        ):
+            continue
+        if not (
+            isinstance(child, ast.Assign)
+            and len(child.targets) == 1
+            and isinstance(child.targets[0], ast.Name)
+            and not child.targets[0].id.startswith("_")
+            and child.targets[0].id not in members
+            and isinstance(child.value, ast.Constant)
+            and isinstance(child.value.value, str)
+        ):
+            return False
+        members.add(child.targets[0].id)
+    return bool(members) and members == recorded_members
+
+
+def _proven_str_enums(
+    symbols: Sequence[RawRecord],
+    parsed: Sequence[ParsedModule],
+    enum_members: Mapping[str, frozenset[str]],
+) -> frozenset[str]:
+    """Require native class/body/binding proof; classification alone is insufficient."""
+    module_counts = Counter(module.module for module in parsed)
+    if any(name == "enum" or name.startswith("enum.") for name in module_counts):
+        return frozenset()
+    by_name: dict[str, list[RawRecord]] = defaultdict(list)
+    for item in symbols:
+        by_name[item["data"]["qualified_name"]].append(item)
+    eligible: set[str] = set()
+    for module in parsed:
+        if module_counts[module.module] != 1:
+            continue
+        stable = stable_direct_module_bindings(module)
+        escaped = unproven_member_bindings(module)
+        for node in module.tree.body:
+            if not isinstance(node, ast.ClassDef):
+                continue
+            name = f"{module.module}.{node.name}"
+            definitions = by_name.get(name, [])
+            if len(definitions) != 1 or definitions[0]["kind"] != "class":
+                continue
+            data = definitions[0]["data"]
+            if (
+                name not in enum_members
+                or data.get("source_binding_unique") is not True
+                or data.get("source_member_binding_static") is not True
+                or data.get("class_header_static") is not True
+                or data.get("class_body_control_flow") is not False
+                or data.get("definition_contexts")
+                or node.name not in stable
+                or node.name in escaped
+                or node.decorator_list
+                or node.keywords
+                or len(node.bases) != 1
+            ):
+                continue
+            bases = data.get("base_declarations", [])
+            if (
+                len(bases) != 1
+                or bases[0]["status"] != SourceResolution.RESOLVED
+                or bases[0]["targets"] != ["enum.StrEnum"]
+            ):
+                continue
+            root = node.bases[0]
+            while isinstance(root, ast.Attribute):
+                root = root.value
+            if not isinstance(root, ast.Name) or root.id not in stable or root.id in escaped:
+                continue
+            if _literal_str_enum_body(node, enum_members[name]):
+                eligible.add(name)
+    return frozenset(eligible)
+
+
+def build_symbol_index(
+    symbols: Sequence[RawRecord], *, parsed: Sequence[ParsedModule] = ()
+) -> SymbolIndex:
     definition_ids = frozenset(
         item["id"] for item in symbols if item["kind"] in {"class", "function", "method"}
     )
@@ -123,6 +213,7 @@ def build_symbol_index(symbols: Sequence[RawRecord]) -> SymbolIndex:
         constructor_results,
         frozenset(item["id"] for item in symbols if item["kind"] == "dynamic_binding"),
         declarations,
+        _proven_str_enums(symbols, parsed, enum_members),
     )
 
 
@@ -269,7 +360,7 @@ def _scoped_binding(
 
 
 def _resolve_receiver_bound_call(
-    parts: list[str], receiver_types: Mapping[str, ReceiverType]
+    parts: list[str], receiver_types: Mapping[str, ReceiverType], index: SymbolIndex | None = None
 ) -> tuple[SourceResolution, list[str], str, int] | None:
     """Resolve `recv.method(...)` where `recv` is a locally typed name (AD-37 cases 2-3)."""
     if len(parts) != 2:
@@ -278,6 +369,8 @@ def _resolve_receiver_bound_call(
     if receiver is None:
         return None
     target = receiver_call_target(receiver.type_name, parts[1])
+    if target is None and index is not None and receiver.origin is ReceiverOrigin.ANNOTATION:
+        target = index.str_enum_method_target(receiver.type_name, parts[1])
     if target is None:
         return None
     status, reason = _ORIGIN_VERDICT[receiver.origin]
@@ -299,7 +392,7 @@ def _resolve_dotted(
         return _scoped_binding(
             binding, targets, index, f"attribute of imported {binding.kind.value} binding"
         )
-    receiver_result = _resolve_receiver_bound_call(parts, receiver_types)
+    receiver_result = _resolve_receiver_bound_call(parts, receiver_types, index)
     if receiver_result:
         return receiver_result
     receiver_class = scopes.receiver_class(binding, parts[0])

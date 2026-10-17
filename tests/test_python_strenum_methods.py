@@ -52,24 +52,38 @@ def _files(model=ENUM, app="from sample.model import Level\n" + USE):
     [
         pytest.param(_files(), "value.capitalize", "builtins.str.capitalize", id="imported"),
         pytest.param(
-            _files(app="from sample.model import Level as Chosen\n"
-                   "def use(value: Chosen):\n    return value.capitalize()\n"),
-            "value.capitalize", "builtins.str.capitalize", id="explicit-import-alias",
+            _files(
+                app="from sample.model import Level as Chosen\n"
+                "def use(value: Chosen):\n    return value.capitalize()\n"
+            ),
+            "value.capitalize",
+            "builtins.str.capitalize",
+            id="explicit-import-alias",
         ),
         pytest.param(
-            _files(app="import sample.model as model\n"
-                   "def use(value: model.Level):\n    return value.capitalize()\n"),
-            "value.capitalize", "builtins.str.capitalize", id="qualified-import",
+            _files(
+                app="import sample.model as model\n"
+                "def use(value: model.Level):\n    return value.capitalize()\n"
+            ),
+            "value.capitalize",
+            "builtins.str.capitalize",
+            id="qualified-import",
         ),
         pytest.param(
             {"sample/__init__.py": "", "sample/model.py": ENUM + USE},
-            "value.capitalize", "builtins.str.capitalize", id="same-module",
+            "value.capitalize",
+            "builtins.str.capitalize",
+            id="same-module",
         ),
         pytest.param(
-            _files(model=ENUM + "    capitalize = 'member'\n",
-                   app="from sample.model import Level\n"
-                       "def use(value: Level):\n    return value.upper()\n"),
-            "value.upper", "builtins.str.upper", id="different-method-than-member",
+            _files(
+                model=ENUM + "    capitalize = 'member'\n",
+                app="from sample.model import Level\n"
+                "def use(value: Level):\n    return value.upper()\n",
+            ),
+            "value.upper",
+            "builtins.str.upper",
+            id="different-method-than-member",
         ),
     ],
 )
@@ -84,53 +98,70 @@ def test_proven_populated_strenum_annotation_names_only_the_requested_builtin_me
 
 
 UNSAFE_CLASSES = [
-    pytest.param("from enum import Enum\nclass Level(Enum):\n    MODULE = 'module'\n",
-                 id="ordinary-enum"),
-    pytest.param("from enum import IntEnum\nclass Level(IntEnum):\n    MODULE = 1\n",
-                 id="integer-enum"),
-    pytest.param("class StrEnum: pass\nclass Level(StrEnum):\n    MODULE = 'module'\n",
-                 id="same-spelling-user-base"),
-    pytest.param("from sample.provider import StrEnum\n"
-                 "class Level(StrEnum):\n    MODULE = 'module'\n",
-                 id="foreign-provider"),
-    pytest.param("from enum import StrEnum\nclass Level(StrEnum): pass\n",
-                 id="empty-subclassable-enum"),
-    pytest.param("from enum import StrEnum\nclass Extra: pass\n"
-                 "class Level(Extra, StrEnum):\n    MODULE = 'module'\n",
-                 id="additional-base"),
-    pytest.param("from enum import StrEnum\n"
-                 "class Level(Missing, StrEnum):\n    MODULE = 'module'\n",
-                 id="unknown-additional-base"),
-    pytest.param("if enabled:\n    from enum import StrEnum\n"
-                 "class Level(StrEnum):\n    MODULE = 'module'\n",
-                 id="conditional-base-import"),
-    pytest.param("from enum import StrEnum\n@decorate\n"
-                 "class Level(StrEnum):\n    MODULE = 'module'\n",
-                 id="decorator"),
-    pytest.param("from enum import StrEnum\n"
-                 "class Level(StrEnum, metaclass=Custom):\n    MODULE = 'module'\n",
-                 id="metaclass"),
+    pytest.param(
+        "from enum import Enum\nclass Level(Enum):\n    MODULE = 'module'\n", id="ordinary-enum"
+    ),
+    pytest.param(
+        "from enum import IntEnum\nclass Level(IntEnum):\n    MODULE = 1\n", id="integer-enum"
+    ),
+    pytest.param(
+        "class StrEnum: pass\nclass Level(StrEnum):\n    MODULE = 'module'\n",
+        id="same-spelling-user-base",
+    ),
+    pytest.param(
+        "from sample.provider import StrEnum\nclass Level(StrEnum):\n    MODULE = 'module'\n",
+        id="foreign-provider",
+    ),
+    pytest.param(
+        "from enum import StrEnum\nclass Level(StrEnum): pass\n", id="empty-subclassable-enum"
+    ),
+    pytest.param(
+        "from enum import StrEnum\nclass Extra: pass\n"
+        "class Level(Extra, StrEnum):\n    MODULE = 'module'\n",
+        id="additional-base",
+    ),
+    pytest.param(
+        "from enum import StrEnum\nclass Level(Missing, StrEnum):\n    MODULE = 'module'\n",
+        id="unknown-additional-base",
+    ),
+    pytest.param(
+        "if enabled:\n    from enum import StrEnum\nclass Level(StrEnum):\n    MODULE = 'module'\n",
+        id="conditional-base-import",
+    ),
+    pytest.param(
+        "from enum import StrEnum\n@decorate\nclass Level(StrEnum):\n    MODULE = 'module'\n",
+        id="decorator",
+    ),
+    pytest.param(
+        "from enum import StrEnum\n"
+        "class Level(StrEnum, metaclass=Custom):\n    MODULE = 'module'\n",
+        id="metaclass",
+    ),
     pytest.param(ENUM + "    capitalize = 'member'\n", id="method-name-is-member"),
-    pytest.param(ENUM + "    def capitalize(self): return 'different'\n",
-                 id="method-override"),
-    pytest.param(ENUM + "    @property\n    def capitalize(self): return 'different'\n",
-                 id="property-override"),
-    pytest.param(ENUM + "    def __getattribute__(self, name): return replacement\n",
-                 id="getattribute-override"),
-    pytest.param(ENUM + "    def __getattr__(self, name): return replacement\n",
-                 id="getattr-override"),
-    pytest.param(ENUM + "    def __new__(cls, value): return replacement\n",
-                 id="new-override"),
+    pytest.param(ENUM + "    def capitalize(self): return 'different'\n", id="method-override"),
+    pytest.param(
+        ENUM + "    @property\n    def capitalize(self): return 'different'\n",
+        id="property-override",
+    ),
+    pytest.param(
+        ENUM + "    def __getattribute__(self, name): return replacement\n",
+        id="getattribute-override",
+    ),
+    pytest.param(
+        ENUM + "    def __getattr__(self, name): return replacement\n", id="getattr-override"
+    ),
+    pytest.param(ENUM + "    def __new__(cls, value): return replacement\n", id="new-override"),
     pytest.param(ENUM + "    touch()\n", id="class-body-call"),
-    pytest.param("from enum import StrEnum, auto\n"
-                 "class Level(StrEnum):\n    MODULE = auto()\n",
-                 id="generated-member"),
-    pytest.param(ENUM + "    _ignore_ = 'temporary'\n    temporary = 'unused'\n",
-                 id="ignored-member-control"),
+    pytest.param(
+        "from enum import StrEnum, auto\nclass Level(StrEnum):\n    MODULE = auto()\n",
+        id="generated-member",
+    ),
+    pytest.param(
+        ENUM + "    _ignore_ = 'temporary'\n    temporary = 'unused'\n", id="ignored-member-control"
+    ),
     pytest.param(ENUM + "    MODULE = 'again'\n", id="duplicate-member"),
     pytest.param(ENUM + "    del MODULE\n", id="deleted-member"),
-    pytest.param(ENUM + "    if enabled:\n        OTHER = 'other'\n",
-                 id="conditional-member"),
+    pytest.param(ENUM + "    if enabled:\n        OTHER = 'other'\n", id="conditional-member"),
 ]
 
 
@@ -150,8 +181,7 @@ UNSAFE_BINDINGS = [
         id="assigned-annotation-alias",
     ),
     pytest.param(
-        "from sample.model import Level\n"
-        "def use(value: 'Level'):\n    return value.capitalize()\n",
+        "from sample.model import Level\ndef use(value: 'Level'):\n    return value.capitalize()\n",
         id="quoted-annotation",
     ),
     pytest.param(
@@ -215,27 +245,34 @@ def test_unproven_annotation_or_value_binding_keeps_its_conservative_fallback(tm
         pytest.param("", "del Level.capitalize\n", {}, id="imported-delete"),
         pytest.param("", "setattr(Level, 'capitalize', replacement)\n", {}, id="setattr"),
         pytest.param("", "mutate(Level)\n", {}, id="class-escape"),
-        pytest.param("", "Alias = Level\nAlias.capitalize = replacement\n", {},
-                     id="aliased-member-write"),
-        pytest.param("\nStrEnum.capitalize = replacement\n", "", {},
-                     id="base-member-write"),
-        pytest.param("\nimport enum\nenum.StrEnum = replacement\n", "", {},
-                     id="provider-attribute-write"),
+        pytest.param(
+            "", "Alias = Level\nAlias.capitalize = replacement\n", {}, id="aliased-member-write"
+        ),
+        pytest.param("\nStrEnum.capitalize = replacement\n", "", {}, id="base-member-write"),
+        pytest.param(
+            "\nimport enum\nenum.StrEnum = replacement\n", "", {}, id="provider-attribute-write"
+        ),
         pytest.param("\nmutate(StrEnum)\n", "", {}, id="provider-escape"),
-        pytest.param("", "", {"sample/patch.py":
-                              "import enum\nenum.StrEnum = replacement\n"},
-                     id="cross-module-provider-write"),
-        pytest.param("", "", {"sample/patch.py":
-                              "from sample.model import Level\n"
-                              "Level.capitalize = replacement\n"},
-                     id="cross-module-class-write"),
+        pytest.param(
+            "",
+            "",
+            {"sample/patch.py": "import enum\nenum.StrEnum = replacement\n"},
+            id="cross-module-provider-write",
+        ),
+        pytest.param(
+            "",
+            "",
+            {"sample/patch.py": "from sample.model import Level\nLevel.capitalize = replacement\n"},
+            id="cross-module-class-write",
+        ),
     ],
 )
 def test_class_or_provider_mutation_cannot_authorize_a_builtin_target(
     tmp_path, model_suffix, app_prefix, extra
 ):
-    files = _files(model=ENUM + model_suffix,
-                   app="from sample.model import Level\n" + app_prefix + USE)
+    files = _files(
+        model=ENUM + model_suffix, app="from sample.model import Level\n" + app_prefix + USE
+    )
     files.update(extra)
     data = _native_call(tmp_path, files)
     assert data["status"] in {"unresolved", "partially_resolved"}, data
@@ -258,8 +295,10 @@ def test_scanned_provider_named_enum_strenum_is_not_the_stdlib_class(tmp_path):
 def test_existing_string_annotation_retains_partial_evidence(tmp_path):
     data = _native_call(
         tmp_path,
-        {"sample/__init__.py": "",
-         "sample/app.py": "def use(value: str):\n    return value.capitalize()\n"},
+        {
+            "sample/__init__.py": "",
+            "sample/app.py": "def use(value: str):\n    return value.capitalize()\n",
+        },
     )
     assert data["status"] == "partially_resolved", data
     assert data["targets"] == ["builtins.str.capitalize"], data

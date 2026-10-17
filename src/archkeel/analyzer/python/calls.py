@@ -88,7 +88,29 @@ def _value_receiver_type(
     return None
 
 
-def _local_receiver_types(node: FunctionNode, scopes: LexicalScopes) -> dict[str, ReceiverType]:
+def _annotated_receiver_type(
+    annotation: ast.expr | None, scopes: LexicalScopes, index: SymbolIndex | None
+) -> str | None:
+    builtin = annotation_receiver_type(annotation_text(annotation))
+    if builtin is not None:
+        return builtin
+    if index is None or not isinstance(annotation, ast.Name | ast.Attribute):
+        return None
+    status, targets, _, _ = resolve_name(
+        annotation, index=index, scopes=scopes, value_reference=True
+    )
+    if (
+        status is SourceResolution.RESOLVED
+        and len(targets) == 1
+        and targets[0] in index.str_enum_classes
+    ):
+        return targets[0]
+    return None
+
+
+def _local_receiver_types(
+    node: FunctionNode, scopes: LexicalScopes, index: SymbolIndex | None = None
+) -> dict[str, ReceiverType]:
     """Map each name this function binds to its receiver type, where every binding agrees.
 
     Reuses the own-scope walk `bindings.py` already defines (via `source.own_scope`) instead
@@ -97,7 +119,7 @@ def _local_receiver_types(node: FunctionNode, scopes: LexicalScopes) -> dict[str
     receivers: dict[str, ReceiverType | None] = {}
     arguments = node.args
     for argument in (*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs):
-        type_name = annotation_receiver_type(annotation_text(argument.annotation))
+        type_name = _annotated_receiver_type(argument.annotation, scopes, index)
         if type_name:
             _bind_receiver(
                 receivers, argument.arg, ReceiverType(type_name, ReceiverOrigin.ANNOTATION)
@@ -113,7 +135,7 @@ def _local_receiver_types(node: FunctionNode, scopes: LexicalScopes) -> dict[str
                 else None
             )
             if candidate is None:
-                annotated_type = annotation_receiver_type(annotation_text(statement.annotation))
+                annotated_type = _annotated_receiver_type(statement.annotation, scopes, index)
                 candidate = (
                     ReceiverType(annotated_type, ReceiverOrigin.ANNOTATION)
                     if annotated_type
@@ -154,7 +176,7 @@ class CallCollector(ast.NodeVisitor):
         self.items: list[RawRecord] = []
         self.scopes = LexicalScopes(module)
         self.receivers = {
-            node: _local_receiver_types(node, self.scopes)
+            node: _local_receiver_types(node, self.scopes, index)
             for node in ast.walk(module.tree)
             if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
         }
