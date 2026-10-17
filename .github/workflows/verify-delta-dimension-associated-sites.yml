@@ -1,0 +1,135 @@
+name: Verify current Delta dimensions
+on:
+  push:
+    branches: [verify/542-delta-dimension-sites-associated]
+permissions:
+  contents: read
+jobs:
+  site-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Compare actual type and call sites with multiplicity and targets
+        run: |
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/amend-after.json" > "$RUNNER_TEMP/amend-after-result.json"
+          git worktree add --detach "$RUNNER_TEMP/amend-before" 5b8a603274b2330b85fc6fe62c8d7f6fb15da8f1
+          uv run --locked archkeel report --root "$RUNNER_TEMP/amend-before" --output "$RUNNER_TEMP/amend-before.json" > "$RUNNER_TEMP/amend-before-result.json"
+          uv run --locked python - "$RUNNER_TEMP/amend-before.json" "$RUNNER_TEMP/amend-after.json" "$RUNNER_TEMP/amend-before" . <<'PY'
+          import ast,copy,json,pathlib,re,sys
+          from collections import Counter
+          from archkeel.ir.codec import decode_canonical_model,parse_observation
+          from archkeel.check.ratchets import unknown_positions_by_rule,call_rows
+          from archkeel.ir.decisions import _unknown_evidence_and_counts
+          from archkeel.ir.codec_wire import _raw_value
+          def read(path): return parse_observation(decode_canonical_model(json.loads(pathlib.Path(path).read_text())))
+          before,after=(read(path) for path in sys.argv[1:3])
+          before_root,after_root=(pathlib.Path(path) for path in sys.argv[3:5])
+          def types(model):
+              return {row.id:{"id":row.id,"kind":row.kind,"rule_ids":row.rule_ids,**{key:row.data.get(key) for key in ("qualified_name","position","path","annotation","nested_annotation","reason")}} for row in model.records("unknowns") or () if row.kind in {"boundary_type_position","boundary_type_route"}}
+          association_sites=[]
+          expected_pairs=[("VIOLATIONS","violations"),("DEPENDENCY_EDGES","dependency_edges"),("CYCLES","cycles"),("API_CROSSINGS","api_crossings"),("PRIVATE_CROSSINGS","private_crossings"),("TYPING_SIGNALS","typing_signals"),("UNKNOWNS","unknowns")]
+          expected_values=["violations","dependency_edges","cycles","imports","imports","typing_signals","unknowns"]
+          profile_tree=ast.parse((after_root/"src/archkeel/ir/profiles.py").read_text())
+          domain=next(node for node in profile_tree.body if isinstance(node,ast.ClassDef) and node.name=="DeltaDimension")
+          actual_pairs=[(node.targets[0].id,ast.literal_eval(node.value)) for node in domain.body if isinstance(node,ast.Assign)]
+          assert actual_pairs==expected_pairs+[("COVERAGE","coverage")]
+          delta_tree=ast.parse((after_root/"src/archkeel/check/delta.py").read_text())
+          imports=[node for node in delta_tree.body if isinstance(node,ast.ImportFrom) and node.module=="archkeel.ir.profiles"]
+          assert sum(alias.name=="DeltaDimension" and alias.asname=="_DeltaDimension" for node in imports for alias in node.names)==1
+          def calls(model,source_root):
+              asts={}
+              def call_ast(site,expression,caller):
+                  if site.file not in asts:
+                      index={}
+                      for node in ast.walk(ast.parse((source_root/site.file).read_text())):
+                          if isinstance(node,ast.Call):
+                              key=(node.lineno,node.col_offset,ast.unparse(node.func))
+                              index.setdefault(key,[]).append(node)
+                      asts[site.file]=index
+                  index=asts[site.file]
+                  matches=(index.get((site.line,site.column,expression),[]) if site.column is not None else [value for (line,column,name),values in index.items() if line==site.line and name==expression for value in values])
+                  assert len(matches)==1,(site,expression,matches)
+                  written=matches[0]
+                  associated=copy.deepcopy(written)
+                  if site.file=="src/archkeel/check/delta.py" and caller=="archkeel.check.delta._section" and isinstance(written.func,ast.Attribute) and written.func.attr=="get" and isinstance(written.func.value,ast.Dict):
+                      receiver=written.func.value
+                      assert len(receiver.keys)==7 and [ast.literal_eval(node) for node in receiver.values]==expected_values
+                      assert len(written.args)==1 and isinstance(written.args[0],ast.Name) and written.args[0].id=="dimension" and not written.keywords
+                      if source_root==before_root:
+                          assert [ast.literal_eval(node) for node in receiver.keys]==[wire for _,wire in expected_pairs]
+                      else:
+                          assert all(isinstance(node,ast.Attribute) and isinstance(node.value,ast.Name) and node.value.id=="_DeltaDimension" and node.attr==name for node,(name,_) in zip(receiver.keys,expected_pairs))
+                          associated.func.value.keys=[ast.Constant(wire) for _,wire in expected_pairs]
+                      association_sites.append({"side":"before" if source_root==before_root else "after","file":site.file,"line":site.line,"column":site.column,"owner":caller,"actual_call_ast":ast.dump(written,include_attributes=False),"associated_call_ast":ast.dump(associated,include_attributes=False),"exact_key_pairs":expected_pairs})
+                  return ast.dump(written,include_attributes=False),ast.dump(associated,include_attributes=False),ast.unparse(associated.func)
+              evidence={row.id:row for row in model.evidence}
+              result={}
+              for row in model.records("calls") or ():
+                  data=row.data
+                  status=data.get("status")
+                  if status not in {"unresolved","partially_resolved"}: continue
+                  sites=[evidence[identity] for identity in row.evidence_ids if identity in evidence]
+                  assert len(sites)==1
+                  site=sites[0]
+                  caller=re.sub(r"<(genexpr|listcomp|dictcomp|setcomp):[0-9]+:[0-9]+>",r"<\1>",str(data.get("source_scope")))
+                  written,associated,associated_expression=call_ast(site,data.get("expression"),caller)
+                  key=(status,site.file,caller,associated_expression)
+                  result.setdefault(key,[]).append({"record_id":row.id,"status":status,"path":site.file,"line":site.line,"caller":caller,"expression":data.get("expression"),"reason":data.get("reason"),"targets":_raw_value(data.get("targets")),"candidate_count":data.get("candidate_count"),"call_ast":written,"associated_call_ast":associated,"associated_expression":associated_expression})
+              assert sum(len(rows) for rows in result.values())==len(call_rows(model))
+              return result
+          def selected(model):
+              return {rule:[{"id":row.id,"kind":row.kind,"subjects":row.subjects,"rule_ids":row.rule_ids,"data":_raw_value(row.data)} for row in records] for rule,records in _unknown_evidence_and_counts(model)[2].items()}
+          old_selected,new_selected=selected(before),selected(after)
+          print("DELTA_DIMENSION_ALL_UNKNOWN="+json.dumps({"before":old_selected,"after":new_selected},separators=(",",":")))
+          old,new=types(before),types(after)
+          old_calls,new_calls=calls(before,before_root),calls(after,after_root)
+          assert len(association_sites)==2 and {row["side"] for row in association_sites}=={"before","after"}
+          assert association_sites[0]["associated_call_ast"]==association_sites[1]["associated_call_ast"]
+          print("DELTA_DIMENSION_EXACT_EXISTING_CALL_ASSOCIATION="+json.dumps(association_sites,separators=(",",":")))
+          added=[{"before":old_calls.get(key,[]),"after":new_calls[key]} for key in new_calls if len(new_calls[key])>len(old_calls.get(key,[]))]
+          removed=[{"before":old_calls[key],"after":new_calls.get(key,[])} for key in old_calls if len(old_calls[key])>len(new_calls.get(key,[]))]
+          def payload(row):
+              return json.dumps({key:row[key] for key in ("status","reason","targets","candidate_count")} | {"expression":row["associated_expression"],"call_ast":row["associated_call_ast"]},sort_keys=True)
+          new_debt=[]
+          removed_debt=[]
+          target_changed=[]
+          for key in old_calls.keys()|new_calls.keys():
+              old_rows,new_rows=old_calls.get(key,[]),new_calls.get(key,[])
+              old_counts,new_counts=Counter(map(payload,old_rows)),Counter(map(payload,new_rows))
+              positive=new_counts-old_counts
+              negative=old_counts-new_counts
+              if positive:
+                  new_debt.append({"key":key,"added_payload_counts":dict(positive),"before":old_rows,"after":new_rows})
+              if negative:
+                  removed_debt.append({"key":key,"removed_payload_counts":dict(negative),"before":old_rows,"after":new_rows})
+              common_asts={row["call_ast"] for row in old_rows}&{row["call_ast"] for row in new_rows}
+              for expression_ast in common_asts:
+                  old_targets={json.dumps(row["targets"],sort_keys=True) for row in old_rows if row["call_ast"]==expression_ast}
+                  new_targets={json.dumps(row["targets"],sort_keys=True) for row in new_rows if row["call_ast"]==expression_ast}
+                  if old_targets!=new_targets:
+                      target_changed.append({"key":key,"call_ast":expression_ast,"before":sorted(old_targets),"after":sorted(new_targets)})
+          unknown_changes=[]
+          for rule in old_selected.keys()|new_selected.keys():
+              old_rows={row["id"]:row for row in old_selected.get(rule,[])}
+              new_rows={row["id"]:row for row in new_selected.get(rule,[])}
+              unknown_changes.extend({"rule":rule,"id":identity,"before":old_rows.get(identity),"after":new_rows.get(identity)} for identity in old_rows.keys()|new_rows.keys() if old_rows.get(identity)!=new_rows.get(identity))
+          print("DELTA_DIMENSION_ALL_UNKNOWN_PROOF="+json.dumps({"before_ref":"5b8a603274b2330b85fc6fe62c8d7f6fb15da8f1","before_counts":unknown_positions_by_rule(before),"after_counts":unknown_positions_by_rule(after),"changed_selected_records":unknown_changes,"selected_record_counts":{rule:len(rows) for rule,rows in new_selected.items()}},separators=(",",":")))
+          assert not unknown_changes
+          summary={"before_ref":"5b8a603274b2330b85fc6fe62c8d7f6fb15da8f1","before_unknown":unknown_positions_by_rule(before),"after_unknown":unknown_positions_by_rule(after),"new_type_positions":[new[key] for key in sorted(new.keys()-old.keys())],"removed_type_positions":[old[key] for key in sorted(old.keys()-new.keys())],"changed_type_positions":[{"before":old[key],"after":new[key]} for key in sorted(old.keys()&new.keys()) if old[key]!=new[key]],"added_call_sites":added,"removed_call_sites":removed,"changed_call_targets":target_changed,"new_or_changed_debt":new_debt,"removed_debt":removed_debt,"before_unresolved":before.coverage.calls_unresolved,"after_unresolved":after.coverage.calls_unresolved,"before_partial":before.coverage.calls_partially_resolved,"after_partial":after.coverage.calls_partially_resolved}
+          print("DELTA_DIMENSION_SITE_EVIDENCE="+json.dumps(summary,separators=(",",":")))
+          assert not summary["new_type_positions"]
+          assert not new_debt,new_debt
+          assert not removed_debt,removed_debt
+          assert after.coverage.calls_unresolved==before.coverage.calls_unresolved
+          assert after.coverage.calls_partially_resolved==before.coverage.calls_partially_resolved
+          assert not target_changed
+          PY
