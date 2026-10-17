@@ -1,0 +1,47 @@
+name: Typed union child ports RED before production
+on:
+  push:
+    branches: [verify/542-union-shape-red]
+permissions:
+  contents: read
+jobs:
+  native-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: f974a8794b6ccb6cfdb10d0b1937b1d03e44037b
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Observe native missing-method RED and conservative negatives
+        run: |
+          uv run --locked python - <<'PY'
+          import json, subprocess, xml.etree.ElementTree as ET
+          from pathlib import Path
+          path="tests/test_type_shapes.py"
+          run=subprocess.run(["uv","run","--locked","pytest",path,"-q","-ra","--junitxml=union-shape-red.xml"],text=True,capture_output=True,check=False)
+          print(run.stdout,flush=True)
+          print(run.stderr,flush=True)
+          root=ET.parse("union-shape-red.xml").getroot()
+          cases=list(root.iter("testcase"))
+          failed=[case.attrib["name"] for case in cases if case.find("failure") is not None]
+          errors=[case.attrib["name"] for case in cases if case.find("error") is not None]
+          print("UNION_SHAPE_NATIVE_RED="+json.dumps({"source":"f974a8794b6ccb6cfdb10d0b1937b1d03e44037b","base":"aa84fab9c5bb6833b9ab58bcccbbbb443dc0a114","exit":run.returncode,"cases":len(cases),"failed":failed,"errors":errors},sort_keys=True),flush=True)
+          assert run.returncode==1 and len(failed)==10 and not errors
+          assert all(name.startswith(("test_collection_", "test_authored_collection_", "test_union_", "test_optional_mapping_")) for name in failed)
+          imports=subprocess.run(["uv","run","--locked","ruff","check","--select","I","--fix","--stdin-filename",path,"-"],input=Path(path).read_text(),text=True,capture_output=True,check=True)
+          fmt=subprocess.run(["uv","run","--locked","ruff","format","--stdin-filename",path],input=imports.stdout,text=True,capture_output=True,check=True)
+          print("UNION_SHAPE_FORMATTED_TEST="+json.dumps(fmt.stdout),flush=True)
+          assert not subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: union-shape-red
+          path: union-shape-red.xml
