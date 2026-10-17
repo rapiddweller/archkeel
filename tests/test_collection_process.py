@@ -417,7 +417,7 @@ def _launch_observation(owner, request, name, executable="tool.exe", popen_error
         result = owner.ProcessCollector(("collector-tool", "script.py")).collect(request)
     if isinstance(result, CollectionError):
         return events, (result.kind, result.subject, result.message)
-    return events, (result.profile, result.source.git_head, result.coverage.selected_files)
+    return events, result
 
 
 @pytest.mark.parametrize("name", ["posix", "nt", "future-platform"])
@@ -425,7 +425,7 @@ def test_actual_collect_keeps_launcher_session_and_unknown_fallback(name):
     request = decode_request(_request())
     events, result = _launch_observation(process_owner, request, name)
     expected = decode_response(json.dumps(_response()).encode()).facts
-    assert result == (expected.profile, expected.source.git_head, expected.coverage.selected_files)
+    assert result == expected
     launches = [event for event in events if event[0] == "launch"]
     assert len(launches) == 1
     command = [sys.executable, "-I", "-B", "windows_job.py", "--", "collector-tool", "script.py"]
