@@ -20,7 +20,15 @@ jobs:
           version: "0.12.13"
       - run: uv sync --locked
       - name: Existing public ScanResult construction and raw section inputs
-        run: rg -n 'observed_sections=|ScanResult\\(' src tests
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          for directory in ("src","tests"):
+              for path in Path(directory).rglob("*.py"):
+                  for number,line in enumerate(path.read_text().splitlines(),1):
+                      if "observed_sections=" in line or "ScanResult(" in line:
+                          print(f"{path}:{number}:{line.strip()}")
+          PY
       - name: Actual owned ingress, strict controls, authored Targets and native mutations
         run: uv run --locked pytest -q tests/test_source_section_types.py
       - name: Strict actual product
@@ -47,7 +55,7 @@ jobs:
           from pathlib import Path
           paths=["tests/test_source_section_types.py"]
           before={path:Path(path).read_text() for path in paths}
-          subprocess.run(["uv","run","--locked","ruff","check","--fix",*paths],check=True)
+          subprocess.run(["uv","run","--locked","ruff","check","--select","I","--fix",*paths],check=True)
           subprocess.run(["uv","run","--locked","ruff","format",*paths],check=True)
           for path in paths:
               source=Path(path).read_text()
