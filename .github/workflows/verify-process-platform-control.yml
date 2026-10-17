@@ -5,6 +5,85 @@ on:
 permissions:
   contents: read
 jobs:
+  bounded:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 7313832f307b54dbe99311df691fe1a907feb355
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Actual native ports, mutations and process regressions
+        run: uv run --locked pytest -q -rP tests/test_collection_process.py tests/test_collection_protocol.py tests/test_collection_conformance.py tests/test_typed_collector_native.py
+      - name: Actual frozen old-new lifecycle and facts compatibility
+        if: always()
+        run: |
+          uv run --locked python - <<'PY'
+          import hashlib,importlib.util,json,subprocess,sys,tempfile
+          from pathlib import Path
+          sys.path.insert(0,str(Path("tests").resolve()))
+          from test_collection_process import _cleanup_observation,_launch_observation
+          from test_collection_protocol import _request
+          from archkeel.ir.facts_codec import decode_request
+          from archkeel.analyzer import process as current
+          base="5b8a603274b2330b85fc6fe62c8d7f6fb15da8f1"
+          blob=subprocess.check_output(["git","show",base+":src/archkeel/analyzer/process.py"])
+          print("PROCESS_ACTUAL_BASE_BLOB",base,hashlib.sha256(blob).hexdigest())
+          print("PROCESS_ACTUAL_NEW_BLOB",hashlib.sha256(Path("src/archkeel/analyzer/process.py").read_bytes()).hexdigest())
+          with tempfile.TemporaryDirectory() as directory:
+              path=Path(directory)/"process.py"
+              path.write_bytes(blob)
+              spec=importlib.util.spec_from_file_location("process_platform_legacy",path)
+              legacy=importlib.util.module_from_spec(spec)
+              sys.modules[spec.name]=legacy
+              spec.loader.exec_module(legacy)
+              names=("posix","nt","future-platform","","POSIX")
+              compared=[]
+              for name in names:
+                  for running in (False,True):
+                      for failure in (None,"killpg" if name=="posix" else "kill","wait"):
+                          old=_cleanup_observation(legacy,name,running,failure)
+                          new=_cleanup_observation(current,name,running,failure)
+                          assert old==new,(name,running,failure,old,new)
+                          compared.append(("cleanup",name,running,failure))
+              assert _cleanup_observation(legacy,"posix",failure="gone")==_cleanup_observation(current,"posix",failure="gone")
+              compared.append(("cleanup","posix","gone"))
+              request=decode_request(_request())
+              for name in names:
+                  for popen_error in (False,True):
+                      old=_launch_observation(legacy,request,name,popen_error=popen_error)
+                      new=_launch_observation(current,request,name,popen_error=popen_error)
+                      assert old==new,(name,popen_error,old,new)
+                      compared.append(("launch",name,popen_error))
+              for executable in (None,"tool.bat","tool.CMD"):
+                  old=_launch_observation(legacy,request,"nt",executable=executable)
+                  new=_launch_observation(current,request,"nt",executable=executable)
+                  assert old==new,(executable,old,new)
+                  compared.append(("launcher-rejection",executable))
+              print("PROCESS_ACTUAL_OLD_NEW_EQUAL="+json.dumps({"cases":len(compared),"inputs":compared,"facts":"complete decoded SourceFacts","path_normalization":"only windows_job.py helper directory differs because legacy module is isolated in a temporary directory"}))
+          
+          PY
+      - name: Strict actual process owner
+        if: always()
+        run: uv run --locked mypy --strict src/archkeel/analyzer/process.py
+      - name: Ruff actual owner and tests
+        if: always()
+        run: uv run --locked ruff check src/archkeel/analyzer/process.py tests/test_collection_process.py
+      - name: Formatter exact diff
+        if: always()
+        run: uv run --locked ruff format --check --diff src/archkeel/analyzer/process.py tests/test_collection_process.py
+      - name: Exact source and clean diff
+        if: always()
+        run: |
+          test "$(git rev-parse HEAD)" = "7313832f307b54dbe99311df691fe1a907feb355"
+          git diff --exit-code 5b8a603274b2330b85fc6fe62c8d7f6fb15da8f1 -- architecture-baseline.json src/archkeel/ir/host_records.py src/archkeel/check/ordering.py src/archkeel/analyzer/python/resolve.py src/archkeel/analyzer/python/calls.py src/archkeel/analyzer/python/collect.py
+          test -z "$(git status --porcelain)"
   windows-runtime:
     runs-on: windows-latest
     timeout-minutes: 20
@@ -13,7 +92,7 @@ jobs:
         run: git config --global init.defaultRefFormat reftable
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 990e41b7b48031c7cd9d7306a669db83a3b798c3
+          ref: 7313832f307b54dbe99311df691fe1a907feb355
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -23,9 +102,33 @@ jobs:
       - run: uv sync --locked
       - name: Real Windows collector and owned platform probes
         run: uv run --locked pytest -q tests/test_collection_process.py
-      - name: Exact source and native ref storage
-        shell: bash
+  normal-no-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 7313832f307b54dbe99311df691fe1a907feb355
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Actual normal validation without any writer
         run: |
-          test "$(git rev-parse --show-ref-format)" = reftable
-          test "$(git rev-parse HEAD)" = "990e41b7b48031c7cd9d7306a669db83a3b798c3"
-          test -z "$(git status --porcelain)"
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          result=subprocess.run(["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--json"],capture_output=True,text=True)
+          value=json.loads(result.stdout)
+          print("PROCESS_NORMAL_NO_WRITE="+json.dumps({key:value.get(key) for key in ("exit_code","failures","diagnostics","measurements","widenings")},separators=(",",":")))
+          assert result.returncode == value["exit_code"]
+          print(result.stderr)
+          result=subprocess.run(["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--against","5b8a603274b2330b85fc6fe62c8d7f6fb15da8f1","--json"],capture_output=True,text=True)
+          value=json.loads(result.stdout)
+          print("PROCESS_ACTUAL_BASE_CALL_CHANGES="+json.dumps({key:value.get(key) for key in ("exit_code","failures","diagnostics","measurements","unresolved_call_changes","unresolved_call_note","widenings")},separators=(",",":")))
+          assert result.returncode == value["exit_code"]
+          print(result.stderr)
+          assert subprocess.check_output(["git","status","--porcelain"],text=True)==""
+          PY
