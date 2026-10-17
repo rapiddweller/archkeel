@@ -92,7 +92,7 @@ def test_interface_names_leave_unrelated_and_future_record_kinds_open(kind):
     assert interfaces._symbol_kind(parse_record(raw)) == kind
 
 
-@pytest.mark.parametrize("value", (False, 1, (), RecordData()))
+@pytest.mark.parametrize("value", (False, 1, [], {}))
 def test_graph_projection_keeps_existing_malformed_classifier_validation(value):
     raw = _symbol_record(
         "SYM-X", kind="class", qualified_name="sample.api.Name", module="sample.api", name="Name"
@@ -100,3 +100,128 @@ def test_graph_projection_keeps_existing_malformed_classifier_validation(value):
     raw["data"]["class_kind"] = value
     with pytest.raises(ValueError, match="source graph expected text"):
         source_graph._symbol(parse_record(raw), "future-language")
+
+
+def _native_target(tmp_path):
+    root = Path(__file__).parents[1]
+    contract = json.loads((root / "docs/architecture/contracts/ir.json").read_text())
+    contract.pop("$schema", None)
+    rules = {
+        "TARGET-COMPLETE_REQUIRES",
+        "CLASSIFIER-INTERFACE-KIND-CONTROL",
+        "CLASSIFIER-GRAPH-KIND-CONTROL",
+    }
+    contract["rules"] = [rule for rule in contract["rules"] if rule["id"] in rules]
+    assert {rule["id"] for rule in contract["rules"]} == rules
+    contract["declarations"]["modules"] = []
+    target = contract["declarations"]["uml"]
+    target["relationships"] = []
+    target["scopes"] = []
+    ids = {
+        "archkeel.ir.facts",
+        "IR-UML-architecture_graph",
+        "IR-GRAPH-EntityKind",
+        "IR-UML-source_graph",
+        "IR-DEPENDENCY-model",
+        "IR-CLASSIFIER-GRAPH-READER",
+    }
+    target["entities"] = [entity for entity in target["entities"] if entity["id"] in ids]
+    assert {entity["id"] for entity in target["entities"]} == ids
+    files = {
+        "archkeel/__init__.py": "",
+        "archkeel/ir/__init__.py": "",
+        "contract.json": json.dumps(contract),
+        "docs/architecture/classifier-projections.md": "Conservative classifier projection.\n",
+        "docs/architecture/uml-model-target.md": "Shared architecture graph.\n",
+        "docs/architecture/typed-graph-vocabulary.md": "Canonical graph kinds.\n",
+        "docs/architecture/dependency-selector-target.md": "Compatibility facade.\n",
+        "docs/architecture/language-adapter-target.md": "Shared source facts.\n",
+    }
+    for name in ("facts", "model", "architecture_graph", "source_graph", "interfaces"):
+        path = f"archkeel/ir/{name}.py"
+        files[path] = (root / "src" / path).read_text()
+    project = _prepare_repo(tmp_path, files)
+    return project, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
+
+
+def test_actual_source_fulfils_independent_classifier_reader_and_function_guards(tmp_path):
+    project, config = _native_target(tmp_path)
+    observed = _model(project, config)
+    comparison = architecture_report(observed).comparison
+    assert comparison is not None and comparison.status == "PASS", comparison
+    assert not trace_valid_violations(observed)
+
+
+@pytest.mark.parametrize("mutation", ("owner", "input", "return", "reader_control", "ui_control"))
+def test_projection_port_weakening_fails_with_unchanged_authored_intent(tmp_path, mutation):
+    project, config = _native_target(tmp_path)
+    contract = project / "contract.json"
+    before = contract.read_bytes()
+    path = project / "archkeel/ir/source_graph.py"
+    text = path.read_text()
+    signature = "def _classifier_kind(value: JsonValue) -> EntityKind | None:"
+    if mutation == "owner":
+        node = next(
+            node
+            for node in ast.parse(text).body
+            if isinstance(node, ast.FunctionDef) and node.name == "_classifier_kind"
+        )
+        lines = text.splitlines(keepends=True)
+        definition = "".join(lines[node.lineno - 1 : node.end_lineno])
+        text = "".join(lines[: node.lineno - 1] + lines[node.end_lineno :])
+        text = text.replace(
+            "from __future__ import annotations",
+            "from __future__ import annotations\nfrom .facts import _classifier_kind",
+            1,
+        )
+        facts = project / "archkeel/ir/facts.py"
+        facts.write_text(
+            facts.read_text().replace(
+                "from __future__ import annotations",
+                "from __future__ import annotations\nfrom .architecture_graph import EntityKind",
+                1,
+            )
+            + "\n"
+            + definition
+        )
+    elif mutation in {"input", "return"}:
+        assert text.count(signature) == 1
+        changed = (
+            signature.replace("value: JsonValue", "value: object")
+            if mutation == "input"
+            else signature.replace(" -> EntityKind | None:", " -> str:")
+        )
+        text = text.replace(signature, changed, 1)
+    else:
+        name = "_classifier_kind"
+        probe = '    if value == "enum":\n        return EntityKind.ENUM\n'
+        if mutation == "ui_control":
+            path = project / "archkeel/ir/interfaces.py"
+            text = path.read_text()
+            name = "_symbol_kind"
+            probe = '    if symbol.kind == "class":\n        pass\n'
+        node = next(
+            node
+            for node in ast.parse(text).body
+            if isinstance(node, ast.FunctionDef) and node.name == name
+        )
+        lines = text.splitlines(keepends=True)
+        lines.insert(node.body[0].lineno - 1, probe)
+        text = "".join(lines)
+    path.write_text(text)
+    observed = _model(project, config)
+    comparison = architecture_report(observed).comparison
+    assert comparison is not None
+    if mutation in {"input", "return"}:
+        assert any(
+            row.status == "FAIL" and row.subject_id == "IR-CLASSIFIER-GRAPH-READER"
+            for row in comparison.assessments
+        ), comparison
+    else:
+        rule = {
+            "owner": "TARGET-COMPLETE_REQUIRES",
+            "reader_control": "CLASSIFIER-GRAPH-KIND-CONTROL",
+            "ui_control": "CLASSIFIER-INTERFACE-KIND-CONTROL",
+        }[mutation]
+        assert any(rule in row.rule_ids for row in trace_valid_violations(observed))
+    assert contract.read_bytes() == before
