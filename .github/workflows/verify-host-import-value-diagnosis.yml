@@ -1,0 +1,57 @@
+name: Read-only actual imported host enum evidence
+on:
+  push:
+    branches: [verify/542-host-import-value-diagnosis]
+permissions:
+  contents: read
+jobs:
+  host-enum-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 4b014dc81d880e7ed71142caf5c1ea6ea6c4b3d5
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Inspect actual owner and consumer import, enum and lexical facts
+        run: |
+          uv run --locked python - <<'PY'
+          import ast,json
+          from pathlib import Path
+          from archkeel.analyzer.python.constructs import _LiteralComparisons,collect_constructs
+          from archkeel.analyzer.python.imports import collect_imports,resolve_reexports
+          from archkeel.analyzer.python.source import parse_sources,stable_direct_module_bindings
+          from archkeel.analyzer.python.symbols import collect_symbols
+          from archkeel.analyzer.python.resolve import build_symbol_index,resolve_name
+          root=Path.cwd()
+          paths=[root/"src/archkeel/ir/host_records.py",root/"src/archkeel/check/ordering.py"]
+          modules=parse_sources(paths,root=root,namespace="archkeel").modules
+          evidence={}
+          imports=collect_imports(modules,{module.module for module in modules},evidence,namespace="archkeel")
+          uncertain=resolve_reexports(imports,{module.module:module.all_exports for module in modules},modules)
+          symbols,_,_=collect_symbols(modules,evidence)
+          index=build_symbol_index(symbols)
+          for item in imports:
+              if item["data"].get("binding")=="HostEvent":
+                  print("ACTUAL_HOST_ENUM_IMPORT="+json.dumps(item,sort_keys=True))
+          for item in symbols:
+              if item["data"].get("qualified_name")=="archkeel.ir.host_records.HostEvent":
+                  print("ACTUAL_HOST_ENUM_SYMBOL="+json.dumps(item,sort_keys=True))
+          for module in modules:
+              comparisons=_LiteralComparisons(module)
+              print("ACTUAL_MODULE_ENUM_PROOF="+json.dumps(dict(module=module.module,stable=sorted(stable_direct_module_bindings(module)),local_enum_classes=sorted(comparisons.enum_value_classes),local_enum_values={name:value for name,value in comparisons.class_values.items() if name.endswith(".HostEvent")}),sort_keys=True))
+              if module.module.endswith(".ordering"):
+                  name=next(node for node in module.all_nodes if isinstance(node,ast.Name) and node.id=="HostEvent" and isinstance(node.ctx,ast.Load))
+                  binding=comparisons.scopes.lookup(name,"HostEvent")
+                  print("ACTUAL_HOST_ENUM_LEXICAL="+json.dumps(dict(targets=binding.targets,kind=binding.kind.value,uncertain=binding.uncertain,owner=binding.owner.qualified_name if binding.owner else None),sort_keys=True))
+                  print("ACTUAL_HOST_ENUM_RESOLVED="+json.dumps(resolve_name(name,index=index,scopes=comparisons.scopes)))
+          print("ACTUAL_CONSTRUCT_COUNT="+str(len(collect_constructs(modules,evidence))))
+          
+          PY
+          git diff --exit-code
