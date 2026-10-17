@@ -49,7 +49,7 @@ jobs:
               return cache[file]
           import subprocess
           CURRENT="5937445491094abc00a4076dd4628a03f08e9064"
-          SELECTED=[5,27,53,75,78,80,153,194,196,211,215,225,227,243,245,305,339,343,375,391,409,410,418,440,451,468,472,537,588,602,624,632,641,646,667,712,717,742,754,756,779]
+          SELECTED=[116,149,185,236,239,251,307,338,556,642]
           print("OTHER_WIRE_SELECTION="+json.dumps({"original_rows":len(rows),"candidate_indices":SELECTED,"current_root":CURRENT,"classification":"candidate cohort from exact retained expressions; not a defect or progress count"}),flush=True)
           current={}
           def current_controls(file):
