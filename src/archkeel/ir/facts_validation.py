@@ -196,62 +196,56 @@ def _property_bindings(records: list[Record], evidence: dict[str, Evidence]) -> 
     ordered: dict[tuple[str, str], dict[int, Record]] = {}
     for record in records:
         parent, name = record.data.get("parent"), record.data.get("name")
-        if (
-            parse_source_symbol_kind(record.kind) is SourceSymbolKind.METHOD
-            and isinstance(parent, str)
-            and isinstance(name, str)
-        ):
+        kind = parse_source_symbol_kind(record.kind)
+        if kind is SourceSymbolKind.METHOD and isinstance(parent, str) and isinstance(name, str):
             for reference in record.evidence_ids:
                 if reference in evidence:
                     ordered.setdefault((parent, name), {})[evidence[reference].line] = record
     for record in records:
+        data = record.data
         kind = parse_source_symbol_kind(record.kind)
-        if record.data.get("property_members") is not None and kind is not SourceSymbolKind.CLASS:
+        if data.get("property_members") is not None and kind is not SourceSymbolKind.CLASS:
             raise ValueError("property members need a class owner")
-        raw_binding = record.data.get("property_binding")
+        raw_binding = data.get("property_binding")
         binding = None
-        if any(key == "property_binding" for key, _ in record.data.entries):
+        if any(key == "property_binding" for key, _ in data.entries):
             if not isinstance(raw_binding, RecordData):
                 raise ValueError("invalid property binding fields")
             binding = property_binding(raw_binding)
-        if record.data.get("source_final_method_binding") is True:
-            parent, name = record.data.get("parent"), record.data.get("name")
-            owner = classes.get(parent) if isinstance(parent, str) else None
-            group = (
-                ordered.get((parent, name), {})
-                if isinstance(parent, str) and isinstance(name, str)
-                else {}
-            )
+        parent, name = data.get("parent"), data.get("name")
+        owner = classes.get(parent) if isinstance(parent, str) else None
+        group = (
+            ordered.get((parent, name), {})
+            if isinstance(parent, str) and isinstance(name, str)
+            else {}
+        )
+        if data.get("source_final_method_binding") is True:
             if (
                 kind is not SourceSymbolKind.METHOD
                 or owner is None
                 or owner.data.get("source_binding_unique") is not True
-                or record.data.get("qualified_name") != f"{parent}.{name}"
-                or owner.data.get("module") != record.data.get("module")
-                or record.data.get("decorators") != ()
+                or data.get("qualified_name") != f"{parent}.{name}"
+                or owner.data.get("module") != data.get("module")
+                or data.get("decorators") != ()
                 or binding is not None
                 or group.get(max(group, default=0)) != record
             ):
                 raise ValueError("final method binding needs its last undecorated definition")
         if binding is None:
             continue
-        parent, name = record.data.get("parent"), record.data.get("name")
-        owner = classes.get(parent) if isinstance(parent, str) else None
         if (
             kind is not SourceSymbolKind.METHOD
-            or parse_source_symbol_kind(record.data.get("symbol_category"))
-            is not SourceSymbolKind.METHOD
-            or parse_method_kind(record.data.get("method_kind")) is not MethodKind.INSTANCE
-            or record.data.get("async") is not False
+            or parse_source_symbol_kind(data.get("symbol_category")) is not SourceSymbolKind.METHOD
+            or parse_method_kind(data.get("method_kind")) is not MethodKind.INSTANCE
+            or data.get("async") is not False
             or not isinstance(parent, str)
             or not isinstance(name, str)
             or owner is None
-            or record.data.get("qualified_name") != f"{parent}.{name}"
-            or owner.data.get("module") != record.data.get("module")
+            or data.get("qualified_name") != f"{parent}.{name}"
+            or owner.data.get("module") != data.get("module")
         ):
             raise ValueError("property binding needs its defining class and method")
         line, source_line = binding.line, binding.source_line
-        group = ordered.get((parent, name), {})
         if not isinstance(line, int) or group.get(line) != record:
             raise ValueError("property order disagrees with method evidence")
         if binding.source is PropertyOrigin.LOCAL:
@@ -260,7 +254,7 @@ def _property_bindings(records: list[Record], evidence: dict[str, Evidence]) -> 
             if (
                 previous != source_line
                 or previous_record is None
-                or previous_record.data.get("property_binding") is None
+                or previous_data.get("property_binding") is None
             ):
                 raise ValueError("property source must be the previous binding in its class")
         member_names: set[str] = members.setdefault(parent, set())

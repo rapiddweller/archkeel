@@ -950,8 +950,7 @@ def _relationships(
             definitions: list[Entity] = by_name.setdefault(entity.qualified_name, [])
             definitions.append(entity)
 
-    result: list[Relationship] = []
-    result.extend(_namespace_memberships(observation, entities))
+    result: list[Relationship] = list(_namespace_memberships(observation, entities))
     for section, kind in (
         ("imports", RelationshipKind.IMPORTS),
         ("calls", RelationshipKind.CALLS),
@@ -999,11 +998,9 @@ def _relationships(
                     bindings = _value_bindings(record, sources[0], entities, by_name, language)
                     result.extend(_construction_sites(record, sources[0], bindings, by_name))
     for record in observation.records("symbols") or ():
+        kind = parse_source_symbol_kind(record.kind)
         for base in _records(record.data.get("base_declarations")):
-            if (
-                parse_source_symbol_kind(record.kind) is not SourceSymbolKind.CLASS
-                or base.get("relationship_kind") is None
-            ):
+            if kind is not SourceSymbolKind.CLASS or base.get("relationship_kind") is None:
                 raise ValueError("typed base needs a classifier source and relationship kind")
             base_kind = RelationshipKind(
                 _vocabulary_text(base.get("relationship_kind"), default=RelationshipKind.INHERITS)

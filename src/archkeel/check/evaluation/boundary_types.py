@@ -1436,11 +1436,9 @@ def _named_type_verdict(
     reached: tuple[tuple[str, str], ...] = (resolved,)
     origin_symbol = classes_by_location.get(resolved)
     if require_static_constant:
-        return (
-            _Position()
-            if _is_static_literal_constant(origin_symbol)
-            else _Position(undecidable=_Cause.OTHER)
-        )
+        if _is_static_literal_constant(origin_symbol):
+            return _Position()
+        return _Position(undecidable=_Cause.OTHER)
     alias = _type_alias_verdict(
         origin_symbol,
         resolved,

@@ -77,6 +77,18 @@ from .syntax import (
 )
 
 
+_SOURCE_SYMBOL_KINDS = {
+    DefinitionKind.CLASS: SourceSymbolKind.CLASS,
+    DefinitionKind.MIXIN: SourceSymbolKind.CLASS,
+    DefinitionKind.ENUM: SourceSymbolKind.CLASS,
+    DefinitionKind.INTERFACE: SourceSymbolKind.CLASS,
+    DefinitionKind.TYPEDEF: SourceSymbolKind.ALIAS,
+    DefinitionKind.FUNCTION: SourceSymbolKind.FUNCTION,
+    DefinitionKind.GETTER: SourceSymbolKind.FUNCTION,
+    DefinitionKind.SETTER: SourceSymbolKind.FUNCTION,
+}
+
+
 class _ClassKind(StrEnum):
     CLASS = DefinitionKind.CLASS
     PROTOCOL = "protocol"
@@ -393,18 +405,7 @@ class _Collection:
         name = definition.name
         qualified = f"{parent}.{name}" if parent else f"{module}.{name}"
         kind = definition.kind
-        record_kinds = {
-            DefinitionKind.CLASS: SourceSymbolKind.CLASS,
-            DefinitionKind.MIXIN: SourceSymbolKind.CLASS,
-            DefinitionKind.ENUM: SourceSymbolKind.CLASS,
-            DefinitionKind.INTERFACE: SourceSymbolKind.CLASS,
-            DefinitionKind.TYPEDEF: SourceSymbolKind.ALIAS,
-            DefinitionKind.FUNCTION: SourceSymbolKind.FUNCTION,
-            DefinitionKind.GETTER: SourceSymbolKind.FUNCTION,
-            DefinitionKind.SETTER: SourceSymbolKind.FUNCTION,
-            DefinitionKind.VARIABLE: SourceSymbolKind.ATTRIBUTE,
-        }
-        record_kind = record_kinds.get(kind)
+        record_kind = _SOURCE_SYMBOL_KINDS.get(kind)
         symbol_id = stable_id(
             "DARTDEF",
             rel,
