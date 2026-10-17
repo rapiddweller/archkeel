@@ -1,0 +1,21 @@
+name: Verify integrated nominal domain ports
+on:
+  push:
+    branches: ['verify/542-domain-native-f710']
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: f71005da981edfa60a520ea7a0d7a8c0ec8ffcfa
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: '3.11.12'
+          version: '0.12.13'
+      - run: uv sync --locked
+      - run: uv run --locked pytest -q tests/test_source_name_visibility.py tests/test_graph_topology_level_types.py tests/test_git_blob_types.py tests/test_typed_structure_levels.py tests/test_python_string_predicate_target.py tests/test_repository_hygiene.py
+      - run: git diff --exit-code
