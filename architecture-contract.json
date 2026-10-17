@@ -1361,6 +1361,32 @@
         "docs/superpowers/plans/2026-10-17-git-blob-kind.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "PROCESS-PLATFORM-DECODE-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.analyzer.process._process_platform",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Known process platform decisions use the owned nominal port; OS-name parsing has no raw-string control exception and other platform names preserve direct-process fallback.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "PROCESS-PLATFORM-CLEANUP-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.analyzer.process._terminate_process_tree",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Known process platform decisions use the owned nominal port; OS-name parsing has no raw-string control exception and other platform names preserve direct-process fallback.",
+      "provenance": [
+        "docs/architecture/language-adapter-target.md"
+      ],
+      "decided_by": "architect"
     }
   ]
 }

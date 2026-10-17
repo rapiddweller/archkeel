@@ -479,20 +479,17 @@ def _platform_repository(tmp_path, *, changed=None, relocate=False, collect_prob
     uml["entities"] = [row for row in uml["entities"] if row["id"] in ids]
     assert {row["id"] for row in uml["entities"]} == ids
     uml["relationships"], uml["scopes"] = [], []
-    placement = next(
-        row for row in json.loads((_PROCESS_ROOT / "architecture-contract.json").read_text())["rules"]
-        if row["id"] == "TYPES-ENUM-IN-MODEL"
-    )
-    target["rules"] = [placement]
-    for rule_id, source in [
-        (_PLATFORM_GUARD, "archkeel.analyzer.process._process_platform"),
-        (_CLEANUP_GUARD, "archkeel.analyzer.process._terminate_process_tree"),
-        *([(_COLLECT_PROBE, "archkeel.analyzer.process.ProcessCollector.collect")]
-          if collect_probe else []),
-    ]:
+    rules = json.loads((_PROCESS_ROOT / "architecture-contract.json").read_text())["rules"]
+    placement = next(row for row in rules if row["id"] == "TYPES-ENUM-IN-MODEL")
+    rule_ids = {"TYPES-ENUM-IN-MODEL", _PLATFORM_GUARD, _CLEANUP_GUARD}
+    target["rules"] = [row for row in rules if row["id"] in rule_ids]
+    assert {row["id"] for row in target["rules"]} == rule_ids
+    if collect_probe:
         target["rules"].append(
-            {"id": rule_id, "kind": "forbidden_construct", "source": source,
-             "constructs": ["string_literal_compare"], "rationale": "Use the owned nominal OS port.",
+            {"id": _COLLECT_PROBE, "kind": "forbidden_construct",
+             "source": "archkeel.analyzer.process.ProcessCollector.collect",
+             "constructs": ["string_literal_compare"],
+             "rationale": "Trace the actual OS mutation without claiming filename-grammar absence.",
              "provenance": ["docs/architecture/language-adapter-target.md"], "decided_by": "architect"}
         )
     source = (_PROCESS_ROOT / "src/archkeel/analyzer/process.py").read_text()
