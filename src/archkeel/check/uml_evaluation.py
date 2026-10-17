@@ -7,6 +7,10 @@ import json
 from dataclasses import asdict, replace
 
 from archkeel.ir.architecture_graph import (
+    ArchitectureDeclarationKind,
+    parse_architecture_declaration_kind,
+)
+from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     AssessmentAspect,
     AssessmentStatus,
@@ -15,7 +19,6 @@ from archkeel.ir.architecture_graph import (
 )
 from archkeel.ir.codec import parse_record
 from archkeel.ir.model import (
-    UML_TARGET_KIND,
     Diagnostic,
     EvidenceClass,
     Observation,
@@ -271,7 +274,7 @@ def evaluate_uml(result: ObservationResult) -> ObservationResult:
     declarations = tuple(
         record
         for record in model.records("declarations") or ()
-        if record.kind == UML_TARGET_KIND and record.evidence_class == EvidenceClass.DECLARED_RULE
+        if parse_architecture_declaration_kind(record.kind) is ArchitectureDeclarationKind.UML_TARGET and record.evidence_class == EvidenceClass.DECLARED_RULE
     )
     if not declarations:
         return result

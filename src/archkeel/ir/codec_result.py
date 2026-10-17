@@ -8,6 +8,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict, replace
 
+from archkeel.ir.architecture_graph import (
+    ArchitectureRuleKind,
+    parse_architecture_rule_kind,
+)
 from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.codec_contract import _rule_payload
 from archkeel.ir.codec_delta import delta_payload
@@ -224,7 +228,7 @@ def _filtered_violation_payload(
         **_record_payload(item.record),
         "locations": [_raw_object(asdict(location)) for location in item.locations],
     }
-    if item.record.kind == "complete_assignment" and remedy is not None:
+    if parse_architecture_rule_kind(item.record.kind) is ArchitectureRuleKind.COMPLETE_ASSIGNMENT and remedy is not None:
         module = item.record.data.get("module")
         owner_ids = gaps.get(module, ()) if isinstance(module, str) else ()
         row["owners"] = [component_scopes.get(identity, identity) for identity in owner_ids] or [

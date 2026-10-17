@@ -15,6 +15,9 @@ from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+from archkeel.ir.architecture_graph import (
+    parse_architecture_declaration_kind,
+)
 from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 
 from .interfaces import component_owners, owner_of
@@ -219,7 +222,7 @@ def declared_rule_ids(observation: Observation) -> frozenset[str]:
     return frozenset(
         record.id
         for record in observation.records("declarations") or ()
-        if record.kind in RULE_RECORD_KINDS
+        if parse_architecture_declaration_kind(record.kind) in RULE_RECORD_KINDS
     )
 
 

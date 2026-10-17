@@ -24,6 +24,9 @@ from dataclasses import asdict, dataclass, replace
 from dataclasses import fields as dataclass_fields
 from typing import Any, ClassVar, Final, Protocol
 
+from archkeel.ir.architecture_graph import (
+    ArchitectureRuleKind,
+)
 from .amendment import AMENDMENT_SCHEMA_VERSION as AMENDMENT_SCHEMA_VERSION
 from .amendment import Amendment as Amendment
 from .amendment import verify_amendment as verify_amendment
@@ -85,22 +88,22 @@ class WideningChange:
 _ALWAYS_NEUTRAL: Final = frozenset({"id", "kind", "rationale", "provenance"})
 
 # AllowedDependencyRule alone grants an edge; every other kind restricts something (AD-15).
-_PERMISSION_RULE_KINDS: Final = frozenset({"allowed_dependency"})
+_PERMISSION_RULE_KINDS: Final = frozenset({ArchitectureRuleKind.ALLOWED_DEPENDENCY})
 _RESTRICTION_RULE_KINDS: Final = frozenset(
     {
-        "forbidden_dependency",
-        "forbidden_construct",
-        "external_dependency_scope",
-        "complete_assignment",
-        "root_layout",
-        "complete_external_scope",
-        "complete_requires",
-        "layer_order",
-        "no_component_cycles",
-        "interface_boundary",
-        "sibling_isolation",
-        "symbol_placement",
-        "boundary_types",
+        ArchitectureRuleKind.FORBIDDEN_DEPENDENCY,
+        ArchitectureRuleKind.FORBIDDEN_CONSTRUCT,
+        ArchitectureRuleKind.EXTERNAL_DEPENDENCY_SCOPE,
+        ArchitectureRuleKind.COMPLETE_ASSIGNMENT,
+        ArchitectureRuleKind.ROOT_LAYOUT,
+        ArchitectureRuleKind.COMPLETE_EXTERNAL_SCOPE,
+        ArchitectureRuleKind.COMPLETE_REQUIRES,
+        ArchitectureRuleKind.LAYER_ORDER,
+        ArchitectureRuleKind.NO_COMPONENT_CYCLES,
+        ArchitectureRuleKind.INTERFACE_BOUNDARY,
+        ArchitectureRuleKind.SIBLING_ISOLATION,
+        ArchitectureRuleKind.SYMBOL_PLACEMENT,
+        ArchitectureRuleKind.BOUNDARY_TYPES,
     }
 )
 

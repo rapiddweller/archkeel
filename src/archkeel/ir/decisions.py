@@ -17,6 +17,11 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath as _PurePosixPath
 from typing import Final as _Final
 
+from archkeel.ir.architecture_graph import (
+    ArchitectureDeclarationKind,
+    parse_architecture_declaration_kind,
+    parse_architecture_rule_kind,
+)
 from .baseline import ViolationFingerprint as _ViolationFingerprint
 from .baseline import violation_rows
 from .bindings import unread_bindings
@@ -61,10 +66,10 @@ from .references import unreferenced_symbols
 from .structure import oversized_insides
 from .type_fanin import type_fanin
 
-_DECIDING_KINDS = frozenset({"forbidden_dependency", "allowed_dependency"})
+_DECIDING_KINDS = frozenset({ArchitectureRuleKind.FORBIDDEN_DEPENDENCY, ArchitectureRuleKind.ALLOWED_DEPENDENCY})
 
 # The two kinds a component declaration reaches the observation under, one per level (AD-34).
-_COMPONENT_KINDS = frozenset({"component_responsibility", "inside_component_responsibility"})
+_COMPONENT_KINDS = frozenset({ArchitectureDeclarationKind.COMPONENT_RESPONSIBILITY, ArchitectureDeclarationKind.INSIDE_COMPONENT_RESPONSIBILITY})
 
 # The provenance every drafted dependency option cites; init writes this file alongside
 # the contract, so the path already exists by the time an architect copies an option in.
@@ -348,7 +353,7 @@ def rule_uncertainty_evidence(observation: Observation) -> dict[str, RuleUncerta
         for declaration in observation.records("declarations") or ():
             if (
                 declaration.evidence_class == EvidenceClass.DECLARED_RULE
-                and declaration.kind in RULE_RECORD_KINDS
+                and parse_architecture_declaration_kind(declaration.kind) in RULE_RECORD_KINDS
                 and declaration.id not in complete_scopes
             ):
                 records_by_rule.setdefault(declaration.id, [])
@@ -396,7 +401,7 @@ def _decided_component_pairs(
     decided: set[tuple[str, str]] = set()
     owners = dependency_owners(components)
     for record in observation.records("declarations") or ():
-        if record.kind not in _DECIDING_KINDS or not _decides_this_level(record):
+        if parse_architecture_rule_kind(record.kind) not in _DECIDING_KINDS or not _decides_this_level(record):
             continue
         selector = parse_dependency_selector(record)
         pair = selector.component_pair(owners)
@@ -515,7 +520,7 @@ def _materialize_open_decision(
 def requires_declared(observation: Observation) -> bool:
     """True when a `complete_requires` rule decides every component pair by absence (AD-32)."""
     return any(
-        record.kind == "complete_requires" and _decides_this_level(record)
+        parse_architecture_rule_kind(record.kind) is ArchitectureRuleKind.COMPLETE_REQUIRES and _decides_this_level(record)
         for record in observation.records("declarations") or ()
     )
 
@@ -650,9 +655,9 @@ def agent_decisions(observation: Observation) -> tuple[int, int]:
     """
     deciders: list[JsonValue] = []
     for record in observation.records("declarations") or ():
-        if record.kind in RULE_RECORD_KINDS:
+        if parse_architecture_declaration_kind(record.kind) in RULE_RECORD_KINDS:
             deciders.append(record.data.get("decided_by"))
-        elif record.kind in _COMPONENT_KINDS:
+        elif parse_architecture_declaration_kind(record.kind) in _COMPONENT_KINDS:
             deciders.extend(_component_deciders(record))
     agent = sum(decider == "agent" for decider in deciders)
     return agent, len(deciders)
@@ -763,7 +768,7 @@ def _ownership_blocker_reason(observation: Observation, rule_id: str) -> str | N
 
 
 def _rule_receipt_complete(declaration: Record, receipt: Record | None) -> bool:
-    if declaration.kind == "no_component_cycles":
+    if parse_architecture_rule_kind(declaration.kind) is ArchitectureRuleKind.NO_COMPONENT_CYCLES:
         return receipt is not None and receipt.data.get("cycle_scope_complete") is True
     return receipt is not None and receipt.data.get("assessment_complete", True) is True
 
@@ -789,13 +794,13 @@ def _dependency_receipt_ownership(
     parents = [
         item
         for item in declarations
-        if item.kind in _COMPONENT_KINDS and (item.id == parent_id or item.title == parent_id)
+        if parse_architecture_declaration_kind(item.kind) in _COMPONENT_KINDS and (item.id == parent_id or item.title == parent_id)
     ]
     parent = parents[0] if len(parents) == 1 else None
     components = tuple(
         _declared_scope_ownership(item)
         for item in declarations
-        if item.kind in _COMPONENT_KINDS and item.data.get("parent_id") == parent_id
+        if parse_architecture_declaration_kind(item.kind) in _COMPONENT_KINDS and item.data.get("parent_id") == parent_id
     )
     names = {
         str(item.data.get("qualified_name"))
@@ -824,11 +829,10 @@ def dependency_binding_id(
         for record in section.records
         if section.name in {"modules", "imports", "symbols"}
         or section.name == "declarations"
-        and record.kind
-        in {
-            "component_responsibility",
-            "inside_component_responsibility",
-            "complete_requires",
+        and parse_architecture_declaration_kind(record.kind) in {
+            ArchitectureDeclarationKind.COMPONENT_RESPONSIBILITY,
+            ArchitectureDeclarationKind.INSIDE_COMPONENT_RESPONSIBILITY,
+            ArchitectureRuleKind.COMPLETE_REQUIRES,
         }
     ]
     bound.extend(failures)
@@ -895,7 +899,7 @@ def _scoped_dependency_receipt(
 ) -> bool:
     """Replay an explicit Core proof; old receipts cannot override incomplete observation."""
     if (
-        declaration.kind != "complete_requires"
+        parse_architecture_rule_kind(declaration.kind) is not ArchitectureRuleKind.COMPLETE_REQUIRES
         or receipt is None
         or not _dependency_receipt_ownership(observation, declaration, receipt)
     ):
@@ -978,12 +982,12 @@ def rule_assessments(
     declarations = [
         record
         for record in records.values()
-        if record.evidence_class == EvidenceClass.DECLARED_RULE and record.kind in RULE_RECORD_KINDS
+        if record.evidence_class == EvidenceClass.DECLARED_RULE and parse_architecture_declaration_kind(record.kind) in RULE_RECORD_KINDS
     ]
     violations: _Counter[str] = _Counter(
         rule_id for record in observation.records("violations") or () for rule_id in record.rule_ids
     )
-    components = [record for record in records.values() if record.kind in _COMPONENT_KINDS]
+    components = [record for record in records.values() if parse_architecture_declaration_kind(record.kind) in _COMPONENT_KINDS]
     receipts = {
         record.rule_ids[0]: record
         for record in observation.records("scope_observations") or ()
@@ -991,6 +995,7 @@ def rule_assessments(
     }
     rows: list[RuleAssessment] = []
     for declaration in declarations:
+        kind = parse_architecture_rule_kind(declaration.kind)
         identifier = declaration.id
         undecided = undecided_by_rule.get(identifier, 0)
         violation_count = violations[identifier]
@@ -998,7 +1003,7 @@ def rule_assessments(
         receipt_complete = _rule_receipt_complete(declaration, receipt)
         scope_complete = _rule_scope_complete(observation, declaration, receipt, complete)
         evaluation_proven = scope_complete and receipt_complete
-        declared_only = declaration.kind == "allowed_dependency"
+        declared_only = kind is ArchitectureRuleKind.ALLOWED_DEPENDENCY
         status, reason = _rule_status(
             declared_only=declared_only,
             violations=violation_count,
@@ -1006,7 +1011,7 @@ def rule_assessments(
             receipt=receipt_complete,
             undecided=undecided,
         )
-        if declaration.kind == "layer_order" and status == RuleAssessmentStatus.PASS:
+        if kind is ArchitectureRuleKind.LAYER_ORDER and status == RuleAssessmentStatus.PASS:
             reason = "Declared requires permissions follow the selected layer order."
         if status == RuleAssessmentStatus.UNKNOWN and scope_complete and not receipt_complete:
             ownership_reason = _ownership_blocker_reason(observation, identifier)
@@ -1070,7 +1075,7 @@ def cycle_scope_receipt_covers(
         (
             record
             for record in observation.records("declarations") or ()
-            if record.id == rule_id and record.kind == "no_component_cycles"
+            if record.id == rule_id and parse_architecture_rule_kind(record.kind) is ArchitectureRuleKind.NO_COMPONENT_CYCLES
         ),
         None,
     )
@@ -1145,7 +1150,7 @@ def baseline_fingerprint_covered(
     cycles = {
         record.id: record
         for record in observation.records("declarations") or ()
-        if record.kind == "no_component_cycles"
+        if parse_architecture_rule_kind(record.kind) is ArchitectureRuleKind.NO_COMPONENT_CYCLES
     }
     for rule_id in fingerprint.rules:
         if rule_id not in cycles:

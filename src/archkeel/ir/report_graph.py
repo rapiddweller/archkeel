@@ -7,6 +7,10 @@ import json
 from dataclasses import asdict
 
 from archkeel.ir.architecture_graph import (
+    ArchitectureDeclarationKind,
+    parse_architecture_declaration_kind,
+)
+from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     ArchitectureReport,
     AssessmentStatus,
@@ -31,7 +35,6 @@ from archkeel.ir.interfaces import component_owners, owner_of
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.model import (
     TARGET_GRAPH_RECORD_KINDS,
-    UML_TARGET_KIND,
     Observation,
     Record,
     Verdict,
@@ -46,10 +49,10 @@ def architecture_report(model: Observation) -> ArchitectureReport:
         (
             item
             for item in model.records("declarations") or ()
-            if item.kind in TARGET_GRAPH_RECORD_KINDS
+            if parse_architecture_declaration_kind(item.kind) in TARGET_GRAPH_RECORD_KINDS
             and item.id
             == stable_id(
-                "UML-TARGET" if item.kind == UML_TARGET_KIND else "ARCHITECTURE-TARGET",
+                "UML-TARGET" if parse_architecture_declaration_kind(item.kind) is ArchitectureDeclarationKind.UML_TARGET else "ARCHITECTURE-TARGET",
                 model.contract.path,
             )
         ),

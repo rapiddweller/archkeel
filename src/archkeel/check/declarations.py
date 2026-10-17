@@ -10,6 +10,9 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import assert_never
 
+from archkeel.ir.architecture_graph import (
+    ArchitectureDeclarationKind,
+)
 from archkeel.ir.codec import (
     ContractInputError,
     ContractVersionError,
@@ -368,7 +371,7 @@ def _module_target_records(
                 item_id=stable_id("MODULE-TARGET-INVENTORY", scope),
                 evidence_class=EvidenceClass.DECLARED_RULE,
                 area="module_targets",
-                kind="module_target",
+                kind=str(ArchitectureDeclarationKind.MODULE_TARGET),
                 title="Declared module inventory",
                 subjects=[],
                 provenance=[contract_path],
@@ -383,7 +386,7 @@ def _module_target_records(
             item_id=stable_id("MODULE-TARGET", scope, target.path),
             evidence_class=EvidenceClass.DECLARED_RULE,
             area="module_targets",
-            kind="module_target",
+            kind=str(ArchitectureDeclarationKind.MODULE_TARGET),
             title=target.path,
             subjects=[target.path],
             provenance=[contract_path],
@@ -423,7 +426,7 @@ def project_inside_declarations(
             item_id=component.id,
             evidence_class=EvidenceClass.DECLARED_RULE,
             area="components",
-            kind="inside_component_responsibility",
+            kind=str(ArchitectureDeclarationKind.INSIDE_COMPONENT_RESPONSIBILITY),
             title=component.label,
             subjects=list(component.packages),
             provenance=list(component.provenance),
@@ -505,7 +508,7 @@ def project_declarations(
                 item_id=component.id,
                 evidence_class=EvidenceClass.DECLARED_RULE,
                 area="components",
-                kind="component_responsibility",
+                kind=str(ArchitectureDeclarationKind.COMPONENT_RESPONSIBILITY),
                 title=component.label,
                 subjects=list(component.packages),
                 provenance=list(component.provenance),
@@ -589,7 +592,7 @@ def project_declarations(
                 item_id=public_api_id(api),
                 evidence_class=EvidenceClass.DECLARED_RULE,
                 area="api_surface",
-                kind="declared_public_api",
+                kind=str(ArchitectureDeclarationKind.DECLARED_PUBLIC_API),
                 title=api,
                 subjects=[api],
                 provenance=list(declarations.public_api_provenance),
@@ -631,7 +634,7 @@ def project_declarations(
                 item_id=owner.id,
                 evidence_class=EvidenceClass.DECLARED_RULE,
                 area="spot_ownership",
-                kind="spot_owner",
+                kind=str(ArchitectureDeclarationKind.SPOT_OWNER),
                 title=owner.label,
                 subjects=[owner.owner],
                 provenance=list(owner.provenance),
@@ -671,7 +674,7 @@ def project_declarations(
                 item_id="COMPAT-MIGRATION-WORK",
                 evidence_class=EvidenceClass.DECLARED_RULE,
                 area="compatibility",
-                kind="compatibility_migration_work",
+                kind=str(ArchitectureDeclarationKind.COMPATIBILITY_MIGRATION_WORK),
                 title="Migration compatibility shims remain",
                 subjects=list(migration),
                 provenance=[contract_path],

@@ -9,6 +9,12 @@ import hashlib
 from pathlib import Path, PurePosixPath
 from typing import Literal
 
+from archkeel.ir.architecture_graph import (
+    ArchitectureDeclarationKind,
+    ArchitectureRuleKind,
+    parse_architecture_declaration_kind,
+    parse_architecture_rule_kind,
+)
 from archkeel.ir.codec import (
     ContractInputError,
     InsideContractMount,
@@ -151,7 +157,7 @@ def _metric(
 
 def _metrics(scan: ScanResult, contract: ArchitectureContract, profile: Profile) -> list[RawRecord]:
     dependency_violations = [
-        item for item in scan.violations if item["kind"] == "forbidden_dependency"
+        item for item in scan.violations if parse_architecture_rule_kind(item["kind"]) is ArchitectureRuleKind.FORBIDDEN_DEPENDENCY
     ]
     private_crossings = [
         item
@@ -435,7 +441,7 @@ def _dart_target_names(
             paths_by_name.setdefault(name, set()).add(path)
     for record in records:
         path = record["data"].get("path")
-        if record["kind"] != "module_target" or not isinstance(path, str):
+        if parse_architecture_declaration_kind(record["kind"]) is not ArchitectureDeclarationKind.MODULE_TARGET or not isinstance(path, str):
             continue
         name = _declared_module_name(path, roots, namespace, Language.DART)
         if name is not None:
@@ -495,7 +501,7 @@ def _declaration_records(
     )
     for record in records:
         data = record["data"]
-        if record["kind"] != "module_target" or "path" not in data:
+        if parse_architecture_declaration_kind(record["kind"]) is not ArchitectureDeclarationKind.MODULE_TARGET or "path" not in data:
             continue
         path = data["path"]
         if not isinstance(path, str):
@@ -690,7 +696,7 @@ def _certify_dependency_scopes(
     """Bind complete requires receipts to validated physical inventory and runtime."""
     if scan.coverage["status"] == "PASS":
         return
-    requires = {item["id"] for item in declarations if item["kind"] == "complete_requires"}
+    requires = {item["id"] for item in declarations if parse_architecture_rule_kind(item["kind"]) is ArchitectureRuleKind.COMPLETE_REQUIRES}
     receipts = [
         item
         for item in scan.scope_observations

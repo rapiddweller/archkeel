@@ -9,6 +9,10 @@ from collections.abc import Iterable
 from dataclasses import replace
 from typing import Final
 
+from archkeel.ir.architecture_graph import (
+    ArchitectureDeclarationKind,
+    parse_architecture_declaration_kind,
+)
 from archkeel.ir.baseline import KnownViolation
 from archkeel.ir.codec import InsideContractMount
 from archkeel.ir.measurements import NameBudgetKind
@@ -478,7 +482,7 @@ def _published_api_types(observation: Observation) -> dict[str, tuple[str, ...]]
     """
     types: dict[str, tuple[str, ...]] = {}
     for record in observation.records("declarations") or ():
-        if record.kind != "declared_public_api":
+        if parse_architecture_declaration_kind(record.kind) is not ArchitectureDeclarationKind.DECLARED_PUBLIC_API:
             continue
         entry = text_value(record.data.get("qualified_name"))
         exposed = record.data.get("types")

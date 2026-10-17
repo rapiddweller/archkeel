@@ -5,6 +5,12 @@
 
 from __future__ import annotations
 
+from archkeel.ir.architecture_graph import (
+    ArchitectureDeclarationKind,
+    ArchitectureRuleKind,
+    parse_architecture_declaration_kind,
+    parse_architecture_rule_kind,
+)
 from archkeel.ir.model import (
     ArchitectureContract,
     Diagnostic,
@@ -38,7 +44,7 @@ def _inside_pointers(contract: ArchitectureContract, observation: Observation) -
     inside_parents = {
         f"{parent}:{record.title}": parent
         for record in declarations
-        if record.kind == "inside_component_responsibility"
+        if parse_architecture_declaration_kind(record.kind) is ArchitectureDeclarationKind.INSIDE_COMPONENT_RESPONSIBILITY
         and record.data.get("inside") is not None
         and (parent := text_value(record.data.get("parent_id"))) is not None
     }
@@ -145,12 +151,12 @@ def observation_diagnostics(
                 rule_id,
                 (
                     f"The declared requires permission violates the layer order: {record.title}"
-                    if record.kind == "layer_order"
+                    if parse_architecture_rule_kind(record.kind) is ArchitectureRuleKind.LAYER_ORDER
                     else f"The observed code violates the declared rule: {record.title}"
                 ),
                 (
                     "Change the permission or layer, or amend the order with owner approval."
-                    if record.kind == "layer_order"
+                    if parse_architecture_rule_kind(record.kind) is ArchitectureRuleKind.LAYER_ORDER
                     else VIOLATION_REMEDY
                 ),
                 locations,

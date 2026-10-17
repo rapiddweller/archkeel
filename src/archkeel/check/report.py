@@ -10,6 +10,10 @@ from pathlib import Path
 from typing import Literal as _Literal
 
 from archkeel.ir.architecture_graph import (
+    ArchitectureRuleKind,
+    parse_architecture_rule_kind,
+)
+from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     ArchitectureReport,
     ComponentIntent,
@@ -111,7 +115,7 @@ def _baseline_report(
     cycle_rules = frozenset(
         record.id
         for record in model.records("declarations") or ()
-        if record.kind == "no_component_cycles"
+        if parse_architecture_rule_kind(record.kind) is ArchitectureRuleKind.NO_COMPONENT_CYCLES
         and any(
             cycle_scope_receipt_covers(item.fingerprint, record.id, model)
             for item in (*known.violations, *current)

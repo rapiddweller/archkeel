@@ -23,6 +23,11 @@ from pathlib import Path
 from types import FrameType
 from typing import Any
 
+from archkeel.ir.architecture_graph import (
+    ArchitectureRuleKind,
+    parse_architecture_declaration_kind,
+    parse_architecture_rule_kind,
+)
 from archkeel.check.evaluation.evaluate import _inside_rule_results
 from archkeel.check.evaluation.rules import (
     _boundary_rule_positions,
@@ -171,11 +176,11 @@ def _import_ledgers(model: dict, calls: list) -> dict[str, dict]:
             else arguments["contract"].rules
         )
         kind = (
-            "forbidden_dependency"
+            ArchitectureRuleKind.FORBIDDEN_DEPENDENCY
             if function is _forbidden_dependency_verdicts
-            else "complete_requires"
+            else ArchitectureRuleKind.COMPLETE_REQUIRES
             if function in (_requires_import_assessment, requires_violations)
-            else "interface_boundary"
+            else ArchitectureRuleKind.INTERFACE_BOUNDARY
         )
         for rule in rules:
             if rule.kind != kind:
@@ -189,7 +194,7 @@ def _import_ledgers(model: dict, calls: list) -> dict[str, dict]:
                     "evaluations": [],
                 },
             )
-            if kind == "complete_requires":
+            if kind is ArchitectureRuleKind.COMPLETE_REQUIRES:
                 ledger.setdefault("receipt_id", None)
             if result is None:
                 completions.setdefault(rule.id, []).append(
@@ -291,12 +296,13 @@ def _scope_ledgers(model: dict, calls: list) -> dict[str, dict]:
     ledgers = {}
     modules = {row["id"]: row for row in model["modules"]}
     for rule in model["declarations"]:
-        if rule["kind"] not in RULE_RECORD_KINDS or rule["kind"] in {
-            "allowed_dependency",
-            "complete_requires",
-            "boundary_types",
-            "forbidden_dependency",
-            "interface_boundary",
+        kind = parse_architecture_declaration_kind(rule["kind"])
+        if kind not in RULE_RECORD_KINDS or kind in {
+            ArchitectureRuleKind.ALLOWED_DEPENDENCY,
+            ArchitectureRuleKind.COMPLETE_REQUIRES,
+            ArchitectureRuleKind.BOUNDARY_TYPES,
+            ArchitectureRuleKind.FORBIDDEN_DEPENDENCY,
+            ArchitectureRuleKind.INTERFACE_BOUNDARY,
         }:
             continue
         identifier = rule["id"]
@@ -566,7 +572,8 @@ def _rule_measures(
         )
     }
     for rule in model["declarations"]:
-        if rule["kind"] not in RULE_RECORD_KINDS:
+        kind = parse_architecture_declaration_kind(rule["kind"])
+        if kind not in RULE_RECORD_KINDS:
             continue
         identifier = rule["id"]
         unknowns = [row for row in model["unknowns"] if identifier in row["rule_ids"]]
@@ -625,11 +632,11 @@ def _rule_measures(
                 gaps.append("Import capture or complete evaluator scope is unproven.")
             if scope is not None and not scope["scope_complete"]:
                 gaps.append("Observed-scope producer receipt or complete coverage is unproven.")
-        if rule["kind"] == "boundary_types" and scope_gaps:
+        if kind is ArchitectureRuleKind.BOUNDARY_TYPES and scope_gaps:
             gaps.append(
                 "Rule-attributed route/scope evidence prevents proving complete boundary scope."
             )
-        if rule["kind"] == "boundary_types" and api_limits:
+        if kind is ArchitectureRuleKind.BOUNDARY_TYPES and api_limits:
             gaps.append(
                 "Global API scope remains unproven; API limits are not attributed to this rule."
             )
@@ -640,7 +647,7 @@ def _rule_measures(
                 "id": identifier,
                 "kind": rule["kind"],
                 "decision_unit": "type_position"
-                if rule["kind"] == "boundary_types"
+                if kind is ArchitectureRuleKind.BOUNDARY_TYPES
                 else "import"
                 if imports is not None
                 else "observed_scope"
@@ -690,7 +697,7 @@ def _rule_measures(
                 )
                 if reconciled
                 else None,
-                "scope_gap_ids": scope_gaps if rule["kind"] == "boundary_types" else [],
+                "scope_gap_ids": scope_gaps if kind is ArchitectureRuleKind.BOUNDARY_TYPES else [],
                 "allowance_records": sum(
                     identifier in row["rule_ids"] and row["kind"] == "boundary_type_allowance"
                     for row in model["typing_signals"] or ()
@@ -743,7 +750,7 @@ def measure(root: Path, *, repeats: int = 3) -> tuple[dict, dict]:
         _import_ledgers(model, calls),
         _scope_ledgers(model, calls),
     )
-    boundaries = sum(row["kind"] == "boundary_types" for row in rows)
+    boundaries = sum(parse_architecture_rule_kind(row["kind"]) is ArchitectureRuleKind.BOUNDARY_TYPES for row in rows)
     model["python_version"] = platform.python_version()
     return {
         "measurement_version": 3,

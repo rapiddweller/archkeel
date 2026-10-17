@@ -21,6 +21,10 @@ import builtins as _builtins
 from collections import defaultdict
 from dataclasses import dataclass
 
+from archkeel.ir.architecture_graph import (
+    ArchitectureDeclarationKind,
+    parse_architecture_declaration_kind,
+)
 from .architecture_graph import ResolutionKind
 from .model import (
     FUNCTION_KINDS,
@@ -74,7 +78,7 @@ def _owners(observation: Observation) -> tuple[tuple[str, str], ...]:
     return tuple(
         (owner, text_value(record.data.get("responsibility")))
         for record in observation.records("declarations") or ()
-        if record.kind == "spot_owner" and (owner := text_value(record.data.get("owner")))
+        if parse_architecture_declaration_kind(record.kind) is ArchitectureDeclarationKind.SPOT_OWNER and (owner := text_value(record.data.get("owner")))
     )
 
 

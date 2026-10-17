@@ -7,6 +7,10 @@ from collections import Counter, defaultdict
 from dataclasses import asdict, replace
 from pathlib import PurePosixPath
 
+from archkeel.ir.architecture_graph import (
+    ArchitectureRuleKind,
+    parse_architecture_rule_kind,
+)
 from archkeel.ir.architecture_graph import ArchitectureGraph, ArchitectureReport, Coverage, Entity
 from archkeel.ir.architecture_graph import AssessmentStatus as _AssessmentStatus
 from archkeel.ir.architecture_graph import CoverageStatus as _CoverageStatus
@@ -689,7 +693,7 @@ def _declared_permissions(
     declared: list[dict[str, object]] = []
     for permission in projection.permission_rules:
         rule = permission.declaration
-        if rule.kind != "boundary_types":
+        if parse_architecture_rule_kind(rule.kind) is not ArchitectureRuleKind.BOUNDARY_TYPES:
             continue
         positions = rule.data.get("allowed_positions")
         if not isinstance(positions, tuple):

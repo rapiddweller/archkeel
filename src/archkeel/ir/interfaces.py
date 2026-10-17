@@ -8,6 +8,10 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 
+from archkeel.ir.architecture_graph import (
+    ArchitectureDeclarationKind,
+    parse_architecture_declaration_kind,
+)
 from .architecture_graph import EntityKind
 from .facts import (
     SourceNameVisibility,
@@ -119,7 +123,7 @@ def component_owners(
     declarations = observation.records("declarations") or ()
     components = []
     for record in declarations:
-        if record.kind != "component_responsibility":
+        if parse_architecture_declaration_kind(record.kind) is not ArchitectureDeclarationKind.COMPONENT_RESPONSIBILITY:
             continue
         exact_modules = record.data.get("exact_modules")
         components.append(
@@ -229,7 +233,7 @@ def _facade_declarations(observation: Observation) -> dict[tuple[str, str], froz
     """Return declared facade modules, where None means the whole module is declared."""
     result: dict[tuple[str, str], frozenset[str] | None] = {}
     for record in observation.records("declarations") or ():
-        if record.kind != "component_responsibility":
+        if parse_architecture_declaration_kind(record.kind) is not ArchitectureDeclarationKind.COMPONENT_RESPONSIBILITY:
             continue
         public = record.data.get("public")
         if not isinstance(public, tuple):

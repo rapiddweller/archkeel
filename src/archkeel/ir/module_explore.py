@@ -8,6 +8,10 @@ from dataclasses import dataclass, replace
 from statistics import median
 from typing import Literal
 
+from archkeel.ir.architecture_graph import (
+    ArchitectureRuleKind,
+    parse_architecture_rule_kind,
+)
 from .architecture_graph import (
     ArchitectureGraph,
     ArchitectureReport,
@@ -120,11 +124,12 @@ def _rule_applies(
     scope_ids: dict[str, str],
     selections: dict[str, DependencySelection],
 ) -> bool:
-    if declaration is None or assessment.kind not in {
-        "complete_requires",
-        "forbidden_dependency",
-        "interface_boundary",
-        "sibling_isolation",
+    kind = parse_architecture_rule_kind(assessment.kind)
+    if declaration is None or kind not in {
+        ArchitectureRuleKind.COMPLETE_REQUIRES,
+        ArchitectureRuleKind.FORBIDDEN_DEPENDENCY,
+        ArchitectureRuleKind.INTERFACE_BOUNDARY,
+        ArchitectureRuleKind.SIBLING_ISOLATION,
     }:
         return False
     if (
@@ -132,7 +137,7 @@ def _rule_applies(
         and declaration.data.get("include_type_checking", True) is False
     ):
         return False
-    if assessment.kind == "forbidden_dependency":
+    if kind is ArchitectureRuleKind.FORBIDDEN_DEPENDENCY:
         allowed_sources = declaration.data.get("allowed_sources")
         if isinstance(allowed_sources, tuple) and site.data.get("source_module") in allowed_sources:
             return False
@@ -150,16 +155,16 @@ def _rule_applies(
                 or target_intent.parent_id != parent
             ):
                 continue
-            if assessment.kind == "forbidden_dependency":
+            if kind is ArchitectureRuleKind.FORBIDDEN_DEPENDENCY:
                 selection = selections[declaration.id]
                 if selection.source.matches(source) and selection.target.matches(target):
                     return True
-            elif assessment.kind == "interface_boundary":
+            elif kind is ArchitectureRuleKind.INTERFACE_BOUNDARY:
                 if target_intent.public is not None and not any(
-                    item.kind == "forbidden_dependency" for item in site_findings
+                    parse_architecture_rule_kind(item.kind) is ArchitectureRuleKind.FORBIDDEN_DEPENDENCY for item in site_findings
                 ):
                     return True
-            elif assessment.kind == "sibling_isolation":
+            elif kind is ArchitectureRuleKind.SIBLING_ISOLATION:
                 source_member = next(
                     (item for item in declaration.subjects if in_scope(source, item)), None
                 )
@@ -184,7 +189,7 @@ def _dependency_selections(
 ) -> dict[str, DependencySelection]:
     selections = {}
     for item in declarations.values():
-        if item.kind != "forbidden_dependency":
+        if parse_architecture_rule_kind(item.kind) is not ArchitectureRuleKind.FORBIDDEN_DEPENDENCY:
             continue
         parent_scope = text_value(item.data.get("parent_id")) or None
         if parent_scope is not None and parent_scope not in scope_ids:
@@ -453,7 +458,8 @@ def _cell_receipt_proven(
     source: str,
     target: str,
 ) -> bool:
-    subjects = {source} if assessment.kind == "forbidden_dependency" else {source, target}
+    kind = parse_architecture_rule_kind(assessment.kind)
+    subjects = {source} if kind is ArchitectureRuleKind.FORBIDDEN_DEPENDENCY else {source, target}
     return any(
         record.kind == "rule_evaluation"
         and assessment.id in record.rule_ids

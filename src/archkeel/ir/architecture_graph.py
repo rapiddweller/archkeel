@@ -14,7 +14,7 @@ from typing import Literal
 
 from archkeel.ir.facts import DefinitionBranchKind as DefinitionBranchKind
 from archkeel.ir.facts import DefinitionContextKind as DefinitionContextKind
-from archkeel.ir.facts import Evidence, Language
+from archkeel.ir.facts import Evidence, JsonValue, Language, RawJson
 from archkeel.ir.facts import ParameterKind as ParameterKind
 
 
@@ -175,6 +175,42 @@ class ArchitectureRuleKind(StrEnum):
     SIBLING_ISOLATION = "sibling_isolation"
     SYMBOL_PLACEMENT = "symbol_placement"
     BOUNDARY_TYPES = "boundary_types"
+
+
+class ArchitectureDeclarationKind(StrEnum):
+    COMPONENT_RESPONSIBILITY = "component_responsibility"
+    INSIDE_COMPONENT_RESPONSIBILITY = "inside_component_responsibility"
+    MODULE_TARGET = "module_target"
+    DECLARED_PUBLIC_API = "declared_public_api"
+    SPOT_OWNER = "spot_owner"
+    COMPATIBILITY_MIGRATION_WORK = "compatibility_migration_work"
+    UML_TARGET = "uml_target"
+    ARCHITECTURE_TARGET = "architecture_target"
+
+
+def parse_architecture_rule_kind(value: JsonValue | RawJson) -> ArchitectureRuleKind | None:
+    """Recognize known rules without closing raw record extension tags."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return ArchitectureRuleKind(value)
+    except ValueError:
+        return None
+
+
+def parse_architecture_declaration_kind(
+    value: JsonValue | RawJson,
+) -> ArchitectureRuleKind | ArchitectureDeclarationKind | None:
+    """Recognize authored rules and declarations while preserving unknown data."""
+    kind = parse_architecture_rule_kind(value)
+    if kind is not None:
+        return kind
+    if not isinstance(value, str):
+        return None
+    try:
+        return ArchitectureDeclarationKind(value)
+    except ValueError:
+        return None
 
 
 class ArchitectureRuleGrammar:

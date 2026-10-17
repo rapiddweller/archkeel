@@ -18,6 +18,10 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 
+from archkeel.ir.architecture_graph import (
+    ArchitectureDeclarationKind,
+    parse_architecture_declaration_kind,
+)
 from .interfaces import owner_of
 from .model import (
     ComponentOwnership,
@@ -82,7 +86,7 @@ class InsideLevel:
 def _declared_insides(observation: Observation) -> dict[str, list[Record]]:
     grouped: dict[str, list[Record]] = defaultdict(list)
     for record in observation.records("declarations") or ():
-        if record.kind != "inside_component_responsibility":
+        if parse_architecture_declaration_kind(record.kind) is not ArchitectureDeclarationKind.INSIDE_COMPONENT_RESPONSIBILITY:
             continue
         if parent := text_value(record.data.get("parent_id")):
             grouped[parent].append(record)
@@ -118,9 +122,9 @@ def _declared_scopes(
     scopes = {
         record.title: (record.subjects, _exact_modules(record))
         for record in records
-        if record.kind == "component_responsibility"
+        if parse_architecture_declaration_kind(record.kind) is ArchitectureDeclarationKind.COMPONENT_RESPONSIBILITY
     }
-    nested = [record for record in records if record.kind == "inside_component_responsibility"]
+    nested = [record for record in records if parse_architecture_declaration_kind(record.kind) is ArchitectureDeclarationKind.INSIDE_COMPONENT_RESPONSIBILITY]
     while nested:
         pending = []
         for record in nested:

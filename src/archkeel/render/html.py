@@ -15,6 +15,10 @@ from pathlib import PurePosixPath as _PurePosixPath
 from typing import TypeAlias
 
 from archkeel.ir.architecture_graph import (
+    ArchitectureDeclarationKind,
+    parse_architecture_declaration_kind,
+)
+from archkeel.ir.architecture_graph import (
     ArchitectureReport,
     RuleAssessment,
     RuleAssessmentStatus,
@@ -1142,7 +1146,7 @@ def _compatibility_migration_work(observation: Observation) -> str:
         {
             subject
             for record in observation.records("declarations") or ()
-            if record.kind == "compatibility_migration_work"
+            if parse_architecture_declaration_kind(record.kind) is ArchitectureDeclarationKind.COMPATIBILITY_MIGRATION_WORK
             for subject in record.subjects
         }
     )

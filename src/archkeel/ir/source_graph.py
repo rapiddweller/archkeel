@@ -13,6 +13,9 @@ from dataclasses import asdict, replace
 from pathlib import PurePosixPath
 
 from archkeel.ir.architecture_graph import (
+    parse_architecture_declaration_kind,
+)
+from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     Coverage,
     CoverageStatus,
@@ -100,7 +103,7 @@ def _inventory_binding(model: Observation) -> str:
             "declarations": [
                 asdict(r)
                 for r in model.records("declarations") or ()
-                if r.kind not in TARGET_GRAPH_RECORD_KINDS
+                if parse_architecture_declaration_kind(r.kind) not in TARGET_GRAPH_RECORD_KINDS
             ],
             "sections": {
                 name: [asdict(r) for r in model.records(name) or ()]
