@@ -37,9 +37,9 @@
 |559|1f9cd588c21d2e485e8d7cf75b4c7a7e41ba793d →cd54501a8bd95facfd7e3e71929595c920fc2360|d2c2e3daf0cbb441c1fb7d3d786b469ed94be453|cef2d99ac1aa6e3be4710c5df03f89ab57c0dde5|
 |561|5933ffbbfd588ac96e36748de937cb1f6e739655 →62fd95e68b07df1149e30a9690bd58f7129fa59b|64b3a0637a40b25df6baafef5299ae85b487d587|950520fd126ca05744c19066bb28ccbef5627964|
 |572|0e3b8a7f62b9b13417cda78e11b52d0de82986cd →620374305b7d45383458f62bccd20a183fdcd82a|dace9a80e1bdc8419ba64804bfcf97f22970087f, tree-identical to source-approvedf5e9f38b5671e3f1f8eb1ecd613c78e638e75fe5|3fdda84e4a58b0ac3ed15a8d28c761568d4d7809;570 closed|
-|569|0e3b8a7f62b9b13417cda78e11b52d0de82986cd →6d03204f1b804be71386a036337fd17b4c54e351 plus atomiccf963 below|55f416d462a5b9ff44f761ed725eae4c5f9cf05b, Source98cd and actual metadata independently approved|Pending exact final NoWrite/requiredCI; closes564 only after merge|
+|569|0e3b8a7f62b9b13417cda78e11b52d0de82986cd →6d03204f1b804be71386a036337fd17b4c54e351 plus atomiccf963 below|55f416d462a5b9ff44f761ed725eae4c5f9cf05b, Source98cd and actual metadata independently approved|113318809036cfa4550b2b8598dab63c0b548878;564 closed|
 
-Actual Main checkpoint3fdda84e4a58b0ac3ed15a8d28c761568d4d7809 has tree56624f122d0fcfa7f8b07a6ed725f1f22cef636d, byte-identical to final572dace9. #572 completed3450Core/48Report/5Publisher/2Mermaid and exact final NoWrite865/52/58/0. Its 80 native/quality and317 regression controls passed; full H/Compass runtime wire bytes stayed identical. Four new conservative PARTIAL sites in _binding_sites were separately matched by AST/targets/reason/multiplicity, without changed existing records or UNKNOWN identities. #570 is closed; #542 remains open.
+Final integration base is actual Main113318809036cfa4550b2b8598dab63c0b548878 with tree0b33fa7963d40a7bbe33fd50558aa14c6afc15ce, byte-identical to final56955f416d. #569 completed3494Core/48Report/5Publisher/2Mermaid, ordinary replay and exact final NoWrite865/52/58/0, independent Source+actual-generated-metadata approval. #564 is closed. Earlier572 base3fdda has tree56624f122d0fcfa7f8b07a6ed725f1f22cef636d, byte-identical to final572dace9. #572 completed3450Core/48Report/5Publisher/2Mermaid and exact final NoWrite865/52/58/0. Its 80 native/quality and317 regression controls passed; full H/Compass runtime wire bytes stayed identical. Four new conservative PARTIAL sites in _binding_sites were separately matched by AST/targets/reason/multiplicity, without changed existing records or UNKNOWN identities. #570 is closed; #542 remains open.
 
 ## Known immutable remaining ranges
 
@@ -96,6 +96,24 @@ Awaiting Root's final explicit bounded ranges for StructureLevel(component/packa
 
 Latest evolving Root comparison referenceff885e1c7f66afb2ede2e60eb4334a824deb9c81 includes598+599 and prior approved owners. Joint normal NoWrite39001250567/job117304451620 passes838/52/58/0, empty failures/diagnostics, clean tracked/untracked state; no budget change. Quality519/strict150 passes. Joint native388 passes/eight failures were traced to an unrelated SourceResolution function-scope guard copied into a constructs-only fixture, causing RuleWithoutSubjects; the earlier missing-document theory was disproved. The exact causal fixture repairff885e1c7f66afb2ede2e60eb4334a824deb9c81→0224cdd2ca3be4a6501a4f584bed80ecd253e941 adds ten lines in tests/test_python_string_predicate_target.py: retain every forbidden-construct guard whose source is the actual constructs module or its declaration; other owner guards retain their own real source fixtures. The production Target remains intact. Fresh eight-control replay is still pending, so this is not yet an all-green final union gate. Root's frozen source is a comparison reference, never an overlay.
 
+## Newly verified bounded existing-owner ranges
+
+Each following compare was read independently and has exact original base==mergebase. They are additions to the final union; no final source freeze is implied.
+
+| Scope | Explicit original base | Frozen feature |
+|---|---|---|
+|visibility|bb3e498b9c43afc954ef9fe7078595983e0b3c2f|bcd0951665735a1f00c85b3a0cb6b88887bd8683|
+|topology|bb3e498b9c43afc954ef9fe7078595983e0b3c2f|5076058e5e7167d5d6df866784e99036149cd47f|
+|git-kind|bb3e498b9c43afc954ef9fe7078595983e0b3c2f|bf21e014fff57e5b963ea6785ae4a4b4f2c48a79|
+|git-kind-final-doc|bf21e014fff57e5b963ea6785ae4a4b4f2c48a79|c2e96e3405930b3d1083b78f33e8486cb10e9fc8|
+|structure-level|bb3e498b9c43afc954ef9fe7078595983e0b3c2f|7ff514624621334247bf89815e4a5f1d59404899|
+
+Git final-doc compare has three paths: baseline, old receipt and the new evidence document. Omit both metadata paths; carry only docs/architecture/typed-git-blob-boundary.md. Every Git production/Target/test blob stays exactly the source-approvedbf21 outcome.
+
+Shared Target rows use exact ID/field unions: IR-COMPARISON-structure responsibilities/provenance preserve Graph and Structure, and TYPES-ENUM-IN-MODEL exact_sources/provenance/rationale preserve Git and Structure. Structure import/alias hunks retain the Graph model import. All Make edits append actual tests before line-continuation backslashes.
+
+Preparation39003032411 composes the prior40 explicit scopes in memory against frozen569Source98cd:377 file applications/199 distinct paths, no conflict, valid Python/JSON syntax, checkout unchanged. Two contextual rulings are explicit: initial predicate UML schema1.1.0 replaces existing1.0.0 under the reviewed predicate Target addition; actual Main browser-runtime-check and feature browser-graph-check are both retained in report failure-prefix tests. This is composition evidence, not native/full/required/final review approval. Four bounded owner ranges and the pending Classifier fixture still require final composition and all final gates.
+
 ## Mandatory atomic compatibility scopes
 
 | Owning scope | Explicit immutable range | Exact intent |
@@ -124,8 +142,8 @@ Latest evolving Root comparison referenceff885e1c7f66afb2ede2e60eb4334a824deb9c8
 **Files:** Existing572/569 source/test files; this ledger only. Interfaces: consumes explicit immutable ranges; produces two independent normal merge SHAs and the final actual Main base.
 
 - [x] Finish572 exact current-base NoWrite, native/full-wire gates and strict requiredCI; normal expected-head merge3fdda,570 closed.
-- [ ] Carry569 original scoped delta plus exactcf963 tests onto actual Main, preserving diagnostics and current code; independent Astra, fresh normal metadata, exact NoWrite/requiredCI; normal merge, close564.
-- [ ] Record final569 merge SHA; the missing initial predicate pair is now verified; fill the four bounded final owner ranges from Root's verified ledger.
+- [x] Carry569 original scoped delta plus exactcf963 tests onto actual Main, preserving diagnostics/current code; independent Source+actualmetadata Astra, fresh normal writer, exact NoWrite/requiredCI; normal merge113318809036cfa4550b2b8598dab63c0b548878,564 closed.
+- [x] Record actual569 merge SHA, initial predicate pair and four bounded existing-owner pairs. Classifier final fixture/frozen final Root source remain pending.
 - [ ] Freeze final Root Source after all included Source fixes have final independent approval and blocked unresolved regressions are actually solved or clearly left open.
 
 ### Task2: Build one reviewable final542 Source carry
