@@ -242,8 +242,8 @@ def test_native_actual_api_weakening_fails_unchanged_target(tmp_path, path, old,
 
 
 @pytest.mark.parametrize(("path", "old", "new"), [
-    ("ir/profiles.py", "dimension == DeltaDimension.API_CROSSINGS", 'dimension == "api_crossings"'),
-    ("check/delta.py", "dimension == _DeltaDimension.CYCLES", 'dimension == "cycles"'),
+    ("ir/profiles.py", "known == DeltaDimension.API_CROSSINGS", 'known == "api_crossings"'),
+    ("check/delta.py", "dimension == _DeltaDimension.COVERAGE:", 'dimension == "coverage":'),
     ("check/expectation.py", "dimension == _DeltaDimension.CYCLES", 'dimension == "cycles"'),
     ("ir/codec_delta.py", "evidence_class is not _EvidenceClass.UNKNOWN", 'evidence_class != "UNKNOWN"'),
 ])

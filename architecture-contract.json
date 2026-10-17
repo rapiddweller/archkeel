@@ -164,7 +164,9 @@
         "archkeel.ir.amendment:AmendmentVersion",
         "archkeel.ir.amendment:AmendmentStatus",
         "archkeel.ir.amendment:Amendment",
-        "archkeel.ir.amendment:verify_amendment"
+        "archkeel.ir.amendment:verify_amendment",
+        "archkeel.ir.profiles:DeltaDimension",
+        "archkeel.ir.profiles:parse_delta_dimension"
       ],
       "responsibilities": [
         "Own immutable source facts, protocol values, governance models and pure derivations."

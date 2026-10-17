@@ -82,6 +82,7 @@ from .facts import (
 from .facts import (
     stable_id as stable_id,
 )
+from .profiles import DeltaDimension as DeltaDimension
 from .host_records import InitialPRHeadEvidence
 from .measurements import MeasurementBudgetName as MeasurementBudgetName
 from .measurements import Measurements

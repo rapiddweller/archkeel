@@ -23,6 +23,7 @@ from archkeel.ir.codec_wire import (
     _string,
     _strings,
 )
+from archkeel.ir.facts import EvidenceClass as _EvidenceClass
 from archkeel.ir.facts import RuntimeRequirementState
 from archkeel.ir.model import DELTA_SCHEMA_VERSION as DELTA_SCHEMA_VERSION
 from archkeel.ir.model import (
@@ -344,7 +345,11 @@ def _parse_semantic_change(raw: RawJson, index: int) -> SemanticChange:
 
 def _parse_delta_unknown(raw: RawJson) -> DeltaUnknown:
     unknown = _exact(raw, {"id", "dimension", "reason", "evidence_class"}, "unknown")
-    if unknown["evidence_class"] != "UNKNOWN":
+    try:
+        evidence_class = _EvidenceClass(unknown["evidence_class"])
+    except (ValueError, TypeError):
+        evidence_class = None
+    if evidence_class is not _EvidenceClass.UNKNOWN:
         raise ValueError("unknown.evidence_class invalid")
     return DeltaUnknown(
         _string(unknown["id"], "unknown.id"),

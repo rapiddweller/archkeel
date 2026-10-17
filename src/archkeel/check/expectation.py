@@ -15,29 +15,37 @@ from typing import Final
 
 from archkeel.ir.baseline import CycleIdentity, is_contraction
 from archkeel.ir.digest import package_digest
+from archkeel.ir.facts import EvidenceClass as _EvidenceClass
 from archkeel.ir.model import ArchitectureDelta, DeltaProvenance, Projection, SemanticChange
 from archkeel.ir.model import ComparisonStatus as _ComparisonStatus
 from archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKind
 from archkeel.ir.model import supports_nullable_delta_counts as _supports_nullable_delta_counts
+from archkeel.ir.profiles import DeltaDimension as _DeltaDimension
 from archkeel.ir.profiles import Profile, delta_dimension_applicable, profile_for
+from archkeel.ir.profiles import parse_delta_dimension as _parse_delta_dimension
 
 from .delta import DELTA_SCHEMA_VERSION as DELTA_SCHEMA_VERSION
-from .delta import SUPPORTED_DIMENSIONS, require_comparable_runtime
+from .delta import SUPPORTED_DIMENSIONS as SUPPORTED_DIMENSIONS
+from .delta import require_comparable_runtime
 from .ratchets import compare_ratchets
 
 EXPECTATION_SCHEMA_VERSION: Final = "1.2.0"
-GUARDRAIL_DIMENSIONS: Final = (
-    "violations",
-    "cycles",
-    "private_crossings",
-    "typing_signals",
-    "unknowns",
-    "dependency_edges",
+GUARDRAIL_DIMENSIONS: Final = tuple(
+    item.value
+    for item in (
+        _DeltaDimension.VIOLATIONS,
+        _DeltaDimension.CYCLES,
+        _DeltaDimension.PRIVATE_CROSSINGS,
+        _DeltaDimension.TYPING_SIGNALS,
+        _DeltaDimension.UNKNOWNS,
+        _DeltaDimension.DEPENDENCY_EDGES,
+    )
 )
 # AD-44: an edge count grows with any new import, so unlike the other five guardrail
 # dimensions its aggregate growth is not itself a regression; only a genuinely new,
 # undeclared edge is. A removed edge cannot violate a boundary, so it is never checked here.
-_COUNT_REGRESSION_DIMENSIONS: Final = frozenset(GUARDRAIL_DIMENSIONS) - {"dependency_edges"}
+_GUARDRAIL_DIMENSIONS: Final = frozenset(_DeltaDimension(name) for name in GUARDRAIL_DIMENSIONS)
+_COUNT_REGRESSION_DIMENSIONS: Final = _GUARDRAIL_DIMENSIONS - {_DeltaDimension.DEPENDENCY_EDGES}
 GUARDRAIL_KEYS: Final = (
     "no_new_violations",
     "no_new_cycles",
@@ -57,7 +65,7 @@ class ExpectationError(ValueError):
 class ExpectedSemanticChange:
     """One selected deterministic delta fingerprint and its expected cardinality."""
 
-    dimension: str
+    dimension: _DeltaDimension
     change: _KnownSemanticChangeKind
     fingerprint: str
     before_count: int
@@ -66,6 +74,8 @@ class ExpectedSemanticChange:
     def __post_init__(self) -> None:
         if not isinstance(self.change, _KnownSemanticChangeKind):
             _builtins.object.__setattr__(self, "change", _KnownSemanticChangeKind(self.change))
+        if not isinstance(self.dimension, _DeltaDimension):
+            _builtins.object.__setattr__(self, "dimension", _DeltaDimension(self.dimension))
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,7 +128,11 @@ def parse_expectation(raw: object) -> ArchitectureExpectation:
         raise ExpectationError(
             f"architecture expectation schema_version must be {EXPECTATION_SCHEMA_VERSION}"
         )
-    if expectation["evidence_class"] != "HYPOTHESIS":
+    try:
+        evidence_class = _EvidenceClass(expectation["evidence_class"])
+    except (ValueError, TypeError):
+        evidence_class = None
+    if evidence_class is not _EvidenceClass.HYPOTHESIS:
         raise ExpectationError("architecture expectation evidence_class must be HYPOTHESIS")
 
     checker_digest = _require_sha256(expectation["checker_digest"], "checker_digest")
@@ -230,21 +244,21 @@ def _require_profile_coverage(delta: ArchitectureDelta) -> Profile:
     ):
         raise ExpectationError("delta identities disagree with comparison provenance")
     dimensions = {item.name: item for item in delta.dimensions}
-    if len(dimensions) != len(delta.dimensions) or set(dimensions) != set(SUPPORTED_DIMENSIONS):
+    if len(dimensions) != len(delta.dimensions) or set(dimensions) != set(_DeltaDimension):
         raise ExpectationError("delta must contain every dimension exactly once")
     supported = {
         item.name for item in delta.dimensions if item.status is _ComparisonStatus.SUPPORTED
     }
     unknown = {item.name for item in delta.dimensions if item.status is _ComparisonStatus.UNKNOWN}
     applicable = {
-        name for name in SUPPORTED_DIMENSIONS if delta_dimension_applicable(profile, name)
+        name for name in _DeltaDimension if delta_dimension_applicable(profile, name)
     }
     for name in sorted(applicable):
         if dimensions[name].status is not _ComparisonStatus.SUPPORTED:
             raise ExpectationError(f"delta dimension {name} is not safely comparable")
         _require_count(dimensions[name].before_count, f"dimensions.{name}.before_count")
         _require_count(dimensions[name].after_count, f"dimensions.{name}.after_count")
-    if supported != applicable or unknown != set(SUPPORTED_DIMENSIONS) - applicable:
+    if supported != applicable or unknown != set(_DeltaDimension) - applicable:
         raise ExpectationError("delta dimension status disagrees with profile applicability")
     if {item.dimension for item in delta.unknowns} != unknown:
         raise ExpectationError("delta UNKNOWN evidence disagrees with dimension status")
@@ -270,23 +284,25 @@ def _require_profile_coverage(delta: ArchitectureDelta) -> Profile:
         for name in unknown
     ):
         raise ExpectationError("unavailable delta dimensions cannot claim measured counts")
-    if any(change.dimension not in applicable for change in delta.semantic_changes):
+    if any(_parse_delta_dimension(change.dimension) not in applicable for change in delta.semantic_changes):
         raise ExpectationError("semantic change claims an unavailable dimension")
     return profile
 
 
 def _require_dimension_counts(
     delta_model: ArchitectureDelta, expectation: ArchitectureExpectation, profile: Profile
-) -> dict[str, tuple[int, int]]:
+) -> dict[_DeltaDimension, tuple[int, int]]:
     dimensions = {item.name: item for item in delta_model.dimensions}
     required_dimensions = {
-        *(name for name in GUARDRAIL_DIMENSIONS if delta_dimension_applicable(profile, name)),
+        *(name for name in _GUARDRAIL_DIMENSIONS if delta_dimension_applicable(profile, name)),
         *(item.dimension for item in expectation.selected_changes),
     }
-    dimension_counts: dict[str, tuple[int, int]] = {}
+    dimension_counts: dict[_DeltaDimension, tuple[int, int]] = {}
     for dimension in sorted(required_dimensions):
-        if dimension not in SUPPORTED_DIMENSIONS:
+        known = _parse_delta_dimension(dimension)
+        if known is None:
             raise ExpectationError(f"unsupported expectation dimension: {dimension}")
+        dimension = known
         if not delta_dimension_applicable(profile, dimension):
             raise ExpectationError(
                 f"expectation dimension {dimension} is unavailable for {profile.analyzer}"
@@ -304,15 +320,16 @@ def _require_dimension_counts(
 def _index_semantic_changes(
     semantic_changes: tuple[SemanticChange, ...],
 ) -> tuple[
-    dict[tuple[str, _KnownSemanticChangeKind, str], tuple[int, int]],
+    dict[tuple[_DeltaDimension, _KnownSemanticChangeKind, str], tuple[int, int]],
     list[CycleIdentity],
     dict[str, CycleIdentity],
 ]:
-    actual_changes: dict[tuple[str, _KnownSemanticChangeKind, str], tuple[int, int]] = {}
+    actual_changes: dict[tuple[_DeltaDimension, _KnownSemanticChangeKind, str], tuple[int, int]] = {}
     removed_cycles: list[CycleIdentity] = []
     added_cycles: dict[str, CycleIdentity] = {}
     for index, change in enumerate(semantic_changes):
-        if change.dimension not in SUPPORTED_DIMENSIONS:
+        dimension = _parse_delta_dimension(change.dimension)
+        if dimension is None:
             raise ExpectationError(
                 f"semantic_changes[{index}] has unsupported dimension {change.dimension!r}"
             )
@@ -323,12 +340,12 @@ def _index_semantic_changes(
         _validate_change_counts(
             kind, change.before_count, change.after_count, f"semantic_changes[{index}]"
         )
-        identity = (change.dimension, kind, change.fingerprint)
+        identity = (dimension, kind, change.fingerprint)
         if identity in actual_changes:
-            wire_identity = (change.dimension, str(kind), change.fingerprint)
+            wire_identity = (str(dimension), str(kind), change.fingerprint)
             raise ExpectationError(f"delta repeats semantic fingerprint: {wire_identity}")
         actual_changes[identity] = (change.before_count, change.after_count)
-        if change.dimension == "cycles" and kind in {
+        if dimension == _DeltaDimension.CYCLES and kind in {
             _KnownSemanticChangeKind.ADDED,
             _KnownSemanticChangeKind.REMOVED,
         }:
@@ -345,7 +362,7 @@ def _index_semantic_changes(
 
 def _match_selected_changes(
     selected_changes: tuple[ExpectedSemanticChange, ...],
-    actual_changes: dict[tuple[str, _KnownSemanticChangeKind, str], tuple[int, int]],
+    actual_changes: dict[tuple[_DeltaDimension, _KnownSemanticChangeKind, str], tuple[int, int]],
 ) -> list[str]:
     failures = []
     for selected in selected_changes:
@@ -367,19 +384,19 @@ def _match_selected_changes(
 
 
 def _guardrail_failures(
-    dimension_counts: dict[str, tuple[int, int]],
-    actual_changes: dict[tuple[str, _KnownSemanticChangeKind, str], tuple[int, int]],
+    dimension_counts: dict[_DeltaDimension, tuple[int, int]],
+    actual_changes: dict[tuple[_DeltaDimension, _KnownSemanticChangeKind, str], tuple[int, int]],
     added_cycles: dict[str, CycleIdentity],
     removed_cycles: list[CycleIdentity],
-    declared: set[tuple[str, _KnownSemanticChangeKind, str]],
+    declared: set[tuple[_DeltaDimension, _KnownSemanticChangeKind, str]],
 ) -> list[str]:
     failures = []
     for dimension, (before_count, after_count) in dimension_counts.items():
-        if dimension not in GUARDRAIL_DIMENSIONS:
+        if dimension not in _GUARDRAIL_DIMENSIONS:
             continue
         if dimension in _COUNT_REGRESSION_DIMENSIONS and after_count > before_count:
             failures.append(f"guardrail regression in {dimension}: {before_count}->{after_count}")
-        if dimension == "unknowns":
+        if dimension == _DeltaDimension.UNKNOWNS:
             failures.extend(
                 f"guardrail changed unknowns fingerprint {fingerprint}"
                 for actual_dimension, kind, fingerprint in sorted(actual_changes)
@@ -390,13 +407,13 @@ def _guardrail_failures(
             for actual_dimension, kind, fingerprint in actual_changes
             if actual_dimension == dimension and kind is _KnownSemanticChangeKind.ADDED
         )
-        if dimension == "cycles":
+        if dimension == _DeltaDimension.CYCLES:
             added_fingerprints = [
                 fingerprint
                 for fingerprint in added_fingerprints
                 if not is_contraction(added_cycles[fingerprint], removed_cycles)
             ]
-        if dimension == "dependency_edges":
+        if dimension == _DeltaDimension.DEPENDENCY_EDGES:
             # AD-44: unlike the other five, a named edge is not itself a regression; only
             # one the declaration never mentioned is.
             added_fingerprints = [
@@ -412,7 +429,7 @@ def _guardrail_failures(
 
 
 def _undeclared_change_failures(
-    actual_changes: dict[tuple[str, _KnownSemanticChangeKind, str], tuple[int, int]],
+    actual_changes: dict[tuple[_DeltaDimension, _KnownSemanticChangeKind, str], tuple[int, int]],
 ) -> list[str]:
     return [
         f"undeclared change in {dimension}: {kind} fingerprint {fingerprint}"
@@ -450,7 +467,8 @@ def _parse_selected_change(raw: object, *, index: int) -> ExpectedSemanticChange
     dimension = _require_nonempty_string(
         change["dimension"], f"selected_changes[{index}].dimension"
     )
-    if dimension not in SUPPORTED_DIMENSIONS:
+    known = _parse_delta_dimension(dimension)
+    if known is None:
         raise ExpectationError(f"selected_changes[{index}] has unsupported dimension {dimension!r}")
     change_kind = _require_nonempty_string(change["change"], f"selected_changes[{index}].change")
     try:
@@ -463,7 +481,7 @@ def _parse_selected_change(raw: object, *, index: int) -> ExpectedSemanticChange
     after_count = _require_count(change["after_count"], f"selected_changes[{index}].after_count")
     _validate_change_counts(kind, before_count, after_count, f"selected_changes[{index}]")
     return ExpectedSemanticChange(
-        dimension=dimension,
+        dimension=known,
         change=kind,
         fingerprint=_require_nonempty_string(
             change["fingerprint"], f"selected_changes[{index}].fingerprint"

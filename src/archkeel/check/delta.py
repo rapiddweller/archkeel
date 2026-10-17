@@ -40,6 +40,7 @@ from archkeel.ir.model import (
 from archkeel.ir.model import ComparisonStatus as _ComparisonStatus
 from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKind
+from archkeel.ir.profiles import DeltaDimension as _DeltaDimension
 from archkeel.ir.profiles import delta_dimension_applicable, profile_for
 
 from .python_profile import crossing_imports
@@ -48,16 +49,7 @@ from .ratchets import measure_python_ratchets
 # AD-43: the per-counter coverage records stopped being declarable semantic changes,
 # so a candidate that adds one file no longer forces an agent to name five mechanical
 # counter shifts; DeltaCoverage still carries one PASS/FAIL for the aggregate.
-SUPPORTED_DIMENSIONS: Final = (
-    "violations",
-    "dependency_edges",
-    "cycles",
-    "api_crossings",
-    "private_crossings",
-    "typing_signals",
-    "unknowns",
-    "coverage",
-)
+SUPPORTED_DIMENSIONS: Final = tuple(item.value for item in _DeltaDimension)
 _REFERENCE_KEYS: Final = {
     "evidence_ids",
     "fact_ids",
@@ -127,12 +119,12 @@ def _record_evidence(
 
 
 def _project_record(
-    record: Record, *, dimension: str, records: dict[str, Record], evidence: dict[str, Evidence]
+    record: Record, *, dimension: _DeltaDimension, records: dict[str, Record], evidence: dict[str, Evidence]
 ) -> Projection:
     source_evidence = _record_evidence(record, records=records, evidence=evidence)
     data = record.data
     if (
-        dimension in {"cycles", "dependency_edges"}
+        dimension in {_DeltaDimension.CYCLES, _DeltaDimension.DEPENDENCY_EDGES}
         and len(source_evidence) > _AGGREGATE_EVIDENCE_LIMIT
     ):
         data = RecordData(
@@ -163,9 +155,9 @@ def _project_record(
     )
 
 
-def _logical_payload(dimension: str, record: Record) -> RecordData:
+def _logical_payload(dimension: _DeltaDimension, record: Record) -> RecordData:
     data = record.data
-    if dimension == "violations":
+    if dimension == _DeltaDimension.VIOLATIONS:
         return RecordData(
             (
                 ("kind", record.kind),
@@ -174,19 +166,19 @@ def _logical_payload(dimension: str, record: Record) -> RecordData:
                 ("target_module", data.get("target_module")),
             )
         )
-    if dimension == "dependency_edges":
+    if dimension == _DeltaDimension.DEPENDENCY_EDGES:
         return RecordData(tuple((key, data.get(key)) for key in ("level", "source", "target")))
-    if dimension == "cycles":
+    if dimension == _DeltaDimension.CYCLES:
         return RecordData(tuple((key, data.get(key)) for key in ("level", "members")))
-    if dimension in {"api_crossings", "private_crossings"}:
+    if dimension in {_DeltaDimension.API_CROSSINGS, _DeltaDimension.PRIVATE_CROSSINGS}:
         return RecordData(
             tuple((key, data.get(key)) for key in ("source_module", "target_module", "symbol"))
         )
-    if dimension == "typing_signals":
+    if dimension == _DeltaDimension.TYPING_SIGNALS:
         return RecordData(
             (("kind", record.kind), ("owner", data.get("owner")), ("signal", data.get("signal")))
         )
-    if dimension == "unknowns":
+    if dimension == _DeltaDimension.UNKNOWNS:
         if record.kind == "boundary_type_position":
             return RecordData(
                 (
@@ -202,10 +194,10 @@ def _logical_payload(dimension: str, record: Record) -> RecordData:
     return RecordData((("kind", record.kind),))
 
 
-def _semantic_payload(dimension: str, record: Record) -> RecordData:
+def _semantic_payload(dimension: _DeltaDimension, record: Record) -> RecordData:
     data = (
         RecordData(tuple((key, record.data.get(key)) for key in ("level", "members")))
-        if dimension == "cycles"
+        if dimension == _DeltaDimension.CYCLES
         else _stable_value(record.data)
     )
     return RecordData(
@@ -220,30 +212,30 @@ def _semantic_payload(dimension: str, record: Record) -> RecordData:
     )
 
 
-def _section(observation: Observation, dimension: str) -> tuple[Record, ...] | None:
+def _section(observation: Observation, dimension: _DeltaDimension) -> tuple[Record, ...] | None:
     name = {
-        "violations": "violations",
-        "dependency_edges": "dependency_edges",
-        "cycles": "cycles",
-        "api_crossings": "imports",
-        "private_crossings": "imports",
-        "typing_signals": "typing_signals",
-        "unknowns": "unknowns",
+        _DeltaDimension.VIOLATIONS: "violations",
+        _DeltaDimension.DEPENDENCY_EDGES: "dependency_edges",
+        _DeltaDimension.CYCLES: "cycles",
+        _DeltaDimension.API_CROSSINGS: "imports",
+        _DeltaDimension.PRIVATE_CROSSINGS: "imports",
+        _DeltaDimension.TYPING_SIGNALS: "typing_signals",
+        _DeltaDimension.UNKNOWNS: "unknowns",
     }.get(dimension)
     if name is None:
         return None
     records = observation.records(name)
     if records is None:
         return None
-    if dimension == "private_crossings":
+    if dimension == _DeltaDimension.PRIVATE_CROSSINGS:
         return crossing_imports(records, private=True)
-    if dimension == "api_crossings":
+    if dimension == _DeltaDimension.API_CROSSINGS:
         return crossing_imports(records, private=False)
     return records
 
 
-def _delta_records(observation: Observation, dimension: str) -> tuple[_DeltaRecord, ...] | None:
-    if dimension == "coverage":
+def _delta_records(observation: Observation, dimension: _DeltaDimension) -> tuple[_DeltaRecord, ...] | None:
+    if dimension == _DeltaDimension.COVERAGE:
         # AD-43: the counters live on both observations already; comparing them here would
         # make every file added or removed anywhere declare five mechanical entries that
         # carry no information about what the candidate actually changed.
@@ -304,7 +296,7 @@ def _change(
 
 
 def _compare_records(
-    dimension: str, before: tuple[_DeltaRecord, ...], after: tuple[_DeltaRecord, ...]
+    dimension: _DeltaDimension, before: tuple[_DeltaRecord, ...], after: tuple[_DeltaRecord, ...]
 ) -> tuple[SemanticChange, ...]:
     old_groups: dict[str, list[_DeltaRecord]] = defaultdict(list)
     new_groups: dict[str, list[_DeltaRecord]] = defaultdict(list)
@@ -348,7 +340,7 @@ def _compare_records(
             if count:
                 changes.append(
                     _change(
-                        dimension,
+                        dimension.value,
                         _KnownSemanticChangeKind.RELOCATED,
                         semantic,
                         tuple(left[:count]),
@@ -361,7 +353,7 @@ def _compare_records(
         if count:
             changes.append(
                 _change(
-                    dimension,
+                    dimension.value,
                     _KnownSemanticChangeKind.CHANGED,
                     logical,
                     tuple(changed_old[:count]),
@@ -375,7 +367,7 @@ def _compare_records(
         ):
             changes.append(
                 _change(
-                    dimension,
+                    dimension.value,
                     _KnownSemanticChangeKind.REMOVED,
                     semantic,
                     tuple(item for item in removed if item.semantic_fingerprint == semantic)[
@@ -387,7 +379,7 @@ def _compare_records(
         for semantic, count in sorted(Counter(item.semantic_fingerprint for item in added).items()):
             changes.append(
                 _change(
-                    dimension,
+                    dimension.value,
                     _KnownSemanticChangeKind.ADDED,
                     semantic,
                     (),
@@ -550,32 +542,32 @@ def build_architecture_delta(
                 ratchets.reason or "Required regression check measurements are unavailable",
             )
         )
-    for dimension in SUPPORTED_DIMENSIONS:
+    for dimension in _DeltaDimension:
         if not delta_dimension_applicable(profile, dimension):
-            dimensions.append(DimensionDelta(dimension, _ComparisonStatus.UNKNOWN, None, None))
+            dimensions.append(DimensionDelta(dimension.value, _ComparisonStatus.UNKNOWN, None, None))
             unknowns.append(
-                _unknown(dimension, f"{profile.analyzer} lacks complete {dimension} evidence")
+                _unknown(dimension.value, f"{profile.analyzer} lacks complete {dimension} evidence")
             )
             continue
         before = (
-            _delta_records(baseline, dimension) if available or dimension == "coverage" else None
+            _delta_records(baseline, dimension) if available or dimension == _DeltaDimension.COVERAGE else None
         )
-        after = _delta_records(head, dimension) if available or dimension == "coverage" else None
+        after = _delta_records(head, dimension) if available or dimension == _DeltaDimension.COVERAGE else None
         reason = None
         if not shared:
             reason = (
                 "Baseline and HEAD must use the same known schema, scope, analyzer and contract"
             )
-        elif dimension != "coverage" and not coverage_complete:
+        elif dimension != _DeltaDimension.COVERAGE and not coverage_complete:
             reason = "Incomplete snapshot coverage forbids negative architecture conclusions"
-        elif dimension != "coverage" and not available:
+        elif dimension != _DeltaDimension.COVERAGE and not available:
             reason = "Required regression check measurements are unavailable"
         if reason is not None or before is None or after is None:
             reason = reason or f"Required ArchitectureIR data for {dimension} is unavailable"
-            unknowns.append(_unknown(dimension, reason))
+            unknowns.append(_unknown(dimension.value, reason))
             dimensions.append(
                 DimensionDelta(
-                    dimension,
+                    dimension.value,
                     _ComparisonStatus.UNKNOWN,
                     None if before is None else len(before),
                     None if after is None else len(after),
@@ -590,11 +582,11 @@ def build_architecture_delta(
         for item in current:
             fingerprints: list[str] = fingerprints_by_kind[_KnownSemanticChangeKind(item.change)]
             _builtins.list.append(fingerprints, item.fingerprint)
-        before_count = len(baseline.coverage.failures) if dimension == "coverage" else len(before)
-        after_count = len(head.coverage.failures) if dimension == "coverage" else len(after)
+        before_count = len(baseline.coverage.failures) if dimension == _DeltaDimension.COVERAGE else len(before)
+        after_count = len(head.coverage.failures) if dimension == _DeltaDimension.COVERAGE else len(after)
         dimensions.append(
             DimensionDelta(
-                dimension,
+                dimension.value,
                 _ComparisonStatus.SUPPORTED,
                 before_count,
                 after_count,

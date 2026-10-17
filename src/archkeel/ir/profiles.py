@@ -19,6 +19,27 @@ from .facts import SourceProfile, SourceSectionName
 ObservedSection: TypeAlias = SourceSectionName
 
 
+class DeltaDimension(StrEnum):
+    """Current comparison controls; public Delta extension text remains open."""
+
+    VIOLATIONS = "violations"
+    DEPENDENCY_EDGES = "dependency_edges"
+    CYCLES = "cycles"
+    API_CROSSINGS = "api_crossings"
+    PRIVATE_CROSSINGS = "private_crossings"
+    TYPING_SIGNALS = "typing_signals"
+    UNKNOWNS = "unknowns"
+    COVERAGE = "coverage"
+
+
+def parse_delta_dimension(value: str) -> DeltaDimension | None:
+    """Recognize current dimensions without rejecting future public wire data."""
+    try:
+        return DeltaDimension(value)
+    except ValueError:
+        return None
+
+
 class UnmeasurableScalar(StrEnum):
     PRIVATE_CROSSINGS = "private_crossings"
     TYPING_POSITIONS = "typing_positions"
@@ -193,12 +214,13 @@ def profile_for(analyzer: str) -> Profile:
         raise ValueError(f"unsupported analyzer identity: {analyzer}") from error
 
 
-def delta_dimension_applicable(profile: Profile, dimension: str) -> bool:
+def delta_dimension_applicable(profile: Profile, dimension: DeltaDimension) -> bool:
     """Whether the profile provides complete evidence for this historical dimension."""
-    if dimension == "api_crossings":
+    known = parse_delta_dimension(dimension)
+    if known == DeltaDimension.API_CROSSINGS:
         return profile.complete_api_crossings
-    if dimension == UnmeasurableScalar.PRIVATE_CROSSINGS:
+    if known == DeltaDimension.PRIVATE_CROSSINGS:
         return UnmeasurableScalar.PRIVATE_CROSSINGS not in profile.unmeasured
-    if dimension == ObservedSection.TYPING_SIGNALS:
+    if known == DeltaDimension.TYPING_SIGNALS:
         return UnmeasurableScalar.TYPING_POSITIONS not in profile.unmeasured
     return True
