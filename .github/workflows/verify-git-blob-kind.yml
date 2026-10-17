@@ -5,9 +5,9 @@ on:
 permissions:
   contents: read
 jobs:
-  red:
+  native:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -18,23 +18,66 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
-      - name: Real byte control coverage
-        run: uv run --locked pytest tests/test_git_blob_types.py::test_actual_byte_comparisons_fail_the_unchanged_native_guard -q
-      - name: Native RED before product changes
-        shell: bash
+      - run: uv run --locked pytest tests/test_git_blob_types.py -q --tb=short
+  regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked pytest tests/test_snapshot.py tests/test_snapshot_check.py tests/test_snapshot_language_types.py tests/test_git_lock.py tests/test_dart_snapshot.py --tb=short -q
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: |
+          uv run --locked ruff check --select I --fix src/archkeel/check/git.py src/archkeel/check/snapshot.py tests/test_git_blob_types.py
+          uv run --locked ruff format src/archkeel/check/git.py src/archkeel/check/snapshot.py tests/test_git_blob_types.py
+          git diff -- src/archkeel/check/git.py src/archkeel/check/snapshot.py tests/test_git_blob_types.py
+          uv run --locked ruff check src/archkeel/check/git.py src/archkeel/check/snapshot.py tests/test_git_blob_types.py
+          make typecheck
+          uv run --locked pytest tests/test_repository_hygiene.py -q
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Normal own baseline and receipt
         run: |
+          git diff --exit-code bb3e498b9c43afc954ef9fe7078595983e0b3c2f -- architecture-baseline.json schema
           set +e
-          uv run --locked pytest tests/test_git_blob_types.py::test_actual_git_blob_api_has_one_nominal_owner tests/test_git_blob_types.py::test_actual_git_blob_target_and_scoped_guards_pass -q > "$RUNNER_TEMP/git-blob-red.txt" 2>&1
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against bb3e498b9c43afc954ef9fe7078595983e0b3c2f --amendment docs/architecture/decisions/issue-542-git-blob-kind-amendment.json --write-amendment --decided-by 'ake2l (explicit parser/protocol typing request); Codex implementation, independent final Astra review on union' --rationale 'Own the two supported regular Git blob protocol pairs in the existing snapshot owner and share its nominal optional port with read_blob; author exact API Target and function-scoped native controls without changing wire grammar, error policy, budgets or allowances; docs/superpowers/plans/2026-10-17-git-blob-kind.md.' > "$RUNNER_TEMP/git-blob-native.json"
           actual_status=$?
           set -e
-          cat "$RUNNER_TEMP/git-blob-red.txt"
-          test "$actual_status" -eq 1
-          python - "$RUNNER_TEMP/git-blob-red.txt" <<'PY'
-          import pathlib, sys
-          text = pathlib.Path(sys.argv[1]).read_text()
-          assert "2 failed" in text
-          assert "RegularGitBlobKind" in text
-          assert "AssertionError" in text
-          assert "ImportError" not in text
-          print("GIT_BLOB_RED: missing authored nominal API and native Target; production still original")
+          python - "$RUNNER_TEMP/git-blob-native.json" <<'PY'
+          import json,pathlib,sys
+          value=json.loads(pathlib.Path(sys.argv[1]).read_text())
+          print("GIT_BLOB_NATIVE="+json.dumps({key:value.get(key) for key in ("exit_code","failures","diagnostics","measurements","amendment_status")},separators=(",",":")))
+          path=pathlib.Path("docs/architecture/decisions/issue-542-git-blob-kind-amendment.json")
+          if path.exists(): print("GIT_BLOB_RECEIPT="+json.dumps(json.loads(path.read_text()),separators=(",",":")))
           PY
+          exit "$actual_status"
