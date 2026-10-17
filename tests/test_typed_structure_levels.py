@@ -67,7 +67,7 @@ def test_scope_port_normalizes_supported_legacy_levels_and_checks_empty_groups(s
         structure.scope_metrics(self_observation, "module", {})
 
 
-def _repository(tmp_path, *, mutation=None):
+def _repository(tmp_path, *, mutation=None, relocate=False):
     target = json.loads((ROOT / "docs/architecture/contracts/ir.json").read_text())
     target.pop("$schema", None)
     render = json.loads((ROOT / "docs/architecture/contracts/render.json").read_text())
@@ -103,6 +103,10 @@ def _repository(tmp_path, *, mutation=None):
         if item["id"] in {IR_GUARD, RENDER_GUARD}
     ]
     assert {item["id"] for item in target["rules"]} == {IR_GUARD, RENDER_GUARD}
+    root_intent = json.loads((ROOT / "architecture-contract.json").read_text())
+    target["rules"].append(
+        next(rule for rule in root_intent["rules"] if rule["id"] == "TYPES-ENUM-IN-MODEL")
+    )
     target["declarations"]["uml"]["entities"] = entities
     target["declarations"]["uml"]["relationships"] = []
     target["declarations"]["uml"]["scopes"] = []
@@ -120,6 +124,16 @@ def _repository(tmp_path, *, mutation=None):
         + ast.get_source_segment(renderer, function)
         + "\n"
     )
+    if relocate:
+        declaration = next(
+            node
+            for node in ast.parse(owner).body
+            if isinstance(node, ast.ClassDef) and node.name == "StructureLevel"
+        )
+        enum_source = ast.get_source_segment(owner, declaration)
+        assert enum_source is not None and owner.count(enum_source) == 1
+        owner = owner.replace(enum_source, "")
+        renderer = "from enum import StrEnum\n" + enum_source + "\n" + renderer
     if mutation is not None:
         path, old, new = mutation
         source = owner if path == "owner" else renderer
@@ -209,4 +223,17 @@ def test_native_raw_level_regression_is_rejected_in_the_actual_consumer(
     before = (root / "contract.json").read_bytes()
     model = _model(root, config)
     assert any(guard in row.rule_ids for row in trace_valid_violations(model))
+    assert (root / "contract.json").read_bytes() == before
+
+
+def test_native_actual_enum_cannot_move_into_the_unpublished_consumer(tmp_path):
+    _levels()
+    root, config = _repository(tmp_path, relocate=True)
+    before = (root / "contract.json").read_bytes()
+    model = _model(root, config)
+    assert any(
+        "TYPES-ENUM-IN-MODEL" in row.rule_ids
+        and "archkeel.render.html.StructureLevel" in row.subjects
+        for row in trace_valid_violations(model)
+    )
     assert (root / "contract.json").read_bytes() == before

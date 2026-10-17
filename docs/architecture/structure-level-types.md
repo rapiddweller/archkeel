@@ -20,3 +20,9 @@ results and JSON rendering, and exercise existing onboarding/report consumers.
 Execution: real RED on the existing Literal/unnormalized field; minimal owner and consumers;
 native Target and guard mutation GREEN; affected structure/onboarding/report checks; normal
 integrated validation and independent final Astra before the final #542 merge.
+
+Ruling: the existing domain-placement rule must name ir.structure as the measurement owner;
+its previous list did not cover this newly nominal existing alias. Only that exact module
+is added with this decision as provenance. Moving the actual enum into the renderer still
+fails the unchanged placement rule. The first joint gate exposed this missing authored
+placement (216 tests passed, six self-fixture errors); no verdict expectation is weakened.
