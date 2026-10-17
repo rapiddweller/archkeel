@@ -282,7 +282,8 @@ def test_process_platform_port_owns_only_known_os_names():
     kind = _platform_type()
     assert issubclass(kind, Enum)
     assert [(member.name, member.value) for member in kind] == [
-        ("POSIX", "posix"), ("WINDOWS", "nt")
+        ("POSIX", "posix"),
+        ("WINDOWS", "nt"),
     ]
     hints = get_type_hints(process_owner._process_platform)
     assert hints == {"name": str, "return": kind | None}
@@ -336,8 +337,9 @@ def _cleanup_observation(owner, name, running=True, failure=None):
         if failure == "killpg":
             raise OSError("denied")
 
-    with patch.object(owner, "os", SimpleNamespace(name=name, killpg=killpg)), patch.object(
-        owner, "signal", SimpleNamespace(SIGKILL=9)
+    with (
+        patch.object(owner, "os", SimpleNamespace(name=name, killpg=killpg)),
+        patch.object(owner, "signal", SimpleNamespace(SIGKILL=9)),
     ):
         try:
             owner._terminate_process_tree(process)
@@ -379,7 +381,9 @@ def test_platform_cleanup_keeps_exact_error_text_and_cause(name, failure, messag
 
 def test_missing_posix_process_group_still_waits_without_error():
     assert _cleanup_observation(process_owner, "posix", failure="gone") == (
-        [("killpg", 17, 9), ("wait", 2)], None, None
+        [("killpg", 17, 9), ("wait", 2)],
+        None,
+        None,
     )
 
 
@@ -430,8 +434,12 @@ def test_actual_collect_keeps_launcher_session_and_unknown_fallback(name):
     assert len(launches) == 1
     command = [sys.executable, "-I", "-B", "windows_job.py", "--", "collector-tool", "script.py"]
     assert launches == [
-        ("launch", command if name == "nt" else ["collector-tool", "script.py"],
-         name == "posix", request.snapshot.root)
+        (
+            "launch",
+            command if name == "nt" else ["collector-tool", "script.py"],
+            name == "posix",
+            request.snapshot.root,
+        )
     ]
     assert bool([event for event in events if event[0] == "which"]) is (name == "nt")
 
@@ -440,12 +448,18 @@ def test_actual_collect_keeps_launcher_session_and_unknown_fallback(name):
     "executable,kind,message",
     [
         (None, "missing_tool", "Collector could not execute: collector-tool"),
-        ("tool.CMD", "execution_error",
-         "Windows .bat/.cmd collector shims cannot run without a shell; "
-         "configure an explicit executable and script argv."),
-        ("tool.bat", "execution_error",
-         "Windows .bat/.cmd collector shims cannot run without a shell; "
-         "configure an explicit executable and script argv."),
+        (
+            "tool.CMD",
+            "execution_error",
+            "Windows .bat/.cmd collector shims cannot run without a shell; "
+            "configure an explicit executable and script argv.",
+        ),
+        (
+            "tool.bat",
+            "execution_error",
+            "Windows .bat/.cmd collector shims cannot run without a shell; "
+            "configure an explicit executable and script argv.",
+        ),
     ],
 )
 def test_windows_launcher_rejections_keep_existing_error_order(executable, kind, message):
@@ -465,15 +479,21 @@ def test_launch_oserror_keeps_existing_missing_tool_text(name):
 
 
 def _platform_repository(tmp_path, *, changed=None, relocate=False, collect_probe=False):
-    target = json.loads(
-        (_PROCESS_ROOT / "docs/architecture/contracts/analyzer.json").read_text()
-    )
+    target = json.loads((_PROCESS_ROOT / "docs/architecture/contracts/analyzer.json").read_text())
     target.pop("$schema", None)
     target["components"] = [target["components"][0]]
     ids = {
-        "archkeel.analyzer.process", "process", "process.argv", "process.timeout_seconds",
-        "process.output_limit_bytes", "process.stderr_limit_bytes", "process.collect",
-        "process.__post_init__", "process._exchange", "PROCESS-PLATFORM", "PROCESS-PLATFORM-DECODE",
+        "archkeel.analyzer.process",
+        "process",
+        "process.argv",
+        "process.timeout_seconds",
+        "process.output_limit_bytes",
+        "process.stderr_limit_bytes",
+        "process.collect",
+        "process.__post_init__",
+        "process._exchange",
+        "PROCESS-PLATFORM",
+        "PROCESS-PLATFORM-DECODE",
     }
     uml = target["declarations"]["uml"]
     uml["entities"] = [row for row in uml["entities"] if row["id"] in ids]
@@ -486,11 +506,15 @@ def _platform_repository(tmp_path, *, changed=None, relocate=False, collect_prob
     assert {row["id"] for row in target["rules"]} == rule_ids
     if collect_probe:
         target["rules"].append(
-            {"id": _COLLECT_PROBE, "kind": "forbidden_construct",
-             "source": "archkeel.analyzer.process.ProcessCollector.collect",
-             "constructs": ["string_literal_compare"],
-             "rationale": "Trace the actual OS mutation without claiming filename-grammar absence.",
-             "provenance": ["docs/architecture/language-adapter-target.md"], "decided_by": "architect"}
+            {
+                "id": _COLLECT_PROBE,
+                "kind": "forbidden_construct",
+                "source": "archkeel.analyzer.process.ProcessCollector.collect",
+                "constructs": ["string_literal_compare"],
+                "rationale": "Trace an OS mutation while retaining the real filename grammar.",
+                "provenance": ["docs/architecture/language-adapter-target.md"],
+                "decided_by": "architect",
+            }
         )
     source = (_PROCESS_ROOT / "src/archkeel/analyzer/process.py").read_text()
     if changed is not None:
@@ -505,12 +529,17 @@ def _platform_repository(tmp_path, *, changed=None, relocate=False, collect_prob
         extra["archkeel/analyzer/misplaced.py"] = "from enum import Enum\n\n" + block
     root = _prepare_repo(
         tmp_path,
-        {"archkeel/__init__.py": "", "archkeel/analyzer/__init__.py": "",
-         "archkeel/analyzer/process.py": source, "contract.json": json.dumps(target),
-         **{name: (_PROCESS_ROOT / name).read_text() for name in placement["provenance"]},
-         "docs/architecture/language-adapter-target.md":
-             (_PROCESS_ROOT / "docs/architecture/language-adapter-target.md").read_text(),
-         **extra},
+        {
+            "archkeel/__init__.py": "",
+            "archkeel/analyzer/__init__.py": "",
+            "archkeel/analyzer/process.py": source,
+            "contract.json": json.dumps(target),
+            **{name: (_PROCESS_ROOT / name).read_text() for name in placement["provenance"]},
+            "docs/architecture/language-adapter-target.md": (
+                _PROCESS_ROOT / "docs/architecture/language-adapter-target.md"
+            ).read_text(),
+            **extra,
+        },
     )
     return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
 
@@ -544,18 +573,25 @@ def test_native_actual_process_target_and_os_control_sites(tmp_path):
         assert assessments[rule_id].status == "PASS" and assessments[rule_id].evaluation_proven
     assert not trace_valid_violations(model)
     # This filename identity is real remaining grammar, not an OS selector or a blanket exception.
-    assert [excerpt for _, excerpt in _comparison_sites(
-        model, "archkeel.analyzer.process.ProcessCollector.collect"
-    )] == ['if Path(executable).suffix.lower() in {".bat", ".cmd"}:']
+    assert [
+        excerpt
+        for _, excerpt in _comparison_sites(
+            model, "archkeel.analyzer.process.ProcessCollector.collect"
+        )
+    ] == ['if Path(executable).suffix.lower() in {".bat", ".cmd"}:']
 
 
 @pytest.mark.parametrize(
     "old,new",
     [
-        ("def _process_platform(name: str) -> _ProcessPlatform | None:",
-         "def _process_platform(name: object) -> _ProcessPlatform | None:"),
-        ("def _process_platform(name: str) -> _ProcessPlatform | None:",
-         "def _process_platform(name: str) -> str | None:"),
+        (
+            "def _process_platform(name: str) -> _ProcessPlatform | None:",
+            "def _process_platform(name: object) -> _ProcessPlatform | None:",
+        ),
+        (
+            "def _process_platform(name: str) -> _ProcessPlatform | None:",
+            "def _process_platform(name: str) -> str | None:",
+        ),
         ("class _ProcessPlatform(Enum):", "class _ProcessPlatform:"),
     ],
     ids=["raw-domain", "nominal-result", "enum-kind"],
@@ -579,17 +615,34 @@ def test_actual_root_placement_rejects_process_enum_relocation(tmp_path):
 @pytest.mark.parametrize(
     "old,new,rule_id",
     [
-        ("    try:\n        return _ProcessPlatform(name)",
-         '    if name == "posix":\n        return _ProcessPlatform.POSIX\n'
-         "    try:\n        return _ProcessPlatform(name)", _PLATFORM_GUARD),
-        ("    if platform is _ProcessPlatform.POSIX:",
-         '    if os.name == "posix":', _CLEANUP_GUARD),
-        ("    if platform is _ProcessPlatform.POSIX:",
-         "    if platform.value == _ProcessPlatform.POSIX.value:", _CLEANUP_GUARD),
-        ("            if platform is _ProcessPlatform.WINDOWS:",
-         '            if os.name == "nt":', _COLLECT_PROBE),
+        (
+            "    try:\n        return _ProcessPlatform(name)",
+            '    if name == "posix":\n        return _ProcessPlatform.POSIX\n'
+            "    try:\n        return _ProcessPlatform(name)",
+            _PLATFORM_GUARD,
+        ),
+        (
+            "    if platform is _ProcessPlatform.POSIX:",
+            '    if os.name == "posix":',
+            _CLEANUP_GUARD,
+        ),
+        (
+            "    if platform is _ProcessPlatform.POSIX:",
+            "    if platform.value == _ProcessPlatform.POSIX.value:",
+            _CLEANUP_GUARD,
+        ),
+        (
+            "            if platform is _ProcessPlatform.WINDOWS:",
+            '            if os.name == "nt":',
+            _COLLECT_PROBE,
+        ),
     ],
-    ids=["converter-raw-control", "cleanup-raw-control", "cleanup-value-evasion", "collect-os-control"],
+    ids=[
+        "converter-raw-control",
+        "cleanup-raw-control",
+        "cleanup-value-evasion",
+        "collect-os-control",
+    ],
 )
 def test_actual_os_comparison_mutations_keep_native_control_trace(tmp_path, old, new, rule_id):
     root, config = _platform_repository(
@@ -599,8 +652,12 @@ def test_actual_os_comparison_mutations_keep_native_control_trace(tmp_path, old,
     violations = [row for row in trace_valid_violations(model) if rule_id in row.rule_ids]
     assert violations
     if rule_id == _COLLECT_PROBE:
-        facts = [row for row, excerpt in _comparison_sites(
-            model, "archkeel.analyzer.process.ProcessCollector.collect"
-        ) if excerpt == 'if os.name == "nt":']
+        facts = [
+            row
+            for row, excerpt in _comparison_sites(
+                model, "archkeel.analyzer.process.ProcessCollector.collect"
+            )
+            if excerpt == 'if os.name == "nt":'
+        ]
         assert len(facts) == 1
         assert any(facts[0].id in row.fact_ids for row in violations)
