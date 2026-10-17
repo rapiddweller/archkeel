@@ -1,0 +1,47 @@
+name: Collection syntax RED before Core parser deletion
+on:
+  push:
+    branches: [verify/542-collection-shape-red]
+permissions:
+  contents: read
+jobs:
+  native-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: e523fe6a8a7aa9fe22dc3014dff2b45def6d8c59
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Observe native missing-method RED and conservative negatives
+        run: |
+          uv run --locked python - <<'PY'
+          import json, subprocess, xml.etree.ElementTree as ET
+          from pathlib import Path
+          path="tests/test_type_shapes.py"
+          run=subprocess.run(["uv","run","--locked","pytest",path,"-q","-ra","--junitxml=collection-shape-red.xml"],text=True,capture_output=True,check=False)
+          print(run.stdout,flush=True)
+          print(run.stderr,flush=True)
+          root=ET.parse("collection-shape-red.xml").getroot()
+          cases=list(root.iter("testcase"))
+          failed=[case.attrib["name"] for case in cases if case.find("failure") is not None]
+          errors=[case.attrib["name"] for case in cases if case.find("error") is not None]
+          print("COLLECTION_SHAPE_NATIVE_RED="+json.dumps({"source":"e523fe6a8a7aa9fe22dc3014dff2b45def6d8c59","base":"befb7e8ac4adfb39ba2ae4c6b9308f4c33bbd638","exit":run.returncode,"cases":len(cases),"failed":failed,"errors":errors},sort_keys=True),flush=True)
+          assert run.returncode==1 and len(failed)==10 and not errors
+          assert all(name.startswith(("test_collection_", "test_missing_collection_", "test_authored_collection_")) for name in failed)
+          imports=subprocess.run(["uv","run","--locked","ruff","check","--select","I","--fix","--stdin-filename",path,"-"],input=Path(path).read_text(),text=True,capture_output=True,check=True)
+          fmt=subprocess.run(["uv","run","--locked","ruff","format","--stdin-filename",path],input=imports.stdout,text=True,capture_output=True,check=True)
+          print("COLLECTION_SHAPE_FORMATTED_TEST="+json.dumps(fmt.stdout),flush=True)
+          assert not subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: collection-shape-red
+          path: collection-shape-red.xml
