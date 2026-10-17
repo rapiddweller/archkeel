@@ -25,6 +25,16 @@ def _repository(tmp_path, changed=None):
         json.loads((ROOT / "docs/architecture/contracts/python.json").read_text())
     )
     contract.pop("$schema", None)
+    # This fixture observes constructs.py; controls for other collector owners have
+    # their own source fixtures and must retain their actual subject there.
+    module = "archkeel.analyzer.python.constructs"
+    contract["rules"] = [
+        rule
+        for rule in contract["rules"]
+        if rule["kind"] != "forbidden_construct"
+        or rule["source"] == module
+        or rule["source"].startswith(module + ".")
+    ]
     # This fixture copies only constructs.py; the complete self target retains every owner.
     predicate_ids = {
         "PYTHON-PREDICATE-MODULE",
