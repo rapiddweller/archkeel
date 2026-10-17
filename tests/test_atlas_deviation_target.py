@@ -118,12 +118,12 @@ def test_actual_deviation_type_widening_fails_fixed_native_intent(tmp_path, befo
     ],
     ids=["equality", "membership", "local-alias", "match"],
 )
-def test_real_deviation_constructor_raw_control_fails_native_guard(tmp_path, control):
+def test_real_deviation_serialization_raw_control_fails_native_guard(tmp_path, control):
     root, config = _repository(tmp_path, include_guard=True)
     intent = (root / "contract.json").read_bytes()
     path = root / "archkeel/render/atlas_deviations.py"
     source = path.read_text()
-    marker = "    def __post_init__(self) -> None:\n"
+    marker = "    def to_wire(self) -> dict[str, str | None]:\n"
     assert source.count(marker) == 1
     path.write_text(source.replace(marker, marker + control, 1))
     model = _model(root, config)

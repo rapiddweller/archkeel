@@ -22,9 +22,6 @@ class AtlasDeviation:
     target_id: str
     level_id: str | None
 
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "kind", AtlasDeviationKind(self.kind))
-
     def to_wire(self) -> dict[str, str | None]:
         return {
             "id": self.id,
