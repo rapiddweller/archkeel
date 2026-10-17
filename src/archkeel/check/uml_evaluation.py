@@ -16,7 +16,6 @@ from archkeel.ir.architecture_graph import (
 from archkeel.ir.codec import parse_record
 from archkeel.ir.model import (
     RULE_EVALUATION_KIND,
-    rule_evaluation_receipt,
     UML_TARGET_KIND,
     Diagnostic,
     EvidenceClass,
@@ -25,6 +24,7 @@ from archkeel.ir.model import (
     Record,
     Section,
     UmlEligibility,
+    rule_evaluation_receipt,
     stable_id,
 )
 from archkeel.ir.model import DiagnosticKind as _DiagnosticKind

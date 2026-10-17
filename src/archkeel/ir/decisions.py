@@ -27,7 +27,6 @@ from .facts_validation import validate_source_bindings
 from .interfaces import component_owners, owner_of
 from .measurements import RatchetError
 from .model import (
-    rule_evaluation_receipt,
     RULE_RECORD_KINDS,
     AllowedDependencyRule,
     ArchitectureRuleKind,
@@ -53,6 +52,7 @@ from .model import (
     dependency_owners,
     in_scope,
     module_in_ownership,
+    rule_evaluation_receipt,
     stable_id,
 )
 from .model import (

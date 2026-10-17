@@ -30,7 +30,6 @@ from .dependency import DependencySelection
 from .interfaces import component_owners, owner_of
 from .levels import inside_levels
 from .model import (
-    rule_evaluation_receipt,
     ComponentOwnership,
     JsonValue,
     Observation,
@@ -38,6 +37,7 @@ from .model import (
     Verdict,
     dependency_owners,
     in_scope,
+    rule_evaluation_receipt,
     text_value,
 )
 from .report_graph import architecture_report
