@@ -519,6 +519,19 @@
         "docs/architecture/classifier-projections.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "RULE-EVALUATION-RECEIPT-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.model.rule_evaluation_receipt",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The receipt reader recognizes the one owned tag through its nominal boundary. This exact function is guarded; other record-kind controls in existing callers are separate work.",
+      "provenance": [
+        "docs/architecture/rule-evaluation-receipts.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {
@@ -5529,10 +5542,12 @@
           "parent_id": "TARGET-GOVERNANCE",
           "presence": "planned",
           "responsibilities": [
-            "Retain the typed compatibility API for existing model consumers."
+            "Retain the typed compatibility API for existing model consumers.",
+            "Own the narrow immutable facets of Core evaluator receipts without closing generic record kinds or payloads."
           ],
           "provenance": [
-            "docs/architecture/dependency-selector-target.md"
+            "docs/architecture/dependency-selector-target.md",
+            "docs/architecture/rule-evaluation-receipts.md"
           ]
         },
         {
@@ -11771,6 +11786,89 @@
             ],
             "returns": "EntityKind | None"
           }
+        },
+        {
+          "presence": "planned",
+          "language": "python",
+          "provenance": [
+            "docs/architecture/rule-evaluation-receipts.md"
+          ],
+          "id": "IR-RULE-RECEIPT-tag",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.model._RuleEvaluationTag",
+          "parent_id": "IR-DEPENDENCY-model",
+          "responsibilities": [
+            "Recognize only the existing evaluator-receipt marker at the typed reader boundary."
+          ]
+        },
+        {
+          "presence": "planned",
+          "language": "python",
+          "provenance": [
+            "docs/architecture/rule-evaluation-receipts.md"
+          ],
+          "id": "IR-RULE-RECEIPT-view",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.RuleEvaluationReceipt",
+          "parent_id": "IR-DEPENDENCY-model",
+          "responsibilities": [
+            "Carry only the actual complete-assessment and complete-cycle facets; identity and arbitrary payload stay on Record."
+          ]
+        },
+        {
+          "presence": "planned",
+          "language": "python",
+          "provenance": [
+            "docs/architecture/rule-evaluation-receipts.md"
+          ],
+          "id": "IR-RULE-RECEIPT-assessment_complete",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.RuleEvaluationReceipt.assessment_complete",
+          "parent_id": "IR-RULE-RECEIPT-view",
+          "annotation": "bool",
+          "responsibilities": [
+            "Retain strict-true assessment completion and the established omitted-field default."
+          ]
+        },
+        {
+          "presence": "planned",
+          "language": "python",
+          "provenance": [
+            "docs/architecture/rule-evaluation-receipts.md"
+          ],
+          "id": "IR-RULE-RECEIPT-cycle_scope_complete",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.RuleEvaluationReceipt.cycle_scope_complete",
+          "parent_id": "IR-RULE-RECEIPT-view",
+          "annotation": "bool",
+          "responsibilities": [
+            "Retain strict-true cycle-scope completion without inferring missing evidence."
+          ]
+        },
+        {
+          "presence": "planned",
+          "language": "python",
+          "provenance": [
+            "docs/architecture/rule-evaluation-receipts.md"
+          ],
+          "id": "IR-RULE-RECEIPT-read",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.model.rule_evaluation_receipt",
+          "parent_id": "IR-DEPENDENCY-model",
+          "signature": {
+            "parameters": [
+              {
+                "name": "record",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "Record | RawRecord"
+              }
+            ],
+            "returns": "RuleEvaluationReceipt | None"
+          },
+          "responsibilities": [
+            "Read one receipt subset from frozen or mutable canonical records while leaving all other kinds opaque."
+          ]
         }
       ],
       "relationships": [
