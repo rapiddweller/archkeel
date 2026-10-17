@@ -1,0 +1,43 @@
+name: Verify combined typed owner native ports
+on:
+  push:
+    branches: [verify/542-combined-owner-native-ports]
+permissions:
+  contents: read
+jobs:
+  native-ports:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: a25c37c564c82c1b42457f0528c931c769ee9362
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked python -m pytest -q tests/test_self.py tests/test_levels.py tests/test_typescript_config.py tests/test_typescript_config_reference.py tests/test_interfaces.py
+      - name: Normal baseline and owned amendment without accepted debt
+        run: |
+          python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          def run(args,label):
+              result=subprocess.run(["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--json",*args],capture_output=True,text=True)
+              Path("/tmp/"+label+".json").write_text(result.stdout)
+              if result.stderr:print(result.stderr[-6000:])
+              data=json.loads(result.stdout)
+              print("COMBINED_NATIVE_STAGE="+json.dumps({"stage":label,"exit":result.returncode,"valid":data.get("valid"),"measurements":data.get("measurements"),"failures":data.get("failures"),"diagnostics":data.get("diagnostics"),"widenings":data.get("widenings")}),flush=True)
+              assert result.returncode==0,(label,result.stdout[-12000:])
+              return data
+          run(["--write-baseline"],"baseline")
+          args=["--against","f63840b5c912ae40eff42fa7b12fd41240566d46","--amendment","docs/architecture/decisions/2026-10-17-combined-typed-owner-amendment.json"]
+          run([*args,"--write-amendment","--decided-by","ake2l","--rationale","Own parser and protocol vocabularies at existing API boundaries; preserve wire compatibility, conservative uncertainty and precise native source evidence across independently reviewed increments."],"amendment")
+          run(args,"ordinary-replay")
+          for label,path in (("COMBINED_BASELINE","architecture-baseline.json"),("COMBINED_AMENDMENT","docs/architecture/decisions/2026-10-17-combined-typed-owner-amendment.json")):
+              print(label+"="+json.dumps(json.loads(Path(path).read_text()),separators=(",",":")),flush=True)
+          
+          PY
