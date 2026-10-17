@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: cb6778411a633ee5c8f0ada217ed5c84656f7ae0
+          ref: 5076058e5e7167d5d6df866784e99036149cd47f
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -37,6 +37,23 @@ jobs:
               parse_contract(value)
               print("TOPOLOGY_AUTHORED_SCHEMA=PASS:"+name,flush=True)
           PY
+      - name: Affected topology, cycle, structure and open-codec regressions
+        if: always()
+        run: uv run --locked pytest -q tests/test_cycle_levels.py tests/test_source_evaluation.py tests/test_source_graph.py tests/test_nullable_profile_measurements.py tests/test_profile_comparison.py tests/test_ratchets.py tests/test_codec.py tests/test_declared_module_targets.py tests/test_requires_target_references.py
+      - name: Changed style and formatter-only product AST
+        if: always()
+        run: |
+          uv run --locked ruff check src/archkeel/ir/model.py src/archkeel/check/evaluation/topology.py src/archkeel/check/evaluation/evaluate.py src/archkeel/check/observation.py src/archkeel/ir/structure.py tests/test_graph_topology_level_types.py
+          uv run --locked ruff format --check src/archkeel/ir/model.py src/archkeel/check/evaluation/topology.py src/archkeel/check/evaluation/evaluate.py src/archkeel/check/observation.py src/archkeel/ir/structure.py tests/test_graph_topology_level_types.py
+          uv run --locked python - <<'PY'
+          import ast,subprocess
+          from pathlib import Path
+          paths=["src/archkeel/check/evaluation/topology.py","src/archkeel/check/evaluation/evaluate.py","src/archkeel/check/observation.py","src/archkeel/ir/structure.py"]
+          for path in paths:
+              old=subprocess.check_output(["git","show",f"cb6778411a633ee5c8f0ada217ed5c84656f7ae0:{path}"],text=True)
+              assert ast.dump(ast.parse(old),include_attributes=False)==ast.dump(ast.parse(Path(path).read_text()),include_attributes=False),path
+          print("TOPOLOGY_FORMATTER_AST=PASS",flush=True)
+          PY
       - name: Capture style corrections
         if: always()
         run: |
@@ -51,3 +68,39 @@ jobs:
               if Path(path).read_text()!=before[path]:
                   print("FORMATTED_SOURCE="+json.dumps({"path":path,"content":Path(path).read_text()}),flush=True)
           PY
+  normal-no-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 5076058e5e7167d5d6df866784e99036149cd47f
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Normal no-write on exact topology source
+        run: |
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          protected=("architecture-contract.json","architecture-baseline.json","architecture-accepted.json")
+          before={path:Path(path).read_bytes() for path in protected}
+          run=subprocess.run(["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--json"],capture_output=True,text=True,check=False)
+          Path("graph-topology-normal.json").write_text(run.stdout)
+          value=json.loads(run.stdout)
+          print("TOPOLOGY_NORMAL="+json.dumps({"exit":run.returncode,"failures":value.get("failures"),"diagnostics":value.get("diagnostics"),"baseline_new":value.get("baseline_new"),"baseline_resolved":value.get("baseline_resolved"),"observation_complete":value.get("observation_complete"),"declared_rules":value.get("declared_rules"),"measurements":value.get("measurements")},sort_keys=True),flush=True)
+          for path,original in before.items():
+              assert Path(path).read_bytes()==original,path
+          assert not subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          print("TOPOLOGY_NORMAL_PROTECTED_BYTES_UNCHANGED=PASS",flush=True)
+          raise SystemExit(run.returncode)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() }}
+        with:
+          name: graph-topology-normal-no-write
+          path: graph-topology-normal.json
