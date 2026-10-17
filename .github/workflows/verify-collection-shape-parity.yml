@@ -1,0 +1,152 @@
+name: Carried collection shape isolated Core and wire proof
+on:
+  push:
+    branches: [verify/542-collection-shape-parity]
+permissions:
+  contents: read
+jobs:
+  actual-producer-and-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: aa84fab9c5bb6833b9ab58bcccbbbb443dc0a114
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Actual pinned isolated collector and Core imports across eight fixtures
+        run: |
+          uv run --locked python - <<'PY'
+          import hashlib,json,os,shutil,subprocess,sys
+          from pathlib import Path
+          BEFORE="befb7e8ac4adfb39ba2ae4c6b9308f4c33bbd638"
+          AFTER="aa84fab9c5bb6833b9ab58bcccbbbb443dc0a114"
+          root=Path.cwd()
+          out=root/"collection-shape-runtimes"
+          out.mkdir(exist_ok=True)
+          owners=["src/archkeel/check/evaluation/boundary_types.py","src/archkeel/check/evaluation/rules.py"]
+          changed=subprocess.check_output(["git","diff","--name-only",BEFORE,AFTER,"--","src/archkeel"],text=True).splitlines()
+          assert set(changed)==set(owners),changed
+          manifest={"before":BEFORE,"after":AFTER,"changed_source_files":changed,"runtimes":{}}
+          for side,ref in (("old",BEFORE),("new",AFTER)):
+              src=out/side/"src"
+              shutil.copytree(root/"src"/"archkeel",src/"archkeel",ignore=shutil.ignore_patterns("__pycache__","*.pyc"))
+              for path in owners:
+                  actual=subprocess.check_output(["git","show",f"{ref}:{path}"])
+                  (src/"archkeel"/Path(path).relative_to("src/archkeel")).write_bytes(actual)
+              manifest["runtimes"][side]={str(path.relative_to(src)):hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(src.rglob("*")) if path.is_file() and "__pycache__" not in path.parts}
+          old,new=(manifest["runtimes"][side] for side in ("old","new"))
+          assert old.keys()==new.keys()
+          differences=[path for path in old if old[path]!=new[path]]
+          assert set(differences)=={str(Path(path).relative_to("src")) for path in owners},differences
+          manifest["actual_different_runtime_files"]=differences
+          (out/"runtime-source-manifest.json").write_text(json.dumps(manifest,sort_keys=True,indent=2))
+          print("COLLECTION_SHAPE_TRUE_RUNTIME_MANIFEST="+json.dumps({"before":BEFORE,"after":AFTER,"different_source_files":differences,"source_file_count":len(old)}),flush=True)
+          child="import hashlib,importlib,io,json,runpy,sys\nfrom pathlib import Path\nruntime_src=Path(sys.argv[1]).resolve()\nreceipt=Path(sys.argv[2])\nlanguage=sys.argv[3]\nsys.path.insert(0,str(runtime_src))\nnames=[\"archkeel.ir.facts\",f\"archkeel.analyzer.{language}.collect\"]\nif language==\"python\":\n    names.extend(f\"archkeel.analyzer.python.{name}\" for name in (\"resolve\",\"calls\",\"references\",\"symbols\"))\nmodules={name:importlib.import_module(name) for name in names}\npaths={name:Path(module.__file__).resolve() for name,module in modules.items()}\nassert sys.flags.isolated==1 and sys.dont_write_bytecode\nassert all(path.is_relative_to(runtime_src) for path in paths.values()),paths\ndata={\"runtime_src\":str(runtime_src),\"isolated\":sys.flags.isolated,\"dont_write_bytecode\":sys.dont_write_bytecode,\"modules\":{name:{\"path\":str(path),\"sha256\":hashlib.sha256(path.read_bytes()).hexdigest()} for name,path in paths.items()}}\ncalled=set()\nwanted={str(path) for path in paths.values()}\ndef track(frame,event,arg):\n    if event==\"call\" and frame.f_code.co_filename in wanted:\n        called.add((frame.f_code.co_filename,frame.f_code.co_name))\nbuffer=io.BytesIO()\nwire=io.TextIOWrapper(buffer,encoding=\"utf-8\")\nstdout=sys.stdout\nsys.stdout=wire\nsys.setprofile(track)\ntry:\n    runpy.run_module(f\"archkeel.analyzer.{language}.entry\",run_name=\"__main__\")\nfinally:\n    sys.setprofile(None)\n    sys.stdout=stdout\n    wire.flush()\n    payload=buffer.getvalue()\n    receipt.with_suffix(\".response.json\").write_bytes(payload)\n    data[\"actual_calls\"]=[{\"file\":file,\"function\":name} for file,name in sorted(called)]\n    data[\"collect_executed\"]=(str(paths[f\"archkeel.analyzer.{language}.collect\"]),\"collect\") in called\n    data[\"wire_sha256\"]=hashlib.sha256(payload).hexdigest()\n    receipt.write_text(json.dumps(data,sort_keys=True,indent=2))\n    print(\"COLLECTION_SHAPE_CHILD_IMPORT_PROVENANCE=\"+json.dumps(data,sort_keys=True),file=sys.stderr,flush=True)\n    stdout.buffer.write(payload)\n    stdout.flush()\n"
+          driver="from __future__ import annotations\nimport hashlib,importlib,json,sys,time\nfrom pathlib import Path\nfrom archkeel.cli.config import parse_config\nfrom archkeel.cli.observe import observer_for\nfrom archkeel.check.uml import assemble_uml\nfrom archkeel.check.uml_evaluation import evaluate_uml\nfrom archkeel.ir.codec import canonical_report_bytes,observation_payload\nroot=Path(sys.argv[1]).resolve()\nruntime_src=Path(sys.argv[2]).resolve()\nout=Path(sys.argv[3]).resolve()\nbootstrap=Path(sys.argv[4]).read_text()\nout.mkdir(parents=True,exist_ok=True)\nnames=(\"archkeel.cli.observe\",\"archkeel.check.observe\",\"archkeel.ir.facts\",\"archkeel.ir.model\",\"archkeel.ir.source_graph\",\"archkeel.ir.facts_validation\",\"archkeel.check.evaluation.evaluate\",\"archkeel.check.evaluation.boundary_types\",\"archkeel.check.evaluation.rules\",\"archkeel.check.observation\")\ncore={}\nfor name in names:\n    module=importlib.import_module(name)\n    path=Path(module.__file__).resolve()\n    assert path.is_relative_to(runtime_src),(name,path,runtime_src)\n    core[name]={\"path\":str(path),\"sha256\":hashlib.sha256(path.read_bytes()).hexdigest()}\n(out/\"core-provenance.json\").write_text(json.dumps(core,sort_keys=True,indent=2))\nprint(\"COLLECTION_SHAPE_CORE_IMPORT_PROVENANCE=\"+json.dumps({\"runtime_src\":str(runtime_src),\"modules\":core},sort_keys=True),flush=True)\nfixtures=(\"E-runtime\",\"F-architecture\",\"H-uml\",\"K-python-realworld\",\"G-dart\",\"H-uml-dart\",\"H-typescript\",\"H-uml-typescript\")\nwatched=Path(importlib.import_module(\"archkeel.check.evaluation.boundary_types\").__file__).resolve()\nseen=[]\ndef profile(frame,event,arg):\n    if event==\"call\" and frame.f_code.co_filename==str(watched) and frame.f_code.co_name==\"_collection_parameters\":\n        seen.append(frame.f_code.co_name)\nsys.setprofile(profile)\nfor name in fixtures:\n    project=root/\"fixtures\"/name\n    config=parse_config((project/\"archkeel.toml\").read_bytes())\n    language=str(config.language)\n    receipt=out/f\"{name}.collector-provenance.json\"\n    argv=(sys.executable,\"-I\",\"-B\",\"-c\",bootstrap,str(runtime_src),str(receipt),language)\n    observer=observer_for(config.language,collector_argv=argv)\n    assert observer.collector.argv==argv\n    started=time.perf_counter()\n    result=observer(project,roots=config.roots,namespace=config.namespace,contract=config.contract,git_head=\"a\"*40,dirty=False,contract_root=project,language=config.language)\n    assert result.observation is not None,(name,result.diagnostics)\n    child=json.loads(receipt.read_text())\n    assert child[\"runtime_src\"]==str(runtime_src) and child[\"collect_executed\"] is True,(name,child)\n    for module,info in child[\"modules\"].items():\n        actual=Path(info[\"path\"])\n        assert actual.is_relative_to(runtime_src)\n        assert info[\"sha256\"]==hashlib.sha256(actual.read_bytes()).hexdigest()\n    response=json.loads(receipt.with_suffix(\".response.json\").read_text())\n    assert \"facts\" in response,(name,response)\n    result=evaluate_uml(assemble_uml(result,project,config.contract))\n    assert result.observation is not None,(name,result.diagnostics)\n    value=observation_payload(result.observation)\n    (out/f\"{name}.json\").write_text(json.dumps(value,sort_keys=True))\n    (out/f\"{name}.canonical.json\").write_bytes(canonical_report_bytes(result.observation))\n    print(\"COLLECTION_SHAPE_REAL_RUNTIME=\"+json.dumps({\"name\":name,\"language\":language,\"runtime_src\":str(runtime_src),\"seconds\":time.perf_counter()-started,\"collect_executed\":child[\"collect_executed\"],\"diagnostics\":[str(x) for x in result.diagnostics]}),flush=True)\n\nsys.setprofile(None)\nassert seen,(runtime_src,\"collection helper never executed\")\n(out/\"collection-execution.json\").write_text(json.dumps({\"path\":str(watched),\"sha256\":hashlib.sha256(watched.read_bytes()).hexdigest(),\"calls\":len(seen)},sort_keys=True))\nprint(\"COLLECTION_SHAPE_CORE_HELPER_EXECUTED=\"+json.dumps({\"path\":str(watched),\"calls\":len(seen)}),flush=True)\n"
+          (out/"collector-bootstrap.py").write_text(child)
+          (out/"fixture-driver.py").write_text(driver)
+          for side in ("old","new"):
+              runtime_src=(out/side/"src").resolve()
+              bootstrap="import runpy,sys;sys.path.insert(0,sys.argv.pop(1));runpy.run_path(sys.argv.pop(1),run_name='__main__')"
+              subprocess.run([sys.executable,"-I","-B","-c",bootstrap,str(runtime_src),str(out/"fixture-driver.py"),str(root),str(runtime_src),str(out/side/"reports"),str(out/"collector-bootstrap.py")],check=True)
+          def diff(a,b,path=()):
+              if type(a) is not type(b): return [path]
+              if isinstance(a,dict):
+                  if a.keys()!=b.keys(): return [path]
+                  return [d for key in a for d in diff(a[key],b[key],(*path,key))]
+              if isinstance(a,list):
+                  if len(a)!=len(b): return [path]
+                  return [d for index,(x,y) in enumerate(zip(a,b)) for d in diff(x,y,(*path,index))]
+              return [] if a==b else [path]
+          sys.path.insert(0,str(root/"src"))
+          from archkeel.ir.codec import canonical_json_bytes,canonical_report_bytes
+          results=[]
+          fixtures=("E-runtime","F-architecture","H-uml","K-python-realworld","G-dart","H-uml-dart","H-typescript","H-uml-typescript")
+          executed={"old":{},"new":{}}
+          for side in executed:
+              for name in fixtures:
+                  child=json.loads((out/side/"reports"/f"{name}.collector-provenance.json").read_text())
+                  for call in child["actual_calls"]:
+                      module=str(Path(call["file"]).relative_to(out/side/"src"))
+                      executed[side].setdefault(module,set()).add(call["function"])
+              expected={"archkeel/analyzer/python/resolve.py":"resolve_name","archkeel/analyzer/python/calls.py":"_construction","archkeel/analyzer/python/references.py":"_record","archkeel/analyzer/python/symbols.py":"_base_binding","archkeel/analyzer/dart/collect.py":"_construction_record","archkeel/analyzer/typescript/collect.py":"_call_record"}
+              assert all(function in executed[side].get(module,set()) for module,function in expected.items()),(side,executed[side])
+          for name in fixtures:
+              row={"name":name}
+              for suffix,allowed in ((".json",{("analyzer","code_digest"),("producer","code_digest")}),(".collector-provenance.response.json",{("facts","adapter","code_digest")})):
+                  old=json.loads((out/"old"/"reports"/f"{name}{suffix}").read_text())
+                  new=json.loads((out/"new"/"reports"/f"{name}{suffix}").read_text())
+                  changes=diff(old,new)
+                  assert set(changes)<=allowed,(name,suffix,changes[:50])
+                  row[suffix+"_changed_paths"]=changes
+                  for path in changes:
+                      a,b=old,new
+                      for key in path[:-1]:
+                          a,b=a[key],b[key]
+                      b[path[-1]]=a[path[-1]]
+                  encode=canonical_report_bytes if suffix==".json" else canonical_json_bytes
+                  old_bytes=encode(old)
+                  new_bytes=encode(new)
+                  assert old_bytes==new_bytes,(name,suffix)
+                  row[suffix+"_canonical_bytes"]=len(old_bytes)
+                  row[suffix+"_sha256_after_only_digest_equalization"]=hashlib.sha256(old_bytes).hexdigest()
+              results.append(row)
+              print("COLLECTION_SHAPE_TRUE_RUNTIME_WIRE_PARITY="+json.dumps(row,sort_keys=True),flush=True)
+          (out/"wire-comparison.json").write_text(json.dumps(results,sort_keys=True,indent=2))
+          (out/"execution-summary.json").write_text(json.dumps({side:{module:sorted(functions) for module,functions in modules.items()} for side,modules in executed.items()},sort_keys=True,indent=2))
+          print("COLLECTION_SHAPE_TRUE_PRODUCER_AND_CORE_PARITY=PASS",flush=True)
+          
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() }}
+        with:
+          name: collection-shape-producer-and-core
+          path: |
+            collection-shape-runtimes/runtime-source-manifest.json
+            collection-shape-runtimes/wire-comparison.json
+            collection-shape-runtimes/execution-summary.json
+            collection-shape-runtimes/collector-bootstrap.py
+            collection-shape-runtimes/fixture-driver.py
+            collection-shape-runtimes/*/reports/*.json
+  normal-no-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: aa84fab9c5bb6833b9ab58bcccbbbb443dc0a114
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Normal no-write on exact collection shape source
+        run: |
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          protected=("architecture-contract.json","architecture-baseline.json","architecture-accepted.json")
+          before={path:Path(path).read_bytes() for path in protected}
+          run=subprocess.run(["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--json"],capture_output=True,text=True,check=False)
+          Path("collection-shape-normal.json").write_text(run.stdout)
+          value=json.loads(run.stdout)
+          print("COLLECTION_SHAPE_NORMAL="+json.dumps({"exit":run.returncode,"failures":value.get("failures"),"diagnostics":value.get("diagnostics"),"baseline_new":value.get("baseline_new"),"baseline_resolved":value.get("baseline_resolved"),"observation_complete":value.get("observation_complete"),"declared_rules":value.get("declared_rules"),"measurements":value.get("measurements")},sort_keys=True),flush=True)
+          for path,original in before.items():
+              assert Path(path).read_bytes()==original,path
+          assert not subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          print("COLLECTION_SHAPE_NORMAL_PROTECTED_BYTES_UNCHANGED=PASS",flush=True)
+          raise SystemExit(run.returncode)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() }}
+        with:
+          name: collection-shape-normal-no-write
+          path: collection-shape-normal.json
