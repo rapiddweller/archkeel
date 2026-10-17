@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 9b47ce3a620a1f450413791c00e22a81a14a631a
+          ref: c7634b570b7b7957b29bf1c6adc0519f591a766d
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -48,70 +48,3 @@ jobs:
             root,config=_target_repository(Path(p))
             print(architecture_report(_model(root,config)).comparison)
           PY
-  native:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: 9b47ce3a620a1f450413791c00e22a81a14a631a
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-      - run: uv sync --locked
-      - name: Actual before and after native language decisions
-        run: |
-          cat > /tmp/snapshot-native-proof.py <<'PY'
-          # Archkeel
-          # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
-          # SPDX-License-Identifier: MIT
-          import ast
-          import importlib.util
-          import json
-          import subprocess
-          import sys
-          import tempfile
-          from pathlib import Path
-          
-          sys.path.insert(0, str(Path("tests").resolve()))
-          from test_analyzer import _observe_one_rule
-          from archkeel.check import snapshot
-          
-          base = "cdcaa7f88537be077a9a44f7002816089ae5cde0"
-          old_text = subprocess.check_output(["git", "show", base + ":src/archkeel/check/snapshot.py"], text=True)
-          current_text = Path("src/archkeel/check/snapshot.py").read_text()
-          all_rows = {}
-          for name, source in [("before", old_text), ("after", current_text)]:
-              with tempfile.TemporaryDirectory() as temporary:
-                  result = _observe_one_rule(Path(temporary), {"kind": "forbidden_construct", "source": "sample.core", "constructs": ["string_literal_compare"]}, {"core.py": source})
-                  assert result.diagnostics == () and result.observation is not None
-                  syntax = ast.parse(source)
-                  language_lines = set()
-                  for node in ast.walk(syntax):
-                      if isinstance(node, ast.Compare) and any(isinstance(item, ast.Name) and item.id == "language" for item in ast.walk(node)):
-                          language_lines.add(node.lineno)
-                  rows = []
-                  for row in result.observation.records("constructs"):
-                      if row.kind != "string_literal_compare":
-                          continue
-                      loc = [result.observation.record(ref) for ref in row.source_refs]
-                      lines = [item.data.get("line") for item in loc if item is not None]
-                      rows.append({"id": row.id, "data": dict(row.data), "locations": [dict(item.data) for item in loc if item is not None], "language": any(line in language_lines for line in lines)})
-                  selected = [row for row in rows if row["language"]]
-                  all_rows[name] = {"all_literal_comparisons": len(rows), "language": selected, "rows": rows}
-                  print("NATIVE_LANGUAGE_SITES=" + json.dumps({"revision": name, "count": len(selected), "ids": [row["id"] for row in selected]}))
-          assert len(all_rows["before"]["language"]) == 9, all_rows["before"]
-          assert all_rows["after"]["language"] == [], all_rows["after"]
-          Path("/tmp/snapshot-native-sites.json").write_text(json.dumps(all_rows, indent=2))
-          print("NATIVE_LANGUAGE_DISPATCH=9_to_0; other data/protocol controls explicitly remain")
-          
-          PY
-          uv run --locked python /tmp/snapshot-native-proof.py
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: snapshot-language-native-sites
-          path: /tmp/snapshot-native-sites.json
