@@ -1,344 +1,46 @@
-name: Compose frozen existing PR backlog on accepted Main
+name: Verify frozen existing backlog report and real demos
 on:
   push:
     branches: [verify/542-explicit-range-apply-preview]
 permissions:
   contents: read
 jobs:
-  scoped-carrier:
+  report-browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 113318809036cfa4550b2b8598dab63c0b548878
+          ref: 1d03bb49b881ceb3e88abc43664ca27d86be710c
           fetch-depth: 0
           persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
         with:
           python-version: "3.11.12"
           version: "0.12.13"
-      - name: Compose exact reviewed ranges and verify existing failure families
-        run: |
-          python3 - <<'PY'
-          import ast,base64,collections,difflib,glob,hashlib,json,re,subprocess,tempfile
-          from pathlib import Path
-          PAIRS=[["562","df14a43645316b74e67108e751e5acecc405b88b","e0ed68775f56bd20b79b470d3e5cbdeb0ffbc970"],["563","b475e027f4384feb8cdf2cc9844b82cdf89185ea","8d597b516c4ea3b95c1e009aa5009204d473cc00"],["565","8a56d6d09e16372b43064798cc0b24428daa5e5f","f367015340044e12356c3963c63d29a2df90f095"],["567","e5215b1403d98522003220b4c240aae9b011575f","a9fb1879aea33aa747fc4ce7d43965729f8879d3"],["577","7f99d03afaaea57530c56d688ce84e4b0867152e","b11aad0a60a26ecdf020ce36a5262d640315eb36"],["inventory","c7444205d4fe87eaae0de5e2dc98b70909fd1cc7","16ca88691a250e537439d1b118e767af32744e98"],["577nav","c7444205d4fe87eaae0de5e2dc98b70909fd1cc7","c1ca9d98595af1d09f619cc0a135eae155b25ee6"],["573","d08dfaf6a2e6992153a434341465306a88d993a2","0aee692c767150847089dbcfdcf1765464837ab6"],["574","4493b0a944e6caf0c56802c6333d9fd0090041b4","6f9df272790f4435df7735a75979e0bfc692c1cf"],["575","d3f7b008fedbedbf029312ddee30d4bfcafe4eb0","3dd2efdc54ef99f2b4cb742f3194cfd1f2619a84"],["578","3dd2efdc54ef99f2b4cb742f3194cfd1f2619a84","af9f0f708142bf0529992f4f7147c7d37e3b1a99"],["578catalog","a25c37c564c82c1b42457f0528c931c769ee9362","3e50a1764bffa24100892bf231e208e15919dacc"],["579","af9f0f708142bf0529992f4f7147c7d37e3b1a99","6452149d33186dc56d78f7072d73b5dbb988d35a"],["python-predicate-original","de6f57f4f49b368373d40e8584e48761ab4b19b1","f624d99286983fa0e26aff5e87835c359ba63d55"],["typescript-source-input","bbcba3ae4e79ca72329d382333c1fba9546586cd","d894c0692b06dd5f1ea114c3a81edbb180bc93cf"],["580","e99394254846318e236ba471a14c19cd160081cf","f6099877bdb325c095959f5df8f07f406c0f0dc2"],["581","f264c77eb55b1761a37a8083e479c3f1bc45f5cc","28938726de24fe8b2df69c61cd92c3f5dfb4cad1"],["571","fa37f59600cfae64ba0528cb56e609c6bbd756e4","97615e831e15b2fceb5a6b09743601042b9552c4"],["576","0e3b8a7f62b9b13417cda78e11b52d0de82986cd","124ab1c6ded4d7f7359a5265bc1434b96c0f9507"],["571-576-activation","15f1fa127c37399541e09b16ccf23ebe246f3709","4a01cf7925db9f64295ef3a0f52292cb30f8bfb1"],["582","0aee692c767150847089dbcfdcf1765464837ab6","3ccd073fb4bb82639f51cc0f7b09497101d5ee3d"],["582nav","5fc94c10298c4bbcd98fd44f8ac72b321b03a0b4","809263d0b311033428b54f05a396032a39da25ef"],["582provenance","ebfc072a9bf8afcbaca323024dcc8ad8488a76ee","ab5af9f9d68703d79688ec7327d58d43dafa72ea"],["583","a25c37c564c82c1b42457f0528c931c769ee9362","11173d0125f0e70b6ef592ae7eec70ec37665e73"],["585","5fc94c10298c4bbcd98fd44f8ac72b321b03a0b4","c94d1fa926d62042477ca149232ade6afe3e4919"],["586","b06fd806ae0e76d340cba44eb7b5e84c887384d6","b4e9089b32e48ae420e2c529a93b85ec930db27e"],["586make","b4e9089b32e48ae420e2c529a93b85ec930db27e","0000dc6789d3c2c9dd85e64f7974b0c982c1d5d6"],["587","6452149d33186dc56d78f7072d73b5dbb988d35a","a7e2c7184bea0f0aeb5b7003810aebd64aaa3761"],["588","5fc94c10298c4bbcd98fd44f8ac72b321b03a0b4","a91dfa9f52d9b95cfe00a9bc9ec9bd1e5bf752fc"],["589","c725df96543d1dd7ec4e20887a486ec9a7143c8a","36624bb7d147ed2056ceac8bd2332959ee3be5d6"],["590","cdcaa7f88537be077a9a44f7002816089ae5cde0","6776847a36bca8811a7126736cc0da2179ab73ae"],["591","68b656668a3fdbbbe482881d0dab41ff89a21ca3","4a58d277f17ff2375a50a92349b58d3b17812124"],["592","68b656668a3fdbbbe482881d0dab41ff89a21ca3","f051e6deee7de905984c1e648376fb88a07cc8a2"],["597","68b656668a3fdbbbe482881d0dab41ff89a21ca3","8d9c67779b682b710cf1bed5d58d1ee24d9a7eb2"],["593","68b656668a3fdbbbe482881d0dab41ff89a21ca3","29b161ca39de84d02919f209ade6b8c9b5fa8dc4"],["594","68b656668a3fdbbbe482881d0dab41ff89a21ca3","917b8177636c5401a51eecafafee6baf7b3bb35a"],["595","cdcaa7f88537be077a9a44f7002816089ae5cde0","a4e7c423ba1338facdd430baf933fcbd4fc9068d"],["596","68b656668a3fdbbbe482881d0dab41ff89a21ca3","61dde9cc026a07ea348fbf5f9e56a172a5bbb90b"],["598","5937445491094abc00a4076dd4628a03f08e9064","01bc5d65beff3190f550a97bd71ea5071486594d"],["599","7cfe1298fb285dfb5c53c1b8f829207ce05b7e97","96e70a648eff9a404475db0af5c3a4738abd86ac"],["visibility","bb3e498b9c43afc954ef9fe7078595983e0b3c2f","bcd0951665735a1f00c85b3a0cb6b88887bd8683"],["topology","bb3e498b9c43afc954ef9fe7078595983e0b3c2f","5076058e5e7167d5d6df866784e99036149cd47f"],["git-kind","bb3e498b9c43afc954ef9fe7078595983e0b3c2f","bf21e014fff57e5b963ea6785ae4a4b4f2c48a79"],["git-kind-final-doc","bf21e014fff57e5b963ea6785ae4a4b4f2c48a79","c2e96e3405930b3d1083b78f33e8486cb10e9fc8"],["structure-level","bb3e498b9c43afc954ef9fe7078595983e0b3c2f","7ff514624621334247bf89815e4a5f1d59404899"],["predicate-fixture-scope","ff885e1c7f66afb2ede2e60eb4334a824deb9c81","0224cdd2ca3be4a6501a4f584bed80ecd253e941"],["typescript-input-supplement","f63840b5c912ae40eff42fa7b12fd41240566d46","cd610282d11fb2195bfe93fedbb4ee1b4f82f412"],["typescript-public-catalog","b06fd806ae0e76d340cba44eb7b5e84c887384d6","a25c37c564c82c1b42457f0528c931c769ee9362"],["classifier","bcd0951665735a1f00c85b3a0cb6b88887bd8683","2d55dfb42c455ac47b2dc5715270cd14521d396c"],["call-directions","5b8a603274b2330b85fc6fe62c8d7f6fb15da8f1","befb7e8ac4adfb39ba2ae4c6b9308f4c33bbd638"],["host-os","5b8a603274b2330b85fc6fe62c8d7f6fb15da8f1","7313832f307b54dbe99311df691fe1a907feb355"],["collection-grammar","befb7e8ac4adfb39ba2ae4c6b9308f4c33bbd638","aa84fab9c5bb6833b9ab58bcccbbbb443dc0a114"]]
-          ORIGIN="113318809036cfa4550b2b8598dab63c0b548878"
-          def git(*args):return subprocess.check_output(["git",*args])
-          def blob(ref,path):
-              r=subprocess.run(["git","show",ref+":"+path],capture_output=True)
-              return r.stdout if r.returncode==0 else None
-          def merge(o,n,c,p="$"):
-              if o==n:return c
-              if o==c:return n
-              if c==n:return c
-              if isinstance(o,dict) and isinstance(n,dict) and isinstance(c,dict):
-                  out=dict(c)
-                  for k in o.keys()|n.keys():
-                      if k in o and k in n and o[k]==n[k]:continue
-                      if k not in n:
-                          if k in out and out[k]!=o[k]:raise ValueError("changed removed key "+p+"."+k)
-                          out.pop(k,None)
-                      elif k not in o:
-                          if k in out and out[k]!=n[k]:
-                              if isinstance(n[k],dict) and isinstance(out[k],dict):out[k]=merge({},n[k],out[k],p+"."+k)
-                              elif isinstance(n[k],list) and isinstance(out[k],list):out[k]=merge([],n[k],out[k],p+"."+k)
-                              elif p=="$.declarations.uml" and k=="schema_version" and n[k]=="1.1.0" and out[k]=="1.0.0":out[k]=n[k]
-                              else:raise ValueError("conflicting added key "+p+"."+k)
-                          else:out[k]=n[k]
-                      else:
-                          if k not in out:raise ValueError("missing key "+p+"."+k)
-                          out[k]=merge(o[k],n[k],out[k],p+"."+k)
-                  return out
-              if isinstance(o,list) and isinstance(n,list) and isinstance(c,list):
-                  key=next((k for k in ("id","path","qualified_name") if all(isinstance(v,dict) and isinstance(v.get(k),str) for v in o+n+c)),None)
-                  out=list(c)
-                  if key:
-                      for v in o:
-                          nv=next((x for x in n if x[key]==v[key]),None)
-                          if nv==v:continue
-                          idx=next((i for i,x in enumerate(out) if x[key]==v[key]),None)
-                          if nv is None:
-                              if idx is not None:
-                                  if out[idx]!=v:raise ValueError("changed removed row "+p+"."+v[key])
-                                  out.pop(idx)
-                          else:
-                              if idx is None:raise ValueError("missing row "+p+"."+v[key])
-                              out[idx]=merge(v,nv,out[idx],p+"."+v[key])
-                      for nv in n:
-                          if not any(x[key]==nv[key] for x in o):
-                              cv=next((x for x in out if x[key]==nv[key]),None)
-                              if cv is not None and cv!=nv:raise ValueError("conflicting new row "+p+"."+nv[key])
-                              if cv is None:out.append(nv)
-                      return out
-                  if all(not isinstance(v,(dict,list)) for v in o+n+c):
-                      out=[v for v in out if v not in o or v in n]
-                      for v in n:
-                          if v not in o and v not in out:out.append(v)
-                      return out
-                  raise ValueError("ambiguous array "+p)
-              if all(isinstance(v,str) for v in (o,n,c)) and n.startswith(o):
-                  suffix=n[len(o):]
-                  return c if c.endswith(suffix) else c+suffix
-              raise ValueError("scalar conflict "+p)
-          def exact_occurrences(lines,needle):
-              if not needle:return []
-              return [i for i in range(len(lines)-len(needle)+1) if lines[i:i+len(needle)]==needle]
-          def make_line(o,n,current):
-              ot,nt=o.split(),n.split()
-              removed=[x for x in ot if x not in nt and x!="\\"]
-              added=[x for x in nt if x not in ot and x!="\\"]
-              if removed or not added:raise ValueError("not an additive Make token edit")
-              candidates=[]
-              for i,line in enumerate(current):
-                  ct=line.split()
-                  shared=len(set(ot)&set(ct))
-                  if shared and (not ot[0].endswith(":") or (ct and ct[0]==ot[0])):
-                      candidates.append((shared,i))
-              if not candidates:raise ValueError("no additive Make line")
-              score=max(v[0] for v in candidates)
-              best=[i for v,i in candidates if v==score]
-              if len(best)!=1:raise ValueError("ambiguous additive Make line")
-              i=best[0];line=current[i]
-              missing=[x for x in added if x not in line.split()]
-              if missing:
-                  suffix=" \\\n" if line.rstrip().endswith("\\") else "\n"
-                  body=line.rstrip().removesuffix("\\").rstrip()
-                  current[i]=body+" "+" ".join(missing)+suffix
-              return current
-          def make_block(o,n,current,old,index):
-              ot=" ".join(o).split();nt=" ".join(n).split()
-              removed=[x for x in ot if x not in nt and x!="\\"]
-              added=[x for x in nt if x not in ot and x!="\\"]
-              if removed or not added or not all(x.startswith(("tests/","tools/","src/")) for x in added):raise ValueError("not a path-only Make addition")
-              header=next((line.strip() for line in reversed(old[:index]) if line and not line[0].isspace() and ":" in line),"")
-              key=header.split(":")[0]
-              starts=[i for i,line in enumerate(current) if line.startswith(key+":")] if key else []
-              if len(starts)!=1:raise ValueError("ambiguous Make block "+key)
-              lo=starts[0]+1
-              hi=next((i for i in range(lo,len(current)) if current[i].strip() and not current[i][0].isspace()),len(current))
-              present=" ".join(current[lo:hi]).split()
-              missing=[x for x in added if x not in present]
-              if not missing:return current
-              choices=[(len(set(ot)&set(line.split())),i) for i,line in enumerate(current[lo:hi],lo) if line.strip() and any(x.startswith(("tests/","tools/","src/")) for x in line.split())]
-              if not choices:raise ValueError("missing Make path line "+key)
-              top=max(v for v,i in choices)
-              idx=[i for v,i in choices if v==top][-1]
-              line=current[idx];suffix=" \\\n" if line.rstrip().endswith("\\") else "\n"
-              current[idx]=line.rstrip().removesuffix("\\").rstrip()+" "+" ".join(missing)+suffix
-              return current
-          def import_snapshot(data):
-              text=data.decode();lines=text.splitlines(keepends=True);tree=ast.parse(text)
-              nodes=[node for node in tree.body if isinstance(node,(ast.Import,ast.ImportFrom))]
-              if not nodes:return None
-              low,high=nodes[0].lineno-1,nodes[-1].end_lineno
-              if any(not isinstance(node,(ast.Import,ast.ImportFrom)) for node in tree.body if low<node.lineno<=high):raise ValueError("noncontiguous top-level imports")
-              if "#" in "".join(lines[low:high]):raise ValueError("import comments require explicit preservation")
-              tokens=[]
-              for node in nodes:
-                  for alias in node.names:
-                      tokens.append(("from",node.level,node.module or "",alias.name,alias.asname) if isinstance(node,ast.ImportFrom) else ("import",0,"",alias.name,alias.asname))
-              return lines,low,high,tokens
-          def neutral_imports(o,n,c):
-              snapshots=[import_snapshot(d) for d in (o,n,c)]
-              if any(v is None for v in snapshots):raise ValueError("missing import block")
-              old,new,current=[v[3] for v in snapshots]
-              desired=[v for v in current if v not in old or v in new]
-              desired.extend(v for v in new if v not in old and v not in desired)
-              rendered=[]
-              for kind,level,module,name,alias in desired:
-                  item=ast.alias(name=name,asname=alias)
-                  node=ast.ImportFrom(module=module or None,names=[item],level=level) if kind=="from" else ast.Import(names=[item])
-                  rendered.append(ast.unparse(node)+"\n")
-              out=[]
-              for lines,lo,hi,tokens in snapshots:out.append(("".join(lines[:lo])+"".join(rendered)+"".join(lines[hi:])).encode())
-              return out
-          def test_definitions(o,n,c):
-              datas=[d.decode() for d in (o,n,c)]
-              trees=[ast.parse(d) for d in datas]
-              mappings=[{node.name:node for node in tree.body if isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef))} for tree in trees]
-              old,new,current=mappings
-              lines=datas[2].splitlines(keepends=True)
-              def span(node):return min([node.lineno]+[d.lineno for d in getattr(node,"decorator_list",[])])-1,node.end_lineno
-              edits=[];additions=[]
-              for name,node in old.items():
-                  if name in new and ast.dump(node)==ast.dump(new[name]):continue
-                  if name not in current:raise ValueError("missing old definition "+name)
-                  if ast.dump(current[name])!=ast.dump(node):raise ValueError("Main changed definition "+name)
-                  lo,hi=span(current[name])
-                  replacement=""
-                  if name in new:
-                      a,b=span(new[name]);replacement="".join(datas[1].splitlines(keepends=True)[a:b])
-                  edits.append((lo,hi,replacement))
-              for name,node in new.items():
-                  if name in old:continue
-                  if name in current:
-                      if ast.dump(current[name])!=ast.dump(node):raise ValueError("conflicting new definition "+name)
-                      continue
-                  a,b=span(node);additions.append("".join(datas[1].splitlines(keepends=True)[a:b]))
-              for lo,hi,replacement in sorted(edits,reverse=True):lines[lo:hi]=[replacement] if replacement else []
-              return ("".join(lines).rstrip()+"\n\n\n"+"\n\n\n".join(additions)+"\n").encode()
-          def scoped_ops(o,n,c,is_make=False):
-              old,next_,cur=[data.decode().splitlines(keepends=True) for data in (o,n,c)]
-              for tag,a,b,x,y in difflib.SequenceMatcher(a=old,b=next_,autojunk=False).get_opcodes():
-                  if tag=="equal":continue
-                  before,after=old[a:b],next_[x:y]
-                  if is_make:
-                      try:
-                          cur=make_block(before,after,cur,old,a)
-                          continue
-                      except ValueError:pass
-                  if is_make and len(before)==len(after)==1:
-                      try:
-                          cur=make_line(before[0],after[0],cur)
-                          continue
-                      except ValueError:pass
-                  hits=exact_occurrences(cur,before)
-                  if len(hits)==1:
-                      pos=hits[0];cur[pos:pos+len(before)]=after;continue
-                  located=[]
-                  for width in range(1,9):
-                      left=old[max(0,a-width):a]
-                      right=old[b:min(len(old),b+width)]
-                      for pos in hits:
-                          if (not left or cur[max(0,pos-len(left)):pos]==left) and (not right or cur[pos+len(before):pos+len(before)+len(right)]==right):
-                              located.append(pos)
-                      if len(set(located))==1:break
-                  if len(set(located))==1:
-                      pos=located[0];cur[pos:pos+len(before)]=after;continue
-                  if not before:
-                      for width in range(8,0,-1):
-                          left=old[max(0,a-width):a];right=old[b:min(len(old),b+width)]
-                          lhs=exact_occurrences(cur,left) if left else [-len(left)]
-                          rhs=exact_occurrences(cur,right) if right else [len(cur)]
-                          if len(lhs)==len(rhs)==1:
-                              lo=lhs[0]+len(left);hi=rhs[0]
-                              if 0<=hi-lo<=50:
-                                  if cur[lo:hi]!=after:cur[hi:hi]=after
-                                  break
-                      else:raise ValueError("ambiguous scoped insertion "+repr(after[:3]))
-                      continue
-                  raise ValueError("unmatched scoped replacement "+repr(before[:3]))
-              return "".join(cur).encode()
-          def resolve_report_gate_union(o,n,c):
-              name="test_pr_report_gate_runs_its_browser_sample_and_propagates_failure"
-              def section(data):
-                  text=data.decode();lines=text.splitlines(keepends=True)
-                  node=next(x for x in ast.parse(text).body if isinstance(x,ast.FunctionDef) and x.name==name)
-                  lo=min([node.lineno]+[d.lineno for d in node.decorator_list])-1;hi=node.end_lineno
-                  return lines,lo,hi,node
-              parts=[section(d) for d in (o,n,c)]
-              class StripGate(ast.NodeTransformer):
-                  def __init__(self,value):self.value=value
-                  def visit_List(self,node):
-                      self.generic_visit(node)
-                      node.elts=[v for v in node.elts if not (isinstance(v,ast.Constant) and v.value==self.value)]
-                      return node
-              if ast.dump(StripGate("browser-graph-check").visit(parts[1][3]))!=ast.dump(StripGate("browser-runtime-check").visit(parts[2][3])):raise ValueError("report-gate union differs beyond the two actual guards")
-              clines,lo,hi,node=parts[2];block="".join(clines[lo:hi])
-              if '"browser-graph-check"' not in block:
-                  assert block.count('"browser-runtime-check",')==2
-                  block=block.replace('"browser-runtime-check",','"browser-runtime-check", "browser-graph-check",')
-              out=[]
-              for lines,a,b,node in parts:out.append(("".join(lines[:a])+block+"".join(lines[b:])).encode())
-              return out
-          def merged_text(o,n,c,path):
-              if path=='tests/test_make_gate.py' and scope=='573':o,n,c=resolve_report_gate_union(o,n,c)
-              with tempfile.TemporaryDirectory() as td:
-                  paths=[Path(td)/name for name in ("current","old","next")]
-                  for target,data in zip(paths,(c,o,n),strict=True):target.write_bytes(data)
-                  r=subprocess.run(["git","merge-file","-p",*[str(p) for p in paths]],capture_output=True)
-                  if r.returncode==0:return r.stdout
-                  try:return scoped_ops(o,n,c,path=="Makefile")
-                  except ValueError as e:
-                      if path.endswith(".py"):
-                          try:
-                              oo,nn,cc=neutral_imports(o,n,c)
-                              try:return scoped_ops(oo,nn,cc)
-                              except ValueError:
-                                  if path=="tests/test_string_comparison_observation.py":return test_definitions(oo,nn,cc)
-                          except ValueError:pass
-                      conflicts=re.findall(r"<<<<<<<.*?>>>>>>>[^\n]*",r.stdout.decode(errors="replace"),re.S)
-                      raise ValueError(str(e)+" | "+(" | ".join(conflicts))[:1500]) from e
-          current={}
-          conflicts=[]
-          applications=[]
-          for scope,base,head in PAIRS:
-              records=git("diff","--name-status","--no-renames",base,head).decode().splitlines()
-              for record in records:
-                  status,path=record.split("\t",1)
-                  if scope=="typescript-input-supplement" and path not in ("docs/superpowers/plans/2026-10-16-string-predicate-activation-union.md","tests/test_self.py"):continue
-                  if path=="architecture-baseline.json" or re.search(r"^docs/architecture/decisions/.*amendment.*\.json$",path):continue
-                  o,n=blob(base,path),blob(head,path)
-                  c=current.get(path,blob(ORIGIN,path))
-                  try:
-                      if c==n or o==n:out=c
-                      elif c==o:out=n
-                      elif c is None and n is not None and path.endswith(".md"):out=n
-                      elif None in (o,n,c):raise ValueError("conflicting add/delete")
-                      elif path.endswith(".json"):
-                          out=(json.dumps(merge(json.loads(o),json.loads(n),json.loads(c)),indent=2,ensure_ascii=False)+"\n").encode()
-                      else:out=merged_text(o,n,c,path)
-                      current[path]=out
-                      applications.append({"scope":scope,"path":path,"mode":"noop" if out==c else "exact" if out==n else "scoped-merge"})
-                  except ValueError as e:
-                      conflicts.append({"scope":scope,"path":path,"reason":str(e)})
-          print("SCOPED_APPLY_SUMMARY="+json.dumps({"origin":ORIGIN,"scopes":len(PAIRS),"applied":len(applications),"paths":len(current),"conflicts":len(conflicts)},separators=(",",":")))
-          for row in conflicts:print("SCOPED_CONFLICT="+json.dumps(row,separators=(",",":")))
-          for row in applications:print("SCOPED_APPLIED="+json.dumps(row,separators=(",",":")))
-          for path,data in current.items():
-              if data is not None and path.endswith(".py"):ast.parse(data.decode(),filename=path)
-              if data is not None and path.endswith(".json"):json.loads(data)
-          print("SCOPED_SYNTAX_VALID=True")
-          for path,data in sorted(current.items()):
-              if data is not None:print("SCOPED_BLOB="+json.dumps({"path":path,"sha":hashlib.sha1(b"blob "+str(len(data)).encode()+b"\0"+data).hexdigest(),"bytes":len(data)},separators=(",",":")))
-          assert git("status","--porcelain")==b""
-          
-          assert not conflicts, conflicts
-          REF="afc360674fdb4524f3d2c1fd9f8bfef72352d140"
-          baseline_before=Path("architecture-baseline.json").read_bytes()
-          receipt_before=Path("docs/architecture/decisions/issue-564-symbol-requires-amendment.json").read_bytes()
-          for path,data in current.items():
-              target=Path(path)
-              if data is None:
-                  if target.exists():target.unlink()
-              else:
-                  target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
-          for path in git("diff","--name-only",ORIGIN,REF).decode().splitlines():
-              if path=="architecture-baseline.json" or re.search(r"^docs/architecture/decisions/.*amendment.*\.json$",path):continue
-              actual=Path(path).read_bytes() if Path(path).exists() else None
-              expected=blob(REF,path)
-              if actual!=expected:print("ROOT_REFERENCE_DIFFERENCE="+json.dumps({"path":path,"actual_bytes":len(actual or b""),"root_bytes":len(expected or b"")},separators=(",",":")))
-          subprocess.run(["uv","sync","--locked"],check=True)
-          # Match the repository's actual selected paths; formatting/import sorting only.
-          commands=subprocess.check_output(["make","-n","lint"]).decode().splitlines()
-          fmt=[q for p in commands[0].split() for q in (glob.glob(p) if "*" in p else [p])];fmt.remove("--check")
-          subprocess.run(fmt,check=True)
-          imp=[q for p in commands[1].split() for q in (glob.glob(p) if "*" in p else [p])];imp.extend(["--select","I","--fix"])
-          subprocess.run(imp,check=True)
-          for path in git("diff","--name-only",ORIGIN).decode().splitlines():
-              data=Path(path).read_bytes() if Path(path).exists() else None
-              sha=hashlib.sha1(b"blob "+str(len(data)).encode()+b"\0"+data).hexdigest() if data is not None else None
-              exists=sha is not None and subprocess.run(["git","cat-file","-e",sha],capture_output=True).returncode==0
-              row={"path":path,"sha":sha,"existing":exists,"bytes":len(data or b"")}
-              if not exists and data is not None:row["content"]=data.decode()
-              print("CARRIER_BLOB="+json.dumps(row,separators=(",",":")))
-          for path in sorted(current):
-              if blob(ORIGIN,path) is None and Path(path).exists():
-                  data=Path(path).read_bytes()
-                  sha=hashlib.sha1(b"blob "+str(len(data)).encode()+b"\0"+data).hexdigest()
-                  exists=subprocess.run(["git","cat-file","-e",sha],capture_output=True).returncode==0
-                  row={"path":path,"sha":sha,"existing":exists,"bytes":len(data)}
-                  if not exists:row["content"]=data.decode()
-                  print("CARRIER_BLOB="+json.dumps(row,separators=(",",":")))
-          assert Path("architecture-baseline.json").read_bytes()==baseline_before
-          assert Path("docs/architecture/decisions/issue-564-symbol-requires-amendment.json").read_bytes()==receipt_before
-          def version_port(data):return next(row for row in json.loads(data)["declarations"]["uml"]["entities"] if row["id"]=="IR-VERSION-supports")
-          assert version_port(Path("docs/architecture/contracts/ir.json").read_bytes())==version_port(blob(ORIGIN,"docs/architecture/contracts/ir.json"))
-          assert 're.split(r"\\r\\n?|\\n", source)' in Path("src/archkeel/analyzer/python/source.py").read_text()
-          print("ACTUAL_MAIN_PRESERVATION=True")
-          subprocess.run(["make","lint","typecheck"],check=True)
-          subprocess.run(["uv","run","--locked","python","-m","pytest","-q","tests/test_references.py::test_the_claim_stays_small_enough_to_read","tests/test_target_navigation_graph.py::test_own_render_contract_enforces_output_direction","tests/test_levels.py::test_the_inside_of_check_carries_its_sub_components_and_their_edges","tests/test_module_object_grants.py::test_unknown_names_are_not_converted_to_a_module_object_permission","tests/test_typescript_demo.py::test_catalog_exhausts_rule_and_measurement_vocabulary"],check=True)
-          
-          PY
+      - run: uv sync --locked
+      - run: make ci-pr-report-check
+      - run: git diff --exit-code
+  compass-and-nest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 1d03bb49b881ceb3e88abc43664ca27d86be710c
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: make browser-install browser-runtime-install
+      - run: uv run --locked --with playwright==1.62.0 python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q --durations=20 --junitxml=test-artifacts/pytest/frozen-real-demos.xml tests/test_compass_project_report.py tests/test_compass_project_target.py tests/test_nest_realworld_project_report.py tests/test_nest_realworld_project_target.py
+      - run: git diff --exit-code
