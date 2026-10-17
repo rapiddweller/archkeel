@@ -121,7 +121,7 @@ def _contract():
             row.pop("parent_id", None)
     ir.pop("$schema", None)
     ir["components"] = [dict(id="CORE", label="core", role="component", packages=["archkeel"], responsibilities=["Own the actual typed action ports."], forbidden_responsibilities=[], provenance=[DOC], public=["archkeel"])]
-    ir["declarations"] = {"uml": {"entities": entities, "relationships": [], "scopes": []}}
+    ir["declarations"] = {"uml": {"schema_version": "1.0.0", "entities": entities, "relationships": [], "scopes": []}}
     ir["rules"] = [dict(id="ACTION-" + module, kind="forbidden_construct", source="archkeel." + module, constructs=["string_literal_compare"], rationale="Actual migrated source projections use nominal actions.", provenance=[DOC], decided_by="architect") for module in ["ir.model", "check.delta", "check.expectation"]]
     return ir
 
