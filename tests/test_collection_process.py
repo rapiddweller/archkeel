@@ -7,13 +7,24 @@ import json
 import os
 import sys
 import time
+from enum import Enum
 from pathlib import Path
+from types import SimpleNamespace
+from typing import get_type_hints
+from unittest.mock import patch
 
 import pytest
+from test_architecture_demo import _prepare_repo
 from test_collection_protocol import _request, _response
+from test_uml_evaluation import _model
 
-from archkeel.ir.facts_codec import decode_request
+from archkeel.analyzer import process as process_owner
+from archkeel.check.ports import ScanConfig
+from archkeel.ir.decisions import rule_assessments
+from archkeel.ir.facts_codec import decode_request, decode_response
 from archkeel.ir.protocol import CollectionError
+from archkeel.ir.report_graph import architecture_report
+from archkeel.ir.trace import trace_valid_violations
 
 
 def _collector(code: str, **limits):
@@ -254,21 +265,7 @@ def test_bundled_collector_never_imports_snapshot_modules(tmp_path: Path, langua
     assert not marker.exists()
 
 
-# The process owner normalizes the interpreter OS name once; other names stay open.
-from enum import Enum
-from types import SimpleNamespace
-from typing import get_type_hints
-from unittest.mock import patch
-
-from test_architecture_demo import _prepare_repo
-from test_uml_evaluation import _model
-
-from archkeel.analyzer import process as process_owner
-from archkeel.check.ports import ScanConfig
-from archkeel.ir.decisions import rule_assessments
-from archkeel.ir.report_graph import architecture_report
-from archkeel.ir.trace import trace_valid_violations
-
+# Other OS names remain outside the recognized process platform vocabulary.
 _PROCESS_ROOT = Path(__file__).parents[1]
 _PLATFORM_GUARD = "PROCESS-PLATFORM-DECODE-CONTROL"
 _CLEANUP_GUARD = "PROCESS-PLATFORM-CLEANUP-CONTROL"
@@ -427,7 +424,8 @@ def _launch_observation(owner, request, name, executable="tool.exe", popen_error
 def test_actual_collect_keeps_launcher_session_and_unknown_fallback(name):
     request = decode_request(_request())
     events, result = _launch_observation(process_owner, request, name)
-    assert not isinstance(result[0], str)
+    expected = decode_response(json.dumps(_response()).encode()).facts
+    assert result == (expected.profile, expected.source.git_head, expected.coverage.selected_files)
     launches = [event for event in events if event[0] == "launch"]
     assert len(launches) == 1
     command = [sys.executable, "-I", "-B", "windows_job.py", "--", "collector-tool", "script.py"]
