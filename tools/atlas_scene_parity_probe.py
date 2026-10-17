@@ -42,11 +42,13 @@ with TemporaryDirectory() as temporary:
           const newModel = NewReportScene.create(data);
           let scenes = 0;
           for (const oldLevel of oldModel.atlas.levels) {
-            const newLevel = newModel.atlas.levels.find(row => row.id === oldLevel.id);
+            const matches = newModel.atlas.levels.filter(row => row.parent_id === oldLevel.parent_id);
+            if (matches.length !== 1) throw Error("Unique actual level route");
+            const newLevel = matches[0];
             for (const mode of ["diagram","target","diff","actual","structure","review"]) {
               const oldScene = oldModel.atlasScene(oldLevel, mode);
               const newScene = newModel.atlasScene(newLevel, mode);
-              if (JSON.stringify(oldScene) !== JSON.stringify(newScene)) throw Error("Scene parity " + oldLevel.id + "/" + mode);
+              if (JSON.stringify(oldScene) !== JSON.stringify(newScene)) throw Error("Scene parity " + oldLevel.parent_id + "/" + mode);
               if (ArchkeelReportScene.sceneToMermaid(oldScene) !== NewReportScene.sceneToMermaid(newScene)) throw Error("Mermaid parity");
               scenes++;
             }
