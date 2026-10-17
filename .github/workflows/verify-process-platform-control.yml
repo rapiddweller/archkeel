@@ -1,0 +1,22 @@
+name: Process platform control proof
+on:
+  push:
+    branches: ["verify/542-process-platform-control"]
+permissions:
+  contents: read
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 72497e109686b2d247e77c031a29465afd6c2d49
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Actual process platform port and native control RED
+        run: uv run --locked pytest -q -s tests/test_collection_process.py::test_process_platform_port_owns_only_known_os_names tests/test_collection_process.py::test_native_actual_process_target_and_os_control_sites
