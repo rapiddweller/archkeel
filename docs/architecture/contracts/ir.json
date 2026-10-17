@@ -532,6 +532,45 @@
         "docs/architecture/source-symbol-kind-types.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "EVIDENCE-FACET-parse_source_evidence_kind-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.facts.parse_source_evidence_kind",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Use the canonical nominal facet for the actual protocol decoder, without raw or constant-alias dispatch.",
+      "provenance": [
+        "docs/architecture/analysis-evidence-facets.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "EVIDENCE-FACET-parse_source_resolution_dimension-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.facts.parse_source_resolution_dimension",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Use the canonical nominal facet for the actual protocol decoder, without raw or constant-alias dispatch.",
+      "provenance": [
+        "docs/architecture/analysis-evidence-facets.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "EVIDENCE-FACET-parse_core_analysis_evidence_kind-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.model.parse_core_analysis_evidence_kind",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Use the canonical nominal facet for the actual protocol decoder, without raw or constant-alias dispatch.",
+      "provenance": [
+        "docs/architecture/analysis-evidence-facets.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {
@@ -11851,6 +11890,123 @@
               }
             ],
             "returns": "SourceSymbolKind | None"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/analysis-evidence-facets.md"
+          ],
+          "id": "EVIDENCE-FACET-SourceEvidenceKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.SourceEvidenceKind",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Own the supported source-analysis facet without closing extension records."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/analysis-evidence-facets.md"
+          ],
+          "id": "EVIDENCE-FACET-parse_source_evidence_kind",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.facts.parse_source_evidence_kind",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Recognize a known scalar semantic facet while retaining unrelated and future data."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "kind": "positional",
+                "annotation": "JsonValue | RawJson",
+                "default_known": true
+              }
+            ],
+            "returns": "SourceEvidenceKind | None"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/analysis-evidence-facets.md"
+          ],
+          "id": "EVIDENCE-FACET-SourceResolutionDimension",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.SourceResolutionDimension",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Own the supported source-analysis facet without closing extension records."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/analysis-evidence-facets.md"
+          ],
+          "id": "EVIDENCE-FACET-parse_source_resolution_dimension",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.facts.parse_source_resolution_dimension",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Recognize a known scalar semantic facet while retaining unrelated and future data."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "kind": "positional",
+                "annotation": "JsonValue | RawJson",
+                "default_known": true
+              }
+            ],
+            "returns": "SourceResolutionDimension | None"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/analysis-evidence-facets.md"
+          ],
+          "id": "EVIDENCE-FACET-CoreAnalysisEvidenceKind",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.model.CoreAnalysisEvidenceKind",
+          "parent_id": "IR-DEPENDENCY-model",
+          "responsibilities": [
+            "Own only Core-produced evaluation and replay evidence tags, separate from authored declarations and source signals."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/analysis-evidence-facets.md"
+          ],
+          "id": "EVIDENCE-FACET-parse_core_analysis_evidence_kind",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.model.parse_core_analysis_evidence_kind",
+          "parent_id": "IR-DEPENDENCY-model",
+          "responsibilities": [
+            "Recognize a known scalar semantic facet while retaining unrelated and future data."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "kind": "positional",
+                "annotation": "JsonValue | RawJson",
+                "default_known": true
+              }
+            ],
+            "returns": "CoreAnalysisEvidenceKind | None"
           }
         }
       ],
