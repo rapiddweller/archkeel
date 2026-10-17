@@ -768,10 +768,9 @@ class RuleEvaluationReceipt:
 
 def rule_evaluation_receipt(record: Record | RawRecord) -> RuleEvaluationReceipt | None:
     """Read the owned receipt subset without closing other record kinds or data."""
-    if isinstance(record, Record):
-        kind, data = record.kind, record.data
-    else:
-        kind, data = record["kind"], record["data"]
+    kind, data = (
+        (record.kind, record.data) if isinstance(record, Record) else (record["kind"], record["data"])
+    )
     try:
         _RuleEvaluationTag(kind)
     except ValueError:
