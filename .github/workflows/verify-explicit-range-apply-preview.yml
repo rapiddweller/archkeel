@@ -24,12 +24,11 @@ jobs:
           uv run --locked python - <<'PY'
           import dataclasses,json,subprocess
           from pathlib import Path
-          from archkeel.check.ratchets import measure_python_ratchets, unresolved_call_changes
+          from archkeel.check.ratchets import call_rows, measure_python_ratchets, unresolved_call_changes
           from archkeel.check.run import observe_revision
           from archkeel.cli.config import load_config
           from archkeel.cli.observe import observe
           from archkeel.ir.facts import SourceResolution
-          from archkeel.ir.interfaces import call_rows
           root=Path.cwd()
           config=load_config(root)
           before=observe_revision(observe,root,"113318809036cfa4550b2b8598dab63c0b548878",config,declared_at="113318809036cfa4550b2b8598dab63c0b548878")
