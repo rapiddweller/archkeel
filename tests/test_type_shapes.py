@@ -61,7 +61,7 @@ def test_evaluation_uses_supplied_mapping_wrapper_union_and_generic_facts(
 
     from archkeel.analyzer.python.type_shapes import collect_type_shapes
     from archkeel.ir.model import ArchitectureContract
-    from archkeel.ir.type_shapes import TypeApplication
+    from archkeel.ir.type_shapes import TypeApplication, TypeName
 
     facts = collect_type_shapes(
         ["dict[str, list[int | None]]", "Required[dict[str, int]]", "int | str", "Base[int]"]
@@ -84,8 +84,8 @@ def test_evaluation_uses_supplied_mapping_wrapper_union_and_generic_facts(
         == "dict[str, int]"
     )
     assert violations._union_parameters("int | str", "sample", imports, type_shapes=facts) == [
-        "int",
-        "str",
+        TypeName("int", "int"),
+        TypeName("str", "str"),
     ]
     expression = facts["Base[int]"]
     assert isinstance(expression, TypeApplication)
@@ -275,7 +275,13 @@ def _collection_shape_target():
     target.pop("$schema", None)
     target["rules"] = []
     target["declarations"]["modules"] = []
-    wanted = {"BOUNDARY-REASON-MODULE", "COLLECTION-SHAPE-PARAMETERS", "UNION-SHAPE-PARAMETERS", "UNION-SHAPE-VERDICT", "UNION-SHAPE-COMBINE"}
+    wanted = {
+        "BOUNDARY-REASON-MODULE",
+        "COLLECTION-SHAPE-PARAMETERS",
+        "UNION-SHAPE-PARAMETERS",
+        "UNION-SHAPE-VERDICT",
+        "UNION-SHAPE-COMBINE",
+    }
     target["declarations"]["uml"].update(
         entities=[
             item for item in target["declarations"]["uml"]["entities"] if item["id"] in wanted
@@ -366,15 +372,13 @@ def test_collection_shape_port_widening_fails_unchanged_authored_target(tmp_path
 def test_collection_parameters_keep_whole_union_and_ellipsis_behavior(annotation, expected):
     from archkeel.analyzer.python.type_shapes import collect_type_shapes
 
-    assert (
-        violations._collection_parameters(
-            annotation,
-            "sample",
-            violations.BindingIndex(),
-            type_shapes=collect_type_shapes([annotation]),
-        )
-        == expected
+    children = violations._collection_parameters(
+        annotation,
+        "sample",
+        violations.BindingIndex(),
+        type_shapes=collect_type_shapes([annotation]),
     )
+    assert (None if children is None else [child.text for child in children]) == expected
 
 
 @pytest.mark.parametrize("annotation", ["tuple[()]", "list[()]"])
@@ -424,9 +428,9 @@ def test_optional_mapping_keeps_its_typed_none_without_an_index_entry():
     assert "None" not in facts
     imports = violations.BindingIndex()
     imports["sample", "Optional"] = {"target_module": "typing", "symbol": "Optional"}
-    assert _mapping_union_arms(
-        annotation, "sample", imports, violations.BindingIndex(), facts
-    ) == ["dict[str, int]"]
+    assert _mapping_union_arms(annotation, "sample", imports, violations.BindingIndex(), facts) == [
+        "dict[str, int]"
+    ]
 
 
 @pytest.mark.parametrize(
@@ -443,12 +447,15 @@ def test_nullable_mapping_requires_an_actual_none_literal_child(annotation):
     imports["sample", "Union"] = {"target_module": "typing", "symbol": "Union"}
     classes = violations.BindingIndex()
     verdict = violations._boundary_type_verdict(
-        annotation, "sample", ArchitectureContract(schema_version="2.1.0", components=(), rules=()),
-        {}, imports, classes, type_shapes=facts,
+        annotation,
+        "sample",
+        ArchitectureContract(schema_version="2.1.0", components=(), rules=()),
+        {},
+        imports,
+        classes,
+        type_shapes=facts,
     )
-    assert not _ordinary_nullable_mapping(
-        annotation, verdict, "sample", imports, classes, facts
-    )
+    assert not _ordinary_nullable_mapping(annotation, verdict, "sample", imports, classes, facts)
 
 
 @pytest.mark.parametrize("annotation", ["Optional['Missing']", "int | factory()", "Optional[int]"])
@@ -460,8 +467,13 @@ def test_unsupported_or_missing_union_evidence_stays_unknown(annotation):
     imports = violations.BindingIndex()
     imports["sample", "Optional"] = {"target_module": "typing", "symbol": "Optional"}
     verdict = violations._boundary_type_verdict(
-        annotation, "sample", ArchitectureContract(schema_version="2.1.0", components=(), rules=()),
-        {}, imports, violations.BindingIndex(), type_shapes=facts,
+        annotation,
+        "sample",
+        ArchitectureContract(schema_version="2.1.0", components=(), rules=()),
+        {},
+        imports,
+        violations.BindingIndex(),
+        type_shapes=facts,
     )
     assert verdict.undecidable is not None, verdict
 
@@ -469,18 +481,31 @@ def test_unsupported_or_missing_union_evidence_stays_unknown(annotation):
 @pytest.mark.parametrize(
     "helper,nominal,weak,subject",
     [
-        ("_union_parameters", "-> list[TypeShape] | None:", "-> list[str] | None:",
-         "UNION-SHAPE-PARAMETERS"),
-        ("_union_annotation_verdict", "parameters: list[TypeShape]", "parameters: list[str]",
-         "UNION-SHAPE-VERDICT"),
-        ("_combined_annotation_verdict", "parameters: Sequence[TypeShape]", "parameters: Sequence[str]",
-         "UNION-SHAPE-COMBINE"),
+        (
+            "_union_parameters",
+            "-> list[TypeShape] | None:",
+            "-> list[str] | None:",
+            "UNION-SHAPE-PARAMETERS",
+        ),
+        (
+            "_union_annotation_verdict",
+            "parameters: list[TypeShape]",
+            "parameters: list[str]",
+            "UNION-SHAPE-VERDICT",
+        ),
+        (
+            "_combined_annotation_verdict",
+            "parameters: Sequence[TypeShape]",
+            "parameters: Sequence[str]",
+            "UNION-SHAPE-COMBINE",
+        ),
     ],
 )
 def test_union_child_port_weakening_fails_unchanged_authored_target(
     tmp_path, helper, nominal, weak, subject
 ):
     from test_uml_evaluation import _model
+
     from archkeel.ir.report_graph import architecture_report
 
     root, config = _native_collection_shape_port(tmp_path)

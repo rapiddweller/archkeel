@@ -441,7 +441,7 @@ def _collection_parameters(
     imports_by_binding: BindingIndex,
     *,
     type_shapes: TypeShapeIndex,
-) -> list[str] | None:
+) -> list[TypeShape] | None:
     """Read known collection arguments from carried syntax, excluding ellipsis arity."""
     expression = type_shapes.get(annotation)
     if not isinstance(expression, TypeApplication) or not expression.arguments:
@@ -469,7 +469,7 @@ def _collection_parameters(
     if container not in _COLLECTION_CONTAINERS:
         return None
     return [
-        argument.text
+        argument
         for argument in expression.arguments
         if not (isinstance(argument, TypeLiteral) and argument.kind is LiteralKind.ELLIPSIS)
     ]
@@ -489,11 +489,11 @@ def _unresolvable_shape(annotation: str) -> _Cause:
 
 def _union_parameters(
     annotation: str, module: str, imports_by_binding: BindingIndex, *, type_shapes: TypeShapeIndex
-) -> list[str] | None:
+) -> list[TypeShape] | None:
     """Return members only for syntactically valid standard union annotations."""
     expression = type_shapes.get(annotation)
     if isinstance(expression, TypeUnion):
-        return [expression.left.text, expression.right.text]
+        return [expression.left, expression.right]
     if not isinstance(expression, TypeApplication):
         return None
     head = expression.head
@@ -517,8 +517,8 @@ def _union_parameters(
         return None
     members = expression.arguments
     if name == "Optional":
-        return [members[0].text, "None"] if len(members) == 1 else None
-    return [member.text for member in members] if len(members) >= 2 else None
+        return [members[0], TypeLiteral("None", LiteralKind.NONE)] if len(members) == 1 else None
+    return list(members) if len(members) >= 2 else None
 
 
 class _AmbiguousBinding:
@@ -1729,7 +1729,7 @@ def _callable_signature_verdict(
 
 def _union_annotation_verdict(
     annotation: str,
-    parameters: list[str],
+    parameters: list[TypeShape],
     module: str,
     contract: ArchitectureContract,
     exports: dict[str, frozenset[str]],
@@ -2066,7 +2066,9 @@ def _mapping_union_arms(
             return None
         arms: list[str] = []
         for member in members:
-            nested = _mapping_union_arms(member, module, imports, classes, type_shapes)
+            if isinstance(member, TypeLiteral) and member.kind is LiteralKind.NONE:
+                continue
+            nested = _mapping_union_arms(member.text, module, imports, classes, type_shapes)
             if nested is None:
                 return None
             arms.extend(nested)
@@ -2135,10 +2137,7 @@ def _typed_union_map_shapes(
                 is not True
             ):
                 return None
-            shapes = [type_shapes.get(member) for member in members]
-            if any(member is None for member in shapes):
-                return None
-            pending[0:0] = [member for member in shapes if member is not None]
+            pending[0:0] = members
             continue
         if not isinstance(arm, TypeApplication) or not isinstance(
             _mapping_parameters(arm.text, module, imports, classes, type_shapes=type_shapes),
@@ -2409,7 +2408,7 @@ def _ordinary_nullable_mapping(
     type_shapes: TypeShapeIndex,
 ) -> bool:
     members = _union_parameters(annotation, module, imports, type_shapes=type_shapes)
-    if members is None or len(members) != 2 or "None" not in members or members[0] == members[1]:
+    if members is None or len(members) != 2 or members[0].text == members[1].text:
         return False
     shape = type_shapes.get(annotation)
     if (
@@ -2424,10 +2423,15 @@ def _ordinary_nullable_mapping(
         is not True
     ):
         return False
-    mapping = members[1] if members[0] == "None" else members[0]
+    if isinstance(members[0], TypeLiteral) and members[0].kind is LiteralKind.NONE:
+        mapping = members[1]
+    elif isinstance(members[1], TypeLiteral) and members[1].kind is LiteralKind.NONE:
+        mapping = members[0]
+    else:
+        return False
     return isinstance(
-        _mapping_parameters(mapping, module, imports, classes, type_shapes=type_shapes), list
-    ) and _typed_union_verdict_matches([mapping], verdict)
+        _mapping_parameters(mapping.text, module, imports, classes, type_shapes=type_shapes), list
+    ) and _typed_union_verdict_matches([mapping.text], verdict)
 
 
 def _relocate_mapping_alternatives(
@@ -2467,8 +2471,11 @@ def _mapping_container_verdict(
     *,
     type_shapes: TypeShapeIndex,
 ) -> _Position:
+    shape = type_shapes.get(annotation)
+    if not isinstance(shape, TypeApplication):
+        return _Position(undecidable=_Cause.GENERIC)
     contents = _combined_annotation_verdict(
-        parameters,
+        shape.arguments,
         module,
         contract,
         exports_by_module,
@@ -2828,7 +2835,7 @@ def _collection_verdict(
 
 
 def _combined_annotation_verdict(
-    parameters: list[str],
+    parameters: Sequence[TypeShape],
     module: str,
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
@@ -2842,11 +2849,11 @@ def _combined_annotation_verdict(
 ) -> _Position:
     decided = [
         (
-            parameter,
+            parameter.text,
             _Position()
-            if parameter == "None"
+            if isinstance(parameter, TypeLiteral) and parameter.kind is LiteralKind.NONE
             else _boundary_type_verdict(
-                parameter,
+                parameter.text,
                 module,
                 contract,
                 exports_by_module,

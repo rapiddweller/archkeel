@@ -2179,6 +2179,8 @@ def test_boundary_types_keeps_unknown_alongside_nested_violation(tmp_path: Path)
 
 
 def test_boundary_types_quoted_and_malformed_union_stay_undecidable(tmp_path: Path) -> None:
+    from archkeel.ir.type_shapes import TypeName
+
     assert (
         _union_parameters(
             "str |", "sample.app.facade", {}, type_shapes=collect_type_shapes(["str |"])
@@ -2187,7 +2189,7 @@ def test_boundary_types_quoted_and_malformed_union_stay_undecidable(tmp_path: Pa
     )
     assert _union_parameters(
         "'str | int'", "sample.app.facade", {}, type_shapes=collect_type_shapes(["'str | int'"])
-    ) == ["str", "int"]
+    ) == [TypeName("str", "str"), TypeName("int", "int")]
 
     contract = _boundary_types_contract(_component("app", public=["sample.app.facade:typed"]))
     (tmp_path / "contract.json").write_text(json.dumps(contract))
