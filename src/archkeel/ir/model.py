@@ -82,11 +82,11 @@ from .facts import (
 from .facts import (
     stable_id as stable_id,
 )
-from .profiles import DeltaDimension as DeltaDimension
 from .host_records import InitialPRHeadEvidence
 from .measurements import MeasurementBudgetName as MeasurementBudgetName
 from .measurements import Measurements
 from .measurements import NameBudgetKind as NameBudgetKind
+from .profiles import DeltaDimension as DeltaDimension
 
 if TYPE_CHECKING:
     from .architecture_projection import ArchitectureProjection

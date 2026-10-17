@@ -250,9 +250,7 @@ def _require_profile_coverage(delta: ArchitectureDelta) -> Profile:
         item.name for item in delta.dimensions if item.status is _ComparisonStatus.SUPPORTED
     }
     unknown = {item.name for item in delta.dimensions if item.status is _ComparisonStatus.UNKNOWN}
-    applicable = {
-        name for name in _DeltaDimension if delta_dimension_applicable(profile, name)
-    }
+    applicable = {name for name in _DeltaDimension if delta_dimension_applicable(profile, name)}
     for name in sorted(applicable):
         if dimensions[name].status is not _ComparisonStatus.SUPPORTED:
             raise ExpectationError(f"delta dimension {name} is not safely comparable")
@@ -284,7 +282,10 @@ def _require_profile_coverage(delta: ArchitectureDelta) -> Profile:
         for name in unknown
     ):
         raise ExpectationError("unavailable delta dimensions cannot claim measured counts")
-    if any(_parse_delta_dimension(change.dimension) not in applicable for change in delta.semantic_changes):
+    if any(
+        _parse_delta_dimension(change.dimension) not in applicable
+        for change in delta.semantic_changes
+    ):
         raise ExpectationError("semantic change claims an unavailable dimension")
     return profile
 
@@ -324,7 +325,9 @@ def _index_semantic_changes(
     list[CycleIdentity],
     dict[str, CycleIdentity],
 ]:
-    actual_changes: dict[tuple[_DeltaDimension, _KnownSemanticChangeKind, str], tuple[int, int]] = {}
+    actual_changes: dict[
+        tuple[_DeltaDimension, _KnownSemanticChangeKind, str], tuple[int, int]
+    ] = {}
     removed_cycles: list[CycleIdentity] = []
     added_cycles: dict[str, CycleIdentity] = {}
     for index, change in enumerate(semantic_changes):

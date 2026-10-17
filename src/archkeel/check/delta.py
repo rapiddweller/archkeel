@@ -119,7 +119,11 @@ def _record_evidence(
 
 
 def _project_record(
-    record: Record, *, dimension: _DeltaDimension, records: dict[str, Record], evidence: dict[str, Evidence]
+    record: Record,
+    *,
+    dimension: _DeltaDimension,
+    records: dict[str, Record],
+    evidence: dict[str, Evidence],
 ) -> Projection:
     source_evidence = _record_evidence(record, records=records, evidence=evidence)
     data = record.data
@@ -234,7 +238,9 @@ def _section(observation: Observation, dimension: _DeltaDimension) -> tuple[Reco
     return records
 
 
-def _delta_records(observation: Observation, dimension: _DeltaDimension) -> tuple[_DeltaRecord, ...] | None:
+def _delta_records(
+    observation: Observation, dimension: _DeltaDimension
+) -> tuple[_DeltaRecord, ...] | None:
     if dimension == _DeltaDimension.COVERAGE:
         # AD-43: the counters live on both observations already; comparing them here would
         # make every file added or removed anywhere declare five mechanical entries that
@@ -544,15 +550,23 @@ def build_architecture_delta(
         )
     for dimension in _DeltaDimension:
         if not delta_dimension_applicable(profile, dimension):
-            dimensions.append(DimensionDelta(dimension.value, _ComparisonStatus.UNKNOWN, None, None))
+            dimensions.append(
+                DimensionDelta(dimension.value, _ComparisonStatus.UNKNOWN, None, None)
+            )
             unknowns.append(
                 _unknown(dimension.value, f"{profile.analyzer} lacks complete {dimension} evidence")
             )
             continue
         before = (
-            _delta_records(baseline, dimension) if available or dimension == _DeltaDimension.COVERAGE else None
+            _delta_records(baseline, dimension)
+            if available or dimension == _DeltaDimension.COVERAGE
+            else None
         )
-        after = _delta_records(head, dimension) if available or dimension == _DeltaDimension.COVERAGE else None
+        after = (
+            _delta_records(head, dimension)
+            if available or dimension == _DeltaDimension.COVERAGE
+            else None
+        )
         reason = None
         if not shared:
             reason = (
@@ -582,8 +596,14 @@ def build_architecture_delta(
         for item in current:
             fingerprints: list[str] = fingerprints_by_kind[_KnownSemanticChangeKind(item.change)]
             _builtins.list.append(fingerprints, item.fingerprint)
-        before_count = len(baseline.coverage.failures) if dimension == _DeltaDimension.COVERAGE else len(before)
-        after_count = len(head.coverage.failures) if dimension == _DeltaDimension.COVERAGE else len(after)
+        before_count = (
+            len(baseline.coverage.failures)
+            if dimension == _DeltaDimension.COVERAGE
+            else len(before)
+        )
+        after_count = (
+            len(head.coverage.failures) if dimension == _DeltaDimension.COVERAGE else len(after)
+        )
         dimensions.append(
             DimensionDelta(
                 dimension.value,
