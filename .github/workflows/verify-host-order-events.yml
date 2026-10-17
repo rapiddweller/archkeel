@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 5fee8979975908c3e977dbce79df953721b6c7cf
+          ref: 6038611f9f4ccb3fab05ba39ebc59400f284965e
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -19,5 +19,59 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
-      - name: Genuine missing-port RED
-        run: uv run --locked pytest -q tests/test_typed_host_events.py
+      - name: GREEN typed port and strict affected regression
+        run: uv run --locked pytest -q tests/test_typed_host_events.py tests/test_ordering.py tests/test_host_gitlab.py tests/test_initial_pr_check.py tests/test_github_initial_pr.py tests/test_github_pr_report.py tests/test_snapshot_check.py
+      - name: Affected Ruff and strict MyPy
+        run: |
+          uv run --locked ruff check src/archkeel/ir/host_records.py src/archkeel/check/ordering.py tests/test_typed_host_events.py
+          uv run --locked mypy src/archkeel/ir/host_records.py src/archkeel/check/ordering.py
+      - name: Actual old and new legacy wire and ordering behavior
+        run: |
+          uv run --locked python - <<'PY'
+          import dataclasses,json,subprocess,sys,types
+          from pathlib import Path
+          BASE="68b656668a3fdbbbe482881d0dab41ff89a21ca3"
+          E,H="e"*40,"c"*40
+          P,S="2026-01-01T10:00:00Z","2026-01-01T11:00:00Z"
+          def pair(ref):
+              modules=[]
+              for name,path in (("archkeel.ir.host_records","src/archkeel/ir/host_records.py"),("archkeel.check.ordering","src/archkeel/check/ordering.py")):
+                  code=subprocess.check_output(["git","show",f"{ref}:{path}"],text=True)
+                  module=types.ModuleType(name)
+                  sys.modules[name]=module
+                  exec(compile(code,path,"exec"),module.__dict__)
+                  modules.append(module)
+              return modules
+          def outcome(call):
+              try:
+                  result=call()
+                  if isinstance(result,tuple) and result and dataclasses.is_dataclass(result[0]):
+                      return ("wire",json.dumps([dataclasses.asdict(item) for item in result]))
+                  return ("result",result)
+              except Exception as error:
+                  return ("error",type(error).__name__,str(error))
+          def cases(host,ordering):
+              wire=[{"sha":E,"event":"expectation_published","timestamp":P},{"sha":H,"event":"candidate_submitted","timestamp":S}]
+              results=[]
+              parser_cases=[None,{},(),[],wire,wire[::-1],wire+[wire[0]], [{"sha":E}], [None]]
+              for event in ["future-provider-event","",None,7,True,[],{}]:
+                  for timestamp in [P,"bad"]:
+                      parser_cases.append([wire[0]|{"event":event,"timestamp":timestamp}])
+              for changes in [{"sha":"short","event":"future","timestamp":"bad"},{"timestamp":"bad"},{"extra":1}]:
+                  parser_cases.append([wire[0]|changes])
+              for raw in parser_cases:
+                  results.append(outcome(lambda raw=raw:host.parse_records(raw)))
+              order_cases=[[],wire,wire[::-1],[wire[0]], [wire[1]], [wire[0],wire[1]|{"timestamp":P}], [wire[0],wire[1]|{"timestamp":"2026-01-01T09:00:00Z"},wire[1]], [wire[0]|{"sha":H},wire[1]], [wire[0],wire[1]|{"sha":E}]]
+              for event in ["future-provider-event","",None,7,True,[],{}]:
+                  for timestamp in [P,"bad"]:
+                      order_cases.append([wire[0]|{"event":event,"timestamp":timestamp}])
+              for raw in order_cases:
+                  records=tuple(host.HostRecord(**item) for item in raw)
+                  results.append(outcome(lambda records=records:ordering.check_order(records,expectation_sha=E,candidate_sha=H)))
+              return results
+          before=cases(*pair(BASE))
+          after=cases(*pair("HEAD"))
+          assert before==after,[(i,a,b) for i,(a,b) in enumerate(zip(before,after)) if a!=b]
+          print("ACTUAL_OLD_NEW_HOST_WIRE_AND_ORDER_CASES="+str(len(before)))
+          
+          PY
