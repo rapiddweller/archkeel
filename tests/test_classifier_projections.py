@@ -13,8 +13,11 @@ from test_interfaces import _symbol_record
 from test_uml_evaluation import _model
 
 from archkeel.check.ports import ScanConfig
+from archkeel.check.report import run_report
+from archkeel.cli.observe import observe
 from archkeel.ir import interfaces, source_graph
 from archkeel.ir.architecture_graph import EntityKind
+from archkeel.ir.diagnostics import DiagnosticKind
 from archkeel.ir.facts import RecordData, SymbolClassKind, parse_symbol_class_kind
 from archkeel.ir.facts_codec import parse_record
 from archkeel.ir.report_graph import architecture_report
@@ -171,14 +174,14 @@ def test_projection_port_weakening_fails_with_unchanged_authored_intent(tmp_path
         text = "".join(lines[: node.lineno - 1] + lines[node.end_lineno :])
         text = text.replace(
             "from __future__ import annotations",
-            "from __future__ import annotations\nfrom .facts import _classifier_kind",
+            "from __future__ import annotations\nfrom .interfaces import _classifier_kind",
             1,
         )
-        facts = project / "archkeel/ir/facts.py"
-        facts.write_text(
-            facts.read_text().replace(
+        destination = project / "archkeel/ir/interfaces.py"
+        destination.write_text(
+            destination.read_text().replace(
                 "from __future__ import annotations",
-                "from __future__ import annotations\nfrom .architecture_graph import EntityKind",
+                "from __future__ import annotations\nfrom .model import JsonValue",
                 1,
             )
             + "\n"
@@ -209,6 +212,17 @@ def test_projection_port_weakening_fails_with_unchanged_authored_intent(tmp_path
         lines.insert(node.body[0].lineno - 1, probe)
         text = "".join(lines)
     path.write_text(text)
+    if mutation == "owner":
+        # The existing guard rejects its missing physical subject before UML comparison.
+        result, _ = run_report(project, config=config, analyzer=observe)
+        assert result.exit_code == 2
+        assert any(
+            item.kind is DiagnosticKind.RULE_WITHOUT_SUBJECTS
+            and item.subject == "CLASSIFIER-GRAPH-KIND-CONTROL"
+            for item in result.diagnostics
+        ), result.diagnostics
+        assert contract.read_bytes() == before
+        return
     observed = _model(project, config)
     comparison = architecture_report(observed).comparison
     assert comparison is not None
@@ -219,7 +233,6 @@ def test_projection_port_weakening_fails_with_unchanged_authored_intent(tmp_path
         ), comparison
     else:
         rule = {
-            "owner": "TARGET-COMPLETE_REQUIRES",
             "reader_control": "CLASSIFIER-GRAPH-KIND-CONTROL",
             "ui_control": "CLASSIFIER-INTERFACE-KIND-CONTROL",
         }[mutation]
