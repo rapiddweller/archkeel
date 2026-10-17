@@ -1,0 +1,72 @@
+name: Imported literal control proof
+on:
+  push:
+    branches: ["verify/542-imported-literal-control"]
+permissions:
+  contents: read
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: c8faca3092aeae9e2a8c61659ae7952e2662e638
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Imported enum native RED
+        run: uv run --locked pytest -q tests/test_string_comparison_observation.py::test_imported_enum_value_leaf_reaches_native_scoped_policy
+      - name: Actual frozen HostEvent mutation
+        if: always()
+        run: |
+          uv run --locked python - <<'PY'
+          import json, subprocess, tempfile
+          from hashlib import sha256
+          from pathlib import Path
+          from archkeel.cli.observe import observe
+          from archkeel.ir.trace import trace_valid_violations
+          source = "f051e6deee7de905984c1e648376fb88a07cc8a2"
+          files = {}
+          for name in ("ir/host_records.py", "check/ordering.py"):
+              blob = subprocess.check_output(["git", "show", f"{source}:src/archkeel/{name}"])
+              print("IMMUTABLE_HOST_BLOB", source, name, sha256(blob).hexdigest())
+              files[name] = blob.decode()
+          original = "if event is HostEvent.EXPECTATION_PUBLISHED:"
+          assert files["check/ordering.py"].count(original) == 1
+          with tempfile.TemporaryDirectory() as directory:
+              root = Path(directory)
+              (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+              components = [{"id": "COMP-"+name.upper(), "label": name, "role": "component",
+                  "packages": ["archkeel."+name], "responsibilities": [], "forbidden_responsibilities": [],
+                  "provenance": ["docs/probe.md"]} for name in ("ir", "check")]
+              contract = {"schema_version": "2.1.0", "components": components, "rules": [{
+                  "id": "HOST-IMPORTED-VALUE", "kind": "forbidden_construct",
+                  "source": "archkeel.check.ordering", "constructs": ["string_literal_compare"],
+                  "rationale": "Observe actual host ordering dispatch.", "decided_by": "ake2l",
+                  "provenance": ["docs/probe.md"]}]}
+              (root / "contract.json").write_text(json.dumps(contract))
+              for name, text in files.items():
+                  path = root / "archkeel" / name
+                  path.parent.mkdir(parents=True, exist_ok=True)
+                  path.write_text(text)
+              for mutation in (False, True):
+                  text = files["check/ordering.py"]
+                  if mutation:
+                      text = text.replace(original, "if record.event == HostEvent.EXPECTATION_PUBLISHED.value:")
+                  (root / "archkeel/check/ordering.py").write_text(text)
+                  result = observe(root, roots=(".",), namespace="archkeel", contract="contract.json",
+                      git_head="a"*40, dirty=False, contract_root=root)
+                  assert result.diagnostics == () and result.observation is not None, result.diagnostics
+                  violations = trace_valid_violations(result.observation)
+                  print("ACTUAL_HOST_MUTATION", mutation, [(r.kind, r.rule_ids, r.subjects) for r in violations])
+                  if mutation:
+                      assert [(r.kind, r.rule_ids, r.subjects) for r in violations] == [
+                          ("forbidden_construct", ("HOST-IMPORTED-VALUE",), ("archkeel.check.ordering.check_order",))]
+                  else:
+                      assert violations == ()
+          
+          PY
