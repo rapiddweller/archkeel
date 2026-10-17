@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 5b88b9ccb77ac95c174da0dd9d326fbabeeb5802
+          ref: 7dda0c62a72ef8dee5b67411abb0b79bd57526d6
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -18,8 +18,8 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
-      - name: Affected native detector and target regressions
-        run: uv run --locked pytest -q tests/test_string_comparison_observation.py tests/test_string_predicate_observation.py tests/test_python_string_predicate_target.py tests/test_analyzer.py
+      - name: Provider global rebinding RED
+        run: uv run --locked pytest -q tests/test_string_comparison_observation.py::test_module_import_does_not_skip_the_providers_global_rebinding
       - name: Actual frozen HostEvent mutation
         if: always()
         run: |
@@ -83,47 +83,5 @@ jobs:
       - name: Exact source cleanliness
         if: always()
         run: |
-          test "$(git rev-parse HEAD)" = "5b88b9ccb77ac95c174da0dd9d326fbabeeb5802"
+          test "$(git rev-parse HEAD)" = "7dda0c62a72ef8dee5b67411abb0b79bd57526d6"
           test -z "$(git status --porcelain)"
-  ordinary-metadata:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: 5b88b9ccb77ac95c174da0dd9d326fbabeeb5802
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-      - run: uv sync --locked
-      - name: Ordinary baseline and amendment writers followed by no-write validation
-        run: |
-          uv run --locked python - <<'PY'
-          import json, subprocess
-          from pathlib import Path
-          common = ["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json"]
-          against = ["--against","5937445491094abc00a4076dd4628a03f08e9064","--amendment","docs/architecture/decisions/issue-542-imported-literals-amendment.json"]
-          commands = [
-              ("BASELINE", common + ["--write-baseline","--json"]),
-              ("AMENDMENT", common + against + ["--write-amendment","--decided-by","ake2l","--rationale","Observe scanned imported literal control values through canonical import origins.","--json"]),
-              ("NO_WRITE", common + against + ["--json"]),
-          ]
-          for label, command in commands:
-              result = subprocess.run(command,capture_output=True,text=True)
-              if result.stderr:
-                  print(result.stderr,flush=True)
-              value = json.loads(result.stdout)
-              print("IMPORTED_"+label+"="+json.dumps({key:value.get(key) for key in ("exit_code","failures","diagnostics","measurements","amendment_status","widenings")},separators=(",",":")),flush=True)
-              assert result.returncode == 0 and value["exit_code"] == 0
-              assert not value["failures"] and not value["diagnostics"] and not value["widenings"]
-              scalars = value["measurements"]["scalars"]
-              assert scalars["typing_positions"] == 52 and scalars["unknown_positions"] == 58 and scalars["violations"] == 0
-              if label == "NO_WRITE":
-                  assert value["amendment_status"] == "valid"
-          for path in ("architecture-baseline.json","docs/architecture/decisions/issue-542-imported-literals-amendment.json"):
-              print("GENERATED_FILE="+json.dumps({"path":path,"content":Path(path).read_text()},separators=(",",":")),flush=True)
-          print("METADATA_DIFF="+subprocess.check_output(["git","status","--porcelain"],text=True),flush=True)
-          PY
