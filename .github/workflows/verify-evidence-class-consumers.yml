@@ -69,7 +69,10 @@ jobs:
                   source = source_map[location["file"]]
                   tree = ast.parse(source)
                   candidates = [node for node in ast.walk(tree)
-                      if isinstance(node, (ast.Compare, ast.Call, ast.Match))
+                      if ((row["data"]["form"] in {"compare","membership"} and isinstance(node, ast.Compare))
+                          or (row["data"]["form"] in {"startswith","endswith"} and isinstance(node, ast.Call)
+                              and isinstance(node.func, ast.Attribute) and node.func.attr == row["data"]["form"])
+                          or (row["data"]["form"] == "match" and isinstance(node, ast.Match)))
                       and (node.lineno, node.end_lineno, node.col_offset)
                           == (location["line"], location["end_line"], location["column"])]
                   assert len(candidates) == 1, (row, location, candidates)
