@@ -199,7 +199,10 @@ jobs:
                   assert a["data"][key]==[fact_proofs[0]["after"]["id"]]
               for side,row in (("before",b),("after",a)):
                   assert row["data"]["evidence_ids"]==fact_proofs[0][side]["evidence_ids"]
-              unknown_proofs.append({"subject":subject,"before":b,"after":a,"class_proofs":fact_proofs,"same_status_aspect_reason_subject_and_actual_class_ast":True})
+              before_full=[r for r in models["before"]["unknowns"] if sem(r)==b]
+              after_full=[r for r in models["after"]["unknowns"] if sem(r)==a]
+              assert len(before_full)==len(after_full)==1
+              unknown_proofs.append({"before_full_record":before_full[0],"after_full_record":after_full[0],"subject":subject,"before":b,"after":a,"class_proofs":fact_proofs,"same_status_aspect_reason_subject_and_actual_class_ast":True})
           old_full=collections.Counter(enc(r) for r in models["before"]["unknowns"])
           new_full=collections.Counter(enc(r) for r in models["after"]["unknowns"])
           assert old_full-new_full==collections.Counter(unknown["full"]["removed"])
@@ -211,6 +214,25 @@ jobs:
           (out/"unknown-associations.json").write_text(json.dumps(unknown_proofs,indent=2,sort_keys=True))
           (out/"association-errors.json").write_text(json.dumps(errors,indent=2,sort_keys=True))
           print("PARAMETER_ASSOCIATION_MANIFEST="+enc(manifest))
+          def differences(a,b,path=()):
+              if type(a) is not type(b):return [(path,a,b)]
+              if isinstance(a,dict):
+                  if a.keys()!=b.keys():return [(path,sorted(a),sorted(b))]
+                  return [v for key in a for v in differences(a[key],b[key],(*path,key))]
+              if isinstance(a,list):
+                  if len(a)!=len(b):return [(path,a,b)]
+                  return [v for i,(x,y) in enumerate(zip(a,b)) for v in differences(x,y,(*path,i))]
+              return [] if a==b else [(path,a,b)]
+          def preview(v):
+              text=enc(v)
+              return text if len(text)<1200 else text[:600]+"…"+text[-500:]
+          for issue in errors:
+              pair=issue.get("pair")
+              if pair:
+                  b,a=pair["before"],pair["after"]
+                  diff=differences(b["normalized"],a["normalized"])
+                  print("PARAMETER_ACTUAL_DIFFERENCE="+enc({"before_id":b["record"]["id"],"after_id":a["record"]["id"],"scope":b["record"]["data"]["source_scope"],"expression":b["record"]["data"]["expression"],"same_call_ast":pair["same_call_ast"],"differences":[{"path":p,"before":preview(x),"after":preview(y)} for p,x,y in diff]}))
+              else:print("PARAMETER_OTHER_ASSOCIATION_ERROR="+enc(issue))
           print("PARAMETER_ASSOCIATION_ERRORS="+enc([{"stage":e["stage"],"side":e.get("side"),"id":e.get("record",{}).get("id"),"error":e.get("error")} for e in errors]))
           assert not errors,("actual association differences remain",len(errors))
           assert len(associations)==84
