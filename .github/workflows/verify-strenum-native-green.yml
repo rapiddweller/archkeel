@@ -1,0 +1,84 @@
+name: Native proven StrEnum receiver GREEN
+on:
+  push:
+    branches: [verify/542-strenum-native-green]
+permissions:
+  contents: read
+jobs:
+  bounded-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 215cbb65a1dc8d724c656c3bc45d327da487f9d1
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Native collector cases and affected receiver regressions
+        run: |
+          uv run --locked pytest tests/test_python_strenum_methods.py tests/test_typed_python_receivers.py tests/test_analyzer.py tests/test_references.py tests/test_python_scope_certification.py tests/test_uml_classifier_facts.py tests/test_typed_symbol_class_kinds.py -q -ra
+      - name: Actual Root topology receiver proof
+        run: |
+          uv run --locked python - <<'PY'
+          import json
+          from pathlib import Path
+          from archkeel.analyzer.python.collect import collect
+          from archkeel.ir.protocol import CollectionRequest,SnapshotInput,SourceScope,PythonSettings
+          from archkeel.ir.facts_codec import record_payload
+          root=Path.cwd()
+          facts=collect(CollectionRequest(SnapshotInput(str(root),"215cbb65a1dc8d724c656c3bc45d327da487f9d1",False),SourceScope(("src",),"archkeel"),PythonSettings()))
+          selected=[]
+          for section in facts.sections:
+              for record in section.records:
+                  data=record.data
+                  if section.name=="symbols" and data.get("qualified_name")=="archkeel.ir.model.GraphTopologyLevel":
+                      selected.append(record_payload(record))
+                  if section.name=="calls" and data.get("source_scope")=="archkeel.check.evaluation.topology._cycle_records" and data.get("expression")=="level.capitalize":
+                      selected.append(record_payload(record))
+          print("STRENUM_ACTUAL_GRAPH="+json.dumps(selected,sort_keys=True),flush=True)
+          Path("strenum-actual-graph.json").write_text(json.dumps(selected,sort_keys=True))
+          calls=[row for row in selected if row["area"]=="call_hierarchy"]
+          assert len(calls)==1 and calls[0]["data"]["status"]=="partially_resolved",calls
+          assert calls[0]["data"]["targets"]==["builtins.str.capitalize"],calls
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: strenum-actual-graph
+          path: strenum-actual-graph.json
+  strict-style:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 215cbb65a1dc8d724c656c3bc45d327da487f9d1
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked mypy --strict src/archkeel
+      - name: Read exact formatter results
+        run: |
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          paths=["src/archkeel/analyzer/python/resolve.py","src/archkeel/analyzer/python/calls.py","src/archkeel/analyzer/python/collect.py","tests/test_python_strenum_methods.py"]
+          for path in paths:
+              before=Path(path).read_text()
+              run=subprocess.run(["uv","run","--locked","ruff","format","--stdin-filename",path],input=before,text=True,capture_output=True,check=True)
+              if before!=run.stdout:
+                  print("STRENUM_FORMATTED_SOURCE="+json.dumps({"path":path,"content":run.stdout}),flush=True)
+          run=subprocess.run(["uv","run","--locked","ruff","check",*paths],text=True,capture_output=True,check=False)
+          print(run.stdout+run.stderr,flush=True)
+          assert run.returncode==0
+          assert not subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          PY
