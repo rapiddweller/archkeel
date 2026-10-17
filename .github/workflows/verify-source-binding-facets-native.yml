@@ -43,13 +43,16 @@ jobs:
               if item.kind!="string_literal_compare": continue
               locations=[asdict(evidence[key]) for key in item.evidence_ids]
               rows.append({"record":asdict(item),"locations":locations,"owner":item.data.get("owner"),"form":item.data.get("form")})
-          scoped={row["owner"]:[] for row in rows if row["owner"] in {
+          owners={
               "archkeel.ir.facts.parse_result_binding_target_kind",
               "archkeel.ir.facts.parse_source_assignment_kind",
               "archkeel.ir.source_graph._reconcile_result_binding",
-          }}
-          assert not any(scoped.values()),scoped
-          print("BINDING_EXACT_NATIVE_CONTROL_OWNERS="+json.dumps(scoped,sort_keys=True),flush=True)
+          }
+          present={record.data.get("qualified_name") for record in model.records("symbols") if record.data.get("qualified_name") in owners}
+          assert present==owners,(present,owners)
+          scoped=[row for row in rows if row["owner"] in owners]
+          assert scoped==[],scoped
+          print("BINDING_EXACT_NATIVE_CONTROL_OWNERS="+json.dumps(sorted(present)),flush=True)
           raw=(json.dumps(rows,sort_keys=True,indent=2)+"\n").encode()
           (artifact/"native-control-sites.json").write_bytes(raw)
           module_counts=collections.Counter()
