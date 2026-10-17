@@ -1,0 +1,102 @@
+name: Parameter kind actual isolated producer and Core parity
+on:
+  push:
+    branches: [verify/542-parameter-true-runtime-provenance]
+permissions:
+  contents: read
+jobs:
+  actual-producer-and-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Actual pinned collector and Core import provenance, full four-profile bytes
+        run: |
+          uv run --locked python - <<'PY'
+          import hashlib,json,os,shutil,subprocess,sys
+          from pathlib import Path
+          BEFORE="e99394254846318e236ba471a14c19cd160081cf"
+          AFTER="f6099877bdb325c095959f5df8f07f406c0f0dc2"
+          ORIGINAL_AFTER="7d05e4148dd770f2ca09bdeb27859dfc5595e773"
+          root=Path.cwd()
+          out=root/"parameter-true-runtimes"
+          out.mkdir(exist_ok=True)
+          owners=("src/archkeel/ir/facts.py","src/archkeel/ir/architecture_graph.py","src/archkeel/analyzer/python/symbols.py")
+          changed=subprocess.check_output(["git","diff","--name-only",BEFORE,AFTER,"--","src/archkeel"],text=True).splitlines()
+          assert set(changed)==set(owners),changed
+          manifest={"before":BEFORE,"after":AFTER,"original_after":ORIGINAL_AFTER,"changed_python_files":changed,"runtimes":{}}
+          for side,ref in (("old",BEFORE),("new",AFTER)):
+              src=out/side/"src"
+              shutil.copytree(root/"src"/"archkeel",src/"archkeel")
+              for path in owners:
+                  actual=subprocess.check_output(["git","show",f"{ref}:{path}"])
+                  if side=="new":
+                      assert actual==subprocess.check_output(["git","show",f"{ORIGINAL_AFTER}:{path}"])
+                  (src/"archkeel"/Path(path).relative_to("src/archkeel")).write_bytes(actual)
+              manifest["runtimes"][side]={str(path.relative_to(src)):hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(src.rglob("*")) if path.is_file() and "__pycache__" not in path.parts}
+          old,new=(manifest["runtimes"][side] for side in ("old","new"))
+          assert old.keys()==new.keys()
+          differences=[path for path in old if old[path]!=new[path]]
+          assert set(differences)=={str(Path(path).relative_to("src")) for path in owners},differences
+          assert all(old[path]!=new[path] for path in differences)
+          manifest["actual_different_runtime_files"]=differences
+          (out/"runtime-source-manifest.json").write_text(json.dumps(manifest,sort_keys=True,indent=2))
+          print("PARAMETER_TRUE_RUNTIME_MANIFEST="+json.dumps({"before":BEFORE,"after":AFTER,"different_source_files":differences,"source_file_count":len(old),"all_three_actual_hashes_differ":True}),flush=True)
+          
+          child="import hashlib,importlib,json,runpy,sys\nfrom pathlib import Path\nruntime_src=Path(sys.argv[1]).resolve()\nreceipt=Path(sys.argv[2])\nsys.path.insert(0,str(runtime_src))\nnames=(\"archkeel.analyzer.python.collect\",\"archkeel.analyzer.python.symbols\",\"archkeel.ir.facts\")\nmodules={name:importlib.import_module(name) for name in names}\npaths={name:Path(module.__file__).resolve() for name,module in modules.items()}\nassert sys.flags.isolated==1 and sys.dont_write_bytecode\nassert all(path.is_relative_to(runtime_src) for path in paths.values()),paths\ndata={\"runtime_src\":str(runtime_src),\"isolated\":sys.flags.isolated,\"dont_write_bytecode\":sys.dont_write_bytecode,\"modules\":{name:{\"path\":str(path),\"sha256\":hashlib.sha256(path.read_bytes()).hexdigest()} for name,path in paths.items()}}\nprint(\"PARAMETER_CHILD_IMPORT_PROVENANCE=\"+json.dumps(data,sort_keys=True),file=sys.stderr,flush=True)\ncalled=set()\nwanted={str(path) for path in paths.values()}\ndef track(frame,event,arg):\n    if event==\"call\" and frame.f_code.co_filename in wanted:\n        called.add((frame.f_code.co_filename,frame.f_code.co_name))\nsys.setprofile(track)\ntry:\n    runpy.run_module(\"archkeel.analyzer.python.entry\",run_name=\"__main__\")\nfinally:\n    sys.setprofile(None)\n    data[\"actual_calls\"]=[{\"file\":file,\"function\":name} for file,name in sorted(called)]\n    data[\"collect_executed\"]= (str(paths[\"archkeel.analyzer.python.collect\"]),\"collect\") in called\n    data[\"parameter_executed\"]= (str(paths[\"archkeel.analyzer.python.symbols\"]),\"_parameter\") in called\n    receipt.write_text(json.dumps(data,sort_keys=True,indent=2))\n"
+          driver="from __future__ import annotations\nimport hashlib,importlib,json,sys,time\nfrom pathlib import Path\nfrom archkeel.cli.config import parse_config\nfrom archkeel.cli.observe import observer_for\nfrom archkeel.check.uml import assemble_uml\nfrom archkeel.check.uml_evaluation import evaluate_uml\nfrom archkeel.ir.codec import canonical_report_bytes,observation_payload\nroot=Path(sys.argv[1]).resolve()\nruntime_src=Path(sys.argv[2]).resolve()\nout=Path(sys.argv[3]).resolve()\nbootstrap=Path(sys.argv[4]).read_text()\nout.mkdir(parents=True,exist_ok=True)\nnames=(\"archkeel.cli.observe\",\"archkeel.check.observe\",\"archkeel.ir.facts\",\"archkeel.ir.architecture_graph\",\"archkeel.analyzer.python.symbols\")\ncore={}\nfor name in names:\n    module=importlib.import_module(name)\n    path=Path(module.__file__).resolve()\n    assert path.is_relative_to(runtime_src),(name,path,runtime_src)\n    core[name]={\"path\":str(path),\"sha256\":hashlib.sha256(path.read_bytes()).hexdigest()}\n(out/\"core-provenance.json\").write_text(json.dumps(core,sort_keys=True,indent=2))\nprint(\"PARAMETER_CORE_IMPORT_PROVENANCE=\"+json.dumps({\"runtime_src\":str(runtime_src),\"modules\":core},sort_keys=True),flush=True)\nfor name in (\"E-runtime\",\"F-architecture\",\"H-uml\",\"K-python-realworld\"):\n    project=root/\"fixtures\"/name\n    config=parse_config((project/\"archkeel.toml\").read_bytes())\n    receipt=out/f\"{name}.collector-provenance.json\"\n    argv=(sys.executable,\"-I\",\"-B\",\"-c\",bootstrap,str(runtime_src),str(receipt))\n    observer=observer_for(config.language,collector_argv=argv)\n    assert observer.collector.argv==argv\n    started=time.perf_counter()\n    result=observer(project,roots=config.roots,namespace=config.namespace,contract=config.contract,git_head=\"a\"*40,dirty=False,contract_root=project,language=config.language)\n    child=json.loads(receipt.read_text())\n    assert child[\"runtime_src\"]==str(runtime_src) and child[\"collect_executed\"] is True,(name,child)\n    for module,info in child[\"modules\"].items():\n        actual=Path(info[\"path\"])\n        assert actual.is_relative_to(runtime_src)\n        assert info[\"sha256\"]==hashlib.sha256(actual.read_bytes()).hexdigest()\n    result=evaluate_uml(assemble_uml(result,project,config.contract))\n    assert result.observation is not None,(name,result.diagnostics)\n    value=observation_payload(result.observation)\n    (out/f\"{name}.json\").write_text(json.dumps(value,sort_keys=True))\n    (out/f\"{name}.canonical.json\").write_bytes(canonical_report_bytes(result.observation))\n    print(\"PARAMETER_REAL_RUNTIME=\"+json.dumps({\"name\":name,\"runtime_src\":str(runtime_src),\"seconds\":time.perf_counter()-started,\"collect_executed\":child[\"collect_executed\"],\"parameter_executed\":child[\"parameter_executed\"],\"diagnostics\":[str(x) for x in result.diagnostics]}),flush=True)\nassert any(json.loads(path.read_text())[\"parameter_executed\"] for path in out.glob(\"*.collector-provenance.json\"))\n"
+          (out/"collector-bootstrap.py").write_text(child)
+          (out/"fixture-driver.py").write_text(driver)
+          for side in ("old","new"):
+              runtime_src=(out/side/"src").resolve()
+              bootstrap="import runpy,sys;sys.path.insert(0,sys.argv.pop(1));runpy.run_path(sys.argv.pop(1),run_name='__main__')"
+              env={**os.environ,"PYTHONPATH":str(runtime_src)}
+              subprocess.run([sys.executable,"-I","-B","-c",bootstrap,str(runtime_src),str(out/"fixture-driver.py"),str(root),str(runtime_src),str(out/side/"reports"),str(out/"collector-bootstrap.py")],env=env,check=True)
+          sys.path.insert(0,str(root/"src"))
+          from archkeel.ir.codec import canonical_report_bytes
+          def diff(a,b,path=()):
+              if type(a) is not type(b): return [path]
+              if isinstance(a,dict):
+                  if a.keys()!=b.keys(): return [path]
+                  return [d for key in a for d in diff(a[key],b[key],(*path,key))]
+              if isinstance(a,list):
+                  if len(a)!=len(b): return [path]
+                  return [d for index,(x,y) in enumerate(zip(a,b)) for d in diff(x,y,(*path,index))]
+              return [] if a==b else [path]
+          results=[]
+          for name in ("E-runtime","F-architecture","H-uml","K-python-realworld"):
+              old=json.loads((out/"old"/"reports"/f"{name}.json").read_text())
+              new=json.loads((out/"new"/"reports"/f"{name}.json").read_text())
+              changes=diff(old,new)
+              row={"name":name,"all_changed_paths":changes}
+              results.append(row)
+              (out/"wire-comparison.json").write_text(json.dumps(results,sort_keys=True,indent=2))
+              assert changes==[("analyzer","code_digest")],(name,changes[:50])
+              new["analyzer"]["code_digest"]=old["analyzer"]["code_digest"]
+              old_bytes=canonical_report_bytes(old)
+              new_bytes=canonical_report_bytes(new)
+              assert old_bytes==new_bytes,name
+              row.update({"status":"PASS","canonical_bytes":len(old_bytes),"canonical_sha256_after_only_digest_equalization":hashlib.sha256(old_bytes).hexdigest()})
+              print("PARAMETER_TRUE_RUNTIME_WIRE_PARITY="+json.dumps(row,sort_keys=True),flush=True)
+          (out/"wire-comparison.json").write_text(json.dumps(results,sort_keys=True,indent=2))
+          print("PARAMETER_TRUE_PRODUCER_AND_CORE_PARITY=PASS",flush=True)
+          
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: ${{ always() }}
+        with:
+          name: parameter-kind-true-producer-and-core
+          path: |
+            parameter-true-runtimes/runtime-source-manifest.json
+            parameter-true-runtimes/wire-comparison.json
+            parameter-true-runtimes/collector-bootstrap.py
+            parameter-true-runtimes/fixture-driver.py
+            parameter-true-runtimes/*/reports/*.json
