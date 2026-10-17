@@ -45,6 +45,7 @@ jobs:
               claim=unreferenced_symbols(observation)
               records={str(record.data.get("qualified_name")):record for record in observation.records("symbols") or ()}
               evidence={record.id:asdict(record) for record in observation.evidence}
+              (out/f"{side}-observation.json.gz").write_bytes(gzip.compress(json.dumps(observation_payload(observation),sort_keys=True).encode()))
               rows=[]
               for candidate in claim.candidates:
                   record=records[candidate.name]
@@ -52,7 +53,14 @@ jobs:
                   assert len(cites)==1,cites
                   cite=cites[0]
                   source=(root/cite["file"]).read_text()
-                  matches=[node for node in ast.walk(ast.parse(source)) if isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef)) and node.lineno==cite["line"] and node.name==candidate.name.rsplit(".",1)[-1]]
+                  leaf=candidate.name.rsplit(".",1)[-1]
+                  def names_definition(node):
+                      if isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef)): return node.name==leaf
+                      if isinstance(node,ast.AnnAssign): return isinstance(node.target,ast.Name) and node.target.id==leaf
+                      if isinstance(node,ast.Assign): return any(isinstance(target,ast.Name) and target.id==leaf for target in node.targets)
+                      if isinstance(node,(ast.Import,ast.ImportFrom)): return any((alias.asname or alias.name)==leaf for alias in node.names)
+                      return False
+                  matches=[node for node in ast.walk(ast.parse(source)) if getattr(node,"lineno",None)==cite["line"] and names_definition(node)]
                   assert len(matches)==1,(candidate,cite,len(matches))
                   rows.append({"candidate":asdict(candidate),"actual_symbol_record":raw_record(record),"citations":cites,"actual_ast":ast.dump(matches[0],include_attributes=False)})
               results[side]={"revision":revision,"status":str(claim.status),"symbols":claim.symbols,"exempt":claim.exempt,"candidates":rows,"seconds":time.perf_counter()-started}
