@@ -1,0 +1,44 @@
+name: Read-only actual topology producer and caller ASTs
+on:
+  push:
+    branches: [verify/542-graph-topology-analysis]
+permissions:
+  contents: read
+jobs:
+  actual-ports:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: bb3e498b9c43afc954ef9fe7078595983e0b3c2f
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Exact producer definitions, call sites and owned level data
+        run: |
+          python3 - <<'PY'
+          import ast,json
+          from pathlib import Path
+          operations={"aggregate_edges","_cycle_records","cycle_sections","transitive_path_records"}
+          for directory in ("src","tests"):
+              for path in sorted(Path(directory).rglob("*.py")):
+                  source=path.read_text()
+                  tree=ast.parse(source)
+                  def visit(node,owner):
+                      if isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef)):
+                          owner=owner+"."+node.name
+                      if isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef)) and node.name in operations:
+                          print("TOPOLOGY_DEFINITION="+json.dumps({"path":str(path),"line":node.lineno,"owner":owner,"arguments":ast.unparse(node.args),"returns":ast.unparse(node.returns) if node.returns else None}),flush=True)
+                      if isinstance(node,ast.Call):
+                          name=node.func.id if isinstance(node.func,ast.Name) else node.func.attr if isinstance(node.func,ast.Attribute) else None
+                          if name in operations:
+                              print("TOPOLOGY_CALL="+json.dumps({"path":str(path),"line":node.lineno,"owner":owner,"expression":ast.get_source_segment(source,node)}),flush=True)
+                      if directory=="src" and isinstance(node,ast.Dict):
+                          for key,value in zip(node.keys,node.values):
+                              if isinstance(key,ast.Constant) and key.value=="level":
+                                  if isinstance(value,ast.Name) and value.id=="level" or isinstance(value,ast.Constant) and value.value in {"module","package"}:
+                                      print("TOPOLOGY_LEVEL_PRODUCER="+json.dumps({"path":str(path),"line":node.lineno,"owner":owner,"value":ast.unparse(value)}),flush=True)
+                      for child in ast.iter_child_nodes(node):
+                          visit(child,owner)
+                  visit(tree,str(path))
+          PY
