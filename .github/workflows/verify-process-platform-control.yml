@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 72497e109686b2d247e77c031a29465afd6c2d49
+          ref: af6a976d45b5ef93bb5e7e67eced1ef598045366
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -18,5 +18,19 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
+      - name: Inspect actual native fixture diagnostics before RED
+        run: |
+          uv run --locked python - <<'PY'
+          import tempfile,sys
+          from pathlib import Path
+          sys.path.insert(0,str(Path("tests").resolve()))
+          from test_collection_process import _platform_repository
+          from archkeel.check.report import run_report
+          from archkeel.cli.observe import observe
+          with tempfile.TemporaryDirectory() as directory:
+              root,config=_platform_repository(Path(directory))
+              result,encoded=run_report(root,config=config,analyzer=observe)
+              print("PROCESS_NATIVE_DIAGNOSTICS",result.exit_code,result.diagnostics)
+          PY
       - name: Actual process platform port and native control RED
         run: uv run --locked pytest -q -s tests/test_collection_process.py::test_process_platform_port_owns_only_known_os_names tests/test_collection_process.py::test_native_actual_process_target_and_os_control_sites
