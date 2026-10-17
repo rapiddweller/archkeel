@@ -17,6 +17,7 @@ or constructor result type. Missing or ambiguous evidence retains the original c
 
 from __future__ import annotations
 
+import builtins as _builtins
 from collections import defaultdict
 from dataclasses import dataclass
 
@@ -61,7 +62,7 @@ class OwnedLogic:
 
     def __post_init__(self) -> None:
         if not isinstance(self.status, ComparisonStatus):
-            object.__setattr__(self, "status", ComparisonStatus(self.status))
+            _builtins.object.__setattr__(self, "status", ComparisonStatus(self.status))
         if self.status is ComparisonStatus.UNKNOWN and (
             self.owners or self.functions or self.candidates
         ):

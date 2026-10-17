@@ -1230,7 +1230,7 @@ class DimensionDelta:
 
     def __post_init__(self) -> None:
         if not isinstance(self.status, ComparisonStatus):
-            object.__setattr__(self, "status", ComparisonStatus(self.status))
+            builtins.object.__setattr__(self, "status", ComparisonStatus(self.status))
 
 
 @dataclass(frozen=True, slots=True)
@@ -1278,7 +1278,7 @@ class RatchetObservations:
 
     def __post_init__(self) -> None:
         if not isinstance(self.status, ComparisonStatus):
-            object.__setattr__(self, "status", ComparisonStatus(self.status))
+            builtins.object.__setattr__(self, "status", ComparisonStatus(self.status))
         measured = (self.baseline is not None, self.head is not None)
         if measured != (
             (True, True) if self.status is ComparisonStatus.SUPPORTED else (False, False)

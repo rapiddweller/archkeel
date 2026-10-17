@@ -12,6 +12,7 @@ SUPPORTED (AD-5). The claim stays a review claim: it never becomes a verdict.
 
 from __future__ import annotations
 
+import builtins as _builtins
 from dataclasses import dataclass
 
 from .model import ComparisonStatus, Observation, Record, text_value
@@ -38,7 +39,7 @@ class SymbolReferences:
 
     def __post_init__(self) -> None:
         if not isinstance(self.status, ComparisonStatus):
-            object.__setattr__(self, "status", ComparisonStatus(self.status))
+            _builtins.object.__setattr__(self, "status", ComparisonStatus(self.status))
         if self.status is ComparisonStatus.UNKNOWN and (
             self.symbols or self.exempt or self.candidates
         ):

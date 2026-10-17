@@ -13,6 +13,7 @@ evidence, deciding whether it is a problem stays the architect's, never a verdic
 
 from __future__ import annotations
 
+import builtins as _builtins
 from collections import defaultdict
 from dataclasses import dataclass
 
@@ -42,7 +43,7 @@ class TypeFanin:
 
     def __post_init__(self) -> None:
         if not isinstance(self.status, ComparisonStatus):
-            object.__setattr__(self, "status", ComparisonStatus(self.status))
+            _builtins.object.__setattr__(self, "status", ComparisonStatus(self.status))
         if self.status is ComparisonStatus.UNKNOWN and (self.positions or self.candidates):
             raise ValueError("an unsupported claim names no crossing")
 

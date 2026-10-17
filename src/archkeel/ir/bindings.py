@@ -14,6 +14,7 @@ not establish that removal is safe.
 
 from __future__ import annotations
 
+import builtins as _builtins
 from dataclasses import dataclass
 
 from .model import FUNCTION_KINDS, ComparisonStatus, Observation, text_value
@@ -40,7 +41,7 @@ class BindingReads:
 
     def __post_init__(self) -> None:
         if not isinstance(self.status, ComparisonStatus):
-            object.__setattr__(self, "status", ComparisonStatus(self.status))
+            _builtins.object.__setattr__(self, "status", ComparisonStatus(self.status))
         if self.status is ComparisonStatus.UNKNOWN and (self.functions or self.candidates):
             raise ValueError("an unsupported claim names no binding")
 

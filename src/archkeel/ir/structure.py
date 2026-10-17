@@ -15,6 +15,7 @@ source for a component's size, so the claim and the table cannot disagree.
 
 from __future__ import annotations
 
+import builtins as _builtins
 from collections import Counter
 from dataclasses import dataclass
 from typing import Literal, TypeAlias
@@ -181,7 +182,7 @@ class InsideSizes:
 
     def __post_init__(self) -> None:
         if not isinstance(self.status, ComparisonStatus):
-            object.__setattr__(self, "status", ComparisonStatus(self.status))
+            _builtins.object.__setattr__(self, "status", ComparisonStatus(self.status))
         if self.status is ComparisonStatus.UNKNOWN and (
             self.components or self.component_edges or self.candidates
         ):
