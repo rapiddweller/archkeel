@@ -1,0 +1,46 @@
+name: Native StrEnum receiver RED before production
+on:
+  push:
+    branches: [verify/542-strenum-native-red]
+permissions:
+  contents: read
+jobs:
+  native-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 3e729fa5804a8110856f2c282302848499ce9414
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Observe native missing-method RED and conservative negatives
+        run: |
+          uv run --locked python - <<'PY'
+          import json, subprocess, xml.etree.ElementTree as ET
+          from pathlib import Path
+          path="tests/test_python_strenum_methods.py"
+          run=subprocess.run(["uv","run","--locked","pytest",path,"-q","-ra","--junitxml=strenum-native-red.xml"],text=True,capture_output=True,check=False)
+          print(run.stdout,flush=True)
+          print(run.stderr,flush=True)
+          root=ET.parse("strenum-native-red.xml").getroot()
+          cases=list(root.iter("testcase"))
+          failed=[case.attrib["name"] for case in cases if case.find("failure") is not None]
+          errors=[case.attrib["name"] for case in cases if case.find("error") is not None]
+          print("STRENUM_NATIVE_RED="+json.dumps({"source":"3e729fa5804a8110856f2c282302848499ce9414","base":"5b8a603274b2330b85fc6fe62c8d7f6fb15da8f1","exit":run.returncode,"cases":len(cases),"failed":failed,"errors":errors},sort_keys=True),flush=True)
+          assert run.returncode==1 and len(cases)==50 and len(failed)==5 and not errors
+          assert all(name.startswith("test_proven_populated_strenum_annotation_names_only_the_requested_builtin_method[") for name in failed)
+          fmt=subprocess.run(["uv","run","--locked","ruff","format","--stdin-filename",path],input=Path(path).read_text(),text=True,capture_output=True,check=True)
+          print("STRENUM_FORMATTED_TEST="+json.dumps(fmt.stdout),flush=True)
+          assert not subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: strenum-native-red
+          path: strenum-native-red.xml
