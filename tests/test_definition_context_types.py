@@ -162,7 +162,7 @@ def _entities(kind_annotation="DefinitionContextKind"):
 
 def _repository(tmp_path, text):
     target = dict(
-        schema_version="2.1.0", components=[], rules=[],
+        schema_version="2.2.0", components=[], rules=[],
         declarations=dict(uml=dict(entities=_entities(), relationships=[], scopes=[])),
     )
     files = {
@@ -181,7 +181,9 @@ def _repository(tmp_path, text):
 
 def _model(root, config):
     result, encoded = run_report(root, config=config, analyzer=observe)
-    assert result.exit_code == 0 and encoded is not None, result.diagnostics
+    assert result.exit_code == 0 and encoded is not None, [
+        item.unknown_claim for item in result.diagnostics
+    ]
     return parse_observation(decode_canonical_model(json.loads(encoded)))
 
 
