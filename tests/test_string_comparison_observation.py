@@ -581,7 +581,7 @@ def test_inside_qualified_construct_owner_respects_actual_parent_scope(tmp_path,
     assessment = next(
         row
         for row in rule_assessments(result.observation, undecided_by_rule={})
-        if row.rule_id == "core:RULE"
+        if row.id == "core:RULE"
     )
     receipts = [
         row
