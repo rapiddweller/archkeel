@@ -12,7 +12,6 @@ from typing import Final
 
 from archkeel.ir.codec import value_bytes
 from archkeel.ir.measurements import RatchetError
-from archkeel.ir.model import ComparisonStatus as _ComparisonStatus
 from archkeel.ir.model import DELTA_SCHEMA_VERSION as DELTA_SCHEMA_VERSION
 from archkeel.ir.model import (
     SCHEMA_VERSION,
@@ -37,6 +36,7 @@ from archkeel.ir.model import (
     identity_is_known,
     stable_id,
 )
+from archkeel.ir.model import ComparisonStatus as _ComparisonStatus
 from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from archkeel.ir.profiles import delta_dimension_applicable, profile_for
 
@@ -525,7 +525,9 @@ def build_architecture_delta(
                 "Regression checks require the same known schema, scope, analyzer and contract"
             )
         ratchets = RatchetObservations(
-            _ComparisonStatus.SUPPORTED, measure_python_ratchets(baseline), measure_python_ratchets(head)
+            _ComparisonStatus.SUPPORTED,
+            measure_python_ratchets(baseline),
+            measure_python_ratchets(head),
         )
     except RatchetError as exc:
         ratchets = RatchetObservations(_ComparisonStatus.UNKNOWN, reason=str(exc))
@@ -588,7 +590,9 @@ def build_architecture_delta(
                 tuple(item.fingerprint for item in current if item.change == "changed"),
             )
         )
-    unknown_dimensions = tuple(item.name for item in dimensions if item.status is _ComparisonStatus.UNKNOWN)
+    unknown_dimensions = tuple(
+        item.name for item in dimensions if item.status is _ComparisonStatus.UNKNOWN
+    )
     return ArchitectureDelta(
         DeltaVersion.V2_0,
         head.analyzer,

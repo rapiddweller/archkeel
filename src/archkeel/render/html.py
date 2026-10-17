@@ -36,7 +36,6 @@ from archkeel.ir.interfaces import (
 )
 from archkeel.ir.measurements import MeasurementResolution as _MeasurementResolution
 from archkeel.ir.measurements import Measurements
-from archkeel.ir.model import ComparisonStatus as _ComparisonStatus
 from archkeel.ir.model import (
     BaselineViolationComparison,
     CallRow,
@@ -46,6 +45,7 @@ from archkeel.ir.model import (
     RunResult,
     stable_id,
 )
+from archkeel.ir.model import ComparisonStatus as _ComparisonStatus
 from archkeel.ir.module_explore import ModuleExploreLevel, module_exploration
 from archkeel.ir.references import SymbolReferences, unreferenced_symbols
 from archkeel.ir.report_graph import architecture_report
@@ -1456,7 +1456,9 @@ def _semantic_changes(result: RunResult) -> str:
 def _unavailable_dimensions(result: RunResult) -> str:
     if result.delta is None:
         return ""
-    dimensions = [item for item in result.delta.dimensions if item.status is _ComparisonStatus.UNKNOWN]
+    dimensions = [
+        item for item in result.delta.dimensions if item.status is _ComparisonStatus.UNKNOWN
+    ]
     if not dimensions:
         return ""
     reasons = {item.dimension: item.reason for item in result.delta.unknowns}

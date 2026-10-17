@@ -10,13 +10,13 @@ from typing import Final, TypeAlias
 
 from archkeel.ir.measurements import MetricComparisonStatus as _MetricComparisonStatus
 from archkeel.ir.measurements import compare_measurements
-from archkeel.ir.model import ComparisonStatus as _ComparisonStatus
 from archkeel.ir.model import (
     AssessmentStatus as _AssessmentStatus,
 )
 from archkeel.ir.model import (
     Command as _Command,
 )
+from archkeel.ir.model import ComparisonStatus as _ComparisonStatus
 from archkeel.ir.model import (
     DraftedComponentSize,
     RunResult,

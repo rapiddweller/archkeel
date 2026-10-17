@@ -18,12 +18,12 @@ from test_dependency_api_target import _source_members
 from test_duplication import _TOUR
 from test_uml_evaluation import _model
 
+from archkeel.check.ports import ScanConfig
 from archkeel.ir import bindings, codec_delta, decisions, duplication, model, references, structure
 from archkeel.ir import type_fanin as fanin
 from archkeel.ir.codec import canonical_json_bytes, delta_payload, parse_delta
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
-from archkeel.check.ports import ScanConfig
 
 ROOT = Path(__file__).parents[1]
 DOC = "docs/architecture/comparison-support-types.md"
@@ -45,7 +45,8 @@ def test_existing_model_owns_one_exact_nominal_support_domain():
     assert issubclass(model.ComparisonStatus, StrEnum)
     assert model.ComparisonStatus.__module__ == "archkeel.ir.model"
     assert [(value.name, str(value)) for value in model.ComparisonStatus] == [
-        ("SUPPORTED", "SUPPORTED"), ("UNKNOWN", "UNKNOWN")
+        ("SUPPORTED", "SUPPORTED"),
+        ("UNKNOWN", "UNKNOWN"),
     ]
     for module, name, *_ in CLAIMS:
         assert module.ComparisonStatus is model.ComparisonStatus
@@ -118,10 +119,17 @@ def test_all_supported_delta_versions_keep_exact_bytes_and_open_future_wire_fiel
     raw = _payload()
     raw["schema_version"] = version
     raw["dimensions"]["vendor.future"] = copy.deepcopy(raw["dimensions"]["coverage"])
-    raw["semantic_changes"].append({
-        "dimension": "vendor.future", "change": "vendor-experiment", "fingerprint": "f" * 64,
-        "before_count": 0, "after_count": 0, "before": None, "after": None,
-    })
+    raw["semantic_changes"].append(
+        {
+            "dimension": "vendor.future",
+            "change": "vendor-experiment",
+            "fingerprint": "f" * 64,
+            "before_count": 0,
+            "after_count": 0,
+            "before": None,
+            "after": None,
+        }
+    )
     value = parse_delta(raw)
     assert all(isinstance(item.status, model.ComparisonStatus) for item in value.dimensions)
     assert isinstance(value.ratchets.status, model.ComparisonStatus)
@@ -157,9 +165,12 @@ def _contract(*, producers=False):
     intent = copy.deepcopy(json.loads((ROOT / "docs/architecture/contracts/ir.json").read_text()))
     intent.pop("$schema", None)
     intent["declarations"]["uml"]["entities"] = [
-        row for row in intent["declarations"]["uml"]["entities"]
-        if (row["id"].startswith("IR-COMPARISON-")
-            and (producers or not row["id"].startswith("IR-COMPARISON-producer-")))
+        row
+        for row in intent["declarations"]["uml"]["entities"]
+        if (
+            row["id"].startswith("IR-COMPARISON-")
+            and (producers or not row["id"].startswith("IR-COMPARISON-producer-"))
+        )
         or row["id"] in {"IR-DEPENDENCY-model", "IR-DELTA-VERSION-codec"}
     ]
     intent["declarations"]["uml"]["relationships"] = []
@@ -193,10 +204,12 @@ def _repository(tmp_path, *, producers=False):
     }
     prefix = "from __future__ import annotations\nfrom dataclasses import dataclass\n"
     files["archkeel/ir/model.py"] = (
-        prefix + "from enum import StrEnum\nfrom typing import TypeAlias\n"
-        + _source_members("src/archkeel/ir/model.py", {
-            "RawJson", "ComparisonStatus", "DimensionDelta", "RatchetObservations"
-        })
+        prefix
+        + "from enum import StrEnum\nfrom typing import TypeAlias\n"
+        + _source_members(
+            "src/archkeel/ir/model.py",
+            {"RawJson", "ComparisonStatus", "DimensionDelta", "RatchetObservations"},
+        )
     )
     files["archkeel/ir/codec_delta.py"] = (
         "from __future__ import annotations\nfrom .model import ComparisonStatus, RawJson\n"
@@ -210,7 +223,8 @@ def _repository(tmp_path, *, producers=False):
         path = "src/" + module.__name__.replace(".", "/") + ".py"
         members = {name, producer} if producers else {name}
         files[path.removeprefix("src/")] = (
-            prefix + "from .model import ComparisonStatus, Observation\n"
+            prefix
+            + "from .model import ComparisonStatus, Observation\n"
             + _source_members(path, members)
         )
     root = _prepare_repo(tmp_path, files)
@@ -221,13 +235,16 @@ def _valid(value):
     comparison = architecture_report(value).comparison
     assert comparison is not None and comparison.status == "PASS", [
         (row.subject_id, row.aspect, row.status, row.reason)
-        for row in comparison.assessments if row.status != "PASS"
+        for row in comparison.assessments
+        if row.status != "PASS"
     ]
     assert not trace_valid_violations(value)
 
 
 @pytest.mark.parametrize("producers", [False, True])
-def test_native_actual_boundaries_and_all_five_producer_ports_match_fixed_intent(tmp_path, producers):
+def test_native_actual_boundaries_and_all_five_producer_ports_match_fixed_intent(
+    tmp_path, producers
+):
     root, config = _repository(tmp_path, producers=producers)
     _valid(_model(root, config))
 
@@ -245,7 +262,9 @@ def test_native_actual_status_field_widening_fails_independent_intent(tmp_path, 
     start, rest = original.split(f"class {name}:", 1)
     assert "status: ComparisonStatus" in rest
     intent = (root / "contract.json").read_bytes()
-    source.write_text(start + f"class {name}:" + rest.replace("status: ComparisonStatus", "status: str", 1))
+    source.write_text(
+        start + f"class {name}:" + rest.replace("status: ComparisonStatus", "status: str", 1)
+    )
     changed = _model(root, config)
     assert trace_valid_violations(changed)
     assert any(row.status == "FAIL" for row in architecture_report(changed).comparison.assessments)
@@ -288,17 +307,22 @@ def test_native_each_actual_producer_return_widening_fails_fixed_target(
     assert (root / "contract.json").read_bytes() == intent
 
 
-@pytest.mark.parametrize("path", ["model", "codec_delta", "decisions"] + [
-    module.__name__.rsplit(".", 1)[-1] for module, *_ in CLAIMS
-])
-@pytest.mark.parametrize("probe", [
-    'def _probe(value):\n    return value == "UNKNOWN"\n',
-    'def _probe(value):\n    return value in {"SUPPORTED", "UNKNOWN"}\n',
-    'def _probe(value):\n    match value:\n        case "UNKNOWN":\n            return True\n'
-    '        case _:\n            return False\n',
-    'from typing import Final\nSTATUS: Final[str] = "UNKNOWN"\n'
-    'def _probe(value):\n    return value == STATUS\n',
-])
+@pytest.mark.parametrize(
+    "path",
+    ["model", "codec_delta", "decisions"]
+    + [module.__name__.rsplit(".", 1)[-1] for module, *_ in CLAIMS],
+)
+@pytest.mark.parametrize(
+    "probe",
+    [
+        'def _probe(value):\n    return value == "UNKNOWN"\n',
+        'def _probe(value):\n    return value in {"SUPPORTED", "UNKNOWN"}\n',
+        'def _probe(value):\n    match value:\n        case "UNKNOWN":\n            return True\n'
+        "        case _:\n            return False\n",
+        'from typing import Final\nSTATUS: Final[str] = "UNKNOWN"\n'
+        "def _probe(value):\n    return value == STATUS\n",
+    ],
+)
 def test_native_migrated_actual_boundary_projections_reject_raw_dispatch(tmp_path, path, probe):
     root, config = _repository(tmp_path)
     _valid(_model(root, config))
@@ -314,12 +338,19 @@ def test_native_migrated_actual_boundary_projections_reject_raw_dispatch(tmp_pat
     [
         ("model", "self.status is ComparisonStatus.SUPPORTED", 'self.status == "SUPPORTED"'),
         ("decisions", "status is ComparisonStatus.SUPPORTED", 'status == "SUPPORTED"'),
-        ("codec_delta", "return ComparisonStatus(value)",
-         'if value == "UNKNOWN":\n            return ComparisonStatus.UNKNOWN\n'
-         "        return ComparisonStatus(value)"),
-    ] + [
-        (module.__name__.rsplit(".", 1)[-1],
-         "self.status is ComparisonStatus.UNKNOWN", 'self.status == "UNKNOWN"')
+        (
+            "codec_delta",
+            "return ComparisonStatus(value)",
+            'if value == "UNKNOWN":\n            return ComparisonStatus.UNKNOWN\n'
+            "        return ComparisonStatus(value)",
+        ),
+    ]
+    + [
+        (
+            module.__name__.rsplit(".", 1)[-1],
+            "self.status is ComparisonStatus.UNKNOWN",
+            'self.status == "UNKNOWN"',
+        )
         for module, *_ in CLAIMS
     ],
 )

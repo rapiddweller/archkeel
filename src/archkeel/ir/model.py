@@ -133,6 +133,8 @@ class Verdict(StrEnum):
 PackageComponentOwnership: TypeAlias = tuple[str, tuple[str, ...]]
 ComponentOwnershipInput: TypeAlias = ComponentOwnership | PackageComponentOwnership
 RuleVerdict: TypeAlias = AssessmentStatus
+
+
 class ComparisonStatus(StrEnum):
     SUPPORTED = "SUPPORTED"
     UNKNOWN = "UNKNOWN"
@@ -1278,7 +1280,9 @@ class RatchetObservations:
         if not isinstance(self.status, ComparisonStatus):
             object.__setattr__(self, "status", ComparisonStatus(self.status))
         measured = (self.baseline is not None, self.head is not None)
-        if measured != ((True, True) if self.status is ComparisonStatus.SUPPORTED else (False, False)):
+        if measured != (
+            (True, True) if self.status is ComparisonStatus.SUPPORTED else (False, False)
+        ):
             raise ValueError("measurements exist exactly when regression checks are SUPPORTED")
 
 

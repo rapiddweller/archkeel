@@ -62,7 +62,9 @@ class OwnedLogic:
     def __post_init__(self) -> None:
         if not isinstance(self.status, ComparisonStatus):
             object.__setattr__(self, "status", ComparisonStatus(self.status))
-        if self.status is ComparisonStatus.UNKNOWN and (self.owners or self.functions or self.candidates):
+        if self.status is ComparisonStatus.UNKNOWN and (
+            self.owners or self.functions or self.candidates
+        ):
             raise ValueError("an unsupported claim names no repetition")
 
 

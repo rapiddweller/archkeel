@@ -39,7 +39,9 @@ class SymbolReferences:
     def __post_init__(self) -> None:
         if not isinstance(self.status, ComparisonStatus):
             object.__setattr__(self, "status", ComparisonStatus(self.status))
-        if self.status is ComparisonStatus.UNKNOWN and (self.symbols or self.exempt or self.candidates):
+        if self.status is ComparisonStatus.UNKNOWN and (
+            self.symbols or self.exempt or self.candidates
+        ):
             raise ValueError("an unsupported claim names no symbols")
 
 
