@@ -31,6 +31,7 @@ def _repository(tmp_path, changed=None):
         "PYTHON-PREDICATE-KIND",
         "PYTHON-PREDICATE-DECODE",
         "PYTHON-PREDICATE-QUERY",
+        "PYTHON-CONSTRUCT-COLLECT",
     }
     uml = contract["declarations"]["uml"]
     uml["entities"] = [entity for entity in uml["entities"] if entity["id"] in predicate_ids]
@@ -46,6 +47,9 @@ def _repository(tmp_path, changed=None):
             "contract.json": json.dumps(contract),
             "docs/architecture/language-adapter-target.md": (
                 ROOT / "docs/architecture/language-adapter-target.md"
+            ).read_text(),
+            "docs/architecture/string-comparison-observation.md": (
+                ROOT / "docs/architecture/string-comparison-observation.md"
             ).read_text(),
             "docs/architecture/python-string-predicates.md": (
                 ROOT / "docs/architecture/python-string-predicates.md"
@@ -71,6 +75,8 @@ def test_actual_predicate_enum_and_decoder_satisfy_independent_native_target(tmp
     ("old", "new"),
     [
         ("class _StringPredicate(Enum):", "class _StringPredicate:"),
+        ("imports: Sequence[RawRecord] = (),", "imports: Sequence[str] = (),"),
+        (") -> list[RawRecord]:", ") -> list[str]:"),
         ("-> _StringPredicate | None:", "-> str | None:"),
         (
             "def _predicate_matches(literals: _LiteralComparisons, node: ast.expr) -> bool:",
@@ -81,7 +87,14 @@ def test_actual_predicate_enum_and_decoder_satisfy_independent_native_target(tmp
             "def _predicate_matches(literals: _LiteralComparisons, node: ast.expr) -> str:",
         ),
     ],
-    ids=["enum-kind", "nominal-return", "query-context", "query-result"],
+    ids=[
+        "enum-kind",
+        "collector-imports",
+        "collector-result",
+        "nominal-return",
+        "query-context",
+        "query-result",
+    ],
 )
 def test_actual_decoder_type_widening_fails_fixed_native_target(tmp_path, old, new):
     source = (ROOT / SOURCE).read_text()

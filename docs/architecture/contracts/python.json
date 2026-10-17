@@ -885,6 +885,44 @@
             ],
             "returns": "tuple[SourceResolution, list[str], str, int]"
           }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/string-comparison-observation.md"
+          ],
+          "id": "PYTHON-CONSTRUCT-COLLECT",
+          "kind": "function",
+          "qualified_name": "archkeel.analyzer.python.constructs.collect_constructs",
+          "parent_id": "PYTHON-PREDICATE-MODULE",
+          "responsibilities": [
+            "Collect written construct facts using scanned literal providers and canonical import origins without runtime namespace claims."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "parsed",
+                "annotation": "Sequence[ParsedModule]",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "evidence",
+                "annotation": "dict[str, RawEvidence]",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "imports",
+                "annotation": "Sequence[RawRecord]",
+                "kind": "keyword_only",
+                "default": "()",
+                "default_known": true
+              }
+            ],
+            "returns": "list[RawRecord]"
+          }
         }
       ],
       "relationships": [],

@@ -3,10 +3,17 @@
 # SPDX-License-Identifier: MIT
 """Native comparison observations cover protocol literals without inferring runtime values."""
 
+import ast
+
 import pytest
 from test_analyzer import _observe_one_rule, _parsed_module
 
-from archkeel.analyzer.python.constructs import collect_constructs
+from archkeel.analyzer.python.constructs import (
+    _literal_import_origins,
+    _LiteralComparisons,
+    collect_constructs,
+)
+from archkeel.analyzer.python.imports import collect_imports, resolve_reexports
 from archkeel.ir.trace import trace_valid_violations
 
 RULE = {
@@ -137,7 +144,7 @@ def test_native_controls_do_not_infer_literal_runtime_values(tmp_path, source):
 
 
 @pytest.mark.parametrize("expression", ["value == TOKEN", "TOKEN in value", "TOKEN not in value"])
-def test_cross_module_imported_runtime_values_remain_an_explicit_limit(tmp_path, expression):
+def test_proven_imported_literal_constants_have_native_failure(tmp_path, expression):
     result = _observe_one_rule(
         tmp_path,
         RULE,
@@ -148,10 +155,18 @@ def test_cross_module_imported_runtime_values_remain_an_explicit_limit(tmp_path,
         },
     )
     assert result.diagnostics == () and result.observation is not None
-    assert not [
-        row
-        for row in result.observation.records("constructs")
-        if row.kind == "string_literal_compare"
+    assert (
+        len(
+            [
+                row
+                for row in result.observation.records("constructs")
+                if row.kind == "string_literal_compare"
+            ]
+        )
+        == 1
+    )
+    assert [(row.kind, row.rule_ids) for row in trace_valid_violations(result.observation)] == [
+        ("forbidden_construct", ("RULE",))
     ]
 
 
@@ -605,3 +620,379 @@ def test_inside_qualified_construct_owner_respects_actual_parent_scope(tmp_path,
         assert [
             (row.kind, row.rule_ids) for row in trace_valid_violations(changed.observation)
         ] == [("forbidden_construct", ("core:RULE",))]
+
+
+@pytest.mark.parametrize(
+    ("prefix", "expression", "form"),
+    [
+        ("from sample.cli import Token\n", "value == Token.IMPORT.value", "compare"),
+        ("from sample.cli import Token as Alias\n", "value != Alias.IMPORT.value", "compare"),
+        ("import sample.cli as vocabulary\n", "value == vocabulary.Token.IMPORT.value", "compare"),
+        ("from .cli import Token\n", "Token.IMPORT.value in value", "membership"),
+        ("from sample.bridge import Token\n", "value == Token.IMPORT.value", "compare"),
+        (
+            "import sample.bridge as vocabulary\n",
+            "value == vocabulary.Token.IMPORT.value",
+            "compare",
+        ),
+        ("from sample.cli import Token\n", "value in (Token.IMPORT.value,)", "membership"),
+        ("from sample.cli import Token\n", "value.startswith(Token.IMPORT.value)", "startswith"),
+        ("from sample.cli import Token\n", "value.endswith((Token.IMPORT.value,))", "endswith"),
+    ],
+    ids=[
+        "symbol",
+        "symbol-alias",
+        "module-alias",
+        "relative",
+        "stable-reexport",
+        "module-reexport",
+        "membership",
+        "prefix",
+        "suffix",
+    ],
+)
+def test_imported_enum_value_leaf_reaches_native_scoped_policy(tmp_path, prefix, expression, form):
+    result = _observe_one_rule(
+        tmp_path,
+        RULE,
+        {
+            "core.py": prefix + f"def parse(value):\n    return {expression}\n",
+            "cli.py": ENUM,
+            "bridge.py": 'from sample.cli import Token\n__all__ = ["Token"]\n',
+        },
+    )
+    assert not result.diagnostics and result.observation is not None
+    records = [
+        row
+        for row in result.observation.records("constructs")
+        if row.kind == "string_literal_compare"
+    ]
+    assert [row.data.get("form") for row in records] == [form]
+    assert [row.subjects for row in trace_valid_violations(result.observation)] == [
+        ("sample.core.parse",)
+    ]
+
+
+@pytest.mark.parametrize(
+    "body,form",
+    [
+        (
+            "def parse(value):\n    match value:\n        case Token.IMPORT.value:\n"
+            "            return True\n        case _:\n            return False\n",
+            "match",
+        ),
+        (
+            "TOKENS = {Token.IMPORT.value}\ndef parse(value):\n    return value in TOKENS\n",
+            "membership",
+        ),
+        (
+            "TOKENS = [Token.IMPORT.value]\ndef parse(value):\n    return value in TOKENS\n",
+            "membership",
+        ),
+        (
+            "TOKENS = (Token.IMPORT.value,)\n"
+            "def parse(value):\n    return value.startswith(TOKENS)\n",
+            "startswith",
+        ),
+        ("def parse(value):\n    tag = Token.IMPORT.value\n    return value == tag\n", "compare"),
+    ],
+)
+def test_imported_value_cannot_hide_in_existing_literal_forms(tmp_path, body, form):
+    result = _observe_one_rule(
+        tmp_path,
+        RULE,
+        {"core.py": "from sample.cli import Token\n" + body, "cli.py": ENUM},
+    )
+    assert not result.diagnostics and result.observation is not None
+    records = [
+        row
+        for row in result.observation.records("constructs")
+        if row.kind == "string_literal_compare"
+    ]
+    assert [row.data.get("form") for row in records] == [form]
+    assert len(trace_valid_violations(result.observation)) == 1
+
+
+@pytest.mark.parametrize(
+    "provider,prefix,body",
+    [
+        (
+            'class Token:\n    IMPORT = "import"\n',
+            "from sample.cli import Token\n",
+            "return value == Token.IMPORT.value",
+        ),
+        (
+            'from enum import IntEnum\nclass Token(IntEnum):\n    IMPORT = "1"\n',
+            "from sample.cli import Token\n",
+            "return value == Token.IMPORT.value",
+        ),
+        (
+            "from enum import Enum\nclass Token(Enum):\n"
+            '    IMPORT = "import"\n    @property\n    def value(self):\n        return 1\n',
+            "from sample.cli import Token\n",
+            "return value == Token.IMPORT.value",
+        ),
+        (
+            'from enum import Enum\n@change\nclass Token(Enum):\n    IMPORT = "import"\n',
+            "from sample.cli import Token\n",
+            "return value == Token.IMPORT.value",
+        ),
+        (ENUM, "from external import Token\n", "return value == Token.IMPORT.value"),
+        (
+            ENUM,
+            "from sample.cli import Token\nToken = other\n",
+            "return value == Token.IMPORT.value",
+        ),
+        (
+            ENUM,
+            "import sample.cli as vocabulary\nvocabulary = other\n",
+            "return value == vocabulary.Token.IMPORT.value",
+        ),
+        (
+            ENUM,
+            "if condition:\n    from sample.cli import Token\n",
+            "return value == Token.IMPORT.value",
+        ),
+        (ENUM, "from sample.cli import Token\n", "return value is Token.IMPORT"),
+        (ENUM, "from sample.cli import Token\n", "return Token.IMPORT.value"),
+        (
+            ENUM,
+            "from sample.cli import Token\n",
+            "TOKENS = {Token.IMPORT.value}\n    TOKENS.add(value)\n    return value in TOKENS",
+        ),
+    ],
+    ids=[
+        "non-enum",
+        "intenum",
+        "custom-value",
+        "decorated",
+        "unscanned",
+        "rebound-symbol",
+        "rebound-module",
+        "conditional-import",
+        "enum-identity",
+        "wire-serialization",
+        "mutated-local-set",
+    ],
+)
+def test_imported_value_observation_does_not_guess_runtime_types(tmp_path, provider, prefix, body):
+    result = _observe_one_rule(
+        tmp_path,
+        RULE,
+        {"core.py": prefix + "def parse(value):\n    " + body + "\n", "cli.py": provider},
+    )
+    assert not result.diagnostics and result.observation is not None
+    assert not [
+        row
+        for row in result.observation.records("constructs")
+        if row.kind == "string_literal_compare"
+    ]
+    assert not trace_valid_violations(result.observation)
+
+
+def test_imported_value_named_collection_escape_is_not_a_literal_proof(tmp_path):
+    result = _observe_one_rule(
+        tmp_path,
+        RULE,
+        {
+            "core.py": "from sample.cli import Token\nTOKENS = {Token.IMPORT.value}\n"
+            "other = TOKENS\nother.clear()\ndef parse(value):\n    return value in TOKENS\n",
+            "cli.py": ENUM,
+        },
+    )
+    assert not result.diagnostics and result.observation is not None
+    assert not result.observation.records("constructs")
+    assert not trace_valid_violations(result.observation)
+
+
+@pytest.mark.parametrize(
+    "prefix,expression",
+    [
+        ("from sample.facade import Token as Event\n", "value == Event.IMPORT.value"),
+        ("import sample.facade as vocabulary\n", "value == vocabulary.Token.IMPORT.value"),
+    ],
+)
+def test_transitive_import_value_routes_keep_the_canonical_provider(tmp_path, prefix, expression):
+    result = _observe_one_rule(
+        tmp_path,
+        RULE,
+        {
+            "core.py": prefix + f"def parse(value):\n    return {expression}\n",
+            "cli.py": ENUM,
+            "bridge.py": 'from sample.cli import Token\n__all__ = ["Token"]\n',
+            "facade.py": 'from sample.bridge import Token\n__all__ = ["Token"]\n',
+        },
+    )
+    assert not result.diagnostics and result.observation is not None
+    assert [row.subjects for row in trace_valid_violations(result.observation)] == [
+        ("sample.core.parse",)
+    ]
+
+
+@pytest.mark.parametrize(
+    "prefix,expression",
+    [
+        ("from sample.cli import TOKEN as WORD\n", "value == WORD"),
+        ("import sample.cli as words\n", "value != words.TOKEN"),
+        ("from sample.bridge import TOKEN\n", "TOKEN in value"),
+        ("from sample.cli import Words\n", "value == Words.IMPORT"),
+    ],
+)
+def test_imported_scalar_leaves_reuse_the_existing_literal_provider_proof(
+    tmp_path, prefix, expression
+):
+    result = _observe_one_rule(
+        tmp_path,
+        RULE,
+        {
+            "core.py": prefix + f"def parse(value):\n    return {expression}\n",
+            "cli.py": 'TOKEN = b"import"\nclass Words:\n    IMPORT = "import"\n',
+            "bridge.py": 'from sample.cli import TOKEN\n__all__ = ["TOKEN"]\n',
+        },
+    )
+    assert not result.diagnostics and result.observation is not None
+    assert len(trace_valid_violations(result.observation)) == 1
+
+
+@pytest.mark.parametrize(
+    "provider",
+    [
+        ENUM + "Token = other\n",
+        ENUM.replace("class Token", "ProtocolEnum = other\nclass Token"),
+        ENUM.replace('IMPORT = "import"', 'IMPORT = "im" + "port"'),
+        "if condition:\n    from enum import Enum\n"
+        '    class Token(Enum):\n        IMPORT = "import"\n',
+    ],
+    ids=["rebound-provider", "rebound-stdlib-base", "computed-member", "conditional-class"],
+)
+def test_module_alias_does_not_turn_an_unproven_provider_into_an_enum(tmp_path, provider):
+    result = _observe_one_rule(
+        tmp_path,
+        RULE,
+        {
+            "core.py": "import sample.cli as vocabulary\n"
+            "def parse(value):\n    return value == vocabulary.Token.IMPORT.value\n",
+            "cli.py": provider,
+        },
+    )
+    assert not result.diagnostics and result.observation is not None
+    assert not [
+        row
+        for row in result.observation.records("constructs")
+        if row.kind == "string_literal_compare"
+    ]
+    assert not trace_valid_violations(result.observation)
+
+
+@pytest.mark.parametrize(
+    "provider,expression",
+    [
+        (
+            'TOKEN = "import"\ndef replace():\n    global TOKEN\n    TOKEN = read()\n',
+            "words.TOKEN",
+        ),
+        (
+            'class Words:\n    IMPORT = "import"\n'
+            "def replace():\n    global Words\n    Words = read()\n",
+            "words.Words.IMPORT",
+        ),
+    ],
+)
+def test_module_import_does_not_skip_the_providers_global_rebinding(tmp_path, provider, expression):
+    result = _observe_one_rule(
+        tmp_path,
+        RULE,
+        {
+            "core.py": "import sample.cli as words\n"
+            f"def parse(value):\n    return value == {expression}\n",
+            "cli.py": provider,
+        },
+    )
+    assert not result.diagnostics and result.observation is not None
+    assert not [
+        row
+        for row in result.observation.records("constructs")
+        if row.kind == "string_literal_compare"
+    ]
+    assert not trace_valid_violations(result.observation)
+
+
+@pytest.mark.parametrize(
+    "mutation,expression",
+    [
+        ("words.TOKEN = 123\n", "words.TOKEN"),
+        ("words.Token = other\n", "words.Token.IMPORT.value"),
+        ("alias = words\nalias.TOKEN = 123\n", "words.TOKEN"),
+        ("globals()['words'] = other\n", "words.Token.IMPORT.value"),
+    ],
+    ids=[
+        "module-literal-write",
+        "module-enum-write",
+        "aliased-module-write",
+        "dynamic-alias-write",
+    ],
+)
+def test_visible_consumer_namespace_writes_invalidate_imported_literal_proof(
+    tmp_path, mutation, expression
+):
+    result = _observe_one_rule(
+        tmp_path,
+        RULE,
+        {
+            "core.py": (
+                "import sample.cli as words\n"
+                + mutation
+                + f"def parse(value):\n    return value == {expression}\n"
+            ),
+            "cli.py": ENUM + 'TOKEN = "import"\n',
+        },
+    )
+    assert not result.diagnostics and result.observation is not None
+    assert not [
+        row
+        for row in result.observation.records("constructs")
+        if row.kind == "string_literal_compare"
+    ]
+    assert not trace_valid_violations(result.observation)
+
+
+@pytest.mark.parametrize(
+    "prefix,expression",
+    [
+        ("import sample.cli as vocabulary\n", "vocabulary.Token.IMPORT.value"),
+        ("from sample.bridge import Token as Event\n", "Event.IMPORT.value"),
+    ],
+    ids=["module-suffix", "imported-symbol-suffix"],
+)
+def test_canonical_name_replaces_the_longest_origin_once(tmp_path, prefix, expression):
+    module = _parsed_module(
+        prefix + f"result = {expression}\n", "sample.core", rel_path="sample/core.py"
+    )
+    parsed = [
+        module,
+        _parsed_module(ENUM, "sample.cli", rel_path="sample/cli.py"),
+        _parsed_module(
+            'from sample.cli import Token\n__all__ = ["Token"]\n',
+            "sample.bridge",
+            rel_path="sample/bridge.py",
+        ),
+    ]
+    imports = collect_imports(parsed, {row.module for row in parsed}, {}, namespace="sample")
+    resolve_reexports(imports, {row.module: row.all_exports for row in parsed}, parsed)
+    literals = _LiteralComparisons(module)
+    literals.origins = _literal_import_origins(imports)
+    assignment = module.tree.body[-1]
+    assert isinstance(assignment, ast.Assign)
+    assert literals._canonical_name(assignment.value) == "sample.cli.Token.IMPORT.value"
+
+    # Synthetic overlap tests only this lookup contract, not native import binding evidence.
+    # The native provider/consumer tests above exercise actual resolved import routes.
+    literals.origins.update(
+        {
+            "sample.cli": "short.Route",
+            "sample.cli.Token": "short.Owner",
+            "sample.cli.Token.IMPORT": "long.Member",
+            "long.Member.value": "must.not.chase",
+        }
+    )
+    assert literals._canonical_name(assignment.value) == "long.Member.value"

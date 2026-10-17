@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import ast
+from collections import Counter
 from collections.abc import Sequence
 from enum import Enum
 
@@ -13,8 +14,15 @@ from archkeel.ir.facts import EvidenceClass, stable_id
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 
-from .scopes import LexicalScopes
-from .source import ParsedModule, add_evidence, body_is_empty, decorator_names, location
+from .scopes import BindingKind, LexicalScopes
+from .source import (
+    ParsedModule,
+    add_evidence,
+    body_is_empty,
+    decorator_names,
+    location,
+    stable_direct_module_bindings,
+)
 
 
 class _StringPredicate(Enum):
@@ -201,9 +209,10 @@ def _static_string_constants(
 
 
 def _literal_collections(
-    module: ParsedModule, scopes: LexicalScopes
+    literals: _LiteralComparisons,
 ) -> dict[str, ast.Tuple | ast.List | ast.Set]:
     """Retain qualified literal nodes; only tuples also serve predicate arguments."""
+    module, scopes = literals.module, literals.scopes
     candidates: dict[str, ast.Tuple | ast.List | ast.Set] = {}
     for statement in module.tree.body:
         if not isinstance(statement, ast.Assign | ast.AnnAssign):
@@ -214,7 +223,7 @@ def _literal_collections(
         if not (
             isinstance(value, ast.Tuple | ast.List | ast.Set)
             and value.elts
-            and all(_is_str(item) for item in value.elts)
+            and all(literals.scalar(item) for item in value.elts)
         ):
             continue
         targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
@@ -282,9 +291,10 @@ class _LiteralComparisons:
     def __init__(self, module: ParsedModule) -> None:
         self.module = module
         self.scopes = LexicalScopes(module)
-        self.module_values, self.class_values, self.enum_classes = _static_string_constants(module)
-        self.collections = _literal_collections(module, self.scopes)
-        self.enum_value_classes = frozenset(
+        module_values, class_values, enum_classes = _static_string_constants(module)
+        self.origins: dict[str, str] = {}
+        self.stable_names = stable_direct_module_bindings(module)
+        enum_value_classes = frozenset(
             f"{module.module}.{node.name}"
             for node in module.tree.body
             if isinstance(node, ast.ClassDef)
@@ -293,7 +303,27 @@ class _LiteralComparisons:
             and not node.keywords
             and not node.decorator_list
             and _literal_enum_body(node)
+            and node.name in self.stable_names
         )
+        self.scalar_names = frozenset(
+            f"{module.module}.{name}"
+            for name, value in module_values.items()
+            if value is not None and name in self.stable_names
+        ) | frozenset(
+            f"{owner}.{name}"
+            for owner, values in class_values.items()
+            if owner not in enum_classes
+            and owner[len(module.module) + 1 :].split(".")[0] in self.stable_names
+            for name, value in values.items()
+            if value is not None
+        )
+        self.enum_member_names = frozenset(
+            f"{owner}.{name}"
+            for owner in enum_value_classes
+            for name, value in class_values[owner].items()
+            if "value" not in class_values[owner] and value is not None
+        )
+        self.collections: dict[str, ast.Tuple | ast.List | ast.Set] = {}
 
     def _module_name(self, node: ast.expr) -> bool:
         root = node
@@ -302,7 +332,11 @@ class _LiteralComparisons:
         if not isinstance(root, ast.Name):
             return False
         binding = self.scopes.lookup(root, root.id)
-        return binding.owner is self.scopes.root and not binding.uncertain
+        return (
+            binding.owner is self.scopes.root
+            and not binding.uncertain
+            and root.id in self.stable_names
+        )
 
     def _enum_base(self, node: ast.expr) -> bool:
         if not self._module_name(node):
@@ -337,37 +371,53 @@ class _LiteralComparisons:
             and self.scopes.parents.get(assignment) is owner.node
             and (assignment.lineno, assignment.col_offset) < (node.lineno, node.col_offset)
             and assignment.value is not None
-            and _is_str(assignment.value)
+            and self._written_scalar(assignment.value)
+        )
+
+    def _canonical_name(self, node: ast.expr) -> str | None:
+        """Follow stable written import origins, without claiming runtime member closure."""
+        attributes: list[str] = []
+        root = node
+        while isinstance(root, ast.Attribute):
+            attributes.append(root.attr)
+            root = root.value
+        if not isinstance(root, ast.Name) or not self._module_name(node):
+            return None
+        binding = self.scopes.lookup(root, root.id)
+        qualified = f"{self.module.module}.{root.id}"
+        if binding.kind is BindingKind.SYMBOL:
+            qualified = self.origins.get(qualified, "")
+            if not qualified:
+                return None
+        elif binding.kind is BindingKind.MODULE:
+            if len(binding.targets) != 1:
+                return None
+            qualified = binding.targets[0]
+        suffix = ".".join(reversed(attributes))
+        name = qualified + ("." + suffix if attributes else "")
+        # Module aliases can expose a supported re-export below the imported module.
+        parts = name.split(".")
+        for length in range(len(parts), 0, -1):
+            origin = self.origins.get(".".join(parts[:length]))
+            if origin is not None:
+                return ".".join([origin, *parts[length:]])
+        return name
+
+    def _written_scalar(self, node: ast.expr) -> bool:
+        if _is_str(node):
+            return True
+        name = self._canonical_name(node)
+        if name in self.scalar_names:
+            return True
+        return (
+            isinstance(node, ast.Attribute)
+            and node.attr == "value"
+            and self._canonical_name(node.value) in self.enum_member_names
         )
 
     def scalar(self, node: ast.expr) -> bool:
-        if _is_str(node) or (isinstance(node, ast.Name) and self._local_scalar(node)):
-            return True
-        if not self._module_name(node):
-            return False
-        if isinstance(node, ast.Name):
-            return self.module_values.get(node.id) is not None
-        if not isinstance(node, ast.Attribute):
-            return False
-        owner = _dotted_name(node.value)
-        if owner is None:
-            return False
-        class_name = f"{self.module.module}.{owner}"
-        if class_name in self.class_values and class_name not in self.enum_classes:
-            return self.class_values[class_name].get(node.attr) is not None
-        member = node.value
-        if (
-            node.attr != "value"
-            or not isinstance(member, ast.Attribute)
-            or not isinstance(member.value, ast.Name)
-        ):
-            return False
-        enum_class = f"{self.module.module}.{member.value.id}"
-        values = self.class_values.get(enum_class, {})
-        return (
-            enum_class in self.enum_value_classes
-            and "value" not in values
-            and values.get(member.attr) is not None
+        return self._written_scalar(node) or (
+            isinstance(node, ast.Name) and self._local_scalar(node)
         )
 
     def collection(self, node: ast.expr) -> bool:
@@ -419,12 +469,17 @@ def _handled_types(caught: ast.expr) -> list[str]:
 class ConstructCollector(ast.NodeVisitor):
     """Walk one module, recording each construct under the scope that owns it."""
 
-    def __init__(self, module: ParsedModule, evidence: dict[str, RawEvidence]) -> None:
+    def __init__(
+        self,
+        module: ParsedModule,
+        evidence: dict[str, RawEvidence],
+        comparisons: _LiteralComparisons,
+    ) -> None:
         self.module = module
         self.evidence = evidence
         self.items: list[RawRecord] = []
         self.scope_stack: list[str] = [module.module]
-        self.comparisons = _LiteralComparisons(module)
+        self.comparisons = comparisons
         self.inherits_stack: list[bool] = []
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
@@ -552,13 +607,47 @@ class ConstructCollector(ast.NodeVisitor):
         )
 
 
+def _literal_import_origins(imports: Sequence[RawRecord]) -> dict[str, str]:
+    """Reuse proven canonical symbol routes; unresolved or conditional imports add no proof."""
+    origins: dict[str, str] = {}
+    for item in imports:
+        data = item["data"]
+        origin = data.get("origin_definition")
+        if (
+            isinstance(origin, str)
+            and data.get("module_level_import") is True
+            and data.get("source_binding_unique") is True
+            and data.get("origin_binding_unique") is True
+            and not data.get("under_type_checking")
+            and not data.get("reexport_candidate")
+            and not data.get("reexport_candidates")
+        ):
+            origins[f"{data['source_module']}.{data['binding']}"] = origin
+    return origins
+
+
 def collect_constructs(
-    parsed: Sequence[ParsedModule], evidence: dict[str, RawEvidence]
+    parsed: Sequence[ParsedModule],
+    evidence: dict[str, RawEvidence],
+    *,
+    imports: Sequence[RawRecord] = (),
 ) -> list[RawRecord]:
-    """Run the construct collector over every module and sort records by id."""
+    """Collect written constructs using scanned literal providers and resolved import origins."""
+    contexts = [_LiteralComparisons(module) for module in parsed]
+    counts = Counter(module.module for module in parsed)
+    providers = [context for context in contexts if counts[context.module.module] == 1]
+    scalar_names = frozenset(name for context in providers for name in context.scalar_names)
+    enum_member_names = frozenset(
+        name for context in providers for name in context.enum_member_names
+    )
+    origins = _literal_import_origins(imports)
     items: list[RawRecord] = []
-    for module in parsed:
-        collector = ConstructCollector(module, evidence)
+    for module, context in zip(parsed, contexts, strict=True):
+        context.scalar_names = scalar_names
+        context.enum_member_names = enum_member_names
+        context.origins = origins
+        context.collections = _literal_collections(context)
+        collector = ConstructCollector(module, evidence, context)
         collector.visit(module.tree)
         items.extend(collector.items)
     items.sort(key=lambda item: item["id"])

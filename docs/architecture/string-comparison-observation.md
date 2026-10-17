@@ -12,11 +12,13 @@ A scoped `forbidden_construct` rule selecting `string_literal_compare` rejects:
   of `in`/`not in`, including parser tokens such as `"node_modules" in path.split("/")`;
 - literal value patterns in `match`, including nested sequence patterns;
 - direct, unambiguous module/class literal bindings, including `Final` annotations;
-- a single preceding text/bytes assignment at the top level of the same function;
+- a single preceding supported scalar assignment at the top level of the same function;
   parameter values, conditional writes, rebinding, closures and global/nonlocal writes
   do not establish this local evidence;
-- direct named module literal collections whose visible loads are only membership;
-- explicit `LocalEnum.MEMBER.value` extraction when the local enum member has a
+- direct named module literal collections whose visible loads are only membership
+  or tuple prefix/suffix arguments;
+- scanned imported literal constants through stable canonical import origins;
+- explicit `EnumOwner.MEMBER.value` extraction when the local or scanned imported enum member has a
   written text/bytes value, exactly one directly proven stdlib `Enum` or `StrEnum`
   base, and only ordinary, non-private literal member declarations (plus docstrings or `pass`);
   class keywords, decorators, additional bases and executable hooks prevent that
@@ -40,16 +42,25 @@ Mapping-pattern keys are structure; a string key alone is not a value comparison
 
 ## Explicit limits
 
-Imported runtime constants, arbitrary attribute properties, computed expressions,
-dynamic namespace changes and collection aliases are not followed. Local enum
+Unscanned imported values, arbitrary attribute properties, computed expressions,
+dynamic namespace changes and collection aliases are not followed. Enum
 value evidence deliberately excludes mixins, custom construction or attribute
 hooks, namespace directives and class decorators/metaclasses; it does not evaluate
 their behavior. External mutation of an otherwise ordinary enum remains outside
 this source observation. An undecidable
 value is not reported as a literal merely because its spelling resembles a keyword.
-Calls such as `startswith`, arbitrary data-variable membership and arbitrary
+Arbitrary data-variable membership and arbitrary
 string-to-string data comparisons are outside this syntactic construct. The rule
 therefore cannot certify a semantic ban on every possible raw protocol comparison.
+The same strict enum-body predicate supplies local and scanned-provider value evidence.
+Symbol aliases and proven re-export routes use existing canonical import-origin facts;
+module aliases use lexical import targets only after their consumer roots are stable.
+ambiguous/rebound/conditional imports and unscanned providers supply no literal proof.
+Provider and consumer roots reuse the existing stable direct module-binding check,
+including explicit global rebinding, visible attribute writes, ordinary alias
+mutation propagation and visible namespace changes.
+Named collections retain their single-binding, visible-use and escape restrictions and
+accept these same supported scalar leaves, as do membership, match and prefix/suffix arguments.
 No compiler, signature, member-binding or native type-proof receipt is added.
 
 A rule PASS means that the supported syntactic construct was absent in the scoped

@@ -101,7 +101,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
     references = collect_references(modules, symbol_index, evidence)
     bindings = collect_bindings(modules, evidence)
     typing_signals = collect_typing_signals(modules, calls, symbols, imports, evidence)
-    constructs = collect_constructs(modules, evidence)
+    constructs = collect_constructs(modules, evidence, imports=imports)
     typed_symbols = tuple(parse_record(symbol) for symbol in symbols)
     state, state_evidence = collect_state(modules, typed_symbols, symbol_nodes, symbol_owners)
     source_unknowns, private_evidence = collect_private_attributes(modules)
