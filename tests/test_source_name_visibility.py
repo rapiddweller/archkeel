@@ -98,7 +98,13 @@ def test_actual_import_origin_writer_uses_source_name_visibility():
 
 @pytest.mark.parametrize(
     ("tag", "is_public"),
-    (("public_name", True), ("private", False), ("public", False), ("future", False), (None, False)),
+    (
+        ("public_name", True),
+        ("private", False),
+        ("public", False),
+        ("future", False),
+        (None, False),
+    ),
 )
 def test_public_name_consumers_preserve_conservative_wire_behavior(tag, is_public):
     symbol = _symbol_record(
@@ -217,9 +223,9 @@ def test_visibility_weakening_fails_the_unchanged_authored_target(tmp_path, muta
             if mutation == "owner"
             else "SOURCE-NAME-VISIBILITY-READER-CONTROL"
         )
-        assert any(
-            item.rule_ids == (rule,) for item in trace_valid_violations(observed)
-        ), observed.records("violations")
+        assert any(item.rule_ids == (rule,) for item in trace_valid_violations(observed)), (
+            observed.records("violations")
+        )
     else:
         assert any(
             item.status == "FAIL" and item.subject_id == "IR-SOURCE-NAME-VISIBILITY-READER"
