@@ -69,6 +69,13 @@ def test_own_render_contract_enforces_output_direction(tmp_path, backward_import
         "src/archkeel/render/summary_badges.py": (
             root_path / "src/archkeel/render/summary_badges.py"
         ).read_text(),
+        # Keep the real guarded Atlas owner and its declared provenance in this fixture.
+        "src/archkeel/render/atlas_deviations.py": (
+            root_path / "src/archkeel/render/atlas_deviations.py"
+        ).read_text(),
+        "docs/superpowers/specs/2026-10-16-atlas-deviation-boundary.md": (
+            root_path / "docs/superpowers/specs/2026-10-16-atlas-deviation-boundary.md"
+        ).read_text(),
         "src/archkeel/render/terminal.py": "from . import summary\n",
         "src/archkeel/render/html.py": (
             "from .atlas import atlas_payload\n"
