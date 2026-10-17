@@ -23,3 +23,12 @@ of source observations. Native checks prove the real source API against this int
 reject widening a field to str under the same contract. A codec string-control guard is
 claimed only after the integrated source, including the separate version grammar, passes
 the actual module check. There is no whole-model guard claim.
+
+Known declaration tags belong to ArchitectureDeclarationKind in architecture_graph:
+component and inside responsibilities, module targets, public API declarations, SPOT
+owners, compatibility migration work and the two authored Target graph envelopes.
+ArchitectureRuleKind remains the single rule vocabulary, including root_layout. Optional
+readers recognize only those owned values; raw Record.kind and RuleAssessment.kind stay
+open strings. Producers serialize canonical members as plain strings, preserving record
+IDs, representation and wire bytes. Existing graph marker constants remain plain string
+compatibility values; consumers select nominal kinds rather than dispatch through them.

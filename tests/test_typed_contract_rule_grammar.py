@@ -285,3 +285,46 @@ def test_direct_legacy_component_shim_and_cycle_values_are_normalized():
     cycles = _legacy_rules()[9]
     assert replace(cycles, level="module").level is model.CycleLevel.MODULE
     assert replace(cycles, level=model.CycleLevel.COMPONENT).level is None
+
+
+def test_authored_declaration_readers_share_owned_kinds_and_keep_extensions_open():
+    from archkeel.ir import architecture_graph as graph
+    from archkeel.ir.facts import JsonValue, RawJson, Record
+
+    declaration = getattr(graph, "ArchitectureDeclarationKind", None)
+    assert declaration is not None, "authored declaration readers need their canonical owner"
+    expected = {
+        "COMPONENT_RESPONSIBILITY": "component_responsibility",
+        "INSIDE_COMPONENT_RESPONSIBILITY": "inside_component_responsibility",
+        "MODULE_TARGET": "module_target",
+        "DECLARED_PUBLIC_API": "declared_public_api",
+        "SPOT_OWNER": "spot_owner",
+        "COMPATIBILITY_MIGRATION_WORK": "compatibility_migration_work",
+        "UML_TARGET": "uml_target",
+        "ARCHITECTURE_TARGET": "architecture_target",
+    }
+    assert {member.name: str(member) for member in declaration} == expected
+    assert set(declaration).isdisjoint(ArchitectureRuleKind)
+    for member in ArchitectureRuleKind:
+        assert graph.parse_architecture_rule_kind(str(member)) is member
+        assert graph.parse_architecture_declaration_kind(str(member)) is member
+        assert graph.parse_architecture_rule_kind(member) is member
+    for member in declaration:
+        assert graph.parse_architecture_declaration_kind(str(member)) is member
+        assert graph.parse_architecture_declaration_kind(member) is member
+        assert graph.parse_architecture_rule_kind(str(member)) is None
+    assert get_type_hints(graph.parse_architecture_rule_kind) == {
+        "value": JsonValue | RawJson, "return": ArchitectureRuleKind | None,
+    }
+    assert get_type_hints(graph.parse_architecture_declaration_kind) == {
+        "value": JsonValue | RawJson,
+        "return": ArchitectureRuleKind | declaration | None,
+    }
+    for value in (None, True, 1, [], {}, "", "future-rule", "future-declaration"):
+        assert graph.parse_architecture_rule_kind(value) is None
+        assert graph.parse_architecture_declaration_kind(value) is None
+    assert get_type_hints(Record)["kind"] is str
+    assert get_type_hints(graph.RuleAssessment)["kind"] is str
+    assert type(model.UML_TARGET_KIND) is str and model.UML_TARGET_KIND == "uml_target"
+    assert type(model.ARCHITECTURE_TARGET_KIND) is str
+    assert model.ARCHITECTURE_TARGET_KIND == "architecture_target"

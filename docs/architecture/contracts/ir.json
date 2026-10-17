@@ -11852,6 +11852,84 @@
             ],
             "returns": "SourceSymbolKind | None"
           }
+        },
+        {
+          "id": "IR-DECLARATION-KIND",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.architecture_graph.ArchitectureDeclarationKind",
+          "responsibilities": [
+            "Own known authored architecture declaration and Target-envelope tags without closing open record kinds."
+          ],
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ]
+        },
+        {
+          "id": "IR-DECLARATION-RULE-READ",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.architecture_graph.parse_architecture_rule_kind",
+          "responsibilities": [
+            "Recognize a known architecture rule kind while leaving other values opaque."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "annotation": "JsonValue | RawJson",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "ArchitectureRuleKind | None"
+          },
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ]
+        },
+        {
+          "id": "IR-DECLARATION-READ",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.architecture_graph.parse_architecture_declaration_kind",
+          "responsibilities": [
+            "Recognize authored rule or declaration tags without assigning meaning to unknown extension values."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "annotation": "JsonValue | RawJson",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "ArchitectureRuleKind | ArchitectureDeclarationKind | None"
+          },
+          "language": "python",
+          "parent_id": "IR-UML-architecture_graph",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "provenance": [
+            "docs/architecture/contract-rule-grammar.md"
+          ]
         }
       ],
       "relationships": [
