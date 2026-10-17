@@ -5,13 +5,40 @@ on:
 permissions:
   contents: read
 jobs:
+  primary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 7d8c0665bbfeb7b27809c42db5256f08445fc11b
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Native ports, mutations and affected regression
+        run: uv run --locked pytest -q -rP -n 2 --dist=loadfile tests/test_typed_contract_rule_grammar.py tests/test_typed_contract_rule_native.py tests/test_typed_graph_vocabulary.py tests/test_contract_model.py tests/test_decisions.py tests/test_module_explore.py tests/test_interfaces.py tests/test_levels.py tests/test_baseline.py tests/test_widening.py tests/test_duplication.py tests/test_compatibility.py tests/test_uml_evaluation.py tests/test_uml_comparison.py tests/test_architecture_projection.py tests/test_saved_report.py tests/test_public_api_boundary.py tests/test_codec_compatibility.py tests/test_result_schema.py tests/test_rule_yield.py tests/test_report_renderer_units.py
+      - name: Strict affected production
+        if: always()
+        run: uv run --locked mypy --strict src/archkeel/ir/architecture_graph.py src/archkeel/ir/interfaces.py src/archkeel/ir/levels.py src/archkeel/ir/decisions.py src/archkeel/ir/module_explore.py src/archkeel/check/uml.py src/archkeel/check/observation.py src/archkeel/check/report.py src/archkeel/check/validation/public_api.py src/archkeel/check/validation/observation.py src/archkeel/ir/report_projection.py src/archkeel/ir/codec_result.py src/archkeel/render/atlas.py src/archkeel/check/declarations.py src/archkeel/ir/duplication.py src/archkeel/render/html.py src/archkeel/ir/baseline.py src/archkeel/ir/widening.py src/archkeel/ir/source_graph.py src/archkeel/check/uml_evaluation.py src/archkeel/ir/report_graph.py src/archkeel/ir/model.py
+      - name: Lint, formatting, exact Source and untouched accepted baseline
+        if: always()
+        run: |
+          uv run --locked ruff check src/archkeel/ir/architecture_graph.py src/archkeel/ir/interfaces.py src/archkeel/ir/levels.py src/archkeel/ir/decisions.py src/archkeel/ir/module_explore.py src/archkeel/check/uml.py src/archkeel/check/observation.py src/archkeel/check/report.py src/archkeel/check/validation/public_api.py src/archkeel/check/validation/observation.py src/archkeel/ir/report_projection.py src/archkeel/ir/codec_result.py src/archkeel/render/atlas.py src/archkeel/check/declarations.py src/archkeel/ir/duplication.py src/archkeel/render/html.py src/archkeel/ir/baseline.py src/archkeel/ir/widening.py src/archkeel/ir/source_graph.py tools/rule_yield.py src/archkeel/check/uml_evaluation.py src/archkeel/ir/report_graph.py src/archkeel/ir/model.py tests/test_typed_contract_rule_grammar.py tests/test_typed_contract_rule_native.py
+          uv run --locked ruff format --check src/archkeel/ir/architecture_graph.py src/archkeel/ir/interfaces.py src/archkeel/ir/levels.py src/archkeel/ir/decisions.py src/archkeel/ir/module_explore.py src/archkeel/check/uml.py src/archkeel/check/observation.py src/archkeel/check/report.py src/archkeel/check/validation/public_api.py src/archkeel/check/validation/observation.py src/archkeel/ir/report_projection.py src/archkeel/ir/codec_result.py src/archkeel/render/atlas.py src/archkeel/check/declarations.py src/archkeel/ir/duplication.py src/archkeel/render/html.py src/archkeel/ir/baseline.py src/archkeel/ir/widening.py src/archkeel/ir/source_graph.py tools/rule_yield.py src/archkeel/check/uml_evaluation.py src/archkeel/ir/report_graph.py src/archkeel/ir/model.py tests/test_typed_contract_rule_grammar.py tests/test_typed_contract_rule_native.py
+          test "$(git rev-parse HEAD)" = "7d8c0665bbfeb7b27809c42db5256f08445fc11b"
+          git diff --exit-code 50d93141720d53774f5e9e916579bdc18c7bc246 -- architecture-baseline.json src/archkeel/ir/host_records.py src/archkeel/check/ordering.py src/archkeel/analyzer/process.py
+          test -z "$(git status --porcelain)"
   wire:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: a8eca172e0aebbea92f60d4c3b760f4d0abdac5a
+          ref: 7d8c0665bbfeb7b27809c42db5256f08445fc11b
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -120,7 +147,7 @@ jobs:
       - name: Exact Source and no source writes
         if: always()
         run: |
-          test "$(git rev-parse HEAD)" = "a8eca172e0aebbea92f60d4c3b760f4d0abdac5a"
+          test "$(git rev-parse HEAD)" = "7d8c0665bbfeb7b27809c42db5256f08445fc11b"
           test -z "$(git status --porcelain)"
   actual-call-ledger:
     runs-on: ubuntu-latest
@@ -128,7 +155,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: a8eca172e0aebbea92f60d4c3b760f4d0abdac5a
+          ref: 7d8c0665bbfeb7b27809c42db5256f08445fc11b
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
