@@ -1,0 +1,54 @@
+name: Verify committed Delta dimension boundary
+on:
+  push:
+    branches: [verify/542-delta-dimension-committed]
+permissions:
+  contents: read
+jobs:
+  committed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Verify tested production and mechanical-only test formatting
+        run: |
+          git diff --exit-code 15822f2be5542e8aa0bc79611fd9d3070dd77776 -- src/archkeel/ir/profiles.py src/archkeel/ir/model.py src/archkeel/check/delta.py src/archkeel/check/expectation.py src/archkeel/ir/codec_delta.py docs/architecture/contracts/ir.json docs/architecture/contracts/check.json architecture-contract.json Makefile
+          uv run --locked python - <<'PY'
+          import ast,pathlib,subprocess
+          path="tests/test_delta_dimension_types.py"
+          before=subprocess.check_output(["git","show","15822f2be5542e8aa0bc79611fd9d3070dd77776:"+path],text=True)
+          after=pathlib.Path(path).read_text()
+          assert ast.dump(ast.parse(before),include_attributes=False)==ast.dump(ast.parse(after),include_attributes=False)
+          print("DELTA_DIMENSION_TEST_FORMAT_AST_EQUAL=true")
+          PY
+          uv run --locked ruff check src/archkeel/ir/profiles.py src/archkeel/ir/model.py src/archkeel/check/delta.py src/archkeel/check/expectation.py src/archkeel/ir/codec_delta.py tests/test_delta_dimension_types.py
+          uv run --locked ruff format --check src/archkeel/ir/profiles.py src/archkeel/ir/model.py src/archkeel/check/delta.py src/archkeel/check/expectation.py src/archkeel/ir/codec_delta.py tests/test_delta_dimension_types.py
+          make typecheck
+          git diff --exit-code
+      - name: Read-only current contract verification with stale draft budget disclosed
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json > "$RUNNER_TEMP/dimension-current-validate.json"
+          actual_status=$?
+          set -e
+          python - "$RUNNER_TEMP/dimension-current-validate.json" <<'PY'
+          import json,pathlib,sys
+          value=json.loads(pathlib.Path(sys.argv[1]).read_text())
+          print("DELTA_DIMENSION_STALE_DRAFT_NO_WRITE="+json.dumps({key:value.get(key) for key in ("exit_code","failures","diagnostics","measurements","amendment_status")},separators=(",",":")))
+          assert value["measurements"]["scalars"]["violations"]==0
+          assert value["measurements"]["scalars"]["typing_positions"]==52
+          assert value["measurements"]["scalars"]["unknown_positions"]==58
+          assert not value["diagnostics"]
+          assert value["exit_code"]==1 and len(value["failures"])==1
+          assert "calls_unresolved" in str(value["failures"][0])
+          PY
+          test "$actual_status" -eq 1
+          git diff --exit-code
