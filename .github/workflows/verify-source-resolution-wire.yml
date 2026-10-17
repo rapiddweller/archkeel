@@ -65,7 +65,7 @@ jobs:
                   return [d for index,(x,y) in enumerate(zip(a,b)) for d in diff(x,y,(*path,index))]
               return [] if a==b else [path]
           sys.path.insert(0,str(root/"src"))
-          from archkeel.ir.codec import canonical_report_bytes
+          from archkeel.ir.codec import canonical_json_bytes,canonical_report_bytes
           results=[]
           fixtures=("E-runtime","F-architecture","H-uml","K-python-realworld","G-dart","H-uml-dart","H-typescript","H-uml-typescript")
           executed={"old":{},"new":{}}
@@ -91,8 +91,9 @@ jobs:
                       for key in path[:-1]:
                           a,b=a[key],b[key]
                       b[path[-1]]=a[path[-1]]
-                  old_bytes=canonical_report_bytes(old)
-                  new_bytes=canonical_report_bytes(new)
+                  encode=canonical_report_bytes if suffix==".json" else canonical_json_bytes
+                  old_bytes=encode(old)
+                  new_bytes=encode(new)
                   assert old_bytes==new_bytes,(name,suffix)
                   row[suffix+"_canonical_bytes"]=len(old_bytes)
                   row[suffix+"_sha256_after_only_digest_equalization"]=hashlib.sha256(old_bytes).hexdigest()
