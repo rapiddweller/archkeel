@@ -123,7 +123,10 @@ def test_unknown_future_ast_field_does_not_invent_a_known_branch():
 
 
 def _entities(kind_annotation="DefinitionContextKind"):
-    common = dict(language="python", presence="planned", provenance=["context-intent.md"])
+    common = dict(
+        language="python", presence="planned", provenance=["context-intent.md"],
+        responsibilities=["Carry the AST definition context through its owned nominal field and return ports."],
+    )
     return [
         dict(common, id="SOURCE", kind="module", qualified_name="archkeel.analyzer.python.source"),
         dict(
