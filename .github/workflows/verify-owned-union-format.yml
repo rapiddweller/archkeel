@@ -1,0 +1,47 @@
+name: Diagnose exact owned-type union formatting
+on:
+  push:
+    branches: [verify/542-owned-union-format]
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 81e2b3e5fca7d2ae29f47bc3bc88d7fbb575b3c5
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Required quality with exact formatter diagnostics
+        run: |
+          uv run --locked python - <<'PY'
+          import json, subprocess, sys
+          from pathlib import Path
+          result = subprocess.run(["make", "lint", "typecheck"])
+          if result.returncode:
+              lines = Path("Makefile").read_text().splitlines()
+              start = next(i for i,line in enumerate(lines) if line.startswith("LINT_PATHS :="))
+              values = lines[start].split(":=", 1)[1].strip()
+              offset = start
+              while values.endswith("\\"):
+                  offset += 1
+                  values = values[:-1] + lines[offset].strip()
+              import shlex
+              import glob
+              paths = [path for pattern in shlex.split(values) for path in glob.glob(pattern)]
+              subprocess.run(["uv", "run", "--locked", "ruff", "check", "--select", "I001", "--fix", *paths], check=True)
+              subprocess.run(["uv", "run", "--locked", "ruff", "format", *paths], check=True)
+              changed = subprocess.check_output(["git", "diff", "--name-only"], text=True).splitlines()
+              for path in changed:
+                  patch = subprocess.check_output(["git", "diff", "--no-ext-diff", "--unified=3", "--", path], text=True)
+                  print("COMBINED_FORMAT_PATCH_JSON " + json.dumps({"path": path, "patch": patch}))
+          sys.exit(result.returncode)
+          PY
+      - run: git diff --exit-code
