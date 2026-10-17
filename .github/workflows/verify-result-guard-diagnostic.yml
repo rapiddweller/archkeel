@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 4ba11063620a23f6c9e9fdd33fb77cc8187af795
+          ref: 82e027688f8f2ebb6eddee2c597c3b906fd12907
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
         with:
@@ -49,12 +49,12 @@ jobs:
               if encoded:
                   model = parse_observation(decode_canonical_model(json.loads(encoded)))
                   for row in model.records("unknowns"):
-                      print("NAVIGATION_UNKNOWN_RECORD", row.kind, row.subject, row.data)
+                      print("NAVIGATION_UNKNOWN_RECORD", row.kind, row.subjects, row.data)
               return result, encoded
           navigation.run_report = trace_report
           with tempfile.TemporaryDirectory() as tmp:
               try:
-                  navigation.test_own_render_contract_enforces_output_direction(Path(tmp), None)
+                  navigation.test_own_render_contract_enforces_output_direction(Path(tmp), "summary")
               except AssertionError:
                   print("NAVIGATION_ASSERTION_FAILED")
           PY
