@@ -92,7 +92,7 @@ def test_interface_names_leave_unrelated_and_future_record_kinds_open(kind):
     assert interfaces._symbol_kind(parse_record(raw)) == kind
 
 
-@pytest.mark.parametrize("value", (False, 1, (), RecordData()))
+@pytest.mark.parametrize("value", (False, 1, [], {}))
 def test_graph_projection_keeps_existing_malformed_classifier_validation(value):
     raw = _symbol_record(
         "SYM-X", kind="class", qualified_name="sample.api.Name", module="sample.api", name="Name"
