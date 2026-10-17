@@ -49,3 +49,40 @@ jobs:
               assert (root/"contract.json").read_bytes()==target
           
           PY
+  lookup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Actual source-only native map input annotation experiment
+        run: |
+          uv run --locked python - <<'PY'
+          import ast,json
+          from pathlib import Path
+          from archkeel.analyzer.python.source import ParsedModule
+          from archkeel.analyzer.python.imports import collect_imports
+          from archkeel.analyzer.python.symbols import collect_symbols
+          from archkeel.analyzer.python.resolve import build_symbol_index
+          from archkeel.analyzer.python.calls import collect_calls
+          path=Path("src/archkeel/analyzer/python/source.py")
+          original=path.read_text()
+          needle="_DEFINITION_FIELDS = {str(item): item for item in _DefinitionField}"
+          assert original.count(needle)==1
+          for label,text in (("actual",original),("annotated",original.replace(needle,"_DEFINITION_FIELDS: dict[str, _DefinitionField] = {str(item): item for item in _DefinitionField}",1))):
+              module=ParsedModule(path,str(path),"archkeel.analyzer.python.source","archkeel.analyzer.python",text,text.encode(),text.splitlines(),ast.parse(text))
+              evidence={}
+              collect_imports([module],{module.module},evidence,namespace="archkeel")
+              symbols,_,_=collect_symbols([module],evidence)
+              calls=collect_calls([module],build_symbol_index(symbols),evidence)
+              rows=[row for row in calls if row["data"]["expression"]=="_DEFINITION_FIELDS.get"]
+              assert len(rows)==2
+              print("ACTUAL_CONTEXT_LOOKUP="+json.dumps(dict(label=label,records=rows)),flush=True)
+          
+          PY
