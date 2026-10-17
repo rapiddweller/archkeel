@@ -1,0 +1,37 @@
+name: Python classifier focused verification
+on:
+  push:
+    branches: ["verify/542-python-class-kind"]
+permissions:
+  contents: read
+jobs:
+  format-and-focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 77ef6188f7ef6197fb749dfe16415625941780a1
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Format only the bounded change and emit exact resulting blobs
+        run: |
+          uv run --locked ruff check --fix src/archkeel/ir/model.py src/archkeel/ir/facts.py src/archkeel/analyzer/python/symbols.py src/archkeel/analyzer/python/resolve.py src/archkeel/analyzer/python/state.py src/archkeel/check/evaluation/state.py src/archkeel/check/evaluation/boundary_types.py src/archkeel/ir/source_graph.py src/archkeel/check/evaluation/rules.py tests/test_typed_symbol_class_kinds.py
+          uv run --locked ruff format src/archkeel/ir/model.py src/archkeel/ir/facts.py src/archkeel/analyzer/python/symbols.py src/archkeel/analyzer/python/resolve.py src/archkeel/analyzer/python/state.py src/archkeel/check/evaluation/state.py src/archkeel/check/evaluation/boundary_types.py src/archkeel/ir/source_graph.py src/archkeel/check/evaluation/rules.py tests/test_typed_symbol_class_kinds.py
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          for path in subprocess.check_output(["git","diff","--name-only"],text=True).splitlines():
+              content=Path(path).read_text()
+              for index in range(0,len(content),12000):
+                  print("FORMATTED_SOURCE="+json.dumps({"path":path,"index":index//12000,"content":content[index:index+12000]}))
+          PY
+      - run: uv run --locked pytest tests/test_typed_symbol_class_kinds.py tests/test_uml_classifier_facts.py tests/test_analyzer.py tests/test_state_facts.py tests/test_decisions.py tests/test_typed_parameter_kinds.py tests/test_definition_context_types.py -q
+      - run: uv run --locked mypy src/archkeel
+      - run: uv run --locked ruff check .
+      - run: uv run --locked ruff format --check .
