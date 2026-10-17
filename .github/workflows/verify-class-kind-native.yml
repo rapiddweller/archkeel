@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: a4b2334d90680ec2e4821b6d081234c0435b13ed
+          ref: ba5a865ac32f2684f10d8d0439b90c12d9647673
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -36,6 +36,7 @@ jobs:
           assert not result["diagnostics"],result["diagnostics"]
           assert result["observation_complete"]=="PASS",result
           model=parse_observation(decode_canonical_model(json.loads(report.read_bytes())))
+          assert model.coverage.calls_unresolved <= 838,model.coverage
           assert not model.records("violations")
           evidence={row.id:row for row in model.evidence}
           rows=[]
@@ -46,19 +47,24 @@ jobs:
 
           files=["src/archkeel/ir/model.py","src/archkeel/ir/facts.py","src/archkeel/analyzer/python/symbols.py","src/archkeel/analyzer/python/resolve.py","src/archkeel/analyzer/python/state.py","src/archkeel/check/evaluation/state.py","src/archkeel/check/evaluation/boundary_types.py","src/archkeel/ir/source_graph.py","src/archkeel/check/evaluation/rules.py"]
           guarded=[]
+          matched=0
           for row in rows:
               location=row["locations"][0]
               if location["file"] not in files: continue
               source=Path(location["file"]).read_text()
               tree=ast.parse(source)
               candidates=[node for node in ast.walk(tree) if isinstance(node,ast.Compare) and node.lineno==location["line"] and node.col_offset==location["column"]]
+              if row["form"] in {"compare","membership"}:
+                  assert len(candidates)==1,(location,row["form"],candidates)
+                  matched+=1
               for node in candidates:
                   names={child.id for child in ast.walk(node) if isinstance(child,ast.Name)}
                   fields={child.value for child in ast.walk(node) if isinstance(child,ast.Constant) and isinstance(child.value,str)}
                   if names & {"class_kind","inherited"} or "class_kind" in fields:
                       guarded.append(row)
+          assert matched > 20,matched
           assert not guarded,guarded
-          print("CLASS_KIND_ACTUAL_NATIVE_LITERAL_DECISIONS=0; other source grammars remain outside this slice",flush=True)
+          print("CLASS_KIND_ACTUAL_NATIVE_LITERAL_DECISIONS=0; AST-matched native decisions="+str(matched)+"; other source grammars remain outside this slice",flush=True)
 
           raw=(json.dumps(rows,sort_keys=True,indent=2)+"\n").encode()
           (artifact/"native-control-sites.json").write_bytes(raw)
@@ -68,7 +74,7 @@ jobs:
               assert row["locations"]
               module_counts.update({row["locations"][0]["file"]:1})
               forms.update({row["form"]:1})
-          summary={"source":"a4b2334d90680ec2e4821b6d081234c0435b13ed","scope":"actual own Python native observation; supported syntax only, not semantic whole-program or defect count","constructs":len(rows),"by_file":dict(module_counts.most_common()),"forms":dict(forms),"site_payload_sha256":hashlib.sha256(raw).hexdigest(),"calls_unresolved":model.coverage.calls_unresolved}
+          summary={"source":"ba5a865ac32f2684f10d8d0439b90c12d9647673","scope":"actual own Python native observation; supported syntax only, not semantic whole-program or defect count","constructs":len(rows),"by_file":dict(module_counts.most_common()),"forms":dict(forms),"site_payload_sha256":hashlib.sha256(raw).hexdigest(),"calls_unresolved":model.coverage.calls_unresolved}
           (artifact/"summary.json").write_text(json.dumps(summary,sort_keys=True,indent=2)+"\n")
           print("ACTUAL_NATIVE_CURRENT_CONTROL_AUDIT="+json.dumps(summary,sort_keys=True),flush=True)
           print("ACTUAL_NATIVE_CONTROL_SAMPLES="+json.dumps(rows[:3],sort_keys=True),flush=True)
@@ -84,7 +90,7 @@ jobs:
         run: |
           uv run --locked ruff check src/archkeel/ir/model.py src/archkeel/ir/facts.py src/archkeel/analyzer/python/symbols.py src/archkeel/analyzer/python/resolve.py src/archkeel/analyzer/python/state.py src/archkeel/check/evaluation/state.py src/archkeel/check/evaluation/boundary_types.py src/archkeel/ir/source_graph.py src/archkeel/check/evaluation/rules.py tests/test_typed_symbol_class_kinds.py
           uv run --locked ruff format --check src/archkeel/ir/model.py src/archkeel/ir/facts.py src/archkeel/analyzer/python/symbols.py src/archkeel/analyzer/python/resolve.py src/archkeel/analyzer/python/state.py src/archkeel/check/evaluation/state.py src/archkeel/check/evaluation/boundary_types.py src/archkeel/ir/source_graph.py src/archkeel/check/evaluation/rules.py tests/test_typed_symbol_class_kinds.py
-          uv run --locked mypy src/archkeel
+          make lint typecheck
           uv run --locked pytest tests/test_typed_symbol_class_kinds.py tests/test_boundary*.py tests/test_uml_classifier_facts.py tests/test_typed_parameter_kinds.py tests/test_definition_context_types.py -q
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
