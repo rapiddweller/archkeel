@@ -1,0 +1,57 @@
+name: Verify frozen Git blob owner
+on:
+  push:
+    branches: [verify/542-git-blob-kind-final]
+permissions:
+  contents: read
+jobs:
+  frozen-no-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Assert exact tested source and intent
+        run: |
+          git diff --exit-code f98cc39568219ce9f708cb37e79c0a2a2ca25d28 -- src/archkeel/check/git.py src/archkeel/check/snapshot.py tests/test_git_blob_types.py architecture-contract.json docs/architecture/contracts/check.json Makefile docs/superpowers/plans/2026-10-17-git-blob-kind.md docs/superpowers/specs/2026-10-17-git-blob-kind.md
+          uv run --locked ruff check src/archkeel/check/git.py src/archkeel/check/snapshot.py tests/test_git_blob_types.py
+          uv run --locked ruff format --check src/archkeel/check/git.py src/archkeel/check/snapshot.py tests/test_git_blob_types.py
+          make typecheck
+          uv run --locked pytest tests/test_git_blob_types.py tests/test_repository_hygiene.py -q --tb=short
+      - name: Verify committed canonical receipt and strict inherited-only ratchet
+        run: |
+          uv run --locked python - <<'PY'
+          import copy,json,pathlib,subprocess
+          from archkeel.ir.amendment_codec import amendment_bytes,parse_amendment
+          path=pathlib.Path("docs/architecture/decisions/issue-542-git-blob-kind-amendment.json")
+          assert amendment_bytes(parse_amendment(json.loads(path.read_bytes())))==path.read_bytes()
+          before=json.loads(subprocess.check_output(["git","show","bb3e498b9c43afc954ef9fe7078595983e0b3c2f:architecture-baseline.json"]))
+          after=json.loads(pathlib.Path("architecture-baseline.json").read_bytes())
+          expected=copy.deepcopy(before)
+          expected["budgets"]["calls_unresolved"]=836
+          assert after==expected
+          print("GIT_BLOB_COMMITTED_RECEIPT="+json.dumps(json.loads(path.read_bytes()),separators=(",",":")))
+          PY
+      - name: Validate committed source and receipt without writes
+        run: |
+          set +e
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against bb3e498b9c43afc954ef9fe7078595983e0b3c2f --amendment docs/architecture/decisions/issue-542-git-blob-kind-amendment.json > "$RUNNER_TEMP/git-blob-no-write.json"
+          actual_status=$?
+          set -e
+          python - "$RUNNER_TEMP/git-blob-no-write.json" <<'PY'
+          import json,pathlib,sys
+          value=json.loads(pathlib.Path(sys.argv[1]).read_text())
+          print("GIT_BLOB_NO_WRITE="+json.dumps({key:value.get(key) for key in ("exit_code","failures","diagnostics","measurements","amendment_status")},separators=(",",":")))
+          assert value["exit_code"]==0 and not value["failures"] and not value["diagnostics"]
+          assert value["measurements"]["scalars"]=={"calls_unresolved":836,"coverage_failures":0,"cycle_edges":0,"private_crossings":0,"typing_positions":52,"unknown_positions":58,"untyped_private_accesses":0,"violations":0}
+          assert value["amendment_status"]=="valid"
+          PY
+          git diff --exit-code
+          exit "$actual_status"
