@@ -1,0 +1,77 @@
+name: Native TypeScript literal-wrapper RED
+on:
+  push:
+    branches: [verify/542-typescript-literal-wrappers-red]
+permissions:
+  contents: read
+jobs:
+  actual-red-and-grammar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 04087146c080590959152d76fc60fde48ff94ff9
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Fail actual collector wire Core assertions before product change
+        run: |
+          uv run --locked python - <<'PY'
+          import ast, importlib.util, json, os, subprocess, xml.etree.ElementTree as ET
+          from pathlib import Path
+          from tree_sitter import Language, Parser
+          import tree_sitter_typescript
+          directory=Path(os.environ["RUNNER_TEMP"])/"ts-wrapper-red";directory.mkdir()
+          result=subprocess.run(["uv","run","--locked","python","-m","pytest","-q","tests/test_typescript_string_constructs.py","--junitxml",str(directory/"red.xml")])
+          suites=ET.parse(directory/"red.xml").getroot()
+          failures=[{"name":row.attrib["name"],"failure":row.find("failure").attrib.get("message")} for row in suites.iter("testcase") if row.find("failure") is not None]
+          errors=list(suites.iter("error"))
+          print("ACTUAL_WRAPPER_RED="+json.dumps({"exit":result.returncode,"failures":failures,"errors":len(errors)}),flush=True)
+          assert result.returncode==1 and len(failures)==8 and not errors
+          assert all(row["name"].startswith("test_ts_value_preserving_literal_wrappers_keep_native_original_evidence") for row in failures)
+          tree=ast.parse(Path("tests/test_typescript_string_constructs.py").read_text())
+          sources=[]
+          for fn in tree.body:
+              if not isinstance(fn,ast.FunctionDef) or not fn.name.startswith(("test_ts_value_preserving_literal","test_ts_literal_wrappers_do_not")):continue
+              decorator=next(row for row in fn.decorator_list if isinstance(row,ast.Call) and len(row.args)>1)
+              key=ast.literal_eval(decorator.args[0]);values=ast.literal_eval(decorator.args[1])
+              for value in values:
+                  body=value if key=="body" else "return value === "+value+";"
+                  source='enum Mode { Active = "active" }\nexport function decide(value: any, left: any) { '+body+" }\n"
+                  path=directory/("case"+str(len(sources))+".ts");path.write_text(source);sources.append(str(path))
+                  raw=Parser(Language(tree_sitter_typescript.language_typescript())).parse(source.encode())
+                  def walk(node):
+                      if node.type in {"as_expression","satisfies_expression","non_null_expression"}:
+                          print("ACTUAL_WRAPPER_GRAMMAR="+json.dumps({"kind":node.type,"text":node.text.decode(),"named_children":[{"kind":child.type,"text":child.text.decode()} for child in node.named_children],"fields":{str(i):node.field_name_for_child(i) for i in range(node.child_count)}}),flush=True)
+                      for child in node.named_children:walk(child)
+                  walk(raw.root_node)
+          compiler=subprocess.run(["npx","--yes","--package","typescript@5.9.3","tsc","--noEmit","--skipLibCheck","--target","ES2022",*sources],capture_output=True,text=True)
+          print("WRAPPER_COMPILER="+json.dumps({"files":len(sources),"exit":compiler.returncode,"output":compiler.stdout+compiler.stderr}),flush=True)
+          assert compiler.returncode==0
+          names={"archkeel.analyzer.typescript.config":{"PathToken"},"archkeel.analyzer.typescript.resolve":{"ModuleFormat","is_builtin","is_relative","package_name"}}
+          imports=[]
+          for path in sorted(Path("src/archkeel").rglob("*.py")):
+              module=".".join(path.with_suffix("").parts[1:])
+              package=module if path.name=="__init__.py" else module.rsplit(".",1)[0]
+              for node in ast.walk(ast.parse(path.read_text())):
+                  if isinstance(node,ast.ImportFrom):
+                      name=importlib.util.resolve_name("."*node.level+(node.module or ""),package) if node.level else node.module
+                      if name in names:
+                          selected=[{"name":row.name,"asname":row.asname} for row in node.names if row.name in names[name]]
+                          if selected:imports.append({"file":str(path),"line":node.lineno,"from":name,"names":selected})
+          contract=json.loads(Path("docs/architecture/contracts/typescript.json").read_text())
+          public=[name for component in contract["components"] for name in component.get("public",[])]
+          removed=[module+":"+name for module,values in names.items() for name in sorted(values)]
+          assert not any(name in public for name in removed)
+          assert all(name in public for name in ["archkeel.analyzer.typescript.source_input:PathToken","archkeel.analyzer.typescript.source_input:ModuleFormat","archkeel.analyzer.typescript.source_input:classify_specifier"])
+          print("ACTUAL_LEGACY_IMPORTS="+json.dumps({"imports":imports,"removed_public":removed,"canonical_source_input_ports_preserved":True}),flush=True)
+          assert not imports,imports
+          print("EXACT_RED_SOURCE="+json.dumps({"head":subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip(),"dirty":subprocess.check_output(["git","status","--porcelain"],text=True)}))
+          print("GENUINE_TS_WRAPPER_RED=8_FAIL_0_ERROR",flush=True)
+          
+          PY
