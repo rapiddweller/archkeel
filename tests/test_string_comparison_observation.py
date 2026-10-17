@@ -360,3 +360,143 @@ def test_native_simple_enum_retains_literal_value_evidence(tmp_path, base):
     assert [(row.kind, row.rule_ids) for row in trace_valid_violations(result.observation)] == [
         ("forbidden_construct", ("RULE",))
     ]
+
+
+# Qualified sources select real declarations, not merely their containing module.
+@pytest.mark.parametrize(
+    ("scope", "source"),
+    [
+        ("sample.core.parse", "def parse(value):\n    return value is None\n"),
+        ("sample.core.Box", "class Box:\n    def parse(self, value):\n        return value is None\n"),
+        ("sample.core.Box.parse", "class Box:\n    def parse(self, value):\n        return value is None\n"),
+    ],
+)
+def test_qualified_construct_owner_has_receipt_and_real_mutation_fails(tmp_path, scope, source):
+    from test_analyzer import _observe
+
+    from archkeel.ir.decisions import rule_assessments
+
+    safe = source + '\ndef outside(value):\n    return value == "outside"\n'
+    result = _observe_one_rule(tmp_path, RULE | {"source": scope}, {"core.py": safe})
+    assert result.diagnostics == () and result.observation is not None
+    assert trace_valid_violations(result.observation) == ()
+    [assessment] = rule_assessments(result.observation, undecided_by_rule={})
+    assert assessment.status == "PASS" and assessment.evaluation_proven
+    receipts = [
+        row for row in result.observation.records("scope_observations") or ()
+        if row.kind == "rule_evaluation" and row.rule_ids == ("RULE",)
+    ]
+    assert len(receipts) == 1
+    receipt = receipts[0]
+    assert receipt.subjects and all(name == scope or name.startswith(scope + ".") for name in receipt.subjects)
+    symbols = {row.id: row for row in result.observation.records("symbols") or ()}
+    assert receipt.fact_ids and all(identity in symbols for identity in receipt.fact_ids)
+    assert set(receipt.subjects) == {symbols[identity].data.get("qualified_name") for identity in receipt.fact_ids}
+    contract = (tmp_path / "contract.json").read_bytes()
+    (tmp_path / "sample/core.py").write_text(safe.replace("value is None", 'value == "import"', 1))
+    changed = _observe(tmp_path)
+    assert changed.diagnostics == () and changed.observation is not None
+    findings = trace_valid_violations(changed.observation)
+    assert len(findings) == 1 and findings[0].rule_ids == ("RULE",)
+    [failed] = rule_assessments(changed.observation, undecided_by_rule={})
+    assert failed.status == "FAIL"
+    assert (tmp_path / "contract.json").read_bytes() == contract
+
+
+@pytest.mark.parametrize("scope", ["sample.core.missing", "sample.core.pars", "sample.core.Boxes"])
+def test_missing_or_near_sibling_construct_owner_remains_unknown(tmp_path, scope):
+    from archkeel.ir.decisions import rule_assessments
+
+    result = _observe_one_rule(tmp_path, RULE | {"source": scope}, {
+        "core.py": "class Box:\n    pass\ndef parse(value):\n    return value\n",
+    })
+    assert result.exit_code == 2 and result.observation is not None
+    assert any(row.kind == "rule_without_subjects" for row in result.diagnostics)
+    [assessment] = rule_assessments(result.observation, undecided_by_rule={})
+    assert assessment.status == "UNKNOWN" and not assessment.evaluation_proven
+    assert not any(
+        row.kind == "rule_evaluation" and row.rule_ids == ("RULE",)
+        for row in result.observation.records("scope_observations") or ()
+    )
+
+
+def test_qualified_construct_owner_does_not_turn_incomplete_scan_into_pass(tmp_path):
+    from archkeel.ir.decisions import rule_assessments
+
+    result = _observe_one_rule(tmp_path, RULE | {"source": "sample.core.parse"}, {
+        "core.py": "def parse(value):\n    return value is None\n",
+        "broken.py": "def broken(:\n",
+    })
+    assert result.exit_code == 2 and result.observation is not None
+    assert not any(row.kind == "rule_without_subjects" for row in result.diagnostics)
+    [assessment] = rule_assessments(result.observation, undecided_by_rule={})
+    assert assessment.status == "UNKNOWN" and not assessment.evaluation_proven
+
+
+def test_qualified_construct_receipt_requires_actual_symbol_and_clipped_module_evidence(tmp_path):
+    import copy
+    import json
+    from dataclasses import replace
+    from inspect import signature
+
+    from archkeel.check.evaluation.rules import rule_evaluation_facts, rule_subject_failures
+    from archkeel.ir.codec import parse_contract
+    from archkeel.ir.facts_codec import raw_record
+    from archkeel.ir.profiles import PYTHON
+
+    result = _observe_one_rule(tmp_path, RULE, {"core.py": "def parse(value):\n    return value\n"})
+    assert result.observation is not None
+    modules = tuple(raw_record(row) for row in result.observation.records("modules") or ())
+    symbols = tuple(raw_record(row) for row in result.observation.records("symbols") or ())
+    contract = parse_contract(json.loads((tmp_path / "contract.json").read_text()))
+    contract = replace(contract, rules=(replace(contract.rules[0], source="sample.core.parse"),))
+    arguments = dict(profile=PYTHON, scope="root", modules=modules, source_modules=None,
+                     blank_modules=frozenset(), receipt_scope_complete=True)
+    assert rule_evaluation_facts(contract, **arguments) == []
+    assert "symbols" in signature(rule_evaluation_facts).parameters
+    [receipt] = rule_evaluation_facts(contract, symbols=symbols, **arguments)
+    assert receipt["subjects"] == ["sample.core.parse"]
+    assert receipt["fact_ids"]
+    assert not rule_subject_failures(contract.rules, {"sample.core"}, symbols=symbols, type_shapes={})
+    assert rule_evaluation_facts(
+        contract, symbols=symbols, **(arguments | {"source_modules": frozenset({"sample.other"})})
+    ) == []
+    assert rule_subject_failures(
+        contract.rules, {"sample.core"}, symbols=symbols,
+        source_modules=frozenset({"sample.other"}), type_shapes={},
+    )
+    for field, value in [
+        ("kind", "vendor.future"),
+        ("kind", "attribute"),
+        ("module", "sample.other"),
+        ("qualified_name", "sample.other.parse"),
+    ]:
+        invalid = copy.deepcopy(symbols)
+        for symbol in invalid:
+            if field == "kind":
+                symbol["kind"] = value
+            else:
+                symbol["data"][field] = value
+        assert rule_evaluation_facts(contract, symbols=invalid, **arguments) == []
+        assert rule_subject_failures(
+            contract.rules, {"sample.core"}, symbols=invalid, type_shapes={},
+        )
+
+
+def test_real_report_evaluates_a_qualified_construct_owner(tmp_path):
+    from test_inside_rule_coverage import _commit_test_root
+
+    from archkeel.check.ports import ScanConfig
+    from archkeel.check.report import run_report
+    from archkeel.cli.observe import observe
+
+    _observe_one_rule(tmp_path, RULE | {"source": "sample.core.parse"}, {
+        "core.py": "def parse(value):\n    return value is None\n",
+    })
+    _commit_test_root(tmp_path)
+    result, packet = run_report(
+        tmp_path, config=ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
+        analyzer=observe,
+    )
+    assert result.exit_code == 0 and result.diagnostics == () and packet is not None
+    assert result.rule_assessments and all(row.status == "PASS" for row in result.rule_assessments)
