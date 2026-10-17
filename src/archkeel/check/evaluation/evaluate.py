@@ -42,6 +42,7 @@ from archkeel.ir.model import (
     ContractComponent,
     ContractDeclarations,
     EvidenceClass,
+    GraphTopologyLevel,
     InterfaceBoundaryRule,
     in_scope,
     module_in_ownership,
@@ -769,10 +770,13 @@ def evaluate_source(
     evidence.update((entry.id, raw_evidence(entry)) for entry in used_evidence)
 
     module_edges, module_edge_pairs = aggregate_edges(
-        imports, level="module", internal_modules=module_names, namespace=namespace
+        imports, level=GraphTopologyLevel.MODULE, internal_modules=module_names, namespace=namespace
     )
     package_edges, package_edge_pairs = aggregate_edges(
-        imports, level="package", internal_modules=module_names, namespace=namespace
+        imports,
+        level=GraphTopologyLevel.PACKAGE,
+        internal_modules=module_names,
+        namespace=namespace,
     )
     dependency_edges = sorted([*package_edges, *module_edges], key=lambda item: item["id"])
     path_observations = declared_path_observations(declarations.paths, package_edges)

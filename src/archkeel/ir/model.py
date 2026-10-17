@@ -139,6 +139,11 @@ ComponentOwnershipInput: TypeAlias = ComponentOwnership | PackageComponentOwners
 RuleVerdict: TypeAlias = AssessmentStatus
 
 
+class GraphTopologyLevel(StrEnum):
+    MODULE = "module"
+    PACKAGE = "package"
+
+
 class ComparisonStatus(StrEnum):
     SUPPORTED = "SUPPORTED"
     UNKNOWN = "UNKNOWN"
@@ -733,6 +738,16 @@ RULE_RECORD_KINDS: Final = RULE_KINDS | {UML_TARGET_KIND}
 # The symbol kinds that carry a signature. One set, because a record's `kind` and its
 # older `symbol_category` field hold the same three values and two copies may drift apart.
 FUNCTION_KINDS = frozenset({"function", "method"})
+
+
+def parse_graph_topology_level(value: JsonValue | RawJson) -> GraphTopologyLevel | None:
+    """Recognize the owned topology domain while leaving other record metadata opaque."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return GraphTopologyLevel(value)
+    except ValueError:
+        return None
 
 
 def text_value(value: object) -> str:

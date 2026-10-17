@@ -15,6 +15,7 @@ from archkeel.ir.model import (
     ContractComponent,
     ContractPath,
     EvidenceClass,
+    GraphTopologyLevel,
     component_owns_module,
     in_scope,
     stable_id,
@@ -22,13 +23,17 @@ from archkeel.ir.model import (
 
 
 def aggregate_edges(
-    imports: Sequence[RawRecord], *, level: str, internal_modules: set[str], namespace: str
+    imports: Sequence[RawRecord],
+    *,
+    level: GraphTopologyLevel,
+    internal_modules: set[str],
+    namespace: str,
 ) -> tuple[list[RawRecord], list[tuple[str, str]]]:
     buckets: dict[tuple[str, str], list[str]] = defaultdict(list)
     type_checking_counts: Counter[tuple[str, str]] = Counter()
     for item in imports:
         data = item["data"]
-        if level == "module":
+        if level == GraphTopologyLevel.MODULE:
             source = data["source_module"]
             target = data["target_module"]
             if target not in internal_modules or source == target:
@@ -152,17 +157,22 @@ def transitive_path_records(
     """Build one FACT record per transitive package path, sorted by id."""
     records = [
         classified(
-            item_id=stable_id("PATH", "package", *path),
+            item_id=stable_id("PATH", GraphTopologyLevel.PACKAGE, *path),
             evidence_class=EvidenceClass.FACT,
             area="package_topology",
             kind="transitive_package_dependency",
             title=" → ".join(path),
             subjects=path,
             fact_ids=[
-                stable_id("EDGE", "package", source, target)
+                stable_id("EDGE", GraphTopologyLevel.PACKAGE, source, target)
                 for source, target in zip(path, path[1:], strict=False)
             ],
-            data={"level": "package", "source": path[0], "target": path[-1], "path": path},
+            data={
+                "level": GraphTopologyLevel.PACKAGE,
+                "source": path[0],
+                "target": path[-1],
+                "path": path,
+            },
         )
         for path in transitive_paths(packages, package_edge_pairs)
     ]
@@ -171,7 +181,7 @@ def transitive_path_records(
 
 def _cycle_records(
     *,
-    level: str,
+    level: GraphTopologyLevel,
     nodes: Iterable[str],
     edges: Sequence[tuple[str, str]],
     edge_records: Sequence[RawRecord],
@@ -250,14 +260,17 @@ def cycle_sections(
     SCCs come back on their own because the module-level cycle rule judges exactly these.
     """
     module_cycles = _cycle_records(
-        level="module",
+        level=GraphTopologyLevel.MODULE,
         nodes=[item["data"]["qualified_name"] for item in modules],
         edges=module_edge_pairs,
         edge_records=module_edges,
     )
     package_cycles = _backed_package_cycles(
         _cycle_records(
-            level="package", nodes=packages, edges=package_edge_pairs, edge_records=package_edges
+            level=GraphTopologyLevel.PACKAGE,
+            nodes=packages,
+            edges=package_edge_pairs,
+            edge_records=package_edges,
         ),
         module_cycles,
         {item["data"]["qualified_name"]: item["data"]["package"] for item in modules},

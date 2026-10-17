@@ -467,6 +467,19 @@
         "docs/architecture/source-name-visibility.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "GRAPH-TOPOLOGY-READ-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.structure.module_edges",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The module topology reader compares recognized canonical levels and leaves future metadata opaque.",
+      "provenance": [
+        "docs/architecture/graph-topology-level-types.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {
@@ -10690,10 +10703,12 @@
           "language": "python",
           "presence": "planned",
           "provenance": [
-            "docs/architecture/comparison-support-types.md"
+            "docs/architecture/comparison-support-types.md",
+            "docs/architecture/graph-topology-level-types.md"
           ],
           "responsibilities": [
-            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries.",
+            "Read derived module/package topology without closing open record metadata."
           ],
           "id": "IR-COMPARISON-structure",
           "kind": "module",
@@ -11558,6 +11573,53 @@
           },
           "responsibilities": [
             "Derive conservative graph coverage from canonical source section and profile capabilities."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/graph-topology-level-types.md"
+          ],
+          "id": "GRAPH-TOPOLOGY-level",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.model.GraphTopologyLevel",
+          "parent_id": "IR-DEPENDENCY-model",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Own the module/package domain of Core-derived graph topology."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/graph-topology-level-types.md"
+          ],
+          "id": "GRAPH-TOPOLOGY-reader",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.model.parse_graph_topology_level",
+          "parent_id": "IR-DEPENDENCY-model",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "annotation": "JsonValue | RawJson",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "GraphTopologyLevel | None"
+          },
+          "responsibilities": [
+            "Recognize known topology levels without closing or rewriting open record data."
           ]
         }
       ],
