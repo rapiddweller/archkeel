@@ -1,0 +1,30 @@
+name: Verify result assessment ingress and unchanged presentation
+on:
+  push:
+    branches: [verify/542-result-assessment-guards]
+permissions:
+  contents: read
+jobs:
+  result-assessment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 4ba11063620a23f6c9e9fdd33fb77cc8187af795
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Meaningful existing result and presentation regressions
+        run: uv run --locked python -m pytest -n 2 --dist=loadfile -q tests/test_core_command_result.py tests/test_target_navigation_graph.py tests/test_repository_hygiene.py
+      - name: Strict source quality
+        run: |
+          uv run --locked ruff check . --output-format concise
+          uv run --locked ruff format . --check --diff
+          uv run --locked mypy
+
+      - run: git diff --exit-code
