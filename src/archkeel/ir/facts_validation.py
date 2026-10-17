@@ -21,6 +21,7 @@ from .facts import (
     SourceFacts,
     SourceProfile,
     SourceResolution,
+    SourceSectionName,
     UnresolvedTarget,
     in_scope,
     member_inventories,
@@ -30,12 +31,11 @@ from .facts import (
 )
 from .facts import MemberKind as _MemberKind
 from .facts import ResolutionRole as _ResolutionRole
-from .facts import SourceSectionName as _SourceSectionName
 from .state_facts import ArgumentPass, AttributeAccess
 
 _REQUIRED = {
-    "symbols": ("qualified_name", "module", "name", "parent"),
-    "imports": (
+    SourceSectionName.SYMBOLS: ("qualified_name", "module", "name", "parent"),
+    SourceSectionName.IMPORTS: (
         "source_module",
         "source_package",
         "target_module",
@@ -46,12 +46,19 @@ _REQUIRED = {
         "relative_level",
         "under_type_checking",
     ),
-    "calls": ("source_scope", "source_module", "expression", "status", "targets"),
-    "references": ("source_scope", "source_module", "expression", "status", "targets", "use"),
-    "bindings": ("module",),
-    "typing_signals": ("owner", "signal"),
-    "constructs": ("owner", "construct"),
-    "unknowns": (),
+    SourceSectionName.CALLS: ("source_scope", "source_module", "expression", "status", "targets"),
+    SourceSectionName.REFERENCES: (
+        "source_scope",
+        "source_module",
+        "expression",
+        "status",
+        "targets",
+        "use",
+    ),
+    SourceSectionName.BINDINGS: ("module",),
+    SourceSectionName.TYPING_SIGNALS: ("owner", "signal"),
+    SourceSectionName.CONSTRUCTS: ("owner", "construct"),
+    SourceSectionName.UNKNOWNS: (),
 }
 _STRING_FIELDS = frozenset(
     {
@@ -257,25 +264,27 @@ def _property_bindings(records: list[Record], evidence: dict[str, Evidence]) -> 
             raise ValueError("property members disagree with method binding proofs")
 
 
-def _source_record(record: Record, section: str) -> None:
+def _source_record(record: Record, section: SourceSectionName) -> None:
     if record.evidence_class not in (EvidenceClass.FACT, EvidenceClass.UNKNOWN):
         raise ValueError("source records cannot carry governance decisions")
-    if section == "unknowns" and record.evidence_class != EvidenceClass.UNKNOWN:
+    if section == SourceSectionName.UNKNOWNS and record.evidence_class != EvidenceClass.UNKNOWN:
         raise ValueError("source unknowns must be UNKNOWN")
-    if section != "unknowns" and record.evidence_class != EvidenceClass.FACT:
+    if section != SourceSectionName.UNKNOWNS and record.evidence_class != EvidenceClass.FACT:
         raise ValueError("measured source sections must contain FACT records")
     if record.rule_ids or record.provenance:
         raise ValueError("source records cannot carry rules or contract provenance")
     fields = {key for key, _ in record.data.entries}
     declaration = {"declaration_scope", "declaration_definition_id"}
-    if fields & declaration and (section != "references" or not declaration <= fields):
+    if fields & declaration and (
+        section != SourceSectionName.REFERENCES or not declaration <= fields
+    ):
         raise ValueError("reference declaration needs both identity fields")
     if fields & declaration and any(record.data.get(key) == "" for key in declaration):
         raise ValueError("reference declaration identities must be nonempty")
     if not set(_REQUIRED[section]).issubset(fields):
         raise ValueError(f"{section} source payload is missing required fields")
     if record.data.get("member_inventories") is not None:
-        if section != "symbols" or record.kind != "class":
+        if section != SourceSectionName.SYMBOLS or record.kind != "class":
             raise ValueError("member inventory needs its class owner")
         member_inventories(record.data.get("member_inventories"))
     if "base_declarations" in fields:
@@ -283,10 +292,10 @@ def _source_record(record: Record, section: str) -> None:
     _payload(record.data)
 
 
-def _base_declarations(record: Record, section: str) -> None:
+def _base_declarations(record: Record, section: SourceSectionName) -> None:
     value = record.data.get("base_declarations")
     if (
-        section != "symbols"
+        section != SourceSectionName.SYMBOLS
         or record.kind != "class"
         or not isinstance(value, tuple)
         or any(not isinstance(item, RecordData) for item in value)
@@ -557,7 +566,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
     _property_bindings(records, base_by_id)
     _member_inventory_bindings(records)
     for gap in facts.coverage.gaps:
-        _source_record(gap, "unknowns")
+        _source_record(gap, SourceSectionName.UNKNOWNS)
         if gap.evidence_class != EvidenceClass.UNKNOWN:
             raise ValueError("coverage gap must be UNKNOWN")
         if gap.id not in record_by_id or record_by_id[gap.id] != gap:
@@ -565,7 +574,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
     imports = {
         record.id
         for section in facts.sections
-        if section.name == _SourceSectionName.IMPORTS
+        if section.name == SourceSectionName.IMPORTS
         for record in section.records
     }
     target_ids = _unique((target.import_id for target in facts.imports), "import target")
@@ -576,7 +585,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
         (
             record
             for section in facts.sections
-            if section.name != _SourceSectionName.UNKNOWNS
+            if section.name != SourceSectionName.UNKNOWNS
             for record in section.records
         ),
         {item.module: item.rel_path for item in facts.files},

@@ -109,7 +109,12 @@ class ScanResult:
     context_evidence: list[RawRecord]
     violations: list[RawRecord]
     unknowns: list[RawRecord]
-    observed_sections: frozenset[str]
+    observed_sections: frozenset[SourceSectionName]
+
+    def __post_init__(self) -> None:
+        self.observed_sections = frozenset(
+            SourceSectionName(section) for section in self.observed_sections
+        )
 
 
 def coverage_payload(
@@ -777,7 +782,7 @@ def evaluate_source(
     module_facts = module_records(
         parsed, module_names, module_edge_pairs, inventory_symbols, module_evidence
     )
-    symbols_measured = "symbols" in sections
+    symbols_measured = SourceSectionName.SYMBOLS in sections
     if not symbols_measured:
         for module in module_facts:
             module["data"]["symbol_count"] = None
@@ -933,7 +938,7 @@ def evaluate_source(
         failures=failures,
         rule_failures=rule_failures,
         calls=calls,
-        calls_measured="calls" in sections,
+        calls_measured=SourceSectionName.CALLS in sections,
     )
 
     strip_internal_reexport_facts(imports)

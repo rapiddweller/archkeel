@@ -810,6 +810,57 @@
             ],
             "returns": "None"
           }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/source-section-consumer-types.md"
+          ],
+          "id": "PROFILE-SECTIONS-evaluate",
+          "kind": "module",
+          "qualified_name": "archkeel.check.evaluation.evaluate",
+          "parent_id": "TARGET-EVALUATION",
+          "responsibilities": [
+            "Keep validated source section identity through Core scan results."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/source-section-consumer-types.md"
+          ],
+          "id": "PROFILE-SECTIONS-ScanResult",
+          "kind": "class",
+          "qualified_name": "archkeel.check.evaluation.evaluate.ScanResult",
+          "parent_id": "PROFILE-SECTIONS-evaluate",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Carry one Core source evaluation result."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/source-section-consumer-types.md"
+          ],
+          "id": "PROFILE-SECTIONS-ScanResult.observed_sections",
+          "kind": "attribute",
+          "qualified_name": "archkeel.check.evaluation.evaluate.ScanResult.observed_sections",
+          "parent_id": "PROFILE-SECTIONS-ScanResult",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "annotation": "frozenset[SourceSectionName]",
+          "responsibilities": [
+            "Retain canonical source section identities after one legacy constructor normalization."
+          ]
         }
       ],
       "relationships": [

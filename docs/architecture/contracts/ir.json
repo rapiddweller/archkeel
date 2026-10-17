@@ -428,6 +428,19 @@
         "docs/architecture/core-command-result-types.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "PROFILE-SECTION-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.source_graph._section_coverage",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The source section coverage decision uses the existing SourceSectionName and UnmeasurableScalar domains.",
+      "provenance": [
+        "docs/architecture/source-section-consumer-types.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {
@@ -11330,6 +11343,149 @@
             ],
             "returns": "SymbolClassKind | None"
           }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/source-section-consumer-types.md"
+          ],
+          "id": "PROFILE-SECTIONS-validation",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.facts_validation",
+          "parent_id": "TARGET-FACTS-CODEC",
+          "responsibilities": [
+            "Validate records in their existing canonical source section."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/source-section-consumer-types.md"
+          ],
+          "id": "PROFILE-SECTIONS-source-record",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.facts_validation._source_record",
+          "parent_id": "PROFILE-SECTIONS-validation",
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "record",
+                "annotation": "Record",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "section",
+                "annotation": "SourceSectionName",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          },
+          "responsibilities": [
+            "Use the canonical source section without widening or reinterpreting record metadata."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/source-section-consumer-types.md"
+          ],
+          "id": "PROFILE-SECTIONS-base-declarations",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.facts_validation._base_declarations",
+          "parent_id": "PROFILE-SECTIONS-validation",
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "record",
+                "annotation": "Record",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "section",
+                "annotation": "SourceSectionName",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "None"
+          },
+          "responsibilities": [
+            "Use the canonical source section without widening or reinterpreting record metadata."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/source-section-consumer-types.md"
+          ],
+          "id": "PROFILE-SECTIONS-section-coverage",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.source_graph._section_coverage",
+          "parent_id": "IR-UML-source_graph",
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "observation",
+                "annotation": "Observation",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "scope_id",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "section",
+                "annotation": "SourceSectionName",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "entity_kinds",
+                "annotation": "tuple[EntityKind, ...]",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "relationships",
+                "annotation": "tuple[RelationshipKind, ...]",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "available",
+                "annotation": "bool",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "Coverage"
+          },
+          "responsibilities": [
+            "Derive conservative graph coverage from canonical source section and profile capabilities."
+          ]
         }
       ],
       "relationships": [

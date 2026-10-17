@@ -166,7 +166,7 @@ def compare_ratchets(accepted: Measurements, candidate: Measurements) -> tuple[s
 def calls_measured(observation: Observation) -> bool:
     """Whether the observing profile measures calls at all; the Dart profile does not (AD-97)."""
     return observation.records("calls") is not None and (
-        "calls_unresolved" not in profile_for(observation.analyzer.name).unmeasured
+        UnmeasurableScalar.CALLS_UNRESOLVED not in profile_for(observation.analyzer.name).unmeasured
     )
 
 
