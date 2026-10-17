@@ -1,0 +1,54 @@
+name: Inventory remaining closed controls
+on:
+  push:
+    branches: [verify/542-residual-control-inventory]
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: a25c37c564c82c1b42457f0528c931c769ee9362
+          persist-credentials: false
+      - run: |
+          python - <<'PY'
+          import ast, collections, hashlib, json
+          from pathlib import Path
+          rows=[]
+          aliases=[]
+          for file in sorted(Path("src/archkeel").rglob("*.py")):
+              text=file.read_text()
+              tree=ast.parse(text,filename=str(file))
+              for node in ast.walk(tree):
+                  if isinstance(node,ast.Compare):
+                      literals=[child.value for child in ast.walk(node) if isinstance(child,ast.Constant) and isinstance(child.value,str)]
+                      if literals:
+                          rows.append({"path":str(file),"line":node.lineno,"column":node.col_offset,"kind":"comparison","values":literals,"source":ast.get_source_segment(text,node)})
+                  elif isinstance(node,ast.MatchValue) and isinstance(node.value,ast.Constant) and isinstance(node.value.value,str):
+                      rows.append({"path":str(file),"line":node.lineno,"column":node.col_offset,"kind":"match_value","values":[node.value.value],"source":ast.get_source_segment(text,node)})
+                  elif isinstance(node,ast.Call) and isinstance(node.func,ast.Attribute) and node.func.attr in ("startswith","endswith","removeprefix","removesuffix"):
+                      literals=[child.value for arg in node.args for child in ast.walk(arg) if isinstance(child,ast.Constant) and isinstance(child.value,str)]
+                      if literals:
+                          rows.append({"path":str(file),"line":node.lineno,"column":node.col_offset,"kind":node.func.attr,"values":literals,"source":ast.get_source_segment(text,node)})
+                  elif isinstance(node,ast.Subscript) and isinstance(node.value,ast.Name) and node.value.id=="Literal":
+                      values=[child.value for child in ast.walk(node.slice) if isinstance(child,ast.Constant) and isinstance(child.value,str)]
+                      if values:
+                          aliases.append({"path":str(file),"line":node.lineno,"source":ast.get_source_segment(text,node),"values":values})
+          out=Path("test-artifacts/control-inventory")
+          out.mkdir(parents=True,exist_ok=True)
+          payload={"source":"a25c37c564c82c1b42457f0528c931c769ee9362","scope":"Python AST syntax inventory only; no runtime/native completeness or defect-count claim","literal_comparisons_and_prefixes":rows,"literal_annotations":aliases}
+          raw=(json.dumps(payload,sort_keys=True,indent=2)+"\n").encode()
+          (out/"inventory.json").write_bytes(raw)
+          counts=collections.Counter(row["path"] for row in rows)
+          print("RESIDUAL_SYNTAX_INVENTORY="+json.dumps({"source":payload["source"],"rows":len(rows),"literal_annotations":len(aliases),"sha256":hashlib.sha256(raw).hexdigest(),"top_modules":counts.most_common(45)},sort_keys=True))
+          for alias in aliases: print("RESIDUAL_LITERAL_ANNOTATION="+json.dumps(alias,sort_keys=True))
+          
+          PY
+      - run: git diff --exit-code
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: actual-residual-control-inventory
+          path: test-artifacts/control-inventory
