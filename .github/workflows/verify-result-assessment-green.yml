@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: bb2d707cf6cebf8d76d0ff8200da6a3b50eff75d
+          ref: 51f5a3938284ee42187f1336fabcf36268a4feb0
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -19,6 +19,10 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
+      - name: Strict source quality
+        run: make lint typecheck
+      - name: Meaningful existing result and presentation regressions
+        run: uv run --locked python -m pytest -n 2 --dist=loadfile -q tests/test_core_command_result.py tests/test_report_renderer_units.py tests/test_terminal.py tests/test_saved_report.py tests/test_report_recorded_unknowns.py tests/test_result_schema.py tests/test_architecture_projection.py
       - name: Exact actual native control delta
         env:
           PYTHONPATH: ${{ github.workspace }}/src:${{ github.workspace }}/tests
@@ -90,5 +94,5 @@ jobs:
       - name: Preserve all valid rendered and wire outputs
         run: |
           diff -ru "$RUNNER_TEMP/assessment-output-before" "$RUNNER_TEMP/assessment-output-after"
-          git diff --check 68b656668a3fdbbbe482881d0dab41ff89a21ca3 bb2d707cf6cebf8d76d0ff8200da6a3b50eff75d
+          git diff --check 68b656668a3fdbbbe482881d0dab41ff89a21ca3 51f5a3938284ee42187f1336fabcf36268a4feb0
           git diff --exit-code
