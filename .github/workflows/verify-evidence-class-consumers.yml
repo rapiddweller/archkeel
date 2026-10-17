@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 226538de2fe92d223f32d4be271550edbc314a14
+          ref: 1a0fba765ef01b270dd7b7a38dd329fb544076a4
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -66,13 +66,14 @@ jobs:
                                  rel_path=path, package=path.removeprefix("src/").rsplit("/", 1)[0].replace("/", "."))
                   for path, text in source_map.items()
               ]
+              trees = {module.rel_path: module.tree for module in parsed}
               evidence = {}
               records = [row for row in collect_constructs(parsed, evidence) if row["kind"] == "string_literal_compare"]
               rows = []
               for row in records:
                   location = evidence[row["evidence_ids"][0]]
                   source = source_map[location["file"]]
-                  tree = ast.parse(source)
+                  tree = trees[location["file"]]
                   candidates = [node for node in ast.walk(tree)
                       if ((row["data"]["form"] in {"compare","membership"} and isinstance(node, ast.Compare))
                           or (row["data"]["form"] in {"startswith","endswith"} and isinstance(node, ast.Call)
@@ -218,6 +219,6 @@ jobs:
         run: |
           diff -ru "$RUNNER_TEMP/evidence-profiles-before" "$RUNNER_TEMP/evidence-profiles-after"
           echo "REAL_REPORT_BYTE_COMPATIBILITY=24_OF_24_IDENTICAL"
-          git diff --check c725df96543d1dd7ec4e20887a486ec9a7143c8a 226538de2fe92d223f32d4be271550edbc314a14
-          git diff --stat c725df96543d1dd7ec4e20887a486ec9a7143c8a 226538de2fe92d223f32d4be271550edbc314a14
-          git diff --numstat c725df96543d1dd7ec4e20887a486ec9a7143c8a 226538de2fe92d223f32d4be271550edbc314a14
+          git diff --check c725df96543d1dd7ec4e20887a486ec9a7143c8a 1a0fba765ef01b270dd7b7a38dd329fb544076a4
+          git diff --stat c725df96543d1dd7ec4e20887a486ec9a7143c8a 1a0fba765ef01b270dd7b7a38dd329fb544076a4
+          git diff --numstat c725df96543d1dd7ec4e20887a486ec9a7143c8a 1a0fba765ef01b270dd7b7a38dd329fb544076a4
