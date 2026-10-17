@@ -19,8 +19,12 @@ from test_uml_evaluation import _model
 
 from archkeel.check import delta, expectation
 from archkeel.check.ports import ScanConfig
+from archkeel.check.report import run_report
+from archkeel.cli.observe import observe
 from archkeel.ir import codec_delta, model, profiles
-from archkeel.ir.codec import canonical_json_bytes, delta_payload, parse_delta
+from archkeel.ir.codec import (
+    canonical_json_bytes, decode_canonical_model, delta_payload, parse_delta, parse_observation,
+)
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
@@ -189,15 +193,25 @@ def _contract():
     contract = contracts[0]
     contract.pop("$schema", None)
     contract["components"] = [
-        row for row in contract["components"]
+        row
+        for row in contract["components"]
         if row["id"] in {"TARGET-FACTS", "TARGET-PROFILES", "TARGET-GOVERNANCE"}
     ] + [
         dict(
-            id="CORE", label="core", role="component", packages=["archkeel.check"],
+            id="CORE",
+            label="core",
+            role="component",
+            packages=["archkeel.check"],
             responsibilities=["Consume the actual current Delta control ports."],
-            forbidden_responsibilities=[], provenance=[DOC], public=["archkeel.check"],
+            forbidden_responsibilities=[],
+            provenance=[DOC],
+            public=["archkeel.check"],
             requires=[
-                dict(component=name, rationale="Consume its declared typed API.", decided_by="architect")
+                dict(
+                    component=name,
+                    rationale="Consume its declared typed API.",
+                    decided_by="architect",
+                )
                 for name in ("facts", "profiles", "governance")
             ],
         )
@@ -214,8 +228,8 @@ def _contract():
         row
         for original in contracts
         for row in original["rules"]
-        if row["id"].startswith("DELTA-DIMENSION-") or row["id"] == "TARGET-COMPLETE_REQUIRES"
-    ]
+        if row["id"].startswith("DELTA-DIMENSION-")
+    ] + [next(row for row in contracts[0]["rules"] if row["id"] == "TARGET-COMPLETE_REQUIRES")]
     return contract
 
 
@@ -277,7 +291,9 @@ def _repository(tmp_path):
 
 
 def _valid(root, config):
-    observed = _model(root, config)
+    result, encoded = run_report(root, config=config, analyzer=observe)
+    assert result.exit_code == 0 and encoded is not None, result.diagnostics
+    observed = parse_observation(decode_canonical_model(json.loads(encoded)))
     comparison = architecture_report(observed).comparison
     assert comparison is not None and comparison.status == "PASS", [
         (row.subject_id, row.aspect, row.status, row.reason)
@@ -285,8 +301,11 @@ def _valid(root, config):
         if row.status != "PASS"
     ]
     assert not trace_valid_violations(observed)
-    requires = next(row for row in rule_assessments(observed, undecided_by_rule={})
-                    if row.id == "TARGET-COMPLETE_REQUIRES")
+    requires = next(
+        row
+        for row in rule_assessments(observed, undecided_by_rule={})
+        if row.id == "TARGET-COMPLETE_REQUIRES"
+    )
     assert requires.status == "PASS" and requires.evaluation_proven, requires
 
 
