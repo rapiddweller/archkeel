@@ -173,3 +173,44 @@ Preparation39003032411 composes the prior40 explicit scopes in memory against fr
 - [ ] Verify merged tree equals reviewed final tree; record actual merge SHA.
 - [ ] For each old542 draft, state its exact incorporated base→feature range and final merge SHA before closing it.
 - [ ] Close542 only when its accepted valid scope is complete; keep outstanding valid work visible otherwise.
+
+
+## Latest preparation checkpoint: receipt complete; final union not frozen
+
+Actual accepted Main remains `113318809036cfa4550b2b8598dab63c0b548878` (checked again after receipt work). Issue #564 and #570 remain separately merged; #542 remains the one final integration scope. The Root branch `integrate/542-owned-types-formatted` at `afc360674fdb4524f3d2c1fd9f8bfef72352d140` is a research reference, not a frozen final source or a tree overlay. No Main mutation or final metadata generation is authorized by this checkpoint.
+
+### Bounded receipt implementation, ready for exact owned carry
+
+Explicit immutable scope: `5b8a603274b2330b85fc6fe62c8d7f6fb15da8f1` → `1c4814addf48f31f563dc1b393f50adabcb38580`, branch `fix/542-rule-evaluation-receipts`. Exactly eleven paths, seven production paths, +42 net production lines; no accepted, baseline, amendment, schema or resolver-authority change. Existing `ir.model` owns the optional receipt view (presence plus two boolean completion facets), its private single-marker recognition and precise `Record | RawRecord` reader. Two producers retain plain-string wire tags; eight selection sites use the reader. Missing assessment completeness stays true; missing cycle completeness stays false. Generic record kinds and other payload remain open, and UML identity diagnostics remain hard errors.
+
+- Actual RED: run 39004296837 / job 117313482983, four expected missing-reader/producer/native-port failures with no collection error.
+- Exact final Source native/quality: run 39005532900 / job 117317117654, 36 PASS, Ruff/format 526 files and strict mypy 150 files, clean diff. Fixed authored field/signature weakenings and raw reader mutation fail natively. Unchanged actual Root placement rule passes the real owner and fails physical relocation into actual `ir.report_graph`; absent-original-owner Target remains honestly UNKNOWN because complete inventory is not proven.
+- Affected regressions: run 39005365714 / job 117316620248, 577 PASS. Final Source differs only by the actual Ruff line wrapping of the tested conditional expression.
+- Exact final runtime wire: run 39005532900 / job 117317117911. Eight actual Core receipt streams and eight complete report/module projections are byte-identical. Every untouched full raw report differs at exactly `/analyzer/code_digest`, preserving authentic tool identity; no artifact or source stamp is forged.
+- Exact final native cost: run 39005532900 / job 117317488506, exit 0, diagnostics empty, 144/144 files, 19048 calls / 15691 resolved / 2517 PARTIAL / 840 UNRESOLVED / 52 typing positions / 58 UNKNOWN / 0 violations. Actual parent 5b8a: 19036 / 15678 / 2518 / 840 / 52 / 58 / 0. True unresolved net zero. The interim Root draft 838 ceiling is not the accepted Main ceiling 865; final ordinary metadata must be generated against actual Main after Source freeze, without an accept flag or a manual cap edit.
+
+### Newly verified precise inputs for composition
+
+| Owned scope | Exact predecessor | Exact reviewed source | Handling |
+| --- | --- | --- | --- |
+| Initial TypeScript source input | bbcba3ae4e79ca72329d382333c1fba9546586cd | d894c0692b06dd5f1ea114c3a81edbb180bc93cf | REST compare verifies exact mergebase, 11 commits and only 14 paths. This is narrower than the later 32-path union. Carry explicit hunks, preserving current predicate/construct observations. |
+| TS input inventory / integration-plan supplement | f63840b5c912ae40eff42fa7b12fd41240566d46 | cd610282d11fb2195bfe93fedbb4ee1b4f82f412 | Only the source_input owner line in tests/test_self.py and the dedicated activation-plan document; original 14-path scope already supplies Root/Make/TS Target. No Dart/Python files or whole union overlay. |
+| TS canonical public catalog correction | b06fd806ae0e76d340cba44eb7b5e84c887384d6 | a25c37c564c82c1b42457f0528c931c769ee9362 | Exactly typescript.json and its source-input document; remove five obsolete component-public declarations while retaining Python compatibility exports. |
+| Fact classifier projection | bcd0951665735a1f00c85b3a0cb6b88887bd8683 | 2d55dfb42c455ac47b2dc5715270cd14521d396c | Seven paths; explicit exact predecessor already verified. |
+| Call directions / Terminal | 5b8a603274b2330b85fc6fe62c8d7f6fb15da8f1 | befb7e8ac4adfb39ba2ae4c6b9308f4c33bbd638 | Exact compare verified, twelve paths; additive model/Target/Make carry. |
+
+All five original TypeScript production added/removed hunk sequences match the later f638→cd610 integration exactly. Config, resolve, source_input and the new source-input test are also whole-blob equal. Collect and parse whole blobs differ because the later integration retains independently owned predicate/construct observations; those files must never be replaced wholesale. Original Root/Make changes supply only the TS owner and source-input test selections. The TypeScript Target remains a contextual JSON owner union; preserve actual current entities, public ports and guards.
+
+Root has additionally supplied these immutable ranges; they remain to be independently checked and included with the rest of Root's forthcoming final freeze map:
+
+- Host OS: 5b8a603274b2330b85fc6fe62c8d7f6fb15da8f1 → 7313832f307b54dbe99311df691fe1a907feb355.
+- Collection grammar: befb7e8ac4adfb39ba2ae4c6b9308f4c33bbd638 → aa84fab9c5bb6833b9ab58bcccbbbb443dc0a114.
+- Canonical source enum: befb7e8ac4adfb39ba2ae4c6b9308f4c33bbd638 → 5c07aa82b81c93f2f88ad81ba98f5e492192f3ef.
+
+### Read-only residual grammar research
+
+Exact current reference afc360674fdb4524f3d2c1fd9f8bfef72352d140; original audit manifest 19f9d436b1c3098c1c445926c1016e35575abee0. Read-only run 39006077074 / job 117318727877 joins all 31 requested original sites by actual owner, AST SHA256 and physical column, with no unmatched site. Current scope has **33** comparisons: 26 wildcard, six selector and one pragma. Two additional actual wildcard checks, omitted by the legacy 24-site subset, are `imports.typed_dict_unsafe_providers:663` and `imports._escaped_import_origins:723`, each selecting `symbol in {None, "*"}`. This is an inventory and a minimal design proposal only; no product implementation or completion claim is attached.
+
+Proposed minimal existing-owner conversions: reuse the existing ImportSymbolMarker canonically at the pure source-facts boundary with an identity compatibility export, use one bool-returning existing model selector parser rather than an enum of punctuation, and let tokenize plus a single str.partition parse the existing type-ignore marker and retain its open tag suffix. Preserve the current permissive comment substring and attachment semantics; replacing it solely with ast.TypeIgnore would narrow legacy behavior. Root owns the decision and any implementation.
+
+The previous 45-scope apply preview remains a syntax/conflict preparation result, not final validation. Its bare-Ruff failure was an overbroad verifier invocation across intentionally excluded fixtures; final checks must use the repository's actual Make lint/typecheck selection. Final Main preservation, ordinary writer/amendment/replay, committed NoWrite, complete regression suite, required exact-head CI and independent whole-union Astra remain necessary after the final source is frozen.
