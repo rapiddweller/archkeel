@@ -80,7 +80,7 @@ def test_actual_python_writers_preserve_wire_and_independent_dunder_visibility()
         row = names[name]
         assert row["data"]["visibility"] is member
         frozen = parse_record(json.loads(json.dumps(row)))
-        assert reader(frozen.data["visibility"]) is member
+        assert reader(frozen.data.get("visibility")) is member
         assert json.loads(json.dumps(record_payload(frozen))) == json.loads(json.dumps(row))
     assert names["__iter__"]["data"]["visibility_detail"]["kind"] == "public"
 
