@@ -1,0 +1,61 @@
+name: Verify integrated nominal domain ports
+on:
+  push:
+    branches: ['verify/542-integrated-domain-ports-f710']
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: f71005da981edfa60a520ea7a0d7a8c0ec8ffcfa
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: '3.11.12'
+          version: '0.12.13'
+      - run: uv sync --locked
+      - run: make lint typecheck
+      - run: git diff --exit-code
+  native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: f71005da981edfa60a520ea7a0d7a8c0ec8ffcfa
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: '3.11.12'
+          version: '0.12.13'
+      - run: uv sync --locked
+      - run: uv run --locked pytest -q tests/test_source_name_visibility.py tests/test_graph_topology_level_types.py tests/test_git_blob_types.py tests/test_typed_structure_levels.py tests/test_python_string_predicate_target.py tests/test_hygiene.py
+      - run: git diff --exit-code
+  ordinary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: f71005da981edfa60a520ea7a0d7a8c0ec8ffcfa
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: '3.11.12'
+          version: '0.12.13'
+      - run: uv sync --locked
+      - run: |
+          uv run --locked python - <<'PY'
+          import json, subprocess, sys
+          run = subprocess.run(["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--json"],text=True,capture_output=True)
+          data = json.loads(run.stdout)
+          print("JOINT_NORMAL_JSON", json.dumps({key:data.get(key) for key in ("exit_code","amendment_status","failures","diagnostics","widenings","measurements")}))
+          if run.returncode:
+              print(run.stdout)
+              print(run.stderr)
+          status = subprocess.check_output(["git","status","--porcelain","--untracked-files=all"],text=True)
+          assert not status,status
+          print("JOINT_NO_WRITE_CLEAN",True)
+          sys.exit(run.returncode)
+          PY
