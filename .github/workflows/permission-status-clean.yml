@@ -1,0 +1,63 @@
+name: Exact clean PermissionStatus required-core and receipt
+on:
+  push:
+    branches: [verify/542-permission-status-clean]
+permissions:
+  contents: read
+jobs:
+  required-clean-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: c50c420b9a8909258864fe1946ba9df7ce039d88
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - run: uv sync --locked
+      - name: Prove exact clean source checkout
+        run: |
+          test "$(git rev-parse HEAD)" = "c50c420b9a8909258864fe1946ba9df7ce039d88"
+          test ! -e prototype/permission_native_sites.py
+          git status --porcelain
+      - run: make ci-pr-check
+  final-native-focused-and-strict:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: c50c420b9a8909258864fe1946ba9df7ce039d88
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.13"
+          python-version: "3.11.12"
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: "22"
+      - run: uv sync --locked
+      - run: make lint
+      - name: Actual focused guards and inherited fixture corrections
+        run: uv run --locked python -m pytest -q tests/test_permission_status_types.py tests/test_typescript_demo.py::test_catalog_exhausts_rule_and_measurement_vocabulary tests/test_target_navigation_graph.py tests/test_repository_hygiene.py
+      - name: Ordinary final exact-predecessor NoWrite
+        run: |
+          permission_final_status=0
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --against 5fc94c10298c4bbcd98fd44f8ac72b321b03a0b4 --amendment docs/architecture/decisions/permission-status-types-amendment.json --json > "$RUNNER_TEMP/permission-final-nowrite.json" || permission_final_status=$?
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          data = json.loads((Path(os.environ["RUNNER_TEMP"]) / "permission-final-nowrite.json").read_bytes())
+          print("PERMISSION_FINAL_NOWRITE=" + json.dumps({key:data.get(key) for key in ("exit_code","diagnostics","failures","measurements","widenings","unresolved_call_changes","unresolved_call_note")}))
+          PY
+          if [ "$permission_final_status" -ne 0 ]; then exit "$permission_final_status"; fi
+          git diff --exit-code
