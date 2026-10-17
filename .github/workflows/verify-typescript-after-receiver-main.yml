@@ -1,0 +1,228 @@
+name: Verify reviewed TypeScript syntax carry on actual Main
+on:
+  push:
+    branches: [verify/542-typescript-after-receiver-main]
+permissions:
+  contents: read
+jobs:
+  normal-metadata:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: a0b8f03a357737dfb1b8108269dd3f9665d2a474
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Verify exact source and immutable reviewed product blobs
+        run: |
+          test "$(git rev-parse HEAD)" = "a0b8f03a357737dfb1b8108269dd3f9665d2a474"
+          uv run --locked python - <<'PY'
+          import subprocess
+          feature="a5d478a7f40c00ad2cd7f5ed98c82a0778f182ec"
+          reviewed="fa37f59600cfae64ba0528cb56e609c6bbd756e4"
+          def blob(ref,path):return subprocess.check_output(["git","show",ref+":"+path])
+          for path in ("src/archkeel/analyzer/typescript/parse.py","src/archkeel/analyzer/typescript/collect.py","src/archkeel/analyzer/typescript/syntax.py"):
+              assert blob("HEAD",path)==blob(feature,path)==blob(reviewed,path),path
+          for path in ("src/archkeel/analyzer/python/source.py","architecture-baseline.json"):
+              assert blob("HEAD",path)==blob("a6515288cbbe3961e8a9aaac2054779dbd7877e3",path),path
+          print("TS_SCOPED_CARRY=True")
+          PY
+      - name: Normal measured baseline, amendment and exact replay
+        run: |
+          uv run --locked python - <<'PY'
+          import base64,json,subprocess
+          from pathlib import Path
+          base="a6515288cbbe3961e8a9aaac2054779dbd7877e3"
+          path="docs/architecture/decisions/issue-542-typescript-syntax-amendment.json"
+          common=["uv","run","--locked","python","-m","archkeel.cli","validate","--root",".","--baseline","architecture-baseline.json","--json"]
+          stages=[
+              ("baseline",["--write-baseline"]),
+              ("amendment",["--against",base,"--amendment",path,"--write-amendment","--decided-by","ake2l","--rationale","Publish the reviewed direct nominal TypeScript syntax port and consumed controls while preserving legacy DTO and SourceFacts wire APIs, conservative grammar evidence and actual merged Main governance without additional allowances or ceiling increases."]),
+              ("replay",["--against",base,"--amendment",path]),
+          ]
+          original_baseline=json.loads(Path("architecture-baseline.json").read_bytes())
+          codes=[]
+          for stage,extra in stages:
+              result=subprocess.run(common+extra,text=True,capture_output=True)
+              codes.append(result.returncode)
+              data=json.loads(result.stdout)
+              print("TS_RESULT="+json.dumps({"stage":stage,**{k:data.get(k) for k in ("exit_code","diagnostics","failures","widenings","amendment_status","measurements")}},separators=(",",":")))
+              if result.stderr:print("TS_STDERR="+result.stderr[-3000:])
+          for marker,filename in (("TS_BASELINE","architecture-baseline.json"),("TS_AMENDMENT",path)):
+              file=Path(filename)
+              if file.exists():print(marker+"="+base64.b64encode(file.read_bytes()).decode())
+          assert codes==[0,0,0],codes
+          generated=json.loads(Path("architecture-baseline.json").read_bytes())
+          before=original_baseline["budgets"]["calls_unresolved"]
+          after=generated["budgets"]["calls_unresolved"]
+          assert after<=before,(before,after)
+          restored=json.loads(json.dumps(generated))
+          restored["budgets"]["calls_unresolved"]=before
+          assert restored==original_baseline, "ordinary writer changed another existing baseline budget or allowance"
+          print("TS_BASELINE_RATCHET="+json.dumps({"before":before,"after":after,"other_fields_unchanged":True}))
+          PY
+  parser-legacy-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: a0b8f03a357737dfb1b8108269dd3f9665d2a474
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: make lint typecheck
+      - run: make typescript-native
+      - run: uv run --locked python -m pytest -q tests/test_typescript_decorated_inventory.py tests/test_typescript_parameter_properties.py tests/test_typescript_array_constants.py tests/test_python_source_evidence_lines.py tests/test_repository_hygiene.py
+  native-identities-and-calls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: a0b8f03a357737dfb1b8108269dd3f9665d2a474
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Compare exact actual predecessor and direct source with one fixed native observer
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/ts-review-before" a6515288cbbe3961e8a9aaac2054779dbd7877e3
+          uv run --locked archkeel report --root "$RUNNER_TEMP/ts-review-before" --output "$RUNNER_TEMP/ts-review-before.json" > "$RUNNER_TEMP/ts-review-before.stdout"
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/ts-review-after.json" > "$RUNNER_TEMP/ts-review-after.stdout"
+          uv run --locked python - <<'PY'
+          import collections, dataclasses, hashlib, json, os
+          from pathlib import Path
+          from archkeel.check.ratchets import measure_python_ratchets, unresolved_call_changes
+          from archkeel.ir.codec import decode_canonical_model, parse_observation
+          from archkeel.ir.codec_wire import value_bytes
+          from archkeel.ir.decisions import rule_uncertainty_evidence, unknown_positions_by_rule
+          
+          def read(label):
+              path = Path(os.environ["RUNNER_TEMP"]) / ("ts-review-" + label + ".json")
+              return parse_observation(decode_canonical_model(json.loads(path.read_bytes())))
+          
+          def fingerprints(model):
+              positions, routes, other = [], [], []
+              for rule, uncertainty in rule_uncertainty_evidence(model).items():
+                  for record in uncertainty.evidence:
+                      row = {"rule": rule, "id":record.id, "kind": record.kind, "data": json.loads(value_bytes(record.data))}
+                      if record.kind == "boundary_type_position":
+                          if record.data.get("reason") != "external_type":
+                              positions.append(row)
+                      elif record.kind == "boundary_type_route":
+                          routes.append(row)
+                      elif record.kind != "boundary_type_limit":
+                          other.append(row)
+              return [collections.Counter(json.dumps(row, sort_keys=True) for row in rows) for rows in (positions, routes, other)]
+          
+          before, after = read("before"), read("after")
+          for label, model in (("before", before), ("after", after)):
+              measured = measure_python_ratchets(model)
+              print("REVIEW_SNAPSHOT=" + json.dumps({"label": label, "git_head": model.source.git_head, "digest": model.source.source_digest, "scalars": dict(measured.scalars.items()), "calls_total": measured.calls_total, "unknown_by_rule": unknown_positions_by_rule(model)}, sort_keys=True))
+          a, b = fingerprints(before), fingerprints(after)
+          for label, old, new in zip(("positions", "routes", "other"), a, b, strict=True):
+              added, removed = list((new-old).elements()), list((old-new).elements())
+              print("REVIEW_UNKNOWN_DIFF=" + json.dumps({"kind": label, "before": sum(old.values()), "after": sum(new.values()), "added": [json.loads(item) for item in sorted(added)], "removed": [json.loads(item) for item in sorted(removed)]}, sort_keys=True))
+              assert not added and not removed, (label, added, removed)
+          changes = [dataclasses.asdict(item) for item in unresolved_call_changes(before, after)]
+          print("REVIEW_UNRESOLVED_CHANGES=" + json.dumps(changes, sort_keys=True))
+          print("REVIEW_UNRESOLVED_CHANGE_COUNTS=" + json.dumps({"added_groups": sum(row["change"]=="added" for row in changes), "removed_groups": sum(row["change"]=="removed" for row in changes), "added_sites": sum(row["after"]-row["before"] for row in changes if row["change"]=="added"), "removed_sites": sum(row["before"]-row["after"] for row in changes if row["change"]=="removed")}, sort_keys=True))
+          
+          PY
+  actual-dto-wire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: a0b8f03a357737dfb1b8108269dd3f9665d2a474
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Fresh actual-Main DTO and full H/Nest SourceFacts byte parity
+        run: |
+          uv run --locked python - <<'PY'
+          import dataclasses, enum, hashlib, importlib.util, json, os, subprocess, sys, tempfile
+          from pathlib import Path
+          from archkeel.analyzer.typescript import parse as current
+          temporary=Path(os.environ["RUNNER_TEMP"])
+          base="a6515288cbbe3961e8a9aaac2054779dbd7877e3"
+          def load_source(name, source):
+              path=temporary/(name.rsplit(".",1)[-1]+".py")
+              path.write_text(source)
+              spec=importlib.util.spec_from_file_location(name,path)
+              module=importlib.util.module_from_spec(spec)
+              sys.modules[name]=module
+              spec.loader.exec_module(module)
+              return module
+          before=load_source("_carry_before_parser",subprocess.check_output(["git","show",base+":src/archkeel/analyzer/typescript/parse.py"]).decode())
+          def normalized(value):
+              if isinstance(value,enum.Enum):return value.value
+              if dataclasses.is_dataclass(value):
+                  result={field.name:normalized(getattr(value,field.name)) for field in dataclasses.fields(value) if field.name!="receiver_kind"}
+                  if "import_bindings" in result:result["import_bindings"].sort(key=lambda row:json.dumps(row,sort_keys=True))
+                  return result
+              if isinstance(value,(tuple,list)):return [normalized(item) for item in value]
+              return value
+          paths=sorted(path for folder in ("fixtures/H-uml-typescript","fixtures/L-nest-realworld") for path in Path(folder).rglob("*") if path.is_file() and path.suffix in {".ts",".tsx",".mts",".cts",".js",".jsx",".mjs",".cjs"})
+          assert paths
+          cases=[(path.as_posix(),path.read_bytes()) for path in paths]
+          for path,raw in cases:
+              assert normalized(before.parse(path,raw))==normalized(current.parse(path,raw)),path
+          print("CARRY_DTO_PARITY="+json.dumps({"files":len(cases),"bytes":sum(len(raw) for _,raw in cases),"equal":True}),flush=True)
+          sys.path.insert(0,str(Path("tests").resolve()))
+          import test_typescript_collect as helpers
+          from archkeel.analyzer.typescript import collect as frontend
+          from archkeel.ir.facts_codec import encode_response
+          from archkeel.ir.protocol import CollectionResponse
+          legacy=load_source("archkeel.analyzer.typescript._carry_before_collect",subprocess.check_output(["git","show",base+":src/archkeel/analyzer/typescript/collect.py"]).decode())
+          legacy.parse=before.parse
+          with tempfile.TemporaryDirectory(prefix="ts-carry-wire-",dir=temporary) as folder:
+              for case in ("H-uml-typescript","L-nest-realworld"):
+                  fixture=Path("fixtures")/case
+                  files={path.relative_to(fixture).as_posix():path.read_bytes() for path in fixture.rglob("*") if path.is_file() and path.suffix in {".json",".ts",".tsx",".mts",".cts",".js",".jsx",".mjs",".cjs"}}
+                  results={}
+                  for label,collector in (("before",legacy.collect),("after",frontend.collect)):
+                      helpers.collect=collector
+                      facts=helpers._facts(Path(folder)/case,files)
+                      payload=encode_response(CollectionResponse(facts))
+                      results[label]=payload
+                      print("CARRY_WIRE="+json.dumps({"case":case,"variant":label,"source_files":len(facts.files),"imports":len(facts.imports),"coverage_gaps":len(facts.coverage.gaps),"bytes":len(payload),"sha256":hashlib.sha256(payload).hexdigest()}),flush=True)
+                  assert results["before"]==results["after"],case
+          helpers.collect=frontend.collect
+          PY
+  compiler-differential:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: a0b8f03a357737dfb1b8108269dd3f9665d2a474
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - run: make typescript-compiler-check typescript-differential
