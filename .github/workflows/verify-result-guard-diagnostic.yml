@@ -1,0 +1,37 @@
+name: Diagnose result guard fixture validation
+on:
+  push:
+    branches: [verify/542-result-guard-diagnostic]
+permissions:
+  contents: read
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: f7e01dfe273170e73a2f6b21d409829d03f40421
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Read actual guard fixture diagnostics without obscuring errors
+        run: |
+          uv run --locked python - <<'PY'
+          import sys, tempfile, dataclasses
+          from pathlib import Path
+          sys.path.insert(0, str(Path("tests").resolve()))
+          import test_core_command_result as fixture
+          from archkeel.check.report import run_report
+          from archkeel.cli.observe import observe
+          with tempfile.TemporaryDirectory() as tmp:
+              root, config = fixture._result_guard_repository(Path(tmp))
+              result, encoded = run_report(root, config=config, analyzer=observe)
+              print("FIXTURE_RESULT", result.exit_code, result.observation_complete)
+              for diagnostic in result.diagnostics:
+                  print("ACTUAL_DIAGNOSTIC", dataclasses.asdict(diagnostic))
+              print("ENCODED_PRESENT", encoded is not None)
+          PY
