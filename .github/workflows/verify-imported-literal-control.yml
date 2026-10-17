@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 7dda0c62a72ef8dee5b67411abb0b79bd57526d6
+          ref: 95e62022c8f0a023798d83dc8212bbfca2a25293
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -18,8 +18,8 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
-      - name: Provider global rebinding RED
-        run: uv run --locked pytest -q tests/test_string_comparison_observation.py::test_module_import_does_not_skip_the_providers_global_rebinding
+      - name: Affected native detector and target regressions
+        run: uv run --locked pytest -q tests/test_string_comparison_observation.py tests/test_string_predicate_observation.py tests/test_python_string_predicate_target.py tests/test_analyzer.py
       - name: Actual frozen HostEvent mutation
         if: always()
         run: |
@@ -83,5 +83,31 @@ jobs:
       - name: Exact source cleanliness
         if: always()
         run: |
-          test "$(git rev-parse HEAD)" = "7dda0c62a72ef8dee5b67411abb0b79bd57526d6"
+          test "$(git rev-parse HEAD)" = "95e62022c8f0a023798d83dc8212bbfca2a25293"
           test -z "$(git status --porcelain)"
+  actual-call-delta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 95e62022c8f0a023798d83dc8212bbfca2a25293
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Read actual ordinary delta without any writer or budget edit
+        run: |
+          uv run --locked python - <<'PY'
+          import json, subprocess
+          command = ["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--against","5937445491094abc00a4076dd4628a03f08e9064","--json"]
+          result = subprocess.run(command,capture_output=True,text=True)
+          value = json.loads(result.stdout)
+          print("ACTUAL_DELTA_KEYS="+json.dumps(list(value)),flush=True)
+          print("ACTUAL_DELTA="+json.dumps({key:value.get(key) for key in ("exit_code","failures","diagnostics","measurements","widenings","delta","budget_changes")},separators=(",",":")),flush=True)
+          print(result.stderr,flush=True)
+          assert subprocess.check_output(["git","status","--porcelain"],text=True) == ""
+          PY
