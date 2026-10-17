@@ -156,7 +156,9 @@ def test_native_actual_reader_raw_dispatch_regression_fails_fixed_guard(tmp_path
     source.write_text(
         source.read_text().replace(
             old,
-            'if value == "class":\n            return SourceSymbolKind.CLASS\n        return SourceSymbolKind(value)',
+            'if value == "class":\n'
+            "            return SourceSymbolKind.CLASS\n"
+            "        return SourceSymbolKind(value)",
         )
     )
     before = (root / "contract.json").read_bytes()
