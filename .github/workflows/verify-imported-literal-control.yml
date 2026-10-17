@@ -5,12 +5,12 @@ on:
 permissions:
   contents: read
 jobs:
-  red:
+  bounded:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: c8faca3092aeae9e2a8c61659ae7952e2662e638
+          ref: d6c20470aa62bb61362bac274f1cfd408892badc
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -18,8 +18,8 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
-      - name: Imported enum native RED
-        run: uv run --locked pytest -q tests/test_string_comparison_observation.py::test_imported_enum_value_leaf_reaches_native_scoped_policy
+      - name: Affected native detector and target regressions
+        run: uv run --locked pytest -q tests/test_string_comparison_observation.py tests/test_string_predicate_observation.py tests/test_python_string_predicate_target.py tests/test_analyzer.py
       - name: Actual frozen HostEvent mutation
         if: always()
         run: |
@@ -70,3 +70,18 @@ jobs:
                       assert violations == ()
           
           PY
+      - name: Strict affected source
+        if: always()
+        run: uv run --locked mypy --strict src/archkeel/analyzer/python/constructs.py src/archkeel/analyzer/python/collect.py
+      - name: Ruff affected source and tests
+        if: always()
+        run: uv run --locked ruff check src/archkeel/analyzer/python/constructs.py src/archkeel/analyzer/python/collect.py tests/test_string_comparison_observation.py tests/test_python_string_predicate_target.py
+      - name: Show formatter output for review
+        if: always()
+        run: |
+          uv run --locked ruff format --check --diff src/archkeel/analyzer/python/constructs.py src/archkeel/analyzer/python/collect.py tests/test_string_comparison_observation.py tests/test_python_string_predicate_target.py
+      - name: Exact source cleanliness
+        if: always()
+        run: |
+          test "$(git rev-parse HEAD)" = "d6c20470aa62bb61362bac274f1cfd408892badc"
+          test -z "$(git status --porcelain)"
