@@ -11,10 +11,11 @@ from pathlib import Path
 from typing import get_type_hints
 
 import pytest
-from test_architecture_demo import _prepare_repo
+from test_architecture_demo import CONFIG, _prepare_repo
 from test_delta import _delta
 from test_delta import _model as _observation
 from test_dependency_api_target import _source_members
+from test_duplication import _TOUR
 from test_uml_evaluation import _model
 
 from archkeel.ir import bindings, codec_delta, decisions, duplication, model, references, structure
@@ -74,12 +75,14 @@ def test_all_five_unknown_invariants_keep_the_original_error_and_empty_supported
 
 @pytest.mark.parametrize(("module", "name", "producer", "count", "noun"), CLAIMS)
 def test_actual_claim_producers_return_nominal_support_in_both_signal_paths(
-    self_observation, module, name, producer, count, noun
+    tmp_path, module, name, producer, count, noun
 ):
+    observation = _model(_prepare_repo(tmp_path, dict(_TOUR.files)), CONFIG)
     derive = getattr(module, producer)
-    complete = derive(self_observation)
+    complete = derive(observation)
+    assert isinstance(complete.status, StrEnum)
     assert complete.status is model.ComparisonStatus.SUPPORTED
-    missing = replace(self_observation, sections=())
+    missing = replace(observation, sections=())
     assert derive(missing).status is model.ComparisonStatus.UNKNOWN
 
 
@@ -302,5 +305,33 @@ def test_native_migrated_actual_boundary_projections_reject_raw_dispatch(tmp_pat
     source = root / "archkeel/ir" / f"{path}.py"
     intent = (root / "contract.json").read_bytes()
     source.write_text(source.read_text() + "\n" + probe)
+    assert any(row.rule_ids for row in trace_valid_violations(_model(root, config)))
+    assert (root / "contract.json").read_bytes() == intent
+
+
+@pytest.mark.parametrize(
+    ("path", "old", "new"),
+    [
+        ("model", "self.status is ComparisonStatus.SUPPORTED", 'self.status == "SUPPORTED"'),
+        ("decisions", "status is ComparisonStatus.SUPPORTED", 'status == "SUPPORTED"'),
+        ("codec_delta", "return ComparisonStatus(value)",
+         'if value == "UNKNOWN":\n            return ComparisonStatus.UNKNOWN\n'
+         "        return ComparisonStatus(value)"),
+    ] + [
+        (module.__name__.rsplit(".", 1)[-1],
+         "self.status is ComparisonStatus.UNKNOWN", 'self.status == "UNKNOWN"')
+        for module, *_ in CLAIMS
+    ],
+)
+def test_native_actual_invariant_and_decoder_raw_reversion_fails_fixed_guard(
+    tmp_path, path, old, new
+):
+    root, config = _repository(tmp_path)
+    _valid(_model(root, config))
+    source = root / "archkeel/ir" / f"{path}.py"
+    original = source.read_text()
+    assert old in original
+    intent = (root / "contract.json").read_bytes()
+    source.write_text(original.replace(old, new, 1))
     assert any(row.rule_ids for row in trace_valid_violations(_model(root, config)))
     assert (root / "contract.json").read_bytes() == intent
