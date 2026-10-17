@@ -305,7 +305,9 @@ def _require_dimension_counts(
 def _index_semantic_changes(
     semantic_changes: tuple[SemanticChange, ...],
 ) -> tuple[
-    dict[tuple[str, _KnownSemanticChangeKind, str], tuple[int, int]], list[CycleIdentity], dict[str, CycleIdentity]
+    dict[tuple[str, _KnownSemanticChangeKind, str], tuple[int, int]],
+    list[CycleIdentity],
+    dict[str, CycleIdentity],
 ]:
     actual_changes: dict[tuple[str, _KnownSemanticChangeKind, str], tuple[int, int]] = {}
     removed_cycles: list[CycleIdentity] = []
@@ -324,13 +326,16 @@ def _index_semantic_changes(
         )
         identity = (change.dimension, kind, change.fingerprint)
         if identity in actual_changes:
-            raise ExpectationError(
-                f"delta repeats semantic fingerprint: {(change.dimension, str(kind), change.fingerprint)}"
-            )
+            wire_identity = (change.dimension, str(kind), change.fingerprint)
+            raise ExpectationError(f"delta repeats semantic fingerprint: {wire_identity}")
         actual_changes[identity] = (change.before_count, change.after_count)
-        if change.dimension == "cycles" and kind in {_KnownSemanticChangeKind.ADDED, _KnownSemanticChangeKind.REMOVED}:
+        if change.dimension == "cycles" and kind in {
+            _KnownSemanticChangeKind.ADDED,
+            _KnownSemanticChangeKind.REMOVED,
+        }:
             cycle = _parse_cycle_identity(
-                change.after if kind is _KnownSemanticChangeKind.ADDED else change.before, index=index
+                change.after if kind is _KnownSemanticChangeKind.ADDED else change.before,
+                index=index,
             )
             if kind is _KnownSemanticChangeKind.ADDED:
                 added_cycles[change.fingerprint] = cycle
@@ -452,7 +457,9 @@ def _parse_selected_change(raw: object, *, index: int) -> ExpectedSemanticChange
     try:
         kind = _KnownSemanticChangeKind(change_kind)
     except ValueError as error:
-        raise ExpectationError(f"selected_changes[{index}] has unsupported change {change_kind!r}") from error
+        raise ExpectationError(
+            f"selected_changes[{index}] has unsupported change {change_kind!r}"
+        ) from error
     before_count = _require_count(change["before_count"], f"selected_changes[{index}].before_count")
     after_count = _require_count(change["after_count"], f"selected_changes[{index}].after_count")
     _validate_change_counts(kind, before_count, after_count, f"selected_changes[{index}]")
@@ -499,7 +506,9 @@ def _require_change_kind(value: object, label: str) -> _KnownSemanticChangeKind:
         raise ExpectationError(f"{label} has unsupported value {change!r}") from error
 
 
-def _validate_change_counts(change: _KnownSemanticChangeKind, before_count: int, after_count: int, label: str) -> None:
+def _validate_change_counts(
+    change: _KnownSemanticChangeKind, before_count: int, after_count: int, label: str
+) -> None:
     valid = {
         _KnownSemanticChangeKind.ADDED: before_count == 0 and after_count > 0,
         _KnownSemanticChangeKind.REMOVED: before_count > 0 and after_count == 0,

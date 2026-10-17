@@ -24,7 +24,12 @@ from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
 DOC = "docs/architecture/known-delta-action-types.md"
-KINDS = [("ADDED", "added"), ("REMOVED", "removed"), ("RELOCATED", "relocated"), ("CHANGED", "changed")]
+KINDS = [
+    ("ADDED", "added"),
+    ("REMOVED", "removed"),
+    ("RELOCATED", "relocated"),
+    ("CHANGED", "changed"),
+]
 
 
 def _kind():
@@ -54,9 +59,13 @@ def test_valid_legacy_selected_constructor_and_actual_ingress_store_one_type(nam
 
 
 @pytest.mark.parametrize(("name", "wire"), KINDS)
-def test_actual_producer_serializes_canonical_wire_text_and_retains_changed_fingerprints(name, wire):
+def test_actual_producer_serializes_canonical_wire_text_and_retains_changed_fingerprints(
+    name, wire
+):
     kind = _kind()
-    projection = model.Projection("p", "FACT", "architecture", "sample", "sample", (), model.RecordData(()), ())
+    projection = model.Projection(
+        "p", "FACT", "architecture", "sample", "sample", (), model.RecordData(()), ()
+    )
     row = delta._DeltaRecord("logical", "semantic", "location", projection)
     result = delta._change("vendor.future", kind[name], "f", (row,), (row,))
     assert type(result.change) is str and result.change == wire
@@ -68,35 +77,68 @@ def test_actual_producer_serializes_canonical_wire_text_and_retains_changed_fing
 def test_future_public_action_roundtrips_but_known_governance_rejects_it(version):
     raw = _delta(_observation(git_head="1" * 40), _observation(git_head="2" * 40))
     raw["schema_version"] = version
-    raw["semantic_changes"].append(dict(dimension="violations", change="vendor.future", fingerprint="f", before_count=0, after_count=0, before=None, after=None))
+    raw["semantic_changes"].append(
+        dict(
+            dimension="violations",
+            change="vendor.future",
+            fingerprint="f",
+            before_count=0,
+            after_count=0,
+            before=None,
+            after=None,
+        )
+    )
     decoded = parse_delta(raw)
     assert canonical_json_bytes(delta_payload(decoded)) == canonical_json_bytes(raw)
-    with pytest.raises(expectation.ExpectationError, match=r"^semantic_changes\[0\]\.change has unsupported value 'vendor.future'$"):
+    with pytest.raises(
+        expectation.ExpectationError,
+        match=r"^semantic_changes\[0\]\.change has unsupported value 'vendor.future'$",
+    ):
         expectation._index_semantic_changes(decoded.semantic_changes)
 
 
 @pytest.mark.parametrize(("name", "wire"), KINDS)
 @pytest.mark.parametrize(("before", "after"), [(0, 0), (0, 2), (2, 0), (2, 3)])
-def test_nominal_count_policy_keeps_the_complete_zero_positive_truth_table(name, wire, before, after):
+def test_nominal_count_policy_keeps_the_complete_zero_positive_truth_table(
+    name, wire, before, after
+):
     kind = _kind()
-    valid = (before == 0 and after > 0) if name == "ADDED" else (before > 0 and after == 0) if name == "REMOVED" else before > 0 and after > 0
+    valid = (
+        (before == 0 and after > 0)
+        if name == "ADDED"
+        else (before > 0 and after == 0)
+        if name == "REMOVED"
+        else before > 0 and after > 0
+    )
     if valid:
         expectation._validate_change_counts(kind[name], before, after, "selected")
     else:
-        with pytest.raises(expectation.ExpectationError, match=f"^selected has counts inconsistent with {wire}$"):
+        with pytest.raises(
+            expectation.ExpectationError, match=f"^selected has counts inconsistent with {wire}$"
+        ):
             expectation._validate_change_counts(kind[name], before, after, "selected")
 
 
 @pytest.mark.parametrize("wire", [None, True, 2, {}, [], "", " ", "ADDED", "future"])
 def test_both_known_ingresses_keep_original_invalid_labels_and_validation_order(wire):
-    raw = dict(dimension="violations", change=wire, fingerprint="f", before_count=False, after_count=0)
+    raw = dict(
+        dimension="violations", change=wire, fingerprint="f", before_count=False, after_count=0
+    )
     with pytest.raises(expectation.ExpectationError) as selected:
         expectation._parse_selected_change(raw, index=3)
     nonempty = isinstance(wire, str) and bool(wire.strip())
-    assert str(selected.value) == (f"selected_changes[3] has unsupported change {wire!r}" if nonempty else "selected_changes[3].change must be a non-empty string")
+    assert str(selected.value) == (
+        f"selected_changes[3] has unsupported change {wire!r}"
+        if nonempty
+        else "selected_changes[3].change must be a non-empty string"
+    )
     with pytest.raises(expectation.ExpectationError) as indexed:
         expectation._require_change_kind(wire, "actual.change")
-    assert str(indexed.value) == (f"actual.change has unsupported value {wire!r}" if nonempty else "actual.change must be a non-empty string")
+    assert str(indexed.value) == (
+        f"actual.change has unsupported value {wire!r}"
+        if nonempty
+        else "actual.change must be a non-empty string"
+    )
 
 
 def test_index_retains_nominal_keys_and_plain_duplicate_error():
@@ -114,32 +156,89 @@ def test_index_retains_nominal_keys_and_plain_duplicate_error():
 def _contract():
     ir = json.loads((ROOT / "docs/architecture/contracts/ir.json").read_text())
     check = json.loads((ROOT / "docs/architecture/contracts/check.json").read_text())
-    entities = [row for contract in (ir, check) for row in contract["declarations"]["uml"]["entities"] if row["id"].startswith("KNOWN-ACTION-") or row["id"] == "IR-DEPENDENCY-model"]
+    entities = [
+        row
+        for contract in (ir, check)
+        for row in contract["declarations"]["uml"]["entities"]
+        if row["id"].startswith("KNOWN-ACTION-") or row["id"] == "IR-DEPENDENCY-model"
+    ]
     for row in entities:
         if row["kind"] == "module":
             row.pop("parent_id", None)
     ir.pop("$schema", None)
-    ir["components"] = [dict(id="CORE", label="core", role="component", packages=["archkeel"], responsibilities=["Own the actual typed action ports."], forbidden_responsibilities=[], provenance=[DOC], public=["archkeel"])]
-    ir["declarations"] = {"uml": {"schema_version": "1.0.0", "entities": entities, "relationships": [], "scopes": []}}
-    ir["rules"] = [dict(id="ACTION-" + module, kind="forbidden_construct", source="archkeel." + module, constructs=["string_literal_compare"], rationale="Actual migrated source projections use nominal actions.", provenance=[DOC], decided_by="architect") for module in ["ir.model", "check.delta", "check.expectation"]]
+    ir["components"] = [
+        dict(
+            id="CORE",
+            label="core",
+            role="component",
+            packages=["archkeel"],
+            responsibilities=["Own the actual typed action ports."],
+            forbidden_responsibilities=[],
+            provenance=[DOC],
+            public=["archkeel"],
+        )
+    ]
+    ir["declarations"] = {
+        "uml": {"schema_version": "1.0.0", "entities": entities, "relationships": [], "scopes": []}
+    }
+    ir["rules"] = [
+        dict(
+            id="ACTION-" + module,
+            kind="forbidden_construct",
+            source="archkeel." + module,
+            constructs=["string_literal_compare"],
+            rationale="Actual migrated source projections use nominal actions.",
+            provenance=[DOC],
+            decided_by="architect",
+        )
+        for module in ["ir.model", "check.delta", "check.expectation"]
+    ]
     return ir
 
 
 def _repository(tmp_path):
     prefix = "from __future__ import annotations\nfrom dataclasses import dataclass\n"
-    root = _prepare_repo(tmp_path, {
-        "archkeel/__init__.py": "", "archkeel/ir/__init__.py": "", "archkeel/check/__init__.py": "",
-        "archkeel/ir/model.py": prefix + "from enum import StrEnum\n" + _source_members("src/archkeel/ir/model.py", {"KnownSemanticChangeKind", "SemanticChange"}),
-        "archkeel/check/delta.py": prefix + "from archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKind, SemanticChange\n" + _source_members("src/archkeel/check/delta.py", {"_DeltaRecord", "_change"}),
-        "archkeel/check/expectation.py": prefix + "import builtins as _builtins\nfrom archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKind\n" + _source_members("src/archkeel/check/expectation.py", {"ExpectationError", "ExpectedSemanticChange", "_require_change_kind", "_validate_change_counts"}),
-        "contract.json": json.dumps(_contract()), DOC: "Independent actual action boundary intent.\n",
-    })
+    root = _prepare_repo(
+        tmp_path,
+        {
+            "archkeel/__init__.py": "",
+            "archkeel/ir/__init__.py": "",
+            "archkeel/check/__init__.py": "",
+            "archkeel/ir/model.py": prefix
+            + "from enum import StrEnum\n"
+            + _source_members(
+                "src/archkeel/ir/model.py", {"KnownSemanticChangeKind", "SemanticChange"}
+            ),
+            "archkeel/check/delta.py": prefix
+            + "from archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKind\n"
+            "from archkeel.ir.model import SemanticChange\n"
+            + _source_members("src/archkeel/check/delta.py", {"_DeltaRecord", "_change"}),
+            "archkeel/check/expectation.py": prefix
+            + "import builtins as _builtins\n"
+            "from archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKind\n"
+            + _source_members(
+                "src/archkeel/check/expectation.py",
+                {
+                    "ExpectationError",
+                    "ExpectedSemanticChange",
+                    "_require_change_kind",
+                    "_validate_change_counts",
+                },
+            ),
+            "contract.json": json.dumps(_contract()),
+            DOC: "Independent actual action boundary intent.\n",
+        },
+    )
     return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
 
 
 def _valid(value):
     comparison = architecture_report(value).comparison
-    assert comparison is not None and comparison.status == "PASS", [(row.subject_id, row.aspect, row.status, row.reason) for row in comparison.assessments if row.status != "PASS"]
+    assert comparison is not None and comparison.status == "PASS", [
+        (row.subject_id, row.aspect, row.status, row.reason)
+        for row in comparison.assessments
+        if row.status != "PASS"
+    ]
     assert not trace_valid_violations(value)
 
 
@@ -148,16 +247,25 @@ def test_native_actual_action_ports_match_independently_authored_target(tmp_path
     _valid(_model(root, config))
 
 
-@pytest.mark.parametrize(("path", "old", "new"), [
-    ("ir/model.py", "class KnownSemanticChangeKind(StrEnum):", "class KnownSemanticChangeKind(str):"),
-    ("ir/model.py", "change: str", "change: KnownSemanticChangeKind"),
-    ("check/delta.py", "kind: _KnownSemanticChangeKind", "kind: str"),
-    ("check/delta.py", ") -> SemanticChange:", ") -> object:"),
-    ("check/expectation.py", "change: _KnownSemanticChangeKind", "change: str"),
-    ("check/expectation.py", ") -> _KnownSemanticChangeKind:", ") -> str:"),
-    ("check/expectation.py", "label: str) -> None:", "label: str) -> str:"),
-])
-def test_native_actual_api_widening_or_public_wire_closure_fails_fixed_target(tmp_path, path, old, new):
+@pytest.mark.parametrize(
+    ("path", "old", "new"),
+    [
+        (
+            "ir/model.py",
+            "class KnownSemanticChangeKind(StrEnum):",
+            "class KnownSemanticChangeKind(str):",
+        ),
+        ("ir/model.py", "change: str", "change: KnownSemanticChangeKind"),
+        ("check/delta.py", "kind: _KnownSemanticChangeKind", "kind: str"),
+        ("check/delta.py", ") -> SemanticChange:", ") -> object:"),
+        ("check/expectation.py", "change: _KnownSemanticChangeKind", "change: str"),
+        ("check/expectation.py", ") -> _KnownSemanticChangeKind:", ") -> str:"),
+        ("check/expectation.py", "label: str) -> None:", "label: str) -> str:"),
+    ],
+)
+def test_native_actual_api_widening_or_public_wire_closure_fails_fixed_target(
+    tmp_path, path, old, new
+):
     root, config = _repository(tmp_path)
     _valid(_model(root, config))
     source = root / "archkeel" / path
@@ -168,7 +276,13 @@ def test_native_actual_api_widening_or_public_wire_closure_fails_fixed_target(tm
         prefix, rest = original.split("def _validate_change_counts(", 1)
         signature, body = rest.split(":\n", 1)
         assert ") -> None" in signature
-        changed = prefix + "def _validate_change_counts(" + signature.replace(") -> None", ") -> str", 1) + ":\n" + body
+        changed = (
+            prefix
+            + "def _validate_change_counts("
+            + signature.replace(") -> None", ") -> str", 1)
+            + ":\n"
+            + body
+        )
     else:
         changed = original.replace(old, new, 1)
     source.write_text(changed)
@@ -177,12 +291,17 @@ def test_native_actual_api_widening_or_public_wire_closure_fails_fixed_target(tm
 
 
 @pytest.mark.parametrize("path", ["ir/model.py", "check/delta.py", "check/expectation.py"])
-@pytest.mark.parametrize("probe", [
-    'def _probe(value):\n    return value == "added"\n',
-    'def _probe(value):\n    return value in {"added", "removed"}\n',
-    'def _probe(value):\n    match value:\n        case "changed":\n            return True\n        case _:\n            return False\n',
-    'from typing import Final\nACTION: Final[str] = "added"\ndef _probe(value):\n    return value == ACTION\n',
-])
+@pytest.mark.parametrize(
+    "probe",
+    [
+        'def _probe(value):\n    return value == "added"\n',
+        'def _probe(value):\n    return value in {"added", "removed"}\n',
+        'def _probe(value):\n    match value:\n        case "changed":\n            return True\n'
+        "        case _:\n            return False\n",
+        'from typing import Final\nACTION: Final[str] = "added"\n'
+        "def _probe(value):\n    return value == ACTION\n",
+    ],
+)
 def test_native_actual_migrated_projection_rejects_raw_dispatch(tmp_path, path, probe):
     root, config = _repository(tmp_path)
     _valid(_model(root, config))
@@ -193,10 +312,18 @@ def test_native_actual_migrated_projection_rejects_raw_dispatch(tmp_path, path, 
     assert (root / "contract.json").read_bytes() == intent
 
 
-@pytest.mark.parametrize(("path", "old", "new"), [
-    ("check/delta.py", "kind is _KnownSemanticChangeKind.CHANGED", 'kind == "changed"'),
-    ("check/expectation.py", "return _KnownSemanticChangeKind(change)", 'if change == "added":\n            return _KnownSemanticChangeKind.ADDED\n        return _KnownSemanticChangeKind(change)'),
-])
+@pytest.mark.parametrize(
+    ("path", "old", "new"),
+    [
+        ("check/delta.py", "kind is _KnownSemanticChangeKind.CHANGED", 'kind == "changed"'),
+        (
+            "check/expectation.py",
+            "return _KnownSemanticChangeKind(change)",
+            'if change == "added":\n            return _KnownSemanticChangeKind.ADDED\n'
+            "        return _KnownSemanticChangeKind(change)",
+        ),
+    ],
+)
 def test_native_actual_producer_and_ingress_raw_reversion_fails_guard(tmp_path, path, old, new):
     root, config = _repository(tmp_path)
     _valid(_model(root, config))

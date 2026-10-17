@@ -296,7 +296,9 @@ def _change(
         tuple(sorted({item.semantic_fingerprint for item in before}))
         if kind is _KnownSemanticChangeKind.CHANGED
         else None,
-        tuple(sorted({item.semantic_fingerprint for item in after})) if kind is _KnownSemanticChangeKind.CHANGED else None,
+        tuple(sorted({item.semantic_fingerprint for item in after}))
+        if kind is _KnownSemanticChangeKind.CHANGED
+        else None,
     )
 
 
@@ -345,7 +347,11 @@ def _compare_records(
             if count:
                 changes.append(
                     _change(
-                        dimension, _KnownSemanticChangeKind.RELOCATED, semantic, tuple(left[:count]), tuple(right[:count])
+                        dimension,
+                        _KnownSemanticChangeKind.RELOCATED,
+                        semantic,
+                        tuple(left[:count]),
+                        tuple(right[:count]),
                     )
                 )
             changed_old.extend(left[count:])
