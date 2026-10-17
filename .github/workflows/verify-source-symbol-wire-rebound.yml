@@ -1,0 +1,117 @@
+name: Verify actual source wire and complete Core provenance rebinding
+on:
+  push:
+    branches: ['verify/542-source-symbol-wire-rebound']
+permissions:
+  contents: read
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: a3696da9a0c71825d1df2df47c1cce990c28c1af
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: '3.11.12'
+          version: '0.12.13'
+      - run: uv sync --locked
+      - run: |
+          uv run --locked python - <<'PY'
+          import hashlib, json, os, subprocess, sys
+          from collections import Counter
+          from pathlib import Path
+          root = Path.cwd()
+          base = Path(os.environ["RUNNER_TEMP"]) / "source-symbol-base"
+          subprocess.run(["git", "worktree", "add", "--detach", str(base), "50d93141720d53774f5e9e916579bdc18c7bc246"], check=True)
+          output = Path(os.environ["RUNNER_TEMP"]) / "source-symbol-proof"
+          output.mkdir()
+          child = "import dataclasses, hashlib, importlib, json, sys, tomllib\nfrom collections import Counter\nfrom pathlib import Path\nfrom archkeel.check.observe import Observer\nfrom archkeel.check.uml import assemble_uml\nfrom archkeel.check.uml_evaluation import evaluate_uml\nfrom archkeel.ir.codec import observation_payload\nfrom archkeel.ir.source_graph import member_inventory_proof, validated_member_inventory_proof\nfrom archkeel.ir.facts import Language\nfrom archkeel.ir.facts_codec import encode_response, record_payload\nfrom archkeel.ir.protocol import CollectionRequest, CollectionResponse, DartSettings, PythonSettings, SnapshotInput, SourceScope, TypeScriptSettings\nimport archkeel\nroot = Path(sys.argv[1]).resolve()\nout = Path(sys.argv[2]); out.mkdir(parents=True, exist_ok=True)\nassert Path(archkeel.__file__).resolve().is_relative_to(root / \"src\")\ncases = (\"H-uml\", \"K-python-realworld\", \"G-dart\", \"H-uml-dart\", \"J-compass\", \"H-typescript\", \"H-uml-typescript\", \"L-nest-realworld\")\nmanifest = {}\nfor name in cases:\n    project = root / \"fixtures\" / name\n    scan = tomllib.loads((project / \"archkeel.toml\").read_text())[\"scan\"]\n    language = Language(scan.get(\"language\", \"python\"))\n    module = importlib.import_module(f\"archkeel.analyzer.{language}.collect\")\n    settings = PythonSettings() if language is Language.PYTHON else DartSettings() if language is Language.DART else TypeScriptSettings(scan.get(\"tsconfig\", \"tsconfig.json\"))\n    request = CollectionRequest(SnapshotInput(str(project), \"a\"*40, False), SourceScope(tuple(scan[\"roots\"]), scan[\"namespace\"]), settings)\n    facts = module.collect(request)\n    raw = encode_response(CollectionResponse(facts))\n    (out / f\"{name}.raw.json\").write_bytes(raw)\n    class ActualCollector:\n        def collect(self, request):\n            return module.collect(request)\n    observed = Observer(ActualCollector(), scan.get(\"tsconfig\", \"tsconfig.json\"))(\n        project, roots=tuple(scan[\"roots\"]), namespace=scan[\"namespace\"], contract=scan[\"contract\"],\n        git_head=\"a\"*40, dirty=False, contract_root=project, language=language,\n    )\n    assert observed.observation is not None, (name, observed.diagnostics)\n    source_model = observed.observation\n    proofs = [row for row in source_model.records(\"scope_observations\") or () if row.kind == \"member_inventory_proof\"]\n    assert len(proofs) <= 1\n    proof_info = None\n    normalized_model = dataclasses.replace(\n        source_model,\n        analyzer=dataclasses.replace(source_model.analyzer, code_digest=\"0\"*64),\n        producer=dataclasses.replace(source_model.producer, code_digest=\"0\"*64) if source_model.producer else None,\n    )\n    if proofs:\n        assert validated_member_inventory_proof(source_model) == proofs[0], (\"original-proof-invalid\", name)\n        normalized_proof = member_inventory_proof(normalized_model, facts.inputs)\n        assert normalized_proof is not None\n        normalized_model = dataclasses.replace(normalized_model, sections=tuple(\n            dataclasses.replace(section, records=tuple(normalized_proof if row.id == proofs[0].id else row for row in section.records))\n            if str(section.name) == \"scope_observations\" else section\n            for section in normalized_model.sections\n        ))\n        assert validated_member_inventory_proof(normalized_model) == normalized_proof, (\"rebound-proof-invalid\", name)\n        proof_info = {\n            \"original_id\": proofs[0].id, \"original_binding\": proofs[0].data.get(\"binding\"),\n            \"normalized_id\": normalized_proof.id, \"normalized_binding\": normalized_proof.data.get(\"binding\"),\n            \"original_validated\": True, \"normalized_validated\": True,\n        }\n    normalized_result = dataclasses.replace(observed, observation=normalized_model)\n    normalized_result = evaluate_uml(assemble_uml(normalized_result, project, scan[\"contract\"]))\n    assert normalized_result.observation is not None\n    (out / f\"{name}.normalized-core.json\").write_text(json.dumps(observation_payload(normalized_result.observation), sort_keys=True, separators=(\",\", \":\")))\n    observed = evaluate_uml(assemble_uml(observed, project, scan[\"contract\"]))\n    assert observed.observation is not None, (name, observed.diagnostics)\n    core = observation_payload(observed.observation)\n    (out / f\"{name}.core.json\").write_text(json.dumps(core, sort_keys=True, separators=(\",\", \":\")))\n    unknowns = [record_payload(row) for section in observed.observation.sections for row in section.records if row.evidence_class.value == \"UNKNOWN\"]\n    (out / f\"{name}.unknowns.json\").write_text(json.dumps(unknowns, sort_keys=True, separators=(\",\", \":\")))\n    manifest[name] = {\"language\": str(language), \"adapter\": facts.adapter.code_digest, \"raw_bytes\": len(raw), \"unknowns\": len(unknowns), \"proof\": proof_info}\n# Observe actual source calls; no baseline, policy mutation or acceptance path is used.\nmodule = importlib.import_module(\"archkeel.analyzer.python.collect\")\nfacts = module.collect(CollectionRequest(SnapshotInput(str(root), \"a\"*40, False), SourceScope((\"src\",), \"archkeel\"), PythonSettings()))\nevidence = {row.id: dataclasses.asdict(row) for row in facts.evidence}\nrows = [{\"record\": record_payload(row), \"evidence\": [evidence[item] for item in row.evidence_ids]} for section in facts.sections if str(section.name) == \"calls\" for row in section.records if row.data.get(\"status\") in {\"unresolved\", \"partially_resolved\"}]\n(out / \"calls.json\").write_text(json.dumps(rows, sort_keys=True, separators=(\",\", \":\")))\n(out / \"manifest.json\").write_text(json.dumps(manifest, sort_keys=True))\nprint(\"ACTUAL_COLLECTOR_IMPORT\", archkeel.__file__, \"CASES\", len(cases), \"CALLS\", len(rows))\n"
+          from concurrent.futures import ThreadPoolExecutor
+          def run_side(pair):
+              side,tree=pair
+              env = dict(os.environ, PYTHONPATH=str(tree / "src"), PYTHONDONTWRITEBYTECODE="1")
+              subprocess.run([sys.executable, "-u", "-c", child, str(tree), str(output / side)], cwd=tree, env=env, check=True)
+          with ThreadPoolExecutor(max_workers=2) as pool:
+              list(pool.map(run_side, (("before", base), ("after", root))))
+          def digest(value):
+              raw = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+              return {"bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest()}
+          def differences(left, right, path=()):
+              assert type(left) is type(right), ("type", path, type(left), type(right))
+              if isinstance(left, dict):
+                  assert left.keys() == right.keys(), ("keys", path, left.keys(), right.keys())
+                  return [row for key in left for row in differences(left[key], right[key], (*path, key))]
+              if isinstance(left, list):
+                  assert len(left) == len(right), ("length", path, len(left), len(right))
+                  return [row for index, (a,b) in enumerate(zip(left,right)) for row in differences(a,b,(*path,index))]
+              return [] if left == right else [(path, left, right)]
+          manifest = json.loads((output / "before/manifest.json").read_text())
+          after_manifest = json.loads((output / "after/manifest.json").read_text())
+          summary = []
+          for name in manifest:
+              for kind in ("raw",):
+                  left = json.loads((output / "before" / f"{name}.{kind}.json").read_text())
+                  right = json.loads((output / "after" / f"{name}.{kind}.json").read_text())
+                  changed = differences(left,right)
+                  for path,a,b in changed:
+                      code = path[-1] == "code_digest" and path[-2] in {"adapter","analyzer","producer"}
+                      proof_a, proof_b = manifest[name]["proof"], after_manifest[name]["proof"]
+                      binding = bool(proof_a and proof_b and path[0] == "scope_observations" and path[-2:] == ("data","binding")
+                          and (a,b) == (proof_a["original_binding"],proof_b["original_binding"]))
+                      reference = bool(proof_a and proof_b and (a,b) == (proof_a["original_id"],proof_b["original_id"]))
+                      assert code or binding or reference, ("unexpected-core-data-change", name, kind, path)
+                      if code:
+                          assert all(isinstance(v,str) and len(v) == 64 and set(v) <= set("0123456789abcdef") for v in (a,b))
+                      if binding or reference:
+                          assert proof_a["original_validated"] and proof_b["original_validated"]
+                          assert proof_a["normalized_validated"] and proof_b["normalized_validated"]
+                          assert proof_a["normalized_id"] == proof_b["normalized_id"] and proof_a["normalized_binding"] == proof_b["normalized_binding"]
+                      aa,bb=left,right
+                      for key in path[:-1]: aa,bb=aa[key],bb[key]
+                      aa[path[-1]]=bb[path[-1]]="<producer-code-digest>"
+                  assert left == right, (name,kind)
+                  row = {"case": name, "kind": kind, "normalized_paths": [list(path) for path,_,_ in changed], **digest(left)}
+                  summary.append(row); print("SOURCE_SYMBOL_BYTE_PAIR", json.dumps(row, sort_keys=True))
+              original_before = json.loads((output / "before" / f"{name}.core.json").read_text())
+              original_after = json.loads((output / "after" / f"{name}.core.json").read_text())
+              original_differences = differences(original_before, original_after)
+              print("SOURCE_SYMBOL_ORIGINAL_CORE_PROVENANCE", json.dumps({
+                  "case": name, "before": digest(original_before), "after": digest(original_after),
+                  "changed_paths": [list(path) for path,_,_ in original_differences],
+                  "native_inventory_proof_validated": bool(manifest[name]["proof"]),
+              }, sort_keys=True))
+              normalized_before = json.loads((output / "before" / f"{name}.normalized-core.json").read_text())
+              normalized_after = json.loads((output / "after" / f"{name}.normalized-core.json").read_text())
+              assert normalized_before == normalized_after, ("rebound-core-not-equal", name)
+              print("SOURCE_SYMBOL_REBOUND_CORE_EXACT", json.dumps({"case":name, "inventory_proof": bool(manifest[name]["proof"]), **digest(normalized_before)}, sort_keys=True))
+              left = (output / "before" / f"{name}.unknowns.json").read_bytes()
+              right = (output / "after" / f"{name}.unknowns.json").read_bytes()
+              assert left == right, ("unknown-full-payload", name)
+              print("SOURCE_SYMBOL_UNKNOWNS_EXACT", name, len(left), hashlib.sha256(left).hexdigest())
+          def key(row):
+              data=row["record"]["data"]
+              files=sorted({e["file"] for e in row["evidence"]})
+              return json.dumps([files,data.get("source_scope"),data.get("expression"),data.get("status"),data.get("targets"),data.get("reason")],sort_keys=True)
+          before=json.loads((output / "before/calls.json").read_text());after=json.loads((output / "after/calls.json").read_text())
+          a,b=Counter(map(key,before)),Counter(map(key,after))
+          ledger={"before":len(before),"after":len(after),"before_statuses":dict(Counter(row["record"]["data"].get("status") for row in before)),"after_statuses":dict(Counter(row["record"]["data"].get("status") for row in after)),"added":[{"key":json.loads(k),"count":n} for k,n in sorted((b-a).items())],"removed":[{"key":json.loads(k),"count":n} for k,n in sorted((a-b).items())]}
+          (output / "signed-call-ledger.json").write_text(json.dumps(ledger,sort_keys=True,indent=2))
+          (output / "summary.json").write_text(json.dumps(summary,sort_keys=True,indent=2))
+          print("SOURCE_SYMBOL_CALL_LEDGER_SUMMARY", json.dumps({
+              "before": ledger["before"], "after": ledger["after"],
+              "before_statuses": ledger["before_statuses"], "after_statuses": ledger["after_statuses"],
+              "added_count": sum(row["count"] for row in ledger["added"]),
+              "removed_count": sum(row["count"] for row in ledger["removed"]),
+              "added_groups": len(ledger["added"]), "removed_groups": len(ledger["removed"]),
+              "ledger_sha256": hashlib.sha256((output / "signed-call-ledger.json").read_bytes()).hexdigest(),
+              "added_by_owner_status": [dict(owner=owner,status=status,count=count) for (owner,status),count in sorted(Counter({(row["key"][1],row["key"][3]):sum(x["count"] for x in ledger["added"] if (x["key"][1],x["key"][3])==(row["key"][1],row["key"][3])) for row in ledger["added"]}).items())],
+              "removed_by_owner_status": [dict(owner=owner,status=status,count=count) for (owner,status),count in sorted(Counter({(row["key"][1],row["key"][3]):sum(x["count"] for x in ledger["removed"] if (x["key"][1],x["key"][3])==(row["key"][1],row["key"][3])) for row in ledger["removed"]}).items())]
+          }, sort_keys=True))
+          
+          subprocess.run(["git", "diff", "--exit-code"],check=True)
+          assert not subprocess.check_output(["git","ls-files","--others","--exclude-standard"],text=True).strip()
+          
+          PY
