@@ -188,6 +188,19 @@
       "provenance": [
         "docs/architecture/source-resolution-types.md"
       ]
+    },
+    {
+      "id": "SOURCE-SYMBOL-BASE-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.analyzer.python.symbols._record_class_bases",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Select known source symbol tags through the one Facts-owned domain; future record payload and JSON identities remain data.",
+      "provenance": [
+        "docs/architecture/source-symbol-consumers.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {

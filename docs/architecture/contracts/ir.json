@@ -532,6 +532,19 @@
         "docs/architecture/source-symbol-kind-types.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "SOURCE-SYMBOL-REFERENCE-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.references.unreferenced_symbols",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Select known source symbol tags through the one Facts-owned domain; future record payload and JSON identities remain data.",
+      "provenance": [
+        "docs/architecture/source-symbol-consumers.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {

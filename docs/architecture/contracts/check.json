@@ -340,6 +340,19 @@
         "docs/architecture/unresolved-call-change-types.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "SOURCE-SYMBOL-PUBLIC-API-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.check.evaluation.boundary_types._public_api_positions",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Select known source symbol tags through the one Facts-owned domain; future record payload and JSON identities remain data.",
+      "provenance": [
+        "docs/architecture/source-symbol-consumers.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {
