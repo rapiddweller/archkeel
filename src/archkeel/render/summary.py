@@ -17,7 +17,6 @@ from archkeel.ir.model import (
     Command as _Command,
 )
 from archkeel.ir.model import ComparisonStatus as _ComparisonStatus
-from archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKind
 from archkeel.ir.model import (
     DraftedComponentSize,
     RunResult,
@@ -25,6 +24,7 @@ from archkeel.ir.model import (
 from archkeel.ir.model import (
     ExpectationOutcome as _ExpectationOutcome,
 )
+from archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKind
 
 from .summary_badges import Badge as Badge
 from .summary_badges import BadgeState as BadgeState

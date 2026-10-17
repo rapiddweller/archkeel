@@ -16,7 +16,6 @@ from archkeel.ir.measurements import (
     compare_measurements,
 )
 from archkeel.ir.measurements import MetricComparisonStatus as _MetricComparisonStatus
-from archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKind
 from archkeel.ir.model import (
     CallRow,
     CallStatus,
@@ -27,6 +26,7 @@ from archkeel.ir.model import (
     Verdict,
     text_value,
 )
+from archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKind
 from archkeel.ir.profiles import profile_for
 
 from .python_profile import crossing_imports
