@@ -1,0 +1,24 @@
+name: Verify committed combined owner receipt without writes
+on:
+  push:
+    branches: [verify/542-final-owned-controls-nowrite]
+permissions:
+  contents: read
+jobs:
+  exact-nowrite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: b082d1e14516f0c985ccfd49ef203b0edef843d8
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Verify exact ordinary committed receipt against actual stable predecessor
+        run: uv run --locked archkeel validate --root . --baseline architecture-baseline.json --against 1ff6cef335117fcb35cc86a555ee2ab9db074e1f --amendment docs/architecture/decisions/2026-10-17-final-owned-controls-amendment.json --json
+      - run: git diff --exit-code
