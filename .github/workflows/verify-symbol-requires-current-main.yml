@@ -1,0 +1,191 @@
+name: Verify exact symbol requires on actual Main
+on:
+  push:
+    branches: [verify/564-symbol-requires-current-main]
+permissions:
+  contents: read
+jobs:
+  normal-metadata:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 98cd1e32a5849063e1f4968401e373685457d772
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Verify exact source and immutable reviewed blobs
+        run: |
+          test "$(git rev-parse HEAD)" = "98cd1e32a5849063e1f4968401e373685457d772"
+          uv run --locked python - <<'PY'
+          import subprocess
+          def blob(ref,path):return subprocess.check_output(["git","show",ref+":"+path])
+          for path in ["docs/architecture/contracts/ir.json","docs/architecture/decisions/ad-42-a-requires-entry-may-name-the-modules-it-goes-through-and.md","docs/architecture/symbol-requires-ports.md","docs/rules.md","docs/superpowers/plans/2026-10-16-symbol-specific-requires.md","src/archkeel/check/evaluation/rule_support.py","src/archkeel/check/evaluation/rules.py","src/archkeel/ir/dependency.py","src/archkeel/ir/model.py","tests/test_dependency_selectors.py","tests/test_repository_hygiene.py","tests/test_requires_symbol_ports.py","tests/test_rule_yield.py","tools/rule_yield.py"]:
+              assert blob("HEAD",path)==blob("6d03204f1b804be71386a036337fd17b4c54e351",path),path
+          for path in ["docs/superpowers/plans/2026-10-17-native-assessment-test-consumers.md","tests/test_architecture_projection.py","tests/test_module_object_grants.py"]:
+              assert blob("HEAD",path)==blob("cf963ecb214d1c37bc67f549fe9c22dd35acd335",path),path
+          for path in ("architecture-baseline.json","src/archkeel/analyzer/python/source.py"):
+              assert blob("HEAD",path)==blob("3fdda84e4a58b0ac3ed15a8d28c761568d4d7809",path),path
+          print("REQUIRES_SCOPED_CARRY=True")
+          PY
+      - name: Normal measured baseline, amendment and exact replay
+        run: |
+          uv run --locked python - <<'PY'
+          import base64,json,subprocess
+          from pathlib import Path
+          base="3fdda84e4a58b0ac3ed15a8d28c761568d4d7809"
+          path="docs/architecture/decisions/issue-564-symbol-requires-amendment.json"
+          common=["uv","run","--locked","python","-m","archkeel.cli","validate","--root",".","--baseline","architecture-baseline.json","--json"]
+          stages=[
+              ("baseline",["--write-baseline"]),
+              ("amendment",["--against",base,"--amendment",path,"--write-amendment","--decided-by","ake2l","--rationale","Match exact required imports through the shared canonical assessment using actual modules and observed imported names, retain UNKNOWN for unexpanded wildcards and unobserved names, preserve existing Main policies and compatibility routes without new allowances or ceiling increases."]),
+              ("replay",["--against",base,"--amendment",path]),
+          ]
+          original_baseline=json.loads(Path("architecture-baseline.json").read_bytes())
+          codes=[]
+          for stage,extra in stages:
+              result=subprocess.run(common+extra,text=True,capture_output=True)
+              codes.append(result.returncode)
+              data=json.loads(result.stdout)
+              print("REQUIRES_RESULT="+json.dumps({"stage":stage,**{k:data.get(k) for k in ("exit_code","diagnostics","failures","widenings","amendment_status","measurements")}},separators=(",",":")))
+              if result.stderr:print("REQUIRES_STDERR="+result.stderr[-3000:])
+          for marker,filename in (("REQUIRES_BASELINE","architecture-baseline.json"),("REQUIRES_AMENDMENT",path)):
+              file=Path(filename)
+              if file.exists():print(marker+"="+base64.b64encode(file.read_bytes()).decode())
+          assert codes==[0,0,0],codes
+          generated=json.loads(Path("architecture-baseline.json").read_bytes())
+          before=original_baseline["budgets"]["calls_unresolved"]
+          after=generated["budgets"]["calls_unresolved"]
+          assert after<=before,(before,after)
+          restored=json.loads(json.dumps(generated))
+          restored["budgets"]["calls_unresolved"]=before
+          assert restored==original_baseline, "ordinary writer changed another existing baseline budget or allowance"
+          print("REQUIRES_BASELINE_RATCHET="+json.dumps({"before":before,"after":after,"other_fields_unchanged":True}))
+          PY
+  native-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 98cd1e32a5849063e1f4968401e373685457d772
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: make lint typecheck
+      - run: uv run --locked python -m pytest -q tests/test_requires_symbol_ports.py tests/test_architecture_projection.py::test_native_core_through_enforcement_uses_the_shared_predicate tests/test_module_object_grants.py::test_unknown_names_are_not_converted_to_a_module_object_permission tests/test_repository_hygiene.py --tb=short
+  requires-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 98cd1e32a5849063e1f4968401e373685457d772
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked python -m pytest -q tests/test_analyzer.py tests/test_requires_target_references.py tests/test_requires_component_references.py tests/test_scoped_dependency_proof.py tests/test_interfaces.py tests/test_nested_interface_unknown.py tests/test_nested_interface_lifecycle.py tests/test_dependency_selectors.py tests/test_absent_import_namespace.py tests/test_rule_yield.py --tb=short
+  conservative-native-sites:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 98cd1e32a5849063e1f4968401e373685457d772
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Compare actual type and call sites with multiplicity and targets
+        run: |
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/amend-after.json" > "$RUNNER_TEMP/amend-after-result.json"
+          git worktree add --detach "$RUNNER_TEMP/amend-before" 3fdda84e4a58b0ac3ed15a8d28c761568d4d7809
+          uv run --locked archkeel report --root "$RUNNER_TEMP/amend-before" --output "$RUNNER_TEMP/amend-before.json" > "$RUNNER_TEMP/amend-before-result.json"
+          uv run --locked python - "$RUNNER_TEMP/amend-before.json" "$RUNNER_TEMP/amend-after.json" "$RUNNER_TEMP/amend-before" . <<'PY'
+          import ast,json,pathlib,re,sys
+          from archkeel.ir.codec import decode_canonical_model,parse_observation
+          from archkeel.check.ratchets import unknown_positions_by_rule,call_rows
+          from archkeel.ir.codec_wire import _raw_value
+          def read(path): return parse_observation(decode_canonical_model(json.loads(pathlib.Path(path).read_text())))
+          before,after=(read(path) for path in sys.argv[1:3])
+          before_root,after_root=(pathlib.Path(path) for path in sys.argv[3:5])
+          def types(model):
+              return {row.id:{"id":row.id,"kind":row.kind,"rule_ids":row.rule_ids,**{key:row.data.get(key) for key in ("qualified_name","position","path","annotation","nested_annotation","reason")}} for row in model.records("unknowns") or () if row.kind in {"boundary_type_position","boundary_type_route"}}
+          def calls(model,source_root):
+              asts={}
+              def call_ast(site,expression):
+                  if site.file not in asts:
+                      index={}
+                      for node in ast.walk(ast.parse((source_root/site.file).read_text())):
+                          if isinstance(node,ast.Call):
+                              key=(node.lineno,node.col_offset,ast.unparse(node.func))
+                              index.setdefault(key,[]).append(ast.dump(node,include_attributes=False))
+                      asts[site.file]=index
+                  index=asts[site.file]
+                  matches=(index.get((site.line,site.column,expression),[]) if site.column is not None else [value for (line,column,name),values in index.items() if line==site.line and name==expression for value in values])
+                  assert len(matches)==1,(site,expression,matches)
+                  return matches[0]
+              evidence={row.id:row for row in model.evidence}
+              result={}
+              for row in model.records("calls") or ():
+                  data=row.data
+                  status=data.get("status")
+                  if status not in {"unresolved","partially_resolved"}: continue
+                  sites=[evidence[identity] for identity in row.evidence_ids if identity in evidence]
+                  assert len(sites)==1
+                  site=sites[0]
+                  caller=re.sub(r"<(genexpr|listcomp|dictcomp|setcomp):[0-9]+:[0-9]+>",r"<\1>",str(data.get("source_scope")))
+                  original_caller=caller
+                  if (site.file,caller,data.get("expression")) == ("src/archkeel/check/evaluation/rules.py","archkeel.check.evaluation.rules._requires_import_verdicts","contract.component_for"):
+                      caller="archkeel.check.evaluation.rules.requires_violations"
+                  key=(status,site.file,caller,data.get("expression"))
+                  result.setdefault(key,[]).append({"record_id":row.id,"status":status,"path":site.file,"line":site.line,"caller":original_caller,"expression":data.get("expression"),"reason":data.get("reason"),"targets":_raw_value(data.get("targets")),"candidate_count":data.get("candidate_count"),"call_ast":call_ast(site,data.get("expression"))})
+              assert sum(len(rows) for rows in result.values())==len(call_rows(model))
+              return result
+          old,new=types(before),types(after)
+          old_calls,new_calls=calls(before,before_root),calls(after,after_root)
+          added=[{"before":old_calls.get(key,[]),"after":new_calls[key]} for key in new_calls if len(new_calls[key])>len(old_calls.get(key,[]))]
+          removed=[{"before":old_calls[key],"after":new_calls.get(key,[])} for key in old_calls if len(old_calls[key])>len(new_calls.get(key,[]))]
+          target_changed=[{"before":old_calls[key],"after":new_calls[key]} for key in old_calls.keys()&new_calls.keys() if sorted(json.dumps(row["targets"],sort_keys=True) for row in old_calls[key])!=sorted(json.dumps(row["targets"],sort_keys=True) for row in new_calls[key])]
+          def payloads(rows):
+              return sorted(json.dumps({key:row[key] for key in ("status","expression","reason","targets","candidate_count","call_ast")},sort_keys=True) for row in rows)
+          new_debt=[{"before":old_calls.get(key,[]),"after":rows} for key,rows in new_calls.items() if payloads(rows)!=payloads(old_calls.get(key,[]))]
+          relocations=[{"before":old_calls[key],"after":new_calls[key]} for key in old_calls.keys()&new_calls.keys() if [row["caller"] for row in old_calls[key]] != [row["caller"] for row in new_calls[key]]]
+          assert sum(len(row["after"]) for row in relocations)==2,relocations
+          summary={"documented_call_relocations":relocations,"before_ref":"3fdda84e4a58b0ac3ed15a8d28c761568d4d7809","before_unknown":unknown_positions_by_rule(before),"after_unknown":unknown_positions_by_rule(after),"new_type_positions":[new[key] for key in sorted(new.keys()-old.keys())],"removed_type_positions":[old[key] for key in sorted(old.keys()-new.keys())],"changed_type_positions":[{"before":old[key],"after":new[key]} for key in sorted(old.keys()&new.keys()) if old[key]!=new[key]],"added_call_sites":added,"removed_call_sites":removed,"changed_call_targets":target_changed,"new_or_changed_debt":new_debt,"before_unresolved":before.coverage.calls_unresolved,"after_unresolved":after.coverage.calls_unresolved,"before_partial":before.coverage.calls_partially_resolved,"after_partial":after.coverage.calls_partially_resolved}
+          print("REQUIRES_SITE_EVIDENCE="+json.dumps(summary,separators=(",",":")))
+          assert not summary["new_type_positions"]
+          assert not new_debt
+          assert not target_changed
+          PY
+  actual-project-reports:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 98cd1e32a5849063e1f4968401e373685457d772
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked python -m pytest -q tests/test_compass_project_report.py::test_compass_reports_keep_target_comparison_and_partial_coverage_distinct tests/test_nest_realworld_project_report.py::test_nest_realworld_catalog_and_reports_preserve_full_target_with_partial_coverage tests/test_compass_project_target.py tests/test_nest_realworld_project_target.py --tb=short
