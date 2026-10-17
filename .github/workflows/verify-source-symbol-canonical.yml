@@ -1,0 +1,45 @@
+name: Verify owned call direction and terminal consumers
+on:
+  push:
+    branches: ['verify/542-source-symbol-canonical']
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: dd5fc1fd311249170a78c1c678c4fa71a1bcb0cb
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: '3.11.12'
+          version: '0.12.13'
+      - run: uv sync --locked
+      - run: uv run --locked pytest -q tests/test_source_symbol_kind_types.py tests/test_source_name_visibility.py tests/test_repository_hygiene.py
+      - run: git diff --exit-code
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: dd5fc1fd311249170a78c1c678c4fa71a1bcb0cb
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: '3.11.12'
+          version: '0.12.13'
+      - run: uv sync --locked
+      - run: make lint typecheck
+      - if: always()
+        run: |
+          uv run --locked python - <<'PY'
+          import subprocess
+          paths = ["src/archkeel/ir/facts.py","src/archkeel/ir/model.py","tests/test_source_symbol_kind_types.py"]
+          for args in (["ruff","format","--check","--diff"],["ruff","check","--diff"]):
+              result=subprocess.run(["uv","run","--locked",*args,*paths],text=True,capture_output=True)
+              print(result.stdout)
+              print(result.stderr)
+          PY
+      - run: git diff --exit-code
