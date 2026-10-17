@@ -5537,8 +5537,8 @@ def _public_alias_route_has_unproven_hop(
                 or name not in stable_bindings_by_module.get(module, frozenset())
             ):
                 return True
-            category = definitions[0]["kind"]
-            if category == "type_alias":
+            category = parse_source_symbol_kind(definitions[0]["kind"])
+            if category is SourceSymbolKind.TYPE_ALIAS:
                 definition_data = definitions[0]["data"]
                 if "alias" not in definition_data:
                     return True
@@ -5547,7 +5547,11 @@ def _public_alias_route_has_unproven_hop(
                 return not (
                     (isinstance(expression, TypeUnion)) or isinstance(expression, TypeApplication)
                 )
-            return category not in {"function", "class", "static_constant"}
+            return category not in {
+                SourceSymbolKind.FUNCTION,
+                SourceSymbolKind.CLASS,
+                SourceSymbolKind.STATIC_CONSTANT,
+            }
         if len(bindings) != 1:
             return True
         binding_data = bindings[0]["data"]

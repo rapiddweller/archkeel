@@ -71,7 +71,9 @@ def test_actual_source_selectors_do_not_dispatch_on_untyped_known_tag_literals()
             if not tags.intersection(literals):
                 continue
             expressions = [ast.unparse(operand) for operand in operands]
-            source_field = any(expression in {"kind", "category", "kinds"} for expression in expressions) or any(
+            source_field = any(
+                expression in {"kind", "category", "kinds"} for expression in expressions
+            ) or any(
                 field in expression
                 for field in (
                     "['kind']",
