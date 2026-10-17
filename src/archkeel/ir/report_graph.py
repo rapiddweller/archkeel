@@ -19,6 +19,11 @@ from archkeel.ir.architecture_graph import (
     ReportFinding,
     ReportSchemaVersion,
 )
+from archkeel.ir.architecture_graph import AssessmentAspect as _AssessmentAspect
+from archkeel.ir.architecture_graph import CompletenessMode as _CompletenessMode
+from archkeel.ir.architecture_graph import EntityKind as _EntityKind
+from archkeel.ir.architecture_graph import PresenceKind as _PresenceKind
+from archkeel.ir.architecture_graph import RelationshipKind as _RelationshipKind
 from archkeel.ir.codec import decode_json, value_bytes
 from archkeel.ir.decisions import open_decisions
 from archkeel.ir.graph_codec import parse_comparison
@@ -114,14 +119,15 @@ def _inventory_comparison_is_bound(
         tuple(
             scope
             for scope in declared.target_scopes
-            if scope.mode == "closed"
-            and set(scope.entity_kinds) & {"attribute", "method", "enum_literal"}
+            if scope.mode == _CompletenessMode.CLOSED
+            and set(scope.entity_kinds)
+            & {_EntityKind.ATTRIBUTE, _EntityKind.METHOD, _EntityKind.ENUM_LITERAL}
         )
         if declared is not None
         else ()
     )
     inventory_pass = model.coverage.status != Verdict.PASS and any(
-        a.aspect == "completeness"
+        a.aspect == _AssessmentAspect.COMPLETENESS
         and a.status == AssessmentStatus.PASS
         and a.id
         == stable_id(
@@ -164,7 +170,7 @@ def _decision_gaps(
     entities = {item.id: item for item in observed.entities}
     sites: dict[tuple[str | None, str | None], list[str]] = {}
     for relationship in observed.relationships:
-        if relationship.kind != "imports" or relationship.target_id is None:
+        if relationship.kind != _RelationshipKind.IMPORTS or relationship.target_id is None:
             continue
         pair = (
             owner_of(entities[relationship.source_id].qualified_name, owners),
@@ -203,7 +209,7 @@ def _memberships(
     modules = {
         item.qualified_name: item.id
         for item in observed.entities
-        if item.kind == "module" and item.presence == "defined"
+        if item.kind == _EntityKind.MODULE and item.presence == _PresenceKind.DEFINED
     }
     assigned: dict[str, set[str]] = {identity: set() for identity in intents}
     owners = component_owners(model)

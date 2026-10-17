@@ -20,6 +20,7 @@ from archkeel.ir.codec import (
 from archkeel.ir.decisions import dependency_binding_id
 from archkeel.ir.digest import package_digest
 from archkeel.ir.facts import RuntimeRequirementState, SourceFacts, dart_module_name
+from archkeel.ir.facts import ResolutionRole as _ResolutionRole
 from archkeel.ir.facts_codec import (
     RawRecord,
     classified,
@@ -677,7 +678,7 @@ def _certify_dependency_scopes(
         or scan.coverage["rules"] != "PASS"
         or facts.coverage.files_read != len(selected)
         or facts.coverage.files_parsed != len(selected)
-        or selected != {item.path for item in facts.inputs if item.role == "selected"}
+        or selected != {item.path for item in facts.inputs if item.role == _ResolutionRole.SELECTED}
         or runtime_diagnostic(facts.runtime) is not None
     ):
         return

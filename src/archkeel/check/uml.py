@@ -11,6 +11,8 @@ from dataclasses import asdict, replace
 from pathlib import Path
 
 from archkeel.ir.architecture_graph import ArchitectureGraph, TargetDefinition
+from archkeel.ir.architecture_graph import EntityKind as _EntityKind
+from archkeel.ir.architecture_graph import RelationshipKind as _RelationshipKind
 from archkeel.ir.codec import (
     InsideContractTree,
     decode_json,
@@ -269,8 +271,10 @@ def _authenticate_rules(tree: InsideContractTree, known: dict[str, Record]) -> N
 
 def _target_definition(graph: ArchitectureGraph) -> TargetDefinition:
     return TargetDefinition(
-        entities=tuple(entity for entity in graph.entities if entity.kind != "component"),
-        relationships=tuple(edge for edge in graph.relationships if edge.kind != "requires"),
+        entities=tuple(entity for entity in graph.entities if entity.kind != _EntityKind.COMPONENT),
+        relationships=tuple(
+            edge for edge in graph.relationships if edge.kind != _RelationshipKind.REQUIRES
+        ),
         scopes=graph.target_scopes,
         schema_version=graph.schema_version,
     )

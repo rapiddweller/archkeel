@@ -25,6 +25,7 @@ from archkeel.ir.facts import (
     SourceSectionName,
     UnresolvedTarget,
 )
+from archkeel.ir.facts import ResolutionRole as _ResolutionRole
 from archkeel.ir.facts_codec import (
     ProtocolError,
     RawEvidence,
@@ -580,7 +581,7 @@ def _unproven_binding_view(item: RawRecord) -> RawRecord:
 def _source_inventory_complete(facts: SourceFacts) -> bool:
     selected = set(facts.coverage.selected_files)
     return bool(selected) and (
-        selected == {item.path for item in facts.inputs if item.role == "selected"}
+        selected == {item.path for item in facts.inputs if item.role == _ResolutionRole.SELECTED}
         and facts.coverage.files_read == facts.coverage.files_parsed == len(selected)
     )
 

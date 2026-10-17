@@ -26,6 +26,9 @@ from .facts import (
     parse_method_kind,
     property_binding,
 )
+from .facts import MemberKind as _MemberKind
+from .facts import ResolutionRole as _ResolutionRole
+from .facts import SourceSectionName as _SourceSectionName
 from .state_facts import ArgumentPass, AttributeAccess
 
 _REQUIRED = {
@@ -338,7 +341,7 @@ def _base_declarations(record: Record, section: str) -> None:
 def _member_inventory_bindings(records: list[Record]) -> None:
     for owner in records:
         for inventory in member_inventories(owner.data.get("member_inventories")):
-            if inventory.kind == "method":
+            if inventory.kind == _MemberKind.METHOD:
                 actual = {
                     item.id
                     for item in records
@@ -486,7 +489,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
     ):
         raise ValueError("complete collection contradicts coverage gaps or counts")
     inputs = _unique((item.path for item in facts.inputs), "resolution input")
-    selected_inputs = {item.path for item in facts.inputs if item.role == "selected"}
+    selected_inputs = {item.path for item in facts.inputs if item.role == _ResolutionRole.SELECTED}
     if not selected_inputs.issubset(selected):
         raise ValueError("selected input is outside selected coverage")
     file_ids = _unique((item.id for item in facts.files), "file id")
@@ -560,7 +563,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
     imports = {
         record.id
         for section in facts.sections
-        if section.name == "imports"
+        if section.name == _SourceSectionName.IMPORTS
         for record in section.records
     }
     target_ids = _unique((target.import_id for target in facts.imports), "import target")
@@ -571,7 +574,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
         (
             record
             for section in facts.sections
-            if section.name != "unknowns"
+            if section.name != _SourceSectionName.UNKNOWNS
             for record in section.records
         ),
         {item.module: item.rel_path for item in facts.files},

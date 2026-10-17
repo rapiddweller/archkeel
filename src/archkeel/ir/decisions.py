@@ -22,6 +22,7 @@ from .baseline import violation_rows
 from .bindings import unread_bindings
 from .codec_contract import parse_dependency_selector
 from .duplication import repeated_logic
+from .facts import RuntimeRequirementState as _RuntimeRequirementState
 from .facts_validation import validate_source_bindings
 from .interfaces import component_owners, owner_of
 from .measurements import RatchetError
@@ -846,7 +847,7 @@ def _native_scope_runtime_valid(runtime: RuntimeInfo) -> bool:
     """Replay only a simple numeric Python lower bound already validated by Core."""
     if (
         runtime.name != "python"
-        or runtime.requirement_state != "declared"
+        or runtime.requirement_state != _RuntimeRequirementState.DECLARED
         or runtime.required is None
         or re.fullmatch(r">=[0-9]+\.[0-9]+(?:\.[0-9]+)?", runtime.required) is None
         or re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", runtime.version) is None

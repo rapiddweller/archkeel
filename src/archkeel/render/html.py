@@ -19,6 +19,9 @@ from archkeel.ir.architecture_graph import (
     RuleAssessment,
     RuleAssessmentStatus,
 )
+from archkeel.ir.architecture_graph import CoverageStatus as _CoverageStatus
+from archkeel.ir.architecture_graph import EntityKind as _EntityKind
+from archkeel.ir.architecture_graph import PresenceKind as _PresenceKind
 from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.bindings import BindingReads, unread_bindings
 from archkeel.ir.codec import decode_canonical_model, parse_observation
@@ -362,7 +365,13 @@ def _violation_group(
 def _rule_assessments(items: tuple[RuleAssessment, ...] | None) -> str:
     if items is None:
         return ""
-    ranked = sorted(items, key=lambda item: (item.status != "FAIL", item.status != "UNKNOWN"))
+    ranked = sorted(
+        items,
+        key=lambda item: (
+            item.status != RuleAssessmentStatus.FAIL,
+            item.status != RuleAssessmentStatus.UNKNOWN,
+        ),
+    )
     rows = "".join(_rule_assessment_row(item) for item in ranked)
     return f"""
     <section class="report-section" aria-labelledby="rule-assessments-heading">
@@ -932,7 +941,7 @@ def _component_navigation(
         and all(
             module.symbols is not None
             and module.symbol_coverage
-            and all(entry.status == "complete" for entry in module.symbol_coverage)
+            and all(entry.status == _CoverageStatus.COMPLETE for entry in module.symbol_coverage)
             for module in levels[0].modules
         ),
         "target_module_ids": target_modules,
@@ -956,7 +965,7 @@ def render_architecture_details(
         raise ValueError("Atlas requires its matching authenticated Core projection")
     report = architecture_report(observation)
     target_modules = (
-        tuple(item.id for item in report.target.entities if item.kind == "module")
+        tuple(item.id for item in report.target.entities if item.kind == _EntityKind.MODULE)
         if report.target
         else ()
     )
@@ -971,7 +980,7 @@ def render_architecture_details(
         tuple(
             item.id
             for item in (report.observed.entities if report.observed else ())
-            if item.kind == "module" and item.presence == "defined"
+            if item.kind == _EntityKind.MODULE and item.presence == _PresenceKind.DEFINED
         ),
         target_modules,
         repository=repository,

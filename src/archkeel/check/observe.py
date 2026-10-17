@@ -18,6 +18,7 @@ from archkeel.ir.codec import (
     load_inside_contract_tree as _load_inside_contract_tree,
 )
 from archkeel.ir.facts import SOURCE_RESOLUTION_GAP_KIND, SourceFacts, UnresolvedTarget
+from archkeel.ir.facts import ResolutionRole as _ResolutionRole
 from archkeel.ir.model import (
     ArchitectureContract as _ArchitectureContract,
 )
@@ -211,7 +212,7 @@ def _partial_uml_source_is_eligible(
 ) -> bool:
     gaps = facts.coverage.gaps
     selected = set(facts.coverage.selected_files)
-    selected_inputs = {item.path for item in facts.inputs if item.role == "selected"}
+    selected_inputs = {item.path for item in facts.inputs if item.role == _ResolutionRole.SELECTED}
     if (
         not gaps
         or facts.coverage.full_scope

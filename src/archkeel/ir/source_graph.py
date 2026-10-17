@@ -44,6 +44,7 @@ from archkeel.ir.facts import (
     member_inventories,
     parse_method_kind,
 )
+from archkeel.ir.facts import RuntimeRequirementState as _RuntimeRequirementState
 from archkeel.ir.model import (
     TARGET_GRAPH_RECORD_KINDS,
     EvidenceClass,
@@ -113,7 +114,7 @@ def _inventory_selected_inputs(model: Observation, inputs: tuple[RecordData, ...
         runtime is None
         or runtime.name != "python"
         or runtime.required != ">=3.11"
-        or runtime.requirement_state != "declared"
+        or runtime.requirement_state != _RuntimeRequirementState.DECLARED
         or re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version) is None
         or tuple(int(v) for v in version.split(".")) < (3, 11, 0)
     ):
@@ -278,7 +279,7 @@ def _inventory_owners(model: Observation, selected: set[str]) -> tuple[str, ...]
             and module in libraries
             and not libraries[module] & gaps
             and any(
-                inv.status == "complete"
+                inv.status == InventoryStatus.COMPLETE
                 for inv in member_inventories(item.data.get("member_inventories"))
             )
         )
@@ -1205,7 +1206,7 @@ def _coverage(observation: Observation, entities: list[Entity]) -> tuple[Coverag
                     else "source observation is incomplete",
                 )
             )
-        if entity.kind != EntityKind.MODULE or entity.presence != "defined":
+        if entity.kind != EntityKind.MODULE or entity.presence != PresenceKind.DEFINED:
             continue
         for section, entity_kinds, relationships in sections:
             available = (
