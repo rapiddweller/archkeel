@@ -1115,10 +1115,229 @@
                 "default_known": true
               }
             ],
-            "returns": "list[str] | None"
+            "returns": "list[TypeShape] | None"
           },
           "responsibilities": [
             "Select collection parameters from carried type syntax while retaining existing name and binding policy."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collection-type-shapes.md"
+          ],
+          "id": "UNION-SHAPE-PARAMETERS",
+          "kind": "function",
+          "qualified_name": "archkeel.check.evaluation.boundary_types._union_parameters",
+          "parent_id": "BOUNDARY-REASON-MODULE",
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "annotation",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "module",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "imports_by_binding",
+                "annotation": "BindingIndex",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "type_shapes",
+                "annotation": "TypeShapeIndex",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "list[TypeShape] | None"
+          },
+          "responsibilities": [
+            "Retain typed union children and the explicit None child of proven Optional syntax."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collection-type-shapes.md"
+          ],
+          "id": "UNION-SHAPE-VERDICT",
+          "kind": "function",
+          "qualified_name": "archkeel.check.evaluation.boundary_types._union_annotation_verdict",
+          "parent_id": "BOUNDARY-REASON-MODULE",
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "annotation",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "parameters",
+                "annotation": "list[TypeShape]",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "module",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "contract",
+                "annotation": "ArchitectureContract",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "exports",
+                "annotation": "dict[str, frozenset[str]]",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "imports",
+                "annotation": "BindingIndex",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "classes",
+                "annotation": "BindingIndex",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "visited",
+                "annotation": "frozenset[tuple[str, str]]",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "enter_fields",
+                "annotation": "bool",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "aliases_seen",
+                "annotation": "frozenset[tuple[str, str]]",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "type_shapes",
+                "annotation": "TypeShapeIndex",
+                "kind": "positional",
+                "default_known": true
+              }
+            ],
+            "returns": "_Position"
+          },
+          "responsibilities": [
+            "Evaluate union children without reinterpreting literal None through name text."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collection-type-shapes.md"
+          ],
+          "id": "UNION-SHAPE-COMBINE",
+          "kind": "function",
+          "qualified_name": "archkeel.check.evaluation.boundary_types._combined_annotation_verdict",
+          "parent_id": "BOUNDARY-REASON-MODULE",
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "parameters",
+                "annotation": "Sequence[TypeShape]",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "module",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "contract",
+                "annotation": "ArchitectureContract",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "exports_by_module",
+                "annotation": "dict[str, frozenset[str]]",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "imports_by_binding",
+                "annotation": "BindingIndex",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "classes_by_location",
+                "annotation": "BindingIndex",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "type_shapes",
+                "annotation": "TypeShapeIndex",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "visited",
+                "annotation": "frozenset[tuple[str, str]]",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "enter_fields",
+                "annotation": "bool",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "_aliases_seen",
+                "annotation": "frozenset[tuple[str, str]]",
+                "kind": "keyword_only",
+                "default_known": false
+              }
+            ],
+            "returns": "_Position"
+          },
+          "responsibilities": [
+            "Combine actual child syntax while retaining unknown evidence and literal provenance."
           ]
         }
       ],
