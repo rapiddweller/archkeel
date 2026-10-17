@@ -14,25 +14,40 @@
         "archkeel.render.html"
       ],
       "responsibilities": [
-        "Compose portable HTML from the standard architecture report and unchanged Core evidence."
+        "Compose offline HTML from authenticated results, Atlas payload and shared summaries."
       ],
       "forbidden_responsibilities": [
-        "Architecture policy, source parsing and persistence."
+        "Architecture policy, source parsing and persistence.",
+        "Rule evaluation and scene/layout policy duplicated in Python composition."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+        "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "requires": [
         {
           "component": "summary",
           "rationale": "Use the shared explanation of Core verdicts.",
-          "decided_by": "agent"
+          "decided_by": "agent",
+          "through": [
+            "archkeel.render.summary:Comparison",
+            "archkeel.render.summary:VerdictRow",
+            "archkeel.render.summary:check_summary",
+            "archkeel.render.summary:report_summary",
+            "archkeel.render.summary:report_violates_rules",
+            "archkeel.render.summary_badges:BadgeState",
+            "archkeel.render.summary_badges:badge"
+          ]
         },
         {
           "component": "atlas-payload",
           "rationale": "Compose HTML from the Atlas payload prepared from authenticated Core values.",
-          "decided_by": "agent"
+          "decided_by": "agent",
+          "through": [
+            "archkeel.render.atlas:atlas_payload",
+            "archkeel.render.atlas:boundary_permissions_payload"
+          ]
         }
       ],
       "packages": []
@@ -50,18 +65,19 @@
         "archkeel.render.atlas:boundary_permissions_payload"
       ],
       "responsibilities": [
-        "Build the compact Atlas payload from authenticated Core report, projection and result values.",
-        "Own deterministic recorded Atlas deviations, their immutable value and wire emission."
+        "Project authenticated report evidence into browser scene inputs."
       ],
       "forbidden_responsibilities": [
-        "Compose HTML, format terminal output or change Core verdicts."
+        "Compose HTML, format terminal output or change Core verdicts.",
+        "Depending on HTML composition and changing evidence or permissions."
       ],
       "provenance": [
         "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md",
         "docs/architecture/render-target.md",
         "docs/architecture/decisions/ad-213-renderer-responsibility-boundaries.md",
         "docs/architecture/decisions/ad-219-atlas-boundary-permissions.md",
-        "docs/superpowers/specs/2026-10-16-atlas-deviation-boundary.md"
+        "docs/superpowers/specs/2026-10-16-atlas-deviation-boundary.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "requires": [],
@@ -82,15 +98,16 @@
         "archkeel.render.summary_badges:badge"
       ],
       "responsibilities": [
-        "Explain Core results consistently for HTML and terminal output.",
-        "Own the nominal display Badge and project Core verdicts without redefining their domains."
+        "Explain recorded verdicts and measurements through reusable typed summaries and badges."
       ],
       "forbidden_responsibilities": [
-        "Architecture policy, source parsing and persistence."
+        "Architecture policy, source parsing and persistence.",
+        "Rendering HTML and independently deciding architecture verdicts."
       ],
       "provenance": [
         "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md",
-        "docs/architecture/summary-badges.md"
+        "docs/architecture/summary-badges.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "requires": [],
@@ -107,20 +124,28 @@
         "archkeel.render.terminal"
       ],
       "responsibilities": [
-        "Format the shared summary for terminal readers."
+        "Format shared typed summaries for terminal users."
       ],
       "forbidden_responsibilities": [
-        "Architecture policy, source parsing and persistence."
+        "Architecture policy, source parsing and persistence.",
+        "Duplicating summary derivation or evaluating rules."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md"
+        "docs/architecture/decisions/ad-179-reports-render-one-graph-boundary.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "requires": [
         {
           "component": "summary",
           "rationale": "Terminal formatting consumes the shared result explanation.",
-          "decided_by": "agent"
+          "decided_by": "agent",
+          "through": [
+            "archkeel.render.summary:Summary",
+            "archkeel.render.summary_badges:Badge",
+            "archkeel.render.summary_badges:BadgeState",
+            "archkeel.render.summary_badges:badge"
+          ]
         }
       ],
       "packages": []

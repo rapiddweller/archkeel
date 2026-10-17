@@ -278,8 +278,8 @@ def test_incoherent_boundary_type_limit_never_passes(
 
     config = ScanConfig((".",), "sample", "architecture-contract.json", "d" * 64)
     with (
-        patch("archkeel.check.report.resolve_commit", return_value="a" * 40),
-        patch("archkeel.check.report.git_bytes", return_value=b""),
+        patch("archkeel.check.uml.resolve_commit", return_value="a" * 40),
+        patch("archkeel.check.uml.git_bytes", return_value=b""),
     ):
         if command == "report":
             result, _ = run_report(tmp_path, config=config, analyzer=analyzer)
@@ -304,8 +304,8 @@ def test_external_type_only_aggregate_stays_neutral(command: str, tmp_path: Path
         return observed
 
     with (
-        patch("archkeel.check.report.resolve_commit", return_value="a" * 40),
-        patch("archkeel.check.report.git_bytes", return_value=b""),
+        patch("archkeel.check.uml.resolve_commit", return_value="a" * 40),
+        patch("archkeel.check.uml.git_bytes", return_value=b""),
     ):
         if command == "report":
             result, _ = run_report(
@@ -403,8 +403,8 @@ def test_report_command_keeps_exit_code_and_diagnostics_when_coverage_is_unknown
         return ObservationResult(model, model.coverage, ())
 
     with (
-        patch("archkeel.check.report.resolve_commit", return_value="a" * 40),
-        patch("archkeel.check.report.git_bytes", return_value=b""),
+        patch("archkeel.check.uml.resolve_commit", return_value="a" * 40),
+        patch("archkeel.check.uml.git_bytes", return_value=b""),
     ):
         result, _architecture = run_report(
             tmp_path,

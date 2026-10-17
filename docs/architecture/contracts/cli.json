@@ -19,13 +19,15 @@
         "archkeel.cli.arguments:skill_action"
       ],
       "responsibilities": [
-        "Decode closed CLI arguments into the declared Namespace fields and preserve argument wire behavior."
+        "Decode command, configuration and installation input into owned types."
       ],
       "forbidden_responsibilities": [
-        "Executing workflows, scanning source or writing installed instructions."
+        "Executing workflows, scanning source or writing installed instructions.",
+        "Executing workflows and acquiring source facts."
       ],
       "provenance": [
-        "docs/architecture/cli-input-types.md"
+        "docs/architecture/cli-input-types.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "architect",
       "requires": [
@@ -51,13 +53,15 @@
         "archkeel.cli.skill:install_skill"
       ],
       "responsibilities": [
-        "Install the canonical agent instructions and parse only the owned legacy managed-section protocol."
+        "Install explicitly requested packaged skills and resources."
       ],
       "forbidden_responsibilities": [
-        "Deciding Core rule verdicts, owning command grammar or reconstructing source evidence."
+        "Deciding Core rule verdicts, owning command grammar or reconstructing source evidence.",
+        "Evaluating repository policy and selecting command outcomes."
       ],
       "provenance": [
-        "docs/architecture/cli-input-types.md"
+        "docs/architecture/cli-input-types.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "architect",
       "exact_modules": [
@@ -71,19 +75,33 @@
       "role": "component",
       "public": [],
       "responsibilities": [
-        "Compose typed argument input, configuration, observation, Core workflows and rendered output."
+        "Inject collector and host adapters, invoke workflows and publish rendered results."
       ],
       "forbidden_responsibilities": [
-        "Redefining shared language identity or reconstructing closed protocol states from literal strings."
+        "Redefining shared language identity or reconstructing closed protocol states from literal strings.",
+        "Reimplementing collectors, validators or rule evaluators."
       ],
       "provenance": [
-        "docs/architecture/cli-input-types.md"
+        "docs/architecture/cli-input-types.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "architect",
       "requires": [
         {
           "component": "arguments",
-          "rationale": "Consume the declared typed Namespace and argument decoders."
+          "rationale": "Consume the declared typed Namespace and argument decoders.",
+          "through": [
+            "archkeel.cli.arguments:CLIArguments",
+            "archkeel.cli.arguments:Command",
+            "archkeel.cli.arguments:ReportMode",
+            "archkeel.cli.arguments:SkillAction",
+            "archkeel.cli.arguments:ConfigurationSource",
+            "archkeel.cli.arguments:configuration_source",
+            "archkeel.cli.arguments:report_mode",
+            "archkeel.cli.arguments:source_language",
+            "archkeel.cli.arguments:installation_agent",
+            "archkeel.cli.arguments:skill_action"
+          ]
         },
         {
           "component": "installer",
@@ -546,6 +564,34 @@
         "docs/architecture/cli-input-types.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "CLI-ASSIGNMENT",
+      "kind": "complete_assignment",
+      "rationale": "Every CLI module belongs to argument decoding, installation or composition.",
+      "provenance": [
+        "docs/architecture/target/design.md"
+      ],
+      "decided_by": "agent",
+      "source": "archkeel.cli"
+    },
+    {
+      "id": "CLI-REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "CLI owners may cross only the dependencies they explicitly request.",
+      "provenance": [
+        "docs/architecture/target/design.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "CLI-NO-CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Input decoding and installation must remain below CLI composition.",
+      "provenance": [
+        "docs/architecture/target/design.md"
+      ],
+      "decided_by": "agent"
     }
   ]
 }

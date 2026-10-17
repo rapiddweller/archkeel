@@ -15,22 +15,26 @@
         {
           "component": "ir",
           "through": [
-            "archkeel.ir.baseline",
-            "archkeel.ir.codec",
-            "archkeel.ir.model"
+            "archkeel.ir.baseline:ViolationFingerprint",
+            "archkeel.ir.baseline:ViolationRow",
+            "archkeel.ir.baseline:violation_rows",
+            "archkeel.ir.codec:decode_canonical_model",
+            "archkeel.ir.codec:decode_json",
+            "archkeel.ir.codec:parse_observation"
           ],
           "rationale": "Read one architecture.json report from disk and hand its bytes to ir's codec and baseline derivations; api decodes nothing itself."
         }
       ],
       "responsibilities": [
-        "The declared external contract: the named surface a consumer outside this repository may import, and the one place that reads its bytes.",
-        "Quality goal: stable across every internal refactor of ir."
+        "Read saved reports through the stable external Python API."
       ],
       "forbidden_responsibilities": [
-        "Decoding IR bytes into typed values, which ir.codec still owns."
+        "Decoding IR bytes into typed values, which ir.codec still owns.",
+        "Rule evaluation and duplicate IR decoding."
       ],
       "provenance": [
-        "docs/architecture/archkeel.md"
+        "docs/architecture/archkeel.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "architect",
       "public": [],
@@ -167,13 +171,15 @@
         "archkeel.ir.architecture_projection:PermissionStatus"
       ],
       "responsibilities": [
-        "Own immutable source facts, protocol values, governance models and pure derivations."
+        "Own typed values, strict codecs and pure evidence derivations."
       ],
       "forbidden_responsibilities": [
-        "Source parsing, process or filesystem I/O, and workflow orchestration."
+        "Source parsing, process or filesystem I/O, and workflow orchestration.",
+        "Repository, process or network I/O except the checker-source identity boundary."
       ],
       "provenance": [
-        "docs/architecture/archkeel.md"
+        "docs/architecture/archkeel.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "architect",
       "inside": "docs/architecture/contracts/ir.json",
@@ -214,13 +220,15 @@
         "archkeel.check.observation:analyze_source_snapshot"
       ],
       "responsibilities": [
-        "Own source-fact validation, observation assembly, architecture rule evaluation and report/check workflows."
+        "Authenticate inputs, assemble observations and apply declared architecture rules."
       ],
       "forbidden_responsibilities": [
-        "Source parsing, process execution, or importing language adapters."
+        "Source parsing, process execution, or importing language adapters.",
+        "Rendering and selecting concrete language or forge adapters."
       ],
       "provenance": [
-        "docs/architecture/archkeel.md"
+        "docs/architecture/archkeel.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "architect",
       "layer": "Core"
@@ -261,11 +269,14 @@
         }
       ],
       "responsibilities": [
-        "Command arguments and configuration; compose the process collector with Core workflows."
+        "Decode arguments and configuration, inject adapters and publish returned files."
       ],
-      "forbidden_responsibilities": [],
+      "forbidden_responsibilities": [
+        "Source parsing, rule evaluation and duplicated command workflows."
+      ],
       "provenance": [
-        "docs/architecture/archkeel.md"
+        "docs/architecture/archkeel.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "architect",
       "public": [],
@@ -291,12 +302,14 @@
         "archkeel.host.gitlab"
       ],
       "responsibilities": [
-        "GitLab host records with SHA, event and timestamp.",
-        "Quality goal: replaceable."
+        "Acquire forge records with explicit authentication and ordering evidence."
       ],
-      "forbidden_responsibilities": [],
+      "forbidden_responsibilities": [
+        "Architecture verdicts and acceptance policy."
+      ],
       "provenance": [
-        "docs/architecture/archkeel.md"
+        "docs/architecture/archkeel.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "architect",
       "layer": "Adapters"
@@ -331,13 +344,15 @@
         "archkeel.analyzer.process:ProcessCollector"
       ],
       "responsibilities": [
-        "Run the configured source collector process and keep language parsing and fact collection behind isolated adapters."
+        "Collect source-only facts through bounded, replaceable language processes."
       ],
       "forbidden_responsibilities": [
-        "Rule evaluation, baselines, ownership, verdicts, and importing sibling language adapters."
+        "Rule evaluation, baselines, ownership, verdicts, and importing sibling language adapters.",
+        "Reading architecture policy or executing the analyzed project."
       ],
       "provenance": [
-        "docs/architecture/archkeel.md"
+        "docs/architecture/archkeel.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "architect",
       "layer": "Adapters"
@@ -369,16 +384,15 @@
         "archkeel.render.summary_badges:BadgeState"
       ],
       "responsibilities": [
-        "Deterministic HTML and terminal projections of typed Archkeel evidence.",
-        "Project As-Is and Target into one render scene and draw their UML notation with one renderer.",
-        "Quality goal: replaceable.",
-        "Publish the shared graph without reconstructing architecture intent from redundant records."
+        "Explain authenticated results through HTML, terminal output and offline scenes."
       ],
       "forbidden_responsibilities": [
-        "Architecture decisions and persistence."
+        "Architecture decisions and persistence.",
+        "Re-evaluating rules or treating display filters as evidence."
       ],
       "provenance": [
-        "docs/architecture/archkeel.md"
+        "docs/architecture/archkeel.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "architect",
       "inside": "docs/architecture/contracts/render.json",

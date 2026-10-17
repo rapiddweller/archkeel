@@ -74,15 +74,25 @@ from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.report_projection import architecture_projection
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 
-from .git import git_bytes
+# Retain the published report bindings while their implementation lives below commands.
+from .git import git_bytes as git_bytes
 from .observe import observation_diagnostics
 from .ports import Analyzer, ScanConfig
 from .ratchets import call_rows, calls_measured, unknown_positions_by_rule
 from .run import inspect_observation
 from .runtime import runtime_diagnostic
-from .snapshot import resolve_commit
-from .uml import _revoke_dependency_proofs, _validated_member_inventory_result, assemble_uml
-from .uml_evaluation import evaluate_uml
+from .snapshot import resolve_commit as resolve_commit
+from .uml import assemble_uml as assemble_uml
+from .uml import (
+    observe_repository as _observe_repository,
+)
+from .uml import (
+    revoke_dependency_proofs as _revoke_dependency_proofs,
+)
+from .uml import (
+    validated_member_inventory_result as _validated_member_inventory_result,
+)
+from .uml_evaluation import evaluate_uml as evaluate_uml
 
 VIOLATION_REMEDY = "Change the code or amend the contract with owner approval."
 
@@ -228,18 +238,8 @@ def render_result(result: RunResult) -> bytes:
 def observe_repository(
     root: Path, config: ScanConfig, analyzer: Analyzer, *, contract_root: Path | None = None
 ) -> ObservationResult:
-    """Observe the configured working tree through an injected analyzer."""
-    result = analyzer(
-        root,
-        roots=config.roots,
-        namespace=config.namespace,
-        contract=config.contract,
-        git_head=resolve_commit(root, "HEAD"),
-        dirty=bool(git_bytes(root, "status", "--porcelain", "--untracked-files=all")),
-        contract_root=contract_root or root,
-        language=config.language,
-    )
-    return evaluate_uml(assemble_uml(result, contract_root or root, config.contract))
+    """Retain the published facade signature while observation lives below commands."""
+    return _observe_repository(root, config, analyzer, contract_root=contract_root)
 
 
 def _selected_violations(

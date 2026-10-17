@@ -8,14 +8,15 @@
       "role": "component",
       "packages": [],
       "responsibilities": [
-        "Execute the configured collector, validate its protocol response, and record runtime provenance.",
-        "Own direct collector-start classification without invoking language callbacks."
+        "Bound collector execution, validate protocol responses and clean up child processes."
       ],
       "forbidden_responsibilities": [
-        "Parsing sources, importing language collectors, or deciding architecture policy."
+        "Parsing sources, importing language collectors, or deciding architecture policy.",
+        "Language parsing and architecture policy."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "exact_modules": [
@@ -41,13 +42,15 @@
         "archkeel.analyzer.python"
       ],
       "responsibilities": [
-        "Own Python parsing, resolution and source-fact collection."
+        "Derive Python facts from AST, lexical bindings and source evidence."
       ],
       "forbidden_responsibilities": [
-        "Governance policy and sibling adapter imports."
+        "Governance policy and sibling adapter imports.",
+        "Dart/TypeScript semantics and architecture verdicts."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "inside": "docs/architecture/contracts/python.json",
@@ -56,7 +59,12 @@
       "requires": [
         {
           "component": "process",
-          "rationale": "Use the shared runtime-provenance reader without importing the sibling language adapter."
+          "rationale": "Use the shared runtime-provenance reader without importing the sibling language adapter.",
+          "through": [
+            "archkeel.analyzer.bootstrap:is_direct_entrypoint",
+            "archkeel.analyzer.runtime:collector_provenance",
+            "archkeel.analyzer.runtime:python_requirement"
+          ]
         }
       ]
     },
@@ -68,13 +76,15 @@
         "archkeel.analyzer.dart"
       ],
       "responsibilities": [
-        "Collect bounded Dart syntax and source-level relationships entirely in Python, without a Dart SDK."
+        "Derive Dart facts through snapshot-bound syntax and resolution."
       ],
       "forbidden_responsibilities": [
-        "Unsupported full-Dart claims, governance policy and sibling adapter imports."
+        "Unsupported full-Dart claims, governance policy and sibling adapter imports.",
+        "Python/TypeScript semantics and architecture verdicts."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "inside": "docs/architecture/contracts/dart.json",
@@ -83,7 +93,12 @@
       "requires": [
         {
           "component": "process",
-          "rationale": "Use the shared runtime-provenance reader without importing the sibling language adapter."
+          "rationale": "Use the shared runtime-provenance reader without importing the sibling language adapter.",
+          "through": [
+            "archkeel.analyzer.bootstrap:is_direct_entrypoint",
+            "archkeel.analyzer.runtime:collector_provenance",
+            "archkeel.analyzer.runtime:python_requirement"
+          ]
         }
       ]
     },
@@ -95,13 +110,15 @@
         "archkeel.analyzer.typescript"
       ],
       "responsibilities": [
-        "Own TypeScript syntax parsing, module resolution and bounded source-fact collection."
+        "Derive TypeScript facts from immutable inputs and compiler configuration."
       ],
       "forbidden_responsibilities": [
-        "Type-checker semantics, governance policy and sibling adapter imports."
+        "Type-checker semantics, governance policy and sibling adapter imports.",
+        "Python/Dart semantics and architecture verdicts."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "inside": "docs/architecture/contracts/typescript.json",
@@ -110,7 +127,12 @@
       "requires": [
         {
           "component": "process",
-          "rationale": "Use the shared runtime-provenance reader without importing the sibling language adapter."
+          "rationale": "Use the shared runtime-provenance reader without importing the sibling language adapter.",
+          "through": [
+            "archkeel.analyzer.bootstrap:is_direct_entrypoint",
+            "archkeel.analyzer.runtime:collector_provenance",
+            "archkeel.analyzer.runtime:python_requirement"
+          ]
         }
       ]
     }

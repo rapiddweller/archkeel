@@ -11,13 +11,15 @@
         "archkeel.analyzer.typescript.collect"
       ],
       "responsibilities": [
-        "Serve the protocol and walk the selected files and the local files their imports reach."
+        "Assemble TypeScript facts from source, configuration and resolution evidence."
       ],
       "forbidden_responsibilities": [
-        "Architecture policy, tree-sitter nodes and filesystem reads outside the snapshot."
+        "Architecture policy, tree-sitter nodes and filesystem reads outside the snapshot.",
+        "Duplicated parsing and architecture policy."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "exact_modules": [
@@ -56,13 +58,15 @@
         "archkeel.analyzer.typescript.syntax"
       ],
       "responsibilities": [
-        "Own tree-sitter parsing and lexical TypeScript syntax facts; do not select files or resolve imports."
+        "Parse TypeScript declarations and sites into the immutable syntax model."
       ],
       "forbidden_responsibilities": [
-        "Claiming type-checker semantics, resolving what the compiler would not prove, or evaluating architecture policy."
+        "Claiming type-checker semantics, resolving what the compiler would not prove, or evaluating architecture policy.",
+        "Reading project configuration and deciding architecture permissions."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "public": [
@@ -102,10 +106,11 @@
         "archkeel.analyzer.typescript.config"
       ],
       "responsibilities": [
-        "Own TSConfig reading, snapshot containment, file selection and conversion into typed compiler options and path grammar."
+        "Decode and resolve compiler settings against authenticated project inputs."
       ],
       "forbidden_responsibilities": [
-        "Resolve imports, interpret source declarations or evaluate architecture policy."
+        "Resolve imports, interpret source declarations or evaluate architecture policy.",
+        "Parsing source declarations and inventing missing configuration evidence."
       ],
       "public": [
         "archkeel.analyzer.typescript.config:Config",
@@ -122,7 +127,8 @@
         "archkeel.analyzer.typescript.config:has_field"
       ],
       "provenance": [
-        "docs/architecture/typescript-control-types.md"
+        "docs/architecture/typescript-control-types.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "architect",
       "requires": [
@@ -141,10 +147,11 @@
         "archkeel.analyzer.typescript.resolve"
       ],
       "responsibilities": [
-        "Own bounded import resolution, package protocol decoding, source-kind passes and loading format."
+        "Resolve TypeScript names and module targets using configuration and input identities."
       ],
       "forbidden_responsibilities": [
-        "Read TSConfig independently, parse TypeScript or evaluate architecture policy."
+        "Read TSConfig independently, parse TypeScript or evaluate architecture policy.",
+        "Modifying source and inferring certainty from unproven targets."
       ],
       "public": [
         "archkeel.analyzer.typescript.resolve:Found",
@@ -164,7 +171,8 @@
         }
       ],
       "provenance": [
-        "docs/architecture/typescript-control-types.md"
+        "docs/architecture/typescript-control-types.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "architect"
     },
@@ -176,13 +184,15 @@
         "archkeel.analyzer.typescript.source_input"
       ],
       "responsibilities": [
-        "Own filename/suffix and module-specifier input classification and shared source/format vocabulary, without filesystem or resolution authority."
+        "Own source paths, file formats and specifier classification at input boundaries."
       ],
       "forbidden_responsibilities": [
-        "Reading files, parsing source ASTs, interpreting compiler options or resolving package manifests."
+        "Reading files, parsing source ASTs, interpreting compiler options or resolving package manifests.",
+        "Type interpretation and architecture verdicts."
       ],
       "provenance": [
-        "docs/architecture/typescript-source-input.md"
+        "docs/architecture/typescript-source-input.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "architect",
       "public": [

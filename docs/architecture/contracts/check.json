@@ -1,6 +1,6 @@
 {
-  "$schema": "../../../schema/architecture-contract.schema.json",
-  "schema_version": "2.2.0",
+  "$schema": "../../../schema/architecture-contract-3.4.schema.json",
+  "schema_version": "3.4.0",
   "components": [
     {
       "id": "TARGET-WORKFLOWS",
@@ -10,18 +10,18 @@
         "archkeel.check.onboarding",
         "archkeel.check.run",
         "archkeel.check.report",
-        "archkeel.check.validation",
-        "archkeel.check.uml"
+        "archkeel.check.validation"
       ],
       "responsibilities": [
-        "Select immutable inputs, invoke the port and publish the result.",
-        "Authenticate independent UML contract inputs before publishing the graph."
+        "Coordinate report, check, validation and onboarding; return typed results and requested files."
       ],
       "forbidden_responsibilities": [
-        "Parsing and duplicate policy thresholds."
+        "Parsing and duplicate policy thresholds.",
+        "Shared operations hidden in command peers and duplicated rule evaluation."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "requires": [
@@ -65,16 +65,19 @@
       "role": "component",
       "packages": [
         "archkeel.check.observation",
-        "archkeel.check.observe"
+        "archkeel.check.observe",
+        "archkeel.check.uml"
       ],
       "responsibilities": [
-        "Combine source facts and contract into canonical evidence."
+        "Assemble authenticated source and UML observations once through injected collection and evaluation ports."
       ],
       "forbidden_responsibilities": [
-        "Process or source-file I/O."
+        "Process or source-file I/O.",
+        "Concrete collector selection and permissions inferred from observed imports."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "requires": [
@@ -91,13 +94,23 @@
         {
           "component": "evaluation",
           "rationale": "Apply Core-owned rules to validated source facts.",
-          "decided_by": "agent"
+          "decided_by": "agent",
+          "through": [
+            "archkeel.check.evaluation.evaluate:ScanResult",
+            "archkeel.check.evaluation.evaluate:evaluate_source",
+            "archkeel.check.evaluation.rules:public_api_exposed_types",
+            "archkeel.check.uml_evaluation:evaluate_uml"
+          ]
         }
       ],
       "public": [
         "archkeel.check.observe:Observer",
         "archkeel.check.observation:analyze_source_snapshot",
-        "archkeel.check.observe:observation_diagnostics"
+        "archkeel.check.observe:observation_diagnostics",
+        "archkeel.check.uml:assemble_uml",
+        "archkeel.check.uml:observe_repository",
+        "archkeel.check.uml:revoke_dependency_proofs",
+        "archkeel.check.uml:validated_member_inventory_result"
       ]
     },
     {
@@ -108,22 +121,18 @@
         "archkeel.check.declarations"
       ],
       "responsibilities": [
-        "Load and project root and inside architecture contracts."
+        "Load, authenticate and project root, nested and UML contract intent."
       ],
       "forbidden_responsibilities": [
-        "Source parsing and rule evaluation."
+        "Source parsing and rule evaluation.",
+        "Source collection and dependence on the rule evaluator."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
-      "requires": [
-        {
-          "component": "evaluation",
-          "rationale": "Use the evaluator’s public API type derivation when projecting declarations.",
-          "decided_by": "agent"
-        }
-      ],
+      "requires": [],
       "public": [
         "archkeel.check.declarations:ContractError",
         "archkeel.check.declarations:load_contract",
@@ -142,13 +151,15 @@
         "archkeel.check.uml_evaluation"
       ],
       "responsibilities": [
-        "Own architecture rules and evidence sufficiency in Core."
+        "Apply declared rules and exact allowances, producing PASS, FAIL or UNKNOWN with evidence."
       ],
       "forbidden_responsibilities": [
-        "Source parsing, process execution and baseline persistence."
+        "Source parsing, process execution and baseline persistence.",
+        "Acquiring repository inputs and presenting command output."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "public": [
@@ -168,13 +179,15 @@
         "archkeel.check.ratchets"
       ],
       "responsibilities": [
-        "Compare recorded observations, expectations and ratchets."
+        "Compare accepted and candidate evidence after checking identities and comparability."
       ],
       "forbidden_responsibilities": [
-        "Parsing sources and running adapters."
+        "Parsing sources and running adapters.",
+        "Source collection through command peers and weakening acceptance thresholds."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "requires": [
@@ -210,13 +223,15 @@
         "archkeel.check.ordering"
       ],
       "responsibilities": [
-        "Own typed ports, revision inputs and ordering."
+        "Acquire immutable repository, runtime and forge inputs through typed ports."
       ],
       "forbidden_responsibilities": [
-        "Architecture verdicts."
+        "Architecture verdicts.",
+        "Rule evaluation and presentation policy."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "exact_modules": [
@@ -340,6 +355,20 @@
         "docs/architecture/unresolved-call-change-types.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "CHECK-ONBOARDING-NO-REPORT-IMPLEMENTATION",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.check.onboarding",
+      "target": "archkeel.check.report",
+      "include_type_checking": true,
+      "rationale": "Onboarding must consume shared observation below commands instead of the report workflow implementation.",
+      "provenance": [
+        "docs/architecture/target/design.md"
+      ],
+      "decided_by": "agent",
+      "source_match": "exact",
+      "target_match": "exact"
     }
   ],
   "declarations": {

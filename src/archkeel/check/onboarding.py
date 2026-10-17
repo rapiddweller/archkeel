@@ -58,8 +58,8 @@ from archkeel.ir.structure import StructureLevel, StructureMetric, scope_metrics
 
 from .ports import Analyzer, FilesToWrite, ScanConfig
 from .ratchets import measure_python_ratchets
-from .report import observe_repository
 from .snapshot import SnapshotError
+from .uml import observe_repository
 from .validation import COMPONENT_GRAPH_MARKER, mermaid_edges, observed_component_edges
 
 CONFIG_PATH: Final = "archkeel.toml"

@@ -3,6 +3,9 @@
 The [contract](../../architecture-contract.json) owns boundaries, interfaces and permissions.
 [Source](../../src/archkeel) and [tests](../../tests/test_self.py) show the implementation.
 
+The [compact target](target/design.md) records responsibilities, ports and the
+bounded refactoring included in PR #604.
+
 ## Layers
 
 The CLI injects adapters and runs workflows. Core assembles and evaluates evidence;
