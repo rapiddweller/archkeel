@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 50491ef9c64522f8fdf3313e9159bac7e3809cd6
+          ref: 01bc5d65beff3190f550a97bd71ea5071486594d
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -83,61 +83,6 @@ jobs:
       - name: Exact source cleanliness
         if: always()
         run: |
-          test "$(git rev-parse HEAD)" = "50491ef9c64522f8fdf3313e9159bac7e3809cd6"
+          test "$(git rev-parse HEAD)" = "01bc5d65beff3190f550a97bd71ea5071486594d"
+          git diff --exit-code 50491ef9c64522f8fdf3313e9159bac7e3809cd6 -- src schema architecture-baseline.json architecture-contract.json docs/architecture/contracts docs/architecture/string-comparison-observation.md
           test -z "$(git status --porcelain)"
-  actual-call-delta:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: 50491ef9c64522f8fdf3313e9159bac7e3809cd6
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-      - run: uv sync --locked
-      - name: Read actual ordinary delta without any writer or budget edit
-        run: |
-          uv run --locked python - <<'PY'
-          import json, subprocess
-          command = ["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--against","5937445491094abc00a4076dd4628a03f08e9064","--json"]
-          result = subprocess.run(command,capture_output=True,text=True)
-          value = json.loads(result.stdout)
-          print("ACTUAL_DELTA_KEYS="+json.dumps(list(value)),flush=True)
-          print("ACTUAL_DELTA="+json.dumps({key:value.get(key) for key in ("exit_code","failures","diagnostics","measurements","widenings","delta","budget_changes","unresolved_call_changes","unresolved_call_note")},separators=(",",":")),flush=True)
-          changes = value.get("unresolved_call_changes") or []
-          added = sum(max(row["after"]-row["before"],0) for row in changes)
-          removed = sum(max(row["before"]-row["after"],0) for row in changes)
-          print("ACTUAL_CHANGE_NET="+json.dumps({"added":added,"removed":removed,"net":added-removed,"actual_after":value["measurements"]["scalars"]["calls_unresolved"],"implied_actual_before":value["measurements"]["scalars"]["calls_unresolved"]-added+removed}),flush=True)
-          print(result.stderr,flush=True)
-          assert subprocess.check_output(["git","status","--porcelain"],text=True) == ""
-          PY
-  exact-normal:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: 50491ef9c64522f8fdf3313e9159bac7e3809cd6
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-      - run: uv sync --locked
-      - name: Read exact ordinary validation without any writer or budget edit
-        run: |
-          uv run --locked python - <<'PY'
-          import json, subprocess
-          command = ["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--json"]
-          result = subprocess.run(command,capture_output=True,text=True)
-          value = json.loads(result.stdout)
-          print("ACTUAL_DELTA_KEYS="+json.dumps(list(value)),flush=True)
-          print("ACTUAL_DELTA="+json.dumps({key:value.get(key) for key in ("exit_code","failures","diagnostics","measurements","widenings","delta","budget_changes")},separators=(",",":")),flush=True)
-          print(result.stderr,flush=True)
-          assert subprocess.check_output(["git","status","--porcelain"],text=True) == ""
-          PY
