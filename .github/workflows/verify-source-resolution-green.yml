@@ -1,0 +1,82 @@
+name: Source resolution focused verification
+on:
+  push:
+    branches: [verify/542-source-resolution-green]
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 8c5086f58c0d520d5971acd8e2d5e2eabf630637
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Affected Source, graph, producer, native target and mutation regressions
+        run: uv run --locked pytest -q tests/test_source_resolution_types.py tests/test_lexical_resolution.py tests/test_source_graph.py tests/test_source_evaluation.py tests/test_source_trust_boundary.py tests/test_ratchets.py tests/test_uml_source_facts.py tests/test_typescript_collect.py tests/test_dart_inner_collect.py tests/test_dart_typed_controls.py tests/test_typed_collector_native.py
+      - name: Strict actual source
+        if: always()
+        run: uv run --locked mypy --strict src/archkeel
+      - name: Strict narrow Source-resolution port positives and negatives
+        if: always()
+        run: |
+          uv run --locked python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import tempfile
+          
+          good = """from archkeel.ir.facts import SourceResolution
+          from archkeel.ir.model import CallRow, CallStatus
+          status: CallStatus = SourceResolution.UNRESOLVED
+          row = CallRow(SourceResolution.PARTIALLY_RESOLVED, "caller", "call", "reason", None, "source.py", 1)
+          """
+          bad = {
+              "resolved_subset": "status: CallStatus = SourceResolution.RESOLVED",
+              "raw_subset": 'status: CallStatus = "unresolved"',
+              "resolved_row": 'row = CallRow(SourceResolution.RESOLVED, "caller", "call", "reason", None, "source.py", 1)',
+              "raw_row": 'row = CallRow("unresolved", "caller", "call", "reason", None, "source.py", 1)',
+              "graph_partial": 'from archkeel.ir.architecture_graph import ResolutionKind\nstatus: CallStatus = ResolutionKind.PARTIAL',
+          }
+          with tempfile.TemporaryDirectory() as temporary:
+              path = Path(temporary) / "source_resolution_port.py"
+              path.write_text(good)
+              command = ["uv", "run", "--locked", "mypy", "--strict", str(path)]
+              result = subprocess.run(command, text=True, capture_output=True)
+              print(result.stdout, flush=True)
+              assert result.returncode == 0, result.stderr
+              for name, line in bad.items():
+                  path.write_text(good.split("status:")[0] + line + "\n")
+                  result = subprocess.run(command, text=True, capture_output=True)
+                  print("SOURCE_RESOLUTION_STRICT_NEGATIVE=" + name, flush=True)
+                  print(result.stdout, flush=True)
+                  assert result.returncode == 1 and "incompatible type" in result.stdout.lower() or result.returncode == 1 and "incompatible types" in result.stdout.lower(), (name, result.stdout, result.stderr)
+          print("SOURCE_RESOLUTION_STRICT_PORTS=PASS", flush=True)
+          
+          PY
+      - name: Style on changed actual source and tests
+        if: always()
+        run: |
+          uv run --locked ruff check src/archkeel/ir/facts.py src/archkeel/ir/model.py src/archkeel/analyzer/dart/collect.py src/archkeel/analyzer/typescript/collect.py src/archkeel/analyzer/python/resolve.py src/archkeel/analyzer/python/calls.py src/archkeel/analyzer/python/references.py src/archkeel/analyzer/python/symbols.py src/archkeel/ir/facts_validation.py src/archkeel/ir/source_graph.py src/archkeel/ir/structure.py src/archkeel/check/ratchets.py src/archkeel/check/evaluation/evaluate.py src/archkeel/check/observation.py tests/test_source_resolution_types.py
+          uv run --locked ruff format --check src/archkeel/ir/facts.py src/archkeel/ir/model.py src/archkeel/analyzer/dart/collect.py src/archkeel/analyzer/typescript/collect.py src/archkeel/analyzer/python/resolve.py src/archkeel/analyzer/python/calls.py src/archkeel/analyzer/python/references.py src/archkeel/analyzer/python/symbols.py src/archkeel/ir/facts_validation.py src/archkeel/ir/source_graph.py src/archkeel/ir/structure.py src/archkeel/check/ratchets.py src/archkeel/check/evaluation/evaluate.py src/archkeel/check/observation.py tests/test_source_resolution_types.py
+      - name: Capture formatter-only followups
+        if: always()
+        run: |
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          paths=["src/archkeel/ir/facts.py","src/archkeel/ir/model.py","src/archkeel/analyzer/dart/collect.py","src/archkeel/analyzer/typescript/collect.py","src/archkeel/analyzer/python/resolve.py","src/archkeel/analyzer/python/calls.py","src/archkeel/analyzer/python/references.py","src/archkeel/analyzer/python/symbols.py","src/archkeel/ir/facts_validation.py","src/archkeel/ir/source_graph.py","src/archkeel/ir/structure.py","src/archkeel/check/ratchets.py","src/archkeel/check/evaluation/evaluate.py","src/archkeel/check/observation.py","tests/test_source_resolution_types.py"]
+          before={path:Path(path).read_text() for path in paths}
+          subprocess.run(["uv","run","--locked","ruff","check","--select","I","--fix",*paths],check=True)
+          subprocess.run(["uv","run","--locked","ruff","format",*paths],check=True)
+          for path in paths:
+              source=Path(path).read_text()
+              if source!=before[path]:
+                  print("FORMATTED_SOURCE="+json.dumps(dict(path=path,content=source)),flush=True)
+          PY
