@@ -1,0 +1,63 @@
+name: Diagnose actual known-action reference candidates
+# Scope authorized by the repository maintainer: ordinary read-only CI proof in this same
+# public rapiddweller/archkeel repository. Emit only names/metadata/source blob+AST hashes;
+# no source/AST bodies, no environment/credentials, no artifact upload or external endpoint.
+on:
+  push:
+    branches: [verify/issue-542-known-action-reference-candidates]
+permissions:
+  contents: read
+jobs:
+  actual-reference-candidates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Observe both actual source roots with the same current engine
+        run: |
+          uv run --locked archkeel report --root . --output "$RUNNER_TEMP/action-after.json" > "$RUNNER_TEMP/action-after-result.json"
+          git worktree add --detach "$RUNNER_TEMP/action-before" 68b656668a3fdbbbe482881d0dab41ff89a21ca3
+          uv run --locked archkeel report --root "$RUNNER_TEMP/action-before" --output "$RUNNER_TEMP/action-before.json" > "$RUNNER_TEMP/action-before-result.json"
+          uv run --locked python - "$RUNNER_TEMP/action-before.json" "$RUNNER_TEMP/action-after.json" "$RUNNER_TEMP/action-before" . <<'PY'
+          import ast,hashlib,json,pathlib,subprocess,sys
+          from archkeel.ir.codec import decode_canonical_model,parse_observation
+          from archkeel.ir.references import unreferenced_symbols
+          def read(path):return parse_observation(decode_canonical_model(json.loads(pathlib.Path(path).read_text())))
+          before,after=(read(path) for path in sys.argv[1:3])
+          roots=[pathlib.Path(path).resolve() for path in sys.argv[3:5]]
+          def rows(model,root):
+              evidence={row.id:row for row in model.evidence}
+              symbols={row.data.get("qualified_name"):row for row in model.records("symbols") or ()}
+              commit=subprocess.check_output(["git","-C",str(root),"rev-parse","HEAD"],text=True).strip()
+              result=[]
+              for candidate in unreferenced_symbols(model).candidates:
+                  record=symbols[candidate.name]
+                  cites=[evidence[key] for key in record.evidence_ids]
+                  assert len(cites)==1
+                  cite=cites[0]
+                  relative=pathlib.PurePosixPath(cite.file)
+                  assert relative.is_relative_to("src/archkeel") and ".." not in relative.parts
+                  path=(root/relative).resolve()
+                  assert path.is_relative_to(root/"src/archkeel")
+                  tree=ast.parse(path.read_text())
+                  nodes=[node for node in ast.walk(tree) if isinstance(node,(ast.ClassDef,ast.FunctionDef,ast.AsyncFunctionDef,ast.Assign,ast.AnnAssign)) and node.lineno==cite.line and node.col_offset==cite.column]
+                  assert len(nodes)==1,(candidate.name,cite.line,cite.column)
+                  node_hash=hashlib.sha256(ast.dump(nodes[0],include_attributes=False).encode()).hexdigest()
+                  blob=subprocess.check_output(["git","-C",str(root),"rev-parse",commit+":"+str(relative)],text=True).strip()
+                  result.append(dict(name=candidate.name,kind=candidate.kind,visibility=candidate.visibility,module=candidate.module,record_id=record.id,commit=commit,path=str(relative),blob_sha=blob,line=cite.line,column=cite.column,ast_sha256=node_hash,evidence_id=cite.id))
+              return result
+          old,new=rows(before,roots[0]),rows(after,roots[1])
+          def semantic(row):return {key:row[key] for key in ("name","kind","visibility","module","ast_sha256")}
+          old_by={row["name"]:semantic(row) for row in old}
+          new_by={row["name"]:semantic(row) for row in new}
+          proof=dict(before_ref="68b656668a3fdbbbe482881d0dab41ff89a21ca3",before_count=len(old),after_count=len(new),before=old,after=new,added=[row for name,row in new_by.items() if name not in old_by],removed=[row for name,row in old_by.items() if name not in new_by],changed=[dict(before=old_by[name],after=new_by[name]) for name in old_by.keys()&new_by.keys() if old_by[name]!=new_by[name]])
+          print("KNOWN_ACTION_REFERENCE_PROOF="+json.dumps(proof,separators=(",",":")))
+          PY
