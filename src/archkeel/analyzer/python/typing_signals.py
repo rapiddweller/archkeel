@@ -175,7 +175,11 @@ def _boundary_annotation_signals(
     }
     for used in sorted(used_cross_package):
         used_symbol = symbol_by_name.get(used)
-        if not used_symbol or parse_source_symbol_kind(used_symbol["data"].get("symbol_category")) not in FUNCTION_KINDS:
+        if (
+            not used_symbol
+            or parse_source_symbol_kind(used_symbol["data"].get("symbol_category"))
+            not in FUNCTION_KINDS
+        ):
             continue
         signature = used_symbol["data"]
         missing = [

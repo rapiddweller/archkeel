@@ -7,8 +7,6 @@ from collections.abc import Collection, Iterable, Mapping
 from pathlib import PurePosixPath
 
 from .facts import (
-    SourceSymbolKind,
-    parse_source_symbol_kind,
     SOURCE_RESOLUTION_GAP_KIND,
     BuiltinTarget,
     ConstructSupport,
@@ -24,11 +22,13 @@ from .facts import (
     SourceProfile,
     SourceResolution,
     SourceSectionName,
+    SourceSymbolKind,
     UnresolvedTarget,
     in_scope,
     member_inventories,
     parse_method_kind,
     parse_source_resolution,
+    parse_source_symbol_kind,
     property_binding,
 )
 from .facts import MemberKind as _MemberKind
@@ -189,13 +189,18 @@ def _property_bindings(records: list[Record], evidence: dict[str, Evidence]) -> 
     classes = {
         name: record
         for record in records
-        if parse_source_symbol_kind(record.kind) is SourceSymbolKind.CLASS and isinstance(name := record.data.get("qualified_name"), str)
+        if parse_source_symbol_kind(record.kind) is SourceSymbolKind.CLASS
+        and isinstance(name := record.data.get("qualified_name"), str)
     }
     members: dict[str, set[str]] = {}
     ordered: dict[tuple[str, str], dict[int, Record]] = {}
     for record in records:
         parent, name = record.data.get("parent"), record.data.get("name")
-        if parse_source_symbol_kind(record.kind) is SourceSymbolKind.METHOD and isinstance(parent, str) and isinstance(name, str):
+        if (
+            parse_source_symbol_kind(record.kind) is SourceSymbolKind.METHOD
+            and isinstance(parent, str)
+            and isinstance(name, str)
+        ):
             for reference in record.evidence_ids:
                 if reference in evidence:
                     ordered.setdefault((parent, name), {})[evidence[reference].line] = record
@@ -234,7 +239,8 @@ def _property_bindings(records: list[Record], evidence: dict[str, Evidence]) -> 
         owner = classes.get(parent) if isinstance(parent, str) else None
         if (
             kind is not SourceSymbolKind.METHOD
-            or parse_source_symbol_kind(record.data.get("symbol_category")) is not SourceSymbolKind.METHOD
+            or parse_source_symbol_kind(record.data.get("symbol_category"))
+            is not SourceSymbolKind.METHOD
             or parse_method_kind(record.data.get("method_kind")) is not MethodKind.INSTANCE
             or record.data.get("async") is not False
             or not isinstance(parent, str)
@@ -287,7 +293,10 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
     if not set(_REQUIRED[section]).issubset(fields):
         raise ValueError(f"{section} source payload is missing required fields")
     if record.data.get("member_inventories") is not None:
-        if section != SourceSectionName.SYMBOLS or parse_source_symbol_kind(record.kind) is not SourceSymbolKind.CLASS:
+        if (
+            section != SourceSectionName.SYMBOLS
+            or parse_source_symbol_kind(record.kind) is not SourceSymbolKind.CLASS
+        ):
             raise ValueError("member inventory needs its class owner")
         member_inventories(record.data.get("member_inventories"))
     if "base_declarations" in fields:
@@ -359,7 +368,8 @@ def _member_inventory_bindings(records: list[Record]) -> None:
                 actual = {
                     item.id
                     for item in records
-                    if parse_source_symbol_kind(item.kind) is SourceSymbolKind.METHOD and item.data.get("lexical_parent_id") == owner.id
+                    if parse_source_symbol_kind(item.kind) is SourceSymbolKind.METHOD
+                    and item.data.get("lexical_parent_id") == owner.id
                 }
             else:
                 attributes = owner.data.get("attribute_declarations")

@@ -9,11 +9,11 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from .facts import (
-    SourceSymbolKind,
-    parse_source_symbol_kind,
     SourceNameVisibility,
+    SourceSymbolKind,
     SymbolClassKind,
     parse_source_name_visibility,
+    parse_source_symbol_kind,
     parse_symbol_class_kind,
 )
 from .measurements import NameBudgetKind
@@ -194,7 +194,7 @@ def _interface_name(item: Record, symbols_by_name: dict[str, Record]) -> Interfa
     if resolved is None:
         return InterfaceName(name, "unknown", (), "")
     kind = _symbol_kind(resolved)
-    if kind not in FUNCTION_KINDS:
+    if parse_source_symbol_kind(resolved.kind) not in FUNCTION_KINDS:
         return InterfaceName(name, kind, (), "")
     parameters, returns = _signature(resolved)
     return InterfaceName(name, kind, parameters, returns)

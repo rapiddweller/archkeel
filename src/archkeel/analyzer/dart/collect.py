@@ -406,14 +406,17 @@ class _Collection:
         }
         record_kind = record_kinds.get(kind)
         symbol_id = stable_id(
-            "DARTDEF", rel, definition.span.start_byte, qualified,
+            "DARTDEF",
+            rel,
+            definition.span.start_byte,
+            qualified,
             record_kind if record_kind is not None else kind,
         )
         self.definition_ids[(rel, definition.span.line, definition.span.column)] = symbol_id
-        data = self._meta(
-            rel, module, name, qualified, parent, parent_id, definition.visibility
+        data = self._meta(rel, module, name, qualified, parent, parent_id, definition.visibility)
+        data["symbol_category"] = (
+            SourceSymbolKind.TYPE_ALIAS if kind == DefinitionKind.TYPEDEF else record_kind
         )
-        data["symbol_category"] = SourceSymbolKind.TYPE_ALIAS if kind == DefinitionKind.TYPEDEF else record_kind
         data["modifiers"] = list(definition.modifiers)
         if kind in {
             DefinitionKind.CLASS,
@@ -438,9 +441,15 @@ class _Collection:
                 signature_complete=all(p["default_known"] for p in parameters),
             )
         elif kind == DefinitionKind.TYPEDEF:
-            data.update(symbol_category=SourceSymbolKind.TYPE_ALIAS, annotation=definition.alias, constant=None)
+            data.update(
+                symbol_category=SourceSymbolKind.TYPE_ALIAS,
+                annotation=definition.alias,
+                constant=None,
+            )
         elif kind == DefinitionKind.VARIABLE:
-            record_kind = SourceSymbolKind.CONSTANT if definition.constant else SourceSymbolKind.ATTRIBUTE
+            record_kind = (
+                SourceSymbolKind.CONSTANT if definition.constant else SourceSymbolKind.ATTRIBUTE
+            )
             data.update(
                 symbol_category=record_kind,
                 annotation=definition.return_type,
@@ -600,7 +609,9 @@ class _Collection:
             f"::{member.kind}" if member.kind in {MemberKind.GETTER, MemberKind.SETTER} else ""
         )
         qualified = f"{parent}.{member_spelling if constructor else name}{accessor}"
-        identity = stable_id("DARTDEF", rel, member.span.start_byte, qualified, SourceSymbolKind.METHOD)
+        identity = stable_id(
+            "DARTDEF", rel, member.span.start_byte, qualified, SourceSymbolKind.METHOD
+        )
         owner = self._owner_definition(rel, module, parent)
         parameters = self._member_parameters(rel, owner, member, constructor, identity)
         returns = None if constructor else member.return_type
@@ -617,9 +628,7 @@ class _Collection:
             for p in parameters
         )
         visibility = member.visibility
-        data = self._meta(
-            rel, module, name, qualified, parent, parent_id, visibility
-        )
+        data = self._meta(rel, module, name, qualified, parent, parent_id, visibility)
         data.update(
             symbol_category=SourceSymbolKind.METHOD,
             annotation=None,
@@ -1157,7 +1166,9 @@ class _Collection:
             class_name = construction_resolution.binding.name.split(".", 1)[0]
             qualified_class = f"{construction_resolution.binding.module}.{class_name}"
             target_names = (
-                [qualified_class] if self._symbol_kind(qualified_class) == SourceSymbolKind.CLASS else []
+                [qualified_class]
+                if self._symbol_kind(qualified_class) == SourceSymbolKind.CLASS
+                else []
             )
         if call and construction is None:
             target_names = [
@@ -1171,7 +1182,8 @@ class _Collection:
             and (
                 not call
                 or construction is not None
-                or self._symbol_kind(target_names[0]) in {SourceSymbolKind.METHOD, SourceSymbolKind.FUNCTION}
+                or self._symbol_kind(target_names[0])
+                in {SourceSymbolKind.METHOD, SourceSymbolKind.FUNCTION}
             )
             else SourceResolution.UNRESOLVED
         )

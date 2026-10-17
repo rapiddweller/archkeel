@@ -16,12 +16,12 @@ from typing import Literal as _Literal
 from archkeel.ir.architecture_graph import AssessmentStatus as _Verdict
 from archkeel.ir.architecture_graph import EntityKind as _EntityKind
 from archkeel.ir.facts import (
-    SourceSymbolKind,
-    parse_source_symbol_kind,
     ConstructCapability,
     ConstructSupport,
     SourceNameVisibility,
+    SourceSymbolKind,
     parse_source_name_visibility,
+    parse_source_symbol_kind,
     parse_symbol_class_kind,
 )
 from archkeel.ir.facts_codec import RawData as RecordData

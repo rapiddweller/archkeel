@@ -7,7 +7,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from archkeel.ir.facts import SourceSymbolKind, parse_source_symbol_kind, Evidence, SymbolClassKind, parse_symbol_class_kind
+from archkeel.ir.facts import (
+    Evidence,
+    SourceSymbolKind,
+    SymbolClassKind,
+    parse_source_symbol_kind,
+    parse_symbol_class_kind,
+)
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawRecord, classified
 from archkeel.ir.model import EvidenceClass, stable_id
@@ -161,7 +167,9 @@ def evaluate_contexts(
     declared_roots: Sequence[str],
     candidate_evidence: Sequence[Evidence],
 ) -> tuple[list[RawRecord], list[RawRecord], tuple[Evidence, ...]]:
-    class_symbols = [item for item in symbols if parse_source_symbol_kind(item["kind"]) is SourceSymbolKind.CLASS]
+    class_symbols = [
+        item for item in symbols if parse_source_symbol_kind(item["kind"]) is SourceSymbolKind.CLASS
+    ]
     roots = set(declared_roots)
     for item in class_symbols:
         qualified = item["data"]["qualified_name"]

@@ -14,8 +14,6 @@ from collections.abc import Sequence
 from types import EllipsisType
 
 from archkeel.ir.facts import (
-    SourceSymbolKind,
-    parse_source_symbol_kind,
     EvidenceClass,
     InventoryStatus,
     MemberInventory,
@@ -23,7 +21,9 @@ from archkeel.ir.facts import (
     ParameterKind,
     SourceNameVisibility,
     SourceResolution,
+    SourceSymbolKind,
     SymbolClassKind,
+    parse_source_symbol_kind,
     parse_symbol_class_kind,
     stable_id,
 )
@@ -276,7 +276,9 @@ def _symbol_data(
             data["property_members"] = sorted({method.name for method in properties})
     else:
         data.update(_function_signature(node))
-        data["symbol_category"] = SourceSymbolKind.METHOD if parent_node else SourceSymbolKind.FUNCTION
+        data["symbol_category"] = (
+            SourceSymbolKind.METHOD if parent_node else SourceSymbolKind.FUNCTION
+        )
         data["overload_signature"] = any(
             _is_proven_decorator(
                 module,
@@ -693,12 +695,16 @@ def _base_binding(
                 SourceResolution.PARTIALLY_RESOLVED,
                 "base name has candidates without a proven binding",
             )
-            if proven and (alias or (len(known) == 1 and parse_source_symbol_kind(known[0]["kind"]) is SourceSymbolKind.CLASS)):
+            single_class = (
+                len(known) == 1
+                and parse_source_symbol_kind(known[0]["kind"]) is SourceSymbolKind.CLASS
+            )
+            if proven and (alias or single_class):
                 status, reason = (
                     SourceResolution.RESOLVED,
                     "explicit base with a stable direct module binding",
                 )
-                if len(known) > 1 or (known and parse_source_symbol_kind(known[0]["kind"]) is not SourceSymbolKind.CLASS):
+                if known and not single_class:
                     status, reason = (
                         SourceResolution.PARTIALLY_RESOLVED,
                         "imported classifier identity is ambiguous or unavailable",
@@ -1190,7 +1196,8 @@ def _record_member_inventories(
         methods = tuple(
             item["id"]
             for item in symbols
-            if parse_source_symbol_kind(item["kind"]) is SourceSymbolKind.METHOD and item["data"]["lexical_parent_id"] == identity
+            if parse_source_symbol_kind(item["kind"]) is SourceSymbolKind.METHOD
+            and item["data"]["lexical_parent_id"] == identity
         )
         data["member_inventories"] = [
             member_inventory_data(

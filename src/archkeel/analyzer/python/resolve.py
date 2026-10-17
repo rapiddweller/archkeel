@@ -15,7 +15,13 @@ from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from archkeel.ir.facts import SourceSymbolKind, parse_source_symbol_kind, SourceResolution, SymbolClassKind, parse_symbol_class_kind
+from archkeel.ir.facts import (
+    SourceResolution,
+    SourceSymbolKind,
+    SymbolClassKind,
+    parse_source_symbol_kind,
+    parse_symbol_class_kind,
+)
 from archkeel.ir.facts_codec import RawRecord
 
 from .binding_types import BindingKind

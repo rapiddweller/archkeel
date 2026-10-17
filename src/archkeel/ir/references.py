@@ -84,7 +84,8 @@ def unreferenced_symbols(observation: Observation) -> SymbolReferences:
     classes = {
         name: record
         for record in symbols
-        if (name := text_value(record.data.get("qualified_name"))) and parse_source_symbol_kind(record.kind) is SourceSymbolKind.CLASS
+        if (name := text_value(record.data.get("qualified_name")))
+        and parse_source_symbol_kind(record.kind) is SourceSymbolKind.CLASS
     }
     referenced = _referenced(observation)
     candidates: list[UnreferencedSymbol] = []

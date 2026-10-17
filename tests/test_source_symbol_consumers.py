@@ -5,6 +5,7 @@
 
 import ast
 import json
+from importlib import import_module
 from pathlib import Path
 
 import pytest
@@ -42,14 +43,12 @@ FILES = (
 )
 GUARDS = {
     "SOURCE-SYMBOL-PUBLIC-API-CONTROL": (
-        "check", "check/evaluation/boundary_types.py", "_public_api_positions"
+        "check",
+        "check/evaluation/boundary_types.py",
+        "_public_api_positions",
     ),
-    "SOURCE-SYMBOL-REFERENCE-CONTROL": (
-        "ir", "ir/references.py", "unreferenced_symbols"
-    ),
-    "SOURCE-SYMBOL-BASE-CONTROL": (
-        "python", "analyzer/python/symbols.py", "_record_class_bases"
-    ),
+    "SOURCE-SYMBOL-REFERENCE-CONTROL": ("ir", "ir/references.py", "unreferenced_symbols"),
+    "SOURCE-SYMBOL-BASE-CONTROL": ("python", "analyzer/python/symbols.py", "_record_class_bases"),
 }
 
 
@@ -74,8 +73,14 @@ def test_actual_source_selectors_do_not_dispatch_on_untyped_known_tag_literals()
             expressions = [ast.unparse(operand) for operand in operands]
             source_field = any(
                 field in expression
-                for field in ("['kind']", "['record_kind']", "['symbol_category']",
-                              ".kind", ".get('record_kind')", ".get('symbol_category')")
+                for field in (
+                    "['kind']",
+                    "['record_kind']",
+                    "['symbol_category']",
+                    ".kind",
+                    ".get('record_kind')",
+                    ".get('symbol_category')",
+                )
                 for expression in expressions
             )
             if source_field:
@@ -84,19 +89,31 @@ def test_actual_source_selectors_do_not_dispatch_on_untyped_known_tag_literals()
 
 
 def test_actual_python_definition_writer_publishes_nominal_source_tags():
-    module = _parsed_module(
-        "class Example:\n def run(self): pass\ndef build(): pass\n"
-    )
+    module = _parsed_module("class Example:\n def run(self): pass\ndef build(): pass\n")
     rows, _, _ = collect_symbols([module], {})
     assert {row["kind"] for row in rows} == {
-        SourceSymbolKind.CLASS, SourceSymbolKind.METHOD, SourceSymbolKind.FUNCTION
+        SourceSymbolKind.CLASS,
+        SourceSymbolKind.METHOD,
+        SourceSymbolKind.FUNCTION,
     }
     assert all(type(row["kind"]) is SourceSymbolKind for row in rows)
     assert all(type(row["data"]["symbol_category"]) is SourceSymbolKind for row in rows)
 
 
 @pytest.mark.parametrize("language", ("dart", "typescript"))
-def test_actual_language_writer_projects_parser_tags_at_the_source_boundary(tmp_path, language):
+def test_actual_language_writer_projects_parser_tags_at_the_source_boundary(
+    tmp_path, language, monkeypatch
+):
+    module = import_module(f"archkeel.analyzer.{language}.collect")
+    original = module.classified
+    published = {}
+
+    def capture(**kwargs):
+        record = original(**kwargs)
+        published[record["id"]] = record
+        return record
+
+    monkeypatch.setattr(module, "classified", capture)
     if language == "dart":
         (tmp_path / "pubspec.yaml").write_text(
             "name: sample\nenvironment:\n  sdk: '>=3.9.0 <4.0.0'\n"
@@ -109,10 +126,14 @@ def test_actual_language_writer_projects_parser_tags_at_the_source_boundary(tmp_
         )
         settings, scope, collect = DartSettings(), ("lib",), collect_dart
     else:
-        (tmp_path / "tsconfig.json").write_text(json.dumps({
-            "compilerOptions": {"module": "CommonJS", "moduleResolution": "Node"},
-            "include": ["src"],
-        }))
+        (tmp_path / "tsconfig.json").write_text(
+            json.dumps(
+                {
+                    "compilerOptions": {"module": "CommonJS", "moduleResolution": "Node"},
+                    "include": ["src"],
+                }
+            )
+        )
         source = tmp_path / "src/main.ts"
         source.parent.mkdir()
         source.write_text(
@@ -120,46 +141,61 @@ def test_actual_language_writer_projects_parser_tags_at_the_source_boundary(tmp_
             "export function build(): string { return ''; }\n"
         )
         settings, scope, collect = TypeScriptSettings(), ("src",), collect_typescript
-    facts = collect(CollectionRequest(
-        SnapshotInput(str(tmp_path), "a" * 40, False), SourceScope(scope, "sample"), settings
-    ))
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False), SourceScope(scope, "sample"), settings
+        )
+    )
     rows = [
-        row for section in facts.sections if section.name is SourceSectionName.SYMBOLS
+        row
+        for section in facts.sections
+        if section.name is SourceSectionName.SYMBOLS
         for row in section.records
     ]
     assert len(rows) == 4
-    assert all(type(row.kind) is SourceSymbolKind for row in rows)
-    assert all(type(row.data.get("symbol_category")) is SourceSymbolKind for row in rows)
-    alias = next(row for row in rows if row.data.get("name") == "Label")
-    assert alias.kind is (
+    actual = [published[row.id] for row in rows]
+    assert all(type(row["kind"]) is SourceSymbolKind for row in actual)
+    assert all(type(row["data"]["symbol_category"]) is SourceSymbolKind for row in actual)
+    assert all(type(row.kind) is str for row in rows)
+    assert all(type(row.data.get("symbol_category")) is str for row in rows)
+    alias = next(row for row in actual if row["data"]["name"] == "Label")
+    assert alias["kind"] is (
         SourceSymbolKind.ALIAS if language == "dart" else SourceSymbolKind.TYPE_ALIAS
     )
-    assert alias.data.get("symbol_category") is SourceSymbolKind.TYPE_ALIAS
+    assert alias["data"]["symbol_category"] is SourceSymbolKind.TYPE_ALIAS
 
 
 def _native(tmp_path, guard):
     contract_owner, relative, function = GUARDS[guard]
-    contract = json.loads(
-        (ROOT / f"docs/architecture/contracts/{contract_owner}.json").read_text()
-    )
+    contract = json.loads((ROOT / f"docs/architecture/contracts/{contract_owner}.json").read_text())
     selected = [rule for rule in contract["rules"] if rule["id"] == guard]
     assert len(selected) == 1
     path = "archkeel/" + relative
     target = {
         "schema_version": contract["schema_version"],
-        "components": [{
-            "id": "source", "label": "source", "role": "component", "packages": ["archkeel"],
-            "responsibilities": ["Select known source symbol tags through the Facts owner."],
-            "forbidden_responsibilities": [], "provenance": [DOC], "public": ["archkeel"],
-        }],
+        "components": [
+            {
+                "id": "source",
+                "label": "source",
+                "role": "component",
+                "packages": ["archkeel"],
+                "responsibilities": ["Select known source symbol tags through the Facts owner."],
+                "forbidden_responsibilities": [],
+                "provenance": [DOC],
+                "public": ["archkeel"],
+            }
+        ],
         "rules": selected,
     }
-    root = _prepare_repo(tmp_path, {
-        path: (ROOT / "src" / path).read_text(),
-        "archkeel/__init__.py": "",
-        "contract.json": json.dumps(target),
-        DOC: (ROOT / DOC).read_text(),
-    })
+    root = _prepare_repo(
+        tmp_path,
+        {
+            path: (ROOT / "src" / path).read_text(),
+            "archkeel/__init__.py": "",
+            "contract.json": json.dumps(target),
+            DOC: (ROOT / DOC).read_text(),
+        },
+    )
     return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64), path, function
 
 
@@ -178,7 +214,8 @@ def test_native_raw_source_dispatch_mutation_fails_unchanged_consumer_intent(tmp
     path = root / relative
     text = path.read_text()
     node = next(
-        node for node in ast.parse(text).body
+        node
+        for node in ast.parse(text).body
         if isinstance(node, ast.FunctionDef) and node.name == function
     )
     lines = text.splitlines(keepends=True)
