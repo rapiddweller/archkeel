@@ -61,6 +61,8 @@ jobs:
           from archkeel.ir.report_graph import architecture_report
           
           phase=sys.argv[1]
+          from archkeel.ir.digest import package_digest
+          print("CORE_PACKAGE_DIGEST="+json.dumps(dict(phase=phase,digest=package_digest())),flush=True)
           import importlib
           source_root=(Path(os.environ["RUNNER_TEMP"])/"evidence-base"/"src"
                        if phase == "before" else Path.cwd()/"src")
@@ -111,8 +113,56 @@ jobs:
         run: .venv/bin/python "$RUNNER_TEMP/evidence-report-profiles.py" after
       - name: Compare every report byte and source scope
         run: |
-          diff -ru "$RUNNER_TEMP/evidence-profiles-before" "$RUNNER_TEMP/evidence-profiles-after"
-          echo "REAL_REPORT_BYTE_COMPATIBILITY=24_OF_24_IDENTICAL"
-          git diff --check c725df96543d1dd7ec4e20887a486ec9a7143c8a 1a0fba765ef01b270dd7b7a38dd329fb544076a4
+          cat > "$RUNNER_TEMP/evidence-compare-profiles.py" <<'PY'
+          import hashlib, json, os, re
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])
+          before=root/"evidence-profiles-before"
+          after=root/"evidence-profiles-after"
+          files=sorted(path.name for path in before.iterdir())
+          assert files==sorted(path.name for path in after.iterdir()) and len(files)==24,files
+          def paths_changed(a,b,path=()):
+              if a==b:
+                  return []
+              if type(a) is not type(b) or not isinstance(a,(dict,list)):
+                  return [path]
+              keys=set(a)|set(b) if isinstance(a,dict) else range(max(len(a),len(b)))
+              return [changed for key in keys
+                      for changed in paths_changed(a[key],b[key],(*path,key))]
+          raw_equal=0
+          identity_pairs=set()
+          for name in files:
+              a=(before/name).read_bytes()
+              b=(after/name).read_bytes()
+              if name.endswith(".graph.json"):
+                  assert a==b,name
+                  raw_equal+=1
+                  print("RAW_GRAPH_BYTES_IDENTICAL="+name,flush=True)
+                  continue
+              old,new=json.loads(a),json.loads(b)
+              if name.endswith(".packet.json"):
+                  expected=("analyzer","code_digest")
+                  old_digest,new_digest=old["analyzer"]["code_digest"],new["analyzer"]["code_digest"]
+              else:
+                  expected=("architecture_projection","analyzer_digest")
+                  old_digest,new_digest=old["architecture_projection"]["analyzer_digest"],new["architecture_projection"]["analyzer_digest"]
+              changed=paths_changed(old,new)
+              assert changed==[expected],(name,changed)
+              assert all(isinstance(value,str) and re.fullmatch("[0-9a-f]{64}",value)
+                         for value in (old_digest,new_digest)),name
+              assert old_digest!=new_digest,name
+              identity_pairs.add((old_digest,new_digest))
+              assert a.count(old_digest.encode())==1 and b.count(new_digest.encode())==1,name
+              normalized_a=a.replace(old_digest.encode(),b"<CHECKER_CODE_DIGEST>")
+              normalized_b=b.replace(new_digest.encode(),b"<CHECKER_CODE_DIGEST>")
+              assert normalized_a==normalized_b,name
+              print("IDENTITY_ONLY_BYTE_COMPATIBILITY="+json.dumps(dict(file=name,only_changed_path=".".join(expected),
+                    normalized_sha256=hashlib.sha256(normalized_a).hexdigest()),sort_keys=True),flush=True)
+          assert raw_equal==6 and len(identity_pairs)==1,(raw_equal,identity_pairs)
+          print("REAL_REPORT_PARITY=6_RAW_GRAPH_FILES_AND_18_FILES_IDENTICAL_EXCEPT_CHECKER_CODE_IDENTITY",flush=True)
+          print("CHECKER_CODE_IDENTITY_PAIRS="+json.dumps(sorted(identity_pairs)),flush=True)
+          PY
+          .venv/bin/python "$RUNNER_TEMP/evidence-compare-profiles.py"
+                    git diff --check c725df96543d1dd7ec4e20887a486ec9a7143c8a 1a0fba765ef01b270dd7b7a38dd329fb544076a4
           git diff --stat c725df96543d1dd7ec4e20887a486ec9a7143c8a 1a0fba765ef01b270dd7b7a38dd329fb544076a4
           git diff --numstat c725df96543d1dd7ec4e20887a486ec9a7143c8a 1a0fba765ef01b270dd7b7a38dd329fb544076a4
