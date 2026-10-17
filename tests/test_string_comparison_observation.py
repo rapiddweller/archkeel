@@ -520,6 +520,27 @@ def test_qualified_construct_receipt_requires_actual_symbol_and_clipped_module_e
             type_shapes={},
         )
 
+    # RawData is a mutable JSON dict. Its stored fields, as serialized on the wire,
+    # must decide ownership even if an accepted dict subclass overrides get().
+    class SpoofedOwner(dict):
+        def get(self, key, default=None):
+            return {
+                "module": "sample.core",
+                "qualified_name": "sample.core.parse",
+            }.get(key, default)
+
+    spoofed = copy.deepcopy(symbols)
+    for symbol in spoofed:
+        symbol["data"] = SpoofedOwner(
+            symbol["data"]
+            | {"module": "sample.other", "qualified_name": "sample.other.parse"}
+        )
+        assert json.loads(json.dumps(symbol["data"]))["module"] == "sample.other"
+    assert rule_evaluation_facts(contract, symbols=spoofed, **arguments) == []
+    assert rule_subject_failures(
+        contract.rules, {"sample.core"}, symbols=spoofed, type_shapes={}
+    )
+
 
 def test_real_report_evaluates_a_qualified_construct_owner(tmp_path):
     from test_inside_rule_coverage import _commit_test_root
