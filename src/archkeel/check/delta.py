@@ -588,7 +588,7 @@ def build_architecture_delta(
         }
         for item in current:
             fingerprints: list[str] = fingerprints_by_kind[_KnownSemanticChangeKind(item.change)]
-            fingerprints.append(item.fingerprint)
+            list.append(fingerprints, item.fingerprint)
         before_count = len(baseline.coverage.failures) if dimension == "coverage" else len(before)
         after_count = len(head.coverage.failures) if dimension == "coverage" else len(after)
         dimensions.append(

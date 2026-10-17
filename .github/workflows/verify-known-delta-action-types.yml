@@ -77,7 +77,7 @@ jobs:
         run: |
           git diff --exit-code 68b656668a3fdbbbe482881d0dab41ff89a21ca3 -- architecture-baseline.json schema src/archkeel/ir/facts_codec.py
           set +e
-          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 68b656668a3fdbbbe482881d0dab41ff89a21ca3 --amendment docs/architecture/decisions/issue-542-known-delta-action-amendment.json --write-amendment --decided-by 'ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge' --rationale 'Own the four current Delta actions at the existing semantic model, producer and actual governance ingress; keep public future action text open, preserve legacy bytes/errors and the narrower call-change domain without allowance changes; docs/architecture/known-action-types.md.' > "$RUNNER_TEMP/known-action-native.json"
+          uv run --locked archkeel validate --root . --baseline architecture-baseline.json --json --against 68b656668a3fdbbbe482881d0dab41ff89a21ca3 --amendment docs/architecture/decisions/issue-542-known-delta-action-amendment.json --write-amendment --decided-by 'ake2l (explicit parser/protocol typing request); Codex implementation, independent Astra review before merge' --rationale 'Own the four current Delta actions at the existing semantic model, producer and actual governance ingress; keep public future action text open, preserve legacy bytes/errors and the narrower call-change domain without allowance changes; docs/architecture/known-delta-action-types.md.' > "$RUNNER_TEMP/known-action-native.json"
           native_status=$?
           set -e
           python - "$RUNNER_TEMP/known-action-native.json" <<'PY'

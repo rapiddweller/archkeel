@@ -213,8 +213,7 @@ def _repository(tmp_path):
             + "from archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKind\n"
             "from archkeel.ir.model import SemanticChange\n"
             + _source_members("src/archkeel/check/delta.py", {"_DeltaRecord", "_change"}),
-            "archkeel/check/expectation.py": prefix
-            + "import builtins as _builtins\n"
+            "archkeel/check/expectation.py": prefix + "import builtins as _builtins\n"
             "from archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKind\n"
             + _source_members(
                 "src/archkeel/check/expectation.py",
