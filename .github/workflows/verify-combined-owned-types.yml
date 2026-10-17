@@ -1,0 +1,104 @@
+name: Verify combined owned types and real HRC scopes
+on:
+  push:
+    branches: [verify/542-combined-owned-types]
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 81e2b3e5fca7d2ae29f47bc3bc88d7fbb575b3c5
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Required quality with exact formatter diagnostics
+        run: |
+          uv run --locked python - <<'PY'
+          import json, subprocess, sys
+          from pathlib import Path
+          result = subprocess.run(["make", "lint", "typecheck"])
+          if result.returncode:
+              lines = Path("Makefile").read_text().splitlines()
+              start = next(i for i,line in enumerate(lines) if line.startswith("LINT_PATHS :="))
+              values = lines[start].split(":=", 1)[1].strip()
+              offset = start
+              while values.endswith("\\"):
+                  offset += 1
+                  values = values[:-1] + lines[offset].strip()
+              import shlex
+              paths = shlex.split(values)
+              subprocess.run(["uv", "run", "--locked", "ruff", "check", "--select", "I001", "--fix", *paths], check=True)
+              subprocess.run(["uv", "run", "--locked", "ruff", "format", *paths], check=True)
+              changed = subprocess.check_output(["git", "diff", "--name-only"], text=True).splitlines()
+              for path in changed:
+                  patch = subprocess.check_output(["git", "diff", "--no-ext-diff", "--unified=3", "--", path], text=True)
+                  print("COMBINED_FORMAT_PATCH_JSON " + json.dumps({"path": path, "patch": patch}))
+          sys.exit(result.returncode)
+          PY
+      - run: git diff --exit-code
+  native-targets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 81e2b3e5fca7d2ae29f47bc3bc88d7fbb575b3c5
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked python -m pytest -n 2 --dist=loadfile -q tests/test_source_resolution_types.py tests/test_typed_symbol_class_kinds.py tests/test_typed_host_events.py tests/test_core_command_result.py tests/test_known_delta_action_types.py tests/test_snapshot_language_types.py tests/test_string_comparison_observation.py tests/test_target_navigation_graph.py tests/test_repository_hygiene.py tests/test_make_gate.py tests/test_validation.py::test_an_inside_may_not_grant_what_requires_never_named
+      - run: git diff --exit-code
+  normal-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 81e2b3e5fca7d2ae29f47bc3bc88d7fbb575b3c5
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Actual normal writer amendment and replay
+        run: |
+          uv run --locked python - <<'PY'
+          import json, subprocess, sys
+          from pathlib import Path
+          receipt = "docs/architecture/decisions/2026-10-17-combined-owned-types-amendment.json"
+          common = ["uv", "run", "--locked", "archkeel", "validate", "--root", ".", "--baseline", "architecture-baseline.json"]
+          commands = [
+              common + ["--write-baseline", "--json"],
+              common + ["--against", "b082d1e14516f0c985ccfd49ef203b0edef843d8", "--amendment", receipt, "--write-amendment", "--decided-by", "ake2l", "--rationale", "Own shared source and result controls and enforce actual HRC symbol scopes.", "--json"],
+              common + ["--against", "b082d1e14516f0c985ccfd49ef203b0edef843d8", "--amendment", receipt, "--json"],
+          ]
+          for index, command in enumerate(commands):
+              run = subprocess.run(command, text=True, capture_output=True)
+              print("NORMAL_STAGE", index, "EXIT", run.returncode)
+              for line in run.stdout.splitlines():
+                  try:
+                      data = json.loads(line)
+                  except ValueError:
+                      continue
+                  print("NORMAL_SUMMARY_JSON", json.dumps({key:data.get(key) for key in ("exit_code", "amendment_status", "failures", "diagnostics", "widenings", "measurements")}))
+              if run.returncode:
+                  print(run.stdout)
+                  print(run.stderr)
+                  sys.exit(run.returncode)
+          print("COMBINED_BASELINE_JSON", json.dumps(Path("architecture-baseline.json").read_text()))
+          print("COMBINED_AMENDMENT_JSON", json.dumps(Path(receipt).read_text()))
+          PY
