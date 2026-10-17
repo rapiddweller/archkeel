@@ -16,7 +16,7 @@ jobs:
         run: git rev-parse HEAD
       - name: Actual references and tuple ingress
         run: |
-          rg -n '\b(DefinitionContexts|definition_sites|control_flow_contexts|_branch_context|DefinitionContextKind|DefinitionBranchKind)\b' src tests docs/architecture/contracts tools
+          git grep -n -E '\b(DefinitionContexts|definition_sites|control_flow_contexts|_branch_context|DefinitionContextKind|DefinitionBranchKind)\b' -- src tests docs/architecture/contracts tools
           python3 - <<'PY'
           import ast,json
           from pathlib import Path
