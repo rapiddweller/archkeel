@@ -1,0 +1,58 @@
+name: Verify nominal structure levels
+on:
+  push:
+    branches: [verify/542-structure-level-final]
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 7ff514624621334247bf89815e4a5f1d59404899
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked python -m pytest -n 2 --dist=loadfile -q tests/test_typed_structure_levels.py tests/test_structure.py tests/test_comparison_support_types.py tests/test_onboarding.py tests/test_report_renderer_units.py tests/test_make_gate.py tests/test_repository_hygiene.py
+      - run: git diff --exit-code
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 7ff514624621334247bf89815e4a5f1d59404899
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Exact quality and formatter diagnostics
+        run: |
+          uv run --locked python - <<'PY'
+          import ast, json, subprocess, sys
+          from pathlib import Path
+          command = subprocess.run(["make", "lint", "typecheck"])
+          if command.returncode:
+              files = [
+                  "src/archkeel/ir/structure.py",
+                  "src/archkeel/render/html.py",
+                  "src/archkeel/check/onboarding.py",
+                  "tests/test_typed_structure_levels.py",
+              ]
+              before = {p: ast.dump(ast.parse(Path(p).read_text()), include_attributes=False) for p in files}
+              subprocess.run(["uv","run","--locked","ruff","check","--select","I001","--fix",*files],check=True)
+              subprocess.run(["uv","run","--locked","ruff","format",*files],check=True)
+              for path in files:
+                  patch = subprocess.check_output(["git","diff","--no-ext-diff","--",path],text=True)
+                  if patch:
+                      print("STRUCTURE_FORMAT_PATCH_JSON",json.dumps({"path":path,"patch":patch}))
+              print("STRUCTURE_FORMAT_AST_UNCHANGED", all(before[p] == ast.dump(ast.parse(Path(p).read_text()), include_attributes=False) for p in files))
+          sys.exit(command.returncode)
+          PY
