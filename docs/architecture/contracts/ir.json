@@ -10116,10 +10116,6 @@
           "responsibilities": [
             "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
           ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
           "id": "IR-COMPARISON-bindings",
           "kind": "module",
           "qualified_name": "archkeel.ir.bindings"
@@ -10202,10 +10198,6 @@
           "responsibilities": [
             "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
           ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
           "id": "IR-COMPARISON-references",
           "kind": "module",
           "qualified_name": "archkeel.ir.references"
@@ -10288,10 +10280,6 @@
           "responsibilities": [
             "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
           ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
           "id": "IR-COMPARISON-type_fanin",
           "kind": "module",
           "qualified_name": "archkeel.ir.type_fanin"
@@ -10374,10 +10362,6 @@
           "responsibilities": [
             "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
           ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
           "id": "IR-COMPARISON-structure",
           "kind": "module",
           "qualified_name": "archkeel.ir.structure"
@@ -10460,10 +10444,6 @@
           "responsibilities": [
             "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
           ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
           "id": "IR-COMPARISON-duplication",
           "kind": "module",
           "qualified_name": "archkeel.ir.duplication"
@@ -10657,10 +10637,6 @@
           "responsibilities": [
             "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
           ],
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
           "id": "IR-COMPARISON-decisions",
           "kind": "module",
           "qualified_name": "archkeel.ir.decisions"
