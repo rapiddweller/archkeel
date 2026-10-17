@@ -269,19 +269,26 @@ def test_actual_marker_placement_rejects_an_unauthorized_physical_consumer(tmp_p
         source = "".join(lines)
         assert source.count("import builtins\n") == 1
         owner.write_text(
-            source.replace("import builtins\n", "from .report_graph import _RuleEvaluationTag\n\nimport builtins\n", 1)
+            source.replace(
+                "import builtins\n",
+                "from .report_graph import _RuleEvaluationTag\n\nimport builtins\n",
+                1,
+            )
         )
         consumer = root / "archkeel/ir/report_graph.py"
         source = consumer.read_text()
-        future = "from __future__ import annotations\n"
-        assert source.count(future) == 1
+        import_line = "from dataclasses import asdict\n"
+        assert source.count(import_line) == 1
         consumer.write_text(
-            source.replace(future, future + "\nfrom enum import StrEnum\n", 1)
-            + "\n\n" + marker_source + "\n"
+            source.replace(import_line, import_line + "from enum import StrEnum\n", 1)
+            + "\n\n"
+            + marker_source
+            + "\n"
         )
     observation = _model(root, config)
     placement = next(
-        row for row in rule_assessments(observation, undecided_by_rule={})
+        row
+        for row in rule_assessments(observation, undecided_by_rule={})
         if row.id == "TYPES-ENUM-IN-MODEL"
     )
     assert placement.status == ("FAIL" if relocated else "PASS")
@@ -295,7 +302,8 @@ def test_actual_marker_placement_rejects_an_unauthorized_physical_consumer(tmp_p
         comparison = architecture_report(observation).comparison
         assert comparison is not None
         missing_owner = next(
-            row for row in comparison.assessments
+            row
+            for row in comparison.assessments
             if row.subject_id == "IR-RULE-RECEIPT-tag" and row.aspect == "existence"
         )
         assert missing_owner.status == "UNKNOWN"
