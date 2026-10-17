@@ -199,7 +199,15 @@ def _repository(tmp_path):
         "from __future__ import annotations\nimport hashlib\nfrom dataclasses import dataclass\n"
         "from enum import StrEnum\nfrom typing import Literal, TypeAlias\n\n"
         + _source_members(
-            "src/archkeel/ir/facts.py", {"Evidence", "Language", "ParameterKind", "stable_id"}
+            "src/archkeel/ir/facts.py",
+            {
+                "Evidence",
+                "Language",
+                "ParameterKind",
+                "DefinitionContextKind",
+                "DefinitionBranchKind",
+                "stable_id",
+            },
         )
     )
     model = (
@@ -217,6 +225,9 @@ def _repository(tmp_path):
         "contract.json": json.dumps(_contract()),
         "docs/architecture/typed-graph-vocabulary.md": "Owned graph intent.\n",
         "docs/architecture/shared-parameter-kind.md": "Shared calling convention.\n",
+        "docs/architecture/definition-context-ports.md": (
+            ROOT / "docs/architecture/definition-context-ports.md"
+        ).read_text(),
         "docs/architecture/language-adapter-target.md": "Source-only facts.\n",
     }
     for module in MODULES:

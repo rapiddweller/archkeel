@@ -244,6 +244,7 @@ def _branch_context(node: ast.AST, child: ast.AST, field_name: _DefinitionField)
     [
         ("kind: DefinitionContextKind", "kind: str"),
         ("branch: DefinitionBranchKind", "branch: str"),
+        ("field_name: _DefinitionField", "field_name: str"),
         ("-> DefinitionFrame:", "-> tuple[ast.AST, str, str]:"),
     ],
 )
@@ -278,6 +279,7 @@ def test_native_real_source_frame_matches_the_independent_target(tmp_path):
     [
         ("kind: DefinitionContextKind", "kind: str"),
         ("branch: DefinitionBranchKind", "branch: str"),
+        ("field_name: _DefinitionField", "field_name: str"),
         ("-> DefinitionFrame:", "-> tuple[ast.AST, str, str]:"),
     ],
 )
