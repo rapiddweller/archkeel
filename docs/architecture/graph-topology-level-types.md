@@ -9,3 +9,5 @@ The two producer functions are internal to TARGET-EVALUATION, with only two actu
 Normative Targets cover the enum, reader return and exact producer parameters. Required tests exercise real wire producers, opaque metadata, actual signature/kind weakening and two exact function control mutations. Root owns final union review, combined metadata and Main gates.
 
 Design/owner handoff approved by Root on frozen bb3e498b9c43afc954ef9fe7078595983e0b3c2f. Actual producer/caller AST inventory: run39000792772/job117303082614.
+
+RED: run39001118127/job117304051081:18 expected failures/6 passes; existing product strict144 and both real Target schemas pass. No product changed before that run.
