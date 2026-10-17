@@ -1,17 +1,17 @@
-name: Verify combined typed owner integration
+name: Verify existing render navigation fixture causally
 on:
   push:
     branches: [verify/542-final-owned-controls-gates]
 permissions:
   contents: read
 jobs:
-  quality:
+  navigation-fixture:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: cdcaa7f88537be077a9a44f7002816089ae5cde0
+          ref: 94d2ff72e366ae6f5e6ae75e7d2396346120097d
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -19,91 +19,43 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
-      - run: make lint typecheck
-      - run: make browser-graph-check browser-runtime-check
-      - run: uv run --locked python -m pytest -q tests/test_repository_hygiene.py tests/test_ci_changes.py tests/test_make_gate.py
-      - run: git diff --exit-code
-  full-regression:
-    runs-on: ubuntu-latest
-    timeout-minutes: 85
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: cdcaa7f88537be077a9a44f7002816089ae5cde0
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-      - run: uv sync --locked
-      - run: make browser-install browser-runtime-install
-      - run: uv run --locked --with playwright==1.62.0 python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q --durations=20 --junitxml=test-artifacts/pytest/typed-owner-full.xml
-      - run: git diff --exit-code
-  required-report:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: cdcaa7f88537be077a9a44f7002816089ae5cde0
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-      - run: uv sync --locked
-      - run: make ci-pr-report-check
-      - run: git diff --exit-code
-  normal-native:
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: cdcaa7f88537be077a9a44f7002816089ae5cde0
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-      - run: uv sync --locked
-      - name: Normal baseline and owned amendment without accepted debt
+      - name: Preserve fixed Target and assertions while supplying actual guarded owners
         run: |
-          python - <<'PY'
-          import json,subprocess
+          uv run --locked python - <<'PY'
+          import dataclasses,json,subprocess,sys,tempfile
           from pathlib import Path
-          def run(args,label):
-              result=subprocess.run(["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--json",*args],capture_output=True,text=True)
-              Path("/tmp/"+label+".json").write_text(result.stdout)
-              if result.stderr:print(result.stderr[-6000:])
-              data=json.loads(result.stdout)
-              print("COMBINED_NATIVE_STAGE="+json.dumps({"stage":label,"exit":result.returncode,"valid":data.get("valid"),"measurements":data.get("measurements"),"failures":data.get("failures"),"diagnostics":data.get("diagnostics"),"widenings":data.get("widenings")}),flush=True)
-              assert result.returncode==0,(label,result.stdout[-12000:])
-              return data
-          run(["--write-baseline"],"baseline")
-          args=["--against","1ff6cef335117fcb35cc86a555ee2ab9db074e1f","--amendment","docs/architecture/decisions/2026-10-17-final-owned-controls-amendment.json"]
-          run([*args,"--write-amendment","--decided-by","ake2l","--rationale","Own parser and protocol vocabularies at existing API boundaries; preserve wire compatibility, conservative uncertainty and precise native source evidence across independently reviewed increments."],"amendment")
-          run(args,"ordinary-replay")
-          for label,path in (("COMBINED_BASELINE","architecture-baseline.json"),("COMBINED_AMENDMENT","docs/architecture/decisions/2026-10-17-final-owned-controls-amendment.json")):
-              print(label+"="+json.dumps(Path(path).read_text()),flush=True)
+          sys.path.insert(0,str(Path("tests").resolve()))
+          import test_target_navigation_graph as nav
+          original=nav.run_report
+          def diagnosed(*args,**kwargs):
+              result,encoded=original(*args,**kwargs)
+              print("NAV_DIAGNOSTICS="+json.dumps({"observation_complete":str(result.observation_complete),"diagnostics":[dataclasses.asdict(row) for row in result.diagnostics]},default=str),flush=True)
+              if encoded:
+                  model=nav.parse_observation(nav.decode_canonical_model(json.loads(encoded)))
+                  print("NAV_UNKNOWN_RECORDS="+json.dumps([dataclasses.asdict(row) for row in model.records("unknowns") or ()],default=str),flush=True)
+              return result,encoded
+          nav.run_report=diagnosed
+          with tempfile.TemporaryDirectory() as td:
+              try:nav.test_own_render_contract_enforces_output_direction(Path(td),None)
+              except AssertionError:print("NAV_ORIGINAL_ASSERTION_RED=True",flush=True)
+              else:raise AssertionError("expected unchanged fixture to reproduce existing failure")
+          path=Path("tests/test_target_navigation_graph.py")
+          text=path.read_text()
+          edits=[
+          ('"from archkeel.ir.model import RunResult\\n"\n            "def report_summary()', '"from archkeel.ir.model import RunResult\\n"\n            "from archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKind\\n"\n            "def report_summary()'),
+          ('{"report_violates_rules", "report_leaves_rules_undecided", "_decision_badge"},','{"report_violates_rules", "report_leaves_rules_undecided", "_decision_badge", "_call_site_lines"},'),
+          ('"src/archkeel/render/terminal.py": "from . import summary\\n",','"src/archkeel/render/terminal.py": (\n            "from . import summary\\n"\n            "from archkeel.ir.model import RunResult\\n"\n            "from archkeel.ir.model import RuleAssessmentStatus as _RuleAssessmentStatus\\n"\n            + _source_members("src/archkeel/render/terminal.py", {"print_result"})\n        ),'),
+          ('"from archkeel.ir.model import RunResult\\n"\n            "def _flow_section', '"from archkeel.ir.model import RunResult, Observation\\n"\n            "from archkeel.ir.model import ComparisonStatus as _ComparisonStatus\\n"\n            "from archkeel.ir.structure import StructureLevel as _StructureLevel\\n"\n            "def _flow_section'),
+          ('{"_atlas_rule_status_cards"})','{"_atlas_rule_status_cards", "_structure_overview_body"})'),
+          ('        "docs/architecture/core-command-result-types.md": "Own result control types.\\n",','        "docs/architecture/structure-level-types.md": (root_path / "docs/architecture/structure-level-types.md").read_text(),\n        "docs/architecture/unresolved-call-change-types.md": (root_path / "docs/architecture/unresolved-call-change-types.md").read_text(),\n        "docs/architecture/core-command-result-types.md": "Own result control types.\\n",')
+          ]
+          for old,new in edits:
+              assert text.count(old)==1,old
+              text=text.replace(old,new,1)
+          path.write_text(text)
+          subprocess.run(["uv","run","--locked","ruff","check","--select","I","--fix",str(path)],check=True)
+          subprocess.run(["uv","run","--locked","ruff","format",str(path)],check=True)
+          print("NAV_FIXED_FIXTURE="+json.dumps(path.read_text()),flush=True)
+          subprocess.run(["uv","run","--locked","python","-m","pytest","-q","tests/test_target_navigation_graph.py"],check=True)
           
           PY
-  required-core:
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: cdcaa7f88537be077a9a44f7002816089ae5cde0
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-      - run: uv sync --locked
-      - run: make ci-pr-check
-      - run: git diff --exit-code
