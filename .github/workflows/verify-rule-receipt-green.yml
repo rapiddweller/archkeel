@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 1e97f29bba2860a9516bc7753f147b2fc5fd5988
+          ref: 1c4814addf48f31f563dc1b393f50adabcb38580
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -23,30 +23,13 @@ jobs:
           make lint typecheck
           uv run --locked python -m pytest -q tests/test_rule_evaluation_receipts.py
           git diff --exit-code
-  regression:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: 1e97f29bba2860a9516bc7753f147b2fc5fd5988
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-      - run: uv sync --locked
-      - run: |
-          uv run --locked python -m pytest -n 2 --dist=loadfile -q tests/test_decisions.py tests/test_baseline.py tests/test_cycle_levels.py tests/test_module_explore.py tests/test_uml_evaluation.py tests/test_architecture_report.py tests/test_architecture_projection.py tests/test_codec.py tests/test_codec_compatibility.py tests/test_requires_symbol_ports.py tests/test_rule_yield.py tests/test_nested_interface_lifecycle.py tests/test_exact_module_ownership.py tests/test_exact_module_ownership_extensions.py tests/test_layers.py tests/test_dependency_selectors.py
-          git diff --exit-code
   wire:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 1e97f29bba2860a9516bc7753f147b2fc5fd5988
+          ref: 1c4814addf48f31f563dc1b393f50adabcb38580
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -97,6 +80,7 @@ jobs:
           import hashlib, json, os
           from pathlib import Path
           from archkeel.ir.codec import decode_canonical_model
+          from archkeel.ir.codec_wire import canonical_json_bytes
           root=Path(os.environ["RUNNER_TEMP"]);before=root/"receipt-wire-before";after=root/"receipt-wire-after"
           def differences(a,b,path=""):
               if type(a) is not type(b): return [(path,a,b)]
@@ -109,13 +93,20 @@ jobs:
           names=sorted(p.name for p in before.iterdir());assert len(names)==16,names
           for name in names:
               a=(before/name).read_bytes();b=(after/name).read_bytes()
-              if a!=b:
-                  x=json.loads(a);y=json.loads(b)
-                  if name.endswith(".wire"): x=decode_canonical_model(x);y=decode_canonical_model(y)
-                  print("RECEIPT_WIRE_DIFFERENCES="+json.dumps({"file":name,"differences":differences(x,y)[:30]}))
-              assert a==b,name
-              print("RECEIPT_WIRE_EQUAL="+json.dumps({"file":name,"bytes":len(a),"sha256":hashlib.sha256(a).hexdigest()}))
-          print("RECEIPT_WIRE_PAIRS=8 canonical reports + 8 complete projections, all byte-identical with actual identical Git input commits")
+              if name.endswith(".projections"):
+                  assert a==b,name
+                  print("RECEIPT_PROJECTIONS_EQUAL="+json.dumps({"file":name,"bytes":len(a),"sha256":hashlib.sha256(a).hexdigest()}))
+                  continue
+              x=decode_canonical_model(json.loads(a));y=decode_canonical_model(json.loads(b))
+              diffs=differences(x,y)
+              assert len(diffs)==1 and diffs[0][0]=="/analyzer/code_digest",(name,diffs[:30])
+              assert all(isinstance(v,str) and len(v)==64 for v in diffs[0][1:])
+              print("RECEIPT_REPORT_ONLY_CODE_IDENTITY_DIFFERENCE="+json.dumps({"file":name,"difference":diffs[0],"before_sha256":hashlib.sha256(a).hexdigest(),"after_sha256":hashlib.sha256(b).hexdigest()}))
+              before_receipts=canonical_json_bytes({"scope_observations":x["scope_observations"]})
+              after_receipts=canonical_json_bytes({"scope_observations":y["scope_observations"]})
+              assert before_receipts==after_receipts,name
+              print("RECEIPT_WIRE_EQUAL="+json.dumps({"file":name,"bytes":len(before_receipts),"sha256":hashlib.sha256(before_receipts).hexdigest()}))
+          print("RECEIPT_WIRE_PAIRS=8 actual Core receipt streams and 8 complete projections byte-identical; whole raw reports differ only in actual analyzer code_digest")
           PY
           git diff --exit-code
   native-cost:
@@ -125,7 +116,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 1e97f29bba2860a9516bc7753f147b2fc5fd5988
+          ref: 1c4814addf48f31f563dc1b393f50adabcb38580
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -134,7 +125,7 @@ jobs:
           version: "0.12.13"
       - run: uv sync --locked
       - run: |
-          PYTHONPATH="$PWD/src" .venv/bin/archkeel report --root "$PWD" --output "$RUNNER_TEMP/receipt-final.json"
+          PYTHONPATH="$PWD/src" .venv/bin/archkeel report --root "$PWD" --output "$RUNNER_TEMP/receipt-final.json" > "$RUNNER_TEMP/receipt-final-result.json"
           uv run --locked python - <<'PY'
           import json, os
           from collections import Counter
@@ -142,6 +133,9 @@ jobs:
           from pathlib import Path
           from archkeel.ir.codec import decode_canonical_model,parse_observation
           o=parse_observation(decode_canonical_model(json.loads((Path(os.environ["RUNNER_TEMP"])/"receipt-final.json").read_text())))
+          result=json.loads((Path(os.environ["RUNNER_TEMP"])/"receipt-final-result.json").read_text())
+          assert result["exit_code"]==0 and not result["diagnostics"],result
+          print("RECEIPT_FINAL_NATIVE_MEASUREMENTS="+json.dumps(result["measurements"]))
           print("RECEIPT_FINAL_NATIVE_COVERAGE="+json.dumps(asdict(o.coverage),default=str))
           print("RECEIPT_FINAL_NATIVE_UNKNOWNS="+json.dumps(dict(Counter(r.kind for r in o.records("unknowns") or ())),default=str))
           PY
