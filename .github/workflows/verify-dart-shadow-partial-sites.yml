@@ -22,7 +22,7 @@ jobs:
       - name: Print actual added conservative call identities and targets
         run: |
           uv run --locked python - <<'PY'
-          import json,re
+          import ast,json,re,subprocess
           from collections import Counter
           from dataclasses import asdict
           from pathlib import Path
@@ -44,7 +44,7 @@ jobs:
           rows=[[row for row in call_rows(model) if row.status=="partially_resolved"] for model in models]
           a,b=(Counter(key(row) for row in items) for items in rows)
           added,removed=b-a,a-b
-          summary={"base":"950520fd126ca05744c19066bb28ccbef5627964","head":"dace9a80e1bdc8419ba64804bfcf97f22970087f","before":len(rows[0]),"after":len(rows[1]),"added_groups":[{"key":k,"count":n} for k,n in added.items()],"removed_groups":[{"key":k,"count":n} for k,n in removed.items()],"added_sites":[asdict(row) for row in rows[1] if key(row) in added]}
+          summary={"base":"950520fd126ca05744c19066bb28ccbef5627964","head":"dace9a80e1bdc8419ba64804bfcf97f22970087f","before":len(rows[0]),"after":len(rows[1]),"added_groups":[{"key":k,"count":n} for k,n in added.items()],"removed_groups":[{"key":k,"count":n} for k,n in removed.items()],"after_matching_group_sites":[asdict(row) for row in rows[1] if key(row) in added]}
           model=models[1]
           evidence={row.id:row for row in model.evidence}
           selected=[]
@@ -55,9 +55,34 @@ jobs:
               site=sites[0]
               k=(site.file,caller(str(row.data.get("source_scope"))),row.data.get("expression"),row.data.get("reason"))
               if k in added:selected.append({"id":row.id,"data":json.loads(value_bytes(row.data)),"site":asdict(site)})
-          summary["added_record_evidence"]=selected
+          summary["after_matching_group_record_evidence"]=selected
+          def semantic(model,ref):
+              lookup={item.id:item for item in model.evidence}
+              caches={}
+              output=Counter()
+              for record in model.records("calls") or ():
+                  if record.data.get("status")!="partially_resolved":continue
+                  sites=[lookup[i] for i in record.evidence_ids if i in lookup]
+                  if len(sites)!=1:continue
+                  site=sites[0]
+                  k=(site.file,caller(str(record.data.get("source_scope"))),record.data.get("expression"),record.data.get("reason"))
+                  if k not in added:continue
+                  if site.file not in caches:
+                      source=subprocess.check_output(["git","show",ref+":"+site.file]).decode()
+                      caches[site.file]={(node.lineno,node.col_offset,ast.unparse(node.func)):ast.dump(node,include_attributes=False) for node in ast.walk(ast.parse(source)) if isinstance(node,ast.Call)}
+                  call_ast=caches[site.file][(site.line,site.column,record.data.get("expression"))]
+                  targets=json.loads(value_bytes(record.data)).get("targets")
+                  output[(k,json.dumps(targets,sort_keys=True),call_ast)]+=1
+              return output
+          old_sem=semantic(models[0],"950520fd126ca05744c19066bb28ccbef5627964")
+          new_sem=semantic(models[1],"dace9a80e1bdc8419ba64804bfcf97f22970087f")
+          delta=new_sem-old_sem
+          summary["added_semantic_calls"]=[{"identity":k,"count":n} for k,n in delta.items()]
+          summary["removed_semantic_calls"]=[{"identity":k,"count":n} for k,n in (old_sem-new_sem).items()]
           print("DART_PARTIAL_SITE_EVIDENCE="+json.dumps(summary,separators=(",",":")))
           assert sum(added.values())==4 and not removed,summary
           assert all(k[0] in {"src/archkeel/analyzer/dart/parse.py","src/archkeel/analyzer/dart/resolve.py"} for k in added),summary
-          assert len(selected)==4,summary
+          assert not old_sem-new_sem,summary
+          assert sum(delta.values())==4 and len(delta)==3,summary
+          assert all(k[0][2] in {"source.text","source.span"} for k in delta),summary
           PY
