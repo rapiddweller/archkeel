@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 8c5086f58c0d520d5971acd8e2d5e2eabf630637
+          ref: 0c3f0069aa1bd04af94782db394c4276c97e4953
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -65,18 +65,3 @@ jobs:
         run: |
           uv run --locked ruff check src/archkeel/ir/facts.py src/archkeel/ir/model.py src/archkeel/analyzer/dart/collect.py src/archkeel/analyzer/typescript/collect.py src/archkeel/analyzer/python/resolve.py src/archkeel/analyzer/python/calls.py src/archkeel/analyzer/python/references.py src/archkeel/analyzer/python/symbols.py src/archkeel/ir/facts_validation.py src/archkeel/ir/source_graph.py src/archkeel/ir/structure.py src/archkeel/check/ratchets.py src/archkeel/check/evaluation/evaluate.py src/archkeel/check/observation.py tests/test_source_resolution_types.py
           uv run --locked ruff format --check src/archkeel/ir/facts.py src/archkeel/ir/model.py src/archkeel/analyzer/dart/collect.py src/archkeel/analyzer/typescript/collect.py src/archkeel/analyzer/python/resolve.py src/archkeel/analyzer/python/calls.py src/archkeel/analyzer/python/references.py src/archkeel/analyzer/python/symbols.py src/archkeel/ir/facts_validation.py src/archkeel/ir/source_graph.py src/archkeel/ir/structure.py src/archkeel/check/ratchets.py src/archkeel/check/evaluation/evaluate.py src/archkeel/check/observation.py tests/test_source_resolution_types.py
-      - name: Capture formatter-only followups
-        if: always()
-        run: |
-          uv run --locked python - <<'PY'
-          import json,subprocess
-          from pathlib import Path
-          paths=["src/archkeel/ir/facts.py","src/archkeel/ir/model.py","src/archkeel/analyzer/dart/collect.py","src/archkeel/analyzer/typescript/collect.py","src/archkeel/analyzer/python/resolve.py","src/archkeel/analyzer/python/calls.py","src/archkeel/analyzer/python/references.py","src/archkeel/analyzer/python/symbols.py","src/archkeel/ir/facts_validation.py","src/archkeel/ir/source_graph.py","src/archkeel/ir/structure.py","src/archkeel/check/ratchets.py","src/archkeel/check/evaluation/evaluate.py","src/archkeel/check/observation.py","tests/test_source_resolution_types.py"]
-          before={path:Path(path).read_text() for path in paths}
-          subprocess.run(["uv","run","--locked","ruff","check","--select","I","--fix",*paths],check=True)
-          subprocess.run(["uv","run","--locked","ruff","format",*paths],check=True)
-          for path in paths:
-              source=Path(path).read_text()
-              if source!=before[path]:
-                  print("FORMATTED_SOURCE="+json.dumps(dict(path=path,content=source)),flush=True)
-          PY
