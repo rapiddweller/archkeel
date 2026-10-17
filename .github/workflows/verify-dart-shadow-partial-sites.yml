@@ -1,0 +1,63 @@
+name: Explain conservative Dart host partial sites
+on:
+  push:
+    branches: [verify/570-dart-shadow-partial-sites]
+permissions:
+  contents: read
+jobs:
+  partial-sites:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: dace9a80e1bdc8419ba64804bfcf97f22970087f
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Print actual added conservative call identities and targets
+        run: |
+          uv run --locked python - <<'PY'
+          import json,re
+          from collections import Counter
+          from dataclasses import asdict
+          from pathlib import Path
+          from archkeel.cli.config import parse_config
+          from archkeel.cli.observe import observer_for
+          from archkeel.check.run import observe_revision
+          from archkeel.check.ratchets import call_rows
+          from archkeel.ir.codec_wire import value_bytes
+          root=Path.cwd()
+          config=parse_config((root/"archkeel.toml").read_bytes())
+          observer=observer_for(config.language)
+          models=[]
+          def caller(value):return re.sub(r"<(genexpr|listcomp|dictcomp|setcomp):[0-9]+:[0-9]+>",r"<\1>",value)
+          def key(row):return (row.path,caller(row.caller),row.expression,row.reason)
+          for ref in ("950520fd126ca05744c19066bb28ccbef5627964","dace9a80e1bdc8419ba64804bfcf97f22970087f"):
+              result=observe_revision(observer,root,ref,config,declared_at=ref)
+              assert not result.diagnostics and result.observation is not None,result.diagnostics
+              models.append(result.observation)
+          rows=[[row for row in call_rows(model) if row.status=="partially_resolved"] for model in models]
+          a,b=(Counter(key(row) for row in items) for items in rows)
+          added,removed=b-a,a-b
+          summary={"base":"950520fd126ca05744c19066bb28ccbef5627964","head":"dace9a80e1bdc8419ba64804bfcf97f22970087f","before":len(rows[0]),"after":len(rows[1]),"added_groups":[{"key":k,"count":n} for k,n in added.items()],"removed_groups":[{"key":k,"count":n} for k,n in removed.items()],"added_sites":[asdict(row) for row in rows[1] if key(row) in added]}
+          model=models[1]
+          evidence={row.id:row for row in model.evidence}
+          selected=[]
+          for row in model.records("calls") or ():
+              if row.data.get("status")!="partially_resolved":continue
+              sites=[evidence[i] for i in row.evidence_ids if i in evidence]
+              if len(sites)!=1:continue
+              site=sites[0]
+              k=(site.file,caller(str(row.data.get("source_scope"))),row.data.get("expression"),row.data.get("reason"))
+              if k in added:selected.append({"id":row.id,"data":json.loads(value_bytes(row.data)),"site":asdict(site)})
+          summary["added_record_evidence"]=selected
+          print("DART_PARTIAL_SITE_EVIDENCE="+json.dumps(summary,separators=(",",":")))
+          assert sum(added.values())==4 and not removed,summary
+          assert all(k[0] in {"src/archkeel/analyzer/dart/parse.py","src/archkeel/analyzer/dart/resolve.py"} for k in added),summary
+          assert len(selected)==4,summary
+          PY
