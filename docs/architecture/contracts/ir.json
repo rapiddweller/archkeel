@@ -519,6 +519,45 @@
         "docs/architecture/classifier-projections.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "RESULT-BINDING-TARGET-READER-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.facts.parse_result_binding_target_kind",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The complete source-tag reader selects canonical enum members rather than literal protocol comparisons.",
+      "provenance": [
+        "docs/architecture/source-binding-facets.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SOURCE-ASSIGNMENT-READER-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.facts.parse_source_assignment_kind",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The complete source-tag reader selects canonical enum members rather than literal protocol comparisons.",
+      "provenance": [
+        "docs/architecture/source-binding-facets.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "RESULT-BINDING-RECONCILE-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.source_graph._reconcile_result_binding",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The complete reconciliation function dispatches on canonical target and graph entity kinds; names remain source data.",
+      "provenance": [
+        "docs/architecture/source-binding-facets.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {
@@ -11770,6 +11809,165 @@
               }
             ],
             "returns": "EntityKind | None"
+          }
+        },
+        {
+          "id": "IR-RESULT-BINDING-TARGET-KIND",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.ResultBindingTargetKind",
+          "language": "python",
+          "parent_id": "archkeel.ir.facts",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the three written call-result target forms shared by source collectors and graph projection."
+          ],
+          "provenance": [
+            "docs/architecture/source-binding-facets.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-RESULT-BINDING-TARGET-READER",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.facts.parse_result_binding_target_kind",
+          "language": "python",
+          "parent_id": "archkeel.ir.facts",
+          "presence": "planned",
+          "responsibilities": [
+            "Recognize only known source tags at the wire read port; leave opaque and future metadata unclassified."
+          ],
+          "provenance": [
+            "docs/architecture/source-binding-facets.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "JsonValue | RawJson"
+              }
+            ],
+            "returns": "ResultBindingTargetKind | None"
+          }
+        },
+        {
+          "id": "IR-SOURCE-ASSIGNMENT-KIND",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.SourceAssignmentKind",
+          "language": "python",
+          "parent_id": "archkeel.ir.facts",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the three source assignment categories without closing unrelated source record kinds."
+          ],
+          "provenance": [
+            "docs/architecture/source-binding-facets.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-SOURCE-ASSIGNMENT-READER",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.facts.parse_source_assignment_kind",
+          "language": "python",
+          "parent_id": "archkeel.ir.facts",
+          "presence": "planned",
+          "responsibilities": [
+            "Recognize only known source tags at the wire read port; leave opaque and future metadata unclassified."
+          ],
+          "provenance": [
+            "docs/architecture/source-binding-facets.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "JsonValue | RawJson"
+              }
+            ],
+            "returns": "SourceAssignmentKind | None"
+          }
+        },
+        {
+          "id": "IR-RESULT-BINDING-RECONCILE",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.source_graph._reconcile_result_binding",
+          "language": "python",
+          "parent_id": "IR-UML-source_graph",
+          "presence": "planned",
+          "responsibilities": [
+            "Reconcile recorded binding identity through the owned result-target kind without inventing source ownership."
+          ],
+          "provenance": [
+            "docs/architecture/source-binding-facets.md"
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "previous",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "Entity | None"
+              },
+              {
+                "name": "owner",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "Entity"
+              },
+              {
+                "name": "source",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "str"
+              },
+              {
+                "name": "name",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "str"
+              },
+              {
+                "name": "target_kind",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "ResultBindingTargetKind"
+              },
+              {
+                "name": "annotation",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "str | None"
+              },
+              {
+                "name": "definition_contexts",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "tuple[DefinitionContext, ...]"
+              }
+            ],
+            "returns": "tuple[str, str | None, tuple[DefinitionContext, ...]]"
           }
         }
       ],

@@ -937,7 +937,12 @@ def _pep695_alias_symbol(
         return None
     if node in module.tree.body and not node.type_params:
         return _assignment_symbol(
-            module, node, name, SourceAssignmentKind.TYPE_ALIAS, evidence, alias=annotation_text(node.value)
+            module,
+            node,
+            name,
+            SourceAssignmentKind.TYPE_ALIAS,
+            evidence,
+            alias=annotation_text(node.value),
         )
     return _assignment_symbol(module, node, name, SourceAssignmentKind.DYNAMIC_BINDING, evidence)
 
@@ -963,7 +968,12 @@ def _module_assignment_symbols(
         if (alias_value := admitted_type_alias_value(module, node)) is not None:
             symbols.append(
                 _assignment_symbol(
-                    module, node, name, SourceAssignmentKind.TYPE_ALIAS, evidence, alias=annotation_text(alias_value)
+                    module,
+                    node,
+                    name,
+                    SourceAssignmentKind.TYPE_ALIAS,
+                    evidence,
+                    alias=annotation_text(alias_value),
                 )
             )
         elif symbol := _pep695_alias_symbol(module, node, name, evidence):
@@ -989,7 +999,11 @@ def _module_assignment_symbols(
             or name in direct_names
             and (name[:1].isupper() or name in aliases)
         ):
-            symbols.append(_assignment_symbol(module, node, name, SourceAssignmentKind.DYNAMIC_BINDING, evidence))
+            symbols.append(
+                _assignment_symbol(
+                    module, node, name, SourceAssignmentKind.DYNAMIC_BINDING, evidence
+                )
+            )
     return symbols
 
 

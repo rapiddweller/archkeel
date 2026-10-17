@@ -777,12 +777,7 @@ def _value_bindings(
         name = _text(site.get("name")) or ""
         initializer = _text(site.get("initializer")) or ""
         target_kind = parse_result_binding_target_kind(_text(site.get("target_kind")))
-        if (
-            not identity
-            or not name
-            or not initializer
-            or target_kind is None
-        ):
+        if not identity or not name or not initializer or target_kind is None:
             raise ValueError("invalid static result binding")
         previous = next((item for item in entities if item.id == identity), None)
         annotation = _text(site.get("annotation"))

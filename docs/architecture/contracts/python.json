@@ -923,6 +923,65 @@
             ],
             "returns": "list[RawRecord]"
           }
+        },
+        {
+          "id": "PYTHON-SOURCE-ASSIGNMENT-PRODUCER",
+          "kind": "function",
+          "qualified_name": "archkeel.analyzer.python.symbols._assignment_symbol",
+          "language": "python",
+          "parent_id": "PYTHON-PARAMETER-SYMBOLS",
+          "presence": "planned",
+          "responsibilities": [
+            "Publish assignment category through the shared source-fact owner, independently of lexical bindings or graph projection."
+          ],
+          "provenance": [
+            "docs/architecture/source-binding-facets.md"
+          ],
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "module",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "ParsedModule"
+              },
+              {
+                "name": "node",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "ast.AST"
+              },
+              {
+                "name": "name",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "str"
+              },
+              {
+                "name": "kind",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "SourceAssignmentKind"
+              },
+              {
+                "name": "evidence",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "dict[str, RawEvidence]"
+              },
+              {
+                "name": "details",
+                "kind": "kwargs",
+                "default_known": true,
+                "annotation": "object"
+              }
+            ],
+            "returns": "RawRecord"
+          }
         }
       ],
       "relationships": [],

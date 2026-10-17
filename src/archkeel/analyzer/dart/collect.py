@@ -27,16 +27,16 @@ from archkeel.ir.facts import (
     LocalTarget,
     Record,
     ResultBindingTargetKind,
-    SourceAssignmentKind,
     RuntimeRequirementState,
+    SourceAssignmentKind,
     SourceFacts,
     SourceInfo,
     SourceNameVisibility,
     SourceProfile,
     SourceResolution,
     SourceSectionName,
-    UnresolvedTarget,
     stable_id,
+    UnresolvedTarget,
 )
 from archkeel.ir.facts import (
     MemberKind as InventoryMemberKind,
@@ -418,7 +418,9 @@ class _Collection:
         data = self._meta(
             rel, module, name, kind, qualified, parent, parent_id, definition.visibility
         )
-        data["symbol_category"] = SourceAssignmentKind.TYPE_ALIAS if kind == DefinitionKind.TYPEDEF else record_kind
+        data["symbol_category"] = (
+            SourceAssignmentKind.TYPE_ALIAS if kind == DefinitionKind.TYPEDEF else record_kind
+        )
         data["modifiers"] = list(definition.modifiers)
         if kind in {
             DefinitionKind.CLASS,
@@ -443,7 +445,11 @@ class _Collection:
                 signature_complete=all(p["default_known"] for p in parameters),
             )
         elif kind == DefinitionKind.TYPEDEF:
-            data.update(symbol_category=SourceAssignmentKind.TYPE_ALIAS, annotation=definition.alias, constant=None)
+            data.update(
+                symbol_category=SourceAssignmentKind.TYPE_ALIAS,
+                annotation=definition.alias,
+                constant=None,
+            )
         elif kind == DefinitionKind.VARIABLE:
             record_kind = _SymbolKind.CONSTANT if definition.constant else _SymbolKind.ATTRIBUTE
             data.update(
@@ -754,7 +760,9 @@ class _Collection:
                 "basis": "language",
                 "spelling": name.rsplit(".", 1)[-1],
             },
-            "symbol_category": SourceAssignmentKind.TYPE_ALIAS if kind == DefinitionKind.TYPEDEF else kind,
+            "symbol_category": SourceAssignmentKind.TYPE_ALIAS
+            if kind == DefinitionKind.TYPEDEF
+            else kind,
             "source_binding_unique": True,
             "source_member_binding_static": True,
             "class_header_static": True,
