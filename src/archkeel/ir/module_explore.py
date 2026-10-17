@@ -30,6 +30,7 @@ from .dependency import DependencySelection
 from .interfaces import component_owners, owner_of
 from .levels import inside_levels
 from .model import (
+    rule_evaluation_receipt,
     ComponentOwnership,
     JsonValue,
     Observation,
@@ -455,7 +456,7 @@ def _cell_receipt_proven(
 ) -> bool:
     subjects = {source} if assessment.kind == "forbidden_dependency" else {source, target}
     return any(
-        record.kind == "rule_evaluation"
+        rule_evaluation_receipt(record) is not None
         and assessment.id in record.rule_ids
         and subjects <= set(record.subjects)
         and _rule_receipt_complete(declaration, record)

@@ -15,6 +15,8 @@ from archkeel.ir.architecture_graph import (
 )
 from archkeel.ir.codec import parse_record
 from archkeel.ir.model import (
+    RULE_EVALUATION_KIND,
+    rule_evaluation_receipt,
     UML_TARGET_KIND,
     Diagnostic,
     EvidenceClass,
@@ -85,7 +87,7 @@ def _comparison_receipt(
             "provenance": list(declaration.provenance),
             "id": stable_id("UML-EVALUATION", declaration.id),
             "evidence_class": "FACT",
-            "kind": "rule_evaluation",
+            "kind": RULE_EVALUATION_KIND,
             "title": "Independent UML target evaluated",
             "fact_ids": facts,
             "evidence_ids": evidence,
@@ -175,7 +177,7 @@ def _validate_receipt_identity(declaration: Record, receipts: tuple[Record, ...]
             declaration.id in receipt.rule_ids
             and receipt.data.get("comparison") is not None
             and (
-                receipt.kind != "rule_evaluation"
+                rule_evaluation_receipt(receipt) is None
                 or receipt.rule_ids != (declaration.id,)
                 or receipt.id != stable_id("UML-EVALUATION", declaration.id)
             )

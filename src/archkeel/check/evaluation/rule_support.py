@@ -12,6 +12,7 @@ from typing import TypeAlias
 from archkeel.ir.architecture_graph import AssessmentStatus as _Verdict
 from archkeel.ir.facts_codec import RawRecord, classified
 from archkeel.ir.model import (
+    RULE_EVALUATION_KIND,
     ArchitectureRule,
     ComponentOwnership,
     EvidenceClass,
@@ -165,7 +166,7 @@ def _rule_evaluation_receipt(
         item_id=stable_id("RULE-EVALUATION", scope, rule.id),
         evidence_class=EvidenceClass.FACT,
         area="rules",
-        kind="rule_evaluation",
+        kind=RULE_EVALUATION_KIND,
         title=f"{rule.id} evaluator completed",
         subjects=list(subjects if subjects is not None else names),
         rule_ids=[rule.id],

@@ -27,6 +27,7 @@ from .facts_validation import validate_source_bindings
 from .interfaces import component_owners, owner_of
 from .measurements import RatchetError
 from .model import (
+    rule_evaluation_receipt,
     RULE_RECORD_KINDS,
     AllowedDependencyRule,
     ArchitectureRuleKind,
@@ -763,9 +764,10 @@ def _ownership_blocker_reason(observation: Observation, rule_id: str) -> str | N
 
 
 def _rule_receipt_complete(declaration: Record, receipt: Record | None) -> bool:
+    facet = rule_evaluation_receipt(receipt) if receipt is not None else None
     if declaration.kind == "no_component_cycles":
-        return receipt is not None and receipt.data.get("cycle_scope_complete") is True
-    return receipt is not None and receipt.data.get("assessment_complete", True) is True
+        return facet is not None and facet.cycle_scope_complete
+    return facet is not None and facet.assessment_complete
 
 
 def _declared_scope_ownership(record: Record) -> ComponentOwnership:
@@ -987,7 +989,7 @@ def rule_assessments(
     receipts = {
         record.rule_ids[0]: record
         for record in observation.records("scope_observations") or ()
-        if record.kind == "rule_evaluation" and record.rule_ids
+        if rule_evaluation_receipt(record) is not None and record.rule_ids
     }
     rows: list[RuleAssessment] = []
     for declaration in declarations:
@@ -1079,9 +1081,9 @@ def cycle_scope_receipt_covers(
     component_cycle = rule.data.get("level") is None
     for receipt in observation.records("scope_observations") or ():
         if (
-            receipt.kind != "rule_evaluation"
+            (facet := rule_evaluation_receipt(receipt)) is None
             or rule_id not in receipt.rule_ids
-            or receipt.data.get("cycle_scope_complete") is not True
+            or not facet.cycle_scope_complete
         ):
             continue
         if component_cycle:
@@ -1123,7 +1125,7 @@ def baseline_fingerprint_covered(
         rule_id: tuple(
             record
             for record in observation.records("scope_observations") or ()
-            if record.kind == "rule_evaluation" and rule_id in record.rule_ids
+            if rule_evaluation_receipt(record) is not None and rule_id in record.rule_ids
         )
         for rule_id in fingerprint.rules
     }

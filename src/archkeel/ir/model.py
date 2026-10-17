@@ -82,6 +82,7 @@ from .facts import (
 from .facts import (
     stable_id as stable_id,
 )
+from .source_records import RawRecord
 from .host_records import InitialPRHeadEvidence
 from .measurements import MeasurementBudgetName as MeasurementBudgetName
 from .measurements import Measurements
@@ -748,6 +749,37 @@ def parse_graph_topology_level(value: JsonValue | RawJson) -> GraphTopologyLevel
         return GraphTopologyLevel(value)
     except ValueError:
         return None
+
+
+class _RuleEvaluationTag(StrEnum):
+    RECEIPT = "rule_evaluation"
+
+
+RULE_EVALUATION_KIND: Final[str] = _RuleEvaluationTag.RECEIPT.value
+
+
+@dataclass(frozen=True, slots=True)
+class RuleEvaluationReceipt:
+    """The two completion facets of one recognized Core receipt."""
+
+    assessment_complete: bool
+    cycle_scope_complete: bool
+
+
+def rule_evaluation_receipt(record: Record | RawRecord) -> RuleEvaluationReceipt | None:
+    """Read the owned receipt subset without closing other record kinds or data."""
+    if isinstance(record, Record):
+        kind, data = record.kind, record.data
+    else:
+        kind, data = record["kind"], record["data"]
+    try:
+        _RuleEvaluationTag(kind)
+    except ValueError:
+        return None
+    return RuleEvaluationReceipt(
+        assessment_complete=data.get("assessment_complete", True) is True,
+        cycle_scope_complete=data.get("cycle_scope_complete") is True,
+    )
 
 
 def text_value(value: object) -> str:

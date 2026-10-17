@@ -30,6 +30,7 @@ from archkeel.ir.graph_codec import parse_comparison
 from archkeel.ir.interfaces import component_owners, owner_of
 from archkeel.ir.levels import inside_levels
 from archkeel.ir.model import (
+    rule_evaluation_receipt,
     TARGET_GRAPH_RECORD_KINDS,
     UML_TARGET_KIND,
     Observation,
@@ -75,7 +76,7 @@ def architecture_report(model: Observation) -> ArchitectureReport:
             item
             for item in model.records("scope_observations") or ()
             if target is not None
-            and item.kind == "rule_evaluation"
+            and rule_evaluation_receipt(item) is not None
             and item.id == stable_id("UML-EVALUATION", target.id)
             and item.rule_ids == (target.id,)
             and item.data.get("comparison") is not None
