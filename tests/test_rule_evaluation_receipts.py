@@ -158,11 +158,17 @@ def _target(include_guard=True):
     return target
 
 
-def _native_repository(tmp_path, include_guard=True):
+def _native_repository(tmp_path, include_guard=True, *, placement=False):
     target = _target(include_guard)
+    if placement:
+        root_target = json.loads((ROOT / "architecture-contract.json").read_text())
+        target["rules"].extend(
+            row for row in root_target["rules"] if row["id"] == "TYPES-ENUM-IN-MODEL"
+        )
     files = {
         "archkeel/__init__.py": "",
         "archkeel/ir/__init__.py": "",
+        "archkeel/check/__init__.py": "",
         "contract.json": json.dumps(target),
     }
     for row in [
@@ -172,7 +178,10 @@ def _native_repository(tmp_path, include_guard=True):
     ]:
         for path in row["provenance"]:
             files[path] = (ROOT / path).read_text()
-    for path in ("ir/model.py", "ir/facts.py", "ir/source_records.py"):
+    paths = ("ir/model.py", "ir/facts.py", "ir/source_records.py")
+    if placement:
+        paths += ("ir/report_graph.py",)
+    for path in paths:
         files["archkeel/" + path] = (ROOT / "src/archkeel" / path).read_text()
     root = _prepare_repo(tmp_path, files)
     return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
@@ -228,7 +237,8 @@ def test_actual_reader_raw_control_mutation_is_rejected_by_the_same_native_guard
     )
     lines = source.splitlines(keepends=True)
     lines[insertion:insertion] = [
-        '    if isinstance(record, Record) and record.kind == "rule_evaluation":\n        return None\n'
+        '    if isinstance(record, Record) and record.kind == "rule_evaluation":\n'
+        "        return None\n"
     ]
     authored = (root / "contract.json").read_bytes()
     path.write_text("".join(lines))
@@ -241,32 +251,59 @@ def test_actual_reader_raw_control_mutation_is_rejected_by_the_same_native_guard
     assert (root / "contract.json").read_bytes() == authored
 
 
-def test_actual_marker_owner_relocation_fails_the_fixed_native_target(tmp_path):
-    root, config = _native_repository(tmp_path, include_guard=False)
-    owner = root / "archkeel/ir/model.py"
-    source = owner.read_text()
-    marker = next(
-        row
-        for row in ast.parse(source).body
-        if isinstance(row, ast.ClassDef) and row.name == "_RuleEvaluationTag"
-    )
-    lines = source.splitlines(keepends=True)
-    marker_source = "".join(lines[marker.lineno - 1 : marker.end_lineno])
-    lines[marker.lineno - 1 : marker.end_lineno] = []
-    lines.insert(5, "from .facts import _RuleEvaluationTag\n")
-    owner.write_text("".join(lines))
-    wrong_owner = root / "archkeel/ir/facts.py"
-    wrong_owner.write_text(wrong_owner.read_text() + "\n" + marker_source + "\n")
+@pytest.mark.parametrize("relocated", [False, True])
+def test_actual_marker_placement_rejects_an_unauthorized_physical_consumer(tmp_path, relocated):
+    root, config = _native_repository(tmp_path, include_guard=False, placement=True)
     authored = (root / "contract.json").read_bytes()
-    comparison = architecture_report(_model(root, config)).comparison
-    assert comparison is not None and any(
-        row.status == "FAIL" and row.subject_id == "IR-RULE-RECEIPT-tag"
-        for row in comparison.assessments
-    ), comparison
+    if relocated:
+        owner = root / "archkeel/ir/model.py"
+        source = owner.read_text()
+        marker = next(
+            row
+            for row in ast.parse(source).body
+            if isinstance(row, ast.ClassDef) and row.name == "_RuleEvaluationTag"
+        )
+        lines = source.splitlines(keepends=True)
+        marker_source = "".join(lines[marker.lineno - 1 : marker.end_lineno])
+        lines[marker.lineno - 1 : marker.end_lineno] = []
+        source = "".join(lines)
+        assert source.count("import builtins\n") == 1
+        owner.write_text(
+            source.replace("import builtins\n", "from .report_graph import _RuleEvaluationTag\n\nimport builtins\n", 1)
+        )
+        consumer = root / "archkeel/ir/report_graph.py"
+        source = consumer.read_text()
+        future = "from __future__ import annotations\n"
+        assert source.count(future) == 1
+        consumer.write_text(
+            source.replace(future, future + "\nfrom enum import StrEnum\n", 1)
+            + "\n\n" + marker_source + "\n"
+        )
+    observation = _model(root, config)
+    placement = next(
+        row for row in rule_assessments(observation, undecided_by_rule={})
+        if row.id == "TYPES-ENUM-IN-MODEL"
+    )
+    assert placement.status == ("FAIL" if relocated else "PASS")
+    assert placement.evaluation_proven
+    if relocated:
+        assert any(
+            "TYPES-ENUM-IN-MODEL" in row.rule_ids
+            and "archkeel.ir.report_graph._RuleEvaluationTag" in row.subjects
+            for row in trace_valid_violations(observation)
+        )
+        comparison = architecture_report(observation).comparison
+        assert comparison is not None
+        missing_owner = next(
+            row for row in comparison.assessments
+            if row.subject_id == "IR-RULE-RECEIPT-tag" and row.aspect == "existence"
+        )
+        assert missing_owner.status == "UNKNOWN"
+        assert missing_owner.reason == "Entity is absent; complete inventory is not proven."
     assert (root / "contract.json").read_bytes() == authored
 
 
-def test_authored_ports_use_the_existing_model_owner_and_selected_regression_gate():
+def test_authored_port_signature_is_valid_in_the_existing_model_owner():
     target = _target()
     parse_contract(target)
     reader = next(
