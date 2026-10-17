@@ -1,0 +1,56 @@
+name: Verify source symbol call deltas without coordinate noise
+on:
+  push:
+    branches: ['verify/542-source-symbol-call-delta']
+permissions:
+  contents: read
+jobs:
+  calls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: a3696da9a0c71825d1df2df47c1cce990c28c1af
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: '3.11.12'
+          version: '0.12.13'
+      - run: uv sync --locked
+      - run: |
+          uv run --locked python - <<'PY'
+          import hashlib,json,os,re,subprocess,sys
+          from collections import Counter
+          from concurrent.futures import ThreadPoolExecutor
+          from pathlib import Path
+          root=Path.cwd();base=Path(os.environ["RUNNER_TEMP"])/"source-symbol-debt-base"
+          subprocess.run(["git","worktree","add","--detach",str(base),"50d93141720d53774f5e9e916579bdc18c7bc246"],check=True)
+          out=Path(os.environ["RUNNER_TEMP"])/"source-symbol-debt";out.mkdir()
+          child="import dataclasses, importlib, json, re, sys\nfrom pathlib import Path\nfrom archkeel.ir.facts_codec import record_payload\nfrom archkeel.ir.protocol import CollectionRequest, PythonSettings, SnapshotInput, SourceScope\nimport archkeel\nroot=Path(sys.argv[1]).resolve()\nassert Path(archkeel.__file__).resolve().is_relative_to(root / \"src\")\nfacts=importlib.import_module(\"archkeel.analyzer.python.collect\").collect(CollectionRequest(SnapshotInput(str(root),\"a\"*40,False),SourceScope((\"src\",),\"archkeel\"),PythonSettings()))\nevidence={row.id:dataclasses.asdict(row) for row in facts.evidence}\nrows=[{\"record\":record_payload(row),\"evidence\":[evidence[e] for e in row.evidence_ids]} for section in facts.sections if str(section.name)==\"calls\" for row in section.records if row.data.get(\"status\") in {\"unresolved\",\"partially_resolved\"}]\nPath(sys.argv[2]).write_text(json.dumps(rows,sort_keys=True,separators=(\",\",\":\")))\n"
+          def run(pair):
+              side,tree=pair
+              subprocess.run([sys.executable,"-c",child,str(tree),str(out/f"{side}.json")],cwd=tree,env=dict(os.environ,PYTHONPATH=str(tree/"src"),PYTHONDONTWRITEBYTECODE="1"),check=True)
+          with ThreadPoolExecutor(max_workers=2) as pool:list(pool.map(run,(("before",base),("after",root))))
+          def coordinate_free(value):
+              if isinstance(value,str):return re.sub(r"<(genexpr|listcomp|dictcomp|setcomp|lambda):[0-9]+:[0-9]+>",r"<\1>",value)
+              if isinstance(value,list):return [coordinate_free(item) for item in value]
+              return value
+          def key(row):
+              data=row["record"]["data"]
+              return json.dumps(coordinate_free([sorted({e["file"] for e in row["evidence"]}),data.get("source_scope"),data.get("expression"),data.get("status"),data.get("targets"),data.get("reason")]),sort_keys=True,separators=(",",":"))
+          before=json.loads((out/"before.json").read_text());after=json.loads((out/"after.json").read_text())
+          a,b=Counter(map(key,before)),Counter(map(key,after));added=b-a;removed=a-b
+          def summary(delta):
+              result=[]
+              for text,count in sorted(delta.items()):
+                  fields=json.loads(text)
+                  result.append({"owner":fields[1],"status":fields[3],"count":count,"expression_sha256":hashlib.sha256(str(fields[2]).encode()).hexdigest(),"semantic_key_sha256":hashlib.sha256(text.encode()).hexdigest()})
+              return result
+          report={"basis":"file, lexical owner with generated comprehension/lambda coordinates removed, exact expression, status, targets and reason; multiplicities retained","before":len(before),"after":len(after),"before_statuses":dict(Counter(row["record"]["data"].get("status") for row in before)),"after_statuses":dict(Counter(row["record"]["data"].get("status") for row in after)),"added":summary(added),"removed":summary(removed)}
+          print("SOURCE_SYMBOL_COORDINATE_FREE_CALL_DELTA",json.dumps(report,sort_keys=True))
+          print("SOURCE_SYMBOL_COORDINATE_FREE_CALL_DELTA_SHA256",hashlib.sha256(json.dumps(report,sort_keys=True,separators=(",",":")).encode()).hexdigest())
+          subprocess.run(["git","diff","--exit-code"],check=True)
+          assert not subprocess.check_output(["git","ls-files","--others","--exclude-standard"],text=True).strip()
+          
+          PY
