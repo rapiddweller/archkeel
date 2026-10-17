@@ -31,8 +31,9 @@ jobs:
           out.mkdir(exist_ok=True)
           owners=("src/archkeel/ir/facts.py","src/archkeel/ir/architecture_graph.py","src/archkeel/analyzer/python/symbols.py")
           changed=subprocess.check_output(["git","diff","--name-only",BEFORE,AFTER,"--","src/archkeel"],text=True).splitlines()
-          assert set(changed)==set(owners),changed
-          manifest={"before":BEFORE,"after":AFTER,"original_after":ORIGINAL_AFTER,"changed_python_files":changed,"runtimes":{}}
+          assert {path for path in changed if path.endswith(".py")}==set(owners),changed
+          assert set(changed)-set(owners)=={"src/archkeel/render/assets/report-graph-protocol.js","src/archkeel/render/assets/report-graph-vocabulary.ts"},changed
+          manifest={"before":BEFORE,"after":AFTER,"original_after":ORIGINAL_AFTER,"reference_changed_source_files":changed,"changed_python_files":list(owners),"common_nonpython_assets":"Both runtime copies use final source assets; generated owner comments are outside this Python producer delta.","runtimes":{}}
           for side,ref in (("old",BEFORE),("new",AFTER)):
               src=out/side/"src"
               shutil.copytree(root/"src"/"archkeel",src/"archkeel")
