@@ -47,9 +47,7 @@
       ],
       "public": [
         "archkeel.render.atlas:atlas_payload",
-        "archkeel.render.atlas:boundary_permissions_payload",
-        "archkeel.render.atlas_deviations:AtlasDeviationKind",
-        "archkeel.render.atlas_deviations:AtlasDeviation"
+        "archkeel.render.atlas:boundary_permissions_payload"
       ],
       "responsibilities": [
         "Build the compact Atlas payload from authenticated Core report, projection and result values.",
