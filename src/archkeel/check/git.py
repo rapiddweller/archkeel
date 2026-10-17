@@ -7,7 +7,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-from .snapshot import resolve_commit
+from .snapshot import regular_git_blob_kind, resolve_commit
 
 
 class GitError(ValueError):
@@ -64,7 +64,7 @@ def read_blob(root: Path, revision: str, path: str) -> bytes:
     if len(entries) != 1 or entries[0][1].decode() != path:
         raise MissingBlobError(_repository_path(root, path))
     mode, kind, oid = entries[0][0].split()
-    if mode not in {b"100644", b"100755"} or kind != b"blob":
+    if regular_git_blob_kind(mode, kind) is None:
         raise GitError(f"expected a regular Git blob: {_repository_path(root, path)}")
     return git_bytes(root, "cat-file", "blob", oid.decode())
 
