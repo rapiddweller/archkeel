@@ -288,6 +288,19 @@
         "docs/architecture/language-adapter-target.md"
       ],
       "decided_by": "agent"
+    },
+    {
+      "id": "GRAPH-TOPOLOGY-AGGREGATE-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.check.evaluation.topology.aggregate_edges",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "The owned aggregation decision uses the canonical topology domain, distinct from cycle policy and structure-report levels.",
+      "provenance": [
+        "docs/architecture/graph-topology-level-types.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {
@@ -860,6 +873,114 @@
           "annotation": "frozenset[SourceSectionName]",
           "responsibilities": [
             "Retain canonical source section identities after one legacy constructor normalization."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/graph-topology-level-types.md"
+          ],
+          "id": "GRAPH-TOPOLOGY-module",
+          "kind": "module",
+          "qualified_name": "archkeel.check.evaluation.topology",
+          "parent_id": "TARGET-EVALUATION",
+          "responsibilities": [
+            "Derive graph topology at the canonical module or package level."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/graph-topology-level-types.md"
+          ],
+          "id": "GRAPH-TOPOLOGY-aggregate",
+          "kind": "function",
+          "qualified_name": "archkeel.check.evaluation.topology.aggregate_edges",
+          "parent_id": "GRAPH-TOPOLOGY-module",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "imports",
+                "annotation": "Sequence[RawRecord]",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "level",
+                "annotation": "GraphTopologyLevel",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "internal_modules",
+                "annotation": "set[str]",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "namespace",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "tuple[list[RawRecord], list[tuple[str, str]]]"
+          },
+          "responsibilities": [
+            "Aggregate observed import edges using the canonical topology level."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/graph-topology-level-types.md"
+          ],
+          "id": "GRAPH-TOPOLOGY-cycles",
+          "kind": "function",
+          "qualified_name": "archkeel.check.evaluation.topology._cycle_records",
+          "parent_id": "GRAPH-TOPOLOGY-module",
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "level",
+                "annotation": "GraphTopologyLevel",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "nodes",
+                "annotation": "Iterable[str]",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "edges",
+                "annotation": "Sequence[tuple[str, str]]",
+                "kind": "keyword_only",
+                "default_known": true
+              },
+              {
+                "name": "edge_records",
+                "annotation": "Sequence[RawRecord]",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "list[RawRecord]"
+          },
+          "responsibilities": [
+            "Emit SCC records at the canonical module or package topology level."
           ]
         }
       ],
