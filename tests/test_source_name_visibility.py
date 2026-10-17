@@ -81,7 +81,7 @@ def test_actual_python_writers_preserve_wire_and_independent_dunder_visibility()
 def test_actual_import_origin_writer_uses_source_name_visibility():
     owner, _ = _api()
     module = _parsed_module("from sample.api import Public, _private\nimport sample.api\n")
-    records, _, _ = collect_imports([module], {"sample.api"}, {}, namespace="sample")
+    records = collect_imports([module], {"sample.api"}, {}, namespace="sample")
     resolve_reexports(records, {})
     actual = {row["data"]["symbol"]: row["data"]["symbol_visibility"] for row in records}
     assert actual["Public"] is owner.PUBLIC_NAME
@@ -102,7 +102,9 @@ def test_public_name_consumers_preserve_conservative_wire_behavior(tag, is_publi
     expected = {"sample.api": {"Name"}} if is_public else {}
     assert public_top_level_names(observed.records("symbols")) == expected
     assert _public_symbol_names(observed) == expected
-    target = ContractComponent("C", "api", ComponentRole.COMPONENT, ("sample.api",), (), (), ())
+    target = ContractComponent(
+        "C", "api", ComponentRole.COMPONENT, ("sample.api",), (), (), (), public=()
+    )
     data = {
         "symbols_known": True,
         "target_module": "sample.api",
