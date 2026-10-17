@@ -1,0 +1,52 @@
+name: Measurement enum catalog fixture RED GREEN
+on:
+  push:
+    branches: [verify/578-typescript-catalog-enum-red-green]
+permissions:
+  contents: read
+jobs:
+  unchanged-base-and-nominal-fixture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: a25c37c564c82c1b42457f0528c931c769ee9362
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Reproduce untouched catalog failure then decode keys through actual owned enum
+        run: |
+          uv run --locked python - <<'PY'
+          import importlib, json, os, subprocess, sys, xml.etree.ElementTree as ET
+          from pathlib import Path
+          from archkeel.ir.measurements import NameBudgetKind
+          from typing import get_args
+          temporary=Path(os.environ["RUNNER_TEMP"])
+          path=Path("tests/test_typescript_demo.py")
+          test=str(path)+"::test_catalog_exhausts_rule_and_measurement_vocabulary"
+          old=path.read_text()
+          red=subprocess.run([sys.executable,"-m","pytest","-q",test,"--junitxml",str(temporary/"catalog-red.xml")])
+          root=ET.parse(temporary/"catalog-red.xml").getroot()
+          failures=list(root.iter("failure"));errors=list(root.iter("error"))
+          print("UNCHANGED_A25_CATALOG_RED="+json.dumps({"exit":red.returncode,"failures":len(failures),"errors":len(errors),"name_budget_args":get_args(NameBudgetKind),"owned_members":[item.value for item in NameBudgetKind]}),flush=True)
+          assert red.returncode==1 and len(failures)==1 and not errors
+          assert "NameBudgetKind" in failures[0].text or "coupling_names" in failures[0].text
+          new=old.replace("from typing import get_args\n","").replace("    assert set(NAME_BUDGET_EXAMPLES) == set(get_args(NameBudgetKind))","    assert {NameBudgetKind(key) for key in NAME_BUDGET_EXAMPLES} == set(NameBudgetKind)")
+          assert new!=old and "get_args" not in new
+          path.write_text(new)
+          green=subprocess.run([sys.executable,"-m","pytest","-q",test,"--junitxml",str(temporary/"catalog-green.xml")])
+          print("OWNED_ENUM_CATALOG_GREEN="+json.dumps({"exit":green.returncode}),flush=True)
+          assert green.returncode==0
+          subprocess.run(["uv","run","--locked","ruff","check",str(path)],check=True)
+          subprocess.run(["uv","run","--locked","ruff","format","--check",str(path)],check=True)
+          changed=subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          assert changed==[str(path)],changed
+          print("EXACT_CATALOG_ONLY_DIFF="+json.dumps({"base":subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip(),"paths":changed,"patch":subprocess.check_output(["git","diff","--",str(path)],text=True)}),flush=True)
+          print("MEASUREMENT_ENUM_CATALOG_RED_GREEN=PASS",flush=True)
+          
+          PY
