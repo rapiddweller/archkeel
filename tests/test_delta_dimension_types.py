@@ -23,7 +23,11 @@ from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
 from archkeel.ir import codec_delta, model, profiles
 from archkeel.ir.codec import (
-    canonical_json_bytes, decode_canonical_model, delta_payload, parse_delta, parse_observation,
+    canonical_json_bytes,
+    decode_canonical_model,
+    delta_payload,
+    parse_delta,
+    parse_observation,
 )
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
@@ -193,9 +197,14 @@ def _contract():
     contract.pop("$schema", None)
     contract["components"] = [
         dict(
-            id="CORE", label="core", role="component", packages=["archkeel"],
+            id="CORE",
+            label="core",
+            role="component",
+            packages=["archkeel"],
             responsibilities=["Own the actual typed Delta API fixture."],
-            forbidden_responsibilities=[], provenance=[DOC], public=["archkeel"],
+            forbidden_responsibilities=[],
+            provenance=[DOC],
+            public=["archkeel"],
         )
     ]
     contract["declarations"] = dict(
@@ -282,7 +291,6 @@ def _valid(root, config):
     assert not trace_valid_violations(observed)
 
 
-
 def test_native_actual_delta_ports_match_independent_fixed_target(tmp_path):
     root, config = _repository(tmp_path)
     _valid(root, config)
@@ -365,10 +373,12 @@ def _ownership_repository(tmp_path):
         ]
         row["public"] = (
             ["archkeel.ir.profiles:DeltaDimension", "archkeel.ir.profiles:parse_delta_dimension"]
-            if row["label"] == "profiles" else ["archkeel.ir.model"]
+            if row["label"] == "profiles"
+            else ["archkeel.ir.model"]
         )
         row["requires"] = [
-            value for value in row.get("requires", ())
+            value
+            for value in row.get("requires", ())
             if value["component"] in {"profiles", "governance"}
         ]
         components.append(row)
@@ -381,17 +391,24 @@ def _ownership_repository(tmp_path):
     target["entities"] = []
     target["relationships"] = []
     target["scopes"] = []
-    profile_source = "from enum import StrEnum\n" + _source_members(
-        "src/archkeel/ir/profiles.py", {"DeltaDimension", "parse_delta_dimension"}
-    ) + "\n"
+    profile_source = (
+        "from enum import StrEnum\n"
+        + _source_members(
+            "src/archkeel/ir/profiles.py", {"DeltaDimension", "parse_delta_dimension"}
+        )
+        + "\n"
+    )
     original_model = (ROOT / "src/archkeel/ir/model.py").read_text()
     facade = next(
-        node for node in ast.parse(original_model).body
-        if isinstance(node, ast.ImportFrom) and node.module == "profiles"
+        node
+        for node in ast.parse(original_model).body
+        if isinstance(node, ast.ImportFrom)
+        and node.module == "profiles"
         and any(alias.name == "DeltaDimension" for alias in node.names)
     )
     files = {
-        "archkeel/__init__.py": "", "archkeel/ir/__init__.py": "",
+        "archkeel/__init__.py": "",
+        "archkeel/ir/__init__.py": "",
         "archkeel/ir/profiles.py": profile_source,
         "archkeel/ir/model.py": ast.get_source_segment(original_model, facade) + "\n",
         "contract.json": json.dumps(contract),
@@ -409,10 +426,7 @@ def _ownership_repository(tmp_path):
 def _ownership_result(root, config):
     result, encoded = run_report(root, config=config, analyzer=observe)
     assert result.exit_code == 0 and encoded is not None, result.diagnostics
-    row = next(
-        row for row in result.rule_assessments or ()
-        if row.id == "TARGET-COMPLETE_REQUIRES"
-    )
+    row = next(row for row in result.rule_assessments or () if row.id == "TARGET-COMPLETE_REQUIRES")
     observed = parse_observation(decode_canonical_model(json.loads(encoded)))
     return row, observed
 
@@ -425,20 +439,22 @@ def test_native_canonical_owner_relocation_fails_fixed_target(tmp_path):
     source = root / "archkeel/ir/profiles.py"
     text = source.read_text()
     node = next(
-        node for node in ast.parse(text).body
+        node
+        for node in ast.parse(text).body
         if isinstance(node, ast.ClassDef) and node.name == "DeltaDimension"
     )
     lines = text.splitlines(keepends=True)
-    definition = "".join(lines[node.lineno - 1:node.end_lineno])
+    definition = "".join(lines[node.lineno - 1 : node.end_lineno])
     source.write_text(
         "from .model import DeltaDimension\n"
-        + "".join(lines[:node.lineno - 1] + lines[node.end_lineno:])
+        + "".join(lines[: node.lineno - 1] + lines[node.end_lineno :])
     )
     destination = root / "archkeel/ir/model.py"
     destination.write_text("from enum import StrEnum\n" + definition + "\n")
     intent = (root / "contract.json").read_bytes()
     rule, observed = _ownership_result(root, config)
     assert rule.status == "FAIL", rule
-    assert any("TARGET-COMPLETE_REQUIRES" in row.rule_ids
-               for row in trace_valid_violations(observed))
+    assert any(
+        "TARGET-COMPLETE_REQUIRES" in row.rule_ids for row in trace_valid_violations(observed)
+    )
     assert (root / "contract.json").read_bytes() == intent
