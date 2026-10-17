@@ -1,0 +1,74 @@
+name: Verify typed CLI carry on current merged Main
+on:
+  push:
+    branches: [verify/542-cli-after-publisher-main]
+permissions:
+  contents: read
+jobs:
+  cli-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 717b5ef9996142040c8c8b282054e65db64a5181
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Normal measured baseline, amendment and exact replay
+        run: |
+          uv run --locked python - <<'PY'
+          import base64,json,subprocess
+          from pathlib import Path
+          base="be15757d8795d8fd312bf463a1f8941d4b093d7c"
+          path="docs/architecture/decisions/issue-542-cli-inputs-amendment.json"
+          common=["uv","run","--locked","python","-m","archkeel.cli","validate","--root",".","--baseline","architecture-baseline.json","--json"]
+          stages=[
+              ("baseline",["--write-baseline"]),
+              ("amendment",["--against",base,"--amendment",path,"--write-amendment","--decided-by","ake2l","--rationale","Decode closed CLI inputs at the owned argument and installer boundaries, add their authored native Target and whole-package control guard, and preserve all merged Main policy and non-increasing debt ceilings."]),
+              ("replay",["--against",base,"--amendment",path]),
+          ]
+          codes=[]
+          for stage,extra in stages:
+              result=subprocess.run(common+extra,text=True,capture_output=True)
+              codes.append(result.returncode)
+              data=json.loads(result.stdout)
+              print("CLI_RESULT="+json.dumps({"stage":stage,**{k:data.get(k) for k in ("exit_code","diagnostics","failures","widenings","amendment_status","measurements")}},separators=(",",":")))
+              if result.stderr:print("CLI_STDERR="+result.stderr[-3000:])
+          for marker,filename in (("CLI_BASELINE","architecture-baseline.json"),("CLI_AMENDMENT",path)):
+              file=Path(filename)
+              if file.exists():print(marker+"="+base64.b64encode(file.read_bytes()).decode())
+          assert codes==[0,0,0],codes
+          PY
+      - name: Actual CLI, installer and configuration compatibility
+        run: uv run --locked python -m pytest -q tests/test_cli.py tests/test_skill.py tests/test_config.py tests/test_cli_typed_inputs.py
+      - name: Actual-source native CLI Target and guard mutations
+        run: uv run --locked python -m pytest -q tests/test_cli_input_target.py
+      - name: Existing local proof, references, exact ownership, wire and hygiene regressions
+        run: uv run --locked python -m pytest -q tests/test_local_string_comparisons.py tests/test_string_comparison_observation.py tests/test_references.py tests/test_levels.py tests/test_self.py tests/test_codec_compatibility.py tests/test_repository_hygiene.py
+      - run: make lint typecheck
+      - name: Compare six actual CLI help outputs with the exact Main predecessor
+        run: |
+          uv run --locked python - <<'PY'
+          import os,subprocess,sys,tempfile
+          from pathlib import Path
+          source_root=Path.cwd()
+          before_root=Path(tempfile.mkdtemp(prefix="archkeel-cli-help-"))/"before"
+          subprocess.run(["git","worktree","add","--detach",str(before_root),"be15757d8795d8fd312bf463a1f8941d4b093d7c"],check=True)
+          commands=((),("report",),("validate",),("check",),("init",),("skill",))
+          def capture(root,arguments):
+              compare_env=dict(os.environ,PYTHONPATH=str(root/"src"))
+              origin=subprocess.run([sys.executable,"-c","import archkeel;print(archkeel.__file__)"],cwd=root,env=compare_env,capture_output=True,text=True,check=True).stdout.strip()
+              assert Path(origin).resolve().is_relative_to(root/"src"),origin
+              return subprocess.run([sys.executable,"-m","archkeel.cli",*arguments,"--help"],cwd=root,env=compare_env,capture_output=True)
+          for arguments in commands:
+              old=capture(before_root,arguments)
+              new=capture(source_root,arguments)
+              assert old.returncode==new.returncode==0,(arguments,old.returncode,new.returncode)
+              assert old.stdout==new.stdout and old.stderr==new.stderr,arguments
+              print("CLI_HELP_PARITY="+(" ".join(arguments) or "overview"))
+          subprocess.run(["git","worktree","remove",str(before_root)],check=True)
+          PY
