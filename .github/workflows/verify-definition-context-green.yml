@@ -1,0 +1,46 @@
+name: Definition context focused GREEN
+on:
+  push:
+    branches: [verify/542-definition-context-green]
+permissions:
+  contents: read
+jobs:
+  ports-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Native frame ports and unchanged source controls
+        run: uv run --locked python -m pytest -q tests/test_definition_context_types.py tests/test_conditional_definitions.py tests/test_repository_hygiene.py --tb=short
+      - name: Ruff
+        if: ${{ always() }}
+        run: uv run --locked ruff check src/archkeel tests/test_definition_context_types.py
+      - name: Format
+        if: ${{ always() }}
+        run: uv run --locked ruff format --check --diff src/archkeel/ir/facts.py src/archkeel/ir/architecture_graph.py src/archkeel/analyzer/python/source.py src/archkeel/analyzer/python/symbols.py src/archkeel/analyzer/python/calls.py tests/test_definition_context_types.py
+      - name: Strict types
+        if: ${{ always() }}
+        run: uv run --locked mypy src/archkeel
+      - name: Exact generated browser vocabulary
+        if: ${{ always() }}
+        run: uv run --locked python tools/browser_graph_protocol.py --check
+  broad:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked python -m pytest -q tests/test_analyzer.py tests/test_architecture_graph.py tests/test_source_graph.py tests/test_target_graph.py tests/test_graph_comparison_codec.py tests/test_typed_graph_vocabulary.py tests/test_class_method_publication.py tests/test_python_scope_certification.py tests/test_python_source_evidence_lines.py tests/test_uml_classifier_facts.py tests/test_typed_python_bindings.py tests/test_typed_method_descriptors.py tests/test_uml_source_facts.py tests/test_own_uml_target.py tests/test_typed_python_properties.py tests/test_typed_python_receivers.py --tb=short
