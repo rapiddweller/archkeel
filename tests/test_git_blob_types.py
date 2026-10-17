@@ -96,6 +96,8 @@ def _authored_contract():
 
 def _native_repository(tmp_path, *, raw_owner=None, weakening=None):
     contract = _authored_contract()
+    if raw_owner is not None:
+        contract["rules"] = [r for r in contract["rules"] if r["id"] == raw_owner]
     files = {
         "archkeel/__init__.py": "",
         "archkeel/check/__init__.py": "",
