@@ -5,7 +5,7 @@ on:
 permissions:
   contents: read
 jobs:
-  primary:
+  wire:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -19,12 +19,110 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
-      - name: Native ports, mutations and affected regression
-        run: uv run --locked pytest -q -rP -n 2 --dist=loadfile tests/test_typed_contract_rule_grammar.py tests/test_typed_contract_rule_native.py tests/test_typed_graph_vocabulary.py tests/test_contract_model.py tests/test_decisions.py tests/test_module_explore.py tests/test_interfaces.py tests/test_levels.py tests/test_baseline.py tests/test_widening.py tests/test_duplication.py tests/test_compatibility.py tests/test_uml_evaluation.py tests/test_uml_comparison.py tests/test_architecture_projection.py tests/test_saved_report.py tests/test_public_api_boundary.py tests/test_codec_compatibility.py tests/test_result_schema.py tests/test_rule_yield.py tests/test_report_renderer_units.py
-      - name: Strict affected production
+      - name: Actual immutable old-new producer and full report bytes
+        run: |
+          uv run --locked python - <<'PY'
+          import hashlib,io,json,os,subprocess,sys,tarfile,tempfile
+          from pathlib import Path
+          sys.path.insert(0,str(Path("tests").resolve()))
+          from test_architecture_demo import CONFIG,_prepare_repo
+          from test_architecture_projection import _repository
+          from test_target_graph import _nested_repository
+          from archkeel.check.report import run_report
+          from archkeel.cli.observe import observe
+          from archkeel.ir.codec import canonical_report_bytes,decode_canonical_model
+          from fixtures.architecture_demo import CATALOG
+          from fixtures.demo_catalog_compatibility import VARIANTS
+          
+          base="50d93141720d53774f5e9e916579bdc18c7bc246"
+          worker=r'''
+          import hashlib,json,sys
+          from pathlib import Path
+          sys.path.insert(0,sys.argv[1]+"/src")
+          from archkeel.check.declarations import project_declarations,project_inside_declarations
+          from archkeel.check.report import run_saved_report
+          from archkeel.ir.codec import parse_contract,parse_record,result_bytes
+          from archkeel.render.html import render_architecture_html
+          packet=Path(sys.argv[2])
+          output=Path(sys.argv[3]);output.mkdir(exist_ok=True)
+          payload=json.loads(Path(sys.argv[4]).read_text())
+          contract=parse_contract(payload)
+          records=project_declarations(contract,(),(),(),"contract.json",type_shapes={},unknowns=[],measured_types=False)
+          inside=project_inside_declarations("core",contract,"inside.json")
+          assert all(type(row["kind"]) is str for row in (*records,*inside))
+          (output/"producers.json").write_text(json.dumps([records,inside],sort_keys=True,separators=(",",":")))
+          (output/"producers.repr").write_text(repr((records,inside)))
+          future=[]
+          for suffix,data in (("ABSENT",{}),("NULL",{"public":None}),("EMPTY",{"public":[]})):
+              row=parse_record({"id":"FUTURE-"+suffix,"evidence_class":"DECLARED_RULE","area":"future","kind":"future-declaration","title":"Future declaration","subjects":[],"rule_ids":[],"evidence_ids":[],"fact_ids":[],"provenance":["docs/architecture/sample.md"],"data":data})
+              assert type(row.kind) is str and row.kind=="future-declaration"
+              future.append((row.kind,row.data.entries))
+          assert future==[("future-declaration",()),("future-declaration",(("public",None),)),("future-declaration",(("public",()),))]
+          (output/"future-values.json").write_text(json.dumps(future))
+          (output/"future.repr").write_text(repr(future))
+          
+          for index,options in enumerate((
+              {"only_architecture":True,"full_architecture":True},
+              {"only_violations":True},
+              {"only_calls":True},
+              {},
+          )):
+              result=run_saved_report(packet,**options)
+              assert result.exit_code==0,(index,result.diagnostics)
+              (output/f"{index}.json").write_bytes(result_bytes(result))
+              (output/f"{index}.html").write_bytes(render_architecture_html(result,packet.read_bytes(),repository="compatibility",architecture_href="architecture.json"))
+          '''
+          with tempfile.TemporaryDirectory() as directory:
+              tmp=Path(directory)
+              legacy=tmp/"legacy";legacy.mkdir()
+              archive=subprocess.check_output(["git","archive","--format=tar",base,"src"])
+              with tarfile.open(fileobj=io.BytesIO(archive)) as bundle:
+                  bundle.extractall(legacy)
+              print("ACTUAL_LEGACY_PACKAGE",base,hashlib.sha256(archive).hexdigest())
+              payload=json.loads(Path("tests/contracts/valid/minimal.json").read_text())
+              payload["schema_version"]="3.6.0";payload["rules"]=[]
+              payload["components"][1]["public"]=[]
+              payload["declarations"]={
+                  "modules":[{"path":"src/app.py","responsibility":"Own the app."}],
+                  "public_api":["sample.core:run"],"public_api_provenance":["docs/architecture/sample.md"],
+                  "spot_owners":[{"id":"SPOT-CORE","label":"core","owner":"sample.core","responsibility":"Own shared logic.","provenance":["docs/architecture/sample.md"]}],
+                  "compat":[{"module":"sample.old","target":"sample.core","lifetime":"migration"}],
+              }
+              intent=tmp/"producer-input.json";intent.write_text(json.dumps(payload))
+              cases=[]
+              for name in ("projection","nested","class-a-compatibility-migration","class-a-compatibility-clean","spot"):
+                  (tmp/name).mkdir()
+              root,config=_repository(tmp/"projection");cases.append(("projection",root,config))
+              root,config=_nested_repository(tmp/"nested");cases.append(("nested",root,config))
+              for variant_id in ("class-a-compatibility-migration","class-a-compatibility-clean"):
+                  variant=next(row for row in VARIANTS if row.id==variant_id)
+                  root=_prepare_repo(tmp/variant_id,variant.files);cases.append((variant_id,root,CONFIG))
+              variant=next(row for row in CATALOG if row.id=="tour")
+              root=_prepare_repo(tmp/"spot",dict(variant.files));cases.append(("spot",root,CONFIG))
+              compared=[]
+              for name,root,config in cases:
+                  result,packet=run_report(root,config=config,analyzer=observe)
+                  assert result.exit_code==0 and packet is not None,(name,result.diagnostics)
+                  raw=decode_canonical_model(json.loads(packet))
+                  saved=tmp/(name+".json");saved.write_bytes(canonical_report_bytes(raw))
+                  outputs=[]
+                  for engine in (legacy,Path.cwd()):
+                      destination=tmp/("old" if engine==legacy else "new")
+                      completed=subprocess.run([sys.executable,"-c",worker,str(engine),str(saved),str(destination),str(intent)],capture_output=True,text=True)
+                      assert completed.returncode==0,(name,str(engine),completed.stdout,completed.stderr)
+                      outputs.append({path.name:path.read_bytes() for path in destination.iterdir()})
+                  assert outputs[0]==outputs[1],(name,[key for key in outputs[0] if outputs[0][key]!=outputs[1][key]])
+                  assert saved.read_bytes()==canonical_report_bytes(raw)
+                  compared.append({"fixture":name,"equal_files":{key:hashlib.sha256(value).hexdigest() for key,value in outputs[0].items()},"future_declaration_data":["absent","null","empty"]})
+              print("ACTUAL_OLD_NEW_DECLARATION_REPORT_EQUAL="+json.dumps(compared,sort_keys=True))
+          
+          PY
+      - name: Exact Source and no source writes
         if: always()
-        run: uv run --locked mypy --strict src/archkeel/ir/architecture_graph.py src/archkeel/ir/interfaces.py src/archkeel/ir/levels.py src/archkeel/ir/decisions.py src/archkeel/ir/module_explore.py src/archkeel/check/uml.py src/archkeel/check/observation.py src/archkeel/check/report.py src/archkeel/check/validation/public_api.py src/archkeel/check/validation/observation.py src/archkeel/ir/report_projection.py src/archkeel/ir/codec_result.py src/archkeel/render/atlas.py src/archkeel/check/declarations.py src/archkeel/ir/duplication.py src/archkeel/render/html.py src/archkeel/ir/baseline.py src/archkeel/ir/widening.py src/archkeel/ir/source_graph.py src/archkeel/check/uml_evaluation.py src/archkeel/ir/report_graph.py src/archkeel/ir/model.py
-  format-candidate:
+        run: |
+          test "$(git rev-parse HEAD)" = "a8eca172e0aebbea92f60d4c3b760f4d0abdac5a"
+          test -z "$(git status --porcelain)"
+  actual-call-ledger:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -38,16 +136,14 @@ jobs:
           python-version: "3.11.12"
           version: "0.12.13"
       - run: uv sync --locked
-      - name: Observe authoritative formatting changes without publishing them
+      - name: Actual normal validation and base call delta without writing policy
         run: |
           uv run --locked python - <<'PY'
           import json,subprocess
-          paths=["src/archkeel/ir/architecture_graph.py","src/archkeel/ir/interfaces.py","src/archkeel/ir/levels.py","src/archkeel/ir/decisions.py","src/archkeel/ir/module_explore.py","src/archkeel/check/uml.py","src/archkeel/check/observation.py","src/archkeel/check/report.py","src/archkeel/check/validation/public_api.py","src/archkeel/check/validation/observation.py","src/archkeel/ir/report_projection.py","src/archkeel/ir/codec_result.py","src/archkeel/render/atlas.py","src/archkeel/check/declarations.py","src/archkeel/ir/duplication.py","src/archkeel/render/html.py","src/archkeel/ir/baseline.py","src/archkeel/ir/widening.py","src/archkeel/ir/source_graph.py","tools/rule_yield.py","src/archkeel/check/uml_evaluation.py","src/archkeel/ir/report_graph.py","src/archkeel/ir/model.py","tests/test_typed_contract_rule_grammar.py","tests/test_typed_contract_rule_native.py"]
-          for args in (["ruff","check","--fix",*paths],["ruff","format",*paths],["ruff","check",*paths]):
-              result=subprocess.run(["uv","run","--locked",*args],capture_output=True,text=True)
-              print("QUALITY_COMMAND="+json.dumps({"command":args,"exit_code":result.returncode}))
-              print(result.stdout)
-              print(result.stderr)
-          patch=subprocess.check_output(["git","diff","--no-ext-diff","--",*paths],text=True)
-          print("AUTHORITATIVE_FORMAT_DIFF="+json.dumps(patch))
+          result=subprocess.run(["uv","run","--locked","archkeel","validate","--root",".","--baseline","architecture-baseline.json","--against","50d93141720d53774f5e9e916579bdc18c7bc246","--json"],capture_output=True,text=True)
+          value=json.loads(result.stdout)
+          print("DECLARATION_ACTUAL_CALL_LEDGER="+json.dumps({key:value.get(key) for key in ("exit_code","failures","diagnostics","measurements","unresolved_call_changes","unresolved_call_note","widenings")},separators=(",",":")))
+          print(result.stderr)
+          assert result.returncode==value["exit_code"]
+          assert subprocess.check_output(["git","status","--porcelain"],text=True)==""
           PY
