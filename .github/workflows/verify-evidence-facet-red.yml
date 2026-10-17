@@ -1,0 +1,21 @@
+name: Evidence facet native RED
+on:
+  push:
+    branches: [verify/542-evidence-facet-red]
+permissions:
+  contents: read
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 6d334ab600bc1dc06abad6b1149345b8b584631b
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked python -m pytest -q tests/test_analysis_evidence_facets.py::test_source_and_core_evidence_have_distinct_owners_and_open_record_envelopes
