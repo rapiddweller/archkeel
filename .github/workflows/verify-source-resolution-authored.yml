@@ -21,6 +21,31 @@ jobs:
       - run: uv sync --locked
       - name: Authored target and actual source mutations with known subject-preflight dependency exposed
         run: uv run --locked pytest -q tests/test_source_resolution_types.py
+      - name: Diagnose authored target rows without unrelated guard preflight
+        if: always()
+        run: |
+          uv run --locked python - <<'PY'
+          import json,sys,tempfile
+          from dataclasses import asdict
+          from pathlib import Path
+          sys.path.insert(0,str(Path.cwd()/"tests"))
+          from test_source_resolution_types import _native_repository
+          from test_uml_evaluation import _model
+          from archkeel.ir.report_graph import architecture_report
+          for mutation in ("none","parser","producer"):
+              with tempfile.TemporaryDirectory() as temporary:
+                  root,config=_native_repository(Path(temporary),include_guard=False)
+                  if mutation=="parser":
+                      path=root/"archkeel/ir/facts.py"
+                      path.write_text(path.read_text().replace("-> SourceResolution | None:","-> str | None:",1))
+                  elif mutation=="producer":
+                      path=root/"archkeel/analyzer/python/resolve.py"
+                      prefix,separator,operation=path.read_text().partition("def resolve_name(")
+                      path.write_text(prefix+separator+operation.replace(") -> tuple[SourceResolution, list[str], str, int]:",") -> tuple[str, list[str], str, int]:",1))
+                  report=architecture_report(_model(root,config))
+                  comparison=report.comparison
+                  print("SOURCE_AUTHORED_DIAGNOSTIC="+json.dumps({"mutation":mutation,"status":comparison.status,"nonpass":[asdict(row) for row in comparison.assessments if row.status!="PASS"]},default=str),flush=True)
+          PY
       - name: Strict actual source remains frozen
         if: always()
         run: uv run --locked mypy --strict src/archkeel
