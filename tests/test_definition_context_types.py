@@ -163,7 +163,9 @@ def _entities(kind_annotation="DefinitionContextKind"):
 def _repository(tmp_path, text):
     target = dict(
         schema_version="2.2.0", components=[], rules=[],
-        declarations=dict(uml=dict(entities=_entities(), relationships=[], scopes=[])),
+        declarations=dict(
+            uml=dict(schema_version="1.1.0", entities=_entities(), relationships=[], scopes=[])
+        ),
     )
     files = {
         "archkeel/__init__.py": "",
