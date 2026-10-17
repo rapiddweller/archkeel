@@ -16,6 +16,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from archkeel.ir.facts import SourceResolution
+from archkeel.ir.facts import SymbolClassKind, parse_symbol_class_kind
 from archkeel.ir.facts_codec import RawRecord
 
 from .binding_types import BindingKind
@@ -106,7 +107,10 @@ def build_symbol_index(symbols: Sequence[RawRecord]) -> SymbolIndex:
     enum_members: dict[str, frozenset[str]] = {}
     for item in symbols:
         data = item["data"]
-        if data.get("class_kind") == "enum" and "enum_members" in data:
+        if (
+            parse_symbol_class_kind(data.get("class_kind")) is SymbolClassKind.ENUM
+            and "enum_members" in data
+        ):
             members = data["enum_members"]
             if isinstance(members, list):
                 enum_members[data["qualified_name"]] = frozenset(members)

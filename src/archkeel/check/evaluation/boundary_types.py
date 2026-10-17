@@ -16,7 +16,9 @@ from archkeel.ir.facts import (
     MethodKind,
     PropertyOperation,
     PropertyOrigin,
+    SymbolClassKind,
     parse_method_kind,
+    parse_symbol_class_kind,
     property_binding,
 )
 from archkeel.ir.facts_codec import RawData as RecordData
@@ -83,7 +85,7 @@ def _is_broad_boundary_type(
     )
 
 
-_EXEMPT_CLASS_KINDS: Final = frozenset({"enum", "pydantic_model"})
+_EXEMPT_CLASS_KINDS: Final = frozenset({SymbolClassKind.ENUM, SymbolClassKind.PYDANTIC_MODEL})
 
 
 # Issue #9 names a builtin as an acceptable boundary type, and a builtin needs no import and
@@ -1020,7 +1022,7 @@ def _enum_member_verdict(
         symbol = classes_by_location.get(resolved)
         if not isinstance(symbol, dict):
             return None
-        if symbol.get("class_kind") == "enum":
+        if parse_symbol_class_kind(symbol.get("class_kind")) is SymbolClassKind.ENUM:
             if enum_origin is not None:
                 return None
             enum_origin = resolved
@@ -1451,8 +1453,12 @@ def _named_type_verdict(
         return _Position(undecidable=_Cause.OTHER, resolved=reached, named_origins=reached)
     # `resolve_named_type` ruled out an ambiguous location; the surviving class record carries
     # `class_kind` (AD-30).
-    class_kind = origin_symbol["class_kind"] if isinstance(origin_symbol, dict) else None
-    if class_kind == "enum":
+    class_kind = (
+        parse_symbol_class_kind(origin_symbol["class_kind"])
+        if isinstance(origin_symbol, dict)
+        else None
+    )
+    if class_kind is SymbolClassKind.ENUM:
         return _Position(resolved=reached, named_origins=reached)
     return _owned_type_verdict(
         origin_symbol,
@@ -1474,7 +1480,7 @@ def _owned_type_verdict(
     origin_symbol: RecordData | _AmbiguousBinding | None,
     origin_module: str,
     origin_name: str,
-    class_kind: str | None,
+    class_kind: SymbolClassKind | None,
     reached: tuple[tuple[str, str], ...],
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],

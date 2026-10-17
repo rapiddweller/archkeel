@@ -268,6 +268,16 @@ class ParameterKind(StrEnum):
     UNKNOWN = "unknown"
 
 
+class SymbolClassKind(StrEnum):
+    """The five values `class_kind` resolves to (`analyzer.python.symbols`'s fixpoint)."""
+
+    PROTOCOL = "protocol"
+    ENUM = "enum"
+    PYDANTIC_MODEL = "pydantic_model"
+    DATACLASS = "dataclass"
+    CLASS = "class"
+
+
 class MethodKind(Enum):
     INSTANCE = "instance"
     STATIC = "static"
@@ -284,6 +294,16 @@ def parse_method_kind(value: JsonValue | RawJson | MethodKind) -> MethodKind | N
         return None
     try:
         return MethodKind(value)
+    except ValueError:
+        return None
+
+
+def parse_symbol_class_kind(value: JsonValue | RawJson | SymbolClassKind) -> SymbolClassKind | None:
+    """Recognize source classifier tags without assigning meaning to foreign wire data."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return SymbolClassKind(value)
     except ValueError:
         return None
 

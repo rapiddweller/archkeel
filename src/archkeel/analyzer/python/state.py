@@ -9,7 +9,7 @@ import ast
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 
-from archkeel.ir.facts import Evidence, Record
+from archkeel.ir.facts import Evidence, Record, SymbolClassKind, parse_symbol_class_kind
 from archkeel.ir.facts_codec import RawEvidence, parse_evidence
 from archkeel.ir.state_facts import (
     ArgumentPass,
@@ -249,7 +249,11 @@ def collect_state(
                 node,
                 owner,
                 bool(symbol and symbol.data.get("frozen_object")),
-                bool(symbol and symbol.data.get("class_kind") == "protocol"),
+                bool(
+                    symbol
+                    and parse_symbol_class_kind(symbol.data.get("class_kind"))
+                    is SymbolClassKind.PROTOCOL
+                ),
                 evidence,
             )
         )

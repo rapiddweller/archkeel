@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from archkeel.ir.facts import Evidence
+from archkeel.ir.facts import Evidence, SymbolClassKind, parse_symbol_class_kind
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawRecord, classified
 from archkeel.ir.model import EvidenceClass, stable_id
@@ -188,7 +188,11 @@ def evaluate_contexts(
         owner = symbol["data"]["module"] if symbol is not None else None
         if root in declared_roots:
             context_class = "declared_root"
-        elif symbol and symbol["data"].get("class_kind") == "protocol":
+        elif (
+            symbol
+            and parse_symbol_class_kind(symbol["data"].get("class_kind"))
+            is SymbolClassKind.PROTOCOL
+        ):
             context_class = "type_protocol_contract"
         else:
             context_class = "local_domain_state_candidate"

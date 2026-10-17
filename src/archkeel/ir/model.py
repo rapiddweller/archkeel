@@ -72,6 +72,9 @@ from .facts import (
 from .facts import (
     SourceInfo as SourceInfo,
 )
+from .facts import (
+    SymbolClassKind as SymbolClassKind,
+)
 from .facts import SourceResolution, parse_source_resolution
 from .facts import (
     in_scope as in_scope,
@@ -476,16 +479,6 @@ class AllowedDependencyRule(ArchitectureRuleGrammar):
     rationale: str
     provenance: tuple[str, ...]
     decided_by: DecisionMaker
-
-
-class SymbolClassKind(StrEnum):
-    """The five values `class_kind` resolves to (`analyzer.embedded.symbols`'s fixpoint)."""
-
-    PROTOCOL = "protocol"
-    ENUM = "enum"
-    PYDANTIC_MODEL = "pydantic_model"
-    DATACLASS = "dataclass"
-    CLASS = "class"
 
 
 class RuleUncertaintyCause(StrEnum):

@@ -19,6 +19,8 @@ from archkeel.ir.facts import (
     MemberInventory,
     MemberKind,
     ParameterKind,
+    SymbolClassKind,
+    parse_symbol_class_kind,
     SourceResolution,
     stable_id,
 )
@@ -65,12 +67,12 @@ from .source import (
 
 _BUILTIN_NAMES = frozenset(dir(builtins))
 _KNOWN_CLASS_KINDS = {
-    "typing.Protocol": "protocol",
-    "typing_extensions.Protocol": "protocol",
-    "enum.Enum": "enum",
-    "enum.IntEnum": "enum",
-    "enum.StrEnum": "enum",
-    "pydantic.BaseModel": "pydantic_model",
+    "typing.Protocol": SymbolClassKind.PROTOCOL,
+    "typing_extensions.Protocol": SymbolClassKind.PROTOCOL,
+    "enum.Enum": SymbolClassKind.ENUM,
+    "enum.IntEnum": SymbolClassKind.ENUM,
+    "enum.StrEnum": SymbolClassKind.ENUM,
+    "pydantic.BaseModel": SymbolClassKind.PYDANTIC_MODEL,
 }
 
 
@@ -602,25 +604,26 @@ def _resolve_class_kinds(
             continue
         definitions: list[RawRecord] = by_name.setdefault(data["qualified_name"], [])
         definitions.append(item)
+    class_kinds: dict[str, SymbolClassKind] = {}
     changed = True
     while changed:
         changed = False
         for identity, node in classes.items():
             item = symbol_by_id[identity]
-            current = item["data"].get("class_kind")
+            current = class_kinds.get(identity)
             data = item["data"]
             if data.get("definition_contexts"):
                 continue
-            candidates: set[str] = set()
+            candidates: set[SymbolClassKind] = set()
             for resolved_base in item["data"]["base_roots"]:
                 tail = resolved_base.rsplit(".", 1)[-1]
                 if resolved_base in _KNOWN_CLASS_KINDS:
                     candidates.add(_KNOWN_CLASS_KINDS[resolved_base])
                 local_target = f"{owners[node].module}.{tail}"
                 bases = by_name.get(resolved_base) or by_name.get(local_target) or []
-                inherited = bases[0]["data"].get("class_kind") if len(bases) == 1 else None
+                inherited = class_kinds.get(bases[0]["id"]) if len(bases) == 1 else None
                 # A Protocol subclass is a normal class unless Protocol is an explicit base.
-                if inherited and inherited not in {"class", "protocol"}:
+                if inherited and inherited not in {SymbolClassKind.CLASS, SymbolClassKind.PROTOCOL}:
                     candidates.add(inherited)
             if any(
                 _resolve_static_name(
@@ -630,12 +633,13 @@ def _resolve_class_kinds(
                 in DATACLASS_DECORATORS
                 for decorator in node.decorator_list
             ):
-                candidates.add("dataclass")
-            class_kind = sorted(candidates)[0] if candidates else "class"
+                candidates.add(SymbolClassKind.DATACLASS)
+            class_kind = sorted(candidates)[0] if candidates else SymbolClassKind.CLASS
             if current != class_kind:
+                class_kinds[identity] = class_kind
                 item["data"]["class_kind"] = class_kind
                 changed = True
-            if class_kind == "enum":
+            if class_kind is SymbolClassKind.ENUM:
                 item["data"]["enum_members"] = _static_enum_members(node)
     for identity, node in classes.items():
         item = symbol_by_id[identity]
@@ -643,7 +647,7 @@ def _resolve_class_kinds(
         item["data"]["frozen_object"] = _class_is_frozen(
             node,
             owners[node],
-            allow_pydantic=item["data"].get("class_kind") == "pydantic_model",
+            allow_pydantic=class_kinds.get(identity) is SymbolClassKind.PYDANTIC_MODEL,
         )
 
 
@@ -739,8 +743,8 @@ def _base_declaration(
     if (
         status == SourceResolution.RESOLVED
         and len(known) == 1
-        and known[0]["data"]["class_kind"] == "protocol"
-        and owner["data"]["class_kind"] != "protocol"
+        and parse_symbol_class_kind(known[0]["data"]["class_kind"]) is SymbolClassKind.PROTOCOL
+        and parse_symbol_class_kind(owner["data"]["class_kind"]) is not SymbolClassKind.PROTOCOL
     ):
         kind = "realizes"
     line, _, column = location(base)

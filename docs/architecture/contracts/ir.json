@@ -11283,6 +11283,53 @@
             "Require the named two-member source-resolution subset; resolved and unknown values cannot enter a call row."
           ],
           "annotation": "CallStatus"
+        },
+        {
+          "id": "IR-SYMBOL-CLASS-KIND",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.SymbolClassKind",
+          "language": "python",
+          "parent_id": "archkeel.ir.facts",
+          "presence": "planned",
+          "responsibilities": [
+            "Own the existing classifier vocabulary shared by source producers and contract consumers."
+          ],
+          "provenance": [
+            "docs/architecture/python-class-kind.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
+        },
+        {
+          "id": "IR-SYMBOL-CLASS-KIND-READER",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.facts.parse_symbol_class_kind",
+          "language": "python",
+          "parent_id": "archkeel.ir.facts",
+          "presence": "planned",
+          "responsibilities": [
+            "Recognize shared classifier tags without assigning meaning to foreign wire data."
+          ],
+          "provenance": [
+            "docs/architecture/python-class-kind.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "JsonValue | RawJson | SymbolClassKind"
+              }
+            ],
+            "returns": "SymbolClassKind | None"
+          }
         }
       ],
       "relationships": [
