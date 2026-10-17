@@ -228,3 +228,120 @@ def test_callable_argument_list_collects_its_children_and_source_spelling() -> N
     arguments = facts["[str, (int | None)]"]
     assert [element.text for element in arguments.elements] == ["str", "int | None"]
     assert facts["[]"].elements == ()
+
+
+@pytest.mark.parametrize("annotation", ["tuple[int,]", "tuple[str,]"])
+def test_collection_boundary_uses_native_ast_arity(annotation):
+    from archkeel.analyzer.python.type_shapes import collect_type_shapes
+    from archkeel.ir.model import ArchitectureContract
+
+    verdict = violations._boundary_type_verdict(
+        annotation, "sample", ArchitectureContract(schema_version="2.1.0", components=(), rules=()),
+        {}, violations.BindingIndex(), violations.BindingIndex(),
+        type_shapes=collect_type_shapes([annotation]),
+    )
+    assert verdict.violation is None, verdict
+    assert verdict.undecidable is None, verdict
+
+
+def test_missing_collection_shape_stays_unknown():
+    from archkeel.ir.model import ArchitectureContract
+
+    verdict = violations._boundary_type_verdict(
+        "list[int]", "sample", ArchitectureContract(schema_version="2.1.0", components=(), rules=()),
+        {}, violations.BindingIndex(), violations.BindingIndex(), type_shapes={},
+    )
+    assert verdict.violation is None
+    assert verdict.undecidable == "generic", verdict
+
+
+def _collection_shape_target():
+    import copy
+    import json
+    from pathlib import Path
+
+    root = Path(__file__).parents[1]
+    target = json.loads((root / "docs/architecture/contracts/check.json").read_text())
+    target = copy.deepcopy(target)
+    target.pop("$schema", None)
+    target["rules"] = []
+    target["declarations"]["modules"] = []
+    wanted = {"BOUNDARY-REASON-MODULE", "COLLECTION-SHAPE-PARAMETERS"}
+    target["declarations"]["uml"].update(
+        entities=[item for item in target["declarations"]["uml"]["entities"] if item["id"] in wanted],
+        relationships=[], scopes=[],
+    )
+    assert {item["id"] for item in target["declarations"]["uml"]["entities"]} == wanted
+    return target
+
+
+def _native_collection_shape_port(tmp_path):
+    import json
+    from pathlib import Path
+
+    from test_architecture_demo import _prepare_repo
+    from archkeel.check.ports import ScanConfig
+
+    source = Path(__file__).parents[1]
+    target = _collection_shape_target()
+    files = {
+        "archkeel/__init__.py": "", "archkeel/check/__init__.py": "",
+        "archkeel/check/evaluation/__init__.py": "",
+        "archkeel/check/evaluation/boundary_types.py":
+            (source / "src/archkeel/check/evaluation/boundary_types.py").read_text(),
+        "contract.json": json.dumps(target),
+    }
+    for item in [*target["components"], *target["declarations"]["uml"]["entities"]]:
+        for path in item["provenance"]:
+            files[path] = (source / path).read_text()
+    root = _prepare_repo(tmp_path, files)
+    return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
+
+
+def test_authored_collection_shape_port_matches_actual_source(tmp_path):
+    from test_uml_evaluation import _model
+    from archkeel.ir.report_graph import architecture_report
+
+    root, config = _native_collection_shape_port(tmp_path)
+    comparison = architecture_report(_model(root, config)).comparison
+    assert comparison is not None and comparison.status == "PASS", comparison
+
+
+@pytest.mark.parametrize(
+    "nominal,weak",
+    [("type_shapes: TypeShapeIndex", "type_shapes: str"),
+     (") -> list[str] | None:", ") -> object:")],
+)
+def test_collection_shape_port_widening_fails_unchanged_authored_target(tmp_path, nominal, weak):
+    from test_uml_evaluation import _model
+    from archkeel.ir.report_graph import architecture_report
+
+    root, config = _native_collection_shape_port(tmp_path)
+    baseline = architecture_report(_model(root, config)).comparison
+    assert baseline is not None and baseline.status == "PASS", baseline
+    target = (root / "contract.json").read_bytes()
+    path = root / "archkeel/check/evaluation/boundary_types.py"
+    prefix, separator, helper = path.read_text().partition("def _collection_parameters(")
+    helper, following, suffix = helper.partition("\ndef _unresolvable_shape(")
+    assert separator and following and nominal in helper
+    path.write_text(prefix + separator + helper.replace(nominal, weak, 1) + following + suffix)
+    comparison = architecture_report(_model(root, config)).comparison
+    assert comparison is not None and any(
+        row.subject_id == "COLLECTION-SHAPE-PARAMETERS" and row.aspect == "signature"
+        and row.status == "FAIL" for row in comparison.assessments
+    ), comparison
+    assert (root / "contract.json").read_bytes() == target
+
+
+@pytest.mark.parametrize(
+    "annotation,expected",
+    [("list[int] | set[str]", None), ("list[int", None), ("tuple[int, ...]", ["int"]),
+     ("tuple[tuple[int, str], ...]", ["tuple[int, str]"])],
+)
+def test_collection_parameters_keep_whole_union_and_ellipsis_behavior(annotation, expected):
+    from archkeel.analyzer.python.type_shapes import collect_type_shapes
+
+    assert violations._collection_parameters(
+        annotation, "sample", violations.BindingIndex(),
+        type_shapes=collect_type_shapes([annotation]),
+    ) == expected

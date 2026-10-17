@@ -486,7 +486,8 @@
           "language": "python",
           "presence": "planned",
           "provenance": [
-            "docs/architecture/boundary-reason-types.md"
+            "docs/architecture/boundary-reason-types.md",
+            "docs/architecture/collection-type-shapes.md"
           ],
           "id": "BOUNDARY-REASON-MODULE",
           "kind": "module",
@@ -1071,6 +1072,53 @@
           },
           "responsibilities": [
             "Recognize a supported regular Git blob pair once without changing path selection or reader errors."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/collection-type-shapes.md"
+          ],
+          "id": "COLLECTION-SHAPE-PARAMETERS",
+          "kind": "function",
+          "qualified_name": "archkeel.check.evaluation.boundary_types._collection_parameters",
+          "parent_id": "BOUNDARY-REASON-MODULE",
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "signature": {
+            "parameters": [
+              {
+                "name": "annotation",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "module",
+                "annotation": "str",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "imports_by_binding",
+                "annotation": "BindingIndex",
+                "kind": "positional",
+                "default_known": true
+              },
+              {
+                "name": "type_shapes",
+                "annotation": "TypeShapeIndex",
+                "kind": "keyword_only",
+                "default_known": true
+              }
+            ],
+            "returns": "list[str] | None"
+          },
+          "responsibilities": [
+            "Select collection parameters from carried type syntax while retaining existing name and binding policy."
           ]
         }
       ],
