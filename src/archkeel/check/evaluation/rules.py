@@ -1128,7 +1128,9 @@ def rule_subject_failures(
         source_subjects: AbstractSet[str] = module_names | planned_subjects
         target_subjects: AbstractSet[str] = (target_module_names or module_names) | planned_subjects
         if isinstance(rule, ForbiddenConstructRule):
-            owner_modules = module_names if source_modules is None else module_names & source_modules
+            owner_modules = (
+                module_names if source_modules is None else module_names & source_modules
+            )
             source_subjects = source_subjects | {
                 item["data"]["qualified_name"]
                 for item in _construct_subject_symbols(rule.source, symbols, owner_modules)
