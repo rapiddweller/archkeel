@@ -87,7 +87,8 @@ def _authored_contract():
     uml["relationships"] = []
     uml["scopes"] = []
     uml["entities"] = [
-        e for e in uml["entities"]
+        e
+        for e in uml["entities"]
         if e["id"].startswith("GIT-BLOB-") or e["id"] == "SNAPSHOT-LANGUAGE-MODULE"
     ]
     assert len(uml["entities"]) == 3
@@ -107,7 +108,8 @@ def _native_repository(tmp_path, *, raw_owner=None, weakening=None):
         "contract.json": json.dumps(contract),
     }
     for item in [
-        *contract["components"], *contract["rules"],
+        *contract["components"],
+        *contract["rules"],
         *contract["declarations"]["uml"]["entities"],
     ]:
         for path in item["provenance"]:
@@ -134,7 +136,8 @@ def test_actual_git_blob_target_and_scoped_guards_pass(tmp_path):
     comparison = architecture_report(model).comparison
     assert comparison is not None and comparison.status == "PASS", comparison
     guards = [
-        r for r in rule_assessments(model, undecided_by_rule={})
+        r
+        for r in rule_assessments(model, undecided_by_rule={})
         if r.id.startswith("GIT-BLOB-TYPED-")
     ]
     assert len(guards) == 3
@@ -147,15 +150,38 @@ def test_actual_byte_comparisons_fail_the_unchanged_native_guard(tmp_path, guard
     root, config = _native_repository(tmp_path, raw_owner=guard)
     intent = (root / "contract.json").read_bytes()
     model = _model(root, config)
-    assessment = next(
-        r for r in rule_assessments(model, undecided_by_rule={}) if r.id == guard
-    )
+    assessment = next(r for r in rule_assessments(model, undecided_by_rule={}) if r.id == guard)
     assert assessment.status == "FAIL" and assessment.evaluation_proven, assessment
     violations = [r for r in trace_valid_violations(model) if guard in r.rule_ids]
     assert violations
-    assert all(r.data.get("source") == "archkeel.check." + ".".join(
-        (OWNERS[guard][0][:-3], OWNERS[guard][1])
-    ) for r in violations), violations
+    assert all(
+        r.data.get("source")
+        == "archkeel.check." + ".".join((OWNERS[guard][0][:-3], OWNERS[guard][1]))
+        for r in violations
+    ), violations
+    assert (root / "contract.json").read_bytes() == intent
+
+
+def test_native_ingress_guard_rejects_raw_byte_dispatch_at_the_actual_port(tmp_path):
+    root, config = _native_repository(tmp_path)
+    path = root / "archkeel/check/snapshot.py"
+    source = path.read_text()
+    nominal = "return RegularGitBlobKind((mode, kind))"
+    assert nominal in source
+    path.write_text(
+        source.replace(
+            nominal,
+            'return RegularGitBlobKind.REGULAR if mode == b"100644"'
+            " else RegularGitBlobKind((mode, kind))",
+            1,
+        )
+    )
+    intent = (root / "contract.json").read_bytes()
+    model = _model(root, config)
+    guard = "GIT-BLOB-TYPED-INGRESS"
+    assessment = next(r for r in rule_assessments(model, undecided_by_rule={}) if r.id == guard)
+    assert assessment.status == "FAIL" and assessment.evaluation_proven
+    assert any(guard in r.rule_ids for r in trace_valid_violations(model))
     assert (root / "contract.json").read_bytes() == intent
 
 
@@ -213,7 +239,9 @@ def test_both_readers_reject_selected_nonregular_git_objects_with_legacy_errors(
     assert str(direct.value) == "expected a regular Git blob: " + path
     with pytest.raises(snapshot.SnapshotError) as archive:
         snapshot._git_archive_bytes(
-            root, revision, roots=(PurePosixPath("example"),),
+            root,
+            revision,
+            roots=(PurePosixPath("example"),),
         )
     assert str(archive.value) == f"expected a regular Git blob: {path!r}"
 
