@@ -36,3 +36,11 @@ coverage cases, revision-bound inputs, independent review and, for TypeScript, a
 differential against the frozen output of the historical npm collector. See the
 [TypeScript decision](typescript-foundation-proposal.md) for its gates.
 Import facts do not prove HTTP, queue or runtime relationships.
+
+The existing process owner normalizes interpreter OS names through its private
+`_ProcessPlatform` port. POSIX selects a new session and process-group cleanup;
+Windows selects the job launcher and launcher cleanup. Other names remain outside
+the recognized platform vocabulary and preserve direct-process fallback behavior.
+The Windows `.bat`/`.cmd` rejection still checks filename identity; it is separate
+from OS lifecycle selection. Native tests protect the converter signature, actual
+placement and control sites; process tests retain launcher, cleanup and error behavior.

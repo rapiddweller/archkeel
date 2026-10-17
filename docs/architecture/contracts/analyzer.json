@@ -469,6 +469,54 @@
           "responsibilities": [
             "Classify arbitrary incoming module names once and leave imports passive."
           ]
+        },
+        {
+          "id": "PROCESS-PLATFORM",
+          "kind": "enum",
+          "qualified_name": "archkeel.analyzer.process._ProcessPlatform",
+          "language": "python",
+          "parent_id": "archkeel.analyzer.process",
+          "presence": "planned",
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Own the recognized POSIX and Windows process lifecycle capabilities without closing other OS names."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ]
+        },
+        {
+          "id": "PROCESS-PLATFORM-DECODE",
+          "kind": "function",
+          "qualified_name": "archkeel.analyzer.process._process_platform",
+          "language": "python",
+          "parent_id": "archkeel.analyzer.process",
+          "presence": "planned",
+          "visibility": {
+            "kind": "private",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Normalize an interpreter OS name once into the owned platform or preserve the other-platform fallback."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "name",
+                "annotation": "str",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "_ProcessPlatform | None"
+          }
         }
       ],
       "relationships": [
