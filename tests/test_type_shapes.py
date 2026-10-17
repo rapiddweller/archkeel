@@ -423,13 +423,13 @@ def test_optional_mapping_keeps_its_typed_none_without_an_index_entry():
     from archkeel.analyzer.python.type_shapes import collect_type_shapes
     from archkeel.check.evaluation.boundary_types import _mapping_union_arms
 
-    annotation = "Optional[dict[str, int]]"
+    annotation = "Optional[dict[str, str]]"
     facts = collect_type_shapes([annotation])
     assert "None" not in facts
     imports = violations.BindingIndex()
     imports["sample", "Optional"] = {"target_module": "typing", "symbol": "Optional"}
     assert _mapping_union_arms(annotation, "sample", imports, violations.BindingIndex(), facts) == [
-        "dict[str, int]"
+        "dict[str, str]"
     ]
 
 
