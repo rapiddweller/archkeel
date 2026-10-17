@@ -1,0 +1,29 @@
+name: Capture source symbol consumer formatting
+on:
+  push:
+    branches: ['verify/542-source-symbol-format']
+permissions:
+  contents: read
+jobs:
+  formatting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 9ae53bfea8502c5eccc127f18b2c652d63494f94
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: '3.11.12'
+          version: '0.12.13'
+      - run: uv sync --locked
+      - run: |
+          uv run --locked python - <<'PY'
+          import subprocess
+          paths = ["src/archkeel/check/evaluation/boundary_types.py","src/archkeel/ir/facts_validation.py","src/archkeel/ir/source_graph.py","src/archkeel/analyzer/python/resolve.py","src/archkeel/analyzer/python/symbols.py","src/archkeel/check/evaluation/rules.py","src/archkeel/check/evaluation/state.py","src/archkeel/analyzer/python/typing_signals.py","src/archkeel/ir/references.py","src/archkeel/ir/interfaces.py","src/archkeel/analyzer/dart/collect.py","src/archkeel/analyzer/typescript/collect.py","tests/test_source_symbol_consumers.py"]
+          subprocess.run(["uv", "run", "--locked", "ruff", "check", "--select", "I", "--fix", *paths], check=True)
+          subprocess.run(["uv", "run", "--locked", "ruff", "format", *paths], check=True)
+          print("FORMAT_PATCH_START")
+          print(subprocess.check_output(["git", "diff", "--", *paths], text=True))
+          print("FORMAT_PATCH_END")
+          PY
