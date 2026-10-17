@@ -1,0 +1,68 @@
+name: Verify current Delta dimensions
+on:
+  push:
+    branches: [verify/542-delta-dimension-green]
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked pytest -q tests/test_delta_dimension_types.py --tb=short
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked pytest -q tests/test_delta.py tests/test_delta_parity.py tests/test_runtime_delta.py tests/test_expectation.py tests/test_profile_comparison.py tests/test_nullable_profile_measurements.py tests/test_delta_version_types.py tests/test_known_delta_action_types.py tests/test_comparison_support_types.py --tb=short
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Report exact mechanical formatting edits
+        run: |
+          uv run --locked python - <<'PY'
+          import difflib,json,pathlib,subprocess
+          paths=["src/archkeel/ir/profiles.py","src/archkeel/ir/model.py","src/archkeel/check/delta.py","src/archkeel/check/expectation.py","src/archkeel/ir/codec_delta.py","tests/test_delta_dimension_types.py"]
+          before={p:pathlib.Path(p).read_text() for p in paths}
+          subprocess.run(["uv","run","--locked","ruff","check","--select","I","--fix",*paths],check=True)
+          subprocess.run(["uv","run","--locked","ruff","format",*paths],check=True)
+          changes=[]
+          for path in paths:
+              old,new=before[path].splitlines(keepends=True),pathlib.Path(path).read_text().splitlines(keepends=True)
+              replacements=[]
+              for tag,a,b,c,d in difflib.SequenceMatcher(None,old,new,autojunk=False).get_opcodes():
+                  if tag!="equal":replacements.append({"start":a,"end":b,"new":"".join(new[c:d])})
+              if replacements:changes.append({"path":path,"changes":replacements})
+          print("DELTA_DIMENSION_FORMAT="+json.dumps(changes,separators=(",",":")))
+          PY
+          uv run --locked ruff check src/archkeel/ir/profiles.py src/archkeel/ir/model.py src/archkeel/check/delta.py src/archkeel/check/expectation.py src/archkeel/ir/codec_delta.py tests/test_delta_dimension_types.py
+          make typecheck
+          uv run --locked pytest tests/test_repository_hygiene.py -q --tb=short
