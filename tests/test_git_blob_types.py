@@ -95,8 +95,13 @@ def _authored_contract():
     return contract
 
 
-def _native_repository(tmp_path, *, raw_owner=None, weakening=None):
+def _native_repository(tmp_path, *, raw_owner=None, weakening=None, placement=False):
     contract = _authored_contract()
+    if placement:
+        root_contract = json.loads((ROOT / "architecture-contract.json").read_text())
+        contract["rules"].extend(
+            r for r in root_contract["rules"] if r["id"] == "TYPES-ENUM-IN-MODEL"
+        )
     if raw_owner is not None:
         contract["rules"] = [r for r in contract["rules"] if r["id"] == raw_owner]
     files = {
@@ -202,6 +207,34 @@ def test_git_blob_target_rejects_actual_input_and_return_weakening(tmp_path, wea
         r.subject_id == "GIT-BLOB-PARSER" and r.aspect == "signature" and r.status == "FAIL"
         for r in comparison.assessments
     ), comparison
+    assert (root / "contract.json").read_bytes() == intent
+
+
+@pytest.mark.parametrize("consumer_copy", [False, True])
+def test_git_blob_enum_placement_authorizes_only_its_existing_owner(tmp_path, consumer_copy):
+    root, config = _native_repository(tmp_path, placement=True)
+    intent = (root / "contract.json").read_bytes()
+    if consumer_copy:
+        path = root / "archkeel/check/git.py"
+        path.write_text(
+            "from enum import Enum\n"
+            + path.read_text()
+            + "\n\n"
+            + _source_members("src/archkeel/check/snapshot.py", {"RegularGitBlobKind"})
+            + "\n"
+        )
+    model = _model(root, config)
+    assessment = next(
+        r for r in rule_assessments(model, undecided_by_rule={}) if r.id == "TYPES-ENUM-IN-MODEL"
+    )
+    assert assessment.status == ("FAIL" if consumer_copy else "PASS")
+    assert assessment.evaluation_proven
+    if consumer_copy:
+        assert any(
+            "TYPES-ENUM-IN-MODEL" in r.rule_ids
+            and "archkeel.check.git.RegularGitBlobKind" in r.subjects
+            for r in trace_valid_violations(model)
+        )
     assert (root / "contract.json").read_bytes() == intent
 
 
