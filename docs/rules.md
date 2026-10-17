@@ -187,8 +187,12 @@ older behavior.
 See [boundary examples](../tests/test_boundary_types_facades.py) before choosing
 selectors. Aliases, inheritance, re-exports and unsupported forms require proof.
 
-`forbidden_construct` is syntactic, not a type checker. Use the schema's construct
-vocabulary and source scope. Aliases/shadowing are limits. Exact type-ignore
+`forbidden_construct` is syntactic, not a type checker. Its `source` may select a
+module/package or an observed class, function or method by qualified name. Named
+owners require actual symbol evidence from the rule's scanned module scope; a
+missing owner or an owner outside an `inside` mount remains UNKNOWN. Owner receipts
+cite those symbols and do not extend the rule to the containing module. Incomplete
+source coverage still prevents PASS. Aliases/shadowing are limits. Exact type-ignore
 allowances bind scope, line, AST statement and tag; moving or changing them needs
 review.
 

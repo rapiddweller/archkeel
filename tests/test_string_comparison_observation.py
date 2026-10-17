@@ -500,3 +500,51 @@ def test_real_report_evaluates_a_qualified_construct_owner(tmp_path):
     )
     assert result.exit_code == 0 and result.diagnostics == () and packet is not None
     assert result.rule_assessments and all(row.status == "PASS" for row in result.rule_assessments)
+
+
+@pytest.mark.parametrize("scope", ["sample.core.a.parse", "sample.foreign.parse"])
+def test_inside_qualified_construct_owner_respects_actual_parent_scope(tmp_path, scope):
+    import json
+
+    from test_analyzer import _component, _observe
+    from test_inside_rule_coverage import _write_inside_case
+
+    from archkeel.ir.decisions import rule_assessments
+
+    _write_inside_case(tmp_path, rules=[RULE | {"source": scope}])
+    (tmp_path / "sample/core/a.py").write_text(
+        'def parse(value):\n    return value is None\n'
+        'def outside(value):\n    return value == "outside"\n'
+    )
+    (tmp_path / "sample/foreign.py").write_text("def parse(value):\n    return value\n")
+    path = tmp_path / "contract.json"
+    outer = json.loads(path.read_text())
+    outer["components"].append(_component("foreign"))
+    path.write_text(json.dumps(outer))
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    assessment = next(
+        row for row in rule_assessments(result.observation, undecided_by_rule={})
+        if row.rule_id == "core:RULE"
+    )
+    receipts = [
+        row for row in result.observation.records("scope_observations") or ()
+        if row.kind == "rule_evaluation" and row.rule_ids == ("core:RULE",)
+    ]
+    if scope == "sample.foreign.parse":
+        assert result.exit_code == 2
+        assert any(row.kind == "rule_without_subjects" for row in result.diagnostics)
+        assert assessment.status == "UNKNOWN" and not assessment.evaluation_proven
+        assert receipts == []
+    else:
+        assert result.diagnostics == () and assessment.status == "PASS"
+        assert assessment.evaluation_proven and len(receipts) == 1
+        assert receipts[0].subjects == ("sample.core.a.parse",)
+        (tmp_path / "sample/core/a.py").write_text(
+            'def parse(value):\n    return value == "import"\n'
+        )
+        changed = _observe(tmp_path)
+        assert changed.observation is not None
+        assert [(row.kind, row.rule_ids) for row in trace_valid_violations(changed.observation)] == [
+            ("forbidden_construct", ("core:RULE",))
+        ]
