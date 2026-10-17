@@ -1,0 +1,50 @@
+name: Python classifier boundary guard simplification
+on:
+  push:
+    branches: ["verify/542-class-kind-boundary-guard"]
+permissions:
+  contents: read
+jobs:
+  quality-hygiene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: a4e7c423ba1338facdd430baf933fcbd4fc9068d
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: |
+          make lint typecheck
+          uv run --locked pytest tests/test_repository_hygiene.py -q
+          uv run --locked python - <<'PY'
+          import ast,json
+          from pathlib import Path
+          path=Path("src/archkeel/check/evaluation/boundary_types.py")
+          node=next(node for node in ast.walk(ast.parse(path.read_text())) if isinstance(node,ast.FunctionDef) and node.name=="_named_type_verdict")
+          print("ACTUAL_NAMED_TYPE_VERDICT_SPAN="+json.dumps({"start":node.lineno,"end":node.end_lineno,"lines":node.end_lineno-node.lineno+1}))
+          assert node.end_lineno-node.lineno+1==78
+          PY
+          git diff --exit-code
+  boundary-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: a4e7c423ba1338facdd430baf933fcbd4fc9068d
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: |
+          uv run --locked pytest tests/test_boundary*.py tests/test_typed_symbol_class_kinds.py tests/test_inherited_boundary_diagnostics.py tests/test_typed_parameter_kinds.py -q
+          git diff --exit-code
