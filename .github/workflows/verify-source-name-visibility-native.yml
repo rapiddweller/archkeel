@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 511101df02c0a32c48e8254ef4928717d8f6858a
+          ref: ae65ac3dc6c619e60561d54964b764e176254d19
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -21,7 +21,7 @@ jobs:
       - run: uv sync --locked
       - run: |
           uv run --locked python - <<'PY'
-          import collections, gzip, hashlib, json, subprocess
+          import ast, collections, gzip, hashlib, json, subprocess
           from dataclasses import asdict
           from pathlib import Path
           from archkeel.ir.codec import decode_canonical_model, parse_observation
@@ -36,11 +36,19 @@ jobs:
           assert not result["diagnostics"],result["diagnostics"]
           assert result["observation_complete"]=="PASS",result
           model=parse_observation(decode_canonical_model(json.loads(report.read_bytes())))
-          assert not model.records("violations")
+          assert not model.records("violations"),model.records("violations")
           scopes={"archkeel.check.onboarding.public_top_level_names","archkeel.check.evaluation.rules._interface_verdict","archkeel.ir.interfaces._public_symbol_names","archkeel.ir.facts.parse_source_name_visibility"}
           controls=[row for row in model.records("constructs") if row.kind=="string_literal_compare" and row.data.get("owner") in scopes]
-          assert not controls,controls
-          print("SOURCE_NAME_VISIBILITY_PRECISE_OWNERS_NO_LITERAL_COMPARE="+json.dumps(sorted(scopes)),flush=True)
+          owners={row.data.get("qualified_name") for row in model.records("symbols")}
+          assert scopes <= owners,(scopes-owners)
+          assert len(controls)==1,controls
+          item=controls[0]
+          assert item.data.get("owner")=="archkeel.check.evaluation.rules._interface_verdict",item
+          loc=next(row for row in model.evidence if row.id in item.evidence_ids)
+          expr=next(node for node in ast.walk(ast.parse(Path(loc.file).read_text())) if isinstance(node,ast.Compare) and node.lineno==loc.line and node.col_offset==loc.column)
+          assert ast.unparse(expr)=="'reexport_candidates' in data",ast.unparse(expr)
+          print("RETAINED_JSON_KEY_DATA_COMPARISON="+json.dumps({"record":asdict(item),"evidence":asdict(loc),"expression":ast.unparse(expr)},sort_keys=True),flush=True)
+          print("SOURCE_NAME_VISIBILITY_PRECISE_OWNERS_ONLY_UNCHANGED_JSON_KEY_MEMBERSHIP="+json.dumps(sorted(scopes)),flush=True)
           evidence={row.id:row for row in model.evidence}
           rows=[]
           for item in model.records("constructs"):
@@ -55,7 +63,7 @@ jobs:
               assert row["locations"]
               module_counts.update({row["locations"][0]["file"]:1})
               forms.update({row["form"]:1})
-          summary={"source":"511101df02c0a32c48e8254ef4928717d8f6858a","scope":"actual own Python native observation; supported syntax only, not semantic whole-program or defect count","constructs":len(rows),"by_file":dict(module_counts.most_common()),"forms":dict(forms),"site_payload_sha256":hashlib.sha256(raw).hexdigest(),"calls_unresolved":model.coverage.calls_unresolved}
+          summary={"source":"ae65ac3dc6c619e60561d54964b764e176254d19","scope":"actual own Python native observation; supported syntax only, not semantic whole-program or defect count","constructs":len(rows),"by_file":dict(module_counts.most_common()),"forms":dict(forms),"site_payload_sha256":hashlib.sha256(raw).hexdigest(),"calls_unresolved":model.coverage.calls_unresolved}
           (artifact/"summary.json").write_text(json.dumps(summary,sort_keys=True,indent=2)+"\n")
           print("ACTUAL_NATIVE_CURRENT_CONTROL_AUDIT="+json.dumps(summary,sort_keys=True),flush=True)
           print("ACTUAL_NATIVE_CONTROL_SAMPLES="+json.dumps(rows[:3],sort_keys=True),flush=True)
