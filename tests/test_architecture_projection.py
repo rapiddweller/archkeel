@@ -1525,10 +1525,10 @@ def test_native_forbidden_requires_pair_keeps_all_declarations_and_requirement_i
 
 
 def test_native_core_through_enforcement_uses_the_shared_predicate(tmp_path):
-    from archkeel.check.evaluation.rules import _requires_covers
-    from archkeel.ir.model import requires_covers
+    from archkeel.check.evaluation.rules import _requires_import_assessment
+    from archkeel.ir.model import requires_import_assessment
 
-    assert _requires_covers is requires_covers
+    assert _requires_import_assessment is requires_import_assessment
     root, config = _repository(tmp_path)
     (root / "sample/store.py").unlink()
     (root / "sample/store").mkdir()

@@ -18,6 +18,7 @@ from archkeel.check.declarations import project_rule_declaration
 from archkeel.check.evaluation.rules import _interface_verdicts, profile_failures
 from archkeel.check.ports import ScanConfig
 from archkeel.check.validation.references import reference_diagnostics
+from archkeel.ir.architecture_graph import AssessmentStatus
 from archkeel.ir.codec import contract_bytes, parse_contract, parse_record
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.model import module_references
@@ -182,7 +183,7 @@ def test_unknown_names_are_not_converted_to_a_module_object_permission(tmp_path)
         symbols_known=False, reexport=False, symbol_visibility="unknown", under_type_checking=False
     )
     rows = list(_interface_verdicts([raw], parse_contract(_contract()), {}, frozenset()))
-    assert len(rows) == 1 and rows[0][-1] == "undecided"
+    assert len(rows) == 1 and rows[0][-1] is AssessmentStatus.UNKNOWN
 
 
 def test_grants_roundtrip_through_wire_and_projected_rule_records():
