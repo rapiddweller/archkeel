@@ -21,8 +21,8 @@ jobs:
       - run: uv sync --locked
       - name: Format only the bounded change and emit exact resulting blobs
         run: |
-          uv run --locked ruff check --fix src/archkeel/ir/model.py src/archkeel/ir/facts.py src/archkeel/analyzer/python/symbols.py src/archkeel/analyzer/python/resolve.py src/archkeel/analyzer/python/state.py src/archkeel/check/evaluation/state.py src/archkeel/check/evaluation/boundary_types.py src/archkeel/ir/source_graph.py src/archkeel/check/evaluation/rules.py tests/test_typed_symbol_class_kinds.py
           uv run --locked ruff format src/archkeel/ir/model.py src/archkeel/ir/facts.py src/archkeel/analyzer/python/symbols.py src/archkeel/analyzer/python/resolve.py src/archkeel/analyzer/python/state.py src/archkeel/check/evaluation/state.py src/archkeel/check/evaluation/boundary_types.py src/archkeel/ir/source_graph.py src/archkeel/check/evaluation/rules.py tests/test_typed_symbol_class_kinds.py
+          uv run --locked ruff check --fix src/archkeel/ir/model.py src/archkeel/ir/facts.py src/archkeel/analyzer/python/symbols.py src/archkeel/analyzer/python/resolve.py src/archkeel/analyzer/python/state.py src/archkeel/check/evaluation/state.py src/archkeel/check/evaluation/boundary_types.py src/archkeel/ir/source_graph.py src/archkeel/check/evaluation/rules.py tests/test_typed_symbol_class_kinds.py
           uv run --locked python - <<'PY'
           import json,subprocess
           from pathlib import Path
