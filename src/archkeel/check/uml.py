@@ -12,11 +12,12 @@ from pathlib import Path
 
 from archkeel.ir.architecture_graph import (
     ArchitectureDeclarationKind,
+    ArchitectureGraph,
     ArchitectureRuleKind,
+    TargetDefinition,
     parse_architecture_declaration_kind,
     parse_architecture_rule_kind,
 )
-from archkeel.ir.architecture_graph import ArchitectureGraph, TargetDefinition
 from archkeel.ir.architecture_graph import EntityKind as _EntityKind
 from archkeel.ir.architecture_graph import RelationshipKind as _RelationshipKind
 from archkeel.ir.codec import (
@@ -79,7 +80,8 @@ def _physical_ids(
             record = known.get(identity)
             if (
                 record is None
-                or parse_architecture_declaration_kind(record.kind) is not ArchitectureDeclarationKind.MODULE_TARGET
+                or parse_architecture_declaration_kind(record.kind)
+                is not ArchitectureDeclarationKind.MODULE_TARGET
                 or record.evidence_class != _EvidenceClass.DECLARED_RULE
                 or record.subjects
                 or record.provenance != (path,)
@@ -93,7 +95,8 @@ def _physical_ids(
             record = known.get(identity)
             if (
                 record is None
-                or parse_architecture_declaration_kind(record.kind) is not ArchitectureDeclarationKind.MODULE_TARGET
+                or parse_architecture_declaration_kind(record.kind)
+                is not ArchitectureDeclarationKind.MODULE_TARGET
                 or record.evidence_class != _EvidenceClass.DECLARED_RULE
                 or record.subjects != (module.path,)
                 or record.provenance != (path,)
@@ -177,7 +180,11 @@ def _owner_ids(
             owner is None
             or owner.evidence_class != _EvidenceClass.DECLARED_RULE
             or parse_architecture_declaration_kind(owner.kind)
-            is not (ArchitectureDeclarationKind.INSIDE_COMPONENT_RESPONSIBILITY if parent_scope else ArchitectureDeclarationKind.COMPONENT_RESPONSIBILITY)
+            is not (
+                ArchitectureDeclarationKind.INSIDE_COMPONENT_RESPONSIBILITY
+                if parent_scope
+                else ArchitectureDeclarationKind.COMPONENT_RESPONSIBILITY
+            )
             or owner.data.get("parent_id") != parent_scope
             or owner.title != component.label
             or owner.data.get("namespace") != component.namespace
@@ -211,14 +218,16 @@ def _public_api_ids(contract: ArchitectureContract, known: dict[str, Record]) ->
     if any(
         record.id not in expected
         for record in known.values()
-        if parse_architecture_declaration_kind(record.kind) is ArchitectureDeclarationKind.DECLARED_PUBLIC_API
+        if parse_architecture_declaration_kind(record.kind)
+        is ArchitectureDeclarationKind.DECLARED_PUBLIC_API
     ):
         raise ValueError("public API intent is absent from the authenticated contract")
     for selector in selectors:
         record = known.get(public_api_id(selector))
         if (
             record is None
-            or parse_architecture_declaration_kind(record.kind) is not ArchitectureDeclarationKind.DECLARED_PUBLIC_API
+            or parse_architecture_declaration_kind(record.kind)
+            is not ArchitectureDeclarationKind.DECLARED_PUBLIC_API
             or record.evidence_class != _EvidenceClass.DECLARED_RULE
             or record.title != selector
             or record.subjects != (selector,)
@@ -265,7 +274,8 @@ def _authenticate_rules(tree: InsideContractTree, known: dict[str, Record]) -> N
     actual = tuple(
         item
         for item in known.values()
-        if parse_architecture_rule_kind(item.kind) in RULE_KINDS and item.evidence_class == _EvidenceClass.DECLARED_RULE
+        if parse_architecture_rule_kind(item.kind) in RULE_KINDS
+        and item.evidence_class == _EvidenceClass.DECLARED_RULE
     )
     if {item.id for item in expected} != {item.id for item in actual} or any(
         known.get(item.id) != item for item in expected
@@ -335,7 +345,11 @@ def _target_records(
             "provenance": [path],
             "id": identity,
             "evidence_class": "DECLARED_RULE",
-            "kind": str(ArchitectureDeclarationKind.UML_TARGET if targets else ArchitectureDeclarationKind.ARCHITECTURE_TARGET),
+            "kind": str(
+                ArchitectureDeclarationKind.UML_TARGET
+                if targets
+                else ArchitectureDeclarationKind.ARCHITECTURE_TARGET
+            ),
             "title": "Independent UML target" if targets else "Declared architecture target",
             "rule_ids": [],
             "data": {
@@ -454,7 +468,8 @@ def _has_architecture_declarations(version: str, known: dict[str, Record]) -> bo
         "3.6.0",
     } or any(
         parse_architecture_declaration_kind(record.kind) in TARGET_GRAPH_RECORD_KINDS
-        or parse_architecture_declaration_kind(record.kind) in {
+        or parse_architecture_declaration_kind(record.kind)
+        in {
             ArchitectureDeclarationKind.COMPONENT_RESPONSIBILITY,
             ArchitectureDeclarationKind.INSIDE_COMPONENT_RESPONSIBILITY,
             ArchitectureDeclarationKind.MODULE_TARGET,
@@ -476,7 +491,9 @@ def assemble_uml(result: ObservationResult, contract_root: Path, path: str) -> O
         return replace(result, uml_eligibility=UmlEligibility.BLOCKED)
     known = {record.id: record for section in model.sections for record in section.records}
     recorded_targets = tuple(
-        record for record in known.values() if parse_architecture_declaration_kind(record.kind) in TARGET_GRAPH_RECORD_KINDS
+        record
+        for record in known.values()
+        if parse_architecture_declaration_kind(record.kind) in TARGET_GRAPH_RECORD_KINDS
     )
     if not _has_architecture_declarations(model.contract.schema_version, known):
         return replace(result, uml_eligibility=UmlEligibility.BLOCKED)

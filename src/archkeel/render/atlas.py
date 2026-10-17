@@ -8,10 +8,13 @@ from dataclasses import asdict, replace
 from pathlib import PurePosixPath
 
 from archkeel.ir.architecture_graph import (
+    ArchitectureGraph,
+    ArchitectureReport,
     ArchitectureRuleKind,
+    Coverage,
+    Entity,
     parse_architecture_rule_kind,
 )
-from archkeel.ir.architecture_graph import ArchitectureGraph, ArchitectureReport, Coverage, Entity
 from archkeel.ir.architecture_graph import AssessmentStatus as _AssessmentStatus
 from archkeel.ir.architecture_graph import CoverageStatus as _CoverageStatus
 from archkeel.ir.architecture_graph import EntityKind as _EntityKind

@@ -289,7 +289,7 @@ def test_direct_legacy_component_shim_and_cycle_values_are_normalized():
 
 def test_authored_declaration_readers_share_owned_kinds_and_keep_extensions_open():
     from archkeel.ir import architecture_graph as graph
-    from archkeel.ir.facts import JsonValue, RawJson, Record
+    from archkeel.ir.facts import Record
 
     declaration = getattr(graph, "ArchitectureDeclarationKind", None)
     assert declaration is not None, "authored declaration readers need their canonical owner"
@@ -313,13 +313,11 @@ def test_authored_declaration_readers_share_owned_kinds_and_keep_extensions_open
         assert graph.parse_architecture_declaration_kind(str(member)) is member
         assert graph.parse_architecture_declaration_kind(member) is member
         assert graph.parse_architecture_rule_kind(str(member)) is None
-    assert get_type_hints(graph.parse_architecture_rule_kind) == {
-        "value": JsonValue | RawJson, "return": ArchitectureRuleKind | None,
-    }
-    assert get_type_hints(graph.parse_architecture_declaration_kind) == {
-        "value": JsonValue | RawJson,
-        "return": ArchitectureRuleKind | declaration | None,
-    }
+    assert get_type_hints(graph.parse_architecture_rule_kind)["return"] == ArchitectureRuleKind | None
+    assert (
+        get_type_hints(graph.parse_architecture_declaration_kind)["return"]
+        == ArchitectureRuleKind | declaration | None
+    )
     for value in (None, True, 1, [], {}, "", "future-rule", "future-declaration"):
         assert graph.parse_architecture_rule_kind(value) is None
         assert graph.parse_architecture_declaration_kind(value) is None

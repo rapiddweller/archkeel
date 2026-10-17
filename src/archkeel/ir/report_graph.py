@@ -8,9 +8,6 @@ from dataclasses import asdict
 
 from archkeel.ir.architecture_graph import (
     ArchitectureDeclarationKind,
-    parse_architecture_declaration_kind,
-)
-from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     ArchitectureReport,
     AssessmentStatus,
@@ -22,6 +19,7 @@ from archkeel.ir.architecture_graph import (
     Relationship,
     ReportFinding,
     ReportSchemaVersion,
+    parse_architecture_declaration_kind,
 )
 from archkeel.ir.architecture_graph import AssessmentAspect as _AssessmentAspect
 from archkeel.ir.architecture_graph import CompletenessMode as _CompletenessMode
@@ -52,7 +50,10 @@ def architecture_report(model: Observation) -> ArchitectureReport:
             if parse_architecture_declaration_kind(item.kind) in TARGET_GRAPH_RECORD_KINDS
             and item.id
             == stable_id(
-                "UML-TARGET" if parse_architecture_declaration_kind(item.kind) is ArchitectureDeclarationKind.UML_TARGET else "ARCHITECTURE-TARGET",
+                "UML-TARGET"
+                if parse_architecture_declaration_kind(item.kind)
+                is ArchitectureDeclarationKind.UML_TARGET
+                else "ARCHITECTURE-TARGET",
                 model.contract.path,
             )
         ),

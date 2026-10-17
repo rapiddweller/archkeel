@@ -23,11 +23,6 @@ from pathlib import Path
 from types import FrameType
 from typing import Any
 
-from archkeel.ir.architecture_graph import (
-    ArchitectureRuleKind,
-    parse_architecture_declaration_kind,
-    parse_architecture_rule_kind,
-)
 from archkeel.check.evaluation.evaluate import _inside_rule_results
 from archkeel.check.evaluation.rules import (
     _boundary_rule_positions,
@@ -44,6 +39,11 @@ from archkeel.check.evaluation.rules import (
 )
 from archkeel.check.ratchets import unknown_positions_by_rule
 from archkeel.cli.observe import analyze_snapshot
+from archkeel.ir.architecture_graph import (
+    ArchitectureRuleKind,
+    parse_architecture_declaration_kind,
+    parse_architecture_rule_kind,
+)
 from archkeel.ir.architecture_graph import AssessmentStatus as _AssessmentStatus
 from archkeel.ir.codec import canonical_json_bytes, decode_json, parse_observation
 from archkeel.ir.decisions import rule_assessments
@@ -750,7 +750,10 @@ def measure(root: Path, *, repeats: int = 3) -> tuple[dict, dict]:
         _import_ledgers(model, calls),
         _scope_ledgers(model, calls),
     )
-    boundaries = sum(parse_architecture_rule_kind(row["kind"]) is ArchitectureRuleKind.BOUNDARY_TYPES for row in rows)
+    boundaries = sum(
+        parse_architecture_rule_kind(row["kind"]) is ArchitectureRuleKind.BOUNDARY_TYPES
+        for row in rows
+    )
     model["python_version"] = platform.python_version()
     return {
         "measurement_version": 3,

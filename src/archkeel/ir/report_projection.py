@@ -7,12 +7,9 @@ from dataclasses import replace
 from posixpath import commonpath
 
 from archkeel.ir.architecture_graph import (
-    ArchitectureRuleKind,
-    parse_architecture_rule_kind,
-)
-from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     ArchitectureReport,
+    ArchitectureRuleKind,
     AssessmentStatus,
     ComponentIntent,
     ComponentRole,
@@ -24,6 +21,7 @@ from archkeel.ir.architecture_graph import (
     ReportFinding,
     RuleAssessment,
     RuleAssessmentStatus,
+    parse_architecture_rule_kind,
 )
 from archkeel.ir.architecture_projection import (
     ArchitectureProjection,
@@ -177,7 +175,8 @@ def _permission_rules(
             scope_ids.get(text_value(item.data.get("parent_id"))),
         )
         for item in sorted(model.records("declarations") or (), key=lambda item: item.id)
-        if parse_architecture_rule_kind(item.kind) in RULE_KINDS and item.evidence_class == _EvidenceClass.DECLARED_RULE
+        if parse_architecture_rule_kind(item.kind) in RULE_KINDS
+        and item.evidence_class == _EvidenceClass.DECLARED_RULE
     )
 
 
@@ -201,7 +200,8 @@ def _permissions(
     selectors = {
         item.declaration.id: parse_dependency_selector(item.declaration)
         for item in rules
-        if parse_architecture_rule_kind(item.declaration.kind) in {ArchitectureRuleKind.ALLOWED_DEPENDENCY, ArchitectureRuleKind.FORBIDDEN_DEPENDENCY}
+        if parse_architecture_rule_kind(item.declaration.kind)
+        in {ArchitectureRuleKind.ALLOWED_DEPENDENCY, ArchitectureRuleKind.FORBIDDEN_DEPENDENCY}
     }
     rows = {}
     for source in target.component_intents:
@@ -214,7 +214,11 @@ def _permissions(
         level_rules = tuple(
             item.declaration for item in rules if item.parent_id == source.parent_id
         )
-        complete = tuple(item.id for item in level_rules if parse_architecture_rule_kind(item.kind) is ArchitectureRuleKind.COMPLETE_REQUIRES)
+        complete = tuple(
+            item.id
+            for item in level_rules
+            if parse_architecture_rule_kind(item.kind) is ArchitectureRuleKind.COMPLETE_REQUIRES
+        )
         permissions = []
         for sibling in siblings:
             if sibling.component_id == source.component_id:
@@ -230,9 +234,16 @@ def _permissions(
             forbidden = tuple(
                 rule.id
                 for rule in deciding
-                if parse_architecture_rule_kind(rule.kind) is ArchitectureRuleKind.FORBIDDEN_DEPENDENCY and not rule.data.get("allowed_sources")
+                if parse_architecture_rule_kind(rule.kind)
+                is ArchitectureRuleKind.FORBIDDEN_DEPENDENCY
+                and not rule.data.get("allowed_sources")
             )
-            allowed = tuple(rule.id for rule in deciding if parse_architecture_rule_kind(rule.kind) is ArchitectureRuleKind.ALLOWED_DEPENDENCY)
+            allowed = tuple(
+                rule.id
+                for rule in deciding
+                if parse_architecture_rule_kind(rule.kind)
+                is ArchitectureRuleKind.ALLOWED_DEPENDENCY
+            )
             required_entries = tuple(
                 RequiredComponent(edge.target_id, edge.reason or "", edge.through)
                 for edge in requires

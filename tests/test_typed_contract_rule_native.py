@@ -190,8 +190,10 @@ def test_native_codec_grammar_rejects_raw_source_controls(tmp_path, probe):
 
 
 DECLARATION_GUARDS = {
-    "IR-DECLARATION-OWNER-CONTROL", "IR-RULE-SELECTOR-CONTROL",
-    "GRAPH-TYPED-ARCHITECTURE-GRAPH", "TYPES-ENUM-IN-MODEL",
+    "IR-DECLARATION-OWNER-CONTROL",
+    "IR-RULE-SELECTOR-CONTROL",
+    "GRAPH-TYPED-ARCHITECTURE-GRAPH",
+    "TYPES-ENUM-IN-MODEL",
 }
 
 
@@ -200,16 +202,23 @@ def _declaration_repository(tmp_path, *, changed=None, relocate=False):
     policy = json.loads((ROOT / "architecture-contract.json").read_text())
     contract = _contract()
     contract["declarations"]["uml"]["entities"] = [
-        row for row in authored["declarations"]["uml"]["entities"]
-        if row["id"].startswith("IR-DECLARATION-")
-        or row["id"] == "IR-UML-architecture_graph"
+        row
+        for row in authored["declarations"]["uml"]["entities"]
+        if row["id"].startswith("IR-DECLARATION-") or row["id"] == "IR-UML-architecture_graph"
     ]
     contract["rules"] = [row for row in policy["rules"] if row["id"] in DECLARATION_GUARDS]
     assert {row["id"] for row in contract["rules"]} == DECLARATION_GUARDS
     files = {"archkeel/__init__.py": "", "archkeel/ir/__init__.py": ""}
     for module in (
-        "architecture_graph", "model", "facts", "state_facts", "type_shapes",
-        "dependency", "interfaces", "duplication", "module_explore",
+        "architecture_graph",
+        "model",
+        "facts",
+        "state_facts",
+        "type_shapes",
+        "dependency",
+        "interfaces",
+        "duplication",
+        "module_explore",
     ):
         source = (ROOT / f"src/archkeel/ir/{module}.py").read_text()
         if changed is not None and module == changed[0]:
@@ -222,12 +231,14 @@ def _declaration_repository(tmp_path, *, changed=None, relocate=False):
             # Include all member lines, stopping at the next top-level declaration.
             block = source[start:end]
             assert block.count(" = ") == 8
-            source = source[:start] + source[end + 2:]
-            files["archkeel/ir/misplaced_declaration.py"] = "from enum import StrEnum\n\n" + block + "\n"
+            source = source[:start] + source[end + 2 :]
+            files["archkeel/ir/misplaced_declaration.py"] = (
+                "from enum import StrEnum\n\n" + block + "\n"
+            )
         files[f"archkeel/ir/{module}.py"] = source
-    provenance = {
-        name for rule in contract["rules"] for name in rule["provenance"]
-    } | {"docs/architecture/contract-rule-grammar.md"}
+    provenance = {name for rule in contract["rules"] for name in rule["provenance"]} | {
+        "docs/architecture/contract-rule-grammar.md"
+    }
     files.update({name: (ROOT / name).read_text() for name in provenance})
     files["contract.json"] = json.dumps(contract)
     root = _prepare_repo(tmp_path, files)
@@ -241,10 +252,16 @@ def test_native_actual_rule_and_declaration_selectors_use_the_owned_api(tmp_path
     model = _model(root, config)
     comparison = architecture_report(model).comparison
     assessments = {row.id: row for row in rule_assessments(model, undecided_by_rule={})}
-    print("ACTUAL_DECLARATION_GUARDS=" + json.dumps({
-        key: {"status": row.status, "proven": row.evaluation_proven}
-        for key, row in assessments.items() if key in DECLARATION_GUARDS
-    }))
+    print(
+        "ACTUAL_DECLARATION_GUARDS="
+        + json.dumps(
+            {
+                key: {"status": row.status, "proven": row.evaluation_proven}
+                for key, row in assessments.items()
+                if key in DECLARATION_GUARDS
+            }
+        )
+    )
     assert comparison is not None and comparison.status == "PASS", comparison
     for rule_id in DECLARATION_GUARDS:
         assert assessments[rule_id].status == "PASS" and assessments[rule_id].evaluation_proven
@@ -254,18 +271,23 @@ def test_native_actual_rule_and_declaration_selectors_use_the_owned_api(tmp_path
 @pytest.mark.parametrize(
     "old,new",
     [
-        ("value: JsonValue | RawJson) -> ArchitectureRuleKind | None:",
-         "value: JsonValue | RawJson) -> str | None:"),
-        ("value: JsonValue | RawJson,\n) -> ArchitectureRuleKind | ArchitectureDeclarationKind | None:",
-         "value: JsonValue | RawJson,\n) -> str | None:"),
+        (
+            "value: JsonValue | RawJson) -> ArchitectureRuleKind | None:",
+            "value: JsonValue | RawJson) -> str | None:",
+        ),
+        (
+            "value: JsonValue | RawJson,\n)"
+            " -> ArchitectureRuleKind | ArchitectureDeclarationKind | None:",
+            "value: JsonValue | RawJson,\n) -> str | None:",
+        ),
+        ("def parse_architecture_rule_kind(value: JsonValue | RawJson)",
+         "def parse_architecture_rule_kind(value: object)"),
         ("class ArchitectureDeclarationKind(StrEnum):", "class ArchitectureDeclarationKind:"),
     ],
-    ids=["rule-result", "declaration-result", "declaration-kind"],
+    ids=["rule-result", "declaration-result", "raw-domain", "declaration-kind"],
 )
 def test_fixed_authored_declaration_target_rejects_weakened_ports(tmp_path, old, new):
-    root, config = _declaration_repository(
-        tmp_path, changed=("architecture_graph", old, new)
-    )
+    root, config = _declaration_repository(tmp_path, changed=("architecture_graph", old, new))
     intent = (root / "contract.json").read_bytes()
     model = _model(root, config)
     assert any(row.kind == "uml_conformance" for row in trace_valid_violations(model))
@@ -281,13 +303,25 @@ def test_actual_placement_rejects_relocating_declaration_vocabulary(tmp_path):
 @pytest.mark.parametrize(
     "module,old,new,guard",
     [
-        ("duplication", "parse_architecture_declaration_kind(record.kind) is ArchitectureDeclarationKind.SPOT_OWNER",
-         'record.kind == "spot_owner"', "IR-DECLARATION-OWNER-CONTROL"),
-        ("module_explore", "kind is ArchitectureRuleKind.FORBIDDEN_DEPENDENCY:",
-         'assessment.kind == "forbidden_dependency":', "IR-RULE-SELECTOR-CONTROL"),
-        ("module_explore", "kind is ArchitectureRuleKind.FORBIDDEN_DEPENDENCY:",
-         "kind.value == ArchitectureRuleKind.FORBIDDEN_DEPENDENCY.value:",
-         "IR-RULE-SELECTOR-CONTROL"),
+        (
+            "duplication",
+            "parse_architecture_declaration_kind(record.kind)\n"
+            "        is ArchitectureDeclarationKind.SPOT_OWNER",
+            'record.kind == "spot_owner"',
+            "IR-DECLARATION-OWNER-CONTROL",
+        ),
+        (
+            "module_explore",
+            "kind is ArchitectureRuleKind.FORBIDDEN_DEPENDENCY:",
+            'assessment.kind == "forbidden_dependency":',
+            "IR-RULE-SELECTOR-CONTROL",
+        ),
+        (
+            "module_explore",
+            "kind is ArchitectureRuleKind.FORBIDDEN_DEPENDENCY:",
+            "kind.value == ArchitectureRuleKind.FORBIDDEN_DEPENDENCY.value:",
+            "IR-RULE-SELECTOR-CONTROL",
+        ),
     ],
     ids=["declaration-raw", "rule-raw", "rule-value-evasion"],
 )

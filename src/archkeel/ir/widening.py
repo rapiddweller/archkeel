@@ -27,6 +27,7 @@ from typing import Any, ClassVar, Final, Protocol
 from archkeel.ir.architecture_graph import (
     ArchitectureRuleKind,
 )
+
 from .amendment import AMENDMENT_SCHEMA_VERSION as AMENDMENT_SCHEMA_VERSION
 from .amendment import Amendment as Amendment
 from .amendment import verify_amendment as verify_amendment

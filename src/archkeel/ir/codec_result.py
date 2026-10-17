@@ -228,7 +228,10 @@ def _filtered_violation_payload(
         **_record_payload(item.record),
         "locations": [_raw_object(asdict(location)) for location in item.locations],
     }
-    if parse_architecture_rule_kind(item.record.kind) is ArchitectureRuleKind.COMPLETE_ASSIGNMENT and remedy is not None:
+    if (
+        parse_architecture_rule_kind(item.record.kind) is ArchitectureRuleKind.COMPLETE_ASSIGNMENT
+        and remedy is not None
+    ):
         module = item.record.data.get("module")
         owner_ids = gaps.get(module, ()) if isinstance(module, str) else ()
         row["owners"] = [component_scopes.get(identity, identity) for identity in owner_ids] or [

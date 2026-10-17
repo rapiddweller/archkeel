@@ -13,8 +13,11 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, TypeAlias
 
 from .amendment import AmendmentStatus as AmendmentStatus
-from .architecture_graph import ArchitectureRuleGrammar, TargetDefinition
-from .architecture_graph import ArchitectureDeclarationKind
+from .architecture_graph import (
+    ArchitectureDeclarationKind,
+    ArchitectureRuleGrammar,
+    TargetDefinition,
+)
 from .architecture_graph import ArchitectureRuleKind as ArchitectureRuleKind
 from .architecture_graph import AssessmentStatus as AssessmentStatus
 from .architecture_graph import ComponentRole as ComponentRole
@@ -732,7 +735,9 @@ ArchitectureRule: TypeAlias = (
 # Typed authoring kinds come from ArchitectureRule. Record consumers also assess UML intent.
 UML_TARGET_KIND: Final = str(ArchitectureDeclarationKind.UML_TARGET)
 ARCHITECTURE_TARGET_KIND: Final = str(ArchitectureDeclarationKind.ARCHITECTURE_TARGET)
-TARGET_GRAPH_RECORD_KINDS: Final = frozenset({ArchitectureDeclarationKind.UML_TARGET, ArchitectureDeclarationKind.ARCHITECTURE_TARGET})
+TARGET_GRAPH_RECORD_KINDS: Final = frozenset(
+    {ArchitectureDeclarationKind.UML_TARGET, ArchitectureDeclarationKind.ARCHITECTURE_TARGET}
+)
 RULE_KINDS: Final[frozenset[ArchitectureRuleKind]] = frozenset(ArchitectureRuleKind)
 RULE_RECORD_KINDS: Final = RULE_KINDS | {ArchitectureDeclarationKind.UML_TARGET}
 

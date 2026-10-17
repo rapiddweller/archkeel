@@ -44,7 +44,8 @@ def _inside_pointers(contract: ArchitectureContract, observation: Observation) -
     inside_parents = {
         f"{parent}:{record.title}": parent
         for record in declarations
-        if parse_architecture_declaration_kind(record.kind) is ArchitectureDeclarationKind.INSIDE_COMPONENT_RESPONSIBILITY
+        if parse_architecture_declaration_kind(record.kind)
+        is ArchitectureDeclarationKind.INSIDE_COMPONENT_RESPONSIBILITY
         and record.data.get("inside") is not None
         and (parent := text_value(record.data.get("parent_id"))) is not None
     }

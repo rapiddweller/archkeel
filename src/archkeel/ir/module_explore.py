@@ -12,6 +12,7 @@ from archkeel.ir.architecture_graph import (
     ArchitectureRuleKind,
     parse_architecture_rule_kind,
 )
+
 from .architecture_graph import (
     ArchitectureGraph,
     ArchitectureReport,
@@ -161,7 +162,9 @@ def _rule_applies(
                     return True
             elif kind is ArchitectureRuleKind.INTERFACE_BOUNDARY:
                 if target_intent.public is not None and not any(
-                    parse_architecture_rule_kind(item.kind) is ArchitectureRuleKind.FORBIDDEN_DEPENDENCY for item in site_findings
+                    parse_architecture_rule_kind(item.kind)
+                    is ArchitectureRuleKind.FORBIDDEN_DEPENDENCY
+                    for item in site_findings
                 ):
                     return True
             elif kind is ArchitectureRuleKind.SIBLING_ISOLATION:

@@ -13,9 +13,6 @@ from dataclasses import asdict, replace
 from pathlib import PurePosixPath
 
 from archkeel.ir.architecture_graph import (
-    parse_architecture_declaration_kind,
-)
-from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     Coverage,
     CoverageStatus,
@@ -36,6 +33,7 @@ from archkeel.ir.architecture_graph import (
     Visibility,
     VisibilityBasis,
     VisibilityKind,
+    parse_architecture_declaration_kind,
 )
 from archkeel.ir.facts import (
     SOURCE_RESOLUTION_GAP_KIND,

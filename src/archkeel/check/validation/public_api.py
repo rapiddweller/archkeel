@@ -482,7 +482,10 @@ def _published_api_types(observation: Observation) -> dict[str, tuple[str, ...]]
     """
     types: dict[str, tuple[str, ...]] = {}
     for record in observation.records("declarations") or ():
-        if parse_architecture_declaration_kind(record.kind) is not ArchitectureDeclarationKind.DECLARED_PUBLIC_API:
+        if (
+            parse_architecture_declaration_kind(record.kind)
+            is not ArchitectureDeclarationKind.DECLARED_PUBLIC_API
+        ):
             continue
         entry = text_value(record.data.get("qualified_name"))
         exposed = record.data.get("types")

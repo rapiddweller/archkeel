@@ -10,14 +10,12 @@ from pathlib import Path
 from typing import Literal as _Literal
 
 from archkeel.ir.architecture_graph import (
-    ArchitectureRuleKind,
-    parse_architecture_rule_kind,
-)
-from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     ArchitectureReport,
+    ArchitectureRuleKind,
     ComponentIntent,
     RuleAssessment,
+    parse_architecture_rule_kind,
 )
 from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.baseline import (

@@ -16,12 +16,10 @@ from typing import TypeAlias
 
 from archkeel.ir.architecture_graph import (
     ArchitectureDeclarationKind,
-    parse_architecture_declaration_kind,
-)
-from archkeel.ir.architecture_graph import (
     ArchitectureReport,
     RuleAssessment,
     RuleAssessmentStatus,
+    parse_architecture_declaration_kind,
 )
 from archkeel.ir.architecture_graph import CoverageStatus as _CoverageStatus
 from archkeel.ir.architecture_graph import EntityKind as _EntityKind
@@ -1146,7 +1144,8 @@ def _compatibility_migration_work(observation: Observation) -> str:
         {
             subject
             for record in observation.records("declarations") or ()
-            if parse_architecture_declaration_kind(record.kind) is ArchitectureDeclarationKind.COMPATIBILITY_MIGRATION_WORK
+            if parse_architecture_declaration_kind(record.kind)
+            is ArchitectureDeclarationKind.COMPATIBILITY_MIGRATION_WORK
             for subject in record.subjects
         }
     )
