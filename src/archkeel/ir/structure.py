@@ -20,6 +20,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Literal, TypeAlias
 
+from .facts import SourceResolution, parse_source_resolution
 from .interfaces import component_owners, owner_of
 from .model import ComparisonStatus, ComponentOwnership, Observation, int_value, text_value
 from .profiles import profile_for
@@ -81,7 +82,7 @@ def _calls_by_module(
         if not module:
             continue
         total[module] += 1
-        if record.data.get("status") == "unresolved":
+        if parse_source_resolution(record.data.get("status")) is SourceResolution.UNRESOLVED:
             unresolved[module] += 1
     return total, unresolved
 

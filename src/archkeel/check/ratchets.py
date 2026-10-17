@@ -5,6 +5,7 @@
 
 from archkeel.ir.decisions import unknown_positions as _ir_unknown_positions
 from archkeel.ir.decisions import unknown_positions_by_rule as _ir_unknown_positions_by_rule
+from archkeel.ir.facts import SourceResolution, parse_source_resolution
 from archkeel.ir.interfaces import component_owners, owner_of
 from archkeel.ir.measurements import MeasurementResolution as _Resolution
 from archkeel.ir.measurements import (
@@ -181,10 +182,11 @@ def call_rows(observation: Observation) -> tuple[CallRow, ...]:
     for record in _records(observation, "calls"):
         data = record.data
         status: CallStatus
-        if data.get("status") == "unresolved":
-            status = "unresolved"
-        elif data.get("status") == "partially_resolved":
-            status = "partially_resolved"
+        resolution = parse_source_resolution(data.get("status"))
+        if resolution is SourceResolution.UNRESOLVED:
+            status = resolution
+        elif resolution is SourceResolution.PARTIALLY_RESOLVED:
+            status = resolution
         else:
             continue
         module = text_value(data.get("source_module"))
@@ -198,7 +200,7 @@ def call_rows(observation: Observation) -> tuple[CallRow, ...]:
         rows.append(
             CallRow(status, caller, expression, reason, component, sites[0].file, sites[0].line)
         )
-    unresolved = sum(row.status == "unresolved" for row in rows)
+    unresolved = sum(row.status is SourceResolution.UNRESOLVED for row in rows)
     coverage = observation.coverage
     if (unresolved, len(rows) - unresolved) != (
         coverage.calls_unresolved,
@@ -214,7 +216,7 @@ def _unresolved_calls(observation: Observation) -> dict[tuple[str, str, str], tu
     """Group the unresolved calls by file, caller and expression, the identity AD-100 compares."""
     grouped: dict[tuple[str, str, str], tuple[CallRow, ...]] = {}
     for row in call_rows(observation):
-        if row.status == "unresolved":
+        if row.status is SourceResolution.UNRESOLVED:
             key = (row.path, row.caller, row.expression)
             grouped[key] = (*grouped.get(key, ()), row)
     return grouped

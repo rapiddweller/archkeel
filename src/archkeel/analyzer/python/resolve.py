@@ -15,6 +15,7 @@ from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
+from archkeel.ir.facts import SourceResolution
 from archkeel.ir.facts_codec import RawRecord
 
 from .binding_types import BindingKind
@@ -31,14 +32,14 @@ from .scopes import LexicalScopes, NameBinding
 _BUILTINS = frozenset(dir(builtins))
 _NO_RECEIVERS: Mapping[str, ReceiverType] = {}
 # What each receiver origin lets a call on it claim (AD-37, AD-40).
-_ORIGIN_VERDICT: dict[ReceiverOrigin, tuple[str, str]] = {
-    ReceiverOrigin.LITERAL: ("resolved", "literal-bound receiver of known type"),
+_ORIGIN_VERDICT: dict[ReceiverOrigin, tuple[SourceResolution, str]] = {
+    ReceiverOrigin.LITERAL: (SourceResolution.RESOLVED, "literal-bound receiver of known type"),
     ReceiverOrigin.ANNOTATION: (
-        "partially_resolved",
+        SourceResolution.PARTIALLY_RESOLVED,
         "annotated receiver of known type, unproven at runtime",
     ),
     ReceiverOrigin.DOCUMENTED: (
-        "partially_resolved",
+        SourceResolution.PARTIALLY_RESOLVED,
         "receiver bound to a call result of documented type, unproven at runtime",
     ),
 }
@@ -122,16 +123,18 @@ def build_symbol_index(symbols: Sequence[RawRecord]) -> SymbolIndex:
     )
 
 
-def _named_binding(target: str, index: SymbolIndex, reason: str) -> tuple[str, list[str], str, int]:
+def _named_binding(
+    target: str, index: SymbolIndex, reason: str
+) -> tuple[SourceResolution, list[str], str, int]:
     parts = target.split(".")
     if any(".".join(parts[:end]) in index.conditional_names for end in range(1, len(parts) + 1)):
         return (
-            "partially_resolved",
+            SourceResolution.PARTIALLY_RESOLVED,
             [target],
             "conditional definition has no proven runtime binding",
             1,
         )
-    return "resolved", [target], reason, 1
+    return SourceResolution.RESOLVED, [target], reason, 1
 
 
 def _static_receiver_type(
@@ -185,7 +188,7 @@ def _resolve_expression_receiver(
     *,
     receiver_types: Mapping[str, ReceiverType],
     scopes: LexicalScopes,
-) -> tuple[str, list[str], str, int] | None:
+) -> tuple[SourceResolution, list[str], str, int] | None:
     """Resolve a call on a literal or on a call result written at the call site.
 
     Unlike `[]`/`{}`/`list(...)`, which AD-37 case 2 recognises only through a named local,
@@ -194,10 +197,13 @@ def _resolve_expression_receiver(
     """
     if isinstance(node.value, ast.Constant | ast.JoinedStr):
         literal_type = literal_receiver_type(node.value)
-        status, reason = "resolved", "literal receiver of known type"
+        status, reason = SourceResolution.RESOLVED, "literal receiver of known type"
     elif isinstance(node.value, ast.Call):
         literal_type = call_result_type(node.value, receiver_types=receiver_types, scopes=scopes)
-        status, reason = "partially_resolved", "call result of documented type, unproven at runtime"
+        status, reason = (
+            SourceResolution.PARTIALLY_RESOLVED,
+            "call result of documented type, unproven at runtime",
+        )
     else:
         return None
     if literal_type is None:
@@ -214,7 +220,7 @@ def _resolve_name_node(
     index: SymbolIndex,
     scopes: LexicalScopes,
     value_reference: bool,
-) -> tuple[str, list[str], str, int]:
+) -> tuple[SourceResolution, list[str], str, int]:
     binding = scopes.lookup(node, node.id)
     if binding.targets:
         reason = (
@@ -228,30 +234,30 @@ def _resolve_name_node(
         if target in index.names:
             return _scoped_binding(binding, (target,), index, "namespace value binding")
     if binding.kind is not BindingKind.UNBOUND:
-        return "unresolved", [], "lexical binding has no proven callable value", 0
+        return SourceResolution.UNRESOLVED, [], "lexical binding has no proven callable value", 0
     if node.id in _BUILTINS:
-        return "resolved", [f"builtins.{node.id}"], "Python builtin", 1
+        return SourceResolution.RESOLVED, [f"builtins.{node.id}"], "Python builtin", 1
     candidates = index.by_tail.get(node.id, [])
     if candidates:
         return (
-            "partially_resolved",
+            SourceResolution.PARTIALLY_RESOLVED,
             candidates[:5],
             "name matches internal symbols without a proven binding",
             len(candidates),
         )
-    return "unresolved", [], "name has no statically indexed binding", 0
+    return SourceResolution.UNRESOLVED, [], "name has no statically indexed binding", 0
 
 
 def _scoped_binding(
     binding: NameBinding, targets: tuple[str, ...], index: SymbolIndex, reason: str
-) -> tuple[str, list[str], str, int]:
+) -> tuple[SourceResolution, list[str], str, int]:
     if len(targets) == 1:
         result = _named_binding(targets[0], index, reason)
-        if result[0] == "partially_resolved":
+        if result[0] == SourceResolution.PARTIALLY_RESOLVED:
             return result
     if binding.uncertain or len(targets) != 1:
         return (
-            "partially_resolved",
+            SourceResolution.PARTIALLY_RESOLVED,
             list(targets[:5]),
             "competing lexical binding sites",
             len(targets),
@@ -261,7 +267,7 @@ def _scoped_binding(
 
 def _resolve_receiver_bound_call(
     parts: list[str], receiver_types: Mapping[str, ReceiverType]
-) -> tuple[str, list[str], str, int] | None:
+) -> tuple[SourceResolution, list[str], str, int] | None:
     """Resolve `recv.method(...)` where `recv` is a locally typed name (AD-37 cases 2-3)."""
     if len(parts) != 2:
         return None
@@ -282,7 +288,7 @@ def _resolve_dotted(
     scopes: LexicalScopes,
     node: ast.AST,
     receiver_types: Mapping[str, ReceiverType],
-) -> tuple[str, list[str], str, int]:
+) -> tuple[SourceResolution, list[str], str, int]:
     parts = dotted.split(".")
     binding = scopes.lookup(node, parts[0])
     if binding.kind in {BindingKind.MODULE, BindingKind.SYMBOL} and binding.targets:
@@ -299,7 +305,7 @@ def _resolve_dotted(
         if target in index.declaration_names:
             return _named_binding(target, index, "method on current class")
         return (
-            "partially_resolved",
+            SourceResolution.PARTIALLY_RESOLVED,
             [target],
             "current-class attribute without indexed method target",
             1,
@@ -315,12 +321,12 @@ def _resolve_dotted(
     candidates = index.by_tail.get(parts[-1], [])
     if candidates:
         return (
-            "partially_resolved",
+            SourceResolution.PARTIALLY_RESOLVED,
             candidates[:5],
             "dynamic receiver with matching internal methods",
             len(candidates),
         )
-    return "unresolved", [], "dynamic attribute receiver", 0
+    return SourceResolution.UNRESOLVED, [], "dynamic attribute receiver", 0
 
 
 def resolve_name(
@@ -330,7 +336,7 @@ def resolve_name(
     scopes: LexicalScopes,
     receiver_types: Mapping[str, ReceiverType] = _NO_RECEIVERS,
     value_reference: bool = False,
-) -> tuple[str, list[str], str, int]:
+) -> tuple[SourceResolution, list[str], str, int]:
     """Name the symbols one expression can mean, with why the resolution holds.
 
     `receiver_types` contains only bindings visible at this expression. Lexical ownership
@@ -353,4 +359,4 @@ def resolve_name(
             node=node,
             receiver_types=receiver_types,
         )
-    return "unresolved", [], "expression is dynamic", 0
+    return SourceResolution.UNRESOLVED, [], "expression is dynamic", 0

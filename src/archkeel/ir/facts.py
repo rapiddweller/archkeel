@@ -82,6 +82,26 @@ class ResolutionRole(StrEnum):
     RESOLUTION = "resolution"
 
 
+class SourceResolution(StrEnum):
+    """Resolution claims published by source collectors, separate from graph resolution."""
+
+    RESOLVED = "resolved"
+    PARTIALLY_RESOLVED = "partially_resolved"
+    UNRESOLVED = "unresolved"
+
+
+def parse_source_resolution(value: JsonValue | RawJson) -> SourceResolution | None:
+    """Recognize source resolution at an owned port; future record data remains opaque."""
+    if isinstance(value, SourceResolution):
+        return value
+    if not isinstance(value, str):
+        return None
+    try:
+        return SourceResolution(value)
+    except ValueError:
+        return None
+
+
 def source_dirty(value: bool | str) -> bool | Literal["unknown"]:
     """Validate the dirty sentinel without changing its legacy wire spelling."""
     if isinstance(value, bool):

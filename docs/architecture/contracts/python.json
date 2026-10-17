@@ -175,6 +175,19 @@
         "docs/architecture/language-adapter-target.md"
       ],
       "decided_by": "agent"
+    },
+    {
+      "id": "SOURCE-RESOLUTION-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.analyzer.python.resolve._scoped_binding",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Dispatch on the shared nominal source-resolution domain at the actual scoped-binding producer.",
+      "decided_by": "architect",
+      "provenance": [
+        "docs/architecture/source-resolution-types.md"
+      ]
     }
   ],
   "declarations": {
@@ -802,6 +815,75 @@
               }
             ],
             "returns": "DefinitionFrame"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/source-resolution-types.md"
+          ],
+          "id": "PYTHON-SOURCE-RESOLUTION-module",
+          "kind": "module",
+          "qualified_name": "archkeel.analyzer.python.resolve",
+          "parent_id": "TARGET-SOURCE",
+          "responsibilities": [
+            "Own shared Python expression resolution for the call and reference collectors."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/source-resolution-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "PYTHON-SOURCE-RESOLUTION-producer",
+          "kind": "function",
+          "qualified_name": "archkeel.analyzer.python.resolve.resolve_name",
+          "parent_id": "PYTHON-SOURCE-RESOLUTION-module",
+          "responsibilities": [
+            "Return the shared nominal source-resolution claim together with candidates, reason and candidate count."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "node",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "ast.AST"
+              },
+              {
+                "name": "index",
+                "kind": "keyword_only",
+                "default_known": true,
+                "annotation": "SymbolIndex"
+              },
+              {
+                "name": "scopes",
+                "kind": "keyword_only",
+                "default_known": true,
+                "annotation": "LexicalScopes"
+              },
+              {
+                "name": "receiver_types",
+                "kind": "keyword_only",
+                "default_known": true,
+                "annotation": "Mapping[str, ReceiverType]",
+                "default": "_NO_RECEIVERS"
+              },
+              {
+                "name": "value_reference",
+                "kind": "keyword_only",
+                "default_known": true,
+                "annotation": "bool",
+                "default": "False"
+              }
+            ],
+            "returns": "tuple[SourceResolution, list[str], str, int]"
           }
         }
       ],

@@ -72,6 +72,7 @@ from .facts import (
 from .facts import (
     SourceInfo as SourceInfo,
 )
+from .facts import SourceResolution, parse_source_resolution
 from .facts import (
     in_scope as in_scope,
 )
@@ -1459,7 +1460,7 @@ class BaselineViolationComparison:
     status: Literal["known", "new", "reduced", "resolved", "contracted", "unknown"]
 
 
-CallStatus: TypeAlias = Literal["unresolved", "partially_resolved"]
+CallStatus: TypeAlias = Literal[SourceResolution.UNRESOLVED, SourceResolution.PARTIALLY_RESOLVED]
 
 
 @dataclass(frozen=True, slots=True)
@@ -1477,6 +1478,15 @@ class CallRow:
     component: str | None
     path: str
     line: int
+
+    def __post_init__(self) -> None:
+        status = parse_source_resolution(self.status)
+        if status not in {
+            SourceResolution.UNRESOLVED,
+            SourceResolution.PARTIALLY_RESOLVED,
+        }:
+            raise ValueError("call row needs an unresolved or partially resolved status")
+        builtins.object.__setattr__(self, "status", status)
 
 
 @dataclass(frozen=True, slots=True)

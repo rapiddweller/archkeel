@@ -11178,6 +11178,111 @@
             "basis": "declared"
           },
           "annotation": "str"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/source-resolution-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-SOURCE-RESOLUTION-enum",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.facts.SourceResolution",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Own the existing resolved, partially_resolved and unresolved source claims without graph or resolver-only states."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/source-resolution-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-SOURCE-RESOLUTION-parse",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.facts.parse_source_resolution",
+          "parent_id": "archkeel.ir.facts",
+          "responsibilities": [
+            "Recognize shared source-resolution claims at owned consumers while preserving absent and future record data."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "value",
+                "kind": "positional",
+                "default_known": true,
+                "annotation": "JsonValue | RawJson"
+              }
+            ],
+            "returns": "SourceResolution | None"
+          }
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/source-resolution-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-SOURCE-RESOLUTION-CallStatus",
+          "kind": "type_alias",
+          "qualified_name": "archkeel.ir.model.CallStatus",
+          "parent_id": "IR-DEPENDENCY-model",
+          "responsibilities": [
+            "Name only Literal[SourceResolution.UNRESOLVED, SourceResolution.PARTIALLY_RESOLVED] for call rows without a unique proven target."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/source-resolution-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-SOURCE-RESOLUTION-CallRow",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.model.CallRow",
+          "parent_id": "IR-DEPENDENCY-model",
+          "responsibilities": [
+            "Retain one call without a unique proven target and normalize its narrow source-resolution subset once."
+          ],
+          "modifiers": [
+            "frozen"
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/source-resolution-types.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-SOURCE-RESOLUTION-CallRow.status",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.model.CallRow.status",
+          "parent_id": "IR-SOURCE-RESOLUTION-CallRow",
+          "responsibilities": [
+            "Require the named two-member source-resolution subset; resolved and unknown values cannot enter a call row."
+          ],
+          "annotation": "CallStatus"
         }
       ],
       "relationships": [

@@ -30,6 +30,7 @@ from archkeel.ir.facts import (
     SourceFacts,
     SourceInfo,
     SourceProfile,
+    SourceResolution,
     SourceSectionName,
     UnresolvedTarget,
     stable_id,
@@ -82,12 +83,6 @@ class _SymbolKind(StrEnum):
     ATTRIBUTE = "attribute"
     CONSTANT = "constant"
     BINDING = "binding"
-
-
-class _FactStatus(StrEnum):
-    RESOLVED = ResolutionStatus.RESOLVED
-    PARTIALLY_RESOLVED = "partially_resolved"
-    UNRESOLVED = ResolutionStatus.UNRESOLVED
 
 
 class _ClassKind(StrEnum):
@@ -925,9 +920,9 @@ class _Collection:
                                     "DARTBASE", rel, definition.span.start_byte, kind, name
                                 ),
                                 "relationship_kind": kind,
-                                "status": _FactStatus.RESOLVED
+                                "status": SourceResolution.RESOLVED
                                 if resolved
-                                else _FactStatus.UNRESOLVED,
+                                else SourceResolution.UNRESOLVED,
                                 "targets": [target] if resolved else [],
                                 "candidate_count": 1 if resolved else len(targets),
                                 "candidates_truncated": False,
@@ -1090,14 +1085,14 @@ class _Collection:
             "source_file": rel,
             "expression": site.expression_source or site.expression,
             "status": status,
-            "targets": target_names if status != _FactStatus.UNRESOLVED else [],
+            "targets": target_names if status != SourceResolution.UNRESOLVED else [],
             "candidate_count": len(target_names),
             "candidates_truncated": False,
             "reason": (
                 "Analyzer resolved the source element"
-                if status == _FactStatus.RESOLVED
+                if status == SourceResolution.RESOLVED
                 else "multiple local source candidates remain"
-                if status == _FactStatus.PARTIALLY_RESOLVED
+                if status == SourceResolution.PARTIALLY_RESOLVED
                 else "target is external, dynamic, or unresolved"
             ),
         }
@@ -1131,7 +1126,7 @@ class _Collection:
 
     def _site_target_state(
         self, rel: str, resolved: ResolvedSite, call: bool
-    ) -> tuple[list[str], RawData | None, _FactStatus]:
+    ) -> tuple[list[str], RawData | None, SourceResolution]:
         site = resolved.site
         target_names = sorted(
             {name for item in resolved.bindings if (name := self._binding_name(item)) is not None}
@@ -1175,46 +1170,48 @@ class _Collection:
                 if self._symbol_kind(target) in {_SymbolKind.METHOD, _SymbolKind.FUNCTION}
             ]
         status = (
-            _FactStatus.RESOLVED
+            SourceResolution.RESOLVED
             if len(target_names) == 1
             and (
                 not call
                 or construction is not None
                 or self._symbol_kind(target_names[0]) in {_SymbolKind.METHOD, _SymbolKind.FUNCTION}
             )
-            else _FactStatus.UNRESOLVED
+            else SourceResolution.UNRESOLVED
         )
         if resolved.status != ResolutionStatus.RESOLVED:
             status = (
-                _FactStatus.PARTIALLY_RESOLVED if call and target_names else _FactStatus.UNRESOLVED
+                SourceResolution.PARTIALLY_RESOLVED
+                if call and target_names
+                else SourceResolution.UNRESOLVED
             )
         if construction_status is not None:
             status = (
-                _FactStatus.RESOLVED
-                if construction_status != _FactStatus.UNRESOLVED
-                else _FactStatus.UNRESOLVED
+                SourceResolution.RESOLVED
+                if construction_status != SourceResolution.UNRESOLVED
+                else SourceResolution.UNRESOLVED
             )
         return target_names, construction, status
 
     @staticmethod
     def _construction_record(
         resolution: ConstructionResolution,
-    ) -> tuple[RawData, _FactStatus]:
+    ) -> tuple[RawData, SourceResolution]:
         binding = resolution.binding
         class_name = binding.name.split(".", 1)[0] if binding else None
         target = f"{binding.module}.{class_name}" if binding and class_name else None
         if resolution.status == ResolutionStatus.RESOLVED and target:
-            status = _FactStatus.RESOLVED
+            status = SourceResolution.RESOLVED
             targets = [target]
         elif binding is not None and target:
-            status = _FactStatus.PARTIALLY_RESOLVED
+            status = SourceResolution.PARTIALLY_RESOLVED
             targets = [target]
         else:
-            status = _FactStatus.UNRESOLVED
+            status = SourceResolution.UNRESOLVED
             targets = []
-        if status == _FactStatus.RESOLVED:
+        if status == SourceResolution.RESOLVED:
             reason = "Analyzer resolved a local generative constructor"
-        elif status == _FactStatus.PARTIALLY_RESOLVED:
+        elif status == SourceResolution.PARTIALLY_RESOLVED:
             reason = "factory construction does not prove a local instance target"
         else:
             reason = resolution.reason or "constructor target is external, dynamic, or unresolved"

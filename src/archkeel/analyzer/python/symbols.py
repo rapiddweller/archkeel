@@ -19,6 +19,7 @@ from archkeel.ir.facts import (
     MemberInventory,
     MemberKind,
     ParameterKind,
+    SourceResolution,
     stable_id,
 )
 from archkeel.ir.facts_codec import RawData as RecordData
@@ -653,11 +654,14 @@ def _base_binding(
     base: ast.expr,
     by_name: dict[str, list[RawRecord]],
     stable_bindings: frozenset[str],
-) -> tuple[str, list[str], str]:
+) -> tuple[SourceResolution, list[str], str]:
     classifier = base.value if isinstance(base, ast.Subscript) else base
     dotted: str = dotted_expression(classifier) or ""
     targets: list[str] = []
-    status, reason = "unresolved", "dynamic base expression has no proven classifier binding"
+    status, reason = (
+        SourceResolution.UNRESOLVED,
+        "dynamic base expression has no proven classifier binding",
+    )
     if dotted:
         root, _, tail = dotted.partition(".")
         alias = module.aliases.get(root)
@@ -677,34 +681,43 @@ def _base_binding(
         if alias or known:
             targets = [target]
             status, reason = (
-                "partially_resolved",
+                SourceResolution.PARTIALLY_RESOLVED,
                 "base name has candidates without a proven binding",
             )
             if proven and (alias or (len(known) == 1 and known[0]["kind"] == "class")):
-                status, reason = "resolved", "explicit base with a stable direct module binding"
+                status, reason = (
+                    SourceResolution.RESOLVED,
+                    "explicit base with a stable direct module binding",
+                )
                 if len(known) > 1 or (known and known[0]["kind"] != "class"):
                     status, reason = (
-                        "partially_resolved",
+                        SourceResolution.PARTIALLY_RESOLVED,
                         "imported classifier identity is ambiguous or unavailable",
                     )
                 elif _base_namespace_uncertain(target, by_name):
-                    status, reason = "partially_resolved", "classifier or qualifier may be replaced"
+                    status, reason = (
+                        SourceResolution.PARTIALLY_RESOLVED,
+                        "classifier or qualifier may be replaced",
+                    )
                 elif not known and target not in _KNOWN_CLASS_KINDS and target != "builtins.object":
-                    status, reason = "partially_resolved", "external classifier kind is unavailable"
+                    status, reason = (
+                        SourceResolution.PARTIALLY_RESOLVED,
+                        "external classifier kind is unavailable",
+                    )
         elif (
             dotted == "object"
             and owner["data"]["lexical_parent_id"] is None
             and not _binding_may_exist_before(module, module.tree.body, node, root)
         ):
             targets = ["builtins.object"]
-            status, reason = "resolved", "unshadowed builtin object base"
+            status, reason = SourceResolution.RESOLVED, "unshadowed builtin object base"
         if (
             isinstance(base, ast.Subscript)
-            and status == "resolved"
+            and status == SourceResolution.RESOLVED
             and target not in {"typing.Protocol", "typing_extensions.Protocol"}
         ):
             status, reason = (
-                "partially_resolved",
+                SourceResolution.PARTIALLY_RESOLVED,
                 "generic base may replace its classifier through __class_getitem__",
             )
     return status, targets, reason
@@ -724,7 +737,7 @@ def _base_declaration(
     known = by_name.get(targets[0], []) if targets else []
     kind = "inherits"
     if (
-        status == "resolved"
+        status == SourceResolution.RESOLVED
         and len(known) == 1
         and known[0]["data"]["class_kind"] == "protocol"
         and owner["data"]["class_kind"] != "protocol"
@@ -763,7 +776,7 @@ def _base_namespace_uncertain(
                     data["class_header_static"] is not True
                     or data["class_body_control_flow"]
                     or any(
-                        base["status"] != "resolved"
+                        base["status"] != SourceResolution.RESOLVED
                         or any(
                             _base_namespace_uncertain(parent, by_name, ancestors)
                             for parent in base["targets"]
@@ -800,10 +813,10 @@ def _record_class_bases(
         if item["kind"] != "class":
             continue
         for base in item["data"]["base_declarations"]:
-            if base["status"] == "resolved" and any(
+            if base["status"] == SourceResolution.RESOLVED and any(
                 _base_namespace_uncertain(target, by_name) for target in base["targets"]
             ):
-                base["status"] = "partially_resolved"
+                base["status"] = SourceResolution.PARTIALLY_RESOLVED
                 base["reason"] = "classifier or qualifier may be replaced"
 
 

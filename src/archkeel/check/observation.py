@@ -20,7 +20,13 @@ from archkeel.ir.codec import (
 from archkeel.ir.decisions import dependency_binding_id
 from archkeel.ir.digest import package_digest
 from archkeel.ir.facts import ResolutionRole as _ResolutionRole
-from archkeel.ir.facts import RuntimeRequirementState, SourceFacts, dart_module_name
+from archkeel.ir.facts import (
+    RuntimeRequirementState,
+    SourceFacts,
+    SourceResolution,
+    dart_module_name,
+    parse_source_resolution,
+)
 from archkeel.ir.facts_codec import (
     RawRecord,
     classified,
@@ -157,8 +163,16 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract, profile: Profile)
     package_cycles = [item for item in scan.cycles if item["data"]["level"] == "package"]
     module_cycles = [item for item in scan.cycles if item["data"]["level"] == "module"]
     rollup_only = [item for item in package_cycles if not item["data"]["backed_by"]]
-    unresolved_calls = [item for item in scan.calls if item["data"]["status"] == "unresolved"]
-    resolved_calls = [item for item in scan.calls if item["data"]["status"] == "resolved"]
+    unresolved_calls = [
+        item
+        for item in scan.calls
+        if parse_source_resolution(item["data"]["status"]) is SourceResolution.UNRESOLVED
+    ]
+    resolved_calls = [
+        item
+        for item in scan.calls
+        if parse_source_resolution(item["data"]["status"]) is SourceResolution.RESOLVED
+    ]
     evidence_by_id = {item["id"]: item for item in scan.evidence}
     violating_import_sites = {
         (

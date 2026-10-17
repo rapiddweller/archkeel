@@ -9,7 +9,7 @@ import ast
 import builtins
 from collections.abc import Sequence
 
-from archkeel.ir.facts import EvidenceClass, stable_id
+from archkeel.ir.facts import EvidenceClass, SourceResolution, stable_id
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 
@@ -171,7 +171,12 @@ class CallCollector(ast.NodeVisitor):
         }
 
     def _construction(
-        self, node: ast.Call, expression: str, status: str, targets: list[str], truncated: bool
+        self,
+        node: ast.Call,
+        expression: str,
+        status: SourceResolution,
+        targets: list[str],
+        truncated: bool,
     ) -> RecordData | None:
         if dotted_expression(node.func) is None:
             return None
@@ -192,13 +197,13 @@ class CallCollector(ast.NodeVisitor):
             return None
         proven = (
             isinstance(node.func, ast.Name)
-            and status == "resolved"
+            and status == SourceResolution.RESOLVED
             and len(classes) == 1
             and root in self.stable_bindings
             and self.index.constructor_results[classes[0]]
         )
         return {
-            "status": "resolved" if proven else "partially_resolved",
+            "status": SourceResolution.RESOLVED if proven else SourceResolution.PARTIALLY_RESOLVED,
             "targets": classes,
             "candidates_truncated": truncated,
             "reason": "Stable class with default allocation and initialization"

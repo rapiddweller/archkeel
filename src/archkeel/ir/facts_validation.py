@@ -20,10 +20,12 @@ from .facts import (
     RecordData,
     SourceFacts,
     SourceProfile,
+    SourceResolution,
     UnresolvedTarget,
     in_scope,
     member_inventories,
     parse_method_kind,
+    parse_source_resolution,
     property_binding,
 )
 from .facts import MemberKind as _MemberKind
@@ -304,7 +306,7 @@ def _base_declarations(record: Record, section: str) -> None:
     for base in bases:
         fields = {key for key, _ in base.entries}
         relation = base.get("relationship_kind")
-        status = base.get("status")
+        status = parse_source_resolution(base.get("status"))
         targets = base.get("targets")
         count = base.get("candidate_count")
         evidence_ids = base.get("evidence_ids")
@@ -315,7 +317,7 @@ def _base_declarations(record: Record, section: str) -> None:
             or not isinstance(base.get("id"), str)
             or not base.get("id")
             or relation not in {"inherits", "realizes", "mixes_in"}
-            or status not in {"resolved", "partially_resolved", "unresolved"}
+            or status is None
             or not isinstance(base.get("expression"), str)
             or not base.get("expression")
             or not isinstance(targets, tuple)
@@ -324,12 +326,12 @@ def _base_declarations(record: Record, section: str) -> None:
             or isinstance(count, bool)
             or count < len(targets)
             or not isinstance(truncated, bool)
-            or status == "resolved"
+            or status is SourceResolution.RESOLVED
             and len(targets) != 1
-            or status == "unresolved"
+            or status is SourceResolution.UNRESOLVED
             and targets
             or truncated
-            and (status != "partially_resolved" or count <= len(targets))
+            and (status is not SourceResolution.PARTIALLY_RESOLVED or count <= len(targets))
             or not isinstance(evidence_ids, tuple)
             or any(not isinstance(identity, str) or not identity for identity in evidence_ids)
             or base.get("reason") is not None

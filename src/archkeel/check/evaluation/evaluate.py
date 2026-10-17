@@ -22,8 +22,10 @@ from archkeel.ir.facts import (
     ForbiddenConstructKind,
     SourceFacts,
     SourceProfile,
+    SourceResolution,
     SourceSectionName,
     UnresolvedTarget,
+    parse_source_resolution,
 )
 from archkeel.ir.facts import ResolutionRole as _ResolutionRole
 from archkeel.ir.facts_codec import (
@@ -122,11 +124,21 @@ def coverage_payload(
 ) -> CoveragePayload:
     """Summarize file discovery, rule and call-resolution coverage for one scan."""
     calls_analyzed = len(calls)
-    calls_resolved = sum(1 for call in calls if call["data"]["status"] == "resolved")
-    calls_partially_resolved = sum(
-        1 for call in calls if call["data"]["status"] == "partially_resolved"
+    calls_resolved = sum(
+        1
+        for call in calls
+        if parse_source_resolution(call["data"]["status"]) is SourceResolution.RESOLVED
     )
-    calls_unresolved = sum(1 for call in calls if call["data"]["status"] == "unresolved")
+    calls_partially_resolved = sum(
+        1
+        for call in calls
+        if parse_source_resolution(call["data"]["status"]) is SourceResolution.PARTIALLY_RESOLVED
+    )
+    calls_unresolved = sum(
+        1
+        for call in calls
+        if parse_source_resolution(call["data"]["status"]) is SourceResolution.UNRESOLVED
+    )
     return {
         "status": "FAIL" if failures or rule_failures or not paths else "PASS",
         "rules": "FAIL" if rule_failures else "PASS",
@@ -171,7 +183,10 @@ def _analysis_limits(
             subjects=[namespace],
             data={
                 "unresolved_calls": sum(
-                    1 for call in calls if call["data"]["status"] == "unresolved"
+                    1
+                    for call in calls
+                    if parse_source_resolution(call["data"]["status"])
+                    is SourceResolution.UNRESOLVED
                 )
             },
         ),

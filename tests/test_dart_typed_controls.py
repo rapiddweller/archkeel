@@ -20,6 +20,7 @@ from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.decisions import rule_assessments
+from archkeel.ir.facts import SourceResolution
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
 
@@ -407,10 +408,10 @@ def test_resolver_outcomes_exclude_collector_only_partial_evidence_status():
     for status in resolve.ResolutionStatus:
         resolution = resolve.ConstructionResolution(status, None, None)
         record, outcome = collect._Collection._construction_record(resolution)
-        assert isinstance(outcome, collect._FactStatus)
-        assert outcome is collect._FactStatus.UNRESOLVED
+        assert isinstance(outcome, SourceResolution)
+        assert outcome is SourceResolution.UNRESOLVED
         assert record["status"] is outcome
-    assert not isinstance(collect._FactStatus.PARTIALLY_RESOLVED, resolve.ResolutionStatus)
+    assert not isinstance(SourceResolution.PARTIALLY_RESOLVED, resolve.ResolutionStatus)
 
 
 def test_parser_keywords_do_not_misclassify_identifier_substrings():

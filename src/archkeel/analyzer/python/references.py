@@ -13,7 +13,7 @@ from __future__ import annotations
 import ast
 from collections.abc import Sequence
 
-from archkeel.ir.facts import EvidenceClass, in_scope, stable_id
+from archkeel.ir.facts import EvidenceClass, SourceResolution, in_scope, stable_id
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 
 from .resolve import SymbolIndex, dotted_expression, resolve_name
@@ -116,13 +116,13 @@ class ReferenceCollector(ast.NodeVisitor):
                 node, index=self.index, scopes=self.scopes, value_reference=True
             )
         else:
-            status, targets = "resolved", [enum_member]
+            status, targets = SourceResolution.RESOLVED, [enum_member]
         internal = [
             target
             for target in targets
             if target in self.index.names or target in self.index.declaration_names
         ]
-        if status == "unresolved" or not internal:
+        if status == SourceResolution.UNRESOLVED or not internal:
             return
         evidence_id = add_evidence(self.evidence, self.module, node)
         line, _, column = location(node)
@@ -183,7 +183,7 @@ class ReferenceCollector(ast.NodeVisitor):
         if not isinstance(root, ast.Name) or root.id not in self.enum_member_roots:
             return None
         status, targets, _, _ = resolve_name(node.value, index=self.index, scopes=self.scopes)
-        if status != "resolved" or len(targets) != 1:
+        if status != SourceResolution.RESOLVED or len(targets) != 1:
             return None
         enum_name = targets[0]
         if enum_name not in self.enum_member_classes:

@@ -32,6 +32,7 @@ from archkeel.ir.facts import (
     SourceFacts,
     SourceInfo,
     SourceProfile,
+    SourceResolution,
     SourceSectionName,
     UnresolvedTarget,
     stable_id,
@@ -74,12 +75,6 @@ from .syntax import (
     Syntax,
     Visibility,
 )
-
-
-class _ResolutionStatus(Enum):
-    RESOLVED = "resolved"
-    PARTIAL = "partially_resolved"
-    UNRESOLVED = "unresolved"
 
 
 class _InventoryStatus(Enum):
@@ -556,7 +551,7 @@ class _Collection:
         import_by_local: dict[str, dict[str, list[tuple[str, str, bool, bool]]]],
         definitions_by_module: dict[str, list[Definition]],
         by_qualified: dict[str, list[tuple[str, Definition]]],
-    ) -> tuple[list[str], _ResolutionStatus, str | None]:
+    ) -> tuple[list[str], SourceResolution, str | None]:
         name = site.name
         candidates: list[str] = []
         reason: str | None = None
@@ -604,20 +599,20 @@ class _Collection:
             reason = "name is rebound in module scope"
         candidates = sorted(set(candidates))
         status = (
-            _ResolutionStatus.RESOLVED
+            SourceResolution.RESOLVED
             if len(candidates) == 1
             and reason is None
             and (
                 unique_this_member
                 or all(len(by_qualified.get(target, [])) == 1 for target in candidates)
             )
-            else _ResolutionStatus.PARTIAL
+            else SourceResolution.PARTIALLY_RESOLVED
             if candidates
-            else _ResolutionStatus.UNRESOLVED
+            else SourceResolution.UNRESOLVED
         )
-        if status is _ResolutionStatus.PARTIAL and reason is None:
+        if status is SourceResolution.PARTIALLY_RESOLVED and reason is None:
             reason = "multiple definition sites share the target name"
-        if reason is None and status is not _ResolutionStatus.RESOLVED:
+        if reason is None and status is not SourceResolution.RESOLVED:
             reason = "definition is missing or ambiguous"
         return candidates, status, reason
 
@@ -665,7 +660,7 @@ class _Collection:
         source_id: str | None,
         site: Site,
         candidates: list[str],
-        status: _ResolutionStatus,
+        status: SourceResolution,
         reason: str | None,
         evidence: str,
     ) -> RawRecord:
@@ -702,7 +697,7 @@ class _Collection:
         source_id: str | None,
         site: Site,
         candidates: list[str],
-        status: _ResolutionStatus,
+        status: SourceResolution,
         reason: str | None,
         evidence: str,
         by_qualified: dict[str, list[tuple[str, Definition]]],
@@ -731,18 +726,18 @@ class _Collection:
                 )
             )
             create_status = (
-                _ResolutionStatus.RESOLVED
-                if len(targets) == 1 and status is _ResolutionStatus.RESOLVED
-                else _ResolutionStatus.PARTIAL
+                SourceResolution.RESOLVED
+                if len(targets) == 1 and status is SourceResolution.RESOLVED
+                else SourceResolution.PARTIALLY_RESOLVED
                 if targets
-                else _ResolutionStatus.UNRESOLVED
+                else SourceResolution.UNRESOLVED
             )
             data["construction"] = {
                 "status": create_status.value,
                 "targets": targets,
                 "candidates_truncated": False,
                 "reason": "Unique local classifier construction"
-                if create_status is _ResolutionStatus.RESOLVED
+                if create_status is SourceResolution.RESOLVED
                 else reason or "Construction target is not proven",
             }
             result_bindings = self._result_binding(rel, site, call_id)
@@ -859,11 +854,11 @@ class _Collection:
         targets = [qualified] if classifier_targets else []
         evidence = self._cite(rel, base.span)
         status = (
-            _ResolutionStatus.RESOLVED
+            SourceResolution.RESOLVED
             if len(classifier_targets) == 1
-            else _ResolutionStatus.PARTIAL
+            else SourceResolution.PARTIALLY_RESOLVED
             if targets
-            else _ResolutionStatus.UNRESOLVED
+            else SourceResolution.UNRESOLVED
         )
         result: dict[str, object] = {
             "id": stable_id("TSBASE", owner, base.span.line, base.span.column, name),
@@ -877,7 +872,7 @@ class _Collection:
         }
         if not targets:
             result["reason"] = "Base is not a unique local classifier"
-        elif status is _ResolutionStatus.PARTIAL:
+        elif status is SourceResolution.PARTIALLY_RESOLVED:
             result["reason"] = "multiple classifier definition sites share the target name"
         return result
 
