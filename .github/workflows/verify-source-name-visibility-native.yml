@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 50fe58bc9d93419a2857c173eab8f5734d5a30bc
+          ref: 511101df02c0a32c48e8254ef4928717d8f6858a
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -55,7 +55,7 @@ jobs:
               assert row["locations"]
               module_counts.update({row["locations"][0]["file"]:1})
               forms.update({row["form"]:1})
-          summary={"source":"50fe58bc9d93419a2857c173eab8f5734d5a30bc","scope":"actual own Python native observation; supported syntax only, not semantic whole-program or defect count","constructs":len(rows),"by_file":dict(module_counts.most_common()),"forms":dict(forms),"site_payload_sha256":hashlib.sha256(raw).hexdigest(),"calls_unresolved":model.coverage.calls_unresolved}
+          summary={"source":"511101df02c0a32c48e8254ef4928717d8f6858a","scope":"actual own Python native observation; supported syntax only, not semantic whole-program or defect count","constructs":len(rows),"by_file":dict(module_counts.most_common()),"forms":dict(forms),"site_payload_sha256":hashlib.sha256(raw).hexdigest(),"calls_unresolved":model.coverage.calls_unresolved}
           (artifact/"summary.json").write_text(json.dumps(summary,sort_keys=True,indent=2)+"\n")
           print("ACTUAL_NATIVE_CURRENT_CONTROL_AUDIT="+json.dumps(summary,sort_keys=True),flush=True)
           print("ACTUAL_NATIVE_CONTROL_SAMPLES="+json.dumps(rows[:3],sort_keys=True),flush=True)
