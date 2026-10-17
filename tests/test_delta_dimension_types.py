@@ -25,7 +25,6 @@ from archkeel.ir import codec_delta, model, profiles
 from archkeel.ir.codec import (
     canonical_json_bytes, decode_canonical_model, delta_payload, parse_delta, parse_observation,
 )
-from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
 
@@ -404,11 +403,20 @@ def _ownership_repository(tmp_path):
     return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
 
 
+def _ownership_result(root, config):
+    result, encoded = run_report(root, config=config, analyzer=observe)
+    assert result.exit_code == 0 and encoded is not None, result.diagnostics
+    row = next(
+        row for row in result.rule_assessments or ()
+        if row.id == "TARGET-COMPLETE_REQUIRES"
+    )
+    observed = parse_observation(decode_canonical_model(json.loads(encoded)))
+    return row, observed
+
+
 def test_native_canonical_owner_relocation_fails_fixed_target(tmp_path):
     root, config = _ownership_repository(tmp_path)
-    before = _model(root, config)
-    rule = next(row for row in rule_assessments(before, undecided_by_rule={})
-                if row.id == "TARGET-COMPLETE_REQUIRES")
+    rule, before = _ownership_result(root, config)
     assert rule.status == "PASS" and rule.evaluation_proven, rule
     assert not trace_valid_violations(before)
     source = root / "archkeel/ir/profiles.py"
@@ -426,9 +434,7 @@ def test_native_canonical_owner_relocation_fails_fixed_target(tmp_path):
     destination = root / "archkeel/ir/model.py"
     destination.write_text("from enum import StrEnum\n" + definition + "\n")
     intent = (root / "contract.json").read_bytes()
-    observed = _model(root, config)
-    rule = next(row for row in rule_assessments(observed, undecided_by_rule={})
-                if row.id == "TARGET-COMPLETE_REQUIRES")
+    rule, observed = _ownership_result(root, config)
     assert rule.status == "FAIL", rule
     assert any("TARGET-COMPLETE_REQUIRES" in row.rule_ids
                for row in trace_valid_violations(observed))
