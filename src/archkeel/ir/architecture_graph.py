@@ -12,9 +12,9 @@ from enum import StrEnum
 from pathlib import PurePosixPath
 from typing import Literal
 
-from archkeel.ir.facts import Evidence, Language
 from archkeel.ir.facts import DefinitionBranchKind as DefinitionBranchKind
 from archkeel.ir.facts import DefinitionContextKind as DefinitionContextKind
+from archkeel.ir.facts import Evidence, Language
 from archkeel.ir.facts import ParameterKind as ParameterKind
 
 

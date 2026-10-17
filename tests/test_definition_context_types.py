@@ -124,37 +124,53 @@ def test_unknown_future_ast_field_does_not_invent_a_known_branch():
 
 def _entities(kind_annotation="DefinitionContextKind"):
     common = dict(
-        language="python", presence="planned", provenance=["context-intent.md"],
-        responsibilities=["Carry the AST definition context through its owned nominal field and return ports."],
+        language="python",
+        presence="planned",
+        provenance=["context-intent.md"],
+        responsibilities=[
+            "Carry the AST definition context through its owned nominal field and return ports."
+        ],
     )
     return [
         dict(common, id="SOURCE", kind="module", qualified_name="archkeel.analyzer.python.source"),
         dict(
-            common, id="FRAME", kind="class",
-            qualified_name="archkeel.analyzer.python.source.DefinitionFrame", parent_id="SOURCE",
+            common,
+            id="FRAME",
+            kind="class",
+            qualified_name="archkeel.analyzer.python.source.DefinitionFrame",
+            parent_id="SOURCE",
         ),
         *[
             dict(
-                common, id="FRAME-" + name, kind="attribute",
+                common,
+                id="FRAME-" + name,
+                kind="attribute",
                 qualified_name="archkeel.analyzer.python.source.DefinitionFrame." + name,
-                parent_id="FRAME", annotation=annotation,
+                parent_id="FRAME",
+                annotation=annotation,
             )
             for name, annotation in (
-                ("node", "ast.AST"), ("kind", kind_annotation),
+                ("node", "ast.AST"),
+                ("kind", kind_annotation),
                 ("branch", "DefinitionBranchKind"),
             )
         ],
         dict(
-            common, id="BRANCH", kind="function",
-            qualified_name="archkeel.analyzer.python.source._branch_context", parent_id="SOURCE",
+            common,
+            id="BRANCH",
+            kind="function",
+            qualified_name="archkeel.analyzer.python.source._branch_context",
+            parent_id="SOURCE",
             visibility=dict(kind="private", basis="declared"),
             signature=dict(
                 parameters=[
                     dict(name="node", annotation="ast.AST", kind="positional", default_known=True),
                     dict(name="child", annotation="ast.AST", kind="positional", default_known=True),
                     dict(
-                        name="field_name", annotation="_DefinitionField",
-                        kind="positional", default_known=True,
+                        name="field_name",
+                        annotation="_DefinitionField",
+                        kind="positional",
+                        default_known=True,
                     ),
                 ],
                 returns="DefinitionFrame",
@@ -165,7 +181,9 @@ def _entities(kind_annotation="DefinitionContextKind"):
 
 def _repository(tmp_path, text):
     target = dict(
-        schema_version="2.2.0", components=[], rules=[],
+        schema_version="2.2.0",
+        components=[],
+        rules=[],
         declarations=dict(
             uml=dict(schema_version="1.1.0", entities=_entities(), relationships=[], scopes=[])
         ),
@@ -249,7 +267,8 @@ def test_native_real_source_frame_matches_the_independent_target(tmp_path):
     root, config = _repository(tmp_path, text)
     comparison = _comparison(_model(root, config))
     assert comparison.status == "PASS", [
-        (row.subject_id, row.aspect, row.status) for row in comparison.assessments
+        (row.subject_id, row.aspect, row.status)
+        for row in comparison.assessments
         if row.status != "PASS"
     ]
 

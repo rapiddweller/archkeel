@@ -169,9 +169,7 @@ def _definition_sites(
                 yield from _definition_sites(child, parent, nested)
 
 
-def _branch_context(
-    node: ast.AST, child: ast.AST, field_name: _DefinitionField
-) -> DefinitionFrame:
+def _branch_context(node: ast.AST, child: ast.AST, field_name: _DefinitionField) -> DefinitionFrame:
     site = (
         child
         if isinstance(child, ast.ExceptHandler)
