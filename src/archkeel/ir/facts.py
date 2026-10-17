@@ -146,7 +146,46 @@ def source_dirty(value: bool | str) -> bool | Literal["unknown"]:
     return "unknown"
 
 
-SOURCE_RESOLUTION_GAP_KIND = "source_resolution_gap"
+class SourceEvidenceKind(StrEnum):
+    """Known collector evidence tags; extension records keep their open kind."""
+
+    RESOLUTION_GAP = "source_resolution_gap"
+    MISSING_CROSS_PACKAGE_ANNOTATION = "missing_cross_package_annotation"
+    PRIVATE_ATTRIBUTE_ACCESS_LIMIT = "private_attribute_access_limit"
+
+
+class SourceResolutionDimension(StrEnum):
+    """The source facet whose uncertainty is explicitly bound to a module."""
+
+    IMPORTS = "imports"
+    SIGNATURE = "signature"
+
+
+def parse_source_evidence_kind(value: JsonValue | RawJson) -> SourceEvidenceKind | None:
+    """Recognize the owned facet; recognition alone supplies no proof authority."""
+    if isinstance(value, SourceEvidenceKind):
+        return value
+    if not isinstance(value, str):
+        return None
+    try:
+        return SourceEvidenceKind(value)
+    except ValueError:
+        return None
+
+
+def parse_source_resolution_dimension(value: JsonValue | RawJson) -> SourceResolutionDimension | None:
+    """Recognize the owned facet; recognition alone supplies no proof authority."""
+    if isinstance(value, SourceResolutionDimension):
+        return value
+    if not isinstance(value, str):
+        return None
+    try:
+        return SourceResolutionDimension(value)
+    except ValueError:
+        return None
+
+
+SOURCE_RESOLUTION_GAP_KIND = SourceEvidenceKind.RESOLUTION_GAP.value
 
 RECORD_FIELDS = (
     "id",

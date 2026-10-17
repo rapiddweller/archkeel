@@ -1211,6 +1211,36 @@ class Projection:
     evidence: tuple[Evidence, ...]
 
 
+class CoreAnalysisEvidenceKind(StrEnum):
+    """Core-derived evaluation evidence, distinct from authored intent and Source tags."""
+
+    BOUNDARY_TYPE_POSITION = "boundary_type_position"
+    BOUNDARY_TYPE_ROUTE = "boundary_type_route"
+    BOUNDARY_TYPE_LIMIT = "boundary_type_limit"
+    BOUNDARY_TYPE_ALLOWANCE = "boundary_type_allowance"
+    TYPE_IGNORE_ALLOWANCE = "type_ignore_allowance"
+    RULE_OWNERSHIP_BLOCKER = "rule_ownership_blocker"
+    INSIDE_SOURCE_DOMAIN_INCOMPLETE = "inside_source_domain_incomplete"
+    COMPONENT_SCOPE_ASSIGNMENT_INCOMPLETE = "component_scope_assignment_incomplete"
+    RULE_UNSUPPORTED_BY_PROFILE = "rule-unsupported-by-profile"
+    MEMBER_INVENTORY_PROOF = "member_inventory_proof"
+    INSIDE_CONTRACT_INCOMPLETE = "inside_contract_incomplete"
+    DYNAMIC_CALL_LIMIT = "dynamic_call_limit"
+    CONTEXT_ALIAS_LIMIT = "context_alias_limit"
+
+
+def parse_core_analysis_evidence_kind(value: JsonValue | RawJson) -> CoreAnalysisEvidenceKind | None:
+    """Recognize the owned facet; recognition alone supplies no proof authority."""
+    if isinstance(value, CoreAnalysisEvidenceKind):
+        return value
+    if not isinstance(value, str):
+        return None
+    try:
+        return CoreAnalysisEvidenceKind(value)
+    except ValueError:
+        return None
+
+
 class KnownSemanticChangeKind(StrEnum):
     """Actions understood by current Delta production and governance, not an open wire schema."""
 

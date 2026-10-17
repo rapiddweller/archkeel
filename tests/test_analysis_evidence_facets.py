@@ -42,7 +42,9 @@ VOCAB = {
         "COMPONENT_SCOPE_ASSIGNMENT_INCOMPLETE": "component_scope_assignment_incomplete",
         "RULE_UNSUPPORTED_BY_PROFILE": "rule-unsupported-by-profile",
         "MEMBER_INVENTORY_PROOF": "member_inventory_proof",
-        "INSIDE_CONTRACT_INCOMPLETE": "inside_contract_incomplete"
+        "INSIDE_CONTRACT_INCOMPLETE": "inside_contract_incomplete",
+        "DYNAMIC_CALL_LIMIT": "dynamic_call_limit",
+        "CONTEXT_ALIAS_LIMIT": "context_alias_limit"
     }
 }
 PORTS = [
