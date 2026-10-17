@@ -106,7 +106,10 @@ jobs:
                   results = []
                   for materializer in (old.materialize_git_snapshot, snapshot.materialize_git_snapshot):
                       run.materialize_git_snapshot = materializer
-                      result = run.observe_revision(observe, repository, revision, config, declared_at=revision)
+                      print("COMMITTED_SOURCE=" + repr((repository / "src/main.py").read_bytes()))
+                  ast.parse((repository / "src/main.py").read_bytes())
+                  result = run.observe_revision(observe, repository, revision, config, declared_at=revision)
+                  print("OBSERVATION_COVERAGE=" + repr(result.coverage))
                       assert result.diagnostics == () and result.observation is not None, result.diagnostics
                       results.append(canonical_report_bytes(result.observation))
                   assert results[0] == results[1]
