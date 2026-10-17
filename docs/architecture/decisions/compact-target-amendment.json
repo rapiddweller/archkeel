@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "2bfdc9930db2c00cefe098c1d4d8aef8d7a6916e703643ae5bf349116916bf8d",
+  "after_digest": "4e3ebd22181e7aade09b6a380e7985d9f386cd8e1c36c9895ed972d559c9d3ea",
+  "before_baseline_digest": "2bfdc9930db2c00cefe098c1d4d8aef8d7a6916e703643ae5bf349116916bf8d",
+  "before_digest": "5f1fd86c8b171e082e7ab16dd2558839b2ee8a825c7aa19e2c000ecbe0fe7ae8",
+  "decided_by": "agent",
+  "rationale": "Move shared repository observation and UML authentication below commands. Preserve the existing report facade signature, rule payloads, required entities, allowances and debt budgets. Bind the precise provider ports, narrowed consumer ports and four additional closure rules to this ownership migration.",
+  "schema_version": "2.0.0"
+}

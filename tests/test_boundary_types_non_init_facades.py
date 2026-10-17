@@ -58,8 +58,8 @@ def _write_app(
 
 def _reported_violations(root: Path) -> tuple[RunResult, tuple[Record, ...]]:
     with (
-        patch("archkeel.check.report.resolve_commit", return_value="a" * 40),
-        patch("archkeel.check.report.git_bytes", return_value=b""),
+        patch("archkeel.check.uml.resolve_commit", return_value="a" * 40),
+        patch("archkeel.check.uml.git_bytes", return_value=b""),
     ):
         result, architecture = run_report(
             root,

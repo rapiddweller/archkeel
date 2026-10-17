@@ -12,10 +12,11 @@
       ],
       "packages": [],
       "responsibilities": [
-        "Decode one request and encode one response using the shared codec."
+        "Decode collector requests and encode one bounded response from collection."
       ],
       "forbidden_responsibilities": [
-        "Filesystem discovery, syntax parsing and policy."
+        "Filesystem discovery, syntax parsing and policy.",
+        "Dart resolution and architecture policy."
       ],
       "public": [],
       "requires": [
@@ -26,7 +27,8 @@
         }
       ],
       "provenance": [
-        "docs/architecture/dart-python-target.md"
+        "docs/architecture/dart-python-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent"
     },
@@ -39,10 +41,11 @@
       ],
       "packages": [],
       "responsibilities": [
-        "Assemble source evidence and coverage into SourceFacts; never evaluate architecture policy."
+        "Assemble Dart facts from one syntax pass and snapshot-bound resolution."
       ],
       "forbidden_responsibilities": [
-        "Parser nodes, direct filesystem reads and rule verdicts."
+        "Parser nodes, direct filesystem reads and rule verdicts.",
+        "Process lifecycle and duplicated parsing or resolution."
       ],
       "public": [
         "archkeel.analyzer.dart.collect:collect"
@@ -65,7 +68,8 @@
         }
       ],
       "provenance": [
-        "docs/architecture/dart-python-target.md"
+        "docs/architecture/dart-python-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent"
     },
@@ -78,10 +82,11 @@
       ],
       "packages": [],
       "responsibilities": [
-        "Read bounded immutable source bytes and package metadata; reject escapes and record exact input digests."
+        "Read and authenticate the immutable Dart source snapshot and manifest."
       ],
       "forbidden_responsibilities": [
-        "AST interpretation, symbol resolution and reading outside the snapshot."
+        "AST interpretation, symbol resolution and reading outside the snapshot.",
+        "Parsing declarations and evaluating architecture rules."
       ],
       "public": [
         "archkeel.analyzer.dart.snapshot:Snapshot",
@@ -92,7 +97,8 @@
       ],
       "requires": [],
       "provenance": [
-        "docs/architecture/dart-python-target.md"
+        "docs/architecture/dart-python-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent"
     },
@@ -106,10 +112,11 @@
       ],
       "packages": [],
       "responsibilities": [
-        "Own Tree-sitter nodes and extract immutable Dart syntax values with precise spans and gaps."
+        "Parse Dart lexical declarations and sites into the shared immutable syntax model."
       ],
       "forbidden_responsibilities": [
-        "Filesystem reads, process execution, target contracts and inferred compiler semantics."
+        "Filesystem reads, process execution, target contracts and inferred compiler semantics.",
+        "Repository acquisition and target-policy decisions."
       ],
       "public": [
         "archkeel.analyzer.dart.parse:parse",
@@ -134,7 +141,8 @@
       ],
       "requires": [],
       "provenance": [
-        "docs/architecture/dart-python-target.md"
+        "docs/architecture/dart-python-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent"
     },
@@ -147,10 +155,11 @@
       ],
       "packages": [],
       "responsibilities": [
-        "Bind libraries, parts and source-level names only when unique and supported by selected inputs."
+        "Resolve Dart names, members and construction against snapshot and syntax evidence."
       ],
       "forbidden_responsibilities": [
-        "Filesystem reads, parser nodes, runtime dispatch and policy."
+        "Filesystem reads, parser nodes, runtime dispatch and policy.",
+        "Changing source inputs or inventing certainty for unresolved bindings."
       ],
       "public": [
         "archkeel.analyzer.dart.resolve:Resolver",
@@ -178,7 +187,8 @@
         }
       ],
       "provenance": [
-        "docs/architecture/dart-python-target.md"
+        "docs/architecture/dart-python-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent"
     }

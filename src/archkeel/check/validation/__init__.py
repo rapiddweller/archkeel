@@ -88,9 +88,9 @@ from archkeel.ir.widening import (
 from ..git import GitError, MissingBlobError, read_blob, tracked_paths, working_tree_paths
 from ..ports import Analyzer, FilesToWrite, ScanConfig
 from ..ratchets import measure_python_ratchets, unknown_positions_by_rule, unresolved_call_changes
-from ..report import observe_repository
 from ..run import inspect_observation, observe_revision
 from ..snapshot import SnapshotError
+from ..uml import observe_repository
 from .closed_world import _decided_pairs as _decided_pairs
 from .closed_world import _open_decision_diagnostics as _open_decision_diagnostics
 from .closed_world import _pair_diagnostics as _pair_diagnostics

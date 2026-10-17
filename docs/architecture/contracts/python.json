@@ -11,13 +11,15 @@
         "archkeel.analyzer.python.collect"
       ],
       "responsibilities": [
-        "Decode the request and run collection once per module."
+        "Orchestrate one Python source pass and assemble the collector response."
       ],
       "forbidden_responsibilities": [
-        "Local IR internals and architecture rules."
+        "Local IR internals and architecture rules.",
+        "Architecture policy and duplicated source parsing."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "exact_modules": [
@@ -49,13 +51,15 @@
         "archkeel.analyzer.python.binding_types"
       ],
       "responsibilities": [
-        "Own Python AST/local IR and resolution helpers."
+        "Own AST ingress, lexical identity and binding/member proof foundations."
       ],
       "forbidden_responsibilities": [
-        "Collector order and governance policy."
+        "Collector order and governance policy.",
+        "Depending on fact collectors or applying architecture policy."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "public": [
@@ -87,13 +91,15 @@
         "archkeel.analyzer.python.typing_signals"
       ],
       "responsibilities": [
-        "Collect independent Python source facts and derive language-specific type and state evidence."
+        "Emit specialized Python call, binding, state and type facts from shared source evidence."
       ],
       "forbidden_responsibilities": [
-        "Importing peer collectors, importing Core policy, or evaluating architecture rules."
+        "Importing peer collectors, importing Core policy, or evaluating architecture rules.",
+        "Reparsing source and duplicating lexical identity or policy evaluation."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "requires": [

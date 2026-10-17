@@ -31,8 +31,8 @@ def test_report_keeps_partial_ir_artifact_and_coverage(tmp_path: Path) -> None:
         return observed
 
     with (
-        patch("archkeel.check.report.resolve_commit", return_value="a" * 40),
-        patch("archkeel.check.report.git_bytes", return_value=b""),
+        patch("archkeel.check.uml.resolve_commit", return_value="a" * 40),
+        patch("archkeel.check.uml.git_bytes", return_value=b""),
     ):
         result, architecture = run_report(
             tmp_path,
@@ -61,8 +61,8 @@ def test_cli_report_artifact_path_is_relative_only_inside_root(
         return ObservationResult(model, model.coverage, ())
 
     with (
-        patch("archkeel.check.report.resolve_commit", return_value="a" * 40),
-        patch("archkeel.check.report.git_bytes", return_value=b""),
+        patch("archkeel.check.uml.resolve_commit", return_value="a" * 40),
+        patch("archkeel.check.uml.git_bytes", return_value=b""),
         patch(
             "archkeel.cli.load_config",
             return_value=ScanConfig((".",), "sample", "contract.json", "d" * 64),

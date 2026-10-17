@@ -15,13 +15,15 @@
         "archkeel.ir.source_records"
       ],
       "responsibilities": [
-        "Own immutable source facts, language identity, source record builders and their typed values."
+        "Own language-neutral source facts, evidence identities, state and type values."
       ],
       "forbidden_responsibilities": [
-        "Language ASTs, protocol envelopes, I/O and architecture verdicts."
+        "Language ASTs, protocol envelopes, I/O and architecture verdicts.",
+        "Contract permissions, wire decoding and runtime acquisition."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "public": [
@@ -41,13 +43,15 @@
         "archkeel.ir.protocol"
       ],
       "responsibilities": [
-        "Own typed process request/response envelopes."
+        "Own typed request and response envelopes for collector processes."
       ],
       "forbidden_responsibilities": [
-        "Policy and I/O."
+        "Policy and I/O.",
+        "Collector execution and language parsing."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "requires": [
@@ -71,13 +75,15 @@
         "archkeel.ir.state_codec"
       ],
       "responsibilities": [
-        "Validate and serialize process messages."
+        "Strictly decode, validate and encode source facts and process envelopes."
       ],
       "forbidden_responsibilities": [
-        "Policy and I/O."
+        "Policy and I/O.",
+        "Deriving architecture verdicts or acquiring inputs."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "requires": [
@@ -106,13 +112,15 @@
         "archkeel.ir.profiles"
       ],
       "responsibilities": [
-        "Own per-language capability and rule-availability policy."
+        "Describe language capabilities, source requirements and comparable measurements."
       ],
       "forbidden_responsibilities": [
-        "Source parsing and metric evaluation."
+        "Source parsing and metric evaluation.",
+        "Collecting facts and granting dependency permissions."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "requires": [
@@ -176,14 +184,15 @@
         "archkeel.ir.amendment_codec"
       ],
       "responsibilities": [
-        "Own governance models, codecs, policy metrics and pure derivations.",
-        "Own the shared UML graph, strict codecs and pure source/Target projections; no AST parsing or verdicts."
+        "Own contract/result values, strict wire conversion and pure graph, metric and projection derivation."
       ],
       "forbidden_responsibilities": [
-        "Parsing, process I/O and workflow orchestration."
+        "Parsing, process I/O and workflow orchestration.",
+        "I/O, command orchestration and wire codecs invoking projection policy."
       ],
       "provenance": [
-        "docs/architecture/language-adapter-target.md"
+        "docs/architecture/language-adapter-target.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "agent",
       "exact_modules": [
@@ -308,14 +317,15 @@
         }
       ],
       "responsibilities": [
-        "Own the closed dependency selector vocabulary and immutable selections.",
-        "Apply module and component ownership selection consistently for evaluators and projections."
+        "Match owned dependency selectors and exact import-port permissions."
       ],
       "forbidden_responsibilities": [
-        "Wire decoding, source collection, receipt issuance, verdicts and report rendering."
+        "Wire decoding, source collection, receipt issuance, verdicts and report rendering.",
+        "Source acquisition and presentation decisions."
       ],
       "provenance": [
-        "docs/architecture/archkeel.md"
+        "docs/architecture/archkeel.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "architect"
     },
@@ -333,14 +343,16 @@
         "archkeel.ir.contract_version:supports_feature"
       ],
       "responsibilities": [
-        "Own supported contract schema identities and the single feature-introduction policy shared by reading and writing."
+        "Own contract versions and the features available in each version."
       ],
       "forbidden_responsibilities": [
-        "Raw JSON field parsing, source observation, rule evaluation and repository-dependent decisions."
+        "Raw JSON field parsing, source observation, rule evaluation and repository-dependent decisions.",
+        "Source analysis and silently accepting unsupported grammar."
       ],
       "requires": [],
       "provenance": [
-        "docs/architecture/contract-version-types.md"
+        "docs/architecture/contract-version-types.md",
+        "docs/architecture/target/design.md"
       ],
       "decided_by": "architect"
     }

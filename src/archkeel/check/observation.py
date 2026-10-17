@@ -53,6 +53,7 @@ from archkeel.ir.profiles import PROFILES, Language, Profile, UnmeasurableScalar
 
 from .declarations import load_contract, project_declarations, project_inside_declarations
 from .evaluation.evaluate import ScanResult, evaluate_source
+from .evaluation.rules import public_api_exposed_types
 from .ports import SourceCollector
 from .runtime import has_invalid_python_requirement, runtime_diagnostic
 
@@ -468,20 +469,25 @@ def _declaration_records(
     module_scope: tuple[tuple[str, ...], str],
     language: Language,
 ) -> list[RawRecord]:
-    """`project_declarations` needs `scan`'s own `symbols`/`imports`/`modules` to resolve
-    `declared_public_api`'s `types` (AD-70); kept out of `analyze_snapshot`'s own body only to
-    keep that call a single line there.
-    """
-    records = [
-        *project_declarations(
-            contract,
+    """Bind public-type evidence before projecting declarations (AD-70)."""
+    types_by_entry = (
+        public_api_exposed_types(
+            contract.declarations.public_api if contract.declarations is not None else (),
             scan.symbols,
             scan.imports,
             scan.modules,
-            contract_path,
+            contract,
             unknowns=scan.unknowns,
             type_shapes=scan.type_shapes,
-            measured_types=SourceSectionName.SYMBOLS in scan.observed_sections,
+        )
+        if SourceSectionName.SYMBOLS in scan.observed_sections
+        else {}
+    )
+    records = [
+        *project_declarations(
+            contract,
+            contract_path,
+            types_by_entry=types_by_entry,
         ),
         *inside_records,
     ]
