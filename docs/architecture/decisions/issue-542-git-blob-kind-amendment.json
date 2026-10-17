@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "09ccd181579459d0eb617a1370d6c961737255a7c91d6580042be7cc5c6406f9",
+  "after_digest": "f9fbfd3c8f8b7395180666bee5e65df67575ac93bfbb97ce7153babdb0279a2a",
+  "before_baseline_digest": "88997cfa3cb80df503441ade0b414d5a70ccca5656ec959a07756b01a43f809f",
+  "before_digest": "ff49595d211e6d451ffcf2a024122c2432a0d20f17a4705700203a8464502edd",
+  "decided_by": "ake2l (explicit parser/protocol typing request); Codex implementation, independent final Astra review on union",
+  "rationale": "Own the two supported regular Git blob protocol pairs in the existing snapshot owner and share its nominal optional port with read_blob; authorize only that domain owner and author exact API Target plus function-scoped native controls; normal ratchet records the inherited bb3e836 call count without any new Git call/UNKNOWN debt; docs/superpowers/specs/2026-10-17-git-blob-kind.md.",
+  "schema_version": "2.0.0"
+}
