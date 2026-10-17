@@ -15,7 +15,13 @@ from typing import Literal as _Literal
 
 from archkeel.ir.architecture_graph import AssessmentStatus as _Verdict
 from archkeel.ir.architecture_graph import EntityKind as _EntityKind
-from archkeel.ir.facts import ConstructCapability, ConstructSupport, parse_symbol_class_kind
+from archkeel.ir.facts import (
+    ConstructCapability,
+    ConstructSupport,
+    SourceNameVisibility,
+    parse_source_name_visibility,
+    parse_symbol_class_kind,
+)
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawRecord, classified
 from archkeel.ir.graph import strongly_connected_components
@@ -734,7 +740,11 @@ def _interface_verdict(
     if data["symbols_known"]:
         if _interface_allows(data, target, exports_by_module):
             return _Verdict.PASS
-        if "reexport_candidates" in data and data["symbol_visibility"] == "public_name":
+        if (
+            "reexport_candidates" in data
+            and parse_source_name_visibility(data["symbol_visibility"])
+            is SourceNameVisibility.PUBLIC_NAME
+        ):
             return _Verdict.UNKNOWN
         return _Verdict.FAIL
     module = data["target_module"]

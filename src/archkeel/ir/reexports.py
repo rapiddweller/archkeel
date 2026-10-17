@@ -5,6 +5,7 @@
 
 from collections.abc import Sequence
 
+from .facts import SourceNameVisibility
 from .source_records import RawRecord
 
 
@@ -157,7 +158,11 @@ def _record_import_origins(
         ):
             data["reexport_candidate"] = True
             data["reexport"] = False
-        data["symbol_visibility"] = "private" if symbol.startswith("_") else "public_name"
+        data["symbol_visibility"] = (
+            SourceNameVisibility.PRIVATE
+            if symbol.startswith("_")
+            else SourceNameVisibility.PUBLIC_NAME
+        )
         data["declared_in_all"] = data["binding"] in exports_by_module.get(
             data["source_module"], set()
         )

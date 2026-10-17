@@ -29,6 +29,7 @@ from archkeel.ir.facts import (
     RuntimeRequirementState,
     SourceFacts,
     SourceInfo,
+    SourceNameVisibility,
     SourceProfile,
     SourceResolution,
     SourceSectionName,
@@ -851,9 +852,9 @@ class _Collection:
                                     "symbol_visibility": None
                                     if symbol is None
                                     else (
-                                        Visibility.PRIVATE
+                                        SourceNameVisibility.PRIVATE
                                         if Visibility.from_name(symbol) is Visibility.PRIVATE
-                                        else "public_name"
+                                        else SourceNameVisibility.PUBLIC_NAME
                                     ),
                                 },
                             )
