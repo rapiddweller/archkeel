@@ -441,6 +441,19 @@
         "docs/architecture/source-section-consumer-types.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "IR-STRUCTURE-LEVEL-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.ir.structure.oversized_insides",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Structure decisions consume the owner's nominal measurement level; names and JSON keys remain data.",
+      "provenance": [
+        "docs/architecture/structure-level-types.md"
+      ],
+      "decided_by": "architect"
     }
   ],
   "declarations": {
@@ -10664,10 +10677,12 @@
           "language": "python",
           "presence": "planned",
           "provenance": [
-            "docs/architecture/comparison-support-types.md"
+            "docs/architecture/comparison-support-types.md",
+            "docs/architecture/structure-level-types.md"
           ],
           "responsibilities": [
-            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries."
+            "Keep the existing support-availability contract nominal across its real claim and Delta boundaries.",
+            "Own pure component/package measurements and their shared scope level."
           ],
           "id": "IR-COMPARISON-structure",
           "kind": "module",
@@ -11486,6 +11501,86 @@
           "responsibilities": [
             "Derive conservative graph coverage from canonical source section and profile capabilities."
           ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/structure-level-types.md"
+          ],
+          "id": "IR-STRUCTURE-level",
+          "kind": "enum",
+          "qualified_name": "archkeel.ir.structure.StructureLevel",
+          "parent_id": "IR-COMPARISON-structure",
+          "responsibilities": [
+            "Distinguish component and package measurement scopes from other topology domains."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/structure-level-types.md"
+          ],
+          "id": "IR-STRUCTURE-metric",
+          "kind": "class",
+          "qualified_name": "archkeel.ir.structure.StructureMetric",
+          "parent_id": "IR-COMPARISON-structure",
+          "responsibilities": [
+            "Publish immutable measurements with one nominal scope level."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/structure-level-types.md"
+          ],
+          "id": "IR-STRUCTURE-metric-level",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.structure.StructureMetric.level",
+          "parent_id": "IR-STRUCTURE-metric",
+          "annotation": "StructureLevel",
+          "responsibilities": [
+            "Keep measurement scope nominal across aggregation and presentation."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/structure-level-types.md"
+          ],
+          "id": "IR-STRUCTURE-scope-metrics",
+          "kind": "function",
+          "qualified_name": "archkeel.ir.structure.scope_metrics",
+          "parent_id": "IR-COMPARISON-structure",
+          "responsibilities": [
+            "Measure a caller-supplied module grouping at a declared structure level."
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "observation",
+                "kind": "positional",
+                "annotation": "Observation",
+                "default_known": true
+              },
+              {
+                "name": "level",
+                "kind": "positional",
+                "annotation": "StructureLevel",
+                "default_known": true
+              },
+              {
+                "name": "scope_of",
+                "kind": "positional",
+                "annotation": "dict[str, str]",
+                "default_known": true
+              }
+            ],
+            "returns": "tuple[StructureMetric, ...]"
+          }
         }
       ],
       "relationships": [

@@ -67,7 +67,7 @@ def _repository(tmp_path, *, mutation=None):
     render = json.loads((ROOT / "docs/architecture/contracts/render.json").read_text())
     entities = [
         item for item in target["declarations"]["uml"]["entities"]
-        if item["id"].startswith("IR-STRUCTURE-")
+        if item["id"].startswith("IR-STRUCTURE-") or item["id"] == "IR-COMPARISON-structure"
     ]
     assert entities, "the consumed structure port needs independently authored intent"
     target["components"] = [
@@ -118,6 +118,9 @@ def _repository(tmp_path, *, mutation=None):
         "archkeel/render/__init__.py": "", "archkeel/ir/structure.py": owner,
         "archkeel/render/html.py": renderer, "contract.json": json.dumps(target),
         DOC: (ROOT / DOC).read_text(),
+        "docs/architecture/comparison-support-types.md": (
+            ROOT / "docs/architecture/comparison-support-types.md"
+        ).read_text(),
         "docs/architecture/language-adapter-target.md": "Pure governance models.\n",
     }
     root = _prepare_repo(tmp_path, files)

@@ -52,6 +52,7 @@ from archkeel.ir.model import ComparisonStatus as _ComparisonStatus
 from archkeel.ir.module_explore import ModuleExploreLevel, module_exploration
 from archkeel.ir.references import SymbolReferences, unreferenced_symbols
 from archkeel.ir.report_graph import architecture_report
+from archkeel.ir.structure import StructureLevel as _StructureLevel
 from archkeel.ir.structure import (
     StructureMetric,
     oversized_insides,
@@ -1761,7 +1762,7 @@ def _structure_overview_body(
     metrics = tuple(
         metric
         for metric in structure_metrics(observation)
-        if packages or metric.level == "component"
+        if packages or metric.level is _StructureLevel.COMPONENT
     )
     if not metrics:
         return f"<p>{context}</p>{unavailable}<p>No owned modules measured in this observation.</p>"
