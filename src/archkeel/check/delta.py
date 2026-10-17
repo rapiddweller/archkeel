@@ -38,6 +38,7 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.model import ComparisonStatus as _ComparisonStatus
 from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
+from archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKind
 from archkeel.ir.profiles import delta_dimension_applicable, profile_for
 
 from .python_profile import crossing_imports
@@ -279,23 +280,23 @@ def _delta_records(observation: Observation, dimension: str) -> tuple[_DeltaReco
 
 def _change(
     dimension: str,
-    kind: str,
+    kind: _KnownSemanticChangeKind,
     fingerprint: str,
     before: tuple[_DeltaRecord, ...],
     after: tuple[_DeltaRecord, ...],
 ) -> SemanticChange:
     return SemanticChange(
         dimension,
-        kind,
+        str(kind),
         fingerprint,
         len(before),
         len(after),
         before[0].projection if before else None,
         after[0].projection if after else None,
         tuple(sorted({item.semantic_fingerprint for item in before}))
-        if kind == "changed"
+        if kind is _KnownSemanticChangeKind.CHANGED
         else None,
-        tuple(sorted({item.semantic_fingerprint for item in after})) if kind == "changed" else None,
+        tuple(sorted({item.semantic_fingerprint for item in after})) if kind is _KnownSemanticChangeKind.CHANGED else None,
     )
 
 
@@ -344,7 +345,7 @@ def _compare_records(
             if count:
                 changes.append(
                     _change(
-                        dimension, "relocated", semantic, tuple(left[:count]), tuple(right[:count])
+                        dimension, _KnownSemanticChangeKind.RELOCATED, semantic, tuple(left[:count]), tuple(right[:count])
                     )
                 )
             changed_old.extend(left[count:])
@@ -354,7 +355,7 @@ def _compare_records(
             changes.append(
                 _change(
                     dimension,
-                    "changed",
+                    _KnownSemanticChangeKind.CHANGED,
                     logical,
                     tuple(changed_old[:count]),
                     tuple(changed_new[:count]),
@@ -368,7 +369,7 @@ def _compare_records(
             changes.append(
                 _change(
                     dimension,
-                    "removed",
+                    _KnownSemanticChangeKind.REMOVED,
                     semantic,
                     tuple(item for item in removed if item.semantic_fingerprint == semantic)[
                         :count
@@ -380,7 +381,7 @@ def _compare_records(
             changes.append(
                 _change(
                     dimension,
-                    "added",
+                    _KnownSemanticChangeKind.ADDED,
                     semantic,
                     (),
                     tuple(item for item in added if item.semantic_fingerprint == semantic)[:count],
@@ -576,6 +577,12 @@ def build_architecture_delta(
             continue
         current = _compare_records(dimension, before, after)
         changes.extend(current)
+        fingerprints_by_kind: dict[_KnownSemanticChangeKind, list[str]] = {
+            kind: [] for kind in _KnownSemanticChangeKind
+        }
+        for item in current:
+            fingerprints: list[str] = fingerprints_by_kind[_KnownSemanticChangeKind(item.change)]
+            fingerprints.append(item.fingerprint)
         before_count = len(baseline.coverage.failures) if dimension == "coverage" else len(before)
         after_count = len(head.coverage.failures) if dimension == "coverage" else len(after)
         dimensions.append(
@@ -584,10 +591,10 @@ def build_architecture_delta(
                 _ComparisonStatus.SUPPORTED,
                 before_count,
                 after_count,
-                tuple(item.fingerprint for item in current if item.change == "added"),
-                tuple(item.fingerprint for item in current if item.change == "removed"),
-                tuple(item.fingerprint for item in current if item.change == "relocated"),
-                tuple(item.fingerprint for item in current if item.change == "changed"),
+                tuple(fingerprints_by_kind[_KnownSemanticChangeKind.ADDED]),
+                tuple(fingerprints_by_kind[_KnownSemanticChangeKind.REMOVED]),
+                tuple(fingerprints_by_kind[_KnownSemanticChangeKind.RELOCATED]),
+                tuple(fingerprints_by_kind[_KnownSemanticChangeKind.CHANGED]),
             )
         )
     unknown_dimensions = tuple(

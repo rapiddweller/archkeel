@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import builtins as _builtins
 import hashlib
 import hmac
 import re
@@ -16,6 +17,7 @@ from archkeel.ir.baseline import CycleIdentity, is_contraction
 from archkeel.ir.digest import package_digest
 from archkeel.ir.model import ArchitectureDelta, DeltaProvenance, Projection, SemanticChange
 from archkeel.ir.model import ComparisonStatus as _ComparisonStatus
+from archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKind
 from archkeel.ir.model import supports_nullable_delta_counts as _supports_nullable_delta_counts
 from archkeel.ir.profiles import Profile, delta_dimension_applicable, profile_for
 
@@ -44,7 +46,7 @@ GUARDRAIL_KEYS: Final = (
     "no_new_unknowns",
     "coverage_must_pass",
 )
-CHANGE_KINDS: Final = frozenset({"added", "removed", "relocated", "changed"})
+CHANGE_KINDS: Final = frozenset(str(kind) for kind in _KnownSemanticChangeKind)
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -57,10 +59,14 @@ class ExpectedSemanticChange:
     """One selected deterministic delta fingerprint and its expected cardinality."""
 
     dimension: str
-    change: str
+    change: _KnownSemanticChangeKind
     fingerprint: str
     before_count: int
     after_count: int
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.change, _KnownSemanticChangeKind):
+            _builtins.object.__setattr__(self, "change", _KnownSemanticChangeKind(self.change))
 
 
 @dataclass(frozen=True, slots=True)
@@ -299,9 +305,9 @@ def _require_dimension_counts(
 def _index_semantic_changes(
     semantic_changes: tuple[SemanticChange, ...],
 ) -> tuple[
-    dict[tuple[str, str, str], tuple[int, int]], list[CycleIdentity], dict[str, CycleIdentity]
+    dict[tuple[str, _KnownSemanticChangeKind, str], tuple[int, int]], list[CycleIdentity], dict[str, CycleIdentity]
 ]:
-    actual_changes: dict[tuple[str, str, str], tuple[int, int]] = {}
+    actual_changes: dict[tuple[str, _KnownSemanticChangeKind, str], tuple[int, int]] = {}
     removed_cycles: list[CycleIdentity] = []
     added_cycles: dict[str, CycleIdentity] = {}
     for index, change in enumerate(semantic_changes):
@@ -309,22 +315,24 @@ def _index_semantic_changes(
             raise ExpectationError(
                 f"semantic_changes[{index}] has unsupported dimension {change.dimension!r}"
             )
-        _require_change_kind(change.change, f"semantic_changes[{index}].change")
+        kind = _require_change_kind(change.change, f"semantic_changes[{index}].change")
         _require_nonempty_string(change.fingerprint, f"semantic_changes[{index}].fingerprint")
         _require_count(change.before_count, f"semantic_changes[{index}].before_count")
         _require_count(change.after_count, f"semantic_changes[{index}].after_count")
         _validate_change_counts(
-            change.change, change.before_count, change.after_count, f"semantic_changes[{index}]"
+            kind, change.before_count, change.after_count, f"semantic_changes[{index}]"
         )
-        identity = (change.dimension, change.change, change.fingerprint)
+        identity = (change.dimension, kind, change.fingerprint)
         if identity in actual_changes:
-            raise ExpectationError(f"delta repeats semantic fingerprint: {identity}")
-        actual_changes[identity] = (change.before_count, change.after_count)
-        if change.dimension == "cycles" and change.change in {"added", "removed"}:
-            cycle = _parse_cycle_identity(
-                change.after if change.change == "added" else change.before, index=index
+            raise ExpectationError(
+                f"delta repeats semantic fingerprint: {(change.dimension, str(kind), change.fingerprint)}"
             )
-            if change.change == "added":
+        actual_changes[identity] = (change.before_count, change.after_count)
+        if change.dimension == "cycles" and kind in {_KnownSemanticChangeKind.ADDED, _KnownSemanticChangeKind.REMOVED}:
+            cycle = _parse_cycle_identity(
+                change.after if kind is _KnownSemanticChangeKind.ADDED else change.before, index=index
+            )
+            if kind is _KnownSemanticChangeKind.ADDED:
                 added_cycles[change.fingerprint] = cycle
             else:
                 removed_cycles.append(cycle)
@@ -333,7 +341,7 @@ def _index_semantic_changes(
 
 def _match_selected_changes(
     selected_changes: tuple[ExpectedSemanticChange, ...],
-    actual_changes: dict[tuple[str, str, str], tuple[int, int]],
+    actual_changes: dict[tuple[str, _KnownSemanticChangeKind, str], tuple[int, int]],
 ) -> list[str]:
     failures = []
     for selected in selected_changes:
@@ -356,10 +364,10 @@ def _match_selected_changes(
 
 def _guardrail_failures(
     dimension_counts: dict[str, tuple[int, int]],
-    actual_changes: dict[tuple[str, str, str], tuple[int, int]],
+    actual_changes: dict[tuple[str, _KnownSemanticChangeKind, str], tuple[int, int]],
     added_cycles: dict[str, CycleIdentity],
     removed_cycles: list[CycleIdentity],
-    declared: set[tuple[str, str, str]],
+    declared: set[tuple[str, _KnownSemanticChangeKind, str]],
 ) -> list[str]:
     failures = []
     for dimension, (before_count, after_count) in dimension_counts.items():
@@ -371,12 +379,12 @@ def _guardrail_failures(
             failures.extend(
                 f"guardrail changed unknowns fingerprint {fingerprint}"
                 for actual_dimension, kind, fingerprint in sorted(actual_changes)
-                if actual_dimension == dimension and kind == "changed"
+                if actual_dimension == dimension and kind is _KnownSemanticChangeKind.CHANGED
             )
         added_fingerprints = sorted(
             fingerprint
             for actual_dimension, kind, fingerprint in actual_changes
-            if actual_dimension == dimension and kind == "added"
+            if actual_dimension == dimension and kind is _KnownSemanticChangeKind.ADDED
         )
         if dimension == "cycles":
             added_fingerprints = [
@@ -390,7 +398,7 @@ def _guardrail_failures(
             added_fingerprints = [
                 fingerprint
                 for fingerprint in added_fingerprints
-                if (dimension, "added", fingerprint) not in declared
+                if (dimension, _KnownSemanticChangeKind.ADDED, fingerprint) not in declared
             ]
         failures.extend(
             f"guardrail added {dimension} fingerprint {fingerprint}"
@@ -400,7 +408,7 @@ def _guardrail_failures(
 
 
 def _undeclared_change_failures(
-    actual_changes: dict[tuple[str, str, str], tuple[int, int]],
+    actual_changes: dict[tuple[str, _KnownSemanticChangeKind, str], tuple[int, int]],
 ) -> list[str]:
     return [
         f"undeclared change in {dimension}: {kind} fingerprint {fingerprint}"
@@ -441,14 +449,16 @@ def _parse_selected_change(raw: object, *, index: int) -> ExpectedSemanticChange
     if dimension not in SUPPORTED_DIMENSIONS:
         raise ExpectationError(f"selected_changes[{index}] has unsupported dimension {dimension!r}")
     change_kind = _require_nonempty_string(change["change"], f"selected_changes[{index}].change")
-    if change_kind not in CHANGE_KINDS:
-        raise ExpectationError(f"selected_changes[{index}] has unsupported change {change_kind!r}")
+    try:
+        kind = _KnownSemanticChangeKind(change_kind)
+    except ValueError as error:
+        raise ExpectationError(f"selected_changes[{index}] has unsupported change {change_kind!r}") from error
     before_count = _require_count(change["before_count"], f"selected_changes[{index}].before_count")
     after_count = _require_count(change["after_count"], f"selected_changes[{index}].after_count")
-    _validate_change_counts(change_kind, before_count, after_count, f"selected_changes[{index}]")
+    _validate_change_counts(kind, before_count, after_count, f"selected_changes[{index}]")
     return ExpectedSemanticChange(
         dimension=dimension,
-        change=change_kind,
+        change=kind,
         fingerprint=_require_nonempty_string(
             change["fingerprint"], f"selected_changes[{index}].fingerprint"
         ),
@@ -481,19 +491,20 @@ def _require_count(value: object, label: str) -> int:
     return value
 
 
-def _require_change_kind(value: object, label: str) -> str:
+def _require_change_kind(value: object, label: str) -> _KnownSemanticChangeKind:
     change = _require_nonempty_string(value, label)
-    if change not in CHANGE_KINDS:
-        raise ExpectationError(f"{label} has unsupported value {change!r}")
-    return change
+    try:
+        return _KnownSemanticChangeKind(change)
+    except ValueError as error:
+        raise ExpectationError(f"{label} has unsupported value {change!r}") from error
 
 
-def _validate_change_counts(change: str, before_count: int, after_count: int, label: str) -> None:
+def _validate_change_counts(change: _KnownSemanticChangeKind, before_count: int, after_count: int, label: str) -> None:
     valid = {
-        "added": before_count == 0 and after_count > 0,
-        "removed": before_count > 0 and after_count == 0,
-        "relocated": before_count > 0 and after_count > 0,
-        "changed": before_count > 0 and after_count > 0,
+        _KnownSemanticChangeKind.ADDED: before_count == 0 and after_count > 0,
+        _KnownSemanticChangeKind.REMOVED: before_count > 0 and after_count == 0,
+        _KnownSemanticChangeKind.RELOCATED: before_count > 0 and after_count > 0,
+        _KnownSemanticChangeKind.CHANGED: before_count > 0 and after_count > 0,
     }
     if not valid[change]:
         raise ExpectationError(f"{label} has counts inconsistent with {change}")

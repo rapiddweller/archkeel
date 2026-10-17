@@ -1204,6 +1204,15 @@ class Projection:
     evidence: tuple[Evidence, ...]
 
 
+class KnownSemanticChangeKind(StrEnum):
+    """Actions understood by current Delta production and governance, not an open wire schema."""
+
+    ADDED = "added"
+    REMOVED = "removed"
+    RELOCATED = "relocated"
+    CHANGED = "changed"
+
+
 @dataclass(frozen=True, slots=True)
 class SemanticChange:
     dimension: str

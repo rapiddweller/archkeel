@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 """Known action ports are nominal; public Delta extension text remains open."""
 
-import copy
 import json
 from enum import StrEnum
 from pathlib import Path
@@ -163,9 +162,16 @@ def test_native_actual_api_widening_or_public_wire_closure_fails_fixed_target(tm
     _valid(_model(root, config))
     source = root / "archkeel" / path
     original = source.read_text()
-    assert old in original
+    assert old in original or old == "label: str) -> None:"
     intent = (root / "contract.json").read_bytes()
-    source.write_text(original.replace(old, new, 1))
+    if old == "label: str) -> None:":
+        prefix, rest = original.split("def _validate_change_counts(", 1)
+        signature, body = rest.split(":\n", 1)
+        assert ") -> None" in signature
+        changed = prefix + "def _validate_change_counts(" + signature.replace(") -> None", ") -> str", 1) + ":\n" + body
+    else:
+        changed = original.replace(old, new, 1)
+    source.write_text(changed)
     assert trace_valid_violations(_model(root, config))
     assert (root / "contract.json").read_bytes() == intent
 
