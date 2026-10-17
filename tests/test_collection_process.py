@@ -518,7 +518,7 @@ def _platform_repository(tmp_path, *, changed=None, relocate=False, collect_prob
 def _comparison_sites(model, owner):
     evidence = {row.id: row for row in model.evidence}
     return [
-        (row, evidence[row.evidence_ids[0]].excerpt)
+        (row, evidence[row.evidence_ids[0]].excerpt.strip())
         for row in model.records("constructs")
         if row.kind == "string_literal_compare" and row.data.get("owner") == owner
     ]
