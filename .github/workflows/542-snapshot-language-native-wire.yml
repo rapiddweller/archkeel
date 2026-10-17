@@ -1,0 +1,126 @@
+name: Snapshot language native and wire
+on:
+  push:
+    branches: [verify/542-snapshot-language-native-wire]
+permissions:
+  contents: read
+jobs:
+  native-wire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 9b47ce3a620a1f450413791c00e22a81a14a631a
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Actual source sites and committed archive Core parity
+        run: |
+          cat > /tmp/snapshot-native-proof.py <<'PY'
+          # Archkeel
+          # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+          # SPDX-License-Identifier: MIT
+          import ast
+          import importlib.util
+          import json
+          from dataclasses import asdict
+          import subprocess
+          import sys
+          import tempfile
+          from pathlib import Path
+          
+          sys.path.insert(0, str(Path("tests").resolve()))
+          from test_analyzer import _observe_one_rule
+          from archkeel.check import snapshot
+          
+          base = "cdcaa7f88537be077a9a44f7002816089ae5cde0"
+          old_text = subprocess.check_output(["git", "show", base + ":src/archkeel/check/snapshot.py"], text=True)
+          current_text = Path("src/archkeel/check/snapshot.py").read_text()
+          all_rows = {}
+          for name, source in [("before", old_text), ("after", current_text)]:
+              with tempfile.TemporaryDirectory() as temporary:
+                  result = _observe_one_rule(Path(temporary), {"kind": "forbidden_construct", "source": "sample.core", "constructs": ["string_literal_compare"]}, {"core.py": source})
+                  assert result.diagnostics == () and result.observation is not None
+                  syntax = ast.parse(source)
+                  language_lines = set()
+                  for node in ast.walk(syntax):
+                      if isinstance(node, ast.Compare) and any(isinstance(item, ast.Name) and item.id == "language" for item in ast.walk(node)):
+                          language_lines.add(node.lineno)
+                  rows = []
+                  for row in result.observation.records("constructs"):
+                      if row.kind != "string_literal_compare":
+                          continue
+                      evidence = {item.id: item for item in result.observation.evidence}
+                      loc = [evidence[ref] for ref in row.evidence_ids]
+                      lines = [item.line for item in loc]
+                      rows.append({"id": row.id, "data": dict(row.data), "locations": [asdict(item) for item in loc], "language": any(line in language_lines for line in lines)})
+                  selected = [row for row in rows if row["language"]]
+                  all_rows[name] = {"all_literal_comparisons": len(rows), "language": selected, "rows": rows}
+                  print("NATIVE_LANGUAGE_SITES=" + json.dumps({"revision": name, "count": len(selected), "ids": [row["id"] for row in selected]}))
+          assert len(all_rows["before"]["language"]) == 9, all_rows["before"]
+          assert all_rows["after"]["language"] == [], all_rows["after"]
+          Path("/tmp/snapshot-native-sites.json").write_text(json.dumps(all_rows, indent=2))
+          print("NATIVE_LANGUAGE_DISPATCH=9_to_0; other data/protocol controls explicitly remain")
+          
+          from archkeel.check import run
+          from archkeel.check.ports import ScanConfig
+          from archkeel.cli.observe import observe
+          from archkeel.ir.codec import canonical_report_bytes
+          from archkeel.ir.facts import Language
+          from test_snapshot import _committed_repository, _git, _write
+          
+          with tempfile.TemporaryDirectory() as temporary:
+              parent = Path(temporary)
+              old_file = parent / "before_snapshot.py"
+              old_file.write_text(old_text)
+              spec = importlib.util.spec_from_file_location("_snapshot_before", old_file)
+              old = importlib.util.module_from_spec(spec)
+              sys.modules[spec.name] = old
+              spec.loader.exec_module(old)
+              repository, _ = _committed_repository(parent)
+              for path, text in {
+                  "src/main.py": "def run(value: int) -> int:\\n    return value + 1\\n",
+                  "src/main.dart": "int run(int value) => value + 1;\\n",
+                  "src/main.ts": "export function run(value: number): number { return value + 1; }\\n",
+                  "pubspec.yaml": "name: example\\n",
+                  "package.json": '{"type":"module"}\\n',
+                  "tsconfig.json": '{"compilerOptions":{"module":"nodenext","target":"es2022"}}\\n',
+                  "contract.json": '{"schema_version":"2.3.0","components":[],"rules":[]}\\n',
+              }.items():
+                  _write(repository / path, text.replace("\\\\n", "\\n"))
+              _git(repository, "add", ".")
+              _git(repository, "commit", "-qm", "three committed profiles")
+              revision = _git(repository, "rev-parse", "HEAD")
+              wire = []
+              for language in Language:
+                  source_roots = (Path("src"),)
+                  before_archive = old._git_archive_bytes(repository, revision, roots=source_roots, language=language.value)
+                  after_archive = snapshot._git_archive_bytes(repository, revision, roots=source_roots, language=language)
+                  assert before_archive == after_archive
+                  config = ScanConfig(("src",), "example", "contract.json", "0" * 64, language=language)
+                  results = []
+                  for materializer in (old.materialize_git_snapshot, snapshot.materialize_git_snapshot):
+                      run.materialize_git_snapshot = materializer
+                      result = run.observe_revision(observe, repository, revision, config, declared_at=revision)
+                      assert result.diagnostics == () and result.observation is not None, result.diagnostics
+                      results.append(canonical_report_bytes(result.observation))
+                  assert results[0] == results[1]
+                  wire.append({"language": language.value, "archive_bytes": len(after_archive), "report_bytes": len(results[1]), "exact_equal": True})
+              run.materialize_git_snapshot = snapshot.materialize_git_snapshot
+              Path("/tmp/snapshot-wire-parity.json").write_text(json.dumps(wire, indent=2))
+              print("ACTUAL_COMMITTED_SNAPSHOT_WIRE=" + json.dumps(wire))
+          
+          PY
+          uv run --locked python /tmp/snapshot-native-proof.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: snapshot-language-native-wire
+          path: |
+            /tmp/snapshot-native-sites.json
+            /tmp/snapshot-wire-parity.json
