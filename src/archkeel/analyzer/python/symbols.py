@@ -14,6 +14,8 @@ from collections.abc import Sequence
 from types import EllipsisType
 
 from archkeel.ir.facts import (
+    SourceSymbolKind,
+    parse_source_symbol_kind,
     EvidenceClass,
     InventoryStatus,
     MemberInventory,
@@ -274,7 +276,7 @@ def _symbol_data(
             data["property_members"] = sorted({method.name for method in properties})
     else:
         data.update(_function_signature(node))
-        data["symbol_category"] = "method" if parent_node else "function"
+        data["symbol_category"] = SourceSymbolKind.METHOD if parent_node else SourceSymbolKind.FUNCTION
         data["overload_signature"] = any(
             _is_proven_decorator(
                 module,
@@ -303,7 +305,7 @@ def _class_symbol_data(
         "bases": sorted(filter(None, (annotation_text(base) for base in node.bases))),
         "base_roots": _class_bases(module, node),
         "frozen_object": _class_is_frozen(node, module),
-        "symbol_category": "class",
+        "symbol_category": SourceSymbolKind.CLASS,
         "fields": [
             {"name": child.target.id, "annotation": annotation_text(child.annotation)}
             for child in node.body
@@ -691,12 +693,12 @@ def _base_binding(
                 SourceResolution.PARTIALLY_RESOLVED,
                 "base name has candidates without a proven binding",
             )
-            if proven and (alias or (len(known) == 1 and known[0]["kind"] == "class")):
+            if proven and (alias or (len(known) == 1 and parse_source_symbol_kind(known[0]["kind"]) is SourceSymbolKind.CLASS)):
                 status, reason = (
                     SourceResolution.RESOLVED,
                     "explicit base with a stable direct module binding",
                 )
-                if len(known) > 1 or (known and known[0]["kind"] != "class"):
+                if len(known) > 1 or (known and parse_source_symbol_kind(known[0]["kind"]) is not SourceSymbolKind.CLASS):
                     status, reason = (
                         SourceResolution.PARTIALLY_RESOLVED,
                         "imported classifier identity is ambiguous or unavailable",
@@ -778,7 +780,7 @@ def _base_namespace_uncertain(
             data = item["data"]
             if (
                 data.get("definition_contexts")
-                or item["kind"] == "class"
+                or parse_source_symbol_kind(item["kind"]) is SourceSymbolKind.CLASS
                 and (
                     data["class_header_static"] is not True
                     or data["class_body_control_flow"]
@@ -817,7 +819,7 @@ def _record_class_bases(
         ]
     # All ancestry declarations must exist before their uncertainty can reach descendants.
     for item in symbols:
-        if item["kind"] != "class":
+        if parse_source_symbol_kind(item["kind"]) is not SourceSymbolKind.CLASS:
             continue
         for base in item["data"]["base_declarations"]:
             if base["status"] == SourceResolution.RESOLVED and any(
@@ -1039,7 +1041,11 @@ def _definition_symbol(
         item_id=definition_id(module, node, qualname),
         evidence_class=EvidenceClass.FACT,
         area="repository_topology",
-        kind="class" if isinstance(node, ast.ClassDef) else "method" if classifier else "function",
+        kind=SourceSymbolKind.CLASS
+        if isinstance(node, ast.ClassDef)
+        else SourceSymbolKind.METHOD
+        if classifier
+        else SourceSymbolKind.FUNCTION,
         title=node.name,
         subjects=[qualname, module.module],
         evidence_ids=[add_evidence(evidence, module, node)],
@@ -1184,7 +1190,7 @@ def _record_member_inventories(
         methods = tuple(
             item["id"]
             for item in symbols
-            if item["kind"] == "method" and item["data"]["lexical_parent_id"] == identity
+            if parse_source_symbol_kind(item["kind"]) is SourceSymbolKind.METHOD and item["data"]["lexical_parent_id"] == identity
         )
         data["member_inventories"] = [
             member_inventory_data(

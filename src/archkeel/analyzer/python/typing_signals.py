@@ -10,7 +10,7 @@ import io
 import tokenize
 from collections.abc import Sequence
 
-from archkeel.ir.facts import EvidenceClass, stable_id
+from archkeel.ir.facts import FUNCTION_KINDS, EvidenceClass, parse_source_symbol_kind, stable_id
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 
 from .source import ParsedModule, add_evidence, annotation_text, location
@@ -175,10 +175,7 @@ def _boundary_annotation_signals(
     }
     for used in sorted(used_cross_package):
         used_symbol = symbol_by_name.get(used)
-        if not used_symbol or used_symbol["data"].get("symbol_category") not in {
-            "function",
-            "method",
-        }:
+        if not used_symbol or parse_source_symbol_kind(used_symbol["data"].get("symbol_category")) not in FUNCTION_KINDS:
             continue
         signature = used_symbol["data"]
         missing = [

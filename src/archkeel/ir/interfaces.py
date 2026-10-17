@@ -8,8 +8,9 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 
-from .architecture_graph import EntityKind
 from .facts import (
+    SourceSymbolKind,
+    parse_source_symbol_kind,
     SourceNameVisibility,
     SymbolClassKind,
     parse_source_name_visibility,
@@ -154,11 +155,8 @@ def _symbols_by_name(observation: Observation) -> dict[str, Record]:
 
 
 def _symbol_kind(symbol: Record) -> str:
-    try:
-        category = EntityKind(symbol.kind)
-    except ValueError:
-        return symbol.kind
-    if category is not EntityKind.CLASS:
+    category = parse_source_symbol_kind(symbol.kind)
+    if category is not SourceSymbolKind.CLASS:
         return symbol.kind
     class_kind = parse_symbol_class_kind(symbol.data.get("class_kind"))
     if class_kind is not None and class_kind in _CLASS_KINDS:

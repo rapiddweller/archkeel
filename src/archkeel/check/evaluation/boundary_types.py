@@ -13,6 +13,8 @@ from enum import StrEnum
 from typing import Final, NamedTuple, TypeAlias
 
 from archkeel.ir.facts import (
+    SourceSymbolKind,
+    parse_source_symbol_kind,
     MethodKind,
     PropertyOperation,
     PropertyOrigin,
@@ -694,14 +696,15 @@ def boundary_type_indexes(
         (data["module"], data["name"], item["id"], data)
         for item in symbols
         for data in [item["data"]]
+        for kind in [parse_source_symbol_kind(item["kind"])]
         # A nested class is never what a module-level annotation's bare name resolves to.
-        if (item["kind"] == "class" and data.get("parent") is None)
-        or item["kind"] in {"type_alias", "static_constant", "dynamic_binding"}
+        if (kind is SourceSymbolKind.CLASS and data.get("parent") is None)
+        or kind in {SourceSymbolKind.TYPE_ALIAS, SourceSymbolKind.STATIC_CONSTANT, SourceSymbolKind.DYNAMIC_BINDING}
     )
     for item in symbols:
         data = item["data"]
         key = (data["module"], data["name"])
-        if item["kind"] == "function" and (
+        if parse_source_symbol_kind(item["kind"]) is SourceSymbolKind.FUNCTION and (
             key in classes_by_location
             or key in imports_by_binding
             or data["name"] in _BUILTIN_NAMES
@@ -1027,7 +1030,7 @@ def _enum_member_verdict(
                 return None
             enum_origin = resolved
             continue
-        if symbol.get("record_kind") != "type_alias":
+        if parse_source_symbol_kind(symbol.get("record_kind")) is not SourceSymbolKind.TYPE_ALIAS:
             return None
         alias = symbol.get("alias")
         if not isinstance(alias, str):
@@ -1093,7 +1096,7 @@ def _bound_alias_metadata(
     imported = imports.get((module, metadata.name))
     if (
         not isinstance(symbol, dict)
-        or symbol.get("symbol_category") != "class"
+        or parse_source_symbol_kind(symbol.get("symbol_category")) is not SourceSymbolKind.CLASS
         or symbol.get("source_binding_unique") is not True
         or (
             symbol.get("class_header_static") is not True
@@ -1272,7 +1275,7 @@ def _type_alias_verdict(
     visited: frozenset[tuple[str, str]],
     aliases_seen: frozenset[tuple[str, str]],
 ) -> _Position | None:
-    if not isinstance(symbol, dict) or symbol.get("record_kind") != "type_alias":
+    if not isinstance(symbol, dict) or parse_source_symbol_kind(symbol.get("record_kind")) is not SourceSymbolKind.TYPE_ALIAS:
         return None
     reached: tuple[tuple[str, str], ...] = (resolved,)
     alias = symbol.get("alias")
@@ -1355,7 +1358,7 @@ def _is_static_literal_constant(symbol: RecordData | _AmbiguousBinding | None) -
     # the missing value as a `None` literal.
     return (
         isinstance(symbol, dict)
-        and symbol.get("record_kind") == "static_constant"
+        and parse_source_symbol_kind(symbol.get("record_kind")) is SourceSymbolKind.STATIC_CONSTANT
         and "constant" in symbol
         and isinstance(symbol["constant"], (str, int, bool, type(None)))
     )
@@ -1449,7 +1452,7 @@ def _named_type_verdict(
         return _imported_alias_verdict(alias, module, annotation, imports_by_binding)
     class_kind: SymbolClassKind | None = None
     if isinstance(origin_symbol, dict):
-        if origin_symbol.get("record_kind") in {"static_constant", "dynamic_binding"}:
+        if parse_source_symbol_kind(origin_symbol.get("record_kind")) in {SourceSymbolKind.STATIC_CONSTANT, SourceSymbolKind.DYNAMIC_BINDING}:
             return _Position(undecidable=_Cause.OTHER, resolved=reached, named_origins=reached)
         # `resolve_named_type` ruled out an ambiguous location; the surviving class record carries
         # `class_kind` (AD-30).
@@ -2211,7 +2214,7 @@ def _nullable_key_alias_proof(
     imported = imports.get((module, key.name))
     if (
         not isinstance(symbol, dict)
-        or symbol.get("record_kind") != "type_alias"
+        or parse_source_symbol_kind(symbol.get("record_kind")) is not SourceSymbolKind.TYPE_ALIAS
         or symbol.get("source_binding_unique") is not True
         or symbol.get("source_member_binding_static") is not True
         or (
@@ -2975,7 +2978,7 @@ def _property_chains(symbols: Sequence[RawRecord]) -> frozenset[str]:
     grouped: dict[str, list[RawRecord]] = defaultdict(list)
     chains: set[str] = set()
     for item in symbols:
-        if item["kind"] != "method" or not _is_public_method_name(item["data"]["name"]):
+        if parse_source_symbol_kind(item["kind"]) is not SourceSymbolKind.METHOD or not _is_public_method_name(item["data"]["name"]):
             continue
         data = item["data"]
         name = data["qualified_name"]
@@ -3009,7 +3012,9 @@ def _declared_facade_positions(
     No rule is consulted: facade membership is a fact about the contract and scan.
     """
     data = item["data"]
-    if item["kind"] == "class" and data.get("symbol_category") == "class":
+    kind = parse_source_symbol_kind(item["kind"])
+    category = parse_source_symbol_kind(data.get("symbol_category"))
+    if kind is SourceSymbolKind.CLASS and category is SourceSymbolKind.CLASS:
         return _declared_facade_inherited_positions(
             data,
             contract,
@@ -3027,12 +3032,12 @@ def _declared_facade_positions(
         return None
     if data.get("overloaded") is True and data.get("overload_signature") is not True:
         return None
-    method = item["kind"] == "method" and data.get("symbol_category") == "method"
+    method = kind is SourceSymbolKind.METHOD and category is SourceSymbolKind.METHOD
     if method:
         return _declared_facade_method_positions(
             data, contract, exports_by_module, imports, uncertain_reexport_origins, reexports
         )
-    if item["kind"] != "function" or data.get("symbol_category") != "function":
+    if kind is not SourceSymbolKind.FUNCTION or category is not SourceSymbolKind.FUNCTION:
         return None
     module, name = data["module"], data["name"]
     facade_entries: list[tuple[str, str, str, bool]] = []
@@ -3342,12 +3347,12 @@ def facade_signature_types(
     reexports = _reexport_index(imports)
     property_chains = _property_chains(symbols)
     classes_by_qualified_name = {
-        item["data"]["qualified_name"]: item for item in symbols if item["kind"] == "class"
+        item["data"]["qualified_name"]: item for item in symbols if parse_source_symbol_kind(item["kind"]) is SourceSymbolKind.CLASS
     }
     methods_by_parent: dict[str, list[RawRecord]] = defaultdict(list)
     for item in symbols:
         parent = item["data"]["parent"] if "parent" in item["data"] else None
-        if item["kind"] == "method" and isinstance(parent, str):
+        if parse_source_symbol_kind(item["kind"]) is SourceSymbolKind.METHOD and isinstance(parent, str):
             methods_by_parent[parent] = [*methods_by_parent[parent], item]
     if source_modules is not None:
         if scope_id is None:
@@ -3394,7 +3399,7 @@ def facade_signature_types(
             if has_proven_facade and found is not None
             else []
         )
-        if found is not None and item["kind"] == "class":
+        if found is not None and parse_source_symbol_kind(item["kind"]) is SourceSymbolKind.CLASS:
             field_types, field_candidates = _declared_field_reach(
                 item,
                 imports,
@@ -3520,7 +3525,7 @@ def _scoped_facade_signature_types(
                 if has_proven_facade
                 else []
             )
-            if item["kind"] == "class":
+            if parse_source_symbol_kind(item["kind"]) is SourceSymbolKind.CLASS:
                 field_types, field_candidates = _declared_field_reach(
                     item,
                     imports,
@@ -3973,7 +3978,7 @@ def _declared_chain_positions(
     source_owner = classes.get((data["module"], data["name"]))
     if (
         not isinstance(source_owner, dict)
-        or source_owner.get("symbol_category") != "class"
+        or parse_source_symbol_kind(source_owner.get("symbol_category")) is not SourceSymbolKind.CLASS
         or source_owner.get("qualified_name") != owner
     ):
         return []
@@ -4036,8 +4041,8 @@ def _bound_method_positions(
         for origin in verdict.resolved:
             symbol = bound.classes.get(origin)
             if isinstance(symbol, dict) and (
-                symbol.get("symbol_category") == "class"
-                or symbol.get("record_kind") == "type_alias"
+                parse_source_symbol_kind(symbol.get("symbol_category")) is SourceSymbolKind.CLASS
+                or parse_source_symbol_kind(symbol.get("record_kind")) is SourceSymbolKind.TYPE_ALIAS
             ):
                 names.add(f"{origin[0]}.{origin[1]}")
     return names, positions
@@ -4090,7 +4095,7 @@ def _direct_generic_candidate_types(
     base_module, base_class = resolved_base
     base_qualified_name = f"{base_module}.{base_class}"
     base_symbol = classes_by_qualified_name.get(base_qualified_name)
-    if base_symbol is None or base_symbol["kind"] != "class":
+    if base_symbol is None or parse_source_symbol_kind(base_symbol["kind"]) is not SourceSymbolKind.CLASS:
         return []
     base_data = base_symbol["data"]
     parameters = base_data["generic_parameters"] if "generic_parameters" in base_data else None
@@ -4122,7 +4127,7 @@ def _direct_generic_candidate_types(
         argument_symbol = classes_by_location.get(resolved_origin)
         if (
             not isinstance(argument_symbol, dict)
-            or argument_symbol.get("symbol_category") != "class"
+            or parse_source_symbol_kind(argument_symbol.get("symbol_category")) is not SourceSymbolKind.CLASS
         ):
             return []
         substitutions.append((parameter, resolved_origin))
@@ -4172,8 +4177,8 @@ def _direct_generic_candidate_types(
             for origin in verdict.resolved:
                 symbol = substituted_classes.get(origin)
                 if isinstance(symbol, dict) and (
-                    symbol.get("symbol_category") == "class"
-                    or symbol.get("record_kind") == "type_alias"
+                    parse_source_symbol_kind(symbol.get("symbol_category")) is SourceSymbolKind.CLASS
+                    or parse_source_symbol_kind(symbol.get("record_kind")) is SourceSymbolKind.TYPE_ALIAS
                 ):
                     candidates.add(f"{origin[0]}.{origin[1]}")
 
@@ -4212,8 +4217,8 @@ def _direct_generic_candidate_types(
         for origin in verdict.resolved:
             symbol = substituted_classes.get(origin)
             if isinstance(symbol, dict) and (
-                symbol.get("symbol_category") == "class"
-                or symbol.get("record_kind") == "type_alias"
+                parse_source_symbol_kind(symbol.get("symbol_category")) is SourceSymbolKind.CLASS
+                or parse_source_symbol_kind(symbol.get("record_kind")) is SourceSymbolKind.TYPE_ALIAS
             ):
                 candidates.add(f"{origin[0]}.{origin[1]}")
 
@@ -5035,7 +5040,7 @@ def _boundary_types_violations(
     methods_by_parent: dict[str, list[RawRecord]] = defaultdict(list)
     for item in symbols:
         parent = item["data"]["parent"]
-        if item["kind"] == "method" and isinstance(parent, str):
+        if parse_source_symbol_kind(item["kind"]) is SourceSymbolKind.METHOD and isinstance(parent, str):
             methods_by_parent[parent] = [*methods_by_parent[parent], item]
     symbols_by_id = {item["id"]: item for item in symbols}
     violations: list[RawRecord] = []
@@ -5059,8 +5064,9 @@ def _boundary_types_violations(
             if source_modules is not None and facade_module not in source_modules:
                 continue
             data = item["data"]
+            kind = parse_source_symbol_kind(item["kind"])
             inherited_positions: list[tuple[str, str, str, str, _Position]] = []
-            if item["kind"] == "class":
+            if kind is SourceSymbolKind.CLASS:
                 _, inherited_positions, complete = _inherited_facade_types(
                     item,
                     symbols,
@@ -5122,7 +5128,7 @@ def _boundary_types_violations(
                         violations.append(record)
                     else:
                         allowance_facts.append(fact)
-            if item["kind"] == "class":
+            if kind is SourceSymbolKind.CLASS:
                 for method_name, method_id, position, annotation, verdict in inherited_positions:
                     facade_qualname = qualname[: -len(".__inherited_methods__")]
                     inherited_qualname = f"{facade_qualname}.{method_name}"
@@ -5551,7 +5557,7 @@ def _public_overload_origin_proven(
     for item in definitions:
         data = item["data"]
         if not (
-            item["kind"] == "function"
+            parse_source_symbol_kind(item["kind"]) is SourceSymbolKind.FUNCTION
             and data.get("overloaded") is True
             and (data.get("overload_signature") is True or data.get("overload_signature") is False)
             and "parent" in data
@@ -5652,7 +5658,7 @@ def _boundary_rule_positions(
     methods_by_parent: dict[str, list[RawRecord]] = defaultdict(list)
     for item in ordered_symbols:
         parent = item["data"]["parent"]
-        if item["kind"] == "method" and isinstance(parent, str):
+        if parse_source_symbol_kind(item["kind"]) is SourceSymbolKind.METHOD and isinstance(parent, str):
             methods_by_parent[parent] = [*methods_by_parent[parent], item]
     symbols_by_id = {item["id"]: item for item in ordered_symbols}
     seen = 0
@@ -5676,8 +5682,9 @@ def _boundary_rule_positions(
         occurrence = occurrences.get(callable_key, 0)
         occurrences[callable_key] = occurrence + 1
         data = item["data"]
+        kind = parse_source_symbol_kind(item["kind"])
         inherited_positions: list[tuple[str, str, str, str, _Position]] = []
-        if item["kind"] == "class":
+        if kind is SourceSymbolKind.CLASS:
             _, inherited_positions, complete = _inherited_facade_types(
                 item,
                 ordered_symbols,
@@ -5718,7 +5725,7 @@ def _boundary_rule_positions(
             _boundary_type_position_record(rule, item, detail, unknown_context=context)
             for detail, context in details
         )
-        if item["kind"] == "class":
+        if kind is SourceSymbolKind.CLASS:
             seen += len(inherited_positions)
             facade_qualname = qualified_name[: -len(".__inherited_methods__")]
             for inherited_index, (
@@ -5874,7 +5881,7 @@ def _public_api_symbol(
             return None
         if candidates:
             candidate = candidates[0]
-            if candidate["kind"] == "type_alias":
+            if parse_source_symbol_kind(candidate["kind"]) is SourceSymbolKind.TYPE_ALIAS:
                 alias = type_shapes.get(candidate["data"]["alias"])
                 if not isinstance(alias, TypeName):
                     return None
@@ -5883,7 +5890,7 @@ def _public_api_symbol(
             if selected is not None and selected is not candidate:
                 return None
             selected = candidate
-    if class_alias and (selected is None or selected["kind"] != "class"):
+    if class_alias and (selected is None or parse_source_symbol_kind(selected["kind"]) is not SourceSymbolKind.CLASS):
         return None
     return selected
 
@@ -5900,11 +5907,12 @@ def _public_api_positions(
 ) -> tuple[list[_Position], list[tuple[RawRecord, str]]]:
     """A public function's signature or a class's declared and inherited fields."""
     data = symbol["data"]
-    if symbol["kind"] == "class":
+    kind = parse_source_symbol_kind(symbol["kind"])
+    if kind is SourceSymbolKind.CLASS:
         return _public_api_field_positions(
             symbol, symbols, contract, exports, imports, classes, type_shapes=type_shapes
         )
-    if symbol["kind"] != "function":
+    if kind is not SourceSymbolKind.FUNCTION:
         return [], []
     annotations = [
         parameter["annotation"] for parameter in data["parameters"] if parameter["annotation"]
@@ -6098,7 +6106,7 @@ def _public_api_base(
             verdict.undecidable == _Cause.AMBIGUOUS_BINDING,
             type_shapes=type_shapes,
         )
-        if base is None or base["kind"] != "class":
+        if base is None or parse_source_symbol_kind(base["kind"]) is not SourceSymbolKind.CLASS:
             return None, f"unresolved_base:{base_name}"
         bases.append((base_name, expression, base))
     if len(bases) > 1:
@@ -6156,7 +6164,7 @@ def _public_api_generic_bindings(
             argument_symbol = classes.get(resolved)
             if (
                 not isinstance(argument_symbol, dict)
-                or argument_symbol.get("symbol_category") != "class"
+                or parse_source_symbol_kind(argument_symbol.get("symbol_category")) is not SourceSymbolKind.CLASS
             ):
                 return None
         elif (
@@ -6233,9 +6241,10 @@ def public_api_exposed_types(
                 for item in imports
                 if (item["data"]["source_module"], item["data"]["binding"]) == (module, name)
             ]
-            kinds = {item["kind"] for item in candidates}
+            kinds = {parse_source_symbol_kind(item["kind"]) for item in candidates}
             if ambiguous or (
-                "type_alias" in kinds and (position.undecidable is not None or "class" in kinds)
+                SourceSymbolKind.TYPE_ALIAS in kinds
+                and (position.undecidable is not None or SourceSymbolKind.CLASS in kinds)
             ):
                 reason = position.undecidable or "unproven_class_alias"
                 unknowns.append(_public_api_limit(entry, reason, candidates))

@@ -15,6 +15,7 @@ from __future__ import annotations
 import builtins as _builtins
 from dataclasses import dataclass
 
+from .facts import SourceSymbolKind, parse_source_symbol_kind
 from .model import ComparisonStatus, Observation, Record, text_value
 
 
@@ -83,7 +84,7 @@ def unreferenced_symbols(observation: Observation) -> SymbolReferences:
     classes = {
         name: record
         for record in symbols
-        if (name := text_value(record.data.get("qualified_name"))) and record.kind == "class"
+        if (name := text_value(record.data.get("qualified_name"))) and parse_source_symbol_kind(record.kind) is SourceSymbolKind.CLASS
     }
     referenced = _referenced(observation)
     candidates: list[UnreferencedSymbol] = []

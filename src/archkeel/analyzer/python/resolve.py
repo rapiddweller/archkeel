@@ -15,7 +15,7 @@ from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from archkeel.ir.facts import SourceResolution, SymbolClassKind, parse_symbol_class_kind
+from archkeel.ir.facts import SourceSymbolKind, parse_source_symbol_kind, SourceResolution, SymbolClassKind, parse_symbol_class_kind
 from archkeel.ir.facts_codec import RawRecord
 
 from .binding_types import BindingKind
@@ -73,14 +73,9 @@ class SymbolIndex:
 
 
 def build_symbol_index(symbols: Sequence[RawRecord]) -> SymbolIndex:
-    definition_ids = frozenset(
-        item["id"] for item in symbols if item["kind"] in {"class", "function", "method"}
-    )
-    declarations = frozenset(
-        item["data"]["qualified_name"]
-        for item in symbols
-        if item["kind"] in {"class", "function", "method"}
-    )
+    definition_ids: set[str] = set()
+    declarations: set[str] = set()
+    binding_ids: set[str] = set()
     # Lexical declarations are visible by name, never as attributes of a function.
     names: set[str] = {
         item["data"]["qualified_name"]
@@ -96,10 +91,16 @@ def build_symbol_index(symbols: Sequence[RawRecord]) -> SymbolIndex:
     for item in symbols:
         data = item["data"]
         name = data["qualified_name"]
+        kind = parse_source_symbol_kind(item["kind"])
+        if kind in {SourceSymbolKind.CLASS, SourceSymbolKind.FUNCTION, SourceSymbolKind.METHOD}:
+            definition_ids.add(item["id"])
+            declarations.add(name)
+        if kind is SourceSymbolKind.DYNAMIC_BINDING:
+            binding_ids.add(item["id"])
         evidence[name] = sorted(set(evidence.get(name, [])).union(item["evidence_ids"]))
         if data.get("definition_contexts"):
             conditional_names.add(name)
-        if item["kind"] == "class":
+        if kind is SourceSymbolKind.CLASS:
             constructor_results[name] = (
                 name not in constructor_results and data.get("default_instance_result") is True
             )
@@ -118,11 +119,11 @@ def build_symbol_index(symbols: Sequence[RawRecord]) -> SymbolIndex:
         dict(by_tail),
         evidence,
         enum_members,
-        definition_ids,
+        frozenset(definition_ids),
         frozenset(conditional_names),
         constructor_results,
-        frozenset(item["id"] for item in symbols if item["kind"] == "dynamic_binding"),
-        declarations,
+        frozenset(binding_ids),
+        frozenset(declarations),
     )
 
 

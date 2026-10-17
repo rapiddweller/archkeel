@@ -33,6 +33,7 @@ from archkeel.ir.facts import (
     SourceProfile,
     SourceResolution,
     SourceSectionName,
+    SourceSymbolKind,
     UnresolvedTarget,
     stable_id,
 )
@@ -74,16 +75,6 @@ from .syntax import (
     Syntax,
     Visibility,
 )
-
-
-class _SymbolKind(StrEnum):
-    CLASS = "class"
-    FUNCTION = "function"
-    METHOD = "method"
-    ALIAS = "alias"
-    ATTRIBUTE = "attribute"
-    CONSTANT = "constant"
-    BINDING = "binding"
 
 
 class _ClassKind(StrEnum):
@@ -402,21 +393,27 @@ class _Collection:
         name = definition.name
         qualified = f"{parent}.{name}" if parent else f"{module}.{name}"
         kind = definition.kind
-        record_kinds: dict[DefinitionKind, DefinitionKind | _SymbolKind] = {
-            DefinitionKind.TYPEDEF: _SymbolKind.ALIAS,
-            DefinitionKind.MIXIN: DefinitionKind.CLASS,
-            DefinitionKind.ENUM: DefinitionKind.CLASS,
-            DefinitionKind.INTERFACE: DefinitionKind.CLASS,
-            DefinitionKind.GETTER: DefinitionKind.FUNCTION,
-            DefinitionKind.SETTER: DefinitionKind.FUNCTION,
+        record_kinds = {
+            DefinitionKind.CLASS: SourceSymbolKind.CLASS,
+            DefinitionKind.MIXIN: SourceSymbolKind.CLASS,
+            DefinitionKind.ENUM: SourceSymbolKind.CLASS,
+            DefinitionKind.INTERFACE: SourceSymbolKind.CLASS,
+            DefinitionKind.TYPEDEF: SourceSymbolKind.ALIAS,
+            DefinitionKind.FUNCTION: SourceSymbolKind.FUNCTION,
+            DefinitionKind.GETTER: SourceSymbolKind.FUNCTION,
+            DefinitionKind.SETTER: SourceSymbolKind.FUNCTION,
+            DefinitionKind.VARIABLE: SourceSymbolKind.ATTRIBUTE,
         }
-        record_kind = record_kinds.get(kind, kind)
-        symbol_id = stable_id("DARTDEF", rel, definition.span.start_byte, qualified, record_kind)
+        record_kind = record_kinds.get(kind)
+        symbol_id = stable_id(
+            "DARTDEF", rel, definition.span.start_byte, qualified,
+            record_kind if record_kind is not None else kind,
+        )
         self.definition_ids[(rel, definition.span.line, definition.span.column)] = symbol_id
         data = self._meta(
-            rel, module, name, kind, qualified, parent, parent_id, definition.visibility
+            rel, module, name, qualified, parent, parent_id, definition.visibility
         )
-        data["symbol_category"] = "type_alias" if kind == DefinitionKind.TYPEDEF else record_kind
+        data["symbol_category"] = SourceSymbolKind.TYPE_ALIAS if kind == DefinitionKind.TYPEDEF else record_kind
         data["modifiers"] = list(definition.modifiers)
         if kind in {
             DefinitionKind.CLASS,
@@ -441,16 +438,16 @@ class _Collection:
                 signature_complete=all(p["default_known"] for p in parameters),
             )
         elif kind == DefinitionKind.TYPEDEF:
-            data.update(symbol_category="type_alias", annotation=definition.alias, constant=None)
+            data.update(symbol_category=SourceSymbolKind.TYPE_ALIAS, annotation=definition.alias, constant=None)
         elif kind == DefinitionKind.VARIABLE:
-            record_kind = _SymbolKind.CONSTANT if definition.constant else _SymbolKind.ATTRIBUTE
+            record_kind = SourceSymbolKind.CONSTANT if definition.constant else SourceSymbolKind.ATTRIBUTE
             data.update(
                 symbol_category=record_kind,
                 annotation=definition.return_type,
                 constant=definition.literal if definition.constant else None,
             )
             if definition.constant:
-                data["symbol_category"] = "constant"
+                data["symbol_category"] = SourceSymbolKind.CONSTANT
         else:
             self._gap(
                 rel,
@@ -460,7 +457,7 @@ class _Collection:
             )
             return symbol_id
         self._publish_definition(
-            rel, name, qualified, kind, record_kind, symbol_id, definition, data
+            rel, name, qualified, kind, SourceSymbolKind(record_kind), symbol_id, definition, data
         )
         return symbol_id
 
@@ -470,7 +467,7 @@ class _Collection:
         name: str,
         qualified: str,
         kind: DefinitionKind,
-        record_kind: DefinitionKind | _SymbolKind,
+        record_kind: SourceSymbolKind,
         symbol_id: str,
         definition: Definition,
         data: RawData,
@@ -603,7 +600,7 @@ class _Collection:
             f"::{member.kind}" if member.kind in {MemberKind.GETTER, MemberKind.SETTER} else ""
         )
         qualified = f"{parent}.{member_spelling if constructor else name}{accessor}"
-        identity = stable_id("DARTDEF", rel, member.span.start_byte, qualified, "method")
+        identity = stable_id("DARTDEF", rel, member.span.start_byte, qualified, SourceSymbolKind.METHOD)
         owner = self._owner_definition(rel, module, parent)
         parameters = self._member_parameters(rel, owner, member, constructor, identity)
         returns = None if constructor else member.return_type
@@ -621,9 +618,10 @@ class _Collection:
         )
         visibility = member.visibility
         data = self._meta(
-            rel, module, name, MemberKind.METHOD, qualified, parent, parent_id, visibility
+            rel, module, name, qualified, parent, parent_id, visibility
         )
         data.update(
+            symbol_category=SourceSymbolKind.METHOD,
             annotation=None,
             returns=returns,
             parameters=parameters,
@@ -644,7 +642,7 @@ class _Collection:
             self._record(
                 identity,
                 "source",
-                "method",
+                SourceSymbolKind.METHOD,
                 f"{qualified} declaration",
                 [qualified],
                 [self._cite(rel, member.span)],
@@ -731,7 +729,6 @@ class _Collection:
         rel: str,
         module: str,
         name: str,
-        kind: DefinitionKind | MemberKind | BindingRole,
         qualified: str,
         parent: str | None,
         parent_id: str | None,
@@ -752,7 +749,6 @@ class _Collection:
                 "basis": "language",
                 "spelling": name.rsplit(".", 1)[-1],
             },
-            "symbol_category": "type_alias" if kind == DefinitionKind.TYPEDEF else kind,
             "source_binding_unique": True,
             "source_member_binding_static": True,
             "class_header_static": True,
@@ -904,7 +900,7 @@ class _Collection:
                             target, target_record = "", None
                         is_class = (
                             target_record is not None
-                            and _SymbolKind(target_record["kind"]) == _SymbolKind.CLASS
+                            and SourceSymbolKind(target_record["kind"]) == SourceSymbolKind.CLASS
                         )
                         mixin_target = bool(
                             target_record is not None
@@ -943,7 +939,7 @@ class _Collection:
 
     def _canonical_target(self, qualified: str) -> str:
         record = self.symbol_by_name.get(qualified)
-        if record is None or _SymbolKind(record["kind"]) != _SymbolKind.ALIAS:
+        if record is None or SourceSymbolKind(record["kind"]) != SourceSymbolKind.ALIAS:
             return qualified
         annotation = record["data"].get("annotation")
         if not isinstance(annotation, str) or self.resolver is None:
@@ -1005,14 +1001,13 @@ class _Collection:
                 rel,
                 module,
                 name,
-                BindingRole.BINDING,
                 qualified,
                 scope,
                 scope_id,
                 Visibility.from_name(name),
             )
             data.update(
-                symbol_category="dynamic_binding",
+                symbol_category=SourceSymbolKind.DYNAMIC_BINDING,
                 annotation=annotation,
                 initializer=None if raw_initializer in call_expressions else initializer,
                 definition_contexts=[],
@@ -1021,7 +1016,7 @@ class _Collection:
                 self._record(
                     identity,
                     "source",
-                    "binding",
+                    SourceSymbolKind.BINDING,
                     f"{qualified} declaration",
                     [qualified],
                     [evidence_id],
@@ -1138,7 +1133,7 @@ class _Collection:
         if not call and enum_binding is not None:
             enum_name = enum_binding.name.split(".", 1)[0]
             enum_type = f"{enum_binding.module}.{enum_name}"
-            if self._symbol_kind(enum_type) == _SymbolKind.CLASS:
+            if self._symbol_kind(enum_type) == SourceSymbolKind.CLASS:
                 target_names = [enum_type]
         constructor_binding = next(
             (
@@ -1162,13 +1157,13 @@ class _Collection:
             class_name = construction_resolution.binding.name.split(".", 1)[0]
             qualified_class = f"{construction_resolution.binding.module}.{class_name}"
             target_names = (
-                [qualified_class] if self._symbol_kind(qualified_class) == _SymbolKind.CLASS else []
+                [qualified_class] if self._symbol_kind(qualified_class) == SourceSymbolKind.CLASS else []
             )
         if call and construction is None:
             target_names = [
                 target
                 for target in target_names
-                if self._symbol_kind(target) in {_SymbolKind.METHOD, _SymbolKind.FUNCTION}
+                if self._symbol_kind(target) in {SourceSymbolKind.METHOD, SourceSymbolKind.FUNCTION}
             ]
         status = (
             SourceResolution.RESOLVED
@@ -1176,7 +1171,7 @@ class _Collection:
             and (
                 not call
                 or construction is not None
-                or self._symbol_kind(target_names[0]) in {_SymbolKind.METHOD, _SymbolKind.FUNCTION}
+                or self._symbol_kind(target_names[0]) in {SourceSymbolKind.METHOD, SourceSymbolKind.FUNCTION}
             )
             else SourceResolution.UNRESOLVED
         )
@@ -1273,9 +1268,9 @@ class _Collection:
         key = (binding.rel_path, binding.span.start_byte)
         return self.definition_names.get(key, f"{binding.module}.{binding.name}")
 
-    def _symbol_kind(self, qualified: str) -> _SymbolKind | None:
+    def _symbol_kind(self, qualified: str) -> SourceSymbolKind | None:
         record = self.symbol_by_name.get(qualified)
-        return _SymbolKind(record["kind"]) if record is not None else None
+        return SourceSymbolKind(record["kind"]) if record is not None else None
 
     def _duplicates(self) -> None:
         counts: Counter[str] = Counter()

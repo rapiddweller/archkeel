@@ -34,6 +34,7 @@ from archkeel.ir.facts import (
     SourceProfile,
     SourceResolution,
     SourceSectionName,
+    SourceSymbolKind,
     UnresolvedTarget,
     stable_id,
 )
@@ -75,6 +76,17 @@ from .syntax import (
     Syntax,
     Visibility,
 )
+
+
+_SOURCE_SYMBOL_KINDS = {
+    DefinitionKind.CLASS: SourceSymbolKind.CLASS,
+    DefinitionKind.INTERFACE: SourceSymbolKind.CLASS,
+    DefinitionKind.ENUM: SourceSymbolKind.CLASS,
+    DefinitionKind.METHOD: SourceSymbolKind.METHOD,
+    DefinitionKind.FUNCTION: SourceSymbolKind.FUNCTION,
+    DefinitionKind.TYPE_ALIAS: SourceSymbolKind.TYPE_ALIAS,
+    DefinitionKind.CONSTANT: SourceSymbolKind.CONSTANT,
+}
 
 
 class _InventoryStatus(Enum):
@@ -337,12 +349,7 @@ class _Collection:
                     item_id=identity,
                     evidence_class=EvidenceClass.FACT,
                     area="source",
-                    kind=(
-                        "class"
-                        if definition.kind
-                        in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.ENUM}
-                        else definition.kind.value
-                    ),
+                    kind=_SOURCE_SYMBOL_KINDS[definition.kind],
                     title=f"{qualified} declaration",
                     subjects=[qualified],
                     evidence_ids=[evidence],
@@ -362,12 +369,7 @@ class _Collection:
         definition: Definition,
         binding_unique: bool,
     ) -> dict[str, object]:
-        category = (
-            "class"
-            if definition.kind
-            in {DefinitionKind.CLASS, DefinitionKind.INTERFACE, DefinitionKind.ENUM}
-            else definition.kind.value
-        )
+        category = _SOURCE_SYMBOL_KINDS[definition.kind]
         return {
             "qualified_name": qualified,
             "module": module,

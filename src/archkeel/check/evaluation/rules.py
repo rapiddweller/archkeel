@@ -16,6 +16,8 @@ from typing import Literal as _Literal
 from archkeel.ir.architecture_graph import AssessmentStatus as _Verdict
 from archkeel.ir.architecture_graph import EntityKind as _EntityKind
 from archkeel.ir.facts import (
+    SourceSymbolKind,
+    parse_source_symbol_kind,
     ConstructCapability,
     ConstructSupport,
     SourceNameVisibility,
@@ -1360,7 +1362,7 @@ def _symbol_placement_violations(
         for item in symbols:
             data = item["data"]
             if (
-                item["kind"] != "class"
+                parse_source_symbol_kind(item["kind"]) is not SourceSymbolKind.CLASS
                 or parse_symbol_class_kind(data.get("class_kind")) not in kinds
             ):
                 continue

@@ -35,6 +35,8 @@ from archkeel.ir.architecture_graph import (
     VisibilityKind,
 )
 from archkeel.ir.facts import (
+    SourceSymbolKind,
+    parse_source_symbol_kind,
     SOURCE_RESOLUTION_GAP_KIND,
     InventoryStatus,
     MemberKind,
@@ -274,7 +276,7 @@ def _inventory_owners(model: Observation, selected: set[str]) -> tuple[str, ...]
         sorted(
             item.id
             for item in symbols
-            if item.kind == "class"
+            if parse_source_symbol_kind(item.kind) is SourceSymbolKind.CLASS
             and item.data.get("source_binding_unique") is True
             and item.data.get("source_member_binding_static") is True
             and item.data.get("class_header_static") is True
@@ -705,7 +707,7 @@ def _reconcile_result_binding(
     qualified_name = f"{owner.qualified_name}.{name}"
     if previous is not None:
         if (
-            previous.kind != "binding"
+            previous.kind is not EntityKind.BINDING
             or previous.parent_id != source
             or previous.initializer is not None
         ):
@@ -856,7 +858,7 @@ def _construction_sites(
                 item.id
                 for name in names
                 for item in by_name.get(name, ())
-                if item.kind in {"class", "interface", "enum"}
+                if parse_source_symbol_kind(item.kind) in {SourceSymbolKind.CLASS, SourceSymbolKind.INTERFACE, SourceSymbolKind.ENUM}
             }
         )
     )
@@ -997,7 +999,7 @@ def _relationships(
                     result.extend(_construction_sites(record, sources[0], bindings, by_name))
     for record in observation.records("symbols") or ():
         for base in _records(record.data.get("base_declarations")):
-            if record.kind != "class" or base.get("relationship_kind") is None:
+            if parse_source_symbol_kind(record.kind) is not SourceSymbolKind.CLASS or base.get("relationship_kind") is None:
                 raise ValueError("typed base needs a classifier source and relationship kind")
             base_kind = RelationshipKind(
                 _vocabulary_text(base.get("relationship_kind"), default=RelationshipKind.INHERITS)
@@ -1130,13 +1132,13 @@ def _member_inventory_coverage(
                 for entity in entities
                 if entity.parent_id == item.id and entity.kind in kinds
             }
-            if item.kind != "class" or actual != set(inventory.definition_ids):
+            if parse_source_symbol_kind(item.kind) is not SourceSymbolKind.CLASS or actual != set(inventory.definition_ids):
                 raise ValueError("member inventory identities disagree with their owner")
             complete = (
                 inventory.status == InventoryStatus.COMPLETE
                 and (observation.coverage.status == Verdict.PASS or item.id in approved)
                 and (
-                    "enum_literal" not in kinds
+                    EntityKind.ENUM_LITERAL not in kinds
                     or observation.analyzer.name
                     in {
                         "archkeel-dart-analyzer",
@@ -1153,7 +1155,7 @@ def _member_inventory_coverage(
                     if complete
                     else (
                         "only literal enum assignments are measured"
-                        if "enum_literal" in kinds
+                        if EntityKind.ENUM_LITERAL in kinds
                         else inventory.reason or "source observation is incomplete"
                     ),
                 )
