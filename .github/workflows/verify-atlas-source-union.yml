@@ -1,0 +1,52 @@
+name: Verify Atlas scoped source union
+on:
+  push:
+    branches: [verify/542-atlas-on-owner-union]
+permissions:
+  contents: read
+jobs:
+  source-union:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: a25c37c564c82c1b42457f0528c931c769ee9362
+          fetch-depth: 0
+          persist-credentials: false
+      - run: |
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          
+          def git(*args):
+              return subprocess.run(["git", *args], check=True, capture_output=True).stdout.decode()
+          
+          stages = [{"name":"reviewed-atlas-deviation-boundary","base":"0aee692c767150847089dbcfdcf1765464837ab6","head":"3ccd073fb4bb82639f51cc0f7b09497101d5ee3d","paths":["docs/superpowers/plans/2026-10-16-atlas-deviation-boundary.md","docs/superpowers/specs/2026-10-16-atlas-deviation-boundary.md","src/archkeel/render/assets/report-atlas-deviations.js","src/archkeel/render/assets/report-graph-protocol.js","src/archkeel/render/assets/report-graph-protocol.ts","src/archkeel/render/assets/report-graph-vocabulary.ts","src/archkeel/render/assets/report-scene.js","src/archkeel/render/atlas.py","src/archkeel/render/atlas_deviations.py","src/archkeel/render/html.py","tests/browser_graph_scene_target.ts","tests/smoke_test.py","tests/test_atlas_deviation_boundary.py","tests/test_atlas_deviation_target.py","tests/test_ci_changes.py","tests/test_graph_scene_protocol.py","tests/test_make_gate.py","tests/test_report_renderer_units.py","tools/browser_graph_protocol.py","tools/ci_changes.py"]}]
+          for stage in stages:
+              patch = subprocess.run(["git", "diff", "--binary", stage["base"], stage["head"], "--", *stage["paths"]], check=True, capture_output=True).stdout
+              if patch:
+                  applied = subprocess.run(["git", "apply", "--3way", "--index", "-"], input=patch, capture_output=True)
+                  if applied.returncode:
+                      print("MERGE_CONFLICT=" + stage["name"])
+                      print(applied.stderr.decode()[-6000:])
+                      print(git("diff", "--name-only", "--diff-filter=U"))
+                      raise SystemExit(1)
+              print("SOURCE_STAGE=" + stage["name"])
+          
+          paths = []
+          for line in git("diff", "--cached", "--name-status", "--no-renames", "HEAD").splitlines():
+              status, path = line.split("\t")
+              if status == "D":
+                  paths.append({"path": path, "deleted": True})
+                  continue
+              mode = git("ls-files", "--stage", "--", path).split()[0]
+              content = Path(path).read_text()
+              parts = [content[index:index + 12000] for index in range(0, len(content), 12000)] or [""]
+              paths.append({"path": path, "mode": mode, "parts": len(parts), "index_sha": git("ls-files", "--stage", "--", path).split()[1], "text_sha": subprocess.run(["git", "hash-object", "--stdin"], input=content.encode(), capture_output=True, check=True).stdout.decode().strip()})
+              for index, part in enumerate(parts):
+                  print("SOURCE_UNION_CHUNK=" + json.dumps({"path": path, "index": index, "content": part}, separators=(",", ":")))
+          print("SOURCE_UNION_PATHS=" + json.dumps(paths, separators=(",", ":")))
+          print("SOURCE_UNION_TREE=" + git("write-tree").strip())
+          
+          PY
