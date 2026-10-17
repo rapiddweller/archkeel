@@ -45,8 +45,8 @@ from archkeel.ir.facts import (
     SymbolClassKind,
     member_inventories,
     parse_method_kind,
-    parse_symbol_class_kind,
     parse_source_resolution,
+    parse_symbol_class_kind,
 )
 from archkeel.ir.facts import RuntimeRequirementState as _RuntimeRequirementState
 from archkeel.ir.model import (

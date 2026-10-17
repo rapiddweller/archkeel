@@ -72,10 +72,10 @@ from .facts import (
 from .facts import (
     SourceInfo as SourceInfo,
 )
+from .facts import SourceResolution, parse_source_resolution
 from .facts import (
     SymbolClassKind as SymbolClassKind,
 )
-from .facts import SourceResolution, parse_source_resolution
 from .facts import (
     in_scope as in_scope,
 )

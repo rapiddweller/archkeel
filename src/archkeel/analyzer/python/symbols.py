@@ -19,9 +19,9 @@ from archkeel.ir.facts import (
     MemberInventory,
     MemberKind,
     ParameterKind,
+    SourceResolution,
     SymbolClassKind,
     parse_symbol_class_kind,
-    SourceResolution,
     stable_id,
 )
 from archkeel.ir.facts_codec import RawData as RecordData

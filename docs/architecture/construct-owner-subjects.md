@@ -49,6 +49,11 @@ of all source evidence or complete resolved-call/closure payloads.
 The selected UNKNOWN records retain IDs, kinds, subjects, rule IDs and complete
 data, including all eight UML records. Outer evidence bytes are outside this proof.
 
-The normal baseline writer creates no amendment: this fix changes no architectural
-intent or policy files. No receipt is manufactured. Fresh committed validation and
-independent Astra review are separate final gates.
+This fix changes no architectural intent or policy files and requires no amendment.
+An explicit --write-amendment nevertheless produces an optional digest binding,
+even for equal before/after intent. The first writer log's optional print used an
+older receipt filename; its missing print is not proof that no file was created.
+The final verification reads the actual normally generated binding, checks equal
+intent/baseline digests, removes that redundant verification output and validates
+the committed fix without any amendment. Independent Astra review and Root's
+combined/full-suite gates remain separate.
