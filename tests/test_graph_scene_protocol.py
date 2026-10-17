@@ -124,6 +124,7 @@ def test_actual_scene_consumer_rejects_type_mutations(tmp_path, path, before, af
         "report-graph-vocabulary.ts",
         "report-graph-protocol.ts",
         "report-graph-scene.js",
+        "report-atlas-deviations.js",
     )
     for name in sources:
         shutil.copyfile(assets / name, tmp_path / name)

@@ -40,6 +40,7 @@ _REPORT_PATTERNS = (
     "tools/report_*.py",
     "tools/browser_graph_protocol.py",
     "tests/test_graph_scene_protocol.py",
+    "tests/test_atlas_deviation_boundary.py",
     "tests/browser_graph_scene_target.ts",
     "tools/terminal_svg.py",
     "fixtures/architecture_demo.py",

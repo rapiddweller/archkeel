@@ -186,6 +186,18 @@ namespace ArchkeelGraphSceneProtocol {
       && (value.decision_gaps === undefined || isList(value.decision_gaps) && value.decision_gaps.every(isGap))
       && (value.comparison === undefined || value.comparison === null || isComparison(value.comparison));
   }
+  export interface AtlasDeviation {
+    id: string; kind: G.AtlasDeviationKind; source_id: string; target_id: string;
+    level_id: string | null;
+  }
+  function isAtlasDeviation(value: unknown): value is AtlasDeviation {
+    return isRecord(value) && isText(value.id) && G.isAtlasDeviationKind(value.kind)
+      && isText(value.source_id) && isText(value.target_id) && isNullableText(value.level_id);
+  }
+  export function decodeAtlasDeviations(value: unknown): AtlasDeviation[] {
+    if (!isList(value) || !value.every(isAtlasDeviation)) throw new TypeError("Unsupported Atlas deviations");
+    return value;
+  }
   export function decodeReport(value: unknown): Report {
     if (!isReport(value)) throw new TypeError("Unsupported native graph scene report");
     return value;

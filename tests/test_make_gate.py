@@ -238,6 +238,7 @@ def test_pr_report_sample_uses_two_loadfile_workers_and_keeps_selected_tests() -
     for selector in (
         "tests/test_report_renderer_units.py",
         "tests/test_graph_scene_protocol.py",
+        "tests/test_atlas_deviation_boundary.py",
         "tests/test_report_interactions.py::test_native_card_drag_reroutes_all_hits_and_keeps_architecture_unchanged",
         "tests/test_uml_rendering.py::test_standard_uml_ignores_stale_layout_and_retries_rejected_layout",
         "tests/test_atlas_report.py::test_target_content_is_independent_of_observed_evidence",

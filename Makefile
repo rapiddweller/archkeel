@@ -71,12 +71,12 @@ pr-test:
 		tests/test_unknown_positions.py tests/test_inside_rule_coverage.py tests/test_report_159_160.py \
 		tests/test_target_navigation_graph.py \
 		tests/test_absent_import_namespace.py tests/test_string_comparison_observation.py \
-		tests/test_cli_input_target.py tests/test_cli_typed_inputs.py tests/test_dart_typed_controls.py tests/test_local_string_comparisons.py tests/test_python_source_evidence_lines.py tests/test_summary_badge_target.py tests/test_summary_badge_types.py tests/test_typed_diagnostic_owner.py tests/test_typed_python_bindings.py tests/test_typed_python_receivers.py tests/test_typescript_syntax_compatibility.py tests/test_typescript_syntax_types.py
+		tests/test_cli_input_target.py tests/test_cli_typed_inputs.py tests/test_dart_typed_controls.py tests/test_local_string_comparisons.py tests/test_python_source_evidence_lines.py tests/test_summary_badge_target.py tests/test_summary_badge_types.py tests/test_atlas_deviation_target.py tests/test_typed_diagnostic_owner.py tests/test_typed_python_bindings.py tests/test_typed_python_receivers.py tests/test_typescript_syntax_compatibility.py tests/test_typescript_syntax_types.py
 
 pr-report-test:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q \
 		--junitxml=test-artifacts/pytest/pr-report.xml \
-		tests/test_report_renderer_units.py tests/test_graph_scene_protocol.py \
+		tests/test_report_renderer_units.py tests/test_graph_scene_protocol.py tests/test_atlas_deviation_boundary.py \
 		tests/test_explorer_report.py \
 		tests/test_report_interactions.py::test_native_card_drag_reroutes_all_hits_and_keeps_architecture_unchanged \
 		tests/test_uml_rendering.py::test_standard_uml_ignores_stale_layout_and_retries_rejected_layout \
@@ -331,4 +331,4 @@ browser-graph-check:
 		trap 'rm -rf "$$browser_graph_stage"' EXIT; \
 		$(BROWSER_GRAPH_COMPILER) --outFile "$$browser_graph_stage/protocol.js" $(BROWSER_GRAPH_PROTOCOL); \
 		cmp src/archkeel/render/assets/report-graph-protocol.js "$$browser_graph_stage/protocol.js"
-	$(BROWSER_GRAPH_COMPILER) --allowJs --checkJs --noEmit $(BROWSER_GRAPH_PROTOCOL) src/archkeel/render/assets/report-graph-scene.js tests/browser_graph_scene_target.ts
+	$(BROWSER_GRAPH_COMPILER) --allowJs --checkJs --noEmit $(BROWSER_GRAPH_PROTOCOL) src/archkeel/render/assets/report-graph-scene.js src/archkeel/render/assets/report-atlas-deviations.js tests/browser_graph_scene_target.ts

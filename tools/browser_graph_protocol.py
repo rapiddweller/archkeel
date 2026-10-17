@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Generate only the canonical graph vocabularies consumed by browser scenes."""
+"""Generate only the canonical vocabularies consumed by browser scenes."""
 
 from __future__ import annotations
 
@@ -24,8 +24,10 @@ from archkeel.ir.architecture_graph import (
     ResolutionKind,
     VisibilityKind,
 )
+from archkeel.render.atlas_deviations import AtlasDeviationKind
 
 _DOMAINS: tuple[type[StrEnum], ...] = (
+    AtlasDeviationKind,
     OriginKind,
     EntityKind,
     RelationshipKind,

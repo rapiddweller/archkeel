@@ -18,10 +18,11 @@ from archkeel.ir.model import (
     RecordData,
     RunResult,
     module_in_ownership,
-    stable_id,
     text_value,
 )
 from archkeel.ir.module_explore import ModuleExploreLevel, ModuleStatistic, module_exploration
+
+from .atlas_deviations import AtlasDeviation, level_deviations
 
 
 def _reference_fields(item: dict[str, object], references: dict[str, int]) -> dict[str, object]:
@@ -317,7 +318,7 @@ def _level_balance(
     level: ModuleExploreLevel,
     report: ArchitectureReport,
     projection: ArchitectureProjection,
-) -> tuple[dict[str, int | None], list[dict[str, str | None]]]:
+) -> tuple[dict[str, int | None], tuple[AtlasDeviation, ...]]:
     balance = next((item for item in projection.levels if item.parent_id == level.parent_id), None)
     if balance is None:
         if not projection.levels:
@@ -326,8 +327,8 @@ def _level_balance(
                 "used": None,
                 "allowed_unused": None,
                 "undeclared": None,
-            }, []
-        return {"declared": 0, "used": 0, "allowed_unused": 0, "undeclared": 0}, []
+            }, ()
+        return {"declared": 0, "used": 0, "allowed_unused": 0, "undeclared": 0}, ()
     counts: dict[str, int | None] = {
         "declared": balance.declared,
         "used": balance.used,
@@ -335,9 +336,9 @@ def _level_balance(
         "undeclared": balance.undeclared,
     }
     if balance.unused is None or balance.undeclared is None:
-        return counts, []
+        return counts, ()
     if report.target is None:
-        return counts, []
+        return counts, ()
     component_ids = set(level.component_ids)
     declared = {
         (edge.source_id, edge.target_id)
@@ -360,21 +361,7 @@ def _level_balance(
         target_owner = owners.get(cell.target_id)
         if source_owner is not None and target_owner is not None and source_owner != target_owner:
             used |= {(source_owner, target_owner)}
-    deviations: list[dict[str, str | None]] = [
-        {
-            "id": stable_id("atlas-deviation", level.parent_id, kind, source, target),
-            "kind": kind,
-            "source_id": source,
-            "target_id": target,
-            "level_id": level.parent_id,
-        }
-        for kind, pairs in (
-            ("allowed_unused", sorted(declared - used)),
-            ("undeclared", sorted(used - declared)),
-        )
-        for source, target in pairs
-    ]
-    return counts, deviations
+    return counts, level_deviations(level.parent_id, declared, used)
 
 
 def _cell_payload(
@@ -413,7 +400,7 @@ def _atlas_levels(
     list[dict[str, object]],
     list[dict[str, object]],
     dict[str | None, dict[str, int | None]],
-    list[dict[str, str | None]],
+    list[AtlasDeviation],
     list[dict[str, object]],
     dict[tuple[str, str | None, tuple[str, ...], str, str], int],
 ]:
@@ -426,7 +413,7 @@ def _atlas_levels(
     findings, level_findings = _finding_payload(model, projection, references)
     finding_indices = {item["id"]: index for index, item in enumerate(findings)}
     balances: dict[str | None, dict[str, int | None]] = {}
-    deviations: list[dict[str, str | None]] = []
+    deviations: list[AtlasDeviation] = []
     level_deviations: dict[str | None, list[str]] = defaultdict(list)
     for level, payload in zip(exploration, levels, strict=True):
         payload["finding_ids"] = sorted(
@@ -438,9 +425,7 @@ def _atlas_levels(
         payload["balance"] = balance
         balances[level.parent_id] = balance
         for item in items:
-            identity = item["id"]
-            if identity is not None:
-                level_deviations[level.parent_id] += [identity]
+            level_deviations[level.parent_id] += [item.id]
             deviations.append(item)
         payload["deviation_ids"] = level_deviations[level.parent_id]
     return levels, findings, balances, deviations, questions, assignments
@@ -588,7 +573,7 @@ def atlas_payload(
         "levels": levels,
         "findings": findings,
         "balance": _system_balance(balances),
-        "deviations": deviations,
+        "deviations": [item.to_wire() for item in deviations],
         "questions": questions,
         "reference_ids": list(references),
         "unknowns": [
