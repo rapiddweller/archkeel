@@ -123,6 +123,7 @@
         "archkeel.ir.architecture_projection:ModuleProjection",
         "archkeel.ir.architecture_projection:RequiresProjection",
         "archkeel.ir.architecture_projection:PermissionProjection",
+        "archkeel.ir.architecture_projection:PermissionStatus",
         "archkeel.ir.architecture_projection:UsageProjection",
         "archkeel.ir.architecture_projection:ComponentProjection",
         "archkeel.ir.architecture_projection:LevelProjection",

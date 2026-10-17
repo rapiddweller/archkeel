@@ -19,6 +19,7 @@ from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
 from archkeel.ir.architecture_projection import PermissionProjection, PermissionStatus
 from archkeel.ir.codec import decode_canonical_model, parse_observation, result_bytes
+from archkeel.ir.command_view import architecture_command_envelope
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
@@ -75,11 +76,14 @@ def test_real_permission_producer_preserves_states_wire_and_atlas_balance(tmp_pa
         "STORE": "allowed",
     }
     assert {row.target_id: row.status.value for row in core.permissions} == expected
+    envelope = architecture_command_envelope(result)
+    grouped = next(row for row in envelope.architecture_projection.components if row.id == "CORE")
+    assert all(type(row.status) is PermissionStatus for row in grouped.permissions)
     encoded = json.loads(result_bytes(result))
     wire_core = next(
         row for row in encoded["architecture_projection"]["components"] if row["id"] == "CORE"
     )
-    assert {row["target_id"]: row["status"] for row in wire_core["permissions"]} == expected
+    assert {target: row["status"] for row in wire_core["permissions"] for target in row["target_ids"]} == expected
     assert all(type(row["status"]) is str for row in wire_core["permissions"])
     model = parse_observation(decode_canonical_model(json.loads(architecture)))
     payload = atlas_payload(

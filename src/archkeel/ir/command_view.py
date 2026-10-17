@@ -191,7 +191,7 @@ def _permission_groups(
         rule_ids = tuple(
             identity
             for identity in permission.rule_ids
-            if permission.status != "allowed" or identity not in requires_ids
+            if permission.status is not PermissionStatus.ALLOWED or identity not in requires_ids
         )
         targets: list[str] = groups.setdefault((permission.status, rule_ids, permission.reason), [])
         targets.append(permission.target_id)

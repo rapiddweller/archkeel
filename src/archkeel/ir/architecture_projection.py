@@ -17,6 +17,7 @@ from .architecture_graph import (
 )
 from .facts import Record, SourceInfo
 
+
 class PermissionStatus(StrEnum):
     ALLOWED = "allowed"
     FORBIDDEN = "forbidden"

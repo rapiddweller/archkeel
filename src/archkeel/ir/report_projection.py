@@ -824,7 +824,9 @@ def _level_projections(
                 len(declared - used) if imports_complete else None,
                 len(used - declared) if imports_complete else None,
                 sum(
-                    item.status is PermissionStatus.UNDECIDED for identity in ids for item in permissions[identity]
+                    item.status is PermissionStatus.UNDECIDED
+                    for identity in ids
+                    for item in permissions[identity]
                 ),
                 unowned,
             )
