@@ -22,7 +22,9 @@ jobs:
       - name: Prove actual AST and source-record associations without observing or mutating source
         run: |
           python - <<'PY'
-          import ast,collections,gzip,hashlib,json,subprocess,zipfile
+          import ast,collections,gzip,hashlib,json,subprocess,zipfile,sys
+          sys.path.insert(0,'src')
+          from archkeel.ir.facts import stable_id
           from pathlib import Path
           
           BASE="e99394254846318e236ba471a14c19cd160081cf"
@@ -107,26 +109,72 @@ jobs:
               matches=[cite_node(side,e,(ast.Call,),expression) for e in row["evidence_ids"]]
               assert len(matches)==1 and len(matches[0]["items"])==1,("CALL_SITE_NOT_UNIQUE",side,row["id"])
               item=matches[0]["items"][0]
+              node=item["node"]
+              assert row["id"]==stable_id("CALL",matches[0]["citation"]["file"],node.lineno,node.col_offset,expression)
               return {"node_key":item["key"],"ast_dump":item["dump"],"citation":matches[0]["citation"]}
-          def binding_token(side,binding):
+          def actual_scope(side,row,site,definition):
+              if definition is not None:
+                  return {"recorded_scope":row["data"]["source_scope"],"kind":"named-symbol","token":["actual-symbol-scope",definition["node_key"]]}
+              path=site["citation"]["file"]
+              source,tree,info=syntax(side,path)
+              call_key=site["node_key"]
+              matches=[]
+              kinds={ast.ListComp:"listcomp",ast.SetComp:"setcomp",ast.DictComp:"dictcomp",ast.GeneratorExp:"genexpr"}
+              for item in info.values():
+                  node=item["node"]
+                  if type(node) not in kinds:continue
+                  if item["key"][1]!=call_key[1]:continue
+                  route=item["key"][2]
+                  if tuple(call_key[2][:len(route)])!=tuple(route):continue
+                  prefix=".".join([row["data"]["source_module"],*[part[1] for part in item["anchor"]]])
+                  actual=f"{prefix}.<{kinds[type(node)]}:{node.lineno}:{node.col_offset}>"
+                  if actual!=row["data"]["source_scope"]:continue
+                  matches.append({"recorded_scope":actual,"kind":"actual-anonymous-AST-scope","node_key":item["key"],"actual_span":{"file":path,"line":node.lineno,"column":node.col_offset,"end_line":node.end_lineno,"end_column":node.end_col_offset},"ast_dump":item["dump"],"token":["actual-anonymous-source-scope",item["key"],item["dump"]]})
+              assert len(matches)==1,("UNPROVEN_ANONYMOUS_SCOPE",side,row["id"],row["data"]["source_scope"],len(matches))
+              return matches[0]
+          def target_citations(side,row):
+              wanted={}
+              for symbol in models[side]["symbols"]:
+                  name=symbol["data"].get("qualified_name")
+                  if name not in row["data"]["targets"]:continue
+                  for identity in symbol["evidence_ids"]:
+                      wanted.setdefault(identity,[]).append(symbol)
+              actual=row["data"]["target_evidence_ids"]
+              assert actual==sorted(set(actual)),("TARGET_REFERENCE_NOT_PRODUCER_SORTED_SET",side,row["id"])
+              assert set(actual)==wanted.keys(),("TARGET_SYMBOL_CITATION_MISMATCH",side,row["id"],actual,sorted(wanted))
+              return [{"id":identity,"citation":evidence[side][identity],"actual_target_symbols":wanted[identity],"actual_ast_tokens":cite_node(side,identity)["tokens"]} for identity in actual]
+          def binding_token(side,binding,row):
               assert binding["id"].startswith("VALUEBIND-")
               matches=[cite_node(side,e) for e in binding["evidence_ids"]]
-              assert matches,("BINDING_WITHOUT_EVIDENCE",side,binding)
+              assert len(matches)==1,("BINDING_EVIDENCE_CARDINALITY",side,binding)
+              candidates=[item for item in matches[0]["items"] if isinstance(item["node"],(ast.Name,ast.Attribute,ast.Subscript)) and ast.unparse(item["node"])==binding["name"]]
+              assert len(candidates)==1,("BINDING_TARGET_NOT_ACTUAL_AST",side,binding)
+              target=candidates[0]["node"]
+              kind="name" if isinstance(target,ast.Name) else "attribute" if isinstance(target,ast.Attribute) else "subscript"
+              assert binding["target_kind"]==kind
+              assert binding["id"]==stable_id("VALUEBIND",row["id"],target.lineno,target.col_offset,binding["name"])
+              source,tree,info=syntax(side,matches[0]["citation"]["file"])
+              parents={id(child):node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+              assignment=parents[id(target)]
+              assert isinstance(assignment,(ast.Assign,ast.AnnAssign))
+              assert isinstance(assignment.value,ast.Call) and binding["initializer"]==ast.unparse(assignment.value)
+              assert binding["annotation"]==(ast.unparse(assignment.annotation) if isinstance(assignment,ast.AnnAssign) else None)
               return ["actual-value-binding",binding["name"],[m["tokens"] for m in matches]]
-          def normalize_data(side,row,definition):
+          def normalize_data(side,row,definition,scope):
               value=json.loads(json.dumps(row["data"]))
               if definition is not None:
                   value["source_definition_id"]=["actual-symbol-definition",definition["node_key"]]
-                  value["source_scope"]=["actual-symbol-scope",definition["node_key"]]
+              value["source_scope"]=scope["token"]
               def walk(v):
                   if isinstance(v,list):return [walk(x) for x in v]
                   if not isinstance(v,dict):return v
                   result={}
                   for key,child in v.items():
                       if key=="id" and isinstance(child,str) and child.startswith("VALUEBIND-"):
-                          result[key]=binding_token(side,v)
+                          result[key]=binding_token(side,v,row)
                       elif key in {"evidence_ids","target_evidence_ids"}:
-                          result[key]=[evidence_token(side,identity) for identity in child]
+                          tokens=[evidence_token(side,identity) for identity in child]
+                          result[key]=sorted(tokens,key=enc) if key=="target_evidence_ids" else tokens
                       else:result[key]=walk(child)
                   return result
               return walk(value)
@@ -150,11 +198,13 @@ jobs:
                   try:
                       site=call_site(side,row)
                       definition=source_definition(side,row)
-                      normalized=normalize_data(side,row,definition)
-                      subjects=[["actual-symbol-scope",definition["node_key"]] if definition and item==row["data"]["source_scope"] else item for item in row["subjects"]]
+                      scope=actual_scope(side,row,site,definition)
+                      targets=target_citations(side,row)
+                      normalized=normalize_data(side,row,definition,scope)
+                      subjects=[scope["token"] if item==row["data"]["source_scope"] else item for item in row["subjects"]]
                       payload={**sem(row),"subjects":subjects,"data":normalized}
                       key=enc(site["node_key"])
-                      grouped[key].append({"record":row,"site":site,"definition":definition,"normalized":payload})
+                      grouped[key].append({"record":row,"site":site,"definition":definition,"source_scope_proof":scope,"target_citation_proofs":targets,"normalized":payload})
                   except Exception as e:errors.append({"stage":"call-association","side":side,"record":row,"error":repr(e)})
               paired[side]=grouped
           for key in paired["before"].keys()|paired["after"].keys():
