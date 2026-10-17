@@ -1,22 +1,27 @@
-name: Preview explicit remaining 542 ranges without writes
+name: Build explicit remaining owned-control tree on actual Main
 on:
   push:
     branches: [verify/542-explicit-range-apply-preview]
 permissions:
   contents: read
 jobs:
-  scoped-preview:
+  scoped-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: 113318809036cfa4550b2b8598dab63c0b548878
           fetch-depth: 0
           persist-credentials: false
-      - name: Preview every authorized explicit scope on actual Main
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Compose only exact reviewed ranges in ephemeral checkout and compare outcomes
         run: |
-          python3 - <<'PY'
+          uv run --locked python - <<'PY'
           import ast,base64,collections,difflib,hashlib,json,re,subprocess,tempfile
           from pathlib import Path
           PAIRS=[["562","df14a43645316b74e67108e751e5acecc405b88b","e0ed68775f56bd20b79b470d3e5cbdeb0ffbc970"],["563","b475e027f4384feb8cdf2cc9844b82cdf89185ea","8d597b516c4ea3b95c1e009aa5009204d473cc00"],["565","8a56d6d09e16372b43064798cc0b24428daa5e5f","f367015340044e12356c3963c63d29a2df90f095"],["567","e5215b1403d98522003220b4c240aae9b011575f","a9fb1879aea33aa747fc4ce7d43965729f8879d3"],["577","7f99d03afaaea57530c56d688ce84e4b0867152e","b11aad0a60a26ecdf020ce36a5262d640315eb36"],["inventory","c7444205d4fe87eaae0de5e2dc98b70909fd1cc7","16ca88691a250e537439d1b118e767af32744e98"],["577nav","c7444205d4fe87eaae0de5e2dc98b70909fd1cc7","c1ca9d98595af1d09f619cc0a135eae155b25ee6"],["573","d08dfaf6a2e6992153a434341465306a88d993a2","0aee692c767150847089dbcfdcf1765464837ab6"],["574","4493b0a944e6caf0c56802c6333d9fd0090041b4","6f9df272790f4435df7735a75979e0bfc692c1cf"],["575","d3f7b008fedbedbf029312ddee30d4bfcafe4eb0","3dd2efdc54ef99f2b4cb742f3194cfd1f2619a84"],["578","3dd2efdc54ef99f2b4cb742f3194cfd1f2619a84","af9f0f708142bf0529992f4f7147c7d37e3b1a99"],["578catalog","a25c37c564c82c1b42457f0528c931c769ee9362","3e50a1764bffa24100892bf231e208e15919dacc"],["579","af9f0f708142bf0529992f4f7147c7d37e3b1a99","6452149d33186dc56d78f7072d73b5dbb988d35a"],["python-predicate-original","de6f57f4f49b368373d40e8584e48761ab4b19b1","f624d99286983fa0e26aff5e87835c359ba63d55"],["580","e99394254846318e236ba471a14c19cd160081cf","f6099877bdb325c095959f5df8f07f406c0f0dc2"],["581","f264c77eb55b1761a37a8083e479c3f1bc45f5cc","28938726de24fe8b2df69c61cd92c3f5dfb4cad1"],["571","fa37f59600cfae64ba0528cb56e609c6bbd756e4","97615e831e15b2fceb5a6b09743601042b9552c4"],["576","0e3b8a7f62b9b13417cda78e11b52d0de82986cd","124ab1c6ded4d7f7359a5265bc1434b96c0f9507"],["571-576-activation","15f1fa127c37399541e09b16ccf23ebe246f3709","4a01cf7925db9f64295ef3a0f52292cb30f8bfb1"],["582","0aee692c767150847089dbcfdcf1765464837ab6","3ccd073fb4bb82639f51cc0f7b09497101d5ee3d"],["582nav","5fc94c10298c4bbcd98fd44f8ac72b321b03a0b4","809263d0b311033428b54f05a396032a39da25ef"],["582provenance","ebfc072a9bf8afcbaca323024dcc8ad8488a76ee","ab5af9f9d68703d79688ec7327d58d43dafa72ea"],["583","a25c37c564c82c1b42457f0528c931c769ee9362","11173d0125f0e70b6ef592ae7eec70ec37665e73"],["585","5fc94c10298c4bbcd98fd44f8ac72b321b03a0b4","c94d1fa926d62042477ca149232ade6afe3e4919"],["586","b06fd806ae0e76d340cba44eb7b5e84c887384d6","b4e9089b32e48ae420e2c529a93b85ec930db27e"],["586make","b4e9089b32e48ae420e2c529a93b85ec930db27e","0000dc6789d3c2c9dd85e64f7974b0c982c1d5d6"],["587","6452149d33186dc56d78f7072d73b5dbb988d35a","a7e2c7184bea0f0aeb5b7003810aebd64aaa3761"],["588","5fc94c10298c4bbcd98fd44f8ac72b321b03a0b4","a91dfa9f52d9b95cfe00a9bc9ec9bd1e5bf752fc"],["589","c725df96543d1dd7ec4e20887a486ec9a7143c8a","36624bb7d147ed2056ceac8bd2332959ee3be5d6"],["590","cdcaa7f88537be077a9a44f7002816089ae5cde0","6776847a36bca8811a7126736cc0da2179ab73ae"],["591","68b656668a3fdbbbe482881d0dab41ff89a21ca3","4a58d277f17ff2375a50a92349b58d3b17812124"],["592","68b656668a3fdbbbe482881d0dab41ff89a21ca3","f051e6deee7de905984c1e648376fb88a07cc8a2"],["597","68b656668a3fdbbbe482881d0dab41ff89a21ca3","8d9c67779b682b710cf1bed5d58d1ee24d9a7eb2"],["593","68b656668a3fdbbbe482881d0dab41ff89a21ca3","29b161ca39de84d02919f209ade6b8c9b5fa8dc4"],["594","68b656668a3fdbbbe482881d0dab41ff89a21ca3","917b8177636c5401a51eecafafee6baf7b3bb35a"],["595","cdcaa7f88537be077a9a44f7002816089ae5cde0","a4e7c423ba1338facdd430baf933fcbd4fc9068d"],["596","68b656668a3fdbbbe482881d0dab41ff89a21ca3","61dde9cc026a07ea348fbf5f9e56a172a5bbb90b"],["598","5937445491094abc00a4076dd4628a03f08e9064","01bc5d65beff3190f550a97bd71ea5071486594d"],["599","7cfe1298fb285dfb5c53c1b8f829207ce05b7e97","96e70a648eff9a404475db0af5c3a4738abd86ac"],["visibility","bb3e498b9c43afc954ef9fe7078595983e0b3c2f","bcd0951665735a1f00c85b3a0cb6b88887bd8683"],["topology","bb3e498b9c43afc954ef9fe7078595983e0b3c2f","5076058e5e7167d5d6df866784e99036149cd47f"],["git-kind","bb3e498b9c43afc954ef9fe7078595983e0b3c2f","bf21e014fff57e5b963ea6785ae4a4b4f2c48a79"],["git-kind-final-doc","bf21e014fff57e5b963ea6785ae4a4b4f2c48a79","c2e96e3405930b3d1083b78f33e8486cb10e9fc8"],["structure-level","bb3e498b9c43afc954ef9fe7078595983e0b3c2f","7ff514624621334247bf89815e4a5f1d59404899"],["predicate-fixture-scope","ff885e1c7f66afb2ede2e60eb4334a824deb9c81","0224cdd2ca3be4a6501a4f584bed80ecd253e941"]]
@@ -282,12 +287,58 @@ jobs:
           print("SCOPED_APPLY_SUMMARY="+json.dumps({"origin":ORIGIN,"scopes":len(PAIRS),"applied":len(applications),"paths":len(current),"conflicts":len(conflicts)},separators=(",",":")))
           for row in conflicts:print("SCOPED_CONFLICT="+json.dumps(row,separators=(",",":")))
           for row in applications:print("SCOPED_APPLIED="+json.dumps(row,separators=(",",":")))
+          assert not conflicts,conflicts
+          baseline_before=Path("architecture-baseline.json").read_bytes()
+          receipt_path=Path("docs/architecture/decisions/issue-564-symbol-requires-amendment.json")
+          receipt_before=receipt_path.read_bytes()
+          for path,data in current.items():
+              target=Path(path)
+              if data is None:
+                  if target.exists():target.unlink()
+              else:
+                  target.parent.mkdir(parents=True,exist_ok=True)
+                  target.write_bytes(data)
+          python_paths=[path for path,data in current.items() if data is not None and path.endswith(".py")]
+          subprocess.run(["uv","run","--locked","ruff","check","--select","I","--fix",*python_paths],check=True)
+          subprocess.run(["uv","run","--locked","ruff","format",*python_paths],check=True)
+          for path in current:
+              target=Path(path)
+              current[path]=target.read_bytes() if target.exists() else None
           for path,data in current.items():
               if data is not None and path.endswith(".py"):ast.parse(data.decode(),filename=path)
               if data is not None and path.endswith(".json"):json.loads(data)
-          print("SCOPED_SYNTAX_VALID=True")
+          assert Path("architecture-baseline.json").read_bytes()==baseline_before
+          assert receipt_path.read_bytes()==receipt_before
+          ir_path="docs/architecture/contracts/ir.json"
+          def version_port(data):return next(row for row in json.loads(data)["declarations"]["uml"]["entities"] if row["id"]=="IR-VERSION-supports")
+          assert version_port(current[ir_path])==version_port(blob(ORIGIN,ir_path))
+          source_path="src/archkeel/analyzer/python/source.py"
+          assert 're.split(r"\\r\\n?|\\n", source)' in current[source_path].decode()
+          ROOT_REF="f71005da981edfa60a520ea7a0d7a8c0ec8ffcfa"
+          root_tree={}
+          for row in git("ls-tree","-r",ROOT_REF).decode().splitlines():
+              info,path=row.split("\t",1);root_tree[path]=info.split()[2]
+          manifest=[]
           for path,data in sorted(current.items()):
-              if data is not None:print("SCOPED_BLOB="+json.dumps({"path":path,"sha":hashlib.sha1(b"blob "+str(len(data)).encode()+b"\0"+data).hexdigest(),"bytes":len(data)},separators=(",",":")))
-          assert git("status","--porcelain")==b""
+              sha=hashlib.sha1(b"blob "+str(len(data)).encode()+b"\0"+data).hexdigest() if data is not None else None
+              root_sha=root_tree.get(path)
+              equal=sha==root_sha
+              root_data=blob(ROOT_REF,path) if not equal else None
+              semantic_equal=None
+              if not equal and data is not None and root_data is not None:
+                  if path.endswith(".py"):
+                      try:semantic_equal=ast.dump(ast.parse(data))==ast.dump(ast.parse(root_data))
+                      except SyntaxError:semantic_equal=False
+                  elif path.endswith(".json"):semantic_equal=json.loads(data)==json.loads(root_data)
+              row={"path":path,"sha":sha,"root_sha":root_sha,"bytes":len(data) if data is not None else None,"byte_equal":equal,"semantic_equal":semantic_equal}
+              manifest.append(row);print("FORMATTED_SCOPED_BLOB="+json.dumps(row,separators=(",",":")))
+          missing=[]
+          for path in git("diff","--name-only","--no-renames",ORIGIN,ROOT_REF).decode().splitlines():
+              if path=="architecture-baseline.json" or re.search(r"^docs/architecture/decisions/.*amendment.*\.json$",path):continue
+              if path not in current:missing.append(path)
+          print("ROOT_OUTCOME_COMPARISON="+json.dumps({"actual_main":ORIGIN,"root_reference":ROOT_REF,"paths":len(manifest),"byte_equal":sum(x["byte_equal"] for x in manifest),"other_root_paths":missing},separators=(",",":")))
+          print("ACTUAL_MAIN_PRESERVATION=True")
+          subprocess.run(["uv","run","--locked","ruff","check"],check=True)
+          subprocess.run(["uv","run","--locked","mypy","src"],check=True)
           
           PY
