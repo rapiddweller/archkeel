@@ -1,0 +1,51 @@
+name: Source name visibility gates
+on:
+  push:
+    branches: [verify/542-source-name-visibility-gates]
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 50fe58bc9d93419a2857c173eab8f5734d5a30bc
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - name: Format and show exact changed source if needed
+        run: |
+          uv run --locked ruff format src/archkeel/ir/facts.py src/archkeel/analyzer/python/symbols.py src/archkeel/ir/reexports.py src/archkeel/analyzer/dart/collect.py src/archkeel/check/onboarding.py src/archkeel/ir/interfaces.py src/archkeel/check/evaluation/rules.py tests/test_source_name_visibility.py
+          uv run --locked python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          paths=subprocess.check_output(["git","diff","--name-only"],text=True).splitlines()
+          for path in paths:
+              content=Path(path).read_text()
+              for index in range(0,len(content),12000):
+                  print("FORMATTED_SOURCE="+json.dumps({"path":path,"index":index//12000,"content":content[index:index+12000]}))
+          PY
+      - run: make lint typecheck
+      - run: uv run --locked pytest -q tests/test_repository_hygiene.py
+      - run: git diff --exit-code
+  behavior-and-authored-intent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 50fe58bc9d93419a2857c173eab8f5734d5a30bc
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - run: uv sync --locked
+      - run: uv run --locked pytest -n 2 --dist=loadfile -q tests/test_source_name_visibility.py tests/test_typed_symbol_class_kinds.py tests/test_onboarding.py tests/test_onboarding_guidance.py tests/test_interfaces.py tests/test_dart_directives.py tests/test_dart_inner_collect.py tests/test_dart_typed_controls.py tests/test_analyzer.py
