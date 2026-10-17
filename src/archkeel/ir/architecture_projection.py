@@ -3,8 +3,10 @@
 # SPDX-License-Identifier: MIT
 """Compact views of authenticated architecture facts; no policy evaluation."""
 
+import builtins
 from dataclasses import dataclass
-from typing import Literal, TypeAlias
+from enum import StrEnum
+from typing import Literal
 
 from .architecture_graph import (
     AssessmentStatus,
@@ -15,7 +17,10 @@ from .architecture_graph import (
 )
 from .facts import Record, SourceInfo
 
-PermissionStatus: TypeAlias = Literal["allowed", "forbidden", "undecided"]
+class PermissionStatus(StrEnum):
+    ALLOWED = "allowed"
+    FORBIDDEN = "forbidden"
+    UNDECIDED = "undecided"
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +45,9 @@ class PermissionProjection:
     status: PermissionStatus
     rule_ids: tuple[str, ...]
     reason: str
+
+    def __post_init__(self) -> None:
+        builtins.object.__setattr__(self, "status", PermissionStatus(self.status))
 
 
 @dataclass(frozen=True, slots=True)

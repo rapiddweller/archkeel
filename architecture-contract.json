@@ -823,15 +823,17 @@
         "archkeel.analyzer.typescript.source_input",
         "archkeel.ir.measurements",
         "archkeel.check.evaluation.boundary_types",
-        "archkeel.render.atlas_deviations"
+        "archkeel.render.atlas_deviations",
+        "archkeel.ir.architecture_projection"
       ],
-      "rationale": "Closed vocabularies belong to their domain and wire boundaries. State and source facts own shared controls; codecs own private tags; contract_version owns versions and feature availability. Python binding and receiver models own lexical controls. TypeScript and Dart syntax ports own parser DTO controls, while collectors own private states. Consumers use the published nominal types. Amendment artifacts own their versions and verification outcomes. The Python construct owner holds its private written predicate syntax vocabulary. TypeScript source_input owns shared filename/specifier grammar and source/format metadata. Measurement budgets, availability and metric comparisons stay with their existing measurement DTO owner. The Core boundary evaluator owns its private undecidable-position reasons. Atlas deviation values, deterministic pair derivation and wire emission belong to render.atlas_deviations.",
+      "rationale": "Closed vocabularies belong to their domain and wire boundaries. State and source facts own shared controls; codecs own private tags; contract_version owns versions and feature availability. Python binding and receiver models own lexical controls. TypeScript and Dart syntax ports own parser DTO controls, while collectors own private states. Consumers use the published nominal types. Amendment artifacts own their versions and verification outcomes. The Python construct owner holds its private written predicate syntax vocabulary. TypeScript source_input owns shared filename/specifier grammar and source/format metadata. Measurement budgets, availability and metric comparisons stay with their existing measurement DTO owner. The Core boundary evaluator owns its private undecidable-position reasons. Atlas deviation values, deterministic pair derivation and wire emission belong to render.atlas_deviations. Compact architecture projection values own component-pair permission states.",
       "provenance": [
         "docs/architecture/archkeel.md",
         "docs/architecture/typed-amendment-artifact.md",
         "docs/architecture/measurement-control-types.md",
         "docs/architecture/boundary-reason-types.md",
-        "docs/superpowers/specs/2026-10-16-atlas-deviation-boundary.md"
+        "docs/superpowers/specs/2026-10-16-atlas-deviation-boundary.md",
+        "docs/superpowers/specs/2026-10-17-permission-status-types.md"
       ],
       "decided_by": "architect"
     },

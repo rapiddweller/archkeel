@@ -240,24 +240,24 @@ def _permissions(
             status: PermissionStatus
             if forbidden:
                 status, reason = (
-                    "forbidden",
+                    PermissionStatus.FORBIDDEN,
                     "A declared dependency rule forbids this component pair.",
                 )
             elif complete and not has_requires:
                 status, reason = (
-                    "forbidden",
+                    PermissionStatus.FORBIDDEN,
                     "complete_requires forbids this absent requires permission; "
                     "allowed_dependency does not override the constraint.",
                 )
             elif has_requires or allowed:
                 status, reason = (
-                    "allowed",
+                    PermissionStatus.ALLOWED,
                     "Declared component permission; each import must satisfy requires.through "
                     "and all governing rules. Core assessments describe observed compliance.",
                 )
             else:
                 status, reason = (
-                    "undecided",
+                    PermissionStatus.UNDECIDED,
                     "No whole-component decision is declared; permission_rules "
                     "retain partial selectors.",
                 )
@@ -559,7 +559,7 @@ def _component_status(
     permissions: tuple[PermissionProjection, ...],
 ) -> tuple[AssessmentStatus, str]:
     status: AssessmentStatus
-    undecided = any(item.status == "undecided" for item in permissions)
+    undecided = any(item.status is PermissionStatus.UNDECIDED for item in permissions)
     if not imports_complete or not scoped_modules:
         status, reason = (
             AssessmentStatus.UNKNOWN,
@@ -798,7 +798,7 @@ def _level_projections(
             (identity, permission.target_id)
             for identity in ids
             for permission in permissions[identity]
-            if permission.status == "allowed"
+            if permission.status is PermissionStatus.ALLOWED
         )
         used = {
             (a, b) for (scope, a, b), count in level_counts.items() if scope == parent and count > 0
@@ -824,7 +824,7 @@ def _level_projections(
                 len(declared - used) if imports_complete else None,
                 len(used - declared) if imports_complete else None,
                 sum(
-                    item.status == "undecided" for identity in ids for item in permissions[identity]
+                    item.status is PermissionStatus.UNDECIDED for identity in ids for item in permissions[identity]
                 ),
                 unowned,
             )
@@ -974,7 +974,7 @@ def _projection_uncertainties(
         )
         for identity in sorted(permissions)
         for item in permissions[identity]
-        if item.status == "undecided"
+        if item.status is PermissionStatus.UNDECIDED
     )
     unknowns.extend(
         UnknownProjection(item.id, item.reason, (item.id,))

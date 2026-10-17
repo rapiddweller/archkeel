@@ -8,7 +8,7 @@ from dataclasses import asdict, replace
 from pathlib import PurePosixPath
 
 from archkeel.ir.architecture_graph import ArchitectureGraph, ArchitectureReport, Coverage, Entity
-from archkeel.ir.architecture_projection import ArchitectureProjection
+from archkeel.ir.architecture_projection import ArchitectureProjection, PermissionStatus
 from archkeel.ir.codec import decode_json, value_bytes
 from archkeel.ir.decisions import rule_assessment_applies_to_component, rule_uncertainty_evidence
 from archkeel.ir.model import (
@@ -352,7 +352,7 @@ def _level_balance(
         for component in projection.components
         if component.id in component_ids
         for permission in component.permissions
-        if permission.status == "allowed"
+        if permission.status is PermissionStatus.ALLOWED
     }
     owners = {item.id: item.component_id for item in level.modules}
     used: set[tuple[str, str]] = set()
