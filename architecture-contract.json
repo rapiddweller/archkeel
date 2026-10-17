@@ -827,9 +827,10 @@
         "archkeel.render.atlas_deviations",
         "archkeel.analyzer.python.source",
         "archkeel.ir.architecture_projection",
-        "archkeel.ir.host_records"
+        "archkeel.ir.host_records",
+        "archkeel.check.snapshot"
       ],
-      "rationale": "Closed vocabularies belong to their domain and wire boundaries. State and source facts own shared controls; codecs own private tags; contract_version owns versions and feature availability. Python binding and receiver models own lexical controls. TypeScript and Dart syntax ports own parser DTO controls, while collectors own private states. Consumers use the published nominal types. Amendment artifacts own their versions and verification outcomes. The Python construct owner holds its private written predicate syntax vocabulary. TypeScript source_input owns shared filename/specifier grammar and source/format metadata. Measurement budgets, availability and metric comparisons stay with their existing measurement DTO owner. The Core boundary evaluator owns its private undecidable-position reasons. Atlas deviation values, deterministic pair derivation and wire emission belong to render.atlas_deviations. The Python Source adapter owns the private AST field grammar that feeds definition contexts; shared context kinds remain facts-owned. Compact architecture projection values own component-pair permission states. Host replay evidence owns its closed expectation publication and candidate submission events.",
+      "rationale": "Closed vocabularies belong to their domain and wire boundaries. State and source facts own shared controls; codecs own private tags; contract_version owns versions and feature availability. Python binding and receiver models own lexical controls. TypeScript and Dart syntax ports own parser DTO controls, while collectors own private states. Consumers use the published nominal types. Amendment artifacts own their versions and verification outcomes. The Python construct owner holds its private written predicate syntax vocabulary. TypeScript source_input owns shared filename/specifier grammar and source/format metadata. Measurement budgets, availability and metric comparisons stay with their existing measurement DTO owner. The Core boundary evaluator owns its private undecidable-position reasons. Atlas deviation values, deterministic pair derivation and wire emission belong to render.atlas_deviations. The Python Source adapter owns the private AST field grammar that feeds definition contexts; shared context kinds remain facts-owned. Compact architecture projection values own component-pair permission states. Host replay evidence owns its closed expectation publication and candidate submission events. The existing snapshot owner owns the supported regular Git blob byte-pair grammar shared by immutable input readers; the Git consumer does not own that enum.",
       "provenance": [
         "docs/architecture/archkeel.md",
         "docs/architecture/typed-amendment-artifact.md",
@@ -838,7 +839,8 @@
         "docs/superpowers/specs/2026-10-16-atlas-deviation-boundary.md",
         "docs/architecture/definition-context-ports.md",
         "docs/superpowers/specs/2026-10-17-permission-status-types.md",
-        "docs/architecture/host-event-types.md"
+        "docs/architecture/host-event-types.md",
+        "docs/superpowers/specs/2026-10-17-git-blob-kind.md"
       ],
       "decided_by": "architect"
     },
@@ -1314,6 +1316,45 @@
       "rationale": "Owned measurement tags and metric outcomes drive decisions nominally.",
       "provenance": [
         "docs/architecture/measurement-control-types.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "GIT-BLOB-TYPED-INGRESS",
+      "kind": "forbidden_construct",
+      "source": "archkeel.check.snapshot.regular_git_blob_kind",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Closed Git blob mode/type grammar is recognized by its nominal input owner; arbitrary paths, revisions and object IDs remain data.",
+      "provenance": [
+        "docs/superpowers/plans/2026-10-17-git-blob-kind.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "GIT-BLOB-TYPED-ARCHIVE",
+      "kind": "forbidden_construct",
+      "source": "archkeel.check.snapshot._git_archive_bytes",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Closed Git blob mode/type grammar is recognized by its nominal input owner; arbitrary paths, revisions and object IDs remain data.",
+      "provenance": [
+        "docs/superpowers/plans/2026-10-17-git-blob-kind.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "GIT-BLOB-TYPED-READER",
+      "kind": "forbidden_construct",
+      "source": "archkeel.check.git.read_blob",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "Closed Git blob mode/type grammar is recognized by its nominal input owner; arbitrary paths, revisions and object IDs remain data.",
+      "provenance": [
+        "docs/superpowers/plans/2026-10-17-git-blob-kind.md"
       ],
       "decided_by": "architect"
     }

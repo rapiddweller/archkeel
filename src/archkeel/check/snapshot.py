@@ -12,6 +12,7 @@ import tarfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 
@@ -41,6 +42,21 @@ class ArchivedSnapshot:
 
     root: Path
     git_head: str
+
+
+class RegularGitBlobKind(Enum):
+    """The supported regular-file pairs from Git's ls-tree protocol."""
+
+    REGULAR = (b"100644", b"blob")
+    EXECUTABLE = (b"100755", b"blob")
+
+
+def regular_git_blob_kind(mode: bytes, kind: bytes) -> RegularGitBlobKind | None:
+    """Recognize a supported pair without changing either reader's error policy."""
+    try:
+        return RegularGitBlobKind((mode, kind))
+    except ValueError:
+        return None
 
 
 def resolve_commit(root: Path, revision: str) -> str:
@@ -146,7 +162,7 @@ def _git_archive_bytes(
                     continue
                 _safe_member_path(name)
                 mode, kind, oid = metadata.split()
-                if mode not in {b"100644", b"100755"} or kind != b"blob":
+                if regular_git_blob_kind(mode, kind) is None:
                     raise SnapshotError(f"expected a regular Git blob: {name!r}")
                 payload = subprocess.run(
                     ["git", "cat-file", "blob", oid.decode("ascii")],
