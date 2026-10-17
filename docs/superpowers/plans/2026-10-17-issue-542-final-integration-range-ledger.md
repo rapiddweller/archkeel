@@ -37,7 +37,7 @@
 |559|1f9cd588c21d2e485e8d7cf75b4c7a7e41ba793d →cd54501a8bd95facfd7e3e71929595c920fc2360|d2c2e3daf0cbb441c1fb7d3d786b469ed94be453|cef2d99ac1aa6e3be4710c5df03f89ab57c0dde5|
 |561|5933ffbbfd588ac96e36748de937cb1f6e739655 →62fd95e68b07df1149e30a9690bd58f7129fa59b|64b3a0637a40b25df6baafef5299ae85b487d587|950520fd126ca05744c19066bb28ccbef5627964|
 |572|0e3b8a7f62b9b13417cda78e11b52d0de82986cd →620374305b7d45383458f62bccd20a183fdcd82a|dace9a80e1bdc8419ba64804bfcf97f22970087f, tree-identical to source-approvedf5e9f38b5671e3f1f8eb1ecd613c78e638e75fe5|3fdda84e4a58b0ac3ed15a8d28c761568d4d7809;570 closed|
-|569|0e3b8a7f62b9b13417cda78e11b52d0de82986cd →6d03204f1b804be71386a036337fd17b4c54e351 plus atomiccf963 below|98cd1e32a5849063e1f4968401e373685457d772, independently Source-approved|Pending fresh normal metadata and final gates; closes564 only after merge|
+|569|0e3b8a7f62b9b13417cda78e11b52d0de82986cd →6d03204f1b804be71386a036337fd17b4c54e351 plus atomiccf963 below|55f416d462a5b9ff44f761ed725eae4c5f9cf05b, Source98cd and actual metadata independently approved|Pending exact final NoWrite/requiredCI; closes564 only after merge|
 
 Actual Main checkpoint3fdda84e4a58b0ac3ed15a8d28c761568d4d7809 has tree56624f122d0fcfa7f8b07a6ed725f1f22cef636d, byte-identical to final572dace9. #572 completed3450Core/48Report/5Publisher/2Mermaid and exact final NoWrite865/52/58/0. Its 80 native/quality and317 regression controls passed; full H/Compass runtime wire bytes stayed identical. Four new conservative PARTIAL sites in _binding_sites were separately matched by AST/targets/reason/multiplicity, without changed existing records or UNKNOWN identities. #570 is closed; #542 remains open.
 
@@ -82,17 +82,19 @@ Actual Main checkpoint3fdda84e4a58b0ac3ed15a8d28c761568d4d7809 has tree56624f122
 |598|5937445491094abc00a4076dd4628a03f08e9064|01bc5d65beff3190f550a97bd71ea5071486594d|
 |599|7cfe1298fb285dfb5c53c1b8f829207ce05b7e97|96e70a648eff9a404475db0af5c3a4738abd86ac|
 
+The initial Python string-predicate scope is exactlyde6f57f4f49b368373d40e8584e48761ab4b19b1→f624d99286983fa0e26aff5e87835c359ba63d55. Independently compared exact base==mergebase, three commits/eight paths: Make, Root, PythonTarget, dedicated document, constructs, analyzer test, native predicate Target test and predicate observation test. This initial scope must precede activation: the original571 TS-only and576 Dart-only ranges do not add the Python predicate owner. No broad LCA is substituted.
+
 Coherent571/576 activation is exactly15f1fa127c37399541e09b16ccf23ebe246f3709→4a01cf7925db9f64295ef3a0f52292cb30f8bfb1 (six commits/six files, independently checked exact mergebase). It includes PythonTarget/docs/constructs, Dartcollect, predicate test and legacy-reference fixture. Use ORIGINAL571+576+activation exactly once. Alternative already assembled571 owner-union rangec7444205d4fe87eaae0de5e2dc98b70909fd1cc7→c245e1ebda1588e2c6f885ed37bcb7fcb48b9ba9 must NOT also be applied.
 
 Mandatory586 durable Make follow-up is exactlyb4e9089b32e48ae420e2c529a93b85ec930db27e→0000dc6789d3c2c9dd85e64f7974b0c982c1d5d6, adding only tests/test_definition_context_types.py.
 
-Root reports final Source approval for599. Its true original parent and feature both measure839, with AD10018 identities11added−11removed=0 and no unbalanced group. The inherited Root baseline838 was stale; do not treat that old measurement as a valid final Main gate or copy its metadata. Actual Main comparison/writer remains authoritative.
+Root reports final Source approval for599. Its true original parent and feature both measure839, with AD10018 identities11added−11removed=0 and no unbalanced group. That earlier inherited Root baseline838 was stale at the true599 parent checkpoint; do not treat that old measurement as a valid final Main gate or copy its metadata. Actual Main comparison/writer remains authoritative.
 
 Source598 is independently approved at5937445491094abc00a4076dd4628a03f08e9064→01bc5d65beff3190f550a97bd71ea5071486594d. Its six paths include two production files, PythonTarget, one document and two existing tests. Actual immutable host mutation control and326 focused tests passed. Honest standalone call cost is +2 unresolved: three new calls and one removed old call,841 versus actual parent839. Preserve the existing597 test tail and append the approved376-line feature tail; never replace the entire current test.
 
 Awaiting Root's final explicit bounded ranges for StructureLevel(component/package), SourceGraphTopologyLevel(module/package), SourceNameVisibility(private/public_name), and RegularGitBlobKind(two byte pairs). Each uses an existing owner. No final union freeze is inferred until these and the causal predicate fixture repair are handed over.
 
-Latest evolving Root comparison referenceff885e1c7f66afb2ede2e60eb4334a824deb9c81 includes598+599 and prior approved owners. Joint normal NoWrite39001250567/job117304451620 passes838/52/58/0, empty failures/diagnostics, clean tracked/untracked state; no budget change. Quality519/strict150 passes. Joint native388 passes/eight failures are confined to the existing Python string-predicate Target fixture with missing actual declared-document provenance; Root is investigating in read-only probe5f28f27e5fc45e38fae9018746813de246debe1f. This is not yet an all-green final union gate. Root's frozen source is a comparison reference, never an overlay.
+Latest evolving Root comparison referenceff885e1c7f66afb2ede2e60eb4334a824deb9c81 includes598+599 and prior approved owners. Joint normal NoWrite39001250567/job117304451620 passes838/52/58/0, empty failures/diagnostics, clean tracked/untracked state; no budget change. Quality519/strict150 passes. Joint native388 passes/eight failures were traced to an unrelated SourceResolution function-scope guard copied into a constructs-only fixture, causing RuleWithoutSubjects; the earlier missing-document theory was disproved. The exact causal fixture repairff885e1c7f66afb2ede2e60eb4334a824deb9c81→0224cdd2ca3be4a6501a4f584bed80ecd253e941 adds ten lines in tests/test_python_string_predicate_target.py: retain every forbidden-construct guard whose source is the actual constructs module or its declaration; other owner guards retain their own real source fixtures. The production Target remains intact. Fresh eight-control replay is still pending, so this is not yet an all-green final union gate. Root's frozen source is a comparison reference, never an overlay.
 
 ## Mandatory atomic compatibility scopes
 
@@ -123,7 +125,7 @@ Latest evolving Root comparison referenceff885e1c7f66afb2ede2e60eb4334a824deb9c8
 
 - [x] Finish572 exact current-base NoWrite, native/full-wire gates and strict requiredCI; normal expected-head merge3fdda,570 closed.
 - [ ] Carry569 original scoped delta plus exactcf963 tests onto actual Main, preserving diagnostics and current code; independent Astra, fresh normal metadata, exact NoWrite/requiredCI; normal merge, close564.
-- [ ] Record those actual merge SHAs; fill every missing remaining explicit original pair from Root's verified ledger.
+- [ ] Record final569 merge SHA; the missing initial predicate pair is now verified; fill the four bounded final owner ranges from Root's verified ledger.
 - [ ] Freeze final Root Source after all included Source fixes have final independent approval and blocked unresolved regressions are actually solved or clearly left open.
 
 ### Task2: Build one reviewable final542 Source carry
