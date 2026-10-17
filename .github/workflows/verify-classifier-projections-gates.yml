@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 403199534888925df327a4b3cb861ac4b8d1bad2
+          ref: 2d55dfb42c455ac47b2dc5715270cd14521d396c
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -38,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 403199534888925df327a4b3cb861ac4b8d1bad2
+          ref: 2d55dfb42c455ac47b2dc5715270cd14521d396c
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
