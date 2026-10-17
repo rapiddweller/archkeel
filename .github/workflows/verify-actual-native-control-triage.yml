@@ -1,0 +1,46 @@
+name: Read-only actual native control-site triage
+on:
+  push:
+    branches: [verify/542-actual-control-site-triage]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  actual-sites:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 5fc94c10298c4bbcd98fd44f8ac72b321b03a0b4
+          persist-credentials: false
+      - name: Binary capture of the immutable original Actions artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method GET repos/rapiddweller/archkeel/actions/artifacts/12083429473/zip > "${RUNNER_TEMP}/actual-native-sites.zip"
+      - name: Read every original native site without changing source or artifact
+        run: |
+          python3 - <<'PY'
+          import gzip,json,os,zipfile
+          from pathlib import Path
+          archive=Path(os.environ["RUNNER_TEMP"])/"actual-native-sites.zip"
+          with zipfile.ZipFile(archive) as zipped:
+              names=zipped.namelist()
+              print("TRIAGE_ARCHIVE="+json.dumps(names))
+              matching=[name for name in names if name.endswith("native-control-sites.json.gz")]
+              assert len(matching)==1,matching
+              payload=json.loads(gzip.decompress(zipped.read(matching[0])))
+          print("TRIAGE_STRUCTURE="+json.dumps(dict(type=type(payload).__name__,keys=list(payload) if isinstance(payload,dict) else None)))
+          if isinstance(payload,list):
+              rows=payload
+          else:
+              candidates=[(key,value) for key,value in payload.items() if isinstance(value,list) and len(value)==780]
+              assert len(candidates)==1,[(key,len(value)) for key,value in payload.items() if isinstance(value,list)]
+              key,rows=candidates[0]
+              print("TRIAGE_SITE_KEY="+key)
+          assert len(rows)==780,len(rows)
+          for index,row in enumerate(rows):
+              print("TRIAGE_ROW_JSON="+json.dumps(dict(index=index,site=row),sort_keys=True),flush=True)
+          print("TRIAGE_EXACT_SITE_COUNT="+str(len(rows)))
+          
+          PY
