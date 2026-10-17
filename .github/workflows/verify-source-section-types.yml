@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: b372d18248118d04eade3405a0faadb88889452e
+          ref: 3a7be4d9e9c74d7eec5b1bc0a94b3bfe82a85d6e
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
@@ -53,7 +53,7 @@ jobs:
           uv run --locked python - <<'PY'
           import json,subprocess
           from pathlib import Path
-          paths=["tests/test_source_section_types.py"]
+          paths=["tests/test_source_section_types.py","src/archkeel/check/evaluation/evaluate.py","src/archkeel/check/observation.py","src/archkeel/check/ratchets.py","src/archkeel/ir/structure.py","src/archkeel/ir/facts_validation.py","src/archkeel/ir/source_graph.py"]
           before={path:Path(path).read_text() for path in paths}
           subprocess.run(["uv","run","--locked","ruff","check","--select","I","--fix",*paths],check=True)
           subprocess.run(["uv","run","--locked","ruff","format",*paths],check=True)
