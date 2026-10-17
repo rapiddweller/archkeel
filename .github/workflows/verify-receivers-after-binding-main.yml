@@ -1,0 +1,127 @@
+name: Verify reviewed receiver carry on actual binding Main
+on:
+  push:
+    branches: [verify/542-receivers-after-binding-main]
+permissions:
+  contents: read
+jobs:
+  cli-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 9254aa3659e35c41021f1ff21592823c1f8867df
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          python-version: "3.11.12"
+          version: "0.12.13"
+      - name: Assert immutable source and scoped product blobs
+        run: |
+          test "$(git rev-parse HEAD)" = "9254aa3659e35c41021f1ff21592823c1f8867df"
+          uv run --locked python - <<'PY'
+          import subprocess
+          frozen="49922fea2c7a4b049e947d5da902c96be669140f"
+          base="8605b8cef0e764c797aa9ffef2367ae7f5420cb7"
+          def blob(ref,path):
+              return subprocess.check_output(["git","show",ref+":"+path])
+          for path in ("src/archkeel/analyzer/python/calls.py","src/archkeel/analyzer/python/receiver_types.py","src/archkeel/analyzer/python/resolve.py","docs/architecture/contracts/python.json","tests/test_typed_python_receivers.py"):
+              assert blob("HEAD",path)==blob(frozen,path),path
+          for path in ("src/archkeel/analyzer/python/source.py","architecture-baseline.json"):
+              assert blob("HEAD",path)==blob(base,path),path
+          print("RECEIVER_SCOPED_CARRY=True")
+          PY
+      - name: Normal measured baseline, amendment and exact replay
+        run: |
+          uv run --locked python - <<'PY'
+          import base64,json,subprocess
+          from pathlib import Path
+          base="8605b8cef0e764c797aa9ffef2367ae7f5420cb7"
+          path="docs/architecture/decisions/issue-542-python-receivers-amendment.json"
+          common=["uv","run","--locked","python","-m","archkeel.cli","validate","--root",".","--baseline","architecture-baseline.json","--json"]
+          stages=[
+              ("baseline",["--write-baseline"]),
+              ("amendment",["--against",base,"--amendment",path,"--write-amendment","--decided-by","ake2l","--rationale","Give existing Python receiver evidence one nominal origin owner while retaining valid legacy constructor inputs and conservative call resolution, preserving actual merged Main controls and adding no allowances or debt ceiling increase."]),
+              ("replay",["--against",base,"--amendment",path]),
+          ]
+          original_baseline=Path("architecture-baseline.json").read_bytes()
+          codes=[]
+          for stage,extra in stages:
+              result=subprocess.run(common+extra,text=True,capture_output=True)
+              codes.append(result.returncode)
+              data=json.loads(result.stdout)
+              print("RECEIVER_RESULT="+json.dumps({"stage":stage,**{k:data.get(k) for k in ("exit_code","diagnostics","failures","widenings","amendment_status","measurements")}},separators=(",",":")))
+              if result.stderr:print("RECEIVER_STDERR="+result.stderr[-3000:])
+          for marker,filename in (("RECEIVER_BASELINE","architecture-baseline.json"),("RECEIVER_AMENDMENT",path)):
+              file=Path(filename)
+              if file.exists():print(marker+"="+base64.b64encode(file.read_bytes()).decode())
+          assert codes==[0,0,0],codes
+          assert Path("architecture-baseline.json").read_bytes()==original_baseline, "normal receiver baseline writer changed existing Main baseline"
+          print("RECEIVER_BASELINE_UNCHANGED=True")
+          PY
+      - name: Actual nominal receiver constructors, native Target mutations and binding regressions
+        run: uv run --locked python -m pytest -q tests/test_typed_python_receivers.py tests/test_typed_python_bindings.py
+      - name: Binding caches, imports, boundary aliases, scope/reference and actual ownership regressions
+        run: uv run --locked python -m pytest -q tests/test_binding_proof_reuse.py tests/test_bindings.py tests/test_boundary_types_aliases.py tests/test_boundary_types_reexport_proofs.py tests/test_references.py tests/test_self.py tests/test_levels.py tests/test_python_source_evidence_lines.py
+      - name: Collector liveness, source trust, wire compatibility and hygiene
+        run: uv run --locked python -m pytest -q tests/test_source_trust_boundary.py tests/test_typed_collector_native.py tests/test_codec_compatibility.py tests/test_repository_hygiene.py
+      - run: make lint typecheck
+      - name: Compare actual complete call payload bytes from base and candidate
+        run: |
+          uv run --locked python - <<'PY'
+          import hashlib
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+          folder = Path(os.environ["RUNNER_TEMP"])
+          base = folder / "receiver-base"
+          subprocess.run(["git", "worktree", "add", "--detach", str(base), "8605b8cef0e764c797aa9ffef2367ae7f5420cb7"], check=True)
+          script = folder / "receiver_wire_probe.py"
+          script.write_text(r'''
+          import ast
+          import json
+          import sys
+          from pathlib import Path
+          from archkeel.analyzer.python import receiver_types
+          from archkeel.analyzer.python.calls import collect_calls
+          from archkeel.analyzer.python.imports import collect_imports
+          from archkeel.analyzer.python.resolve import build_symbol_index
+          from archkeel.analyzer.python.source import ParsedModule
+          from archkeel.analyzer.python.symbols import collect_symbols
+          assert Path(receiver_types.__file__).is_relative_to(Path(sys.argv[1]))
+          scenarios = [
+              "from pathlib import Path\n"
+              "def use(annotated: list[str]):\n"
+              "    literal = []\n    documented = Path('data')\n"
+              "    literal.append('data')\n    annotated.append('data')\n"
+              "    documented.read_text()\n",
+              "def use():\n    items = []\n    items = {}\n    items.append(1)\n",
+              "def use(list):\n    items = list()\n    items.append(1)\n",
+              "def use():\n    items = []\n    for items in (): pass\n    items.append(1)\n",
+              "from pathlib import Path\n"
+              "def use(Path):\n    value = Path('data')\n    value.read_text()\n",
+          ]
+          result = []
+          for source in scenarios:
+              module = ParsedModule(
+                  path=Path("sample/core.py"), rel_path="sample/core.py",
+                  module="sample.core", package="sample", source=source,
+                  source_bytes=source.encode(), lines=source.splitlines(), tree=ast.parse(source),
+              )
+              symbols, _, _ = collect_symbols([module], {})
+              collect_imports([module], set(), {}, namespace="sample")
+              result.append(collect_calls([module], build_symbol_index(symbols), {}))
+          Path(sys.argv[2]).write_bytes(json.dumps(result, sort_keys=True, separators=(",", ":")).encode())
+          print(json.dumps({"scenarios": len(result), "calls": sum(map(len, result))}))
+          ''')
+          before = folder / "receiver-before.json"
+          after = folder / "receiver-after.json"
+          for root, output in ((base, before), (Path.cwd(), after)):
+              environment = dict(os.environ, PYTHONPATH=str(root / "src"))
+              subprocess.run([sys.executable, str(script), str(root), str(output)], env=environment, check=True)
+          assert before.read_bytes() == after.read_bytes(), "receiver migration changed call wire payload bytes"
+          print("CALL_WIRE_PARITY=" + str({"bytes": len(after.read_bytes()), "sha256": hashlib.sha256(after.read_bytes()).hexdigest(), "identical": True}))
+          PY
