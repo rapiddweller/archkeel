@@ -36,6 +36,7 @@ jobs:
           assert not result["diagnostics"],result["diagnostics"]
           assert result["observation_complete"]=="PASS",result
           model=parse_observation(decode_canonical_model(json.loads(report.read_bytes())))
+          print("ACTUAL_VIOLATIONS="+json.dumps([asdict(row) for row in model.records("violations")],sort_keys=True),flush=True)
           assert not model.records("violations")
           scopes={"archkeel.check.onboarding.public_top_level_names","archkeel.check.evaluation.rules._interface_verdict","archkeel.ir.interfaces._public_symbol_names","archkeel.ir.facts.parse_source_name_visibility"}
           controls=[row for row in model.records("constructs") if row.kind=="string_literal_compare" and row.data.get("owner") in scopes]
@@ -67,6 +68,7 @@ jobs:
           
           PY
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: ${{ always() }}
         with:
           name: actual-native-current-control-sites
           path: /tmp/archkeel-native-current-controls/*.gz
