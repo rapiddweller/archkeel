@@ -151,7 +151,6 @@ from .boundary_types import _resolved_position_types as _resolved_position_types
 from .boundary_types import _root_broad_count as _root_broad_count
 from .boundary_types import _scoped_facade_signature_types as _scoped_facade_signature_types
 from .boundary_types import _selected_facade as _selected_facade
-from .boundary_types import _split_type_parameters as _split_type_parameters
 from .boundary_types import _substituted_type_bindings as _substituted_type_bindings
 from .boundary_types import _symbol_source_location as _symbol_source_location
 from .boundary_types import _type_alias_verdict as _type_alias_verdict

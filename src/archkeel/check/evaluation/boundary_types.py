@@ -236,33 +236,6 @@ _COLLECTION_CONTAINERS: Final = frozenset(
 )
 
 
-def _split_type_parameters(inner: str) -> list[str] | None:
-    """Split one subscript's parameters on its top-level commas.
-
-    None when the brackets do not balance, which is how `Sequence[int] | list[str]` is told
-    apart from a single subscript: both end in `]`, only one of them is one (AD-67).
-    """
-    parameters: list[str] = []
-    current = ""
-    depth = 0
-    for character in inner:
-        if character == "[":
-            depth += 1
-        elif character == "]":
-            depth -= 1
-            if depth < 0:
-                return None
-        if character == "," and depth == 0:
-            parameters.append(current.strip())
-            current = ""
-        else:
-            current += character
-    if depth:
-        return None
-    parameters.append(current.strip())
-    return parameters
-
-
 def _typing_module_binding(module: str, binding: str, imports_by_binding: BindingIndex) -> bool:
     imported = imports_by_binding.get((module, binding))
     return (
@@ -466,23 +439,22 @@ def _collection_parameters(
     annotation: str,
     module: str,
     imports_by_binding: BindingIndex,
+    *,
+    type_shapes: TypeShapeIndex,
 ) -> list[str] | None:
-    """The type parameters of `Container[...]` when the container is a known collection.
-
-    None when the annotation is not exactly one such subscript, so dotted containers without a
-    proven `typing` import, a union around one and a mapping all stay where they were. The
-    `...` of `tuple[X, ...]` is an arity, not a type, and is dropped (AD-67).
-    """
-    head, bracket, rest = annotation.partition("[")
-    if "." in head:
-        binding = annotation.split(".", 1)[0]
-        container = head[len(binding) + 1 :]
+    """Read known collection arguments from carried syntax, excluding ellipsis arity."""
+    expression = type_shapes.get(annotation)
+    if not isinstance(expression, TypeApplication) or not expression.arguments:
+        return None
+    head = expression.head
+    if isinstance(head, TypeMember) and isinstance(head.owner, TypeName):
+        binding, container = head.owner.name, head.member
         if container not in _COLLECTION_CONTAINERS or not _typing_module_binding(
             module, binding, imports_by_binding
         ):
             return None
-    else:
-        container = head
+    elif isinstance(head, TypeName):
+        container = head.name
         imported = imports_by_binding.get((module, container))
         if container not in _COLLECTION_CONTAINERS and (
             not isinstance(imported, dict)
@@ -492,12 +464,15 @@ def _collection_parameters(
             return None
         if isinstance(imported, dict) and imported["target_module"] == "typing":
             container = imported["symbol"] or container
-    if not bracket or not rest.endswith("]") or container not in _COLLECTION_CONTAINERS:
+    else:
         return None
-    parameters = _split_type_parameters(rest[:-1])
-    if parameters is None:
+    if container not in _COLLECTION_CONTAINERS:
         return None
-    return [parameter for parameter in parameters if parameter != "..."]
+    return [
+        argument.text
+        for argument in expression.arguments
+        if not (isinstance(argument, TypeLiteral) and argument.kind is LiteralKind.ELLIPSIS)
+    ]
 
 
 def _unresolvable_shape(annotation: str) -> _Cause:
@@ -2794,7 +2769,9 @@ def _collection_verdict(
     Member violations and UNKNOWNs both survive, so an exact allowance cannot hide uncertainty.
     `resolved` includes every parameter's named types for `facade_types` (AD-65).
     """
-    parameters = _collection_parameters(annotation, module, imports_by_binding)
+    parameters = _collection_parameters(
+        annotation, module, imports_by_binding, type_shapes=type_shapes
+    )
     if parameters is None:
         return None
     verdict = _combined_annotation_verdict(
