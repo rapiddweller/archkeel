@@ -1,0 +1,41 @@
+name: Audit actual structure-level ports
+on:
+  push:
+    branches: [verify/542-structure-level-ports]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fad36e2695de7587e09a87dd304fde7e586f009f
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Actual typed-port references and two-tree source size
+        run: |
+          python - <<'PY'
+          import ast, json, subprocess
+          from pathlib import Path
+          for path in sorted(Path("src/archkeel").rglob("*.py")):
+              text = path.read_text()
+              if not any(word in text for word in ("StructureLevel", "StructureMetric", "scope_metrics", ".level == \"component\"")):
+                  continue
+              tree = ast.parse(text)
+              for node in ast.walk(tree):
+                  if isinstance(node, (ast.ImportFrom, ast.Call, ast.Compare, ast.AnnAssign)):
+                      segment = ast.get_source_segment(text, node) or ""
+                      if any(word in segment for word in ("StructureLevel", "StructureMetric", "scope_metrics", ".level == \"component\"")):
+                          print("STRUCTURE_PORT_JSON", json.dumps({"path":str(path),"line":node.lineno,"source":segment[:1200]}))
+          rows = subprocess.check_output(["git","diff","--numstat","950520fd126ca05744c19066bb28ccbef5627964","HEAD","--","src/archkeel"], text=True).splitlines()
+          additions = deletions = files = 0
+          for row in rows:
+              added, removed, path = row.split("\t",2)
+              if added.isdecimal() and removed.isdecimal():
+                  additions += int(added)
+                  deletions += int(removed)
+                  files += 1
+          print("ACTUAL_TWO_TREE_SOURCE_SIZE_JSON",json.dumps({"base":"950520fd126ca05744c19066bb28ccbef5627964","source":"fad36e2695de7587e09a87dd304fde7e586f009f","files":files,"additions":additions,"deletions":deletions}))
+          PY
