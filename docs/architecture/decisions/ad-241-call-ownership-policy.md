@@ -65,7 +65,7 @@ member mutation, missing scope, stale/missing capabilities, mounted rules and
 known FAIL beside UNKNOWN. This slice does not retire any EE checker until
 its full supported forms and installed-release evidence are equivalent.
 
-Native verification tightened the original 837 unresolved-call ceiling to 833.
+Native verification tightened the original 837 unresolved-call ceiling to 832.
 The canonical baseline remains authoritative; the 52 typing-position ceiling remains.
 Closed attribute scopes for `CallOwnerRule` and `CallBinding` remain strict;
 required positions need positive proof, with no additional UNKNOWN allowance.

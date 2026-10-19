@@ -878,11 +878,11 @@ def _atlas_content(
 def _atlas_document(
     result: RunResult,
     observation: Observation,
+    report: ArchitectureReport,
     *,
     repository: str,
     architecture_href: str,
 ) -> bytes:
-    report = architecture_report(observation)
     projection = result.architecture_projection
     if projection is None or projection.source != observation.source:
         raise ValueError("Atlas requires its matching authenticated Core projection")
@@ -975,18 +975,35 @@ def render_architecture_details(
     if result.architecture_projection.source != observation.source:
         raise ValueError("Atlas requires its matching authenticated Core projection")
     report = architecture_report(observation)
+    return _architecture_details(
+        result,
+        observation,
+        report,
+        result.architecture_projection,
+        repository=repository,
+        architecture_href=architecture_href,
+    )
+
+
+def _architecture_details(
+    result: RunResult,
+    observation: Observation,
+    report: ArchitectureReport,
+    projection: ArchitectureProjection,
+    *,
+    repository: str,
+    architecture_href: str,
+) -> dict[str, bytes]:
     target_modules = (
         tuple(item.id for item in report.target.entities if item.kind == _EntityKind.MODULE)
         if report.target
         else ()
     )
     data = json.loads(_html_report_bytes(report))
-    data["boundary_permissions"] = boundary_permissions_payload(
-        observation, report, result.architecture_projection
-    )
+    data["boundary_permissions"] = boundary_permissions_payload(observation, report, projection)
     data["initial_view"] = "diagram"
     data["navigation"] = _component_navigation(
-        result.architecture_projection,
+        projection,
         module_exploration(observation, report=report),
         tuple(
             item.id
@@ -1831,7 +1848,11 @@ def render_architecture_html(
     observation = parse_observation(decode_canonical_model(json.loads(architecture_json)))
     if result.report_filter is None and result.architecture_projection is not None:
         return _atlas_document(
-            result, observation, repository=repository, architecture_href=architecture_href
+            result,
+            observation,
+            architecture_report(observation),
+            repository=repository,
+            architecture_href=architecture_href,
         )
     return render_html(
         replace(
@@ -1843,3 +1864,45 @@ def render_architecture_html(
         repository=repository,
         architecture_href=architecture_href,
     )
+
+
+def render_architecture_pages(
+    result: RunResult,
+    architecture_json: bytes,
+    *,
+    repository: str,
+    architecture_href: str,
+) -> tuple[tuple[str, bytes], ...]:
+    """Render the main and detail pages from one strictly decoded observation."""
+    filename = f"{_PurePosixPath(architecture_href).stem}.report.html"
+    if result.report_filter is not None or result.architecture_projection is None:
+        return (
+            (
+                filename,
+                render_architecture_html(
+                    result,
+                    architecture_json,
+                    repository=repository,
+                    architecture_href=architecture_href,
+                ),
+            ),
+        )
+    observation = parse_observation(decode_canonical_model(json.loads(architecture_json)))
+    report = architecture_report(observation)
+    main = _atlas_document(
+        result,
+        observation,
+        report,
+        repository=repository,
+        architecture_href=architecture_href,
+    )
+    pages = _architecture_details(
+        result,
+        observation,
+        report,
+        result.architecture_projection,
+        repository=repository,
+        architecture_href=architecture_href,
+    )
+    pages[filename] = main
+    return tuple(pages.items())

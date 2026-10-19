@@ -45,7 +45,7 @@ def test_unannotated_class_fields_keep_visibility_and_definition_evidence(tmp_pa
     assert all(e.annotation is None and e.evidence_ids for e in fields.values())
     assert all(e.modifiers == ("static",) for e in fields.values())
     assert parse_graph(decode_json(graph_bytes(graph))) == graph
-    assert [c.status for c in _coverage(graph, "sample.model.Data", "attribute")] == ["partial"]
+    assert [c.status for c in _coverage(graph, "sample.model.Data", "attribute")] == ["complete"]
     assert "FAIL" in {a.status for a in compare_graphs(graph, _target()).assessments}
 
 

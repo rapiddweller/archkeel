@@ -33,6 +33,7 @@ from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.model import ReportFilter, RunResult
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.report_projection import architecture_projection
+from archkeel.render import html as html_renderer
 from archkeel.render.html import render_architecture_html
 
 
@@ -3831,3 +3832,169 @@ def test_both_alias_permission_pairs_cannot_cross_selector_coordinates(tmp_path,
     )
     applied = payload["applied"][0]
     assert applied["declaration_id"] is None and applied["rationale"] is None
+
+
+@pytest.mark.parametrize(
+    "filter",
+    [
+        None,
+        ReportFilter(only_violations=True),
+        ReportFilter(only_calls=True),
+        ReportFilter(only_architecture=True),
+        ReportFilter(only_architecture=True, full_architecture=True),
+        ReportFilter(rule="R1"),
+        ReportFilter(component="core"),
+    ],
+)
+def test_pair_preserves_every_filter(tmp_path, filter):
+    model = _sample(tmp_path, uml=True)
+    result = replace(_result(model), report_filter=filter)
+    payload = canonical_report_bytes(model)
+    kw = dict(repository="One target", architecture_href="custom.name.json")
+    expected = html_renderer.render_architecture_details(result, payload, **kw)
+    expected["custom.name.report.html"] = html_renderer.render_architecture_html(
+        result, payload, **kw
+    )
+    assert html_renderer.render_architecture_pages(result, payload, **kw) == tuple(expected.items())
+
+
+def test_pair_without_projection_preserves_legacy_page(tmp_path):
+    model = _sample(tmp_path)
+    result = replace(_result(model), architecture_projection=None)
+    payload = canonical_report_bytes(model)
+    kw = dict(repository="One target", architecture_href="architecture.json")
+    assert html_renderer.render_architecture_pages(result, payload, **kw) == (
+        ("architecture.report.html", html_renderer.render_architecture_html(result, payload, **kw)),
+    )
+
+
+def test_pair_decodes_and_projects_once(tmp_path, monkeypatch):
+    model = _sample(tmp_path, uml=True)
+    result = _result(model)
+    payload = canonical_report_bytes(model)
+    calls = []
+    parse = html_renderer.parse_observation
+    graph = html_renderer.architecture_report
+
+    def decode(*args):
+        calls.append("decode")
+        return parse(*args)
+
+    def project(*args):
+        calls.append("graph")
+        return graph(*args)
+
+    monkeypatch.setattr(html_renderer, "parse_observation", decode)
+    monkeypatch.setattr(html_renderer, "architecture_report", project)
+    assert (
+        len(
+            html_renderer.render_architecture_pages(
+                result, payload, repository="One target", architecture_href="architecture.json"
+            )
+        )
+        == 2
+    )
+    assert calls == ["decode", "graph"]
+
+
+def test_pair_rejects_mismatched_projection(tmp_path):
+    model = _sample(tmp_path)
+    result = _result(model)
+    projection = result.architecture_projection
+    assert projection is not None
+    result = replace(
+        result,
+        architecture_projection=replace(
+            projection, source=replace(projection.source, source_digest="0" * 64)
+        ),
+    )
+    with pytest.raises(ValueError, match="matching authenticated Core projection"):
+        html_renderer.render_architecture_pages(
+            result,
+            canonical_report_bytes(model),
+            repository="One",
+            architecture_href="architecture.json",
+        )
+
+
+@pytest.mark.parametrize("payload", [b"{}", b"not JSON"])
+def test_pair_keeps_strict_decode(tmp_path, payload):
+    model = _sample(tmp_path)
+    result = _result(model)
+    with pytest.raises((ValueError, KeyError, TypeError)):
+        html_renderer.render_architecture_pages(
+            result, payload, repository="One", architecture_href="architecture.json"
+        )
+
+
+def test_cli_main_render_failure_publishes_no_html(tmp_path, monkeypatch, capsys):
+    root = _prepare_repo(tmp_path, {})
+    output = tmp_path / "published" / "architecture.json"
+
+    def fail_main(*_args, **_kwargs):
+        raise ValueError("injected main render failure")
+
+    monkeypatch.setattr(html_renderer, "_atlas_document", fail_main)
+    assert main(["report", "--root", str(root), "--output", str(output), "--json"]) == 2
+    assert "injected main render failure" in capsys.readouterr().out
+    assert output.is_file()
+    assert not tuple(output.parent.glob("*.html"))
+
+
+@pytest.mark.parametrize("open_map", [True, False])
+def test_paired_page_carrier_preserves_original_render_type_rule(tmp_path, open_map):
+    from test_analyzer import _component
+
+    from archkeel.ir.trace import trace_valid_violations
+
+    original = json.loads((Path(__file__).parents[1] / "architecture-contract.json").read_text())
+    rule = next(rule for rule in original["rules"] if rule["id"] == "RENDER-TYPES-DECLARED")
+    package = tmp_path / "archkeel/render"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("")
+    annotation = (
+        "dict[str, bytes]"
+        if open_map
+        else html_renderer.render_architecture_pages.__annotations__["return"]
+    )
+    (package / "html.py").write_text(
+        "def render_architecture_details() -> dict[str, bytes]: pass\n"
+        f"def render_architecture_pages() -> {annotation}: pass\n"
+    )
+    (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "2.1.0",
+                "components": [
+                    _component(
+                        "render",
+                        packages=["archkeel.render"],
+                        public=[
+                            "archkeel.render.html:render_architecture_details",
+                            "archkeel.render.html:render_architecture_pages",
+                        ],
+                    )
+                ],
+                "rules": [rule],
+            }
+        )
+    )
+    result = observe(
+        tmp_path,
+        roots=(".",),
+        namespace="archkeel",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+    assert result.observation is not None
+    violations = trace_valid_violations(result.observation)
+    assert len(violations) == int(open_map)
+    assert not [
+        record
+        for record in result.observation.records("unknowns") or ()
+        if record.kind == "boundary_type_position"
+    ]
+    assert not result.diagnostics

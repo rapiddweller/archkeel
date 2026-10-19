@@ -31,6 +31,8 @@ native source evidence and conservative UNKNOWNs.
 - **Less repeated collector work.** Python collectors share lexical indexes within
   one parsed snapshot while resolving import bindings live. Changed compiler inputs
   rebuild the index; binding decisions are not cached.
+  Main and detail HTML share one strictly decoded observation and report projection;
+  existing entry points and page bytes remain compatible.
 
 ## Upgrade from 4.0.1
 

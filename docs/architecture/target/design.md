@@ -182,8 +182,16 @@ compatibility in their authoritative native entries. These are the required seam
 | CLI → Check | Existing `run_report`, `run_saved_report`, `run_check`, `run_validate`, `run_init`; retain `RunResult`, canonical bytes and `FilesToWrite` outputs. Distinguish invalid input, violations and missing evidence. |
 | Check workflows → observation / Host ports | Existing `Analyzer` is the workflow observation callable returning `ObservationResult`; `Host` returns records or ordering evidence/error. Check does not import concrete adapters. Unauthenticated evidence remains unproven. |
 | Check observation → injected collector | Check-owned `Observer` calls `SourceCollector.collect(CollectionRequest) -> SourceFacts | CollectionError`. CLI injects the collector implementation; retain timeout/output bounds, response validation and child cleanup. |
-| CLI → Render | HTML consumes `RunResult` and optional `Observation`, returning bytes. Terminal consumes the existing typed result/summary. Neither changes verdicts. |
+| CLI → Render | `render_architecture_pages(RunResult, bytes, *, repository: str, architecture_href: str)` returns ordered immutable filename/bytes pairs after one strict decode/projection. Terminal consumes the existing typed result/summary. Neither changes verdicts. |
 | Browser Explorer → projection/layout | Reuse typed scene/layout ports. Specify shared state and cancellation ownership; no new route codec or state model without a demonstrated need. |
+
+The paired renderer prepares the entire HTML set before the caller writes it.
+Malformed observations fail before publication; atlas pages additionally require
+a matching authenticated Core projection. Filtered or no-projection output keeps
+legacy behavior. Filesystem writes remain caller-owned. Existing single-page APIs and page bytes
+remain compatible. Alex accepted the exact two-name-to-one migration to
+`archkeel.render.html:render_architecture_pages`: CLI → Render falls from eight
+accepted names to seven, at the unchanged ceiling seven (AD-99).
 
 `FilesToWrite` deliberately replaces its Python `Mapping` API with a frozen value:
 `entries: tuple[tuple[str, bytes], ...]`. Producers retain insertion order and exact
@@ -368,20 +376,21 @@ Accept only a frozen candidate with complete scope, zero required UNKNOWNs,
 no diagnostics or violations, and passing relevant Core/report/browser,
 packaging and final-head CI checks. Earlier receipts do not validate later code.
 The 120-second report ceiling and 52 typing-position ceiling remain unchanged.
-The native writer tightened unresolved calls from 837 to 833 without `--accept-new`;
-that tighter ceiling remains binding.
+The native writer tightened unresolved calls from 837 to 832 without `--accept-new`;
+that tighter ceiling remains binding alongside the paired-render migration.
 Microbenchmarks do not establish whole-report acceptance.
 
 Preserve every original field of 921 UML entities, exclusions and 121 original
 rules. The accepted Mapping replacement removes only its obsolete constructor-map
 allowance and corrects the rationale. Nine Python contracts add four constraints
-and 153 entities, including the call-owner model and lexical-index port;
+and 154 entities, including the call-owner model, lexical index and paired-render port;
 one separate browser contract adds five owners and one rule.
 The original 59-to-58 scope reconciliation is not an evidence gain.
 
 The target requires both `collect → collect_response → _exchange` edges. Native
 positive and missing-edge controls prove the migration. Its bound amendment also
-names the accepted Mapping API replacement and exactly approved provider port.
+names the accepted Mapping API replacement and exactly approved provider and
+paired-render port migrations.
 The baseline ratchet reduces required UNKNOWNs from 58 to zero without
 `--accept-new`; every other ceiling remains in force.
 

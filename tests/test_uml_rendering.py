@@ -5,6 +5,7 @@
 
 import json
 from dataclasses import asdict
+from unittest.mock import Mock
 
 import pytest
 from browser_report_support import _browser_page, _open_details
@@ -1054,10 +1055,39 @@ def _open_module(page, view):
 
 
 def _wait_for_layout(page):
-    page.wait_for_function(
-        "() => ['ready', 'error'].includes(document.querySelector('#flow')?.dataset.layoutState)"
-    )
-    assert page.locator("#flow").get_attribute("data-layout-state") == "ready"
+    try:
+        page.wait_for_function(
+            "() => ['ready', 'error'].includes("
+            "document.querySelector('#flow')?.dataset.layoutState)"
+        )
+        assert page.locator("#flow").get_attribute("data-layout-state") == "ready"
+    except Exception as error:
+        try:
+            snapshot = page.wait_for_function(
+                """() => JSON.stringify({
+                  state: document.querySelector('#flow')?.dataset.layoutState?.slice(0, 32),
+                  breadcrumb: document.querySelector('.flow-breadcrumb')
+                    ?.textContent?.slice(0, 512),
+                  scope: window.ArchkeelFlow?.state()?.scope?.slice(0, 256),
+                  nodes: document.querySelectorAll('.flow-nodes > g').length,
+                  edges: document.querySelectorAll('.flow-edges .edge').length
+                })""",
+                timeout=1000,
+            ).json_value()
+            error.add_note(f"Layout failure snapshot: {snapshot}")
+        except Exception:
+            # A closed or stalled browser must not replace the original test failure.
+            pass
+        raise
+
+
+def test_layout_diagnostics_preserve_failure_when_browser_is_unavailable():
+    original = TimeoutError("original layout deadline")
+    page = Mock()
+    page.wait_for_function.side_effect = [original, RuntimeError("browser closed")]
+    with pytest.raises(TimeoutError) as caught:
+        _wait_for_layout(page)
+    assert caught.value is original
 
 
 @pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])

@@ -1101,6 +1101,57 @@
             ],
             "returns": "Summary"
           }
+        },
+        {
+          "id": "COMPACT-RENDER-ARCHITECTURE-PAGES",
+          "kind": "function",
+          "qualified_name": "archkeel.render.html.render_architecture_pages",
+          "language": "python",
+          "presence": "planned",
+          "parent_id": "RENDER-UML-html",
+          "responsibilities": [
+            "Strictly decode one observation and, for atlas pages, require its matching authenticated Core projection and share one report graph across main and detail pages. Return immutable detail-before-main filename/bytes pairs; callers own publication. Reject malformed observations and mismatched atlas source evidence before returning pages. Filtered or no-projection output preserves legacy rendering behavior and entry points."
+          ],
+          "provenance": [
+            "docs/architecture/target/design.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "result",
+                "annotation": "RunResult",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "architecture_json",
+                "annotation": "bytes",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "repository",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default": null,
+                "default_known": true
+              },
+              {
+                "name": "architecture_href",
+                "annotation": "str",
+                "kind": "keyword_only",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "tuple[tuple[str, bytes], ...]"
+          },
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          }
         }
       ],
       "relationships": [

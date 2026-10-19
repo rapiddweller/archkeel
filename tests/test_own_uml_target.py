@@ -337,6 +337,11 @@ def test_own_filtered_calls_keep_clear_routes_and_readable_arrow_endpoints(
             * Math.hypot(label.getScreenCTM().a, label.getScreenCTM().b) >= 12)
         """)
         assert not errors
+    except Exception as error:
+        error.add_note(
+            f"Browser errors before failure: {[message[:300] for message in errors[-10:]]}"
+        )
+        raise
     finally:
         browser.close()
         playwright.stop()
