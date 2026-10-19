@@ -825,10 +825,7 @@ def unproven_class_body(
     for child in node.body:
         if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef) and (
             child.name in {"__init_subclass__", "__class_getitem__"}
-            or (
-                child not in properties
-                and method_descriptor(module, child, node).signature_decorators_proven is not True
-            )
+            or (child not in properties and _method_signature(module, child, node)[1] is not True)
         ):
             return True
         if (
@@ -988,11 +985,11 @@ _METHOD_DECORATORS: Final[dict[str, MethodKind | None]] = {
 }
 
 
-def method_descriptor(
+def _method_signature(
     module: ParsedModule,
     node: ast.FunctionDef | ast.AsyncFunctionDef,
     parent: ast.ClassDef | None,
-) -> MethodDescriptor:
+) -> tuple[MethodKind, bool]:
     method_kind = MethodKind.INSTANCE
     signature_proven = True
     descriptor_count = 0
@@ -1008,6 +1005,15 @@ def method_descriptor(
                 descriptor_count += 1
                 if effect in (MethodKind.STATIC, MethodKind.CLASS):
                     method_kind = effect
+    return method_kind, signature_proven and descriptor_count <= 1
+
+
+def method_descriptor(
+    module: ParsedModule,
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+    parent: ast.ClassDef | None,
+) -> MethodDescriptor:
+    method_kind, signature_proven = _method_signature(module, node, parent)
     properties = property_bindings(module, parent) if parent is not None else {}
     binding = properties.get(node)
     if (
@@ -1018,7 +1024,7 @@ def method_descriptor(
         binding = None
     return MethodDescriptor(
         method_kind,
-        signature_proven and descriptor_count <= 1,
+        signature_proven,
         not node.decorator_list
         and parent is not None
         and parent in module.tree.body
@@ -1098,11 +1104,8 @@ def _class_members_receive_owner(module: ParsedModule, owner: ast.ClassDef) -> b
         if exposes_dynamic_namespace(module, node, local_namespace=True):
             return True
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            if method_descriptor(
-                module, node, owner
-            ).signature_decorators_proven is not True and node not in property_bindings(
-                module, owner
-            ):
+            _, signature_proven = _method_signature(module, node, owner)
+            if signature_proven is not True and node not in property_bindings(module, owner):
                 return True
         elif isinstance(node, ast.ClassDef):
             if not class_header_static(node) or node.bases:
@@ -1434,7 +1437,7 @@ def _contained_member_roots(
     *,
     owner_exposure_only: bool = False,
     unsafe_providers: AbstractSet[str] = frozenset(),
-) -> set[tuple[str, str]]:
+) -> tuple[set[tuple[str, str]], set[str]]:
     if nodes is module.all_nodes:
         owners = module._contained_owners
         contained = set(module._static_containment)
@@ -1453,15 +1456,14 @@ def _contained_member_roots(
         if isinstance(target, ast.Name) and isinstance(target.ctx, ast.Load)
     }
     # Native functions expose their defining namespace, including through a class's methods.
-    namespace = frozenset(module.scope_bound_names)
     uncertain_bases = member_binding_closure(
         nodes,
         module.incoming_member_escapes,
         member_surface=True,
         local_references=setter_local_references(module),
     )
-    contained |= {
-        (name, binding)
+    namespace_owners = {
+        name
         for name, owner in owners
         if (
             owner_exposure_only
@@ -1481,9 +1483,8 @@ def _contained_member_roots(
             isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda)
             for node in ast.walk(owner)
         )
-        for binding in namespace
     }
-    return contained
+    return contained, namespace_owners
 
 
 def unproven_member_bindings(
@@ -1541,7 +1542,7 @@ def _member_binding_roots(
         unsafe_providers=unsafe_providers,
         include_creation_uncertainty=include_creation_uncertainty,
     )
-    contained = (
+    contained, namespace_owners = (
         _contained_member_roots(
             module,
             nodes,
@@ -1549,7 +1550,7 @@ def _member_binding_roots(
             unsafe_providers=unsafe_providers,
         )
         if member_surface
-        else set()
+        else (set(), set())
     )
     if member_surface:
         changed_members |= module.incoming_member_escapes if incoming is None else incoming
@@ -1559,6 +1560,8 @@ def _member_binding_roots(
         member_surface=member_surface,
         contained=contained,
         local_references=setter_local_references(module) if member_surface else frozenset(),
+        namespace_owners=namespace_owners,
+        namespace_bindings=frozenset(module.scope_bound_names) if member_surface else frozenset(),
     )
     changed_origins: set[str] = set()
     for node in nodes:
@@ -1588,8 +1591,12 @@ def member_binding_closure(
     member_surface: bool,
     contained: AbstractSet[tuple[str, str]] = frozenset(),
     local_references: AbstractSet[ast.AST] = frozenset(),
+    namespace_owners: AbstractSet[str] = frozenset(),
+    namespace_bindings: AbstractSet[str] = frozenset(),
 ) -> set[str]:
     changed_members = set(roots)
+    if not changed_members:
+        return changed_members
     aliases = {
         (target.id, value.id)
         for node in nodes
@@ -1603,15 +1610,30 @@ def member_binding_closure(
         for value in ast.walk(node.value)
         if isinstance(value, ast.Name) and value not in local_references
     }
-    while (
-        additions := (
-            {value for name, value in aliases if name in changed_members}
-            | {name for name, value in aliases if value in changed_members}
-            | {value for owner, value in contained if owner in changed_members}
-        )
-        - changed_members
-    ):
-        changed_members |= additions
+    adjacent: dict[str, set[str]] = {}
+    for name, value in aliases:
+        names: set[str] = adjacent.setdefault(name, set())
+        names.add(value)
+        values: set[str] = adjacent.setdefault(value, set())
+        values.add(name)
+    for owner, value in contained:
+        children: set[str] = adjacent.setdefault(owner, set())
+        children.add(value)
+    pending = list(changed_members)
+    namespace_expanded = False
+    while pending:
+        current = pending.pop()
+        if not namespace_expanded and current in namespace_owners:
+            # Every exposing owner reaches the same namespace; expand this fanout once.
+            namespace_expanded = True
+            for binding in namespace_bindings:
+                if binding not in changed_members:
+                    changed_members.add(binding)
+                    pending.append(binding)
+        for value in adjacent.get(current, ()):
+            if value not in changed_members:
+                changed_members.add(value)
+                pending.append(value)
     return changed_members
 
 
@@ -1969,7 +1991,7 @@ def _unproven_member_roots(
                 )
                 or isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
                 and node not in properties
-                and method_descriptor(module, node, None).signature_decorators_proven is not True
+                and _method_signature(module, node, None)[1] is not True
             )
         }
         if member_surface and include_creation_uncertainty

@@ -306,8 +306,7 @@ class LexicalScopes(ast.NodeVisitor):
             )
         if any(
             isinstance(site, ast.ImportFrom) and any(alias.name == "*" for alias in site.names)
-            for sites in owner.bindings.values()
-            for site in sites
+            for site in owner.bindings.get("*", ())
         ):
             return NameBinding(owner)
         return NameBinding(owner, kind=BindingKind.UNBOUND)

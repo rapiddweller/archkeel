@@ -35,9 +35,18 @@ native source evidence and conservative UNKNOWNs.
   do not. Missing target proof stays UNKNOWN. Declared receivers prove a static
   boundary, not runtime dispatch. Saved receipts bind the exact evaluation claim
   and observation version; copying a receipt cannot certify a different scope.
-- **Less repeated collector work.** Python collectors share lexical indexes within
+- **Less repeated analysis work.** Python collectors share lexical indexes within
   one parsed snapshot while resolving import bindings live. Changed compiler inputs
   rebuild the index; binding decisions are not cached.
+  Member escapes use a worklist instead of repeated full-edge scans. Nested record
+  data is validated once before immutable conversion. Producers and consumers retain
+  full response validation without reparsing the producer's own JSON output.
+  Core indexes uncertain re-exports, static field routes and module ownership once
+  per evaluation pass instead of rescanning them for each symbol or import.
+  Immutable symbol records are reused instead of being constructed twice.
+  Report projections reuse module ownership within each snapshot; import cells
+  preselect applicable rule kinds and index coverage by module without changing proof.
+  Scope-specific decisions and mutable escape proofs remain separate.
   Main and detail HTML share one strictly decoded observation and report projection;
   existing Python entry points retain their behavior. Browser assets are republished
   as a checked first-party bundle after the canonical vendor.

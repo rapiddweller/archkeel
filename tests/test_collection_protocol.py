@@ -384,6 +384,56 @@ def test_source_response_is_immutable_and_preserves_alternate_parser_identity() 
         response.facts.coverage.files_read = 0
 
 
+@pytest.mark.parametrize("version", ["1.0.0", "2.0.0", "3.0.0", "4.0.0"])
+def test_response_encoder_validates_without_reparsing_its_json(version):
+    from unittest.mock import patch
+
+    from archkeel.ir.facts_codec import decode_response, encode_response
+    from archkeel.ir.protocol import CollectionResponse
+
+    response = CollectionResponse(decode_response(json.dumps(_response()).encode()).facts, version)
+    with patch("archkeel.ir.facts_codec._decode", side_effect=AssertionError("JSON reparse")):
+        encoded = encode_response(response)
+    assert decode_response(encoded) == response
+    assert (
+        encoded
+        == json.dumps(
+            json.loads(encoded), ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode()
+    )
+
+
+@pytest.mark.parametrize("version", ["1.0.0", "2.0.0", "3.0.0", "4.0.0"])
+def test_response_encoder_still_rejects_invalid_facts_without_json_reparse(version):
+    from dataclasses import replace
+    from unittest.mock import patch
+
+    from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
+    from archkeel.ir.protocol import CollectionResponse
+
+    facts = decode_response(json.dumps(_response()).encode()).facts
+    invalid = replace(facts, coverage=replace(facts.coverage, files_parsed=999))
+    with (
+        patch("archkeel.ir.facts_codec._decode", side_effect=AssertionError("JSON reparse")),
+        pytest.raises(ProtocolError, match="impossible collection coverage counts"),
+    ):
+        encode_response(CollectionResponse(invalid, version))
+
+
+def test_nested_record_freezing_validates_each_json_value_once():
+    from unittest.mock import patch
+
+    from archkeel.ir import facts_codec
+
+    raw = {"value": 1}
+    for _ in range(32):
+        raw = {"nested": raw}
+    with patch.object(facts_codec, "_json_value", wraps=facts_codec._json_value) as validate:
+        frozen = facts_codec.freeze_data(raw)
+    assert validate.call_count == 34
+    assert facts_codec.thaw_data(frozen) == raw
+
+
 def test_legacy_response_defaults_runtime_state_and_roundtrips_as_legacy() -> None:
     from archkeel.ir.facts_codec import decode_response, encode_response
 
@@ -743,3 +793,100 @@ def test_list_shape_rejects_malformed_fields_in_codec_and_schema(invalid: str) -
     )
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.Draft202012Validator(schema).validate(raw)
+
+
+def test_record_freezing_validates_the_envelope_and_data_in_one_walk():
+    from unittest.mock import patch
+
+    from archkeel.ir import facts_codec
+
+    record = _response()["facts"]["sections"][0]["records"][0]
+    record["data"] = {"items": [{"nested": [1, True, None, "text"]}]}
+
+    def values(value):
+        children = (
+            value.values() if isinstance(value, dict) else value if isinstance(value, list) else ()
+        )
+        return 1 + sum(values(child) for child in children)
+
+    with patch.object(facts_codec, "_json_value", wraps=facts_codec._json_value) as validate:
+        parsed = facts_codec.parse_record(record)
+    assert validate.call_count == values(record)
+    assert facts_codec.record_payload(parsed) == record
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [(1,), {1: "value"}, float("nan"), float("inf"), object()],
+    ids=["tuple", "nonstring-key", "nan", "infinity", "object"],
+)
+def test_owned_response_path_keeps_raw_parser_and_encoder_validation(bad, monkeypatch):
+    import copy
+
+    from archkeel.ir import facts_codec as codec
+
+    raw = _response()
+    record = raw["facts"]["sections"][0]["records"][0]
+    record["data"]["poison"] = bad
+    with pytest.raises(codec.ProtocolError):
+        codec.parse_record(record)
+    evidence = copy.deepcopy(raw["facts"]["evidence"][0])
+    evidence["excerpt"] = bad
+    with pytest.raises((codec.ProtocolError, ValueError)):
+        codec.parse_evidence(evidence)
+    valid = codec.decode_response(json.dumps(_response()).encode())
+    original = codec._facts_payload
+
+    def poisoned(*args):
+        result = original(*args)
+        result["sections"][0]["records"][0]["data"]["poison"] = bad
+        return result
+
+    monkeypatch.setattr(codec, "_facts_payload", poisoned)
+    with pytest.raises((codec.ProtocolError, ValueError, TypeError)):
+        codec.encode_response(valid)
+
+
+def test_owned_decoder_does_not_recopy_validated_record_trees():
+    from unittest.mock import patch
+
+    from archkeel.ir import facts_codec as codec
+
+    raw = _response()
+    record = raw["facts"]["sections"][0]["records"][0]
+    record["data"]["nested"] = {"items": [1, "text"]}
+    with patch.object(codec, "_json_value", wraps=codec._json_value) as copy_tree:
+        decoded = codec.decode_response(json.dumps(raw).encode())
+    assert copy_tree.call_count == 0
+    assert codec.record_payload(decoded.facts.sections[0].records[0]) == record
+    with patch.object(codec, "_json_value", wraps=codec._json_value) as copy_tree:
+        public = codec.parse_record(record)
+    assert copy_tree.call_count > 0
+    record["data"]["nested"]["items"].append("later")
+    assert codec.record_payload(public)["data"]["nested"]["items"] == [1, "text"]
+
+
+def test_encoder_checks_owned_json_before_semantic_claims():
+    from dataclasses import replace
+
+    from archkeel.ir import facts_codec as codec
+    from archkeel.ir.model import RecordData
+
+    response = codec.decode_response(json.dumps(_response()).encode())
+    section = response.facts.sections[0]
+    record = section.records[0]
+    invalid = replace(
+        record,
+        data=RecordData((*record.data.entries, ("poison", RecordData(((1, "bad key"),))))),
+    )
+    facts = replace(
+        response.facts,
+        adapter=replace(response.facts.adapter, code_digest="invalid digest"),
+        sections=(
+            replace(section, records=(invalid, *section.records[1:])),
+            *response.facts.sections[1:],
+        ),
+    )
+    # Owned raw JSON must be valid before semantic claims such as the adapter digest are checked.
+    with pytest.raises(codec.ProtocolError, match="JSON fields must be strings"):
+        codec.encode_response(replace(response, facts=facts))

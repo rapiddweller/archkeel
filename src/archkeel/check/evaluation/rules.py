@@ -565,28 +565,30 @@ def _component_cycle_violations(
     cycle_scope_complete: bool = False,
     cycle_graph_components: tuple[str, ...] = (),
 ) -> list[RawRecord]:
-    rules = _cycle_rules(contract, None)
-    if not rules:
+    if not (rules := _cycle_rules(contract, None)):
         return []
     edge_imports: dict[tuple[str, str], list[RawRecord]] = defaultdict(list)
+    module_names = {item["data"]["qualified_name"] for item in modules} | {
+        module
+        for item in imports
+        for module in (item["data"]["source_module"], item["data"]["target_module"])
+    }
+    owners = {module: contract.component_for(module) for module in module_names}
     for item in imports:
-        source = contract.component_for(item["data"]["source_module"])
-        target = contract.component_for(item["data"]["target_module"])
+        source = owners[item["data"]["source_module"]]
+        target = owners[item["data"]["target_module"]]
         if source is not None and target is not None and source != target:
             edge_imports[(source.label, target.label)].append(item)
     labels = [component.label for component in contract.components]
     violations: list[RawRecord] = []
     for rule in rules:
-        selected = tuple(
-            sorted(
-                {
-                    component.label
-                    for module in modules
-                    if (component := contract.component_for(module["data"]["qualified_name"]))
-                    is not None
-                    and (rule.components is None or component.label in rule.components)
-                }
-            )
+        selected = sorted(
+            {
+                component.label
+                for module in modules
+                if (component := owners[module["data"]["qualified_name"]]) is not None
+                and (rule.components is None or component.label in rule.components)
+            }
         )
         if selected and assessment_facts is not None and rule.kind not in unsupported_rules:
             assessment_facts.append(
@@ -597,7 +599,7 @@ def _component_cycle_violations(
                     subjects=selected,
                     data={
                         "cycle_scope_complete": cycle_scope_complete,
-                        "cycle_scope_components": selected,
+                        "cycle_scope_components": tuple(selected),
                         "cycle_graph_components": cycle_graph_components,
                     },
                 )
@@ -991,7 +993,7 @@ def _boundary_type_subject_modules(
     decided subject for this one rule kind, and `rule_subject_failures` has to see that instead
     of reading an empty result as a clean pass.
     """
-    reexports = _reexport_index(imports)
+    reexports = _reexport_index(imports, uncertain_reexport_origins)
     property_chains = _property_chains(symbols)
     function_subjects = frozenset(
         module
@@ -1406,15 +1408,25 @@ def _requires_import_verdicts(
     dependency_symbols: bool = True,
 ) -> Iterator[tuple[RawRecord, ContractComponent, ContractComponent, _Verdict]]:
     """Share import selection and its owned permission decision with UNKNOWN reporting."""
-    for item in imports:
+    selected = (
+        imports
+        if source_modules is None
+        else [item for item in imports if item["data"]["source_module"] in source_modules]
+    )
+    module_names = {
+        module
+        for item in selected
+        for module in (item["data"]["source_module"], item["data"]["target_module"])
+    }
+    owners = {module: contract.component_for(module) for module in module_names}
+    for item in selected:
         data = item["data"]
-        source = contract.component_for(data["source_module"])
-        target = contract.component_for(data["target_module"])
+        source = owners[data["source_module"]]
+        target = owners[data["target_module"]]
         if (
             source is None
             or target is None
             or source == target
-            or (source_modules is not None and data["source_module"] not in source_modules)
             or (data["under_type_checking"] and not rule.include_type_checking)
         ):
             continue

@@ -210,6 +210,24 @@ def _json_value(value: object) -> RawJson:
     raise ProtocolError("message is not JSON")
 
 
+def _check_json_value(value: RawJson) -> None:
+    if isinstance(value, float) and not isfinite(value):
+        raise ProtocolError("JSON numbers must be finite")
+    if value is None or isinstance(value, str | bool | int | float):
+        return
+    if isinstance(value, list):
+        for item in value:
+            _check_json_value(item)
+        return
+    if isinstance(value, dict):
+        for key, item in sorted(value.items()):
+            if not isinstance(key, str):
+                raise ProtocolError("JSON fields must be strings")
+            _check_json_value(item)
+        return
+    raise ProtocolError("message is not JSON")
+
+
 def _decode(payload: bytes) -> RawJson:
     nonfinite = False
 
@@ -444,10 +462,24 @@ _EVIDENCE_KEYS = set(EVIDENCE_FIELDS)
 
 
 def freeze_data(raw: object, label: str = "data") -> RecordData:
-    value = _record_object(raw, label)
-    return RecordData(
-        tuple((key, freeze_value(item, f"{label}.{key}")) for key, item in sorted(value.items()))
-    )
+    return _freeze_object(_record_object(raw, label))
+
+
+def _freeze_object(raw: RawJson, label: str = "data") -> RecordData:
+    if not isinstance(raw, dict):
+        raise ProtocolError(f"{label} must be an object")
+    return RecordData(tuple((key, _freeze_validated(item)) for key, item in sorted(raw.items())))
+
+
+def _freeze_validated(raw: RawJson) -> JsonValue:
+    # _record_object already validates the whole tree, including nested keys and numbers.
+    if isinstance(raw, str):
+        return _builtins.str.__str__(raw)
+    if raw is None or isinstance(raw, (bool, int, float)):
+        return raw
+    if isinstance(raw, list):
+        return tuple(_freeze_validated(item) for item in raw)
+    return _freeze_object(raw)
 
 
 def freeze_value(raw: RawJson, label: str) -> JsonValue:
@@ -463,7 +495,12 @@ def freeze_value(raw: RawJson, label: str) -> JsonValue:
 
 
 def parse_record(raw: object, label: str = "record") -> Record:
-    item = _record_object(raw, label)
+    return _parsed_record(_record_object(raw, label), label)
+
+
+def _parsed_record(item: RawJson, label: str = "record") -> Record:
+    if not isinstance(item, dict):
+        raise ProtocolError(f"{label} must be an object")
     if set(item) != _RECORD_KEYS:
         raise ValueError(f"{label} fields mismatch")
     try:
@@ -489,7 +526,7 @@ def parse_record(raw: object, label: str = "record") -> Record:
         rule_ids=rule_ids,
         fact_ids=_record_strings(item["fact_ids"], f"{label}.fact_ids"),
         provenance=_record_strings(item["provenance"], f"{label}.provenance"),
-        data=freeze_data(item["data"], f"{label}.data"),
+        data=_freeze_object(item["data"], f"{label}.data"),
     )
 
 
@@ -500,7 +537,12 @@ def _position(raw: RawJson, label: str) -> int:
 
 
 def parse_evidence(raw: object, label: str = "evidence") -> Evidence:
-    item = _record_object(raw, label)
+    return _parsed_evidence(_record_object(raw, label), label)
+
+
+def _parsed_evidence(item: RawJson, label: str = "evidence") -> Evidence:
+    if not isinstance(item, dict):
+        raise ProtocolError(f"{label} must be an object")
     if set(item) != _EVIDENCE_KEYS:
         raise ValueError(f"{label} fields mismatch")
     line, end_line, column = (_position(item[key], label) for key in ("line", "end_line", "column"))
@@ -830,7 +872,7 @@ def _section(value: RawJson) -> FactSection:
     item = _object(value, {"name", "records"}, "section")
     return FactSection(
         _section_name(item["name"]),
-        tuple(parse_record(record) for record in _array(item["records"], "section.records")),
+        tuple(_parsed_record(record) for record in _array(item["records"], "section.records")),
     )
 
 
@@ -846,7 +888,7 @@ def _coverage(value: RawJson) -> CollectionCoverage:
         _count(item["files_read"], "coverage.files_read"),
         _count(item["files_parsed"], "coverage.files_parsed"),
         _boolean(item["full_scope"], "coverage.full_scope"),
-        tuple(parse_record(record) for record in _array(item["gaps"], "coverage.gaps")),
+        tuple(_parsed_record(record) for record in _array(item["gaps"], "coverage.gaps")),
     )
 
 
@@ -957,12 +999,12 @@ def _source_facts(value: RawJson, version: ProtocolVersion) -> SourceFacts:
         tuple(_target(entry) for entry in _array(item["imports"], "imports")),
         tuple(_section(entry) for entry in _array(item["sections"], "sections")),
         _coverage(item["coverage"]),
-        tuple(parse_evidence(entry) for entry in _array(item["evidence"], "evidence")),
+        tuple(_parsed_evidence(entry) for entry in _array(item["evidence"], "evidence")),
         tuple(uncertain),
         tuple(shapes),
-        parse_state_data(freeze_data(item["state"])),
+        parse_state_data(_freeze_object(item["state"])),
         tuple(
-            parse_evidence(entry)
+            _parsed_evidence(entry)
             for entry in _array(item["candidate_evidence"], "candidate evidence")
         ),
         tuple(
@@ -975,9 +1017,8 @@ def _source_facts(value: RawJson, version: ProtocolVersion) -> SourceFacts:
     return facts
 
 
-def decode_response(payload: bytes) -> CollectionResponse:
+def _response(decoded: RawJson) -> CollectionResponse:
     try:
-        decoded = _decode(payload)
         if not isinstance(decoded, dict):
             raise ProtocolError("response must be an object")
         version = _version(decoded.get("protocol_version"))
@@ -997,6 +1038,11 @@ def decode_response(payload: bytes) -> CollectionResponse:
         return CollectionResponse(facts, version, providers)
     except (ValueError, TypeError, KeyError, RecursionError) as error:
         raise ProtocolError(str(error)) from error
+
+
+def decode_response(payload: bytes) -> CollectionResponse:
+    # The decoder owns a JSON-only tree; internal parsers retain structure and semantic checks.
+    return _response(_decode(payload))
 
 
 def _provider_binding(value: RawJson) -> ProviderBinding:
@@ -1161,7 +1207,8 @@ def encode_response(response: CollectionResponse) -> bytes:
     payload = json.dumps(
         raw, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
     ).encode()
-    decode_response(payload)
+    _check_json_value(raw)
+    _response(raw)
     return payload
 
 

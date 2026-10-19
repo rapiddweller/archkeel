@@ -108,7 +108,7 @@ def _count(value: JsonValue) -> int | None:
 
 
 def _rule_applies(
-    declaration: Record | None,
+    declaration: Record,
     assessment: RuleAssessment,
     source: str,
     target: str,
@@ -120,13 +120,6 @@ def _rule_applies(
     scope_ids: dict[str, str],
     selections: dict[str, DependencySelection],
 ) -> bool:
-    if declaration is None or assessment.kind not in {
-        "complete_requires",
-        "forbidden_dependency",
-        "interface_boundary",
-        "sibling_isolation",
-    }:
-        return False
     if (
         site.data.get("under_type_checking") is True
         and declaration.data.get("include_type_checking", True) is False
@@ -234,6 +227,18 @@ def _cells(
         )
     }
     declarations = {item.id: item for item in model.records("declarations") or ()}
+    candidates = tuple(
+        item
+        for item in core_assessments.values()
+        if item.id in declarations
+        and item.kind
+        in {
+            "complete_requires",
+            "forbidden_dependency",
+            "interface_boundary",
+            "sibling_isolation",
+        }
+    )
     selections = _dependency_selections(declarations, intents, scope_ids)
     imports = {item.id: item for item in model.records("imports") or ()}
     weights = {
@@ -260,6 +265,7 @@ def _cells(
             model,
             report,
             core_assessments,
+            candidates,
             declarations,
             imports,
             memberships,
@@ -298,6 +304,7 @@ def _import_cell(
     model: Observation,
     report: ArchitectureReport,
     core_assessments: dict[str, RuleAssessment],
+    candidates: tuple[RuleAssessment, ...],
     declarations: dict[str, Record],
     imports: dict[str, Record],
     memberships: dict[str, set[str]],
@@ -321,10 +328,9 @@ def _import_cell(
             site_findings = tuple(item for item in findings if edge.id in item.graph_subject_ids)
             applicable = tuple(
                 assessment
-                for assessment in core_assessments.values()
-                if (declaration := declarations.get(assessment.id)) is not None
-                and _rule_applies(
-                    declaration,
+                for assessment in candidates
+                if _rule_applies(
+                    declarations[assessment.id],
                     assessment,
                     modules[source],
                     modules[target],
@@ -496,17 +502,23 @@ def _statistic(
         _count(record.data.get("fan_out")) if complete else None,
         _count(record.data.get("rank")),
         tuple(sorted(entity.evidence_ids)),
-        tuple(item for item in coverage if item.scope_id == entity.id and item.entity_kinds),
+        coverage,
     )
+
+
+def _coverage_by_module(coverage: tuple[Coverage, ...]) -> dict[str, tuple[Coverage, ...]]:
+    entries: dict[str, list[Coverage]] = defaultdict(list)
+    for item in coverage:
+        if item.entity_kinds:
+            bucket: list[Coverage] = entries[item.scope_id]
+            bucket.append(item)
+    return {scope: tuple(items) for scope, items in entries.items()}
 
 
 def module_exploration(
     model: Observation, *, report: ArchitectureReport | None = None
 ) -> tuple[ModuleExploreLevel, ...]:
-    """Read authenticated memberships; supplied reports must match this observation.
-
-    Hints stay provisional and do not establish policy.
-    """
+    """Read authenticated memberships from a matching report; hints remain provisional."""
     if report is None:
         report = architecture_report(model)
     if report.observed is None:
@@ -520,16 +532,23 @@ def module_exploration(
                 report.unavailable or "Authenticated Target is unavailable.",
             ),
         )
+    modules = tuple(
+        item
+        for item in report.observed.entities
+        if item.kind == EntityKind.MODULE and item.presence == PresenceKind.DEFINED
+    )
+    records = {item.id: item for item in model.records("modules") or ()}
+    coverage_by_scope = _coverage_by_module(report.observed.coverage)
     if report.target is None:
-        records = {item.id: item for item in model.records("modules") or ()}
         return (
             ModuleExploreLevel(
                 None,
                 (),
                 tuple(
-                    _statistic(item, records[item.id], (), (), False, report.observed.coverage)
-                    for item in sorted(report.observed.entities, key=lambda item: item.id)
-                    if item.kind == EntityKind.MODULE and item.presence == PresenceKind.DEFINED
+                    _statistic(
+                        item, records[item.id], (), (), False, coverage_by_scope.get(item.id, ())
+                    )
+                    for item in sorted(modules, key=lambda item: item.id)
                 ),
                 _cells(model, report, {}),
                 AssessmentStatus.UNKNOWN,
@@ -539,12 +558,6 @@ def module_exploration(
     observed, target = report.observed, report.target
     intents = {item.component_id: item for item in target.component_intents}
     scope_ids, owners = _scope_owners(model, intents)
-    modules = tuple(
-        item
-        for item in observed.entities
-        if item.kind == EntityKind.MODULE and item.presence == PresenceKind.DEFINED
-    )
-    records = {item.id: item for item in model.records("modules") or ()}
     memberships = {item.component_id: set(item.module_ids) for item in report.memberships}
     cells = _cells(model, report, scope_ids)
     complete = _imports_complete(model, observed, modules, cells)
@@ -568,6 +581,7 @@ def module_exploration(
             complete,
             observed,
             cells,
+            coverage_by_scope,
         )
         levels.append(level)
     root = next(level for level in levels if level.parent_id is None)
@@ -725,6 +739,7 @@ def _module_level(
     complete: bool,
     observed: ArchitectureGraph,
     cells: tuple[ModuleImportCell, ...],
+    coverage_by_scope: dict[str, tuple[Coverage, ...]],
 ) -> ModuleExploreLevel:
     selected = tuple(
         item for item in modules if parent is None or item.id in memberships.get(parent, set())
@@ -742,7 +757,14 @@ def _module_level(
             )
         )
         statistics.append(
-            _statistic(module, records[module.id], members, candidates, complete, observed.coverage)
+            _statistic(
+                module,
+                records[module.id],
+                members,
+                candidates,
+                complete,
+                coverage_by_scope.get(module.id, ()),
+            )
         )
     ordered = _ordered_statistics(statistics, groups)
     selected_ids = {item.id for item in selected}

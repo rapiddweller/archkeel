@@ -23,6 +23,15 @@ from archkeel.analyzer.python.source import (
 from archkeel.ir.decisions import rule_assessments, unknown_positions_by_rule
 
 
+def _expanded_member_containment(
+    module, nodes, *, owner_exposure_only=False, unsafe_providers=frozenset()
+):
+    edges, owners = source._contained_member_roots(
+        module, nodes, owner_exposure_only=owner_exposure_only, unsafe_providers=unsafe_providers
+    )
+    return edges | {(owner, name) for owner in owners for name in module.scope_bound_names}
+
+
 @pytest.mark.parametrize(
     ("expression", "initial", "first", "second"),
     [
@@ -131,6 +140,49 @@ def test_symbol_collection_reuses_proofs_only_within_one_invocation() -> None:
     assert all(item["status"] == "complete" for item in first["member_inventories"])
 
 
+@pytest.mark.parametrize("member_surface", [False, True])
+def test_member_closure_preserves_alias_direction_and_live_inputs(member_surface):
+    nodes = tuple(ast.walk(ast.parse("Alias = Original\nMember = Alias.value\n")))
+    contained = {("Container", "Alias"), ("Alias", "Nested"), ("Nested", "Container")}
+    roots = {"Original", "Absent"}
+    expected = {"Original", "Alias", "Nested", "Container", "Absent"}
+    if member_surface:
+        expected.add("Member")
+    assert (
+        source.member_binding_closure(
+            nodes, roots, member_surface=member_surface, contained=contained
+        )
+        == expected
+    )
+    assert roots == {"Original", "Absent"}
+    assert source.member_binding_closure(nodes, {"Alias"}, member_surface=False) == {
+        "Alias",
+        "Original",
+    }
+    assert source.member_binding_closure(
+        nodes, {"Nested"}, member_surface=member_surface, contained={("Alias", "Nested")}
+    ) == {"Nested"}
+    assert (
+        source.member_binding_closure(
+            nodes, set(), member_surface=member_surface, contained=contained
+        )
+        == set()
+    )
+
+
+@pytest.mark.parametrize("local_name", ["Alias", "Original"])
+def test_member_closure_keeps_setter_local_references_excluded(local_name):
+    nodes = tuple(ast.walk(ast.parse("Alias = Original\n")))
+    local = {node for node in nodes if isinstance(node, ast.Name) and node.id == local_name}
+    assert source.member_binding_closure(
+        nodes, {"Original"}, member_surface=True, local_references=local
+    ) == {"Original"}
+    assert source.member_binding_closure(nodes, {"Original"}, member_surface=True) == {
+        "Original",
+        "Alias",
+    }
+
+
 def test_static_member_indexes_keep_alias_and_type_proofs_live():
     from archkeel.analyzer.python.imports import collect_imports
 
@@ -145,20 +197,20 @@ def test_static_member_indexes_keep_alias_and_type_proofs_live():
         node.target.id: node.value for node in module.tree.body if isinstance(node, ast.AnnAssign)
     }
     owners, static = module._contained_owners, module._static_containment
-    first = source._contained_member_roots(module, module.all_nodes)
+    first = _expanded_member_containment(module, module.all_nodes)
     assert ("Alias", "Left") not in first and ("Handler", "Right") not in first
     module._proven_map_union_expressions = frozenset({values["Alias"]})
-    second = source._contained_member_roots(module, module.all_nodes)
+    second = _expanded_member_containment(module, module.all_nodes)
     assert {("Alias", "Left"), ("Alias", "Right")} <= second - first
     module._proven_callable_expressions = frozenset({values["Handler"]})
-    third = source._contained_member_roots(module, module.all_nodes)
+    third = _expanded_member_containment(module, module.all_nodes)
     assert {("Handler", "Left"), ("Handler", "Right")} <= third - second
     module.aliases["TypeAlias"] = AliasBinding("opaque.TypeAlias", ImportKind.SYMBOL)
-    assert source._contained_member_roots(module, module.all_nodes) == first
+    assert _expanded_member_containment(module, module.all_nodes) == first
     module.aliases["TypeAlias"] = AliasBinding("typing.TypeAlias", ImportKind.SYMBOL)
     module._proven_map_union_expressions = frozenset()
     module._proven_callable_expressions = frozenset()
-    assert source._contained_member_roots(module, module.all_nodes) == first
+    assert _expanded_member_containment(module, module.all_nodes) == first
     assert module._contained_owners is owners and module._static_containment is static
 
 
@@ -170,34 +222,30 @@ def test_static_member_indexes_keep_namespace_and_provider_uncertainty_live():
     )
     collect_imports([module], {module.module}, {}, namespace="sample")
     owners, static = module._contained_owners, module._static_containment
-    first = source._contained_member_roots(module, module.all_nodes, owner_exposure_only=True)
+    first = _expanded_member_containment(module, module.all_nodes, owner_exposure_only=True)
     assert ("Record", "sentinel") not in first
-    unsafe = source._contained_member_roots(
+    unsafe = _expanded_member_containment(
         module, module.all_nodes, owner_exposure_only=True, unsafe_providers=frozenset({"typing"})
     )
     assert ("Record", "sentinel") in unsafe - first
-    assert (
-        source._contained_member_roots(module, module.all_nodes, owner_exposure_only=True) == first
-    )
+    assert _expanded_member_containment(module, module.all_nodes, owner_exposure_only=True) == first
     module.incoming_member_escapes.add("TypedDict")
-    exposed = source._contained_member_roots(module, module.all_nodes, owner_exposure_only=True)
+    exposed = _expanded_member_containment(module, module.all_nodes, owner_exposure_only=True)
     assert ("Record", "sentinel") in exposed - first
     module.incoming_member_escapes.clear()
-    assert (
-        source._contained_member_roots(module, module.all_nodes, owner_exposure_only=True) == first
-    )
-    assert source._contained_member_roots(module, module.all_nodes) == first
+    assert _expanded_member_containment(module, module.all_nodes, owner_exposure_only=True) == first
+    assert _expanded_member_containment(module, module.all_nodes) == first
     assert module._contained_owners is owners and module._static_containment is static
 
 
 def test_static_member_indexes_do_not_replace_a_requested_subtree():
     module = _parsed_module("class First:\n value: Left\nclass Second:\n value: Right\n")
-    assert source._contained_member_roots(module, module.all_nodes) == {
+    assert _expanded_member_containment(module, module.all_nodes) == {
         ("First", "Left"),
         ("Second", "Right"),
     }
     nodes = tuple(ast.walk(module.tree.body[0]))
-    assert source._contained_member_roots(module, nodes) == {("First", "Left")}
+    assert _expanded_member_containment(module, nodes) == {("First", "Left")}
 
 
 def test_member_escape_pass_reuses_proofs_until_incoming_changes():
@@ -990,14 +1038,14 @@ def test_member_containment_reuses_only_immutable_syntax() -> None:
             "sample.api",
             rel_path="sample/api.py",
         )
-        expected = source._contained_member_roots(module, module.all_nodes)
+        expected = _expanded_member_containment(module, module.all_nodes)
         first = scans.call_count
         assert first
-        assert source._contained_member_roots(module, module.all_nodes) == expected
+        assert _expanded_member_containment(module, module.all_nodes) == expected
         assert scans.call_count == first
-        assert source._contained_member_roots(module, ()) == set()
+        assert _expanded_member_containment(module, ()) == set()
         fresh = _parsed_module(module.source, "sample.api", rel_path="sample/api.py")
-        assert source._contained_member_roots(fresh, fresh.all_nodes) == expected
+        assert _expanded_member_containment(fresh, fresh.all_nodes) == expected
         assert scans.call_count > first
 
 
@@ -1025,3 +1073,48 @@ def test_import_source_projection_preserves_namespace_mutation_guards(expression
         )
         for node in module.all_nodes
     )
+
+
+@pytest.mark.parametrize(
+    "decorators,kind,proven",
+    [
+        ("", "instance", True),
+        ("@staticmethod\n", "static", True),
+        ("@classmethod\n", "class", True),
+        ("@property\n", "instance", True),
+        ("@unknown\n", "instance", False),
+        ("@staticmethod()\n", "instance", False),
+        ("@staticmethod\n@classmethod\n", "class", False),
+    ],
+)
+def test_signature_only_proof_keeps_descriptor_semantics_without_property_work(
+    decorators, kind, proven
+):
+    body = "".join("    " + line + "\n" for line in decorators.splitlines())
+    module = _parsed_module("class Owner:\n" + body + "    def run(self): pass\n")
+    owner = module.tree.body[0]
+    method = owner.body[0]
+    descriptor = source.method_descriptor(module, method, owner)
+    with patch.object(
+        source, "property_bindings", side_effect=AssertionError("unused property proof")
+    ):
+        actual_kind, actual_proof = source._method_signature(module, method, owner)
+    assert actual_kind.value == kind
+    assert actual_proof is proven
+    assert actual_kind == descriptor.method_kind
+    assert actual_proof == descriptor.signature_decorators_proven
+
+
+def test_signature_only_proof_reads_changed_aliases_on_every_call():
+    module = _parsed_module(
+        "from builtins import staticmethod as marker\n"
+        "class Owner:\n    @marker\n    def run(): pass\n"
+    )
+    owner = module.tree.body[1]
+    method = owner.body[0]
+    module.aliases["marker"] = AliasBinding("builtins.staticmethod", ImportKind.SYMBOL)
+    assert source._method_signature(module, method, owner)[1] is True
+    module.aliases["marker"] = AliasBinding("opaque.marker", ImportKind.SYMBOL)
+    assert source._method_signature(module, method, owner)[1] is False
+    module.aliases["marker"] = AliasBinding("builtins.staticmethod", ImportKind.SYMBOL)
+    assert source._method_signature(module, method, owner)[1] is True

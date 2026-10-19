@@ -50,7 +50,10 @@ ReexportIndex: TypeAlias = tuple[
 ]
 
 
-def _reexport_index(imports: Sequence[RawRecord]) -> ReexportIndex:
+def _reexport_index(
+    imports: Sequence[RawRecord],
+    uncertain_reexport_origins: UncertainReexportOrigins | None = None,
+) -> ReexportIndex:
     by_origin: dict[str, list[RawRecord]] = defaultdict(list)
     by_alias: dict[str, list[RawRecord]] = defaultdict(list)
     reexport_origins: dict[tuple[str, str], set[str]] = defaultdict(set)
@@ -74,6 +77,11 @@ def _reexport_index(imports: Sequence[RawRecord]) -> ReexportIndex:
     ambiguous = frozenset(
         binding for binding, origins in reexport_origins.items() if len(origins) > 1
     )
+    uncertain_routes: dict[str, frozenset[str]] = uncertain_reexport_origins or {}
+    for alias, origins in uncertain_routes.items():
+        for origin in origins:
+            uncertain_records: list[RawRecord] = by_origin[origin]
+            uncertain_records.extend(by_alias.get(alias, ()))
     return (
         {key: tuple(value) for key, value in by_origin.items()},
         {key: tuple(value) for key, value in by_alias.items()},

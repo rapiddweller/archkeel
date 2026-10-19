@@ -3,15 +3,22 @@
 # SPDX-License-Identifier: MIT
 """Assignment sites are static bindings, never live object identities."""
 
+import ast
 import json
 from dataclasses import replace
 
 import pytest
 from jsonschema import Draft202012Validator
+from test_analyzer import _parsed_module
 from test_conditional_definitions import _facts
 from test_file_evidence import _ir_schema_errors
 from test_uml_classifier_facts import _observation
 
+from archkeel.analyzer.python import calls
+from archkeel.analyzer.python.imports import collect_imports
+from archkeel.analyzer.python.resolve import build_symbol_index
+from archkeel.analyzer.python.scopes import LexicalScopes
+from archkeel.analyzer.python.symbols import collect_symbols
 from archkeel.check.uml_compare import compare_graphs
 from archkeel.ir.architecture_graph import ArchitectureGraph, Entity, Relationship
 from archkeel.ir.bindings import unread_bindings
@@ -20,6 +27,48 @@ from archkeel.ir.graph_codec import graph_bytes, parse_graph
 from archkeel.ir.model import RecordData
 from archkeel.ir.source_graph import observed_graph
 from tools.architecture_graph_schema import graph_schema
+
+
+@pytest.mark.parametrize("constructor", [False, True])
+def test_call_preparation_reuses_structure_and_only_scans_constructor_scopes(
+    monkeypatch, constructor
+):
+    expression = "Service" if constructor else "helper"
+    module = _parsed_module(
+        "class Service: pass\ndef helper(): pass\n"
+        + "".join(f"def unused_{number}(): pass\n" for number in range(10))
+        + f"def build():\n {expression}()\n {expression}()\n",
+        module="sample.core",
+    )
+    evidence = {}
+    collect_imports([module], {module.module}, evidence, namespace="sample")
+    symbols, _, _ = collect_symbols([module], evidence)
+    index = build_symbol_index(symbols)
+    scopes = LexicalScopes.for_module(module)
+    original_walk = ast.walk
+    original_bindings = calls.lexical_binding_names
+    module_walks = 0
+    scanned_scopes = []
+
+    def count_walk(node):
+        nonlocal module_walks
+        module_walks += node is module.tree
+        return original_walk(node)
+
+    def count_bindings(node):
+        scanned_scopes.append(node.name)
+        return original_bindings(node)
+
+    monkeypatch.setattr(ast, "walk", count_walk)
+    monkeypatch.setattr(calls, "lexical_binding_names", count_bindings)
+    collector = calls.CallCollector(module, index, evidence)
+    collector.visit(module.tree)
+    assert module_walks == 0
+    assert scanned_scopes == (["build"] if constructor else [])
+    assert collector.parents is scopes.parents
+    assert len(collector.items) == 2
+    assert all(item["data"]["status"] == "resolved" for item in collector.items)
+    assert all(bool(item["data"]["construction"]) is constructor for item in collector.items)
 
 
 def test_plain_constructor_retains_binding_call_creation_and_instance_evidence(tmp_path):

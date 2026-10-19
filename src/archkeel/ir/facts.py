@@ -192,7 +192,10 @@ class RecordData:
             raise ValueError("duplicate record data key")
 
     def get(self, key: str, default: JsonValue = None) -> JsonValue:
-        return next((value for name, value in self.entries if name == key), default)
+        for name, value in self.entries:
+            if name == key:
+                return value
+        return default
 
 
 JsonValue: TypeAlias = str | int | float | bool | None | tuple["JsonValue", ...] | RecordData

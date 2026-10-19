@@ -853,21 +853,28 @@ def _propagate_member_escapes(
         if incoming_escapes is not None
         else {name: module.incoming_member_escapes for name, module in modules.items()}
     )
-    # Escape origins stay fixed during this pass; incoming binding sets do not.
+    # Escape origins and namespace inventory stay fixed; incoming binding sets do not.
     escaped_namespaces = {
         escaped[:end]
         for escaped in escaped_origins
         for end, char in enumerate(escaped)
         if char == "."
     }
+    namespace_targets: dict[str, set[tuple[str, str]]] = {}
     for item in imports:
         data = item["data"]
         targets: set[tuple[str, str]] = set()
         if data["symbol"] is None:
-            origins = {data["target_module"]}
-            for name, bindings in namespace_bindings.items():
-                if in_scope(name, data["target_module"]):
-                    targets |= {(name, binding) for binding in bindings}
+            target: str = data["target_module"]
+            origins = {target}
+            if target not in namespace_targets:
+                namespace_targets[target] = {
+                    (name, binding)
+                    for name, bindings in namespace_bindings.items()
+                    if in_scope(name, target)
+                    for binding in bindings
+                }
+            targets = namespace_targets[target]
         else:
             origins = {data["origin_definition"], *data.get("reexport_candidates", ())}
             for origin in origins:
@@ -953,38 +960,38 @@ def _opaque_import_member_escapes(
         )
     ):
         escaped |= {data["binding"]}
-    if data["symbol"] is None or owner_exposure_only:
-        base_bindings = (
-            member_binding_closure(
-                module.all_nodes,
-                {data["binding"]},
-                member_surface=True,
-                local_references=setter_local_references(module),
-            )
-            if owner_exposure_only
-            else {data["binding"]}
+    if data["symbol"] is not None and not owner_exposure_only:
+        return escaped
+    owners = [node for node in module.all_nodes if isinstance(node, ast.ClassDef) and node.bases]
+    if not owners:
+        return escaped
+    base_bindings = (
+        member_binding_closure(
+            module.all_nodes,
+            {data["binding"]},
+            member_surface=True,
+            local_references=setter_local_references(module),
         )
-        for owner in module.all_nodes:
-            if not isinstance(owner, ast.ClassDef) or (
-                (
-                    owner_exposure_only
-                    or native_typed_dict
-                    and len(owner.bases) == 1
-                    and resolve_static_name(module, owner.bases[0]) in NATIVE_TYPED_DICT_BASES
-                )
-                and native_owner_creation_static(module, owner, unsafe_providers)
+        if owner_exposure_only
+        else {data["binding"]}
+    )
+    for owner in owners:
+        if (
+            owner_exposure_only
+            or native_typed_dict
+            and len(owner.bases) == 1
+            and resolve_static_name(module, owner.bases[0]) in NATIVE_TYPED_DICT_BASES
+        ) and native_owner_creation_static(module, owner, unsafe_providers):
+            continue
+        for base in owner.bases:
+            head = base.value if isinstance(base, ast.Subscript) else base
+            if any(
+                isinstance(node, ast.Name) and node.id in base_bindings for node in ast.walk(head)
+            ) and not (
+                data["source_binding_unique"] is True
+                and resolve_static_name(module, head) in FRAMEWORK_BASES
             ):
-                continue
-            for base in owner.bases:
-                head = base.value if isinstance(base, ast.Subscript) else base
-                if any(
-                    isinstance(node, ast.Name) and node.id in base_bindings
-                    for node in ast.walk(head)
-                ) and not (
-                    data["source_binding_unique"] is True
-                    and resolve_static_name(module, head) in FRAMEWORK_BASES
-                ):
-                    escaped |= {owner.name}
+                escaped |= {owner.name}
     return escaped
 
 

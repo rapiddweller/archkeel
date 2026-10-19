@@ -19,6 +19,47 @@ from archkeel.ir.facts_codec import freeze_data, parse_record
 from archkeel.ir.state_codec import parse_state_data, state_data
 
 
+def test_native_collection_reuses_typed_symbols_for_state_and_output(tmp_path: Path) -> None:
+    from collections import Counter
+    from unittest.mock import patch
+
+    from archkeel.analyzer.python import collect as collector
+    from archkeel.ir.facts import SourceSectionName
+    from archkeel.ir.protocol import CollectionRequest, PythonSettings, SnapshotInput, SourceScope
+
+    (tmp_path / "sample.py").write_text(
+        "from dataclasses import dataclass\nfrom typing import Protocol\n"
+        "@dataclass(frozen=True)\nclass Bag:\n value: int\n"
+        "class Readable(Protocol):\n value: int\n"
+        "def read(bag: Bag) -> int:\n return bag.value\n"
+    )
+    request = CollectionRequest(
+        SnapshotInput(str(tmp_path), "a" * 40, False),
+        SourceScope((".",), "sample"),
+        PythonSettings(),
+    )
+    with (
+        patch.object(collector, "parse_record", wraps=collector.parse_record) as convert,
+        patch.object(collector, "collect_state", wraps=collector.collect_state) as state,
+    ):
+        facts = collector.collect(request)
+    symbols = next(
+        section.records for section in facts.sections if section.name is SourceSectionName.SYMBOLS
+    )
+    ids = {symbol.id for symbol in symbols}
+    assert ids
+    assert Counter(
+        call.args[0]["id"] for call in convert.call_args_list if call.args[0]["id"] in ids
+    ) == {identity: 1 for identity in ids}
+    assert state.call_count == 1
+    assert symbols is state.call_args.args[1]
+    classes = {item.qualified_name: item for item in facts.state.classes}
+    assert classes["sample.Bag"].frozen is True
+    assert classes["sample.Readable"].protocol is True
+    assert {field.name for field in classes["sample.Bag"].fields} == {"value"}
+    assert any(function.scope == "sample.read" for function in facts.state.functions)
+
+
 def test_state_collection_replays_two_contracts_without_parsing_or_mutation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

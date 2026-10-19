@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """A lexical name must not borrow an unrelated module binding."""
 
+import ast
 import symtable
 import sys
 from pathlib import Path
@@ -10,12 +11,55 @@ from pathlib import Path
 import pytest
 from test_analyzer import _observe, _parsed_module
 
+from archkeel.analyzer.python.binding_types import BindingKind
 from archkeel.analyzer.python.calls import collect_calls
 from archkeel.analyzer.python.imports import collect_imports
 from archkeel.analyzer.python.references import collect_references
 from archkeel.analyzer.python.resolve import build_symbol_index
+from archkeel.analyzer.python.scopes import LexicalScopes
 from archkeel.analyzer.python.symbols import collect_symbols
 from archkeel.ir.references import unreferenced_symbols
+
+
+@pytest.mark.parametrize(
+    "star_import,expected",
+    [
+        ("", BindingKind.UNBOUND),
+        ("from other import *\n", BindingKind.UNKNOWN),
+        ("if flag:\n from other import *\n", BindingKind.UNKNOWN),
+    ],
+)
+def test_unbound_lookup_uses_star_binding_index(star_import, expected):
+    module = _parsed_module(
+        "".join(f"name_{index} = {index}\n" for index in range(100))
+        + "import other as alias\ndel name_0\n(value := 1)\n"
+        + star_import
+        + "missing()\n"
+    )
+    scopes = LexicalScopes(module)
+    [site] = [node for node in module.all_nodes if isinstance(node, ast.Call)]
+    visited_sites = 0
+    star_sites = 0
+
+    class CountedBindings(dict):
+        def get(self, key, default=None):
+            nonlocal star_sites
+            sites = super().get(key, default)
+            if key == "*":
+                star_sites += len(sites)
+            return sites
+
+        def values(self):
+            nonlocal visited_sites
+            for sites in super().values():
+                visited_sites += len(sites)
+                yield sites
+
+    scopes.root.bindings = CountedBindings(scopes.root.bindings)
+    for _ in range(50):
+        assert scopes.lookup(site.func, "missing").kind is expected
+    assert visited_sites == 0
+    assert star_sites == (50 if star_import else 0)
 
 
 def _facts(source):

@@ -163,14 +163,10 @@ class CallCollector(ast.NodeVisitor):
         self.scopes = LexicalScopes.for_module(module)
         self.receivers = {
             node: _local_receiver_types(node, self.scopes)
-            for node in ast.walk(module.tree)
+            for node in module.all_nodes
             if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
         }
-        self.parents = {
-            child: parent
-            for parent in ast.walk(module.tree)
-            for child in ast.iter_child_nodes(parent)
-        }
+        self.parents = self.scopes.parents
         self.stable_bindings = stable_direct_module_bindings(module)
         self.escaped_bindings = {
             (binding.owner.node, reference.id)
@@ -179,11 +175,7 @@ class CallCollector(ast.NodeVisitor):
             )
             if (binding := self.scopes.lookup(reference, reference.id)).owner is not None
         }
-        self.scope_bindings = {
-            node: lexical_binding_names(node)
-            for node in ast.walk(module.tree)
-            if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
-        }
+        self.scope_bindings: dict[ast.ClassDef | FunctionNode, frozenset[str]] = {}
 
     def _construction(
         self,
@@ -193,6 +185,9 @@ class CallCollector(ast.NodeVisitor):
         targets: list[str],
         truncated: bool,
     ) -> RecordData | None:
+        classes = [target for target in targets if target in self.index.constructor_results]
+        if not classes:
+            return None
         if dotted_expression(node.func) is None:
             return None
         root = expression.split(".")[0]
@@ -204,12 +199,15 @@ class CallCollector(ast.NodeVisitor):
             ):
                 return None
             if isinstance(parent, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
-                if child not in parent.body or root in self.scope_bindings[parent]:
+                if child not in parent.body:
+                    return None
+                shadowed = self.scope_bindings.get(parent)
+                if shadowed is None:
+                    shadowed = lexical_binding_names(parent)
+                    self.scope_bindings[parent] = shadowed
+                if root in shadowed:
                     return None
             child = parent
-        classes = [target for target in targets if target in self.index.constructor_results]
-        if not classes:
-            return None
         proven = (
             isinstance(node.func, ast.Name)
             and status == SourceResolution.RESOLVED

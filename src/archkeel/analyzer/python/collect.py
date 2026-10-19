@@ -497,7 +497,12 @@ def collect(request: CollectionRequest) -> SourceFacts:
         files,
         import_targets,
         tuple(
-            FactSection(name, tuple(parse_record(record) for record in records[name]))
+            FactSection(
+                name,
+                typed_symbols
+                if name is SourceSectionName.SYMBOLS
+                else tuple(parse_record(record) for record in records[name]),
+            )
             for name in _SECTION_NAMES
         ),
         coverage,

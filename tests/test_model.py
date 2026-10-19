@@ -16,6 +16,7 @@ from archkeel.ir.codec import (
     decode_canonical_model,
     parse_observation,
 )
+from archkeel.ir.model import RecordData
 from archkeel.ir.trace import validate_evidence_classes
 
 
@@ -76,6 +77,16 @@ def test_compact_canonical_encoding_is_lossless() -> None:
     assert encoded["encoding"]["kind"] == "architecture-ir-columnar-v1"
     assert decode_canonical_model(encoded) == model
     assert len(canonical_report_bytes(model)) < len(canonical_json_bytes(model))
+
+
+def test_record_data_lookup_preserves_order_independent_values_and_defaults() -> None:
+    nested = RecordData((("nested", (False, None, "value")),))
+    data = RecordData((("z", 0), ("a", None), ("middle", nested)))
+    assert data.get("z", "fallback") == 0
+    assert data.get("a", "fallback") is None
+    assert data.get("middle") is nested
+    assert data.get("missing", nested) is nested
+    assert RecordData().get("missing", nested) is nested
 
 
 def test_violation_trace_is_rule_fact_and_source_complete() -> None:

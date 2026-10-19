@@ -424,23 +424,41 @@ def _usage_counts(
     observed: ArchitectureGraph,
 ) -> tuple[dict[tuple[str, str], int], dict[tuple[str | None, str, str], int]]:
     entities = {item.id: item for item in observed.entities}
+    edges = tuple(
+        edge
+        for edge in observed.relationships
+        if edge.kind == RelationshipKind.IMPORTS and edge.target_id is not None
+    )
+    modules = {
+        entities[identity].qualified_name
+        for edge in edges
+        for identity in (edge.source_id, edge.target_id)
+        if identity is not None
+    }
+    parents = {item.parent_id for item in target.component_intents}
+    deepest = {module: _deepest_owners(target, module) for module in modules}
+    scoped = {
+        (module, parent): _scope_owners(target, module, parent)
+        for module in modules
+        for parent in parents
+    }
     counts: dict[tuple[str, str], int] = {}
     level_counts: dict[tuple[str | None, str, str], int] = {}
-    for edge in observed.relationships:
-        if edge.kind != RelationshipKind.IMPORTS or edge.target_id is None:
+    for edge in edges:
+        if edge.target_id is None:
             continue
         source, endpoint = entities[edge.source_id], entities[edge.target_id]
         source_ids, target_ids = (
-            _deepest_owners(target, source.qualified_name),
-            _deepest_owners(target, endpoint.qualified_name),
+            deepest[source.qualified_name],
+            deepest[endpoint.qualified_name],
         )
         pairs = set()
         if len(source_ids) == len(target_ids) == 1 and source_ids != target_ids:
             pairs.add((source_ids[0], target_ids[0]))
-        for parent in {item.parent_id for item in target.component_intents}:
+        for parent in parents:
             a, b = (
-                _scope_owners(target, source.qualified_name, parent),
-                _scope_owners(target, endpoint.qualified_name, parent),
+                scoped[source.qualified_name, parent],
+                scoped[endpoint.qualified_name, parent],
             )
             if len(a) == len(b) == 1 and a != b:
                 key = (parent, a[0], b[0])

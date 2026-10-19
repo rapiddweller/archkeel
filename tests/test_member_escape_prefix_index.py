@@ -4,6 +4,7 @@
 """Preserve dotted import-escape decisions without rescanning every escape per import."""
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -115,6 +116,84 @@ def test_escaped_origins_are_not_rescanned_for_every_import(tmp_path):
     )
     assert incoming["sample.user"] == set()
     assert origins.visited <= 4 * (len(imports) + len(origins))
+
+
+def test_namespace_inventory_is_scanned_once_per_import_target_and_stays_live(tmp_path):
+    class CountedNamespaces(dict):
+        visits = 0
+
+        def items(self):
+            for item in super().items():
+                self.visits += 1
+                yield item
+
+    imports, modules = _imports(
+        tmp_path, "".join(f"import sample.owner as value{i}\n" for i in range(128))
+    )
+    namespaces = CountedNamespaces(
+        {"sample.owner": {"User"}, **{f"unrelated.module{i}": {"Value"} for i in range(127)}}
+    )
+    incoming = {name: set() for name in modules}
+    escaped = {name: set() for name in modules}
+    _propagate_member_escapes(
+        imports, modules, namespaces, set(), escaped, incoming_escapes=incoming
+    )
+    assert incoming["sample.user"] == set()
+    assert namespaces.visits == len(namespaces)
+    namespaces["sample.owner"].add("Changed")
+    escaped["sample.owner"].add("Changed")
+    _propagate_member_escapes(
+        imports, modules, namespaces, set(), escaped, incoming_escapes=incoming
+    )
+    assert incoming["sample.user"] == {f"value{i}" for i in range(128)}
+    assert namespaces.visits == 2 * len(namespaces)
+
+
+@pytest.mark.parametrize("symbol", [None, "External"])
+@pytest.mark.parametrize("body", ["value = External\n", "class Local: pass\n"])
+@pytest.mark.parametrize("owner_only", [False, True])
+def test_opaque_owner_without_bases_needs_no_alias_closure(symbol, body, owner_only):
+    from test_analyzer import _parsed_module
+
+    from archkeel.analyzer.python import imports as collector
+
+    module = _parsed_module("from external import External\n" + body)
+    data = {
+        "symbol": symbol,
+        "binding": "External",
+        "source_binding_unique": True,
+        "origin_binding_unique": True,
+        "origin_definition": "external.External",
+        "reexport_chain": ["external.External"],
+    }
+    with patch.object(
+        collector, "member_binding_closure", wraps=collector.member_binding_closure
+    ) as closure:
+        assert collector._opaque_import_member_escapes(
+            data, module, owner_exposure_only=owner_only, unsafe_providers=frozenset()
+        ) == ({"External"} if not owner_only and symbol is not None else set())
+    closure.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "class Derived(External): pass\n",
+        "class Derived(External[int]): pass\n",
+        "Alias = External\nclass Derived(Alias): pass\n",
+        "class Outer:\n class Derived(External): pass\n",
+    ],
+)
+def test_opaque_import_still_transfers_direct_aliased_and_nested_bases(tmp_path, body):
+    from archkeel.analyzer.python import imports as collector
+
+    imports, modules = _imports(tmp_path, "from external import External\n" + body)
+    assert collector._opaque_import_member_escapes(
+        imports[0]["data"],
+        modules["sample.user"],
+        owner_exposure_only=True,
+        unsafe_providers=frozenset(),
+    ) == {"Derived"}
 
 
 def test_cyclic_imports_keep_incoming_bindings_live_within_a_pass(tmp_path):

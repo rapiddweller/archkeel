@@ -1075,3 +1075,57 @@ def test_unknown_symbol_count_does_not_hide_other_observed_counts(tmp_path):
     modules = {item.name: item for item in level.modules}
     assert modules["sample.core"].symbols == 40 and modules["sample.peer"].symbols is None
     assert not any(hint.kind == "heavy" for hint in level.hint_candidates)
+
+
+def test_import_sites_only_visit_declared_dependency_rule_candidates(tmp_path, monkeypatch):
+    import archkeel.ir.module_explore as explore
+
+    model = _sample(tmp_path, permitted=True)
+    expected = module_exploration(model)
+    assess = explore.rule_assessments
+    applies = explore._rule_applies
+    visited = []
+
+    def assessments(*args, **kwargs):
+        original = assess(*args, **kwargs)
+        return (*original, *(replace(original[0], id=f"missing-{i}") for i in range(100)))
+
+    def visit(declaration, assessment, *args):
+        assert assessment.kind in {
+            "complete_requires",
+            "forbidden_dependency",
+            "interface_boundary",
+            "sibling_isolation",
+        }
+        assert declaration.id == assessment.id
+        visited.append(assessment.id)
+        return applies(declaration, assessment, *args)
+
+    monkeypatch.setattr(explore, "rule_assessments", assessments)
+    monkeypatch.setattr(explore, "_rule_applies", visit)
+    assert module_exploration(model) == expected
+    assert visited
+    assert not any(identity.startswith("missing-") for identity in visited)
+
+
+def test_statistics_receive_only_matching_entity_coverage(tmp_path, monkeypatch):
+    import archkeel.ir.module_explore as explore
+
+    model = _sample(tmp_path)
+    report = architecture_report(model)
+    expected = module_exploration(model, report=report)
+    statistic = explore._statistic
+    visited = []
+
+    def visit(entity, record, members, candidates, complete, coverage):
+        assert coverage == tuple(
+            item
+            for item in report.observed.coverage
+            if item.scope_id == entity.id and item.entity_kinds
+        )
+        visited.append(entity.id)
+        return statistic(entity, record, members, candidates, complete, coverage)
+
+    monkeypatch.setattr(explore, "_statistic", visit)
+    assert module_exploration(model, report=report) == expected
+    assert visited

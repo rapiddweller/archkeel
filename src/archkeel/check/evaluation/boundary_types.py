@@ -36,6 +36,7 @@ from archkeel.ir.model import (
     BoundaryTypeAllowance,
     BoundaryTypesRule,
     ComponentOwnership,
+    ContractComponent,
     EvidenceClass,
     ForbiddenDependencyRule,
     component_owns_module,
@@ -708,10 +709,23 @@ def _index_owner_facade_type_states(
 ) -> None:
     proven: set[tuple[str, str, str]] = set()
     uncertain: set[tuple[str, str, str]] = set()
+    module_names: set[str] = {item["data"]["source_module"] for item in imports}
+    uncertain_routes: dict[str, frozenset[str]] = uncertain_reexport_origins
+    for origins in uncertain_routes.values():
+        for candidate_origin in origins:
+            uncertain_origin: str = candidate_origin
+            module_names.add(uncertain_origin.rpartition(".")[0])
+    for item in imports:
+        import_data: dict[str, object] = item["data"]
+        candidate_definition = import_data.get("origin_definition")
+        if isinstance(candidate_definition, str):
+            defined_origin: str = candidate_definition
+            module_names.add(defined_origin.rpartition(".")[0])
+    owners = {module: contract.component_for(module) for module in module_names}
     for item in imports:
         data = item["data"]
         module, binding = data["source_module"], data["binding"]
-        owner = contract.component_for(module)
+        owner = owners[module]
         if (
             owner is None
             or not isinstance(binding, str)
@@ -721,7 +735,7 @@ def _index_owner_facade_type_states(
         qualified_binding = f"{module}.{binding}"
         for origin in uncertain_reexport_origins.get(qualified_binding, frozenset()):
             origin_module, separator, origin_name = origin.rpartition(".")
-            if separator and contract.component_for(origin_module) == owner:
+            if separator and owners[origin_module] == owner:
                 uncertain.add((owner.id, origin_module, origin_name))
         origin_definition = data.get("origin_definition")
         if (
@@ -730,7 +744,7 @@ def _index_owner_facade_type_states(
             and isinstance(origin_definition, str)
         ):
             origin_module, separator, origin_name = origin_definition.rpartition(".")
-            if separator and contract.component_for(origin_module) == owner:
+            if separator and owners[origin_module] == owner:
                 proven.add((owner.id, origin_module, origin_name))
     imports_by_binding.owner_facade_type_states.update({key: False for key in uncertain})
     imports_by_binding.owner_facade_type_states.update({key: True for key in proven})
@@ -3398,6 +3412,7 @@ def _declared_facade_positions(
     property_chains: frozenset[str] = frozenset(),
     *,
     include_fields: bool = False,
+    owners: dict[str, ContractComponent | None] | None = None,
 ) -> DeclaredFacade | None:
     """Retain all positions of a declared facade, including uncertain and inherited ones."""
     data = item["data"]
@@ -3411,6 +3426,7 @@ def _declared_facade_positions(
             reexports,
             property_chains,
             include_fields=include_fields,
+            owners=owners,
         )
     if data.get("qualified_name") in property_chains and not (
         data.get("source_final_method_binding") is True
@@ -3419,24 +3435,28 @@ def _declared_facade_positions(
         return None
     if data.get("overloaded") is True and data.get("overload_signature") is not True:
         return None
-    method = item["kind"] == "method" and data.get("symbol_category") == "method"
-    if method:
+    if item["kind"] == "method" and data.get("symbol_category") == "method":
         return _declared_facade_method_positions(
-            data, contract, exports_by_module, imports, uncertain_reexport_origins, reexports
+            data,
+            contract,
+            exports_by_module,
+            imports,
+            uncertain_reexport_origins,
+            reexports,
+            owners=owners,
         )
     if item["kind"] != "function" or data.get("symbol_category") != "function":
         return None
     module, name = data["module"], data["name"]
     facade_entries: list[tuple[str, str, str, bool]] = []
     signature_uncertain = not _declared_function_signature(data)
-    component = contract.component_for(module)
+    component = contract.component_for(module) if owners is None else owners[module]
     if (
         component is not None
         and facade_covers(module, name, component, exports_by_module)
         and (not _source_local_function(data) or f"{module}:{name}" in (component.public or ()))
     ):
         facade_entries.append((module, name, module, signature_uncertain))
-
     origin = data["qualified_name"]
     reexport_entries = _reexport_facade_entries(
         origin,
@@ -3445,6 +3465,7 @@ def _declared_facade_positions(
         imports,
         uncertain_reexport_origins or {},
         reexports,
+        owners=owners,
     )
     facade_entries.extend(
         (module, name, resolution, uncertain or signature_uncertain)
@@ -3459,13 +3480,8 @@ def _declared_facade_positions(
         (parameter["name"], parameter["annotation"] or "") for parameter in data["parameters"]
     ]
     positions.append(("return", _function_return(data)))
-    return (
-        facade_module,
-        f"{facade_module}.{facade_name}",
-        positions,
-        resolution_module,
-        tuple(facade_entries),
-    )
+    qualified_name = f"{facade_module}.{facade_name}"
+    return facade_module, qualified_name, positions, resolution_module, tuple(facade_entries)
 
 
 def _declared_facade_inherited_positions(
@@ -3478,6 +3494,7 @@ def _declared_facade_inherited_positions(
     property_chains: frozenset[str],
     *,
     include_fields: bool = False,
+    owners: dict[str, ContractComponent | None] | None = None,
 ) -> DeclaredFacade | None:
     base_roots = data["base_roots"] if "base_roots" in data else data["bases"]
     if not any(
@@ -3487,7 +3504,7 @@ def _declared_facade_inherited_positions(
             return None
     module, name = data["module"], data["name"]
     entries: list[FacadeEntry] = []
-    owner = contract.component_for(module)
+    owner = contract.component_for(module) if owners is None else owners[module]
     if owner is not None and facade_covers(module, name, owner, exports_by_module):
         entries.append((module, name, module, False))
     entries.extend(
@@ -3498,6 +3515,7 @@ def _declared_facade_inherited_positions(
             imports,
             uncertain_reexport_origins or {},
             reexports,
+            owners=owners,
         )
     )
     if not entries:
@@ -3523,6 +3541,8 @@ def _declared_facade_method_positions(
     imports: Sequence[RawRecord],
     uncertain_reexport_origins: UncertainReexportOrigins | None,
     reexports: ReexportIndex | None,
+    *,
+    owners: dict[str, ContractComponent | None] | None = None,
 ) -> DeclaredFacade | None:
     name = data["name"]
     if not _is_public_method_name(name):
@@ -3533,7 +3553,7 @@ def _declared_facade_method_positions(
     module = data["module"]
     class_name = parent[len(module) + 1 :]
     entries: list[FacadeEntry] = []
-    owner = contract.component_for(module)
+    owner = contract.component_for(module) if owners is None else owners[module]
     if owner is not None and facade_covers(module, class_name, owner, exports_by_module):
         entries.append((module, class_name, module, False))
     entries.extend(
@@ -3544,6 +3564,7 @@ def _declared_facade_method_positions(
             imports,
             uncertain_reexport_origins or {},
             reexports,
+            owners=owners,
         )
     )
     entries = sorted(set(entries))
@@ -3616,16 +3637,15 @@ def _reexport_facade_entries(
     imports: Sequence[RawRecord],
     uncertain_reexport_origins: UncertainReexportOrigins,
     reexports: ReexportIndex | None = None,
+    *,
+    owners: dict[str, ContractComponent | None] | None = None,
 ) -> list[FacadeEntry]:
     """Match re-export facts while keeping uncertain bindings scoped to one entry."""
-    indexed = reexports or _reexport_index(imports)
+    indexed = reexports or _reexport_index(imports, uncertain_reexport_origins)
     by_origin, by_alias, ambiguous_bindings = indexed
     candidates: dict[str, RawRecord] = {
         imported["id"]: imported for imported in by_origin.get(origin, ())
     }
-    for alias, origins in uncertain_reexport_origins.items():
-        if origin in origins:
-            candidates.update({item["id"]: item for item in by_alias.get(alias, ())})
     facade_entries: list[FacadeEntry] = []
     for imported in candidates.values():
         imported_data = imported["data"]
@@ -3651,7 +3671,7 @@ def _reexport_facade_entries(
             or inherited_uncertainty
             or not _reexport_declaration_proven(imported_data, by_alias)
         )
-        owner = contract.component_for(facade_module)
+        owner = contract.component_for(facade_module) if owners is None else owners[facade_module]
         if (
             owner is not None
             and isinstance(binding, str)
@@ -3716,6 +3736,18 @@ def _facade_positions(
     )
 
 
+def _facade_module_owners(
+    contract: ArchitectureContract, symbols: Sequence[RawRecord], imports: Sequence[RawRecord]
+) -> dict[str, ContractComponent | None]:
+    modules: set[str] = {
+        item["data"]["module"]
+        for item in symbols
+        if item["kind"] in {"function", "method", "class"}
+    }
+    modules.update(item["data"]["source_module"] for item in imports)
+    return {module: contract.component_for(module) for module in modules}
+
+
 def facade_signature_types(
     symbols: Sequence[RawRecord],
     imports: Sequence[RawRecord],
@@ -3754,7 +3786,12 @@ def facade_signature_types(
         uncertain_reexport_origins or {},
         ancestor_contracts,
     )
-    reexports = _reexport_index(imports)
+    reexports = _reexport_index(imports, uncertain_reexport_origins)
+    static_routes = frozenset(
+        f"{owner}.{name}"
+        for owner, name in imports_by_binding
+        if _alias_binding_static(imports_by_binding[(owner, name)], member_surface=False)
+    )
     property_chains = _property_chains(symbols)
     classes_by_qualified_name = {
         item["data"]["qualified_name"]: item for item in symbols if item["kind"] == "class"
@@ -3781,8 +3818,10 @@ def facade_signature_types(
             reexports,
             classes_by_qualified_name,
             methods_by_parent,
+            static_routes=static_routes,
             type_shapes=type_shapes,
         )
+    owners = _facade_module_owners(contract, symbols, imports)
     resolved_types_by_annotation: dict[tuple[str, str], tuple[str, ...]] = {}
     recorded: list[RawRecord] = []
     for item in symbols:
@@ -3795,6 +3834,7 @@ def facade_signature_types(
             reexports,
             property_chains,
             include_fields=True,
+            owners=owners,
         )
         has_proven_facade = found is not None and any(not entry[3] for entry in found[4])
         position_types = (
@@ -3817,12 +3857,13 @@ def facade_signature_types(
         if found is not None and item["kind"] == "class":
             field_types, field_candidates = _declared_field_reach(
                 item,
-                imports,
                 contract,
                 exports_by_module,
                 imports_by_binding,
                 classes_by_location,
                 has_proven_facade,
+                imports_by_alias=reexports[1],
+                static_routes=static_routes,
                 type_shapes=type_shapes,
             )
             names = sorted(set(names) | set(field_types))
@@ -3890,11 +3931,15 @@ def _scoped_facade_signature_types(
     classes_by_qualified_name: dict[str, RawRecord],
     methods_by_parent: dict[str, list[RawRecord]],
     *,
+    static_routes: frozenset[str],
     type_shapes: TypeShapeIndex,
 ) -> list[RawRecord]:
     """Attach nested facade type evidence to its mount and physical publisher module."""
     property_chains = _property_chains(symbols)
-    owners = (contract, *ancestor_contracts)
+    owners = [
+        (owner, _facade_module_owners(owner, symbols, imports))
+        for owner in (contract, *ancestor_contracts)
+    ]
     resolved_types_by_annotation: dict[tuple[str, str], tuple[str, ...]] = {}
     recorded: list[RawRecord] = []
     for item in symbols:
@@ -3914,7 +3959,7 @@ def _scoped_facade_signature_types(
                     if isinstance(module, str) and isinstance(values, list)
                 }
         scoped_types = by_mount.get(scope_id, {})
-        for owner in owners:
+        for owner, owner_modules in owners:
             found = _declared_facade_positions(
                 item,
                 owner,
@@ -3924,6 +3969,7 @@ def _scoped_facade_signature_types(
                 reexports,
                 property_chains,
                 include_fields=True,
+                owners=owner_modules,
             )
             if found is None:
                 continue
@@ -3947,12 +3993,13 @@ def _scoped_facade_signature_types(
             if item["kind"] == "class":
                 field_types, field_candidates = _declared_field_reach(
                     item,
-                    imports,
                     contract,
                     exports_by_module,
                     imports_by_binding,
                     classes_by_location,
                     has_proven_facade,
+                    imports_by_alias=reexports[1],
+                    static_routes=static_routes,
                     type_shapes=type_shapes,
                 )
                 names = sorted(set(names) | set(field_types))
@@ -4043,13 +4090,14 @@ def _declared_field_binding_static(data: RecordData, name: str) -> bool:
 
 def _declared_field_reach(
     item: RawRecord,
-    imports: Sequence[RawRecord],
     contract: ArchitectureContract,
     exports: dict[str, frozenset[str]],
     bindings: BindingIndex,
     classes: BindingIndex,
     published: bool,
     *,
+    imports_by_alias: dict[str, tuple[RawRecord, ...]],
+    static_routes: frozenset[str],
     type_shapes: TypeShapeIndex,
 ) -> tuple[list[str], list[str]]:
     """A proven field exposes names, independently of proving their alias bodies."""
@@ -4057,11 +4105,6 @@ def _declared_field_reach(
     module = data["module"]
     names: set[str] = set()
     candidates: set[str] = set()
-    static_routes = {
-        f"{owner}.{name}"
-        for owner, name in bindings
-        if _alias_binding_static(bindings[(owner, name)], member_surface=False)
-    }
     for field in data.get("fields", ()):
         annotation = field.get("annotation")
         if not annotation:
@@ -4089,7 +4132,7 @@ def _declared_field_reach(
         chain_static = all(entry in static_routes or entry in reached for entry in chain)
         possible: set[str] = {f"{owner}.{name}" for owner, name in verdict.resolved}
         if isinstance(shape, TypeName):
-            for imported in imports:
+            for imported in imports_by_alias.get(f"{module}.{shape.name}", ()):
                 binding = imported["data"]
                 if binding["source_module"] == module and binding["binding"] == shape.name:
                     possible.update(binding.get("reexport_candidates", ()))
@@ -5477,7 +5520,7 @@ def _boundary_types_violations(
         uncertain_reexport_origins,
         ancestor_contracts,
     )
-    reexports = _reexport_index(imports)
+    reexports = _reexport_index(imports, uncertain_reexport_origins)
     property_chains = _property_chains(symbols)
     methods_by_parent: dict[str, list[RawRecord]] = defaultdict(list)
     for item in symbols:
@@ -6158,7 +6201,7 @@ def _boundary_rule_positions(
     undecidable_positions: list[dict[str, object]] = []
     positions_out: list[RawRecord] = []
     occurrences: dict[tuple[str, str], int] = {}
-    reexports = _reexport_index(imports)
+    reexports = _reexport_index(imports, uncertain_reexport_origins)
     property_chains = _property_chains(ordered_symbols)
     methods_by_parent: dict[str, list[RawRecord]] = defaultdict(list)
     for item in ordered_symbols:
