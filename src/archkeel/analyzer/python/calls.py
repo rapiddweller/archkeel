@@ -160,7 +160,7 @@ class CallCollector(ast.NodeVisitor):
         self.symbol_evidence = index.evidence
         self.evidence = evidence
         self.items: list[RawRecord] = []
-        self.scopes = LexicalScopes(module)
+        self.scopes = LexicalScopes.for_module(module)
         self.receivers = {
             node: _local_receiver_types(node, self.scopes)
             for node in ast.walk(module.tree)

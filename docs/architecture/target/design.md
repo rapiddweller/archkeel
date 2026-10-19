@@ -246,6 +246,14 @@ A provider receipt cannot bypass these checks.
 Symbol collection reuses immutable module proofs only within one invocation; a later
 collection must observe changed bindings. No persistent proof cache is introduced.
 
+The Source owner shares one lexical index per parsed module. Its AST identity,
+source text, relative path and module name bind reuse; changed inputs rebuild it.
+Source retains the AST visitor through its standard base type; the lexical owner
+checks the concrete index before reuse, keeping the module dependency acyclic.
+Import aliases remain live inputs to lookup. The cache stores compiler structure,
+not lookup results or binding proofs, and lives only as long as the parsed snapshot.
+The ordinary `LexicalScopes` constructor still creates a fresh index.
+
 Synchronous `contextmanager` declarations have a separate native signature proof.
 It binds the factory, wrapper, metadata updater and complete supported base-class
 surfaces to captured source. Closed CPython 3.11/3.12 witnesses cover native
@@ -367,7 +375,8 @@ Microbenchmarks do not establish whole-report acceptance.
 Preserve every original field of 921 UML entities, exclusions and 121 original
 rules. The accepted Mapping replacement removes only its obsolete constructor-map
 allowance and corrects the rationale. Nine Python contracts add four constraints
-and 151 entities, including the call-owner model; one separate browser contract adds five owners and one rule.
+and 153 entities, including the call-owner model and lexical-index port;
+one separate browser contract adds five owners and one rule.
 The original 59-to-58 scope reconciliation is not an evidence gain.
 
 The target requires both `collect → collect_response → _exchange` edges. Native

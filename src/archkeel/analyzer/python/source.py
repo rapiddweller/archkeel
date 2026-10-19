@@ -359,6 +359,10 @@ class ParsedModule:
         default=None, init=False, repr=False
     )
 
+    _lexical_scopes: tuple[ast.Module, str, str, str, ast.NodeVisitor] | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
+
     def __post_init__(self) -> None:
         self.all_nodes = tuple(ast.walk(self.tree))
         self._member_alias_nodes = tuple(

@@ -86,7 +86,7 @@ class ReferenceCollector(ast.NodeVisitor):
         self.index = index
         self.evidence = evidence
         self.items: list[RawRecord] = []
-        self.scopes = LexicalScopes(module)
+        self.scopes = LexicalScopes.for_module(module)
         self.enum_member_roots = enum_member_roots
         self.enum_member_classes = enum_member_classes
 

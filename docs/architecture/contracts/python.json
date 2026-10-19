@@ -1034,6 +1034,49 @@
           "provenance": [
             "docs/architecture/target/design.md"
           ]
+        },
+        {
+          "id": "COMPACT-PYTHON-LEXICAL-SCOPES",
+          "kind": "class",
+          "qualified_name": "archkeel.analyzer.python.scopes.LexicalScopes",
+          "language": "python",
+          "parent_id": "PYTHON-BINDING-SCOPES",
+          "presence": "planned",
+          "responsibilities": [
+            "Own compiler scope structure for one parsed source snapshot; resolve current import aliases at lookup."
+          ],
+          "provenance": [
+            "docs/architecture/target/design.md"
+          ]
+        },
+        {
+          "id": "COMPACT-PYTHON-LEXICAL-INDEX",
+          "kind": "method",
+          "qualified_name": "archkeel.analyzer.python.scopes.LexicalScopes.for_module",
+          "language": "python",
+          "parent_id": "COMPACT-PYTHON-LEXICAL-SCOPES",
+          "presence": "planned",
+          "modifiers": [
+            "static"
+          ],
+          "responsibilities": [
+            "Reuse only a checked LexicalScopes index for the exact AST identity, source text, relative path and module name. Rebuild changed inputs or another AST visitor without caching binding proofs; failed construction publishes nothing."
+          ],
+          "provenance": [
+            "docs/architecture/target/design.md"
+          ],
+          "signature": {
+            "parameters": [
+              {
+                "name": "module",
+                "annotation": "ParsedModule",
+                "kind": "positional",
+                "default": null,
+                "default_known": true
+              }
+            ],
+            "returns": "LexicalScopes"
+          }
         }
       ],
       "relationships": [],

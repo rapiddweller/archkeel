@@ -28,6 +28,9 @@ native source evidence and conservative UNKNOWNs.
   and allowed caller scopes. Bound calls can fail; unrelated same-named methods
   do not. Missing target proof stays UNKNOWN. Declared receivers prove a static
   boundary, not runtime dispatch.
+- **Less repeated collector work.** Python collectors share lexical indexes within
+  one parsed snapshot while resolving import bindings live. Changed compiler inputs
+  rebuild the index; binding decisions are not cached.
 
 ## Upgrade from 4.0.1
 

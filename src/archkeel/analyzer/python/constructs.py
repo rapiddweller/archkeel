@@ -290,7 +290,7 @@ class _LiteralComparisons:
 
     def __init__(self, module: ParsedModule) -> None:
         self.module = module
-        self.scopes = LexicalScopes(module)
+        self.scopes = LexicalScopes.for_module(module)
         module_values, class_values, enum_classes = _static_string_constants(module)
         self.origins: dict[str, str] = {}
         self.stable_names = stable_direct_module_bindings(module)

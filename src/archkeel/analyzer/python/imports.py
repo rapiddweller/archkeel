@@ -1160,7 +1160,7 @@ def _loader_mutations(
             for node in module.all_nodes
         ):
             changed.update(_LOADERS)
-        scopes = LexicalScopes(module)
+        scopes = LexicalScopes.for_module(module)
         for node in member_escape_references(
             module, module.all_nodes, member_surface=True, owner_exposure_only=True
         ):
@@ -1214,7 +1214,7 @@ class _DynamicImports(ImportCollector):
         self.calls = calls
         self.mutations = mutations
         self.routes = routes
-        self.scopes = LexicalScopes(module)
+        self.scopes = LexicalScopes.for_module(module)
         self.stable_bindings = stable_direct_module_bindings(module, include_import_effects=False)
         self.unknowns: list[RawRecord] = []
 

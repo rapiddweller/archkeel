@@ -1,6 +1,6 @@
 {
   "after_baseline_digest": "ec89ad3a1cf84b902a59760b778eed47ef582ef385b6a408d50721df52dbb1f8",
-  "after_digest": "b358580fd3501d6c01671015cb24a60d4c17dac3c1685319f05ca6373a66720f",
+  "after_digest": "3249f140af675e3ff29bc0d597605455c8de9bb632486b7d7b984bf62c732c68",
   "before_baseline_digest": "2bfdc9930db2c00cefe098c1d4d8aef8d7a6916e703643ae5bf349116916bf8d",
   "before_digest": "5f1fd86c8b171e082e7ab16dd2558839b2ee8a825c7aa19e2c000ecbe0fe7ae8",
   "decided_by": "Alex: explicit Mapping API replacement and PythonProviderCollector approval; agent implementation",
