@@ -866,6 +866,13 @@ def _atlas_content(
       </details>"""
 
 
+def _atlas_projection(result: RunResult, observation: Observation) -> ArchitectureProjection:
+    projection = result.architecture_projection
+    if projection is None or projection.source != observation.source:
+        raise ValueError("Atlas requires its matching authenticated Core projection")
+    return projection
+
+
 def _atlas_document(
     result: RunResult,
     observation: Observation,
@@ -873,10 +880,9 @@ def _atlas_document(
     *,
     repository: str,
     architecture_href: str,
+    levels: tuple[ModuleExploreLevel, ...] | None = None,
 ) -> bytes:
-    projection = result.architecture_projection
-    if projection is None or projection.source != observation.source:
-        raise ValueError("Atlas requires its matching authenticated Core projection")
+    projection = _atlas_projection(result, observation)
     data: dict[str, object] = {"schema_version": report.schema_version}
     data["atlas"] = atlas_payload(
         observation,
@@ -885,6 +891,7 @@ def _atlas_document(
         result,
         repository=repository,
         architecture_href=architecture_href,
+        exploration_levels=levels,
     )
     data["boundary_permissions"] = boundary_permissions_payload(observation, report, projection)
     data["navigation"] = {
@@ -984,6 +991,7 @@ def _architecture_details(
     *,
     repository: str,
     architecture_href: str,
+    levels: tuple[ModuleExploreLevel, ...] | None = None,
 ) -> dict[str, bytes]:
     target_modules = (
         tuple(item.id for item in report.target.entities if item.kind == _EntityKind.MODULE)
@@ -995,7 +1003,7 @@ def _architecture_details(
     data["initial_view"] = "diagram"
     data["navigation"] = _component_navigation(
         projection,
-        module_exploration(observation, report=report),
+        module_exploration(observation, report=report) if levels is None else levels,
         tuple(
             item.id
             for item in (report.observed.entities if report.observed else ())
@@ -1880,20 +1888,24 @@ def render_architecture_pages(
         )
     observation = parse_observation(decode_canonical_model(json.loads(architecture_json)))
     report = architecture_report(observation)
+    projection = _atlas_projection(result, observation)
+    levels = module_exploration(observation, report=report)
     main = _atlas_document(
         result,
         observation,
         report,
         repository=repository,
         architecture_href=architecture_href,
+        levels=levels,
     )
     pages = _architecture_details(
         result,
         observation,
         report,
-        result.architecture_projection,
+        projection,
         repository=repository,
         architecture_href=architecture_href,
+        levels=levels,
     )
     pages[filename] = main
     return tuple(pages.items())

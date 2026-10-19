@@ -1,9 +1,9 @@
 {
   "after_baseline_digest": "46a17dc04c1bb092a809d5faa280fc4cfec2d764908638e5db88e85923b0ddfc",
-  "after_digest": "df5715439fc97487b8e39707113db4f3e645768ecab5f2aeab14114039546961",
+  "after_digest": "064dab1596c36317315dc3d58417960cfdcbfc344dd7e4fd9f08c3302bb99b83",
   "before_baseline_digest": "d04df1d73d2aaafecb9129bb8bef7a40d98c4fb13bfef053e698b780bdbe964a",
   "before_digest": "374fbde41db25209914a9eb7a3efee92395bbd7856e91ccb3564932dd0be95a4",
   "decided_by": "Codex (agent; user-authorized SPOT consolidation and contract modeling)",
-  "rationale": "Consolidate source-name privacy and cross-package symbol decisions at their canonical owners. Add native Contract 3.8 max_file_lines with a hard 500-line ceiling for maintained sources, tests and tools, complete snapshot-bound inventory and exact hash-bound upstream/generated exclusions; no oversized-source allowance. Declare the immutable repository-file DTO owner, exact reader/evaluator ports and optional snapshot signatures required by this capability. Preserve component directions and all coupling ceilings. Keep the already tightened calls_unresolved ceiling 838 and every other baseline budget unchanged; existing oversized files remain violations, not accepted baseline entries.",
+  "rationale": "Consolidate source-name privacy and cross-package symbol decisions at their canonical owners. Add native Contract 3.8 max_file_lines with a hard 500-line ceiling for maintained sources, tests and tools, complete snapshot-bound inventory and exact hash-bound upstream/generated exclusions; no oversized-source allowance. Declare the immutable repository-file DTO owner, exact reader/evaluator ports and optional snapshot signatures required by this capability. Preserve component directions and all coupling ceilings. Keep the already tightened calls_unresolved ceiling 838 and every other baseline budget unchanged; existing oversized files remain violations, not accepted baseline entries. Reuse module exploration within one report invocation; the existing Atlas payload port accepts optional precomputed exploration. Assign the evidence projection and declaration derivation modules to their existing component owners. No new component direction or budget ceiling.",
   "schema_version": "2.0.0"
 }

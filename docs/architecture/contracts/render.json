@@ -58,7 +58,8 @@
       "role": "projection",
       "exact_modules": [
         "archkeel.render.atlas",
-        "archkeel.render.atlas_deviations"
+        "archkeel.render.atlas_deviations",
+        "archkeel.render.atlas_evidence"
       ],
       "public": [
         "archkeel.render.atlas:atlas_payload",
@@ -467,7 +468,8 @@
             "basis": "declared"
           },
           "responsibilities": [
-            "Project authenticated Core values into the compact browser payload."
+            "Project authenticated Core values into the compact browser payload.",
+            "Reuse invocation-local immutable module exploration when composing both report pages."
           ],
           "provenance": [
             "docs/architecture/render-target.md"
@@ -514,6 +516,13 @@
                 "annotation": "str",
                 "kind": "keyword_only",
                 "default": null,
+                "default_known": true
+              },
+              {
+                "name": "exploration_levels",
+                "annotation": "tuple[ModuleExploreLevel, ...] | None",
+                "kind": "keyword_only",
+                "default": "None",
                 "default_known": true
               }
             ],
@@ -1039,10 +1048,10 @@
         {
           "id": "COMPACT-RENDER-BOUNDARY-PERMISSIONS-PAYLOAD",
           "kind": "function",
-          "qualified_name": "archkeel.render.atlas.boundary_permissions_payload",
+          "qualified_name": "archkeel.render.atlas_evidence.boundary_permissions_payload",
           "language": "python",
           "presence": "planned",
-          "parent_id": "RENDER-UML-atlas",
+          "parent_id": "RENDER-UML-atlas-evidence",
           "responsibilities": [
             "Project authenticated boundary permission context for the browser without granting permissions."
           ],
@@ -1152,6 +1161,20 @@
             "kind": "public",
             "basis": "declared"
           }
+        },
+        {
+          "id": "RENDER-UML-atlas-evidence",
+          "kind": "module",
+          "qualified_name": "archkeel.render.atlas_evidence",
+          "language": "python",
+          "parent_id": "RENDER-ATLAS-PAYLOAD",
+          "presence": "planned",
+          "responsibilities": [
+            "Project authenticated rule, finding and permission evidence into browser data."
+          ],
+          "provenance": [
+            "docs/architecture/decisions/ad-243-contract-owned-source-maintenance.md"
+          ]
         }
       ],
       "relationships": [
@@ -1262,6 +1285,10 @@
       {
         "path": "src/archkeel/render/summary_badges.py",
         "responsibility": "Own the normalized Badge value and verdict-to-display projection."
+      },
+      {
+        "path": "src/archkeel/render/atlas_evidence.py",
+        "responsibility": "Project authenticated rule assessments, findings and permission evidence into browser data without recomputing policy."
       }
     ]
   }

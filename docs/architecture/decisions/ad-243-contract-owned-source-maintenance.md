@@ -3,6 +3,8 @@
 Own source, tests and tools have a hard ceiling of 500 physical lines per file.
 Split by responsibility with explicit interfaces. This supplements AD-4; moving
 arbitrary chunks into numbered files does not establish meaningful ownership.
+Eliminating duplicated rules and decisions takes priority. Size alone does not
+justify fragmenting one coherent responsibility; unresolved target findings stay visible.
 Pinned upstream code, generated outputs and data are distinct from maintained source.
 Their exclusion requires exact provenance; existing oversized source gets no exception.
 

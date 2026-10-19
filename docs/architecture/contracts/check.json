@@ -407,6 +407,10 @@
       {
         "path": "src/archkeel/check/evaluation/repository_files.py",
         "responsibility": "Evaluate the declared physical line limit and emit authenticated inventory and rule receipts."
+      },
+      {
+        "path": "src/archkeel/check/evaluation/facade_declarations.py",
+        "responsibility": "Own declaration-only facade discovery from source signatures and publication evidence; leave mount-specific type decisions to boundary evaluation."
       }
     ],
     "uml": {
