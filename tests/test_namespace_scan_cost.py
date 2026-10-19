@@ -93,3 +93,45 @@ def test_namespace_scan_is_reused_without_caching_mutable_member_proofs() -> Non
 
     fresh = _parsed_module("class Other: pass\nglobals()\n")
     assert unproven_member_bindings(fresh) == {"Other"}
+
+
+def test_opaque_import_reuses_alias_candidates_with_fresh_local_references() -> None:
+    from unittest.mock import patch
+
+    from test_analyzer import _parsed_module
+
+    from archkeel.analyzer.python import imports, source
+    from archkeel.analyzer.python.binding_types import AliasBinding, ImportKind
+
+    module = _parsed_module(
+        "from opaque import Base\nAlias = Base\nclass Consumer(Alias): pass\n" + "0\n" * 400
+    )
+    module.aliases["Base"] = AliasBinding("opaque.Base", ImportKind.SYMBOL)
+    local_name = module.tree.body[1].value
+    record = {
+        "source_binding_unique": False,
+        "origin_definition": "opaque.Base",
+        "binding": "Base",
+        "symbol": None,
+    }
+    with (
+        patch.object(
+            imports, "member_binding_closure", wraps=source.member_binding_closure
+        ) as call,
+        patch.object(
+            imports,
+            "setter_local_references",
+            side_effect=[frozenset(), frozenset({local_name})],
+        ),
+    ):
+        assert imports._opaque_import_member_escapes(
+            record, module, owner_exposure_only=True, unsafe_providers=frozenset()
+        ) == {"Consumer"}
+        assert (
+            imports._opaque_import_member_escapes(
+                record, module, owner_exposure_only=True, unsafe_providers=frozenset()
+            )
+            == set()
+        )
+    first, second = (item.args[0] for item in call.call_args_list)
+    assert first is second and len(first) == 1

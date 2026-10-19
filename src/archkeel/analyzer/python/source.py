@@ -343,6 +343,7 @@ class ParsedModule:
         default_factory=frozenset, init=False, repr=False
     )
     all_nodes: tuple[ast.AST, ...] = field(init=False, repr=False)
+    _member_alias_nodes: tuple[ast.Assign | ast.AnnAssign, ...] = field(init=False, repr=False)
     scope_nodes: tuple[ast.AST, ...] = field(init=False, repr=False)
     bound_names: tuple[str, ...] = field(init=False, repr=False)
     binding_names: frozenset[str] | None = field(init=False, repr=False)
@@ -360,6 +361,12 @@ class ParsedModule:
 
     def __post_init__(self) -> None:
         self.all_nodes = tuple(ast.walk(self.tree))
+        self._member_alias_nodes = tuple(
+            node
+            for node in self.all_nodes
+            if isinstance(node, ast.Assign | ast.AnnAssign)
+            and isinstance(node.value, ast.Name | ast.Attribute)
+        )
         self.scope_nodes = tuple(_module_scope_nodes(self.tree))
         self.bound_names = tuple(_bound_names(self.all_nodes))
         self.binding_names = (

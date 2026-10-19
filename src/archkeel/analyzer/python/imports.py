@@ -956,7 +956,7 @@ def _opaque_import_member_escapes(
     if data["symbol"] is None or owner_exposure_only:
         base_bindings = (
             member_binding_closure(
-                module.all_nodes,
+                module._member_alias_nodes,
                 {data["binding"]},
                 member_surface=True,
                 local_references=setter_local_references(module),
