@@ -13,6 +13,7 @@ from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.duplication import MINIMUM_SHAPE_NODES, repeated_logic
+from archkeel.ir.facts_codec import freeze_data, thaw_data
 from archkeel.ir.model import Observation
 from fixtures.architecture_demo import CATALOG
 
@@ -34,7 +35,7 @@ def test_the_claim_is_unknown_without_the_shape_signal(self_observation: Observa
 
 
 def test_archkeel_repeats_nothing_its_declared_owner_holds(self_observation: Observation) -> None:
-    """One owner is declared, and no function outside it repeats one inside it.
+    """Declared vocabulary and identity owners retain their independent logic.
 
     This claim found its own repository on the first run: the analyzer carried a second
     copy of `stable_id`, the fingerprint every record id is built from. It was removed,
@@ -43,9 +44,29 @@ def test_archkeel_repeats_nothing_its_declared_owner_holds(self_observation: Obs
     result = repeated_logic(self_observation)
 
     assert result.status == "SUPPORTED"
-    assert result.owners == 1
+    assert result.owners == 2
     assert result.functions > 400
     assert result.candidates == ()
+
+
+def test_copying_the_current_identity_owner_is_reported(self_observation: Observation) -> None:
+    symbols = self_observation.records("symbols")
+    assert symbols is not None
+    owner = "archkeel.ir.facts.stable_id"
+    original = next(item for item in symbols if item.data.get("qualified_name") == owner)
+    data = thaw_data(original.data)
+    data["qualified_name"] = "archkeel.analyzer.python.identity_copy"
+    copied = replace(original, id="COPIED-STABLE-IDENTITY", data=freeze_data(data))
+    changed = replace(
+        self_observation,
+        sections=tuple(
+            replace(section, records=(*symbols, copied)) if section.name == "symbols" else section
+            for section in self_observation.sections
+        ),
+    )
+    assert (owner, data["qualified_name"]) in {
+        (item.inside, item.outside) for item in repeated_logic(changed).candidates
+    }
 
 
 def test_a_copy_of_owned_arithmetic_is_named(tmp_path: Path) -> None:

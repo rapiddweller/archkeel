@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "46a17dc04c1bb092a809d5faa280fc4cfec2d764908638e5db88e85923b0ddfc",
+  "after_digest": "0ad93d8f6734c3007ef04b7807b30c031575fdea17e6682ec9583d4886dc496d",
+  "before_baseline_digest": "d04df1d73d2aaafecb9129bb8bef7a40d98c4fb13bfef053e698b780bdbe964a",
+  "before_digest": "374fbde41db25209914a9eb7a3efee92395bbd7856e91ccb3564932dd0be95a4",
+  "decided_by": "Codex (agent; user-authorized SPOT consolidation and contract modeling)",
+  "rationale": "Expose exactly the shared cross-package symbol predicate used by raw metrics and decoded comparisons; retain all existing component dependencies. Declare the actual stable_id owner so structural copies remain visible. Tighten calls_unresolved from 840 to 838; keep every other budget and proof requirement unchanged. AD-243 defines source maintenance; native MAX500 evidence remains separate unfinished work.",
+  "schema_version": "2.0.0"
+}

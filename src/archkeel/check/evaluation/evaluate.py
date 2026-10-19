@@ -610,7 +610,15 @@ def _evaluate_inside_contract(
         if symbols_measured and profile.complete_api_crossings
         else []
     )
-    unknowns.extend(symbol_limits(imports, scoped, exports_by_module, source_modules))
+    unknowns.extend(
+        symbol_limits(
+            imports,
+            scoped,
+            exports_by_module,
+            source_modules,
+            dependency_symbols=profile.dependency_symbols,
+        )
+    )
     unknowns.extend(construct_capability_limits(scoped, construct_capabilities, parent.label))
     return violations, unknowns, failures, allowance_facts
 
@@ -969,7 +977,9 @@ def evaluate_source(
         *(_analysis_limits(calls, declarations, namespace) if is_python else []),
         *source_unknowns,
         *dynamic_dependency_limits(contract, source_unknowns),
-        *symbol_limits(imports, contract, facade_exports),
+        *symbol_limits(
+            imports, contract, facade_exports, dependency_symbols=profile.dependency_symbols
+        ),
         *construct_capability_limits(contract, facts.capabilities.constructs, "root"),
         # AD-67: a boundary position the rule could not decide is reported, not silent. It
         # joins the two structural limits above and never `coverage.failures`, because it

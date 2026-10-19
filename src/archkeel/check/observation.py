@@ -55,6 +55,7 @@ from .declarations import load_contract, project_declarations, project_inside_de
 from .evaluation.evaluate import ScanResult, evaluate_source
 from .evaluation.rules import public_api_exposed_types
 from .ports import SourceCollector
+from .python_profile import is_crossing_import
 from .runtime import has_invalid_python_requirement, runtime_diagnostic
 
 OBSERVATION_VERSION = "0.75.0"
@@ -153,9 +154,13 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract, profile: Profile)
     private_crossings = [
         item
         for item in scan.imports
-        if item["data"]["symbol"]
-        and item["data"]["symbol"].startswith("_")
-        and item["data"]["source_package"] != item["data"]["target_package"]
+        if is_crossing_import(
+            item["data"]["symbol"],
+            item["data"]["source_package"],
+            item["data"]["target_package"],
+            item["data"]["target_module"],
+            private=True,
+        )
     ]
     private_attribute_limits = [
         item for item in scan.unknowns if item["kind"] == "private_attribute_access_limit"

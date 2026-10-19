@@ -261,6 +261,7 @@
         "archkeel.check.ports:Language",
         "archkeel.check.ports:ObservationResult",
         "archkeel.check.python_profile:crossing_imports",
+        "archkeel.check.python_profile:is_crossing_import",
         "archkeel.check.runtime:runtime_diagnostic",
         "archkeel.check.runtime:has_invalid_python_requirement"
       ]

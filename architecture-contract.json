@@ -440,6 +440,15 @@
         "provenance": [
           "docs/architecture/archkeel.md"
         ]
+      },
+      {
+        "id": "OWNER-STABLE-IDENTITY",
+        "label": "Deterministic record identity",
+        "owner": "archkeel.ir.facts.stable_id",
+        "responsibility": "Derive deterministic record and evidence identities from their supplied content.",
+        "provenance": [
+          "docs/architecture/archkeel.md"
+        ]
       }
     ],
     "compat": [],

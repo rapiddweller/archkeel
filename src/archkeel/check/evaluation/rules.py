@@ -770,6 +770,8 @@ def _interface_verdicts(
     exports_by_module: dict[str, frozenset[str]],
     forbidden_rejected_ids: frozenset[str],
     source_modules: frozenset[str] | None = None,
+    *,
+    dependency_symbols: bool = True,
 ) -> Iterator[_InterfaceVerdict]:
     """Yield every import an interface_boundary rule judges, with its verdict."""
     rules = [rule for rule in contract.rules if isinstance(rule, InterfaceBoundaryRule)]
@@ -788,6 +790,7 @@ def _interface_verdicts(
                 or target is None
                 or source == target
                 or target.public is None
+                or (not dependency_symbols and any(":" in entry for entry in target.public))
                 or (data["under_type_checking"] and not rule.include_type_checking)
                 # AD-18: a forbidden edge has no legitimate interface to reach, so it is
                 # reported once, as the forbidden_dependency violation.
@@ -822,10 +825,13 @@ def _interface_violations(
 ) -> list[RawRecord]:
     violations: list[RawRecord] = []
     for rule, item, source, target, verdict in _interface_verdicts(
-        imports, contract, exports_by_module, forbidden_rejected_ids, source_modules
+        imports,
+        contract,
+        exports_by_module,
+        forbidden_rejected_ids,
+        source_modules,
+        dependency_symbols=dependency_symbols,
     ):
-        if not dependency_symbols and any(":" in entry for entry in target.public or ()):
-            continue
         if verdict is not _Verdict.FAIL:
             continue
         data = item["data"]
@@ -893,6 +899,8 @@ def symbol_limits(
     contract: ArchitectureContract,
     exports_by_module: dict[str, frozenset[str]],
     source_modules: frozenset[str] | None = None,
+    *,
+    dependency_symbols: bool = True,
 ) -> list[RawRecord]:
     """UNKNOWN records for imports with unproven names or publication routes."""
     components = tuple(
@@ -906,7 +914,12 @@ def symbol_limits(
     interface = [
         (rule, item, verdict)
         for rule, item, _, _, verdict in _interface_verdicts(
-            imports, contract, exports_by_module, rejected, source_modules
+            imports,
+            contract,
+            exports_by_module,
+            rejected,
+            source_modules,
+            dependency_symbols=dependency_symbols,
         )
     ]
     requires = [
@@ -914,7 +927,7 @@ def symbol_limits(
         for rule in contract.rules
         if isinstance(rule, CompleteRequiresRule)
         for item, _, _, verdict in _requires_import_verdicts(
-            imports, contract, rule, source_modules
+            imports, contract, rule, source_modules, dependency_symbols=dependency_symbols
         )
     ]
     return sorted(
