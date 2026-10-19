@@ -20,6 +20,7 @@ from archkeel.ir.architecture_graph import (
     validate_module_target,
 )
 from archkeel.ir.codec_governance import _measurement_budget_name
+from archkeel.ir.codec_repository_files import parse_max_file_lines
 from archkeel.ir.codec_wire import (
     _count,
     _exact,
@@ -69,6 +70,7 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
     LayerOrderRule,
+    MaxFileLinesRule,
     ModuleObjectGrant,
     NoComponentCyclesRule,
     Record,
@@ -259,6 +261,11 @@ def parse_contract(raw: object) -> ArchitectureContract:
     uml = parse_target(declarations["uml"]) if _has_field(declarations, "uml") else None
     kinds = tuple(_rule_kind(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
     if (
+        not supports_feature(version, ContractFeature.MAX_FILE_LINES)
+        and ArchitectureRuleKind.MAX_FILE_LINES in kinds
+    ):
+        raise ValueError("max_file_lines requires contract schema_version 3.8.0")
+    if (
         not supports_feature(version, ContractFeature.CALL_OWNER)
         and ArchitectureRuleKind.CALL_OWNER in kinds
     ):
@@ -393,6 +400,10 @@ def parse_contract(raw: object) -> ArchitectureContract:
 
 
 def _validate_encoding_version(contract: ArchitectureContract) -> None:
+    if not supports_feature(contract.schema_version, ContractFeature.MAX_FILE_LINES) and any(
+        isinstance(rule, MaxFileLinesRule) for rule in contract.rules
+    ):
+        raise ValueError("max_file_lines requires contract schema_version 3.8.0")
     if not supports_feature(contract.schema_version, ContractFeature.CALL_OWNER) and any(
         isinstance(rule, CallOwnerRule) for rule in contract.rules
     ):
@@ -1316,6 +1327,7 @@ def _parse_call_owner(raw: RawJson, label: str) -> CallOwnerRule:
 
 
 _RULE_PARSERS: Final[dict[ArchitectureRuleKind, Callable[[RawJson, str], ArchitectureRule]]] = {
+    ArchitectureRuleKind.MAX_FILE_LINES: parse_max_file_lines,
     ArchitectureRuleKind.CALL_OWNER: _parse_call_owner,
     ArchitectureRuleKind.FORBIDDEN_DEPENDENCY: _parse_forbidden_dependency,
     ArchitectureRuleKind.ALLOWED_DEPENDENCY: _parse_allowed_dependency,

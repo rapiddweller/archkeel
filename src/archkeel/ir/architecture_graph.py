@@ -161,6 +161,7 @@ class DecisionMaker(StrEnum):
 
 
 class ArchitectureRuleKind(StrEnum):
+    MAX_FILE_LINES = "max_file_lines"
     CALL_OWNER = "call_owner"
     FORBIDDEN_DEPENDENCY = "forbidden_dependency"
     ALLOWED_DEPENDENCY = "allowed_dependency"

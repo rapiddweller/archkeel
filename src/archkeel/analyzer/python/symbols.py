@@ -28,6 +28,7 @@ from archkeel.ir.facts import (
 )
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified, member_inventory_data
+from archkeel.ir.source_records import source_name_visibility as _source_name_visibility
 
 from .resolve import dotted_expression
 from .source import (
@@ -128,7 +129,9 @@ def _parameter(
 def _python_visibility(name: str) -> RecordData:
     special = name.startswith("__") and name.endswith("__") and len(name) > 4
     return {
-        "kind": "private" if name.startswith("_") and not special else "public",
+        "kind": "private"
+        if _source_name_visibility(name) is SourceNameVisibility.PRIVATE and not special
+        else "public",
         "basis": "convention",
         "spelling": name,
     }
@@ -266,9 +269,7 @@ def _symbol_data(
         "module": module.module,
         "package": module.package,
         "name": node.name,
-        "visibility": SourceNameVisibility.PRIVATE
-        if node.name.startswith("_")
-        else SourceNameVisibility.PUBLIC_NAME,
+        "visibility": _source_name_visibility(node.name),
         "visibility_detail": _python_visibility(node.name),
         "declared_in_all": node.name in module.all_exports,
         "parent": parent,
@@ -329,7 +330,7 @@ def _class_symbol_data(
             for child in node.body
             if isinstance(child, ast.AnnAssign)
             and isinstance(child.target, ast.Name)
-            and not child.target.id.startswith("_")
+            and _source_name_visibility(child.target.id) is SourceNameVisibility.PUBLIC_NAME
         ],
         "attribute_declarations": attributes,
         "source_binding_unique": node in module.tree.body
@@ -804,9 +805,7 @@ def _assignment_symbol(
             "module": module.module,
             "name": name,
             "parent": None,
-            "visibility": SourceNameVisibility.PRIVATE
-            if name.startswith("_")
-            else SourceNameVisibility.PUBLIC_NAME,
+            "visibility": _source_name_visibility(name),
             "visibility_detail": _python_visibility(name),
             **(
                 {

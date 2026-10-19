@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 import re
 import subprocess
@@ -17,6 +18,14 @@ from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 
 from archkeel.ir.facts import Language
+from archkeel.ir.repository_files import (
+    RepositoryFileExclusionKind,
+    RepositoryFileSelection,
+    repository_path_selected,
+)
+from archkeel.ir.repository_manifest import manifest_file_digests
+
+from .ports import RepositorySnapshotPaths
 
 _FULL_GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 _GLOB_SYNTAX = frozenset("*?[]{}!")
@@ -42,6 +51,7 @@ class ArchivedSnapshot:
 
     root: Path
     git_head: str
+    repository_paths: RepositorySnapshotPaths | None = None
 
 
 class RegularGitBlobKind(Enum):
@@ -106,12 +116,14 @@ def _git_archive_bytes(
     roots: tuple[PurePosixPath, ...],
     language: Language = Language.PYTHON,
     tsconfig: str | None = None,
+    repository_paths: tuple[str, ...] = (),
 ) -> bytes:
     """Build a tar from tree blobs; Git export attributes must not change evidence."""
     try:
         language = Language(language)
     except ValueError as exc:
         raise SnapshotError(f"unsupported snapshot language: {language}") from exc
+    extra_paths = frozenset(path.encode() for path in repository_paths)
     metadata_path = _METADATA_PATH if language is Language.PYTHON else _PUBSPEC_PATH
     try:
         completed = subprocess.run(
@@ -126,13 +138,20 @@ def _git_archive_bytes(
                 if not entry:
                     continue
                 metadata, raw_path = entry.split(b"\t", 1)
-                if language is Language.TYPESCRIPT and not (
-                    raw_path.endswith(tuple(suffix.encode() for suffix in _TS_RESOLVER_SUFFIXES))
-                    or (tsconfig is not None and raw_path == tsconfig.encode())
+                if (
+                    raw_path not in extra_paths
+                    and language is Language.TYPESCRIPT
+                    and not (
+                        raw_path.endswith(
+                            tuple(suffix.encode() for suffix in _TS_RESOLVER_SUFFIXES)
+                        )
+                        or (tsconfig is not None and raw_path == tsconfig.encode())
+                    )
                 ):
                     continue
                 if (
-                    language is not Language.TYPESCRIPT
+                    raw_path not in extra_paths
+                    and language is not Language.TYPESCRIPT
                     and raw_path != metadata_path.as_posix().encode()
                     and not (
                         raw_path.endswith(
@@ -158,24 +177,29 @@ def _git_archive_bytes(
                     if language is Language.DART
                     else path == _METADATA_PATH
                 )
-                if not scoped and not resolver:
+                if not scoped and not resolver and raw_path not in extra_paths:
                     continue
                 _safe_member_path(name)
                 mode, kind, oid = metadata.split()
                 if regular_git_blob_kind(mode, kind) is None:
                     raise SnapshotError(f"expected a regular Git blob: {name!r}")
-                payload = subprocess.run(
-                    ["git", "cat-file", "blob", oid.decode("ascii")],
-                    cwd=root,
-                    check=True,
-                    capture_output=True,
-                ).stdout
-                member = tarfile.TarInfo(name)
-                member.size = len(payload)
-                stream.addfile(member, io.BytesIO(payload))
+                _archive_blob(stream, root, name, oid)
+
         return buffer.getvalue()
     except (OSError, UnicodeDecodeError, subprocess.CalledProcessError, ValueError) as exc:
         raise SnapshotError(f"cannot read snapshot blobs from Git commit {git_head}") from exc
+
+
+def _archive_blob(stream: tarfile.TarFile, root: Path, name: str, oid: bytes) -> None:
+    payload = subprocess.run(
+        ["git", "cat-file", "blob", oid.decode("ascii")],
+        cwd=root,
+        check=True,
+        capture_output=True,
+    ).stdout
+    member = tarfile.TarInfo(name)
+    member.size = len(payload)
+    stream.addfile(member, io.BytesIO(payload))
 
 
 def _safe_member_path(name: str) -> PurePosixPath:
@@ -194,6 +218,7 @@ def _materialize_archive(
     roots: tuple[str, ...],
     language: Language = Language.PYTHON,
     tsconfig: str | None = None,
+    repository_paths: tuple[str, ...] = (),
 ) -> None:
     """Extract scoped sources and commit-bound resolver inputs for one language."""
     try:
@@ -234,7 +259,10 @@ def _materialize_archive(
                     language is Language.TYPESCRIPT and path.suffix in _TS_RESOLVER_SUFFIXES
                 )
                 if not member.isfile() or not (
-                    is_scoped_source or allowed_metadata or resolver_input
+                    is_scoped_source
+                    or allowed_metadata
+                    or resolver_input
+                    or member.name in repository_paths
                 ):
                     raise SnapshotError(f"unsupported Git archive member: {member.name!r}")
                 source = stream.extractfile(member)
@@ -250,6 +278,50 @@ def _materialize_archive(
         raise SnapshotError(f"Git archive contains no scoped {language.title()} sources")
 
 
+def _repository_paths(
+    root: Path, git_head: str, selections: tuple[RepositoryFileSelection, ...]
+) -> tuple[RepositorySnapshotPaths, tuple[str, ...]]:
+    try:
+        entries = subprocess.run(
+            ["git", "ls-tree", "-r", "-z", git_head],
+            cwd=root,
+            check=True,
+            capture_output=True,
+        ).stdout.split(b"\0")
+        paths = tuple(
+            sorted(entry.split(b"\t", 1)[1].decode("utf-8") for entry in entries if entry)
+        )
+        extra = {
+            path
+            for path in paths
+            if any(repository_path_selected(s, path, b"#!") for s in selections)
+        }
+        for selection in selections:
+            for exclusion in selection.exclusions:
+                extra.add(exclusion.path)
+                if exclusion.kind is not RepositoryFileExclusionKind.MANIFEST:
+                    continue
+                result = subprocess.run(
+                    ["git", "show", f"{git_head}:{exclusion.path}"],
+                    cwd=root,
+                    capture_output=True,
+                )
+                if (
+                    result.returncode
+                    or hashlib.sha256(result.stdout).hexdigest() != exclusion.sha256
+                ):
+                    continue
+                try:
+                    extra.update(
+                        path for path, _ in manifest_file_digests(exclusion.path, result.stdout)
+                    )
+                except (ValueError, TypeError, UnicodeError):
+                    continue
+        return RepositorySnapshotPaths(paths, git_head, False), tuple(sorted(extra))
+    except (OSError, UnicodeError, subprocess.CalledProcessError, ValueError) as error:
+        raise SnapshotError("cannot enumerate repository inputs from Git revision") from error
+
+
 @contextmanager
 def materialize_git_snapshot(
     root: Path,
@@ -258,17 +330,34 @@ def materialize_git_snapshot(
     roots: tuple[str, ...],
     language: Language = Language.PYTHON,
     tsconfig: str | None = None,
+    repository_selections: tuple[RepositoryFileSelection, ...] = (),
 ) -> Iterator[ArchivedSnapshot]:
     """Yield a safely extracted language snapshot for one resolved commit."""
     repository_root = root.resolve()
     validated_roots = _validated_roots(roots)
     git_head = resolve_commit(repository_root, revision)
+    repository = None
+    extra_paths: tuple[str, ...] = ()
+    if repository_selections:
+        repository, extra_paths = _repository_paths(
+            repository_root, git_head, repository_selections
+        )
     archive = _git_archive_bytes(
-        repository_root, git_head, roots=validated_roots, language=language, tsconfig=tsconfig
+        repository_root,
+        git_head,
+        roots=validated_roots,
+        language=language,
+        tsconfig=tsconfig,
+        repository_paths=extra_paths,
     )
     with TemporaryDirectory(prefix="archkeel-snapshot-") as temporary:
         destination = Path(temporary)
         _materialize_archive(
-            archive, destination, roots=roots, language=language, tsconfig=tsconfig
+            archive,
+            destination,
+            roots=roots,
+            language=language,
+            tsconfig=tsconfig,
+            repository_paths=extra_paths,
         )
-        yield ArchivedSnapshot(root=destination, git_head=git_head)
+        yield ArchivedSnapshot(root=destination, git_head=git_head, repository_paths=repository)

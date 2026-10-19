@@ -54,6 +54,7 @@ from archkeel.ir.model import (
     ExpectationOutcome as _ExpectationOutcome,
 )
 from archkeel.ir.profiles import Language
+from archkeel.ir.source_records import source_name_visibility as _source_name_visibility
 from archkeel.ir.structure import StructureLevel, StructureMetric, scope_metrics
 
 from .ports import Analyzer, FilesToWrite, ScanConfig
@@ -125,7 +126,11 @@ def interface_entries(
     public_names: set[str],
 ) -> list[str]:
     """Propose the AD-9 `public` entries a module's cross-component uses would need."""
-    names = {name for name in used_names if not name.startswith("_")}
+    names = {
+        name
+        for name in used_names
+        if _source_name_visibility(name) is SourceNameVisibility.PUBLIC_NAME
+    }
     if whole_module or all_exports or (bool(public_names) and 2 * len(names) >= len(public_names)):
         return [module]
     return sorted(f"{module}:{name}" for name in names)

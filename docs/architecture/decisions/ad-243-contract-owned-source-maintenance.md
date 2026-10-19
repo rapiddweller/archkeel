@@ -19,10 +19,13 @@ Structural similarity is a review signal and cannot prove all semantic duplicati
 symbol measurement predicate shared by raw metrics and decoded comparisons.
 `archkeel.ir.facts.stable_id` owns deterministic record identity. Its Contract owner
 must follow the implementation; copying it must remain a native review finding.
+`archkeel.ir.source_records.source_name_visibility` owns source-spelling privacy; language
+API visibility and explicit exports remain separate decisions.
 
 No component permission, acceptance ceiling or UNKNOWN proof requirement is relaxed.
 
 [Contract](../../../architecture-contract.json) ·
 [Crossing controls](../../../tests/test_python_crossing_policy.py) ·
 [Profile controls](../../../tests/test_dependency_profile_selection.py) ·
-[Identity controls](../../../tests/test_duplication.py)
+[Identity controls](../../../tests/test_duplication.py) ·
+[File-rule controls](../../../tests/test_max_file_lines.py)

@@ -46,6 +46,7 @@ from .model import (
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
+    MaxFileLinesRule,
     NoComponentCyclesRule,
     RequiredComponent,
     RootLayoutRule,
@@ -53,6 +54,7 @@ from .model import (
     SiblingIsolationRule,
     last_name,
 )
+from .repository_files import RepositoryFileScope
 
 __all__ = (
     "AMENDMENT_SCHEMA_VERSION",
@@ -90,6 +92,7 @@ _PERMISSION_RULE_KINDS: Final = frozenset({"allowed_dependency"})
 _RESTRICTION_RULE_KINDS: Final = frozenset(
     {
         "call_owner",
+        "max_file_lines",
         "forbidden_dependency",
         "forbidden_construct",
         "external_dependency_scope",
@@ -449,6 +452,40 @@ def _no_component_cycles_widenings(
     ]
 
 
+def _file_scope_covers(before: RepositoryFileScope, after: RepositoryFileScope) -> bool:
+    return (
+        (after.root == "." or before.root == after.root or before.root.startswith(after.root + "/"))
+        and set(before.suffixes) <= set(after.suffixes)
+        and set(before.exact_filenames) <= set(after.exact_filenames)
+        and (not before.shebang or after.shebang)
+    )
+
+
+def _max_file_lines_widenings(
+    before: MaxFileLinesRule, after: MaxFileLinesRule
+) -> list[WideningChange]:
+    subject = f"rule {before.id}"
+    findings: list[WideningChange] = []
+    if after.max_lines > before.max_lines:
+        findings.append(WideningChange(subject, "max_lines", f"{subject} line limit increased"))
+    if not all(
+        any(_file_scope_covers(old, new) for new in after.selection.scopes)
+        for old in before.selection.scopes
+    ):
+        findings.append(
+            WideningChange(subject, "selection", f"{subject} file selection narrowed or changed")
+        )
+    old_exclusions = {(item.kind, item.path, item.sha256) for item in before.selection.exclusions}
+    new_exclusions = {(item.kind, item.path, item.sha256) for item in after.selection.exclusions}
+    if not new_exclusions <= old_exclusions:
+        findings.append(
+            WideningChange(
+                subject, "exclusions", f"{subject} exclusion permission added or changed"
+            )
+        )
+    return findings
+
+
 def _matched_rule_widenings(
     before: ArchitectureRule, after: ArchitectureRule
 ) -> list[WideningChange]:
@@ -462,6 +499,8 @@ def _matched_rule_widenings(
                 subject, "kind", f"{subject} changed kind from {before.kind} to {after.kind}"
             )
         ]
+    if isinstance(before, MaxFileLinesRule) and isinstance(after, MaxFileLinesRule):
+        return _max_file_lines_widenings(before, after)
     if isinstance(before, ForbiddenDependencyRule) and isinstance(after, ForbiddenDependencyRule):
         return _forbidden_dependency_widenings(subject, before, after)
     if isinstance(before, AllowedDependencyRule) and isinstance(after, AllowedDependencyRule):

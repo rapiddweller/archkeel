@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from pathlib import Path, PurePosixPath
 from typing import Literal
 
@@ -50,9 +51,16 @@ from archkeel.ir.model import (
     stable_id,
 )
 from archkeel.ir.profiles import PROFILES, Language, Profile, UnmeasurableScalar
+from archkeel.ir.repository_files import (
+    MaxFileLinesRule,
+    RepositoryFileGap,
+    RepositoryFileGapReason,
+    RepositoryFileInventory,
+)
 
 from .declarations import load_contract, project_declarations, project_inside_declarations
 from .evaluation.evaluate import ScanResult, evaluate_source
+from .evaluation.repository_files import repository_file_results
 from .evaluation.rules import public_api_exposed_types
 from .ports import SourceCollector
 from .python_profile import is_crossing_import
@@ -797,6 +805,74 @@ def _certify_dependency_scopes(
             receipt["data"]["assessment_complete"] = True
 
 
+def _repository_file_observations(
+    scan: ScanResult,
+    facts: SourceFacts,
+    contract: ArchitectureContract,
+    mounts: list[InsideContractMount],
+    declarations: list[RawRecord],
+    contract_digest: str,
+    inventories: tuple[RepositoryFileInventory, ...],
+) -> None:
+    levels = [("root", contract), *((mount.parent_id, mount.contract) for mount in mounts)]
+    if not any(isinstance(rule, MaxFileLinesRule) for _, level in levels for rule in level.rules):
+        return
+    input_digests = {item.path: item.digest for item in facts.inputs}
+    by_selection = {item.selection: item for item in inventories}
+    for item in inventories:
+        gaps = list(item.gaps)
+        for witness in (*item.classifications, *item.manifest_inputs):
+            if witness.path in input_digests and input_digests[witness.path] != witness.sha256:
+                gaps.append(RepositoryFileGap(witness.path, RepositoryFileGapReason.HASH_MISMATCH))
+        by_selection[item.selection] = replace(item, gaps=tuple(dict.fromkeys(gaps)))
+    declared = {item["id"]: item for item in declarations}
+    source = replace(facts.source, source_digest=scan.source_digest)
+    used: dict[str, RepositoryFileInventory] = {}
+    receipt_ids = {item["id"] for item in scan.scope_observations}
+    for scope, level in levels:
+        for rule in level.rules:
+            if not isinstance(rule, MaxFileLinesRule):
+                continue
+            inventory = by_selection.get(rule.selection)
+            violations, limits, receipts = repository_file_results(
+                rule,
+                inventory,
+                scope=scope,
+                source=source,
+                contract_digest=contract_digest,
+                declaration=declared[rule.id],
+            )
+            scan.violations.extend(violations)
+            # Repository gaps do not invalidate independently captured language evidence.
+            scan.unknowns.extend(limits)
+            for receipt in receipts:
+                if receipt["id"] not in receipt_ids:
+                    scan.scope_observations.append(receipt)
+                    receipt_ids.add(receipt["id"])
+            if inventory is not None:
+                used[inventory.digest] = inventory
+    evidence_ids = {item["id"] for item in scan.evidence}
+    for inventory in used.values():
+        for witness in (
+            *inventory.files,
+            *inventory.excluded_files,
+            *inventory.manifest_inputs,
+            *inventory.classifications,
+        ):
+            if witness.evidence_id not in evidence_ids:
+                scan.evidence.append(
+                    {
+                        "id": witness.evidence_id,
+                        "file": witness.path,
+                        "line": 1,
+                        "end_line": 1,
+                        "column": 0,
+                        "excerpt": f"sha256:{witness.sha256}",
+                    }
+                )
+                evidence_ids.add(witness.evidence_id)
+
+
 def assemble_observation(
     facts: SourceFacts,
     *,
@@ -805,6 +881,7 @@ def assemble_observation(
     roots: tuple[str, ...] = ("src",),
     namespace: str = "src",
     language: Language = Language.PYTHON,
+    repository_inventories: tuple[RepositoryFileInventory, ...] = (),
 ) -> tuple[Observation, int]:
     """Analyze explicit source bytes; keep the model open for the canonical codec boundary."""
     git_head, dirty = facts.source.git_head, facts.source.dirty
@@ -831,6 +908,15 @@ def assemble_observation(
     scope = roots, namespace
     declarations = _declaration_records(
         contract, scan, inside_records, contract_reference, scope, language
+    )
+    _repository_file_observations(
+        scan,
+        facts,
+        contract,
+        inside_contracts,
+        declarations,
+        full_contract_digest,
+        repository_inventories,
     )
     _certify_dependency_scopes(scan, facts, full_contract_digest, declarations)
     _certify_call_owner_scopes(scan, facts, full_contract_digest, declarations)

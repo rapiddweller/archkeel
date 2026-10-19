@@ -10,9 +10,10 @@ from collections import Counter
 from collections.abc import Sequence
 from enum import Enum
 
-from archkeel.ir.facts import EvidenceClass, stable_id
+from archkeel.ir.facts import EvidenceClass, SourceNameVisibility, stable_id
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
+from archkeel.ir.source_records import source_name_visibility as _source_name_visibility
 
 from .scopes import BindingKind, LexicalScopes
 from .source import (
@@ -271,7 +272,9 @@ def _literal_enum_body(node: ast.ClassDef) -> bool:
             and isinstance(child.targets[0], ast.Name)
         ):
             member_name: str = child.targets[0].id
-            if not member_name.startswith("_") and _is_str(child.value):
+            if _source_name_visibility(member_name) is SourceNameVisibility.PUBLIC_NAME and _is_str(
+                child.value
+            ):
                 continue
         if isinstance(child, ast.Pass):
             continue

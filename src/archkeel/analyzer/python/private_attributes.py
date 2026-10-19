@@ -9,8 +9,9 @@ import ast
 import builtins
 from collections.abc import Sequence
 
-from archkeel.ir.facts import Evidence, EvidenceClass, Record, stable_id
+from archkeel.ir.facts import Evidence, EvidenceClass, Record, SourceNameVisibility, stable_id
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified, parse_evidence, parse_record
+from archkeel.ir.source_records import source_name_visibility as _source_name_visibility
 
 from .source import (
     ParsedModule,
@@ -209,7 +210,14 @@ def _private_attribute_records(
         if rooted is None or rooted[0] not in parameters:
             continue
         parameter, path = rooted
-        private = next((name for name in path if name.startswith("_")), None)
+        private = next(
+            (
+                name
+                for name in path
+                if _source_name_visibility(name) is SourceNameVisibility.PRIVATE
+            ),
+            None,
+        )
         if private is None:
             continue
         annotation = parameters[parameter]

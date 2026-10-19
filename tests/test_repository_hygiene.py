@@ -122,10 +122,6 @@ ALLOWED_LONG_FUNCTIONS = {
         "One onboarding flow observes inputs, drafts the three files and "
         "returns its open decisions."
     ),
-    ("src/archkeel/check/observe.py::_observe"): (
-        "One observer boundary validates request, contract, facts and "
-        "completeness before publication."
-    ),
     ("src/archkeel/ir/facts_validation.py::validate_source_facts"): (
         "One fail-closed validation pass checks references across all fact sections."
     ),

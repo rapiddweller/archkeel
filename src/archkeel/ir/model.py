@@ -72,7 +72,11 @@ from .facts import (
 from .facts import (
     SourceInfo as SourceInfo,
 )
-from .facts import SourceResolution, parse_source_resolution
+from .facts import (
+    SourceNameVisibility,
+    SourceResolution,
+    parse_source_resolution,
+)
 from .facts import (
     SymbolClassKind as SymbolClassKind,
 )
@@ -86,6 +90,8 @@ from .host_records import InitialPRHeadEvidence
 from .measurements import MeasurementBudgetName as MeasurementBudgetName
 from .measurements import Measurements
 from .measurements import NameBudgetKind as NameBudgetKind
+from .repository_files import MaxFileLinesRule as MaxFileLinesRule
+from .source_records import source_name_visibility as _source_name_visibility
 
 if TYPE_CHECKING:
     from .architecture_projection import ArchitectureProjection
@@ -242,7 +248,7 @@ def facade_covers(
 ) -> bool:
     """Answer facade coverage from the component contract and observed module exports."""
     public = component.public
-    if public is None or name.startswith("_"):
+    if public is None or _source_name_visibility(name) is SourceNameVisibility.PRIVATE:
         return False
     if f"{module}:{name}" in public:
         return True
@@ -262,7 +268,7 @@ def interface_covers_import(
         return False
     if symbol is None:
         return target_module in component.public
-    if symbol.startswith("_"):
+    if _source_name_visibility(symbol) is SourceNameVisibility.PRIVATE:
         return False
     for entry in reexport_chain:
         module, _, name = entry.rpartition(".")
@@ -724,7 +730,8 @@ class BoundaryTypesRule(ArchitectureRuleGrammar):
 
 
 ArchitectureRule: TypeAlias = (
-    CallOwnerRule
+    MaxFileLinesRule
+    | CallOwnerRule
     | ForbiddenDependencyRule
     | AllowedDependencyRule
     | ForbiddenConstructRule

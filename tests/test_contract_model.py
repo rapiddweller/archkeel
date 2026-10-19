@@ -12,6 +12,7 @@ from typing import get_args, get_origin, get_type_hints
 
 import pytest
 from jsonschema import Draft202012Validator
+from test_max_file_lines import maximal_file_lines_rule
 
 from archkeel.ir.architecture_graph import (
     Entity,
@@ -493,6 +494,8 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
                 "decided_by": "architect",
             }
         )
+    if version == "3.8.0":
+        raw["rules"].append(maximal_file_lines_rule())
     return raw
 
 
@@ -707,7 +710,17 @@ def test_the_maximal_contract_fills_every_field() -> None:
     """The completeness test below only sees a field this contract fills."""
     documents = [
         json.loads(contract_bytes(parse_contract(_maximal_contract(version))))
-        for version in ("3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0", "3.6.0", "3.7.0")
+        for version in (
+            "3.0.0",
+            "3.1.0",
+            "3.2.0",
+            "3.3.0",
+            "3.4.0",
+            "3.5.0",
+            "3.6.0",
+            "3.7.0",
+            "3.8.0",
+        )
     ]
 
     assert _unfilled(ArchitectureContract, documents, "contract") == []

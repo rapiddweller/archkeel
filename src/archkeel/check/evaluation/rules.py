@@ -46,6 +46,7 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
     LayerOrderRule,
+    MaxFileLinesRule,
     NoComponentCyclesRule,
     RootLayoutRule,
     SiblingIsolationRule,
@@ -942,7 +943,7 @@ def symbol_limits(
 
 def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
     """Name the module selectors whose absence would make a rule vacuous."""
-    if isinstance(rule, CallOwnerRule):
+    if isinstance(rule, CallOwnerRule | MaxFileLinesRule):
         return {}
     if isinstance(rule, ForbiddenDependencyRule | AllowedDependencyRule):
         return {"source": (rule.source,), "target": (rule.target,)}
@@ -2059,13 +2060,7 @@ def rule_evaluation_facts(
     receipt_scope_complete: bool,
     symbols: Sequence[RawRecord] = (),
 ) -> list[RawRecord]:
-    """Record completed evaluations or ownership blockers for one observation scope.
-
-    Only `rule_evaluation` records certify completion. Blocker facts explain missing receipts
-    without turning an incomplete scope into PASS. Declaration-only and unsupported rules
-    have no evaluation receipt. Named construct owners additionally require actual symbols;
-    omitted symbol evidence preserves module receipts without certifying a named owner.
-    """
+    """Record generic scopes; named owners need symbols, ownership blockers certify nothing."""
     observed = tuple(
         item
         for item in modules
@@ -2074,7 +2069,12 @@ def rule_evaluation_facts(
     facts: list[RawRecord] = []
     for rule in contract.rules:
         if rule.kind in profile.unsupported_rules or isinstance(
-            rule, AllowedDependencyRule | BoundaryTypesRule | NoComponentCyclesRule | CallOwnerRule
+            rule,
+            AllowedDependencyRule
+            | BoundaryTypesRule
+            | NoComponentCyclesRule
+            | CallOwnerRule
+            | MaxFileLinesRule,
         ):
             continue
         if isinstance(rule, LayerOrderRule):

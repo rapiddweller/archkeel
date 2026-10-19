@@ -4,6 +4,7 @@
 """Compose immutable inputs, host evidence and architecture checks."""
 
 from collections.abc import Mapping
+from functools import partial
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -41,6 +42,7 @@ from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from archkeel.ir.model import (
     ExpectationOutcome as _ExpectationOutcome,
 )
+from archkeel.ir.repository_files import MaxFileLinesRule, RepositoryFileSelection
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 
 from .delta import build_architecture_delta
@@ -189,6 +191,28 @@ def _authenticate_inputs(
     return lock, lock_bytes, expectation
 
 
+def _revision_selections(
+    root: Path, commit: str, config: ScanConfig
+) -> tuple[RepositoryFileSelection, ...]:
+    payload = read_blob(root, commit, config.contract)
+
+    def read_inside(path: str) -> tuple[bytes, str]:
+        return read_blob(root, commit, path), path
+
+    contract = parse_contract(decode_json(payload))
+    tree = load_inside_contract_tree(
+        config.contract, contract, sha256_bytes(payload), config.contract, read_inside
+    )
+    return tuple(
+        dict.fromkeys(
+            rule.selection
+            for level in (contract, *(mount.contract for mount in tree.mounts))
+            for rule in level.rules
+            if isinstance(rule, MaxFileLinesRule)
+        )
+    )
+
+
 def observe_revision(
     analyzer: Analyzer,
     root: Path,
@@ -205,14 +229,19 @@ def observe_revision(
     with TemporaryDirectory(prefix="archkeel-declarations-") as temporary:
         declarations = Path(temporary)
         materialize_declarations(root, declared_at, config, declarations)
+        selections = _revision_selections(root, declared_at, config)
         with materialize_git_snapshot(
             root,
             revision,
             roots=config.roots,
             language=config.language,
             tsconfig=config.tsconfig,
+            repository_selections=selections,
         ) as snapshot:
-            result = analyzer(
+            observe = analyzer
+            if snapshot.repository_paths is not None:
+                observe = partial(analyzer, repository_snapshot=snapshot.repository_paths)
+            result = observe(
                 snapshot.root,
                 roots=config.roots,
                 namespace=config.namespace,

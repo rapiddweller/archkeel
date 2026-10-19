@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from archkeel.ir.codec import InsideContractTree, contract_digest, load_inside_contract_tree
+from archkeel.ir.facts import SourceNameVisibility
 from archkeel.ir.model import (
     ArchitectureContract,
     ContractComponent,
@@ -20,6 +21,7 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
 from archkeel.ir.profiles import PROFILES
+from archkeel.ir.source_records import source_name_visibility as _source_name_visibility
 
 from ..ports import ScanConfig
 from .diagnostics import _diagnostic, _sorted
@@ -104,7 +106,7 @@ def _entry_ownership_diagnostics(
                     "Move the entry to its owning component or correct the module.",
                 )
             )
-        if name.startswith("_"):
+        if _source_name_visibility(name) is SourceNameVisibility.PRIVATE:
             diagnostics.append(
                 _diagnostic(
                     _DiagnosticCode.REFERENCE_PUBLIC_UNDERSCORE,

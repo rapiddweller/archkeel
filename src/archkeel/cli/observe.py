@@ -13,6 +13,7 @@ from archkeel.check.observation import analyze_source_snapshot
 from archkeel.check.observe import Observer
 from archkeel.check.ports import Language, ObservationResult
 from archkeel.ir.codec import RawJson, observation_payload
+from archkeel.ir.repository_files import RepositorySnapshotPaths
 
 
 def observer_for(
@@ -43,6 +44,7 @@ def observe(
     dirty: bool,
     contract_root: Path,
     language: Language = Language.PYTHON,
+    repository_snapshot: RepositorySnapshotPaths | None = None,
 ) -> ObservationResult:
     return observer_for(language)(
         source_root,
@@ -53,6 +55,7 @@ def observe(
         dirty=dirty,
         contract_root=contract_root,
         language=language,
+        repository_snapshot=repository_snapshot,
     )
 
 

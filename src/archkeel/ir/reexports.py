@@ -5,8 +5,8 @@
 
 from collections.abc import Sequence
 
-from .facts import SourceNameVisibility
 from .source_records import RawRecord
+from .source_records import source_name_visibility as _source_name_visibility
 
 
 def _reexport_route_is_proven(
@@ -165,11 +165,7 @@ def _record_import_origins(
         ):
             data["reexport_candidate"] = True
             data["reexport"] = False
-        data["symbol_visibility"] = (
-            SourceNameVisibility.PRIVATE
-            if symbol.startswith("_")
-            else SourceNameVisibility.PUBLIC_NAME
-        )
+        data["symbol_visibility"] = _source_name_visibility(symbol)
         data["declared_in_all"] = data["binding"] in exports_by_module.get(
             data["source_module"], set()
         )

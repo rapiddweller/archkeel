@@ -22,6 +22,7 @@ from archkeel.ir.facts import (
     PropertyOrigin,
     ProviderBinding,
     ProviderBindingKind,
+    SourceNameVisibility,
     SymbolClassKind,
     contextmanager_signature,
     parse_method_kind,
@@ -47,6 +48,7 @@ from archkeel.ir.model import (
 from archkeel.ir.profiles import Profile
 from archkeel.ir.source_records import FRAMEWORK_BASES as _FRAMEWORK_BASES
 from archkeel.ir.source_records import is_public_method_name as _is_public_method_name
+from archkeel.ir.source_records import source_name_visibility as _source_name_visibility
 from archkeel.ir.type_shapes import (
     LiteralKind,
     TypeApplication,
@@ -2681,7 +2683,8 @@ def _declared_field_verdict(
         declared = sorted(
             (item["name"], item["annotation"])
             for item in attributes
-            if item.get("annotation") is not None and not item["name"].startswith("_")
+            if item.get("annotation") is not None
+            and _source_name_visibility(item["name"]) is SourceNameVisibility.PUBLIC_NAME
         )
         observed = sorted((item["name"], item.get("annotation") or "") for item in fields)
         if declared != observed:

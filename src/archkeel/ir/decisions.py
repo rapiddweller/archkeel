@@ -59,6 +59,7 @@ from .model import (
     RuleUncertaintyCause as RuleUncertaintyCause,
 )
 from .references import unreferenced_symbols
+from .repository_file_proof import repository_file_receipt_complete
 from .structure import oversized_insides
 from .type_fanin import type_fanin
 
@@ -766,6 +767,8 @@ def _ownership_blocker_reason(observation: Observation, rule_id: str) -> str | N
 def _rule_receipt_complete(
     observation: Observation, declaration: Record, receipt: Record | None
 ) -> bool:
+    if declaration.kind == "max_file_lines":
+        return repository_file_receipt_complete(observation, declaration, receipt)
     if declaration.kind == "no_component_cycles":
         return receipt is not None and receipt.data.get("cycle_scope_complete") is True
     if declaration.kind == "call_owner":
@@ -1008,6 +1011,8 @@ def _scoped_dependency_receipt(
 def _rule_scope_complete(
     observation: Observation, declaration: Record, receipt: Record | None, complete: bool
 ) -> bool:
+    if declaration.kind == "max_file_lines":
+        return repository_file_receipt_complete(observation, declaration, receipt)
     return (complete and observation.coverage.status == Verdict.PASS) or _scoped_dependency_receipt(
         observation, declaration, receipt
     )

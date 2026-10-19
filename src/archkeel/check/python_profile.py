@@ -5,7 +5,9 @@
 
 from typing import Final
 
+from archkeel.ir.facts import SourceNameVisibility
 from archkeel.ir.model import JsonValue, Record
+from archkeel.ir.source_records import source_name_visibility as _source_name_visibility
 
 # AD-43: language boilerplate every module in a namespace carries names no project symbol
 # on either side, so a new file's copy of it is not a crossing worth declaring.
@@ -25,7 +27,7 @@ def is_crossing_import(
         return False
     return (
         source_package != target_package
-        and (not private or symbol.startswith("_"))
+        and (not private or _source_name_visibility(symbol) is SourceNameVisibility.PRIVATE)
         and (target_module, symbol) not in _LANGUAGE_BOILERPLATE_IMPORTS
     )
 

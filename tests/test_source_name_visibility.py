@@ -25,7 +25,23 @@ from archkeel.ir.interfaces import _public_symbol_names
 from archkeel.ir.model import ComponentRole, ContractComponent
 from archkeel.ir.reexports import resolve_reexports
 from archkeel.ir.report_graph import architecture_report
+from archkeel.ir.source_records import source_name_visibility
 from archkeel.ir.trace import trace_valid_violations
+
+
+@pytest.mark.parametrize(
+    ("name", "visibility"),
+    (
+        ("Widget", facts.SourceNameVisibility.PUBLIC_NAME),
+        ("value", facts.SourceNameVisibility.PUBLIC_NAME),
+        ("_private", facts.SourceNameVisibility.PRIVATE),
+        ("__iter__", facts.SourceNameVisibility.PRIVATE),
+        ("__", facts.SourceNameVisibility.PRIVATE),
+        ("", facts.SourceNameVisibility.PUBLIC_NAME),
+    ),
+)
+def test_source_spelling_has_one_classification_independent_of_api_visibility(name, visibility):
+    assert source_name_visibility(name) is visibility
 
 
 def _api():

@@ -7,6 +7,7 @@ import json
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
 from test_architecture_demo import CONFIG, _prepare_repo
 
 from archkeel.check.report import run_report
@@ -44,15 +45,19 @@ def test_archkeel_repeats_nothing_its_declared_owner_holds(self_observation: Obs
     result = repeated_logic(self_observation)
 
     assert result.status == "SUPPORTED"
-    assert result.owners == 2
+    assert result.owners == 3
     assert result.functions > 400
     assert result.candidates == ()
 
 
-def test_copying_the_current_identity_owner_is_reported(self_observation: Observation) -> None:
+@pytest.mark.parametrize(
+    "owner", ("archkeel.ir.facts.stable_id", "archkeel.ir.source_records.source_name_visibility")
+)
+def test_copying_the_current_decision_owner_is_reported(
+    self_observation: Observation, owner: str
+) -> None:
     symbols = self_observation.records("symbols")
     assert symbols is not None
-    owner = "archkeel.ir.facts.stable_id"
     original = next(item for item in symbols if item.data.get("qualified_name") == owner)
     data = thaw_data(original.data)
     data["qualified_name"] = "archkeel.analyzer.python.identity_copy"

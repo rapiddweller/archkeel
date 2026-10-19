@@ -6,13 +6,15 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 
 from archkeel.ir.facts import Language as Language
 from archkeel.ir.facts import SourceFacts
 from archkeel.ir.host_records import HostRecord, InitialPRHeadEvidence
 from archkeel.ir.model import ObservationResult as ObservationResult
 from archkeel.ir.protocol import CollectionError, CollectionRequest
+from archkeel.ir.repository_files import RepositoryFileInventory, RepositoryFileSelection
+from archkeel.ir.repository_files import RepositorySnapshotPaths as RepositorySnapshotPaths
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +36,18 @@ class FilesToWrite:
     entries: tuple[tuple[str, bytes], ...] = ()
 
 
+class RepositoryInputReader(Protocol):
+    def __call__(
+        self,
+        root: Path,
+        selection: RepositoryFileSelection,
+        *,
+        git_head: str,
+        dirty: bool | Literal["unknown"],
+        snapshot: RepositorySnapshotPaths | None = None,
+    ) -> RepositoryFileInventory: ...
+
+
 class Analyzer(Protocol):
     def __call__(
         self,
@@ -46,6 +60,7 @@ class Analyzer(Protocol):
         dirty: bool,
         contract_root: Path,
         language: Language,
+        repository_snapshot: RepositorySnapshotPaths | None = None,
     ) -> ObservationResult: ...
 
 

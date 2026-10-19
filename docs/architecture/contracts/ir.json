@@ -181,7 +181,12 @@
         "archkeel.ir.target_records",
         "archkeel.ir.diagnostics",
         "archkeel.ir.amendment",
-        "archkeel.ir.amendment_codec"
+        "archkeel.ir.amendment_codec",
+        "archkeel.ir.interface_values",
+        "archkeel.ir.repository_files",
+        "archkeel.ir.codec_repository_files",
+        "archkeel.ir.repository_file_proof",
+        "archkeel.ir.repository_manifest"
       ],
       "responsibilities": [
         "Own contract/result values, strict wire conversion and pure graph, metric and projection derivation."
@@ -285,7 +290,11 @@
         "archkeel.ir.amendment:AmendmentStatus",
         "archkeel.ir.amendment:Amendment",
         "archkeel.ir.amendment:verify_amendment",
-        "archkeel.ir.architecture_projection:PermissionStatus"
+        "archkeel.ir.architecture_projection:PermissionStatus",
+        "archkeel.ir.repository_files",
+        "archkeel.ir.codec_repository_files",
+        "archkeel.ir.repository_file_proof",
+        "archkeel.ir.repository_manifest"
       ]
     },
     {
@@ -570,6 +579,26 @@
       {
         "path": "src/archkeel/ir/diagnostics.py",
         "responsibility": "Own immutable diagnostics, source locations and nominal diagnostic vocabulary with their validation invariants."
+      },
+      {
+        "path": "src/archkeel/ir/interface_values.py",
+        "responsibility": "Immutable interface, facade, export-use and coupling values; interfaces preserves the public import facade."
+      },
+      {
+        "path": "src/archkeel/ir/repository_files.py",
+        "responsibility": "Typed repository text selection, exact provenance exclusions, authenticated inventory and physical line-limit decision."
+      },
+      {
+        "path": "src/archkeel/ir/codec_repository_files.py",
+        "responsibility": "Strict JSON grammar for file rules and inventory receipts."
+      },
+      {
+        "path": "src/archkeel/ir/repository_file_proof.py",
+        "responsibility": "Verify saved file-rule receipts against declared selection, snapshot, inventory and findings."
+      },
+      {
+        "path": "src/archkeel/ir/repository_manifest.py",
+        "responsibility": "Decode exact upstream manifest entries once for acquisition and saved-receipt verification."
       }
     ],
     "uml": {

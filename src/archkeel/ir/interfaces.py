@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass
 
 from .architecture_graph import EntityKind
 from .facts import (
@@ -15,6 +14,12 @@ from .facts import (
     parse_source_name_visibility,
     parse_symbol_class_kind,
 )
+from .interface_values import CouplingWidth as CouplingWidth
+from .interface_values import ExportUsage as ExportUsage
+from .interface_values import FacadeMetric as FacadeMetric
+from .interface_values import InterfaceEdge as InterfaceEdge
+from .interface_values import InterfaceName as InterfaceName
+from .interface_values import InterfaceProfile as InterfaceProfile
 from .measurements import NameBudgetKind
 from .model import (
     FUNCTION_KINDS,
@@ -26,89 +31,11 @@ from .model import (
     RecordData,
     module_in_ownership,
 )
+from .source_records import source_name_visibility as _source_name_visibility
 
 _CLASS_KINDS = frozenset(
     {SymbolClassKind.DATACLASS, SymbolClassKind.PROTOCOL, SymbolClassKind.ENUM}
 )
-
-
-@dataclass(frozen=True, slots=True)
-class InterfaceName:
-    name: str
-    kind: str
-    parameters: tuple[str, ...]
-    returns: str
-
-
-@dataclass(frozen=True, slots=True)
-class InterfaceEdge:
-    source: str
-    target: str
-    names: tuple[InterfaceName, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class FacadeMetric:
-    """One declared facade module and the names it makes available."""
-
-    component: str
-    module: str
-    exported_names: tuple[str, ...]
-    reexported_names: tuple[str, ...]
-    defined_names: tuple[str, ...]
-    unused_reexports: tuple[str, ...]
-    # AD-99: False for a whole-module entry whose `__all__` the analyzer did not prove to be one
-    # non-empty literal: its imports, computed assignments or later `__all__` additions go
-    # unlisted, and `interface_boundary` reads an empty `__all__` as none at all.
-    enumerated: bool
-
-    @property
-    def exported_name_count(self) -> int:
-        return len(self.exported_names)
-
-    @property
-    def reexport_count(self) -> int:
-        return len(self.reexported_names)
-
-
-@dataclass(frozen=True, slots=True)
-class ExportUsage:
-    """One facade export and the distinct components consuming it."""
-
-    component: str
-    module: str
-    name: str
-    consumers: tuple[str, ...]
-
-    @property
-    def consumer_count(self) -> int:
-        return len(self.consumers)
-
-
-@dataclass(frozen=True, slots=True)
-class CouplingWidth:
-    """Distinct declared facade names used by one ordered component pair."""
-
-    source: str
-    target: str
-    names: tuple[str, ...]
-    # AD-99: imports that reach the target without naming what they use - a whole module, a
-    # star outside an enumerated facade, or a name a non-enumerated facade does not list - so
-    # `width` is a lower bound while this is not empty.
-    uncounted: tuple[str, ...]
-
-    @property
-    def width(self) -> int:
-        return len(self.names)
-
-
-@dataclass(frozen=True, slots=True)
-class InterfaceProfile:
-    """Measurement-only facade and coupling facts derived from one observation."""
-
-    facades: tuple[FacadeMetric, ...]
-    exports: tuple[ExportUsage, ...]
-    coupling: tuple[CouplingWidth, ...]
 
 
 def component_owners(
@@ -299,7 +226,10 @@ def _reexports(observation: Observation) -> dict[str, frozenset[str]]:
             and isinstance(module, str)
             and isinstance(binding, str)
         ):
-            if not binding.startswith("_") and binding != "*":
+            if (
+                _source_name_visibility(binding) is SourceNameVisibility.PUBLIC_NAME
+                and binding != "*"
+            ):
                 names[module].add(binding)
     return {module: frozenset(values) for module, values in names.items()}
 
@@ -321,7 +251,11 @@ def _declared_facades(
             names = all_exports.get(module, frozenset())
         else:
             names = symbols.get(module, frozenset()) | reexports.get(module, frozenset())
-        names = frozenset(name for name in names if name and not name.startswith("_"))
+        names = frozenset(
+            name
+            for name in names
+            if name and _source_name_visibility(name) is SourceNameVisibility.PUBLIC_NAME
+        )
         local = frozenset(name for name in symbols.get(module, frozenset()) if name in names)
         facade_reexports = frozenset(
             name for name in reexports.get(module, frozenset()) if name in names
@@ -376,7 +310,10 @@ def _facade_use(
             continue
         if name in names:
             return ((owner, name),), None
-        if not name.startswith("_") and (target, owner) in open_facades:
+        if (
+            _source_name_visibility(name) is SourceNameVisibility.PUBLIC_NAME
+            and (target, owner) in open_facades
+        ):
             return (), f"{owner}:{name}"
     return (), None
 
