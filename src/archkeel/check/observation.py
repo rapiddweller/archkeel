@@ -681,7 +681,11 @@ def _layer_order_evidence(
 
 
 def _dependency_binding_id(
-    scan: ScanResult, declarations: list[RawRecord], *, include_calls: bool = False
+    scan: ScanResult,
+    declarations: list[RawRecord],
+    *,
+    include_calls: bool = False,
+    include_source_ownership: bool = False,
 ) -> str:
     return dependency_binding_id(
         (
@@ -698,6 +702,7 @@ def _dependency_binding_id(
         (parse_record(item) for item in scan.coverage["failures"]),
         (parse_evidence(item) for item in scan.evidence),
         include_calls=include_calls,
+        include_source_ownership=include_source_ownership,
     )
 
 
@@ -839,6 +844,33 @@ def _certify_protocol_declaration_scopes(
         }
 
 
+
+def _certify_source_ownership_scopes(
+    scan: ScanResult, facts: SourceFacts, contract_digest: str, declarations: list[RawRecord]
+) -> None:
+    rules = {r["id"] for r in declarations if r["kind"] == "source_ownership"}
+    receipts = [
+        r
+        for r in scan.scope_observations
+        if r["kind"] == "rule_evaluation" and len(r["rule_ids"]) == 1 and r["rule_ids"][0] in rules
+    ]
+    proof = {
+        "source_digest": facts.source.source_digest,
+        "source_scope": list(facts.source.scope),
+        "contract_digest": contract_digest,
+        "selected_files": list(facts.coverage.selected_files),
+    }
+    inventory_binding_id = _dependency_binding_id(scan, declarations, include_source_ownership=True)
+    for receipt in receipts:
+        receipt["data"]["source_ownership_scope_proof"] = {
+            **proof,
+            "binding_id": rule_evaluation_binding_id(
+                inventory_binding_id, parse_record(receipt), SCHEMA_VERSION
+            ),
+        }
+
+
+
 def _certify_dependency_scopes(
     scan: ScanResult, facts: SourceFacts, contract_digest: str, declarations: list[RawRecord]
 ) -> None:
@@ -952,6 +984,7 @@ def assemble_observation(
     _certify_call_owner_scopes(scan, facts, full_contract_digest, declarations)
     _certify_numeric_operand_scopes(scan, facts, full_contract_digest, declarations)
     _certify_protocol_declaration_scopes(scan, facts, full_contract_digest, declarations)
+    _certify_source_ownership_scopes(scan, facts, full_contract_digest, declarations)
     model: dict[str, object] = {
         "schema_version": SCHEMA_VERSION,
         "analyzer": {

@@ -24,6 +24,7 @@ class ContractFeature(StrEnum):
     MODULE_OBJECT_GRANTS = "module_object_grants"
     BOUNDED_NUMERIC_OPERAND = "bounded_numeric_operand"
     PROTOCOL_DECLARATIONS = "protocol_declarations"
+    SOURCE_OWNERSHIP = "source_ownership"
 
 
 class ContractVersion(StrEnum):
@@ -63,6 +64,7 @@ _FEATURE_START: dict[ContractFeature, ContractVersion] = {
     ContractFeature.IMPORT_NAMESPACES: ContractVersion.V3_5,
     ContractFeature.MODULE_OBJECT_GRANTS: ContractVersion.V3_6,
     ContractFeature.PROTOCOL_DECLARATIONS: ContractVersion.V3_9,
+    ContractFeature.SOURCE_OWNERSHIP: ContractVersion.V3_8,
 }
 
 

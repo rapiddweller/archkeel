@@ -34,6 +34,7 @@ from archkeel.ir.facts import (
 )
 from archkeel.ir.facts import call_arguments as _call_arguments
 from archkeel.ir.facts import call_binding as _call_binding
+from archkeel.ir.facts_validation import _validate_source_role_identities
 from archkeel.ir.model import (
     CLASSIFIED_SECTIONS,
     EVIDENCE_FIELDS,
@@ -45,6 +46,7 @@ from archkeel.ir.model import (
     RuntimeInfo,
     Section,
     SourceInfo,
+    SourceOwnershipRole,
     Verdict,
     identity_is_known,
 )
@@ -379,6 +381,15 @@ def parse_observation(raw: object) -> Observation:
                 for call in section.records
             ):
                 raise ValueError("call_arguments require observation schema 2.5.0")
+    if not _before_version(schema_version, _ObservationVersion.V2_2):
+        _validate_source_ownership_vocabulary(sections)
+        _validate_source_role_identities(
+            (record for section in sections for record in section.records),
+            {
+                item.id: item
+                for item in (parse_evidence(value, "evidence[]") for value in evidence_raw)
+            },
+        )
     return Observation(
         schema_version=schema_version,
         analyzer=AnalyzerInfo(
@@ -558,6 +569,79 @@ def _validate_profile_sections(model: Mapping[str, RawJson], profile: Profile) -
             continue
         if not isinstance(raw, list):
             raise ValueError(f"{section} must be an array for analyzer {profile.analyzer}")
+
+
+def _validate_source_ownership_vocabulary(sections: tuple[Section, ...]) -> None:
+    references = next((section.records for section in sections if section.name == "references"), ())
+    required = {
+        "role",
+        "canonical_name",
+        "expression",
+        "status",
+        "targets",
+        "use",
+        "declaration_id",
+        "source_scope",
+        "source_module",
+        "line",
+        "column",
+        "end_line",
+        "end_column",
+    }
+    allowed_roles = {role.value for role in SourceOwnershipRole}
+    for record in references:
+        if record.kind != "source_role":
+            continue
+        if not required <= {key for key, _ in record.data.entries}:
+            raise ValueError("2.2.0 source_role records require complete identity and span fields")
+        role = record.data.get("role")
+        if role not in allowed_roles:
+            raise ValueError("2.2.0 source_role has an unsupported role")
+        for field in (
+            "canonical_name",
+            "expression",
+            "declaration_id",
+            "source_scope",
+            "source_module",
+        ):
+            if not isinstance(record.data.get(field), str) or not record.data.get(field):
+                raise ValueError(f"2.2.0 source_role.{field} must be nonempty")
+        targets = record.data.get("targets")
+        if not isinstance(targets, tuple) or any(
+            not isinstance(item, str) or not item for item in targets
+        ):
+            raise ValueError("2.2.0 source_role.targets must be nonempty strings")
+        start = (record.data.get("line"), record.data.get("column"))
+        end = (record.data.get("end_line"), record.data.get("end_column"))
+        if (
+            not isinstance(start[0], int)
+            or not isinstance(end[0], int)
+            or start[0] < 1
+            or end[0] < 1
+            or not isinstance(start[1], int)
+            or not isinstance(end[1], int)
+            or start[1] < 0
+            or end[1] < 0
+            or end <= start
+        ):
+            raise ValueError("2.2.0 source_role needs a complete ordered source span")
+    rules = {
+        record.id
+        for section in sections
+        if section.name == "declarations"
+        for record in section.records
+        if record.kind == "source_ownership"
+    }
+    if rules:
+        receipts = [
+            record
+            for section in sections
+            if section.name == "scope_observations"
+            for record in section.records
+            if record.kind == "rule_evaluation" and bool(set(record.rule_ids) & rules)
+        ]
+        if any(record.data.get("source_ownership_scope_proof") is None for record in receipts):
+            raise ValueError("2.2.0 source_ownership rules require bound evaluation receipts")
 
 
 def observation_payload(observation: Observation) -> dict[str, RawJson]:

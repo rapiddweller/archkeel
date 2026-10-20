@@ -85,6 +85,9 @@ from archkeel.ir.model import (
     RootLayoutRule,
     SelectorMatch,
     SiblingIsolationRule,
+    SourceOwnershipMode,
+    SourceOwnershipRole,
+    SourceOwnershipRule,
     SymbolClassKind,
     SymbolPlacementRule,
     TypeIgnoreAllowance,
@@ -306,6 +309,11 @@ def parse_contract(raw: object) -> ArchitectureContract:
         _has_field(_object(value, "rule"), "target_kind") for value in rules_raw
     ):
         raise ValueError("import namespace targets require contract schema_version 3.5.0")
+    if (
+        not supports_feature(version, ContractFeature.SOURCE_OWNERSHIP)
+        and ArchitectureRuleKind.SOURCE_OWNERSHIP in kinds
+    ):
+        raise ValueError("source_ownership requires contract schema_version 3.8.0")
     if not supports_feature(version, ContractFeature.MODULE_OBJECT_GRANTS) and any(
         _has_field(_object(value, "rule"), "module_object_grants") for value in rules_raw
     ):
@@ -1000,6 +1008,91 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
     )
 
 
+def _qualified_names(raw: RawJson, label: str, *, required: bool = False) -> tuple[str, ...]:
+    values = _contract_strings(raw, label, required=required)
+    if any(not all(part.isidentifier() for part in value.split(".")) for value in values):
+        raise ValueError(f"{label} must contain qualified identifiers")
+    return values
+
+
+def _parse_source_ownership(raw: RawJson, label: str) -> SourceOwnershipRule:
+    item, item_id, provenance = _contract_record(
+        raw,
+        {"kind", "source", "mode", "roles", "rationale", "decided_by"},
+        {"symbols", "parameters", "owner", "value_owner"},
+        label,
+    )
+    try:
+        mode = SourceOwnershipMode(_string(item["mode"], f"{label}.mode"))
+        roles = tuple(
+            SourceOwnershipRole(value)
+            for value in _contract_strings(item["roles"], f"{label}.roles", required=True)
+        )
+    except ValueError as error:
+        raise ValueError(f"{label}.mode or roles contains an unsupported value") from error
+    if len(set(roles)) != len(roles):
+        raise ValueError(f"{label}.roles must contain unique values")
+    symbols = _qualified_names(item.get("symbols", []), f"{label}.symbols")
+    parameters = _qualified_names(item.get("parameters", []), f"{label}.parameters")
+    if any(not value.rpartition(".")[0] for value in parameters):
+        raise ValueError(f"{label}.parameters must name function.parameter")
+    owner = item.get("owner")
+    owner = _nonempty(owner, f"{label}.owner") if owner is not None else None
+    value_owner = item.get("value_owner")
+    value_owner = (
+        _nonempty(value_owner, f"{label}.value_owner") if value_owner is not None else None
+    )
+    symbol_roles = {
+        SourceOwnershipRole.DEFINITION,
+        SourceOwnershipRole.READ,
+        SourceOwnershipRole.WRITE,
+        SourceOwnershipRole.DELETE,
+        SourceOwnershipRole.VALUE_TRANSFER,
+    }
+    parameter_roles = {SourceOwnershipRole.PARAMETER_DEFAULT, SourceOwnershipRole.FALLBACK}
+    selected_symbol_roles = set(roles) & symbol_roles
+    selected_parameter_roles = set(roles) & parameter_roles
+    if bool(symbols) != bool(selected_symbol_roles) or bool(parameters) != bool(
+        selected_parameter_roles
+    ):
+        raise ValueError(f"{label} selectors must match their selected roles")
+    if mode is SourceOwnershipMode.RETIRED:
+        if (
+            (
+                set(roles)
+                - {
+                    SourceOwnershipRole.DEFINITION,
+                    SourceOwnershipRole.READ,
+                    SourceOwnershipRole.WRITE,
+                    SourceOwnershipRole.DELETE,
+                }
+            )
+            or owner is not None
+            or value_owner is not None
+        ):
+            raise ValueError(
+                f"{label}.retired cannot select owners, parameters, defaults, or fallbacks"
+            )
+    elif (bool(selected_symbol_roles) != (owner is not None)) or (
+        bool(selected_parameter_roles) != (value_owner is not None)
+    ):
+        raise ValueError(f"{label}.confined needs the owner for every selected role")
+    return SourceOwnershipRule(
+        item_id,
+        ArchitectureRuleKind.SOURCE_OWNERSHIP,
+        _nonempty(item["source"], f"{label}.source"),
+        mode,
+        roles,
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
+        symbols,
+        parameters,
+        owner,
+        value_owner,
+    )
+
+
 def _parse_external_dependency_scope(raw: RawJson, label: str) -> ExternalDependencyScopeRule:
     item, item_id, provenance = _contract_record(
         raw,
@@ -1520,6 +1613,7 @@ _RULE_PARSERS: Final[dict[ArchitectureRuleKind, Callable[[RawJson, str], Archite
     ArchitectureRuleKind.FORBIDDEN_DEPENDENCY: _parse_forbidden_dependency,
     ArchitectureRuleKind.ALLOWED_DEPENDENCY: _parse_allowed_dependency,
     ArchitectureRuleKind.FORBIDDEN_CONSTRUCT: _parse_forbidden_construct,
+    ArchitectureRuleKind.SOURCE_OWNERSHIP: _parse_source_ownership,
     ArchitectureRuleKind.EXTERNAL_DEPENDENCY_SCOPE: _parse_external_dependency_scope,
     ArchitectureRuleKind.COMPLETE_ASSIGNMENT: _parse_complete_assignment,
     ArchitectureRuleKind.ROOT_LAYOUT: _parse_root_layout,

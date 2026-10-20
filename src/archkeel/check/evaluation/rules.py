@@ -54,6 +54,7 @@ from archkeel.ir.model import (
     ProtocolDeclarationsRule,
     RootLayoutRule,
     SiblingIsolationRule,
+    SourceOwnershipRule,
     SymbolPlacementRule,
     component_owns_module,
     forbidden_dependency_scopes,
@@ -983,6 +984,8 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
         return {"source": (rule.source,)}
     if isinstance(rule, RootLayoutRule):
         return {"root": (rule.root,)}
+    if isinstance(rule, SourceOwnershipRule):
+        return {"source": (rule.source,)}
     if isinstance(rule, SymbolPlacementRule):
         scopes = {"source": (rule.source,)}
         scopes.update(
@@ -1463,6 +1466,152 @@ def _symbol_placement_violations(
     return sorted(violations, key=lambda item: item["id"])
 
 
+def _source_ownership_violations(
+    references: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    rules: Sequence[ArchitectureRule],
+    source_modules: frozenset[str] | None,
+) -> list[RawRecord]:
+    violations: list[RawRecord] = []
+    for rule in rules:
+        if not isinstance(rule, SourceOwnershipRule):
+            continue
+        owner_module = rule.value_owner.rsplit(".", 1)[0] if rule.value_owner is not None else None
+        owner_records = [
+            item
+            for item in symbols
+            if item["data"].get("qualified_name") == rule.value_owner
+            and (source_modules is None or item["data"].get("module") in source_modules)
+        ]
+        value_owner_valid = (
+            rule.value_owner is None
+            or len(owner_records) == 1
+            and owner_records[0]["data"].get("record_kind") == "static_constant"
+            and (source_modules is None or owner_module in source_modules)
+        )
+        selected = set(rule.symbols) | set(rule.parameters)
+        for item in references:
+            data = item["data"]
+            role = data.get("role")
+            name = data.get("canonical_name")
+            if role is None and item["kind"] in {"value_reference", "attribute_reference"}:
+                role = "read"
+                targets = data.get("targets", ())
+                if len(targets) == 1:
+                    name = targets[0]
+            if role not in rule.roles or not isinstance(name, str):
+                continue
+            targets = data.get("targets", ())
+            matched = name in selected or (role == "read" and bool(set(targets) & selected))
+            if not matched:
+                continue
+            if role in {"parameter_default", "fallback"} and not value_owner_valid:
+                continue
+            source_module = data.get("source_module")
+            if not isinstance(source_module, str) or not in_scope(source_module, rule.source):
+                continue
+            if source_modules is not None and source_module not in source_modules:
+                continue
+            if data.get("status") != "resolved" and not (
+                role == "read" and data.get("local_source_binding") is True
+            ):
+                continue
+            confined = rule.mode.value == "confined" and (
+                (
+                    name in rule.symbols
+                    and rule.owner is not None
+                    and in_scope(source_module, rule.owner)
+                )
+                or (
+                    name in rule.parameters
+                    and rule.value_owner is not None
+                    and tuple(data.get("targets", ())) == (rule.value_owner,)
+                )
+            )
+            if confined:
+                continue
+            violations.append(
+                classified(
+                    item_id=stable_id("VIO", rule.id, item["id"]),
+                    evidence_class=EvidenceClass.VIOLATION,
+                    area="source_architecture",
+                    kind=rule.kind,
+                    title=f"{role} of {name} violates source ownership",
+                    subjects=[name, source_module] if isinstance(source_module, str) else [name],
+                    evidence_ids=item["evidence_ids"],
+                    rule_ids=[rule.id],
+                    fact_ids=[item["id"]],
+                    data={"source": rule.source, "role": role, "canonical_name": name},
+                )
+            )
+    return sorted(violations, key=lambda item: item["id"])
+
+
+def source_ownership_unknowns(
+    references: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    rules: Sequence[ArchitectureRule],
+    source_modules: frozenset[str] | None,
+) -> list[RawRecord]:
+    unknowns: list[RawRecord] = []
+    for rule in rules:
+        if not isinstance(rule, SourceOwnershipRule):
+            continue
+        selected = set(rule.symbols) | set(rule.parameters)
+        for item in references:
+            data = item["data"]
+            name = data.get("canonical_name")
+            role = data.get("role")
+            if (
+                role in rule.roles
+                and isinstance(name, str)
+                and name in selected
+                and data.get("status") != "resolved"
+                and in_scope(data.get("source_module"), rule.source)
+                and (source_modules is None or data.get("source_module") in source_modules)
+            ):
+                unknowns.append(
+                    classified(
+                        item_id=stable_id("SOURCE-OWNERSHIP-LIMIT", rule.id, item["id"]),
+                        evidence_class=EvidenceClass.UNKNOWN,
+                        area="source_architecture",
+                        kind="source_ownership_limit",
+                        title=f"Cannot resolve {role} of {name} safely",
+                        subjects=[name],
+                        evidence_ids=item["evidence_ids"],
+                        rule_ids=[rule.id],
+                        fact_ids=[item["id"]],
+                        data={"source": rule.source, "role": role, "canonical_name": name},
+                    )
+                )
+        if rule.value_owner is not None:
+            owner_module = rule.value_owner.rsplit(".", 1)[0]
+            owners = [
+                item
+                for item in symbols
+                if item["data"].get("qualified_name") == rule.value_owner
+                and (source_modules is None or item["data"].get("module") in source_modules)
+            ]
+            if (
+                len(owners) != 1
+                or owners[0]["data"].get("record_kind") != "static_constant"
+                or (source_modules is not None and owner_module not in source_modules)
+            ):
+                unknowns.append(
+                    classified(
+                        item_id=stable_id("SOURCE-OWNERSHIP-OWNER-LIMIT", rule.id),
+                        evidence_class=EvidenceClass.UNKNOWN,
+                        area="source_architecture",
+                        kind="source_ownership_limit",
+                        title=f"Cannot establish one canonical value owner for {rule.value_owner}",
+                        subjects=[rule.value_owner],
+                        rule_ids=[rule.id],
+                        data={"source": rule.source, "owner": rule.value_owner},
+                    )
+                )
+    return sorted(unknowns, key=lambda item: item["id"])
+
+
 def _requires_import_verdicts(
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
@@ -1816,6 +1965,7 @@ def _collect_rule_violations(
     constructs: Sequence[RawRecord],
     modules: Sequence[RawRecord],
     symbols: Sequence[RawRecord],
+    references: Sequence[RawRecord],
     blank_modules: frozenset[str],
     module_cycles: Sequence[RawRecord],
     contract: ArchitectureContract,
@@ -1880,6 +2030,7 @@ def _collect_rule_violations(
         ),
         *_sibling_violations(imports, contract.rules, source_modules),
         *_symbol_placement_violations(symbols, contract.rules, source_modules),
+        *_source_ownership_violations(references, symbols, contract.rules, source_modules),
         *boundary_violations,
     ]
     if assessment_facts is not None:
@@ -1908,6 +2059,7 @@ def rule_violations(
     packages: Sequence[RawRecord],
     modules: Sequence[RawRecord],
     symbols: Sequence[RawRecord],
+    references: Sequence[RawRecord] = (),
     blank_modules: frozenset[str],
     module_cycles: Sequence[RawRecord],
     contract: ArchitectureContract,
@@ -1965,6 +2117,7 @@ def rule_violations(
         constructs=constructs,
         modules=modules,
         symbols=symbols,
+        references=references,
         blank_modules=blank_modules,
         module_cycles=module_cycles,
         contract=contract,
@@ -2316,6 +2469,8 @@ def rule_evaluation_facts(
             selected = tuple(
                 item for item in observed if in_scope(item["data"]["qualified_name"], rule.root)
             )
+        elif isinstance(rule, SourceOwnershipRule):
+            selected = _modules_for_rule_source(rule.source, observed, contract)
         elif isinstance(rule, ForbiddenConstructRule):
             selected, subjects = _construct_rule_domain(rule.source, observed, contract, symbols)
             if rule.selector is not None and selected:

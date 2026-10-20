@@ -68,6 +68,7 @@ from .rules import (
     profile_failures,
     rule_subject_failures,
     rule_violations,
+    source_ownership_unknowns,
     symbol_limits,
 )
 from .state import evaluate_contexts
@@ -320,6 +321,7 @@ def _inside_rule_results(
     packages: Sequence[RawRecord],
     modules: Sequence[RawRecord],
     symbols: Sequence[RawRecord],
+    references: Sequence[RawRecord],
     blank_modules: frozenset[str],
     module_cycles: Sequence[RawRecord],
     profile: Profile,
@@ -366,6 +368,7 @@ def _inside_rule_results(
             packages=packages,
             modules=modules,
             symbols=symbols,
+            references=references,
             blank_modules=blank_modules,
             module_cycles=module_cycles,
             profile=profile,
@@ -557,6 +560,7 @@ def _evaluate_inside_contract(
     packages: Sequence[RawRecord],
     modules: Sequence[RawRecord],
     symbols: Sequence[RawRecord],
+    references: Sequence[RawRecord],
     blank_modules: frozenset[str],
     module_cycles: Sequence[RawRecord],
     profile: Profile,
@@ -596,6 +600,7 @@ def _evaluate_inside_contract(
         packages=packages,
         modules=modules,
         symbols=symbols,
+        references=references,
         blank_modules=blank_modules,
         module_cycles=module_cycles,
         contract=scoped,
@@ -657,6 +662,7 @@ def _evaluate_inside_contract(
     )
     unknowns.extend(protocol_unknowns)
     unknowns.extend(selector_unknowns)
+    unknowns.extend(source_ownership_unknowns(references, symbols, scoped.rules, source_modules))
     return (
         violations,
         unknowns,
@@ -932,6 +938,7 @@ def evaluate_source(
         packages=package_facts,
         modules=module_facts,
         symbols=symbols,
+        references=references,
         blank_modules=blank_modules,
         # AD-98: a module-level cycle rule judges the SCCs this report measures, not a copy.
         module_cycles=module_cycles,
@@ -973,6 +980,7 @@ def evaluate_source(
         packages=package_facts,
         modules=module_facts,
         symbols=symbols,
+        references=references,
         blank_modules=blank_modules,
         module_cycles=module_cycles,
         profile=profile,
@@ -1046,6 +1054,7 @@ def evaluate_source(
 
     unknowns = [
         *(_analysis_limits(calls, declarations, namespace) if is_python else []),
+        *source_ownership_unknowns(references, symbols, contract.rules, None),
         *source_unknowns,
         *dynamic_dependency_limits(contract, source_unknowns),
         *symbol_limits(

@@ -887,11 +887,11 @@ def _rule_receipt_complete(
             and receipt.rule_ids == (declaration.id,)
             and _protocol_declaration_receipt_complete(observation, receipt)
         )
-    if declaration.kind == "protocol_declarations":
+    if declaration.kind == "source_ownership":
         return (
             receipt is not None
             and receipt.rule_ids == (declaration.id,)
-            and _protocol_declaration_receipt_complete(observation, receipt)
+            and _source_ownership_receipt_complete(observation, receipt)
         )
     return receipt is not None and receipt.data.get("assessment_complete", True) is True
 
@@ -998,6 +998,7 @@ def dependency_binding_id(
     evidence: _Iterable[Evidence],
     *,
     include_calls: bool = False,
+    include_source_ownership: bool = False,
 ) -> str:
     """Bind dependency proof content identically at issuance and replay (AD-237)."""
     bound = [
@@ -1006,7 +1007,11 @@ def dependency_binding_id(
         for record in section.records
         if section.name in {"modules", "imports", "symbols"}
         or section.name == "references"
-        and record.kind == "script_namespace_effect"
+        and (
+            record.kind == "script_namespace_effect"
+            or include_source_ownership
+            and record.kind in {"source_role", "value_reference", "attribute_reference"}
+        )
         or include_calls
         and section.name == "calls"
         or section.name == "declarations"
@@ -1020,6 +1025,8 @@ def dependency_binding_id(
             or include_calls
             and record.kind in {"call_owner", "forbidden_call_argument"}
             or record.kind == "protocol_declarations"
+            or include_source_ownership
+            and record.kind == "source_ownership"
         )
     ]
     bound.extend(failures)
@@ -1080,7 +1087,12 @@ def rule_evaluation_binding_id(
         tuple(
             (key, value)
             for key, value in sorted(receipt.data.entries)
-            if key not in {"call_scope_proof", "numeric_scope_proof", "protocol_scope_proof"}
+            if key not in {
+                "call_scope_proof",
+                "numeric_scope_proof",
+                "protocol_scope_proof",
+                "source_ownership_scope_proof",
+            }
         ),
     )
     return stable_id(
@@ -1300,6 +1312,42 @@ def _protocol_declaration_receipt_complete(observation: Observation, receipt: Re
             observation.schema_version,
         )
     )
+
+
+
+def _source_ownership_receipt_complete(observation: Observation, receipt: Record) -> bool:
+    proof = receipt.data.get("source_ownership_scope_proof")
+    if not isinstance(proof, RecordData):
+        return False
+    coverage = observation.coverage
+    selected = proof.get("selected_files")
+    return (
+        coverage.status == Verdict.PASS
+        and not coverage.failures
+        and isinstance(selected, tuple)
+        and bool(selected)
+        and coverage.files_discovered
+        == coverage.files_read
+        == coverage.files_parsed
+        == len(selected)
+        and len(set(selected)) == len(selected)
+        and set(selected) == {r.data.get("file") for r in observation.records("modules") or ()}
+        and proof.get("source_digest") == observation.source.source_digest
+        and proof.get("source_scope") == observation.source.scope
+        and proof.get("contract_digest") == observation.contract.digest
+        and proof.get("binding_id")
+        == rule_evaluation_binding_id(
+            dependency_binding_id(
+                observation.sections,
+                coverage.failures,
+                observation.evidence,
+                include_source_ownership=True,
+            ),
+            receipt,
+            observation.schema_version,
+        )
+    )
+
 
 
 def rule_assessments(

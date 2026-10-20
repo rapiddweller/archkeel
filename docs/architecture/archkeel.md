@@ -125,3 +125,4 @@ and canonical type identity; their exact and optional-union semantics are record
 
 | [AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md) | Bind explicitly written actuals to proven formals before applying argument policies. |
 | [AD-248](decisions/ad-248-construct-selectors.md) | Select one nominal receiver, member and construct role without global spelling bans. |
+| [AD-249](decisions/ad-249-source-ownership-defaults.md) | Constrain source definitions, value transfers, defaults, and fallbacks to canonical owners. |

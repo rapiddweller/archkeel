@@ -45,6 +45,7 @@ from archkeel.ir.model import (
     RootLayoutRule,
     SelectorMatch,
     SiblingIsolationRule,
+    SourceOwnershipRule,
     SymbolPlacementRule,
     public_api_id,
     stable_id,
@@ -207,6 +208,22 @@ def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
         data = {
             "root": rule.root,
             "allowed_children": sorted(rule.allowed_children),
+            "rationale": rule.rationale,
+        }
+    elif isinstance(rule, SourceOwnershipRule):
+        area, title, subjects = (
+            "source_architecture",
+            f"Source roles for {rule.source} follow declared ownership",
+            [rule.source, *rule.symbols, *rule.parameters],
+        )
+        data = {
+            "source": rule.source,
+            "mode": rule.mode.value,
+            "roles": list(rule.roles),
+            "symbols": list(rule.symbols),
+            "parameters": list(rule.parameters),
+            **({"owner": rule.owner} if rule.owner else {}),
+            **({"value_owner": rule.value_owner} if rule.value_owner else {}),
             "rationale": rule.rationale,
         }
     elif isinstance(rule, CompleteExternalScopeRule):

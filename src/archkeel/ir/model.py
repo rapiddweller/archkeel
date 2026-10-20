@@ -600,6 +600,39 @@ class ConstructSelector:
     literal: str | None = None
 
 
+class SourceOwnershipMode(StrEnum):
+    RETIRED = "retired"
+    CONFINED = "confined"
+
+
+class SourceOwnershipRole(StrEnum):
+    DEFINITION = "definition"
+    READ = "read"
+    WRITE = "write"
+    DELETE = "delete"
+    VALUE_TRANSFER = "value_transfer"
+    PARAMETER_DEFAULT = "parameter_default"
+    FALLBACK = "fallback"
+
+
+@dataclass(frozen=True, slots=True)
+class SourceOwnershipRule(ArchitectureRuleGrammar):
+    """A source-bound name, callable transfer, default, or fallback ownership constraint."""
+
+    id: str
+    kind: Literal[ArchitectureRuleKind.SOURCE_OWNERSHIP]
+    source: str
+    mode: SourceOwnershipMode
+    roles: tuple[SourceOwnershipRole, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+    symbols: tuple[str, ...] = ()
+    parameters: tuple[str, ...] = ()
+    owner: str | None = None
+    value_owner: str | None = None
+
+
 @dataclass(frozen=True, slots=True)
 class ForbiddenConstructRule(ArchitectureRuleGrammar):
     """`allowed_sources` match an owner scope by prefix, `exact_sources` only the scope named."""
@@ -840,6 +873,7 @@ ArchitectureRule: TypeAlias = (
     | ForbiddenDependencyRule
     | AllowedDependencyRule
     | ForbiddenConstructRule
+    | SourceOwnershipRule
     | ExternalDependencyScopeRule
     | CompleteAssignmentRule
     | RootLayoutRule
@@ -1151,6 +1185,7 @@ def _rule_references(
         | AllowedDependencyRule
         | ForbiddenConstructRule
         | BoundedNumericOperandRule
+        | SourceOwnershipRule
         | CompleteAssignmentRule
         | CompleteExternalScopeRule
         | SymbolPlacementRule
@@ -1179,6 +1214,28 @@ def _rule_references(
         named += [("allowed_sources", rule.allowed_sources, True)]
     if isinstance(rule, ExternalDependencyScopeRule | SymbolPlacementRule | BoundaryTypesRule):
         named += [("exact_sources", rule.exact_sources, True)]
+    if isinstance(rule, SourceOwnershipRule):
+        named += [("source", (rule.source,), True)]
+        if rule.owner is not None:
+            named += [("owner", (rule.owner,), True)]
+        references = _references(f"/rules/{index}", named)
+        references += [
+            ModuleReference(f"/rules/{index}/symbols/{position}", value, False)
+            for position, value in enumerate(rule.symbols)
+        ]
+        references += [
+            ModuleReference(f"/rules/{index}/parameters/{position}", value, False)
+            for position, value in enumerate(rule.parameters)
+        ]
+        if rule.value_owner is not None:
+            references.append(
+                ModuleReference(
+                    f"/rules/{index}/value_owner",
+                    rule.value_owner.rpartition(".")[0],
+                    False,
+                )
+            )
+        return references
     if isinstance(rule, ForbiddenConstructRule):
         named += [
             ("allowed_sources", rule.allowed_sources, False),
