@@ -46,6 +46,8 @@ from archkeel.ir.model import (
     ContractComponent,
     ContractDeclarations,
     EvidenceClass,
+    ForbiddenCallArgumentRule,
+    ForbiddenEffectUnderConditionRule,
     GraphTopologyLevel,
     InterfaceBoundaryRule,
     ModuleExports,
@@ -424,30 +426,39 @@ def _inside_rule_results(
         violations.extend(call_violations)
         unknowns.extend(call_limits)
         assessments.extend(call_receipts)
-        argument_violations, argument_limits, argument_receipts = call_argument_results(
+        argument_violations, argument_limits, argument_receipts = _call_argument_rule_results(
             scoped,
             scope=mount.parent_id,
             calls=calls,
             modules=modules,
             symbols=symbols,
-            complete=calls_complete,
+            calls_complete=calls_complete,
             bindings_measured=bindings_measured,
             arguments_measured=arguments_measured,
             blank_modules=blank_modules,
+            profile=profile,
+            scan_roots=call_scan_roots,
+            source_modules=source_modules,
+            package_scopes=parent.packages,
+            exact_module_scopes=parent.exact_modules or (),
         )
         violations.extend(argument_violations)
         unknowns.extend(argument_limits)
         assessments.extend(argument_receipts)
-        effect_violations, effect_limits, effect_receipts = guarded_effect_results(
+        effect_violations, effect_limits, effect_receipts = _guarded_effect_rule_results(
             scoped,
             scope=mount.parent_id,
             calls=calls,
             modules=modules,
             symbols=symbols,
-            complete=calls_complete,
+            calls_complete=calls_complete,
             bindings_measured=bindings_measured,
             paths_measured=guarded_paths_measured,
+            profile=profile,
+            scan_roots=call_scan_roots,
             source_modules=source_modules,
+            package_scopes=parent.packages,
+            exact_module_scopes=parent.exact_modules or (),
         )
         violations.extend(effect_violations)
         unknowns.extend(effect_limits)
@@ -521,6 +532,114 @@ def _call_owner_rule_results(
             complete=complete,
             bindings_measured=bindings_measured,
             blank_modules=blank_modules,
+            source_modules=source_modules,
+        )
+        violations.extend(result[0])
+        limits.extend(result[1])
+        receipts.extend(result[2])
+    return violations, limits, receipts
+
+
+def _call_argument_rule_results(
+    contract: ArchitectureContract,
+    *,
+    scope: str,
+    calls: Sequence[RawRecord],
+    modules: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    calls_complete: bool,
+    bindings_measured: bool,
+    arguments_measured: bool,
+    blank_modules: frozenset[str],
+    profile: Profile,
+    scan_roots: tuple[str, ...],
+    source_modules: frozenset[str] | None = None,
+    package_scopes: Sequence[str] = (),
+    exact_module_scopes: Sequence[str] = (),
+) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord]]:
+    violations: list[RawRecord] = []
+    limits: list[RawRecord] = []
+    receipts: list[RawRecord] = []
+    for rule in contract.rules:
+        if not isinstance(rule, ForbiddenCallArgumentRule):
+            continue
+        packages, exact_modules = source_selector_domains(
+            rule.source,
+            modules,
+            package_scopes=package_scopes,
+            exact_module_scopes=exact_module_scopes,
+        )
+        complete = calls_complete and source_domains_complete(
+            modules=modules,
+            profile=profile,
+            package_scopes=packages,
+            exact_module_scopes=exact_modules,
+            scan_roots=scan_roots,
+        )
+        selected_contract = replace(contract, components=(), rules=(rule,))
+        result = call_argument_results(
+            selected_contract,
+            scope=scope,
+            calls=calls,
+            modules=modules,
+            symbols=symbols,
+            complete=complete,
+            bindings_measured=bindings_measured,
+            arguments_measured=arguments_measured,
+            blank_modules=blank_modules,
+            source_modules=source_modules,
+        )
+        violations.extend(result[0])
+        limits.extend(result[1])
+        receipts.extend(result[2])
+    return violations, limits, receipts
+
+
+def _guarded_effect_rule_results(
+    contract: ArchitectureContract,
+    *,
+    scope: str,
+    calls: Sequence[RawRecord],
+    modules: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    calls_complete: bool,
+    bindings_measured: bool,
+    paths_measured: bool,
+    profile: Profile,
+    scan_roots: tuple[str, ...],
+    source_modules: frozenset[str] | None = None,
+    package_scopes: Sequence[str] = (),
+    exact_module_scopes: Sequence[str] = (),
+) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord]]:
+    violations: list[RawRecord] = []
+    limits: list[RawRecord] = []
+    receipts: list[RawRecord] = []
+    for rule in contract.rules:
+        if not isinstance(rule, ForbiddenEffectUnderConditionRule):
+            continue
+        packages, exact_modules = source_selector_domains(
+            rule.source,
+            modules,
+            package_scopes=package_scopes,
+            exact_module_scopes=exact_module_scopes,
+        )
+        complete = calls_complete and source_domains_complete(
+            modules=modules,
+            profile=profile,
+            package_scopes=packages,
+            exact_module_scopes=exact_modules,
+            scan_roots=scan_roots,
+        )
+        selected_contract = replace(contract, components=(), rules=(rule,))
+        result = guarded_effect_results(
+            selected_contract,
+            scope=scope,
+            calls=calls,
+            modules=modules,
+            symbols=symbols,
+            complete=complete,
+            bindings_measured=bindings_measured,
+            paths_measured=paths_measured,
             source_modules=source_modules,
         )
         violations.extend(result[0])
@@ -1167,29 +1286,33 @@ def evaluate_source(
     violations += call_violations
     unknowns += call_limits
     scope_observations += call_receipts
-    argument_violations, argument_limits, argument_receipts = call_argument_results(
+    argument_violations, argument_limits, argument_receipts = _call_argument_rule_results(
         contract,
         scope="root",
         calls=calls,
         modules=module_facts,
         symbols=symbols,
-        complete=calls_complete,
+        calls_complete=calls_complete,
         bindings_measured=bindings_measured,
         arguments_measured=arguments_measured,
         blank_modules=blank_modules,
+        profile=profile,
+        scan_roots=roots,
     )
     violations += argument_violations
     unknowns += argument_limits
     scope_observations += argument_receipts
-    effect_violations, effect_limits, effect_receipts = guarded_effect_results(
+    effect_violations, effect_limits, effect_receipts = _guarded_effect_rule_results(
         contract,
         scope="root",
         calls=calls,
         modules=module_facts,
         symbols=symbols,
-        complete=calls_complete,
+        calls_complete=calls_complete,
         bindings_measured=bindings_measured,
         paths_measured=guarded_paths_measured,
+        profile=profile,
+        scan_roots=roots,
     )
     violations += effect_violations
     unknowns += effect_limits

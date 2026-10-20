@@ -19,7 +19,7 @@ from archkeel.ir.facts_codec import RawRecord, classified, parse_record
 from archkeel.ir.model import ArchitectureContract, ForbiddenCallArgumentRule
 
 from .call_arguments import bind_call_arguments
-from .call_owners import _target_binding_static
+from .call_owners import _constructed_target_binding_static, _target_binding_static
 from .rule_support import _rule_evaluation_receipt
 
 _BOUND_RECEIVER_ORIGINS = frozenset(
@@ -104,7 +104,10 @@ def _rule_results(
         if record["data"]["qualified_name"] == rule.target
         and record["kind"] in {"class", "function", "method"}
     ]
-    target_proven = len(targets) == 1 and _target_binding_static(targets[0], symbols)
+    target_proven = len(targets) == 1 and (
+        _target_binding_static(targets[0], symbols)
+        or _constructed_target_binding_static(targets[0], calls, symbols)
+    )
     rule_limits = _rule_limits(
         rule,
         scope,
