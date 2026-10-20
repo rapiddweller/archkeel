@@ -52,6 +52,7 @@ from .model import (
     RootLayoutRule,
     SelectorMatch,
     SiblingIsolationRule,
+    SourceOwnershipRule,
     last_name,
 )
 
@@ -107,6 +108,7 @@ _RESTRICTION_RULE_KINDS: Final = frozenset(
         "sibling_isolation",
         "symbol_placement",
         "boundary_types",
+        "source_ownership",
     }
 )
 
@@ -506,6 +508,8 @@ def _matched_rule_widenings(
                 subject, before, after, handled=frozenset({"allowed_positions"})
             ),
         ]
+    if isinstance(before, SourceOwnershipRule) and isinstance(after, SourceOwnershipRule):
+        return _generic_field_widenings(subject, before, after, handled=frozenset())
     if isinstance(before, CompleteAssignmentRule) and isinstance(after, CompleteAssignmentRule):
         return _generic_field_widenings(subject, before, after, handled=frozenset())
     if isinstance(before, CompleteExternalScopeRule) and isinstance(
