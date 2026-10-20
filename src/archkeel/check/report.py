@@ -1078,9 +1078,50 @@ def _saved_selector_constructed(
         )
         or assignment_id is None
         and assignment_name is not None
-        or not set(target_declaration.evidence_ids) <= set(ids)
+        or not _saved_constructor_target_is_witnessed(
+            constructor_calls,
+            target_declaration,
+            binding,
+            assignment_id,
+            assignment_call,
+        )
     ):
         raise ValueError("saved constructed selector receiver needs its allocation link")
+
+
+def _saved_constructor_target_is_witnessed(
+    constructor_calls: list[Record],
+    target_declaration: Record,
+    binding: CallBinding,
+    assignment_id: JsonValue,
+    assignment_call: Record | None,
+) -> bool:
+    declaration_evidence = set(target_declaration.evidence_ids)
+    if declaration_evidence <= set(binding.evidence_ids):
+        return True
+    if len(constructor_calls) != 1:
+        return False
+    constructor = constructor_calls[0]
+    constructor_binding = call_binding(constructor.data.get("call_binding"))
+    targets = constructor.data.get("targets")
+    target_evidence = constructor.data.get("target_evidence_ids")
+    return (
+        constructor.kind.endswith("_call")
+        and isinstance(targets, tuple)
+        and binding.target in targets
+        and isinstance(target_evidence, tuple)
+        and declaration_evidence <= set(target_evidence)
+        and constructor_binding is not None
+        and constructor_binding.origin is CallBindingOrigin.CONSTRUCTOR
+        and constructor_binding.target == binding.target
+        and declaration_evidence <= set(constructor_binding.evidence_ids)
+        and (
+            assignment_id is None
+            and assignment_call is None
+            or assignment_id is not None
+            and assignment_call is constructor
+        )
+    )
 
 
 def _validate_saved_selector_receivers(model: Observation) -> None:

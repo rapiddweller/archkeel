@@ -1054,7 +1054,18 @@ class ConstructCollector(ast.NodeVisitor):
             and node.value.id == "builtins"
         ):
             binding = self.comparisons.scopes.lookup(node.value, node.value.id)
-            return binding.kind is BindingKind.UNBOUND and not binding.uncertain
+            if binding.kind is BindingKind.UNBOUND and not binding.uncertain:
+                return True
+            if binding.owner is None or binding.uncertain:
+                return False
+            sites = binding.owner.bindings.get(node.value.id, [])
+            return (
+                len(sites) == 1
+                and isinstance(sites[0], ast.Import)
+                and any(
+                    alias.name == "builtins" and alias.asname is None for alias in sites[0].names
+                )
+            )
         return False
 
     def _selector_record(
