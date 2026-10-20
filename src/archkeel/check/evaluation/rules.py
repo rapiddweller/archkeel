@@ -249,6 +249,7 @@ def _construct_violations(
     receipt_scope_complete: bool = True,
 ) -> list[RawRecord]:
     violations: list[RawRecord] = []
+    seen_sources: dict[tuple[str, tuple[str, ...], tuple[str, ...], str], int] = {}
     for rule in rules:
         if not isinstance(rule, ForbiddenConstructRule):
             continue
@@ -261,8 +262,24 @@ def _construct_violations(
             continue
         for item in signals:
             violation = _construct_violation(item, rule, source_modules, allowance_facts)
-            if violation is not None:
+            if violation is None:
+                continue
+            construct = violation["data"].get("construct")
+            if not isinstance(construct, str):
                 violations.append(violation)
+                continue
+            evidence_ids = tuple(violation["evidence_ids"])
+            site_identity = evidence_ids or tuple(violation["fact_ids"])
+            key = (rule.id, tuple(violation["subjects"]), site_identity, construct)
+            previous_index = seen_sources.get(key)
+            if previous_index is None:
+                violations.append(violation)
+                seen_sources[key] = len(violations) - 1
+            elif evidence_ids:
+                previous = violations[previous_index]
+                previous["fact_ids"] = sorted(
+                    set(previous["fact_ids"]) | set(violation["fact_ids"])
+                )
     return sorted(violations, key=lambda item: item["id"])
 
 
