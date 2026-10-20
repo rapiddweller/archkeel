@@ -47,6 +47,9 @@
               "$ref": "urn:archkeel:architecture-ir:decoded:2.5.0"
             },
             {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.6.0"
+            },
+            {
               "$ref": "urn:archkeel:architecture-ir:decoded:2.7.0"
             }
           ]
@@ -203,7 +206,19 @@
               "$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"
             },
             {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.2.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.3.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.4.0"
+            },
+            {
               "$ref": "urn:archkeel:architecture-ir:decoded:2.5.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.6.0"
             },
             {
               "$ref": "urn:archkeel:architecture-ir:decoded:2.7.0"
