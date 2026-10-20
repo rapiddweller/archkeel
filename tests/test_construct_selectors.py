@@ -110,6 +110,21 @@ def test_selected_scope_without_applicable_facts_is_unknown():
     assert findings[0]["kind"] == "construct_selector_unknown"
 
 
+def test_shadowed_reflection_names_are_not_builtin_constructs():
+    module = _parsed_module(
+        "def getattr(value, name): return value\n"
+        "def route(value):\n"
+        '    getattr(value, "backend")\n'
+        "    def hasattr(value, name): return True\n"
+        '    hasattr(value, "backend")\n',
+        module="sample.core",
+    )
+
+    facts = collect_constructs([module], {})
+
+    assert not [row for row in facts if row["kind"] in {"getattr_call", "hasattr_call"}]
+
+
 def test_dynamic_call_facts_for_one_source_site_produce_one_construct_finding():
     rule = ForbiddenConstructRule(
         "NO-DYNAMIC",

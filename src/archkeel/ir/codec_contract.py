@@ -453,10 +453,9 @@ def _validate_encoding_version(contract: ArchitectureContract) -> None:
 
 
 def _validate_layer_feature_version(contract: ArchitectureContract) -> None:
-    if supports_feature(contract.schema_version, ContractFeature.LAYERS):
-        return
-    if any(component.layer is not None for component in contract.components) or any(
-        isinstance(rule, LayerOrderRule) for rule in contract.rules
+    if not supports_feature(contract.schema_version, ContractFeature.LAYERS) and (
+        any(component.layer is not None for component in contract.components)
+        or any(isinstance(rule, LayerOrderRule) for rule in contract.rules)
     ):
         raise ValueError("layer and layer_order require contract schema_version 2.3.0")
     if not supports_feature(contract.schema_version, ContractFeature.ALIAS_BODY) and any(

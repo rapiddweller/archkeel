@@ -1408,7 +1408,7 @@ class ConstructCollector(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         name = _as_written(node.func)
-        if name is not None and name in _REFLECTION_CALLS:
+        if name is not None and name in _REFLECTION_CALLS and self._builtin_call(node.func, name):
             self._record(node, kind=_REFLECTION_CALLS[name], construct=name, handled=None)
             self._reflection_selector(node, name)
         self._selected_type_call(node, name)
