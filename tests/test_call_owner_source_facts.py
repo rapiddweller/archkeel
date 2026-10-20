@@ -95,6 +95,52 @@ def test_stored_receiver_field_and_call_expression_cannot_be_retargeted(tmp_path
         decode_response(json.dumps(payload).encode())
 
 
+@pytest.mark.parametrize("clear_scope_link", [False, True])
+def test_constructed_member_mutation_inventory_is_linked_to_write_evidence(
+    tmp_path, clear_scope_link
+):
+    caller = "from .storage import Store\ndef run():\n    value = Store()\n    value.page()\n"
+    clean = _payload(tmp_path, caller)
+    decode_response(json.dumps(clean).encode())
+    payload = _payload(
+        tmp_path,
+        caller,
+        extra={
+            "sample/storage.py": "class Store:\n"
+            "    def page(self): pass\n"
+            "    def prepare(self): self.page = lambda: None\n"
+        },
+    )
+    clean_call = next(
+        item for item in _records(clean, "calls") if item["data"]["expression"] == "value.page"
+    )
+    call = next(
+        item for item in _records(payload, "calls") if item["data"]["expression"] == "value.page"
+    )
+    call["data"]["call_binding"] = clean_call["data"]["call_binding"]
+    call["data"]["targets"] = clean_call["data"]["targets"]
+    call["data"]["target_evidence_ids"] = clean_call["data"]["target_evidence_ids"]
+    call["data"]["call_binding"]["evidence_ids"] = [
+        item["id"] for item in payload["facts"]["evidence"]
+    ]
+    declaration = next(
+        item
+        for item in _records(payload, "symbols")
+        if item["data"].get("qualified_name") == "sample.storage.Store"
+    )
+    declaration["data"]["instance_member_writes"] = []
+    if clear_scope_link:
+        scope_id = declaration["data"].pop("instance_member_scope_evidence_id")
+        declaration["evidence_ids"] = [
+            evidence_id for evidence_id in declaration["evidence_ids"] if evidence_id != scope_id
+        ]
+        payload["facts"]["evidence"][:] = [
+            item for item in payload["facts"]["evidence"] if item["id"] != scope_id
+        ]
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
+
+
 def test_stored_receiver_rhs_must_match_its_typed_parameter(tmp_path):
     payload = _payload(
         tmp_path,
