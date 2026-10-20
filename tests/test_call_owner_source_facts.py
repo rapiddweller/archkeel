@@ -25,13 +25,21 @@ from archkeel.ir.protocol import (
 )
 
 
-def _payload(tmp_path: Path, caller: str, *, other: str = "", native: bool = False) -> dict:
+def _payload(
+    tmp_path: Path,
+    caller: str,
+    *,
+    other: str = "",
+    native: bool = False,
+    extra: dict[str, str] | None = None,
+) -> dict:
     files = {
         "sample/__init__.py": "",
         "sample/caller.py": caller,
         "sample/storage.py": "class Store:\n    def page(self): pass\n",
         "sample/other.py": other,
     }
+    files.update(extra or {})
     for relative, source in files.items():
         path = tmp_path / relative
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -166,6 +174,58 @@ def test_constructed_receiver_cannot_use_another_real_allocation(tmp_path):
     )
     with pytest.raises(ProtocolError):
         decode_response(json.dumps(payload).encode())
+
+
+def test_native_selector_annotation_uses_proven_reexport_origin(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "from .pkg import Store as Selected\ndef run(store: Selected): store.page()\n",
+        native=True,
+        extra={
+            "sample/pkg/__init__.py": "from .types import Store\n",
+            "sample/pkg/types.py": "class Store:\n    def page(self): pass\n",
+        },
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    selectors = [
+        record
+        for section in facts.sections
+        if section.name.value == "constructs"
+        for record in section.records
+        if record.kind == "construct_selector"
+    ]
+    [selector] = selectors
+    binding = selector.data.get("receiver_binding")
+    assert binding is not None
+    assert binding.get("origin") == "declared_receiver"
+    assert binding.get("target") == "sample.pkg.types.Store"
+
+
+def test_ambiguous_reexport_annotation_does_not_prove_selector_receiver(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "from .pkg import Store\nfrom .other import Store\n"
+        "def run(store: Store): store.page()\n",
+        native=True,
+        extra={
+            "sample/pkg/__init__.py": "from .types import Store\n",
+            "sample/pkg/types.py": "class Store:\n    def page(self): pass\n",
+            "sample/other.py": "class Store:\n    def page(self): pass\n",
+        },
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    selectors = [
+        record
+        for section in facts.sections
+        if section.name.value == "constructs"
+        for record in section.records
+        if record.kind == "construct_selector"
+    ]
+    assert all(
+        record.data.get("receiver_binding") is None
+        or record.data.get("receiver_binding").get("target") != "sample.pkg.types.Store"
+        for record in selectors
+    )
 
 
 def test_native_binding_cannot_use_another_imports_witness(tmp_path):

@@ -225,6 +225,18 @@ def _signature_origin(
     target, symbol = binding.get("target_module"), binding.get("symbol")
     if not isinstance(target, str) or symbol is not None and not isinstance(symbol, str):
         return None
+    if binding.get("source_binding_unique") is not True or binding.get("symbols_known") is not True:
+        return None
+    if isinstance(symbol, str):
+        origin = binding.get("origin_definition")
+        if (
+            not isinstance(origin, str)
+            or not _qualified_identifier(origin)
+            or binding.get("origin_binding_unique") is not True
+            or binding.get("reexport_candidate") is True
+        ):
+            return None
+        return ".".join(part for part in (origin, suffix) if part)
     return ".".join(part for part in (target, symbol, suffix) if part)
 
 
