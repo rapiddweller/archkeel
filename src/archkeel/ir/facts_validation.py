@@ -6,7 +6,7 @@
 import ast
 import re
 import sys
-from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import PurePosixPath
@@ -4091,7 +4091,7 @@ def _validate_source_role(
 
 def _source_role_witness(
     role: Record, evidence: Mapping[str, Evidence]
-) -> tuple[str | None, str, str, object, Evidence]:
+) -> tuple[str | None, str, str, JsonValue, Evidence]:
     role_name = role.data.get("role")
     canonical = role.data.get("canonical_name")
     declaration_id = role.data.get("declaration_id")
@@ -4124,7 +4124,7 @@ def _validate_definition_source_role(
     role: Record,
     canonical: str,
     declaration_id: str,
-    source_scope: object,
+    source_scope: JsonValue,
     witness: Evidence,
     symbols: Mapping[str, list[Record]],
     member_anchors: Mapping[tuple[str, str], list[RecordData]],
@@ -4162,43 +4162,43 @@ def _validate_definition_source_role(
 
 
 def _validate_definition_source_span(role: Record, canonical: str, witness: Evidence) -> None:
-    encoded: bytes = witness.excerpt.encode("utf-8")
+    excerpt: str = witness.excerpt
+    encoded: bytes = excerpt.encode("utf-8")
     start, end = role.data.get("column"), role.data.get("end_column")
-    span: str = (
-        encoded[start:end].decode("utf-8", errors="ignore")
+    span_bytes: bytes = (
+        encoded[start:end]
         if isinstance(start, int) and isinstance(end, int) and end <= len(encoded)
-        else ""
+        else b""
     )
-    suffix: str = (
-        encoded[start:].decode("utf-8", errors="ignore")
-        if isinstance(start, int) and start <= len(encoded)
-        else ""
+    suffix_bytes: bytes = (
+        encoded[start:] if isinstance(start, int) and start <= len(encoded) else b""
     )
+    span: str = span_bytes.decode("utf-8", errors="ignore")
+    suffix: str = suffix_bytes.decode("utf-8", errors="ignore")
+    stripped_suffix: str = suffix.lstrip()
     expected = canonical.rpartition(".")[2]
     declaration: re.Match[str] | None = (
         re.match(r"\s*(?:async\s+)?(?:def|class)\s+([A-Za-z_]\w*)", suffix)
-        if suffix.lstrip().startswith(("def ", "async def ", "class "))
+        if stripped_suffix.startswith(("def ", "async def ", "class "))
         else None
     )
     stripped_span: str = span.strip()
-    observed: str | None = (
-        stripped_span
-        if stripped_span == expected
-        else declaration.group(1)
-        if declaration
-        else None
-    )
-    if observed is not None:
-        observed_name: str = observed.rsplit(".", 1)[-1].strip()
-        if observed_name != expected:
-            raise ValueError("definition role name disagrees with its source span")
+    if stripped_span == expected:
+        return
+    if declaration is None:
+        return
+    matched: re.Match[str] = declaration
+    observed: str = matched.group(1)
+    observed_tail: str = observed.rsplit(".", 1)[-1]
+    if observed_tail.strip() != expected:
+        raise ValueError("definition role name disagrees with its source span")
 
 
 def _validate_parameter_source_role(
     role: Record,
     canonical: str,
     declaration_id: str,
-    source_scope: object,
+    source_scope: JsonValue,
     witness: Evidence,
     anchors: Mapping[tuple[str, str], list[Record]],
     records: tuple[Record, ...],
@@ -4250,7 +4250,7 @@ def _validate_owned_source_role(
     role_name: str | None,
     canonical: str,
     declaration_id: str,
-    source_scope: object,
+    source_scope: JsonValue,
     witness: Evidence,
     anchors: Mapping[tuple[str, str], list[Record]],
     member_anchors: Mapping[tuple[str, str], list[RecordData]],
@@ -4376,7 +4376,7 @@ def _valid_unanchored_source_role(
     return True
 
 
-def _as_tuple(value: object) -> tuple[object, ...]:
+def _as_tuple(value: JsonValue) -> tuple[JsonValue, ...]:
     return value if isinstance(value, tuple) else ()
 
 
@@ -4458,8 +4458,8 @@ def _validate_local_definition_reference(
 
 def _local_declaration_owner_witnessed(
     reference: Record,
-    owner: object,
-    owner_id: object,
+    owner: JsonValue,
+    owner_id: JsonValue,
     owner_matches: list[Record],
     witness: Evidence,
     evidence: Mapping[str, Evidence],
@@ -4467,16 +4467,14 @@ def _local_declaration_owner_witnessed(
     if len(owner_matches) == 1 and owner_matches[0].kind == "class":
         scope = reference.data.get("source_scope")
         use = evidence[reference.evidence_ids[0]]
-        return (
-            isinstance(owner, str)
-            and isinstance(scope, str)
-            and (scope == owner or scope.startswith(owner + ".<"))
-            and any(
-                evidence[identity].file == witness.file == use.file
-                and evidence[identity].line <= witness.line <= evidence[identity].end_line
-                and evidence[identity].line <= use.line <= evidence[identity].end_line
-                for identity in owner_matches[0].evidence_ids
-            )
+        if not isinstance(owner, str) or not isinstance(scope, str):
+            return False
+        source_scope: str = scope
+        return (source_scope == owner or source_scope.startswith(owner + ".<")) and any(
+            evidence[identity].file == witness.file == use.file
+            and evidence[identity].line <= witness.line <= evidence[identity].end_line
+            and evidence[identity].line <= use.line <= evidence[identity].end_line
+            for identity in owner_matches[0].evidence_ids
         )
     if len(owner_matches) == 1:
         return any(
@@ -4494,14 +4492,15 @@ def _local_definition_witness_matches(
     reference: Record,
     witness: Evidence,
     use: Evidence,
-    owner: object,
+    owner: JsonValue,
     owner_witnessed: bool,
 ) -> bool:
     name: str = target.rpartition(".")[2]
-    encoded: bytes = witness.excerpt.encode("utf-8")
+    excerpt: str = witness.excerpt
+    encoded: bytes = excerpt.encode("utf-8")
     suffix_bytes: bytes = encoded[witness.column :]
     suffix: str = suffix_bytes.decode("utf-8", errors="ignore")
-    declaration_scope = target.rpartition(".")[0]
+    declaration_scope: str = target.rpartition(".")[0]
     nested = isinstance(owner, str) and declaration_scope.startswith(owner + ".<")
     return (
         declaration_id == stable_id("DECL", witness.file, target)
