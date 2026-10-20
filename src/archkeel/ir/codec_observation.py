@@ -34,7 +34,10 @@ from archkeel.ir.facts import (
 )
 from archkeel.ir.facts import call_arguments as _call_arguments
 from archkeel.ir.facts import call_binding as _call_binding
-from archkeel.ir.facts_validation import _validate_source_role_identities
+from archkeel.ir.facts_validation import (
+    _validate_source_role_identities,
+    validate_source_role_vocabulary,
+)
 from archkeel.ir.model import (
     CLASSIFIED_SECTIONS,
     EVIDENCE_FIELDS,
@@ -46,7 +49,6 @@ from archkeel.ir.model import (
     RuntimeInfo,
     Section,
     SourceInfo,
-    SourceOwnershipRole,
     Verdict,
     identity_is_known,
 )
@@ -357,6 +359,30 @@ def parse_observation(raw: object) -> Observation:
     )
     if has_selectors and schema_version is not _ObservationVersion.V2_6:
         raise ValueError("construct selector facts require observation schema 2.6.0")
+    if _before_version(schema_version, _ObservationVersion.V2_2) and any(
+        record.kind == "source_role"
+        for section in sections
+        if section.name == "references"
+        for record in section.records
+    ):
+        raise ValueError("source_role records require observation schema_version 2.2.0")
+    if _before_version(schema_version, _ObservationVersion.V2_2) and any(
+        record.kind == "source_ownership"
+        for section in sections
+        if section.name == "declarations"
+        for record in section.records
+    ):
+        raise ValueError("source_ownership requires observation schema_version 2.2.0")
+    if not _before_version(schema_version, _ObservationVersion.V2_2):
+        _validate_source_ownership_vocabulary(sections)
+        _validate_source_role_identities(
+            (record for section in sections for record in section.records),
+            {
+                item.id: item
+                for item in (parse_evidence(value, "evidence[]") for value in evidence_raw)
+            },
+        )
+    _validate_versioned_records(schema_version, sections, profile)
     if not _before_version(schema_version, _ObservationVersion.V2_5):
         python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
         for section in sections:
@@ -573,58 +599,14 @@ def _validate_profile_sections(model: Mapping[str, RawJson], profile: Profile) -
 
 def _validate_source_ownership_vocabulary(sections: tuple[Section, ...]) -> None:
     references = next((section.records for section in sections if section.name == "references"), ())
-    required = {
-        "role",
-        "canonical_name",
-        "expression",
-        "status",
-        "targets",
-        "use",
-        "declaration_id",
-        "source_scope",
-        "source_module",
-        "line",
-        "column",
-        "end_line",
-        "end_column",
-    }
-    allowed_roles = {role.value for role in SourceOwnershipRole}
     for record in references:
+        if record.kind in {"value_reference", "attribute_reference"} and record.data.get(
+            "reference_context"
+        ) not in {"value", "annotation"}:
+            raise ValueError("2.2.0 reference needs a typed value or annotation context")
         if record.kind != "source_role":
             continue
-        if not required <= {key for key, _ in record.data.entries}:
-            raise ValueError("2.2.0 source_role records require complete identity and span fields")
-        role = record.data.get("role")
-        if role not in allowed_roles:
-            raise ValueError("2.2.0 source_role has an unsupported role")
-        for field in (
-            "canonical_name",
-            "expression",
-            "declaration_id",
-            "source_scope",
-            "source_module",
-        ):
-            if not isinstance(record.data.get(field), str) or not record.data.get(field):
-                raise ValueError(f"2.2.0 source_role.{field} must be nonempty")
-        targets = record.data.get("targets")
-        if not isinstance(targets, tuple) or any(
-            not isinstance(item, str) or not item for item in targets
-        ):
-            raise ValueError("2.2.0 source_role.targets must be nonempty strings")
-        start = (record.data.get("line"), record.data.get("column"))
-        end = (record.data.get("end_line"), record.data.get("end_column"))
-        if (
-            not isinstance(start[0], int)
-            or not isinstance(end[0], int)
-            or start[0] < 1
-            or end[0] < 1
-            or not isinstance(start[1], int)
-            or not isinstance(end[1], int)
-            or start[1] < 0
-            or end[1] < 0
-            or end <= start
-        ):
-            raise ValueError("2.2.0 source_role needs a complete ordered source span")
+        validate_source_role_vocabulary(record, version="2.2.0")
     rules = {
         record.id
         for section in sections

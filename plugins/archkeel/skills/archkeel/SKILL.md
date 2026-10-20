@@ -326,6 +326,16 @@ remain UNKNOWN. Other language profiles do not claim selector support. See
 [AD-248](../docs/architecture/decisions/ad-248-construct-selectors.md) and
 the [rule grammar](../docs/rules.md#forbidden-construct).
 
+Use `source_ownership` for Python-local policy over source roles. In `retired` mode,
+select `symbols` and roles `definition`, `read`, `write` and/or `delete`. In `confined`
+mode, select `symbols` plus `owner`, or formal `parameters` plus `value_owner`; choose
+roles `value_transfer`, `parameter_default` and `fallback` only when the observer can
+link each value to admitted source evidence. Unsupported or ambiguous expressions remain
+UNKNOWN. This rule is available with contract 3.8 and observation wire 2.2; older readers
+must reject those formats rather than silently ignore the rule or role facts. See
+[AD-249](https://github.com/rapiddweller/archkeel/blob/main/docs/architecture/decisions/ad-249-source-ownership-defaults.md)
+and the [rule catalog](https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md).
+
 ## Daily loop
 
 Validation reports `responsibility.missing` only for components explicitly marked

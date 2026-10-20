@@ -34,6 +34,7 @@ global coverage and cycle closure stay incomplete. See
 | Bound selected binary/augmented modulo operands | `bounded_numeric_operand` (3.8) |
 
 | Reject a written string literal at one bound call parameter | `forbidden_call_argument` (3.10) |
+| Retire a source name or confine its definition, use, transfer, default or fallback to a canonical owner | `source_ownership` (3.8) |
 
 Python static imports and proven literal `importlib.import_module` / `__import__`
 calls feed the same dependency rules. An unknown loader binding or target withholds
@@ -74,6 +75,16 @@ unproven target/receiver leaves the scope UNKNOWN. Calls without canonical
 binding carry null argument facts; a proven call with no actuals carries an
 empty list. See
 [AD-247](architecture/decisions/ad-247-written-call-arguments-bind-to-observed-formals.md).
+
+`source_ownership` is Python-only. `retired` selects `symbols` with the `definition`,
+`read`, `write` and/or `delete` roles. `confined` selects `symbols` with an `owner`, or
+formal `parameters` with a `value_owner`; choose the corresponding role subset, including
+`value_transfer`, `parameter_default` and `fallback` only where evidence supports it.
+Resolved references must match a unique admitted reference at the same source location.
+Literal defaults/fallbacks carry no reference target; unsupported expressions remain
+UNKNOWN. Dictionary callable transfers are bounded to direct names and zero-argument
+lambda calls. Missing, ambiguous, mutated or unlinked source evidence cannot certify a
+rule. See [AD-249](architecture/decisions/ad-249-source-ownership-defaults.md).
 
 ### Ownership and dependency decisions
 

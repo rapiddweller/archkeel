@@ -197,7 +197,9 @@ def test_retired_definition_read_write_delete_roles_fail(tmp_path):
         },
         contract,
     )
-    assert result.observation is not None, result.diagnostics
+    assert result.observation is not None, [
+        (item.subject, item.unknown_claim, item.remedy) for item in result.diagnostics
+    ]
     [assessment] = [
         item
         for item in rule_assessments(result.observation, undecided_by_rule={})
@@ -208,12 +210,102 @@ def test_retired_definition_read_write_delete_roles_fail(tmp_path):
     role_facts = [
         item for item in result.observation.records("references") if item.kind == "source_role"
     ]
-    assert {item.data.get("role") for item in role_facts} >= {"definition", "write", "delete"}
+    assert {item.data.get("role") for item in role_facts} >= {"write", "delete"}
+    assert any(
+        item.data.get("qualified_name") == "sample.consumer.retired_cursor"
+        and item.data.get("record_kind") == "static_constant"
+        for item in result.observation.records("symbols")
+    )
     assert any(
         item.kind == "value_reference"
         and "sample.consumer.retired_cursor" in item.data.get("targets", ())
         for item in result.observation.records("references")
     )
+
+
+def test_unread_local_definition_is_retained_as_unknown_candidate(tmp_path):
+    from archkeel.ir.decisions import rule_assessments, unknown_positions_by_rule
+
+    contract = _contract(
+        {
+            "mode": "retired",
+            "symbols": ["sample.consumer.normalize.cursor"],
+            "roles": ["definition"],
+        }
+    )
+    contract["components"] = [_component("all", ["sample"])]
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/consumer.py": (
+                "def normalize(flag):\n    if flag:\n        cursor = 0\n    return None\n"
+            ),
+        },
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+    assert any(
+        item.kind == "source_role"
+        and item.data.get("role") == "definition"
+        and item.data.get("canonical_name") == "sample.consumer.normalize.cursor"
+        and item.data.get("status") != "resolved"
+        for item in result.observation.records("references")
+    )
+    [assessment] = [
+        item
+        for item in rule_assessments(
+            result.observation,
+            undecided_by_rule=unknown_positions_by_rule(result.observation),
+        )
+        if item.id == "ownership"
+    ]
+    assert assessment.status.value == "UNKNOWN", [
+        (item.kind, item.data.entries) for item in result.observation.records("unknowns")
+    ]
+
+
+def test_annotation_references_are_typed_across_module_class_and_local_scopes(tmp_path):
+    contract = _contract(
+        {
+            "mode": "retired",
+            "symbols": ["sample.consumer.OptionKey.PAGE_SIZE"],
+            "roles": ["read"],
+        }
+    )
+    contract["components"] = [_component("all", ["sample"])]
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/consumer.py": (
+                "from enum import Enum\n"
+                "class OptionKey(Enum): PAGE_SIZE = 1\n"
+                "module_value: OptionKey.PAGE_SIZE\n"
+                "class Holder:\n"
+                "    class_value: OptionKey.PAGE_SIZE\n"
+                "    def read(self, selected: OptionKey.PAGE_SIZE) -> OptionKey.PAGE_SIZE:\n"
+                "        local: OptionKey.PAGE_SIZE\n"
+                "        return selected\n"
+                "value = OptionKey.PAGE_SIZE\n"
+            ),
+        },
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+    references = [
+        item
+        for item in result.observation.records("references")
+        if item.kind in {"value_reference", "attribute_reference"}
+        and item.data.get("expression") == "OptionKey.PAGE_SIZE"
+    ]
+    assert references
+    assert {item.data.get("reference_context") for item in references} == {"annotation", "value"}
+    annotations = [
+        item for item in references if item.data.get("reference_context") == "annotation"
+    ]
+    assert len(annotations) >= 5
+    assert all(item.data.get("reference_context") == "annotation" for item in annotations)
 
 
 def test_inline_parameter_default_and_fallback_duplicate_canonical_value(tmp_path):
@@ -258,7 +350,7 @@ def test_inline_parameter_default_and_fallback_duplicate_canonical_value(tmp_pat
         },
         contract,
     )
-    assert result.observation is not None, result.diagnostics
+    assert result.observation is not None, [item.unknown_claim for item in result.diagnostics]
     [assessment] = [
         item
         for item in rule_assessments(result.observation, undecided_by_rule={})
@@ -391,36 +483,171 @@ def test_same_named_local_declarations_cannot_exchange_read_evidence(tmp_path):
     second_anchor = next(
         record
         for record in references
-        if record["kind"] == "source_role"
-        and record["data"].get("role") == "definition"
-        and record["data"].get("canonical_name") == "sample.consumer.second.value"
+        if record["kind"] == "value_reference"
+        and record["data"].get("declaration_role") == "definition"
+        and record["data"].get("targets") == ["sample.consumer.second.value"]
     )
     first["data"]["targets"] = ["sample.consumer.second.value"]
     first["data"]["declaration_id"] = second_anchor["data"]["declaration_id"]
-    with pytest.raises(ValueError, match="lexical scope"):
+    with pytest.raises(ValueError, match="declaration"):
         parse_observation(changed)
 
     changed_anchor = copy.deepcopy(observation_payload(result.observation))
-    definitions = [
+    first_anchor = next(
         record
         for record in changed_anchor["references"]
-        if record["kind"] == "source_role" and record["data"].get("role") == "definition"
+        if record["kind"] == "value_reference"
+        and record["data"].get("declaration_role") == "definition"
+        and record["data"].get("targets") == ["sample.consumer.first.value"]
+    )
+    second_anchor = next(
+        record
+        for record in changed_anchor["references"]
+        if record["kind"] == "value_reference"
+        and record["data"].get("declaration_role") == "definition"
+        and record["data"].get("targets") == ["sample.consumer.second.value"]
+    )
+    assert (
+        first_anchor["data"]["declaration_evidence_ids"]
+        != second_anchor["data"]["declaration_evidence_ids"]
+    )
+    first_anchor["data"]["declaration_evidence_ids"] = second_anchor["data"][
+        "declaration_evidence_ids"
     ]
-    first_definition = next(
-        record
-        for record in definitions
-        if record["data"].get("canonical_name") == "sample.consumer.first.value"
-    )
-    second_definition = next(
-        record
-        for record in definitions
-        if record["data"].get("canonical_name") == "sample.consumer.second.value"
-    )
-    first_definition["data"]["canonical_name"] = "sample.consumer.second.value"
-    first_definition["data"]["targets"] = ["sample.consumer.second.value"]
-    first_definition["data"]["declaration_id"] = second_definition["data"]["declaration_id"]
-    with pytest.raises(ValueError, match="lexical declaration owner"):
+    with pytest.raises(ValueError, match="local definition witness"):
         parse_observation(changed_anchor)
+
+
+def test_default_and_fallback_targets_need_matching_reference_evidence(tmp_path):
+    import copy
+
+    from archkeel.ir.codec import observation_payload, parse_observation
+
+    contract = _contract(
+        {
+            "mode": "confined",
+            "value_owner": "sample.defaults.FALLBACK_REGION",
+            "parameters": ["sample.consumer.normalize.region"],
+            "roles": ["parameter_default", "fallback"],
+        }
+    )
+    contract["components"] = [_component("all", ["sample"])]
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/defaults.py": ("FALLBACK_REGION = 'EU'\n"),
+            "sample/consumer.py": (
+                "from sample.defaults import FALLBACK_REGION\n"
+                "def normalize(region=FALLBACK_REGION):\n"
+                "    return region or 'ZZ'\n"
+            ),
+        },
+        contract,
+    )
+    assert result.observation is not None, [
+        (item.subject, item.unknown_claim, item.remedy) for item in result.diagnostics
+    ]
+    changed = copy.deepcopy(observation_payload(result.observation))
+    role = next(
+        record
+        for record in changed["references"]
+        if record["kind"] == "source_role" and record["data"].get("role") == "fallback"
+    )
+    role["data"].update(
+        expression_kind="reference",
+        expression="FALLBACK_REGION",
+        status="resolved",
+        targets=["sample.defaults.FALLBACK_REGION"],
+    )
+    with pytest.raises(ValueError, match="source role target lacks matching reference evidence"):
+        parse_observation(changed)
+
+
+def test_source_ownership_schemas_describe_current_contract_and_saved_observation(tmp_path):
+    import copy
+    import json
+
+    from jsonschema import Draft202012Validator
+    from referencing import Registry, Resource
+
+    from archkeel.ir.codec import observation_payload, parse_observation
+
+    schemas = [json.loads(path.read_bytes()) for path in (ROOT / "schema").glob("*.json")]
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema)) for schema in schemas
+    )
+    contract = _contract(
+        {
+            "mode": "retired",
+            "symbols": ["sample.consumer.old"],
+            "roles": ["definition", "read", "write", "delete"],
+        }
+    )
+    Draft202012Validator(
+        json.loads((ROOT / "schema/architecture-contract-3.8.schema.json").read_bytes()),
+        registry=registry,
+    ).validate(contract)
+    result = _observe_tree(
+        tmp_path,
+        {"sample/__init__.py": "", "sample/consumer.py": "old = 1\n"},
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+    observation = observation_payload(result.observation)
+    Draft202012Validator(
+        json.loads((ROOT / "schema/architecture-ir-decoded-2.2.schema.json").read_bytes()),
+        registry=registry,
+    ).validate(observation)
+    Draft202012Validator.check_schema(
+        json.loads((ROOT / "schema/command-result-9.0.schema.json").read_bytes())
+    )
+    older = copy.deepcopy(observation)
+    older["schema_version"] = "2.1.0"
+    with pytest.raises(
+        ValueError,
+        match=(
+            "(source_role records require|source_ownership requires) "
+            "observation schema_version 2.2.0"
+        ),
+    ):
+        parse_observation(older)
+
+
+def test_builtin_value_without_source_declaration_remains_unknown(tmp_path):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes
+
+    contract = _contract(
+        {
+            "mode": "confined",
+            "owner": "sample.consumer",
+            "symbols": ["builtins.list"],
+            "roles": ["value_transfer"],
+        }
+    )
+    contract["components"] = [_component("all", ["sample"])]
+    result = _observe_tree(
+        tmp_path,
+        {"sample/__init__.py": "", "sample/consumer.py": 'FUNCTIONS = {"copy": list}\n'},
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+    roles = [
+        (item.data.get("role"), item.data.get("canonical_name"), item.data.get("status"))
+        for item in result.observation.records("references")
+        if item.kind == "source_role"
+    ]
+    assert roles
+    assert any(
+        item.kind == "source_ownership_limit" for item in result.observation.records("unknowns")
+    )
+    saved = tmp_path / "architecture.json"
+    saved.write_bytes(canonical_report_bytes(result.observation))
+    [assessment] = [
+        item for item in run_saved_report(saved).rule_assessments if item.id == "ownership"
+    ]
+    assert assessment.status == "UNKNOWN", roles
 
 
 def test_dictionary_callable_alias_and_lambda_transfer_are_detected(tmp_path):

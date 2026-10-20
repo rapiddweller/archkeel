@@ -964,6 +964,8 @@ def _relationships(
         ("references", RelationshipKind.REFERENCES),
     ):
         for record in observation.records(section) or ():
+            if section == "references" and record.kind == "source_role":
+                continue
             source_name = (
                 _text(
                     record.data.get(

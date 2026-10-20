@@ -100,11 +100,22 @@ class ReferenceCollector(ast.NodeVisitor):
         declaration_id: str,
         **details: object,
     ) -> None:
+        status = details.get("status", SourceResolution.RESOLVED)
+        if role in {"read", "value_transfer"} and canonical_name.startswith("builtins."):
+            status = SourceResolution.PARTIALLY_RESOLVED
+            details["status"] = status
+        if status != SourceResolution.RESOLVED:
+            details["targets"] = []
+            if role in {"read", "write", "delete", "value_transfer"}:
+                declaration_id = stable_id("DECL", canonical_name)
         evidence_id = add_evidence(self.evidence, self.module, node)
         line, _, column = location(node)
         end_line = getattr(node, "end_lineno", line) or line
         end_column = getattr(node, "end_col_offset", column + 1) or column + 1
         scope = self.scopes.by_node[node]
+        declaration_owner = scope
+        while declaration_owner.parent is not None and declaration_owner.definition_id is None:
+            declaration_owner = declaration_owner.parent
         self.items.append(
             classified(
                 item_id=stable_id(
@@ -133,6 +144,14 @@ class ReferenceCollector(ast.NodeVisitor):
                     "declaration_id": declaration_id,
                     "source_scope": scope.qualified_name,
                     "source_module": self.module.module,
+                    **(
+                        {
+                            "declaration_owner_scope": declaration_owner.qualified_name,
+                            "declaration_owner_id": declaration_owner.definition_id,
+                        }
+                        if isinstance(declaration_owner.definition_id, str)
+                        else {"declaration_owner_scope": declaration_owner.qualified_name}
+                    ),
                     "line": line,
                     "column": column,
                     "end_line": end_line,
@@ -182,30 +201,58 @@ class ReferenceCollector(ast.NodeVisitor):
             return symbol_id
         owner, _, member = name.rpartition(".")
         class_declaration = self.index.binding_declarations.get(owner)
+        if class_declaration is not None and class_declaration.get("kind") != "class":
+            class_declaration = None
         attributes = (
             class_declaration["data"].get("attribute_declarations", ()) if class_declaration else ()
         )
         for attribute in attributes:
-            if attribute.get("name") == member and isinstance(attribute.get("definition_id"), str):
-                return attribute["definition_id"]
+            definition_id = attribute.get("definition_id")
+            if attribute.get("name") == member and isinstance(definition_id, str):
+                return str(definition_id)
         return stable_id("DECL", self.module.rel_path, name) if local else stable_id("DECL", name)
+
+    def _has_canonical_declaration(self, name: str, declaration_id: str) -> bool:
+        if self.index.symbol_ids.get(name) == declaration_id:
+            return True
+        owner, _, member = name.rpartition(".")
+        class_declaration = self.index.binding_declarations.get(owner)
+        if class_declaration is not None and class_declaration.get("kind") != "class":
+            class_declaration = None
+        attributes = (
+            class_declaration["data"].get("attribute_declarations", ()) if class_declaration else ()
+        )
+        return any(
+            attribute.get("name") == member and attribute.get("definition_id") == declaration_id
+            for attribute in attributes
+        )
 
     def _expression(self, node: ast.expr) -> dict[str, object]:
         if isinstance(node, ast.Constant) and isinstance(
             node.value, (str, int, float, bool, type(None))
         ):
-            return {"expression_kind": "literal", "constant": node.value, "status": "resolved"}
+            return {
+                "expression_kind": "literal",
+                "constant": node.value,
+                "status": "resolved",
+                "targets": [],
+            }
         if isinstance(node, ast.Name | ast.Attribute):
             status, targets, _, _ = resolve_name(
                 node, index=self.index, scopes=self.scopes, value_reference=True
             )
+            if status == SourceResolution.RESOLVED and len(targets) == 1:
+                target = targets[0]
+                if target not in self.index.names and target not in self.index.declaration_names:
+                    status = SourceResolution.PARTIALLY_RESOLVED
+                    targets = []
             return {
                 "expression_kind": "reference",
                 "status": status,
                 "targets": sorted(targets),
                 "expression": annotation_text(node) or ast.unparse(node),
             }
-        return {"expression_kind": "unsupported", "status": "partially_resolved"}
+        return {"expression_kind": "unsupported", "status": "partially_resolved", "targets": []}
 
     def _parameter_default(
         self,
@@ -229,12 +276,6 @@ class ReferenceCollector(ast.NodeVisitor):
     def _function_source_roles(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         parent_scope = self.scopes.by_node[node]
         owner = f"{parent_scope.qualified_name}.{node.name}"
-        self._source_role(
-            node,
-            "definition",
-            owner,
-            definition_id(self.module, node, owner),
-        )
         positional = [*node.args.posonlyargs, *node.args.args]
         defaults = [None] * (len(positional) - len(node.args.defaults)) + list(node.args.defaults)
         for argument, default in zip(positional, defaults, strict=True):
@@ -273,9 +314,6 @@ class ReferenceCollector(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        owner_scope = self.scopes.by_node[node]
-        name = f"{owner_scope.qualified_name}.{node.name}"
-        self._source_role(node, "definition", name, definition_id(self.module, node, name))
         self.generic_visit(node)
 
     def visit_Name(self, node: ast.Name) -> None:
@@ -299,7 +337,16 @@ class ReferenceCollector(ast.NodeVisitor):
                 key=lambda site: (location(site)[0], location(site)[2]),
             )
             role = "definition" if stores and stores[0] is node else "write"
-            self._source_role(node, role, name, declaration_id, status=status)
+            if role != "definition" or not self._has_canonical_declaration(name, declaration_id):
+                self._source_role(
+                    node,
+                    role,
+                    name,
+                    declaration_id,
+                    status=(
+                        SourceResolution.PARTIALLY_RESOLVED if role == "definition" else status
+                    ),
+                )
         parent = self.scopes.parents.get(node)
         if (
             isinstance(node.ctx, ast.Load)
@@ -345,33 +392,37 @@ class ReferenceCollector(ast.NodeVisitor):
 
     def visit_Dict(self, node: ast.Dict) -> None:
         for value in node.values:
-            direct_name = isinstance(value, ast.Name)
-            direct_lambda = (
-                isinstance(value, ast.Lambda)
-                and isinstance(value.body, ast.Call)
-                and not value.body.args
-                and not value.body.keywords
+            if (
+                isinstance(value, ast.Name | ast.Lambda)
+                or not isinstance(value, ast.Call)
+                or len(value.args) != 1
+                or value.keywords
+                or not isinstance(value.args[0], ast.Name)
+            ):
+                continue
+            candidates: set[str] = set()
+            child = value.args[0]
+            status, targets, _, _ = resolve_name(
+                child, index=self.index, scopes=self.scopes, value_reference=True
             )
-            if not direct_name and not direct_lambda:
-                candidates: set[str] = set()
-                for child in ast.walk(value):
-                    if not isinstance(child, ast.Name | ast.Attribute):
-                        continue
-                    status, targets, _, _ = resolve_name(
-                        child, index=self.index, scopes=self.scopes, value_reference=True
-                    )
-                    if status != SourceResolution.UNRESOLVED:
-                        candidates.update(targets)
-                for target in sorted(candidates):
-                    self._source_role(
-                        value,
-                        "value_transfer",
-                        target,
-                        self._binding_declaration_id(target),
-                        status=SourceResolution.PARTIALLY_RESOLVED,
-                        expression_kind="unsupported",
-                        transfer_kind="unsupported_dictionary_value",
-                    )
+            if status != SourceResolution.RESOLVED:
+                continue
+            for target in targets:
+                alias = self.module.aliases.get(child.id)
+                if (alias is not None and alias.target == target) or target.rpartition(".")[
+                    2
+                ] == child.id:
+                    candidates.add(target)
+            for target in sorted(candidates):
+                self._source_role(
+                    value,
+                    "value_transfer",
+                    target,
+                    stable_id("DECL", target),
+                    status=SourceResolution.PARTIALLY_RESOLVED,
+                    expression_kind="unsupported",
+                    transfer_kind="unsupported_dictionary_value",
+                )
         self.generic_visit(node)
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
@@ -393,6 +444,7 @@ class ReferenceCollector(ast.NodeVisitor):
                 status, targets, _, _ = resolve_name(
                     node, index=self.index, scopes=self.scopes, value_reference=True
                 )
+                status = SourceResolution.PARTIALLY_RESOLVED
                 name = (
                     targets[0]
                     if status == SourceResolution.RESOLVED and len(targets) == 1
@@ -448,6 +500,7 @@ class ReferenceCollector(ast.NodeVisitor):
                 and not any(
                     control_flow_contexts(site, self.scopes.parents) for site in local_sites
                 )
+                and local_name is not None
                 and (not targets or set(targets) == {local_name})
             ):
                 local_source_binding = True
@@ -503,6 +556,9 @@ class ReferenceCollector(ast.NodeVisitor):
                     "status": status,
                     "targets": sorted(internal),
                     "use": use,
+                    "reference_context": "annotation"
+                    if declaration.get("reference_context") == "annotation"
+                    else "value",
                     **(
                         {
                             "declaration_id": self._binding_declaration_id(local_name, local=True),
@@ -517,25 +573,42 @@ class ReferenceCollector(ast.NodeVisitor):
         )
 
     def _annotation_declaration(self, node: ast.AST) -> dict[str, str]:
-        annotated_argument = False
         current = node
+        annotation = False
         while current in self.scopes.parents:
             parent = self.scopes.parents[current]
-            if isinstance(parent, ast.arg):
-                annotated_argument = parent.annotation is current
-            if isinstance(parent, ast.FunctionDef | ast.AsyncFunctionDef):
-                if parent.returns is current or (annotated_argument and parent.args is current):
-                    scope = self.scopes.by_node[parent]
-                    name = f"{scope.qualified_name}.{parent.name}"
-                    return {
-                        "declaration_scope": name,
-                        "declaration_definition_id": definition_id(self.module, parent, name),
-                    }
-                return {}
-            if isinstance(parent, ast.ClassDef | ast.Lambda):
+            if isinstance(parent, ast.arg) and parent.annotation is current:
+                annotation = True
+            if isinstance(parent, ast.FunctionDef | ast.AsyncFunctionDef) and (
+                parent.args is current or parent.returns is current
+            ):
+                if parent.args is current and not annotation:
+                    return {}
+                annotation |= parent.returns is current
+                return self._operation_reference_context(parent, annotation)
+            if isinstance(parent, ast.AnnAssign) and parent.annotation is current:
+                return self._scoped_annotation(parent)
+            if type(parent).__name__ == "TypeAlias" and getattr(parent, "value", None) is current:
+                return self._scoped_annotation(parent)
+            if isinstance(parent, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
                 return {}
             current = parent
         return {}
+
+    def _operation_reference_context(
+        self, function: ast.FunctionDef | ast.AsyncFunctionDef, annotation: bool
+    ) -> dict[str, str]:
+        scope = self.scopes.by_node[function]
+        name = f"{scope.qualified_name}.{function.name}"
+        return {
+            "reference_context": "annotation" if annotation else "value",
+            "declaration_scope": name,
+            "declaration_definition_id": definition_id(self.module, function, name),
+        }
+
+    def _scoped_annotation(self, node: ast.AST) -> dict[str, str]:
+        del node
+        return {"reference_context": "annotation"}
 
     def _enum_member_class(self, node: ast.expr) -> str | None:
         """Resolve only a member listed on one statically bound enum class."""
@@ -557,7 +630,7 @@ class ReferenceCollector(ast.NodeVisitor):
 
 
 def _function_expressions(node: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[ast.AST, ...]:
-    pending = list(node.body)
+    pending: list[ast.AST] = list(node.body)
     expressions: list[ast.AST] = []
     while pending:
         current = pending.pop()
@@ -580,6 +653,46 @@ def collect_references(
     for module in parsed:
         collector = ReferenceCollector(module, index, evidence, roots[module.module], enum_classes)
         collector.visit(module.tree)
-        references.extend(collector.items)
+        references.extend(_reuse_local_definition_references(collector.items))
     references.sort(key=lambda item: item["id"])
     return references
+
+
+def _reuse_local_definition_references(items: list[RawRecord]) -> list[RawRecord]:
+    """Link one exact local read to its declaration instead of duplicating a role record."""
+    definitions = {
+        (item["data"].get("canonical_name"), item["data"].get("declaration_id")): item
+        for item in items
+        if item["kind"] == "source_role"
+        and item["data"].get("role") == "definition"
+        and isinstance(item["data"].get("canonical_name"), str)
+    }
+    linked: set[tuple[object, object]] = set()
+    for item in items:
+        data = item["data"]
+        if item["kind"] not in {"value_reference", "attribute_reference"}:
+            continue
+        targets = data.get("targets", ())
+        key = (targets[0] if len(targets) == 1 else None, data.get("declaration_id"))
+        definition = definitions.get(key)
+        if definition is None or key in linked or data.get("local_source_binding") is not True:
+            continue
+        data["declaration_role"] = "definition"
+        data["declaration_evidence_ids"] = list(definition["evidence_ids"])
+        data["declaration_status"] = definition["data"].get("status")
+        data["declaration_owner_scope"] = definition["data"].get(
+            "declaration_owner_scope", definition["data"].get("source_scope")
+        )
+        owner_id = definition["data"].get("declaration_owner_id")
+        if isinstance(owner_id, str):
+            data["declaration_owner_id"] = owner_id
+        linked.add(key)
+    return [
+        item
+        for item in items
+        if not (
+            item["kind"] == "source_role"
+            and item["data"].get("role") == "definition"
+            and (item["data"].get("canonical_name"), item["data"].get("declaration_id")) in linked
+        )
+    ]

@@ -8,10 +8,10 @@ from __future__ import annotations
 import builtins as _builtins
 import json
 from collections import defaultdict
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from pathlib import PurePosixPath
-from typing import Final, TypeAlias, assert_never
+from typing import Final, TypeAlias, assert_never, cast
 from typing import Literal as _Literal
 
 from archkeel.ir.architecture_graph import AssessmentStatus as _Verdict
@@ -1473,6 +1473,7 @@ def _source_ownership_violations(
     source_modules: frozenset[str] | None,
 ) -> list[RawRecord]:
     violations: list[RawRecord] = []
+    candidates = _source_ownership_candidates(references, symbols)
     for rule in rules:
         if not isinstance(rule, SourceOwnershipRule):
             continue
@@ -1490,18 +1491,9 @@ def _source_ownership_violations(
             and (source_modules is None or owner_module in source_modules)
         )
         selected = set(rule.symbols) | set(rule.parameters)
-        for item in references:
-            data = item["data"]
-            role = data.get("role")
-            name = data.get("canonical_name")
-            if role is None and item["kind"] in {"value_reference", "attribute_reference"}:
-                role = "read"
-                targets = data.get("targets", ())
-                if len(targets) == 1:
-                    name = targets[0]
+        for item, data, role, name, targets, evidence_ids in candidates:
             if role not in rule.roles or not isinstance(name, str):
                 continue
-            targets = data.get("targets", ())
             matched = name in selected or (role == "read" and bool(set(targets) & selected))
             if not matched:
                 continue
@@ -1525,20 +1517,20 @@ def _source_ownership_violations(
                 or (
                     name in rule.parameters
                     and rule.value_owner is not None
-                    and tuple(data.get("targets", ())) == (rule.value_owner,)
+                    and targets == (rule.value_owner,)
                 )
             )
             if confined:
                 continue
             violations.append(
                 classified(
-                    item_id=stable_id("VIO", rule.id, item["id"]),
+                    item_id=stable_id("VIO", rule.id, item["id"], role),
                     evidence_class=EvidenceClass.VIOLATION,
                     area="source_architecture",
                     kind=rule.kind,
                     title=f"{role} of {name} violates source ownership",
                     subjects=[name, source_module] if isinstance(source_module, str) else [name],
-                    evidence_ids=item["evidence_ids"],
+                    evidence_ids=list(evidence_ids),
                     rule_ids=[rule.id],
                     fact_ids=[item["id"]],
                     data={"source": rule.source, "role": role, "canonical_name": name},
@@ -1554,21 +1546,25 @@ def source_ownership_unknowns(
     source_modules: frozenset[str] | None,
 ) -> list[RawRecord]:
     unknowns: list[RawRecord] = []
+    candidates = _source_ownership_candidates(references, symbols)
     for rule in rules:
         if not isinstance(rule, SourceOwnershipRule):
             continue
         selected = set(rule.symbols) | set(rule.parameters)
-        for item in references:
-            data = item["data"]
-            name = data.get("canonical_name")
-            role = data.get("role")
+        for item, data, role, name, targets, evidence_ids in candidates:
+            source_module = data.get("source_module")
+            matched = (
+                isinstance(name, str)
+                and name in selected
+                or (role == "read" and bool(set(targets) & selected))
+            )
             if (
                 role in rule.roles
-                and isinstance(name, str)
-                and name in selected
+                and matched
+                and isinstance(source_module, str)
                 and data.get("status") != "resolved"
-                and in_scope(data.get("source_module"), rule.source)
-                and (source_modules is None or data.get("source_module") in source_modules)
+                and in_scope(source_module, rule.source)
+                and (source_modules is None or source_module in source_modules)
             ):
                 unknowns.append(
                     classified(
@@ -1577,11 +1573,18 @@ def source_ownership_unknowns(
                         area="source_architecture",
                         kind="source_ownership_limit",
                         title=f"Cannot resolve {role} of {name} safely",
-                        subjects=[name],
-                        evidence_ids=item["evidence_ids"],
+                        subjects=[name]
+                        if isinstance(name, str)
+                        else sorted(set(targets) & selected),
+                        evidence_ids=list(evidence_ids),
                         rule_ids=[rule.id],
                         fact_ids=[item["id"]],
-                        data={"source": rule.source, "role": role, "canonical_name": name},
+                        data={
+                            "source": rule.source,
+                            "role": role,
+                            **({"canonical_name": name} if isinstance(name, str) else {}),
+                            "candidates": sorted(set(targets) & selected),
+                        },
                     )
                 )
         if rule.value_owner is not None:
@@ -1610,6 +1613,104 @@ def source_ownership_unknowns(
                     )
                 )
     return sorted(unknowns, key=lambda item: item["id"])
+
+
+def _source_ownership_candidates(
+    references: Sequence[RawRecord], symbols: Sequence[RawRecord]
+) -> tuple[
+    tuple[
+        RawRecord, Mapping[str, object], str | None, str | None, tuple[str, ...], tuple[str, ...]
+    ],
+    ...,
+]:
+    candidates: list[
+        tuple[
+            RawRecord,
+            Mapping[str, object],
+            str | None,
+            str | None,
+            tuple[str, ...],
+            tuple[str, ...],
+        ]
+    ] = []
+    for item in references:
+        data = cast(Mapping[str, object], dict(item["data"].items()))
+        raw_targets = data.get("targets", ())
+        targets = (
+            tuple(target for target in raw_targets if isinstance(target, str))
+            if isinstance(raw_targets, (tuple, list))
+            else ()
+        )
+        if item["kind"] == "source_role":
+            raw_role = data.get("role")
+            raw_name = data.get("canonical_name")
+            candidates.append(
+                (
+                    item,
+                    data,
+                    raw_role if isinstance(raw_role, str) else None,
+                    raw_name if isinstance(raw_name, str) else None,
+                    targets,
+                    tuple(item["evidence_ids"]),
+                )
+            )
+            continue
+        if item["kind"] not in {"value_reference", "attribute_reference"}:
+            continue
+        if data.get("reference_context") == "value":
+            candidates.append(
+                (
+                    item,
+                    data,
+                    "read",
+                    targets[0] if len(targets) == 1 else None,
+                    targets,
+                    tuple(item["evidence_ids"]),
+                )
+            )
+        if data.get("declaration_role") == "definition" and targets:
+            definition_data = dict(data)
+            definition_data["status"] = data.get("declaration_status")
+            raw_declaration_evidence = data.get("declaration_evidence_ids", ())
+            declaration_evidence = (
+                tuple(
+                    identity for identity in raw_declaration_evidence if isinstance(identity, str)
+                )
+                if isinstance(raw_declaration_evidence, (tuple, list))
+                else ()
+            )
+            candidates.append(
+                (
+                    item,
+                    definition_data,
+                    "definition",
+                    targets[0],
+                    targets,
+                    declaration_evidence,
+                )
+            )
+    for item in symbols:
+        data = item["data"]
+        if (
+            item["kind"] not in {"class", "function", "method"}
+            and data.get("record_kind") != "static_constant"
+        ):
+            continue
+        name = data.get("qualified_name")
+        module = data.get("module")
+        if not isinstance(name, str) or not isinstance(module, str):
+            continue
+        candidates.append(
+            (
+                item,
+                {"source_module": module, "status": "resolved"},
+                "definition",
+                name,
+                (name,),
+                tuple(item["evidence_ids"]),
+            )
+        )
+    return tuple(candidates)
 
 
 def _requires_import_verdicts(
