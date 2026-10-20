@@ -293,6 +293,12 @@ def test_unbounded_multiline_call_keeps_identity_and_unknown_argument_inventory(
     assert call["data"]["call_binding"] is not None
     assert call["data"]["call_arguments"] is None
 
+    from test_result_schema import _validator
+
+    validator = _validator("command-result-9.0.schema.json")
+    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.8.0"})
+    assert current_schema.is_valid(raw)
+
 
 def test_source_facts_reject_reordered_actual_evidence(tmp_path):
     from archkeel.analyzer.python.collect import collect

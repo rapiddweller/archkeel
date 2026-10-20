@@ -530,7 +530,10 @@
                 "data": {
                   "properties": {
                     "call_arguments": {
-                      "type": "array"
+                      "type": [
+                        "array",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
