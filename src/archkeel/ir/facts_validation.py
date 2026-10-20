@@ -17,6 +17,9 @@ from .facts import (
     NATIVE_CALL_TARGETS,
     SOURCE_RESOLUTION_GAP_KIND,
     BuiltinTarget,
+    CallArgument,
+    CallArgumentKind,
+    CallArgumentValueKind,
     CallBinding,
     CallBindingOrigin,
     ConstructSupport,
@@ -1289,6 +1292,172 @@ def _numeric_node_span(
     )
 
 
+def _call_arguments_match_source(
+    record: Record,
+    arguments: tuple[CallArgument, ...],
+    evidence_by_id: Mapping[str, Evidence],
+    expected_file: str,
+) -> bool:
+    """Tie the complete argument inventory and literal facts to one captured call."""
+    expression = record.data.get("expression")
+    if not isinstance(expression, str) or not _call_expression_matches_source(
+        record, expression, evidence_by_id
+    ):
+        return False
+    for evidence_id in record.evidence_ids:
+        evidence = evidence_by_id.get(evidence_id)
+        if evidence is None or evidence.file != expected_file:
+            continue
+        parsed = _call_evidence_nodes(evidence.excerpt)
+        if parsed is None:
+            continue
+        roots, line_offset = parsed
+        calls = [
+            node
+            for root in roots
+            for node in ast.walk(root)
+            if isinstance(node, ast.Call)
+            and _numeric_node_span(node, evidence.line, line_offset)
+            == (evidence.line, evidence.column, evidence.end_line, node.end_col_offset)
+            and _call_expression(node) == expression
+        ]
+        if len(calls) != 1 or not _call_actuals_match(
+            calls[0], arguments, evidence_by_id, expected_file, evidence.line, line_offset
+        ):
+            continue
+        return True
+    return False
+
+
+@lru_cache(maxsize=256)
+def _call_evidence_nodes(excerpt: str) -> tuple[tuple[ast.stmt, ...], int] | None:
+    if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
+        return None
+    parsed = _parse_numeric_evidence_excerpt(excerpt)
+    if parsed is not None:
+        return parsed
+    indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+    if indentation and len(indentation) <= 4:
+        try:
+            parsed_module = ast.parse("async def _archkeel_call():\n" + excerpt)
+        except (IndentationError, SyntaxError, ValueError, RecursionError):
+            return None
+        if len(parsed_module.body) == 1 and isinstance(parsed_module.body[0], ast.AsyncFunctionDef):
+            return tuple(parsed_module.body[0].body), 1
+    unit = "\t" if "\t" in indentation else "    "
+    if len(indentation) % len(unit):
+        return None
+    depth = len(indentation) // len(unit)
+    wrappers = "async def _archkeel_call():\n"
+    wrappers += "".join(f"{unit * level}if True:\n" for level in range(1, depth))
+    try:
+        parsed_module = ast.parse(wrappers + excerpt)
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    roots: tuple[ast.stmt, ...] = tuple(parsed_module.body)
+    for _ in range(depth):
+        if len(roots) != 1 or not isinstance(roots[0], (ast.AsyncFunctionDef, ast.If)):
+            return None
+        roots = tuple(roots[0].body)
+    return roots, depth + 1
+
+
+def _call_expression(node: ast.Call) -> str | None:
+    try:
+        return ast.unparse(node.func)
+    except (RecursionError, ValueError):
+        return None
+
+
+def _call_excerpt_matches(
+    expression: str, excerpt: str, line: int, column: int, end_line: int
+) -> bool:
+    parsed = _call_evidence_nodes(excerpt)
+    if parsed is None:
+        return False
+    roots, line_offset = parsed
+    matches = [
+        node
+        for root in roots
+        for node in ast.walk(root)
+        if isinstance(node, ast.Call)
+        and _call_expression(node) == expression
+        and (span := _call_actual_span(node, line, line_offset)) is not None
+        and span[:3] == (line, column, end_line)
+    ]
+    return len(matches) == 1
+
+
+def _call_actuals_match(
+    node: ast.Call,
+    arguments: tuple[CallArgument, ...],
+    evidence_by_id: Mapping[str, Evidence],
+    expected_file: str,
+    source_line: int,
+    line_offset: int,
+) -> bool:
+    actuals: list[tuple[ast.AST, CallArgumentKind, str | None, ast.expr]] = []
+    for actual in node.args:
+        value = actual.value if isinstance(actual, ast.Starred) else actual
+        kind = (
+            CallArgumentKind.STARRED_POSITIONAL
+            if isinstance(actual, ast.Starred)
+            else CallArgumentKind.POSITIONAL
+        )
+        actuals.append((actual, kind, None, value))
+    for keyword in node.keywords:
+        kind = (
+            CallArgumentKind.KEYWORD
+            if keyword.arg is not None
+            else CallArgumentKind.STARRED_KEYWORD
+        )
+        actuals.append((keyword, kind, keyword.arg, keyword.value))
+    if len(actuals) != len(arguments):
+        return False
+    used_evidence: set[str] = set()
+    for (node_actual, kind, keyword_name, value), argument in zip(actuals, arguments, strict=True):
+        if (
+            argument.kind is not kind
+            or argument.keyword != keyword_name
+            or len(argument.evidence_ids) != 1
+        ):
+            return False
+        evidence_id = argument.evidence_ids[0]
+        evidence = evidence_by_id.get(evidence_id)
+        if evidence_id in used_evidence or evidence is None or evidence.file != expected_file:
+            return False
+        used_evidence.add(evidence_id)
+        span = _call_actual_span(node_actual, source_line, line_offset)
+        if span is None or span[:3] != (evidence.line, evidence.column, evidence.end_line):
+            return False
+        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+            expected_value = value.value
+            expected_kind = CallArgumentValueKind.STRING_LITERAL
+        else:
+            expected_value = None
+            expected_kind = CallArgumentValueKind.OTHER
+        if argument.value_kind is not expected_kind or argument.value != expected_value:
+            return False
+    return True
+
+
+def _call_actual_span(
+    node: ast.AST, source_line: int, line_offset: int
+) -> tuple[int, int, int, int] | None:
+    if not isinstance(node, ast.stmt | ast.expr | ast.keyword):
+        return None
+    end_line = getattr(node, "end_lineno", None)
+    end_column = getattr(node, "end_col_offset", None)
+    if end_line is None or end_column is None:
+        return None
+    return (
+        node.lineno - line_offset + source_line - 1,
+        node.col_offset,
+        end_line - line_offset + source_line - 1,
+        end_column,
+    )
+
+
 def _numeric_assignment_expression(
     origin: RecordData, evidence_by_id: Mapping[str, Evidence], expected_file: str
 ) -> ast.expr | None:
@@ -1572,8 +1741,21 @@ def _native_call_witness(
         ):
             raise ValueError("native receiver needs its exact captured provider member declaration")
         return
-    imported_targets: set[str] = set()
     root, suffix = _expression_root(expression)
+    imported_targets = _native_imported_targets(facts, record, evidence_ids, root, suffix)
+    if binding.target not in imported_targets:
+        raise ValueError("native call needs its matching stable import evidence")
+    _native_provider_witness(facts, binding, proof, evidence_ids)
+
+
+def _native_imported_targets(
+    facts: SourceFacts,
+    record: Record,
+    evidence_ids: set[str],
+    root: str,
+    suffix: str,
+) -> set[str]:
+    targets: set[str] = set()
     for section in facts.sections:
         if section.name is not SourceSectionName.IMPORTS:
             continue
@@ -1589,9 +1771,16 @@ def _native_call_witness(
             symbol = imported.data.get("symbol")
             if isinstance(module, str):
                 imported_target = module + (f".{symbol}" if isinstance(symbol, str) else "")
-                imported_targets.add(imported_target + suffix)
-    if binding.target not in imported_targets:
-        raise ValueError("native call needs its matching stable import evidence")
+                targets.add(imported_target + suffix)
+    return targets
+
+
+def _native_provider_witness(
+    facts: SourceFacts,
+    binding: CallBinding,
+    proof: RecordData,
+    evidence_ids: set[str],
+) -> None:
     if _starts_with(binding.target, "random.") or _starts_with(binding.target, "secrets."):
         provider = next(
             (item for item in facts.provider_bindings if item.qualified_name == binding.target),
@@ -2601,8 +2790,19 @@ def validate_source_facts(facts: SourceFacts) -> None:
             ):
                 raise ValueError("complete call consideration needs explicit binding or null")
             call_proof = call_binding(record.data.get("call_binding"))
-            if (arguments is None) != (call_proof is None):
+            if arguments is not None and call_proof is None:
                 raise ValueError("call arguments require the canonical call binding")
+            if arguments is not None:
+                call_source_module = record.data.get("source_module")
+                expected_file = (
+                    module_files.get(call_source_module)
+                    if isinstance(call_source_module, str)
+                    else None
+                )
+                if expected_file is None or not _call_arguments_match_source(
+                    record, arguments, base_by_id, expected_file
+                ):
+                    raise ValueError("call arguments disagree with their source expression")
             if (
                 call_proof is not None
                 and call_proof.origin
