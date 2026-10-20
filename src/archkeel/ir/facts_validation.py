@@ -2279,6 +2279,23 @@ def _validate_source_role_identities(
     """Bind policy roles and local reads to witnessed declaration anchors."""
     all_records = tuple(records)
     roles = tuple(record for record in all_records if record.kind == "source_role")
+    anchors, symbols, member_anchors, imports = _source_role_indexes(all_records, roles)
+    for role in roles:
+        _validate_source_role(
+            role, all_records, anchors, symbols, member_anchors, imports, evidence
+        )
+    _validate_local_source_references(all_records, anchors, evidence, symbols)
+    _validate_unique_local_declaration_anchors(all_records)
+
+
+def _source_role_indexes(
+    records: tuple[Record, ...], roles: tuple[Record, ...]
+) -> tuple[
+    dict[tuple[str, str], list[Record]],
+    dict[str, list[Record]],
+    dict[tuple[str, str], list[RecordData]],
+    list[Record],
+]:
     anchors: dict[tuple[str, str], list[Record]] = {}
     for role in roles:
         if role.data.get("role") != "definition":
@@ -2292,7 +2309,7 @@ def _validate_source_role_identities(
     symbols: dict[str, list[Record]] = {}
     member_anchors: dict[tuple[str, str], list[RecordData]] = {}
     imports: list[Record] = []
-    for record in all_records:
+    for record in records:
         if record.kind == "import":
             imports.append(record)
         if record.data.get("qualified_name"):
@@ -2320,7 +2337,7 @@ def _validate_source_role_identities(
                                 (f"{name}.{attribute_name}", attribute_id), []
                             ).append(attribute)
 
-    for reference in all_records:
+    for reference in records:
         targets = reference.data.get("targets")
         declaration_id = reference.data.get("declaration_id")
         if (
@@ -2333,333 +2350,442 @@ def _validate_source_role_identities(
         ):
             anchors.setdefault((targets[0], declaration_id), []).append(reference)
 
-    for role in roles:
-        role_name = role.data.get("role")
-        canonical = role.data.get("canonical_name")
-        declaration_id = role.data.get("declaration_id")
-        source_scope = role.data.get("source_scope")
-        if (
-            not isinstance(canonical, str)
-            or not canonical
-            or not isinstance(declaration_id, str)
-            or not declaration_id
-        ):
-            raise ValueError("source role needs a canonical declaration identity")
-        if len(role.evidence_ids) != 1:
-            raise ValueError("source role needs one exact source witness")
-        witness = evidence[role.evidence_ids[0]]
-        if (witness.line, witness.column, witness.end_line) != (
-            role.data.get("line"),
-            role.data.get("column"),
-            role.data.get("end_line"),
-        ):
-            raise ValueError("source role identity disagrees with its source witness")
-        if role_name == "definition":
-            declaration_scope = canonical.rpartition(".")[0]
-            if not isinstance(source_scope, str) or not (
-                canonical.startswith(source_scope + ".")
-                or source_scope == declaration_scope
-                or source_scope.startswith(declaration_scope + ".")
-            ):
-                raise ValueError("definition role needs its lexical declaration owner")
-            symbol_matches = symbols.get(canonical, ())
-            source_symbol = len(symbol_matches) == 1 and symbol_matches[0].id == declaration_id
-            member_matches = member_anchors.get((canonical, declaration_id), ())
-            member_evidence_ids = (
-                member_matches[0].get("evidence_ids") if len(member_matches) == 1 else None
-            )
-            source_member = isinstance(member_evidence_ids, tuple) and any(
-                isinstance(evidence_id, str)
-                and evidence_id in evidence
-                and evidence[evidence_id].file == witness.file
-                and evidence[evidence_id].line <= witness.line <= evidence[evidence_id].end_line
-                for evidence_id in member_evidence_ids
-            )
-            local_identity = declaration_id == stable_id("DECL", witness.file, canonical)
-            source_definition = declaration_id == stable_id(
-                "SYM", canonical, witness.file, witness.line, witness.column
-            )
-            if not (source_symbol or source_member or local_identity or source_definition):
-                raise ValueError("definition role has no source-derived declaration identity")
-            excerpt = witness.excerpt
-            line_start = role.data.get("column")
-            line_end = role.data.get("end_column")
-            expected_name = canonical.rpartition(".")[2]
-            span_text = (
-                excerpt.encode("utf-8")[line_start:line_end].decode("utf-8", errors="ignore")
-                if isinstance(line_start, int)
-                and isinstance(line_end, int)
-                and line_end <= len(excerpt.encode("utf-8"))
-                else ""
-            )
-            declaration_text = (
-                excerpt.encode("utf-8")[line_start:].decode("utf-8", errors="ignore")
-                if isinstance(line_start, int) and line_start <= len(excerpt.encode("utf-8"))
-                else ""
-            )
-            declaration_match = (
-                re.match(r"\s*(?:async\s+)?(?:def|class)\s+([A-Za-z_]\w*)", declaration_text)
-                if declaration_text.lstrip().startswith(("def ", "async def ", "class "))
-                else None
-            )
-            source_name = (
-                span_text.strip()
-                if span_text.strip() == expected_name
-                else declaration_match.group(1)
-                if declaration_match is not None
-                else None
-            )
-            if source_name is not None and source_name.rsplit(".", 1)[-1].strip() != expected_name:
-                raise ValueError(
-                    "definition role name disagrees with its source span: "
-                    f"{canonical} span={span_text!r} observed={source_name!r} "
-                    f"expected={expected_name!r}"
-                )
-            continue
-        if role_name in {"parameter_default", "fallback"}:
-            parameter = role.data.get("parameter")
-            if not isinstance(parameter, str) or parameter != canonical:
-                raise ValueError("parameter role needs its exact formal parameter")
-            owners = [
-                name
-                for (name, identifier), matches in anchors.items()
-                if identifier == declaration_id
-                and len(matches) == 1
-                and parameter.startswith(name + ".")
-            ]
-            if len(owners) != 1:
-                raise ValueError("parameter role needs its unique function declaration anchor")
-            if not isinstance(source_scope, str) or not (
-                source_scope == owners[0]
-                or source_scope.startswith(owners[0] + ".")
-                or owners[0].startswith(source_scope + ".")
-            ):
-                raise ValueError(
-                    "parameter role scope disagrees with its declaration owner: "
-                    f"{role_name} {canonical} scope={source_scope!r} owner={owners[0]!r}"
-                )
-            expression_kind = role.data.get("expression_kind")
-            targets = role.data.get("targets")
-            status = role.data.get("status")
-            if expression_kind in {"literal", "unsupported"}:
-                if targets != ():
-                    raise ValueError(
-                        "literal or unsupported source role cannot claim reference targets"
-                    )
-            elif expression_kind == "reference":
-                if not targets and status != SourceResolution.RESOLVED:
-                    continue
-                matching_references = []
-                for candidate in all_records:
-                    if candidate.kind not in {"value_reference", "attribute_reference"}:
-                        continue
-                    if (
-                        candidate.data.get("source_scope") != source_scope
-                        or candidate.data.get("reference_context") != "value"
-                        or candidate.data.get("source_module") != role.data.get("source_module")
-                        or candidate.data.get("expression") != role.data.get("expression")
-                        or candidate.data.get("targets") != targets
-                        or len(candidate.evidence_ids) != 1
-                    ):
-                        continue
-                    reference_witness = evidence[candidate.evidence_ids[0]]
-                    if (
-                        reference_witness.file == witness.file
-                        and (reference_witness.line, reference_witness.column)
-                        >= (role.data.get("line"), role.data.get("column"))
-                        and (reference_witness.line, reference_witness.column)
-                        < (role.data.get("end_line"), role.data.get("end_column"))
-                    ):
-                        matching_references.append(candidate)
-                if (
-                    len(matching_references) != 1
-                    or not targets
-                    or status != SourceResolution.RESOLVED
-                ):
-                    raise ValueError(
-                        f"source role target lacks matching reference evidence: "
-                        f"{role_name} {canonical} {role.data.get('expression')!r} "
-                        f"{status} {targets}"
-                    )
-            else:
-                raise ValueError("parameter role has an unsupported value expression kind")
-            continue
-        matching = anchors.get((canonical, declaration_id), ())
-        member_matching = member_anchors.get((canonical, declaration_id), ())
-        if len(matching) != 1 and len(member_matching) != 1:
-            # Transfers to an external/native value have no local definition anchor. Their
-            # identity is accepted only when a witnessed import binds the source spelling to it.
-            excerpt = evidence[role.evidence_ids[0]].excerpt
-            imported = False
-            for imported_record in imports:
-                binding = imported_record.data.get("binding")
-                if (
-                    imported_record.data.get("source_module") == role.data.get("source_module")
-                    and imported_record.data.get("origin_definition") == canonical
-                    and isinstance(binding, str)
-                    and binding in excerpt
-                ):
-                    imported = True
-                    break
-            anchored_prefix = any(
-                canonical.startswith(prefix + ".") and identifier == declaration_id
-                for prefix, identifier in member_anchors
-            )
-            chained_member = (
-                role.data.get("status") == SourceResolution.PARTIALLY_RESOLVED
-                and anchored_prefix
-                and canonical.rsplit(".", 1)[-1] in excerpt
-            )
-            matching_source_references = []
-            if (
-                role_name in {"value_transfer", "read"}
-                and role.data.get("status") == SourceResolution.PARTIALLY_RESOLVED
-                and role.data.get("targets") == ()
-            ):
-                for candidate in all_records:
-                    if candidate.kind not in {"value_reference", "attribute_reference"}:
-                        continue
-                    if (
-                        candidate.data.get("source_scope") != source_scope
-                        or candidate.data.get("source_module") != role.data.get("source_module")
-                        or candidate.data.get("targets") != (canonical,)
-                        or len(candidate.evidence_ids) != 1
-                    ):
-                        continue
-                    candidate_witness = evidence[candidate.evidence_ids[0]]
-                    if (
-                        candidate_witness.file == witness.file
-                        and (candidate_witness.line, candidate_witness.column)
-                        >= (role.data.get("line"), role.data.get("column"))
-                        and (candidate_witness.line, candidate_witness.column)
-                        < (role.data.get("end_line"), role.data.get("end_column"))
-                    ):
-                        matching_source_references.append(candidate)
-            reference_anchored_unknown = len(matching_source_references) == 1
-            unanchored_unknown = (
-                role_name in {"value_transfer", "read", "write", "delete"}
-                and role.data.get("status")
-                in {SourceResolution.UNRESOLVED, SourceResolution.PARTIALLY_RESOLVED}
-                and role.data.get("targets") == ()
-                and (canonical.rsplit(".", 1)[-1] in excerpt or reference_anchored_unknown)
-                and declaration_id
-                in {
-                    stable_id("DECL", canonical),
-                    stable_id("DECL", witness.file, canonical),
-                }
-            )
-            if not unanchored_unknown and (
-                role_name not in {"value_transfer", "read"}
-                or role.data.get("status")
-                not in {SourceResolution.RESOLVED, SourceResolution.PARTIALLY_RESOLVED}
-                or not (imported or chained_member or reference_anchored_unknown)
-                or declaration_id != stable_id("DECL", canonical)
-            ):
-                raise ValueError(
-                    f"source role {role_name} for {canonical} has no unique "
-                    "witnessed declaration anchor"
-                )
-        elif role_name in {"write", "delete", "read"}:
+    return anchors, symbols, member_anchors, imports
+
+
+def _validate_source_role(
+    role: Record,
+    all_records: tuple[Record, ...],
+    anchors: Mapping[tuple[str, str], list[Record]],
+    symbols: Mapping[str, list[Record]],
+    member_anchors: Mapping[tuple[str, str], list[RecordData]],
+    imports: list[Record],
+    evidence: Mapping[str, Evidence],
+) -> None:
+    role_name, canonical, declaration_id, source_scope, witness = _source_role_witness(
+        role, evidence
+    )
+    if role_name == "definition":
+        _validate_definition_source_role(
+            role,
+            canonical,
+            declaration_id,
+            source_scope,
+            witness,
+            symbols,
+            member_anchors,
+            evidence,
+        )
+    elif role_name in {"parameter_default", "fallback"}:
+        _validate_parameter_source_role(
+            role, canonical, declaration_id, source_scope, witness, anchors, all_records, evidence
+        )
+    else:
+        _validate_owned_source_role(
+            role,
+            role_name,
+            canonical,
+            declaration_id,
+            source_scope,
+            witness,
+            anchors,
+            member_anchors,
+            imports,
+            all_records,
+            evidence,
+        )
+
+
+def _source_role_witness(
+    role: Record, evidence: Mapping[str, Evidence]
+) -> tuple[str | None, str, str, object, Evidence]:
+    role_name = role.data.get("role")
+    canonical = role.data.get("canonical_name")
+    declaration_id = role.data.get("declaration_id")
+    if (
+        not isinstance(canonical, str)
+        or not canonical
+        or not isinstance(declaration_id, str)
+        or not declaration_id
+    ):
+        raise ValueError("source role needs a canonical declaration identity")
+    if len(role.evidence_ids) != 1:
+        raise ValueError("source role needs one exact source witness")
+    witness = evidence[role.evidence_ids[0]]
+    if (witness.line, witness.column, witness.end_line) != (
+        role.data.get("line"),
+        role.data.get("column"),
+        role.data.get("end_line"),
+    ):
+        raise ValueError("source role identity disagrees with its source witness")
+    return (
+        role_name if isinstance(role_name, str) else None,
+        canonical,
+        declaration_id,
+        role.data.get("source_scope"),
+        witness,
+    )
+
+
+def _validate_definition_source_role(
+    role: Record,
+    canonical: str,
+    declaration_id: str,
+    source_scope: object,
+    witness: Evidence,
+    symbols: Mapping[str, list[Record]],
+    member_anchors: Mapping[tuple[str, str], list[RecordData]],
+    evidence: Mapping[str, Evidence],
+) -> None:
+    declaration_scope = canonical.rpartition(".")[0]
+    if not isinstance(source_scope, str) or not (
+        canonical.startswith(source_scope + ".")
+        or source_scope == declaration_scope
+        or source_scope.startswith(declaration_scope + ".")
+    ):
+        raise ValueError("definition role needs its lexical declaration owner")
+    symbol_matches = symbols.get(canonical, ())
+    source_symbol = len(symbol_matches) == 1 and symbol_matches[0].id == declaration_id
+    member_matches = member_anchors.get((canonical, declaration_id), ())
+    member_ids = member_matches[0].get("evidence_ids") if len(member_matches) == 1 else None
+    source_member = isinstance(member_ids, tuple) and any(
+        isinstance(identity, str)
+        and identity in evidence
+        and evidence[identity].file == witness.file
+        and evidence[identity].line <= witness.line <= evidence[identity].end_line
+        for identity in member_ids
+    )
+    valid_id = declaration_id in {
+        stable_id("DECL", witness.file, canonical),
+        stable_id("SYM", canonical, witness.file, witness.line, witness.column),
+    }
+    if not (source_symbol or source_member or valid_id):
+        raise ValueError("definition role has no source-derived declaration identity")
+    _validate_definition_source_span(role, canonical, witness)
+
+
+def _validate_definition_source_span(role: Record, canonical: str, witness: Evidence) -> None:
+    encoded = witness.excerpt.encode("utf-8")
+    start, end = role.data.get("column"), role.data.get("end_column")
+    span = (
+        encoded[start:end].decode("utf-8", errors="ignore")
+        if isinstance(start, int) and isinstance(end, int) and end <= len(encoded)
+        else ""
+    )
+    suffix = (
+        encoded[start:].decode("utf-8", errors="ignore")
+        if isinstance(start, int) and start <= len(encoded)
+        else ""
+    )
+    expected = canonical.rpartition(".")[2]
+    declaration = (
+        re.match(r"\s*(?:async\s+)?(?:def|class)\s+([A-Za-z_]\w*)", suffix)
+        if suffix.lstrip().startswith(("def ", "async def ", "class "))
+        else None
+    )
+    observed = (
+        span.strip() if span.strip() == expected else declaration.group(1) if declaration else None
+    )
+    if observed is not None and observed.rsplit(".", 1)[-1].strip() != expected:
+        raise ValueError("definition role name disagrees with its source span")
+
+
+def _validate_parameter_source_role(
+    role: Record,
+    canonical: str,
+    declaration_id: str,
+    source_scope: object,
+    witness: Evidence,
+    anchors: Mapping[tuple[str, str], list[Record]],
+    records: tuple[Record, ...],
+    evidence: Mapping[str, Evidence],
+) -> None:
+    parameter = role.data.get("parameter")
+    if not isinstance(parameter, str) or parameter != canonical:
+        raise ValueError("parameter role needs its exact formal parameter")
+    owners = [
+        name
+        for (name, identity), matches in anchors.items()
+        if identity == declaration_id and len(matches) == 1 and parameter.startswith(name + ".")
+    ]
+    if len(owners) != 1:
+        raise ValueError("parameter role needs its unique function declaration anchor")
+    if not isinstance(source_scope, str) or not (
+        source_scope == owners[0]
+        or source_scope.startswith(owners[0] + ".")
+        or owners[0].startswith(source_scope + ".")
+    ):
+        raise ValueError("parameter role scope disagrees with its declaration owner")
+    kind, targets, status = (
+        role.data.get("expression_kind"),
+        role.data.get("targets"),
+        role.data.get("status"),
+    )
+    if kind in {"literal", "unsupported"}:
+        if targets != ():
+            raise ValueError("literal or unsupported source role cannot claim reference targets")
+    elif kind == "reference":
+        if not targets and status != SourceResolution.RESOLVED:
+            return
+        matches = _matching_role_references(role, records, witness, evidence)
+        if len(matches) != 1 or not targets or status != SourceResolution.RESOLVED:
+            raise ValueError("source role target lacks matching reference evidence")
+    else:
+        raise ValueError("parameter role has an unsupported value expression kind")
+
+
+def _validate_owned_source_role(
+    role: Record,
+    role_name: str | None,
+    canonical: str,
+    declaration_id: str,
+    source_scope: object,
+    witness: Evidence,
+    anchors: Mapping[tuple[str, str], list[Record]],
+    member_anchors: Mapping[tuple[str, str], list[RecordData]],
+    imports: list[Record],
+    records: tuple[Record, ...],
+    evidence: Mapping[str, Evidence],
+) -> None:
+    anchored = (
+        len(anchors.get((canonical, declaration_id), ())) == 1
+        or len(member_anchors.get((canonical, declaration_id), ())) == 1
+    )
+    if anchored:
+        if role_name in {"write", "delete", "read"}:
             declaration_scope = canonical.rpartition(".")[0]
             if not isinstance(source_scope, str) or not (
                 source_scope == declaration_scope
                 or source_scope.startswith(declaration_scope + ".")
             ):
                 raise ValueError("local source role disagrees with its lexical declaration scope")
+        return
+    excerpt = witness.excerpt
+    imported = any(
+        item.data.get("source_module") == role.data.get("source_module")
+        and item.data.get("origin_definition") == canonical
+        and _import_binds_source(item, excerpt)
+        for item in imports
+    )
+    anchored_prefix = any(
+        canonical.startswith(prefix + ".") and identity == declaration_id
+        for prefix, identity in member_anchors
+    )
+    chained = (
+        role.data.get("status") == SourceResolution.PARTIALLY_RESOLVED
+        and anchored_prefix
+        and canonical.rsplit(".", 1)[-1] in excerpt
+    )
+    reference_unknown = (
+        role_name in {"value_transfer", "read"}
+        and role.data.get("status") == SourceResolution.PARTIALLY_RESOLVED
+        and role.data.get("targets") == ()
+        and bool(_matching_role_references(role, records, witness, evidence))
+    )
+    unresolved = (
+        role_name in {"value_transfer", "read", "write", "delete"}
+        and role.data.get("status")
+        in {SourceResolution.UNRESOLVED, SourceResolution.PARTIALLY_RESOLVED}
+        and role.data.get("targets") == ()
+        and (canonical.rsplit(".", 1)[-1] in excerpt or reference_unknown)
+        and declaration_id
+        in {stable_id("DECL", canonical), stable_id("DECL", witness.file, canonical)}
+    )
+    if not _valid_unanchored_source_role(
+        role, role_name, canonical, declaration_id, imported, chained, unresolved, reference_unknown
+    ):
+        raise ValueError(
+            f"source role {role_name} for {canonical} has no unique witnessed declaration anchor"
+        )
 
-    for reference in all_records:
+
+def _import_binds_source(item: Record, excerpt: str) -> bool:
+    binding = item.data.get("binding")
+    return isinstance(binding, str) and binding in excerpt
+
+
+def _matching_role_references(
+    role: Record, records: tuple[Record, ...], witness: Evidence, evidence: Mapping[str, Evidence]
+) -> list[Record]:
+    matches = []
+    for candidate in records:
+        if (
+            candidate.kind not in {"value_reference", "attribute_reference"}
+            or len(candidate.evidence_ids) != 1
+        ):
+            continue
+        if candidate.data.get("source_scope") != role.data.get(
+            "source_scope"
+        ) or candidate.data.get("source_module") != role.data.get("source_module"):
+            continue
+        if role.data.get("role") in {"parameter_default", "fallback"}:
+            if (
+                candidate.data.get("reference_context") != "value"
+                or candidate.data.get("expression") != role.data.get("expression")
+                or candidate.data.get("targets") != role.data.get("targets")
+            ):
+                continue
+        elif candidate.data.get("targets") != (role.data.get("canonical_name"),):
+            continue
+        reference_witness = evidence[candidate.evidence_ids[0]]
+        if (
+            reference_witness.file == witness.file
+            and (reference_witness.line, reference_witness.column)
+            >= (role.data.get("line"), role.data.get("column"))
+            and (reference_witness.line, reference_witness.column)
+            < (role.data.get("end_line"), role.data.get("end_column"))
+        ):
+            matches.append(candidate)
+    return matches
+
+
+def _valid_unanchored_source_role(
+    role: Record,
+    role_name: str | None,
+    canonical: str,
+    declaration_id: str,
+    imported: bool,
+    chained: bool,
+    unresolved: bool,
+    reference_unknown: bool,
+) -> bool:
+    reference_anchored = reference_unknown and len(_as_tuple(role.data.get("targets"))) == 0
+    allowed_status = role.data.get("status") in {
+        SourceResolution.RESOLVED,
+        SourceResolution.PARTIALLY_RESOLVED,
+    }
+    anchored = imported or chained or reference_anchored
+    if (
+        role_name not in {"value_transfer", "read"}
+        or not allowed_status
+        or not anchored
+        or declaration_id != stable_id("DECL", canonical)
+    ):
+        return unresolved
+    return True
+
+
+def _as_tuple(value: object) -> tuple[object, ...]:
+    return value if isinstance(value, tuple) else ()
+
+
+def _validate_local_source_references(
+    records: tuple[Record, ...],
+    anchors: Mapping[tuple[str, str], list[Record]],
+    evidence: Mapping[str, Evidence],
+    symbols: Mapping[str, list[Record]],
+) -> None:
+    for reference in records:
         if reference.kind not in {"value_reference", "attribute_reference"}:
             continue
         if reference.data.get("local_source_binding") is not True:
             continue
-        targets = reference.data.get("targets")
-        declaration_id = reference.data.get("declaration_id")
-        source_scope = reference.data.get("source_scope")
-        if (
-            not isinstance(targets, tuple)
-            or len(targets) != 1
-            or not isinstance(targets[0], str)
-            or not isinstance(declaration_id, str)
-        ):
-            raise ValueError("local reference needs one declaration target")
-        assert isinstance(declaration_id, str)
-        declaration_scope = targets[0].rpartition(".")[0]
-        if not isinstance(source_scope, str) or not (
-            source_scope == declaration_scope or source_scope.startswith(declaration_scope + ".")
-        ):
-            raise ValueError("local reference target disagrees with its lexical scope")
-        declaration_role = reference.data.get("declaration_role")
-        if declaration_role == "definition":
-            declaration_evidence_ids = reference.data.get("declaration_evidence_ids")
-            if (
-                not isinstance(declaration_evidence_ids, tuple)
-                or len(declaration_evidence_ids) != 1
-                or not isinstance(declaration_evidence_ids[0], str)
-            ):
-                raise ValueError("local definition needs one exact declaration witness")
-            declaration_witness = evidence[declaration_evidence_ids[0]]
-            reference_witness = evidence[reference.evidence_ids[0]]
-            name = targets[0].rpartition(".")[2]
-            declaration_owner = reference.data.get("declaration_owner_scope")
-            declaration_owner_id = reference.data.get("declaration_owner_id")
-            owner_records = (
-                symbols.get(declaration_owner, ()) if isinstance(declaration_owner, str) else ()
-            )
-            owner_matches = [
-                record
-                for record in owner_records
-                if record.id == declaration_owner_id and record.kind in {"function", "method"}
-            ]
-            excerpt_bytes = declaration_witness.excerpt.encode("utf-8")
-            identifier_suffix = excerpt_bytes[declaration_witness.column :].decode(
-                "utf-8", errors="ignore"
-            )
-            name_matches = re.match(rf"{re.escape(name)}\b", identifier_suffix) is not None
-            lexical_declaration_scope = targets[0].rpartition(".")[0]
-            nested_scope = isinstance(
-                declaration_owner, str
-            ) and lexical_declaration_scope.startswith(declaration_owner + ".<")
-            if (
-                declaration_id != stable_id("DECL", declaration_witness.file, targets[0])
-                or declaration_witness.file != reference_witness.file
-                or not name_matches
-                or not (declaration_owner == lexical_declaration_scope or nested_scope)
-                or len(owner_matches) != 1
-                or not any(
-                    evidence[owner_evidence_id].file == declaration_witness.file
-                    and evidence[owner_evidence_id].line
-                    <= declaration_witness.line
-                    <= evidence[owner_evidence_id].end_line
-                    for owner_evidence_id in owner_matches[0].evidence_ids
-                )
-                or reference.data.get("declaration_status")
-                not in {SourceResolution.RESOLVED, SourceResolution.PARTIALLY_RESOLVED}
-            ):
-                raise ValueError("local definition witness disagrees with its declaration identity")
-            matching_anchors = anchors.get((targets[0], declaration_id), ())
-            if len(matching_anchors) != 1 or matching_anchors[0] is not reference:
-                raise ValueError("local definition duplicates an existing declaration anchor")
-        elif len(anchors.get((targets[0], declaration_id), ())) != 1:
-            raise ValueError("local reference has no unique witnessed declaration anchor")
+        _validate_local_source_reference(reference, anchors, evidence, symbols)
 
-    local_declaration_anchors = [
-        record
-        for record in all_records
-        if record.kind in {"value_reference", "attribute_reference"}
-        and record.data.get("declaration_role") == "definition"
+
+def _validate_local_source_reference(
+    reference: Record,
+    anchors: Mapping[tuple[str, str], list[Record]],
+    evidence: Mapping[str, Evidence],
+    symbols: Mapping[str, list[Record]],
+) -> None:
+    targets = reference.data.get("targets")
+    declaration_id = reference.data.get("declaration_id")
+    source_scope = reference.data.get("source_scope")
+    if not isinstance(targets, tuple) or len(targets) != 1 or not isinstance(targets[0], str):
+        raise ValueError("local reference needs one declaration target")
+    if not isinstance(declaration_id, str):
+        raise ValueError("local reference needs one declaration identity")
+    declaration_scope = targets[0].rpartition(".")[0]
+    if not isinstance(source_scope, str) or not (
+        source_scope == declaration_scope or source_scope.startswith(declaration_scope + ".")
+    ):
+        raise ValueError("local reference target disagrees with its lexical scope")
+    if reference.data.get("declaration_role") == "definition":
+        _validate_local_definition_reference(
+            reference, targets[0], declaration_id, evidence, symbols
+        )
+        if _only_anchor(anchors, targets[0], declaration_id) is not reference:
+            raise ValueError("local definition duplicates an existing declaration anchor")
+    elif len(anchors.get((targets[0], declaration_id), ())) != 1:
+        raise ValueError("local reference has no unique witnessed declaration anchor")
+
+
+def _validate_local_definition_reference(
+    reference: Record,
+    target: str,
+    declaration_id: str,
+    evidence: Mapping[str, Evidence],
+    symbols: Mapping[str, list[Record]],
+) -> None:
+    ids = reference.data.get("declaration_evidence_ids")
+    if not isinstance(ids, tuple) or len(ids) != 1 or not isinstance(ids[0], str):
+        raise ValueError("local definition needs one exact declaration witness")
+    witness, use = evidence[ids[0]], evidence[reference.evidence_ids[0]]
+    owner = reference.data.get("declaration_owner_scope")
+    owner_id = reference.data.get("declaration_owner_id")
+    owner_records = symbols.get(owner, ()) if isinstance(owner, str) else ()
+    owner_matches = [
+        item
+        for item in owner_records
+        if item.id == owner_id and item.kind in {"function", "method"}
     ]
-    local_keys = []
-    for record in local_declaration_anchors:
+    if not _local_definition_witness_matches(
+        target, declaration_id, reference, witness, use, owner, owner_matches, evidence
+    ):
+        raise ValueError("local definition witness disagrees with its declaration identity")
+
+
+def _local_definition_witness_matches(
+    target: str,
+    declaration_id: str,
+    reference: Record,
+    witness: Evidence,
+    use: Evidence,
+    owner: object,
+    owner_matches: list[Record],
+    evidence: Mapping[str, Evidence],
+) -> bool:
+    name = target.rpartition(".")[2]
+    suffix = witness.excerpt.encode("utf-8")[witness.column :].decode("utf-8", errors="ignore")
+    declaration_scope = target.rpartition(".")[0]
+    nested = isinstance(owner, str) and declaration_scope.startswith(owner + ".<")
+    return (
+        declaration_id == stable_id("DECL", witness.file, target)
+        and witness.file == use.file
+        and re.match(rf"{re.escape(name)}\b", suffix) is not None
+        and (owner == declaration_scope or nested)
+        and len(owner_matches) == 1
+        and any(
+            evidence[identity].file == witness.file
+            and evidence[identity].line <= witness.line <= evidence[identity].end_line
+            for identity in owner_matches[0].evidence_ids
+        )
+        and reference.data.get("declaration_status")
+        in {SourceResolution.RESOLVED, SourceResolution.PARTIALLY_RESOLVED}
+    )
+
+
+def _only_anchor(
+    anchors: Mapping[tuple[str, str], list[Record]], target: str, declaration_id: str
+) -> Record | None:
+    matches = anchors.get((target, declaration_id), ())
+    return matches[0] if len(matches) == 1 else None
+
+
+def _validate_unique_local_declaration_anchors(records: tuple[Record, ...]) -> None:
+    keys = []
+    for record in records:
+        if record.kind not in {"value_reference", "attribute_reference"}:
+            continue
+        if record.data.get("declaration_role") != "definition":
+            continue
         targets = record.data.get("targets")
         declaration_id = record.data.get("declaration_id")
-        if (
-            isinstance(targets, tuple)
-            and targets
-            and isinstance(targets[0], str)
-            and isinstance(declaration_id, str)
-        ):
-            local_keys.append((targets[0], declaration_id))
-    if len(set(local_keys)) != len(local_keys):
+        if isinstance(targets, tuple) and targets and isinstance(targets[0], str):
+            if isinstance(declaration_id, str):
+                keys.append((targets[0], declaration_id))
+    if len(set(keys)) != len(keys):
         raise ValueError("local declaration has duplicate definition anchors")
 
 

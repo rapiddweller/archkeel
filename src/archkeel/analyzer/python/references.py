@@ -481,6 +481,58 @@ class ReferenceCollector(ast.NodeVisitor):
             )
         else:
             status, targets = SourceResolution.RESOLVED, [enum_member]
+        local_source_binding, local_name, status, internal = self._local_reference_target(
+            node, targets, status
+        )
+        if (status == SourceResolution.UNRESOLVED or not internal) and not local_source_binding:
+            return
+        if local_source_binding and status == SourceResolution.UNRESOLVED:
+            status = SourceResolution.PARTIALLY_RESOLVED
+        evidence_id = add_evidence(self.evidence, self.module, node)
+        line, _, column = location(node)
+        text = annotation_text(node) or expression
+        declaration = self._annotation_declaration(node)
+        self.items.append(
+            classified(
+                item_id=stable_id("REF", self.module.rel_path, line, column, text),
+                evidence_class=EvidenceClass.FACT,
+                area="call_hierarchy",
+                kind=f"{use}_reference",
+                title=f"Reference {text}",
+                subjects=[scope.qualified_name, *internal],
+                evidence_ids=[evidence_id],
+                data={
+                    "source_scope": scope.qualified_name,
+                    "source_definition_id": scope.definition_id
+                    if scope is self.scopes.root or scope.definition_id in self.index.definition_ids
+                    else None,
+                    "source_module": self.module.module,
+                    "expression": text,
+                    "status": status,
+                    "targets": sorted(internal),
+                    "use": use,
+                    "reference_context": "annotation"
+                    if declaration.get("reference_context") == "annotation"
+                    else "value",
+                    **(
+                        {
+                            "declaration_id": self._binding_declaration_id(local_name, local=True),
+                            "local_source_binding": True,
+                        }
+                        if local_source_binding and local_name is not None
+                        else {}
+                    ),
+                    **declaration,
+                },
+            )
+        )
+
+    def _local_reference_target(
+        self,
+        node: ast.expr,
+        targets: list[str],
+        status: SourceResolution,
+    ) -> tuple[bool, str | None, SourceResolution, list[str]]:
         local_source_binding = False
         local_name: str | None = None
         if isinstance(node, ast.Name):
@@ -531,48 +583,7 @@ class ReferenceCollector(ast.NodeVisitor):
                 ):
                     local_source_binding = True
                     internal = [local_name]
-        if (status == SourceResolution.UNRESOLVED or not internal) and not local_source_binding:
-            return
-        if local_source_binding and status == SourceResolution.UNRESOLVED:
-            status = SourceResolution.PARTIALLY_RESOLVED
-        evidence_id = add_evidence(self.evidence, self.module, node)
-        line, _, column = location(node)
-        text = annotation_text(node) or expression
-        declaration = self._annotation_declaration(node)
-        self.items.append(
-            classified(
-                item_id=stable_id("REF", self.module.rel_path, line, column, text),
-                evidence_class=EvidenceClass.FACT,
-                area="call_hierarchy",
-                kind=f"{use}_reference",
-                title=f"Reference {text}",
-                subjects=[scope.qualified_name, *internal],
-                evidence_ids=[evidence_id],
-                data={
-                    "source_scope": scope.qualified_name,
-                    "source_definition_id": scope.definition_id
-                    if scope is self.scopes.root or scope.definition_id in self.index.definition_ids
-                    else None,
-                    "source_module": self.module.module,
-                    "expression": text,
-                    "status": status,
-                    "targets": sorted(internal),
-                    "use": use,
-                    "reference_context": "annotation"
-                    if declaration.get("reference_context") == "annotation"
-                    else "value",
-                    **(
-                        {
-                            "declaration_id": self._binding_declaration_id(local_name, local=True),
-                            "local_source_binding": True,
-                        }
-                        if local_source_binding and local_name is not None
-                        else {}
-                    ),
-                    **declaration,
-                },
-            )
-        )
+        return local_source_binding, local_name, status, internal
 
     def _annotation_declaration(self, node: ast.AST) -> dict[str, str]:
         current = node
