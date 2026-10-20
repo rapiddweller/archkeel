@@ -5,7 +5,14 @@
 
 from collections.abc import Sequence
 
-from archkeel.ir.facts import CallBinding, EvidenceClass, call_binding, in_scope, stable_id
+from archkeel.ir.facts import (
+    CallBinding,
+    CallBindingOrigin,
+    EvidenceClass,
+    call_binding,
+    in_scope,
+    stable_id,
+)
 from archkeel.ir.facts_codec import RawRecord, classified, parse_record
 from archkeel.ir.model import ArchitectureContract, CallOwnerRule
 
@@ -33,6 +40,28 @@ def _target_binding_static(target: RawRecord, symbols: Sequence[RawRecord]) -> b
             and owner_data.get("source_member_binding_static") is True
         )
     return data.get("source_binding_unique") is True and data.get("source_binding_static") is True
+
+
+def _native_target_witnessed(target: str, calls: Sequence[RawRecord]) -> bool:
+    origins = {
+        CallBindingOrigin.NATIVE,
+        CallBindingOrigin.NATIVE_RECEIVER,
+        CallBindingOrigin.CONSTRUCTOR,
+    }
+    for call in calls:
+        binding = call_binding(parse_record(call).data.get("call_binding"))
+        proof = binding.proof if binding is not None else None
+        if (
+            binding is None
+            or binding.target != target
+            or binding.origin not in origins
+            or proof is None
+            or proof.get("target") != target
+            or proof.get("kind") not in {"provider_member", "native_descriptor"}
+        ):
+            continue
+        return True
+    return False
 
 
 def _limit(rule: CallOwnerRule, scope: str, reason: str, facts: Sequence[RawRecord]) -> RawRecord:
@@ -92,7 +121,9 @@ def call_owner_results(
             and r["kind"] in {"class", "function", "method"}
         ]
         rule_limits: list[RawRecord] = []
-        target_proven = len(targets) == 1 and _target_binding_static(targets[0], symbols)
+        target_proven = (len(targets) == 1 and _target_binding_static(targets[0], symbols)) or (
+            not targets and _native_target_witnessed(rule.target, selected)
+        )
         if not subjects or not target_proven or not complete or not bindings_measured:
             rule_limits.append(
                 _limit(

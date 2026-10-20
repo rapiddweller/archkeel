@@ -274,6 +274,26 @@ def test_selected_stdlib_calls_use_import_bound_runtime_identity(
     assert row.status == "FAIL" and row.count == 1
 
 
+def test_observed_native_target_can_prove_allowed_owner_rule(tmp_path):
+    _result, row = _observe(
+        tmp_path,
+        "import random\ndef run(): random.random()\n",
+        target="random.random",
+        allowed=("sample.caller.run",),
+    )
+    assert row.status == "PASS" and row.evaluation_proven
+
+
+def test_unobserved_native_target_stays_unknown(tmp_path):
+    _result, row = _observe(
+        tmp_path,
+        "def run(): pass\n",
+        target="random.random",
+        allowed=("sample.caller.run",),
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
 def test_shadowed_stdlib_spelling_does_not_get_native_call_identity(tmp_path):
     result, row = _observe(
         tmp_path,
