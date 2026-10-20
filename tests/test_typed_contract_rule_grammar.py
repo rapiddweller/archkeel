@@ -42,11 +42,19 @@ RULES = {
             "target": "sample.store.read",
             "parameter": "key",
             "catalog": "sample.options.OptionKey",
+            "overlays": ["sample.options.ExtraKey"],
+            "source_match": "exact",
         },
     ),
     "catalog_use": (
         "CatalogUseRule",
-        {"source": "sample", "catalog": "sample.options.OptionKey"},
+        {
+            "source": "sample",
+            "catalog": "sample.options.OptionKey",
+            "overlays": ["sample.options.ExtraKey"],
+            "member": "PAGE_SIZE",
+            "source_match": "exact",
+        },
     ),
     "forbidden_dependency": (
         "ForbiddenDependencyRule",

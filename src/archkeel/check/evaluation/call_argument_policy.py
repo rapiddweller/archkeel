@@ -6,6 +6,7 @@
 from collections.abc import Sequence
 
 from archkeel.ir.facts import (
+    CallArgument,
     CallArgumentValueKind,
     CallBinding,
     EvidenceClass,
@@ -32,6 +33,7 @@ from .rule_support import _rule_evaluation_receipt
 _BOUND_RECEIVER_ORIGINS = frozenset(
     {"declared_receiver", "stored_receiver", "constructed_receiver", "native_receiver"}
 )
+_CatalogEntry = tuple[RawRecord, str | None, str]
 
 
 def call_argument_results(
@@ -236,7 +238,210 @@ def catalog_results(
     violations: list[RawRecord] = []
     limits: list[RawRecord] = []
     receipts: list[RawRecord] = []
-    source_records = [
+    source_records = _catalog_source_records(modules, symbols, source_modules)
+    for rule in contract.rules:
+        if not isinstance(rule, (CatalogArgumentRule, CatalogUseRule)):
+            continue
+        rule_violations, rule_limits, receipt = _catalog_rule_result(
+            rule,
+            scope,
+            source_records,
+            calls,
+            symbols,
+            references,
+            complete,
+            bindings_measured,
+            arguments_measured,
+            references_measured,
+            blank_modules,
+            source_modules,
+        )
+        violations.extend(rule_violations)
+        limits.extend(rule_limits)
+        if receipt is not None:
+            receipts.append(receipt)
+    return violations, limits, receipts
+
+
+def _catalog_rule_result(
+    rule: CatalogArgumentRule | CatalogUseRule,
+    scope: str,
+    source_records: Sequence[RawRecord],
+    calls: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    references: Sequence[RawRecord],
+    complete: bool,
+    bindings_measured: bool,
+    arguments_measured: bool,
+    references_measured: bool,
+    blank_modules: frozenset[str],
+    source_modules: frozenset[str] | None,
+) -> tuple[list[RawRecord], list[RawRecord], RawRecord | None]:
+    owners, entries, ambiguous = _catalog_inventory(rule, symbols, source_modules)
+    subjects, selected_calls, selected_refs, ref_data = _catalog_scope_records(
+        rule, source_records, calls, references, source_modules, blank_modules
+    )
+    supporting = [*subjects, *owners, *selected_refs]
+    violations, limits = _catalog_rule_checks(
+        rule,
+        scope,
+        selected_calls,
+        symbols,
+        selected_refs,
+        ref_data,
+        entries,
+        owners,
+        subjects,
+        supporting,
+        ambiguous,
+        complete,
+        bindings_measured,
+        arguments_measured,
+        references_measured,
+        source_modules,
+    )
+    receipt = (
+        None if limits else _rule_evaluation_receipt(rule, scope, [*supporting, *selected_calls])
+    )
+    return violations, limits, receipt
+
+
+def _catalog_rule_checks(
+    rule: CatalogArgumentRule | CatalogUseRule,
+    scope: str,
+    calls: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    references: Sequence[RawRecord],
+    reference_data: dict[str, RecordData],
+    entries: dict[str, _CatalogEntry],
+    owners: Sequence[RawRecord],
+    subjects: Sequence[RawRecord],
+    supporting: Sequence[RawRecord],
+    ambiguous: bool,
+    complete: bool,
+    bindings_measured: bool,
+    arguments_measured: bool,
+    references_measured: bool,
+    source_modules: frozenset[str] | None,
+) -> tuple[list[RawRecord], list[RawRecord]]:
+    violations: list[RawRecord] = []
+    limits: list[RawRecord] = []
+    if not subjects or not complete or ambiguous:
+        limits.append(
+            _catalog_limit(
+                rule,
+                scope,
+                "A complete selected source and unique enum catalog declarations are required",
+                supporting,
+            )
+        )
+    if isinstance(rule, CatalogArgumentRule):
+        return _catalog_argument_policy(
+            rule,
+            scope,
+            calls,
+            symbols,
+            references,
+            reference_data,
+            entries,
+            owners,
+            supporting,
+            bindings_measured,
+            arguments_measured,
+            references_measured,
+            source_modules,
+            violations,
+            limits,
+        )
+    return _catalog_use_policy(
+        rule,
+        scope,
+        entries,
+        owners,
+        supporting,
+        references,
+        reference_data,
+        references_measured,
+        complete,
+        violations,
+        limits,
+    )
+
+
+def _catalog_argument_policy(
+    rule: CatalogArgumentRule,
+    scope: str,
+    calls: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    references: Sequence[RawRecord],
+    reference_data: dict[str, RecordData],
+    entries: dict[str, _CatalogEntry],
+    owners: Sequence[RawRecord],
+    supporting: Sequence[RawRecord],
+    bindings_measured: bool,
+    arguments_measured: bool,
+    references_measured: bool,
+    source_modules: frozenset[str] | None,
+    violations: list[RawRecord],
+    limits: list[RawRecord],
+) -> tuple[list[RawRecord], list[RawRecord]]:
+    argument_violations, argument_limits = _catalog_argument_results(
+        rule,
+        scope,
+        calls,
+        symbols,
+        references,
+        reference_data,
+        entries,
+        owners,
+        supporting,
+        bindings_measured,
+        arguments_measured,
+        references_measured,
+        source_modules,
+    )
+    violations.extend(argument_violations)
+    limits.extend(argument_limits)
+    return violations, limits
+
+
+def _catalog_use_policy(
+    rule: CatalogUseRule,
+    scope: str,
+    entries: dict[str, _CatalogEntry],
+    owners: Sequence[RawRecord],
+    supporting: Sequence[RawRecord],
+    references: Sequence[RawRecord],
+    reference_data: dict[str, RecordData],
+    references_measured: bool,
+    complete: bool,
+    violations: list[RawRecord],
+    limits: list[RawRecord],
+) -> tuple[list[RawRecord], list[RawRecord]]:
+    context_complete = _catalog_reference_context_complete(references, reference_data)
+    use_violations, use_limits = _catalog_use_results(
+        rule,
+        scope,
+        entries,
+        owners,
+        supporting,
+        references,
+        reference_data,
+        context_complete,
+        references_measured,
+        complete,
+    )
+    violations.extend(use_violations)
+    limits.extend(use_limits)
+    return violations, limits
+
+
+def _catalog_source_records(
+    modules: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    source_modules: frozenset[str] | None,
+) -> list[RawRecord]:
+    return [
         record
         for record in modules
         if source_modules is None or record["data"]["qualified_name"] in source_modules
@@ -246,314 +451,389 @@ def catalog_results(
         if source_modules is None or record["data"]["module"] in source_modules
     ]
 
-    def selected(name: str, selector: str, match: SelectorMatch) -> bool:
-        return name == selector if match is SelectorMatch.EXACT else in_scope(name, selector)
 
-    for rule in contract.rules:
-        if not isinstance(rule, (CatalogArgumentRule, CatalogUseRule)):
-            continue
-        catalog_owners = [rule.catalog, *rule.overlays]
-        owner_records = [
-            record
-            for record in symbols
-            if record["data"]["qualified_name"] in catalog_owners
-            and record["kind"] == "class"
-            and (source_modules is None or record["data"]["module"] in source_modules)
-            and _catalog_owner_static(record)
-        ]
-        owners_by_name = {record["data"]["qualified_name"]: record for record in owner_records}
-        entries: dict[str, tuple[RawRecord, str | None, str]] = {}
-        ambiguous_owner = len(owners_by_name) != len(catalog_owners)
-        for owner in owner_records:
-            owner_data = parse_record(owner).data
-            raw_attributes = owner_data.get("attribute_declarations")
-            raw_names = owner_data.get("enum_members")
-            if not isinstance(raw_attributes, tuple) or any(
-                not isinstance(attribute, RecordData) for attribute in raw_attributes
-            ):
-                ambiguous_owner = True
-                continue
-            attributes = tuple(
-                attribute for attribute in raw_attributes if isinstance(attribute, RecordData)
-            )
-            if isinstance(raw_names, tuple):
-                names = tuple(name for name in raw_names if isinstance(name, str))
-                if len(names) != len(raw_names):
-                    ambiguous_owner = True
-            else:
-                derived_names: list[str] = []
-                for item in attributes:
-                    name = item.get("name")
-                    if (
-                        item.get("static") is True
-                        and isinstance(item.get("literal_value"), str)
-                        and isinstance(name, str)
-                    ):
-                        derived_names.append(name)
-                names = tuple(derived_names)
-                if len(names) != len(attributes):
-                    ambiguous_owner = True
-            if not names:
-                ambiguous_owner = True
-                continue
-            values = {
-                item.get("name"): item for item in attributes if isinstance(item.get("name"), str)
-            }
-            for name in names:
-                if not isinstance(name, str) or name not in values:
-                    ambiguous_owner = True
-                    continue
-                attribute = values[name]
-                literal = attribute.get("literal_value")
-                literal_value = literal if type(literal) is str else None
-                entries[f"{owner['data']['qualified_name']}.{name}"] = (
-                    owner,
-                    literal_value,
-                    _record_text(attribute, "definition_id") or owner["id"],
-                )
-        subjects = [
-            record
-            for record in source_records
-            if selected(record["data"]["qualified_name"], rule.source, rule.source_match)
-            and record["data"]["qualified_name"] not in blank_modules
-        ]
-        selected_calls = [
-            call
-            for call in calls
-            if (source_modules is None or call["data"]["source_module"] in source_modules)
-            and selected(call["data"]["source_scope"], rule.source, rule.source_match)
-        ]
-        selected_scope_refs = []
-        reference_data: dict[str, RecordData] = {}
-        for reference in references:
-            if reference["kind"] not in {"value_reference", "attribute_reference"}:
-                continue
-            data = parse_record(reference).data
-            reference_data[reference["id"]] = data
-            if (
-                (source_modules is None or data.get("source_module") in source_modules)
-                and selected(
-                    _record_text(data, "source_scope") or "", rule.source, rule.source_match
-                )
-                and data.get("use") in {"value", "attribute"}
-            ):
-                selected_scope_refs.append(reference)
-        reference_context_complete = all(
-            reference_data[reference["id"]].get("reference_context") in {"value", "annotation"}
-            for reference in selected_scope_refs
+def _catalog_selected(name: str, selector: str, match: SelectorMatch) -> bool:
+    return name == selector if match is SelectorMatch.EXACT else in_scope(name, selector)
+
+
+def _catalog_inventory(
+    rule: CatalogArgumentRule | CatalogUseRule,
+    symbols: Sequence[RawRecord],
+    source_modules: frozenset[str] | None,
+) -> tuple[list[RawRecord], dict[str, _CatalogEntry], bool]:
+    owners = [rule.catalog, *rule.overlays]
+    owner_records = [
+        record
+        for record in symbols
+        if record["data"]["qualified_name"] in owners
+        and record["kind"] == "class"
+        and (source_modules is None or record["data"]["module"] in source_modules)
+        and _catalog_owner_static(record)
+    ]
+    entries: dict[str, _CatalogEntry] = {}
+    ambiguous = len({record["data"]["qualified_name"] for record in owner_records}) != len(owners)
+    for owner in owner_records:
+        ambiguous = _catalog_owner_entries(owner, entries) or ambiguous
+    return owner_records, entries, ambiguous
+
+
+def _catalog_owner_entries(owner: RawRecord, entries: dict[str, _CatalogEntry]) -> bool:
+    data = parse_record(owner).data
+    raw_attributes = data.get("attribute_declarations")
+    names = data.get("enum_members")
+    if not isinstance(raw_attributes, tuple) or any(
+        not isinstance(item, RecordData) for item in raw_attributes
+    ):
+        return True
+    attributes = tuple(item for item in raw_attributes if isinstance(item, RecordData))
+    if isinstance(names, tuple):
+        member_names = tuple(item for item in names if isinstance(item, str))
+        if len(member_names) != len(names):
+            return True
+    else:
+        member_names = tuple(
+            name
+            for item in attributes
+            if item.get("static") is True
+            and isinstance(item.get("literal_value"), str)
+            and isinstance(name := item.get("name"), str)
         )
-        selected_refs = [
-            reference
-            for reference in selected_scope_refs
-            if reference_data[reference["id"]].get("declaration_scope") is None
+        if len(member_names) != len(attributes):
+            return True
+    if not member_names:
+        return True
+    values = {item.get("name"): item for item in attributes if isinstance(item.get("name"), str)}
+    for name in member_names:
+        attribute = values.get(name)
+        if attribute is None:
+            return True
+        literal = attribute.get("literal_value")
+        entries[f"{_record_text(data, 'qualified_name')}.{name}"] = (
+            owner,
+            literal if type(literal) is str else None,
+            _record_text(attribute, "definition_id") or owner["id"],
+        )
+    return False
+
+
+def _catalog_scope_records(
+    rule: CatalogArgumentRule | CatalogUseRule,
+    source_records: Sequence[RawRecord],
+    calls: Sequence[RawRecord],
+    references: Sequence[RawRecord],
+    source_modules: frozenset[str] | None,
+    blank_modules: frozenset[str],
+) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord], dict[str, RecordData]]:
+    subjects = [
+        record
+        for record in source_records
+        if _catalog_selected(record["data"]["qualified_name"], rule.source, rule.source_match)
+        and record["data"]["qualified_name"] not in blank_modules
+    ]
+    selected_calls = [
+        call
+        for call in calls
+        if (source_modules is None or call["data"]["source_module"] in source_modules)
+        and _catalog_selected(call["data"]["source_scope"], rule.source, rule.source_match)
+    ]
+    selected_refs: list[RawRecord] = []
+    reference_data: dict[str, RecordData] = {}
+    for reference in references:
+        if reference["kind"] not in {"value_reference", "attribute_reference"}:
+            continue
+        data = parse_record(reference).data
+        reference_data[reference["id"]] = data
+        if (
+            (source_modules is None or data.get("source_module") in source_modules)
+            and _catalog_selected(
+                _record_text(data, "source_scope") or "", rule.source, rule.source_match
+            )
+            and data.get("use") in {"value", "attribute"}
+        ):
+            selected_refs.append(reference)
+    return subjects, selected_calls, selected_refs, reference_data
+
+
+def _catalog_reference_context_complete(
+    references: Sequence[RawRecord], reference_data: dict[str, RecordData]
+) -> bool:
+    return all(
+        reference_data[reference["id"]].get("reference_context") in {"value", "annotation"}
+        for reference in references
+    )
+
+
+def _catalog_argument_results(
+    rule: CatalogArgumentRule,
+    scope: str,
+    calls: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    references: Sequence[RawRecord],
+    reference_data: dict[str, RecordData],
+    entries: dict[str, _CatalogEntry],
+    owners: Sequence[RawRecord],
+    supporting_facts: Sequence[RawRecord],
+    bindings_measured: bool,
+    arguments_measured: bool,
+    references_measured: bool,
+    source_modules: frozenset[str] | None,
+) -> tuple[list[RawRecord], list[RawRecord]]:
+    violations: list[RawRecord] = []
+    limits: list[RawRecord] = []
+    if not bindings_measured or not arguments_measured:
+        limits.append(
+            _catalog_limit(
+                rule,
+                scope,
+                "Complete call bindings and written arguments are required",
+                supporting_facts,
+            )
+        )
+    targets = _catalog_targets(rule, symbols, source_modules)
+    signature = (
+        parse_record(targets[0]).data
+        if len(targets) == 1 and _target_binding_static(targets[0], symbols)
+        else None
+    )
+    if not _catalog_signature_has_parameter(signature, rule.parameter):
+        limits.append(
+            _catalog_limit(
+                rule,
+                scope,
+                "The selected operation and formal parameter are unproven",
+                [*targets, *supporting_facts],
+            )
+        )
+    for call in calls:
+        found, blocked = _catalog_argument_call(
+            rule, scope, call, targets, signature, references, reference_data, entries, owners
+        )
+        violations.extend(found)
+        limits.extend(blocked)
+    if not targets or not references_measured:
+        limits.append(
+            _catalog_limit(
+                rule,
+                scope,
+                "Selected catalog or reference inventory is incomplete",
+                supporting_facts,
+            )
+        )
+    return violations, limits
+
+
+def _catalog_targets(
+    rule: CatalogArgumentRule,
+    symbols: Sequence[RawRecord],
+    source_modules: frozenset[str] | None,
+) -> list[RawRecord]:
+    return [
+        record
+        for record in symbols
+        if record["data"]["qualified_name"] == rule.target
+        and record["kind"] in {"class", "function", "method"}
+        and (source_modules is None or record["data"]["module"] in source_modules)
+    ]
+
+
+def _catalog_signature_has_parameter(signature: RecordData | None, parameter: str) -> bool:
+    return (
+        signature is not None
+        and _signature_available(signature)
+        and _signature_has_parameter(signature, parameter)
+    )
+
+
+def _catalog_argument_call(
+    rule: CatalogArgumentRule,
+    scope: str,
+    call: RawRecord,
+    targets: Sequence[RawRecord],
+    signature: RecordData | None,
+    references: Sequence[RawRecord],
+    reference_data: dict[str, RecordData],
+    entries: dict[str, _CatalogEntry],
+    owners: Sequence[RawRecord],
+) -> tuple[list[RawRecord], list[RawRecord]]:
+    parsed = parse_record(call)
+    binding = call_binding(parsed.data.get("call_binding"))
+    actuals = call_arguments(parsed.data.get("call_arguments"))
+    if binding is None or actuals is None:
+        if binding is None and _unrelated_resolved_call(call, rule.target):
+            return [], []
+        return [], [
+            _catalog_limit(rule, scope, "Call identity or actual arguments are unproven", [call])
         ]
-        selected_value_refs = [
-            reference
-            for reference in selected_refs
-            if reference_data[reference["id"]].get("reference_context") == "value"
+    if binding.target != rule.target or signature is None:
+        return [], []
+    bound = bind_call_arguments(
+        signature,
+        actuals,
+        bound_receiver=binding.origin.value in _BOUND_RECEIVER_ORIGINS,
+    )
+    if bound is None:
+        return [], [
+            _catalog_limit(
+                rule,
+                scope,
+                "Actual arguments do not bind to the selected formal",
+                [call, *targets],
+            )
         ]
-        rule_limits: list[RawRecord] = []
-        supporting_facts = [*subjects, *owner_records, *selected_scope_refs]
-        if not subjects or not complete or ambiguous_owner:
-            rule_limits.append(
+    return _catalog_argument_actuals(
+        rule,
+        scope,
+        call,
+        actuals,
+        _bound_argument_indexes(bound, rule.parameter),
+        references,
+        reference_data,
+        entries,
+        owners,
+    )
+
+
+def _catalog_argument_actuals(
+    rule: CatalogArgumentRule,
+    scope: str,
+    call: RawRecord,
+    actuals: tuple[CallArgument, ...],
+    indexes: Sequence[int],
+    references: Sequence[RawRecord],
+    reference_data: dict[str, RecordData],
+    entries: dict[str, _CatalogEntry],
+    owners: Sequence[RawRecord],
+) -> tuple[list[RawRecord], list[RawRecord]]:
+    violations: list[RawRecord] = []
+    limits: list[RawRecord] = []
+    for index in indexes:
+        actual = actuals[index]
+        member_refs = [
+            reference
+            for reference in references
+            if any(item in actual.evidence_ids for item in reference["evidence_ids"])
+            and rule.catalog in _record_strings(reference_data[reference["id"]], "targets")
+        ]
+        if member_refs:
+            expression = _record_text(reference_data[member_refs[0]["id"]], "expression") or ""
+            if f"{rule.catalog}.{last_name(expression)}" not in entries:
+                limits.append(
+                    _catalog_limit(
+                        rule,
+                        scope,
+                        "Enum member argument identity is ambiguous",
+                        [call, *member_refs],
+                    )
+                )
+        elif actual.value_kind is CallArgumentValueKind.STRING_LITERAL:
+            _catalog_literal_actual(
+                rule, scope, call, actual.value, entries, owners, violations, limits
+            )
+        else:
+            limits.append(
                 _catalog_limit(
                     rule,
                     scope,
-                    "A complete selected source and unique enum catalog declarations are required",
-                    supporting_facts,
+                    "Catalog argument is dynamic or not a canonical member reference",
+                    [call],
                 )
             )
-        if isinstance(rule, CatalogArgumentRule):
-            if not bindings_measured or not arguments_measured:
-                rule_limits.append(
-                    _catalog_limit(
-                        rule,
-                        scope,
-                        "Complete call bindings and written arguments are required",
-                        supporting_facts,
-                    )
-                )
-            targets = [
-                record
-                for record in symbols
-                if record["data"]["qualified_name"] == rule.target
-                and record["kind"] in {"class", "function", "method"}
-                and (source_modules is None or record["data"]["module"] in source_modules)
-            ]
-            target_proven = len(targets) == 1 and _target_binding_static(targets[0], symbols)
-            signature = parse_record(targets[0]).data if target_proven else None
-            if (
-                not target_proven
-                or not _signature_available(signature)
-                or not _signature_has_parameter(signature, rule.parameter)
-            ):
-                rule_limits.append(
-                    _catalog_limit(
-                        rule,
-                        scope,
-                        "The selected operation and formal parameter are unproven",
-                        [*targets, *supporting_facts],
-                    )
-                )
-            for call in selected_calls:
-                parsed = parse_record(call)
-                binding = call_binding(parsed.data.get("call_binding"))
-                actuals = call_arguments(parsed.data.get("call_arguments"))
-                if binding is None or actuals is None:
-                    if binding is None and _unrelated_resolved_call(call, rule.target):
-                        continue
-                    rule_limits.append(
-                        _catalog_limit(
-                            rule, scope, "Call identity or actual arguments are unproven", [call]
-                        )
-                    )
-                    continue
-                if binding.target != rule.target:
-                    continue
-                if signature is None:
-                    continue
-                bound = bind_call_arguments(
-                    signature,
-                    actuals,
-                    bound_receiver=binding.origin.value in _BOUND_RECEIVER_ORIGINS,
-                )
-                if bound is None:
-                    rule_limits.append(
-                        _catalog_limit(
-                            rule,
-                            scope,
-                            "Actual arguments do not bind to the selected formal",
-                            [call, *targets],
-                        )
-                    )
-                    continue
-                for index in _bound_argument_indexes(bound, rule.parameter):
-                    actual = actuals[index]
-                    member_refs = [
-                        reference
-                        for reference in selected_refs
-                        if any(
-                            evidence_id in actual.evidence_ids
-                            for evidence_id in reference["evidence_ids"]
-                        )
-                        and rule.catalog
-                        in _record_strings(reference_data[reference["id"]], "targets")
-                    ]
-                    if member_refs:
-                        expression = _record_text(
-                            reference_data[member_refs[0]["id"]], "expression"
-                        )
-                        identity = f"{rule.catalog}.{last_name(expression or '')}"
-                        if identity not in entries:
-                            rule_limits.append(
-                                _catalog_limit(
-                                    rule,
-                                    scope,
-                                    "Enum member argument identity is ambiguous",
-                                    [call, *member_refs],
-                                )
-                            )
-                    elif actual.value_kind is CallArgumentValueKind.STRING_LITERAL:
-                        value = actual.value
-                        if not isinstance(value, str):
-                            rule_limits.append(
-                                _catalog_limit(
-                                    rule, scope, "Written catalog argument is not a string", [call]
-                                )
-                            )
-                        elif any(literal is None for _, literal, _ in entries.values()):
-                            rule_limits.append(
-                                _catalog_limit(
-                                    rule,
-                                    scope,
-                                    "The selected catalog has entries without "
-                                    "canonical string values",
-                                    [*owner_records, call],
-                                )
-                            )
-                        elif not any(literal == value for _, literal, _ in entries.values()):
-                            violations.append(
-                                _catalog_violation(
-                                    rule,
-                                    scope,
-                                    call,
-                                    f"{value!r} is not in the selected catalog",
-                                    [call],
-                                )
-                            )
-                    else:
-                        rule_limits.append(
-                            _catalog_limit(
-                                rule,
-                                scope,
-                                "Catalog argument is dynamic or not a canonical member reference",
-                                [call],
-                            )
-                        )
-            if not targets or not references_measured:
-                rule_limits.append(
-                    _catalog_limit(
-                        rule,
-                        scope,
-                        "Selected catalog or reference inventory is incomplete",
-                        supporting_facts,
-                    )
-                )
-        else:
-            if not references_measured or not reference_context_complete:
-                rule_limits.append(
-                    _catalog_limit(
-                        rule,
-                        scope,
-                        "A complete source reference inventory with typed value contexts is "
-                        "required",
-                        [*supporting_facts, *selected_scope_refs],
-                    )
-                )
-            selected_entries = {
-                identity: value
-                for identity, value in entries.items()
-                if rule.member is None or last_name(identity) == rule.member
-            }
-            if rule.member is not None and not selected_entries:
-                rule_limits.append(
-                    _catalog_limit(
-                        rule,
-                        scope,
-                        "The selected catalog member has no canonical declaration",
-                        owner_records,
-                    )
-                )
-            for identity, (owner, _, _definition_id) in selected_entries.items():
-                owner_name = _record_text(parse_record(owner).data, "qualified_name")
-                uses = [
-                    reference
-                    for reference in selected_value_refs
-                    if owner_name in _record_strings(reference_data[reference["id"]], "targets")
-                    and last_name(_record_text(reference_data[reference["id"]], "expression") or "")
-                    == last_name(identity)
-                ]
-                if not uses and complete and references_measured:
-                    violations.append(
-                        _catalog_violation(
-                            rule,
-                            scope,
-                            owner,
-                            f"{identity} has no source read in {rule.source}",
-                            [owner],
-                        )
-                    )
-        if rule_limits:
-            limits.extend(rule_limits)
-        else:
-            receipts.append(
-                _rule_evaluation_receipt(
+    return violations, limits
+
+
+def _catalog_literal_actual(
+    rule: CatalogArgumentRule,
+    scope: str,
+    call: RawRecord,
+    value: object,
+    entries: dict[str, _CatalogEntry],
+    owners: Sequence[RawRecord],
+    violations: list[RawRecord],
+    limits: list[RawRecord],
+) -> None:
+    if not isinstance(value, str):
+        limits.append(
+            _catalog_limit(rule, scope, "Written catalog argument is not a string", [call])
+        )
+    elif any(literal is None for _, literal, _ in entries.values()):
+        limits.append(
+            _catalog_limit(
+                rule,
+                scope,
+                "The selected catalog has entries without canonical string values",
+                [*owners, call],
+            )
+        )
+    elif not any(literal == value for _, literal, _ in entries.values()):
+        violations.append(
+            _catalog_violation(
+                rule, scope, call, f"{value!r} is not in the selected catalog", [call]
+            )
+        )
+
+
+def _catalog_use_results(
+    rule: CatalogUseRule,
+    scope: str,
+    entries: dict[str, _CatalogEntry],
+    owners: Sequence[RawRecord],
+    supporting_facts: Sequence[RawRecord],
+    references: Sequence[RawRecord],
+    reference_data: dict[str, RecordData],
+    context_complete: bool,
+    references_measured: bool,
+    complete: bool,
+) -> tuple[list[RawRecord], list[RawRecord]]:
+    violations: list[RawRecord] = []
+    limits: list[RawRecord] = []
+    if not references_measured or not context_complete:
+        limits.append(
+            _catalog_limit(
+                rule,
+                scope,
+                "A complete source reference inventory with typed value contexts is required",
+                supporting_facts,
+            )
+        )
+    selected_entries = {
+        identity: value
+        for identity, value in entries.items()
+        if rule.member is None or last_name(identity) == rule.member
+    }
+    if rule.member is not None and not selected_entries:
+        limits.append(
+            _catalog_limit(
+                rule,
+                scope,
+                "The selected catalog member has no canonical declaration",
+                owners,
+            )
+        )
+    value_refs = [
+        reference
+        for reference in references
+        if reference_data[reference["id"]].get("declaration_scope") is None
+        and reference_data[reference["id"]].get("reference_context") == "value"
+    ]
+    for identity, (owner, _, _) in selected_entries.items():
+        owner_name = _record_text(parse_record(owner).data, "qualified_name")
+        used = any(
+            owner_name in _record_strings(reference_data[reference["id"]], "targets")
+            and last_name(_record_text(reference_data[reference["id"]], "expression") or "")
+            == last_name(identity)
+            for reference in value_refs
+        )
+        if not used and complete and references_measured:
+            violations.append(
+                _catalog_violation(
                     rule,
                     scope,
-                    [*supporting_facts, *selected_calls],
+                    owner,
+                    f"{identity} has no source read in {rule.source}",
+                    [owner],
                 )
             )
-    return violations, limits, receipts
+    return violations, limits
 
 
 def _record_text(data: RecordData, key: str) -> str | None:

@@ -6,10 +6,12 @@ from pathlib import Path
 
 import pytest
 
+from archkeel.check.evaluation.rules import profile_failures
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import parse_contract
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.model import module_references
+from archkeel.ir.profiles import DART, TYPESCRIPT
 from archkeel.ir.renames import renamed_contract
 
 
@@ -86,6 +88,16 @@ def _use(source="sample.consumer"):
         "catalog": "sample.catalog.OptionKey",
         "member": "PAGE_SIZE",
     }
+
+
+@pytest.mark.parametrize("profile", [DART, TYPESCRIPT])
+def test_catalog_rules_are_rejected_by_non_python_profiles(profile):
+    contract = parse_contract(_raw(_argument(), _use()))
+
+    failures = profile_failures(contract, profile, ())
+
+    assert {item["rule_ids"][0] for item in failures} == {"CATALOG-0", "CATALOG-1"}
+    assert all("rule kind catalog_" in item["title"] for item in failures)
 
 
 def test_catalog_selector_references_are_renamed_as_canonical_module_references():
