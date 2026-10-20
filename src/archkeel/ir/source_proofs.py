@@ -21,6 +21,8 @@ def instance_member_write_nodes(
     while pending:
         child = pending.pop()
         if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Lambda):
+            if _contains_alias(child, aliases):
+                writes = writes | {"*"}
             continue
         pending.extend(reversed(tuple(ast.iter_child_nodes(child))))
         if isinstance(child, ast.Assign):
