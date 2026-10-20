@@ -41,7 +41,7 @@ from archkeel.ir.facts import (
 from archkeel.ir.facts_codec import parse_evidence, parse_record
 from archkeel.ir.facts_validation import (
     _selector_evidence_excerpt,
-    _selector_receiver_site_matches,
+    selector_receiver_site_matches,
 )
 from archkeel.ir.model import ConstructSelector, ConstructSelectorRole, ForbiddenConstructRule
 from archkeel.ir.trace import trace_valid_violations
@@ -352,7 +352,7 @@ def test_direct_class_selector_binding_cannot_be_retargeted_to_another_class():
     original = parse_record(connection)
     original_binding = call_binding(original.data.get("receiver_binding"))
     assert original_binding is not None
-    assert _selector_receiver_site_matches(original, original_binding, None, declarations, evidence)
+    assert selector_receiver_site_matches(original, original_binding, None, declarations, evidence)
 
     transplanted = copy.deepcopy(connection)
     transplanted["data"]["receiver_type"] = "sample.core.Label"
@@ -363,7 +363,7 @@ def test_direct_class_selector_binding_cannot_be_retargeted_to_another_class():
     changed = parse_record(transplanted)
     changed_binding = call_binding(changed.data.get("receiver_binding"))
     assert changed_binding is not None
-    assert not _selector_receiver_site_matches(
+    assert not selector_receiver_site_matches(
         changed, changed_binding, None, declarations, evidence
     )
 
@@ -396,7 +396,7 @@ def test_direct_selector_proof_uses_full_local_class_path():
     original = parse_record(local)
     binding = call_binding(original.data.get("receiver_binding"))
     assert binding is not None
-    assert _selector_receiver_site_matches(original, binding, None, declarations, evidence_records)
+    assert selector_receiver_site_matches(original, binding, None, declarations, evidence_records)
     transplanted = copy.deepcopy(local)
     transplanted["data"]["receiver_type"] = "other.core.Connection"
     transplanted["data"]["receiver_binding"] = copy.deepcopy(foreign["data"]["receiver_binding"])
@@ -406,7 +406,7 @@ def test_direct_selector_proof_uses_full_local_class_path():
     changed = parse_record(transplanted)
     changed_binding = call_binding(changed.data.get("receiver_binding"))
     assert changed_binding is not None
-    assert not _selector_receiver_site_matches(
+    assert not selector_receiver_site_matches(
         changed, changed_binding, None, declarations, evidence_records
     )
 
@@ -453,7 +453,7 @@ def test_imported_direct_selector_alias_is_canonical_and_coupled():
     record = parse_record(conn)
     binding = call_binding(record.data.get("receiver_binding"))
     assert binding is not None
-    assert _selector_receiver_site_matches(
+    assert selector_receiver_site_matches(
         record, binding, None, declarations, evidence_records, imported_records
     )
     retargeted = copy.deepcopy(conn)
@@ -465,7 +465,7 @@ def test_imported_direct_selector_alias_is_canonical_and_coupled():
     changed = parse_record(retargeted)
     changed_binding = call_binding(changed.data.get("receiver_binding"))
     assert changed_binding is not None
-    assert not _selector_receiver_site_matches(
+    assert not selector_receiver_site_matches(
         changed, changed_binding, None, declarations, evidence_records, imported_records
     )
 
@@ -510,7 +510,7 @@ def test_inline_constructed_receiver_uses_absolute_source_position():
             )
         ),
     )
-    assert _selector_receiver_site_matches(record, binding, None, {}, evidence_records)
+    assert selector_receiver_site_matches(record, binding, None, {}, evidence_records)
 
 
 def test_selector_cannot_borrow_attribute_from_later_semicolon_expression():
@@ -537,7 +537,7 @@ def test_selector_cannot_borrow_attribute_from_later_semicolon_expression():
         name = typed.data.get("qualified_name")
         if isinstance(name, str):
             declarations.setdefault(name, []).append(typed)
-    assert _selector_receiver_site_matches(record, binding, "conn", declarations, evidence_records)
+    assert selector_receiver_site_matches(record, binding, "conn", declarations, evidence_records)
 
     site = Evidence(
         "EVD-unrelated-site",
@@ -551,7 +551,7 @@ def test_selector_cannot_borrow_attribute_from_later_semicolon_expression():
     transplanted = copy.deepcopy(selector)
     transplanted["evidence_ids"] = [site.id]
     changed = parse_record(transplanted)
-    assert not _selector_receiver_site_matches(
+    assert not selector_receiver_site_matches(
         changed,
         binding,
         "conn",
@@ -636,7 +636,7 @@ def test_selector_receiver_collection_reuses_stored_field_proof():
     typed_selector = parse_record(selector)
     typed_binding = call_binding(typed_selector.data.get("receiver_binding"))
     assert typed_binding is not None
-    assert _selector_receiver_site_matches(
+    assert selector_receiver_site_matches(
         typed_selector, typed_binding, None, declarations, evidence_records
     )
     retargeted = copy.deepcopy(selector)
@@ -648,7 +648,7 @@ def test_selector_receiver_collection_reuses_stored_field_proof():
     changed = parse_record(retargeted)
     changed_binding = call_binding(changed.data.get("receiver_binding"))
     assert changed_binding is not None
-    assert not _selector_receiver_site_matches(
+    assert not selector_receiver_site_matches(
         changed, changed_binding, None, declarations, evidence_records
     )
 
@@ -686,7 +686,7 @@ def test_constructed_selector_assignment_cannot_be_retargeted_to_another_type():
     binding = call_binding(original.data.get("receiver_binding"))
     assert binding is not None
     assert binding.origin.value == "constructed_receiver"
-    assert _selector_receiver_site_matches(original, binding, None, {}, evidence_records)
+    assert selector_receiver_site_matches(original, binding, None, {}, evidence_records)
 
     retargeted = copy.deepcopy(connection)
     retargeted["data"]["receiver_type"] = "sample.core.Label"
@@ -697,7 +697,7 @@ def test_constructed_selector_assignment_cannot_be_retargeted_to_another_type():
     changed = parse_record(retargeted)
     changed_binding = call_binding(changed.data.get("receiver_binding"))
     assert changed_binding is not None
-    assert not _selector_receiver_site_matches(changed, changed_binding, None, {}, evidence_records)
+    assert not selector_receiver_site_matches(changed, changed_binding, None, {}, evidence_records)
 
 
 def test_native_saved_report_keeps_fail_and_unknown_for_selected_scope(tmp_path: Path):

@@ -483,13 +483,24 @@ def test_unknown_reference_context_cannot_certify_a_source_read():
     assert unknown["evidence_ids"] == ["E-1"]
 
 
-def test_source_ownership_receipt_binds_fail_and_unknown_results_in_json_and_columnar(tmp_path):
+@pytest.mark.parametrize(
+    ("representation", "mutation"),
+    [
+        ("json", "delete"),
+        ("json", "change"),
+        ("json", "relocate"),
+        ("columnar", "delete"),
+        ("columnar", "change"),
+        ("columnar", "relocate"),
+    ],
+)
+def test_source_ownership_receipt_binds_fail_and_unknown_results(
+    tmp_path, representation, mutation
+):
     import copy
 
     from archkeel.check.report import run_saved_report
     from archkeel.ir.codec import (
-        canonical_report_bytes,
-        decode_canonical_model,
         encode_canonical_model,
         observation_payload,
         parse_observation,
@@ -534,28 +545,32 @@ def test_source_ownership_receipt_binds_fail_and_unknown_results_in_json_and_col
         item.kind == "source_ownership_limit" for item in result.observation.records("unknowns")
     )
 
-    deleted = copy.deepcopy(original)
-    deleted["violations"].clear()
-    changed = parse_observation(deleted)
-    [replayed] = [
-        row
-        for row in rule_assessments(
-            changed, undecided_by_rule=unknown_positions_by_rule(changed)
-        )
-        if row.id == "ownership"
-    ]
-    assert replayed.status.value == "UNKNOWN" and not replayed.evaluation_proven
+    altered = copy.deepcopy(original)
+    if mutation == "delete":
+        altered["violations"].clear()
+    elif mutation == "change":
+        altered["violations"][0]["title"] += " changed"
+    else:
+        moved = altered["violations"].pop()
+        moved["evidence_class"] = "UNKNOWN"
+        altered["unknowns"].append(moved)
 
-    columnar = decode_canonical_model(json.loads(canonical_report_bytes(result.observation)))
-    columnar["unknowns"] = [
-        row for row in columnar["unknowns"] if row["kind"] != "source_ownership_limit"
-    ]
-    saved = tmp_path / "altered-columnar.json"
-    saved.write_text(json.dumps(encode_canonical_model(columnar)))
-    [replayed] = [
-        row for row in run_saved_report(saved).rule_assessments if row.id == "ownership"
-    ]
-    assert replayed.status.value == "FAIL" and not replayed.evaluation_proven
+    if representation == "json":
+        observation = parse_observation(altered)
+        [replayed] = [
+            row
+            for row in rule_assessments(
+                observation, undecided_by_rule=unknown_positions_by_rule(observation)
+            )
+            if row.id == "ownership"
+        ]
+    else:
+        saved = tmp_path / "altered-columnar.json"
+        saved.write_text(json.dumps(encode_canonical_model(altered)))
+        [replayed] = [
+            row for row in run_saved_report(saved).rule_assessments if row.id == "ownership"
+        ]
+    assert replayed.status.value in {"FAIL", "UNKNOWN"} and not replayed.evaluation_proven
 
 
 def test_alias_reads_resolve_to_the_owned_symbol_without_matching_shadowing(tmp_path):

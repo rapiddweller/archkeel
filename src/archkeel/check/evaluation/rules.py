@@ -2791,7 +2791,8 @@ def _selector_construct_violations(
     source_modules: frozenset[str] | None,
 ) -> list[RawRecord]:
     selector = rule.selector
-    assert selector is not None
+    if selector is None:
+        raise ValueError("selector construct evaluation requires a selector")
     applicable: list[RawRecord] = []
     for item in signals:
         if item["kind"] != "construct_selector":

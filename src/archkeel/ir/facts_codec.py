@@ -57,6 +57,9 @@ from .facts import (
 )
 from .facts_validation import _call_excerpt_matches, validate_source_facts
 from .facts_validation import (
+    selector_receiver_site_matches as selector_receiver_site_matches,
+)
+from .facts_validation import (
     source_reference_context as source_reference_context,
 )
 from .protocol import (
