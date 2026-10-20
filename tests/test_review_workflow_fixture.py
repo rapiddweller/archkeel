@@ -16,11 +16,32 @@ CONFIG = ScanConfig(("orders",), "orders", "architecture-contract.json", "0" * 6
 
 
 def test_review_fixture_is_green_with_proven_discovery_loaders(tmp_path: Path) -> None:
-    result, _ = run_validate(_prepare_repo(tmp_path, {}, fixture=FIXTURE), CONFIG, observe)
+    root = _prepare_repo(tmp_path, {}, fixture=FIXTURE)
+    result, _ = run_validate(root, CONFIG, observe)
 
     assert (result.exit_code, result.diagnostics) == (0, ())
     assert {row.status for row in result.rule_assessments or ()} == {"PASS"}
     assert len(result.rule_assessments or ()) == 12
+    observed = observe(
+        root,
+        roots=CONFIG.roots,
+        namespace=CONFIG.namespace,
+        contract=CONFIG.contract,
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=root,
+    ).observation
+    assert observed is not None
+    # Discovery is a review case only while its literal loaders stay proven dependencies.
+    assert {
+        record.data.get("target_module")
+        for record in observed.records("imports") or ()
+        if record.data.get("source_module") == "orders.storage.backends"
+    } >= {
+        "orders.storage.backends.memory",
+        "orders.storage.backends.file",
+        "orders.storage.backends.cloud",
+    }
 
 
 def test_project_adapter_adds_domain_invariants_without_copying_the_review_process() -> None:
