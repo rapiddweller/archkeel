@@ -63,7 +63,46 @@
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/modules"
     },
     "symbols": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/symbols"
+      "allOf": [
+        {
+          "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/symbols"
+        },
+        {
+          "items": {
+            "properties": {
+              "data": {
+                "properties": {
+                  "guard_boolean_members": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "name",
+                        "evidence_ids"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "evidence_ids": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "uniqueItems": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "imports": {
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/imports"
@@ -151,6 +190,194 @@
                         "$ref": "https://archkeel.dev/schema/source-facts/5.0.0#/$defs/CallBinding"
                       }
                     ]
+                  },
+                  "guarded_effect": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "condition",
+                        "condition_value",
+                        "condition_evidence_ids",
+                        "path_evidence_ids",
+                        "effect_binding_evidence_ids",
+                        "complete",
+                        "unknown_reason",
+                        "helper_bindings"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "condition": {
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "owner",
+                            "name"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "enum": [
+                                "parameter",
+                                "member"
+                              ]
+                            },
+                            "owner": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          }
+                        },
+                        "condition_value": {
+                          "type": [
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "condition_evidence_ids": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "uniqueItems": true
+                        },
+                        "path_evidence_ids": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "uniqueItems": true
+                        },
+                        "effect_binding_evidence_ids": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "uniqueItems": true
+                        },
+                        "complete": {
+                          "type": "boolean"
+                        },
+                        "unknown_reason": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "helper_bindings": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "target",
+                              "call_id",
+                              "arguments",
+                              "evidence_ids"
+                            ],
+                            "additionalProperties": false,
+                            "properties": {
+                              "target": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "call_id": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "arguments": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": [
+                                    "argument_index",
+                                    "token_kind",
+                                    "token_value",
+                                    "condition",
+                                    "evidence_ids"
+                                  ],
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "argument_index": {
+                                      "type": "integer",
+                                      "minimum": 0
+                                    },
+                                    "token_kind": {
+                                      "enum": [
+                                        "boolean_literal",
+                                        "condition",
+                                        "not_condition",
+                                        "unknown"
+                                      ]
+                                    },
+                                    "token_value": {
+                                      "type": [
+                                        "boolean",
+                                        "null"
+                                      ]
+                                    },
+                                    "condition": {
+                                      "oneOf": [
+                                        {
+                                          "type": "object",
+                                          "required": [
+                                            "kind",
+                                            "owner",
+                                            "name"
+                                          ],
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "kind": {
+                                              "enum": [
+                                                "parameter",
+                                                "member"
+                                              ]
+                                            },
+                                            "owner": {
+                                              "type": "string",
+                                              "minLength": 1
+                                            },
+                                            "name": {
+                                              "type": "string",
+                                              "minLength": 1
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "evidence_ids": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      },
+                                      "uniqueItems": true
+                                    }
+                                  }
+                                }
+                              },
+                              "evidence_ids": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "uniqueItems": true
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
                   },
                   "call_arguments": {
                     "oneOf": [
@@ -266,47 +493,57 @@
                       }
                     ]
                   }
-                },
-                "allOf": [
-                  {
-                    "if": {
-                      "properties": {
-                        "call_binding": {
-                          "type": "null"
-                        }
-                      },
-                      "required": [
-                        "call_binding"
-                      ]
-                    },
-                    "then": {
-                      "properties": {
-                        "call_arguments": {
-                          "type": "null"
-                        }
-                      }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "data": {
+                  "properties": {
+                    "call_binding": {
+                      "type": "null"
                     }
                   },
-                  {
-                    "if": {
-                      "properties": {
-                        "call_binding": {
-                          "type": "object"
-                        }
-                      },
-                      "required": [
-                        "call_binding"
-                      ]
-                    },
-                    "then": {
-                      "properties": {
-                        "call_arguments": {
-                          "type": "array"
-                        }
-                      }
+                  "required": [
+                    "call_binding"
+                  ]
+                }
+              },
+              "required": [
+                "data"
+              ]
+            },
+            "then": {
+              "properties": {
+                "data": {
+                  "properties": {
+                    "call_arguments": {
+                      "type": "null"
                     }
-                  }
-                ]
+                  },
+                  "required": [
+                    "call_arguments"
+                  ]
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "data": {
+                  "properties": {
+                    "call_arguments": {
+                      "type": [
+                        "array",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "call_arguments"
+                  ]
+                }
               }
             }
           }
@@ -317,7 +554,7 @@
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/typing_signals"
     },
     "constructs": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/constructs"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.4.0#/properties/constructs"
     },
     "contexts": {
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/contexts"
@@ -341,7 +578,248 @@
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/bindings"
     },
     "references": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/references"
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "data": {
+                "type": "object",
+                "required": [
+                  "source_scope",
+                  "source_module",
+                  "expression",
+                  "status",
+                  "targets",
+                  "use"
+                ],
+                "dependentRequired": {
+                  "declaration_scope": [
+                    "declaration_definition_id"
+                  ],
+                  "declaration_definition_id": [
+                    "declaration_scope"
+                  ]
+                },
+                "properties": {
+                  "declaration_scope": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "declaration_definition_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "source_scope": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "source_definition_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1
+                  },
+                  "source_module": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "expression": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "resolved",
+                      "partially_resolved"
+                    ]
+                  },
+                  "targets": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "use": {
+                    "enum": [
+                      "value",
+                      "attribute",
+                      "source_role"
+                    ]
+                  },
+                  "reference_context": {
+                    "enum": [
+                      "value",
+                      "annotation",
+                      "unknown"
+                    ]
+                  },
+                  "role": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "canonical_name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "declaration_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "declaration_owner_scope": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "declaration_owner_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "line": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "column": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "end_line": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "end_column": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "parameter": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "expression_kind": {
+                    "enum": [
+                      "literal",
+                      "reference",
+                      "unsupported"
+                    ]
+                  },
+                  "constant": {
+                    "type": [
+                      "string",
+                      "number",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "transfer_kind": {
+                    "enum": [
+                      "dictionary_value",
+                      "dictionary_lambda_call",
+                      "unsupported_dictionary_value"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "data"
+            ]
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "value_reference",
+                    "attribute_reference"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "data": {
+                  "required": [
+                    "reference_context"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "source_role"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "data": {
+                  "required": [
+                    "role",
+                    "canonical_name",
+                    "declaration_id"
+                  ],
+                  "properties": {
+                    "use": {
+                      "const": "source_role"
+                    },
+                    "role": {
+                      "enum": [
+                        "definition",
+                        "read",
+                        "write",
+                        "delete",
+                        "value_transfer",
+                        "parameter_default",
+                        "fallback"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "data": {
+                  "properties": {
+                    "targets": {
+                      "minItems": 1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
     },
     "runtime": {
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/runtime"
@@ -352,6 +830,6 @@
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/allOf/0"
     }
   ],
-  "title": "Python ArchitectureIR 2.9.0, decoded observation profile",
+  "title": "ArchitectureIR Python 2.9.0, decoded observation profile",
   "$comment": "AD-241. Versioned call ownership evidence. Reuse unchanged historical constraints without widening published resources. Register all bundled schemas by $id for offline validation."
 }

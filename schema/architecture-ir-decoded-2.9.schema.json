@@ -80,7 +80,7 @@
       "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/cycles"
     },
     "calls": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.5.0#/properties/calls"
+      "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/calls"
     },
     "typing_signals": {
       "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/typing_signals"
@@ -195,7 +195,10 @@
       "then": {
         "properties": {
           "calls": {
-            "$ref": "urn:archkeel:architecture-ir:python-decoded:2.5.0#/properties/calls"
+            "$ref": "urn:archkeel:architecture-ir:python-decoded:2.9.0#/properties/calls"
+          },
+          "symbols": {
+            "$ref": "urn:archkeel:architecture-ir:python-decoded:2.9.0#/properties/symbols"
           }
         }
       }
@@ -254,6 +257,6 @@
       ]
     }
   },
-  "title": "ArchitectureIR 2.5.0, decoded observation profiles",
+  "title": "ArchitectureIR 2.9.0, decoded observation profiles",
   "$comment": "AD-241. Versioned call ownership evidence. Reuse unchanged historical constraints without widening published resources. Register all bundled schemas by $id for offline validation."
 }
