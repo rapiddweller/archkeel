@@ -148,118 +148,165 @@
                         "type": "null"
                       },
                       {
-                        "$ref": "https://archkeel.dev/schema/source-facts/4.0.0#/$defs/CallBinding"
+                        "$ref": "https://archkeel.dev/schema/source-facts/5.0.0#/$defs/CallBinding"
                       }
                     ]
                   },
                   "call_arguments": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "required": [
-                        "kind",
-                        "keyword",
-                        "value_kind",
-                        "evidence_ids",
-                        "value"
-                      ],
-                      "additionalProperties": false,
-                      "properties": {
-                        "kind": {
-                          "enum": [
-                            "positional",
-                            "keyword",
-                            "starred_positional",
-                            "starred_keyword"
-                          ]
-                        },
-                        "keyword": {
-                          "type": [
-                            "string",
-                            "null"
-                          ],
-                          "minLength": 1
-                        },
-                        "value_kind": {
-                          "enum": [
-                            "string_literal",
-                            "other"
-                          ]
-                        },
-                        "evidence_ids": {
-                          "type": "array",
-                          "minItems": 1,
-                          "uniqueItems": true,
-                          "items": {
-                            "type": "string",
-                            "minLength": 1
-                          }
-                        },
-                        "value": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        }
+                    "oneOf": [
+                      {
+                        "type": "null"
                       },
-                      "allOf": [
-                        {
-                          "if": {
-                            "properties": {
-                              "kind": {
-                                "const": "keyword"
-                              }
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "keyword",
+                            "value_kind",
+                            "evidence_ids",
+                            "value"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "enum": [
+                                "positional",
+                                "keyword",
+                                "starred_positional",
+                                "starred_keyword"
+                              ]
                             },
-                            "required": [
-                              "kind"
-                            ]
-                          },
-                          "then": {
-                            "properties": {
-                              "keyword": {
+                            "keyword": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "minLength": 1
+                            },
+                            "value_kind": {
+                              "enum": [
+                                "string_literal",
+                                "other"
+                              ]
+                            },
+                            "evidence_ids": {
+                              "type": "array",
+                              "minItems": 1,
+                              "uniqueItems": true,
+                              "items": {
                                 "type": "string",
                                 "minLength": 1
                               }
+                            },
+                            "value": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
-                          "else": {
-                            "properties": {
-                              "keyword": {
-                                "type": "null"
-                              }
-                            }
-                          }
-                        },
-                        {
-                          "if": {
-                            "properties": {
-                              "value_kind": {
-                                "const": "string_literal"
+                          "allOf": [
+                            {
+                              "if": {
+                                "properties": {
+                                  "kind": {
+                                    "const": "keyword"
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ]
+                              },
+                              "then": {
+                                "properties": {
+                                  "keyword": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                }
+                              },
+                              "else": {
+                                "properties": {
+                                  "keyword": {
+                                    "type": "null"
+                                  }
+                                }
                               }
                             },
-                            "required": [
-                              "value_kind"
-                            ]
-                          },
-                          "then": {
-                            "properties": {
-                              "value": {
-                                "type": "string"
+                            {
+                              "if": {
+                                "properties": {
+                                  "value_kind": {
+                                    "const": "string_literal"
+                                  }
+                                },
+                                "required": [
+                                  "value_kind"
+                                ]
+                              },
+                              "then": {
+                                "properties": {
+                                  "value": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "else": {
+                                "properties": {
+                                  "value": {
+                                    "type": "null"
+                                  }
+                                }
                               }
                             }
-                          },
-                          "else": {
-                            "properties": {
-                              "value": {
-                                "type": "null"
-                              }
-                            }
-                          }
+                          ]
                         }
+                      }
+                    ]
+                  }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "call_binding": {
+                          "type": "null"
+                        }
+                      },
+                      "required": [
+                        "call_binding"
                       ]
+                    },
+                    "then": {
+                      "properties": {
+                        "call_arguments": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "call_binding": {
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "call_binding"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "call_arguments": {
+                          "type": "array"
+                        }
+                      }
                     }
                   }
-                }
+                ]
               }
             }
           }

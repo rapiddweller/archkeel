@@ -102,6 +102,7 @@ _PUBLIC_ENTRY = re.compile(
 
 
 _PACKAGE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$")
+_MODULE_SYMBOL = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+$")
 
 
 class ContractVersionError(ValueError):
@@ -1492,8 +1493,10 @@ def _parse_protocol_declarations(raw: RawJson, label: str) -> ProtocolDeclaratio
     )
     source = _nonempty(item["source"], f"{label}.source")
     protocol = _nonempty(item["protocol"], f"{label}.protocol")
-    if _PACKAGE_NAME.fullmatch(source) is None or _PACKAGE_NAME.fullmatch(protocol) is None:
-        raise ValueError(f"{label}.source and {label}.protocol must be dotted source identities")
+    if _PACKAGE_NAME.fullmatch(source) is None:
+        raise ValueError(f"{label}.source must be a dotted source identity")
+    if _MODULE_SYMBOL.fullmatch(protocol) is None:
+        raise ValueError(f"{label}.protocol must be a canonical module.symbol")
     raw_selectors = item["selectors"]
     if not isinstance(raw_selectors, list) or not raw_selectors:
         raise ValueError(f"{label}.selectors must be a nonempty array")

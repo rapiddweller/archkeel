@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Build typed report results and canonical observation bytes."""
 
+import ast
 import subprocess
 from collections import Counter as _Counter
 from dataclasses import replace
@@ -768,6 +769,7 @@ def _saved_annotation_target(
     spelling: str,
     imports: tuple[Record, ...],
     declarations: dict[str, list[Record]],
+    evidence: dict[str, Evidence],
 ) -> str | None:
     module = owner.data.get("module")
     if not isinstance(module, str) or not spelling:
@@ -778,23 +780,43 @@ def _saved_annotation_target(
         for record in imports
         if record.data.get("source_module") == module
         and record.data.get("binding") == root
-        and record.data.get("module_level_import") is True
         and record.data.get("under_type_checking") is False
+        and _saved_top_level_import(record, root, evidence)
     ]
     if len(imported) == 1:
-        target_module = imported[0].data.get("target_module")
+        import_data = imported[0].data
+        target_module = import_data.get("target_module")
         imported_symbol = imported[0].data.get("symbol")
         if not isinstance(target_module, str):
             return None
-        candidates = (
+        candidates = [
             ".".join(
-                part for part in (target_module, imported_symbol, suffix) if isinstance(part, str)
-            ),
+                part
+                for part in (target_module, imported_symbol, suffix)
+                if isinstance(part, str) and part
+            )
+        ]
+        origin = import_data.get("origin_definition")
+        route = import_data.get("reexport_chain")
+        routed_origin = (
+            isinstance(route, tuple | list)
+            and bool(route)
+            and route[-1] == origin
+            and not import_data.get("reexport_candidates")
         )
+        if (
+            isinstance(imported_symbol, str)
+            and isinstance(origin, str)
+            and (import_data.get("origin_binding_unique") is True or routed_origin)
+            and import_data.get("reexport_candidate") is not True
+        ):
+            candidate = ".".join(part for part in (origin, suffix) if part)
+            if candidate not in candidates:
+                candidates.append(candidate)
     elif imported:
         return None
     else:
-        candidates = (f"{module}.{spelling}",)
+        candidates = [f"{module}.{spelling}"]
     matches = [
         target
         for candidate in candidates
@@ -804,6 +826,39 @@ def _saved_annotation_target(
         and declarations[target][0].data.get("source_binding_unique") is True
     ]
     return matches[0] if len(matches) == 1 else None
+
+
+def _saved_top_level_import(record: Record, binding: str, evidence: dict[str, Evidence]) -> bool:
+    if (
+        record.data.get("source_binding_unique") is not True
+        or record.data.get("symbols_known") is not True
+    ):
+        return False
+    symbol = record.data.get("symbol")
+    for identifier in record.evidence_ids:
+        item = evidence.get(identifier)
+        if item is None or item.column != 0:
+            continue
+        try:
+            statements = ast.parse(item.excerpt).body
+        except (IndentationError, SyntaxError, ValueError, RecursionError):
+            continue
+        if len(statements) != 1:
+            continue
+        statement = statements[0]
+        if isinstance(statement, ast.ImportFrom):
+            if isinstance(symbol, str) and any(
+                alias.name == symbol and (alias.asname or alias.name) == binding
+                for alias in statement.names
+            ):
+                return True
+        elif isinstance(statement, ast.Import) and symbol is None:
+            if any(
+                (alias.asname or alias.name.partition(".")[0]) == binding
+                for alias in statement.names
+            ):
+                return True
+    return False
 
 
 def _saved_selector_direct(
@@ -836,6 +891,7 @@ def _saved_selector_declared(
     declarations: dict[str, list[Record]],
     targets: list[Record],
     imports: tuple[Record, ...],
+    evidence: dict[str, Evidence],
 ) -> None:
     owner_name = selector.data.get("owner")
     owners = declarations.get(owner_name, []) if isinstance(owner_name, str) else []
@@ -851,7 +907,7 @@ def _saved_selector_declared(
     )
     annotation = candidates[0].get("annotation") if len(candidates) == 1 else None
     target = (
-        _saved_annotation_target(owners[0], annotation, imports, declarations)
+        _saved_annotation_target(owners[0], annotation, imports, declarations, evidence)
         if (len(owners) == 1 and isinstance(annotation, str))
         else None
     )
@@ -861,8 +917,9 @@ def _saved_selector_declared(
         or len(candidates) != 1
         or target != binding.target
         or len(targets) != 1
+        or targets[0].kind != "class"
+        or targets[0].data.get("source_binding_unique") is not True
         or not set(owners[0].evidence_ids) <= set(binding.evidence_ids)
-        or not set(targets[0].evidence_ids) <= set(binding.evidence_ids)
     ):
         raise ValueError("saved selector receiver is not tied to its declared parameter type")
 
@@ -872,6 +929,7 @@ def _saved_selector_stored(
     declarations: dict[str, list[Record]],
     targets: list[Record],
     imports: tuple[Record, ...],
+    evidence: dict[str, Evidence],
 ) -> None:
     proof = binding.proof
     if not isinstance(proof, RecordData):
@@ -913,7 +971,7 @@ def _saved_selector_stored(
     )
     annotation = typed[0].get("annotation") if len(typed) == 1 else None
     target = (
-        _saved_annotation_target(initializers[0], annotation, imports, declarations)
+        _saved_annotation_target(initializers[0], annotation, imports, declarations, evidence)
         if (len(initializers) == 1 and isinstance(annotation, str))
         else None
     )
@@ -1058,10 +1116,12 @@ def _validate_saved_selector_receivers(model: Observation) -> None:
         if binding.origin is CallBindingOrigin.DIRECT:
             _saved_selector_direct(binding, parameter, targets, imports)
         elif binding.origin is CallBindingOrigin.STORED_RECEIVER:
-            _saved_selector_stored(binding, declarations, targets, imports)
+            _saved_selector_stored(binding, declarations, targets, imports, evidence)
         elif binding.origin is CallBindingOrigin.CONSTRUCTED_RECEIVER:
             _saved_selector_constructed(model, selector, binding, targets, evidence)
         elif binding.origin is CallBindingOrigin.DECLARED_RECEIVER:
-            _saved_selector_declared(selector, binding, parameter, declarations, targets, imports)
+            _saved_selector_declared(
+                selector, binding, parameter, declarations, targets, imports, evidence
+            )
         else:
             raise ValueError("saved selector receiver origin is unsupported")

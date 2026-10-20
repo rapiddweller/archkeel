@@ -475,6 +475,10 @@ def _update_contract_schema(path: Path) -> None:
             "type": "string",
             "pattern": r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*(?![\s\S])",
         }
+        module_symbol = {
+            "type": "string",
+            "pattern": r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+(?![\s\S])",
+        }
         schema["$defs"]["protocolDeclarationSelector"] = {
             "type": "object",
             "required": ["role", "name", "visibility"],
@@ -503,11 +507,11 @@ def _update_contract_schema(path: Path) -> None:
                 "id": {"$ref": "#/$defs/nonEmpty"},
                 "kind": {"const": "protocol_declarations"},
                 "source": dotted_identifier,
-                "protocol": dotted_identifier,
+                "protocol": module_symbol,
                 "selectors": {
                     "type": "array",
                     "minItems": 1,
-                    "uniqueItems": True,
+                    "description": "Unique role/name pairs are enforced by the contract reader.",
                     "items": {"$ref": "#/$defs/protocolDeclarationSelector"},
                 },
                 "rationale": {"$ref": "#/$defs/nonEmpty"},

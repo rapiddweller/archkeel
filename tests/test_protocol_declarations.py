@@ -23,6 +23,7 @@ from archkeel.ir.codec import (
     parse_observation,
 )
 from archkeel.ir.decisions import rule_assessments
+from archkeel.ir.model import SCHEMA_VERSION
 from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
@@ -66,6 +67,69 @@ def test_protocol_declaration_rule_has_typed_round_trip() -> None:
     assert rule.protocol == "sample.core.Reader"
     assert [selector.role for selector in rule.selectors] == ["parameter", "member"]
     assert parse_contract(json.loads(contract_bytes(contract))) == contract
+
+
+def test_protocol_identity_requires_a_qualified_symbol_in_reader_and_schema() -> None:
+    raw = _contract()
+    raw["rules"][0]["protocol"] = "Reader"
+    schema = json.loads((ROOT / "schema/architecture-contract-3.9.schema.json").read_bytes())
+    assert list(Draft202012Validator(schema).iter_errors(raw))
+    with pytest.raises(ValueError, match="protocol must be a canonical module.symbol"):
+        parse_contract(raw)
+
+
+def test_protocol_selector_identity_duplicates_are_reader_semantics() -> None:
+    schema = json.loads((ROOT / "schema/architecture-contract-3.9.schema.json").read_bytes())
+    validator = Draft202012Validator(schema)
+    selector = {"role": "member", "name": "reader", "visibility": "public"}
+    for duplicate in (selector.copy(), {**selector, "visibility": "all", "optional": True}):
+        raw = _contract()
+        raw["rules"][0]["selectors"] = [selector, duplicate]
+        assert not list(validator.iter_errors(raw))
+        with pytest.raises(ValueError, match="must not repeat a role and name"):
+            parse_contract(raw)
+
+
+@pytest.mark.parametrize("role", ["parameter", "member"])
+@pytest.mark.parametrize(
+    "annotation,status", [(None, "UNKNOWN"), ("Reader", "PASS"), ("Concrete", "FAIL")]
+)
+@pytest.mark.parametrize("columnar", [False, True])
+def test_local_definitions_do_not_count_as_api_declarations(
+    tmp_path: Path, role: str, annotation: str | None, status: str, columnar: bool
+) -> None:
+    from archkeel.ir.decisions import unknown_positions_by_rule
+
+    raw = _contract()
+    raw["rules"][0]["selectors"] = [
+        {"role": role, "name": "client" if role == "parameter" else "reader", "visibility": "all"}
+    ]
+    (tmp_path / "contract.json").write_text(json.dumps(raw))
+    (tmp_path / "sample").mkdir()
+    source = (
+        "from typing import Protocol\n"
+        "class Reader(Protocol): ...\nclass Concrete: pass\n"
+        "def outer():\n"
+        "    def local(client: Concrete): pass\n"
+        "    class Local:\n        reader: Concrete\n"
+    )
+    if annotation is not None:
+        source += (
+            f"def consume(client: {annotation}): pass\n"
+            if role == "parameter"
+            else f"class Holder:\n    reader: {annotation}\n"
+        )
+    (tmp_path / "sample/core.py").write_text(source)
+    result = _observe(tmp_path)
+    assert not result.diagnostics and result.observation is not None
+    rows = rule_assessments(
+        result.observation, undecided_by_rule=unknown_positions_by_rule(result.observation)
+    )
+    assert rows[0].status.value == status
+    payload = observation_payload(result.observation)
+    saved = tmp_path / "local.json"
+    saved.write_text(json.dumps(encode_canonical_model(payload) if columnar else payload))
+    assert run_saved_report(saved).rule_assessments == rows
 
 
 @pytest.mark.parametrize("annotation,status", [("Reader", "UNKNOWN"), ("Concrete", "FAIL")])
@@ -441,7 +505,8 @@ def test_legacy_reports_reject_all_protocol_vocabulary(
             profile = "python-decoded" if boundary == "python_schema" else "decoded"
             payload = observation_payload(observation)
             current = Draft202012Validator(
-                {"$ref": f"urn:archkeel:architecture-ir:{profile}:2.3.0"}, registry=registry
+                {"$ref": f"urn:archkeel:architecture-ir:{profile}:{SCHEMA_VERSION}"},
+                registry=registry,
             )
             assert not list(current.iter_errors(payload))
             payload["schema_version"] = version
@@ -494,6 +559,51 @@ def test_valid_parameter_and_member_declarations_are_proven_on_saved_replay(
         parse_observation(legacy)
     saved = tmp_path / "saved-report.json"
     saved.write_text(json.dumps(encode_canonical_model(report) if columnar else report))
+    [replayed] = [
+        item
+        for item in (run_saved_report(saved).rule_assessments or ())
+        if item.id == "APP-READER-DECLARATIONS"
+    ]
+    assert replayed == row
+
+
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize(
+    ("member_body", "expected"),
+    [
+        ("reader: Reader\n    reader = Concrete()", "UNKNOWN"),
+        ("reader: Concrete\n    reader: Reader", "UNKNOWN"),
+        ("reader = Concrete()", "FAIL"),
+    ],
+)
+def test_rebound_member_declarations_cannot_replay_a_stale_protocol_pass(
+    tmp_path: Path, columnar: bool, member_body: str, expected: str
+) -> None:
+    from archkeel.ir.decisions import unknown_positions_by_rule
+
+    raw = _contract()
+    raw["components"][0]["packages"] = ["sample"]
+    raw["rules"][0]["source"] = "sample"
+    raw["rules"][0]["selectors"] = [{"role": "member", "name": "reader", "visibility": "public"}]
+    (tmp_path / "contract.json").write_text(json.dumps(raw))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "from typing import Protocol\n"
+        "class Reader(Protocol): ...\n"
+        "class Concrete: pass\n"
+        f"class Holder:\n    {member_body}\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    rows = rule_assessments(
+        result.observation,
+        undecided_by_rule=unknown_positions_by_rule(result.observation),
+    )
+    [row] = [item for item in rows if item.id == "APP-READER-DECLARATIONS"]
+    assert row.status.value == expected
+    payload = observation_payload(result.observation)
+    saved = tmp_path / "rebound.json"
+    saved.write_text(json.dumps(encode_canonical_model(payload) if columnar else payload))
     [replayed] = [
         item
         for item in (run_saved_report(saved).rule_assessments or ())

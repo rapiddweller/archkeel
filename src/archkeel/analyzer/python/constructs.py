@@ -72,10 +72,8 @@ def _numeric_indented_excerpt(
     excerpt: str, indentation: str, *, synthetic_body: bool
 ) -> tuple[tuple[ast.stmt, ...], int] | None:
     unit = "\t" if "\t" in indentation else "    "
-    if len(indentation) % len(unit):
-        return None
-    depth = len(indentation) // len(unit)
-    wrappers = "".join(f"{unit * level}if True:\n" for level in range(depth))
+    depth = 1 if indentation else 0
+    wrappers = "if True:\n" if indentation else ""
     suffix = f"\n{indentation}{unit}pass" if synthetic_body else ""
     try:
         parsed = ast.parse(wrappers + excerpt + suffix)
@@ -111,35 +109,23 @@ def _numeric_header_has_synthetic_body(node: ast.stmt) -> bool:
 def _numeric_elif_excerpt_supported(excerpt: str) -> bool:
     indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
     unit = "\t" if "\t" in indentation else "    "
-    if not indentation or len(indentation) % len(unit):
-        return False
-    depth = len(indentation) // len(unit)
-    wrappers = "".join(f"{unit * level}if True:\n" for level in range(depth))
-    source = (
-        f"{wrappers}{indentation}if True:\n{indentation}{unit}pass\n"
-        f"{excerpt}\n{indentation}{unit}pass"
-    )
-    try:
-        parsed = ast.parse(source)
-    except (IndentationError, SyntaxError, ValueError, RecursionError):
-        return False
-    if len(parsed.body) != 1 or not isinstance(parsed.body[0], ast.If):
-        return False
-    roots = tuple(parsed.body)
-    for _ in range(depth):
+    source = f"{indentation}if True:\n{indentation}{unit}pass\n{excerpt}"
+    for synthetic_body in (False, True):
+        parsed = _numeric_indented_excerpt(source, indentation, synthetic_body=synthetic_body)
+        if parsed is None:
+            continue
+        roots, _depth = parsed
         if len(roots) != 1 or not isinstance(roots[0], ast.If):
             return False
-        roots = tuple(roots[0].body)
-    if len(roots) != 1 or not isinstance(roots[0], ast.If):
-        return False
-    preceding = roots[0]
-    return (
-        len(preceding.body) == 1
-        and isinstance(preceding.body[0], ast.Pass)
-        and len(preceding.orelse) == 1
-        and isinstance(preceding.orelse[0], ast.If)
-        and _numeric_header_has_synthetic_body(preceding.orelse[0])
-    )
+        preceding = roots[0]
+        if len(preceding.body) != 1 or not isinstance(preceding.body[0], ast.Pass):
+            return False
+        if len(preceding.orelse) != 1 or not isinstance(preceding.orelse[0], ast.If):
+            return False
+        alternate = preceding.orelse[0]
+        if not synthetic_body or _numeric_header_has_synthetic_body(alternate):
+            return True
+    return False
 
 
 class _StringPredicate(Enum):
@@ -727,7 +713,7 @@ class ConstructCollector(ast.NodeVisitor):
             ]
             if name in stable_direct_module_bindings(self.module) and len(matches) == 1:
                 assignment = matches[0]
-        elif owner is not None and owner is self.scopes.by_node.get(use):
+        elif owner is not None:
             sites = owner.bindings.get(name, [])
             if len(sites) == 1:
                 candidate = self.scopes.parents.get(sites[0])
@@ -849,10 +835,8 @@ class ConstructCollector(ast.NodeVisitor):
         return self.receiver_types[-1].get(node.id)
 
     def _parameter_receiver(self, node: ast.expr) -> bool:
-        return (
-            isinstance(node, ast.Name)
-            and bool(self.parameter_receivers)
-            and node.id in self.parameter_receivers[-1]
+        return isinstance(node, ast.Name) and any(
+            node.id in frame for frame in self.parameter_receivers
         )
 
     def _receiver_binding(
@@ -860,34 +844,35 @@ class ConstructCollector(ast.NodeVisitor):
     ) -> tuple[str | None, dict[str, object] | None, str | None, list[str]]:
         if expression is None:
             return None, None, None, []
-        declared = (
-            self.parameter_annotations[-1].get(expression.id)
-            if isinstance(expression, ast.Name) and self.parameter_annotations
-            else None
-        )
-        if declared is not None:
-            target, annotation = declared
-            annotation_evidence = add_evidence(self.evidence, self.module, annotation)
-            support_evidence = [annotation_evidence]
-            if self.symbol_index is not None:
-                for qualified_name in (self.scope_stack[-1], target):
-                    declaration = self.symbol_index.binding_declarations.get(qualified_name)
-                    if (
-                        declaration is not None
-                        and declaration["data"].get("module") == self.module.module
-                    ):
-                        support_evidence.extend(declaration["evidence_ids"])
-            support_evidence = sorted(set(support_evidence))
-            return (
-                target,
-                {
-                    "origin": CallBindingOrigin.DECLARED_RECEIVER.value,
-                    "target": target,
-                    "evidence_ids": support_evidence,
-                },
-                expression.id,
-                support_evidence,
+        if isinstance(expression, ast.Name):
+            declared = (
+                self.parameter_annotations[-1].get(expression.id)
+                if self.parameter_annotations
+                else None
             )
+            if declared is not None:
+                target, annotation = declared
+                annotation_evidence = add_evidence(self.evidence, self.module, annotation)
+                support_evidence = [annotation_evidence]
+                if self.symbol_index is not None:
+                    for qualified_name in (self.scope_stack[-1], target):
+                        declaration = self.symbol_index.binding_declarations.get(qualified_name)
+                        if (
+                            declaration is not None
+                            and declaration["data"].get("module") == self.module.module
+                        ):
+                            support_evidence.extend(declaration["evidence_ids"])
+                support_evidence = sorted(set(support_evidence))
+                return (
+                    target,
+                    {
+                        "origin": CallBindingOrigin.DECLARED_RECEIVER.value,
+                        "target": target,
+                        "evidence_ids": support_evidence,
+                    },
+                    expression.id,
+                    support_evidence,
+                )
         if self.call_collector is None:
             return self._receiver_type(expression), None, None, []
         call_site = use if isinstance(use, ast.Call) else expression
@@ -1084,6 +1069,17 @@ class ConstructCollector(ast.NodeVisitor):
             root = root.value
         if not isinstance(root, ast.Name):
             return []
+        if role == "type_probe":
+            direct_targets = {
+                f"{item['data'].get('target_module')}.{item['data'].get('symbol')}"
+                for item in self.imports
+                if item["data"].get("source_module") == self.module.module
+                and item["data"].get("binding") == root.id
+                and isinstance(item["data"].get("target_module"), str)
+                and isinstance(item["data"].get("symbol"), str)
+            }
+            if target not in direct_targets:
+                return []
         matches = [
             item
             for item in self.imports
@@ -1301,7 +1297,7 @@ class ConstructCollector(ast.NodeVisitor):
         if node.attr == "__dict__" and not outer_of_chain:
             self._record(node, kind="dunder_dict", construct="dunder_dict", handled=None)
         receiver = self._receiver_type(node.value)
-        if receiver is not None:
+        if receiver is not None or self._parameter_receiver(node.value):
             parent = self.parents.get(node)
             operation = (
                 "call"

@@ -445,7 +445,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
     type_shapes = collect_type_shapes(symbol_type_expressions(symbols))
     symbol_index = build_symbol_index(symbols)
     calls, call_resolvers = collect_calls_with_resolvers(
-        modules, symbol_index, evidence, provider_bindings, runtime
+        modules, symbol_index, evidence, provider_bindings, runtime, imports
     )
     dynamic_imports, dynamic_limits = collect_dynamic_imports(
         modules, calls, imports, evidence, namespace=request.scope.namespace
