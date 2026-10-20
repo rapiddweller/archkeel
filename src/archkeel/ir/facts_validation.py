@@ -224,6 +224,44 @@ def _signature_origin(
     return ".".join(part for part in (target, symbol, suffix) if part)
 
 
+def _annotation_class_origin(
+    initializer: Record,
+    parameter: RecordData,
+    facts: SourceFacts,
+    declarations: Mapping[str, list[Record]],
+) -> str | None:
+    annotation = parameter.get("annotation")
+    module = initializer.data.get("module")
+    if not isinstance(annotation, str) or not annotation or not isinstance(module, str):
+        return None
+    records = [record for section in facts.sections for record in section.records]
+    imported = _signature_origin(initializer.data, annotation, records, facts)
+    candidates = (imported,) if imported is not None else (f"{module}.{annotation}",)
+    matches = [
+        target
+        for target in candidates
+        if target is not None
+        and len(declarations.get(target, ())) == 1
+        and declarations[target][0].kind == "class"
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _provider_source_module(path: str) -> str | None:
+    prefix = ".archkeel-providers/"
+    if not path.startswith(prefix):
+        return None
+    relative = path[len(prefix) :]
+    if relative.endswith("/__init__.py"):
+        relative = relative[: -len("/__init__.py")]
+    elif relative.endswith(".py"):
+        relative = relative[:-3]
+    else:
+        return None
+    module = relative.replace("/", ".")
+    return module if all(part.isidentifier() for part in module.split(".")) else None
+
+
 def _signature_terminal(name: str, bindings: dict[str, ProviderBinding]) -> ProviderBinding | None:
     seen: set[str] = set()
     while name not in seen:
@@ -484,8 +522,6 @@ def _call_declaration(
     return target
 
 
-
-
 def _numeric_operand_alias(item: RecordData, evidence_ids: tuple[str, ...]) -> None:
     span_names = ("line", "column", "end_line", "end_column")
     origin_fields = {key for key, _ in item.entries}
@@ -588,6 +624,7 @@ def _numeric_operand_record(record: Record, fields: set[str]) -> tuple[str, ...]
     if data.get("proof") == "unknown" and derivation:
         raise ValueError("invalid numeric operand source proof")
     return required
+
 
 def _native_call_witness(facts: SourceFacts, binding: CallBinding) -> None:
     """Require a canonical import and captured provider/runtime witness for native calls."""
@@ -1028,7 +1065,6 @@ def _ends_with(value: str, suffix: str) -> bool:
     return len(value) >= length and value[len(value) - length :] == suffix
 
 
-
 def _source_record(record: Record, section: SourceSectionName) -> None:
     if record.evidence_class not in (EvidenceClass.FACT, EvidenceClass.UNKNOWN):
         raise ValueError("source records cannot carry governance decisions")
@@ -1350,7 +1386,14 @@ def validate_source_facts(facts: SourceFacts) -> None:
         parts = qualified_name.rpartition(".")
         module: str = qualified_name if binding.kind is ProviderBindingKind.MODULE else parts[0]
         name: str = parts[2]
-        stem = ".archkeel-providers/" + module.replace(".", "/")
+        source_module = _provider_source_module(evidence.file) if evidence is not None else None
+        source_matches = (
+            source_module == qualified_name
+            if binding.kind is ProviderBindingKind.MODULE
+            else qualified_name.startswith(source_module + ".")
+            if binding.kind is not ProviderBindingKind.ALIAS and source_module is not None
+            else module == source_module
+        )
         if (
             binding.kind is ProviderBindingKind.ALIAS
             and (
@@ -1375,7 +1418,8 @@ def validate_source_facts(facts: SourceFacts) -> None:
             or not name.isidentifier()
             or module in {item.module for item in facts.files}
             or evidence is None
-            or evidence.file not in {stem + ".py", stem + "/__init__.py"}
+            or source_module is None
+            or not source_matches
             or evidence.file not in input_by_path
             or input_by_path[evidence.file].role is not _ResolutionRole.RESOLUTION
         ):
@@ -1479,6 +1523,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
             if symbol.kind in {"class", "function", "method"} and isinstance(symbol_name, str):
                 symbol_declarations: list[Record] = declarations.setdefault(symbol_name, [])
                 symbol_declarations.append(symbol)
+    typed_evidence = {item.id: item for item in facts.evidence}
     for section in facts.sections:
         if section.name is not SourceSectionName.CALLS:
             continue
@@ -1498,8 +1543,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
                     CallBindingOrigin.NATIVE,
                     CallBindingOrigin.NATIVE_RECEIVER,
                 }
-                and EXTENDED_CALL_BINDINGS_FEATURE
-                not in facts.capabilities.resolution_features
+                and EXTENDED_CALL_BINDINGS_FEATURE not in facts.capabilities.resolution_features
             ):
                 raise ValueError("extended call binding needs its declared capability")
             if call_proof is not None and (
@@ -1519,6 +1563,8 @@ def validate_source_facts(facts: SourceFacts) -> None:
                 )
             ):
                 raise ValueError("call binding disagrees with its target declaration")
+            if call_proof is not None:
+                _call_origin_proof(facts, record, call_proof, declarations, typed_evidence)
     record_by_id = {record.id: record for record in records}
     effects = [record for record in records if record.kind == "script_namespace_effect"]
     effect_gaps = [

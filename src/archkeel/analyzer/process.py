@@ -19,7 +19,6 @@ from threading import TIMEOUT_MAX, Thread
 from typing import BinaryIO
 
 from archkeel.ir.facts import (
-    NATIVE_CALL_TARGETS,
     Language,
     ProviderBindingKind,
     ResolutionRole,
@@ -283,14 +282,14 @@ def _requested_facts(facts: SourceFacts, request: CollectionRequest) -> None:
             continue
         source = providers_by_path.get(evidence[binding.evidence_id].file)
         qualified_name: str = binding.qualified_name
-        module = (
-            qualified_name
+        source_matches = source is not None and (
+            qualified_name == source.module
             if binding.kind is ProviderBindingKind.MODULE
-            else qualified_name.split(".", 1)[0]
-            if qualified_name in NATIVE_CALL_TARGETS and qualified_name.count(".") > 1
-            else qualified_name.rpartition(".")[0]
+            else qualified_name.rpartition(".")[0] == source.module
+            if binding.kind is ProviderBindingKind.ALIAS
+            else qualified_name.startswith(source.module + ".")
         )
-        if source is None or module != source.module:
+        if not source_matches:
             raise ProtocolError("collector provider binding disagrees with requested source")
 
 

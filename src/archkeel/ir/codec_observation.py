@@ -237,9 +237,7 @@ def _validate_versioned_records(
                         and binding.origin
                         not in {CallBindingOrigin.DIRECT, CallBindingOrigin.DECLARED_RECEIVER}
                     ):
-                        raise ValueError(
-                            "extended call bindings require observation schema 2.4.0"
-                        )
+                        raise ValueError("extended call bindings require observation schema 2.4.0")
     if schema_version in {
         _ObservationVersion.V1_2,
         _ObservationVersion.V1_3,
