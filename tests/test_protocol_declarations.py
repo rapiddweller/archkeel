@@ -300,6 +300,35 @@ def test_older_contract_versions_reject_protocol_declaration_rule() -> None:
     assert not list(Draft202012Validator(current_schema).iter_errors(_contract()))
 
 
+@pytest.mark.parametrize("section_name", ["declarations", "scope_observations", "violations"])
+@pytest.mark.parametrize("boundary", ["read", "write"])
+def test_legacy_reports_reject_all_protocol_vocabulary(
+    tmp_path: Path, section_name: str, boundary: str
+) -> None:
+    (tmp_path / "contract.json").write_text(json.dumps(_contract()))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "from typing import Protocol\n"
+        "class Reader(Protocol):\n    def read(self) -> bytes: ...\n"
+        "def consume(client: object): return None\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    sections = tuple(
+        section if section.name == section_name else replace(section, records=())
+        for section in result.observation.sections
+    )
+    observation = replace(result.observation, sections=sections)
+    for version in ("2.0.0", "2.1.0", "2.2.0"):
+        with pytest.raises(ValueError, match="observation schema 2.3.0"):
+            if boundary == "write":
+                observation_payload(replace(observation, schema_version=version))
+            else:
+                payload = observation_payload(observation)
+                payload["schema_version"] = version
+                parse_observation(payload)
+
+
 @pytest.mark.parametrize("columnar", [False, True])
 def test_valid_parameter_and_member_declarations_are_proven_on_saved_replay(
     tmp_path: Path, columnar: bool
@@ -461,10 +490,13 @@ def test_stale_protocol_scope_proofs_cannot_prove_pass(tmp_path: Path, tamper: s
             for section in sections
         )
         observation = replace(result.observation, sections=sections)
-    else:
-        observation = replace(result.observation, schema_version="2.0.0")
     saved = tmp_path / "stale.json"
-    saved.write_bytes(canonical_report_bytes(observation))
+    if tamper == "schema":
+        payload = observation_payload(result.observation)
+        payload["schema_version"] = "2.0.0"
+        saved.write_text(json.dumps(encode_canonical_model(payload)))
+    else:
+        saved.write_bytes(canonical_report_bytes(observation))
     replay = run_saved_report(saved)
     if tamper == "schema":
         assert replay.exit_code == 2

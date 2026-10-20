@@ -86,8 +86,22 @@ class _EncodingKind(StrEnum):
     COLUMNAR = "architecture-ir-columnar-v1"
 
 
-class _ObservationSection(StrEnum):
-    DECLARATIONS = "declarations"
+class _ProtocolResultKind(StrEnum):
+    DECLARATION = "protocol_declaration"
+    LIMIT = "protocol_declaration_limit"
+
+
+def _uses_protocol_declaration_fields(section: Section) -> bool:
+    return any(
+        record.kind
+        in {
+            ArchitectureRuleKind.PROTOCOL_DECLARATIONS,
+            _ProtocolResultKind.DECLARATION,
+            _ProtocolResultKind.LIMIT,
+        }
+        or _has_field((key for key, _ in record.data.entries), "protocol_scope_proof")
+        for record in section.records
+    )
 
 
 class _StringSentinel(StrEnum):
@@ -232,12 +246,7 @@ def _validate_versioned_records(
         _ObservationVersion.V2,
         _ObservationVersion.V2_1,
         _ObservationVersion.V2_2,
-    } and any(
-        record.kind == ArchitectureRuleKind.PROTOCOL_DECLARATIONS
-        for section in sections
-        if section.name == _ObservationSection.DECLARATIONS
-        for record in section.records
-    ):
+    } and any(_uses_protocol_declaration_fields(section) for section in sections):
         raise ValueError("protocol_declarations require observation schema 2.3.0")
 
 
@@ -494,18 +503,9 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
             for section in observation.sections
         }
     )
-    if _observation_version(observation.schema_version) in {
-        _ObservationVersion.V1_2,
-        _ObservationVersion.V1_3,
-        _ObservationVersion.V2,
-        _ObservationVersion.V2_1,
-    } and any(
-        _uses_numeric_operand_fields(record)
-        for section in observation.sections
-        if section.name == ObservedSection.CONSTRUCTS
-        for record in section.records
-    ):
-        raise ValueError("numeric_operand constructs require observation schema 2.2.0")
+    _validate_versioned_records(
+        _observation_version(observation.schema_version), observation.sections, profile
+    )
     _validate_profile_sections(result, profile)
     return result
 
