@@ -3941,11 +3941,8 @@ def _guard_condition_owner_binds_context(
     if expected_owner is None or owner != expected_owner:
         return False
     if kind == "member":
-        member_evidence = None
-        for member_name, evidence_ids in context_fact[7]:
-            if member_name == name:
-                member_evidence = evidence_ids
-                break
+        member_evidence_by_name: dict[str, tuple[str, ...]] = dict(context_fact[7])
+        member_evidence = member_evidence_by_name.get(name)
         return member_evidence is not None and set(condition_evidence_ids) == set(member_evidence)
     return _guard_parameter_evidence_matches(
         name,

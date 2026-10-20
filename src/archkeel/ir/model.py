@@ -1275,9 +1275,9 @@ def _special_rule_references(index: int, rule: ArchitectureRule) -> list[ModuleR
             f"/rules/{index}",
             [("source", (rule.source,), True), ("target", (rule.target,), False)],
         )
-        references += [
+        references.append(
             ModuleReference(f"/rules/{index}/condition/owner", rule.condition.owner, False)
-        ]
+        )
         return references
     return None
 
