@@ -220,6 +220,9 @@
   "allOf": [
     {
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/allOf/0"
+    },
+    {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/$defs/legacyNoNumericVocabulary"
     }
   ],
   "title": "Python ArchitectureIR 2.1.0, decoded observation profile",

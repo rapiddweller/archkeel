@@ -224,6 +224,9 @@
           }
         }
       }
+    },
+    {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/$defs/legacyNoNumericVocabulary"
     }
   ],
   "$defs": {

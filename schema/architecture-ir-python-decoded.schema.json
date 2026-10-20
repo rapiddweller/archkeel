@@ -1174,6 +1174,9 @@
           }
         }
       }
+    },
+    {
+      "$ref": "#/$defs/legacyNoNumericVocabulary"
     }
   ],
   "$defs": {
@@ -1352,6 +1355,49 @@
         "abc"
       ],
       "additionalProperties": false
+    },
+    "legacyNoNumericVocabulary": {
+      "properties": {
+        "declarations": {
+          "not": {
+            "contains": {
+              "properties": {
+                "kind": {
+                  "const": "bounded_numeric_operand"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          }
+        },
+        "scope_observations": {
+          "not": {
+            "contains": {
+              "properties": {
+                "data": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "numeric_scope_proof"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "operation_binding"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "data"
+              ]
+            }
+          }
+        }
+      }
     }
   }
 }
