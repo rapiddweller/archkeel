@@ -871,6 +871,8 @@ def _numeric_receipt_complete(
 def _rule_receipt_complete(
     observation: Observation, declaration: Record, receipt: Record | None
 ) -> bool:
+    if declaration.kind == "forbidden_construct" and declaration.data.get("selector") is not None:
+        return _selector_receipt_complete(observation, declaration, receipt)
     if declaration.kind == "no_component_cycles":
         return receipt is not None and receipt.data.get("cycle_scope_complete") is True
     if declaration.kind in {"call_owner", "forbidden_call_argument"}:
@@ -894,6 +896,111 @@ def _rule_receipt_complete(
             and _protocol_declaration_receipt_complete(observation, receipt)
         )
     return receipt is not None and receipt.data.get("assessment_complete", True) is True
+
+
+def _selector_receipt_complete(
+    observation: Observation, declaration: Record, receipt: Record | None
+) -> bool:
+    if receipt is None or receipt.rule_ids != (declaration.id,):
+        return False
+    proof = receipt.data.get("selector_scope_proof")
+    selector = declaration.data.get("selector")
+    claim = receipt.data.get("selector")
+    if (
+        not isinstance(proof, RecordData)
+        or {key for key, _ in proof.entries}
+        != {
+            "source_digest",
+            "source_scope",
+            "contract_digest",
+            "selected_files",
+            "source_modules",
+            "inventory_fact_ids",
+            "result_digest",
+            "binding_id",
+        }
+        or not isinstance(selector, RecordData)
+        or not isinstance(claim, RecordData)
+        or any(
+            claim.get(key) != selector.get(key) for key in ("receiver", "member", "role", "literal")
+        )
+    ):
+        return False
+    source_modules = proof.get("source_modules")
+    inventory_ids = proof.get("inventory_fact_ids")
+    receipt_inventory_ids = receipt.data.get("inventory_fact_ids")
+    selected_files = proof.get("selected_files")
+    if (
+        not isinstance(source_modules, tuple)
+        or not isinstance(inventory_ids, tuple)
+        or not isinstance(receipt_inventory_ids, tuple)
+        or not isinstance(selected_files, tuple)
+    ):
+        return False
+    source_names = tuple(item for item in source_modules if isinstance(item, str))
+    expected_inventory = tuple(item for item in inventory_ids if isinstance(item, str))
+    receipt_inventory = tuple(item for item in receipt_inventory_ids if isinstance(item, str))
+    selected_paths = tuple(item for item in selected_files if isinstance(item, str))
+    if (
+        len(source_names) != len(source_modules)
+        or len(expected_inventory) != len(inventory_ids)
+        or len(receipt_inventory) != len(receipt_inventory_ids)
+        or len(selected_paths) != len(selected_files)
+        or source_names != tuple(sorted(set(source_names)))
+        or not source_names
+    ):
+        return False
+    modules = tuple(
+        item
+        for item in observation.records("modules") or ()
+        if item.data.get("qualified_name") in set(source_names)
+    )
+    symbols = tuple(
+        item
+        for item in observation.records("symbols") or ()
+        if item.data.get("qualified_name") in set(source_names)
+    )
+    selected_records = (*modules, *symbols)
+    if not selected_records or set(receipt.subjects) != set(source_names):
+        return False
+    selectors = tuple(
+        item
+        for item in observation.records("constructs") or ()
+        if item.kind == "construct_selector"
+        and isinstance((owner := item.data.get("owner")), str)
+        and any(owner == module or owner.startswith(f"{module}.") for module in source_names)
+    )
+    expected_inventory_ids = tuple(sorted(item.id for item in selectors))
+    expected_fact_ids = {item.id for item in selected_records} | set(expected_inventory_ids)
+    all_modules = observation.records("modules") or ()
+    module_files = {
+        item.data.get("file") for item in all_modules if isinstance(item.data.get("file"), str)
+    }
+    coverage = observation.coverage
+    return (
+        expected_inventory == expected_inventory_ids
+        and tuple(sorted(receipt_inventory)) == expected_inventory_ids
+        and set(receipt.fact_ids) == expected_fact_ids
+        and coverage.status == Verdict.PASS
+        and not coverage.failures
+        and bool(selected_paths)
+        and len(set(selected_paths)) == len(selected_paths)
+        and coverage.files_discovered
+        == coverage.files_read
+        == coverage.files_parsed
+        == len(selected_paths)
+        and set(selected_paths) == module_files
+        and proof.get("source_digest") == observation.source.source_digest
+        and proof.get("source_scope") == observation.source.scope
+        and proof.get("contract_digest") == observation.contract.digest
+        and proof.get("result_digest") == rule_result_digest(observation.sections, declaration.id)
+        and proof.get("binding_id")
+        == rule_evaluation_binding_id(
+            selector_inventory_binding_id(observation.sections, observation.evidence),
+            receipt,
+            observation.schema_version,
+        )
+    )
 
 
 def _declared_scope_ownership(record: Record) -> ComponentOwnership:
@@ -1080,7 +1187,13 @@ def rule_evaluation_binding_id(
         tuple(
             (key, value)
             for key, value in sorted(receipt.data.entries)
-            if key not in {"call_scope_proof", "numeric_scope_proof", "protocol_scope_proof"}
+            if key
+            not in {
+                "call_scope_proof",
+                "numeric_scope_proof",
+                "protocol_scope_proof",
+                "selector_scope_proof",
+            }
         ),
     )
     return stable_id(
@@ -1103,6 +1216,32 @@ def rule_result_digest(sections: _Iterable[Section], rule_id: str) -> str:
         )
     )
     return stable_id("RULE-RESULT", rule_id, repr(selected))
+
+
+def selector_inventory_binding_id(
+    sections: _Iterable[Section], evidence: _Iterable[Evidence]
+) -> str:
+    """Bind selector declarations, physical modules, selector facts and their evidence."""
+    bound = [
+        (section.name, record)
+        for section in sections
+        for record in section.records
+        if section.name == "modules"
+        or section.name == "constructs"
+        and record.kind == "construct_selector"
+        or section.name == "declarations"
+        and record.kind == "forbidden_construct"
+        and record.data.get("selector") is not None
+    ]
+    return stable_id(
+        "SELECTOR-INVENTORY",
+        repr(
+            (
+                tuple(sorted(bound, key=lambda item: (item[0], item[1].id))),
+                tuple(sorted(evidence, key=lambda item: item.id)),
+            )
+        ),
+    )
 
 
 def _native_scope_runtime_valid(runtime: RuntimeInfo) -> bool:

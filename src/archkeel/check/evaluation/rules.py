@@ -2336,7 +2336,7 @@ def rule_evaluation_facts(
                                 "literal": rule.selector.literal,
                             },
                             "source_modules": sorted(selected_names),
-                            "inventory_fact_ids": [item["id"] for item in inventory],
+                            "inventory_fact_ids": sorted(item["id"] for item in inventory),
                         },
                     )
                 )

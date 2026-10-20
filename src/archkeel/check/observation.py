@@ -23,6 +23,7 @@ from archkeel.ir.decisions import (
     protocol_declaration_result_digest,
     rule_evaluation_binding_id,
     rule_result_digest,
+    selector_inventory_binding_id,
 )
 from archkeel.ir.digest import package_digest
 from archkeel.ir.facts import ResolutionRole as _ResolutionRole
@@ -869,6 +870,55 @@ def _certify_protocol_declaration_scopes(
         }
 
 
+def _certify_selector_scopes(
+    scan: ScanResult, facts: SourceFacts, contract_digest: str, declarations: list[RawRecord]
+) -> None:
+    rules = {
+        item["id"]
+        for item in declarations
+        if item["kind"] == "forbidden_construct" and item["data"].get("selector") is not None
+    }
+    receipts = [
+        item
+        for item in scan.scope_observations
+        if item["kind"] == "rule_evaluation"
+        and item["data"].get("claim") == "construct_selector"
+        and len(item["rule_ids"]) == 1
+        and item["rule_ids"][0] in rules
+    ]
+    if not receipts:
+        return
+    inventory_sections = (
+        Section("modules", tuple(parse_record(item) for item in scan.modules)),
+        Section("constructs", tuple(parse_record(item) for item in scan.constructs)),
+        Section("declarations", tuple(parse_record(item) for item in declarations)),
+    )
+    result_sections = (
+        Section("violations", tuple(parse_record(item) for item in scan.violations)),
+        Section("unknowns", tuple(parse_record(item) for item in scan.unknowns)),
+    )
+    inventory_binding = selector_inventory_binding_id(
+        inventory_sections, (parse_evidence(item) for item in scan.evidence)
+    )
+    for receipt in receipts:
+        rule_id = receipt["rule_ids"][0]
+        proof = {
+            "source_digest": facts.source.source_digest,
+            "source_scope": list(facts.source.scope),
+            "contract_digest": contract_digest,
+            "selected_files": list(facts.coverage.selected_files),
+            "source_modules": receipt["data"]["source_modules"],
+            "inventory_fact_ids": receipt["data"]["inventory_fact_ids"],
+            "result_digest": rule_result_digest(result_sections, rule_id),
+        }
+        receipt["data"]["selector_scope_proof"] = {
+            **proof,
+            "binding_id": rule_evaluation_binding_id(
+                inventory_binding, parse_record(receipt), SCHEMA_VERSION
+            ),
+        }
+
+
 def _certify_dependency_scopes(
     scan: ScanResult, facts: SourceFacts, contract_digest: str, declarations: list[RawRecord]
 ) -> None:
@@ -982,6 +1032,7 @@ def assemble_observation(
     _certify_call_owner_scopes(scan, facts, full_contract_digest, declarations)
     _certify_numeric_operand_scopes(scan, facts, full_contract_digest, declarations)
     _certify_protocol_declaration_scopes(scan, facts, full_contract_digest, declarations)
+    _certify_selector_scopes(scan, facts, full_contract_digest, declarations)
     model: dict[str, object] = {
         "schema_version": SCHEMA_VERSION,
         "analyzer": {

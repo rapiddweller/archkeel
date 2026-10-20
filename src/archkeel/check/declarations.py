@@ -147,6 +147,18 @@ def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
             "source": rule.source,
             "constructs": constructs,
             "allowed_sources": sorted(rule.allowed_sources),
+            **(
+                {
+                    "selector": {
+                        "receiver": rule.selector.receiver,
+                        "member": rule.selector.member,
+                        "role": rule.selector.role.value,
+                        "literal": rule.selector.literal,
+                    }
+                }
+                if rule.selector is not None
+                else {}
+            ),
             **({"exact_sources": sorted(rule.exact_sources)} if rule.exact_sources else {}),
             **(
                 {

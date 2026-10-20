@@ -38,11 +38,12 @@ from archkeel.ir.facts import (
     RecordData,
     call_binding,
 )
-from archkeel.ir.facts_codec import parse_evidence, parse_record
-from archkeel.ir.facts_validation import (
-    _selector_evidence_excerpt,
+from archkeel.ir.facts_codec import (
+    parse_evidence,
+    parse_record,
     selector_receiver_site_matches,
 )
+from archkeel.ir.facts_validation import _selector_evidence_excerpt
 from archkeel.ir.model import ConstructSelector, ConstructSelectorRole, ForbiddenConstructRule
 from archkeel.ir.trace import trace_valid_violations
 
@@ -812,6 +813,23 @@ def test_native_saved_report_keeps_fail_and_unknown_for_selected_scope(tmp_path:
         assert selectors
         selectors[0]["data"]["receiver_type"] = "sample.core.Label"
         selectors[0]["data"]["receiver_binding"]["target"] = "sample.core.Label"
+
+    for index, payload in enumerate(
+        (observation_payload(model), decode_canonical_model(json.loads(encoded)))
+    ):
+        for mode in ("delete", "move"):
+            changed = copy.deepcopy(payload)
+            finding = next(row for row in changed["violations"] if "SELECT" in row["rule_ids"])
+            if mode == "delete":
+                changed["violations"].remove(finding)
+            else:
+                finding["rule_ids"] = ["SELECT_ALIAS"]
+            path = tmp_path / f"{mode}-selector-finding-{index}.json"
+            path.write_bytes(canonical_json_bytes(encode_canonical_model(changed)))
+            replay = run_saved_report(path)
+            assessed = {row.id: row for row in replay.rule_assessments or ()}
+            assert not assessed["SELECT"].evaluation_proven
+            assert assessed["SELECT_ALIAS"].evaluation_proven is (mode == "delete")
 
     ordinary_path = tmp_path / "tampered-ordinary.json"
     ordinary_path.write_bytes(canonical_json_bytes(ordinary))
