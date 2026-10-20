@@ -2197,6 +2197,15 @@ def _construct_rule_domain(
     return selected, [item["data"]["qualified_name"] for item in selected]
 
 
+_SeparateReceiptRule: TypeAlias = (
+    AllowedDependencyRule
+    | BoundaryTypesRule
+    | NoComponentCyclesRule
+    | CallOwnerRule
+    | ProtocolDeclarationsRule
+)
+
+
 def rule_evaluation_facts(
     contract: ArchitectureContract,
     *,
@@ -2221,14 +2230,7 @@ def rule_evaluation_facts(
     )
     facts: list[RawRecord] = []
     for rule in contract.rules:
-        if rule.kind in profile.unsupported_rules or isinstance(
-            rule,
-            AllowedDependencyRule
-            | BoundaryTypesRule
-            | NoComponentCyclesRule
-            | CallOwnerRule
-            | ProtocolDeclarationsRule,
-        ):
+        if rule.kind in profile.unsupported_rules or isinstance(rule, _SeparateReceiptRule):
             continue
         if isinstance(rule, LayerOrderRule):
             facts.extend(_layer_order_evaluation_facts(contract, rule, scope))

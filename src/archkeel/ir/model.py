@@ -1056,6 +1056,19 @@ def _call_owner_references(index: int, rule: CallOwnerRule) -> list[ModuleRefere
     )
 
 
+def _module_object_grant_references(
+    index: int, rule: InterfaceBoundaryRule
+) -> list[ModuleReference]:
+    return [
+        ModuleReference(f"/rules/{index}/module_object_grants/{item}/{field}", value, True)
+        for item, grant in enumerate(rule.module_object_grants or ())
+        for field, value in (
+            ("source_module", grant.source_module),
+            ("target_module", grant.target_module),
+        )
+    ]
+
+
 def _rule_references(
     index: int, rule: ArchitectureRule, external: frozenset[str]
 ) -> list[ModuleReference]:
@@ -1111,24 +1124,11 @@ def _rule_references(
         ]
     references = _references(f"/rules/{index}", named)
     if isinstance(rule, InterfaceBoundaryRule):
-        references += [
-            ModuleReference(
-                f"/rules/{index}/module_object_grants/{item}/{field}",
-                value,
-                True,
-            )
-            for item, grant in enumerate(rule.module_object_grants or ())
-            for field, value in (
-                ("source_module", grant.source_module),
-                ("target_module", grant.target_module),
-            )
-        ]
+        references += _module_object_grant_references(index, rule)
     if isinstance(rule, BoundaryTypesRule):
         references += _boundary_allowance_references(index, rule.allowed_positions)
     if isinstance(rule, ProtocolDeclarationsRule):
-        protocol: str = rule.protocol
-        target_module = protocol.rpartition(".")[0]
-        references += [ModuleReference(f"/rules/{index}/protocol", target_module, True)]
+        references += [ModuleReference(f"/rules/{index}/protocol", rule.protocol, True)]
     if isinstance(rule, ForbiddenConstructRule):
         references += [
             ModuleReference(

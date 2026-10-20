@@ -538,3 +538,18 @@ def test_protocol_proof_transplanted_from_another_source_cannot_prove_pass(tmp_p
     [row] = [item for item in replay.rule_assessments or () if item.id == "APP-READER-DECLARATIONS"]
     assert row.status.value == "UNKNOWN"
     assert row.evaluation_proven is False
+
+
+def test_protocol_reference_inventory_preserves_full_symbol_on_rename():
+    from archkeel.ir.model import module_references
+    from archkeel.ir.renames import renamed_contract
+
+    contract = parse_contract(_contract())
+    reference = next(
+        item for item in module_references(contract) if item.pointer == "/rules/0/protocol"
+    )
+    assert reference.value == "sample.core.Reader" and reference.held
+    changed = renamed_contract(contract, {"sample.core": "sample.engine"})
+    rule = json.loads(contract_bytes(changed))["rules"][0]
+    assert rule["source"] == "sample.engine"
+    assert rule["protocol"] == "sample.engine.Reader"
