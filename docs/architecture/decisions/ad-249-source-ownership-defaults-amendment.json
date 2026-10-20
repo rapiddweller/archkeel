@@ -1,8 +1,8 @@
 {
   "after_baseline_digest": "927d1a4f4aba9d73b8e5e561969ad4fb553857f0054752dedefaee94780f0b2c",
-  "after_digest": "7aa055f601a5bc9d5d7c759e4eb76d582aa0fd259eca1ce9f0051276a0b06db9",
+  "after_digest": "775c71bd5e57dd5c8e7ea54d266542d4f255686db9e8135fd8b4fa6847a1b9db",
   "before_baseline_digest": "927d1a4f4aba9d73b8e5e561969ad4fb553857f0054752dedefaee94780f0b2c",
-  "before_digest": "50ce5d83cb6a9edcdf34c078cc0fe4749ca1ee78023c11153eedcfb9466f1029",
+  "before_digest": "ebcb0a0f2c02a86077b0f339ce558822f273414610e6ff3685e276ea456c55c1",
   "decided_by": "architect",
   "rationale": "Expose the bounded source-reference context helper used by the analyzer to produce typed source-ownership reference facts.",
   "schema_version": "2.0.0"
