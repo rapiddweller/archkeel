@@ -84,6 +84,10 @@ class _EncodingKind(StrEnum):
     COLUMNAR = "architecture-ir-columnar-v1"
 
 
+class _ObservationSection(StrEnum):
+    DECLARATIONS = "declarations"
+
+
 class _StringSentinel(StrEnum):
     MISSING = "$m"
     ESCAPED_MISSING = "$$m"
@@ -210,7 +214,7 @@ def parse_observation(raw: object) -> Observation:
         for name in CLASSIFIED_SECTIONS
         if isinstance(section_items := item[name], list)
     )
-    if schema_version is not _ObservationVersion.V2_2 and any(
+    if schema_version not in {_ObservationVersion.V2_2, _ObservationVersion.V2_3} and any(
         _uses_numeric_operand_fields(record)
         for section in sections
         if section.name == ObservedSection.CONSTRUCTS
@@ -234,7 +238,7 @@ def parse_observation(raw: object) -> Observation:
     if schema_version is not _ObservationVersion.V2_3 and any(
         record.kind == ArchitectureRuleKind.PROTOCOL_DECLARATIONS
         for section in sections
-        if section.name == "declarations"
+        if section.name == _ObservationSection.DECLARATIONS
         for record in section.records
     ):
         raise ValueError("protocol_declarations require observation schema 2.3.0")
@@ -460,7 +464,10 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
             for section in observation.sections
         }
     )
-    if _observation_version(observation.schema_version) is not _ObservationVersion.V2_2 and any(
+    if _observation_version(observation.schema_version) not in {
+        _ObservationVersion.V2_2,
+        _ObservationVersion.V2_3,
+    } and any(
         _uses_numeric_operand_fields(record)
         for section in observation.sections
         if section.name == ObservedSection.CONSTRUCTS

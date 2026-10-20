@@ -477,7 +477,7 @@ def test_saved_numeric_receipt_rejects_changed_operand_proof(tmp_path):
         if "$id" in schema
     )
     current_validator = Draft202012Validator(
-        {"$ref": "urn:archkeel:architecture-ir:python-decoded:2.2.0"}, registry=registry
+        {"$ref": "urn:archkeel:architecture-ir:python-decoded:2.3.0"}, registry=registry
     )
     assert current_validator.is_valid(payload), [
         (error.json_path, error.message) for error in current_validator.iter_errors(payload)
