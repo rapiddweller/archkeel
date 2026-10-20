@@ -333,18 +333,9 @@
                             ],
                             "additionalProperties": false,
                             "properties": {
-                              "scope_owner": {
-                                "type": "string",
-                                "minLength": 1
-                              },
-                              "scope_evidence_id": {
-                                "type": "string",
-                                "minLength": 1
-                              },
-                              "scope_symbol_id": {
-                                "type": "string",
-                                "minLength": 1
-                              }
+                              "scope_owner": { "type": "string", "minLength": 1 },
+                              "scope_evidence_id": { "type": "string", "minLength": 1 },
+                              "scope_symbol_id": { "type": "string", "minLength": 1 }
                             }
                           }
                         }
