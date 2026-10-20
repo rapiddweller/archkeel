@@ -32,7 +32,8 @@
         "archkeel.ir.type_shapes",
         "archkeel.ir.reexports",
         "archkeel.ir.source_records",
-        "archkeel.ir.identity:module_identity"
+        "archkeel.ir.identity:module_identity",
+        "archkeel.ir.facts:ReservedString"
       ]
     },
     {
