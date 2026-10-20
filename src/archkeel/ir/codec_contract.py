@@ -1105,9 +1105,11 @@ def _parse_construct_selector(item: dict[str, RawJson], label: str) -> Construct
         raise ValueError(f"{label}.selector.member is required for member roles")
     if (role in literal_roles) != (literal is not None):
         raise ValueError(f"{label}.selector.literal is required only for operand roles")
-    if not all(part.isidentifier() for part in receiver.split(".")) or (
-        member is not None and not member.isidentifier()
-    ):
+    receiver_text: str = receiver
+    receiver_parts: list[str] = receiver_text.split(".")
+    receiver_is_qualified_identifier: bool = all(part.isidentifier() for part in receiver_parts)
+    member_is_identifier: bool = member is None or member.isidentifier()
+    if not receiver_is_qualified_identifier or not member_is_identifier:
         raise ValueError(f"{label}.selector receiver and member must be qualified identifiers")
     return ConstructSelector(receiver, member, role, literal)
 

@@ -928,13 +928,16 @@ def _certify_selector_scopes(
     rules = {
         item["id"]
         for item in declarations
-        if item["kind"] == "forbidden_construct" and item["data"].get("selector") is not None
+        if item["kind"] == "forbidden_construct"
+        and "selector" in item["data"]
+        and item["data"]["selector"] is not None
     }
     receipts = [
         item
         for item in scan.scope_observations
         if item["kind"] == "rule_evaluation"
-        and item["data"].get("claim") == "construct_selector"
+        and "claim" in item["data"]
+        and item["data"]["claim"] == "construct_selector"
         and len(item["rule_ids"]) == 1
         and item["rule_ids"][0] in rules
     ]

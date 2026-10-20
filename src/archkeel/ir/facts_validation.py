@@ -356,36 +356,37 @@ def _qualified_identifier(value: str) -> bool:
 
 
 def _selector_evidence_excerpt(
-    item: Evidence, role: object
+    item: Evidence, role: JsonValue
 ) -> tuple[tuple[ast.stmt, ...], int, int] | None:
-    parsed = _parse_numeric_evidence_excerpt(item.excerpt)
+    excerpt: str = item.excerpt
+    parsed = _parse_numeric_evidence_excerpt(excerpt)
     if parsed is not None:
         roots, line_offset = parsed
         return roots, line_offset, 0
-    indentation = len(item.excerpt) - len(item.excerpt.lstrip(" "))
-    continuation = item.excerpt[indentation:]
+    indentation = len(excerpt) - len(excerpt.lstrip(" "))
+    continuation: str = excerpt[indentation:]
     for operator in ("and", "or"):
         prefix = f"{operator} "
         if role != "match" and continuation.startswith(prefix):
-            rewritten = item.excerpt[:indentation] + f"True {prefix}" + continuation[len(prefix) :]
+            rewritten = excerpt[:indentation] + f"True {prefix}" + continuation[len(prefix) :]
             try:
                 wrapper = ast.parse(f"if True:\n{rewritten}\n")
             except (IndentationError, SyntaxError, ValueError, RecursionError):
                 return None
             if wrapper.body and isinstance(wrapper.body[0], ast.If):
                 return tuple(wrapper.body[0].body), 1, len(f"True {prefix}") - len(prefix)
-    if role != "match" and item.excerpt.rstrip().endswith(("(", "[", "{")):
+    if role != "match" and excerpt.rstrip().endswith(("(", "[", "{")):
         for closing in range(1, 9):
-            rewritten = f"{item.excerpt}False{')' * closing}"
+            rewritten = f"{excerpt}False{')' * closing}"
             parsed = _parse_numeric_evidence_excerpt(rewritten)
             if parsed is not None:
                 roots, line_offset = parsed
                 return roots, line_offset, 0
-    if role != "match" or not item.excerpt.rstrip().endswith(":"):
+    if role != "match" or not excerpt.rstrip().endswith(":"):
         return None
     body = " " * (indentation + 4) + "case _: pass"
     try:
-        wrapper = ast.parse(f"if True:\n{item.excerpt}\n{body}\n")
+        wrapper = ast.parse(f"if True:\n{excerpt}\n{body}\n")
     except (IndentationError, SyntaxError, ValueError, RecursionError):
         return None
     if not wrapper.body or not isinstance(wrapper.body[0], ast.If):
@@ -419,21 +420,23 @@ def _selector_source_receiver(
                 return None
             return span[0], span[1] - column_shift, span[2], span[3] - column_shift
 
+        span_for_node: Callable[[ast.AST], tuple[int, int, int, int] | None] = source_span
+
         anchored = [
             (node, span)
             for node in nodes
-            if (span := source_span(node)) is not None
+            if (span := span_for_node(node)) is not None
             and span[0] == item.line
             and span[1] == item.column
         ]
-        selected = _selector_source_candidate(record, binding, item, anchored, source_span)
+        selected = _selector_source_candidate(record, binding, item, anchored, span_for_node)
         if selected is not None:
             span = next(
                 (span for node, span in anchored if node is selected or selected in ast.walk(node)),
                 None,
             )
             if span is not None:
-                selected_span = source_span(selected)
+                selected_span = span_for_node(selected)
                 return selected, selected_span or span
     return None
 
@@ -556,13 +559,17 @@ def selector_receiver_site_matches(
         owner = proof.get("owner")
         selector_owner = record.data.get("owner")
         initializers = declarations.get(f"{owner}.__init__", []) if isinstance(owner, str) else []
-        receiver = (
-            initializers[0].data.get("receiver_parameter") if len(initializers) == 1 else None
+        initializer_data: RecordData | None = (
+            initializers[0].data if len(initializers) == 1 else None
         )
+        receiver = (
+            initializer_data.get("receiver_parameter") if initializer_data is not None else None
+        )
+        selector_owner_name = selector_owner if isinstance(selector_owner, str) else None
         return (
             isinstance(owner, str)
-            and isinstance(selector_owner, str)
-            and selector_owner.startswith(f"{owner}.")
+            and selector_owner_name is not None
+            and selector_owner_name.startswith(f"{owner}.")
             and isinstance(expression, ast.Attribute)
             and expression.attr == proof.get("field")
             and isinstance(expression.value, ast.Name)
@@ -594,22 +601,26 @@ def _direct_selector_receiver_matches(
 ) -> bool:
     source_classes = _selector_source_classes(record, binding, evidence)
     declarations_for_target = declarations.get(binding.target, [])
+    target_data: RecordData | None = (
+        declarations_for_target[0].data if len(declarations_for_target) == 1 else None
+    )
     module = (
-        declarations_for_target[0].data.get("module")
-        if len(declarations_for_target) == 1 and declarations_for_target[0].kind == "class"
+        target_data.get("module")
+        if target_data is not None and declarations_for_target[0].kind == "class"
         else None
     )
     owner = record.data.get("owner")
+    owner_name = owner if isinstance(owner, str) else None
     for target in source_classes:
         written = ast.unparse(target)
         if (
             isinstance(module, str)
-            and isinstance(owner, str)
-            and (owner == module or owner.startswith(module + "."))
+            and owner_name is not None
+            and (owner_name == module or owner_name.startswith(module + "."))
             and binding.target == f"{module}.{written}"
         ):
             return True
-        if _imported_selector_target_matches(target, binding, imports, owner):
+        if _imported_selector_target_matches(target, binding, imports, owner_name):
             return True
     return False
 
@@ -631,11 +642,8 @@ def _imported_selector_target_matches(
         item
         for item in imports
         if item.data.get("binding") == root.id
-        and isinstance(item.data.get("source_module"), str)
-        and (
-            owner == item.data.get("source_module")
-            or owner.startswith(f"{item.data.get('source_module')}.")
-        )
+        and isinstance((source_module := item.data.get("source_module")), str)
+        and (owner == source_module or owner.startswith(f"{source_module}."))
         and item.data.get("symbols_known") is True
         and set(item.evidence_ids) <= set(binding.evidence_ids)
     ]
@@ -758,7 +766,8 @@ def _selector_declared_receiver_proof(
 ) -> None:
     owner_name = record.data.get("owner")
     owners = declarations.get(owner_name, []) if isinstance(owner_name, str) else []
-    parameters = owners[0].data.get("parameters") if len(owners) == 1 else None
+    owner_data: RecordData | None = owners[0].data if len(owners) == 1 else None
+    parameters = owner_data.get("parameters") if owner_data is not None else None
     selected = (
         [
             item
@@ -773,6 +782,7 @@ def _selector_declared_receiver_proof(
         if len(owners) == 1 and len(selected) == 1
         else None
     )
+    target_data: RecordData | None = targets[0].data if len(targets) == 1 else None
     if (
         len(owners) != 1
         or owners[0].kind not in {"function", "method"}
@@ -781,7 +791,8 @@ def _selector_declared_receiver_proof(
         or annotation_target != binding.target
         or len(targets) != 1
         or targets[0].kind != "class"
-        or targets[0].data.get("source_binding_unique") is not True
+        or target_data is None
+        or target_data.get("source_binding_unique") is not True
         or not set(owners[0].evidence_ids) <= set(binding.evidence_ids)
     ):
         raise ValueError("declared selector receiver needs its exact typed parameter proof")
@@ -803,7 +814,11 @@ def _selector_stored_receiver_proof(
     initializers = (
         declarations.get(f"{owner_name}.__init__", []) if isinstance(owner_name, str) else []
     )
-    writes = initializers[0].data.get("stored_field_writes") if len(initializers) == 1 else None
+    initializer_data: RecordData | None = initializers[0].data if len(initializers) == 1 else None
+    writes = initializer_data.get("stored_field_writes") if initializer_data is not None else None
+    receiver_parameter: JsonValue = (
+        initializer_data.get("receiver_parameter") if initializer_data is not None else None
+    )
     witness_ids = witnesses if isinstance(witnesses, tuple) else ()
     linked = (
         [
@@ -815,13 +830,13 @@ def _selector_stored_receiver_proof(
             and item.get("evidence_id") == (witness_ids[0] if witness_ids else None)
             and len(witness_ids) == 2
             and item.get("annotation_evidence_id") == witness_ids[1]
-            and item.get("receiver") == initializers[0].data.get("receiver_parameter")
+            and item.get("receiver") == receiver_parameter
             and item.get("annotation_target") == binding.target
         ]
         if isinstance(writes, tuple)
         else []
     )
-    parameters = initializers[0].data.get("parameters") if len(initializers) == 1 else None
+    parameters = initializer_data.get("parameters") if initializer_data is not None else None
     typed = (
         [
             item
@@ -838,12 +853,15 @@ def _selector_stored_receiver_proof(
         if len(initializers) == 1 and len(typed) == 1
         else None
     )
+    owner_data: RecordData | None = owners[0].data if len(owners) == 1 else None
+    target_data: RecordData | None = targets[0].data if len(targets) == 1 else None
     if (
         proof.get("kind") != "stored_field"
         or proof.get("target") != binding.target
         or len(owners) != 1
         or owners[0].kind != "class"
-        or owners[0].data.get("source_binding_unique") is not True
+        or owner_data is None
+        or owner_data.get("source_binding_unique") is not True
         or len(initializers) != 1
         or len(linked) != 1
         or len(typed) != 1
@@ -853,7 +871,8 @@ def _selector_stored_receiver_proof(
         or not set(witnesses) <= set(binding.evidence_ids)
         or len(targets) != 1
         or targets[0].kind != "class"
-        or targets[0].data.get("source_binding_unique") is not True
+        or target_data is None
+        or target_data.get("source_binding_unique") is not True
         or not set(owners[0].evidence_ids) <= set(binding.evidence_ids)
     ):
         raise ValueError("stored selector receiver needs a linked initializer annotation")
@@ -879,8 +898,8 @@ def _selector_constructed_receiver_proof(
         for candidate in section.records
         if isinstance(constructor_id, str)
         and constructor_id in candidate.evidence_ids
-        and candidate.kind.endswith("_call")
-        and isinstance(candidate_targets := candidate.data.get("targets"), tuple)
+        and _call_record_kind(candidate.kind)
+        and isinstance((candidate_targets := candidate.data.get("targets")), tuple)
         and binding.target in candidate_targets
     ]
     selector_evidence = [
@@ -918,7 +937,10 @@ def _selector_constructed_receiver_proof(
 
 
 def _selector_linked_assignments(
-    facts: SourceFacts, constructor_id: object, assignment_id: object, assignment_name: object
+    facts: SourceFacts,
+    constructor_id: JsonValue,
+    assignment_id: JsonValue,
+    assignment_name: JsonValue,
 ) -> list[tuple[Record, RecordData]]:
     linked: list[tuple[Record, RecordData]] = []
     if not isinstance(constructor_id, str) or not isinstance(assignment_id, str):
@@ -943,6 +965,10 @@ def _selector_linked_assignments(
                 ):
                     linked.append((candidate, item))
     return linked
+
+
+def _call_record_kind(kind: str) -> bool:
+    return kind.endswith("_call")
 
 
 def _last_segment(value: str) -> str:
