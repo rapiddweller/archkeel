@@ -312,6 +312,16 @@ retiring any method-name scanner. Argument facts require observation 2.5 and
 contract 3.10; older readers must reject that evidence. The current reader
 continues to accept historical observation formats.
 
+Use `forbidden_construct.selector` when a policy must select one nominal
+receiver/member and access or comparison role. Contract 3.11 and observation
+2.6 enable the Python slice: annotated direct member reads, positional literal
+reflection names, selected local constructors and type probes, literal equality
+in either direction, membership, `match`, and `startswith`/`endswith`.
+Dynamic names, unannotated or ambiguous receivers and missing selected subjects
+remain UNKNOWN. Other language profiles do not claim selector support. See
+[AD-248](../docs/architecture/decisions/ad-248-construct-selectors.md) and
+the [rule grammar](../docs/rules.md#forbidden-construct).
+
 ## Daily loop
 
 Validation reports `responsibility.missing` only for components explicitly marked

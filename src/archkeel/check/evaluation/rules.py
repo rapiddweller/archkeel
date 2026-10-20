@@ -244,7 +244,117 @@ def _construct_violations(
     for rule in rules:
         if not isinstance(rule, ForbiddenConstructRule):
             continue
+        if rule.selector is not None:
+            selector = rule.selector
+            applicable: list[RawRecord] = []
+            for item in signals:
+                data = item["data"]
+                if item["kind"] != "construct_selector":
+                    continue
+                owner = data.get("owner")
+                if not isinstance(owner, str):
+                    continue
+                scope = owner.split(":", 1)[0]
+                belongs = source_modules is None or any(
+                    owner == module or owner.startswith(f"{module}.") for module in source_modules
+                )
+                if (
+                    not belongs
+                    or not in_scope(scope, rule.source)
+                    or any(in_scope(scope, allowed) for allowed in rule.allowed_sources)
+                    or scope in rule.exact_sources
+                    or data.get("selector_role") != selector.role.value
+                    or selector.member is not None
+                    and data.get("member") != selector.member
+                    and not (data.get("member") is None and data.get("status") == "unknown")
+                ):
+                    continue
+                receiver = data.get("receiver_type")
+                if receiver is not None and receiver != selector.receiver:
+                    continue
+                if selector.literal is not None and data.get("literal") not in (
+                    None,
+                    selector.literal,
+                ):
+                    continue
+                applicable.append(item)
+            if not applicable:
+                violations.append(
+                    classified(
+                        item_id=stable_id("UNKNOWN-CONSTRUCT-SELECTOR-SUBJECT", rule.id),
+                        evidence_class=EvidenceClass.UNKNOWN,
+                        area="analysis_coverage",
+                        kind="rule-without-selector-subject",
+                        title=f"{rule.id}: no selected {selector.role.value} subject was observed",
+                        subjects=[rule.source],
+                        rule_ids=[rule.id],
+                        data={
+                            "selector_role": selector.role.value,
+                            "receiver": selector.receiver,
+                            "member": selector.member,
+                            "literal": selector.literal,
+                        },
+                    )
+                )
+            for item in applicable:
+                data = item["data"]
+                owner = data["owner"]
+                known = (
+                    data.get("status") == "decided"
+                    and data.get("receiver_type") == selector.receiver
+                )
+                known = known and (
+                    selector.literal is None or data.get("literal") == selector.literal
+                )
+                if known:
+                    violations.append(
+                        classified(
+                            item_id=stable_id("VIO-SELECTOR", rule.id, item["id"]),
+                            evidence_class=EvidenceClass.VIOLATION,
+                            area="type_architecture",
+                            kind=rule.kind,
+                            title=(
+                                f"{owner} uses selected {selector.role.value} on "
+                                f"{selector.member or selector.receiver}"
+                            ),
+                            subjects=[owner],
+                            evidence_ids=item["evidence_ids"],
+                            rule_ids=[rule.id],
+                            fact_ids=[item["id"]],
+                            provenance=list(rule.provenance),
+                            data={
+                                "source": rule.source,
+                                "selector_role": selector.role.value,
+                                "receiver": selector.receiver,
+                                "member": selector.member,
+                                "literal": selector.literal,
+                            },
+                        )
+                    )
+                else:
+                    violations.append(
+                        classified(
+                            item_id=stable_id("UNKNOWN-CONSTRUCT-SELECTOR", rule.id, item["id"]),
+                            evidence_class=EvidenceClass.UNKNOWN,
+                            area="analysis_coverage",
+                            kind="construct_selector_unknown",
+                            title=f"{owner} has unresolved selected {selector.role.value} evidence",
+                            subjects=[owner],
+                            evidence_ids=item["evidence_ids"],
+                            rule_ids=[rule.id],
+                            fact_ids=[item["id"]],
+                            data={
+                                "selector_role": selector.role.value,
+                                "receiver": selector.receiver,
+                                "member": selector.member,
+                                "literal": selector.literal,
+                            },
+                        )
+                    )
+            continue
         for item in signals:
+            if item["kind"] == "construct_selector":
+                continue
             data = item["data"]
             construct: ForbiddenConstructKind | None = _CONSTRUCT_SIGNALS.get(item["kind"])
             if "construct" in data:
@@ -1249,12 +1359,18 @@ def profile_failures(
             (
                 rule.id,
                 [rule.id],
-                "constructs "
+                "construct selectors"
+                if rule.selector is not None and profile.analyzer != "archkeel-python-analyzer"
+                else "constructs "
                 + ", ".join(kind for kind in rule.constructs if kind not in supported),
             )
             for rule in contract.rules
             if isinstance(rule, ForbiddenConstructRule)
-            and any(kind not in supported for kind in rule.constructs)
+            and (
+                any(kind not in supported for kind in rule.constructs)
+                or rule.selector is not None
+                and profile.analyzer != "archkeel-python-analyzer"
+            )
         ),
         *(
             (rule.id, [rule.id], "symbol-level dependency selector")
@@ -2221,6 +2337,28 @@ def rule_evaluation_facts(
                     frozenset(item["data"]["qualified_name"] for item in observed),
                 )
                 subjects = [item["data"]["qualified_name"] for item in selected]
+            if rule.selector is not None and selected:
+                selected_names = frozenset(item["data"]["qualified_name"] for item in selected)
+                inventory = _selector_inventory(constructs, selected_names)
+                facts.append(
+                    _rule_evaluation_receipt(
+                        rule,
+                        scope,
+                        [*selected, *inventory],
+                        subjects=subjects or [item["data"]["qualified_name"] for item in selected],
+                        data={
+                            "claim": "construct_selector",
+                            "selector": {
+                                "receiver": rule.selector.receiver,
+                                "member": rule.selector.member,
+                                "role": rule.selector.role.value,
+                                "literal": rule.selector.literal,
+                            },
+                            "source_modules": sorted(selected_names),
+                            "inventory_fact_ids": [item["id"] for item in inventory],
+                        },
+                    )
+                )
         elif isinstance(rule, BoundedNumericOperandRule):
             selected = _modules_for_rule_source(rule.source, observed, contract)
             operations = tuple(
@@ -2264,7 +2402,9 @@ def rule_evaluation_facts(
             selected = _modules_for_rule_source(rule.source, observed, contract)
         else:
             assert_never(rule)
-        if selected:
+        if selected and not (
+            isinstance(rule, ForbiddenConstructRule) and rule.selector is not None
+        ):
             facts.append(_rule_evaluation_receipt(rule, scope, selected, subjects=subjects))
     return facts
 

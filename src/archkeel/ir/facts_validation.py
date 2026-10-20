@@ -105,6 +105,8 @@ _STRING_FIELDS = frozenset(
         "attribute",
         "path",
         "source_file",
+        "selector_role",
+        "operation",
     }
 )
 _OPTIONAL_STRINGS = frozenset(
@@ -115,6 +117,9 @@ _OPTIONAL_STRINGS = frozenset(
         "binding",
         "return_annotation",
         "alias_expression",
+        "receiver_type",
+        "member",
+        "literal",
     }
 )
 _BOOLEAN_FIELDS = frozenset(
@@ -963,6 +968,93 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
             raise ValueError("invalid numeric operand source proof")
     if not set(required).issubset(fields):
         raise ValueError(f"{section} source payload is missing required fields")
+    if record.kind == "construct_selector":
+        required = {
+            "owner",
+            "construct",
+            "selector_role",
+            "receiver_type",
+            "member",
+            "literal",
+            "status",
+            "operation",
+        }
+        if section is not SourceSectionName.CONSTRUCTS or fields != required:
+            raise ValueError("construct selector facts need the closed selector payload")
+        if record.data.get("construct") != "selector":
+            raise ValueError("construct selector facts need selector construct identity")
+        if record.data.get("selector_role") not in {
+            "read",
+            "write",
+            "call",
+            "reflect",
+            "constructor",
+            "type_probe",
+            "equality",
+            "membership",
+            "match",
+            "startswith",
+            "endswith",
+        }:
+            raise ValueError("construct selector role is unsupported")
+        if record.data.get("status") not in {"decided", "unknown"}:
+            raise ValueError("construct selector status is unsupported")
+        if record.data.get("operation") not in {
+            "read",
+            "write",
+            "call",
+            "probe",
+            "compare",
+            "construct",
+        }:
+            raise ValueError("construct selector operation is unsupported")
+        role = record.data.get("selector_role")
+        operation = record.data.get("operation")
+        if not isinstance(role, str) or not isinstance(operation, str):
+            raise ValueError("construct selector role and operation must be strings")
+        expected_operation = {
+            "read": "read",
+            "write": "write",
+            "call": "call",
+            "reflect": "probe",
+            "constructor": "construct",
+            "type_probe": "probe",
+            "equality": "compare",
+            "membership": "compare",
+            "match": "compare",
+            "startswith": "compare",
+            "endswith": "compare",
+        }[role]
+        if operation != expected_operation:
+            raise ValueError("construct selector role and operation disagree")
+        member_roles = {
+            "read",
+            "write",
+            "call",
+            "reflect",
+            "equality",
+            "membership",
+            "match",
+            "startswith",
+            "endswith",
+        }
+        if role in member_roles and record.data.get("member") is None:
+            if record.data.get("status") != "unknown":
+                raise ValueError("known construct selector needs a member")
+        elif role not in member_roles and record.data.get("member") is not None:
+            raise ValueError("construct selector role cannot carry a member")
+        if role not in {"equality", "membership", "match", "startswith", "endswith"} and (
+            record.data.get("literal") is not None
+        ):
+            raise ValueError("construct selector role cannot carry a literal")
+        if record.data.get("status") == "decided" and record.data.get("receiver_type") is None:
+            raise ValueError("decided construct selector needs a receiver type")
+        if (
+            role in {"equality", "membership", "match", "startswith", "endswith"}
+            and record.data.get("status") == "decided"
+            and record.data.get("literal") is None
+        ):
+            raise ValueError("decided comparison selector needs a literal")
     if record.data.get("member_inventories") is not None:
         if section != SourceSectionName.SYMBOLS or record.kind != "class":
             raise ValueError("member inventory needs its class owner")
@@ -1381,9 +1473,13 @@ def validate_source_facts(facts: SourceFacts) -> None:
                     ) != (line, column, end_line):
                         raise ValueError("numeric alias derivation disagrees with its evidence")
             construct = record.data.get("construct")
-            if construct is not None and not any(
-                entry.name == construct and entry.status != ConstructSupport.UNSUPPORTED
-                for entry in facts.capabilities.constructs
+            if (
+                construct is not None
+                and record.kind != "construct_selector"
+                and not any(
+                    entry.name == construct and entry.status != ConstructSupport.UNSUPPORTED
+                    for entry in facts.capabilities.constructs
+                )
             ):
                 raise ValueError("source construct disagrees with declared capabilities")
     fact_ids = record_ids | file_ids

@@ -50,6 +50,8 @@ from archkeel.ir.model import (
     CompleteExternalScopeRule,
     CompleteRequiresRule,
     ComponentRole,
+    ConstructSelector,
+    ConstructSelectorRole,
     ContractCapability,
     ContractCommand,
     ContractComponent,
@@ -285,6 +287,10 @@ def parse_contract(raw: object) -> ArchitectureContract:
         and ArchitectureRuleKind.FORBIDDEN_CALL_ARGUMENT in kinds
     ):
         raise ValueError("forbidden_call_argument requires contract schema_version 3.10.0")
+    if not supports_feature(version, ContractFeature.CONSTRUCT_SELECTOR) and any(
+        _has_field(_object(value, "rule"), "selector") for value in rules_raw
+    ):
+        raise ValueError("construct selectors require contract schema_version 3.11.0")
     if (
         not supports_feature(version, ContractFeature.LAYERS)
         and ArchitectureRuleKind.LAYER_ORDER in kinds
@@ -431,6 +437,11 @@ def _validate_encoding_version(contract: ArchitectureContract) -> None:
         contract.schema_version, ContractFeature.FORBIDDEN_CALL_ARGUMENT
     ) and any(isinstance(rule, ForbiddenCallArgumentRule) for rule in contract.rules):
         raise ValueError("forbidden_call_argument requires contract schema_version 3.10.0")
+    if not supports_feature(contract.schema_version, ContractFeature.CONSTRUCT_SELECTOR) and any(
+        isinstance(rule, ForbiddenConstructRule) and rule.selector is not None
+        for rule in contract.rules
+    ):
+        raise ValueError("construct selectors require contract schema_version 3.11.0")
     if not supports_feature(contract.schema_version, ContractFeature.MODULE_OBJECT_GRANTS) and any(
         isinstance(rule, InterfaceBoundaryRule) and rule.module_object_grants is not None
         for rule in contract.rules
@@ -899,7 +910,7 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
     item, item_id, provenance = _contract_record(
         raw,
         {"kind", "source", "constructs", "rationale", "decided_by"},
-        {"allowed_sources", "exact_sources", "allowed_type_ignores"},
+        {"allowed_sources", "exact_sources", "allowed_type_ignores", "selector"},
         label,
     )
     raw_constructs = _contract_strings(item["constructs"], f"{label}.constructs", required=True)
@@ -929,6 +940,51 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
         )
     if len(set(ignores)) != len(ignores):
         raise ValueError(f"{label}.allowed_type_ignores must contain unique entries")
+    selector = None
+    if "selector" in item:
+        selected = _contract_fields(
+            _object(item["selector"], f"{label}.selector"),
+            {"receiver", "role"},
+            {"member", "literal"},
+            f"{label}.selector",
+        )
+        try:
+            role = ConstructSelectorRole(_nonempty(selected["role"], f"{label}.selector.role"))
+        except ValueError as exc:
+            raise ValueError(f"{label}.selector.role is unsupported") from exc
+        receiver = _nonempty(selected["receiver"], f"{label}.selector.receiver")
+        member_value = selected.get("member")
+        member = (
+            _nonempty(member_value, f"{label}.selector.member")
+            if member_value is not None
+            else None
+        )
+        literal = selected.get("literal")
+        if literal is not None and not isinstance(literal, str):
+            raise ValueError(f"{label}.selector.literal must be a string")
+        literal_roles = {
+            ConstructSelectorRole.EQUALITY,
+            ConstructSelectorRole.MEMBERSHIP,
+            ConstructSelectorRole.MATCH,
+            ConstructSelectorRole.STARTSWITH,
+            ConstructSelectorRole.ENDSWITH,
+        }
+        if (
+            role
+            in {ConstructSelectorRole.READ, ConstructSelectorRole.WRITE, ConstructSelectorRole.CALL}
+            and literal is not None
+        ):
+            raise ValueError(f"{label}.selector.literal is not valid for access roles")
+        memberless_roles = {ConstructSelectorRole.CONSTRUCTOR, ConstructSelectorRole.TYPE_PROBE}
+        if (role in memberless_roles) == (member is not None):
+            raise ValueError(f"{label}.selector.member is required for member roles")
+        if (role in literal_roles) != (literal is not None):
+            raise ValueError(f"{label}.selector.literal is required only for operand roles")
+        if not all(part.isidentifier() for part in receiver.split(".")) or (
+            member is not None and not member.isidentifier()
+        ):
+            raise ValueError(f"{label}.selector receiver and member must be qualified identifiers")
+        selector = ConstructSelector(receiver, member, role, literal)
     return ForbiddenConstructRule(
         item_id,
         ArchitectureRuleKind.FORBIDDEN_CONSTRUCT,
@@ -940,6 +996,7 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
         allowed,
         exact,
         tuple(ignores),
+        selector,
     )
 
 

@@ -71,6 +71,7 @@ class _ObservationVersion(StrEnum):
     V2_3 = "2.3.0"
     V2_4 = "2.4.0"
     V2_5 = "2.5.0"
+    V2_6 = "2.6.0"
 
 
 def _before_version(version: _ObservationVersion, floor: _ObservationVersion) -> bool:
@@ -255,6 +256,14 @@ def parse_observation(raw: object) -> Observation:
     ):
         raise ValueError("protocol_declarations require observation schema 2.3.0")
 
+    has_selectors = any(
+        record.kind == "construct_selector"
+        for section in sections
+        if section.name == ObservedSection.CONSTRUCTS
+        for record in section.records
+    )
+    if has_selectors and schema_version is not _ObservationVersion.V2_6:
+        raise ValueError("construct selector facts require observation schema 2.6.0")
     if not _before_version(schema_version, _ObservationVersion.V2_5):
         python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
         for section in sections:
@@ -263,7 +272,9 @@ def parse_observation(raw: object) -> Observation:
                     if python_calls and not _has_field(
                         (key for key, _ in call.data.entries), "call_arguments"
                     ):
-                        raise ValueError("Python 2.5.0 calls require explicit call_arguments")
+                        raise ValueError(
+                            f"Python {schema_version.value} calls require explicit call_arguments"
+                        )
                     arguments = call.data.get("call_arguments")
                     if _has_field((key for key, _ in call.data.entries), "call_arguments"):
                         _call_arguments(arguments)
@@ -307,6 +318,7 @@ def parse_observation(raw: object) -> Observation:
                 _ObservationVersion.V2_3,
                 _ObservationVersion.V2_4,
                 _ObservationVersion.V2_5,
+                _ObservationVersion.V2_6,
             },
         )
         if item.get("runtime", _MISSING_VALUE) is not _MISSING_VALUE
@@ -458,6 +470,13 @@ def _validate_profile_sections(model: Mapping[str, RawJson], profile: Profile) -
 
 
 def observation_payload(observation: Observation) -> dict[str, RawJson]:
+    if _observation_version(observation.schema_version) is not _ObservationVersion.V2_6 and any(
+        record.kind == "construct_selector"
+        for section in observation.sections
+        if section.name == ObservedSection.CONSTRUCTS
+        for record in section.records
+    ):
+        raise ValueError("construct selector facts require observation schema 2.6.0")
     if (
         _observation_version(observation.schema_version)
         not in {
@@ -467,6 +486,7 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
             _ObservationVersion.V2_3,
             _ObservationVersion.V2_4,
             _ObservationVersion.V2_5,
+            _ObservationVersion.V2_6,
         }
         and observation.runtime is not None
         and observation.runtime.requirement_state != RuntimeRequirementState.DECLARED

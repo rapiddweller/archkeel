@@ -45,6 +45,14 @@ f-strings, concatenations and named expressions remain unclaimed. It does not
 check actual type compatibility. Argument facts require
 observation 2.5 and contract 3.10; older readers reject the new evidence.
 
+`forbidden_construct.selector` adds nominal Python selections for member reads,
+reflection probes, constructors, type probes, equality, membership, `match`,
+`startswith` and `endswith`. The current receiver proof begins with direct unique
+annotations on scanned classes. Dynamic reflection names, unannotated or
+ambiguous receivers and scopes with no selected subject remain UNKNOWN. Other
+language profiles do not support this slice. Selector facts require observation
+2.6 and contract 3.11; older readers reject the new evidence.
+
 An explicitly certified `complete_requires` scope can PASS with unrelated source
 resolution gaps. Arbitrary imports still block their own scopes and ancestors;
 signature gaps do not prove or disprove imports. Legacy or unbound gaps remain

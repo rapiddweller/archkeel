@@ -105,7 +105,7 @@ def public_api_id(selector: str) -> str:
     return f"API-{hashlib.sha256(selector.encode()).hexdigest()[:16]}"
 
 
-SCHEMA_VERSION = "2.5.0"
+SCHEMA_VERSION = "2.6.0"
 DELTA_SCHEMA_VERSION = "2.0.0"
 
 
@@ -550,6 +550,30 @@ class TypeIgnoreAllowance:
     tag: str
 
 
+class ConstructSelectorRole(StrEnum):
+    READ = "read"
+    WRITE = "write"
+    CALL = "call"
+    REFLECT = "reflect"
+    CONSTRUCTOR = "constructor"
+    TYPE_PROBE = "type_probe"
+    EQUALITY = "equality"
+    MEMBERSHIP = "membership"
+    MATCH = "match"
+    STARTSWITH = "startswith"
+    ENDSWITH = "endswith"
+
+
+@dataclass(frozen=True, slots=True)
+class ConstructSelector:
+    """One nominal receiver/member selection with an optional literal operand."""
+
+    receiver: str
+    member: str | None
+    role: ConstructSelectorRole
+    literal: str | None = None
+
+
 @dataclass(frozen=True, slots=True)
 class ForbiddenConstructRule(ArchitectureRuleGrammar):
     """`allowed_sources` match an owner scope by prefix, `exact_sources` only the scope named."""
@@ -564,6 +588,7 @@ class ForbiddenConstructRule(ArchitectureRuleGrammar):
     allowed_sources: tuple[str, ...] = ()
     exact_sources: tuple[str, ...] = ()
     allowed_type_ignores: tuple[TypeIgnoreAllowance, ...] = ()
+    selector: ConstructSelector | None = None
 
 
 @dataclass(frozen=True, slots=True)
