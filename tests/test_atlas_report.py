@@ -2572,6 +2572,7 @@ def test_component_leaf_draws_native_module_cards_and_local_import_cells(tmp_pat
         page.wait_for_function("() => document.querySelector('[data-label=\"core.py\"]') !== null")
         assert page.locator('.flow-nodes [data-label="core.py"]').is_visible()
         page.locator('.flow-nodes [data-label="__init__.py"]').press("Enter")
+        page.locator(".flow-alternative", has_text="No direct declarations").wait_for()
         assert "No direct declarations" in page.locator(".flow-alternative").inner_text()
         assert "sample/__init__.py" in page.locator(".flow-alternative").inner_text()
         page.get_by_role("link", name="Back to architecture map", exact=True).click()
@@ -2720,6 +2721,120 @@ ELK.prototype.layout = function(graph) {
         page.wait_for_selector('#flow[data-layout-state="skipped"]')
         _open_health_check(page)
         assert page.locator(".flow-matrix svg").count() == 1
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_target_over_budget_names_target_facts_and_keeps_authored_relationships(tmp_path):
+    from copy import deepcopy
+    from dataclasses import asdict
+
+    from archkeel.ir.architecture_graph import Relationship, RelationshipKind
+    from archkeel.render.html import render_architecture_details
+
+    api = pytest.importorskip("playwright.sync_api")
+    model = _sample(tmp_path, uml=True)
+    html = _page(model)
+    match = re.search(r'<script id="flow-data" type="application/json">(.*?)</script>', html, re.S)
+    payload = json.loads(match.group(1))
+    atlas = payload["atlas"]
+    base = next(item for item in atlas["declared_modules"] if item["name"] == "sample.core")
+    extras = [
+        {**deepcopy(base), "id": f"{base['id']}-extra{index}", "name": f"sample.extra{index}"}
+        for index in range(81)
+    ]
+    first, second = extras[0], extras[1]
+    relationship = asdict(
+        Relationship(
+            id=f"{first['id']}-requires-{second['id']}",
+            kind=RelationshipKind.REQUIRES,
+            source_id=first["id"],
+            target_id=second["id"],
+            evidence_ids=("evidence:extra-requires",),
+        )
+    )
+    first["relationships"] = [relationship]
+    atlas["declared_modules"] = [*atlas["declared_modules"], *extras]
+    declared = atlas["declared_modules"]
+    ids = {item["id"] for item in declared}
+    modules = len(declared)
+    edges = sum(
+        1
+        for item in declared
+        for edge in item["relationships"]
+        if edge["source_id"] == item["id"] and edge["target_id"] in ids
+    )
+    assert modules > 80
+    encoded = json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).replace("<", "\\u003c")
+    patched = html[: match.start(1)] + encoded + html[match.end(1) :]
+    index = tmp_path / "architecture.report.html"
+    index.write_text(patched)
+    for name, content in render_architecture_details(
+        _result(model),
+        canonical_report_bytes(model),
+        repository="One target",
+        architecture_href="architecture.json",
+    ).items():
+        (tmp_path / name).write_bytes(content)
+    errors = []
+    playwright, browser, page = _browser_page(api, index.read_text(), errors=errors)
+    try:
+        page.goto(index.as_uri() + "?view=target&content=modules&theme=light")
+        page.wait_for_selector('#flow[data-layout-state="skipped"]', timeout=30000)
+        text = page.locator(".flow-alternative").text_content() or ""
+        assert " ".join(text.split()) == (
+            f"Diagram not drawn: {modules} modules and {edges} relationships exceed the diagram "
+            "budget of 80 modules / 300 relationships. Open a component or search for a module. "
+            "All declared facts remain in architecture.json."
+        )
+        page.goto(
+            index.as_uri() + f"?view=target&content=modules&selected={first['id']}&theme=light"
+        )
+        page.wait_for_selector('#flow[data-layout-state="skipped"]')
+        assert relationship["id"] in page.locator(".flow-inspector").inner_text()
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_over_budget_share_menu_omits_empty_diagram_exports(tmp_path):
+    from archkeel.render.html import render_architecture_details
+
+    api = pytest.importorskip("playwright.sync_api")
+    module_count = 84
+    extra_files = {
+        f"sample/m{index}.py": f"import sample.m{index + 1}\n" if index + 1 < module_count else ""
+        for index in range(module_count)
+    }
+    model = _sample(tmp_path, extra_files=extra_files)
+    index = tmp_path / "architecture.report.html"
+    index.write_text(_page(model))
+    for name, content in render_architecture_details(
+        _result(model),
+        canonical_report_bytes(model),
+        repository="One target",
+        architecture_href="architecture.json",
+    ).items():
+        (tmp_path / name).write_bytes(content)
+    errors = []
+    playwright, browser, page = _browser_page(api, index.read_text(), errors=errors)
+    try:
+        page.goto(index.as_uri() + "?content=modules&theme=light")
+        page.wait_for_selector('#flow[data-layout-state="skipped"]', timeout=30000)
+        page.get_by_role("button", name="Share", exact=True).click()
+        assert page.get_by_role("menuitem", name="Copy link to this view", exact=True).is_visible()
+        assert page.get_by_role("menuitem", name="Copy diagram as Mermaid", exact=True).count() == 0
+        assert page.get_by_role("menuitem", name="Download SVG", exact=True).count() == 0
+        page.goto(index.as_uri() + "?scope=core&content=modules&theme=light")
+        page.wait_for_selector('#flow[data-layout-state="ready"]')
+        page.get_by_role("button", name="Share", exact=True).click()
+        assert page.get_by_role("menuitem", name="Copy diagram as Mermaid", exact=True).count() == 1
+        assert page.get_by_role("menuitem", name="Download SVG", exact=True).count() == 1
         assert not errors
     finally:
         browser.close()

@@ -2382,8 +2382,8 @@ export let flow;
           <p>${link(atlasDetailsHref(module, level), "Open UML and source evidence")}</p><p><code>${esc(module.path || "File path not declared")}</code></p>
           <p>${REPORT_SCENE.countLabel(module.declarations, "direct declared definition")}</p>${list("Responsibility", module.responsibilities)}${list("Provenance", module.provenance)}
           ${boundaryPermissionMarkup(module.id, new Set([module.id]))}
-          ${list("Authored module relationships", scene.edges.filter((edge) => edge.source === module.id || edge.target === module.id)
-            .map((edge) => `${edge.id} · ${edge.relationshipKind}: ${edge.source} → ${edge.target} · ${edge.declaration.evidence_ids.join(", ")}`))}`;
+          ${list("Authored module relationships", scene.declared.filter((edge) => edge.source_id === module.id || edge.target_id === module.id)
+            .map((edge) => `${edge.id} · ${edge.kind}: ${edge.source_id} → ${edge.target_id} · ${edge.evidence_ids.join(", ")}`))}`;
         return;
       }
     }
@@ -2624,7 +2624,7 @@ export let flow;
     canvas.hidden = !scene.nodes.length; alternative.hidden = Boolean(scene.nodes.length);
     if (!scene.nodes.length) {
       const o = scene.overBudget;
-      alternative.innerHTML = o ? `<div class="flow-scope-notice"><p>${esc(`Diagram not drawn: ${o.modules} modules and ${o.edges} relationships exceed the diagram budget of ${o.budget.modules} modules / ${o.budget.edges} relationships. Open a component, search, or use Health check. All facts remain in the module list and architecture.json.`)}</p></div>`
+      alternative.innerHTML = o ? `<div class="flow-scope-notice"><p>${esc(`Diagram not drawn: ${o.modules} modules and ${o.edges} relationships exceed the diagram budget of ${o.budget.modules} modules / ${o.budget.edges} relationships. ${viewMode === "target" ? "Open a component or search for a module. All declared facts remain in architecture.json." : "Open a component, search, or use Health check. All facts remain in the module list and architecture.json."}`)}</p></div>`
         : `<div class="flow-scope-notice"><h3>${viewMode === "target" ? "No declared subcomponents. No declared modules recorded." : "No observed content recorded."}</h3><p>${viewMode === "target" ? "Declared facts remain in the Inspector; observed modules are not Target declarations." : "No native module content is recorded for this scope."}</p>${viewMode === "target" ? '<button type="button" class="flow-fit" data-show-as-is>Show As-Is modules</button>' : ""}</div>`;
       const asIs = alternative.querySelector("[data-show-as-is]");
       if (asIs) asIs.onclick = () => switchArchitectureView("diagram");
