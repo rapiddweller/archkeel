@@ -541,6 +541,34 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
                 "decided_by": "architect",
             }
         )
+    if version == "3.14.0":
+        raw["rules"].extend(
+            [
+                {
+                    "id": "CATALOG-ARGUMENT",
+                    "kind": "catalog_argument",
+                    "source": "shop.app",
+                    "target": "shop.model.Store.page",
+                    "parameter": "key",
+                    "catalog": "shop.model.OptionKey",
+                    "overlays": ["shop.app.CustomOption"],
+                    "rationale": "Pass a declared option key.",
+                    "provenance": _PROVENANCE,
+                    "decided_by": "architect",
+                },
+                {
+                    "id": "CATALOG-USE",
+                    "kind": "catalog_use",
+                    "source": "shop.app",
+                    "catalog": "shop.model.OptionKey",
+                    "overlays": ["shop.app.CustomOption"],
+                    "member": "PAGE_SIZE",
+                    "rationale": "Use every declared option.",
+                    "provenance": _PROVENANCE,
+                    "decided_by": "architect",
+                },
+            ]
+        )
     return raw
 
 
@@ -767,6 +795,7 @@ def test_the_maximal_contract_fills_every_field() -> None:
             "3.8.0",
             "3.9.0",
             "3.10.0",
+            "3.14.0",
         )
     ]
 
@@ -831,11 +860,11 @@ def test_validate_holds_the_namespace_to_the_fields_it_held_before(version: str)
     )
 
 
-@pytest.mark.parametrize("version", ("3.0.0", "3.1.0", "3.2.0", "3.8.0"))
+@pytest.mark.parametrize("version", ("3.0.0", "3.1.0", "3.2.0", "3.8.0", "3.14.0"))
 def test_maximal_contract_matches_its_version_schema(version: str) -> None:
     raw = json.loads(contract_bytes(parse_contract(_maximal_contract(version))))
     schema = json.loads(
-        (ROOT / f"schema/architecture-contract-{version[:3]}.schema.json").read_bytes()
+        (ROOT / f"schema/architecture-contract-{version[:-2]}.schema.json").read_bytes()
     )
     assert not list(Draft202012Validator(schema).iter_errors(raw))
     assert parse_contract(json.loads(contract_bytes(parse_contract(raw)))) == parse_contract(raw)

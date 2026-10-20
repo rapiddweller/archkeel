@@ -22,9 +22,10 @@ from archkeel.ir.model import (
     CatalogUseRule,
     ForbiddenCallArgumentRule,
     SelectorMatch,
+    last_name,
 )
 
-from .call_arguments import bind_call_arguments
+from .call_arguments import BoundCallArguments, bind_call_arguments
 from .call_owners import _target_binding_static
 from .rule_support import _rule_evaluation_receipt
 
@@ -264,28 +265,39 @@ def catalog_results(
         entries: dict[str, tuple[RawRecord, str | None, str]] = {}
         ambiguous_owner = len(owners_by_name) != len(catalog_owners)
         for owner in owner_records:
-            names = owner["data"].get("enum_members")
-            attributes = owner["data"].get("attribute_declarations")
-            if not isinstance(attributes, (tuple, list)):
+            owner_data = parse_record(owner).data
+            raw_attributes = owner_data.get("attribute_declarations")
+            raw_names = owner_data.get("enum_members")
+            if not isinstance(raw_attributes, tuple) or any(
+                not isinstance(attribute, RecordData) for attribute in raw_attributes
+            ):
                 ambiguous_owner = True
                 continue
-            if not isinstance(names, (tuple, list)):
-                names = [
-                    item.get("name")
-                    for item in attributes
-                    if isinstance(item, dict)
-                    and item.get("static") is True
-                    and isinstance(item.get("literal_value"), str)
-                ]
+            attributes = tuple(
+                attribute for attribute in raw_attributes if isinstance(attribute, RecordData)
+            )
+            if isinstance(raw_names, tuple):
+                names = tuple(name for name in raw_names if isinstance(name, str))
+                if len(names) != len(raw_names):
+                    ambiguous_owner = True
+            else:
+                derived_names: list[str] = []
+                for item in attributes:
+                    name = item.get("name")
+                    if (
+                        item.get("static") is True
+                        and isinstance(item.get("literal_value"), str)
+                        and isinstance(name, str)
+                    ):
+                        derived_names.append(name)
+                names = tuple(derived_names)
                 if len(names) != len(attributes):
                     ambiguous_owner = True
             if not names:
                 ambiguous_owner = True
                 continue
             values = {
-                item.get("name"): item
-                for item in attributes
-                if isinstance(item, dict) and isinstance(item.get("name"), str)
+                item.get("name"): item for item in attributes if isinstance(item.get("name"), str)
             }
             for name in names:
                 if not isinstance(name, str) or name not in values:
@@ -297,7 +309,7 @@ def catalog_results(
                 entries[f"{owner['data']['qualified_name']}.{name}"] = (
                     owner,
                     literal_value,
-                    str(attribute.get("definition_id", owner["id"])),
+                    _record_text(attribute, "definition_id") or owner["id"],
                 )
         subjects = [
             record
@@ -311,30 +323,37 @@ def catalog_results(
             if (source_modules is None or call["data"]["source_module"] in source_modules)
             and selected(call["data"]["source_scope"], rule.source, rule.source_match)
         ]
-        selected_scope_refs = [
-            reference
-            for reference in references
-            if (source_modules is None or reference["data"].get("source_module") in source_modules)
-            and selected(reference["data"].get("source_scope", ""), rule.source, rule.source_match)
-            and reference["data"].get("use") in {"value", "attribute"}
-            and reference["kind"] in {"value_reference", "attribute_reference"}
-        ]
+        selected_scope_refs = []
+        reference_data: dict[str, RecordData] = {}
+        for reference in references:
+            if reference["kind"] not in {"value_reference", "attribute_reference"}:
+                continue
+            data = parse_record(reference).data
+            reference_data[reference["id"]] = data
+            if (
+                (source_modules is None or data.get("source_module") in source_modules)
+                and selected(
+                    _record_text(data, "source_scope") or "", rule.source, rule.source_match
+                )
+                and data.get("use") in {"value", "attribute"}
+            ):
+                selected_scope_refs.append(reference)
         reference_context_complete = all(
-            reference["data"].get("reference_context") in {"value", "annotation"}
+            reference_data[reference["id"]].get("reference_context") in {"value", "annotation"}
             for reference in selected_scope_refs
         )
         selected_refs = [
             reference
             for reference in selected_scope_refs
-            if reference["data"].get("declaration_scope") is None
+            if reference_data[reference["id"]].get("declaration_scope") is None
         ]
         selected_value_refs = [
             reference
             for reference in selected_refs
-            if reference["data"].get("reference_context") == "value"
+            if reference_data[reference["id"]].get("reference_context") == "value"
         ]
         rule_limits: list[RawRecord] = []
-        supporting_facts = [*subjects, *owner_records, *selected_refs]
+        supporting_facts = [*subjects, *owner_records, *selected_scope_refs]
         if not subjects or not complete or ambiguous_owner:
             rule_limits.append(
                 _catalog_limit(
@@ -408,17 +427,23 @@ def catalog_results(
                         )
                     )
                     continue
-                for index in dict(bound.by_parameter).get(rule.parameter, ()):
+                for index in _bound_argument_indexes(bound, rule.parameter):
                     actual = actuals[index]
                     member_refs = [
                         reference
                         for reference in selected_refs
-                        if set(reference["evidence_ids"]).intersection(actual.evidence_ids)
-                        and rule.catalog in reference["data"].get("targets", ())
+                        if any(
+                            evidence_id in actual.evidence_ids
+                            for evidence_id in reference["evidence_ids"]
+                        )
+                        and rule.catalog
+                        in _record_strings(reference_data[reference["id"]], "targets")
                     ]
                     if member_refs:
-                        expression = member_refs[0]["data"].get("expression", "")
-                        identity = f"{rule.catalog}.{expression.rsplit('.', 1)[-1]}"
+                        expression = _record_text(
+                            reference_data[member_refs[0]["id"]], "expression"
+                        )
+                        identity = f"{rule.catalog}.{last_name(expression or '')}"
                         if identity not in entries:
                             rule_limits.append(
                                 _catalog_limit(
@@ -488,7 +513,7 @@ def catalog_results(
             selected_entries = {
                 identity: value
                 for identity, value in entries.items()
-                if rule.member is None or identity.rsplit(".", 1)[-1] == rule.member
+                if rule.member is None or last_name(identity) == rule.member
             }
             if rule.member is not None and not selected_entries:
                 rule_limits.append(
@@ -500,12 +525,13 @@ def catalog_results(
                     )
                 )
             for identity, (owner, _, _definition_id) in selected_entries.items():
+                owner_name = _record_text(parse_record(owner).data, "qualified_name")
                 uses = [
                     reference
                     for reference in selected_value_refs
-                    if owner["data"]["qualified_name"] in reference["data"].get("targets", ())
-                    and reference["data"].get("expression", "").rsplit(".", 1)[-1]
-                    == identity.rsplit(".", 1)[-1]
+                    if owner_name in _record_strings(reference_data[reference["id"]], "targets")
+                    and last_name(_record_text(reference_data[reference["id"]], "expression") or "")
+                    == last_name(identity)
                 ]
                 if not uses and complete and references_measured:
                     violations.append(
@@ -530,6 +556,25 @@ def catalog_results(
     return violations, limits, receipts
 
 
+def _record_text(data: RecordData, key: str) -> str | None:
+    value = data.get(key)
+    return value if isinstance(value, str) else None
+
+
+def _record_strings(data: RecordData, key: str) -> tuple[str, ...]:
+    value = data.get(key)
+    return (
+        tuple(item for item in value if isinstance(item, str)) if isinstance(value, tuple) else ()
+    )
+
+
+def _bound_argument_indexes(bound: BoundCallArguments, parameter: str) -> tuple[int, ...]:
+    return next(
+        (indexes for name, indexes in bound.by_parameter if name == parameter),
+        (),
+    )
+
+
 def _catalog_limit(
     rule: CatalogArgumentRule | CatalogUseRule, scope: str, reason: str, facts: Sequence[RawRecord]
 ) -> RawRecord:
@@ -550,7 +595,7 @@ def _catalog_limit(
 
 
 def _catalog_owner_static(record: RawRecord) -> bool:
-    data = record["data"]
+    data = parse_record(record).data
     if data.get("source_binding_unique") is not True:
         return False
     if data.get("class_kind") == "enum":

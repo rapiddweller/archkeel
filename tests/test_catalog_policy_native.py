@@ -7,7 +7,10 @@ from pathlib import Path
 import pytest
 
 from archkeel.cli.observe import observe
+from archkeel.ir.codec import parse_contract
 from archkeel.ir.decisions import rule_assessments
+from archkeel.ir.model import module_references
+from archkeel.ir.renames import renamed_contract
 
 
 def _raw(*rules):
@@ -83,6 +86,152 @@ def _use(source="sample.consumer"):
         "catalog": "sample.catalog.OptionKey",
         "member": "PAGE_SIZE",
     }
+
+
+def test_catalog_selector_references_are_renamed_as_canonical_module_references():
+    contract = parse_contract(
+        _raw(
+            {
+                **_argument("sample.consumer"),
+                "catalog": "sample.catalog.OptionKey",
+                "overlays": ["sample.catalog.ExtraKey"],
+            },
+            {
+                **_use("sample.consumer"),
+                "overlays": ["sample.catalog.ExtraKey"],
+            },
+        )
+    )
+    references = {item.pointer: item for item in module_references(contract)}
+
+    assert references["/rules/0/source"].value == "sample.consumer"
+    assert references["/rules/0/target"].value == "sample.consumer.read_option"
+    assert references["/rules/0/catalog"].value == "sample.catalog.OptionKey"
+    assert references["/rules/0/overlays/0"].value == "sample.catalog.ExtraKey"
+    assert references["/rules/1/source"].value == "sample.consumer"
+    assert references["/rules/1/catalog"].value == "sample.catalog.OptionKey"
+    assert references["/rules/1/overlays/0"].value == "sample.catalog.ExtraKey"
+    assert all(item.held for item in references.values())
+
+    renamed = renamed_contract(contract, {"sample": "renamed"})
+    moved = {item.pointer: item.value for item in module_references(renamed)}
+    assert moved["/rules/0/source"] == "renamed.consumer"
+    assert moved["/rules/0/target"] == "renamed.consumer.read_option"
+    assert moved["/rules/0/catalog"] == "renamed.catalog.OptionKey"
+    assert moved["/rules/0/overlays/0"] == "renamed.catalog.ExtraKey"
+
+
+def test_mounted_catalog_receipt_uses_only_its_physical_source_domain(tmp_path):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import observation_payload
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    (tmp_path / "docs/architecture").mkdir(parents=True)
+    (tmp_path / "docs/architecture/catalog.md").write_text("Mounted catalog policy.\n")
+    (tmp_path / "sample/__init__.py").write_text("")
+    (tmp_path / "sample/consumer.py").write_text(
+        "from enum import StrEnum\n"
+        "class OptionKey(StrEnum):\n    PAGE_SIZE = 'page_size'\n"
+        "def read_option(key: str) -> None: pass\n"
+        "def consume():\n    read_option('page_size')\n"
+    )
+    (tmp_path / "sample/other.py").write_text(
+        "def unrelated(value: str) -> None: pass\ndef outside_mount():\n    unrelated('outside')\n"
+    )
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "3.14.0",
+                "components": [
+                    {
+                        "id": "COMP-SAMPLE",
+                        "label": "sample",
+                        "role": "component",
+                        "packages": ["sample.consumer"],
+                        "responsibilities": [],
+                        "forbidden_responsibilities": [],
+                        "provenance": ["docs/architecture/catalog.md"],
+                        "inside": "inside.json",
+                    }
+                ],
+                "rules": [],
+            }
+        )
+    )
+    (tmp_path / "inside.json").write_text(
+        json.dumps(
+            {
+                **_raw(
+                    {
+                        "kind": "catalog_argument",
+                        "source": "sample",
+                        "source_match": "prefix",
+                        "target": "sample.consumer.read_option",
+                        "parameter": "key",
+                        "catalog": "sample.consumer.OptionKey",
+                    }
+                ),
+                "components": [
+                    {
+                        "id": "COMP-CONSUMER",
+                        "label": "consumer",
+                        "role": "component",
+                        "packages": ["sample.consumer"],
+                        "responsibilities": [],
+                        "forbidden_responsibilities": [],
+                        "provenance": ["docs/architecture/catalog.md"],
+                    }
+                ],
+            }
+        )
+    )
+
+    result = observe(
+        tmp_path,
+        roots=("sample",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+
+    assert result.observation is not None, result.diagnostics
+    assessments = rule_assessments(result.observation, undecided_by_rule={})
+    assessment = next(row for row in assessments if row.id.endswith("CATALOG-0"))
+    assert assessment.status == "PASS" and assessment.evaluation_proven, (
+        assessment,
+        [
+            (item.kind, item.title, item.subjects)
+            for item in result.observation.records("violations") or ()
+        ],
+        [
+            (item.kind, item.title, item.subjects)
+            for item in result.observation.records("unknowns") or ()
+        ],
+    )
+    receipt = next(
+        record
+        for record in result.observation.records("scope_observations") or ()
+        if record.kind == "rule_evaluation"
+        and len(record.rule_ids) == 1
+        and record.rule_ids[0].endswith("CATALOG-0")
+    )
+    call_modules = {
+        record.id: record.data.get("source_module")
+        for record in result.observation.records("calls") or ()
+    }
+    selected_call_modules = {
+        call_modules[item] for item in receipt.fact_ids if item in call_modules
+    }
+    assert selected_call_modules == {"sample.consumer"}
+
+    saved = tmp_path / "mounted-catalog.json"
+    saved.write_text(json.dumps(observation_payload(result.observation)))
+    replay = run_saved_report(saved)
+    replayed = next(row for row in replay.rule_assessments if row.id.endswith("CATALOG-0"))
+    assert replayed.status == "PASS" and replayed.evaluation_proven
 
 
 @pytest.mark.parametrize(

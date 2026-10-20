@@ -1078,7 +1078,9 @@ def _references(
 
 
 # The fields that hold one name rather than a list of them.
-_SCALAR_FIELDS: Final = frozenset({"source", "target", "root", "namespace", "command", "owner"})
+_SCALAR_FIELDS: Final = frozenset(
+    {"source", "target", "catalog", "root", "namespace", "command", "owner"}
+)
 
 
 def _boundary_allowance_references(
@@ -1149,6 +1151,25 @@ def _rule_references(
         return _references(
             f"/rules/{index}",
             [("source", (rule.source,), True), ("target", (rule.target,), False)],
+        )
+    if isinstance(rule, CatalogArgumentRule):
+        return _references(
+            f"/rules/{index}",
+            [
+                ("source", (rule.source,), True),
+                ("target", (rule.target,), True),
+                ("catalog", (rule.catalog,), True),
+                ("overlays", rule.overlays, True),
+            ],
+        )
+    if isinstance(rule, CatalogUseRule):
+        return _references(
+            f"/rules/{index}",
+            [
+                ("source", (rule.source,), True),
+                ("catalog", (rule.catalog,), True),
+                ("overlays", rule.overlays, True),
+            ],
         )
     named: list[tuple[str, tuple[str, ...], bool]] = []
     if isinstance(

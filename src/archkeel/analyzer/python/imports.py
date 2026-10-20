@@ -569,7 +569,13 @@ def _non_escaping_enum_value_reads(
                     or root.id not in stable_direct_module_bindings(consumer)
                 ):
                     continue
-                owner_module, _, owner_name = alias.target.rpartition(".")
+                owner_separator = len(alias.target) - 1
+                while owner_separator >= 0 and alias.target[owner_separator] != ".":
+                    owner_separator -= 1
+                if owner_separator <= 0:
+                    continue
+                owner_module = alias.target[:owner_separator]
+                owner_name = alias.target[owner_separator + 1 :]
                 provider = modules.get(owner_module)
                 owner = (
                     next(
@@ -658,7 +664,8 @@ def _enum_owner_is_mutated(
     modules: Mapping[str, ParsedModule], provider: ParsedModule, owner: ast.ClassDef
 ) -> bool:
     qualified = f"{provider.module}.{owner.name}"
-    for module in modules.values():
+    for module_name in modules:
+        module = modules[module_name]
         for node in module.all_nodes:
             if isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Store | ast.Del):
                 target = node.value
