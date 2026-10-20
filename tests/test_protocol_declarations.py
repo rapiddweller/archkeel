@@ -84,9 +84,12 @@ def test_selected_public_positions_require_the_canonical_protocol(tmp_path: Path
         "from typing import Any, Protocol\n"
         "class Reader(Protocol):\n    def read(self) -> bytes: ...\n"
         "class Concrete:\n    def read(self) -> bytes: return b''\n"
+        "class Fake: pass\n"
+        "typing = Fake\n"
         "def good(client: Reader): return client.read()\n"
         "def broad(client: object): return None\n"
         "def any_type(client: Any): return None\n"
+        "def shadowed_any(client: typing.Any): return None\n"
         "def concrete(client: Concrete): return client.read()\n"
         "def missing(client): return None\n"
         "def optional(client: Reader | None): return None\n"
@@ -111,6 +114,12 @@ def test_selected_public_positions_require_the_canonical_protocol(tmp_path: Path
         "sample.core.MissingHolder",
     }
     assert "sample.core._private" not in {item.data.get("qualified_name") for item in violations}
+    unknowns = result.observation.records("unknowns") or ()
+    assert any(
+        item.kind == "protocol_declaration_limit"
+        and item.data.get("qualified_name") == "sample.core.shadowed_any"
+        for item in unknowns
+    )
 
 
 def test_imported_and_quoted_aliases_resolve_but_unresolved_names_stay_unknown(

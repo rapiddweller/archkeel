@@ -593,7 +593,7 @@ def _evaluate_inside_contract(
         receipt_scan_roots=receipt_scan_roots,
         type_shapes=type_shapes,
     )
-    unknowns = (
+    unknowns: list[RawRecord] = (
         boundary_type_limits(
             symbols,
             imports,

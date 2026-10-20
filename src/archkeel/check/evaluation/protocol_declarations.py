@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from archkeel.ir.facts import SymbolClassKind, parse_symbol_class_kind
-from archkeel.ir.facts_codec import RawRecord, classified
+from archkeel.ir.facts_codec import RawData, RawRecord, classified
 from archkeel.ir.model import (
     ArchitectureContract,
     EvidenceClass,
@@ -32,10 +32,11 @@ from .rule_support import UncertainReexportOrigins, _rule_evaluation_receipt, ex
 
 
 def _public(symbol: RawRecord) -> bool:
-    return symbol["data"].get("visibility") == "public_name"
+    visibility = symbol["data"]["visibility"]
+    return isinstance(visibility, str) and visibility == "public_name"
 
 
-def _attribute_visibility(attribute: object) -> str | None:
+def _attribute_visibility(attribute: RawData) -> str | None:
     if not isinstance(attribute, dict):
         return None
     visibility = attribute.get("visibility")
@@ -118,15 +119,18 @@ def _identity_verdict(
     type_shapes: TypeShapeIndex,
     optional: bool,
 ) -> tuple[str, str]:
-    if annotation.strip() == "typing.Any" or resolve_named_type(
-        annotation, module, imports_by_binding, classes_by_location
-    ) == ("typing", "Any"):
+    source_annotation: str = annotation
+    if resolve_named_type(source_annotation, module, imports_by_binding, classes_by_location) == (
+        "typing",
+        "Any",
+    ):
         return "FAIL", "broad_any"
-    shape = type_shapes.get(annotation)
-    if annotation.startswith(("'", '"')) and shape is not None:
-        annotation = shape.text
+    shape = type_shapes.get(source_annotation)
+    normalized_annotation = source_annotation
+    if source_annotation.startswith(("'", '"')) and shape is not None:
+        normalized_annotation = shape.text
     verdict = _canonical_type_identity_verdict(
-        annotation,
+        normalized_annotation,
         module,
         contract,
         exports,
@@ -136,7 +140,9 @@ def _identity_verdict(
     )
     if verdict.undecidable is not None:
         return "UNKNOWN", str(verdict.undecidable)
-    arms = _union_parameters(annotation, module, imports_by_binding, type_shapes=type_shapes)
+    arms = _union_parameters(
+        normalized_annotation, module, imports_by_binding, type_shapes=type_shapes
+    )
     if arms is not None:
         if not optional:
             return (
@@ -199,7 +205,8 @@ def protocol_declaration_results(
     unknowns: list[RawRecord] = []
     receipts: list[RawRecord] = []
     for rule in rules:
-        target_module, _, target_name = rule.protocol.rpartition(".")
+        protocol: str = rule.protocol
+        target_module, _, target_name = protocol.rpartition(".")
         target_record = classes_by_location.get((target_module, target_name))
         target_valid = (
             isinstance(target_record, dict)
@@ -209,8 +216,8 @@ def protocol_declaration_results(
         selected_modules = [
             module
             for module in modules
-            if in_scope(module["data"].get("qualified_name", ""), rule.source)
-            and (source_modules is None or module["data"].get("qualified_name") in source_modules)
+            if in_scope(module["data"]["qualified_name"], rule.source)
+            and (source_modules is None or module["data"]["qualified_name"] in source_modules)
         ]
         if selected and target_valid:
             receipts.append(
@@ -268,8 +275,8 @@ def protocol_declaration_results(
                     (
                         item["id"]
                         for item in symbols
-                        if item["data"].get("module") == target_module
-                        and item["data"].get("name") == target_name
+                        if item["data"]["module"] == target_module
+                        and item["data"]["name"] == target_name
                         and item["kind"] == "class"
                     ),
                     None,
