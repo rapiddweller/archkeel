@@ -779,6 +779,7 @@ class CallCollector(ast.NodeVisitor):
                 if (
                     declaration["kind"] != "method"
                     or _mapping_value(declaration["data"], "parent") != current
+                    or bool(_mapping_value(declaration["data"], "decorators"))
                 ):
                     return None
                 return target, declaration, inherited_evidence
@@ -958,9 +959,14 @@ class CallCollector(ast.NodeVisitor):
             return None
         receiver = node.func.value
         constructor: ast.Call | None = receiver if isinstance(receiver, ast.Call) else None
+        assignment_evidence: str | None = None
         if isinstance(receiver, ast.Name):
             binding = self.scopes.lookup(receiver, receiver.id)
-            if binding.uncertain or binding.owner is None:
+            if (
+                binding.uncertain
+                or binding.owner is None
+                or (binding.owner.node, receiver.id) in self.escaped_bindings
+            ):
                 return None
             sites = binding.owner.bindings.get(receiver.id, ())
             if len(sites) != 1 or not isinstance(sites[0], ast.Name):
@@ -968,7 +974,12 @@ class CallCollector(ast.NodeVisitor):
             assignment = self.parents.get(sites[0])
             if not isinstance(assignment, ast.Assign | ast.AnnAssign) or assignment.value is None:
                 return None
+            if (assignment.lineno, assignment.col_offset) >= (node.lineno, node.col_offset):
+                return None
+            if self._native_instance_member_changed(receiver.id, node):
+                return None
             constructor = assignment.value if isinstance(assignment.value, ast.Call) else None
+            assignment_evidence = add_evidence(self.evidence, self.module, sites[0])
         if constructor is None:
             return None
         type_identity = self._native_import_target(constructor.func)
@@ -988,6 +999,7 @@ class CallCollector(ast.NodeVisitor):
                 *type_identity[1],
                 provider.evidence_id,
                 constructor_evidence,
+                *([assignment_evidence] if assignment_evidence is not None else []),
             ],
             {
                 "kind": "provider_member",
@@ -997,6 +1009,47 @@ class CallCollector(ast.NodeVisitor):
                 "runtime_version": self.runtime.version if self.runtime is not None else "unknown",
             },
         )
+
+    def _native_instance_member_changed(self, name: str, call: ast.Call) -> bool:
+        call_position = (call.lineno, call.col_offset)
+        owner = self.scopes.lookup(call, name).owner
+        for node in ast.walk(self.module.tree):
+            targets: tuple[ast.expr, ...] = ()
+            if isinstance(node, ast.Assign):
+                targets = tuple(item for item in node.targets if isinstance(item, ast.expr))
+            elif isinstance(node, ast.AnnAssign | ast.AugAssign):
+                targets = (node.target,)
+            elif isinstance(node, ast.Delete):
+                targets = tuple(item for item in node.targets if isinstance(item, ast.expr))
+            if any(
+                isinstance(target, ast.Attribute)
+                and isinstance(target.value, ast.Name)
+                and target.value.id == name
+                and self.scopes.lookup(target.value, name).owner is owner
+                for target in targets
+            ):
+                return True
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                if node.func.id in {"setattr", "delattr"} and len(node.args) >= 2:
+                    receiver_owner, member = node.args[:2]
+                    if (
+                        isinstance(receiver_owner, ast.Name)
+                        and receiver_owner.id == name
+                        and self.scopes.lookup(receiver_owner, name).owner
+                        is self.scopes.lookup(call, name).owner
+                        and isinstance(member, ast.Constant)
+                        and isinstance(member.value, str)
+                    ):
+                        return True
+            if (
+                isinstance(node, ast.Name)
+                and node.id == name
+                and isinstance(node.ctx, ast.Store | ast.Del)
+                and self.scopes.lookup(node, name).owner is owner
+                and (node.lineno, node.col_offset) > call_position
+            ):
+                return True
+        return False
 
     def _datetime_descriptor_proof(self, target: str) -> dict[str, object] | None:
         if target != "datetime.datetime.now" or sys.implementation.name != "cpython":
