@@ -22,7 +22,7 @@ from archkeel.ir.codec import (
     parse_contract,
     parse_observation,
 )
-from archkeel.ir.decisions import rule_assessments
+from archkeel.ir.decisions import rule_assessments, unknown_positions_by_rule
 from archkeel.ir.model import SCHEMA_VERSION
 from archkeel.ir.trace import trace_valid_violations
 
@@ -32,6 +32,7 @@ ROOT = Path(__file__).parents[1]
 def _contract() -> dict[str, object]:
     raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_text())
     raw["schema_version"] = "3.9.0"
+    raw["components"] = [_component("all", ["sample"])]
     raw["rules"] = [
         {
             "id": "APP-READER-DECLARATIONS",
@@ -659,6 +660,136 @@ def test_mounted_rule_is_limited_to_its_actual_source_modules(tmp_path: Path) ->
         item.data.get("qualified_name") == "sample.other.foreign"
         for item in trace_valid_violations(result.observation)
     )
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("annotation,expected", [("Reader", "UNKNOWN"), ("Concrete", "FAIL")])
+def test_partial_protocol_source_scope_withholds_receipt_but_keeps_known_failures(
+    tmp_path: Path, mounted: bool, annotation: str, expected: str
+) -> None:
+    rule = {
+        "id": "APP-READER-DECLARATIONS",
+        "kind": "protocol_declarations",
+        "source": "sample.core",
+        "protocol": "sample.core.Reader",
+        "selectors": [{"role": "parameter", "name": "client", "visibility": "all"}],
+        "rationale": "Selected API parameters use the Reader port.",
+        "provenance": ["docs/architecture/sample.md"],
+        "decided_by": "architect",
+    }
+    files = {
+        "sample/__init__.py": "",
+        "sample/core/__init__.py": (
+            "from typing import Protocol\n"
+            "class Reader(Protocol): ...\n"
+            "class Concrete: ...\n"
+            f"def consume(client: {annotation}): pass\n"
+        ),
+        "sample/other/__init__.py": "value = 1\n",
+    }
+    if mounted:
+        files["inside.json"] = json.dumps(
+            {
+                "schema_version": "3.9.0",
+                "components": [
+                    _component("core", ["sample.core"]),
+                    _component("other", ["sample.other"]),
+                ],
+                "rules": [rule],
+            }
+        )
+        root_contract = {
+            "schema_version": "3.9.0",
+            "components": [_component("all", ["sample"], inside="inside.json")],
+            "rules": [],
+        }
+    else:
+        root_contract = {
+            "schema_version": "3.9.0",
+            "components": [
+                _component("core", ["sample.core"]),
+                _component("other", ["sample.other"]),
+            ],
+            "rules": [rule],
+        }
+
+    result = _observe_tree(tmp_path, files, root_contract, roots=("sample/core",))
+    assert result.observation is not None
+    [row] = [
+        item
+        for item in rule_assessments(
+            result.observation,
+            undecided_by_rule=unknown_positions_by_rule(result.observation),
+        )
+        if item.kind == "protocol_declarations"
+    ]
+    assert row.status.value == expected
+    assert row.evaluation_proven is False
+    if expected == "FAIL":
+        assert any(
+            item.kind == "protocol_declaration"
+            for item in result.observation.records("violations") or ()
+        )
+    else:
+        assert any(
+            item.kind == "protocol_declaration_limit"
+            and item.data.get("reason") == "incomplete_scope"
+            for item in result.observation.records("unknowns") or ()
+        )
+
+
+@pytest.mark.parametrize(
+    "role,selector_name,source",
+    [
+        (
+            "parameter",
+            "client",
+            "def consume(client: Reader): pass\nif FEATURE:\n    consume = replacement\n",
+        ),
+        (
+            "parameter",
+            "client",
+            "def consume(client: Reader): pass\ndef consume(client: Reader): pass\n",
+        ),
+        (
+            "member",
+            "reader",
+            "class Holder:\n    reader: Reader\nif FEATURE:\n    Holder = replacement\n",
+        ),
+        (
+            "member",
+            "reader",
+            "class Holder:\n    reader: Reader\nclass Holder:\n    reader: Reader\n",
+        ),
+    ],
+)
+def test_nonunique_selected_declarations_are_unknown(
+    tmp_path: Path, role: str, selector_name: str, source: str
+) -> None:
+    raw = _contract()
+    raw["components"][0]["packages"] = ["sample"]
+    raw["rules"][0]["source"] = "sample"
+    raw["rules"][0]["selectors"] = [{"role": role, "name": selector_name, "visibility": "all"}]
+    (tmp_path / "contract.json").write_text(json.dumps(raw))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "from typing import Protocol\nclass Reader(Protocol): ...\n" + source
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    rows = rule_assessments(
+        result.observation,
+        undecided_by_rule=unknown_positions_by_rule(result.observation),
+    )
+    [row] = [item for item in rows if item.id == "APP-READER-DECLARATIONS"]
+    assert row.status.value == "UNKNOWN"
+    unknowns = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "protocol_declaration_limit"
+    ]
+    assert any(item.data.get("reason") == "declaration_binding_ambiguous" for item in unknowns)
+    assert not any(item.data.get("reason") == "empty_scope" for item in unknowns)
 
 
 def test_missing_protocol_port_is_unknown(tmp_path: Path) -> None:

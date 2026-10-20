@@ -37,6 +37,9 @@ _NumericAlias = dict[str, str | int]
 def _numeric_evidence_excerpt_supported(excerpt: str) -> bool:
     if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
         return False
+    stripped: str = excerpt.lstrip(" \t")
+    if stripped.startswith("@"):
+        return _numeric_decorator_excerpt(excerpt) is not None
     if _numeric_elif_start(excerpt) is not None:
         return _numeric_elif_excerpt_supported(excerpt)
     try:
@@ -53,6 +56,33 @@ def _numeric_evidence_excerpt_supported(excerpt: str) -> bool:
             and len(parsed[0]) == 1
             and _numeric_header_has_synthetic_body(parsed[0][0])
         )
+
+
+def _numeric_decorator_excerpt(excerpt: str) -> tuple[tuple[ast.stmt, ...], int] | None:
+    indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+    unit = "\t" if "\t" in indentation else "    "
+    prefix = "if True:\n" if indentation else ""
+    offset = 1 if indentation else 0
+    source = (
+        f"{prefix}{excerpt}\n"
+        f"{indentation}def __archkeel_numeric_witness__():\n"
+        f"{indentation}{unit}pass"
+    )
+    try:
+        parsed = ast.parse(source)
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    roots = tuple(parsed.body)
+    if indentation and (len(roots) != 1 or not isinstance(roots[0], ast.If)):
+        return None
+    body = tuple(roots[0].body) if indentation and isinstance(roots[0], ast.If) else roots
+    if (
+        len(body) != 1
+        or not isinstance(body[0], ast.FunctionDef)
+        or len(body[0].decorator_list) != 1
+    ):
+        return None
+    return roots, offset
 
 
 def _numeric_elif_start(excerpt: str) -> int | None:
@@ -849,12 +879,21 @@ class ConstructCollector(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        self._visit_definition_header(node)
         qualified = f"{self.scope_stack[-1]}.{node.name}"
         self.scope_stack.append(qualified)
         self.inherits_stack.append(bool(node.bases))
-        self.generic_visit(node)
+        for statement in node.body:
+            self.visit(statement)
         self.inherits_stack.pop()
         self.scope_stack.pop()
+
+    def _visit_definition_header(
+        self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
+    ) -> None:
+        for child in ast.iter_child_nodes(node):
+            if child not in node.body:
+                self.visit(child)
 
     def _placeholder_form(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> str | None:
         """Name what the body holds instead of an implementation, or nothing when it is one."""
@@ -868,13 +907,15 @@ class ConstructCollector(ast.NodeVisitor):
         return "not_implemented" if _raises_not_implemented(node) else None
 
     def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        self._visit_definition_header(node)
         self.scope_stack.append(f"{self.scope_stack[-1]}.{node.name}")
         form = self._placeholder_form(node)
         if form is not None:
             self._record(
                 node, kind="placeholder_body", construct="placeholder_body", handled=None, form=form
             )
-        self.generic_visit(node)
+        for statement in node.body:
+            self.visit(statement)
         self.scope_stack.pop()
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:

@@ -255,8 +255,15 @@ def _protocol_findings(
             for selector in rule.selectors
             if position == f"{selector.role.value}.{selector.name}"
         )
+        data = symbol["data"]
+        binding_is_unique = data.get("source_binding_unique") is True
+        class_header_is_static = (
+            symbol["kind"] != "class" or data.get("class_header_static") is True
+        )
         if ambiguous:
             status, reason = "UNKNOWN", "member_binding_ambiguous"
+        elif not binding_is_unique or not class_header_is_static:
+            status, reason = "UNKNOWN", "declaration_binding_ambiguous"
         elif annotation is None:
             status, reason = "FAIL", "missing_annotation"
         else:
@@ -324,6 +331,71 @@ def _unmatched_selectors(
     )
 
 
+def _protocol_rule_results(
+    rule: ProtocolDeclarationsRule,
+    symbols: Sequence[RawRecord],
+    modules: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    source_modules: frozenset[str] | None,
+    exports: ModuleExports,
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    type_shapes: TypeShapeIndex,
+    scope: str,
+    receipt_scope_complete: bool,
+) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord]]:
+    """Evaluate one selector rule and issue only a complete source-scope receipt."""
+    protocol_name: str = rule.protocol
+    target_module, _, target_name = protocol_name.rpartition(".")
+    target_record = classes_by_location.get((target_module, target_name))
+    target_valid = (
+        isinstance(target_record, dict)
+        and parse_symbol_class_kind(target_record.get("class_kind")) is SymbolClassKind.PROTOCOL
+    )
+    selected = _selected_positions(rule, symbols, source_modules)
+    unmatched = _unmatched_selectors(rule, selected)
+    selected_modules = [
+        module
+        for module in modules
+        if in_scope(module["data"]["qualified_name"], rule.source)
+        and (source_modules is None or module["data"]["qualified_name"] in source_modules)
+    ]
+    receipts = []
+    unknowns = []
+    violations = []
+    if not unmatched and target_valid and receipt_scope_complete:
+        receipts.append(
+            _rule_evaluation_receipt(
+                rule,
+                scope,
+                selected_modules,
+                subjects=sorted({item[0]["data"]["qualified_name"] for item in selected}),
+                data={"protocol": rule.protocol},
+            )
+        )
+    if unmatched or not target_valid:
+        reason = "empty_scope" if unmatched else "protocol_missing_or_ambiguous"
+        unknowns.append(_protocol_scope_limit(rule, selected_modules, reason))
+    if not receipt_scope_complete:
+        unknowns.append(_protocol_scope_limit(rule, selected_modules, "incomplete_scope"))
+    if selected and target_valid:
+        target = (target_module, target_name)
+        failed, undecided = _protocol_findings(
+            rule,
+            selected,
+            symbols,
+            target,
+            contract,
+            exports,
+            imports_by_binding,
+            classes_by_location,
+            type_shapes,
+        )
+        violations.extend(failed)
+        unknowns.extend(undecided)
+    return violations, unknowns, receipts
+
+
 def protocol_declaration_results(
     *,
     symbols: Sequence[RawRecord],
@@ -335,6 +407,7 @@ def protocol_declaration_results(
     type_shapes: TypeShapeIndex,
     profile: Profile,
     scope: str = "root",
+    receipt_scope_complete: bool = True,
 ) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord]]:
     rules = [
         rule
@@ -355,50 +428,22 @@ def protocol_declaration_results(
     unknowns: list[RawRecord] = []
     receipts: list[RawRecord] = []
     for rule in rules:
-        protocol: str = rule.protocol
-        target_module, _, target_name = protocol.rpartition(".")
-        target_record = classes_by_location.get((target_module, target_name))
-        target_valid = (
-            isinstance(target_record, dict)
-            and parse_symbol_class_kind(target_record.get("class_kind")) is SymbolClassKind.PROTOCOL
-        )
-        selected = _selected_positions(rule, symbols, source_modules)
-        unmatched = _unmatched_selectors(rule, selected)
-        selected_modules = [
-            module
-            for module in modules
-            if in_scope(module["data"]["qualified_name"], rule.source)
-            and (source_modules is None or module["data"]["qualified_name"] in source_modules)
-        ]
-        if not unmatched and target_valid:
-            receipts.append(
-                _rule_evaluation_receipt(
-                    rule,
-                    scope,
-                    selected_modules,
-                    subjects=sorted({item[0]["data"]["qualified_name"] for item in selected}),
-                    data={"protocol": rule.protocol},
-                )
-            )
-        if unmatched or not target_valid:
-            reason = "empty_scope" if unmatched else "protocol_missing_or_ambiguous"
-            unknowns.append(_protocol_scope_limit(rule, selected_modules, reason))
-        if not selected or not target_valid:
-            continue
-        target = (target_module, target_name)
-        failed, undecided = _protocol_findings(
+        failed, undecided, issued = _protocol_rule_results(
             rule,
-            selected,
             symbols,
-            target,
+            modules,
             contract,
+            source_modules,
             exports,
             imports_by_binding,
             classes_by_location,
             type_shapes,
+            scope,
+            receipt_scope_complete,
         )
         violations.extend(failed)
         unknowns.extend(undecided)
+        receipts.extend(issued)
     return (
         sorted(violations, key=lambda item: item["id"]),
         sorted(unknowns, key=lambda item: item["id"]),

@@ -69,6 +69,7 @@ from .rules import (
     rule_violations,
     source_domains_complete,
     source_selector_domains,
+    scope_receipts_complete,
     symbol_limits,
 )
 from .state import evaluate_contexts
@@ -694,6 +695,14 @@ def _evaluate_inside_contract(
         type_shapes=type_shapes,
         profile=profile,
         scope=parent.label,
+        receipt_scope_complete=scope_receipts_complete(
+            scoped,
+            modules,
+            profile,
+            parent.packages,
+            parent.exact_modules or (),
+            receipt_scan_roots,
+        ),
     )
     unknowns.extend(protocol_unknowns)
     return violations, unknowns, failures, allowance_facts
@@ -1081,6 +1090,14 @@ def evaluate_source(
             uncertain_reexport_origins=uncertain_reexport_origins,
             type_shapes=type_shapes,
             profile=profile,
+            receipt_scope_complete=scope_receipts_complete(
+                contract,
+                module_facts,
+                profile,
+                (),
+                (),
+                roots if _source_inventory_complete(facts) else (),
+            ),
         )[1],
         # AD-67: a boundary position the rule could not decide is reported, not silent. It
         # joins the two structural limits above and never `coverage.failures`, because it

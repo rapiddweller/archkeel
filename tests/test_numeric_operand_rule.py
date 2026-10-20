@@ -435,6 +435,122 @@ def test_complete_numeric_report_replays_with_one_receipt(tmp_path, operand, exp
 
 
 @pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize(
+    "sibling",
+    [
+        "    def sibling(WIDTH): return WIDTH\n",
+        "    def sibling():\n        WIDTH = 5\n        return WIDTH\n",
+        "    def sibling():\n        import math as WIDTH\n        return WIDTH.pi\n",
+        "    class Nested:\n        WIDTH = 5\n",
+        "    class Nested:\n        def method(self, WIDTH): return WIDTH\n",
+        "    (lambda WIDTH: WIDTH)(5)\n",
+        "    [WIDTH for WIDTH in (5,)]\n",
+        "    def middle():\n"
+        "        WIDTH = 5\n"
+        "        def sibling():\n"
+        "            nonlocal WIDTH\n"
+        "            WIDTH = 6\n"
+        "        return WIDTH\n",
+    ],
+    ids=[
+        "sibling-parameter",
+        "sibling-local",
+        "sibling-import",
+        "class-member",
+        "method-parameter",
+        "lambda-parameter",
+        "comprehension-target",
+        "intermediate-nonlocal",
+    ],
+)
+def test_numeric_alias_ignores_bindings_in_nested_sibling_scopes(tmp_path, columnar, sibling):
+    _write_probe(tmp_path, minimum=4)
+    source = (
+        "def outer(job_nonce):\n"
+        "    WIDTH = 4\n"
+        + sibling
+        + "    def choose(): return job_nonce % WIDTH\n"
+        + "    return choose()\n"
+    )
+    from test_analyzer import _parsed_module
+
+    from archkeel.analyzer.python.constructs import collect_constructs
+
+    module = _parsed_module(source, "sample.core", rel_path="sample/core.py")
+    [collected] = [
+        item for item in collect_constructs([module], {}) if item["kind"] == "numeric_operand"
+    ]
+    assert collected["data"]["proof"] == "known"
+    assert collected["data"]["value"] == 4
+    (tmp_path / "sample/core.py").write_text(source)
+    observation, rows = _rule_rows(tmp_path)
+    assert len(rows) == 1 and rows[0].status.value == "PASS"
+    for content in (
+        canonical_report_bytes(observation)
+        if columnar
+        else json.dumps(observation_payload(observation)).encode(),
+    ):
+        saved = tmp_path / "nested-alias.json"
+        saved.write_bytes(content)
+        replay = run_saved_report(saved)
+        assert not replay.diagnostics and replay.rule_assessments == rows
+
+
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "    def WIDTH(): return 5\n",
+        "    [(WIDTH := 5) for _ in (0,)]\n",
+        "    def sibling(value=(WIDTH := 5)): return value\n",
+        "    def sibling(*args: (WIDTH := 5)): return args\n",
+        "    def sibling(**kwargs: (WIDTH := 5)): return kwargs\n",
+        "    def identity(value): return value\n"
+        "    @((WIDTH := identity))\n"
+        "    def sibling(): return None\n",
+    ],
+    ids=[
+        "nested-definition-binds-outer",
+        "comprehension-walrus-rebinds-outer",
+        "nested-default-walrus-rebinds-outer",
+        "vararg-annotation-walrus-rebinds-outer",
+        "kwarg-annotation-walrus-rebinds-outer",
+        "nested-decorator-walrus-rebinds-outer",
+    ],
+)
+def test_numeric_alias_rejects_enclosing_rebinding_from_nested_scope(tmp_path, columnar, mutation):
+    _write_probe(tmp_path, minimum=4)
+    source = (
+        "def outer(job_nonce):\n"
+        "    WIDTH = 4\n"
+        + mutation
+        + "    def choose(): return job_nonce % WIDTH\n"
+        + "    return choose()\n"
+    )
+    (tmp_path / "sample/core.py").write_text(source)
+    from test_analyzer import _parsed_module
+
+    from archkeel.analyzer.python.constructs import collect_constructs
+
+    module = _parsed_module(source, "sample.core", rel_path="sample/core.py")
+    [collected] = [
+        item for item in collect_constructs([module], {}) if item["kind"] == "numeric_operand"
+    ]
+    assert collected["data"]["proof"] == "unknown"
+    observation, rows = _rule_rows(tmp_path)
+    assert len(rows) == 1 and rows[0].status.value == "UNKNOWN"
+    for content in (
+        canonical_report_bytes(observation)
+        if columnar
+        else json.dumps(observation_payload(observation)).encode(),
+    ):
+        saved = tmp_path / "nested-rebind.json"
+        saved.write_bytes(content)
+        replay = run_saved_report(saved)
+        assert not replay.diagnostics and replay.rule_assessments == rows
+
+
+@pytest.mark.parametrize("columnar", [False, True])
 @pytest.mark.parametrize("operand,section", [("3", "violations"), ("dynamic", "unknowns")])
 @pytest.mark.parametrize("mutation", ["relocate", "delete", "change"])
 def test_saved_numeric_results_are_bound_to_their_sections(
@@ -577,6 +693,58 @@ def test_numeric_aliases_follow_enclosing_lexical_ownership(tmp_path, body, widt
             else json.dumps(observation_payload(observation)).encode()
         )
         assert run_saved_report(saved).rule_assessments == rows
+
+
+@pytest.mark.parametrize(
+    ("source", "expected_status", "expected_value"),
+    [
+        (
+            "WIDTH = 4\n"
+            "class Holder:\n"
+            "    WIDTH = 8\n"
+            "    choose = lambda job_nonce: job_nonce % WIDTH\n",
+            "PASS",
+            4,
+        ),
+        (
+            "WIDTH = 4\n"
+            "class Holder:\n"
+            "    WIDTH = 8\n"
+            "    values = [job_nonce % WIDTH for job_nonce in (1,)]\n",
+            "PASS",
+            4,
+        ),
+        (
+            "WIDTH = 8\n"
+            "class Holder:\n"
+            "    WIDTH = 3\n"
+            "    values = [item for item in (job_nonce % WIDTH,)]\n",
+            "FAIL",
+            3,
+        ),
+    ],
+    ids=["lambda-body-skips-class", "comprehension-body-skips-class", "comprehension-outer-iter"],
+)
+def test_anonymous_scopes_in_class_bodies_keep_lexical_alias_resolution(
+    tmp_path, source, expected_status, expected_value
+):
+    _write_probe(tmp_path, minimum=4)
+    (tmp_path / "sample/core.py").write_text(source)
+    observation, rows = _rule_rows(tmp_path)
+    assert len(rows) == 1 and rows[0].status.value == expected_status
+    numeric = next(
+        record for record in observation.records("constructs") if record.kind == "numeric_operand"
+    )
+    assert numeric.data.get("proof") == "known" and numeric.data.get("value") == expected_value
+    for columnar in (False, True):
+        saved = tmp_path / "anonymous-scope.json"
+        saved.write_bytes(
+            canonical_report_bytes(observation)
+            if columnar
+            else json.dumps(observation_payload(observation)).encode()
+        )
+        replay = run_saved_report(saved)
+        assert not replay.diagnostics and replay.rule_assessments == rows
 
 
 @pytest.mark.parametrize(
