@@ -30,10 +30,13 @@ from archkeel.ir.model import (
     CompleteExternalScopeRule,
     CompleteRequiresRule,
     ComponentRole,
+    ConditionSelector,
+    ConditionSelectorKind,
     ContractComponent,
     ExternalDependencyScopeRule,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
+    ForbiddenEffectUnderConditionRule,
     InterfaceBoundaryRule,
     NoComponentCyclesRule,
     ProtocolDeclarationSelector,
@@ -73,6 +76,20 @@ def _allowed_dependency(**overrides: object) -> AllowedDependencyRule:
 def _forbidden_construct(**overrides: object) -> ForbiddenConstructRule:
     base = ForbiddenConstructRule(
         "R", "forbidden_construct", "pkg.a", ("eval",), "because", _PROVENANCE, "architect"
+    )
+    return replace(base, **overrides)
+
+
+def _forbidden_effect_under_condition(**overrides: object) -> ForbiddenEffectUnderConditionRule:
+    base = ForbiddenEffectUnderConditionRule(
+        "R",
+        "forbidden_effect_under_condition",
+        "pkg.a",
+        "pkg.effect",
+        ConditionSelector(ConditionSelectorKind.PARAMETER, "pkg.a.run", "seeded"),
+        "because",
+        _PROVENANCE,
+        "architect",
     )
     return replace(base, **overrides)
 
@@ -254,6 +271,21 @@ _RULE_CASES: tuple[tuple[str, ArchitectureRule | None, ArchitectureRule | None, 
     ("allowed_dependency removed", _allowed_dependency(), None, False),
     ("forbidden_construct added", None, _forbidden_construct(), False),
     ("forbidden_construct removed", _forbidden_construct(), None, True),
+    ("forbidden_effect_under_condition added", None, _forbidden_effect_under_condition(), False),
+    (
+        "forbidden_effect_under_condition removed",
+        _forbidden_effect_under_condition(),
+        None,
+        True,
+    ),
+    (
+        "forbidden_effect_under_condition condition changed",
+        _forbidden_effect_under_condition(),
+        _forbidden_effect_under_condition(
+            condition=ConditionSelector(ConditionSelectorKind.MEMBER, "pkg.a", "seeded")
+        ),
+        True,
+    ),
     (
         "forbidden_construct.constructs lost an entry",
         _forbidden_construct(constructs=("eval", "exec")),
