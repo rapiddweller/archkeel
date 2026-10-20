@@ -311,6 +311,77 @@ class CallBinding:
     proof: RecordData | None = None
 
 
+class CallArgumentKind(StrEnum):
+    POSITIONAL = "positional"
+    KEYWORD = "keyword"
+    STARRED_POSITIONAL = "starred_positional"
+    STARRED_KEYWORD = "starred_keyword"
+
+
+class CallArgumentValueKind(StrEnum):
+    STRING_LITERAL = "string_literal"
+    OTHER = "other"
+
+
+CALL_ARGUMENTS_FEATURE = "call_arguments"
+
+
+@dataclass(frozen=True, slots=True)
+class CallArgument:
+    kind: CallArgumentKind
+    keyword: str | None
+    value_kind: CallArgumentValueKind
+    value: str | None
+    evidence_ids: tuple[str, ...]
+
+
+def call_arguments(value: JsonValue) -> tuple[CallArgument, ...] | None:
+    if value is None:
+        return None
+    if not isinstance(value, tuple):
+        raise ValueError("invalid call arguments")
+    result: list[CallArgument] = []
+    for item in value:
+        if not isinstance(item, RecordData) or {key for key, _ in item.entries} != {
+            "kind",
+            "keyword",
+            "value_kind",
+            "value",
+            "evidence_ids",
+        }:
+            raise ValueError("invalid call argument fields")
+        kind, keyword = item.get("kind"), item.get("keyword")
+        value_kind, actual_value, evidence = (
+            item.get("value_kind"),
+            item.get("value"),
+            item.get("evidence_ids"),
+        )
+        if (
+            not isinstance(kind, str)
+            or not isinstance(value_kind, str)
+            or value_kind == CallArgumentValueKind.STRING_LITERAL
+            and not isinstance(actual_value, str)
+            or value_kind == CallArgumentValueKind.OTHER
+            and actual_value is not None
+            or not isinstance(evidence, tuple)
+            or not evidence
+            or any(not isinstance(identifier, str) or not identifier for identifier in evidence)
+            or (kind == CallArgumentKind.KEYWORD and (not isinstance(keyword, str) or not keyword))
+            or (kind != CallArgumentKind.KEYWORD and keyword is not None)
+        ):
+            raise ValueError("invalid call argument values")
+        result.append(
+            CallArgument(
+                CallArgumentKind(kind),
+                keyword if isinstance(keyword, str) else None,
+                CallArgumentValueKind(value_kind),
+                actual_value if isinstance(actual_value, str) else None,
+                tuple(identifier for identifier in evidence if isinstance(identifier, str)),
+            )
+        )
+    return tuple(result)
+
+
 def call_binding(value: JsonValue) -> CallBinding | None:
     if value is None:
         return None

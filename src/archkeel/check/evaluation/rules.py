@@ -43,6 +43,7 @@ from archkeel.ir.model import (
     DependencyTargetKind,
     EvidenceClass,
     ExternalDependencyScopeRule,
+    ForbiddenCallArgumentRule,
     ForbiddenConstructKind,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
@@ -949,6 +950,8 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
     """Name the module selectors whose absence would make a rule vacuous."""
     if isinstance(rule, CallOwnerRule):
         return {}
+    if isinstance(rule, ForbiddenCallArgumentRule):
+        return {"source": (rule.source,)}
     if isinstance(rule, ForbiddenDependencyRule | AllowedDependencyRule):
         return {"source": (rule.source,), "target": (rule.target,)}
     if isinstance(rule, ExternalDependencyScopeRule):
@@ -2234,6 +2237,7 @@ _SeparateReceiptRule: TypeAlias = (
     | NoComponentCyclesRule
     | CallOwnerRule
     | ProtocolDeclarationsRule
+    | ForbiddenCallArgumentRule
 )
 
 

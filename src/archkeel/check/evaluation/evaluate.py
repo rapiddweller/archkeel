@@ -13,6 +13,7 @@ from typing import Any, TypeAlias
 
 from archkeel.ir.codec import InsideContractMount
 from archkeel.ir.facts import (
+    CALL_ARGUMENTS_FEATURE,
     CALL_BINDINGS_FEATURE,
     SOURCE_RESOLUTION_GAP_KIND,
     BuiltinTarget,
@@ -54,6 +55,7 @@ from archkeel.ir.model import (
 from archkeel.ir.profiles import Profile, profile_for
 from archkeel.ir.type_shapes import TypeShapeIndex
 
+from .call_argument_policy import call_argument_results
 from .call_owners import call_owner_results
 from .imports import strip_internal_reexport_facts
 from .protocol_declarations import protocol_declaration_results
@@ -309,6 +311,7 @@ def _inside_rule_results(
     calls: Sequence[RawRecord],
     calls_complete: bool,
     bindings_measured: bool,
+    arguments_measured: bool,
     root_contract: ArchitectureContract | None = None,
     imports: Sequence[RawRecord],
     source_unknowns: Sequence[RawRecord],
@@ -410,6 +413,21 @@ def _inside_rule_results(
         violations.extend(call_violations)
         unknowns.extend(call_limits)
         assessments.extend(call_receipts)
+        argument_violations, argument_limits, argument_receipts = call_argument_results(
+            scoped,
+            scope=mount.parent_id,
+            calls=calls,
+            modules=modules,
+            symbols=symbols,
+            complete=calls_complete,
+            bindings_measured=bindings_measured,
+            arguments_measured=arguments_measured,
+            blank_modules=blank_modules,
+            source_modules=source_modules,
+        )
+        violations.extend(argument_violations)
+        unknowns.extend(argument_limits)
+        assessments.extend(argument_receipts)
     return _sort_inside_rule_results(
         violations, unknowns, failures, assessments, allowances, symbols
     )
@@ -921,6 +939,7 @@ def evaluate_source(
     )
     calls_complete = _source_inventory_complete(facts)
     bindings_measured = CALL_BINDINGS_FEATURE in facts.capabilities.resolution_features
+    arguments_measured = CALL_ARGUMENTS_FEATURE in facts.capabilities.resolution_features
     (
         inside_violations,
         inside_unknowns,
@@ -936,6 +955,7 @@ def evaluate_source(
         calls=calls,
         calls_complete=calls_complete,
         bindings_measured=bindings_measured,
+        arguments_measured=arguments_measured,
         root_contract=contract,
         imports=imports,
         source_unknowns=source_unknowns,
@@ -1065,6 +1085,20 @@ def evaluate_source(
     violations += call_violations
     unknowns += call_limits
     scope_observations += call_receipts
+    argument_violations, argument_limits, argument_receipts = call_argument_results(
+        contract,
+        scope="root",
+        calls=calls,
+        modules=module_facts,
+        symbols=symbols,
+        complete=calls_complete,
+        bindings_measured=bindings_measured,
+        arguments_measured=arguments_measured,
+        blank_modules=blank_modules,
+    )
+    violations += argument_violations
+    unknowns += argument_limits
+    scope_observations += argument_receipts
 
     incomplete_dependencies = {
         rule_id

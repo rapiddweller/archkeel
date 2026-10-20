@@ -38,6 +38,15 @@ empty or missing selected scopes remain UNKNOWN. It does not infer runtime types
 operator overloads, execution reachability, entropy or collision freedom. See
 [AD-246](architecture/decisions/ad-246-bounded-numeric-operand.md).
 
+`forbidden_call_argument` requires a unique, statically proven target
+declaration and observed callable signature. Only explicit actuals with
+complete, valid bindings are considered; spreads, duplicates, missing
+signatures and unproven calls leave the scope UNKNOWN. Omitted defaults are not
+actuals. The first slice recognizes written string constants, including empty
+and adjacent literals; f-strings, concatenations and named expressions remain
+unclaimed. It does not check actual type compatibility. Argument facts require
+observation 2.5 and contract 3.10; older readers reject the new evidence.
+
 An explicitly certified `complete_requires` scope can PASS with unrelated source
 resolution gaps. Arbitrary imports still block their own scopes and ancestors;
 signature gaps do not prove or disprove imports. Legacy or unbound gaps remain

@@ -9,6 +9,7 @@ from functools import lru_cache
 from pathlib import PurePosixPath
 
 from .facts import (
+    CALL_ARGUMENTS_FEATURE,
     CALL_BINDINGS_FEATURE,
     EXTENDED_CALL_BINDINGS_FEATURE,
     MAX_NUMERIC_EVIDENCE_CHARS,
@@ -37,6 +38,7 @@ from .facts import (
     SourceResolution,
     SourceSectionName,
     UnresolvedTarget,
+    call_arguments,
     call_binding,
     contextmanager_signature,
     in_scope,
@@ -1407,6 +1409,10 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
         if section is not SourceSectionName.CALLS:
             raise ValueError("call binding needs its call owner")
         call_binding(record.data.get("call_binding"))
+    if any(key == "call_arguments" for key in fields):
+        if section is not SourceSectionName.CALLS:
+            raise ValueError("call arguments need their call owner")
+        call_arguments(record.data.get("call_arguments"))
     _payload(record.data)
 
 
@@ -1839,11 +1845,29 @@ def validate_source_facts(facts: SourceFacts) -> None:
         if section.name is not SourceSectionName.CALLS:
             continue
         for record in section.records:
+            argument_field = any(key == "call_arguments" for key, _ in record.data.entries)
+            if (
+                CALL_ARGUMENTS_FEATURE in facts.capabilities.resolution_features
+                and not argument_field
+            ):
+                raise ValueError("complete call consideration needs explicit arguments")
+            if (
+                argument_field
+                and CALL_ARGUMENTS_FEATURE not in facts.capabilities.resolution_features
+            ):
+                raise ValueError("call arguments require their declared capability")
+            arguments = call_arguments(record.data.get("call_arguments"))
+            if arguments is not None and not all(
+                set(argument.evidence_ids) <= evidence_ids for argument in arguments
+            ):
+                raise ValueError("call argument evidence disagrees with its source")
             if CALL_BINDINGS_FEATURE in facts.capabilities.resolution_features and not any(
                 key == "call_binding" for key, _ in record.data.entries
             ):
                 raise ValueError("complete call consideration needs explicit binding or null")
             call_proof = call_binding(record.data.get("call_binding"))
+            if (arguments is None) != (call_proof is None):
+                raise ValueError("call arguments require the canonical call binding")
             if (
                 call_proof is not None
                 and call_proof.origin

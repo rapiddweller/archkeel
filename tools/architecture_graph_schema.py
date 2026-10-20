@@ -558,6 +558,34 @@ def _update_contract_schema(path: Path) -> None:
     reference = {"$ref": "#/$defs/layerOrder"}
     if reference not in choices:
         choices.append(reference)
+    if version is not None and supports_feature(version, ContractFeature.FORBIDDEN_CALL_ARGUMENT):
+        schema["$defs"]["forbiddenCallArgument"] = {
+            "type": "object",
+            "required": [
+                "id",
+                "kind",
+                "source",
+                "target",
+                "parameter",
+                "rationale",
+                "provenance",
+                "decided_by",
+            ],
+            "additionalProperties": False,
+            "properties": {
+                "id": {"$ref": "#/$defs/nonEmpty"},
+                "kind": {"const": "forbidden_call_argument"},
+                "source": {"$ref": "#/$defs/nonEmpty"},
+                "target": {"$ref": "#/$defs/nonEmpty"},
+                "parameter": {"$ref": "#/$defs/nonEmpty"},
+                "rationale": {"$ref": "#/$defs/nonEmpty"},
+                "provenance": {"$ref": "#/$defs/provenance"},
+                "decided_by": {"$ref": "#/$defs/decidedBy"},
+            },
+        }
+        reference = {"$ref": "#/$defs/forbiddenCallArgument"}
+        if reference not in choices:
+            choices.append(reference)
     schema["$defs"]["uml"] = target_schema()
     schema["$defs"]["declarations"]["properties"]["uml"] = {"$ref": "#/$defs/uml"}
     path.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8")

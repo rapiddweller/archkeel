@@ -305,6 +305,15 @@ or collision freedom. Empty/missing selected scope is UNKNOWN. See
 [AD-246](../../docs/architecture/decisions/ad-246-bounded-numeric-operand.md)
 and [rule limits](../../docs/known-limits.md).
 
+call scope. Use `forbidden_call_argument` to select one written-literal policy
+for a canonical target's formal parameter. It binds explicit source actuals to
+the observed signature; spreads, invalid bindings, missing signatures and
+unproven targets leave UNKNOWN. It does not check runtime type compatibility
+or apply omitted defaults. Check the rule receipt and supported forms before
+retiring any method-name scanner. Argument facts require observation 2.5 and
+contract 3.10; older readers must reject that evidence. The current reader
+continues to accept historical observation formats.
+
 ## Daily loop
 
 Validation reports `responsibility.missing` only for components explicitly marked

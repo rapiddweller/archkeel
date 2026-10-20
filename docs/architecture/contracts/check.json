@@ -395,6 +395,14 @@
         "responsibility": "Evaluate canonical Protocol annotations for selected API roles through existing boundary type evidence; emit findings and scope-bound receipts."
       },
       {
+        "path": "src/archkeel/check/evaluation/call_arguments.py",
+        "responsibility": "Bind admitted explicit call arguments to pure-data observed signatures without applying defaults or evaluating expressions."
+      },
+      {
+        "path": "src/archkeel/check/evaluation/call_argument_policy.py",
+        "responsibility": "Evaluate forbidden literal argument rules over canonical calls and replayable scope receipts."
+      },
+      {
         "path": "src/archkeel/check/evaluation/topology.py",
         "responsibility": "Aggregate dependency and declared-scope evidence in Core."
       }
