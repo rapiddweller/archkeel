@@ -153,7 +153,7 @@ def test_real_descriptor_producer_and_legacy_wire_keep_proof_order(
     assert type(raw) is dict
     assert raw["method_kind"] == kind
     assert raw["signature_decorators_proven"] is proven
-    assert raw["source_final_method_binding"] is False
+    assert raw["source_final_method_binding"] is (not decorators)
     assert json.loads(json.dumps(raw)) == raw and {**raw} == raw
     model = _api()
     descriptor = source.method_descriptor(module, method, owner)

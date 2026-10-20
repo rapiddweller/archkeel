@@ -270,7 +270,7 @@ def markdown() -> str:
 ## Full-project journeys
 
 The [published gallery](https://rapiddweller.github.io/archkeel/demos/) groups each pinned
-application with its baseline and three source-only variants. Observation, coverage, declared
+application with its baseline and four source-only variants. Observation, coverage, declared
 rules and UML comparison are shown separately.
 
 {project_overview}

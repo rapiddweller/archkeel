@@ -19,6 +19,7 @@ from archkeel.ir.facts import (
     SourceNameVisibility,
     stable_id,
 )
+from archkeel.ir.facts import RawJson as RawJson
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 from archkeel.ir.source_records import source_name_visibility as _source_name_visibility
@@ -961,9 +962,12 @@ class ConstructCollector(ast.NodeVisitor):
         if expression is None:
             return None, None, None, []
         if isinstance(expression, ast.Name):
+            annotation_frame: dict[str, tuple[str, ast.expr]] | None = (
+                self.parameter_annotations[-1] if self.parameter_annotations else None
+            )
             declared = (
-                self.parameter_annotations[-1].get(expression.id)
-                if self.parameter_annotations
+                annotation_frame[expression.id]
+                if annotation_frame is not None and expression.id in annotation_frame
                 else None
             )
             if declared is not None:
@@ -973,10 +977,10 @@ class ConstructCollector(ast.NodeVisitor):
                 if self.symbol_index is not None:
                     for qualified_name in (self.scope_stack[-1], target):
                         declaration = self.symbol_index.binding_declarations.get(qualified_name)
-                        if (
-                            declaration is not None
-                            and declaration["data"].get("module") == self.module.module
-                        ):
+                        if declaration is None:
+                            continue
+                        declaration_data: dict[str, RawJson] = declaration["data"]
+                        if declaration_data.get("module") == self.module.module:
                             support_evidence.extend(declaration["evidence_ids"])
                 support_evidence = sorted(set(support_evidence))
                 return (
@@ -1127,7 +1131,8 @@ class ConstructCollector(ast.NodeVisitor):
         if receiver_node is None and receiver is not None and self.symbol_index is not None:
             declaration = self.symbol_index.binding_declarations.get(receiver)
             if declaration is not None:
-                declaration_module = declaration["data"].get("module")
+                declaration_data: dict[str, RawJson] = declaration["data"]
+                declaration_module = declaration_data.get("module")
                 if declaration_module == self.module.module:
                     receiver_evidence = list(declaration["evidence_ids"])
                 else:
@@ -1158,7 +1163,8 @@ class ConstructCollector(ast.NodeVisitor):
 
     def _selector_excerpt_replays(self, node: ast.AST) -> bool:
         line, _, _ = location(node)
-        excerpt = self.module.lines[line - 1].rstrip() if line <= len(self.module.lines) else ""
+        line_text: str = self.module.lines[line - 1] if line <= len(self.module.lines) else ""
+        excerpt: str = line_text.rstrip()
         if not excerpt:
             return False
         try:
@@ -1169,8 +1175,10 @@ class ConstructCollector(ast.NodeVisitor):
                 ast.parse(f"if True:\n{excerpt}\n")
                 return True
             except (IndentationError, SyntaxError, ValueError, RecursionError):
-                if isinstance(node, ast.Match) and excerpt.rstrip().endswith(":"):
-                    indent = len(excerpt) - len(excerpt.lstrip(" "))
+                trimmed: str = excerpt.rstrip()
+                if isinstance(node, ast.Match) and trimmed.endswith(":"):
+                    indentation: str = excerpt.lstrip(" ")
+                    indent = len(excerpt) - len(indentation)
                     try:
                         ast.parse(f"if True:\n{excerpt}\n{' ' * (indent + 4)}case _: pass\n")
                         return True
@@ -1652,16 +1660,19 @@ def collect_constructs(
         if isinstance(node, ast.ClassDef)
     }
     if symbol_index is not None:
-        known_classes.update(
-            origin
-            for item in imports
-            if (origin := item["data"].get("origin_definition")) is not None
-            and isinstance(origin, str)
-            and (declaration := symbol_index.binding_declarations.get(origin)) is not None
-            and declaration["kind"] == "class"
-            and item["data"].get("source_binding_unique") is True
-            and item["data"].get("origin_binding_unique") is True
-        )
+        for item in imports:
+            data: dict[str, RawJson] = item["data"]
+            origin = data.get("origin_definition")
+            if not isinstance(origin, str):
+                continue
+            declaration = symbol_index.binding_declarations.get(origin)
+            if (
+                declaration is not None
+                and declaration["kind"] == "class"
+                and data.get("source_binding_unique") is True
+                and data.get("origin_binding_unique") is True
+            ):
+                known_classes.add(origin)
     items: list[RawRecord] = []
     resolvers = receiver_resolvers or (None,) * len(parsed)
     for module, context, call_collector in zip(parsed, contexts, resolvers, strict=True):

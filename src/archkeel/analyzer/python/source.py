@@ -1032,7 +1032,6 @@ def method_descriptor(
         and parent is not None
         and parent in module.tree.body
         and parent.name in stable_direct_module_bindings(module)
-        and binding_may_exist_before(module, parent.body, node, node.name)
         and not binding_may_exist_before(module, tuple(reversed(parent.body)), node, node.name),
         binding,
     )

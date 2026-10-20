@@ -98,6 +98,8 @@ def test_feature_policy_keeps_each_existing_introduction_boundary(feature, befor
     choice = ContractFeature[feature]
     assert not supports_feature(ContractVersion(before), choice)
     assert supports_feature(ContractVersion(first), choice)
+    if first in {"3.7.0", "3.8.0", "3.9.0", "3.10.0"}:
+        assert supports_feature(ContractVersion.V3_10, choice)
 
 
 def _version_repository(tmp_path):

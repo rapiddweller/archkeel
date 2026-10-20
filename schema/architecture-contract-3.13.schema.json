@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:archkeel:architecture-contract:3.13.0",
   "title": "Archkeel architecture contract",
-  "description": "Contract 3.5.0 structure. Rule semantics are cataloged in docs/rules.md.",
+  "description": "Contract 3.13.0 structure. Rule semantics are cataloged in docs/rules.md.",
   "type": "object",
   "required": [
     "schema_version",
@@ -75,9 +75,6 @@
             "$ref": "#/$defs/callOwner"
           },
           {
-            "$ref": "#/$defs/forbiddenEffectUnderCondition"
-          },
-          {
             "$ref": "#/$defs/forbiddenCallArgument"
           },
           {
@@ -88,6 +85,9 @@
           },
           {
             "$ref": "#/$defs/sourceOwnership"
+          },
+          {
+            "$ref": "#/$defs/forbiddenEffectUnderCondition"
           }
         ]
       }
@@ -974,6 +974,9 @@
               }
             }
           }
+        },
+        "selector": {
+          "$ref": "#/$defs/constructSelector"
         }
       }
     },
@@ -2112,69 +2115,6 @@
         }
       }
     },
-    "conditionSelector": {
-      "type": "object",
-      "required": [
-        "kind",
-        "owner",
-        "name"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "enum": [
-            "parameter",
-            "member"
-          ]
-        },
-        "owner": {
-          "$ref": "#/$defs/nonEmpty"
-        },
-        "name": {
-          "$ref": "#/$defs/nonEmpty"
-        }
-      }
-    },
-    "forbiddenEffectUnderCondition": {
-      "type": "object",
-      "required": [
-        "id",
-        "kind",
-        "source",
-        "target",
-        "condition",
-        "rationale",
-        "provenance",
-        "decided_by"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "$ref": "#/$defs/nonEmpty"
-        },
-        "source": {
-          "$ref": "#/$defs/nonEmpty"
-        },
-        "rationale": {
-          "$ref": "#/$defs/nonEmpty"
-        },
-        "kind": {
-          "const": "forbidden_effect_under_condition"
-        },
-        "provenance": {
-          "$ref": "#/$defs/provenance"
-        },
-        "decided_by": {
-          "$ref": "#/$defs/decidedBy"
-        },
-        "target": {
-          "$ref": "#/$defs/nonEmpty"
-        },
-        "condition": {
-          "$ref": "#/$defs/conditionSelector"
-        }
-      }
-    },
     "forbiddenCallArgument": {
       "type": "object",
       "required": [
@@ -2214,6 +2154,93 @@
           "$ref": "#/$defs/decidedBy"
         }
       }
+    },
+    "constructSelector": {
+      "type": "object",
+      "required": [
+        "receiver",
+        "role"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "receiver": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "member": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "role": {
+          "enum": [
+            "read",
+            "write",
+            "call",
+            "reflect",
+            "constructor",
+            "type_probe",
+            "equality",
+            "membership",
+            "match",
+            "startswith",
+            "endswith"
+          ]
+        },
+        "literal": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "enum": [
+                  "constructor",
+                  "type_probe"
+                ]
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "member"
+              ]
+            }
+          },
+          "else": {
+            "required": [
+              "member"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "enum": [
+                  "equality",
+                  "membership",
+                  "match",
+                  "startswith",
+                  "endswith"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "literal"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "literal"
+              ]
+            }
+          }
+        }
+      ]
     },
     "boundedNumericOperand": {
       "type": "object",
@@ -2281,7 +2308,7 @@
         },
         "name": {
           "type": "string",
-          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?![\\s\\S])"
+          "pattern": "\\S"
         },
         "visibility": {
           "enum": [
@@ -2316,11 +2343,11 @@
         },
         "source": {
           "type": "string",
-          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*(?![\\s\\S])"
+          "pattern": "\\S"
         },
         "protocol": {
           "type": "string",
-          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*(?![\\s\\S])"
+          "pattern": "\\S"
         },
         "selectors": {
           "type": "array",
@@ -2415,6 +2442,69 @@
         },
         "decided_by": {
           "$ref": "#/$defs/decidedBy"
+        }
+      }
+    },
+    "conditionSelector": {
+      "type": "object",
+      "required": [
+        "kind",
+        "owner",
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "parameter",
+            "member"
+          ]
+        },
+        "owner": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "name": {
+          "$ref": "#/$defs/nonEmpty"
+        }
+      }
+    },
+    "forbiddenEffectUnderCondition": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "target",
+        "condition",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "source": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "const": "forbidden_effect_under_condition"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        },
+        "target": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "condition": {
+          "$ref": "#/$defs/conditionSelector"
         }
       }
     }

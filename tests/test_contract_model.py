@@ -279,6 +279,7 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
             "catalog_use",
             "source_ownership",
         }
+        and (version in {"3.12.0", "3.13.0"} or rule["kind"] != "source_ownership")
     ]
     app = next(item for item in raw["components"] if item["id"] == "COMP-APP")
     app["exact_modules"] = ["shop.app.orders"]

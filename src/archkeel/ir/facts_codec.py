@@ -13,7 +13,15 @@ from enum import StrEnum
 from math import isfinite
 from pathlib import PurePosixPath, PureWindowsPath
 
-from .codec_strings import expand_strings, intern_strings, profitable_string
+from .codec_strings import (
+    StringTablePolicy as StringTablePolicy,
+)
+from .codec_strings import (
+    expand_strings,
+)
+from .codec_strings import (
+    intern_strings as intern_strings,
+)
 from .facts import (
     EVIDENCE_FIELDS,
     RECORD_FIELDS,
@@ -55,12 +63,19 @@ from .facts import (
 from .facts import (
     RawJson as RawJson,
 )
-from .facts_validation import _call_excerpt_matches, validate_source_facts
+from .facts_validation import (
+    _call_excerpt_matches,
+    _validate_source_role_identities,
+    validate_source_facts,
+)
 from .facts_validation import (
     selector_receiver_site_matches as selector_receiver_site_matches,
 )
 from .facts_validation import (
     source_reference_context as source_reference_context,
+)
+from .facts_validation import (
+    validate_source_role_vocabulary as validate_source_role_vocabulary,
 )
 from .protocol import (
     PYTHON_IMPORT_SURVEY_SECTIONS,
@@ -109,6 +124,8 @@ from .type_shapes import (
     TypeUnpack,
     UnresolvedType,
 )
+
+validate_source_role_identities = _validate_source_role_identities
 
 
 def call_excerpt_matches(
@@ -194,9 +211,24 @@ class _PathToken(StrEnum):
     SLASH = "/"
 
 
-class _SourceFactsWire(StrEnum):
-    COLUMNAR_V1 = "source-facts-columnar-v1"
-    STRING_REFERENCE = "$<index>"
+class _SourceFactsField(StrEnum):
+    SECTIONS = "sections"
+    EVIDENCE = "evidence"
+    CANDIDATE_EVIDENCE = "candidate_evidence"
+    ENCODING = "encoding"
+    STRING_TABLE = "string_table"
+
+
+_SOURCE_FACTS_DETAIL_FIELDS = frozenset(
+    {
+        _SourceFactsField.SECTIONS,
+        _SourceFactsField.EVIDENCE,
+        _SourceFactsField.CANDIDATE_EVIDENCE,
+    }
+)
+_SOURCE_FACTS_ENCODING_FIELDS = frozenset(
+    {_SourceFactsField.ENCODING, _SourceFactsField.STRING_TABLE}
+)
 
 
 class ProtocolError(ValueError):
@@ -958,12 +990,7 @@ def _runtime_info(value: RawJson, protocol_version: ProtocolVersion) -> RuntimeI
     expected = (
         {"name", "version", "required", "requirement_state"}
         if protocol_version
-        in {
-            ProtocolVersion.V2,
-            ProtocolVersion.V3,
-            ProtocolVersion.V4,
-            ProtocolVersion.V5,
-        }
+        in {ProtocolVersion.V2, ProtocolVersion.V3, ProtocolVersion.V4, ProtocolVersion.V5}
         else {"name", "version", "required"}
     )
     if not isinstance(value, dict) or set(value) != expected:
@@ -1049,24 +1076,77 @@ def _source_facts(value: RawJson, version: ProtocolVersion) -> SourceFacts:
 
 
 def _compact_source_facts(value: RawJson) -> dict[str, RawJson]:
-    """Encode source facts as positional rows plus an exactly profitable string table."""
+    """Encode source records and evidence as positional rows with a lossless string table."""
     facts = _compact_object(value, "facts")
     sections = _array(facts["sections"], "sections")
-    data_fields: list[RawJson] = [
-        field
-        for field in sorted(
+    packed_sections, data_fields = _pack_source_sections(sections)
+    try:
+        compact_rows, table = intern_strings(
             {
-                key
-                for raw_section in sections
-                for raw_record in _array(
-                    _compact_object(raw_section, "section")["records"], "records"
-                )
-                for key in _compact_object(_compact_object(raw_record, "record")["data"], "data")
+                "records": [
+                    row
+                    for packed_section in packed_sections
+                    for row in _array(packed_section["records"], "records")
+                ],
+                "evidence": _source_evidence_rows(facts["evidence"], "evidence"),
+                "candidate_evidence": _source_evidence_rows(
+                    facts["candidate_evidence"], "candidate evidence"
+                ),
+            },
+            policy=StringTablePolicy.SOURCE_FACTS,
+        )
+    except ValueError as error:
+        raise ProtocolError(str(error)) from error
+    rows = _compact_object(compact_rows, "compact source rows")
+    encoded_records = _array(rows["records"], "compact records")
+    cursor = 0
+    compact_sections: list[RawJson] = []
+    for packed_section in packed_sections:
+        record_count = len(_array(packed_section["records"], "records"))
+        compact_sections.append(
+            {
+                "name": packed_section["name"],
+                "records": encoded_records[cursor : cursor + record_count],
             }
         )
-    ]
+        cursor += record_count
+    compact: dict[str, RawJson] = {
+        **{key: item for key, item in facts.items() if key not in _SOURCE_FACTS_DETAIL_FIELDS},
+        "sections": compact_sections,
+        "evidence": rows["evidence"],
+        "candidate_evidence": rows["candidate_evidence"],
+    }
+    wire_data_fields: list[RawJson] = []
+    for field in data_fields:
+        wire_data_fields.append(field)
+    wire_string_table: list[RawJson] = []
+    for entry in table:
+        wire_string_table.append(entry)
+    compact["encoding"] = {
+        "kind": "source-facts-columnar-v1",
+        "record_fields": list(RECORD_FIELDS),
+        "evidence_fields": list(EVIDENCE_FIELDS),
+        "data_fields": wire_data_fields,
+        "string_reference": "$<index>",
+    }
+    compact["string_table"] = wire_string_table
+    return compact
+
+
+def _pack_source_sections(
+    sections: list[RawJson],
+) -> tuple[list[dict[str, RawJson]], list[str]]:
+    """Pack record dictionaries as rows and return their sorted data keys."""
+    data_fields = sorted(
+        {
+            key
+            for raw_section in sections
+            for raw_record in _array(_compact_object(raw_section, "section")["records"], "records")
+            for key in _compact_object(_compact_object(raw_record, "record")["data"], "record.data")
+        }
+    )
     data_indexes = {field: index for index, field in enumerate(data_fields)}
-    packed_sections: list[RawJson] = []
+    packed_sections: list[dict[str, RawJson]] = []
     for raw_section in sections:
         section = _compact_object(raw_section, "section")
         packed_records: list[RawJson] = []
@@ -1080,40 +1160,20 @@ def _compact_source_facts(value: RawJson) -> dict[str, RawJson]:
                 ]
             )
         packed_sections.append({"name": section["name"], "records": packed_records})
-
-    def evidence_rows(raw: RawJson, label: str) -> list[RawJson]:
-        rows: list[RawJson] = []
-        for entry in _array(raw, label):
-            evidence = _compact_object(entry, "evidence")
-            rows.append([evidence[field] for field in EVIDENCE_FIELDS])
-        return rows
-
-    packed: dict[str, RawJson] = {
-        **{
-            key: item
-            for key, item in facts.items()
-            if key not in {"sections", "evidence", "candidate_evidence"}
-        },
-        "sections": packed_sections,
-        "evidence": evidence_rows(facts["evidence"], "evidence"),
-        "candidate_evidence": evidence_rows(facts["candidate_evidence"], "candidate evidence"),
-    }
-    compact_tree, table = intern_strings(packed, profitable=profitable_string)
-    compact = _compact_object(compact_tree, "compact source facts")
-    compact["encoding"] = {
-        "kind": _SourceFactsWire.COLUMNAR_V1.value,
-        "record_fields": list(RECORD_FIELDS),
-        "evidence_fields": list(EVIDENCE_FIELDS),
-        "data_fields": data_fields,
-        "string_reference": _SourceFactsWire.STRING_REFERENCE.value,
-    }
-    table_rows: list[RawJson] = [entry for entry in table]
-    compact["string_table"] = table_rows
-    return compact
+    return packed_sections, data_fields
 
 
-def _compact_object(raw: object, label: str) -> dict[str, RawJson]:
-    """Shallow-check encoder-owned objects; the final tree walk validates nested JSON."""
+def _source_evidence_rows(raw: RawJson, label: str) -> list[RawJson]:
+    """Encode evidence objects in the exact positional wire field order."""
+    rows: list[RawJson] = []
+    for entry in _array(raw, label):
+        evidence = _compact_object(entry, "evidence")
+        rows.append([evidence[field] for field in EVIDENCE_FIELDS])
+    return rows
+
+
+def _compact_object(raw: RawJson, label: str) -> dict[str, RawJson]:
+    """Shallow-check encoder-owned objects; nested values are validated at the JSON boundary."""
     if not isinstance(raw, dict):
         raise ProtocolError(f"{label} must be an object")
     if any(not isinstance(key, str) for key in raw):
@@ -1130,11 +1190,11 @@ def _expand_source_facts(value: RawJson) -> dict[str, RawJson]:
         "source encoding",
     )
     if encoding != {
-        "kind": _SourceFactsWire.COLUMNAR_V1.value,
+        "kind": "source-facts-columnar-v1",
         "record_fields": list(RECORD_FIELDS),
         "evidence_fields": list(EVIDENCE_FIELDS),
         "data_fields": encoding.get("data_fields"),
-        "string_reference": _SourceFactsWire.STRING_REFERENCE.value,
+        "string_reference": "$<index>",
     }:
         raise ProtocolError("unsupported source facts columnar encoding")
     data_fields = tuple(
@@ -1149,53 +1209,74 @@ def _expand_source_facts(value: RawJson) -> dict[str, RawJson]:
     )
     if tuple(sorted(set(table))) != table:
         raise ProtocolError("source string table must be sorted and unique")
-    encoded = {key: entry for key, entry in item.items() if key not in {"encoding", "string_table"}}
-    expanded = expand_strings(encoded, list(table))
-    if not isinstance(expanded, dict):
-        raise ProtocolError("expanded source facts must be an object")
-    sections = _array(expanded["sections"], "sections")
+    raw_sections = _array(item.get("sections"), "sections")
     section_names: set[str] = set()
-    for raw_section in sections:
+    record_rows: list[RawJson] = []
+    section_shapes: list[tuple[str, int]] = []
+    for raw_section in raw_sections:
         section = _object(raw_section, {"name", "records"}, "compact section")
         name = _string(section["name"], "section.name")
         if name in section_names:
             raise ProtocolError("duplicate compact source section")
         section_names.add(name)
-        rows = _array(section["records"], "compact records")
-        records: list[RawJson] = []
-        for raw_row in rows:
-            row = _array(raw_row, "compact record")
-            if len(row) != len(RECORD_FIELDS):
-                raise ProtocolError("compact source record width mismatch")
-            data_pairs = _array(row[-1], "compact record data")
-            data: dict[str, RawJson] = {}
-            previous = -1
-            for pair_raw in data_pairs:
-                pair = _array(pair_raw, "compact data pair")
-                if len(pair) != 2 or not isinstance(pair[0], int) or isinstance(pair[0], bool):
-                    raise ProtocolError("compact data pair is invalid")
-                index = pair[0]
-                if index <= previous or index >= len(data_fields):
-                    raise ProtocolError("compact data field index is invalid")
-                previous = index
-                data[data_fields[index]] = pair[1]
-            record = dict(zip(RECORD_FIELDS[:-1], row[:-1], strict=True))
-            record["data"] = data
-            records.append(record)
-        section["records"] = records
-    expanded["evidence"] = _expand_evidence_rows(expanded["evidence"], "evidence")
+        records = _array(section["records"], "compact records")
+        record_rows.extend(records)
+        section_shapes.append((name, len(records)))
+    expanded_rows = expand_strings(
+        {
+            "records": record_rows,
+            "evidence": _array(item.get("evidence"), "evidence"),
+            "candidate_evidence": _array(item.get("candidate_evidence"), "candidate evidence"),
+        },
+        list(table),
+    )
+    expanded_row_object = _compact_object(expanded_rows, "expanded source rows")
+    expanded_records = _array(expanded_row_object["records"], "expanded records")
+    expanded_sections: list[RawJson] = []
+    cursor = 0
+    for name, record_count in section_shapes:
+        section_records: list[RawJson] = [
+            _expand_source_record(row, data_fields)
+            for row in expanded_records[cursor : cursor + record_count]
+        ]
+        expanded_sections.append({"name": name, "records": section_records})
+        cursor += record_count
+    expanded: dict[str, RawJson] = {
+        key: entry for key, entry in item.items() if key not in _SOURCE_FACTS_ENCODING_FIELDS
+    }
+    expanded["sections"] = expanded_sections
+    expanded["evidence"] = _expand_evidence_rows(expanded_row_object["evidence"], "evidence")
     expanded["candidate_evidence"] = _expand_evidence_rows(
-        expanded["candidate_evidence"], "candidate evidence"
+        expanded_row_object["candidate_evidence"], "candidate evidence"
     )
     if _compact_source_facts(expanded) != item:
         raise ProtocolError("source facts columnar encoding is not canonical")
     return expanded
 
 
+def _expand_source_record(value: RawJson, data_fields: tuple[str, ...]) -> dict[str, RawJson]:
+    row = _array(value, "compact record")
+    if len(row) != len(RECORD_FIELDS):
+        raise ProtocolError("compact source record width mismatch")
+    data: dict[str, RawJson] = {}
+    previous = -1
+    for pair_raw in _array(row[-1], "compact record data"):
+        pair = _array(pair_raw, "compact data pair")
+        if len(pair) != 2 or not isinstance(pair[0], int) or isinstance(pair[0], bool):
+            raise ProtocolError("compact data pair is invalid")
+        index = pair[0]
+        if index <= previous or index >= len(data_fields):
+            raise ProtocolError("compact data field index is invalid")
+        previous = index
+        data[data_fields[index]] = pair[1]
+    record = dict(zip(RECORD_FIELDS[:-1], row[:-1], strict=True))
+    record["data"] = data
+    return record
+
+
 def _expand_evidence_rows(value: RawJson, label: str) -> list[RawJson]:
-    rows = _array(value, label)
     output: list[RawJson] = []
-    for raw_row in rows:
+    for raw_row in _array(value, label):
         row = _array(raw_row, f"{label} row")
         if len(row) != len(EVIDENCE_FIELDS):
             raise ProtocolError(f"{label} row width mismatch")

@@ -420,6 +420,8 @@ def test_constructed_receiver_loses_identity_after_member_escape(tmp_path, files
     )
     assert storage.data.get("source_member_owner_static") is False
     assert call.data.get("call_binding") is None
+
+
 def test_native_selector_annotation_uses_proven_reexport_origin(tmp_path):
     payload = _payload(
         tmp_path,

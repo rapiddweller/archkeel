@@ -17,7 +17,7 @@ from archkeel.ir.decisions import rule_assessments
 _PROVENANCE = ["docs/architecture/sample.md"]
 
 
-def _contract(*, source="sample.caller", target="sample.storage.page"):
+def _contract(*, source="sample.caller", target="sample.storage.page", parameter="query"):
     return {
         "schema_version": "3.10.0",
         "components": [
@@ -37,7 +37,7 @@ def _contract(*, source="sample.caller", target="sample.storage.page"):
                 "kind": "forbidden_call_argument",
                 "source": source,
                 "target": target,
-                "parameter": "query",
+                "parameter": parameter,
                 "rationale": "Query text must come from the selected typed argument.",
                 "provenance": _PROVENANCE,
                 "decided_by": "architect",
@@ -54,11 +54,12 @@ def _observe(
     mounted: bool = False,
     source: str = "sample.caller",
     target: str = "sample.storage.page",
+    parameter: str = "query",
 ):
     files = {
         "pyproject.toml": '[project]\nrequires-python = ">=3.11"\n',
         "docs/architecture/sample.md": "Synthetic decision.\n",
-        "contract.json": json.dumps(_contract(source=source, target=target)),
+        "contract.json": json.dumps(_contract(source=source, target=target, parameter=parameter)),
         "sample/__init__.py": "",
         "sample/storage.py": storage
         or ("class QuerySpec: pass\ndef page(query: QuerySpec, label: str = '') -> None: pass\n"),
@@ -68,7 +69,7 @@ def _observe(
         path = tmp_path / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content)
-    contract = _contract(source=source, target=target)
+    contract = _contract(source=source, target=target, parameter=parameter)
     if mounted:
         (tmp_path / "inside.json").write_text(json.dumps(contract))
         contract = {
@@ -121,6 +122,47 @@ def test_policy_selects_only_the_bound_query_parameter(tmp_path, actuals, expect
 
     assert row.kind == "forbidden_call_argument"
     assert row.status == expected and row.evaluation_proven
+
+
+@pytest.mark.parametrize("formal", ["*args", "**kwargs"])
+@pytest.mark.parametrize("displayed", [False, True])
+@pytest.mark.parametrize("value,expected", [("'literal'", "FAIL"), ("value", "PASS"), ("", "PASS")])
+@pytest.mark.parametrize("mounted", [False, True])
+def test_variadic_selectors_bind_displayed_and_plain_names(
+    tmp_path, formal, displayed, value, expected, mounted
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes
+
+    actual = f"item={value}" if formal == "**kwargs" and value else value
+    result, row = _observe(
+        tmp_path,
+        f"from .storage import page\ndef consume(value):\n    page({actual})\n",
+        storage=f"def page({formal}): pass\n",
+        parameter=formal if displayed else formal.lstrip("*"),
+        mounted=mounted,
+    )
+    assert row.status == expected and row.evaluation_proven
+    model = result.observation
+    for name, payload in (
+        ("ordinary", json.dumps(observation_payload(model)).encode()),
+        ("columnar", canonical_report_bytes(model)),
+    ):
+        saved = tmp_path / f"{name}.json"
+        saved.write_bytes(payload)
+        [replayed] = run_saved_report(saved).rule_assessments
+        assert replayed.status == expected and replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("parameter", ["**args", "***args", "****args"])
+def test_absent_variadic_selector_does_not_certify_a_normalized_violation(tmp_path, parameter):
+    _, row = _observe(
+        tmp_path,
+        "from .storage import page\ndef consume():\n    page('literal')\n",
+        storage="def page(*args): pass\n",
+        parameter=parameter,
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
 
 
 @pytest.mark.parametrize(
@@ -309,6 +351,12 @@ def test_unbounded_multiline_call_keeps_identity_and_unknown_argument_inventory(
     replay = run_saved_report(saved)
     assert replay.rule_assessments[0].status == "UNKNOWN"
     assert not list(validator.iter_errors(result_payload(replay)))
+
+    from test_result_schema import _validator
+
+    validator = _validator("command-result-9.0.schema.json")
+    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.8.0"})
+    assert current_schema.is_valid(raw)
 
 
 def test_source_facts_reject_reordered_actual_evidence(tmp_path):

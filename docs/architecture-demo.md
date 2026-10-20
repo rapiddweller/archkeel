@@ -3,7 +3,7 @@
 ## Full-project journeys
 
 The [published gallery](https://rapiddweller.github.io/archkeel/demos/) groups each pinned
-application with its baseline and three source-only variants. Observation, coverage, declared
+application with its baseline and four source-only variants. Observation, coverage, declared
 rules and UML comparison are shown separately.
 
 - **Compass booking** — [flutter/samples@5541c59ab8e9d7e74c1a35ef22bd43a487fc596c](https://github.com/flutter/samples/tree/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c), 111 Dart files, 89 libraries, 22 parts. Authentication through search, results, activities and booking, backed by repositories and local/remote services. Target: Feature ownership, nested booking components, and closed class/member APIs. Evidence limit: Thirty typed source-resolution gaps leave coverage incomplete; they are not confirmed syntax errors.

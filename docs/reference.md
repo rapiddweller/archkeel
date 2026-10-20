@@ -108,12 +108,12 @@ command-result used 8.0.0. See [AD-223](architecture/decisions/ad-223-explicit-c
 ### Current wire formats
 
 The bundled Python provider collector uses **SourceFacts/protocol 4.0.0** for its
-provider-source survey and collections enriched with captured providers. This
-carries `provider_sources`, source-bound `provider_bindings` and supported
-context-manager signatures. Source bytes, digests and inputs are checked across
-passes within one collector deadline; project modules are parsed, not imported.
-The generic request default remains **3.0.0**. Known legacy 1/2/3 packets remain
-readable; a legacy packet cannot carry the new provider or signature payloads.
+provider-source survey and **5.0.0** for full collection. V5 keeps the V4 facts and
+provider fields while carrying records and evidence as canonical compact rows with
+lossless string references. Decoders expand V5 before the same strict facts validation.
+Source bytes, digests and inputs are checked across passes within one collector deadline;
+project modules are parsed, not imported. The generic request default remains **3.0.0**.
+Known legacy 1/2/3/4 packets remain readable; older protocol versions reject V5 packets.
 
 New **ArchitectureIR 2.1.0** Python call records require `call_binding`: a validated
 binding object or explicit JSON null when unproved. Omission is invalid. Existing

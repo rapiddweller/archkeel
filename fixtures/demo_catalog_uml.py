@@ -120,6 +120,8 @@ complete_uml["entities"].append(
 for identity, kind, source, target in (
     ("describe-state", "references", "describe", "state"),
     ("describe-version", "references", "describe", "version"),
+    ("run-helper-reference", "references", "run", "helper"),
+    ("work-helper-reference", "references", "work", "helper"),
     ("helper-str", "calls", "helper", "str"),
     ("build-unit-call", "calls", "build", "unit"),
     ("port-protocol", "inherits", "port", "protocol"),
