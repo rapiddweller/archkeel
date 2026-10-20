@@ -10,6 +10,7 @@ from typing import Literal, get_type_hints
 
 import pytest
 
+from archkeel.check.declarations import project_rule_declaration
 from archkeel.ir import model
 from archkeel.ir.architecture_graph import ArchitectureRuleKind, DecisionMaker
 from archkeel.ir.codec import contract_bytes, parse_contract
@@ -317,3 +318,25 @@ def test_direct_legacy_component_shim_and_cycle_values_are_normalized():
     cycles = _legacy_rules()[9]
     assert replace(cycles, level="module").level is model.CycleLevel.MODULE
     assert replace(cycles, level=model.CycleLevel.COMPONENT).level is None
+
+
+@pytest.mark.parametrize("form", ["binary", "augmented", "both"])
+def test_direct_numeric_rule_normalizes_form_and_shared_tags(form):
+    rule = model.BoundedNumericOperandRule(
+        "r",
+        "bounded_numeric_operand",
+        "sample",
+        form,
+        "nonce",
+        4,
+        "Why.",
+        ("design.md",),
+        "architect",
+    )
+    assert rule.form is model.NumericOperandForm(form)
+    assert rule.kind is ArchitectureRuleKind.BOUNDED_NUMERIC_OPERAND
+    assert rule.decided_by is DecisionMaker.ARCHITECT
+    assert project_rule_declaration(rule)["data"]["form"] == form
+    assert replace(rule, form=rule.form).form is rule.form
+    with pytest.raises(ValueError):
+        replace(rule, form="unsupported")

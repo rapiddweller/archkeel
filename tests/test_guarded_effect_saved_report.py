@@ -159,3 +159,60 @@ class Generator:
     assert replayed.id == assessment.id
     assert replayed.status == "UNKNOWN"
     assert not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize("mutation", ["relocate", "delete", "change"])
+def test_saved_report_binds_guarded_effect_result_to_call_receipt(tmp_path, columnar, mutation):
+    contract = {
+        "schema_version": "3.13.0",
+        "components": [_component("all", ["sample"])],
+        "rules": [_guard_rule("NO-EFFECT-WHEN-SEEDED")],
+    }
+    files = {
+        "pyproject.toml": '[project]\nrequires-python = ">=3.11"\n',
+        "docs/architecture/sample.md": "Decision.\n",
+        "contract.json": json.dumps(contract),
+        "sample/__init__.py": "",
+        "sample/core.py": """def _effect():
+    return None
+
+def generate(seeded: bool):
+    if seeded:
+        _effect()
+""",
+    }
+    for relative, content in files.items():
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+    result = observe(
+        tmp_path,
+        roots=("sample",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+    assert result.observation is not None, result.coverage
+    [assessment] = rule_assessments(result.observation, undecided_by_rule={})
+    assert assessment.status == "FAIL" and assessment.evaluation_proven
+    raw = observation_payload(result.observation)
+    [violation] = [
+        item for item in raw["violations"] if item["kind"] == "forbidden_effect_under_condition"
+    ]
+    if mutation == "relocate":
+        raw["violations"].remove(violation)
+        raw["scope_observations"].append(violation)
+    elif mutation == "delete":
+        raw["violations"].remove(violation)
+    else:
+        violation["title"] = "changed result"
+    saved = tmp_path / ("saved.cbor" if columnar else "saved.json")
+    saved.write_bytes(canonical_report_bytes(raw) if columnar else json.dumps(raw).encode("utf-8"))
+    [replayed] = run_saved_report(saved).rule_assessments
+    if mutation == "change":
+        assert replayed.status == "FAIL" and not replayed.evaluation_proven
+    else:
+        assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven

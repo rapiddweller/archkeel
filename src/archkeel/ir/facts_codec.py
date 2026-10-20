@@ -54,7 +54,7 @@ from .facts import (
 from .facts import (
     RawJson as RawJson,
 )
-from .facts_validation import validate_source_facts
+from .facts_validation import _call_excerpt_matches, validate_source_facts
 from .protocol import (
     PYTHON_IMPORT_SURVEY_SECTIONS,
     CollectionRequest,
@@ -102,6 +102,13 @@ from .type_shapes import (
     TypeUnpack,
     UnresolvedType,
 )
+
+
+def call_excerpt_matches(
+    expression: str, excerpt: str, line: int, column: int, end_line: int
+) -> bool:
+    """Check a call expression against its bounded evidence excerpt."""
+    return _call_excerpt_matches(expression, excerpt, line, column, end_line)
 
 
 def contextmanager_signature_data(signature: ContextManagerSignature) -> RawData:

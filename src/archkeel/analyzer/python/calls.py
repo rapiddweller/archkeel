@@ -24,11 +24,11 @@ from archkeel.ir.facts import (
     ProviderBinding,
     RuntimeInfo,
     SourceResolution,
+    python_identifier,
     stable_id,
 )
 from archkeel.ir.facts_codec import RawData as RecordData
-from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
-from archkeel.ir.facts_validation import _call_excerpt_matches
+from archkeel.ir.facts_codec import RawEvidence, RawRecord, call_excerpt_matches, classified
 
 from .binding_types import BindingKind
 from .guard_paths import GuardedCallPath, guarded_call_paths
@@ -178,6 +178,16 @@ def _same_condition(expression: ast.expr, name: str, receiver: str | None) -> bo
     )
 
 
+def _qualified_identifier(value: str) -> bool:
+    start = 0
+    for index in range(len(value)):
+        if value[index] == ".":
+            if not python_identifier(value[start:index]):
+                return False
+            start = index + 1
+    return python_identifier(value[start:])
+
+
 def _bind_receiver(
     receivers: dict[str, ReceiverType | None], name: str, candidate: ReceiverType | None
 ) -> None:
@@ -288,6 +298,7 @@ class CallCollector(ast.NodeVisitor):
         evidence: dict[str, RawEvidence],
         provider_bindings: Sequence[ProviderBinding] = (),
         runtime: RuntimeInfo | None = None,
+        imports: Sequence[RawRecord] = (),
     ) -> None:
         self.module = module
         self.index = index
@@ -295,6 +306,11 @@ class CallCollector(ast.NodeVisitor):
         self.evidence = evidence
         self.provider_bindings = {item.qualified_name: item for item in provider_bindings}
         self.runtime = runtime
+        self.imports = tuple(
+            item
+            for item in imports
+            if _mapping_value(item["data"], "source_module") == module.module
+        )
         self.items: list[RawRecord] = []
         self.scopes = LexicalScopes.for_module(module)
         self.receivers = {
@@ -635,13 +651,12 @@ class CallCollector(ast.NodeVisitor):
     ) -> tuple[str, list[str], dict[str, object]] | None:
         if not isinstance(parameter.annotation, ast.Name | ast.Attribute):
             return None
-        status, owners, _, _ = resolve_name(
-            parameter.annotation, index=self.index, scopes=self.scopes
-        )
-        if status is not SourceResolution.RESOLVED or len(owners) != 1:
+        annotation = self._annotation_identity(parameter.annotation)
+        if annotation is None:
             return None
+        type_name, import_evidence = annotation
         class_name = f"{self.scopes.by_node[owner].qualified_name}.{owner.name}"
-        declarations = self._stored_field_declarations(node, owner, class_name, owners[0])
+        declarations = self._stored_field_declarations(node, owner, class_name, type_name)
         if declarations is None:
             return None
         declaration, owner_declaration = declarations
@@ -668,25 +683,55 @@ class CallCollector(ast.NodeVisitor):
                     and typed_write.get("field") == node.attr
                     and typed_write.get("parameter") == parameter.arg
                 ):
-                    typed_write["annotation_target"] = owners[0]
+                    typed_write["annotation_target"] = type_name
         evidence = [
             *declaration["evidence_ids"],
             *owner_declaration["evidence_ids"],
             write_evidence,
             annotation_evidence,
+            *import_evidence,
         ]
         return (
-            owners[0],
+            type_name,
             evidence,
             {
                 "kind": "stored_field",
                 "owner": class_name,
                 "field": node.attr,
                 "parameter": parameter.arg,
-                "target": owners[0],
+                "target": type_name,
                 "witness_evidence_ids": [write_evidence, annotation_evidence],
             },
         )
+
+    def _annotation_identity(self, annotation: ast.expr) -> tuple[str, list[str]] | None:
+        spelling = dotted_expression(annotation)
+        if spelling is None:
+            return None
+        root, separator, suffix = _partition_first(spelling, ".")
+        imported = [row for row in self.imports if _mapping_value(row["data"], "binding") == root]
+        if imported:
+            if len(imported) != 1 or root not in self.stable_bindings:
+                return None
+            data = imported[0]["data"]
+            origin = _mapping_value(data, "origin_definition")
+            if (
+                _mapping_value(data, "module_level_import") is not True
+                or _mapping_value(data, "under_type_checking") is not False
+                or _mapping_value(data, "source_binding_unique") is not True
+                or _mapping_value(data, "symbols_known") is not True
+                or _mapping_value(data, "origin_binding_unique") is not True
+                or _mapping_value(data, "reexport_candidate") is True
+                or not isinstance(origin, str)
+                or not _qualified_identifier(origin)
+            ):
+                return None
+            target = origin + (f".{suffix}" if separator else "")
+            return target, imported[0]["evidence_ids"]
+        status, targets, _, _ = resolve_name(annotation, index=self.index, scopes=self.scopes)
+        if status is SourceResolution.RESOLVED and len(targets) == 1:
+            return targets[0], []
+        return None
 
     def _stored_field_declarations(
         self, node: ast.Attribute, owner: ast.ClassDef, class_name: str, target: str
@@ -1357,11 +1402,12 @@ class CallCollector(ast.NodeVisitor):
         annotation = sites[0].annotation
         if not isinstance(annotation, ast.Name | ast.Attribute):
             return None
-        verdict, owners, _, _ = resolve_name(annotation, index=self.index, scopes=self.scopes)
-        if verdict is not SourceResolution.RESOLVED or len(owners) != 1:
+        identity = self._annotation_identity(annotation)
+        if identity is None:
             return None
-        target = f"{owners[0]}.{node.func.attr}"
-        owner = self.index.binding_declarations.get(owners[0])
+        owner_name, import_evidence = identity
+        target = f"{owner_name}.{node.func.attr}"
+        owner = self.index.binding_declarations.get(owner_name)
         member = self.index.binding_declarations.get(target)
         if owner is None or member is None:
             return None
@@ -1370,7 +1416,7 @@ class CallCollector(ast.NodeVisitor):
             or _mapping_value(owner["data"], "source_binding_unique") is not True
             or _mapping_value(owner["data"], "source_member_binding_static") is not True
             or member["kind"] != "method"
-            or _mapping_value(member["data"], "parent") != owners[0]
+            or _mapping_value(member["data"], "parent") != owner_name
             or _mapping_value(member["data"], "decorators")
             or target not in targets
         ):
@@ -1380,7 +1426,12 @@ class CallCollector(ast.NodeVisitor):
             CallBindingOrigin.DECLARED_RECEIVER,
             target,
             evidence_id,
-            [annotation_evidence, *owner["evidence_ids"], *member["evidence_ids"]],
+            [
+                annotation_evidence,
+                *import_evidence,
+                *owner["evidence_ids"],
+                *member["evidence_ids"],
+            ],
             None,
         )
 
@@ -1656,6 +1707,7 @@ class CallCollector(ast.NodeVisitor):
             resolution_status=status,
             resolved_targets=targets,
         )
+        source_line = self.module.lines[node.lineno - 1]
         self.items.append(
             classified(
                 item_id=item_id,
@@ -1682,9 +1734,9 @@ class CallCollector(ast.NodeVisitor):
                         self._call_arguments(node)
                         if binding is not None
                         and node.end_lineno == node.lineno
-                        and _call_excerpt_matches(
+                        and call_excerpt_matches(
                             expression,
-                            self.module.lines[node.lineno - 1].rstrip(),
+                            source_line,
                             node.lineno,
                             node.col_offset,
                             node.end_lineno,
@@ -1709,11 +1761,12 @@ def collect_calls(
     evidence: dict[str, RawEvidence],
     provider_bindings: Sequence[ProviderBinding] = (),
     runtime: RuntimeInfo | None = None,
+    imports: Sequence[RawRecord] = (),
 ) -> list[RawRecord]:
     """Run the call collector over every module and sort the records by id."""
     calls: list[RawRecord] = []
     for module in parsed:
-        call_collector = CallCollector(module, index, evidence, provider_bindings, runtime)
+        call_collector = CallCollector(module, index, evidence, provider_bindings, runtime, imports)
         call_collector.visit(module.tree)
         calls.extend(call_collector.items)
     calls.sort(key=lambda item: item["id"])
