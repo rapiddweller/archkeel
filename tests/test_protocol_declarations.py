@@ -348,7 +348,7 @@ def test_imported_and_quoted_aliases_resolve_but_unresolved_names_stay_unknown(
         item.data.get("qualified_name")
         for item in unknowns
         if item.kind == "protocol_declaration_limit"
-    } >= {
+    } == {
         "sample.app.unresolved",
         "sample.app.unsupported_alias",
         "sample.shadow.shadowed",
