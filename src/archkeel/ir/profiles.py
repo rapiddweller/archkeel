@@ -98,7 +98,13 @@ DART: Final = Profile(
     # `no_component_cycles` stays decided with `level: "module"` and `components` (AD-98): a
     # library is a module, and every directive edge a module cycle closes over is a FACT.
     unsupported_rules=frozenset(
-        {"symbol_placement", "boundary_types", "call_owner", "bounded_numeric_operand"}
+        {
+            "symbol_placement",
+            "boundary_types",
+            "call_owner",
+            "bounded_numeric_operand",
+            "protocol_declarations",
+        }
     ),
     # AD-99: Dart has no `__all__` and its public names are UNKNOWN, so no facade count exists.
     unsupported_declarations=frozenset({"context_roots", "facade_budgets", "coupling_budgets"}),
@@ -154,6 +160,7 @@ TYPESCRIPT: Final = Profile(
             "boundary_types",
             "call_owner",
             "bounded_numeric_operand",
+            "protocol_declarations",
         }
     ),
     unsupported_declarations=frozenset({"context_roots", "facade_budgets", "coupling_budgets"}),

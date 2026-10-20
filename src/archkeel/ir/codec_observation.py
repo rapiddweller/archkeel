@@ -13,6 +13,7 @@ from enum import StrEnum
 from math import isfinite
 from typing import Any, TypeGuard
 
+from archkeel.ir.architecture_graph import ArchitectureRuleKind
 from archkeel.ir.codec_wire import (
     _count,
     _exact,
@@ -65,7 +66,8 @@ class _ObservationVersion(StrEnum):
     V1_3 = "1.3.0"
     V2 = "2.0.0"
     V2_1 = "2.1.0"
-    V2_2 = SCHEMA_VERSION
+    V2_2 = "2.2.0"
+    V2_3 = SCHEMA_VERSION
 
 
 class _VersionedConstruct(StrEnum):
@@ -215,7 +217,11 @@ def parse_observation(raw: object) -> Observation:
         for record in section.records
     ):
         raise ValueError("numeric_operand constructs require observation schema 2.2.0")
-    if schema_version in {_ObservationVersion.V2_1, _ObservationVersion.V2_2}:
+    if schema_version in {
+        _ObservationVersion.V2_1,
+        _ObservationVersion.V2_2,
+        _ObservationVersion.V2_3,
+    }:
         python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
         for section in sections:
             if section.name == ObservedSection.CALLS:
@@ -225,6 +231,13 @@ def parse_observation(raw: object) -> Observation:
                     ):
                         raise ValueError("Python 2.1.0 calls require explicit call_binding or null")
                     _call_binding(call.data.get("call_binding"))
+    if schema_version is not _ObservationVersion.V2_3 and any(
+        record.kind == ArchitectureRuleKind.PROTOCOL_DECLARATIONS
+        for section in sections
+        if section.name == "declarations"
+        for record in section.records
+    ):
+        raise ValueError("protocol_declarations require observation schema 2.3.0")
     return Observation(
         schema_version=schema_version,
         analyzer=AnalyzerInfo(
@@ -248,7 +261,12 @@ def parse_observation(raw: object) -> Observation:
         runtime=_parse_runtime(
             item["runtime"],
             allow_requirement_state=schema_version
-            in {_ObservationVersion.V2, _ObservationVersion.V2_1, _ObservationVersion.V2_2},
+            in {
+                _ObservationVersion.V2,
+                _ObservationVersion.V2_1,
+                _ObservationVersion.V2_2,
+                _ObservationVersion.V2_3,
+            },
         )
         if item.get("runtime", _MISSING_VALUE) is not _MISSING_VALUE
         else None,
@@ -401,7 +419,12 @@ def _validate_profile_sections(model: Mapping[str, RawJson], profile: Profile) -
 def observation_payload(observation: Observation) -> dict[str, RawJson]:
     if (
         _observation_version(observation.schema_version)
-        not in {_ObservationVersion.V2, _ObservationVersion.V2_1, _ObservationVersion.V2_2}
+        not in {
+            _ObservationVersion.V2,
+            _ObservationVersion.V2_1,
+            _ObservationVersion.V2_2,
+            _ObservationVersion.V2_3,
+        }
         and observation.runtime is not None
         and observation.runtime.requirement_state != RuntimeRequirementState.DECLARED
     ):

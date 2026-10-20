@@ -55,6 +55,7 @@ from archkeel.ir.type_shapes import TypeShapeIndex
 
 from .call_owners import call_owner_results
 from .imports import strip_internal_reexport_facts
+from .protocol_declarations import protocol_declaration_results
 from .rule_support import dynamic_dependency_limits
 from .rules import (
     boundary_type_limits,
@@ -620,6 +621,18 @@ def _evaluate_inside_contract(
         )
     )
     unknowns.extend(construct_capability_limits(scoped, construct_capabilities, parent.label))
+    _, protocol_unknowns, _ = protocol_declaration_results(
+        symbols=symbols,
+        imports=imports,
+        modules=modules,
+        contract=scoped,
+        source_modules=source_modules,
+        uncertain_reexport_origins=uncertain_reexport_origins,
+        type_shapes=type_shapes,
+        profile=profile,
+        scope=parent.label,
+    )
+    unknowns.extend(protocol_unknowns)
     return violations, unknowns, failures, allowance_facts
 
 
@@ -991,6 +1004,16 @@ def evaluate_source(
             imports, contract, facade_exports, dependency_symbols=profile.dependency_symbols
         ),
         *construct_capability_limits(contract, facts.capabilities.constructs, "root"),
+        *protocol_declaration_results(
+            symbols=symbols,
+            imports=imports,
+            modules=module_facts,
+            contract=contract,
+            source_modules=None,
+            uncertain_reexport_origins=uncertain_reexport_origins,
+            type_shapes=type_shapes,
+            profile=profile,
+        )[1],
         # AD-67: a boundary position the rule could not decide is reported, not silent. It
         # joins the two structural limits above and never `coverage.failures`, because it
         # says how much of a facade was decided, not that the scan was incomplete.

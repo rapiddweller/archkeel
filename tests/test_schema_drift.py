@@ -54,7 +54,7 @@ def typescript_export_binding(tmp_path_factory):
     return record_payload(binding)
 
 
-@pytest.mark.parametrize("version", ["2.0.0", "2.1.0"])
+@pytest.mark.parametrize("version", ["2.0.0", "2.1.0", "2.3.0"])
 @pytest.mark.parametrize("profile", PROFILES.values(), ids=lambda profile: profile.analyzer)
 def test_direct_export_binding_schema_is_typescript_21_only(
     typescript_export_binding, profile, version
@@ -73,7 +73,7 @@ def test_direct_export_binding_schema_is_typescript_21_only(
         observation[section] = None
     assert validator.is_valid(observation)
     observation["bindings"] = [typescript_export_binding]
-    accepted = version == "2.1.0" and profile.analyzer == "archkeel-typescript-imports"
+    accepted = version in {"2.1.0", "2.3.0"} and profile.analyzer == "archkeel-typescript-imports"
     assert validator.is_valid(observation) is accepted
     if accepted:
         assert parse_observation(observation).records("bindings")[0].data.get("name") == "port"

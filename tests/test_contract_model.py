@@ -507,6 +507,27 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
                 "decided_by": "architect",
             }
         )
+    if version == "3.9.0":
+        raw["rules"].append(
+            {
+                "id": "APP-READER-DECLARATIONS",
+                "kind": "protocol_declarations",
+                "source": "shop.app",
+                "protocol": "shop.model.Reader",
+                "selectors": [
+                    {"role": "parameter", "name": "client", "visibility": "public"},
+                    {
+                        "role": "member",
+                        "name": "reader",
+                        "visibility": "public",
+                        "optional": True,
+                    },
+                ],
+                "rationale": "Public consumer declarations use the Reader port.",
+                "provenance": _PROVENANCE,
+                "decided_by": "architect",
+            }
+        )
     return raw
 
 
@@ -731,6 +752,7 @@ def test_the_maximal_contract_fills_every_field() -> None:
             "3.6.0",
             "3.7.0",
             "3.8.0",
+            "3.9.0",
         )
     ]
 

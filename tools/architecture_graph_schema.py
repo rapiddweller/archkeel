@@ -468,6 +468,55 @@ def _update_contract_schema(path: Path) -> None:
             "uniqueItems": True,
             "items": {"$ref": "#/$defs/moduleObjectGrant"},
         }
+    if version is not None and supports_feature(version, ContractFeature.PROTOCOL_DECLARATIONS):
+        non_empty = {"type": "string", "pattern": "\\S"}
+        schema["$defs"]["protocolDeclarationSelector"] = {
+            "type": "object",
+            "required": ["role", "name", "visibility"],
+            "additionalProperties": False,
+            "properties": {
+                "role": {"enum": ["parameter", "member"]},
+                "name": non_empty,
+                "visibility": {"enum": ["public", "all"]},
+                "optional": {"type": "boolean"},
+            },
+        }
+        schema["$defs"]["protocolDeclarations"] = {
+            "type": "object",
+            "required": [
+                "id",
+                "kind",
+                "source",
+                "protocol",
+                "selectors",
+                "rationale",
+                "provenance",
+                "decided_by",
+            ],
+            "additionalProperties": False,
+            "properties": {
+                "id": {"$ref": "#/$defs/nonEmpty"},
+                "kind": {"const": "protocol_declarations"},
+                "source": non_empty,
+                "protocol": non_empty,
+                "selectors": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": True,
+                    "items": {"$ref": "#/$defs/protocolDeclarationSelector"},
+                },
+                "rationale": {"$ref": "#/$defs/nonEmpty"},
+                "provenance": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": True,
+                    "items": non_empty,
+                },
+                "decided_by": {"enum": ["architect", "agent"]},
+            },
+        }
+        choices = schema["properties"]["rules"]["items"]["oneOf"]
+        choices.append({"$ref": "#/$defs/protocolDeclarations"})
     schema["$defs"]["component"]["properties"]["layer"] = {
         "type": "string",
         "pattern": "\\S",

@@ -882,6 +882,12 @@ def _rule_receipt_complete(
             and proof.get("binding_id")
             == rule_evaluation_binding_id(inventory_binding, receipt, observation.schema_version)
         )
+    if declaration.kind == "protocol_declarations":
+        return (
+            receipt is not None
+            and receipt.rule_ids == (declaration.id,)
+            and _protocol_declaration_receipt_complete(observation, receipt)
+        )
     return receipt is not None and receipt.data.get("assessment_complete", True) is True
 
 
@@ -958,6 +964,7 @@ def dependency_binding_id(
             }
             or include_calls
             and record.kind == "call_owner"
+            or record.kind == "protocol_declarations"
         )
     ]
     bound.extend(failures)
@@ -1018,7 +1025,7 @@ def rule_evaluation_binding_id(
         tuple(
             (key, value)
             for key, value in sorted(receipt.data.entries)
-            if key not in {"call_scope_proof", "numeric_scope_proof"}
+            if key not in {"call_scope_proof", "numeric_scope_proof", "protocol_scope_proof"}
         ),
     )
     return stable_id(
@@ -1177,6 +1184,63 @@ def _call_owner_receipt_complete(observation: Observation, receipt: Record | Non
             dependency_binding_id(
                 observation.sections, coverage.failures, observation.evidence, include_calls=True
             ),
+            receipt,
+            observation.schema_version,
+        )
+    )
+
+
+def protocol_declaration_result_digest(records: _Iterable[Record], rule_id: str) -> str:
+    """Bind protocol declaration verdicts to their source-derived result records."""
+    selected = tuple(
+        sorted(
+            (
+                record.kind,
+                record.id,
+                record.evidence_class,
+                record.area,
+                record.title,
+                record.subjects,
+                record.evidence_ids,
+                record.rule_ids,
+                record.fact_ids,
+                record.provenance,
+                record.data,
+            )
+            for record in records
+            if rule_id in record.rule_ids
+            and record.kind in {"protocol_declaration", "protocol_declaration_limit"}
+        )
+    )
+    return stable_id("PROTOCOL-DECLARATION-RESULT", rule_id, repr(selected))
+
+
+def _protocol_declaration_receipt_complete(observation: Observation, receipt: Record) -> bool:
+    proof = receipt.data.get("protocol_scope_proof")
+    if not isinstance(proof, RecordData):
+        return False
+    coverage = observation.coverage
+    selected = proof.get("selected_files")
+    records = tuple(record for section in observation.sections for record in section.records)
+    rule_id = receipt.rule_ids[0]
+    return (
+        coverage.status == Verdict.PASS
+        and not coverage.failures
+        and isinstance(selected, tuple)
+        and bool(selected)
+        and coverage.files_discovered
+        == coverage.files_read
+        == coverage.files_parsed
+        == len(selected)
+        and len(set(selected)) == len(selected)
+        and set(selected) == {r.data.get("file") for r in observation.records("modules") or ()}
+        and proof.get("source_digest") == observation.source.source_digest
+        and proof.get("source_scope") == observation.source.scope
+        and proof.get("contract_digest") == observation.contract.digest
+        and proof.get("result_digest") == protocol_declaration_result_digest(records, rule_id)
+        and proof.get("binding_id")
+        == rule_evaluation_binding_id(
+            dependency_binding_id(observation.sections, coverage.failures, observation.evidence),
             receipt,
             observation.schema_version,
         )
