@@ -502,6 +502,10 @@ class BoundedNumericOperandRule(ArchitectureRuleGrammar):
     provenance: tuple[str, ...]
     decided_by: DecisionMaker
 
+    def __post_init__(self) -> None:
+        ArchitectureRuleGrammar.__post_init__(self)
+        builtins.object.__setattr__(self, "form", NumericOperandForm(self.form))
+
 
 @dataclass(frozen=True, slots=True)
 class ForbiddenDependencyRule(ArchitectureRuleGrammar):
