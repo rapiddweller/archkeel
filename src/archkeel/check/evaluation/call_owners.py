@@ -13,7 +13,7 @@ from archkeel.ir.facts import (
     in_scope,
     stable_id,
 )
-from archkeel.ir.facts_codec import RawRecord, classified, parse_record
+from archkeel.ir.facts_codec import RawData, RawRecord, classified, parse_record
 from archkeel.ir.model import ArchitectureContract, CallOwnerRule
 
 from .rule_support import _rule_evaluation_receipt
@@ -40,6 +40,57 @@ def _target_binding_static(target: RawRecord, symbols: Sequence[RawRecord]) -> b
             and owner_data.get("source_member_binding_static") is True
         )
     return data.get("source_binding_unique") is True and data.get("source_binding_static") is True
+
+
+def _constructed_target_binding_static(
+    target: RawRecord, calls: Sequence[RawRecord], symbols: Sequence[RawRecord]
+) -> bool:
+    """Use an observed constructed call only when both linked class owners are static."""
+    if target["kind"] != "method":
+        return False
+    target_data: RawData = target["data"]
+    parent = target_data.get("parent")
+    if not isinstance(parent, str):
+        return False
+    method_owners = _class_symbols(parent, symbols)
+    if len(method_owners) != 1 or not _owner_static(method_owners[0]):
+        return False
+    target_name = target_data.get("qualified_name")
+    for call in calls:
+        parsed_call = parse_record(call)
+        call_data = parsed_call.data
+        binding = call_binding(call_data.get("call_binding"))
+        if binding is None or binding.origin is not CallBindingOrigin.CONSTRUCTED_RECEIVER:
+            continue
+        proof = binding.proof
+        constructed_name = proof.get("target") if proof is not None else None
+        if not isinstance(constructed_name, str):
+            continue
+        constructed_owners = _class_symbols(constructed_name, symbols)
+        if (
+            binding.target == target_name
+            and proof is not None
+            and proof.get("kind") == "construction"
+            and len(constructed_owners) == 1
+            and _owner_static(constructed_owners[0])
+        ):
+            return True
+    return False
+
+
+def _class_symbols(name: str, symbols: Sequence[RawRecord]) -> list[RawRecord]:
+    return [
+        symbol
+        for symbol in symbols
+        if symbol["kind"] == "class" and symbol["data"]["qualified_name"] == name
+    ]
+
+
+def _owner_static(symbol: RawRecord) -> bool:
+    data: RawData = symbol["data"]
+    return (
+        data.get("source_binding_unique") is True and data.get("source_member_owner_static") is True
+    )
 
 
 def _native_target_witnessed(target: str, calls: Sequence[RawRecord]) -> bool:
@@ -78,6 +129,20 @@ def _limit(rule: CallOwnerRule, scope: str, reason: str, facts: Sequence[RawReco
         fact_ids=[r["id"] for r in facts],
         evidence_ids=sorted({e for r in facts for e in r["evidence_ids"]}),
         data={"scope": scope, "reason": reason},
+    )
+
+
+def _rule_target_proven(
+    rule: CallOwnerRule,
+    targets: Sequence[RawRecord],
+    calls: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+) -> bool:
+    if not targets:
+        return _native_target_witnessed(rule.target, calls)
+    return len(targets) == 1 and (
+        _target_binding_static(targets[0], symbols)
+        or _constructed_target_binding_static(targets[0], calls, symbols)
     )
 
 
@@ -123,9 +188,7 @@ def call_owner_results(
             and r["kind"] in {"class", "function", "method"}
         ]
         rule_limits: list[RawRecord] = []
-        target_proven = (len(targets) == 1 and _target_binding_static(targets[0], symbols)) or (
-            not targets and _native_target_witnessed(rule.target, selected)
-        )
+        target_proven = _rule_target_proven(rule, targets, selected, symbols)
         if not subjects or not target_proven or not complete or not bindings_measured:
             rule_limits.append(
                 _limit(

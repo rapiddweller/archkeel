@@ -158,6 +158,7 @@ _PROOF_FLAGS = frozenset(
         "source_binding_unique",
         "source_binding_static",
         "source_member_binding_static",
+        "source_member_owner_static",
         "origin_member_binding_static",
         "class_header_static",
         "source_class_header_static",
@@ -629,7 +630,10 @@ def _imported_selector_target_matches(
         for item in imports
         if item.data.get("binding") == root.id
         and isinstance(item.data.get("source_module"), str)
-        and owner.startswith(f"{item.data.get('source_module')}.")
+        and (
+            owner == item.data.get("source_module")
+            or owner.startswith(f"{item.data.get('source_module')}.")
+        )
         and item.data.get("symbols_known") is True
         and set(item.evidence_ids) <= set(binding.evidence_ids)
     ]
@@ -1437,7 +1441,9 @@ def _numeric_operation_owner_matches(
         if parent is None:
             return False
         node = parent
-        if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+        if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef) and (
+            _numeric_definition_contains_in_body(node, operation_node, parents)
+        ):
             definitions.append(node)
     qualified_owner = scope_owner
     for definition in reversed(
@@ -1445,6 +1451,20 @@ def _numeric_operation_owner_matches(
     ):
         qualified_owner = f"{qualified_owner}.{definition.name}"
     return operation.data.get("owner") == qualified_owner
+
+
+def _numeric_definition_contains_in_body(
+    definition: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
+    operation: ast.AST,
+    parents: Mapping[ast.AST, ast.AST],
+) -> bool:
+    node = operation
+    while parents.get(node) is not definition:
+        parent = parents.get(node)
+        if parent is None:
+            return False
+        node = parent
+    return any(node is statement for statement in definition.body)
 
 
 def _numeric_unique_local_assignment(
@@ -1762,6 +1782,9 @@ def _parse_numeric_evidence_excerpt(
 ) -> tuple[tuple[ast.stmt, ...], int] | None:
     if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
         return None
+    stripped: str = excerpt.lstrip(" \t")
+    if stripped.startswith("@"):
+        return _parse_numeric_decorator_excerpt(excerpt)
     if _numeric_elif_start(excerpt) is not None:
         return _parse_numeric_elif_excerpt(excerpt)
     try:
@@ -1775,6 +1798,34 @@ def _parse_numeric_evidence_excerpt(
         if parsed is None or len(parsed[0]) != 1:
             return None
         return parsed if _numeric_header_has_synthetic_body(parsed[0][0]) else None
+
+
+def _parse_numeric_decorator_excerpt(
+    excerpt: str,
+) -> tuple[tuple[ast.stmt, ...], int] | None:
+    indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+    unit = "\t" if "\t" in indentation else "    "
+    prefix = "if True:\n" if indentation else ""
+    source = (
+        f"{prefix}{excerpt}\n"
+        f"{indentation}def __archkeel_numeric_witness__():\n"
+        f"{indentation}{unit}pass"
+    )
+    try:
+        parsed = ast.parse(source)
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    roots = tuple(parsed.body)
+    if indentation and (len(roots) != 1 or not isinstance(roots[0], ast.If)):
+        return None
+    body = tuple(roots[0].body) if indentation and isinstance(roots[0], ast.If) else roots
+    if (
+        len(body) != 1
+        or not isinstance(body[0], ast.FunctionDef)
+        or len(body[0].decorator_list) != 1
+    ):
+        return None
+    return roots, 1 if indentation else 0
 
 
 def _numeric_elif_start(excerpt: str) -> int | None:
@@ -2761,6 +2812,7 @@ def _constructed_receiver_proof(
         len(targets) != 1
         or targets[0].kind != "class"
         or _record_data_value(targets[0].data, "default_instance_result") is not True
+        or not _constructed_member_owners_static(target, binding, declarations)
         or not isinstance(constructor_id, str)
         or len(calls) != 1
         or not _constructed_assignment_is_earlier(
@@ -2776,6 +2828,27 @@ def _constructed_receiver_proof(
         )
     ):
         raise ValueError("constructed receiver needs a linked earlier allocation witness")
+
+
+def _constructed_member_owners_static(
+    target: JsonValue,
+    binding: CallBinding,
+    declarations: Mapping[str, list[Record]],
+) -> bool:
+    if not isinstance(target, str):
+        return False
+    constructed = declarations.get(target, [])
+    target_name: str = binding.target
+    method_owner_name = target_name.rpartition(".")[0]
+    method_owners = declarations.get(method_owner_name, [])
+    return (
+        len(constructed) == 1
+        and constructed[0].kind == "class"
+        and _record_data_value(constructed[0].data, "source_member_owner_static") is True
+        and len(method_owners) == 1
+        and method_owners[0].kind == "class"
+        and _record_data_value(method_owners[0].data, "source_member_owner_static") is True
+    )
 
 
 def _constructed_call_matches_source(
@@ -3377,7 +3450,7 @@ def _validate_source_role_identities(
         _validate_source_role(
             role, all_records, anchors, symbols, member_anchors, imports, evidence
         )
-    _validate_local_source_references(all_records, anchors, evidence, symbols)
+    _validate_local_source_references(all_records, anchors, evidence, symbols, member_anchors)
     _validate_unique_local_declaration_anchors(all_records)
 
 
@@ -3767,13 +3840,14 @@ def _validate_local_source_references(
     anchors: Mapping[tuple[str, str], list[Record]],
     evidence: Mapping[str, Evidence],
     symbols: Mapping[str, list[Record]],
+    member_anchors: Mapping[tuple[str, str], list[RecordData]],
 ) -> None:
     for reference in records:
         if reference.kind not in {"value_reference", "attribute_reference"}:
             continue
         if reference.data.get("local_source_binding") is not True:
             continue
-        _validate_local_source_reference(reference, anchors, evidence, symbols)
+        _validate_local_source_reference(reference, anchors, evidence, symbols, member_anchors)
 
 
 def _validate_local_source_reference(
@@ -3781,6 +3855,7 @@ def _validate_local_source_reference(
     anchors: Mapping[tuple[str, str], list[Record]],
     evidence: Mapping[str, Evidence],
     symbols: Mapping[str, list[Record]],
+    member_anchors: Mapping[tuple[str, str], list[RecordData]],
 ) -> None:
     targets = reference.data.get("targets")
     declaration_id = reference.data.get("declaration_id")
@@ -3800,7 +3875,11 @@ def _validate_local_source_reference(
         )
         if _only_anchor(anchors, targets[0], declaration_id) is not reference:
             raise ValueError("local definition duplicates an existing declaration anchor")
-    elif len(anchors.get((targets[0], declaration_id), ())) != 1:
+    elif (
+        len(anchors.get((targets[0], declaration_id), ()))
+        + len(member_anchors.get((targets[0], declaration_id), ()))
+        != 1
+    ):
         raise ValueError("local reference has no unique witnessed declaration anchor")
 
 

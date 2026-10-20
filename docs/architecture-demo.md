@@ -12,6 +12,9 @@ rules and UML comparison are shown separately.
 
 Create a report with several deliberate violations:
 
+The default tour also shows `forbidden_call_argument`: a literal order ID at the store lookup,
+and `source_ownership`: a model-owned helper read from the app layer.
+
 ```sh
 make demo-architecture VARIANT=tour OUTPUT=build/demo.json
 ```

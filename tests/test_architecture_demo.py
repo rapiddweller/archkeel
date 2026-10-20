@@ -444,6 +444,31 @@ def test_class_a_covers_every_rule_kind() -> None:
     assert kinds <= items
 
 
+@pytest.mark.parametrize(
+    ("variant_id", "expected"),
+    [
+        ("class-a-forbidden-call-argument-fail", "FAIL"),
+        ("class-a-forbidden-call-argument-pass", "PASS"),
+        ("class-a-forbidden-call-argument-unknown", "UNKNOWN"),
+    ],
+)
+def test_forbidden_call_argument_variants_have_real_assessments(
+    tmp_path: Path,
+    variant_id: str,
+    expected: str,
+) -> None:
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    report, architecture = run_report(
+        root, config=load_config(root, variant.config), analyzer=observe
+    )
+    assert architecture is not None
+    row = next(
+        item for item in report.rule_assessments or () if item.id == "APP-NO-LITERAL-ORDER-ID"
+    )
+    assert row.status.value == expected
+
+
 # allowed_dependency records a permission, never a violation: the analyzer never evaluates it
 # against a run (docs/rules.md), so no run, `tour` included, can ever make it fire (AD-11).
 _KIND_CANNOT_VIOLATE = {"allowed_dependency"}
@@ -1272,6 +1297,23 @@ def test_clean_variant_has_no_violations_but_store_scope_is_unknown(tmp_path: Pa
     assert {
         item.id for item in report_result.rule_assessments or () if item.status == "UNKNOWN"
     } == {"store:STORE-REQUIRES-COMPLETE"}
+
+
+@pytest.mark.parametrize(
+    ("variant_id", "expected_status"),
+    (("clean", "PASS"), ("class-a-source-ownership-escaped-read", "FAIL")),
+)
+def test_source_ownership_demo_assesses_its_own_rule(
+    tmp_path: Path, variant_id: str, expected_status: str
+) -> None:
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files))
+    result, _ = run_report(root, config=CONFIG, analyzer=observe)
+
+    [assessment] = [
+        item for item in result.rule_assessments or () if item.id == "MODEL-NONCE-OWNER"
+    ]
+    assert assessment.status == expected_status
 
 
 def test_dart_clean_variant_has_no_violations_but_unknown_cycle_scope(tmp_path: Path) -> None:

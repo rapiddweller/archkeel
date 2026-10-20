@@ -895,11 +895,10 @@ class CallCollector(ast.NodeVisitor):
                 if node.func.id in {"setattr", "delattr"} and len(node.args) >= 2:
                     owner = canonical(node.args[0])
                     member = node.args[1]
-                    if (
-                        owner is not None
-                        and isinstance(member, ast.Constant)
-                        and isinstance(member.value, str)
-                        and f"{owner}.{member.value}" == target
+                    if owner is not None and (
+                        f"{owner}.{member.value}" == target
+                        if isinstance(member, ast.Constant) and isinstance(member.value, str)
+                        else target == owner or _starts_with(target, f"{owner}.")
                     ):
                         return True
         return False
@@ -1178,7 +1177,14 @@ class CallCollector(ast.NodeVisitor):
         owner_declaration = self.index.binding_declarations.get(
             parent if isinstance(parent, str) else ""
         )
-        if owner_declaration is None:
+        constructed_declaration = self.index.binding_declarations.get(owner)
+        if (
+            owner_declaration is None
+            or constructed_declaration is None
+            or _mapping_value(constructed_declaration["data"], "source_member_owner_static")
+            is not True
+            or _mapping_value(owner_declaration["data"], "source_member_owner_static") is not True
+        ):
             return None
         return self._receiver_binding_record(
             CallBindingOrigin.CONSTRUCTED_RECEIVER,

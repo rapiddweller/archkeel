@@ -1,6 +1,6 @@
 {
-  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.7.schema.json",
-  "schema_version": "3.7.0",
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.12.schema.json",
+  "schema_version": "3.12.0",
   "components": [
     {
       "id": "COMP-MODEL",
@@ -503,6 +503,56 @@
       "kind": "boundary_types",
       "source": "shop.app",
       "rationale": "shop.app's functions take and return typed models, never a bare dict standing in for one.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "MODEL-NONCE-WIDTH",
+      "kind": "bounded_numeric_operand",
+      "source": "shop.model",
+      "form": "both",
+      "terminal_suffix": "nonce",
+      "minimum_value": 8,
+      "rationale": "The sample's bucket operation retains its declared operand floor.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "MODEL-NONCE-OWNER",
+      "kind": "source_ownership",
+      "source": "shop",
+      "mode": "confined",
+      "symbols": ["shop.model.entities._nonce_bucket"],
+      "owner": "shop.model.entities",
+      "roles": ["definition", "read"],
+      "rationale": "Keep the nonce bucket helper owned by the model module.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "STORE-READER-DECLARATION",
+      "kind": "protocol_declarations",
+      "source": "shop.store.repository",
+      "protocol": "shop.store.repository.RepositoryReader",
+      "selectors": [
+        {
+          "role": "member",
+          "name": "reader",
+          "visibility": "public",
+          "optional": false
+        }
+      ],
+      "rationale": "The repository's reader member is typed to its canonical protocol.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "APP-NO-LITERAL-ORDER-ID",
+      "kind": "forbidden_call_argument",
+      "source": "shop.store.lookup",
+      "target": "shop.store.lookup.lookup_order",
+      "parameter": "order_id",
+      "rationale": "Order lookup IDs come from the caller and are never embedded at call sites.",
       "provenance": ["docs/architecture/shop.md"],
       "decided_by": "architect"
     },
