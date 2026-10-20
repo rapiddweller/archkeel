@@ -30,6 +30,12 @@ from archkeel.ir.codec import (
     parse_observation,
 )
 from archkeel.ir.codec_contract import parse_contract
+from archkeel.ir.decisions import (
+    rule_assessments,
+    rule_evaluation_binding_id,
+    rule_result_digest,
+    selector_inventory_binding_id,
+)
 from archkeel.ir.facts import (
     CallBinding,
     CallBindingOrigin,
@@ -1044,3 +1050,147 @@ def test_native_stored_and_constructed_selector_receivers_replay_and_reject_reta
         rejected = run_saved_report(tampered_path)
         assert rejected.rule_assessments is None
         assert rejected.diagnostics
+
+
+def _retarget_selector_source_scope(payload: dict[str, object], rule_id: str) -> None:
+    receipts = payload["scope_observations"]
+    receipt = next(
+        row for row in receipts if row["kind"] == "rule_evaluation" and row["rule_ids"] == [rule_id]
+    )
+    safe = next(row for row in payload["modules"] if row["data"]["qualified_name"] == "sample.safe")
+    safe_symbols = [
+        row for row in payload["symbols"] if row["data"]["qualified_name"] == "sample.safe"
+    ]
+    receipt["subjects"] = ["sample.safe"]
+    receipt["fact_ids"] = sorted([safe["id"], *(row["id"] for row in safe_symbols)])
+    receipt["data"]["source_modules"] = ["sample.safe"]
+    receipt["data"]["inventory_fact_ids"] = []
+    proof = receipt["data"]["selector_scope_proof"]
+    proof["source_modules"] = ["sample.safe"]
+    proof["inventory_fact_ids"] = []
+    payload["violations"] = [row for row in payload["violations"] if rule_id not in row["rule_ids"]]
+    parsed = parse_observation(payload)
+    proof["result_digest"] = rule_result_digest(parsed.sections, rule_id)
+    parsed = parse_observation(payload)
+    receipt_record = next(
+        row
+        for row in parsed.records("scope_observations") or ()
+        if row.kind == "rule_evaluation" and row.rule_ids == (rule_id,)
+    )
+    proof["binding_id"] = rule_evaluation_binding_id(
+        selector_inventory_binding_id(parsed.sections, parsed.evidence),
+        receipt_record,
+        parsed.schema_version,
+    )
+
+
+def _selector_scope_fixture(root: Path, *, mounted: bool, source: str = "sample"):
+    (root / "sample").mkdir(parents=True)
+    (root / "sample/__init__.py").write_text("")
+    (root / "sample/core.py").write_text(
+        "class Connection:\n    backend: str\n"
+        'def route(conn: Connection):\n    conn.backend == "flat"\n'
+    )
+    (root / "sample/safe.py").write_text("VALUE = 1\n")
+    (root / "docs/architecture").mkdir(parents=True)
+    (root / "docs/architecture/sample.md").write_text("Fixture provenance.\n")
+    (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    rule = {
+        "id": "SELECT",
+        "kind": "forbidden_construct",
+        "source": source,
+        "constructs": ["string_literal_compare"],
+        "selector": {
+            "receiver": "sample.core.Connection",
+            "member": "backend",
+            "role": "equality",
+            "literal": "flat",
+        },
+        "rationale": "Exercise selector source binding.",
+        "provenance": ["docs/architecture/sample.md"],
+        "decided_by": "architect",
+    }
+    if mounted:
+        provenance = ["docs/architecture/sample.md"]
+        (root / "inside.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "3.11.0",
+                    "components": [
+                        {
+                            "id": "COMP-child",
+                            "label": "child",
+                            "role": "component",
+                            "packages": ["sample"],
+                            "responsibilities": ["Own child."],
+                            "forbidden_responsibilities": [],
+                            "provenance": provenance,
+                        }
+                    ],
+                    "rules": [rule],
+                }
+            )
+        )
+        contract = {
+            "schema_version": "3.11.0",
+            "components": [
+                {
+                    "id": "COMP-parent",
+                    "label": "parent",
+                    "role": "component",
+                    "packages": ["sample"],
+                    "responsibilities": ["Own parent."],
+                    "forbidden_responsibilities": [],
+                    "provenance": provenance,
+                    "inside": "inside.json",
+                }
+            ],
+            "rules": [],
+        }
+    else:
+        contract = {"schema_version": "3.11.0", "components": [], "rules": [rule]}
+    (root / "contract.json").write_text(json.dumps(contract))
+    result = observe(
+        root,
+        roots=("sample",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=root,
+    )
+    assert result.observation is not None, result.diagnostics
+    return result.observation
+
+
+@pytest.mark.parametrize(
+    ("mounted", "source"),
+    [
+        (False, "sample"),
+        (True, "sample"),
+        (False, "sample.core.route"),
+        (True, "sample.core.route"),
+    ],
+    ids=["root-package", "mounted-package", "root-symbol", "mounted-symbol"],
+)
+def test_selector_receipt_cannot_retarget_source_modules_to_safe_sibling(
+    tmp_path: Path, mounted: bool, source: str
+):
+    model = _selector_scope_fixture(tmp_path / "repo", mounted=mounted, source=source)
+    [original] = [
+        row for row in rule_assessments(model, undecided_by_rule={}) if row.status == "FAIL"
+    ]
+    assert original.evaluation_proven
+    ordinary = observation_payload(model)
+    columnar = decode_canonical_model(
+        json.loads(canonical_json_bytes(encode_canonical_model(ordinary)))
+    )
+    for index, payload in enumerate((ordinary, columnar)):
+        changed = copy.deepcopy(payload)
+        _retarget_selector_source_scope(changed, original.id)
+        path = tmp_path / f"retarget-source-scope-{mounted}-{index}.json"
+        path.write_bytes(canonical_json_bytes(encode_canonical_model(changed)))
+        replay = run_saved_report(path)
+        assert replay.rule_assessments is not None, replay.diagnostics
+        assessment = next(row for row in replay.rule_assessments if row.id == original.id)
+        assert not (assessment.status == "PASS" and assessment.evaluation_proven)
