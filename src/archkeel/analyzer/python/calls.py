@@ -999,6 +999,8 @@ class CallCollector(ast.NodeVisitor):
             or binding.uncertain
             or len(binding.targets) != 1
             or binding.owner is None
+            or binding.owner is self.scopes.root
+            and root not in self.stable_bindings
             or binding.targets[0] in self.escaped_native_targets
         ):
             return None
@@ -1623,6 +1625,12 @@ class CallCollector(ast.NodeVisitor):
         evidence_id = add_evidence(self.evidence, self.module, node)
         item_id = call_id(self.module, node, expression)
         binding = self._call_binding(node, status, targets, evidence_id)
+        if binding is not None and "proof" in binding and node.func.col_offset > node.col_offset:
+            binding = None
+            status = SourceResolution.UNRESOLVED
+            targets = []
+            candidate_count = 0
+            reason = "Parenthesized callee source evidence is unsupported"
         if binding is not None:
             canonical_target = binding["target"]
             targets = [canonical_target] if isinstance(canonical_target, str) else targets
