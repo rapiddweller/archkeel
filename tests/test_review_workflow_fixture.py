@@ -21,3 +21,15 @@ def test_review_fixture_is_green_with_proven_discovery_loaders(tmp_path: Path) -
     assert (result.exit_code, result.diagnostics) == (0, ())
     assert {row.status for row in result.rule_assessments or ()} == {"PASS"}
     assert len(result.rule_assessments or ()) == 12
+
+
+def test_project_adapter_adds_domain_invariants_without_copying_the_review_process() -> None:
+    adapter = (FIXTURE / "skills/orders-domain/SKILL.md").read_text().splitlines()
+    canonical = set(
+        (Path(__file__).parents[1] / "skills/archkeel/SKILL.md").read_text().splitlines()
+    )
+    copied = [line for line in adapter if len(line) > 40 and line in canonical]
+
+    assert copied == []
+    assert any("`archkeel` skill" in line for line in adapter)
+    assert len(adapter) < 30
