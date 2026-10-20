@@ -55,7 +55,9 @@ from archkeel.ir.facts import (
     SourceSectionName,
     call_binding,
 )
-from archkeel.ir.facts_codec import selector_receiver_site_matches
+from archkeel.ir.facts_codec import (
+    selector_receiver_site_matches,
+)
 from archkeel.ir.facts_validation import validate_source_bindings
 from archkeel.ir.model import (
     AssessmentStatus as _AssessmentStatus,
@@ -893,9 +895,18 @@ def _saved_selector_declared(
     imports: tuple[Record, ...],
     evidence: dict[str, Evidence],
 ) -> None:
-    owner_name = selector.data.get("owner")
-    owners = declarations.get(owner_name, []) if isinstance(owner_name, str) else []
+    selector_owner_name = selector.data.get("owner")
+    parameter_owner_name = selector.data.get("receiver_parameter_owner")
+    if not isinstance(parameter_owner_name, str):
+        parameter_owner_name = selector_owner_name
+    owners = (
+        declarations.get(parameter_owner_name, []) if isinstance(parameter_owner_name, str) else []
+    )
+    selector_owners = (
+        declarations.get(selector_owner_name, []) if isinstance(selector_owner_name, str) else []
+    )
     owner: Record | None = owners[0] if len(owners) == 1 else None
+    selector_owner: Record | None = selector_owners[0] if len(selector_owners) == 1 else None
     target_declaration: Record | None = targets[0] if len(targets) == 1 else None
     parameters = owner.data.get("parameters") if owner is not None else None
     candidates = (
@@ -917,12 +928,19 @@ def _saved_selector_declared(
     if (
         owner is None
         or owner.kind not in {"function", "method"}
+        or selector_owner is None
+        or selector_owner.kind not in {"function", "method"}
+        or not isinstance(selector_owner_name, str)
+        or not isinstance(parameter_owner_name, str)
+        or selector_owner_name != parameter_owner_name
+        and not selector_owner_name.startswith(f"{parameter_owner_name}.")
         or len(candidates) != 1
         or target != binding.target
         or target_declaration is None
         or target_declaration.kind != "class"
         or target_declaration.data.get("source_binding_unique") is not True
         or not set(owner.evidence_ids) <= set(binding.evidence_ids)
+        or not set(selector_owner.evidence_ids) <= set(binding.evidence_ids)
     ):
         raise ValueError("saved selector receiver is not tied to its declared parameter type")
 
@@ -1020,6 +1038,39 @@ def _saved_selector_constructed(
         proof.get("assignment_evidence_id"),
         proof.get("assignment_name"),
     )
+    constructor_calls, assignment_calls = _saved_selector_construction_calls(
+        model, constructor_id, binding.target, assignment_id, assignment_name
+    )
+    assignment_evidence = evidence.get(assignment_id) if isinstance(assignment_id, str) else None
+    selector_evidence = [
+        evidence[item]
+        for item in selector.evidence_ids
+        if item not in binding.evidence_ids and item in evidence
+    ]
+    target_declaration: Record | None = targets[0] if len(targets) == 1 else None
+    assignment_call: Record | None = assignment_calls[0][0] if len(assignment_calls) == 1 else None
+    if not _saved_selector_construction_is_linked(
+        proof,
+        binding,
+        selector,
+        assignment_id,
+        assignment_name,
+        constructor_calls,
+        assignment_evidence,
+        selector_evidence,
+        target_declaration,
+        assignment_call,
+    ):
+        raise ValueError("saved constructed selector receiver needs its allocation link")
+
+
+def _saved_selector_construction_calls(
+    model: Observation,
+    constructor_id: JsonValue,
+    target: str,
+    assignment_id: JsonValue,
+    assignment_name: JsonValue,
+) -> tuple[list[Record], list[tuple[Record, RecordData]]]:
     calls = model.records("calls") or ()
     constructor_calls: list[Record] = []
     assignment_calls: list[tuple[Record, RecordData]] = []
@@ -1032,7 +1083,7 @@ def _saved_selector_constructed(
             if (
                 candidate_kind.endswith("_call")
                 and isinstance(candidate_targets, tuple)
-                and binding.target in candidate_targets
+                and target in candidate_targets
             ):
                 constructor_calls.append(candidate)
             results = candidate.data.get("result_bindings")
@@ -1050,15 +1101,23 @@ def _saved_selector_constructed(
                         and assignment_id in evidence_ids
                     ):
                         assignment_calls.append((candidate, item))
-    assignment_evidence = evidence.get(assignment_id) if isinstance(assignment_id, str) else None
-    selector_evidence = [
-        evidence[item]
-        for item in selector.evidence_ids
-        if item not in binding.evidence_ids and item in evidence
-    ]
+    return constructor_calls, assignment_calls
+
+
+def _saved_selector_construction_is_linked(
+    proof: RecordData,
+    binding: CallBinding,
+    selector: Record,
+    assignment_id: JsonValue,
+    assignment_name: JsonValue,
+    constructor_calls: list[Record],
+    assignment_evidence: Evidence | None,
+    selector_evidence: list[Evidence],
+    target_declaration: Record | None,
+    assignment_call: Record | None,
+) -> bool:
     ids = binding.evidence_ids
-    target_declaration: Record | None = targets[0] if len(targets) == 1 else None
-    assignment_call: Record | None = assignment_calls[0][0] if len(assignment_calls) == 1 else None
+    constructor_id = proof.get("constructor_evidence_id")
     if (
         proof.get("kind") != "construction"
         or proof.get("target") != binding.target
@@ -1086,7 +1145,8 @@ def _saved_selector_constructed(
             assignment_call,
         )
     ):
-        raise ValueError("saved constructed selector receiver needs its allocation link")
+        return False
+    return True
 
 
 def _saved_constructor_target_is_witnessed(

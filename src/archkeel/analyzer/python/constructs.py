@@ -493,6 +493,8 @@ class _LiteralComparisons:
             value = self.module_values.get(node.id)
             return value if isinstance(value, str) else None
         if isinstance(node, ast.Attribute):
+            if not self._module_name(node):
+                return None
             owner = _dotted_name(node.value)
             values = self.class_values.get(f"{self.module.module}.{owner}") if owner else None
             value = values.get(node.attr) if values else None
@@ -504,7 +506,7 @@ class _LiteralComparisons:
         if scalar is not None:
             return (scalar,)
         collection: ast.expr = node
-        if isinstance(node, ast.Name):
+        if isinstance(node, ast.Name) and self._module_name(node):
             collection = self.collections.get(node.id, node)
         if isinstance(collection, ast.Tuple | ast.List | ast.Set):
             values = tuple(self.string_value(item) for item in collection.elts)
@@ -961,46 +963,22 @@ class ConstructCollector(ast.NodeVisitor):
 
     def _receiver_binding(
         self, expression: ast.expr | None, use: ast.AST
-    ) -> tuple[str | None, dict[str, object] | None, str | None, list[str]]:
+    ) -> tuple[
+        str | None,
+        dict[str, object] | None,
+        str | None,
+        list[str],
+        str | None,
+        list[dict[str, str]] | None,
+    ]:
         if expression is None:
-            return None, None, None, []
+            return None, None, None, [], None, None
         if isinstance(expression, ast.Name):
-            binding = self.scopes.lookup(expression, expression.id)
-            declared = None
-            if binding.owner is not None and not binding.uncertain:
-                for index in reversed(range(len(self.parameter_annotations))):
-                    frame = self.parameter_annotations[index]
-                    if (
-                        expression.id in frame
-                        and self.receiver_scope_names[index] == binding.owner.qualified_name
-                    ):
-                        declared = frame[expression.id]
-                        break
+            declared = self._declared_receiver_binding(expression, use)
             if declared is not None:
-                target, annotation = declared
-                annotation_evidence = add_evidence(self.evidence, self.module, annotation)
-                support_evidence = [annotation_evidence]
-                if self.symbol_index is not None:
-                    for qualified_name in (self.scope_stack[-1], target):
-                        declaration = self.symbol_index.binding_declarations.get(qualified_name)
-                        if declaration is None:
-                            continue
-                        declaration_data: dict[str, RawJson] = declaration["data"]
-                        if declaration_data.get("module") == self.module.module:
-                            support_evidence.extend(declaration["evidence_ids"])
-                support_evidence = sorted(set(support_evidence))
-                return (
-                    target,
-                    {
-                        "origin": CallBindingOrigin.DECLARED_RECEIVER.value,
-                        "target": target,
-                        "evidence_ids": support_evidence,
-                    },
-                    expression.id,
-                    support_evidence,
-                )
+                return declared
         if self.call_collector is None:
-            return self._receiver_type(expression), None, None, []
+            return self._receiver_type(expression), None, None, [], None, None
         call_site = use if isinstance(use, ast.Call) else expression
         if isinstance(expression, ast.Attribute):
             stored = self.call_collector._stored_type(expression)
@@ -1017,6 +995,8 @@ class ConstructCollector(ast.NodeVisitor):
                     },
                     None,
                     evidence,
+                    None,
+                    None,
                 )
         constructed = self.call_collector._constructed_type(expression, call_site)
         if constructed is not None:
@@ -1032,8 +1012,100 @@ class ConstructCollector(ast.NodeVisitor):
                 },
                 None,
                 evidence,
+                None,
+                None,
             )
-        return self._receiver_type(expression), None, None, []
+        return self._receiver_type(expression), None, None, [], None, None
+
+    def _declared_receiver_binding(
+        self, expression: ast.Name, use: ast.AST
+    ) -> (
+        tuple[
+            str,
+            dict[str, object],
+            str,
+            list[str],
+            str,
+            list[dict[str, str]],
+        ]
+        | None
+    ):
+        lexical = self.scopes.lookup(expression, expression.id)
+        if lexical.owner is None or lexical.uncertain:
+            return None
+        binding_sites = lexical.owner.bindings.get(expression.id, [])
+        if len(binding_sites) != 1 or not isinstance(binding_sites[0], ast.arg):
+            return None
+        for index in reversed(range(len(self.parameter_annotations))):
+            frame = self.parameter_annotations[index]
+            owner = self.receiver_scope_names[index]
+            if expression.id not in frame or owner != lexical.owner.qualified_name:
+                continue
+            scopes = self._selector_parameter_scope_chain(use, lexical.owner)
+            if scopes is None:
+                return None
+            target, annotation = frame[expression.id]
+            support_evidence = [add_evidence(self.evidence, self.module, annotation)]
+            support_evidence.extend(item["scope_evidence_id"] for item in scopes)
+            if self.symbol_index is not None:
+                support_evidence.extend(self._selector_declaration_evidence((owner, target)))
+            support_evidence = sorted(set(support_evidence))
+            proof: dict[str, object] = {
+                "origin": CallBindingOrigin.DECLARED_RECEIVER.value,
+                "target": target,
+                "evidence_ids": support_evidence,
+            }
+            return target, proof, expression.id, support_evidence, owner, scopes
+        return None
+
+    def _selector_declaration_evidence(self, owners: tuple[str, str]) -> list[str]:
+        if self.symbol_index is None:
+            return []
+        evidence: list[str] = []
+        for qualified_name in (owners[0], self.scope_stack[-1], owners[1]):
+            declaration = self.symbol_index.binding_declarations.get(qualified_name)
+            if declaration is None:
+                continue
+            declaration_data: dict[str, RawJson] = declaration["data"]
+            if declaration_data.get("module") == self.module.module:
+                evidence.extend(declaration["evidence_ids"])
+        return evidence
+
+    def _selector_parameter_scope_chain(
+        self, use: ast.AST, parameter_scope: Scope
+    ) -> list[dict[str, str]] | None:
+        scopes: list[Scope] = []
+        current = self.scopes.by_node.get(use)
+        while current is not None:
+            scopes.append(current)
+            if current is parameter_scope:
+                break
+            current = current.parent
+        if not scopes or scopes[-1] is not parameter_scope:
+            return None
+        chain: list[dict[str, str]] = []
+        for scope in scopes:
+            if isinstance(
+                scope.node,
+                ast.Lambda | ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp,
+            ):
+                continue
+            if not isinstance(scope.node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+                return None
+            evidence_id = self._numeric_scope_evidence(scope)
+            if evidence_id is None:
+                return None
+            line, _, column = location(scope.node)
+            chain.append(
+                {
+                    "scope_owner": scope.qualified_name,
+                    "scope_evidence_id": evidence_id,
+                    "scope_symbol_id": stable_id(
+                        "SYM", scope.qualified_name, self.module.rel_path, line, column
+                    ),
+                }
+            )
+        return chain
 
     def _local_evidence(self, identifiers: list[str]) -> list[str]:
         return sorted(
@@ -1082,9 +1154,15 @@ class ConstructCollector(ast.NodeVisitor):
         owner = self.scope_stack[-1]
         line, _, column = location(node)
         evidence_id = add_evidence(self.evidence, self.module, node)
-        receiver, status, receiver_binding, receiver_parameter, receiver_evidence = (
-            self._selector_receiver_proof(node, role, receiver, literal, status, receiver_node)
-        )
+        (
+            receiver,
+            status,
+            receiver_binding,
+            receiver_parameter,
+            receiver_evidence,
+            receiver_parameter_owner,
+            receiver_parameter_scopes,
+        ) = self._selector_receiver_proof(node, role, receiver, literal, status, receiver_node)
         data: RecordData = {
             "owner": owner,
             "construct": "selector",
@@ -1096,6 +1174,14 @@ class ConstructCollector(ast.NodeVisitor):
             "operation": operation,
             "receiver_binding": receiver_binding,
             "receiver_parameter": receiver_parameter,
+            **(
+                {
+                    "receiver_parameter_owner": receiver_parameter_owner,
+                    "receiver_parameter_scopes": receiver_parameter_scopes,
+                }
+                if receiver_parameter_owner is not None
+                else {}
+            ),
         }
         item_id = stable_id(
             "CONSTRUCT-SELECTOR",
@@ -1133,10 +1219,23 @@ class ConstructCollector(ast.NodeVisitor):
         literal: str | None,
         status: str,
         receiver_node: ast.expr | None,
-    ) -> tuple[str | None, str, dict[str, object] | None, str | None, list[str]]:
-        proven_receiver, receiver_binding, receiver_parameter, receiver_evidence = (
-            self._receiver_binding(receiver_node, node)
-        )
+    ) -> tuple[
+        str | None,
+        str,
+        dict[str, object] | None,
+        str | None,
+        list[str],
+        str | None,
+        list[dict[str, str]] | None,
+    ]:
+        (
+            proven_receiver,
+            receiver_binding,
+            receiver_parameter,
+            receiver_evidence,
+            receiver_parameter_owner,
+            receiver_parameter_scopes,
+        ) = self._receiver_binding(receiver_node, node)
         if receiver is None and proven_receiver is not None:
             receiver = proven_receiver
             if role in {"read", "write", "call", "reflect", "constructor", "type_probe"} or (
@@ -1175,8 +1274,18 @@ class ConstructCollector(ast.NodeVisitor):
             receiver = None
             receiver_binding = None
             receiver_parameter = None
+            receiver_parameter_owner = None
+            receiver_parameter_scopes = None
             receiver_evidence = []
-        return receiver, status, receiver_binding, receiver_parameter, receiver_evidence
+        return (
+            receiver,
+            status,
+            receiver_binding,
+            receiver_parameter,
+            receiver_evidence,
+            receiver_parameter_owner,
+            receiver_parameter_scopes,
+        )
 
     def _selector_excerpt_replays(self, node: ast.AST) -> bool:
         line, _, _ = location(node)
@@ -1453,14 +1562,17 @@ class ConstructCollector(ast.NodeVisitor):
             self._record(node, kind="dunder_dict", construct="dunder_dict", handled=None)
         receiver = self._receiver_type(node.value)
         unresolved_name = isinstance(node.value, ast.Name) and node.value.id not in {"self", "cls"}
-        if receiver is not None or unresolved_name:
+        expression_receiver = isinstance(node.value, ast.Attribute | ast.Call)
+        if receiver is not None or unresolved_name or expression_receiver:
             parent = self.parents.get(node)
             operation = (
                 "call"
                 if isinstance(parent, ast.Call) and parent.func is node
                 else ("write" if isinstance(node.ctx, ast.Store) else "read")
             )
-            if not self._has_role_specific_attribute_operand(node, parent):
+            if not self._is_nonruntime_attribute_context(
+                node, parent
+            ) and not self._has_role_specific_attribute_operand(node, parent):
                 self._selector_record(
                     node,
                     operation,
@@ -1471,6 +1583,10 @@ class ConstructCollector(ast.NodeVisitor):
                     receiver_node=node.value,
                 )
         self.generic_visit(node)
+
+    @staticmethod
+    def _is_nonruntime_attribute_context(node: ast.Attribute, parent: ast.AST | None) -> bool:
+        return isinstance(parent, ast.ExceptHandler) and parent.type is node
 
     def _has_role_specific_attribute_operand(
         self, node: ast.Attribute, parent: ast.AST | None
