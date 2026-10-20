@@ -386,6 +386,167 @@ def test_method_parameter_uses_final_method_binding_proof(
 
 @pytest.mark.parametrize("mounted", [False, True])
 @pytest.mark.parametrize("columnar", [False, True])
+def test_decorated_method_replaced_by_nested_class_is_unknown(
+    tmp_path: Path, mounted: bool, columnar: bool
+) -> None:
+    rule = {
+        "id": "APP-READER-DECLARATIONS",
+        "kind": "protocol_declarations",
+        "source": "sample.core",
+        "protocol": "sample.core.Reader",
+        "selectors": [{"role": "parameter", "name": "client", "visibility": "all"}],
+        "rationale": "Selected method parameters use the canonical Reader port.",
+        "provenance": ["docs/architecture/sample.md"],
+        "decided_by": "architect",
+    }
+    files = {
+        "sample/__init__.py": "",
+        "sample/core.py": (
+            "from typing import Protocol\n"
+            "class Reader(Protocol): ...\n"
+            "class Service:\n"
+            "    @staticmethod\n"
+            "    def consume(client: Reader): pass\n"
+            "    class consume: pass\n"
+        ),
+        "sample/other.py": "value = 1\n",
+    }
+    if mounted:
+        files["inside.json"] = json.dumps(
+            {
+                "schema_version": "3.9.0",
+                "components": [
+                    _component("core", ["sample.core"]),
+                    _component("other", ["sample.other"]),
+                ],
+                "rules": [rule],
+            }
+        )
+        contract = {
+            "schema_version": "3.9.0",
+            "components": [_component("all", ["sample"], inside="inside.json")],
+            "rules": [],
+        }
+    else:
+        contract = {
+            "schema_version": "3.9.0",
+            "components": [
+                _component("core", ["sample.core"]),
+                _component("other", ["sample.other"]),
+            ],
+            "rules": [rule],
+        }
+    result = _observe_tree(tmp_path, files, contract)
+    assert result.observation is not None, result.diagnostics
+    [row] = [
+        item
+        for item in rule_assessments(
+            result.observation,
+            undecided_by_rule=unknown_positions_by_rule(result.observation),
+        )
+        if item.kind == "protocol_declarations"
+    ]
+    assert row.status.value == "UNKNOWN"
+    payload = observation_payload(result.observation)
+    saved = tmp_path / "nested-class-replacement.json"
+    saved.write_text(json.dumps(encode_canonical_model(payload) if columnar else payload))
+    [replayed] = [
+        item
+        for item in (run_saved_report(saved).rule_assessments or ())
+        if item.kind == "protocol_declarations"
+    ]
+    assert replayed == row
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize(
+    ("target_source", "annotation"),
+    [
+        ("if FEATURE:\\n    class Reader(Protocol): ...\\n", "Concrete"),
+        ("if FEATURE:\\n    class Reader(Protocol): ...\\n", None),
+        ("@opaque\\nclass Reader(Protocol): ...\\n", "Concrete"),
+        ("@opaque\\nclass Reader(Protocol): ...\\n", None),
+    ],
+)
+def test_unproven_required_protocol_target_keeps_positions_unknown(
+    tmp_path: Path,
+    mounted: bool,
+    columnar: bool,
+    target_source: str,
+    annotation: str | None,
+) -> None:
+    rule = {
+        "id": "APP-READER-DECLARATIONS",
+        "kind": "protocol_declarations",
+        "source": "sample.core",
+        "protocol": "sample.core.Reader",
+        "selectors": [{"role": "parameter", "name": "client", "visibility": "all"}],
+        "rationale": "Selected parameters use the statically bound canonical Reader.",
+        "provenance": ["docs/architecture/sample.md"],
+        "decided_by": "architect",
+    }
+    annotation_text = f": {annotation}" if annotation is not None else ""
+    files = {
+        "sample/__init__.py": "",
+        "sample/core.py": (
+            "from typing import Protocol\\n"
+            "class Concrete: pass\\n"
+            "def opaque(value): return value\\n"
+            + target_source.replace("\\n", "\n")
+            + f"def consume(client{annotation_text}): pass\\n"
+        ).replace("\\n", "\n"),
+        "sample/other.py": "value = 1\n",
+    }
+    if mounted:
+        files["inside.json"] = json.dumps(
+            {
+                "schema_version": "3.9.0",
+                "components": [
+                    _component("core", ["sample.core"]),
+                    _component("other", ["sample.other"]),
+                ],
+                "rules": [rule],
+            }
+        )
+        contract = {
+            "schema_version": "3.9.0",
+            "components": [_component("all", ["sample"], inside="inside.json")],
+            "rules": [],
+        }
+    else:
+        contract = {
+            "schema_version": "3.9.0",
+            "components": [
+                _component("core", ["sample.core"]),
+                _component("other", ["sample.other"]),
+            ],
+            "rules": [rule],
+        }
+    result = _observe_tree(tmp_path, files, contract)
+    assert result.observation is not None, result.diagnostics
+    [row] = [
+        item
+        for item in rule_assessments(
+            result.observation,
+            undecided_by_rule=unknown_positions_by_rule(result.observation),
+        )
+        if item.kind == "protocol_declarations"
+    ]
+    assert row.status.value == "UNKNOWN"
+    payload = observation_payload(result.observation)
+    saved = tmp_path / "unproven-protocol-target.json"
+    saved.write_text(json.dumps(encode_canonical_model(payload) if columnar else payload))
+    [replayed] = [
+        item
+        for item in (run_saved_report(saved).rule_assessments or ())
+        if item.kind == "protocol_declarations"
+    ]
+    assert replayed == row
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
 def test_function_parameters_require_proven_decorator_binding(
     tmp_path: Path, mounted: bool, columnar: bool
 ) -> None:
