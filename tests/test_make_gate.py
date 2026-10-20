@@ -416,7 +416,7 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
         assert "retention-days: 7" in job
     core_job = workflow.split("  pr-core-shards:\n", 1)[1].split("\n  pr-core-static:", 1)[0]
     assert "fail-fast: false" in core_job
-    assert "shard: [0, 1, 2, 3]" in core_job
+    assert "shard: [0, 1, 2, 3, 4, 5]" in core_job
     assert (
         "run: make pr-test PR_TEST_SHARD=${{ strategy.job-index }}/${{ strategy.job-total }}"
         in core_job
