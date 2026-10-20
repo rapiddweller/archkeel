@@ -212,7 +212,19 @@ class _GuardPathWalker:
     ) -> list[tuple[bool | None, str | None, tuple[ast.AST, ...]]]:
         if isinstance(statement, ast.If):
             return self._if_paths(statement, current, reason, path_nodes)
-        if isinstance(statement, (ast.While, ast.For, ast.AsyncFor, ast.Try, ast.TryStar)):
+        if isinstance(
+            statement,
+            (
+                ast.While,
+                ast.For,
+                ast.AsyncFor,
+                ast.Try,
+                ast.TryStar,
+                ast.With,
+                ast.AsyncWith,
+                ast.Match,
+            ),
+        ):
             self._unsupported_flow(statement, path_nodes)
             return [(None, "unsupported_control_flow", path_nodes)]
         if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):

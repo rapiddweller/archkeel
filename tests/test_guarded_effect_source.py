@@ -196,6 +196,62 @@ def test_native_true_guarded_effect_fails_but_early_return_dominates(tmp_path):
         assert assessment.evaluation_proven
 
 
+def test_terminal_control_inside_unmodeled_with_or_match_stays_unknown(tmp_path):
+    contract = {
+        "schema_version": "3.13.0",
+        "components": [_component("all", ["sample"])],
+        "rules": [
+            _rule(
+                "forbidden_effect_under_condition",
+                source="sample.core",
+                target="sample.core._effect",
+                condition={
+                    "kind": "parameter",
+                    "owner": "sample.core.generate",
+                    "name": "seeded",
+                },
+            )
+        ],
+    }
+    sources = (
+        "def _effect(): pass\n"
+        "def generate(seeded: bool):\n"
+        "    if seeded:\n"
+        "        with gate:\n"
+        "            return\n"
+        "    _effect()\n",
+        "def _effect(): pass\n"
+        "def generate(seeded: bool):\n"
+        "    if seeded:\n"
+        "        match seeded:\n"
+        "            case True:\n"
+        "                return\n"
+        "            case _:\n"
+        "                pass\n"
+        "    _effect()\n",
+    )
+    for index, source in enumerate(sources):
+        result = _observe_tree(
+            tmp_path / str(index),
+            {"sample/__init__.py": "", "sample/core.py": source},
+            contract,
+        )
+
+        assert result.observation is not None, result.diagnostics
+        [call] = [
+            row
+            for row in result.observation.records("calls") or ()
+            if row.data.get("expression") == "_effect"
+        ]
+        proofs = [guarded_effect(item) for item in call.data.get("guarded_effect", ())]
+        assert any(
+            not proof.complete and proof.unknown_reason == "unsupported_control_flow"
+            for proof in proofs
+        )
+        [assessment] = rule_assessments(result.observation, undecided_by_rule={})
+        assert assessment.status in {"UNKNOWN", "INCONCLUSIVE"}
+
+
 def test_instance_member_guard_is_bound_to_its_annotated_declaration(tmp_path):
     contract = {
         "schema_version": "3.13.0",

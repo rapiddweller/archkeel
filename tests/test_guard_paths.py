@@ -169,6 +169,35 @@ def test_short_circuit_and_finally_paths_are_unknown():
     ]
 
 
+def test_with_and_match_do_not_certify_following_paths():
+    with_return = _paths(
+        """def target(seeded):
+    if seeded:
+        with gate:
+            return
+    forbidden()
+"""
+    )
+    match_return = _paths(
+        """def target(seeded):
+    if seeded:
+        match seeded:
+            case True:
+                return
+            case _:
+                pass
+    forbidden()
+"""
+    )
+
+    assert (
+        next(path for path in with_return if path.call_name == "forbidden").condition_value is None
+    )
+    assert (
+        next(path for path in match_return if path.call_name == "forbidden").condition_value is None
+    )
+
+
 def test_declared_member_truth_and_negation_track_boolean_paths():
     module = ast.parse(
         """class Generator:

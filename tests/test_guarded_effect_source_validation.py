@@ -123,6 +123,26 @@ def test_source_facts_reject_tampered_else_and_nested_guard_polarity(tmp_path, b
         decode_response(json.dumps(payload).encode())
 
 
+def test_source_facts_bind_guard_context_to_exact_lexical_function(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "def _effect(): pass\n"
+        "def generate(seeded: bool):\n"
+        "    if seeded:\n"
+        "        _effect()\n"
+        "def wrapper():\n"
+        "    def generate(seeded: bool):\n"
+        "        if seeded:\n"
+        "            pass\n",
+    )
+    _call(payload, "_effect")["data"]["source_scope"] = "sample.core.wrapper.generate"
+
+    with pytest.raises(
+        ValueError, match="guarded-effect condition value disagrees with its source path"
+    ):
+        decode_response(json.dumps(payload).encode())
+
+
 def test_oversized_guard_context_is_scoped_to_unknown(tmp_path):
     large_literal = "x" * 16_385
     payload = _payload(
