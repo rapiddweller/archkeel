@@ -78,6 +78,7 @@ pr-test: browser-runtime-install
 		tests/test_guard_paths.py tests/test_guarded_effect_contract.py tests/test_guarded_effect_evaluation.py \
 		tests/test_guarded_effect_facts.py tests/test_guarded_effect_saved_report.py tests/test_guarded_effect_source.py \
 		tests/test_guarded_effect_wire_compatibility.py tests/test_guarded_effect_source_validation.py \
+		tests/test_guarded_effect_scan_completeness.py \
 		tests/test_protocol_conditional_identity.py \
 		tests/test_typescript_namespace_identities.py \
 		tests/test_result_schema.py \
