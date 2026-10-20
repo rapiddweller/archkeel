@@ -509,9 +509,11 @@ def test_violation_counts_group_the_report_by_rule_and_by_crossing_pair(tmp_path
         ("EXTERNAL-JSON-STORE", 1),
         ("INTERFACE-BOUNDARY", 1),
         ("LAYERS-MODEL", 1),
+        ("MODEL-NONCE-WIDTH", 1),
         ("MODEL-TYPES-IN-ENTITIES", 1),
         ("ROOT-LAYOUT", 1),
         ("STORE-PEERS-ISOLATED", 1),
+        ("STORE-READER-DECLARATION", 1),
         ("store:STORE-REQUIRES-COMPLETE", 1),
     )
     # Direction comes from each record's source_module/target_module: `subjects` is sorted,

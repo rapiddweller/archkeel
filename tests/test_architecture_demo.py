@@ -442,6 +442,7 @@ def test_class_a_covers_every_rule_kind() -> None:
     items = {variant.item.split(":", 1)[0] for variant in CATALOG if variant.section == "class_a"}
     kinds = {get_args(get_type_hints(rule)["kind"])[0] for rule in get_args(ArchitectureRule)}
     assert kinds <= items
+    assert {"bounded_numeric_operand", "protocol_declarations"} <= items
 
 
 @pytest.mark.parametrize(
@@ -506,6 +507,7 @@ def test_tour_fires_every_class_a_rule_kind_that_can_violate(
     _, _, actual_violations, _, _, _, _ = _sample_run(tmp_path_factory, tour)
     fired_kinds = {rule_kind[rule_id] for rule_id in actual_violations}
     assert kinds - _KIND_CANNOT_VIOLATE <= fired_kinds
+    assert {"MODEL-NONCE-WIDTH", "STORE-READER-DECLARATION"} <= set(actual_violations)
 
 
 def test_clean_sample_declares_every_class_a_rule_kind() -> None:
@@ -516,6 +518,9 @@ def test_clean_sample_declares_every_class_a_rule_kind() -> None:
     """
     kinds = {get_args(get_type_hints(rule)["kind"])[0] for rule in get_args(ArchitectureRule)}
     assert kinds <= set(_clean_sample_rule_kind_by_id().values())
+    assert {"bounded_numeric_operand", "protocol_declarations"} <= set(
+        _clean_sample_rule_kind_by_id().values()
+    )
 
 
 def test_class_a_covers_every_forbidden_construct_kind() -> None:
