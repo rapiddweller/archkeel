@@ -1998,8 +1998,13 @@ def rule_violations(
     if assessment_facts is not None:
         assessment_facts.extend(protocol_receipts)
     numeric_unknowns = [item for item in result if item["kind"] == "numeric_operand_unknown"]
-    violations = [item for item in result if item["kind"] != "numeric_operand_unknown"]
-    return violations, [*allowance_facts, *numeric_unknowns]
+    selector_unknowns = [item for item in result if item["kind"] == "construct_selector_unknown"]
+    violations = [
+        item
+        for item in result
+        if item["kind"] not in {"numeric_operand_unknown", "construct_selector_unknown"}
+    ]
+    return violations, [*allowance_facts, *numeric_unknowns, *selector_unknowns]
 
 
 def _cycle_scan_coverage(

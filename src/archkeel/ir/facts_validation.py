@@ -4,7 +4,7 @@
 """Cross-reference and source-payload invariants of the collection protocol."""
 
 import ast
-from collections.abc import Collection, Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from functools import lru_cache
 from pathlib import PurePosixPath
 
@@ -294,11 +294,32 @@ def _numeric_node_span(
 
 def _selector_evidence_excerpt(
     item: Evidence, role: object
-) -> tuple[tuple[ast.stmt, ...], int] | None:
+) -> tuple[tuple[ast.stmt, ...], int, int] | None:
     parsed = _parse_numeric_evidence_excerpt(item.excerpt)
-    if parsed is not None or role != "match" or not item.excerpt.rstrip().endswith(":"):
-        return parsed
+    if parsed is not None:
+        roots, line_offset = parsed
+        return roots, line_offset, 0
     indentation = len(item.excerpt) - len(item.excerpt.lstrip(" "))
+    continuation = item.excerpt[indentation:]
+    for operator in ("and", "or"):
+        prefix = f"{operator} "
+        if role != "match" and continuation.startswith(prefix):
+            rewritten = item.excerpt[:indentation] + f"True {prefix}" + continuation[len(prefix) :]
+            try:
+                wrapper = ast.parse(f"if True:\n{rewritten}\n")
+            except (IndentationError, SyntaxError, ValueError, RecursionError):
+                return None
+            if wrapper.body and isinstance(wrapper.body[0], ast.If):
+                return tuple(wrapper.body[0].body), 1, len(f"True {prefix}") - len(prefix)
+    if role != "match" and item.excerpt.rstrip().endswith(("(", "[", "{")):
+        for closing in range(1, 9):
+            rewritten = f"{item.excerpt}False{')' * closing}"
+            parsed = _parse_numeric_evidence_excerpt(rewritten)
+            if parsed is not None:
+                roots, line_offset = parsed
+                return roots, line_offset, 0
+    if role != "match" or not item.excerpt.rstrip().endswith(":"):
+        return None
     body = " " * (indentation + 4) + "case _: pass"
     try:
         wrapper = ast.parse(f"if True:\n{item.excerpt}\n{body}\n")
@@ -306,12 +327,12 @@ def _selector_evidence_excerpt(
         return None
     if not wrapper.body or not isinstance(wrapper.body[0], ast.If):
         return None
-    return tuple(wrapper.body[0].body), 1
+    return tuple(wrapper.body[0].body), 1, 0
 
 
 def _selector_source_receiver(
     record: Record, binding: CallBinding, evidence: Mapping[str, Evidence]
-) -> ast.expr | None:
+) -> tuple[ast.expr, tuple[int, int, int, int]] | None:
     site_ids = set(record.evidence_ids) - set(binding.evidence_ids)
     for identifier in site_ids:
         item = evidence.get(identifier)
@@ -320,12 +341,25 @@ def _selector_source_receiver(
         parsed = _selector_evidence_excerpt(item, record.data.get("selector_role"))
         if parsed is None:
             continue
-        roots, offset = parsed
+        roots, offset, column_offset = parsed
         nodes = [node for root in roots for node in ast.walk(root)]
+        source_line = item.line
+
+        def source_span(
+            node: ast.AST,
+            source_line: int = source_line,
+            line_offset: int = offset,
+            column_shift: int = column_offset,
+        ) -> tuple[int, int, int, int] | None:
+            span = _numeric_node_span(node, source_line, line_offset)
+            if span is None:
+                return None
+            return span[0], span[1] - column_shift, span[2], span[3] - column_shift
+
         anchored = [
-            node
+            (node, span)
             for node in nodes
-            if (span := _numeric_node_span(node, item.line, offset)) is not None
+            if (span := source_span(node)) is not None
             and span[0] == item.line
             and span[1] == item.column
         ]
@@ -335,14 +369,14 @@ def _selector_source_receiver(
             selected = next(
                 (
                     node.subject.value
-                    for node in anchored
+                    for node, _ in anchored
                     if isinstance(node, ast.Match) and isinstance(node.subject, ast.Attribute)
                 ),
                 None,
             )
         elif role == "reflect":
             selected = next(
-                (node.args[0] for node in anchored if isinstance(node, ast.Call) and node.args),
+                (node.args[0] for node, _ in anchored if isinstance(node, ast.Call) and node.args),
                 None,
             )
         elif role in {"startswith", "endswith"}:
@@ -352,31 +386,31 @@ def _selector_source_receiver(
                     if isinstance(node.func, ast.Attribute)
                     and isinstance(node.func.value, ast.Attribute)
                     else node.func.value
-                    for node in anchored
+                    for node, _ in anchored
                     if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                 ),
                 None,
             )
         elif role in {"read", "write", "call", "equality", "membership"}:
-            attribute = next(
-                (
-                    node
-                    for node in nodes
-                    if isinstance(node, ast.Attribute)
-                    and node.attr == member
-                    and (span := _numeric_node_span(node, item.line, offset)) is not None
-                    and span[0] == item.line
-                    and span[1] >= item.column
-                ),
-                None,
-            )
-            if attribute is None:
-                attribute = next(
-                    (node for node in anchored if isinstance(node, ast.Attribute)), None
-                )
+            candidates = {
+                id(node): node
+                for root, _ in anchored
+                for node in ast.walk(root)
+                if isinstance(node, ast.Attribute)
+                and node.attr == member
+                and (span := source_span(node)) is not None
+                and span[:2] == (item.line, item.column)
+            }
+            attribute = next(iter(candidates.values())) if len(candidates) == 1 else None
             selected = attribute.value if attribute is not None else None
         if selected is not None:
-            return selected
+            span = next(
+                (span for node, span in anchored if node is selected or selected in ast.walk(node)),
+                None,
+            )
+            if span is not None:
+                selected_span = source_span(selected)
+                return selected, selected_span or span
     return None
 
 
@@ -392,20 +426,22 @@ def _selector_source_class(
         )
         if item is None or parsed is None:
             continue
-        roots, offset = parsed
-        for root in roots:
-            for node in ast.walk(root):
-                span = _numeric_node_span(node, item.line, offset)
-                if span is None or span[:2] != (item.line, item.column):
-                    continue
-                if record.data.get("selector_role") == "constructor" and isinstance(node, ast.Call):
-                    return node.func
-                if (
-                    record.data.get("selector_role") == "type_probe"
-                    and isinstance(node, ast.Call)
-                    and len(node.args) > 1
-                ):
-                    return node.args[1]
+        roots, offset, column_offset = parsed
+        nodes = [node for root in roots for node in ast.walk(root)]
+        for node in nodes:
+            span = _numeric_node_span(node, item.line, offset)
+            if span is not None:
+                span = span[0], span[1] - column_offset, span[2], span[3] - column_offset
+            if span is None or span[:2] != (item.line, item.column):
+                continue
+            if record.data.get("selector_role") == "constructor" and isinstance(node, ast.Call):
+                return node.func
+            if record.data.get("selector_role") == "type_probe" and any(
+                isinstance(call, ast.Call) and len(call.args) > 1 and call.args[1] is node
+                for call in nodes
+            ):
+                if isinstance(node, ast.expr):
+                    return node
     return None
 
 
@@ -415,14 +451,53 @@ def _selector_receiver_site_matches(
     receiver_parameter: str | None,
     declarations: Mapping[str, list[Record]],
     evidence: Mapping[str, Evidence],
+    imports: Sequence[Record] = (),
 ) -> bool:
     if binding.origin is CallBindingOrigin.DIRECT:
         target = _selector_source_class(record, binding, evidence)
-        return (
-            target is not None
-            and ast.unparse(target).split(".")[-1] == binding.target.split(".")[-1]
+        declarations_for_target = declarations.get(binding.target, [])
+        module = (
+            declarations_for_target[0].data.get("module")
+            if len(declarations_for_target) == 1 and declarations_for_target[0].kind == "class"
+            else None
         )
-    expression = _selector_source_receiver(record, binding, evidence)
+        if target is None:
+            return False
+        written = ast.unparse(target)
+        owner = record.data.get("owner")
+        if isinstance(module, str) and isinstance(owner, str) and owner.startswith(module + "."):
+            if binding.target == f"{module}.{written}":
+                return True
+        root = target
+        suffix: list[str] = []
+        while isinstance(root, ast.Attribute):
+            suffix.append(root.attr)
+            root = root.value
+        if not isinstance(root, ast.Name) or not isinstance(owner, str):
+            return False
+        matching_imports = [
+            item
+            for item in imports
+            if item.data.get("binding") == root.id
+            and isinstance(item.data.get("source_module"), str)
+            and owner.startswith(f"{item.data.get('source_module')}.")
+            and item.data.get("symbols_known") is True
+            and set(item.evidence_ids) <= set(binding.evidence_ids)
+        ]
+        if len(matching_imports) != 1:
+            return False
+        imported = matching_imports[0]
+        target_module, symbol = imported.data.get("target_module"), imported.data.get("symbol")
+        canonical = (
+            f"{target_module}.{symbol}"
+            if isinstance(target_module, str) and isinstance(symbol, str)
+            else target_module
+        )
+        return isinstance(canonical, str) and binding.target == ".".join(
+            [canonical, *reversed(suffix)]
+        )
+    source_site = _selector_source_receiver(record, binding, evidence)
+    expression = source_site[0] if source_site is not None else None
     if binding.origin is CallBindingOrigin.DECLARED_RECEIVER:
         return isinstance(expression, ast.Name) and expression.id == receiver_parameter
     proof = binding.proof
@@ -449,11 +524,12 @@ def _selector_receiver_site_matches(
             return isinstance(expression, ast.Name) and expression.id == assignment_name
         constructor_id = proof.get("constructor_evidence_id")
         constructor = evidence.get(constructor_id) if isinstance(constructor_id, str) else None
+        expression_span = source_site[1] if source_site is not None else None
         return (
             isinstance(expression, ast.Call)
             and constructor is not None
-            and expression.lineno == constructor.line
-            and expression.col_offset == constructor.column
+            and expression_span is not None
+            and expression_span[:2] == (constructor.line, constructor.column)
         )
     return expression is not None
 
@@ -483,12 +559,28 @@ def _selector_receiver_proof(
         CallBindingOrigin.STORED_RECEIVER,
         CallBindingOrigin.CONSTRUCTED_RECEIVER,
     } and not _selector_receiver_site_matches(
-        record, binding, receiver_parameter, declarations, evidence
+        record,
+        binding,
+        receiver_parameter,
+        declarations,
+        evidence,
+        tuple(
+            item
+            for section in facts.sections
+            if section.name is SourceSectionName.IMPORTS
+            for item in section.records
+        ),
     ):
         raise ValueError("selector receiver proof does not match its source expression")
     targets = declarations.get(binding.target, [])
     if binding.origin is CallBindingOrigin.DIRECT:
-        _selector_direct_receiver_proof(binding, receiver_parameter, targets)
+        imports = tuple(
+            item
+            for section in facts.sections
+            if section.name is SourceSectionName.IMPORTS
+            for item in section.records
+        )
+        _selector_direct_receiver_proof(binding, receiver_parameter, targets, imports)
         return
     if binding.origin is CallBindingOrigin.DECLARED_RECEIVER:
         _selector_declared_receiver_proof(
@@ -508,15 +600,27 @@ def _selector_receiver_proof(
 
 
 def _selector_direct_receiver_proof(
-    binding: CallBinding, receiver_parameter: str | None, targets: list[Record]
+    binding: CallBinding,
+    receiver_parameter: str | None,
+    targets: list[Record],
+    imports: Sequence[Record],
 ) -> None:
-    if (
-        receiver_parameter is not None
-        or len(targets) != 1
-        or targets[0].kind != "class"
-        or targets[0].data.get("source_binding_unique") is not True
-        or not set(targets[0].evidence_ids) <= set(binding.evidence_ids)
-    ):
+    # The source-site proof binds local expressions to declarations and imported aliases to
+    # typed import rows. Imported declarations live in another source module, so their evidence
+    # cannot be copied into this selector record without breaking source-file ownership.
+    local_class = (
+        len(targets) == 1
+        and targets[0].kind == "class"
+        and targets[0].data.get("source_binding_unique") is True
+    )
+    imported_class = any(
+        item.data.get("symbols_known") is True
+        and item.data.get("source_binding_unique") is True
+        and f"{item.data.get('target_module')}.{item.data.get('symbol')}" == binding.target
+        and set(item.evidence_ids) <= set(binding.evidence_ids)
+        for item in imports
+    )
+    if receiver_parameter is not None or not (local_class or imported_class):
         raise ValueError("selector class receiver needs its stable declaration")
 
 
@@ -555,7 +659,6 @@ def _selector_declared_receiver_proof(
         or targets[0].kind != "class"
         or targets[0].data.get("source_binding_unique") is not True
         or not set(owners[0].evidence_ids) <= set(binding.evidence_ids)
-        or not set(targets[0].evidence_ids) <= set(binding.evidence_ids)
     ):
         raise ValueError("declared selector receiver needs its exact typed parameter proof")
 
@@ -627,7 +730,6 @@ def _selector_stored_receiver_proof(
         or targets[0].kind != "class"
         or targets[0].data.get("source_binding_unique") is not True
         or not set(owners[0].evidence_ids) <= set(binding.evidence_ids)
-        or not set(targets[0].evidence_ids) <= set(binding.evidence_ids)
     ):
         raise ValueError("stored selector receiver needs a linked initializer annotation")
 
@@ -686,7 +788,6 @@ def _selector_constructed_receiver_proof(
         )
         or assignment_id is None
         and assignment_name is not None
-        or not set(targets[0].evidence_ids) <= set(binding.evidence_ids)
     ):
         raise ValueError("constructed selector receiver needs its linked allocation witness")
 

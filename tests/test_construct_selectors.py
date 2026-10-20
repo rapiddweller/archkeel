@@ -12,7 +12,9 @@ from pathlib import Path
 import pytest
 from test_analyzer import _parsed_module
 
+from archkeel.analyzer.python.calls import collect_calls_with_resolvers
 from archkeel.analyzer.python.constructs import collect_constructs
+from archkeel.analyzer.python.imports import collect_imports, resolve_reexports
 from archkeel.analyzer.python.resolve import build_symbol_index
 from archkeel.analyzer.python.symbols import collect_symbols
 from archkeel.check.evaluation.rules import _construct_violations
@@ -28,7 +30,14 @@ from archkeel.ir.codec import (
     parse_observation,
 )
 from archkeel.ir.codec_contract import parse_contract
-from archkeel.ir.facts import Evidence, Record, call_binding
+from archkeel.ir.facts import (
+    CallBinding,
+    CallBindingOrigin,
+    Evidence,
+    Record,
+    RecordData,
+    call_binding,
+)
 from archkeel.ir.facts_codec import parse_evidence, parse_record
 from archkeel.ir.facts_validation import (
     _selector_evidence_excerpt,
@@ -97,18 +106,19 @@ def test_bounded_selector_excerpt_supports_match_headers():
     evidence = Evidence("EVD-test", "sample/core.py", 4, 4, 4, "    match conn.backend:")
     parsed = _selector_evidence_excerpt(evidence, "match")
     assert parsed is not None
-    roots, offset = parsed
+    roots, offset, column_offset = parsed
     matches = [node for root in roots for node in ast.walk(root) if isinstance(node, ast.Match)]
     assert len(matches) == 1
     assert matches[0].subject.attr == "backend"
     assert offset == 1
+    assert column_offset == 0
 
 
 @pytest.mark.parametrize(
     ("source", "role", "literal"),
     [
         (
-            "class Connection: pass\nclass Label: pass\n"
+            "class Connection:\n    backend: str\nclass Label: pass\n"
             'def route(conn: Connection):\n    conn = Label()\n    conn.backend == "flat"\n',
             ConstructSelectorRole.EQUALITY,
             "flat",
@@ -278,7 +288,7 @@ def route(conn: Connection, label: Label, key: str, ambiguous):
 
 def test_selected_constructor_and_type_probe_are_separate_roles():
     module = _parsed_module(
-        "class Connection: pass\n"
+        "class Connection:\n    backend: str\n"
         "def build(value):\n"
         "    Connection()\n"
         "    isinstance(value, Connection)\n"
@@ -313,10 +323,16 @@ def test_direct_class_selector_binding_cannot_be_retargeted_to_another_class():
         and row["data"]["receiver_type"] == "sample.core.Label"
     )
     evidence = {key: parse_evidence(value) for key, value in raw_evidence.items()}
+    declarations = {}
+    for symbol in symbols:
+        typed = parse_record(symbol)
+        name = typed.data.get("qualified_name")
+        if isinstance(name, str):
+            declarations.setdefault(name, []).append(typed)
     original = parse_record(connection)
     original_binding = call_binding(original.data.get("receiver_binding"))
     assert original_binding is not None
-    assert _selector_receiver_site_matches(original, original_binding, None, {}, evidence)
+    assert _selector_receiver_site_matches(original, original_binding, None, declarations, evidence)
 
     transplanted = copy.deepcopy(connection)
     transplanted["data"]["receiver_type"] = "sample.core.Label"
@@ -327,7 +343,201 @@ def test_direct_class_selector_binding_cannot_be_retargeted_to_another_class():
     changed = parse_record(transplanted)
     changed_binding = call_binding(changed.data.get("receiver_binding"))
     assert changed_binding is not None
-    assert not _selector_receiver_site_matches(changed, changed_binding, None, {}, evidence)
+    assert not _selector_receiver_site_matches(
+        changed, changed_binding, None, declarations, evidence
+    )
+
+
+def test_direct_selector_proof_uses_full_local_class_path():
+    local_module = _parsed_module(
+        "class Connection: pass\ndef build():\n    Connection()\n", module="sample.core"
+    )
+    foreign_module = _parsed_module(
+        "class Connection: pass\ndef build():\n    Connection()\n", module="other.core"
+    )
+    evidence = {}
+    local_symbols, _, _ = collect_symbols([local_module], evidence)
+    foreign_symbols, _, _ = collect_symbols([foreign_module], evidence)
+    local_rows = collect_constructs(
+        [local_module], evidence, symbol_index=build_symbol_index(local_symbols)
+    )
+    foreign_rows = collect_constructs(
+        [foreign_module], evidence, symbol_index=build_symbol_index(foreign_symbols)
+    )
+    local = next(row for row in local_rows if row["kind"] == "construct_selector")
+    foreign = next(row for row in foreign_rows if row["kind"] == "construct_selector")
+    evidence_records = {key: parse_evidence(value) for key, value in evidence.items()}
+    declarations = {}
+    for symbol in (*local_symbols, *foreign_symbols):
+        typed = parse_record(symbol)
+        name = typed.data.get("qualified_name")
+        if isinstance(name, str):
+            declarations.setdefault(name, []).append(typed)
+    original = parse_record(local)
+    binding = call_binding(original.data.get("receiver_binding"))
+    assert binding is not None
+    assert _selector_receiver_site_matches(original, binding, None, declarations, evidence_records)
+    transplanted = copy.deepcopy(local)
+    transplanted["data"]["receiver_type"] = "other.core.Connection"
+    transplanted["data"]["receiver_binding"] = copy.deepcopy(foreign["data"]["receiver_binding"])
+    transplanted["evidence_ids"] = sorted(
+        set(transplanted["evidence_ids"]) | set(foreign["data"]["receiver_binding"]["evidence_ids"])
+    )
+    changed = parse_record(transplanted)
+    changed_binding = call_binding(changed.data.get("receiver_binding"))
+    assert changed_binding is not None
+    assert not _selector_receiver_site_matches(
+        changed, changed_binding, None, declarations, evidence_records
+    )
+
+
+def test_imported_direct_selector_alias_is_canonical_and_coupled():
+    origin = _parsed_module(
+        "class Connection: pass\n", module="sample.origin", rel_path="sample/origin.py"
+    )
+    other = _parsed_module(
+        "class Connection: pass\n", module="sample.other", rel_path="sample/other.py"
+    )
+    client = _parsed_module(
+        "from sample.origin import Connection as Conn\n"
+        "from sample.other import Connection as Other\n"
+        "def build():\n    Conn()\n    Other()\n",
+        module="sample.client",
+        rel_path="sample/client.py",
+    )
+    modules = [origin, other, client]
+    evidence = {}
+    imported = collect_imports(
+        modules, {module.module for module in modules}, evidence, namespace="sample"
+    )
+    resolve_reexports(imported, {module.module: module.all_exports for module in modules}, modules)
+    symbols, _, _ = collect_symbols(modules, evidence)
+    rows = collect_constructs(
+        modules, evidence, imports=imported, symbol_index=build_symbol_index(symbols)
+    )
+    selectors = [row for row in rows if row["kind"] == "construct_selector"]
+    conn = next(
+        row for row in selectors if row["data"]["receiver_type"] == "sample.origin.Connection"
+    )
+    other_row = next(
+        row for row in selectors if row["data"]["receiver_type"] == "sample.other.Connection"
+    )
+    evidence_records = {key: parse_evidence(value) for key, value in evidence.items()}
+    declarations = {}
+    for symbol in symbols:
+        typed = parse_record(symbol)
+        name = typed.data.get("qualified_name")
+        if isinstance(name, str):
+            declarations.setdefault(name, []).append(typed)
+    imported_records = [parse_record(row) for row in imported]
+    record = parse_record(conn)
+    binding = call_binding(record.data.get("receiver_binding"))
+    assert binding is not None
+    assert _selector_receiver_site_matches(
+        record, binding, None, declarations, evidence_records, imported_records
+    )
+    retargeted = copy.deepcopy(conn)
+    retargeted["data"]["receiver_type"] = "sample.other.Connection"
+    retargeted["data"]["receiver_binding"] = copy.deepcopy(other_row["data"]["receiver_binding"])
+    retargeted["evidence_ids"] = sorted(
+        set(retargeted["evidence_ids"]) | set(other_row["data"]["receiver_binding"]["evidence_ids"])
+    )
+    changed = parse_record(retargeted)
+    changed_binding = call_binding(changed.data.get("receiver_binding"))
+    assert changed_binding is not None
+    assert not _selector_receiver_site_matches(
+        changed, changed_binding, None, declarations, evidence_records, imported_records
+    )
+
+
+def test_inline_constructed_receiver_uses_absolute_source_position():
+    module = _parsed_module(
+        'class Connection: pass\ndef route():\n    prefix = 1; Connection().backend == "flat"\n',
+        module="sample.core",
+    )
+    evidence = {}
+    symbols, _, _ = collect_symbols([module], evidence)
+    symbol_index = build_symbol_index(symbols)
+    _, resolvers = collect_calls_with_resolvers([module], symbol_index, evidence)
+    rows = collect_constructs(
+        [module], evidence, symbol_index=symbol_index, receiver_resolvers=resolvers
+    )
+    selector = next(
+        row
+        for row in rows
+        if row["kind"] == "construct_selector" and row["data"]["selector_role"] == "equality"
+    )
+    record = parse_record(selector)
+    evidence_records = {key: parse_evidence(value) for key, value in evidence.items()}
+    constructor = next(
+        row
+        for row in rows
+        if row["kind"] == "construct_selector" and row["data"]["selector_role"] == "constructor"
+    )
+    constructor_evidence = next(
+        identifier
+        for identifier in constructor["evidence_ids"]
+        if evidence_records[identifier].line == 3
+    )
+    binding = CallBinding(
+        CallBindingOrigin.CONSTRUCTED_RECEIVER,
+        "sample.core.Connection",
+        (),
+        RecordData(
+            (
+                ("kind", "construction"),
+                ("constructor_evidence_id", constructor_evidence),
+            )
+        ),
+    )
+    assert _selector_receiver_site_matches(record, binding, None, {}, evidence_records)
+
+
+def test_selector_cannot_borrow_attribute_from_later_semicolon_expression():
+    module = _parsed_module(
+        "class Connection:\n    backend: str\n"
+        "def route(conn: Connection):\n    flag; conn.backend\n",
+        module="sample.core",
+    )
+    evidence = {}
+    symbols, _, _ = collect_symbols([module], evidence)
+    symbol_index = build_symbol_index(symbols)
+    _, resolvers = collect_calls_with_resolvers([module], symbol_index, evidence)
+    rows = collect_constructs(
+        [module], evidence, symbol_index=symbol_index, receiver_resolvers=resolvers
+    )
+    selector = next(row for row in rows if row["kind"] == "construct_selector")
+    record = parse_record(selector)
+    binding = call_binding(record.data.get("receiver_binding"))
+    assert binding is not None
+    evidence_records = {key: parse_evidence(value) for key, value in evidence.items()}
+    declarations = {}
+    for symbol in symbols:
+        typed = parse_record(symbol)
+        name = typed.data.get("qualified_name")
+        if isinstance(name, str):
+            declarations.setdefault(name, []).append(typed)
+    assert _selector_receiver_site_matches(record, binding, "conn", declarations, evidence_records)
+
+    site = Evidence(
+        "EVD-unrelated-site",
+        "sample/mod.py",
+        4,
+        4,
+        4,
+        "    flag; conn.backend",
+    )
+    evidence_records[site.id] = site
+    transplanted = copy.deepcopy(selector)
+    transplanted["evidence_ids"] = [site.id]
+    changed = parse_record(transplanted)
+    assert not _selector_receiver_site_matches(
+        changed,
+        binding,
+        "conn",
+        declarations,
+        evidence_records,
+    )
 
 
 def test_selected_membership_match_predicates_aliases_and_roles():
@@ -380,7 +590,11 @@ def test_selector_receiver_collection_reuses_stored_field_proof():
     )
     evidence = {}
     symbols, _, _ = collect_symbols([module], evidence)
-    facts = collect_constructs([module], evidence, symbol_index=build_symbol_index(symbols))
+    symbol_index = build_symbol_index(symbols)
+    _, resolvers = collect_calls_with_resolvers([module], symbol_index, evidence)
+    facts = collect_constructs(
+        [module], evidence, symbol_index=symbol_index, receiver_resolvers=resolvers
+    )
     selectors = [row for row in facts if row["kind"] == "construct_selector"]
     selector = next(
         row for row in selectors if row["data"]["receiver_type"] == "sample.core.Connection"
@@ -422,13 +636,18 @@ def test_selector_receiver_collection_reuses_stored_field_proof():
 def test_constructed_selector_assignment_cannot_be_retargeted_to_another_type():
     module = _parsed_module(
         "class Connection: pass\nclass Label: pass\n"
+        "class Built: pass\n"
         "def route():\n    built = Connection()\n    built_label = Label()\n"
         '    built.backend == "flat"\n    built_label.backend == "flat"\n',
         module="sample.core",
     )
     evidence = {}
     symbols, _, _ = collect_symbols([module], evidence)
-    rows = collect_constructs([module], evidence, symbol_index=build_symbol_index(symbols))
+    symbol_index = build_symbol_index(symbols)
+    _, resolvers = collect_calls_with_resolvers([module], symbol_index, evidence)
+    rows = collect_constructs(
+        [module], evidence, symbol_index=symbol_index, receiver_resolvers=resolvers
+    )
     selectors = [row for row in rows if row["kind"] == "construct_selector"]
     connection = next(
         row
@@ -464,6 +683,11 @@ def test_constructed_selector_assignment_cannot_be_retargeted_to_another_type():
 def test_native_saved_report_keeps_fail_and_unknown_for_selected_scope(tmp_path: Path):
     root = tmp_path / "repo"
     (root / "sample").mkdir(parents=True)
+    (root / "sample/__init__.py").write_text("")
+    (root / "sample/ports.py").write_text("class ExternalConnection:\n    backend: str\n")
+    (root / "sample/aliases.py").write_text(
+        "from .ports import ExternalConnection as Conn\n\ndef build():\n    Conn()\n"
+    )
     (root / "sample/core.py").write_text(
         "class Connection:\n    backend: str\n"
         "class Label:\n    backend: str\n"
@@ -473,6 +697,7 @@ def test_native_saved_report_keeps_fail_and_unknown_for_selected_scope(tmp_path:
         '    label.backend == "flat"\n'
         '    unclear.backend == "flat"\n'
     )
+    (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
     contract = {
         "schema_version": "3.11.0",
         "components": [],
@@ -480,7 +705,7 @@ def test_native_saved_report_keeps_fail_and_unknown_for_selected_scope(tmp_path:
             {
                 "id": "SELECT",
                 "kind": "forbidden_construct",
-                "source": "sample.core",
+                "source": "sample",
                 "constructs": ["string_literal_compare"],
                 "selector": {
                     "receiver": "sample.core.Connection",
@@ -491,7 +716,20 @@ def test_native_saved_report_keeps_fail_and_unknown_for_selected_scope(tmp_path:
                 "rationale": "Keep route selection on the declared port.",
                 "provenance": ["contract.json"],
                 "decided_by": "architect",
-            }
+            },
+            {
+                "id": "SELECT_ALIAS",
+                "kind": "forbidden_construct",
+                "source": "sample",
+                "constructs": ["string_literal_compare"],
+                "selector": {
+                    "receiver": "sample.ports.ExternalConnection",
+                    "role": "constructor",
+                },
+                "rationale": "Resolve imported selector aliases canonically.",
+                "provenance": ["contract.json"],
+                "decided_by": "architect",
+            },
         ],
     }
     (root / "contract.json").write_text(json.dumps(contract))
@@ -508,12 +746,30 @@ def test_native_saved_report_keeps_fail_and_unknown_for_selected_scope(tmp_path:
         config=ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
         analyzer=observe,
     )
-    assert encoded is not None, result.diagnostics
+    assert encoded is not None, result.diagnostics[0].unknown_claim if result.diagnostics else None
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     assert model.schema_version == "2.6.0"
     assert any(row.kind == "construct_selector" for row in model.records("constructs"))
-    assert len(trace_valid_violations(model)) == 2
-    assert any(row.kind == "construct_selector_unknown" for row in model.records("violations"))
+    assert len(trace_valid_violations(model)) == 3
+    selected = [
+        row
+        for row in model.records("constructs")
+        if row.kind == "construct_selector"
+        and row.data.get("receiver_type") == "sample.core.Connection"
+    ]
+    assert {
+        row.data.get("receiver_binding").get("origin")
+        for row in selected
+        if row.data.get("selector_role") == "equality"
+    } >= {"declared_receiver"}
+    assert any(
+        row.data.get("selector_role") == "constructor"
+        and row.data.get("receiver_type") == "sample.ports.ExternalConnection"
+        and row.data.get("status") == "decided"
+        for row in model.records("constructs")
+        if row.kind == "construct_selector"
+    )
+    assert any(row.kind == "construct_selector_unknown" for row in model.records("unknowns"))
     [receipt] = [
         row
         for row in model.records("scope_observations")
@@ -533,6 +789,18 @@ def test_native_saved_report_keeps_fail_and_unknown_for_selected_scope(tmp_path:
 
     ordinary = observation_payload(model)
     columnar = decode_canonical_model(json.loads(encoded))
+    for index, payload in enumerate((ordinary, columnar)):
+        valid_path = tmp_path / f"valid-{index}.json"
+        valid_path.write_bytes(canonical_json_bytes(payload))
+        replay = run_saved_report(valid_path)
+        assert not replay.diagnostics, (
+            replay.diagnostics[0].unknown_claim if replay.diagnostics else None
+        )
+        assert next(row for row in replay.rule_assessments if row.id == "SELECT").status == "FAIL"
+        assert (
+            next(row for row in replay.rule_assessments if row.id == "SELECT_ALIAS").status
+            == "FAIL"
+        )
     for payload in (ordinary, columnar):
         selectors = [
             item
@@ -595,3 +863,137 @@ def _transplant_label_selector(payload: dict[str, object]) -> None:
     target["evidence_ids"] = sorted(
         set(target["evidence_ids"]) | set(donor_data["receiver_binding"]["evidence_ids"])
     )
+
+
+def test_native_stored_and_constructed_selector_receivers_replay_and_reject_retarget(
+    tmp_path: Path,
+):
+    root = tmp_path / "repo"
+    (root / "sample").mkdir(parents=True)
+    (root / "sample/core.py").write_text(
+        "class Connection:\n    backend: str\nclass Label:\n    backend: str\n"
+        "class Built: pass\n"
+        "class Holder:\n"
+        "    def __init__(self, conn: Connection, label: Label):\n"
+        "        self.conn = conn\n        self.label = label\n"
+        "    def route(self):\n"
+        '        self.conn.backend == "flat"\n'
+        '        self.label.backend == "flat"\n'
+        "        built = Built()\n"
+        '        built.backend == "flat"\n'
+    )
+    (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    contract = {
+        "schema_version": "3.11.0",
+        "components": [],
+        "rules": [
+            {
+                "id": "SELECT",
+                "kind": "forbidden_construct",
+                "source": "sample.core",
+                "constructs": ["string_literal_compare"],
+                "selector": {
+                    "receiver": "sample.core.Connection",
+                    "member": "backend",
+                    "role": "equality",
+                    "literal": "flat",
+                },
+                "rationale": "Keep selected routes on the declared connection.",
+                "provenance": ["contract.json"],
+                "decided_by": "architect",
+            },
+            {
+                "id": "SELECT_BUILT",
+                "kind": "forbidden_construct",
+                "source": "sample.core",
+                "constructs": ["string_literal_compare"],
+                "selector": {
+                    "receiver": "sample.core.Built",
+                    "member": "backend",
+                    "role": "equality",
+                    "literal": "flat",
+                },
+                "rationale": "Keep constructed route selection explicit.",
+                "provenance": ["contract.json"],
+                "decided_by": "architect",
+            },
+        ],
+    }
+    (root / "contract.json").write_text(json.dumps(contract))
+    for command in (
+        ["git", "init", "-q", "-b", "main"],
+        ["git", "config", "user.email", "test@example.invalid"],
+        ["git", "config", "user.name", "Test"],
+        ["git", "add", "-A"],
+        ["git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "fixture"],
+    ):
+        subprocess.run(command, cwd=root, check=True, capture_output=True)
+    result, encoded = run_report(
+        root,
+        config=ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
+        analyzer=observe,
+    )
+    assert encoded is not None, result.diagnostics
+    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    selected = [
+        row
+        for row in model.records("constructs")
+        if row.kind == "construct_selector"
+        and row.data.get("selector_role") == "equality"
+        and row.data.get("receiver_type") == "sample.core.Connection"
+    ]
+    assert {row.data.get("receiver_binding").get("origin") for row in selected} == {
+        "stored_receiver"
+    }
+    built = [
+        row
+        for row in model.records("constructs")
+        if row.kind == "construct_selector"
+        and row.data.get("selector_role") == "equality"
+        and row.data.get("receiver_type") == "sample.core.Built"
+    ]
+    assert {row.data.get("receiver_binding").get("origin") for row in built} == {
+        "constructed_receiver"
+    }
+    assert next(row for row in result.rule_assessments if row.id == "SELECT").status == "FAIL"
+    assert next(row for row in result.rule_assessments if row.id == "SELECT_BUILT").status == "FAIL"
+
+    payloads = (observation_payload(model), decode_canonical_model(json.loads(encoded)))
+    for index, payload in enumerate(payloads):
+        valid_path = tmp_path / f"stored-valid-{index}.json"
+        valid_path.write_bytes(canonical_json_bytes(payload))
+        replay = run_saved_report(valid_path)
+        assert not replay.diagnostics
+        assert next(row for row in replay.rule_assessments if row.id == "SELECT").status == "FAIL"
+        assert (
+            next(row for row in replay.rule_assessments if row.id == "SELECT_BUILT").status
+            == "FAIL"
+        )
+
+        selectors = [
+            row
+            for row in payload["constructs"]
+            if row["kind"] == "construct_selector" and row["data"]["selector_role"] == "equality"
+        ]
+        target = next(
+            row
+            for row in selectors
+            if row["data"]["receiver_parameter"] is None
+            and row["data"]["receiver_type"] == "sample.core.Connection"
+        )
+        donor = next(
+            row
+            for row in selectors
+            if row["data"]["receiver_parameter"] is None
+            and row["data"]["receiver_type"] == "sample.core.Label"
+        )
+        target["data"]["receiver_type"] = donor["data"]["receiver_type"]
+        target["data"]["receiver_binding"] = donor["data"]["receiver_binding"]
+        target["evidence_ids"] = sorted(
+            set(target["evidence_ids"]) | set(donor["data"]["receiver_binding"]["evidence_ids"])
+        )
+        tampered_path = tmp_path / f"stored-retarget-{index}.json"
+        tampered_path.write_bytes(canonical_json_bytes(encode_canonical_model(payload)))
+        rejected = run_saved_report(tampered_path)
+        assert rejected.rule_assessments is None
+        assert rejected.diagnostics

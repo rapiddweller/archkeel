@@ -1174,10 +1174,24 @@ def collect_calls(
     runtime: RuntimeInfo | None = None,
 ) -> list[RawRecord]:
     """Run the call collector over every module and sort the records by id."""
+    calls, _ = collect_calls_with_resolvers(parsed, index, evidence, provider_bindings, runtime)
+    return calls
+
+
+def collect_calls_with_resolvers(
+    parsed: Sequence[ParsedModule],
+    index: SymbolIndex,
+    evidence: dict[str, RawEvidence],
+    provider_bindings: Sequence[ProviderBinding] = (),
+    runtime: RuntimeInfo | None = None,
+) -> tuple[list[RawRecord], tuple[CallCollector, ...]]:
+    """Collect calls and retain their per-module resolver for construct evidence."""
     calls: list[RawRecord] = []
+    resolvers: list[CallCollector] = []
     for module in parsed:
         call_collector = CallCollector(module, index, evidence, provider_bindings, runtime)
         call_collector.visit(module.tree)
         calls.extend(call_collector.items)
+        resolvers.append(call_collector)
     calls.sort(key=lambda item: item["id"])
-    return calls
+    return calls, tuple(resolvers)

@@ -807,15 +807,25 @@ def _saved_annotation_target(
 
 
 def _saved_selector_direct(
-    binding: CallBinding, parameter_name: object, targets: list[Record]
+    binding: CallBinding,
+    parameter_name: object,
+    targets: list[Record],
+    imports: tuple[Record, ...],
 ) -> None:
-    if (
-        parameter_name is not None
-        or len(targets) != 1
-        or targets[0].kind != "class"
-        or targets[0].data.get("source_binding_unique") is not True
-        or not set(binding.evidence_ids) <= set(targets[0].evidence_ids)
-    ):
+    local_class = (
+        len(targets) == 1
+        and targets[0].kind == "class"
+        and targets[0].data.get("source_binding_unique") is True
+        and set(binding.evidence_ids) <= set(targets[0].evidence_ids)
+    )
+    imported_class = any(
+        item.data.get("symbols_known") is True
+        and item.data.get("source_binding_unique") is True
+        and f"{item.data.get('target_module')}.{item.data.get('symbol')}" == binding.target
+        and set(item.evidence_ids) <= set(binding.evidence_ids)
+        for item in imports
+    )
+    if parameter_name is not None or not (local_class or imported_class):
         raise ValueError("saved selector class receiver needs its stable declaration")
 
 
@@ -1041,11 +1051,12 @@ def _validate_saved_selector_receivers(model: Observation) -> None:
             parameter if isinstance(parameter, str) else None,
             declarations,
             evidence,
+            model.records("imports") or (),
         ):
             raise ValueError("saved selector proof does not match its source expression")
         targets = declarations.get(binding.target, [])
         if binding.origin is CallBindingOrigin.DIRECT:
-            _saved_selector_direct(binding, parameter, targets)
+            _saved_selector_direct(binding, parameter, targets, imports)
         elif binding.origin is CallBindingOrigin.STORED_RECEIVER:
             _saved_selector_stored(binding, declarations, targets, imports)
         elif binding.origin is CallBindingOrigin.CONSTRUCTED_RECEIVER:

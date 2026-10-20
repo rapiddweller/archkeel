@@ -71,7 +71,7 @@ from .callable_signatures import (
     contextmanager_dependency_bindings,
     contextmanager_signatures,
 )
-from .calls import collect_calls
+from .calls import collect_calls_with_resolvers
 from .constructs import collect_constructs
 from .imports import (
     collect_dynamic_imports,
@@ -444,7 +444,9 @@ def collect(request: CollectionRequest) -> SourceFacts:
         contextmanager_signatures(modules, providers, symbols, provider_bindings, evidence)
     type_shapes = collect_type_shapes(symbol_type_expressions(symbols))
     symbol_index = build_symbol_index(symbols)
-    calls = collect_calls(modules, symbol_index, evidence, provider_bindings, runtime)
+    calls, call_resolvers = collect_calls_with_resolvers(
+        modules, symbol_index, evidence, provider_bindings, runtime
+    )
     dynamic_imports, dynamic_limits = collect_dynamic_imports(
         modules, calls, imports, evidence, namespace=request.scope.namespace
     )
@@ -452,7 +454,13 @@ def collect(request: CollectionRequest) -> SourceFacts:
     references = collect_references(modules, symbol_index, evidence)
     bindings = collect_bindings(modules, evidence)
     typing_signals = collect_typing_signals(modules, calls, symbols, imports, evidence)
-    constructs = collect_constructs(modules, evidence, imports=imports, symbol_index=symbol_index)
+    constructs = collect_constructs(
+        modules,
+        evidence,
+        imports=imports,
+        symbol_index=symbol_index,
+        receiver_resolvers=call_resolvers,
+    )
     typed_symbols = tuple(parse_record(symbol) for symbol in symbols)
     state, state_evidence = collect_state(modules, typed_symbols, symbol_nodes, symbol_owners)
     source_unknowns, private_evidence = collect_private_attributes(modules)
