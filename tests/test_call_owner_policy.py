@@ -91,6 +91,109 @@ def test_stored_typed_receiver_is_proven_beyond_candidate_resolution(tmp_path, m
 
 
 @pytest.mark.parametrize(
+    "allowed,expected",
+    [((), "FAIL"), (("sample.caller",), "PASS")],
+)
+def test_stored_receiver_through_static_reexport_has_canonical_policy_result(
+    tmp_path, allowed, expected
+):
+    result, row = _observe(
+        tmp_path,
+        "from .pkg import Vault as Selected\nclass Holder:\n"
+        "    def __init__(self, client: Selected): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        allowed=allowed,
+        target="sample.pkg.types.Vault.page",
+        extra={
+            "sample/pkg/__init__.py": "from .types import Vault\n",
+            "sample/pkg/types.py": "class Vault:\n    def page(self): pass\n",
+        },
+    )
+    [call] = [
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    ]
+    assert call.data.get("call_binding").get("target") == "sample.pkg.types.Vault.page"
+    assert row.status == expected and row.evaluation_proven
+    assert row.count == (1 if expected == "FAIL" else 0)
+
+
+@pytest.mark.parametrize(
+    "allowed,expected",
+    [((), "FAIL"), (("sample.caller",), "PASS")],
+)
+def test_declared_receiver_through_static_reexport_replays_canonical_policy(
+    tmp_path, allowed, expected
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes
+
+    result, row = _observe(
+        tmp_path,
+        "from .pkg import Vault as Selected\ndef run(client: Selected): client.page()\n",
+        allowed=allowed,
+        target="sample.pkg.types.Vault.page",
+        extra={
+            "sample/pkg/__init__.py": "from .types import Vault\n",
+            "sample/pkg/types.py": "class Vault:\n    def page(self): pass\n",
+        },
+    )
+    [call] = [
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "client.page"
+    ]
+    assert call.data.get("call_binding").get("target") == "sample.pkg.types.Vault.page"
+    assert row.status == expected and row.evaluation_proven
+    assert row.count == (1 if expected == "FAIL" else 0)
+    saved = tmp_path / "reexport-report.json"
+    saved.write_bytes(canonical_report_bytes(result.observation))
+    [replayed] = run_saved_report(saved).rule_assessments
+    assert replayed == row
+
+
+def test_ambiguous_reexported_stored_receiver_stays_unknown(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .pkg import Vault\nfrom .other import Vault\nclass Holder:\n"
+        "    def __init__(self, client: Vault): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        allowed=(),
+        target="sample.pkg.types.Vault.page",
+        extra={
+            "sample/pkg/__init__.py": "from .types import Vault\n",
+            "sample/pkg/types.py": "class Vault:\n    def page(self): pass\n",
+            "sample/other.py": "class Vault:\n    def page(self): pass\n",
+        },
+    )
+    [call] = [
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    ]
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+def test_unicode_python_identifier_stored_receiver_is_proven(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, café: Storage): self.café = café\n"
+        "    def run(self): self.café.page()\n",
+        allowed=(),
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.café.page"
+    )
+    assert call.data.get("call_binding").get("target") == "sample.storage.Storage.page"
+    assert row.status == "FAIL" and row.count == 1
+
+
+@pytest.mark.parametrize(
     "caller",
     [
         "from .storage import Storage\nclass Holder:\n"
@@ -255,6 +358,26 @@ def test_selected_stdlib_calls_use_import_bound_runtime_identity(
     assert binding is not None and binding.get("target") == target
     assert len(binding.get("evidence_ids")) >= 2
     assert row.status == "FAIL" and row.count == 1
+
+
+def test_observed_native_target_can_prove_allowed_owner_rule(tmp_path):
+    _result, row = _observe(
+        tmp_path,
+        "import random\ndef run(): random.random()\n",
+        target="random.random",
+        allowed=("sample.caller.run",),
+    )
+    assert row.status == "PASS" and row.evaluation_proven
+
+
+def test_unobserved_native_target_stays_unknown(tmp_path):
+    _result, row = _observe(
+        tmp_path,
+        "def run(): pass\n",
+        target="random.random",
+        allowed=("sample.caller.run",),
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
 
 
 def test_shadowed_stdlib_spelling_does_not_get_native_call_identity(tmp_path):
@@ -1034,6 +1157,32 @@ def test_saved_owner_receipt_is_bound_to_calls_and_evidence(tmp_path, change):
     stale = parse_observation(changed)
     [row] = [r for r in rule_assessments(stale, undecided_by_rule={}) if r.kind == "call_owner"]
     assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+@pytest.mark.parametrize("change", ["relocate", "delete", "change"])
+def test_saved_owner_receipt_binds_rule_result_section_and_contents(tmp_path, change):
+    from archkeel.ir.codec import observation_payload, parse_observation
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\ndef run(c: Storage):\n    c.page()\n",
+        allowed=(),
+    )
+    assert row.status == "FAIL" and row.evaluation_proven
+    payload = observation_payload(result.observation)
+    [violation] = payload["violations"]
+    if change == "relocate":
+        payload["violations"].clear()
+        payload["scope_observations"].append(violation)
+    elif change == "delete":
+        payload["violations"].clear()
+    else:
+        violation["title"] = "changed finding"
+    saved = parse_observation(payload)
+    [replayed] = [
+        item for item in rule_assessments(saved, undecided_by_rule={}) if item.kind == "call_owner"
+    ]
+    assert replayed.status != "PASS" and not replayed.evaluation_proven
 
 
 @pytest.mark.parametrize(

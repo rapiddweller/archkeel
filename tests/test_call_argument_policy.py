@@ -220,6 +220,77 @@ def test_saved_receipt_does_not_certify_changed_actual_or_removed_violation(tmp_
     assert assessment.status == "UNKNOWN" and not assessment.evaluation_proven
 
 
+def test_source_facts_reject_a_forged_string_literal_value(tmp_path):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import (
+        CollectionResponse,
+        ProtocolError,
+        decode_response,
+        encode_response,
+    )
+    from archkeel.ir.protocol import CollectionRequest, PythonSettings, SnapshotInput, SourceScope
+
+    _observe(tmp_path, "from .storage import page\ndef run():\n    page('safe')\n")
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    calls = next(
+        section["records"] for section in payload["facts"]["sections"] if section["name"] == "calls"
+    )
+    call = next(record for record in calls if record["data"]["expression"] == "page")
+    assert call["data"]["call_arguments"][0]["value"] == "safe"
+    call["data"]["call_arguments"][0]["value"] = "forged"
+
+    with pytest.raises(ProtocolError, match="argument.*source|source.*argument"):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_unbounded_multiline_call_keeps_identity_and_unknown_argument_inventory(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .storage import page\ndef consume(spec):\n    page(\n        'SELECT 1'\n    )\n",
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    raw = observation_payload(result.observation)
+    call = next(item for item in raw["calls"] if item["data"]["expression"] == "page")
+    assert call["data"]["call_binding"] is not None
+    assert call["data"]["call_arguments"] is None
+
+
+def test_source_facts_reject_reordered_actual_evidence(tmp_path):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import (
+        CollectionResponse,
+        ProtocolError,
+        decode_response,
+        encode_response,
+    )
+    from archkeel.ir.protocol import CollectionRequest, PythonSettings, SnapshotInput, SourceScope
+
+    _observe(tmp_path, "from .storage import page\ndef run():\n    page('safe', 'heading')\n")
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    calls = next(
+        section["records"] for section in payload["facts"]["sections"] if section["name"] == "calls"
+    )
+    call = next(record for record in calls if record["data"]["expression"] == "page")
+    call["data"]["call_arguments"].reverse()
+
+    with pytest.raises(ProtocolError, match="argument.*source|source.*argument"):
+        decode_response(json.dumps(payload).encode())
+
+
 @pytest.mark.parametrize("mutation", ["selector", "signature"])
 def test_saved_receipt_does_not_certify_changed_formal_or_signature(tmp_path, mutation):
     from archkeel.check.report import run_saved_report

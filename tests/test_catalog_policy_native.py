@@ -314,6 +314,40 @@ def test_known_catalog_argument_failure_survives_an_unknown_argument(tmp_path):
     )
 
 
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize("mutation", ["delete", "move"])
+def test_saved_catalog_argument_failure_result_cannot_be_removed_or_moved(
+    tmp_path, mutation, columnar
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import encode_canonical_model, observation_payload
+
+    rules = [_argument()] if mutation == "delete" else [_argument(), _argument()]
+    result, rows = _run(
+        tmp_path,
+        caller=(
+            "from .catalog import OptionKey\n"
+            "def read_option(key: str) -> None: pass\n"
+            'def consume():\n    read_option("unknown")\n'
+        ),
+        rules=rules,
+    )
+    assert rows[0].status == "FAIL" and rows[0].evaluation_proven
+    raw = copy.deepcopy(observation_payload(result.observation))
+    violation = next(item for item in raw["violations"] if item.get("rule_ids") == ["CATALOG-0"])
+    if mutation == "delete":
+        raw["violations"].remove(violation)
+    else:
+        violation["rule_ids"] = ["CATALOG-1"]
+
+    saved = tmp_path / "mutated-catalog-failure.json"
+    saved.write_text(json.dumps(encode_canonical_model(raw) if columnar else raw))
+    replay = run_saved_report(saved)
+    replayed = next(row for row in replay.rule_assessments if row.id.endswith("CATALOG-0"))
+
+    assert replayed.status != "PASS" or not replayed.evaluation_proven
+
+
 def test_overlay_values_are_bound_to_their_declaring_owner(tmp_path):
     rule = _argument()
     rule["overlays"] = ["sample.catalog.ExtraKey"]

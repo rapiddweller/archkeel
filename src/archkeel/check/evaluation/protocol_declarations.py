@@ -31,6 +31,8 @@ from .boundary_types import (
 )
 from .rule_support import UncertainReexportOrigins, _rule_evaluation_receipt, exports_by_module
 
+_SelectedPosition = tuple[RawRecord, str, str | None, tuple[str, ...], bool]
+
 
 def _public(symbol: RawRecord) -> bool:
     visibility = symbol["data"]["visibility"]
@@ -51,15 +53,17 @@ def _parameter_name(parameter: RawData) -> str | None:
     if not isinstance(parameter, dict):
         return None
     name = parameter.get("name")
-    return str.lstrip(name, "*") if isinstance(name, str) else None
+    if not isinstance(name, str):
+        return None
+    return name[2:] if name[:2] == "**" else name[1:] if name[:1] == "*" else name
 
 
 def _selected_positions(
     rule: ProtocolDeclarationsRule,
     symbols: Sequence[RawRecord],
     source_modules: frozenset[str] | None,
-) -> list[tuple[RawRecord, str, str | None, tuple[str, ...]]]:
-    selected: dict[tuple[str, str], tuple[RawRecord, str, str | None, tuple[str, ...]]] = {}
+) -> list[_SelectedPosition]:
+    selected: dict[tuple[str, str], _SelectedPosition] = {}
     for symbol in symbols:
         data = symbol["data"]
         module = data.get("module")
@@ -67,6 +71,7 @@ def _selected_positions(
         if (
             not isinstance(module, str)
             or not isinstance(qualified_name, str)
+            or data.get("namespace_bound") is not True
             or not in_scope(module, rule.source)
             or (source_modules is not None and module not in source_modules)
         ):
@@ -91,7 +96,7 @@ def _selected_positions(
                     annotation = annotation if isinstance(annotation, str) else None
                     selected.setdefault(
                         (symbol["id"], position),
-                        (symbol, position, annotation, tuple(symbol["evidence_ids"])),
+                        (symbol, position, annotation, tuple(symbol["evidence_ids"]), False),
                     )
             elif selector.role is ProtocolDeclarationRole.MEMBER and symbol["kind"] == "class":
                 attributes = data.get("attribute_declarations", ())
@@ -107,15 +112,19 @@ def _selected_positions(
                     annotation = attribute.get("annotation")
                     annotation = annotation if isinstance(annotation, str) else None
                     evidence = attribute.get("evidence_ids", ())
-                    selected.setdefault(
-                        (symbol["id"], position),
-                        (
+                    key = (symbol["id"], position)
+                    evidence_ids = tuple(evidence) if isinstance(evidence, (tuple, list)) else ()
+                    previous = selected.get(key)
+                    if previous is None:
+                        selected[key] = (symbol, position, annotation, evidence_ids, False)
+                    else:
+                        selected[key] = (
                             symbol,
                             position,
-                            annotation,
-                            tuple(evidence) if isinstance(evidence, (tuple, list)) else (),
-                        ),
-                    )
+                            None,
+                            tuple(dict.fromkeys((*previous[3], *evidence_ids))),
+                            True,
+                        )
     return list(selected.values())
 
 
@@ -228,7 +237,7 @@ def _protocol_position_finding(
 
 def _protocol_findings(
     rule: ProtocolDeclarationsRule,
-    selected: Sequence[tuple[RawRecord, str, str | None, tuple[str, ...]]],
+    selected: Sequence[_SelectedPosition],
     symbols: Sequence[RawRecord],
     target: tuple[str, str],
     contract: ArchitectureContract,
@@ -240,13 +249,15 @@ def _protocol_findings(
     violations: list[RawRecord] = []
     unknowns: list[RawRecord] = []
     target_module, target_name = target
-    for symbol, position, annotation, evidence_ids in selected:
+    for symbol, position, annotation, evidence_ids, ambiguous in selected:
         selector = next(
             selector
             for selector in rule.selectors
             if position == f"{selector.role.value}.{selector.name}"
         )
-        if annotation is None:
+        if ambiguous:
+            status, reason = "UNKNOWN", "member_binding_ambiguous"
+        elif annotation is None:
             status, reason = "FAIL", "missing_annotation"
         else:
             status, reason = _identity_verdict(
@@ -303,7 +314,7 @@ def _protocol_scope_limit(
 
 def _unmatched_selectors(
     rule: ProtocolDeclarationsRule,
-    selected: Sequence[tuple[RawRecord, str, str | None, tuple[str, ...]]],
+    selected: Sequence[_SelectedPosition],
 ) -> tuple[str, ...]:
     positions = {item[1] for item in selected}
     return tuple(

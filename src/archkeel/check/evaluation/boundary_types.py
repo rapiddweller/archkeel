@@ -1372,10 +1372,23 @@ def _canonical_type_identity_verdict(
     )
     if identity.undecidable is not None:
         return identity
+    if not _canonical_import_static(annotation, module, imports, type_shapes):
+        return _Position(
+            undecidable=_Cause.OTHER,
+            resolved=identity.resolved,
+            named_origins=identity.named_origins,
+        )
     targets: set[tuple[str, str]] = set()
     expanded_alias = False
     for origin in identity.resolved:
         symbol = classes.get(origin)
+        origin_cause = _canonical_origin_cause(symbol)
+        if origin_cause is not None:
+            return _Position(
+                undecidable=origin_cause,
+                resolved=identity.resolved,
+                named_origins=identity.named_origins,
+            )
         if not isinstance(symbol, dict) or symbol.get("record_kind") != "type_alias":
             targets.add(origin)
             continue
@@ -1409,6 +1422,66 @@ def _canonical_type_identity_verdict(
         return _Position(undecidable=_Cause.OTHER)
     resolved = tuple(sorted(targets))
     return replace(identity, resolved=resolved, named_origins=resolved)
+
+
+def _canonical_origin_cause(
+    symbol: RecordData | _AmbiguousBinding | None,
+) -> _Cause | None:
+    if symbol is _AMBIGUOUS:
+        return _Cause.AMBIGUOUS_BINDING
+    if (
+        isinstance(symbol, dict)
+        and symbol.get("record_kind") == "class"
+        and (
+            symbol.get("source_binding_unique") is not True
+            or symbol.get("class_header_static") is not True
+        )
+    ):
+        return _Cause.OTHER
+    return None
+
+
+def _canonical_import_static(
+    annotation: str,
+    module: str,
+    imports: BindingIndex,
+    type_shapes: TypeShapeIndex,
+) -> bool:
+    shape = type_shapes.get(annotation)
+    while isinstance(shape, TypeMember):
+        shape = shape.owner
+    binding = shape.name if isinstance(shape, TypeName) else None
+    imported = imports.get((module, binding)) if binding is not None else None
+    if imported is None:
+        return True
+    if not isinstance(imported, dict) or not _canonical_import_binding_static(imported):
+        return False
+    chain = imported.get("reexport_chain", ())
+    if not isinstance(chain, (list, tuple)):
+        return False
+    for origin in chain[:-1]:
+        if not isinstance(origin, str):
+            return False
+        origin_text: str = origin
+        origin_module, separator, origin_name = origin_text.rpartition(".")
+        if not separator or origin_module not in imports.source_modules:
+            continue
+        hop = imports.get((origin_module, origin_name))
+        if not isinstance(hop, dict) or not _canonical_import_binding_static(hop):
+            return False
+    return True
+
+
+def _canonical_import_binding_static(
+    imported: RecordData | _AmbiguousBinding | None,
+) -> bool:
+    return (
+        isinstance(imported, dict)
+        and imported.get("source_binding_unique") is True
+        and imported.get("origin_binding_unique") is True
+        and imported.get("module_level_import") is True
+        and imported.get("under_type_checking") is False
+    )
 
 
 def _unresolved_named_verdict(

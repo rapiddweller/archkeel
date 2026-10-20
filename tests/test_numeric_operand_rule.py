@@ -42,6 +42,67 @@ RULE = {
 }
 
 
+@pytest.mark.parametrize(
+    "indentation,form",
+    [
+        (" ", "return"),
+        ("  ", "return"),
+        ("   ", "return"),
+        ("      ", "return"),
+        ("\t", "return"),
+        ("  ", "elif_condition"),
+        ("   ", "elif_inline"),
+        ("", "elif_inline"),
+    ],
+)
+@pytest.mark.parametrize("operand,status", [(3, "FAIL"), (4, "PASS")])
+def test_numeric_proofs_preserve_python_indentation_and_inline_suites(
+    tmp_path, indentation, form, operand, status
+):
+    rule = {
+        "id": "RULE",
+        "rationale": "Probe.",
+        "provenance": ["docs/architecture/sample.md"],
+        "decided_by": "architect",
+        **RULE,
+        "minimum_value": 4,
+    }
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "3.8.0",
+                "components": [_component("core")],
+                "rules": [rule],
+            }
+        )
+    )
+    prefix = "def choose(job_nonce, ready):\n" if indentation else "job_nonce = 1\nready = False\n"
+    operation = f"job_nonce % {operand}"
+    if form == "return":
+        source = prefix + f"{indentation}return {operation}\n"
+    else:
+        value = f"return {operation}" if indentation else f"result = {operation}"
+        alternate = (
+            f"elif {operation}: pass" if form == "elif_condition" else f"elif ready: {value}"
+        )
+        source = prefix + f"{indentation}if ready: pass\n{indentation}{alternate}\n"
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(source)
+    result = _observe(tmp_path)
+    assert not result.diagnostics and result.observation is not None
+    model = result.observation
+    rows = rule_assessments(model, undecided_by_rule=unknown_positions_by_rule(model))
+    assert len(rows) == 1 and rows[0].status.value == status
+    for columnar in (False, True):
+        saved = tmp_path / "saved.json"
+        saved.write_bytes(
+            canonical_report_bytes(model)
+            if columnar
+            else json.dumps(observation_payload(model)).encode()
+        )
+        assert run_saved_report(saved).rule_assessments == rows
+
+
 @pytest.mark.parametrize("profile", [DART, TYPESCRIPT])
 def test_non_python_profiles_reject_python_numeric_operand_rule(profile):
     contract = parse_contract(
@@ -464,6 +525,52 @@ def test_cycle_and_late_alias_remain_unknown(tmp_path):
     observation, rows = _rule_rows(tmp_path)
     assert rows[0].status == "UNKNOWN"
     assert len([row for row in observation.records("unknowns") if row.rule_ids == ("RULE",)]) == 2
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "    def inner():\n        return job_nonce % WIDTH\n    return inner()\n",
+        "    return (lambda: job_nonce % WIDTH)()\n",
+        "    return [job_nonce % WIDTH for item in range(2)]\n",
+    ],
+)
+@pytest.mark.parametrize("width,status", [(3, "FAIL"), (4, "PASS")])
+def test_numeric_aliases_follow_enclosing_lexical_ownership(tmp_path, body, width, status):
+    _write_probe(tmp_path)
+    (tmp_path / "sample/core.py").write_text(
+        f"def choose(job_nonce):\n    WIDTH = {width}\n" + body
+    )
+    observation, rows = _rule_rows(tmp_path)
+    assert rows[0].status.value == status and rows[0].undecided == 0
+    for columnar in (False, True):
+        saved = tmp_path / "saved.json"
+        saved.write_bytes(
+            canonical_report_bytes(observation)
+            if columnar
+            else json.dumps(observation_payload(observation)).encode()
+        )
+        assert run_saved_report(saved).rule_assessments == rows
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "def choose(job_nonce):\n    WIDTH = 4\n"
+        "    def inner(WIDTH): return job_nonce % WIDTH\n    return inner(3)\n",
+        "def choose(job_nonce):\n    WIDTH = 4\n"
+        "    def inner():\n        nonlocal WIDTH\n        WIDTH = 3\n"
+        "        return job_nonce % WIDTH\n    return inner()\n",
+        "def choose(job_nonce):\n"
+        "    def inner(): return job_nonce % WIDTH\n    WIDTH = 4\n    return inner()\n",
+        "class Holder:\n    WIDTH = 4\n    def choose(self, job_nonce): return job_nonce % WIDTH\n",
+    ],
+)
+def test_enclosing_numeric_aliases_reject_shadowing_mutation_and_late_binding(tmp_path, source):
+    _write_probe(tmp_path)
+    (tmp_path / "sample/core.py").write_text(source)
+    _, rows = _rule_rows(tmp_path)
+    assert rows[0].status.value == "UNKNOWN"
 
 
 def test_empty_selected_source_never_passes(tmp_path):
