@@ -767,7 +767,9 @@ def _call_arguments_match_source(
 ) -> bool:
     """Tie the complete argument inventory and literal facts to one captured call."""
     expression = record.data.get("expression")
-    if not isinstance(expression, str):
+    if not isinstance(expression, str) or not _call_expression_matches_source(
+        record, expression, evidence_by_id
+    ):
         return False
     for evidence_id in record.evidence_ids:
         evidence = evidence_by_id.get(evidence_id)
@@ -847,8 +849,8 @@ def _call_excerpt_matches(
         for node in ast.walk(root)
         if isinstance(node, ast.Call)
         and _call_expression(node) == expression
-        and _numeric_node_span(node, line, line_offset) is not None
-        and _numeric_node_span(node, line, line_offset)[:3] == (line, column, end_line)
+        and (span := _call_actual_span(node, line, line_offset)) is not None
+        and span[:3] == (line, column, end_line)
     ]
     return len(matches) == 1
 
@@ -880,10 +882,10 @@ def _call_actuals_match(
     if len(actuals) != len(arguments):
         return False
     used_evidence: set[str] = set()
-    for (node_actual, kind, keyword, value), argument in zip(actuals, arguments, strict=True):
+    for (node_actual, kind, keyword_name, value), argument in zip(actuals, arguments, strict=True):
         if (
             argument.kind is not kind
-            or argument.keyword != keyword
+            or argument.keyword != keyword_name
             or len(argument.evidence_ids) != 1
         ):
             return False
@@ -895,11 +897,12 @@ def _call_actuals_match(
         span = _call_actual_span(node_actual, source_line, line_offset)
         if span is None or span[:3] != (evidence.line, evidence.column, evidence.end_line):
             return False
-        is_string = isinstance(value, ast.Constant) and isinstance(value.value, str)
-        expected_value = value.value if is_string else None
-        expected_kind = (
-            CallArgumentValueKind.STRING_LITERAL if is_string else CallArgumentValueKind.OTHER
-        )
+        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+            expected_value = value.value
+            expected_kind = CallArgumentValueKind.STRING_LITERAL
+        else:
+            expected_value = None
+            expected_kind = CallArgumentValueKind.OTHER
         if argument.value_kind is not expected_kind or argument.value != expected_value:
             return False
     return True
@@ -908,6 +911,8 @@ def _call_actuals_match(
 def _call_actual_span(
     node: ast.AST, source_line: int, line_offset: int
 ) -> tuple[int, int, int, int] | None:
+    if not isinstance(node, ast.stmt | ast.expr | ast.keyword):
+        return None
     end_line = getattr(node, "end_lineno", None)
     end_column = getattr(node, "end_col_offset", None)
     if end_line is None or end_column is None:
@@ -2231,9 +2236,11 @@ def validate_source_facts(facts: SourceFacts) -> None:
             if arguments is not None and call_proof is None:
                 raise ValueError("call arguments require the canonical call binding")
             if arguments is not None:
-                source_module = record.data.get("source_module")
+                call_source_module = record.data.get("source_module")
                 expected_file = (
-                    module_files.get(source_module) if isinstance(source_module, str) else None
+                    module_files.get(call_source_module)
+                    if isinstance(call_source_module, str)
+                    else None
                 )
                 if expected_file is None or not _call_arguments_match_source(
                     record, arguments, base_by_id, expected_file
