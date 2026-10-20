@@ -631,6 +631,71 @@ def _numeric_definition_contains_in_body(
     return any(node is statement for statement in definition.body)
 
 
+def _numeric_lexical_scope_nodes(owner: ast.AST) -> Iterable[ast.AST]:
+    """Visit bindings in one scope, including nested-definition headers only."""
+    if isinstance(owner, ast.Module | ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+        body = owner.body
+    else:
+        return
+    for statement in body:
+        yield from _numeric_lexical_nodes(statement, owner)
+
+
+def _numeric_lexical_nodes(node: ast.AST, owner: ast.AST) -> Iterable[ast.AST]:
+    if node is not owner and isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+        yield node
+        yield from _numeric_definition_header_nodes(node.decorator_list, node.args, node.returns)
+        return
+    if node is not owner and isinstance(node, ast.ClassDef):
+        yield node
+        for expression in (
+            *node.decorator_list,
+            *node.bases,
+            *(item.value for item in node.keywords),
+        ):
+            yield from _numeric_lexical_nodes(expression, owner)
+        return
+    if node is not owner and isinstance(node, ast.Lambda):
+        yield from _numeric_definition_header_nodes((), node.args, None)
+        return
+    if isinstance(node, ast.ListComp | ast.SetComp | ast.GeneratorExp | ast.DictComp):
+        for generator in node.generators:
+            yield from _numeric_lexical_nodes(generator.iter, owner)
+            for condition in generator.ifs:
+                yield from _numeric_lexical_nodes(condition, owner)
+        values = (node.key, node.value) if isinstance(node, ast.DictComp) else (node.elt,)
+        for value in values:
+            yield from _numeric_lexical_nodes(value, owner)
+        return
+    if isinstance(node, ast.NamedExpr):
+        yield node.target
+        yield from _numeric_lexical_nodes(node.value, owner)
+        return
+    yield node
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, ast.comprehension):
+            continue
+        yield from _numeric_lexical_nodes(child, owner)
+
+
+def _numeric_definition_header_nodes(
+    decorators: Iterable[ast.expr], arguments: ast.arguments, returns: ast.expr | None
+) -> Iterable[ast.AST]:
+    for expression in decorators:
+        yield from _numeric_lexical_nodes(expression, arguments)
+    for expression in (*arguments.defaults, *(value for value in arguments.kw_defaults if value)):
+        yield from _numeric_lexical_nodes(expression, arguments)
+    annotations = (
+        argument.annotation
+        for argument in (*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs)
+        if argument.annotation is not None
+    )
+    for annotation in annotations:
+        yield from _numeric_lexical_nodes(annotation, arguments)
+    if returns is not None:
+        yield from _numeric_lexical_nodes(returns, arguments)
+
+
 def _numeric_unique_local_assignment(
     owner: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
     origin: RecordData,
@@ -646,7 +711,7 @@ def _numeric_unique_local_assignment(
     }
     stores = [
         node
-        for node in ast.walk(owner)
+        for node in _numeric_lexical_scope_nodes(owner)
         if isinstance(node, ast.Name)
         and node.id == name
         and isinstance(node.ctx, ast.Store | ast.Del)
@@ -670,7 +735,9 @@ def _numeric_unique_local_assignment(
             for argument in (
                 *owner.args.posonlyargs,
                 *owner.args.args,
+                *([owner.args.vararg] if owner.args.vararg is not None else []),
                 *owner.args.kwonlyargs,
+                *([owner.args.kwarg] if owner.args.kwarg is not None else []),
             )
         ]
         if isinstance(owner, ast.FunctionDef | ast.AsyncFunctionDef)
@@ -691,7 +758,20 @@ def _numeric_unique_local_assignment(
 
 
 def _numeric_other_binding(owner: ast.AST, name: str) -> bool:
-    for node in ast.walk(owner):
+    if isinstance(owner, ast.FunctionDef | ast.AsyncFunctionDef) and any(
+        argument.arg == name
+        for argument in (
+            *owner.args.posonlyargs,
+            *owner.args.args,
+            *([owner.args.vararg] if owner.args.vararg is not None else []),
+            *owner.args.kwonlyargs,
+            *([owner.args.kwarg] if owner.args.kwarg is not None else []),
+        )
+    ):
+        return True
+    if any(isinstance(node, ast.Nonlocal) and name in node.names for node in ast.walk(owner)):
+        return True
+    for node in _numeric_lexical_scope_nodes(owner):
         if isinstance(node, ast.arg) and node.arg == name:
             return True
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
@@ -915,7 +995,7 @@ def _numeric_module_use_scope(
         return True
     return not _numeric_other_binding(owner, name) and not any(
         isinstance(node, ast.Name) and node.id == name and isinstance(node.ctx, ast.Store | ast.Del)
-        for node in ast.walk(owner)
+        for node in _numeric_lexical_scope_nodes(owner)
     )
 
 
