@@ -417,6 +417,59 @@ def test_overload_origin_proof_keeps_bound_once_inventories_unchanged() -> None:
 
 
 @pytest.mark.parametrize(
+    ("mutation", "expected_reads"),
+    [
+        ("", 2),
+        ("OptionKey.READY = 'changed'\n", 0),
+        ("setattr(OptionKey, 'READY', 'changed')\n", 0),
+        ("delattr(OptionKey, 'READY')\n", 0),
+    ],
+)
+def test_enum_mutation_scan_is_reused_for_repeated_member_reads(
+    monkeypatch, mutation: str, expected_reads: int
+) -> None:
+    from archkeel.analyzer.python import imports as import_module
+
+    provider = _parsed_module(
+        "from enum import StrEnum\n"
+        "class OptionKey(StrEnum):\n"
+        "    READY = 'ready'\n"
+        "    DISABLED = 'disabled'\n",
+        "sample.options",
+        rel_path="sample/options.py",
+    )
+    consumer = _parsed_module(
+        "from .options import OptionKey\nconsume(OptionKey.READY)\nconsume(OptionKey.DISABLED)\n",
+        "sample.api",
+        rel_path="sample/api.py",
+    )
+    mutator = _parsed_module(
+        "from .options import OptionKey\n" + mutation,
+        "sample.mutator",
+        rel_path="sample/mutator.py",
+    )
+    modules = [provider, consumer, mutator]
+    records = import_module.collect_imports(
+        modules, {module.module for module in modules}, {}, namespace="sample"
+    )
+    original = import_module._enum_owner_is_mutated
+    calls = 0
+
+    def count_mutation_scans(owner_module, owner, proofs, mutation_index):
+        nonlocal calls
+        calls += 1
+        return original(owner_module, owner, proofs, mutation_index)
+
+    monkeypatch.setattr(import_module, "_enum_owner_is_mutated", count_mutation_scans)
+    import_module.resolve_reexports(
+        records, {module.module: module.all_exports for module in modules}, modules
+    )
+
+    assert len(consumer._non_escaping_enum_values) == expected_reads
+    assert calls == 1
+
+
+@pytest.mark.parametrize(
     "missing",
     [
         "origin_binding_unique",
