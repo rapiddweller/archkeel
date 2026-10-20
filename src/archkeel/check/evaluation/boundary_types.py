@@ -1478,9 +1478,7 @@ def _canonical_import_binding_static(
     return (
         isinstance(imported, dict)
         and imported.get("source_binding_unique") is True
-        and imported.get("source_member_binding_static") is True
         and imported.get("origin_binding_unique") is True
-        and imported.get("origin_member_binding_static") is True
         and imported.get("module_level_import") is True
         and imported.get("under_type_checking") is False
     )
