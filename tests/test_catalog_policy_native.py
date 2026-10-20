@@ -144,6 +144,34 @@ def test_catalog_selector_references_are_renamed_as_canonical_module_references(
     assert moved["/rules/0/overlays/0"] == "renamed.catalog.ExtraKey"
 
 
+def test_python_catalog_literal_values_are_versioned_in_observation_schemas(tmp_path):
+    from test_result_schema import _validator
+
+    from archkeel.ir.codec import observation_payload
+
+    result, _ = _run(
+        tmp_path,
+        caller="def consume():\n    pass\n",
+        rules=[],
+    )
+    raw = observation_payload(result.observation)
+    raw["references"] = []
+    owner = next(
+        row
+        for row in raw["symbols"]
+        if row["data"].get("qualified_name") == "sample.catalog.OptionKey"
+    )
+    assert owner["data"]["attribute_declarations"][0]["literal_value"] == "page_size"
+    validator = _validator("command-result-9.0.schema.json")
+    current = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:python-decoded:2.9.0"})
+    assert current.is_valid(raw)
+
+    historical = copy.deepcopy(raw)
+    historical["schema_version"] = "2.8.0"
+    old = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:python-decoded:2.8.0"})
+    assert not old.is_valid(historical)
+
+
 def test_mounted_catalog_receipt_uses_only_its_physical_source_domain(tmp_path):
     from archkeel.check.report import run_saved_report
     from archkeel.ir.codec import observation_payload

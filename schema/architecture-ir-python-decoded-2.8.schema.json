@@ -72,6 +72,16 @@
             "properties": {
               "data": {
                 "properties": {
+                  "attribute_declarations": {
+                    "type": "array",
+                    "items": {
+                      "not": {
+                        "required": [
+                          "literal_value"
+                        ]
+                      }
+                    }
+                  },
                   "guard_boolean_members": {
                     "type": "array",
                     "items": {

@@ -72,6 +72,74 @@
             "properties": {
               "data": {
                 "properties": {
+                  "attribute_declarations": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "name",
+                        "annotation",
+                        "visibility",
+                        "definition_id",
+                        "evidence_ids"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "annotation": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "visibility": {
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "basis",
+                            "spelling"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "enum": [
+                                "public",
+                                "private"
+                              ]
+                            },
+                            "basis": {
+                              "const": "convention"
+                            },
+                            "spelling": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "definition_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "evidence_ids": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "uniqueItems": true
+                        },
+                        "static": {
+                          "type": "boolean"
+                        },
+                        "literal_value": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
                   "guard_boolean_members": {
                     "type": "array",
                     "items": {

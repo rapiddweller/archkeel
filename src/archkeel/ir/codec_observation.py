@@ -761,7 +761,7 @@ def _validate_guarded_effect_version(observation: Observation) -> None:
 def _validate_guarded_effect_schema_floor(
     sections: tuple[Section, ...], version: _ObservationVersion
 ) -> None:
-    if version is _ObservationVersion.V2_8:
+    if not _before_version(version, _ObservationVersion.V2_8):
         return
     for section in sections:
         if section.name == ObservedSection.CALLS and any(

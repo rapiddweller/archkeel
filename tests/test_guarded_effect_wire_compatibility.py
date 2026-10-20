@@ -97,6 +97,9 @@ def test_guarded_effect_facts_require_observation_2_8():
     raw["calls"][0]["data"]["call_arguments"] = None
     assert len(parse_observation(raw).records("calls")) == 1
 
+    raw["schema_version"] = "2.9.0"
+    assert len(parse_observation(raw).records("calls")) == 1
+
 
 def test_observation_writer_rejects_guard_facts_under_older_schema():
     raw = _model(git_head="a" * 40)

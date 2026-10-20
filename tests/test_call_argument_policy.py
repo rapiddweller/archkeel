@@ -355,8 +355,11 @@ def test_unbounded_multiline_call_keeps_identity_and_unknown_argument_inventory(
     from test_result_schema import _validator
 
     validator = _validator("command-result-9.0.schema.json")
-    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.8.0"})
-    assert current_schema.is_valid(raw)
+    historical = json.loads(json.dumps(raw))
+    historical["schema_version"] = "2.8.0"
+    for profile in ("decoded", "python-decoded"):
+        schema = validator.evolve(schema={"$ref": f"urn:archkeel:architecture-ir:{profile}:2.8.0"})
+        assert schema.is_valid(historical)
 
 
 def test_source_facts_reject_reordered_actual_evidence(tmp_path):
