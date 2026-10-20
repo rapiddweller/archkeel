@@ -129,6 +129,7 @@ def _rule_results(
                     targets,
                 )
             )
+            signature = None
     elif target_proven:
         rule_limits.append(
             _limit(rule, scope, "The selected target has no proven callable signature", targets)
@@ -175,6 +176,7 @@ def _evaluate_calls(
 ) -> tuple[list[RawRecord], list[RawRecord]]:
     violations: list[RawRecord] = []
     limits: list[RawRecord] = []
+    parameter = rule.parameter.lstrip("*")
     for call in calls:
         parsed = parse_record(call)
         binding = call_binding(parsed.data.get("call_binding"))
@@ -204,7 +206,7 @@ def _evaluate_calls(
             )
             continue
         indexes = next(
-            (actuals for formal, actuals in bound.by_parameter if formal == rule.parameter), ()
+            (actuals for formal, actuals in bound.by_parameter if formal == parameter), ()
         )
         for index in indexes:
             argument = actuals[index]

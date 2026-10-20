@@ -73,6 +73,11 @@ def _declaration_binding_proven(symbol: RawRecord) -> bool:
             data.get("source_final_method_binding") is True
             and data.get("signature_decorators_proven") is True
         )
+    if symbol["kind"] == "function":
+        return (
+            data.get("source_binding_unique") is True
+            and data.get("signature_decorators_proven") is True
+        )
     return data.get("source_binding_unique") is True
 
 
