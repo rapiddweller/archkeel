@@ -55,6 +55,9 @@ from .facts import (
     RawJson as RawJson,
 )
 from .facts_validation import _call_excerpt_matches, validate_source_facts
+from .facts_validation import (
+    selector_receiver_site_matches as selector_receiver_site_matches,
+)
 from .protocol import (
     PYTHON_IMPORT_SURVEY_SECTIONS,
     CollectionRequest,

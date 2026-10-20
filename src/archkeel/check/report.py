@@ -54,11 +54,8 @@ from archkeel.ir.facts import (
     SourceSectionName,
     call_binding,
 )
-from archkeel.ir.facts_validation import (
-    _qualified_identifier,
-    _selector_receiver_site_matches,
-    validate_source_bindings,
-)
+from archkeel.ir.facts_codec import selector_receiver_site_matches
+from archkeel.ir.facts_validation import validate_source_bindings
 from archkeel.ir.model import (
     AssessmentStatus as _AssessmentStatus,
 )
@@ -811,12 +808,12 @@ def _saved_import_origin(record: Record) -> str | None:
     candidates = data.get("reexport_candidates")
     if (
         isinstance(origin, str)
-        and _qualified_identifier(origin)
+        and _saved_qualified_identifier(origin)
         and isinstance(chain, tuple)
         and chain
         and chain[-1] == origin
         and len(set(chain)) == len(chain)
-        and all(isinstance(item, str) and _qualified_identifier(item) for item in chain)
+        and all(isinstance(item, str) and _saved_qualified_identifier(item) for item in chain)
         and data.get("source_binding_unique") is True
         and data.get("symbols_known") is True
         and data.get("reexport_candidate") is not True
@@ -824,6 +821,10 @@ def _saved_import_origin(record: Record) -> str | None:
     ):
         return origin
     return None
+
+
+def _saved_qualified_identifier(value: str) -> bool:
+    return bool(value) and all(part.isidentifier() for part in value.split("."))
 
 
 def _saved_top_level_import(record: Record, binding: str, evidence: dict[str, Evidence]) -> bool:
@@ -1101,7 +1102,7 @@ def _validate_saved_selector_receivers(model: Observation) -> None:
             CallBindingOrigin.DECLARED_RECEIVER,
             CallBindingOrigin.STORED_RECEIVER,
             CallBindingOrigin.CONSTRUCTED_RECEIVER,
-        } and not _selector_receiver_site_matches(
+        } and not selector_receiver_site_matches(
             selector,
             binding,
             parameter if isinstance(parameter, str) else None,

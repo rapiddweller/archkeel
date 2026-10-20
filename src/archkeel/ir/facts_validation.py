@@ -462,7 +462,7 @@ def _selector_source_classes(
     return tuple(selected)
 
 
-def _selector_receiver_site_matches(
+def selector_receiver_site_matches(
     record: Record,
     binding: CallBinding,
     receiver_parameter: str | None,
@@ -583,7 +583,7 @@ def _selector_receiver_proof(
         CallBindingOrigin.DECLARED_RECEIVER,
         CallBindingOrigin.STORED_RECEIVER,
         CallBindingOrigin.CONSTRUCTED_RECEIVER,
-    } and not _selector_receiver_site_matches(
+    } and not selector_receiver_site_matches(
         record,
         binding,
         receiver_parameter,
