@@ -931,6 +931,9 @@ def validate_source_facts(facts: SourceFacts) -> None:
     record_ids = _unique((record.id for record in records), "source record id")
     if file_ids & record_ids:
         raise ValueError("file and record ids collide")
+    for record in records:
+        if not set(record.evidence_ids).issubset(evidence_ids):
+            raise ValueError("dangling source evidence reference")
     for section in facts.sections:
         for record in section.records:
             _source_record(record, section.name)
@@ -986,8 +989,6 @@ def validate_source_facts(facts: SourceFacts) -> None:
                 raise ValueError("source construct disagrees with declared capabilities")
     fact_ids = record_ids | file_ids
     for record in records:
-        if not set(record.evidence_ids).issubset(evidence_ids):
-            raise ValueError("dangling source evidence reference")
         if not set(record.fact_ids).issubset(fact_ids):
             raise ValueError("dangling source fact reference")
     declarations: dict[str, list[Record]] = {}
