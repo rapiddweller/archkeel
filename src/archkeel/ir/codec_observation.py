@@ -252,6 +252,7 @@ def _validate_versioned_records(
         _ObservationVersion.V2_2,
         _ObservationVersion.V2_3,
         _ObservationVersion.V2_4,
+        _ObservationVersion.V2_5,
     }:
         python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
         for section in sections:
@@ -260,10 +261,10 @@ def _validate_versioned_records(
                     if python_calls and not _has_field(
                         (key for key, _ in call.data.entries), "call_binding"
                     ):
-                        raise ValueError("Python 2.1.0 calls require explicit call_binding or null")
+                        raise ValueError("Python calls require explicit call_binding or null")
                     binding = _call_binding(call.data.get("call_binding"))
                     if (
-                        schema_version is not _ObservationVersion.V2_4
+                        schema_version not in {_ObservationVersion.V2_4, _ObservationVersion.V2_5}
                         and binding is not None
                         and binding.origin
                         not in {CallBindingOrigin.DIRECT, CallBindingOrigin.DECLARED_RECEIVER}
