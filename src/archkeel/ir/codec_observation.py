@@ -516,6 +516,8 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
             _ObservationVersion.V2_1,
             _ObservationVersion.V2_2,
             _ObservationVersion.V2_3,
+            _ObservationVersion.V2_4,
+            _ObservationVersion.V2_5,
         }
         and observation.runtime is not None
         and observation.runtime.requirement_state != RuntimeRequirementState.DECLARED

@@ -1,3 +1,6 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """Actuals bind only through admitted pure-data Python signatures."""
 
 from archkeel.check.evaluation.call_arguments import bind_call_arguments
