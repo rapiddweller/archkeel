@@ -148,6 +148,7 @@ _PROOF_FLAGS = frozenset(
         "source_binding_unique",
         "source_binding_static",
         "source_member_binding_static",
+        "source_member_owner_static",
         "origin_member_binding_static",
         "class_header_static",
         "source_class_header_static",
@@ -2118,6 +2119,7 @@ def _constructed_receiver_proof(
         len(targets) != 1
         or targets[0].kind != "class"
         or _record_data_value(targets[0].data, "default_instance_result") is not True
+        or not _constructed_member_owners_static(target, binding, declarations)
         or not isinstance(constructor_id, str)
         or len(calls) != 1
         or not _constructed_assignment_is_earlier(
@@ -2133,6 +2135,26 @@ def _constructed_receiver_proof(
         )
     ):
         raise ValueError("constructed receiver needs a linked earlier allocation witness")
+
+
+def _constructed_member_owners_static(
+    target: JsonValue,
+    binding: CallBinding,
+    declarations: Mapping[str, list[Record]],
+) -> bool:
+    if not isinstance(target, str):
+        return False
+    constructed = declarations.get(target, [])
+    method_owner_name = binding.target.rpartition(".")[0]
+    method_owners = declarations.get(method_owner_name, [])
+    return (
+        len(constructed) == 1
+        and constructed[0].kind == "class"
+        and _record_data_value(constructed[0].data, "source_member_owner_static") is True
+        and len(method_owners) == 1
+        and method_owners[0].kind == "class"
+        and _record_data_value(method_owners[0].data, "source_member_owner_static") is True
+    )
 
 
 def _constructed_call_matches_source(
