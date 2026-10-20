@@ -19,7 +19,7 @@ from archkeel.ir.measurements import (
     RatchetScalars,
     compare_measurements,
 )
-from archkeel.ir.model import RULE_KINDS
+from archkeel.ir.model import RULE_KINDS, SCHEMA_VERSION
 from archkeel.ir.source_graph import observed_graph
 from archkeel.ir.structure import StructureMetric, module_edges, structure_metrics
 from archkeel.ir.trace import trace_valid_violations
@@ -279,7 +279,7 @@ def _decoded_validator():
     registry = Registry().with_resources(
         (schema["$id"], Resource.from_contents(schema)) for schema in schemas
     )
-    schema = json.loads((root / "schema/architecture-ir-decoded-2.1.schema.json").read_bytes())
+    schema = {"$ref": f"urn:archkeel:architecture-ir:decoded:{SCHEMA_VERSION}"}
     return Draft202012Validator(schema, registry=registry)
 
 

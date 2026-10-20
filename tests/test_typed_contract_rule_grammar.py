@@ -16,6 +16,10 @@ from archkeel.ir.codec import contract_bytes, parse_contract
 
 ROOT = Path(__file__).parents[1]
 RULES = {
+    "bounded_numeric_operand": (
+        "BoundedNumericOperandRule",
+        {"source": "sample", "form": "both", "terminal_suffix": "nonce", "minimum_value": 4},
+    ),
     "call_owner": ("CallOwnerRule", {"source": "sample", "target": "sample.store.page"}),
     "forbidden_dependency": (
         "ForbiddenDependencyRule",
@@ -45,7 +49,7 @@ RULES = {
 
 def _raw():
     raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
-    raw["schema_version"] = "3.7.0"
+    raw["schema_version"] = "3.8.0"
     raw["rules"] = []
     return raw
 

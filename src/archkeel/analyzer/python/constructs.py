@@ -520,66 +520,69 @@ class ConstructCollector(ast.NodeVisitor):
                 result = -result
             return result, left + right
         if isinstance(node, ast.Name):
-            name = node.id
-            if name in seen:
-                return None, []
-            binding = self.scopes.lookup(node, name)
-            owner = binding.owner
-            assignment = None
-            if owner is self.scopes.root:
-                matches = [
-                    statement
-                    for statement in self.module.tree.body
-                    if isinstance(statement, ast.Assign | ast.AnnAssign)
-                    and any(
-                        isinstance(target, ast.Name) and target.id == name
-                        for target in (
-                            statement.targets
-                            if isinstance(statement, ast.Assign)
-                            else [statement.target]
-                        )
-                    )
-                ]
-                if name in stable_direct_module_bindings(self.module) and len(matches) == 1:
-                    assignment = matches[0]
-            elif owner is not None and owner is self.scopes.by_node.get(use):
-                sites = owner.bindings.get(name, [])
-                if len(sites) == 1:
-                    candidate = self.scopes.parents.get(sites[0])
-                    if (
-                        isinstance(candidate, (ast.Assign, ast.AnnAssign))
-                        and self.scopes.parents.get(candidate) is owner.node
-                    ):
-                        assignment = candidate
-            if assignment is None or assignment.value is None:
-                return None, []
-            use_line, use_column, _ = location(use)
-            assignment_line, assignment_column, _ = location(assignment)
-            if (assignment_line, assignment_column) >= (use_line, use_column):
-                return None, []
-            value, derivation = self._integer(
-                assignment.value, assignment, depth + 1, seen | {name}
-            )
-            if value is None:
-                return None, []
-            evidence_id = add_evidence(self.evidence, self.module, assignment)
-            line, _, column = location(assignment)
-            end_line: int = assignment.end_lineno if assignment.end_lineno is not None else line
-            end_column: int = (
-                assignment.end_col_offset if assignment.end_col_offset is not None else column
-            )
-            origin: dict[str, str | int] = {
-                "name": name,
-                "value": value,
-                "expression": ast.unparse(assignment.value),
-                "evidence_id": evidence_id,
-                "line": line,
-                "column": column,
-                "end_line": end_line,
-                "end_column": end_column,
-            }
-            return value, [origin, *derivation]
+            return self._integer_alias(node, use, depth, seen)
         return None, []
+
+    def _integer_alias(
+        self, node: ast.Name, use: ast.AST, depth: int, seen: frozenset[str]
+    ) -> tuple[int | None, list[dict[str, str | int]]]:
+        name = node.id
+        if name in seen:
+            return None, []
+        binding = self.scopes.lookup(node, name)
+        owner = binding.owner
+        assignment = None
+        if owner is self.scopes.root:
+            matches = [
+                statement
+                for statement in self.module.tree.body
+                if isinstance(statement, ast.Assign | ast.AnnAssign)
+                and any(
+                    isinstance(target, ast.Name) and target.id == name
+                    for target in (
+                        statement.targets
+                        if isinstance(statement, ast.Assign)
+                        else [statement.target]
+                    )
+                )
+            ]
+            if name in stable_direct_module_bindings(self.module) and len(matches) == 1:
+                assignment = matches[0]
+        elif owner is not None and owner is self.scopes.by_node.get(use):
+            sites = owner.bindings.get(name, [])
+            if len(sites) == 1:
+                candidate = self.scopes.parents.get(sites[0])
+                if (
+                    isinstance(candidate, (ast.Assign, ast.AnnAssign))
+                    and self.scopes.parents.get(candidate) is owner.node
+                ):
+                    assignment = candidate
+        if assignment is None or assignment.value is None:
+            return None, []
+        use_line, use_column, _ = location(use)
+        assignment_line, assignment_column, _ = location(assignment)
+        if (assignment_line, assignment_column) >= (use_line, use_column):
+            return None, []
+        value, derivation = self._integer(assignment.value, assignment, depth + 1, seen | {name})
+        if value is None:
+            return None, []
+        evidence_id = add_evidence(self.evidence, self.module, assignment)
+        line, _, column = location(assignment)
+        end_line: int = assignment.end_lineno if assignment.end_lineno is not None else line
+        end_column: int = (
+            assignment.end_col_offset if assignment.end_col_offset is not None else column
+        )
+        origin: dict[str, str | int] = {
+            "name": name,
+            "value": value,
+            "expression": ast.unparse(assignment.value),
+            "evidence_id": evidence_id,
+            "line": line,
+            "column": column,
+            "end_line": end_line,
+            "end_column": end_column,
+        }
+        return value, [origin, *derivation]
 
     @staticmethod
     def _terminal_name(node: ast.expr) -> str | None:

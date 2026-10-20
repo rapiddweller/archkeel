@@ -1648,13 +1648,19 @@ def _layer_order_violations(contract: ArchitectureContract, scope: str) -> list[
 
 def _numeric_operand_violations(
     signals: Sequence[RawRecord],
-    rules: Sequence[ArchitectureRule],
+    contract: ArchitectureContract,
+    modules: Sequence[RawRecord],
     source_modules: frozenset[str] | None,
 ) -> list[RawRecord]:
     result: list[RawRecord] = []
-    for rule in rules:
+    for rule in contract.rules:
         if not isinstance(rule, BoundedNumericOperandRule):
             continue
+        selected = frozenset(
+            item["data"]["qualified_name"]
+            for item in _modules_for_rule_source(rule.source, modules, contract)
+            if source_modules is None or item["data"]["qualified_name"] in source_modules
+        )
         for item in signals:
             if item["kind"] != "numeric_operand":
                 continue
@@ -1664,9 +1670,7 @@ def _numeric_operand_violations(
             if (
                 not isinstance(owner, str)
                 or not isinstance(module, str)
-                or not in_scope(module, rule.source)
-                or source_modules is not None
-                and module not in source_modules
+                or module not in selected
                 or not isinstance(subject, str)
                 or subject[len(subject) - len(rule.terminal_suffix) :] != rule.terminal_suffix
                 or rule.form.value not in {"both", form}
@@ -1788,7 +1792,7 @@ def _collect_rule_violations(
         *_construct_violations(
             [*typing_signals, *constructs], contract.rules, source_modules, allowance_facts
         ),
-        *_numeric_operand_violations(constructs, contract.rules, source_modules),
+        *_numeric_operand_violations(constructs, contract, modules, source_modules),
         *_external_dependency_violations(imports, contract.rules, source_modules),
         *_external_completeness_violations(
             imports, modules, contract.rules, profile.standard_library, source_modules
@@ -2123,6 +2127,59 @@ def _forbidden_rule_modules(
     )
 
 
+def _numeric_rule_receipt(
+    rule: BoundedNumericOperandRule,
+    scope: str,
+    selected: Sequence[RawRecord],
+    constructs: Sequence[RawRecord],
+) -> RawRecord:
+    operations = tuple(
+        item
+        for item in constructs
+        if item["kind"] == "numeric_operand"
+        and item["data"]["module"] in {module["data"]["qualified_name"] for module in selected}
+        and isinstance(subject := item["data"]["subject"], str)
+        and subject[len(subject) - len(rule.terminal_suffix) :] == rule.terminal_suffix
+        and rule.form.value in {"both", item["data"]["form"]}
+    )
+    return _rule_evaluation_receipt(
+        rule,
+        scope,
+        operations,
+        subjects=[item["data"]["qualified_name"] for item in selected],
+        data={
+            "threshold": rule.minimum_value,
+            "terminal_suffix": rule.terminal_suffix,
+            "form": rule.form.value,
+            "assessment_complete": bool(operations),
+            "operation_binding": stable_id(
+                "NUMERIC-OPERAND",
+                rule.id,
+                json.dumps(
+                    sorted((item["id"], item["data"]) for item in operations),
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
+            ),
+        },
+    )
+
+
+def _construct_rule_domain(
+    source: str,
+    observed: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    symbols: Sequence[RawRecord],
+) -> tuple[tuple[RawRecord, ...], Sequence[str] | None]:
+    selected = _modules_for_rule_source(source, observed, contract)
+    if selected:
+        return selected, None
+    selected = _construct_subject_symbols(
+        source, symbols, frozenset(item["data"]["qualified_name"] for item in observed)
+    )
+    return selected, [item["data"]["qualified_name"] for item in selected]
+
+
 def rule_evaluation_facts(
     contract: ArchitectureContract,
     *,
@@ -2135,12 +2192,10 @@ def rule_evaluation_facts(
     symbols: Sequence[RawRecord] = (),
     constructs: Sequence[RawRecord] = (),
 ) -> list[RawRecord]:
-    """Record completed evaluations or ownership blockers for one observation scope.
+    """Issue completion receipts and explanatory blockers for one observed scope.
 
-    Only `rule_evaluation` records certify completion. Blocker facts explain missing receipts
-    without turning an incomplete scope into PASS. Declaration-only and unsupported rules
-    have no evaluation receipt. Named construct owners additionally require actual symbols;
-    omitted symbol evidence preserves module receipts without certifying a named owner.
+    Unsupported/declaration-only rules receive no receipt. Named construct owners require
+    actual symbol evidence; module evidence alone cannot certify those owners.
     """
     observed = tuple(
         item
@@ -2187,59 +2242,23 @@ def rule_evaluation_facts(
                 item for item in observed if in_scope(item["data"]["qualified_name"], rule.root)
             )
         elif isinstance(rule, ForbiddenConstructRule):
-            selected = _modules_for_rule_source(rule.source, observed, contract)
-            if not selected:
-                selected = _construct_subject_symbols(
-                    rule.source,
-                    symbols,
-                    frozenset(item["data"]["qualified_name"] for item in observed),
-                )
-                subjects = [item["data"]["qualified_name"] for item in selected]
-        elif isinstance(rule, BoundedNumericOperandRule):
-            selected = _modules_for_rule_source(rule.source, observed, contract)
-            operations = tuple(
-                item
-                for item in constructs
-                if item["kind"] == "numeric_operand"
-                and item["data"]["module"]
-                in {module["data"]["qualified_name"] for module in selected}
-                and isinstance(subject := item["data"]["subject"], str)
-                and subject[len(subject) - len(rule.terminal_suffix) :] == rule.terminal_suffix
-                and rule.form.value in {"both", item["data"]["form"]}
-            )
-            if selected:
-                facts.append(
-                    _rule_evaluation_receipt(
-                        rule,
-                        scope,
-                        operations,
-                        subjects=[item["data"]["qualified_name"] for item in selected],
-                        data={
-                            "threshold": rule.minimum_value,
-                            "terminal_suffix": rule.terminal_suffix,
-                            "form": rule.form.value,
-                            "assessment_complete": bool(operations),
-                            "operation_binding": stable_id(
-                                "NUMERIC-OPERAND",
-                                rule.id,
-                                json.dumps(
-                                    sorted((item["id"], item["data"]) for item in operations),
-                                    sort_keys=True,
-                                    separators=(",", ":"),
-                                ),
-                            ),
-                        },
-                    )
-                )
-            continue
+            selected, subjects = _construct_rule_domain(rule.source, observed, contract, symbols)
         elif isinstance(
-            rule, CompleteAssignmentRule | CompleteExternalScopeRule | SymbolPlacementRule
+            rule,
+            BoundedNumericOperandRule
+            | CompleteAssignmentRule
+            | CompleteExternalScopeRule
+            | SymbolPlacementRule,
         ):
             selected = _modules_for_rule_source(rule.source, observed, contract)
         else:
             assert_never(rule)
         if selected:
-            facts.append(_rule_evaluation_receipt(rule, scope, selected, subjects=subjects))
+            facts.append(
+                _numeric_rule_receipt(rule, scope, selected, constructs)
+                if isinstance(rule, BoundedNumericOperandRule)
+                else _rule_evaluation_receipt(rule, scope, selected, subjects=subjects)
+            )
     return facts
 
 

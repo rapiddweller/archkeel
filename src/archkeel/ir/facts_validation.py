@@ -454,6 +454,110 @@ def _call_declaration(binding: CallBinding, declarations: Mapping[str, list[Reco
     return target
 
 
+def _numeric_operand_alias(item: RecordData, evidence_ids: tuple[str, ...]) -> None:
+    span_names = ("line", "column", "end_line", "end_column")
+    origin_fields = {key for key, _ in item.entries}
+    origin_value = item.get("value")
+    origin_span = tuple(item.get(name) for name in span_names)
+    if (
+        origin_fields
+        != {
+            "name",
+            "value",
+            "expression",
+            "evidence_id",
+            "line",
+            "column",
+            "end_line",
+            "end_column",
+        }
+        or not isinstance(item.get("name"), str)
+        or not item.get("name")
+        or not isinstance(origin_value, int)
+        or isinstance(origin_value, bool)
+        or origin_value < -MAX_STATIC_INTEGER
+        or origin_value > MAX_STATIC_INTEGER
+        or not isinstance(item.get("expression"), str)
+        or not item.get("expression")
+        or not isinstance(item.get("evidence_id"), str)
+        or item.get("evidence_id") not in evidence_ids
+        or not all(isinstance(field, int) and not isinstance(field, bool) for field in origin_span)
+        or not isinstance(origin_span[0], int)
+        or not isinstance(origin_span[1], int)
+        or not isinstance(origin_span[2], int)
+        or not isinstance(origin_span[3], int)
+        or origin_span[0] < 1
+        or origin_span[1] < 0
+        or origin_span[2] < origin_span[0]
+        or origin_span[3] < 0
+    ):
+        raise ValueError("invalid numeric operand alias proof")
+
+
+def _numeric_operand_record(record: Record, fields: set[str]) -> tuple[str, ...]:
+    required = (
+        "owner",
+        "module",
+        "operation",
+        "form",
+        "line",
+        "column",
+        "end_line",
+        "end_column",
+        "subject",
+        "proof",
+        "value",
+        "derivation",
+    )
+    data = record.data
+    span_names = ("line", "column", "end_line", "end_column")
+    span = tuple(data.get(name) for name in span_names)
+    value = data.get("value")
+    derivation = data.get("derivation")
+    if (
+        fields != set(required)
+        or data.get("operation") != "modulo"
+        or data.get("form") not in {"binary", "augmented"}
+        or data.get("proof") not in {"known", "unknown"}
+        or not record.evidence_ids
+        or not isinstance(data.get("owner"), str)
+        or not data.get("owner")
+        or not isinstance(data.get("module"), str)
+        or not data.get("module")
+        or data.get("subject") is not None
+        and (not isinstance(data.get("subject"), str) or not data.get("subject"))
+        or not all(isinstance(item, int) and not isinstance(item, bool) for item in span)
+        or not isinstance(span[0], int)
+        or not isinstance(span[1], int)
+        or not isinstance(span[2], int)
+        or not isinstance(span[3], int)
+        or span[0] < 1
+        or span[1] < 0
+        or span[2] < span[0]
+        or span[3] < 0
+        or span[2] == span[0]
+        and span[3] <= span[1]
+        or data.get("proof") == "known"
+        and (
+            not isinstance(value, int)
+            or isinstance(value, bool)
+            or value < -MAX_STATIC_INTEGER
+            or value > MAX_STATIC_INTEGER
+        )
+        or data.get("proof") == "unknown"
+        and value is not None
+        or not isinstance(derivation, tuple)
+    ):
+        raise ValueError("invalid numeric operand source proof")
+    for item in derivation:
+        if not isinstance(item, RecordData):
+            raise ValueError("invalid numeric operand alias proof")
+        _numeric_operand_alias(item, record.evidence_ids)
+    if data.get("proof") == "unknown" and derivation:
+        raise ValueError("invalid numeric operand source proof")
+    return required
+
+
 def _source_record(record: Record, section: SourceSectionName) -> None:
     if record.evidence_class not in (EvidenceClass.FACT, EvidenceClass.UNKNOWN):
         raise ValueError("source records cannot carry governance decisions")
@@ -473,103 +577,7 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
         raise ValueError("reference declaration identities must be nonempty")
     required = _REQUIRED[section]
     if section is SourceSectionName.CONSTRUCTS and record.kind == "numeric_operand":
-        required = (
-            "owner",
-            "module",
-            "operation",
-            "form",
-            "line",
-            "column",
-            "end_line",
-            "end_column",
-            "subject",
-            "proof",
-            "value",
-            "derivation",
-        )
-        data = record.data
-        span_names = ("line", "column", "end_line", "end_column")
-        span = tuple(data.get(name) for name in span_names)
-        value = data.get("value")
-        derivation = data.get("derivation")
-        if (
-            fields != set(required)
-            or data.get("operation") != "modulo"
-            or data.get("form") not in {"binary", "augmented"}
-            or data.get("proof") not in {"known", "unknown"}
-            or not record.evidence_ids
-            or not isinstance(data.get("owner"), str)
-            or not data.get("owner")
-            or not isinstance(data.get("module"), str)
-            or not data.get("module")
-            or data.get("subject") is not None
-            and (not isinstance(data.get("subject"), str) or not data.get("subject"))
-            or not all(isinstance(item, int) and not isinstance(item, bool) for item in span)
-            or not isinstance(span[0], int)
-            or not isinstance(span[1], int)
-            or not isinstance(span[2], int)
-            or not isinstance(span[3], int)
-            or span[0] < 1
-            or span[1] < 0
-            or span[2] < span[0]
-            or span[3] < 0
-            or span[2] == span[0]
-            and span[3] <= span[1]
-            or data.get("proof") == "known"
-            and (
-                not isinstance(value, int)
-                or isinstance(value, bool)
-                or value < -MAX_STATIC_INTEGER
-                or value > MAX_STATIC_INTEGER
-            )
-            or data.get("proof") == "unknown"
-            and value is not None
-            or not isinstance(derivation, tuple)
-        ):
-            raise ValueError("invalid numeric operand source proof")
-        for item in derivation:
-            if not isinstance(item, RecordData):
-                raise ValueError("invalid numeric operand alias proof")
-            origin_fields = {key for key, _ in item.entries}
-            origin_value = item.get("value")
-            origin_span = tuple(item.get(name) for name in span_names)
-            if (
-                origin_fields
-                != {
-                    "name",
-                    "value",
-                    "expression",
-                    "evidence_id",
-                    "line",
-                    "column",
-                    "end_line",
-                    "end_column",
-                }
-                or not isinstance(item.get("name"), str)
-                or not item.get("name")
-                or not isinstance(origin_value, int)
-                or isinstance(origin_value, bool)
-                or origin_value < -MAX_STATIC_INTEGER
-                or origin_value > MAX_STATIC_INTEGER
-                or not isinstance(item.get("expression"), str)
-                or not item.get("expression")
-                or not isinstance(item.get("evidence_id"), str)
-                or item.get("evidence_id") not in record.evidence_ids
-                or not all(
-                    isinstance(field, int) and not isinstance(field, bool) for field in origin_span
-                )
-                or not isinstance(origin_span[0], int)
-                or not isinstance(origin_span[1], int)
-                or not isinstance(origin_span[2], int)
-                or not isinstance(origin_span[3], int)
-                or origin_span[0] < 1
-                or origin_span[1] < 0
-                or origin_span[2] < origin_span[0]
-                or origin_span[3] < 0
-            ):
-                raise ValueError("invalid numeric operand alias proof")
-        if data.get("proof") == "unknown" and derivation:
-            raise ValueError("invalid numeric operand source proof")
+        required = _numeric_operand_record(record, fields)
     if not set(required).issubset(fields):
         raise ValueError(f"{section} source payload is missing required fields")
     if record.data.get("member_inventories") is not None:

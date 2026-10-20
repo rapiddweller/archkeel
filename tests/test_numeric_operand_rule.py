@@ -1,3 +1,6 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """A versioned native rule evaluates bounded modulo operand proofs."""
 
 import json
@@ -155,6 +158,91 @@ def _rule_rows(tmp_path):
         result.observation,
         undecided_by_rule=unknown_positions_by_rule(result.observation),
     )
+
+
+def test_numeric_source_participates_in_reference_validation_and_rename(tmp_path):
+    from archkeel.ir.model import module_references
+    from archkeel.ir.renames import renamed_contract
+
+    _write_probe(tmp_path)
+    contract = parse_contract(json.loads((tmp_path / "contract.json").read_bytes()))
+    reference = next(
+        item for item in module_references(contract) if item.pointer == "/rules/0/source"
+    )
+    assert reference.value == "sample.core" and reference.held
+    changed = renamed_contract(contract, {"sample.core": "sample.engine"})
+    assert json.loads(contract_bytes(changed))["rules"][0]["source"] == "sample.engine"
+
+
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize("exact", [False, True])
+def test_mounted_numeric_receipt_replays_only_parent_physical_domain(tmp_path, columnar, exact):
+    from test_exact_module_ownership import _observe_tree
+
+    _write_probe(tmp_path, source="sample", mounted=True)
+    contract = json.loads((tmp_path / "contract.json").read_bytes())
+    if exact:
+        contract["components"][0]["packages"] = []
+        contract["components"][0]["exact_modules"] = ["sample.core"]
+        child = json.loads((tmp_path / "inside.json").read_bytes())
+        child["components"][0]["packages"] = []
+        child["components"][0]["exact_modules"] = ["sample.core"]
+        (tmp_path / "inside.json").write_text(json.dumps(child))
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/core.py": "def choose(job_nonce): return job_nonce % 4\n",
+            "sample/cli.py": "def choose(job_nonce): return job_nonce % 1\n",
+        },
+        contract,
+    )
+    assert not result.diagnostics and result.observation is not None
+    model = result.observation
+    rows = rule_assessments(model, undecided_by_rule=unknown_positions_by_rule(model))
+    assert len(rows) == 1 and rows[0].status == "PASS"
+    receipt = next(
+        item for item in model.records("scope_observations") if item.data.get("operation_binding")
+    )
+    assert receipt.subjects == ("sample.core",)
+    saved = tmp_path / "mounted-positive.json"
+    saved.write_bytes(
+        canonical_report_bytes(model)
+        if columnar
+        else json.dumps(observation_payload(model)).encode()
+    )
+    replay = run_saved_report(saved)
+    assert not replay.diagnostics and replay.rule_assessments == rows
+
+
+def test_numeric_component_package_selector_evaluates_every_owned_package(tmp_path):
+    from test_exact_module_ownership import _observe_tree
+
+    _write_probe(tmp_path)
+    contract = json.loads((tmp_path / "contract.json").read_bytes())
+    contract["components"][0]["packages"] = ["sample.core", "sample.extra"]
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/core.py": "def choose(job_nonce): return job_nonce % 4\n",
+            "sample/extra.py": "def choose(job_nonce): return job_nonce % 1\n",
+        },
+        contract,
+    )
+    assert not result.diagnostics and result.observation is not None
+    model = result.observation
+    rows = rule_assessments(model, undecided_by_rule=unknown_positions_by_rule(model))
+    assert len(rows) == 1 and rows[0].status == "FAIL" and rows[0].evaluation_proven
+    assert len(trace_valid_violations(model)) == 1
+    for content in (
+        canonical_report_bytes(model),
+        json.dumps(observation_payload(model)).encode(),
+    ):
+        saved = tmp_path / "multiple-packages.json"
+        saved.write_bytes(content)
+        replay = run_saved_report(saved)
+        assert not replay.diagnostics and replay.rule_assessments == rows
 
 
 @pytest.mark.parametrize(
@@ -501,6 +589,7 @@ def test_saved_numeric_receipt_rejects_changed_operand_proof(tmp_path):
         "contract_digest",
         "scope",
         "schema_relabel",
+        "ownership",
     ):
         sections = []
         for section in observation.sections:
@@ -531,6 +620,8 @@ def test_saved_numeric_receipt_rejects_changed_operand_proof(tmp_path):
                             for key, value in entries
                         ]
                     record = replace(record, data=RecordData(tuple(entries)))
+                elif mutation == "ownership" and record.kind == "component_responsibility":
+                    record = replace(record, title="changed-owner")
                 elif section.name == "scope_observations" and record.kind == "rule_evaluation":
                     entries = tuple(
                         (key, 0 if mutation == "threshold" and key == "threshold" else value)

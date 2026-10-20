@@ -1039,6 +1039,7 @@ def _rule_references(
         ForbiddenDependencyRule
         | AllowedDependencyRule
         | ForbiddenConstructRule
+        | BoundedNumericOperandRule
         | CompleteAssignmentRule
         | CompleteExternalScopeRule
         | SymbolPlacementRule
