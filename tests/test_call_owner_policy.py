@@ -122,6 +122,44 @@ def test_ordinary_member_read_does_not_escape_constructed_receiver(tmp_path, mou
     assert replayed == row
 
 
+def test_bare_constructed_receiver_comparison_remains_unknown(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\ndef run():\n"
+        "    built = Storage()\n    built == object()\n    built.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        extra={"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "built.page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+def test_stored_receiver_member_comparison_keeps_public_owner_unknown(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def route(self):\n"
+        "        self.client.backend == 'flat'\n        self.client.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        extra={"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
 def test_constructed_receiver_owner_escape_is_unknown_and_replays(tmp_path):
     from archkeel.check.report import run_saved_report
     from archkeel.ir.codec import canonical_report_bytes
