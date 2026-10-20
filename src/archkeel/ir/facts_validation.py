@@ -492,20 +492,18 @@ def selector_receiver_site_matches(
     if binding.origin is CallBindingOrigin.STORED_RECEIVER and proof is not None:
         owner = proof.get("owner")
         selector_owner = record.data.get("owner")
-        initializers = declarations.get(f"{owner}.__init__", []) if isinstance(owner, str) else []
+        if not isinstance(owner, str) or not isinstance(selector_owner, str):
+            return False
+        initializers = declarations.get(f"{owner}.__init__", [])
         initializer_data: RecordData | None = (
             initializers[0].data if len(initializers) == 1 else None
         )
         receiver = (
             initializer_data.get("receiver_parameter") if initializer_data is not None else None
         )
-        selector_owner_name: str | None = (
-            selector_owner if isinstance(selector_owner, str) else None
-        )
+        selector_owner_name: str = selector_owner
         return (
-            isinstance(owner, str)
-            and selector_owner_name is not None
-            and selector_owner_name.startswith(f"{owner}.")
+            selector_owner_name.startswith(f"{owner}.")
             and isinstance(expression, ast.Attribute)
             and expression.attr == proof.get("field")
             and isinstance(expression.value, ast.Name)
@@ -546,12 +544,13 @@ def _direct_selector_receiver_matches(
         else None
     )
     owner = record.data.get("owner")
-    owner_name: str | None = owner if isinstance(owner, str) else None
+    if not isinstance(owner, str):
+        return False
+    owner_name: str = owner
     for target in source_classes:
         written = ast.unparse(target)
         if (
             isinstance(module, str)
-            and owner_name is not None
             and (owner_name == module or owner_name.startswith(module + "."))
             and binding.target == f"{module}.{written}"
         ):
