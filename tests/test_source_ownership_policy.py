@@ -265,6 +265,35 @@ def test_unread_local_definition_is_retained_as_unknown_candidate(tmp_path):
     ]
 
 
+def test_dynamic_module_binding_is_a_real_definition_anchor(tmp_path):
+    from archkeel.ir.decisions import rule_assessments
+
+    contract = _contract(
+        {
+            "mode": "retired",
+            "symbols": ["sample.consumer.TARGETS"],
+            "roles": ["definition"],
+        }
+    )
+    contract["components"] = [_component("all", ["sample"])]
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/consumer.py": "TARGETS = build_targets()\n",
+        },
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+    [assessment] = [
+        item
+        for item in rule_assessments(result.observation, undecided_by_rule={})
+        if item.id == "ownership"
+    ]
+    assert assessment.status == "FAIL"
+    assert assessment.count == 1
+
+
 def test_annotation_references_are_typed_across_module_class_and_local_scopes(tmp_path):
     contract = _contract(
         {

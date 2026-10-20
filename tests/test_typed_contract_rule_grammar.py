@@ -44,6 +44,7 @@ RULES = {
         {"source": "sample", "class_kinds": ["enum"], "allowed_sources": ["sample"]},
     ),
     "boundary_types": ("BoundaryTypesRule", {"source": "sample"}),
+<<<<<<< HEAD
     "protocol_declarations": (
         "ProtocolDeclarationsRule",
         {
@@ -61,12 +62,22 @@ RULES = {
             "minimum_value": 4_294_967_296,
         },
     ),
+    "source_ownership": (
+        "SourceOwnershipRule",
+        {
+            "source": "sample",
+            "mode": "retired",
+            "symbols": ["sample.old"],
+            "roles": ["read"],
+        },
+    ),
 }
 RULE_SCHEMA_VERSIONS = {
     "forbidden_construct": "3.11.0",
     "forbidden_call_argument": "3.10.0",
     "protocol_declarations": "3.9.0",
     "bounded_numeric_operand": "3.8.0",
+    "source_ownership": "3.8.0",
 }
 
 

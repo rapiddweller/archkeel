@@ -24,12 +24,15 @@ def with_rule(kind: str, **fields: object) -> str:
         value["schema_version"] = "3.11.0"
     elif kind == "call_owner":
         value["schema_version"] = "3.7.0"
+<<<<<<< HEAD
     elif kind == "bounded_numeric_operand":
         value["schema_version"] = "3.8.0"
     elif kind == "protocol_declarations":
         value["schema_version"] = "3.9.0"
     elif kind == "forbidden_call_argument":
         value["schema_version"] = "3.10.0"
+    elif kind == "source_ownership":
+        value["schema_version"] = "3.8.0"
     value["rules"].append(
         {
             "id": "PROBE",
@@ -112,6 +115,12 @@ UNSUPPORTED_RULES = {
         "allowed_sources": ["shop.src.domain"],
     },
     "boundary_types": {"source": "shop"},
+    "source_ownership": {
+        "source": "shop",
+        "mode": "retired",
+        "symbols": ["shop.src.old"],
+        "roles": ["read"],
+    },
 }
 
 UNMEASURED = (

@@ -2299,15 +2299,11 @@ def _validate_source_role_identities(
             name = record.data.get("qualified_name")
             if isinstance(name, str):
                 symbols.setdefault(name, []).append(record)
-                if (
-                    record.kind
-                    in {
-                        "class",
-                        "function",
-                        "method",
-                    }
-                    or record.data.get("record_kind") == "static_constant"
-                ):
+                if record.kind in {
+                    "class",
+                    "function",
+                    "method",
+                } or record.data.get("record_kind") in {"static_constant", "dynamic_binding"}:
                     anchors.setdefault((name, record.id), []).append(record)
         if record.kind in {"class", "function", "method"}:
             name = record.data.get("qualified_name")

@@ -1505,7 +1505,21 @@ def _source_ownership_violations(
             if source_modules is not None and source_module not in source_modules:
                 continue
             if data.get("status") != "resolved" and not (
-                role == "read" and data.get("local_source_binding") is True
+                role == "read"
+                and (
+                    data.get("local_source_binding") is True
+                    or (
+                        len(targets) == 1
+                        and targets[0] in selected
+                        and sum(
+                            symbol["data"].get("qualified_name") == targets[0]
+                            and symbol["data"].get("record_kind")
+                            in {"static_constant", "dynamic_binding"}
+                            for symbol in symbols
+                        )
+                        == 1
+                    )
+                )
             ):
                 continue
             confined = rule.mode.value == "confined" and (
@@ -1691,10 +1705,10 @@ def _source_ownership_candidates(
             )
     for item in symbols:
         data = item["data"]
-        if (
-            item["kind"] not in {"class", "function", "method"}
-            and data.get("record_kind") != "static_constant"
-        ):
+        if item["kind"] not in {"class", "function", "method"} and data.get("record_kind") not in {
+            "static_constant",
+            "dynamic_binding",
+        }:
             continue
         name = data.get("qualified_name")
         module = data.get("module")

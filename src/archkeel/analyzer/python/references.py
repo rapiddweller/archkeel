@@ -495,7 +495,8 @@ class ReferenceCollector(ast.NodeVisitor):
                 f"{binding.owner.qualified_name}.{node.id}" if binding.owner is not None else None
             )
             if (
-                local_sites
+                binding.owner is not self.scopes.root
+                and local_sites
                 and len(local_sites) == len(sites)
                 and not any(
                     control_flow_contexts(site, self.scopes.parents) for site in local_sites
@@ -521,7 +522,8 @@ class ReferenceCollector(ast.NodeVisitor):
                     if isinstance(site, ast.Name) and isinstance(site.ctx, ast.Store | ast.Del)
                 ]
                 if (
-                    direct_stores
+                    binding.owner is not self.scopes.root
+                    and direct_stores
                     and len(direct_stores) == len(sites)
                     and not any(
                         control_flow_contexts(site, self.scopes.parents) for site in direct_stores
