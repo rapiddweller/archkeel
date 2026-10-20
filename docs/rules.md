@@ -34,7 +34,7 @@ global coverage and cycle closure stay incomplete. See
 | Bound selected binary/augmented modulo operands | `bounded_numeric_operand` (3.8) |
 
 | Reject a written string literal at one bound call parameter | `forbidden_call_argument` (3.10) |
-| Retire a source name or confine its definition, use, transfer, default or fallback to a canonical owner | `source_ownership` (3.8) |
+| Retire a source name or confine its definition, use, transfer, default or fallback to a canonical owner | `source_ownership` (3.12) |
 
 Python static imports and proven literal `importlib.import_module` / `__import__`
 calls feed the same dependency rules. An unknown loader binding or target withholds

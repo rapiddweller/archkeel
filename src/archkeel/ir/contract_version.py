@@ -43,6 +43,7 @@ class ContractVersion(StrEnum):
     V3_9 = "3.9.0"
     V3_10 = "3.10.0"
     V3_11 = "3.11.0"
+    V3_12 = "3.12.0"
 
 
 # Declaration order is the supported contract evolution order.
@@ -64,7 +65,7 @@ _FEATURE_START: dict[ContractFeature, ContractVersion] = {
     ContractFeature.IMPORT_NAMESPACES: ContractVersion.V3_5,
     ContractFeature.MODULE_OBJECT_GRANTS: ContractVersion.V3_6,
     ContractFeature.PROTOCOL_DECLARATIONS: ContractVersion.V3_9,
-    ContractFeature.SOURCE_OWNERSHIP: ContractVersion.V3_8,
+    ContractFeature.SOURCE_OWNERSHIP: ContractVersion.V3_12,
 }
 
 

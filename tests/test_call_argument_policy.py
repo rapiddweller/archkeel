@@ -370,11 +370,20 @@ def test_call_argument_evidence_requires_the_new_observation_version(tmp_path):
         "from .storage import page\ndef consume(spec):\n    page(spec)\n",
     )
     raw = observation_payload(result.observation)
-    assert raw["schema_version"] == "2.6.0"
-    assert parse_observation(raw).schema_version == "2.6.0"
+    assert raw["schema_version"] == "2.7.0"
+    assert parse_observation(raw).schema_version == "2.7.0"
 
     old = json.loads(json.dumps(raw))
     old["schema_version"] = "2.4.0"
+    old["declarations"] = [
+        item for item in old["declarations"] if item["kind"] != "source_ownership"
+    ]
+    old_references = old["references"]
+    old["references"] = []
+    for item in old_references:
+        if item["kind"] != "source_role":
+            item["data"].pop("reference_context", None)
+            old["references"].append(item)
     with pytest.raises(ValueError, match="call_arguments require"):
         parse_observation(old)
 
@@ -386,7 +395,7 @@ def test_call_argument_evidence_requires_the_new_observation_version(tmp_path):
     from test_result_schema import _validator
 
     validator = _validator("command-result-9.0.schema.json")
-    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.6.0"})
+    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.7.0"})
     historical_schema = validator.evolve(
         schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"}
     )
@@ -426,7 +435,7 @@ def test_unbound_call_has_null_arguments_and_cannot_certify_policy(tmp_path, col
     assert call["data"]["call_arguments"] is None
 
     validator = _validator("command-result-9.0.schema.json")
-    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.6.0"})
+    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.7.0"})
     assert current_schema.is_valid(raw)
 
     inconsistent = json.loads(json.dumps(raw))

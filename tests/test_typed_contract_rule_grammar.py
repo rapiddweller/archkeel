@@ -77,7 +77,7 @@ RULE_SCHEMA_VERSIONS = {
     "forbidden_call_argument": "3.10.0",
     "protocol_declarations": "3.9.0",
     "bounded_numeric_operand": "3.8.0",
-    "source_ownership": "3.8.0",
+    "source_ownership": "3.12.0",
 }
 
 

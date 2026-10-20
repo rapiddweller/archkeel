@@ -14,7 +14,7 @@ from archkeel.ir.codec import contract_bytes, parse_contract
 ROOT = Path(__file__).parents[1]
 
 
-def _contract(rule, version="3.8.0"):
+def _contract(rule, version="3.12.0"):
     value = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
     value["schema_version"] = version
     value["rules"] = [
@@ -112,11 +112,13 @@ def test_invalid_mode_role_owner_combinations_are_rejected(rule):
         parse_contract(_contract(rule))
 
 
-def test_source_ownership_requires_contract_3_8():
-    with pytest.raises(ValueError, match="source_ownership requires contract schema_version 3.8.0"):
+def test_source_ownership_requires_contract_3_12():
+    with pytest.raises(
+        ValueError, match="source_ownership requires contract schema_version 3.12.0"
+    ):
         parse_contract(
             _contract(
-                {"mode": "retired", "symbols": ["sample.old"], "roles": ["definition"]}, "3.7.0"
+                {"mode": "retired", "symbols": ["sample.old"], "roles": ["definition"]}, "3.11.0"
             )
         )
 
@@ -148,7 +150,7 @@ def _source_rule(**fields):
     }
 
 
-def _observe_tree(tmp_path, files, contract):
+def _observe_tree(tmp_path, files, contract, *, roots=("sample",)):
     import json
 
     from archkeel.cli.observe import observe
@@ -165,7 +167,7 @@ def _observe_tree(tmp_path, files, contract):
         path.write_text(source)
     return observe(
         tmp_path,
-        roots=("sample",),
+        roots=roots,
         namespace="sample",
         contract="contract.json",
         git_head="a" * 40,
@@ -742,7 +744,7 @@ def test_source_ownership_schemas_describe_current_contract_and_saved_observatio
     import copy
     import json
 
-    from jsonschema import Draft202012Validator
+    from jsonschema import Draft202012Validator, ValidationError
     from referencing import Registry, Resource
 
     from archkeel.ir.codec import observation_payload, parse_observation
@@ -759,33 +761,53 @@ def test_source_ownership_schemas_describe_current_contract_and_saved_observatio
         }
     )
     Draft202012Validator(
-        json.loads((ROOT / "schema/architecture-contract-3.8.schema.json").read_bytes()),
+        json.loads((ROOT / "schema/architecture-contract-3.12.schema.json").read_bytes()),
         registry=registry,
     ).validate(contract)
+    with pytest.raises(ValidationError):
+        Draft202012Validator(
+            json.loads((ROOT / "schema/architecture-contract-3.8.schema.json").read_bytes()),
+            registry=registry,
+        ).validate(contract)
     result = _observe_tree(
         tmp_path,
-        {"sample/__init__.py": "", "sample/consumer.py": "old = 1\n"},
+        {
+            "sample/__init__.py": "",
+            "sample/consumer.py": "old = 1\ndef read(): return old\n",
+        },
         contract,
     )
     assert result.observation is not None, result.diagnostics
     observation = observation_payload(result.observation)
     Draft202012Validator(
-        json.loads((ROOT / "schema/architecture-ir-decoded-2.6.schema.json").read_bytes()),
+        json.loads((ROOT / "schema/architecture-ir-decoded-2.7.schema.json").read_bytes()),
         registry=registry,
     ).validate(observation)
     Draft202012Validator.check_schema(
         json.loads((ROOT / "schema/command-result-9.0.schema.json").read_bytes())
     )
     older = copy.deepcopy(observation)
-    older["schema_version"] = "2.1.0"
+    older["schema_version"] = "2.6.0"
     with pytest.raises(
         ValueError,
         match=(
             "(source_role records require|source_ownership requires) "
-            "observation schema_version 2.2.0"
+            "observation schema_version 2.7.0"
         ),
     ):
         parse_observation(older)
+    old_context = copy.deepcopy(observation)
+    old_context["schema_version"] = "2.6.0"
+    old_context["declarations"] = [
+        item for item in old_context["declarations"] if item["kind"] != "source_ownership"
+    ]
+    old_context["references"] = [
+        item for item in old_context["references"] if item["kind"] != "source_role"
+    ]
+    with pytest.raises(
+        ValueError, match="reference_context requires observation schema_version 2.7.0"
+    ):
+        parse_observation(old_context)
 
 
 def test_builtin_value_without_source_declaration_remains_unknown(tmp_path):
@@ -878,7 +900,7 @@ def test_mounted_ownership_scope_does_not_leak_to_sibling_modules(tmp_path):
         _component("outside", ["sample.outside"]),
     ]
     inside = {
-        "schema_version": "3.8.0",
+        "schema_version": "3.12.0",
         "components": [_component("consumer", ["sample.core.consumer"])],
         "rules": [
             _source_rule(
@@ -928,7 +950,7 @@ def test_mounted_source_receipt_cannot_claim_sibling_scope_with_recomputed_bindi
         _component("outside", ["sample.outside"]),
     ]
     inside = {
-        "schema_version": "3.8.0",
+        "schema_version": "3.12.0",
         "components": [_component("consumer", ["sample.core.consumer"])],
         "rules": [
             _source_rule(
@@ -988,3 +1010,34 @@ def test_mounted_source_receipt_cannot_claim_sibling_scope_with_recomputed_bindi
         if item.id == "core:inside_ownership"
     ]
     assert assessment.status == "FAIL" and not assessment.evaluation_proven
+
+
+def test_partial_root_scan_cannot_prove_complete_source_ownership(tmp_path):
+    from archkeel.ir.decisions import rule_assessments
+
+    contract = _contract(
+        {
+            "mode": "retired",
+            "symbols": ["sample.core.retired_cursor"],
+            "roles": ["definition"],
+        }
+    )
+    contract["components"] = [_component("all", ["sample"])]
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/safe/__init__.py": "other = 1\n",
+            "sample/core/__init__.py": "",
+            "sample/core/consumer.py": "retired_cursor = 1\n",
+        },
+        contract,
+        roots=("sample/safe",),
+    )
+    assert result.observation is not None, result.diagnostics
+    [assessment] = [
+        item
+        for item in rule_assessments(result.observation, undecided_by_rule={})
+        if item.id == "ownership"
+    ]
+    assert assessment.status == "UNKNOWN" and not assessment.evaluation_proven

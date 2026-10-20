@@ -6,6 +6,8 @@ The only transferable values are a resolved direct callable name used as a dicti
 
 Definitions, reads, writes, deletes, value transfers, defaults, and fallback expressions are separate source roles. Comments and strings are not references. Shadowing, mutation, duplicate definitions, dynamic/unsupported expressions, descriptors, ambiguous aliases, and incomplete source leave the affected decision UNKNOWN. There is no arbitrary value-flow, semantic-equivalence, runtime-liveness, or general CFG claim.
 
+The typed reference context, source-role facts, and source-ownership rule enter the saved-observation and contract wires at observation schema 2.7.0 and contract schema 3.12.0. Native collection uses SourceFacts protocol 5, whose lossless columnar envelope expands into the same validated facts before evaluation. Earlier observation and contract schemas continue to reject these additions.
+
 Receipts bind the rule, selected facts, canonical owner/value declaration, source and contract digests, scope and wire version. Mounted rules see only their selected physical source domain; partial or empty domains cannot prove absence. Existing product normalization, RNG, and worker-invariance tests remain independent.
 
 Source-fact collection protocol 5.0.0 carries the same validated fact set as 4.0.0 in a lossless columnar encoding. Record fields, sparse record-data pairs, evidence rows, candidate-evidence rows, and a profitable UTF-8 string table are expanded before the normal source-fact validator runs. The encoding preserves candidate evidence and UNKNOWN records, has a strict format marker, and is rejected by 1.0.0–4.0.0 readers. It keeps the collector's existing 64 MiB stdout bound; it does not change evidence selection or semantics.

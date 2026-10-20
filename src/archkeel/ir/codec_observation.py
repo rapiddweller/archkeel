@@ -75,6 +75,7 @@ class _ObservationVersion(StrEnum):
     V2_4 = "2.4.0"
     V2_5 = "2.5.0"
     V2_6 = "2.6.0"
+    V2_7 = "2.7.0"
 
 
 def _before_version(version: _ObservationVersion, floor: _ObservationVersion) -> bool:
@@ -269,6 +270,7 @@ def _validate_versioned_records(
         _ObservationVersion.V2_4,
         _ObservationVersion.V2_5,
         _ObservationVersion.V2_6,
+        _ObservationVersion.V2_7,
     }:
         python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
         for section in sections:
@@ -285,6 +287,7 @@ def _validate_versioned_records(
                             _ObservationVersion.V2_4,
                             _ObservationVersion.V2_5,
                             _ObservationVersion.V2_6,
+                            _ObservationVersion.V2_7,
                         }
                         and binding is not None
                         and binding.origin
@@ -305,7 +308,11 @@ def _validate_versioned_records(
             continue
         for call in section.records:
             has_arguments = _has_field((key for key, _ in call.data.entries), "call_arguments")
-            if schema_version in {_ObservationVersion.V2_5, _ObservationVersion.V2_6}:
+            if schema_version in {
+                _ObservationVersion.V2_5,
+                _ObservationVersion.V2_6,
+                _ObservationVersion.V2_7,
+            }:
                 if python_calls and not has_arguments:
                     raise ValueError(
                         f"Python {schema_version.value} calls require explicit call_arguments"
@@ -383,6 +390,7 @@ def parse_observation(raw: object) -> Observation:
                 _ObservationVersion.V2_4,
                 _ObservationVersion.V2_5,
                 _ObservationVersion.V2_6,
+                _ObservationVersion.V2_7,
             },
         )
         if item.get("runtime", _MISSING_VALUE) is not _MISSING_VALUE
@@ -399,17 +407,17 @@ def _validate_observation_record_versions(
     profile: Profile,
     evidence: RawJson,
 ) -> None:
-    if _before_version(version, _ObservationVersion.V2_2):
+    if _before_version(version, _ObservationVersion.V2_7):
         for section_name, kind, message in (
             (
                 "references",
                 "source_role",
-                "source_role records require observation schema_version 2.2.0",
+                "source_role records require observation schema_version 2.7.0",
             ),
             (
                 "declarations",
                 "source_ownership",
-                "source_ownership requires observation schema_version 2.2.0",
+                "source_ownership requires observation schema_version 2.7.0",
             ),
         ):
             if any(
@@ -419,6 +427,13 @@ def _validate_observation_record_versions(
                 for record in section.records
             ):
                 raise ValueError(message)
+        if any(
+            _has_field((key for key, _ in record.data.entries), "reference_context")
+            for section in sections
+            if section.name == "references"
+            for record in section.records
+        ):
+            raise ValueError("reference_context requires observation schema_version 2.7.0")
     if version in {_ObservationVersion.V2_1, _ObservationVersion.V2_2}:
         python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
         for section in sections:
@@ -429,7 +444,7 @@ def _validate_observation_record_versions(
                     ):
                         raise ValueError("Python 2.1.0 calls require explicit call_binding or null")
                     _call_binding(call.data.get("call_binding"))
-    if not _before_version(version, _ObservationVersion.V2_2):
+    if not _before_version(version, _ObservationVersion.V2_7):
         if not isinstance(evidence, list):
             raise ValueError("observation evidence must be an array")
         _validate_source_ownership_vocabulary(sections)
@@ -585,10 +600,10 @@ def _validate_source_ownership_vocabulary(sections: tuple[Section, ...]) -> None
         if record.kind in {"value_reference", "attribute_reference"} and record.data.get(
             "reference_context"
         ) not in {"value", "annotation", "unknown"}:
-            raise ValueError("2.2.0 reference needs a typed source context")
+            raise ValueError("2.7.0 reference needs a typed source context")
         if record.kind != "source_role":
             continue
-        validate_source_role_vocabulary(record, version="2.2.0")
+        validate_source_role_vocabulary(record, version="2.7.0")
     rules = {
         record.id
         for section in sections
@@ -605,15 +620,19 @@ def _validate_source_ownership_vocabulary(sections: tuple[Section, ...]) -> None
             if record.kind == "rule_evaluation" and bool(set(record.rule_ids) & rules)
         ]
         if any(record.data.get("source_ownership_scope_proof") is None for record in receipts):
-            raise ValueError("2.2.0 source_ownership rules require bound evaluation receipts")
+            raise ValueError("2.7.0 source_ownership rules require bound evaluation receipts")
 
 
 def observation_payload(observation: Observation) -> dict[str, RawJson]:
-    if _observation_version(observation.schema_version) is not _ObservationVersion.V2_6 and any(
+    if (
+        _observation_version(observation.schema_version)
+        not in {_ObservationVersion.V2_6, _ObservationVersion.V2_7}
+        and any(
         record.kind == _ConstructSelectorFactKind.SELECTOR
         for section in observation.sections
         if section.name == ObservedSection.CONSTRUCTS
         for record in section.records
+        )
     ):
         raise ValueError("construct selector facts require observation schema 2.6.0")
     if (
@@ -626,6 +645,7 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
             _ObservationVersion.V2_4,
             _ObservationVersion.V2_5,
             _ObservationVersion.V2_6,
+            _ObservationVersion.V2_7,
         }
         and observation.runtime is not None
         and observation.runtime.requirement_state != RuntimeRequirementState.DECLARED
@@ -807,7 +827,10 @@ def decode_canonical_model(encoded: dict[str, RawJson]) -> dict[str, RawJson]:
 
 
 def _validate_selector_schema_floor(model: dict[str, RawJson]) -> None:
-    if _observation_version(model["schema_version"]) is _ObservationVersion.V2_6:
+    if _observation_version(model["schema_version"]) in {
+        _ObservationVersion.V2_6,
+        _ObservationVersion.V2_7,
+    }:
         return
     constructs = model.get("constructs")
     if isinstance(constructs, list) and any(

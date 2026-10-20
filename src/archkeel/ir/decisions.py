@@ -1467,6 +1467,7 @@ def _source_ownership_receipt_complete(observation: Observation, receipt: Record
         not expected_modules
         or set(receipt.subjects) != expected_modules
         or proof.get("source_modules") != tuple(sorted(expected_modules))
+        or not _source_scope_covers_rule(observation, declarations[0])
     ):
         return False
     return (
@@ -1495,6 +1496,19 @@ def _source_ownership_receipt_complete(observation: Observation, receipt: Record
             receipt,
             observation.schema_version,
         )
+    )
+
+
+def _source_scope_covers_rule(observation: Observation, declaration: Record) -> bool:
+    """Require the requested scan roots to cover the complete declared source prefix."""
+    source = declaration.data.get("source")
+    if not isinstance(source, str):
+        return False
+    source_path = source.replace(".", "/")
+    roots = tuple(scope.removesuffix("/**/*.py") for scope in observation.source.scope)
+    return any(
+        root in {"", "."} or source_path == root or source_path.startswith(f"{root}/")
+        for root in roots
     )
 
 

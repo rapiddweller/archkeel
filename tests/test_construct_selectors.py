@@ -769,7 +769,7 @@ def test_native_saved_report_keeps_fail_and_unknown_for_selected_scope(tmp_path:
     )
     assert encoded is not None, result.diagnostics[0].unknown_claim if result.diagnostics else None
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
-    assert model.schema_version == "2.6.0"
+    assert model.schema_version == "2.7.0"
     assert any(row.kind == "construct_selector" for row in model.records("constructs"))
     assert len(trace_valid_violations(model)) == 3
     selected = [
@@ -805,6 +805,15 @@ def test_native_saved_report_keeps_fail_and_unknown_for_selected_scope(tmp_path:
     assert receipt.data.get("inventory_fact_ids")
     relabeled = decode_canonical_model(json.loads(encoded))
     relabeled["schema_version"] = "2.5.0"
+    relabeled["declarations"] = [
+        item for item in relabeled["declarations"] if item["kind"] != "source_ownership"
+    ]
+    old_references = relabeled["references"]
+    relabeled["references"] = []
+    for item in old_references:
+        if item["kind"] != "source_role":
+            item["data"].pop("reference_context", None)
+            relabeled["references"].append(item)
     with pytest.raises(ValueError, match="selector facts require observation schema 2.6.0"):
         parse_observation(relabeled)
 

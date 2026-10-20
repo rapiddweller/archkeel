@@ -314,7 +314,7 @@ def parse_contract(raw: object) -> ArchitectureContract:
         not supports_feature(version, ContractFeature.SOURCE_OWNERSHIP)
         and ArchitectureRuleKind.SOURCE_OWNERSHIP in kinds
     ):
-        raise ValueError("source_ownership requires contract schema_version 3.8.0")
+        raise ValueError("source_ownership requires contract schema_version 3.12.0")
     if not supports_feature(version, ContractFeature.MODULE_OBJECT_GRANTS) and any(
         _has_field(_object(value, "rule"), "module_object_grants") for value in rules_raw
     ):
