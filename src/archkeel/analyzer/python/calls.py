@@ -202,7 +202,9 @@ class CallCollector(ast.NodeVisitor):
         self.provider_bindings = {item.qualified_name: item for item in provider_bindings}
         self.runtime = runtime
         self.imports = tuple(
-            item for item in imports if item["data"].get("source_module") == module.module
+            item
+            for item in imports
+            if _mapping_value(item["data"], "source_module") == module.module
         )
         self.items: list[RawRecord] = []
         self.scopes = LexicalScopes.for_module(module)
@@ -525,19 +527,19 @@ class CallCollector(ast.NodeVisitor):
         if spelling is None:
             return None
         root, separator, suffix = _partition_first(spelling, ".")
-        imported = [row for row in self.imports if row["data"].get("binding") == root]
+        imported = [row for row in self.imports if _mapping_value(row["data"], "binding") == root]
         if imported:
             if len(imported) != 1 or root not in self.stable_bindings:
                 return None
             data = imported[0]["data"]
-            origin = data.get("origin_definition")
+            origin = _mapping_value(data, "origin_definition")
             if (
-                data.get("module_level_import") is not True
-                or data.get("under_type_checking") is not False
-                or data.get("source_binding_unique") is not True
-                or data.get("symbols_known") is not True
-                or data.get("origin_binding_unique") is not True
-                or data.get("reexport_candidate") is True
+                _mapping_value(data, "module_level_import") is not True
+                or _mapping_value(data, "under_type_checking") is not False
+                or _mapping_value(data, "source_binding_unique") is not True
+                or _mapping_value(data, "symbols_known") is not True
+                or _mapping_value(data, "origin_binding_unique") is not True
+                or _mapping_value(data, "reexport_candidate") is True
                 or not isinstance(origin, str)
                 or not all(python_identifier(part) for part in origin.split("."))
             ):

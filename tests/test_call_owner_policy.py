@@ -119,6 +119,40 @@ def test_stored_receiver_through_static_reexport_has_canonical_policy_result(
     assert row.count == (1 if expected == "FAIL" else 0)
 
 
+@pytest.mark.parametrize(
+    "allowed,expected",
+    [((), "FAIL"), (("sample.caller",), "PASS")],
+)
+def test_declared_receiver_through_static_reexport_replays_canonical_policy(
+    tmp_path, allowed, expected
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes
+
+    result, row = _observe(
+        tmp_path,
+        "from .pkg import Vault as Selected\ndef run(client: Selected): client.page()\n",
+        allowed=allowed,
+        target="sample.pkg.types.Vault.page",
+        extra={
+            "sample/pkg/__init__.py": "from .types import Vault\n",
+            "sample/pkg/types.py": "class Vault:\n    def page(self): pass\n",
+        },
+    )
+    [call] = [
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "client.page"
+    ]
+    assert call.data.get("call_binding").get("target") == "sample.pkg.types.Vault.page"
+    assert row.status == expected and row.evaluation_proven
+    assert row.count == (1 if expected == "FAIL" else 0)
+    saved = tmp_path / "reexport-report.json"
+    saved.write_bytes(canonical_report_bytes(result.observation))
+    [replayed] = run_saved_report(saved).rule_assessments
+    assert replayed == row
+
+
 def test_ambiguous_reexported_stored_receiver_stays_unknown(tmp_path):
     result, row = _observe(
         tmp_path,
