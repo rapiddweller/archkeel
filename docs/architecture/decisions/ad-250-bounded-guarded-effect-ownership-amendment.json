@@ -1,7 +1,7 @@
 {
-  "after_baseline_digest": "927d1a4f4aba9d73b8e5e561969ad4fb553857f0054752dedefaee94780f0b2c",
+  "after_baseline_digest": "c0b9598584d4e6a3d38d5684fc612c22399c2dfa0a929b2ef29e611861c4d7e8",
   "after_digest": "b63dee7d81ab5f68e51d04372c9dd088a8c6ecc241954e38f58e748481edecac",
-  "before_baseline_digest": "927d1a4f4aba9d73b8e5e561969ad4fb553857f0054752dedefaee94780f0b2c",
+  "before_baseline_digest": "c0b9598584d4e6a3d38d5684fc612c22399c2dfa0a929b2ef29e611861c4d7e8",
   "before_digest": "775c71bd5e57dd5c8e7ea54d266542d4f255686db9e8135fd8b4fa6847a1b9db",
   "decided_by": "architecture maintainers",
   "rationale": "AD-250 adds bounded source facts for guarded paths and one-hop private helper binding, owned by the Python call collector and guarded-effect evaluator. Preserve the existing measurement budgets and record no increase in known debt.",
