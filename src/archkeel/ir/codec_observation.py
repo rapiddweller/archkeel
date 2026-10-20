@@ -119,7 +119,6 @@ def _requires_numeric_version(version: _ObservationVersion) -> bool:
     }
 
 
-
 class _EncodingKind(StrEnum):
     COLUMNAR = "architecture-ir-columnar-v1"
 
@@ -283,13 +282,13 @@ def _validate_versioned_records(
         if section.name != ObservedSection.CALLS:
             continue
         for call in section.records:
-            has_arguments = _has_field(
-                (key for key, _ in call.data.entries), "call_arguments"
-            )
+            has_arguments = _has_field((key for key, _ in call.data.entries), "call_arguments")
             if schema_version is _ObservationVersion.V2_5:
                 if python_calls and not has_arguments:
                     raise ValueError("Python 2.5.0 calls require explicit call_arguments")
-                arguments = _call_arguments(call.data.get("call_arguments")) if has_arguments else None
+                arguments = (
+                    _call_arguments(call.data.get("call_arguments")) if has_arguments else None
+                )
                 binding = _call_binding(call.data.get("call_binding"))
                 if has_arguments and (arguments is None) != (binding is None):
                     raise ValueError("call arguments require the canonical call binding")
