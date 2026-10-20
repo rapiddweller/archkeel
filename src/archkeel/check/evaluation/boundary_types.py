@@ -1462,7 +1462,8 @@ def _canonical_import_static(
     for origin in chain[:-1]:
         if not isinstance(origin, str):
             return False
-        origin_module, separator, origin_name = origin.rpartition(".")
+        origin_text: str = origin
+        origin_module, separator, origin_name = origin_text.rpartition(".")
         if not separator or origin_module not in imports.source_modules:
             continue
         hop = imports.get((origin_module, origin_name))
