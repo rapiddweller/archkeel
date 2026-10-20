@@ -675,23 +675,29 @@ def _numeric_unique_local_assignment(
 
 
 def _numeric_other_binding(owner: ast.AST, name: str) -> bool:
-    return any(
-        isinstance(node, ast.arg)
-        and node.arg == name
-        or isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-        and node.name == name
-        or isinstance(node, ast.alias)
-        and (node.asname or node.name.split(".")[0]) == name
-        or isinstance(node, ast.Global | ast.Nonlocal)
-        and name in node.names
-        or isinstance(node, ast.ExceptHandler)
-        and node.name == name
-        or isinstance(node, ast.MatchAs | ast.MatchStar)
-        and node.name == name
-        or isinstance(node, ast.MatchMapping)
-        and node.rest == name
-        for node in ast.walk(owner)
-    )
+    for node in ast.walk(owner):
+        if isinstance(node, ast.arg) and node.arg == name:
+            return True
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if node.name == name:
+                return True
+        if isinstance(node, ast.alias):
+            alias_name: str = node.name
+            alias_asname: str | None = node.asname
+            if alias_asname == name or (
+                alias_asname is None
+                and (alias_name == name or alias_name[: len(name) + 1] == name + ".")
+            ):
+                return True
+        if isinstance(node, ast.Global | ast.Nonlocal) and name in node.names:
+            return True
+        if isinstance(node, ast.ExceptHandler) and node.name == name:
+            return True
+        if isinstance(node, ast.MatchAs | ast.MatchStar) and node.name == name:
+            return True
+        if isinstance(node, ast.MatchMapping) and node.rest == name:
+            return True
+    return False
 
 
 def _numeric_local_alias_assignment(
@@ -786,9 +792,12 @@ def _numeric_module_use_chain_supported(
         return False
     if operation_owner == module_name:
         return not chain
-    if not chain or not isinstance(chain[0], RecordData):
+    if not chain:
         return False
-    owner_id = chain[0].get("scope_symbol_id")
+    first_scope = chain[0]
+    if not isinstance(first_scope, RecordData):
+        return False
+    owner_id: JsonValue = first_scope.get("scope_symbol_id")
     owner = declarations_by_id.get(owner_id) if isinstance(owner_id, str) else None
     if owner is None or owner.data.get("qualified_name") != operation_owner:
         return False
@@ -825,18 +834,23 @@ def _numeric_module_use_chain_supported(
 def _numeric_lexical_parent(
     owner: Record, declarations_by_id: Mapping[str, Record], module_name: str
 ) -> tuple[Record | None, bool]:
-    qualified_name = owner.data.get("qualified_name")
-    parent_name = owner.data.get("parent")
+    qualified_name_value: JsonValue = owner.data.get("qualified_name")
+    name_value: JsonValue = owner.data.get("name")
+    parent_name_value: JsonValue = owner.data.get("parent")
     parent_id = owner.data.get("lexical_parent_id")
-    if not isinstance(qualified_name, str) or not qualified_name.startswith(module_name + "."):
+    if not isinstance(qualified_name_value, str) or not isinstance(name_value, str):
         return None, False
-    expected_parent = qualified_name.rpartition(".")[0]
-    if expected_parent == module_name:
-        return None, parent_name is None and parent_id is None
-    if parent_name != expected_parent or not isinstance(parent_id, str):
+    qualified_name: str = qualified_name_value
+    name: str = name_value
+    if parent_name_value is None:
+        return None, qualified_name == module_name + "." + name and parent_id is None
+    if not isinstance(parent_name_value, str):
+        return None, False
+    parent_name: str = parent_name_value
+    if qualified_name != parent_name + "." + name or not isinstance(parent_id, str):
         return None, False
     parent = declarations_by_id.get(parent_id)
-    if parent is None or parent.data.get("qualified_name") != expected_parent:
+    if parent is None or parent.data.get("qualified_name") != parent_name:
         return None, False
     return parent, True
 
@@ -1688,7 +1702,8 @@ def validate_source_facts(facts: SourceFacts) -> None:
     for symbol_record in declarations_by_id.values():
         qualified_name_value = symbol_record.data.get("qualified_name")
         if isinstance(qualified_name_value, str):
-            declaration_groups.setdefault(qualified_name_value, []).append(symbol_record)
+            group: list[Record] = declaration_groups.setdefault(qualified_name_value, [])
+            group.append(symbol_record)
     declarations_by_name = {
         name: tuple(declarations) for name, declarations in declaration_groups.items()
     }
