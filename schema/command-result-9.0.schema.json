@@ -51,6 +51,9 @@
             },
             {
               "$ref": "urn:archkeel:architecture-ir:decoded:2.7.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.8.0"
             }
           ]
         },
@@ -213,6 +216,9 @@
             },
             {
               "$ref": "urn:archkeel:architecture-ir:decoded:2.7.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.8.0"
             }
           ]
         },

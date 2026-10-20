@@ -48,6 +48,20 @@ def test_command_versions_preserve_their_observation_boundary(version, wire):
     assert not validator.is_valid(packet)
 
 
+@pytest.mark.parametrize("branch", [1, 2])
+@pytest.mark.parametrize("minor", range(1, 9))
+def test_command_result_9_object_branches_admit_intended_observation_versions(branch, minor):
+    version = f"2.{minor}.0"
+    raw = _model(git_head="a" * 40)
+    raw["schema_version"] = version
+    schema = _validator("command-result-9.0.schema.json").schema["anyOf"][branch][
+        "properties"
+    ]["observation"]
+    observation_validator = _validator("command-result-9.0.schema.json").evolve(schema=schema)
+    accepted = minor in (set(range(1, 9)) if branch == 1 else {1, 5, 6, 7, 8})
+    assert observation_validator.is_valid(raw) is accepted
+
+
 @pytest.mark.parametrize("profile", ["decoded", "python-decoded"])
 @pytest.mark.parametrize("wire", ["1.3.0", "2.0.0", "2.1.0", "2.8.0"])
 @pytest.mark.parametrize("version", ["2.0.0", "2.1.0", "2.8.0"])
