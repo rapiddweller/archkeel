@@ -55,6 +55,7 @@ from archkeel.ir.model import (
     NoComponentCyclesRule,
     ProtocolDeclarationsRule,
     RootLayoutRule,
+    SelectorMatch,
     SiblingIsolationRule,
     SymbolPlacementRule,
     component_owns_module,
@@ -1196,6 +1197,9 @@ def rule_subject_failures(
                 item["data"]["qualified_name"]
                 for item in _construct_subject_symbols(rule.source, symbols, owner_modules)
             }
+        source_subjects = source_subjects | _source_policy_symbol_subjects(
+            rule, symbols, source_modules
+        )
         facade_scoped = False
         if isinstance(rule, BoundaryTypesRule) and contract is not None:
             source_subjects = _boundary_type_subject_modules(
@@ -1219,6 +1223,30 @@ def rule_subject_failures(
                 _missing_rule_subject_failure(rule, scopes, matches, facade_scoped)
             )
     return rule_failures
+
+
+def _source_policy_symbol_subjects(
+    rule: ArchitectureRule,
+    symbols: Sequence[RawRecord],
+    source_modules: frozenset[str] | None,
+) -> set[str]:
+    if not isinstance(rule, ForbiddenCallArgumentRule | CatalogArgumentRule | CatalogUseRule):
+        return set()
+    match = (
+        rule.source_match
+        if isinstance(rule, CatalogArgumentRule | CatalogUseRule)
+        else SelectorMatch.PREFIX
+    )
+    return {
+        item["data"]["qualified_name"]
+        for item in symbols
+        if (source_modules is None or item["data"]["module"] in source_modules)
+        and (
+            item["data"]["qualified_name"] == rule.source
+            if match is SelectorMatch.EXACT
+            else in_scope(item["data"]["qualified_name"], rule.source)
+        )
+    }
 
 
 def _missing_rule_subject_failure(
@@ -2147,6 +2175,7 @@ def source_selector_domains(
     *,
     package_scopes: Sequence[str] = (),
     exact_module_scopes: Sequence[str] = (),
+    match: SelectorMatch = SelectorMatch.PREFIX,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """Resolve a source prefix to its physical module domain and intersect its mount."""
     module_names = tuple(
@@ -2157,7 +2186,7 @@ def source_selector_domains(
     module_prefixes = [name for name in module_names if in_scope(source, name)]
     selector = max(module_prefixes, key=lambda name: len(name.split(".")), default=source)
     packages: set[str] = set()
-    exact_selected = (selector,) if selector != source else ()
+    exact_selected = (selector,) if selector != source or match is SelectorMatch.EXACT else ()
     if exact_selected:
         if package_scopes and not any(in_scope(selector, package) for package in package_scopes):
             exact_selected = ()
