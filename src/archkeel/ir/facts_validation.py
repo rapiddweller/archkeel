@@ -1523,7 +1523,9 @@ def _constructed_call_matches_source(
     if isinstance(assignment_name, str):
         expression = f"{assignment_name}.{_last_segment(binding.target)}"
     elif assignment_name is None and len(constructors) == 1:
-        constructor_expression = constructors[0].data.get("expression")
+        constructor = constructors[0]
+        constructor_data = constructor.data
+        constructor_expression = constructor_data.get("expression")
         if not isinstance(constructor_expression, str):
             return False
         expression = f"{constructor_expression}().{_last_segment(binding.target)}"
