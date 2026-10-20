@@ -28,6 +28,8 @@ from .facts import (
     Evidence,
     EvidenceClass,
     ExternalPackageTarget,
+    GuardedEffectEvidence,
+    GuardHelperArgument,
     JsonValue,
     LocalTarget,
     MethodKind,
@@ -1776,6 +1778,7 @@ def _source_guarded_effect(
     record: Record,
     section: SourceSectionName,
     evidence: Mapping[str, Evidence],
+    imports: tuple[Record, ...],
 ) -> None:
     if section is not SourceSectionName.CALLS:
         raise ValueError("guarded effect evidence needs its call owner")
@@ -1794,15 +1797,159 @@ def _source_guarded_effect(
             evidence,
         ):
             raise ValueError("guarded-effect condition value disagrees with its source path")
+        arguments = call_arguments(record.data.get("call_arguments"))
+        call_evidence = next(
+            (evidence[identifier] for identifier in record.evidence_ids if identifier in evidence),
+            None,
+        )
+        if proof.helper_bindings and not _guarded_helper_arguments_match_source(
+            record, proof, arguments, call_evidence, evidence
+        ):
+            raise ValueError("guarded-effect helper argument disagrees with its source")
         if proof.complete and (
             binding is None or proof.effect_binding_evidence_ids != binding.evidence_ids
         ):
             raise ValueError("guarded effect must reference its canonical call binding")
+        if proof.helper_bindings and not _source_helper_target_matches_call(
+            record, binding, evidence, imports
+        ):
+            raise ValueError("guarded-effect helper target disagrees with its written callee")
         if any(
             binding is None or helper.call_id != record.id or helper.target != binding.target
             for helper in proof.helper_bindings
         ):
             raise ValueError("guarded-effect helper identity disagrees with its call binding")
+
+
+def _source_helper_target_matches_call(
+    record: Record,
+    binding: CallBinding | None,
+    evidence: Mapping[str, Evidence],
+    imports: tuple[Record, ...],
+) -> bool:
+    expression = record.data.get("expression")
+    target = binding.target if binding is not None else ""
+    source_module = record.data.get("source_module")
+    if (
+        binding is None
+        or binding.origin is not CallBindingOrigin.DIRECT
+        or not isinstance(expression, str)
+        or not _call_expression_matches_source(record, expression, evidence)
+    ):
+        return False
+    target_module, _, target_name = target.rpartition(".")
+    expression_name = expression.rpartition(".")[-1]
+    if target_module == source_module:
+        return target_name == expression_name
+    for imported in imports:
+        module = imported.data.get("target_module")
+        symbol = imported.data.get("symbol")
+        if (
+            imported.data.get("source_module") == source_module
+            and imported.data.get("binding") == expression
+            and imported.data.get("source_binding_unique") is True
+            and isinstance(module, str)
+            and module + (f".{symbol}" if isinstance(symbol, str) else "") == target
+        ):
+            return True
+    return False
+
+
+def _guarded_helper_arguments_match_source(
+    record: Record,
+    proof: GuardedEffectEvidence,
+    arguments: tuple[CallArgument, ...] | None,
+    call_evidence: Evidence | None,
+    evidence: Mapping[str, Evidence],
+) -> bool:
+    helpers = proof.helper_bindings
+    if arguments is None:
+        return all(
+            actual.token_kind.value == "unknown"
+            for helper in helpers
+            for actual in helper.arguments
+        )
+    if call_evidence is None or not _call_arguments_match_source(
+        record, arguments, evidence, call_evidence.file
+    ):
+        return False
+    actuals = _source_call_actuals(record, call_evidence)
+    if actuals is None:
+        return False
+    for helper in helpers:
+        if len(helper.arguments) != len(arguments):
+            return False
+        for actual in helper.arguments:
+            index = actual.argument_index
+            if (
+                index >= len(arguments)
+                or actual.evidence_ids != arguments[index].evidence_ids
+                or actual.condition is not None
+                and (
+                    actual.condition.kind is not proof.condition.kind
+                    or actual.condition.owner != proof.condition.owner
+                )
+                or not _guarded_actual_matches_condition(actual, actuals[index])
+            ):
+                return False
+    return True
+
+
+def _source_call_actuals(
+    record: Record, evidence: Evidence
+) -> tuple[ast.expr, ...] | None:
+    parsed = _call_evidence_nodes(evidence.excerpt)
+    if parsed is None:
+        return None
+    roots, line_offset = parsed
+    expression = record.data.get("expression")
+    calls = [
+        node
+        for root in roots
+        for node in ast.walk(root)
+        if isinstance(node, ast.Call)
+        and _source_node_starts_at(node, evidence.line, evidence.column, line_offset)
+        and _call_expression(node) == expression
+    ]
+    if len(calls) != 1:
+        return None
+    node = calls[0]
+    positional = [
+        argument.value if isinstance(argument, ast.Starred) else argument for argument in node.args
+    ]
+    return tuple(positional + [keyword.value for keyword in node.keywords])
+
+
+def _source_node_starts_at(node: ast.AST, line: int, column: int, line_offset: int) -> bool:
+    span = _numeric_node_span(node, line, line_offset)
+    return span is not None and span[:2] == (line, column)
+
+
+def _guarded_actual_matches_condition(
+    actual: GuardHelperArgument, expression: ast.expr
+) -> bool:
+    token_kind = actual.token_kind.value
+    if token_kind == "unknown":
+        return True
+    selector = actual.condition
+    if token_kind == "boolean_literal":
+        return isinstance(expression, ast.Constant) and expression.value is actual.token_value
+    if selector is None:
+        return False
+    candidate = expression
+    negated = False
+    if isinstance(candidate, ast.UnaryOp) and isinstance(candidate.op, ast.Not):
+        candidate = candidate.operand
+        negated = True
+    matches = (
+        isinstance(candidate, ast.Name) and candidate.id == selector.name
+        if selector.kind.value == "parameter"
+        else isinstance(candidate, ast.Attribute)
+        and candidate.attr == selector.name
+        and isinstance(candidate.value, ast.Name)
+        and candidate.value.id == "self"
+    )
+    return matches and (token_kind == "not_condition") == negated
 
 
 def _guard_path_matches_condition(
@@ -1834,10 +1981,7 @@ def _guard_path_matches_condition(
             for node in ast.walk(root):
                 if not isinstance(node, ast.If | ast.IfExp):
                     continue
-                if _numeric_node_span(node.test, item.line, line_offset)[:2] != (
-                    item.line,
-                    item.column,
-                ):
+                if not _source_node_starts_at(node.test, item.line, item.column, line_offset):
                     continue
                 guard_value = _guard_test_value(node.test, name, kind)
                 if (
@@ -1863,8 +2007,7 @@ def _source_call_node_in_tree(
     for node in ast.walk(root):
         if (
             isinstance(node, ast.Call)
-            and _numeric_node_span(node, item.line, line_offset)[:2]
-            == (item.line, item.column)
+            and _source_node_starts_at(node, item.line, item.column, line_offset)
             and ast.unparse(node.func) == expression
         ):
             return node
@@ -1885,8 +2028,7 @@ def _source_call_node(record: Record, item: Evidence | None) -> ast.Call | None:
         for node in ast.walk(root):
             if (
                 isinstance(node, ast.Call)
-                and _numeric_node_span(node, item.line, line_offset)[:2]
-                == (item.line, item.column)
+                and _source_node_starts_at(node, item.line, item.column, line_offset)
                 and ast.unparse(node.func) == expression
             ):
                 return node
@@ -1942,6 +2084,7 @@ def _source_record(
     record: Record,
     section: SourceSectionName,
     evidence: Mapping[str, Evidence] | None = None,
+    imports: tuple[Record, ...] = (),
 ) -> None:
     if record.evidence_class not in (EvidenceClass.FACT, EvidenceClass.UNKNOWN):
         raise ValueError("source records cannot carry governance decisions")
@@ -1985,7 +2128,7 @@ def _source_record(
             raise ValueError("call arguments need their call owner")
         call_arguments(record.data.get("call_arguments"))
     if "guarded_effect" in fields:
-        _source_guarded_effect(record, section, evidence or {})
+        _source_guarded_effect(record, section, evidence or {}, imports)
     _payload(record.data)
 
 
@@ -2341,9 +2484,15 @@ def validate_source_facts(facts: SourceFacts) -> None:
     for record in records:
         if not set(record.evidence_ids).issubset(evidence_ids):
             raise ValueError("dangling source evidence reference")
+    source_imports = tuple(
+        item
+        for imported_section in facts.sections
+        if imported_section.name is SourceSectionName.IMPORTS
+        for item in imported_section.records
+    )
     for section in facts.sections:
         for record in section.records:
-            _source_record(record, section.name, base_by_id)
+            _source_record(record, section.name, base_by_id, source_imports)
             if section.name is SourceSectionName.CONSTRUCTS and record.kind == "numeric_operand":
                 operation_span = (
                     record.data.get("line"),

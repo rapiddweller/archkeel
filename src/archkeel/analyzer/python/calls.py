@@ -1552,6 +1552,7 @@ class CallCollector(ast.NodeVisitor):
         ]
         actual_nodes.extend(argument.value for argument in node.keywords)
         result: list[RecordData] = []
+        actuals_supported = node.end_lineno == node.lineno
         for kind, owner, name, _, _ in candidates:
             actuals: list[RecordData] = []
             evidence_ids = set(binding["evidence_ids"])
@@ -1566,13 +1567,19 @@ class CallCollector(ast.NodeVisitor):
                 token_value = None
                 condition = None
                 candidate = _same_condition(expression, name, "self" if kind == "member" else None)
-                if isinstance(expression, ast.Constant) and isinstance(expression.value, bool):
+                if (
+                    actuals_supported
+                    and isinstance(expression, ast.Constant)
+                    and isinstance(expression.value, bool)
+                ):
                     token_kind = GuardHelperTokenKind.BOOLEAN_LITERAL
                     token_value = expression.value
-                elif candidate:
+                elif actuals_supported and candidate:
                     token_kind = GuardHelperTokenKind.CONDITION
                     condition = {"kind": kind, "owner": owner, "name": name}
                 elif (
+                    actuals_supported
+                    and
                     isinstance(expression, ast.UnaryOp)
                     and isinstance(expression.op, ast.Not)
                     and _same_condition(
