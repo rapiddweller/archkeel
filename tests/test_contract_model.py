@@ -88,6 +88,30 @@ def test_contract_parser_rejects_distinct_records_with_duplicate_ids() -> None:
         parse_contract(raw)
 
 
+@pytest.mark.parametrize(
+    ("declarations", "message"),
+    [
+        (
+            {"compat": [{"module": "old.m", "target": "new.m", "lifetime": "permanent"}] * 2},
+            "compat modules must be unique",
+        ),
+        (
+            {"measurement_budgets": [{"name": "cycle_edges", "provenance": ["docs/a.md"]}] * 2},
+            "measurement_budgets repeats a name",
+        ),
+    ],
+    ids=["compat", "measurement-budgets"],
+)
+def test_contract_parser_rejects_repeated_widening_keys(
+    declarations: dict[str, object], message: str
+) -> None:
+    # Widening compares these by key, so a repeat would hide one of them (#634).
+    raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
+    raw["declarations"] = declarations
+    with pytest.raises(ValueError, match=message):
+        parse_contract(raw)
+
+
 def test_component_namespace_round_trips_and_must_name_an_owned_package() -> None:
     raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
     raw["components"][0]["namespace"] = raw["components"][0]["packages"][0]

@@ -693,8 +693,8 @@ class ConstructCollector(ast.NodeVisitor):
         if owner is None:
             return None, []
         evidence_id = add_evidence(self.evidence, self.module, assignment)
-        use_line, use_column, _ = location(use)
-        assignment_line, assignment_column, _ = location(assignment)
+        use_line, _, use_column = location(use)
+        assignment_line, _, assignment_column = location(assignment)
         if (assignment_line, assignment_column) >= (use_line, use_column):
             return None, []
         value, derivation = self._integer(assignment.value, assignment, depth + 1, seen | {name})
