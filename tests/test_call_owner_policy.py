@@ -792,6 +792,126 @@ def test_native_receiver_owner(tmp_path, caller, allowed, expected, mounted):
         assert violation.evidence_ids and violation.fact_ids and violation.rule_ids
 
 
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize(
+    "caller,expected,expression",
+    [
+        (
+            "import random\ndef run():\n    rng = random.Random()\n    rng.random()\n",
+            "FAIL",
+            "rng.random",
+        ),
+        (
+            "import random\ndef replacement(self): pass\ndef run():\n"
+            "    rng = random.Random()\n    rng.random = replacement\n    rng.random()\n",
+            "UNKNOWN",
+            "rng.random",
+        ),
+        (
+            "import random\ndef run():\n    rng = random.Random()\n"
+            "    del rng.random\n    rng.random()\n",
+            "UNKNOWN",
+            "rng.random",
+        ),
+        (
+            "import random\ndef run():\n    rng = random.Random()\n"
+            "    delattr(rng, 'random')\n    rng.random()\n",
+            "UNKNOWN",
+            "rng.random",
+        ),
+        (
+            "import random\ndef consume(value): pass\ndef run():\n"
+            "    rng = random.Random()\n    consume(rng)\n    rng.random()\n",
+            "UNKNOWN",
+            "rng.random",
+        ),
+        (
+            "import random\ndef run():\n    rng.random()\n    rng = random.Random()\n",
+            "UNKNOWN",
+            "rng.random",
+        ),
+    ],
+    ids=[
+        "unmutated-instance",
+        "mutated-instance",
+        "deleted-instance-method",
+        "delattr-instance-method",
+        "escaped-instance",
+        "assignment-after-call",
+    ],
+)
+def test_native_random_receiver_mutation_and_order_replay(
+    tmp_path, caller, expected, expression, mounted, columnar
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        caller,
+        target="random.Random.random",
+        allowed=(),
+        mounted=mounted,
+    )
+    assert row.status == expected and row.evaluation_proven is (expected != "UNKNOWN")
+    [call] = [
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == expression
+    ]
+    if expected == "UNKNOWN":
+        assert call.data.get("call_binding") is None
+    else:
+        assert call.data.get("call_binding", {}).get("target") == "random.Random.random"
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"random-receiver-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == expected
+    assert replayed.evaluation_proven is (expected != "UNKNOWN")
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_stored_property_receiver_stays_unknown_and_replays(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={
+            "sample/storage.py": "class Storage:\n    @property\n    def page(self): return 1\n"
+        },
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    )
+    assert call.data.get("call_binding") is None
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"stored-property-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
 @pytest.mark.parametrize(
     "caller",
     [
