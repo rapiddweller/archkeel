@@ -223,6 +223,29 @@ def _signature_origin(
     return ".".join(part for part in (target, symbol, suffix) if part)
 
 
+def _annotation_class_origin(
+    initializer: Record,
+    parameter: RecordData,
+    facts: SourceFacts,
+    declarations: Mapping[str, list[Record]],
+) -> str | None:
+    annotation = parameter.get("annotation")
+    module = initializer.data.get("module")
+    if not isinstance(annotation, str) or not annotation or not isinstance(module, str):
+        return None
+    records = [record for section in facts.sections for record in section.records]
+    imported = _signature_origin(initializer.data, annotation, records, facts)
+    candidates = (imported,) if imported is not None else (f"{module}.{annotation}",)
+    matches = [
+        target
+        for target in candidates
+        if target is not None
+        and len(declarations.get(target, ())) == 1
+        and declarations[target][0].kind == "class"
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
 def _signature_terminal(name: str, bindings: dict[str, ProviderBinding]) -> ProviderBinding | None:
     seen: set[str] = set()
     while name not in seen:
@@ -693,6 +716,11 @@ def _call_origin_proof(
             if isinstance(target, str)
             else (False, ())
         )
+        annotation_target = (
+            _annotation_class_origin(initializers[0], typed_parameters[0], facts, declarations)
+            if len(initializers) == 1 and len(typed_parameters) == 1
+            else None
+        )
         if (
             not isinstance(field, str)
             or not field.isidentifier()
@@ -705,6 +733,7 @@ def _call_origin_proof(
             or len(initializers) != 1
             or len(linked_writes) != 1
             or linked_writes[0].get("annotation_target") != target
+            or annotation_target != target
             or len(typed_parameters) != 1
             or len(stored_types) != 1
             or stored_types[0].kind != "class"
