@@ -90,6 +90,58 @@ def test_stored_typed_receiver_is_proven_beyond_candidate_resolution(tmp_path, m
     assert row.status == "FAIL" and row.count == 1
 
 
+@pytest.mark.parametrize(
+    "allowed,expected",
+    [((), "FAIL"), (("sample.caller",), "PASS")],
+)
+def test_stored_receiver_through_static_reexport_has_canonical_policy_result(
+    tmp_path, allowed, expected
+):
+    result, row = _observe(
+        tmp_path,
+        "from .pkg import Vault as Selected\nclass Holder:\n"
+        "    def __init__(self, client: Selected): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        allowed=allowed,
+        target="sample.pkg.types.Vault.page",
+        extra={
+            "sample/pkg/__init__.py": "from .types import Vault\n",
+            "sample/pkg/types.py": "class Vault:\n    def page(self): pass\n",
+        },
+    )
+    [call] = [
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    ]
+    assert call.data.get("call_binding").get("target") == "sample.pkg.types.Vault.page"
+    assert row.status == expected and row.evaluation_proven
+    assert row.count == (1 if expected == "FAIL" else 0)
+
+
+def test_ambiguous_reexported_stored_receiver_stays_unknown(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .pkg import Vault\nfrom .other import Vault\nclass Holder:\n"
+        "    def __init__(self, client: Vault): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        allowed=(),
+        target="sample.pkg.types.Vault.page",
+        extra={
+            "sample/pkg/__init__.py": "from .types import Vault\n",
+            "sample/pkg/types.py": "class Vault:\n    def page(self): pass\n",
+            "sample/other.py": "class Vault:\n    def page(self): pass\n",
+        },
+    )
+    [call] = [
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    ]
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
 def test_unicode_python_identifier_stored_receiver_is_proven(tmp_path):
     result, row = _observe(
         tmp_path,

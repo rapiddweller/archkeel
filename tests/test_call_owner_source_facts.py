@@ -12,6 +12,7 @@ from archkeel.analyzer.python.collect import collect, provider_sources
 from archkeel.ir.facts_codec import (
     CollectionResponse,
     ProtocolError,
+    RecordData,
     decode_response,
     encode_response,
 )
@@ -137,6 +138,73 @@ def test_stored_receiver_rhs_must_match_its_typed_parameter(tmp_path):
         decode_response(json.dumps(payload).encode())
 
 
+@pytest.mark.parametrize(
+    "caller,expected",
+    [
+        (
+            "from .pkg import Vault as Selected\nclass Holder:\n"
+            "    def __init__(self, client: Selected): self.client = client\n"
+            "    def run(self): self.client.page()\n",
+            "sample.pkg.types.Vault",
+        ),
+        (
+            "from .pkg import Vault\nfrom .other import Vault\nclass Holder:\n"
+            "    def __init__(self, client: Vault): self.client = client\n"
+            "    def run(self): self.client.page()\n",
+            None,
+        ),
+    ],
+)
+def test_stored_annotation_origin_uses_unique_reexport_binding(tmp_path, caller, expected):
+    payload = _payload(
+        tmp_path,
+        caller,
+        extra={
+            "sample/pkg/__init__.py": "from .types import Vault\n",
+            "sample/pkg/types.py": "class Vault:\n    def page(self): pass\n",
+            "sample/other.py": "class Vault:\n    def page(self): pass\n",
+        },
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    call = next(
+        record
+        for section in facts.sections
+        if section.name.value == "calls"
+        for record in section.records
+        if record.data.get("expression") == "self.client.page"
+    )
+    binding = call.data.get("call_binding")
+    if expected is None:
+        assert binding is None
+    else:
+        assert isinstance(binding, RecordData)
+        assert binding.get("origin") == "stored_receiver"
+        assert binding.get("target") == f"{expected}.page"
+        assert binding.get("proof").get("target") == expected
+    from archkeel.ir.facts_validation import _annotation_class_origin
+
+    symbols = next(section for section in facts.sections if section.name.value == "symbols")
+    initializer = next(
+        record
+        for record in symbols.records
+        if record.data.get("qualified_name") == "sample.caller.Holder.__init__"
+    )
+    parameters = initializer.data.get("parameters")
+    assert isinstance(parameters, tuple)
+    parameter = next(
+        item for item in parameters if isinstance(item, RecordData) and item.get("name") == "client"
+    )
+    declarations: dict[str, list] = {}
+    for section in facts.sections:
+        if section.name.value != "symbols":
+            continue
+        for record in section.records:
+            name = record.data.get("qualified_name")
+            if record.kind in {"class", "function", "method"} and isinstance(name, str):
+                declarations.setdefault(name, []).append(record)
+    assert _annotation_class_origin(initializer, parameter, facts, declarations) == expected
+
+
 def test_constructed_receiver_cannot_use_another_real_allocation(tmp_path):
     payload = _payload(
         tmp_path,
@@ -174,58 +242,6 @@ def test_constructed_receiver_cannot_use_another_real_allocation(tmp_path):
     )
     with pytest.raises(ProtocolError):
         decode_response(json.dumps(payload).encode())
-
-
-def test_native_selector_annotation_uses_proven_reexport_origin(tmp_path):
-    payload = _payload(
-        tmp_path,
-        "from .pkg import Store as Selected\ndef run(store: Selected): store.page()\n",
-        native=True,
-        extra={
-            "sample/pkg/__init__.py": "from .types import Store\n",
-            "sample/pkg/types.py": "class Store:\n    def page(self): pass\n",
-        },
-    )
-    facts = decode_response(json.dumps(payload).encode()).facts
-    selectors = [
-        record
-        for section in facts.sections
-        if section.name.value == "constructs"
-        for record in section.records
-        if record.kind == "construct_selector"
-    ]
-    [selector] = selectors
-    binding = selector.data.get("receiver_binding")
-    assert binding is not None
-    assert binding.get("origin") == "declared_receiver"
-    assert binding.get("target") == "sample.pkg.types.Store"
-
-
-def test_ambiguous_reexport_annotation_does_not_prove_selector_receiver(tmp_path):
-    payload = _payload(
-        tmp_path,
-        "from .pkg import Store\nfrom .other import Store\n"
-        "def run(store: Store): store.page()\n",
-        native=True,
-        extra={
-            "sample/pkg/__init__.py": "from .types import Store\n",
-            "sample/pkg/types.py": "class Store:\n    def page(self): pass\n",
-            "sample/other.py": "class Store:\n    def page(self): pass\n",
-        },
-    )
-    facts = decode_response(json.dumps(payload).encode()).facts
-    selectors = [
-        record
-        for section in facts.sections
-        if section.name.value == "constructs"
-        for record in section.records
-        if record.kind == "construct_selector"
-    ]
-    assert all(
-        record.data.get("receiver_binding") is None
-        or record.data.get("receiver_binding").get("target") != "sample.pkg.types.Store"
-        for record in selectors
-    )
 
 
 def test_native_binding_cannot_use_another_imports_witness(tmp_path):
