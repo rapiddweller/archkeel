@@ -225,11 +225,19 @@ class CallCollector(ast.NodeVisitor):
         }
         self.parents = self.scopes.parents
         self.stable_bindings = stable_direct_module_bindings(module)
-        self.escaped_bindings = {
-            (binding.owner.node, reference.id)
-            for reference in member_escape_references(
+        member_escape_sites = tuple(
+            member_escape_references(
                 module, module.all_nodes, member_surface=True, owner_exposure_only=True
             )
+        )
+        self.escaped_bindings = {
+            (binding.owner.node, reference.id)
+            for reference in member_escape_sites
+            if (binding := self.scopes.lookup(reference, reference.id)).owner is not None
+        }
+        self.constructed_escape_bindings = {
+            (binding.owner.node, reference.id)
+            for reference in member_escape_sites
             if self._receiver_escape_reference(reference)
             if (binding := self.scopes.lookup(reference, reference.id)).owner is not None
         }
@@ -655,13 +663,15 @@ class CallCollector(ast.NodeVisitor):
             current = self.parents[current]
             yield current
 
-    def _receiver_escaped(self, owner: Scope, name: str) -> bool:
+    def _receiver_escaped(self, owner: Scope, name: str, *, constructed: bool = False) -> bool:
+        escape_bindings = self.constructed_escape_bindings if constructed else self.escaped_bindings
         aliases = {name}
         while True:
-            if any((owner.node, alias) in self.escaped_bindings for alias in aliases):
+            if any((owner.node, alias) in escape_bindings for alias in aliases):
                 return True
-            expanded = set(aliases)
-            for alias, sites in owner.bindings.items():
+            expanded: set[str] = set(aliases)
+            bindings: dict[str, list[ast.AST]] = owner.bindings
+            for alias, sites in bindings.items():
                 for site in sites:
                     if not isinstance(site, ast.Name) or not isinstance(site.ctx, ast.Store):
                         continue
@@ -694,9 +704,14 @@ class CallCollector(ast.NodeVisitor):
                     return True
                 current = parent
                 continue
-            if isinstance(parent, ast.Compare) and current in (
-                parent.left,
-                *parent.comparators,
+            if (
+                isinstance(parent, ast.Compare)
+                and isinstance(current, ast.Attribute)
+                and current
+                in (
+                    parent.left,
+                    *parent.comparators,
+                )
             ):
                 return False
             if isinstance(parent, ast.Assign | ast.AnnAssign):
@@ -776,7 +791,7 @@ class CallCollector(ast.NodeVisitor):
             if (
                 binding.uncertain
                 or binding.owner is None
-                or self._receiver_escaped(binding.owner, expression.id)
+                or self._receiver_escaped(binding.owner, expression.id, constructed=True)
             ):
                 return None
             sites = binding.owner.bindings.get(expression.id, ())
