@@ -831,20 +831,8 @@ class CallCollector(ast.NodeVisitor):
 
     def _native_target_revoked(self, target: str) -> bool:
         def canonical(expression: ast.expr, seen: frozenset[str] = frozenset()) -> str | None:
-            value = dotted_expression(expression)
-            if value is None:
-                return None
-            root, separator, suffix = _partition_first(value, ".")
-            binding = self.scopes.lookup(expression, root)
-            if not binding.uncertain and len(binding.targets) == 1:
-                resolved_target: str | None = binding.targets[0]
-            elif binding.owner is not None and root not in seen:
-                resolved_target = self._native_alias_target(root, binding.owner, seen | {root})
-            else:
-                return None
-            if resolved_target is None:
-                return None
-            return resolved_target + (f".{suffix}" if separator else "")
+            possible = self._native_expression_targets(expression, seen)
+            return next(iter(possible)) if len(possible) == 1 else None
 
         sys_modules_aliases = {"sys.modules"}
         changed = True
@@ -907,32 +895,33 @@ class CallCollector(ast.NodeVisitor):
                         return True
         return False
 
-    def _native_alias_target(self, name: str, owner: Scope, seen: frozenset[str]) -> str | None:
-        sites = owner.bindings.get(name, ())
-        if len(sites) != 1 or not isinstance(sites[0], ast.Name):
-            return None
-        assignment = self.parents.get(sites[0])
-        if not isinstance(assignment, ast.Assign | ast.AnnAssign):
-            return None
-        if control_flow_contexts(assignment, self.parents):
-            return None
-        value = assignment.value
-        if value is None or isinstance(value, ast.Call):
-            return None
-        expression = dotted_expression(value)
-        if expression is None:
-            return None
-        root, separator, suffix = _partition_first(expression, ".")
-        binding = self.scopes.lookup(value, root)
-        if not binding.uncertain and len(binding.targets) == 1:
-            resolved_target: str | None = binding.targets[0]
+    def _native_expression_targets(
+        self, expression: ast.expr, seen: frozenset[str] = frozenset()
+    ) -> set[str]:
+        value = dotted_expression(expression)
+        if value is None:
+            return set()
+        root, separator, suffix = _partition_first(value, ".")
+        binding = self.scopes.lookup(expression, root)
+        if binding.kind in {BindingKind.MODULE, BindingKind.SYMBOL} and len(binding.targets) == 1:
+            origins = {binding.targets[0]}
         elif binding.owner is not None and root not in seen:
-            resolved_target = self._native_alias_target(root, binding.owner, seen | {root})
+            origins = self._native_alias_targets(root, binding.owner, seen | {root})
         else:
-            return None
-        if resolved_target is None:
-            return None
-        return resolved_target + (f".{suffix}" if separator else "")
+            return set()
+        return {origin + (f".{suffix}" if separator else "") for origin in origins}
+
+    def _native_alias_targets(self, name: str, owner: Scope, seen: frozenset[str]) -> set[str]:
+        sites = owner.bindings.get(name, ())
+        origins: set[str] = set()
+        for site in sites:
+            if not isinstance(site, ast.Name):
+                continue
+            assignment = self.parents.get(site)
+            if not isinstance(assignment, ast.Assign | ast.AnnAssign) or assignment.value is None:
+                continue
+            origins.update(self._native_expression_targets(assignment.value, seen))
+        return origins
 
     def _native_targets_mutated(
         self,
@@ -942,6 +931,14 @@ class CallCollector(ast.NodeVisitor):
         canonical: Callable[[ast.expr], str | None],
     ) -> bool:
         for item in targets:
+            if isinstance(item, ast.Name):
+                binding = self.scopes.lookup(item, item.id)
+                sites = binding.owner.bindings.get(item.id, ()) if binding.owner else ()
+                if not any(
+                    isinstance(self.parents.get(site), ast.Import | ast.ImportFrom)
+                    for site in sites
+                ):
+                    continue
             changed_target = canonical(item)
             if changed_target is None:
                 continue

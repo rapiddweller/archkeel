@@ -620,28 +620,37 @@ def test_dynamic_stored_member_mutation_revokes_field_proof(tmp_path, operation,
 
 
 @pytest.mark.parametrize(
-    "mutation,allowed,expected",
+    "alias,mutation,allowed,expected",
     [
-        ("alias.random = replacement", (), "UNKNOWN"),
-        ("alias2.random = replacement", (), "UNKNOWN"),
-        ("setattr(alias, name, replacement)", (), "UNKNOWN"),
-        ("delattr(alias, name)", (), "UNKNOWN"),
+        ("alias = random\n", "alias.random = replacement", (), "UNKNOWN"),
+        ("alias = random\nalias2 = alias\n", "alias2.random = replacement", (), "UNKNOWN"),
+        ("alias = random\n", "setattr(alias, name, replacement)", (), "UNKNOWN"),
+        ("alias = random\n", "delattr(alias, name)", (), "UNKNOWN"),
+        ("", "if flag:\n    alias = random\nalias.random = replacement", (), "UNKNOWN"),
+        (
+            "alias = random\n",
+            "if flag:\n    alias = replacement\nalias.random = replacement",
+            (),
+            "UNKNOWN",
+        ),
     ],
-    ids=["alias-member", "alias-chain", "alias-dynamic-setattr", "alias-dynamic-delattr"],
+    ids=[
+        "alias-member",
+        "alias-chain",
+        "alias-dynamic-setattr",
+        "alias-dynamic-delattr",
+        "conditional-alias",
+        "conditional-rebind",
+    ],
 )
 @pytest.mark.parametrize("mounted", [False, True])
 @pytest.mark.parametrize("columnar", [False, True])
 def test_native_module_alias_mutation_revokes_only_matching_target(
-    tmp_path, mutation, allowed, expected, mounted, columnar
+    tmp_path, alias, mutation, allowed, expected, mounted, columnar
 ):
     from archkeel.check.report import run_saved_report
     from archkeel.ir.codec import canonical_report_bytes, observation_payload
 
-    alias = (
-        "alias = random\nalias2 = alias\n"
-        if mutation.startswith(("alias", "setattr(alias", "delattr(alias"))
-        else ""
-    )
     result, row = _observe(
         tmp_path,
         "import random\n"
