@@ -67,9 +67,9 @@ from .rules import (
     profile_failures,
     rule_subject_failures,
     rule_violations,
+    scope_receipts_complete,
     source_domains_complete,
     source_selector_domains,
-    scope_receipts_complete,
     symbol_limits,
 )
 from .state import evaluate_contexts

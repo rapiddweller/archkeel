@@ -860,19 +860,18 @@ def _certify_protocol_declaration_scopes(
         "selected_files": list(facts.coverage.selected_files),
     }
     inventory_binding_id = _dependency_binding_id(scan, declarations)
-    all_records = tuple(
-        parse_record(item)
-        for group in (
-            scan.violations,
-            scan.unknowns,
-        )
-        for item in group
-    )
     for receipt in receipts:
         receipt_id = receipt["rule_ids"][0]
+        relevant_records = tuple(
+            parse_record(item)
+            for group in (scan.violations, scan.unknowns)
+            for item in group
+            if receipt_id in item["rule_ids"]
+            and item["kind"] in {"protocol_declaration", "protocol_declaration_limit"}
+        )
         receipt["data"]["protocol_scope_proof"] = {
             **proof,
-            "result_digest": protocol_declaration_result_digest(all_records, receipt_id),
+            "result_digest": protocol_declaration_result_digest(relevant_records, receipt_id),
             "binding_id": rule_evaluation_binding_id(
                 inventory_binding_id, parse_record(receipt), SCHEMA_VERSION
             ),
