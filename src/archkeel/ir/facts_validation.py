@@ -236,13 +236,15 @@ def _source_proof_index(
     files_by_module: dict[str, list[FileFact]] = {}
     imports_by_binding: dict[tuple[str, str], list[Record]] = {}
     for item in files:
-        files_by_module.setdefault(item.module, []).append(item)
+        module_files: list[FileFact] = files_by_module.setdefault(item.module, [])
+        module_files.append(item)
     for record in records:
         if record.kind != "import":
             continue
         module, binding = record.data.get("source_module"), record.data.get("binding")
         if isinstance(module, str) and isinstance(binding, str):
-            imports_by_binding.setdefault((module, binding), []).append(record)
+            binding_imports: list[Record] = imports_by_binding.setdefault((module, binding), [])
+            binding_imports.append(record)
     return _SourceProofIndex(
         {name: tuple(items) for name, items in files_by_module.items()},
         {key: tuple(items) for key, items in imports_by_binding.items()},
@@ -3500,7 +3502,8 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
     required = _REQUIRED[section]
     if section is SourceSectionName.CONSTRUCTS and record.kind == "numeric_operand":
         required = _numeric_operand_record(record, fields)
-    if not set(required).issubset(fields):
+    required_fields: set[str] = set(required)
+    if not required_fields.issubset(fields):
         raise ValueError(f"{section} source payload is missing required fields")
     if record.data.get("member_inventories") is not None:
         if section != SourceSectionName.SYMBOLS or record.kind != "class":
@@ -3571,7 +3574,7 @@ def _reference_excerpt_tree(excerpt: str) -> ast.Module | None:
         parsed = _parse_numeric_evidence_excerpt(excerpt)
         if parsed is not None:
             return ast.Module(body=list(parsed[0]), type_ignores=[])
-    stripped = excerpt.rstrip()
+    stripped: str = excerpt.rstrip()
     if not stripped.endswith(("(", "[", "{")):
         return None
     closing = {"(": ")", "[": "]", "{": "}"}[stripped[-1]]
@@ -3953,7 +3956,8 @@ def _source_role_indexes(
         if not isinstance(canonical_name, str) or not isinstance(declaration_id, str):
             raise ValueError("definition role needs its canonical declaration identity")
         key = (canonical_name, declaration_id)
-        anchors.setdefault(key, []).append(role)
+        definition_anchors: list[Record] = anchors.setdefault(key, [])
+        definition_anchors.append(role)
     symbols: dict[str, list[Record]] = {}
     member_anchors: dict[tuple[str, str], list[RecordData]] = {}
     imports: list[Record] = []
@@ -3963,13 +3967,15 @@ def _source_role_indexes(
         if record.data.get("qualified_name"):
             name = record.data.get("qualified_name")
             if isinstance(name, str):
-                symbols.setdefault(name, []).append(record)
+                named_symbols: list[Record] = symbols.setdefault(name, [])
+                named_symbols.append(record)
                 if record.kind in {
                     "class",
                     "function",
                     "method",
                 } or record.data.get("record_kind") in {"static_constant", "dynamic_binding"}:
-                    anchors.setdefault((name, record.id), []).append(record)
+                    symbol_anchors: list[Record] = anchors.setdefault((name, record.id), [])
+                    symbol_anchors.append(record)
         if record.kind in {"class", "function", "method"}:
             name = record.data.get("qualified_name")
             if isinstance(name, str):
@@ -3981,9 +3987,11 @@ def _source_role_indexes(
                         attribute_name = attribute.get("name")
                         attribute_id = attribute.get("definition_id")
                         if isinstance(attribute_name, str) and isinstance(attribute_id, str):
-                            member_anchors.setdefault(
-                                (f"{name}.{attribute_name}", attribute_id), []
-                            ).append(attribute)
+                            member_key = (f"{name}.{attribute_name}", attribute_id)
+                            member_rows: list[RecordData] = member_anchors.setdefault(
+                                member_key, []
+                            )
+                            member_rows.append(attribute)
 
     for reference in records:
         targets = reference.data.get("targets")
@@ -3996,7 +4004,8 @@ def _source_role_indexes(
             and isinstance(targets[0], str)
             and isinstance(declaration_id, str)
         ):
-            anchors.setdefault((targets[0], declaration_id), []).append(reference)
+            reference_anchors: list[Record] = anchors.setdefault((targets[0], declaration_id), [])
+            reference_anchors.append(reference)
 
     return anchors, symbols, member_anchors, imports
 
@@ -4086,16 +4095,20 @@ def _validate_definition_source_role(
     evidence: Mapping[str, Evidence],
 ) -> None:
     declaration_scope = canonical.rpartition(".")[0]
-    if not isinstance(source_scope, str) or not (
-        canonical.startswith(source_scope + ".")
-        or source_scope == declaration_scope
-        or source_scope.startswith(declaration_scope + ".")
+    if not isinstance(source_scope, str):
+        raise ValueError("definition role needs its lexical declaration owner")
+    scope: str = source_scope
+    if not (
+        canonical.startswith(scope + ".")
+        or scope == declaration_scope
+        or scope.startswith(declaration_scope + ".")
     ):
         raise ValueError("definition role needs its lexical declaration owner")
     symbol_matches = symbols.get(canonical, ())
     source_symbol = len(symbol_matches) == 1 and symbol_matches[0].id == declaration_id
     member_matches = member_anchors.get((canonical, declaration_id), ())
-    member_ids = member_matches[0].get("evidence_ids") if len(member_matches) == 1 else None
+    member: RecordData | None = member_matches[0] if len(member_matches) == 1 else None
+    member_ids = member.get("evidence_ids") if member is not None else None
     source_member = isinstance(member_ids, tuple) and any(
         isinstance(identity, str)
         and identity in evidence
@@ -4113,29 +4126,36 @@ def _validate_definition_source_role(
 
 
 def _validate_definition_source_span(role: Record, canonical: str, witness: Evidence) -> None:
-    encoded = witness.excerpt.encode("utf-8")
+    encoded: bytes = witness.excerpt.encode("utf-8")
     start, end = role.data.get("column"), role.data.get("end_column")
-    span = (
+    span: str = (
         encoded[start:end].decode("utf-8", errors="ignore")
         if isinstance(start, int) and isinstance(end, int) and end <= len(encoded)
         else ""
     )
-    suffix = (
+    suffix: str = (
         encoded[start:].decode("utf-8", errors="ignore")
         if isinstance(start, int) and start <= len(encoded)
         else ""
     )
     expected = canonical.rpartition(".")[2]
-    declaration = (
+    declaration: re.Match[str] | None = (
         re.match(r"\s*(?:async\s+)?(?:def|class)\s+([A-Za-z_]\w*)", suffix)
         if suffix.lstrip().startswith(("def ", "async def ", "class "))
         else None
     )
-    observed = (
-        span.strip() if span.strip() == expected else declaration.group(1) if declaration else None
+    stripped_span: str = span.strip()
+    observed: str | None = (
+        stripped_span
+        if stripped_span == expected
+        else declaration.group(1)
+        if declaration
+        else None
     )
-    if observed is not None and observed.rsplit(".", 1)[-1].strip() != expected:
-        raise ValueError("definition role name disagrees with its source span")
+    if observed is not None:
+        observed_name: str = observed.rsplit(".", 1)[-1].strip()
+        if observed_name != expected:
+            raise ValueError("definition role name disagrees with its source span")
 
 
 def _validate_parameter_source_role(
@@ -4151,17 +4171,24 @@ def _validate_parameter_source_role(
     parameter = role.data.get("parameter")
     if not isinstance(parameter, str) or parameter != canonical:
         raise ValueError("parameter role needs its exact formal parameter")
+    parameter_name: str = parameter
     owners = [
         name
         for (name, identity), matches in anchors.items()
-        if identity == declaration_id and len(matches) == 1 and parameter.startswith(name + ".")
+        if identity == declaration_id
+        and len(matches) == 1
+        and parameter_name.startswith(name + ".")
     ]
     if len(owners) != 1:
         raise ValueError("parameter role needs its unique function declaration anchor")
-    if not isinstance(source_scope, str) or not (
-        source_scope == owners[0]
-        or source_scope.startswith(owners[0] + ".")
-        or owners[0].startswith(source_scope + ".")
+    if not isinstance(source_scope, str):
+        raise ValueError("parameter role scope disagrees with its declaration owner")
+    scope: str = source_scope
+    owner_scope: str = owners[0]
+    if not (
+        scope == owner_scope
+        or scope.startswith(owner_scope + ".")
+        or owner_scope.startswith(scope + ".")
     ):
         raise ValueError("parameter role scope disagrees with its declaration owner")
     kind, targets, status = (
@@ -4202,10 +4229,10 @@ def _validate_owned_source_role(
     if anchored:
         if role_name in {"write", "delete", "read"}:
             declaration_scope = canonical.rpartition(".")[0]
-            if not isinstance(source_scope, str) or not (
-                source_scope == declaration_scope
-                or source_scope.startswith(declaration_scope + ".")
-            ):
+            if not isinstance(source_scope, str):
+                raise ValueError("local source role disagrees with its lexical declaration scope")
+            scope: str = source_scope
+            if scope != declaration_scope and not scope.startswith(declaration_scope + "."):
                 raise ValueError("local source role disagrees with its lexical declaration scope")
         return
     excerpt = witness.excerpt
@@ -4346,20 +4373,20 @@ def _validate_local_source_reference(
         raise ValueError("local reference needs one declaration target")
     if not isinstance(declaration_id, str):
         raise ValueError("local reference needs one declaration identity")
-    declaration_scope = targets[0].rpartition(".")[0]
-    if not isinstance(source_scope, str) or not (
-        source_scope == declaration_scope or source_scope.startswith(declaration_scope + ".")
-    ):
+    target: str = targets[0]
+    declaration_scope = target.rpartition(".")[0]
+    if not isinstance(source_scope, str):
+        raise ValueError("local reference target disagrees with its lexical scope")
+    scope: str = source_scope
+    if scope != declaration_scope and not scope.startswith(declaration_scope + "."):
         raise ValueError("local reference target disagrees with its lexical scope")
     if reference.data.get("declaration_role") == "definition":
-        _validate_local_definition_reference(
-            reference, targets[0], declaration_id, evidence, symbols
-        )
-        if _only_anchor(anchors, targets[0], declaration_id) is not reference:
+        _validate_local_definition_reference(reference, target, declaration_id, evidence, symbols)
+        if _only_anchor(anchors, target, declaration_id) is not reference:
             raise ValueError("local definition duplicates an existing declaration anchor")
     elif (
-        len(anchors.get((targets[0], declaration_id), ()))
-        + len(member_anchors.get((targets[0], declaration_id), ()))
+        len(anchors.get((target, declaration_id), ()))
+        + len(member_anchors.get((target, declaration_id), ()))
         != 1
     ):
         raise ValueError("local reference has no unique witnessed declaration anchor")
@@ -4431,8 +4458,10 @@ def _local_definition_witness_matches(
     owner: object,
     owner_witnessed: bool,
 ) -> bool:
-    name = target.rpartition(".")[2]
-    suffix = witness.excerpt.encode("utf-8")[witness.column :].decode("utf-8", errors="ignore")
+    name: str = target.rpartition(".")[2]
+    encoded: bytes = witness.excerpt.encode("utf-8")
+    suffix_bytes: bytes = encoded[witness.column :]
+    suffix: str = suffix_bytes.decode("utf-8", errors="ignore")
     declaration_scope = target.rpartition(".")[0]
     nested = isinstance(owner, str) and declaration_scope.startswith(owner + ".<")
     return (
