@@ -2192,7 +2192,8 @@ def _constructed_member_owners_static(
     if not isinstance(target, str):
         return False
     constructed = declarations.get(target, [])
-    method_owner_name = binding.target.rpartition(".")[0]
+    target_name: str = binding.target
+    method_owner_name = target_name.rpartition(".")[0]
     method_owners = declarations.get(method_owner_name, [])
     return (
         len(constructed) == 1
