@@ -2658,6 +2658,74 @@ def test_components_and_modules_choice_uses_native_scope_and_survives_return(tmp
         playwright.stop()
 
 
+def test_over_budget_module_level_skips_layout_and_keeps_navigation(tmp_path):
+    from archkeel.render.html import render_architecture_details
+
+    api = pytest.importorskip("playwright.sync_api")
+    module_count = 84
+    extra_files = {
+        f"sample/m{index}.py": f"import sample.m{index + 1}\n" if index + 1 < module_count else ""
+        for index in range(module_count)
+    }
+    model = _sample(tmp_path, extra_files=extra_files)
+    html = _page(model)
+    level = next(item for item in _atlas(html)["levels"] if item["parent_id"] is None)
+    modules, edges = len(level["modules"]), len(level["cells"])
+    assert modules > 80
+    notice = (
+        f"Diagram not drawn: {modules} modules and {edges} relationships exceed the diagram "
+        "budget of 80 modules / 300 relationships. Open a component, search, or use Health "
+        "check. All facts remain in the module list and architecture.json."
+    )
+    hook = """window.__moduleLayoutCalls = 0;
+window.__originalModuleLayout = ELK.prototype.layout;
+ELK.prototype.layout = function(graph) {
+  window.__moduleLayoutCalls += 1;
+  return window.__originalModuleLayout.call(this, graph);
+};"""
+    index = tmp_path / "architecture.report.html"
+    index.write_text(_intercept_elk_publication(html, hook))
+    for name, content in render_architecture_details(
+        _result(model),
+        canonical_report_bytes(model),
+        repository="One target",
+        architecture_href="architecture.json",
+    ).items():
+        (tmp_path / name).write_bytes(content)
+    errors = []
+    playwright, browser, page = _browser_page(api, index.read_text(), errors=errors)
+    try:
+        # Target lists declared modules only. This fixture declares none (no uml), so its
+        # notice is the declared-module path and is not repeated here.
+        for query in ("", "&view=diff"):
+            page.goto(index.as_uri() + f"?content=modules{query}&theme=light")
+            page.wait_for_selector(
+                '#flow[data-layout-state]:not([data-layout-state="pending"])', timeout=30000
+            )
+            text = page.locator(".flow-alternative").text_content() or ""
+            assert notice in " ".join(text.split())
+            assert page.locator(".flow-canvas").is_hidden()
+            assert page.locator('#flow[data-layout-state="skipped"]').count() == 1
+            assert page.locator(".flow-nodes [data-uml-id]").count() == 0
+            assert page.evaluate("window.__moduleLayoutCalls") == 0
+        first = next(item for item in _atlas(html)["modules"] if item["name"] == "sample.m0")
+        page.goto(index.as_uri() + f"?content=modules&selected={first['id']}&theme=light")
+        page.wait_for_selector('#flow[data-layout-state="skipped"]')
+        assert page.evaluate("window.__moduleLayoutCalls") == 0
+        assert "sample.m0" in page.locator(".flow-inspector").inner_text()
+        page.goto(index.as_uri() + "?scope=core&content=modules&theme=light")
+        page.wait_for_selector('#flow[data-layout-state="ready"]')
+        assert page.locator(".flow-alternative").is_hidden()
+        page.goto(index.as_uri() + "?content=modules&theme=light")
+        page.wait_for_selector('#flow[data-layout-state="skipped"]')
+        _open_health_check(page)
+        assert page.locator(".flow-matrix svg").count() == 1
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
 def test_module_view_is_idle_until_an_element_is_emphasized(tmp_path):
     api = pytest.importorskip("playwright.sync_api")
     index, _ = _route_pages(tmp_path, local_imports=True)

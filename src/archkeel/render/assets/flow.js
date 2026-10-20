@@ -2623,7 +2623,9 @@ export let flow;
     flowHeading.textContent = level.parent_id ? `Architecture map · ${REPORT_SCENE.atlasComponent(level.parent_id)?.label || level.parent_id}` : "Architecture map";
     canvas.hidden = !scene.nodes.length; alternative.hidden = Boolean(scene.nodes.length);
     if (!scene.nodes.length) {
-      alternative.innerHTML = `<div class="flow-scope-notice"><h3>${viewMode === "target" ? "No declared subcomponents. No declared modules recorded." : "No observed content recorded."}</h3><p>${viewMode === "target" ? "Declared facts remain in the Inspector; observed modules are not Target declarations." : "No native module content is recorded for this scope."}</p>${viewMode === "target" ? '<button type="button" class="flow-fit" data-show-as-is>Show As-Is modules</button>' : ""}</div>`;
+      const o = scene.overBudget;
+      alternative.innerHTML = o ? `<div class="flow-scope-notice"><p>${esc(`Diagram not drawn: ${o.modules} modules and ${o.edges} relationships exceed the diagram budget of ${o.budget.modules} modules / ${o.budget.edges} relationships. Open a component, search, or use Health check. All facts remain in the module list and architecture.json.`)}</p></div>`
+        : `<div class="flow-scope-notice"><h3>${viewMode === "target" ? "No declared subcomponents. No declared modules recorded." : "No observed content recorded."}</h3><p>${viewMode === "target" ? "Declared facts remain in the Inspector; observed modules are not Target declarations." : "No native module content is recorded for this scope."}</p>${viewMode === "target" ? '<button type="button" class="flow-fit" data-show-as-is>Show As-Is modules</button>' : ""}</div>`;
       const asIs = alternative.querySelector("[data-show-as-is]");
       if (asIs) asIs.onclick = () => switchArchitectureView("diagram");
     }
@@ -2637,7 +2639,9 @@ export let flow;
     const observed = scene.edges.filter((edge) => !edge.declaration);
     const boundary = scene.moduleOverview && scene.boundaryEdges
       ? ` · ${REPORT_SCENE.countLabel(scene.boundaryEdges, "cross-scope relationship")} not drawn at this level` : "";
-    root.querySelector(".atlas-summary").textContent = scene.moduleOverview
+    root.querySelector(".atlas-summary").textContent = scene.overBudget
+      ? `Current level: ${REPORT_SCENE.countLabel(scene.overBudget.modules, viewMode === "target" ? "declared module" : "observed module")} · ${REPORT_SCENE.countLabel(scene.overBudget.edges, "relationship")} · diagram budget exceeded`
+      : scene.moduleOverview
       ? viewMode === "target" ? `Current level: ${REPORT_SCENE.countLabel(scene.nodes.length, "declared module")} · ${REPORT_SCENE.countLabel(scene.edges.length, "authored module relationship")}${boundary}`
         : `Current level: ${REPORT_SCENE.countLabel(scene.nodes.length, "observed module")} · ${REPORT_SCENE.countLabel(observed.length, "local dependency", "local dependencies")} · ${REPORT_SCENE.countLabel(observed.every((edge) => edge.import_sites !== null) ? observed.reduce((sum, edge) => sum + edge.import_sites, 0) : null, "import site")}${boundary}`
       : viewMode === "target"
@@ -2652,7 +2656,7 @@ export let flow;
       renderAtlasScene(level, content, scene, {
         positions: {}, frames: [], routesById: new Map(),
       });
-      root.dataset.layoutState = "ready";
+      root.dataset.layoutState = scene.overBudget ? "skipped" : "ready";
       finishLayout();
       return;
     }

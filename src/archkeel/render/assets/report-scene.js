@@ -97,7 +97,11 @@ import { create as createDeviations } from "./report-atlas-deviations.js";
           .map((edge) => edge.id)).size
         : new Set(ATLAS.cells.filter((cell) => ids.has(cell.source_id) !== ids.has(cell.target_id))
           .map((cell) => `${cell.source_id}\0${cell.target_id}`)).size;
-      return { nodes, edges, declared, frames: [], atlas: true, moduleOverview: true, boundaryEdges };
+      // Layout and SVG cost grow with the level; above the budget the diagram is unreadable and can stall the browser.
+      const overBudget = nodes.length > MODULE_DIAGRAM_BUDGET.modules || edges.length > MODULE_DIAGRAM_BUDGET.edges
+        ? { modules: nodes.length, edges: edges.length, budget: MODULE_DIAGRAM_BUDGET } : null;
+      return { nodes: overBudget ? [] : nodes, edges: overBudget ? [] : edges, declared, frames: [], atlas: true,
+        moduleOverview: true, boundaryEdges, overBudget };
     }
 
     function atlasScene(level, viewMode) {
@@ -186,8 +190,10 @@ import { create as createDeviations } from "./report-atlas-deviations.js";
       atlasModuleScene,
       atlasScene,
       countLabel,
+      MODULE_DIAGRAM_BUDGET,
     };
   }
+  const MODULE_DIAGRAM_BUDGET = Object.freeze({ modules: 80, edges: 300 });
   const decider = (value) => value === "agent" ? "Agent" : value === "architect" ? "Architect"
     : value && value !== "UNKNOWN" ? String(value) : "Not recorded";
   const perspectives = {
