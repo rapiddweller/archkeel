@@ -109,13 +109,16 @@ def _member_methods(symbols: Sequence[RawRecord], owner_id: str, name: str) -> l
 def _nested_class_members(
     symbols: Sequence[RawRecord], owner_id: str, name: str
 ) -> list[RawRecord]:
-    return [
-        symbol
-        for symbol in symbols
-        if symbol["kind"] == "class"
-        and symbol["data"].get("lexical_parent_id") == owner_id
-        and symbol["data"].get("name") == name
-    ]
+    result: list[RawRecord] = []
+    for symbol in symbols:
+        data: RawData = symbol["data"]
+        if (
+            symbol["kind"] == "class"
+            and data.get("lexical_parent_id") == owner_id
+            and data.get("name") == name
+        ):
+            result.append(symbol)
+    return result
 
 
 def _class_binding_proven(symbol: RawRecord, symbols: Sequence[RawRecord]) -> bool:
