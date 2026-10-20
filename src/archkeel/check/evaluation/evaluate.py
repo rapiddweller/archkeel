@@ -67,7 +67,8 @@ from .rules import (
     profile_failures,
     rule_subject_failures,
     rule_violations,
-    scope_receipts_complete,
+    source_domains_complete,
+    source_selector_domains,
     symbol_limits,
 )
 from .state import evaluate_contexts
@@ -463,10 +464,13 @@ def _call_owner_rule_results(
     for rule in contract.rules:
         if not isinstance(rule, CallOwnerRule):
             continue
-        packages, exact_modules = _call_owner_scope(
-            rule.source, package_scopes, exact_module_scopes
+        packages, exact_modules = source_selector_domains(
+            rule.source,
+            modules,
+            package_scopes=package_scopes,
+            exact_module_scopes=exact_module_scopes,
         )
-        complete = calls_complete and scope_receipts_complete(
+        complete = calls_complete and source_domains_complete(
             modules=modules,
             profile=profile,
             package_scopes=packages,
@@ -489,24 +493,6 @@ def _call_owner_rule_results(
         limits.extend(result[1])
         receipts.extend(result[2])
     return violations, limits, receipts
-
-
-def _call_owner_scope(
-    source: str,
-    package_scopes: Sequence[str],
-    exact_module_scopes: Sequence[str],
-) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    packages: set[str] = set()
-    if package_scopes:
-        for package in package_scopes:
-            if in_scope(package, source):
-                packages.add(package)
-            elif in_scope(source, package):
-                packages.add(source)
-    elif not exact_module_scopes:
-        packages.add(source)
-    exact_modules = tuple(module for module in exact_module_scopes if in_scope(module, source))
-    return tuple(sorted(packages)), exact_modules
 
 
 def _inside_parent_component(
