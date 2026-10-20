@@ -605,7 +605,9 @@ def _numeric_operation_owner_matches(
         if parent is None:
             return False
         node = parent
-        if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+        if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef) and (
+            _numeric_definition_contains_in_body(node, operation_node, parents)
+        ):
             definitions.append(node)
     qualified_owner = scope_owner
     for definition in reversed(
@@ -613,6 +615,20 @@ def _numeric_operation_owner_matches(
     ):
         qualified_owner = f"{qualified_owner}.{definition.name}"
     return operation.data.get("owner") == qualified_owner
+
+
+def _numeric_definition_contains_in_body(
+    definition: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
+    operation: ast.AST,
+    parents: Mapping[ast.AST, ast.AST],
+) -> bool:
+    node = operation
+    while parents.get(node) is not definition:
+        parent = parents.get(node)
+        if parent is None:
+            return False
+        node = parent
+    return any(node is statement for statement in definition.body)
 
 
 def _numeric_unique_local_assignment(
