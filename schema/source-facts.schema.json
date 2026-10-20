@@ -4,6 +4,10 @@
   "title": "ArchKeel source collection protocols 1.0.0-5.0.0",
   "description": "Structural wire contract. facts_validation additionally checks section payloads, scope, digests, unique identities, coverage and references. Architecture policy never crosses this port.",
   "$defs": {
+    "StringTableReference": {
+      "type": "string",
+      "pattern": "^\\$[0-9]+$"
+    },
     "Record": {
       "type": "object",
       "properties": {
@@ -98,13 +102,6 @@
             },
             "overloaded": {
               "type": "boolean"
-            },
-            "reference_context": {
-              "enum": [
-                "value",
-                "annotation",
-                "unknown"
-              ]
             },
             "reexport_candidates": {
               "type": "array",
@@ -2740,16 +2737,65 @@
                   "minItems": 11,
                   "maxItems": 11,
                   "prefixItems": [
-                    {},
-                    {},
-                    {},
-                    {},
-                    {},
-                    {},
-                    {},
-                    {},
-                    {},
-                    {},
+                    {
+                      "anyOf": [
+                        {"$ref": "#/$defs/StringTableReference"},
+                        {"type": "string", "minLength": 1, "pattern": "^[^\\u0000]+$"}
+                      ]
+                    },
+                    {
+                      "anyOf": [
+                        {"$ref": "#/$defs/StringTableReference"},
+                        {"enum": ["FACT", "UNKNOWN"]}
+                      ]
+                    },
+                    {
+                      "anyOf": [
+                        {"$ref": "#/$defs/StringTableReference"},
+                        {"type": "string", "minLength": 1, "pattern": "^[^\\u0000]+$"}
+                      ]
+                    },
+                    {
+                      "anyOf": [
+                        {"$ref": "#/$defs/StringTableReference"},
+                        {"type": "string", "minLength": 1, "pattern": "^[^\\u0000]+$"}
+                      ]
+                    },
+                    {
+                      "anyOf": [
+                        {"$ref": "#/$defs/StringTableReference"},
+                        {"type": "string", "minLength": 1, "pattern": "^[^\\u0000]+$"}
+                      ]
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {"$ref": "#/$defs/StringTableReference"},
+                          {"type": "string", "minLength": 1, "pattern": "^[^\\u0000]+$"}
+                        ]
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {"$ref": "#/$defs/StringTableReference"},
+                          {"type": "string", "minLength": 1, "pattern": "^[^\\u0000]+$"}
+                        ]
+                      }
+                    },
+                    {"const": []},
+                    {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {"$ref": "#/$defs/StringTableReference"},
+                          {"type": "string", "minLength": 1, "pattern": "^[^\\u0000]+$"}
+                        ]
+                      }
+                    },
+                    {"const": []},
                     {
                       "type": "array",
                       "items": {
@@ -2820,7 +2866,18 @@
         "evidence": {
           "type": "array",
           "items": {
-            "type": "array"
+            "type": "array",
+            "minItems": 6,
+            "maxItems": 6,
+            "prefixItems": [
+              {"anyOf": [{"$ref": "#/$defs/StringTableReference"}, {"type": "string", "minLength": 1, "pattern": "^[^\\u0000]+$"}]},
+              {"anyOf": [{"$ref": "#/$defs/StringTableReference"}, {"type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\:\\x00]).+$"}]},
+              {"type": "integer", "minimum": 0},
+              {"type": "integer", "minimum": 0},
+              {"type": "integer", "minimum": 0},
+              {"anyOf": [{"$ref": "#/$defs/StringTableReference"}, {"type": "string"}]}
+            ],
+            "items": false
           }
         },
         "uncertain_reexports": {
@@ -2876,7 +2933,18 @@
         "candidate_evidence": {
           "type": "array",
           "items": {
-            "type": "array"
+            "type": "array",
+            "minItems": 6,
+            "maxItems": 6,
+            "prefixItems": [
+              {"anyOf": [{"$ref": "#/$defs/StringTableReference"}, {"type": "string", "minLength": 1, "pattern": "^[^\\u0000]+$"}]},
+              {"anyOf": [{"$ref": "#/$defs/StringTableReference"}, {"type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\:\\x00]).+$"}]},
+              {"type": "integer", "minimum": 0},
+              {"type": "integer", "minimum": 0},
+              {"type": "integer", "minimum": 0},
+              {"anyOf": [{"$ref": "#/$defs/StringTableReference"}, {"type": "string"}]}
+            ],
+            "items": false
           }
         },
         "provider_bindings": {

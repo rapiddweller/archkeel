@@ -233,13 +233,14 @@ Misplacement findings name the current owner, target owner and offending crossin
 
 `PythonProviderCollector` obtains a bounded V4 import survey through `ProcessCollector`,
 captures provider bytes inside that bounded child, then requests full collection
-(V4 with providers, V3 without). The parent authenticates the complete captured inventory
+(V5 with or without providers). The parent authenticates the complete captured inventory
 without provider-file I/O. Both passes share one deadline and the existing output bounds.
 Non-provider inputs and producer identities must match; records from different passes are never merged.
 The survey retains all selected files, digests and parse gaps. Core rejects its partial
 sections as a complete Python observation; the wrapper always returns the final collection.
-V4 binds provider bytes and hashes in the request; V1–V3 wire formats and custom collector
-wiring retain their existing behavior. Separate resolution inputs never become governed
+V4 binds provider bytes and hashes in the request; V5 retains those fields while using
+compact lossless source rows. V1–V4 wire formats and custom collector wiring retain their
+existing behavior. Separate resolution inputs never become governed
 Files, symbols or coverage. Exact source-binding receipts live with observation proofs,
 not typing debt. They prove a direct export identity, not member shape or effects.
 Default Python composition uses this adapter; explicit collector commands and other

@@ -8,12 +8,9 @@ from __future__ import annotations
 import json
 import re
 from collections import Counter
-from collections.abc import Callable, Mapping, Sequence
-from typing import TypeAlias
+from collections.abc import Callable
 
-JsonTree: TypeAlias = (
-    str | int | float | bool | None | Sequence["JsonTree"] | Mapping[str, "JsonTree"]
-)
+from archkeel.ir.facts import RawJson
 
 _REFERENCE = re.compile(r"^\$\d+$")
 _ESCAPED_REFERENCE = re.compile(r"^\$\$+\d+$")
@@ -21,17 +18,17 @@ _MISSING = "$m"
 
 
 def intern_strings(
-    value: JsonTree,
+    value: object,
     *,
     profitable: Callable[[str, int], bool],
-    missing_value: JsonTree | None = None,
+    missing_value: object | None = None,
     escape_reserved: Callable[[str], bool] | None = None,
-) -> tuple[JsonTree, list[str]]:
-    """Return a lossless JSON tree and its sorted string table."""
+) -> tuple[RawJson, list[str]]:
+    """Return a JSON tree with profitable repeated strings represented by a sorted table."""
     counts: Counter[str] = Counter()
 
-    def count(item: JsonTree) -> None:
-        if item is missing_value and missing_value is not None:
+    def count(item: object) -> None:
+        if missing_value is not None and item is missing_value:
             return
         if isinstance(item, str):
             counts[item] += 1
@@ -39,39 +36,46 @@ def intern_strings(
             for child in item:
                 count(child)
         elif isinstance(item, dict):
-            for child in item.values():
+            for key, child in item.items():
+                if not isinstance(key, str):
+                    raise ValueError("JSON fields must be strings")
                 count(child)
+        elif not isinstance(item, (bool, int, float)) and item is not None:
+            raise ValueError("value is not JSON")
 
     count(value)
     table = sorted(text for text, occurrences in counts.items() if profitable(text, occurrences))
     indexes = {text: index for index, text in enumerate(table)}
 
-    def encode(item: JsonTree) -> JsonTree:
-        if item is missing_value and missing_value is not None:
+    def encode(item: object) -> RawJson:
+        if missing_value is not None and item is missing_value:
             return _MISSING
         if isinstance(item, str):
             if item in indexes:
                 return f"${indexes[item]}"
             if escape_reserved(item) if escape_reserved is not None else item.startswith("$"):
                 return f"${item}"
+            return item
         if isinstance(item, list):
             return [encode(child) for child in item]
         if isinstance(item, dict):
+            if any(not isinstance(key, str) for key in item):
+                raise ValueError("JSON fields must be strings")
             return {key: encode(child) for key, child in item.items()}
-        return item
+        if item is None or isinstance(item, bool | int | float):
+            return item
+        raise ValueError("value is not JSON")
 
     return encode(value), table
 
 
-def expand_strings(
-    value: JsonTree, table: list[str], *, missing_value: JsonTree | None = None
-) -> JsonTree:
-    """Expand interned strings, rejecting malformed or out-of-range references."""
+def expand_strings(value: RawJson, table: list[str]) -> RawJson:
+    """Expand references, rejecting malformed or out-of-range string-table indexes."""
 
-    def decode(item: JsonTree) -> JsonTree:
+    def decode(item: RawJson) -> RawJson:
         if isinstance(item, str):
             if item == _MISSING:
-                return _MISSING if missing_value is None else missing_value
+                return _MISSING
             if _REFERENCE.fullmatch(item):
                 index = int(item[1:])
                 if index >= len(table):
@@ -89,7 +93,7 @@ def expand_strings(
 
 
 def profitable_string(text: str, occurrences: int) -> bool:
-    """Intern when the JSON byte savings exceed table and reference overhead."""
+    """Intern when encoded JSON savings exceed the table and reference overhead."""
     quoted = len(json.dumps(text, ensure_ascii=False).encode("utf-8"))
     reference_bytes = len(str(occurrences - 1)) + 3
     table_bytes = quoted + 2
@@ -97,17 +101,16 @@ def profitable_string(text: str, occurrences: int) -> bool:
 
 
 def observation_profitable(text: str, occurrences: int) -> bool:
-    """Keep the historical report encoding policy byte-for-byte stable."""
-    return (
-        text == "$$m"
-        or occurrences >= 2
+    """Retain the historical report string interning policy byte-for-byte."""
+    return text == "$$m" or (
+        occurrences >= 2
         and len(text) >= 8
-        and ((occurrences - 1) * len(text) - occurrences * 8 > 100)
+        and (occurrences - 1) * len(text) - occurrences * 8 > 100
     )
 
 
 def observation_escaped(text: str) -> bool:
-    """Match the historical observation sentinel and reference escaping."""
+    """Escape the historical missing marker and string-reference spellings."""
     return (
         text in {"$m", "$$m"}
         or bool(_REFERENCE.fullmatch(text))

@@ -76,7 +76,8 @@
         "archkeel.ir.codec_strings"
       ],
       "responsibilities": [
-        "Strictly decode, validate and encode source facts and process envelopes."
+        "Strictly decode, validate and encode source facts and process envelopes.",
+        "Intern lossless JSON strings for source and observation wire encodings."
       ],
       "forbidden_responsibilities": [
         "Policy and I/O.",
@@ -565,6 +566,10 @@
       {
         "path": "src/archkeel/ir/facts_codec.py",
         "responsibility": "Pure validation and serialization of the process boundary."
+      },
+      {
+        "path": "src/archkeel/ir/codec_strings.py",
+        "responsibility": "Intern lossless JSON strings for source and observation wire encodings."
       },
       {
         "path": "src/archkeel/ir/graph.py",

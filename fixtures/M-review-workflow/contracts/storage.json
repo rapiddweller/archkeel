@@ -1,0 +1,96 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "storage-repository",
+      "label": "Receipt repository",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "orders.storage.repository:save"
+      ],
+      "responsibilities": [
+        "Write a receipt through the configured backend."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Backend discovery",
+          "through": [
+            "orders.storage.backends:load_backend"
+          ],
+          "rationale": "The backend is chosen by deployment configuration.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "orders.storage",
+        "orders.storage.repository"
+      ]
+    },
+    {
+      "id": "storage-backends",
+      "label": "Backend discovery",
+      "role": "component",
+      "packages": [
+        "orders.storage.backends"
+      ],
+      "public": [
+        "orders.storage.backends"
+      ],
+      "responsibilities": [
+        "Load the backend named by deployment configuration and define the backend protocol."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": []
+    }
+  ],
+  "rules": [
+    {
+      "id": "ASSIGNMENT-COMPLETE",
+      "kind": "complete_assignment",
+      "source": "orders.storage",
+      "rationale": "Every module under orders.storage has exactly one owner, so a review can name who answers for it.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "COMPONENT-NO-CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Backends never call back into the repository that selects them.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "INTERFACE-BOUNDARY",
+      "kind": "interface_boundary",
+      "rationale": "The repository reaches backends only through discovery.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "include_type_checking": true
+    },
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "The repository's dependency on discovery is declared.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ]
+}
