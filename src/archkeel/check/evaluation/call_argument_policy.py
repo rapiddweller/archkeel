@@ -176,7 +176,8 @@ def _evaluate_calls(
 ) -> tuple[list[RawRecord], list[RawRecord]]:
     violations: list[RawRecord] = []
     limits: list[RawRecord] = []
-    parameter = rule.parameter.lstrip("*")
+    selected_parameter: str = rule.parameter
+    parameter = selected_parameter.lstrip("*")
     for call in calls:
         parsed = parse_record(call)
         binding = call_binding(parsed.data.get("call_binding"))
