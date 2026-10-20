@@ -844,6 +844,8 @@ class CallCollector(ast.NodeVisitor):
                 control_flow_contexts(parent, self.parents)
                 or not self._in_direct_function_body(parent, binding.owner.node)
                 or parent.lineno >= call_site.lineno
+                or isinstance(parent, ast.Assign)
+                and len(parent.targets) != 1
             ):
                 return None
             value = parent.value
@@ -1086,10 +1088,9 @@ class CallCollector(ast.NodeVisitor):
                 if isinstance(candidate, ast.Subscript):
                     table = dotted_expression(candidate.value)
                     module = _partition_first(target, ".")[0]
-                    if (
-                        table in sys_modules_aliases
-                        and isinstance(candidate.slice, ast.Constant)
-                        and candidate.slice.value == module
+                    if table in sys_modules_aliases and (
+                        not isinstance(candidate.slice, ast.Constant)
+                        or candidate.slice.value == module
                     ):
                         return True
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
@@ -1141,12 +1142,10 @@ class CallCollector(ast.NodeVisitor):
             if isinstance(value, ast.Subscript) and isinstance(value.slice, ast.Constant):
                 table = dotted_expression(value.value)
                 module = value.slice.value
-                if (
-                    table in self._sys_modules_aliases()
-                    and isinstance(module, str)
-                    and module.isidentifier()
-                ):
-                    origins.add(module)
+                if table in self._sys_modules_aliases() and isinstance(module, str):
+                    module_name: str = module
+                    if module_name.isidentifier():
+                        origins = origins | {module_name}
             origins = origins | self._native_expression_targets(value, seen)
         return origins
 
