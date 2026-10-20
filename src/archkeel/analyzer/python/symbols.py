@@ -283,6 +283,38 @@ def _symbol_data(
             data["property_members"] = sorted({method.name for method in properties})
     else:
         data.update(_function_signature(node))
+        if node.name == "__init__":
+            parameters = {
+                argument.arg: argument
+                for argument in (*node.args.posonlyargs, *node.args.args)[1:]
+            }
+            writes: list[RecordData] = []
+            for statement in node.body:
+                if not isinstance(statement, ast.Assign | ast.AnnAssign):
+                    continue
+                targets = (
+                    statement.targets
+                    if isinstance(statement, ast.Assign)
+                    else [statement.target]
+                )
+                value = statement.value
+                if not isinstance(value, ast.Name) or value.id not in parameters:
+                    continue
+                for target in targets:
+                    if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name):
+                        annotation = parameters[value.id].annotation
+                        writes.append({
+                            "field": target.attr,
+                            "receiver": target.value.id,
+                            "parameter": value.id,
+                            "evidence_id": add_evidence(evidence, module, statement),
+                            "annotation_evidence_id": (
+                                add_evidence(evidence, module, annotation)
+                                if annotation is not None
+                                else None
+                            ),
+                        })
+            data["stored_field_writes"] = writes
         if parent_node is None:
             data["source_binding_unique"] = (
                 node in module.tree.body and node.name in stable_direct_module_bindings(module)

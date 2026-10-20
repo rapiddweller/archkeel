@@ -19,6 +19,7 @@ from threading import TIMEOUT_MAX, Thread
 from typing import BinaryIO
 
 from archkeel.ir.facts import (
+    NATIVE_CALL_TARGETS,
     Language,
     ProviderBindingKind,
     ResolutionRole,
@@ -285,6 +286,8 @@ def _requested_facts(facts: SourceFacts, request: CollectionRequest) -> None:
         module = (
             qualified_name
             if binding.kind is ProviderBindingKind.MODULE
+            else qualified_name.split(".", 1)[0]
+            if qualified_name in NATIVE_CALL_TARGETS and qualified_name.count(".") > 1
             else qualified_name.rpartition(".")[0]
         )
         if source is None or module != source.module:

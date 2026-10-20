@@ -67,7 +67,8 @@ class _ObservationVersion(StrEnum):
     V2 = "2.0.0"
     V2_1 = "2.1.0"
     V2_2 = "2.2.0"
-    V2_3 = SCHEMA_VERSION
+    V2_3 = "2.3.0"
+    V2_4 = SCHEMA_VERSION
 
 
 class _VersionedConstruct(StrEnum):
@@ -214,7 +215,11 @@ def parse_observation(raw: object) -> Observation:
         for name in CLASSIFIED_SECTIONS
         if isinstance(section_items := item[name], list)
     )
-    if schema_version not in {_ObservationVersion.V2_2, _ObservationVersion.V2_3} and any(
+    if schema_version not in {
+        _ObservationVersion.V2_2,
+        _ObservationVersion.V2_3,
+        _ObservationVersion.V2_4,
+    } and any(
         _uses_numeric_operand_fields(record)
         for section in sections
         if section.name == ObservedSection.CONSTRUCTS
@@ -234,8 +239,22 @@ def parse_observation(raw: object) -> Observation:
                         (key for key, _ in call.data.entries), "call_binding"
                     ):
                         raise ValueError("Python 2.1.0 calls require explicit call_binding or null")
-                    _call_binding(call.data.get("call_binding"))
-    if schema_version is not _ObservationVersion.V2_3 and any(
+                    binding = _call_binding(call.data.get("call_binding"))
+                    if (
+                        schema_version in {
+                            _ObservationVersion.V2_1,
+                            _ObservationVersion.V2_2,
+                            _ObservationVersion.V2_3,
+                        }
+                        and binding is not None
+                        and binding.origin.value
+                        not in {"direct", "declared_receiver"}
+                    ):
+                        raise ValueError("extended call bindings require observation schema 2.4.0")
+    if schema_version not in {
+        _ObservationVersion.V2_3,
+        _ObservationVersion.V2_4,
+    } and any(
         record.kind == ArchitectureRuleKind.PROTOCOL_DECLARATIONS
         for section in sections
         if section.name == _ObservationSection.DECLARATIONS
@@ -270,6 +289,7 @@ def parse_observation(raw: object) -> Observation:
                 _ObservationVersion.V2_1,
                 _ObservationVersion.V2_2,
                 _ObservationVersion.V2_3,
+                _ObservationVersion.V2_4,
             },
         )
         if item.get("runtime", _MISSING_VALUE) is not _MISSING_VALUE
@@ -428,6 +448,7 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
             _ObservationVersion.V2_1,
             _ObservationVersion.V2_2,
             _ObservationVersion.V2_3,
+            _ObservationVersion.V2_4,
         }
         and observation.runtime is not None
         and observation.runtime.requirement_state != RuntimeRequirementState.DECLARED
@@ -467,6 +488,7 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
     if _observation_version(observation.schema_version) not in {
         _ObservationVersion.V2_2,
         _ObservationVersion.V2_3,
+        _ObservationVersion.V2_4,
     } and any(
         _uses_numeric_operand_fields(record)
         for section in observation.sections

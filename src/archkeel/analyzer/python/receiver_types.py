@@ -23,6 +23,13 @@ from typing import TypeAlias
 # types below are keyed by their qualified name, so an annotation spelled `Table` never
 # reaches them: only a constructor or a return the import binding proves does (AD-40).
 _METHOD_TABLES: dict[str, tuple[str, frozenset[str]]] = {
+    "random.Random": (
+        "random.Random",
+        frozenset(
+            "choice choices gauss getrandbits getstate randbytes randint randrange random sample seed setstate shuffle uniform"
+            .split()
+        ),
+    ),
     "list": (
         "builtins.list",
         frozenset(("append clear copy count extend index insert pop remove reverse sort").split()),
@@ -116,6 +123,7 @@ _METHOD_TABLES: dict[str, tuple[str, frozenset[str]]] = {
 # A callable reached through an import binding whose documented result is a table type.
 # `hashlib.new` takes the algorithm by name and still returns the one hash object type.
 _CONSTRUCTORS: dict[str, str] = {
+    "random.Random": "random.Random",
     "pathlib.Path": "Path",
     "argparse.ArgumentParser": "argparse.ArgumentParser",
     "rich.console.Console": "rich.console.Console",
