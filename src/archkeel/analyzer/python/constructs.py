@@ -24,7 +24,7 @@ from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 from archkeel.ir.source_records import source_name_visibility as _source_name_visibility
 
 from .resolve import SymbolIndex
-from .scopes import BindingKind, LexicalScopes
+from .scopes import BindingKind, LexicalScopes, Scope
 from .source import (
     ParsedModule,
     add_evidence,
@@ -34,6 +34,8 @@ from .source import (
     own_scope,
     stable_direct_module_bindings,
 )
+
+_NumericAlias = dict[str, str | int]
 
 
 def _numeric_evidence_excerpt_supported(excerpt: str) -> bool:
@@ -654,7 +656,7 @@ class ConstructCollector(ast.NodeVisitor):
 
     def _integer(
         self, node: ast.expr, use: ast.AST, depth: int = 0, seen: frozenset[str] = frozenset()
-    ) -> tuple[int | None, list[dict[str, str | int]]]:
+    ) -> tuple[int | None, list[_NumericAlias]]:
         """Evaluate a small exact integer grammar, refusing expensive work before it runs."""
         value: int | None
         if depth > _INTEGER_DEPTH:
@@ -690,13 +692,14 @@ class ConstructCollector(ast.NodeVisitor):
 
     def _integer_alias(
         self, node: ast.Name, use: ast.AST, depth: int, seen: frozenset[str]
-    ) -> tuple[int | None, list[dict[str, str | int]]]:
+    ) -> tuple[int | None, list[_NumericAlias]]:
         name = node.id
         if name in seen:
             return None, []
         binding = self.scopes.lookup(node, name)
         owner = binding.owner
         assignment = None
+        scope_evidence_id: str | None = None
         if owner is self.scopes.root:
             matches = [
                 statement
@@ -724,6 +727,9 @@ class ConstructCollector(ast.NodeVisitor):
                     assignment = candidate
         if assignment is None or assignment.value is None:
             return None, []
+        if owner is None:
+            return None, []
+        evidence_id = add_evidence(self.evidence, self.module, assignment)
         use_line, use_column, _ = location(use)
         assignment_line, assignment_column, _ = location(assignment)
         if (assignment_line, assignment_column) >= (use_line, use_column):
@@ -731,13 +737,16 @@ class ConstructCollector(ast.NodeVisitor):
         value, derivation = self._integer(assignment.value, assignment, depth + 1, seen | {name})
         if value is None:
             return None, []
-        evidence_id = add_evidence(self.evidence, self.module, assignment)
+        if owner is not self.scopes.root:
+            scope_evidence_id = self._numeric_scope_evidence(owner)
+            if scope_evidence_id is None:
+                return None, []
         line, _, column = location(assignment)
         end_line: int = assignment.end_lineno if assignment.end_lineno is not None else line
         end_column: int = (
             assignment.end_col_offset if assignment.end_col_offset is not None else column
         )
-        origin: dict[str, str | int] = {
+        origin: _NumericAlias = {
             "name": name,
             "value": value,
             "expression": ast.unparse(assignment.value),
@@ -747,7 +756,69 @@ class ConstructCollector(ast.NodeVisitor):
             "end_line": end_line,
             "end_column": end_column,
         }
+        if scope_evidence_id is not None:
+            origin["scope_evidence_id"] = scope_evidence_id
+            origin["scope_owner"] = owner.qualified_name
+            scope_line, _, scope_column = location(owner.node)
+            origin["scope_symbol_id"] = stable_id(
+                "SYM", owner.qualified_name, self.module.rel_path, scope_line, scope_column
+            )
         return value, [origin, *derivation]
+
+    def _numeric_scope_evidence(self, owner: Scope) -> str | None:
+        node = owner.node
+        if not isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+            return None
+        line, end_line, column = location(node)
+        if end_line > len(self.module.lines) or line < 1:
+            return None
+        excerpt = "\n".join(self.module.lines[line - 1 : end_line])
+        if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS:
+            return None
+        evidence_id = stable_id(
+            "EVD", self.module.rel_path, line, end_line, column, "numeric_scope"
+        )
+        self.evidence[evidence_id] = {
+            "id": evidence_id,
+            "file": self.module.rel_path,
+            "line": line,
+            "end_line": end_line,
+            "column": column,
+            "excerpt": excerpt,
+        }
+        return evidence_id
+
+    def _numeric_use_scope_chain(self, use: ast.AST) -> list[dict[str, str]] | None:
+        scope = self.scopes.by_node.get(use)
+        chain: list[dict[str, str]] = []
+        anonymous = False
+        while scope is not None and scope is not self.scopes.root:
+            if not isinstance(scope.node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+                if isinstance(
+                    scope.node,
+                    ast.Lambda | ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp,
+                ):
+                    anonymous = True
+                    scope = scope.parent
+                    continue
+                return None
+            evidence_id = self._numeric_scope_evidence(scope)
+            if evidence_id is None:
+                return None
+            line, _, column = location(scope.node)
+            chain.append(
+                {
+                    "scope_owner": scope.qualified_name,
+                    "scope_evidence_id": evidence_id,
+                    "scope_symbol_id": stable_id(
+                        "SYM", scope.qualified_name, self.module.rel_path, line, column
+                    ),
+                }
+            )
+            scope = scope.parent
+        if anonymous and not chain:
+            return None
+        return chain
 
     @staticmethod
     def _terminal_name(node: ast.expr) -> str | None:
@@ -764,6 +835,16 @@ class ConstructCollector(ast.NodeVisitor):
     ) -> None:
         subject = self._terminal_name(left)
         value, derivation = self._integer(right, node)
+        binding_scopes: list[dict[str, str]] | None = (
+            self._numeric_use_scope_chain(node)
+            if any(
+                isinstance(item, ast.Name) and isinstance(item.ctx, ast.Load)
+                for item in ast.walk(right)
+            )
+            else []
+        )
+        if binding_scopes is None:
+            value, derivation = None, []
         evidence_lines = [node.lineno, *(item["line"] for item in derivation)]
         if value is not None and (
             node.end_lineno != node.lineno
@@ -790,6 +871,10 @@ class ConstructCollector(ast.NodeVisitor):
             if not isinstance(alias_evidence, str):
                 raise AssertionError("numeric alias proof must retain its evidence id")
             evidence_ids.append(alias_evidence)
+            scope_evidence = item.get("scope_evidence_id")
+            if isinstance(scope_evidence, str):
+                evidence_ids.append(scope_evidence)
+        evidence_ids.extend(scope["scope_evidence_id"] for scope in binding_scopes or [])
         owner = self.scope_stack[-1]
         self.items.append(
             classified(
@@ -815,6 +900,7 @@ class ConstructCollector(ast.NodeVisitor):
                     "proof": "known" if value is not None else "unknown",
                     "value": value,
                     "derivation": derivation,
+                    "binding_scopes": binding_scopes or [],
                 },
             )
         )

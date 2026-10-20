@@ -909,3 +909,82 @@ def test_mounted_ownership_scope_does_not_leak_to_sibling_modules(tmp_path):
         if item.id == "core:inside_ownership"
     ]
     assert assessment.status == "FAIL" and assessment.count == 1 and assessment.evaluation_proven
+
+
+def test_mounted_source_receipt_cannot_claim_sibling_scope_with_recomputed_binding(tmp_path):
+    import copy
+
+    from archkeel.ir.codec import observation_payload, parse_observation
+    from archkeel.ir.decisions import (
+        dependency_binding_id,
+        rule_assessments,
+        rule_evaluation_binding_id,
+    )
+
+    contract = _contract({"mode": "retired", "symbols": ["sample.old"], "roles": ["definition"]})
+    contract["rules"] = []
+    contract["components"] = [
+        _component("core", ["sample.core"], inside="inside.json"),
+        _component("outside", ["sample.outside"]),
+    ]
+    inside = {
+        "schema_version": "3.8.0",
+        "components": [_component("consumer", ["sample.core.consumer"])],
+        "rules": [
+            _source_rule(
+                id="inside_ownership",
+                source="sample.core.consumer",
+                mode="retired",
+                symbols=["sample.core.consumer.retired_cursor"],
+                roles=["definition"],
+            )
+        ],
+    }
+    result = _observe_tree(
+        tmp_path,
+        {
+            "inside.json": json.dumps(inside),
+            "sample/__init__.py": "",
+            "sample/core/__init__.py": "",
+            "sample/core/consumer.py": "retired_cursor = 1\n",
+            "sample/outside/__init__.py": "",
+            "sample/outside/consumer.py": "retired_cursor = 1\n",
+        },
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+    changed = copy.deepcopy(observation_payload(result.observation))
+    [receipt] = [
+        item
+        for item in changed["scope_observations"]
+        if item["kind"] == "rule_evaluation" and item["rule_ids"] == ["core:inside_ownership"]
+    ]
+    receipt["subjects"] = ["sample.outside.consumer"]
+    receipt["data"]["source_ownership_scope_proof"]["source_modules"] = [
+        "sample.outside.consumer"
+    ]
+
+    forged = parse_observation(changed)
+    [forged_receipt] = [
+        item
+        for item in forged.records("scope_observations")
+        if item.kind == "rule_evaluation" and item.rule_ids == ("core:inside_ownership",)
+    ]
+    proof = receipt["data"]["source_ownership_scope_proof"]
+    proof["binding_id"] = rule_evaluation_binding_id(
+        dependency_binding_id(
+            forged.sections,
+            forged.coverage.failures,
+            forged.evidence,
+            include_source_ownership=True,
+        ),
+        forged_receipt,
+        forged.schema_version,
+    )
+    replayed = parse_observation(changed)
+    [assessment] = [
+        item
+        for item in rule_assessments(replayed, undecided_by_rule={})
+        if item.id == "core:inside_ownership"
+    ]
+    assert assessment.status == "FAIL" and not assessment.evaluation_proven

@@ -220,6 +220,38 @@ def test_saved_receipt_does_not_certify_changed_actual_or_removed_violation(tmp_
     assert assessment.status == "UNKNOWN" and not assessment.evaluation_proven
 
 
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize("change", ["relocate", "delete", "change"])
+def test_saved_argument_receipt_binds_result_section_and_contents(
+    tmp_path, mounted, columnar, change
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import page\ndef consume():\n    page('SELECT 1')\n",
+        mounted=mounted,
+    )
+    assert row.status == "FAIL" and row.evaluation_proven
+    payload = observation_payload(result.observation)
+    [violation] = payload["violations"]
+    if change == "relocate":
+        payload["violations"].clear()
+        payload["scope_observations"].append(violation)
+    elif change == "delete":
+        payload["violations"].clear()
+    else:
+        violation["title"] = "changed finding"
+    saved = tmp_path / "tampered.json"
+    saved.write_bytes(canonical_report_bytes(payload) if columnar else json.dumps(payload).encode())
+
+    [replayed] = run_saved_report(saved).rule_assessments
+
+    assert replayed.status != "PASS" and not replayed.evaluation_proven
+
+
 def test_source_facts_reject_a_forged_string_literal_value(tmp_path):
     from archkeel.analyzer.python.collect import collect
     from archkeel.ir.facts_codec import (
