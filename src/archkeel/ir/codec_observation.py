@@ -291,7 +291,7 @@ def _validate_versioned_records(
                     _call_arguments(call.data.get("call_arguments")) if has_arguments else None
                 )
                 binding = _call_binding(call.data.get("call_binding"))
-                if has_arguments and (arguments is None) != (binding is None):
+                if arguments is not None and binding is None:
                     raise ValueError("call arguments require the canonical call binding")
             elif has_arguments:
                 raise ValueError("call_arguments require observation schema 2.5.0")

@@ -42,8 +42,11 @@ operator overloads, execution reachability, entropy or collision freedom. See
 declaration and observed callable signature. Only explicit actuals with
 complete, valid bindings are considered; spreads, duplicates, missing
 signatures and unproven calls leave the scope UNKNOWN. Omitted defaults are not
-actuals. Calls without canonical binding carry `call_arguments: null`; that is
-distinct from a proven call with an empty argument list. The first slice
+actuals. Calls without canonical binding carry `call_arguments: null`; a
+canonical call whose complete actual inventory cannot be tied to a bounded
+source excerpt also keeps its binding but carries null arguments and remains
+UNKNOWN for argument rules. Both cases differ from a proven call with an empty
+argument list. The first slice
 recognizes written string constants, including empty and adjacent literals;
 f-strings, concatenations and named expressions remain unclaimed. It does not
 check actual type compatibility. Argument facts require
