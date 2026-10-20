@@ -15,7 +15,7 @@
         "archkeel.ir.source_records"
       ],
       "responsibilities": [
-        "Own language-neutral source facts, evidence identities, state and type values."
+        "Own language-neutral source facts, evidence identities, state, type values and typed IR vocabularies."
       ],
       "forbidden_responsibilities": [
         "Language ASTs, protocol envelopes, I/O and architecture verdicts.",
