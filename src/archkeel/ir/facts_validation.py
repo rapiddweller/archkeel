@@ -533,10 +533,8 @@ def _parse_indented_numeric_excerpt(
     excerpt: str, indentation: str, *, synthetic_body: bool
 ) -> tuple[tuple[ast.stmt, ...], int] | None:
     unit = "\t" if "\t" in indentation else "    "
-    if len(indentation) % len(unit):
-        return None
-    depth = len(indentation) // len(unit)
-    wrappers = "".join(f"{unit * level}if True:\n" for level in range(depth))
+    depth = 1 if indentation else 0
+    wrappers = "if True:\n" if indentation else ""
     suffix = f"\n{indentation}{unit}pass" if synthetic_body else ""
     try:
         parsed = ast.parse(wrappers + excerpt + suffix)
@@ -572,24 +570,12 @@ def _numeric_header_has_synthetic_body(node: ast.stmt) -> bool:
 def _parse_numeric_elif_excerpt(excerpt: str) -> tuple[tuple[ast.stmt, ...], int] | None:
     indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
     unit = "\t" if "\t" in indentation else "    "
-    if not indentation or len(indentation) % len(unit):
-        return None
-    depth = len(indentation) // len(unit)
-    wrappers = "".join(f"{unit * level}if True:\n" for level in range(depth))
-    source = (
-        f"{wrappers}{indentation}if True:\n{indentation}{unit}pass\n"
-        f"{excerpt}\n{indentation}{unit}pass"
-    )
-    try:
-        parsed = ast.parse(source)
-    except (IndentationError, SyntaxError, ValueError, RecursionError):
-        return None
-    if len(parsed.body) == 1 and isinstance(parsed.body[0], ast.If):
-        roots = tuple(parsed.body)
-        for _ in range(depth):
-            if len(roots) != 1 or not isinstance(roots[0], ast.If):
-                return None
-            roots = tuple(roots[0].body)
+    source = f"{indentation}if True:\n{indentation}{unit}pass\n{excerpt}"
+    for synthetic_body in (False, True):
+        parsed = _parse_indented_numeric_excerpt(source, indentation, synthetic_body=synthetic_body)
+        if parsed is None:
+            continue
+        roots, depth = parsed
         if len(roots) != 1 or not isinstance(roots[0], ast.If):
             return None
         preceding = roots[0]
@@ -598,8 +584,8 @@ def _parse_numeric_elif_excerpt(excerpt: str) -> tuple[tuple[ast.stmt, ...], int
         if len(preceding.orelse) != 1 or not isinstance(preceding.orelse[0], ast.If):
             return None
         alternate = preceding.orelse[0]
-        if _numeric_header_has_synthetic_body(alternate):
-            return tuple(parsed.body), depth + 2
+        if not synthetic_body or _numeric_header_has_synthetic_body(alternate):
+            return roots, depth + 2
     return None
 
 

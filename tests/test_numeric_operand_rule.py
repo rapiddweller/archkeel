@@ -41,6 +41,67 @@ RULE = {
 }
 
 
+@pytest.mark.parametrize(
+    "indentation,form",
+    [
+        (" ", "return"),
+        ("  ", "return"),
+        ("   ", "return"),
+        ("      ", "return"),
+        ("\t", "return"),
+        ("  ", "elif_condition"),
+        ("   ", "elif_inline"),
+        ("", "elif_inline"),
+    ],
+)
+@pytest.mark.parametrize("operand,status", [(3, "FAIL"), (4, "PASS")])
+def test_numeric_proofs_preserve_python_indentation_and_inline_suites(
+    tmp_path, indentation, form, operand, status
+):
+    rule = {
+        "id": "RULE",
+        "rationale": "Probe.",
+        "provenance": ["docs/architecture/sample.md"],
+        "decided_by": "architect",
+        **RULE,
+        "minimum_value": 4,
+    }
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "3.8.0",
+                "components": [_component("core")],
+                "rules": [rule],
+            }
+        )
+    )
+    prefix = "def choose(job_nonce, ready):\n" if indentation else "job_nonce = 1\nready = False\n"
+    operation = f"job_nonce % {operand}"
+    if form == "return":
+        source = prefix + f"{indentation}return {operation}\n"
+    else:
+        value = f"return {operation}" if indentation else f"result = {operation}"
+        alternate = (
+            f"elif {operation}: pass" if form == "elif_condition" else f"elif ready: {value}"
+        )
+        source = prefix + f"{indentation}if ready: pass\n{indentation}{alternate}\n"
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(source)
+    result = _observe(tmp_path)
+    assert not result.diagnostics and result.observation is not None
+    model = result.observation
+    rows = rule_assessments(model, undecided_by_rule=unknown_positions_by_rule(model))
+    assert len(rows) == 1 and rows[0].status.value == status
+    for columnar in (False, True):
+        saved = tmp_path / "saved.json"
+        saved.write_bytes(
+            canonical_report_bytes(model)
+            if columnar
+            else json.dumps(observation_payload(model)).encode()
+        )
+        assert run_saved_report(saved).rule_assessments == rows
+
+
 @pytest.mark.parametrize("profile", [DART, TYPESCRIPT])
 def test_non_python_profiles_reject_python_numeric_operand_rule(profile):
     contract = parse_contract(
