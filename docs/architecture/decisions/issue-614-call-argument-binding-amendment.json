@@ -1,9 +1,9 @@
 {
-  "after_baseline_digest": "26ffcd551f4af8b9cacce4801cec54a3e9b619029be2e1f51cf36ee276d1d780",
-  "after_digest": "457e5c696e09f07a3f6658db2d18d0fe004eeafe75b7555ea5c78c593822c69b",
-  "before_baseline_digest": "26ffcd551f4af8b9cacce4801cec54a3e9b619029be2e1f51cf36ee276d1d780",
-  "before_digest": "a1dd2da54f4267823ac5eebfc9e8b6cc9ae64104c757b7d7b56e3a69f7733091",
+  "after_baseline_digest": "927d1a4f4aba9d73b8e5e561969ad4fb553857f0054752dedefaee94780f0b2c",
+  "after_digest": "bf55e52f2f5492755793ca042ec5ba55cf16f7eb6ea780d195f7c029b46a921c",
+  "before_baseline_digest": "927d1a4f4aba9d73b8e5e561969ad4fb553857f0054752dedefaee94780f0b2c",
+  "before_digest": "68dab465d59d112b21c4d0327b36d7bd1b69b44d8378765a45a33e57803b1bb6",
   "decided_by": "architect",
-  "rationale": "Add explicit ownership for the pure call-argument binder and the forbidden literal argument evaluator; bind findings and receipts to canonical observed signatures without applying defaults or evaluating expressions, and retain all existing measurement ceilings.",
+  "rationale": "Bind forbidden literal argument findings to canonical observed signatures without defaults or expression evaluation, preserving every existing budget ceiling.",
   "schema_version": "2.0.0"
 }
