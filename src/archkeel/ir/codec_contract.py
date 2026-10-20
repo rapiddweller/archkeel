@@ -975,9 +975,13 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
 
 
 def _qualified_names(raw: RawJson, label: str, *, required: bool = False) -> tuple[str, ...]:
-    values = _contract_strings(raw, label, required=required)
-    if any(not all(part.isidentifier() for part in value.split(".")) for value in values):
-        raise ValueError(f"{label} must contain qualified identifiers")
+    values: tuple[str, ...] = _contract_strings(raw, label, required=required)
+    for raw_value in values:
+        value: str = raw_value
+        for raw_part in value.split("."):
+            part: str = raw_part
+            if not part.isidentifier():
+                raise ValueError(f"{label} must contain qualified identifiers")
     return values
 
 
@@ -1000,8 +1004,10 @@ def _parse_source_ownership(raw: RawJson, label: str) -> SourceOwnershipRule:
         raise ValueError(f"{label}.roles must contain unique values")
     symbols = _qualified_names(item.get("symbols", []), f"{label}.symbols")
     parameters = _qualified_names(item.get("parameters", []), f"{label}.parameters")
-    if any(not value.rpartition(".")[0] for value in parameters):
-        raise ValueError(f"{label}.parameters must name function.parameter")
+    for raw_parameter in parameters:
+        parameter: str = raw_parameter
+        if not parameter.rpartition(".")[0]:
+            raise ValueError(f"{label}.parameters must name function.parameter")
     owner = item.get("owner")
     owner = _nonempty(owner, f"{label}.owner") if owner is not None else None
     value_owner = item.get("value_owner")
