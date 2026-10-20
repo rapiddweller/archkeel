@@ -301,7 +301,6 @@ def _catalog_rule_result(
         bindings_measured,
         arguments_measured,
         references_measured,
-        source_modules,
     )
     receipt = (
         None if limits else _rule_evaluation_receipt(rule, scope, [*supporting, *selected_calls])
@@ -325,7 +324,6 @@ def _catalog_rule_checks(
     bindings_measured: bool,
     arguments_measured: bool,
     references_measured: bool,
-    source_modules: frozenset[str] | None,
 ) -> tuple[list[RawRecord], list[RawRecord]]:
     violations: list[RawRecord] = []
     limits: list[RawRecord] = []
@@ -352,7 +350,6 @@ def _catalog_rule_checks(
             bindings_measured,
             arguments_measured,
             references_measured,
-            source_modules,
             violations,
             limits,
         )
@@ -384,7 +381,6 @@ def _catalog_argument_policy(
     bindings_measured: bool,
     arguments_measured: bool,
     references_measured: bool,
-    source_modules: frozenset[str] | None,
     violations: list[RawRecord],
     limits: list[RawRecord],
 ) -> tuple[list[RawRecord], list[RawRecord]]:
@@ -401,7 +397,6 @@ def _catalog_argument_policy(
         bindings_measured,
         arguments_measured,
         references_measured,
-        source_modules,
     )
     violations.extend(argument_violations)
     limits.extend(argument_limits)
@@ -588,7 +583,6 @@ def _catalog_argument_results(
     bindings_measured: bool,
     arguments_measured: bool,
     references_measured: bool,
-    source_modules: frozenset[str] | None,
 ) -> tuple[list[RawRecord], list[RawRecord]]:
     violations: list[RawRecord] = []
     limits: list[RawRecord] = []
@@ -601,7 +595,7 @@ def _catalog_argument_results(
                 supporting_facts,
             )
         )
-    targets = _catalog_targets(rule, symbols, source_modules)
+    targets = _catalog_targets(rule, symbols)
     signature = (
         parse_record(targets[0]).data
         if len(targets) == 1 and _target_binding_static(targets[0], symbols)
@@ -634,17 +628,12 @@ def _catalog_argument_results(
     return violations, limits
 
 
-def _catalog_targets(
-    rule: CatalogArgumentRule,
-    symbols: Sequence[RawRecord],
-    source_modules: frozenset[str] | None,
-) -> list[RawRecord]:
+def _catalog_targets(rule: CatalogArgumentRule, symbols: Sequence[RawRecord]) -> list[RawRecord]:
     return [
         record
         for record in symbols
         if record["data"]["qualified_name"] == rule.target
         and record["kind"] in {"class", "function", "method"}
-        and (source_modules is None or record["data"]["module"] in source_modules)
     ]
 
 

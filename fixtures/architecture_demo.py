@@ -31,6 +31,7 @@ from fixtures.demo_catalog_compatibility import VARIANTS as _COMPATIBILITY_VARIA
 from fixtures.demo_catalog_constructs import VARIANTS as _CONSTRUCT_VARIANTS
 from fixtures.demo_catalog_dart import VARIANTS as _DART_VARIANTS
 from fixtures.demo_catalog_dependencies import VARIANTS as _DEPENDENCY_VARIANTS
+from fixtures.demo_catalog_entries import VARIANTS as _CATALOG_ENTRY_VARIANTS
 from fixtures.demo_catalog_evidence import VARIANTS as _EVIDENCE_VARIANTS
 from fixtures.demo_catalog_exact_ownership import VARIANTS as _EXACT_OWNERSHIP_VARIANTS
 from fixtures.demo_catalog_flutter import FLUTTER_FIXTURE_DIR
@@ -50,6 +51,7 @@ from fixtures.demo_catalog_widening import VARIANTS as _WIDENING_VARIANTS
 CATALOG: tuple[Variant, ...] = (
     *_SHOWCASE_VARIANTS,
     *_COMPATIBILITY_VARIANTS,
+    *_CATALOG_ENTRY_VARIANTS,
     *_CONSTRUCT_VARIANTS,
     *_DEPENDENCY_VARIANTS,
     *_INTERFACE_VARIANTS,
@@ -276,7 +278,8 @@ rules and UML comparison are shown separately.
 Create a report with several deliberate violations:
 
 The default tour also shows `forbidden_call_argument`: a literal order ID at the store lookup,
-and `forbidden_effect_under_condition`: `secrets.token_hex` on a seeded run.
+`catalog_argument`: an undeclared store option, `catalog_use`: an unused declared key, and
+`forbidden_effect_under_condition`: `secrets.token_hex` on a seeded run.
 
 The clean shop sample returns a fixed token for seeded runs and calls `secrets.token_hex` only
 for unseeded runs. `class-a-forbidden-effect-under-condition` and the default tour move the effect

@@ -39,9 +39,10 @@ _TOUR_APP_ORDERS = HEADER + (
     "import json\n"
     "from pathlib import Path\n"
     "from typing import TYPE_CHECKING\n\n"
-    "from shop.model.entities import Line, Money, Order\n"
+    "from shop.model.entities import Line, Money, OptionKey, Order\n"
     "from shop.store import OrderRepository\n"
     "from shop.store.backend.files import write_payload\n"
+    "from shop.store.lookup import read_option\n"
     "from shop.store.sqlite import vacuum\n"
     "from shop.app.maintenance import run_maintenance\n\n"
     "if TYPE_CHECKING:\n"
@@ -59,7 +60,10 @@ _TOUR_APP_ORDERS = HEADER + (
     "    OrderRepository(store_dir).save(order)\n"
     "    return order\n\n\n"
     "def summarize(store_dir: Path, order_id: str) -> Money:\n"
+    '    read_option("unlisted-option")\n'
     "    return OrderRepository(store_dir).load(order_id).total()\n\n\n"
+    "def read_catalog_option() -> str:\n"
+    '    return read_option("unlisted-option")\n\n\n'
     "def describe_connection(connection: Connection) -> str:\n"
     '    """Type-only use of the maintenance connection; never imported at runtime here."""\n'
     "    run_maintenance(connection)\n"
@@ -81,8 +85,13 @@ _TOUR_MODEL_ENTITIES = HEADER + (
     '"""Order and Line value types with Money arithmetic."""\n\n'
     "from __future__ import annotations\n\n"
     "from dataclasses import dataclass\n"
+    "from enum import StrEnum\n"
     "from typing import TypedDict\n\n"
-    '__all__ = ["Order", "Line", "Money", "OrderPayload", "LinePayload"]\n\n\n'
+    '__all__ = ["Order", "Line", "Money", "OrderPayload", "LinePayload", "OptionKey"]\n\n\n'
+    "class OptionKey(StrEnum):\n"
+    '    """Named options accepted by a store read operation."""\n\n'
+    '    PAGE_SIZE = "page_size"\n'
+    '    RETIRED = "retired"\n\n\n'
     "class LinePayload(TypedDict):\n"
     '    """The serialised shape of one order line."""\n\n'
     "    description: str\n"
@@ -202,6 +211,10 @@ _TOUR_ORDER_LOOKUP = HEADER + (
     "    return order_path(root, order_id)\n\n\n"
     "def find_order(root: Path, order_id: str) -> Path:\n"
     '    return lookup_order(root, "tour-order")\n'
+    "\n"
+    "def read_option(key: str) -> str:\n"
+    '    """Return the selected option key for the architecture demo."""\n'
+    "    return key\n"
 )
 _TOUR_TOKENS = HEADER + (
     '"""Generate tokens with a forbidden seeded-path effect for the tour."""\n\n'
@@ -240,8 +253,8 @@ _TOUR = Variant(
     "parameter on place_order itself, the one function app.orders declares public (AD-63: "
     "only a declared facade function is inspected, so touch_store's own bare-object "
     "parameter, never declared, no longer fires here), a modulo operand below its "
-    "declared width, a concrete reader member in place of its required protocol, and a literal "
-    "order ID at a store path lookup. "
+    "declared width, a concrete reader member in place of its required protocol, a literal "
+    "order ID at a store path lookup, an undeclared catalog key, and an unused PAGE_SIZE entry. "
     "CONSTRUCT-NO-DYNAMIC answers both the eval and the getattr; "
     "validate reports the rule.violated diagnostics plus 2 "
     "closed_world.observed_forbidden pairs (model->render, render->store) and 1 graph.drift, "
@@ -269,6 +282,8 @@ _TOUR = Variant(
     },
     expected_violations=(
         "APP-NO-LITERAL-ORDER-ID",
+        "APP-OPTION-KEY",
+        "APP-OPTION-KEY-USED",
         "APP-TYPES-NOT-DICT",
         "ASSIGNMENT-COMPLETE",
         "CALL-DESCRIBE-NO-MAINTENANCE",
@@ -299,6 +314,8 @@ _TOUR = Variant(
         "closed_world.observed_forbidden",
         "closed_world.observed_forbidden",
         "graph.drift",
+        "rule.violated",
+        "rule.violated",
         "rule.violated",
         "rule.violated",
         "rule.violated",

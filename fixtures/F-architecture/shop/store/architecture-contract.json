@@ -59,7 +59,7 @@
           "rationale": "Turning an order into bytes and back is a format decision the persistence API delegates, so the format can change without the API changing."
         }
       ],
-      "public": ["shop.store.repository:OrderRepository"],
+      "public": ["shop.store.repository:OrderRepository", "shop.store.lookup:read_option"],
       "decided_by": "architect"
     }
   ],

@@ -1,6 +1,6 @@
 {
-  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.13.schema.json",
-  "schema_version": "3.13.0",
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.14.schema.json",
+  "schema_version": "3.14.0",
   "components": [
     {
       "id": "COMP-MODEL",
@@ -29,7 +29,8 @@
       "public": [
         "shop.store.repository:OrderRepository",
         "shop.store.sqlite:vacuum",
-        "shop.store.sqlite:Connection"
+        "shop.store.sqlite:Connection",
+        "shop.store.lookup:read_option"
       ],
       "responsibilities": ["Persist orders as JSON files."],
       "forbidden_responsibilities": ["Order use cases and presentation."],
@@ -557,6 +558,29 @@
       "rationale": "Order lookup IDs come from the caller and are never embedded at call sites.",
       "provenance": ["docs/architecture/shop.md"],
       "decided_by": "architect"
+    },
+    {
+      "id": "APP-OPTION-KEY",
+      "kind": "catalog_argument",
+      "source": "shop.app.orders.read_catalog_option",
+      "target": "shop.store.lookup.read_option",
+      "parameter": "key",
+      "catalog": "shop.model.entities.OptionKey",
+      "rationale": "Store option reads use declared keys.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect",
+      "source_match": "exact"
+    },
+    {
+      "id": "APP-OPTION-KEY-USED",
+      "kind": "catalog_use",
+      "source": "shop.app.orders.summarize",
+      "catalog": "shop.model.entities.OptionKey",
+      "member": "PAGE_SIZE",
+      "rationale": "The page-size option stays in use by the application.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect",
+      "source_match": "exact"
     },
     {
       "id": "LAYERS-MODEL",

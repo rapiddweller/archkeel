@@ -13,7 +13,8 @@ rules and UML comparison are shown separately.
 Create a report with several deliberate violations:
 
 The default tour also shows `forbidden_call_argument`: a literal order ID at the store lookup,
-and `forbidden_effect_under_condition`: `secrets.token_hex` on a seeded run.
+`catalog_argument`: an undeclared store option, `catalog_use`: an unused declared key, and
+`forbidden_effect_under_condition`: `secrets.token_hex` on a seeded run.
 
 The clean shop sample returns a fixed token for seeded runs and calls `secrets.token_hex` only
 for unseeded runs. `class-a-forbidden-effect-under-condition` and the default tour move the effect

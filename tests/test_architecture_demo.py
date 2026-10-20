@@ -491,10 +491,32 @@ def test_guarded_effect_demo_assessments_are_real(
     )
     assert architecture is not None
     row = next(
-        item
-        for item in report.rule_assessments or ()
-        if item.id == "EFFECT-NO-TOKEN-WHEN-SEEDED"
+        item for item in report.rule_assessments or () if item.id == "EFFECT-NO-TOKEN-WHEN-SEEDED"
     )
+    assert row.status.value == expected
+
+
+@pytest.mark.parametrize(
+    ("variant_id", "rule_id", "expected"),
+    [
+        ("clean", "APP-OPTION-KEY", "PASS"),
+        ("clean", "APP-OPTION-KEY-USED", "PASS"),
+        ("class-a-catalog-argument", "APP-OPTION-KEY", "FAIL"),
+        ("class-a-catalog-use", "APP-OPTION-KEY-USED", "FAIL"),
+        ("tour", "APP-OPTION-KEY", "FAIL"),
+        ("tour", "APP-OPTION-KEY-USED", "FAIL"),
+    ],
+)
+def test_catalog_demo_assessments_are_real(
+    tmp_path: Path, variant_id: str, rule_id: str, expected: str
+) -> None:
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    report, architecture = run_report(
+        root, config=load_config(root, variant.config), analyzer=observe
+    )
+    assert architecture is not None
+    row = next(item for item in report.rule_assessments or () if item.id == rule_id)
     assert row.status.value == expected
 
 
