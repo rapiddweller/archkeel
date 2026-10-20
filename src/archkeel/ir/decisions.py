@@ -1338,6 +1338,7 @@ def _source_ownership_receipt_complete(observation: Observation, receipt: Record
         return False
     coverage = observation.coverage
     selected = proof.get("selected_files")
+    rule_id = receipt.rule_ids[0]
     return (
         coverage.status == Verdict.PASS
         and not coverage.failures
@@ -1352,6 +1353,7 @@ def _source_ownership_receipt_complete(observation: Observation, receipt: Record
         and proof.get("source_digest") == observation.source.source_digest
         and proof.get("source_scope") == observation.source.scope
         and proof.get("contract_digest") == observation.contract.digest
+        and proof.get("result_digest") == rule_result_digest(observation.sections, rule_id)
         and proof.get("binding_id")
         == rule_evaluation_binding_id(
             dependency_binding_id(

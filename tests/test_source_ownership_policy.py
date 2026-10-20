@@ -483,6 +483,81 @@ def test_unknown_reference_context_cannot_certify_a_source_read():
     assert unknown["evidence_ids"] == ["E-1"]
 
 
+def test_source_ownership_receipt_binds_fail_and_unknown_results_in_json_and_columnar(tmp_path):
+    import copy
+
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import (
+        canonical_report_bytes,
+        decode_canonical_model,
+        encode_canonical_model,
+        observation_payload,
+        parse_observation,
+    )
+    from archkeel.ir.decisions import rule_assessments, unknown_positions_by_rule
+
+    contract = _contract(
+        {
+            "mode": "retired",
+            "symbols": [
+                "sample.consumer.retired_cursor",
+                "sample.consumer.normalize.cursor",
+            ],
+            "roles": ["definition"],
+        }
+    )
+    contract["components"] = [_component("all", ["sample"])]
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/consumer.py": (
+                "retired_cursor = 0\n"
+                "def normalize(flag):\n    if flag:\n        cursor = 0\n    return None\n"
+            ),
+        },
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+    original = observation_payload(result.observation)
+    [assessment] = [
+        row
+        for row in rule_assessments(
+            result.observation,
+            undecided_by_rule=unknown_positions_by_rule(result.observation),
+        )
+        if row.id == "ownership"
+    ]
+    assert assessment.status.value == "FAIL" and assessment.evaluation_proven
+    assert any(item.kind == "source_ownership" for item in result.observation.records("violations"))
+    assert any(
+        item.kind == "source_ownership_limit" for item in result.observation.records("unknowns")
+    )
+
+    deleted = copy.deepcopy(original)
+    deleted["violations"].clear()
+    changed = parse_observation(deleted)
+    [replayed] = [
+        row
+        for row in rule_assessments(
+            changed, undecided_by_rule=unknown_positions_by_rule(changed)
+        )
+        if row.id == "ownership"
+    ]
+    assert replayed.status.value == "UNKNOWN" and not replayed.evaluation_proven
+
+    columnar = decode_canonical_model(json.loads(canonical_report_bytes(result.observation)))
+    columnar["unknowns"] = [
+        row for row in columnar["unknowns"] if row["kind"] != "source_ownership_limit"
+    ]
+    saved = tmp_path / "altered-columnar.json"
+    saved.write_text(json.dumps(encode_canonical_model(columnar)))
+    [replayed] = [
+        row for row in run_saved_report(saved).rule_assessments if row.id == "ownership"
+    ]
+    assert replayed.status.value == "FAIL" and not replayed.evaluation_proven
+
+
 def test_alias_reads_resolve_to_the_owned_symbol_without_matching_shadowing(tmp_path):
     from archkeel.ir.decisions import rule_assessments
 

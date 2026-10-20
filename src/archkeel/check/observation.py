@@ -22,6 +22,7 @@ from archkeel.ir.decisions import (
     numeric_operand_inventory_binding_id,
     protocol_declaration_result_digest,
     rule_evaluation_binding_id,
+    rule_result_digest,
 )
 from archkeel.ir.digest import package_digest
 from archkeel.ir.facts import ResolutionRole as _ResolutionRole
@@ -860,9 +861,14 @@ def _certify_source_ownership_scopes(
         "selected_files": list(facts.coverage.selected_files),
     }
     inventory_binding_id = _dependency_binding_id(scan, declarations, include_source_ownership=True)
+    result_sections = (
+        Section("violations", tuple(parse_record(item) for item in scan.violations)),
+        Section("unknowns", tuple(parse_record(item) for item in scan.unknowns)),
+    )
     for receipt in receipts:
         receipt["data"]["source_ownership_scope_proof"] = {
             **proof,
+            "result_digest": rule_result_digest(result_sections, receipt["rule_ids"][0]),
             "binding_id": rule_evaluation_binding_id(
                 inventory_binding_id, parse_record(receipt), SCHEMA_VERSION
             ),
