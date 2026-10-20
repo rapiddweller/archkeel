@@ -87,6 +87,7 @@ def _target_hierarchy_files(case: str) -> dict[str, str]:
                 "allowed_children": [
                     "shop.store.backend",
                     "shop.store.codec",
+                    "shop.store.lookup",
                     "shop.store.repository",
                     "shop.store.sqlite",
                 ],
@@ -207,6 +208,7 @@ VARIANTS: tuple[Variant, ...] = (
                     "allowed_children": [
                         "shop.store.backend",
                         "shop.store.codec",
+                        "shop.store.lookup",
                         "shop.store.repository",
                         "shop.store.sqlite",
                     ],

@@ -405,6 +405,7 @@ def test_recursive_wide_report_includes_catalog_isolated_module_and_package_root
         "shop.store.backend.tasks.source",
         "shop.store.backend.tasks.target",
         "shop.store.codec",
+        "shop.store.lookup",
         "shop.store.repository",
         "shop.store.sqlite",
     }
