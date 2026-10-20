@@ -590,9 +590,7 @@ def _call_origin_proof(
         witnesses = proof.get("witness_evidence_ids")
         owners = declarations.get(owner_name, []) if isinstance(owner_name, str) else []
         initializers = (
-            declarations.get(f"{owner_name}.__init__", [])
-            if isinstance(owner_name, str)
-            else []
+            declarations.get(f"{owner_name}.__init__", []) if isinstance(owner_name, str) else []
         )
         stored_types = declarations.get(target, []) if isinstance(target, str) else []
         target_declarations = declarations.get(binding.target, [])
@@ -602,27 +600,35 @@ def _call_origin_proof(
             if len(initializers) == 1 and initializers[0].kind == "method"
             else None
         )
-        linked_writes = [
-            item
-            for item in typed_writes
-            if isinstance(item, RecordData)
-            and item.get("field") == field
-            and item.get("parameter") == parameter
-            and item.get("evidence_id") == write_evidence
-            and isinstance(witnesses, tuple)
-            and len(witnesses) == 2
-            and item.get("annotation_evidence_id") == witnesses[1]
-            and isinstance(owner_name, str)
-            and item.get("receiver")
-            == initializers[0].data.get("receiver_parameter")
-        ] if isinstance(typed_writes, tuple) else []
+        linked_writes = (
+            [
+                item
+                for item in typed_writes
+                if isinstance(item, RecordData)
+                and item.get("field") == field
+                and item.get("parameter") == parameter
+                and item.get("evidence_id") == write_evidence
+                and isinstance(witnesses, tuple)
+                and len(witnesses) == 2
+                and item.get("annotation_evidence_id") == witnesses[1]
+                and isinstance(owner_name, str)
+                and item.get("receiver") == initializers[0].data.get("receiver_parameter")
+            ]
+            if isinstance(typed_writes, tuple)
+            else []
+        )
         parameters = initializers[0].data.get("parameters") if len(initializers) == 1 else None
-        typed_parameters = [
-            item for item in parameters
-            if isinstance(item, RecordData)
-            and item.get("name") == parameter
-            and isinstance(item.get("annotation"), str)
-        ] if isinstance(parameters, tuple) else []
+        typed_parameters = (
+            [
+                item
+                for item in parameters
+                if isinstance(item, RecordData)
+                and item.get("name") == parameter
+                and isinstance(item.get("annotation"), str)
+            ]
+            if isinstance(parameters, tuple)
+            else []
+        )
         if (
             not isinstance(field, str)
             or not field.isidentifier()
@@ -703,7 +709,8 @@ def _call_origin_proof(
             or targets[0].data.get("default_instance_result") is not True
             or not isinstance(constructors, str)
             or len(constructor_calls) != 1
-            or assignment is not None and (
+            or assignment is not None
+            and (
                 not isinstance(assignment_name, str)
                 or len(linked_assignments) != 1
                 or linked_assignments[0][0].data.get("source_scope")
@@ -712,7 +719,8 @@ def _call_origin_proof(
                 or assignment_evidence is None
                 or assignment_evidence.line >= call_evidence.line
             )
-            or assignment is None and assignment_name is not None
+            or assignment is None
+            and assignment_name is not None
             or assignment is not None
             and (
                 not assignment_id

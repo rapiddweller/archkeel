@@ -247,8 +247,7 @@ def parse_observation(raw: object) -> Observation:
                             _ObservationVersion.V2_3,
                         }
                         and binding is not None
-                        and binding.origin.value
-                        not in {"direct", "declared_receiver"}
+                        and binding.origin.value not in {"direct", "declared_receiver"}
                     ):
                         raise ValueError("extended call bindings require observation schema 2.4.0")
     if schema_version not in {

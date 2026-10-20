@@ -288,7 +288,12 @@ def call_binding(value: JsonValue) -> CallBinding | None:
         proof_fields = {key for key, _ in proof.entries}
         required_fields = {
             "stored_field": {
-                "kind", "owner", "field", "parameter", "target", "witness_evidence_ids"
+                "kind",
+                "owner",
+                "field",
+                "parameter",
+                "target",
+                "witness_evidence_ids",
             },
             "construction": {
                 "kind",
