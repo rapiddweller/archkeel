@@ -220,6 +220,38 @@ def test_saved_receipt_does_not_certify_changed_actual_or_removed_violation(tmp_
     assert assessment.status == "UNKNOWN" and not assessment.evaluation_proven
 
 
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize("change", ["relocate", "delete", "change"])
+def test_saved_argument_receipt_binds_result_section_and_contents(
+    tmp_path, mounted, columnar, change
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import page\ndef consume():\n    page('SELECT 1')\n",
+        mounted=mounted,
+    )
+    assert row.status == "FAIL" and row.evaluation_proven
+    payload = observation_payload(result.observation)
+    [violation] = payload["violations"]
+    if change == "relocate":
+        payload["violations"].clear()
+        payload["scope_observations"].append(violation)
+    elif change == "delete":
+        payload["violations"].clear()
+    else:
+        violation["title"] = "changed finding"
+    saved = tmp_path / "tampered.json"
+    saved.write_bytes(canonical_report_bytes(payload) if columnar else json.dumps(payload).encode())
+
+    [replayed] = run_saved_report(saved).rule_assessments
+
+    assert replayed.status != "PASS" and not replayed.evaluation_proven
+
+
 def test_source_facts_reject_a_forged_string_literal_value(tmp_path):
     from archkeel.analyzer.python.collect import collect
     from archkeel.ir.facts_codec import (
@@ -342,7 +374,16 @@ def test_call_argument_evidence_requires_the_new_observation_version(tmp_path):
     assert parse_observation(raw).schema_version == "2.9.0"
 
     old = json.loads(json.dumps(raw))
-    old["schema_version"] = "2.1.0"
+    old["schema_version"] = "2.4.0"
+    old["declarations"] = [
+        item for item in old["declarations"] if item["kind"] != "source_ownership"
+    ]
+    old_references = old["references"]
+    old["references"] = []
+    for item in old_references:
+        if item["kind"] != "source_role":
+            item["data"].pop("reference_context", None)
+            old["references"].append(item)
     with pytest.raises(ValueError, match="call_arguments require"):
         parse_observation(old)
 
@@ -353,6 +394,11 @@ def test_call_argument_evidence_requires_the_new_observation_version(tmp_path):
 
     historical = json.loads(json.dumps(raw))
     historical["schema_version"] = "2.5.0"
+    historical["references"] = [
+        item for item in historical["references"] if item["kind"] != "source_role"
+    ]
+    for item in historical["references"]:
+        item["data"].pop("reference_context", None)
     for symbol in historical["symbols"]:
         for attribute in symbol["data"].get("attribute_declarations", []):
             attribute.pop("literal_value", None)

@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import re
-from collections import Counter
 from collections.abc import Mapping
 from dataclasses import asdict, replace
 from enum import StrEnum
@@ -14,6 +13,7 @@ from math import isfinite
 from typing import Any, TypeGuard
 
 from archkeel.ir.architecture_graph import ArchitectureRuleKind
+from archkeel.ir.codec_strings import intern_strings, observation_escaped, observation_profitable
 from archkeel.ir.codec_wire import (
     _count,
     _exact,
@@ -34,6 +34,10 @@ from archkeel.ir.facts import (
 )
 from archkeel.ir.facts import call_arguments as _call_arguments
 from archkeel.ir.facts import call_binding as _call_binding
+from archkeel.ir.facts_validation import (
+    _validate_source_role_identities,
+    validate_source_role_vocabulary,
+)
 from archkeel.ir.model import (
     CLASSIFIED_SECTIONS,
     EVIDENCE_FIELDS,
@@ -75,6 +79,12 @@ class _ObservationVersion(StrEnum):
     V2_7 = "2.7.0"
     V2_8 = "2.8.0"
     V2_9 = "2.9.0"
+
+
+def _before_version(version: _ObservationVersion, floor: _ObservationVersion) -> bool:
+    return tuple(int(part) for part in version.value.split(".")) < tuple(
+        int(part) for part in floor.value.split(".")
+    )
 
 
 class _VersionedConstruct(StrEnum):
@@ -161,6 +171,10 @@ def _uses_protocol_declaration_fields(section: Section) -> bool:
     )
 
 
+class _ConstructSelectorFactKind(StrEnum):
+    SELECTOR = "construct_selector"
+
+
 class _StringSentinel(StrEnum):
     MISSING = "$m"
     ESCAPED_MISSING = "$$m"
@@ -199,7 +213,7 @@ _STRING_REFERENCE = re.compile(r"^\$\d+$")
 _ESCAPED_STRING_REFERENCE = re.compile(r"^\$\$+\d+$")
 
 
-_MISSING_VALUE = object()
+_MISSING_VALUE: RawJson = float("nan")
 
 
 _TOP_LEVEL = {
@@ -273,6 +287,8 @@ def _validate_versioned_records(
         _ObservationVersion.V2_3,
         _ObservationVersion.V2_4,
         _ObservationVersion.V2_5,
+        _ObservationVersion.V2_6,
+        _ObservationVersion.V2_7,
     }:
         python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
         for section in sections:
@@ -284,7 +300,13 @@ def _validate_versioned_records(
                         raise ValueError("Python calls require explicit call_binding or null")
                     binding = _call_binding(call.data.get("call_binding"))
                     if (
-                        schema_version not in {_ObservationVersion.V2_4, _ObservationVersion.V2_5}
+                        schema_version
+                        not in {
+                            _ObservationVersion.V2_4,
+                            _ObservationVersion.V2_5,
+                            _ObservationVersion.V2_6,
+                            _ObservationVersion.V2_7,
+                        }
                         and binding is not None
                         and binding.origin
                         not in {CallBindingOrigin.DIRECT, CallBindingOrigin.DECLARED_RECEIVER}
@@ -357,6 +379,8 @@ def parse_observation(raw: object) -> Observation:
         if isinstance(section_items := item[name], list)
     )
     _validate_versioned_records(schema_version, sections, profile)
+    _validate_observation_record_versions(sections, schema_version, profile, evidence_raw)
+    _validate_selector_schema_floor(item)
     return Observation(
         schema_version=schema_version,
         analyzer=AnalyzerInfo(
@@ -399,6 +423,59 @@ def parse_observation(raw: object) -> Observation:
         if item.get("producer", _MISSING_VALUE) is not _MISSING_VALUE
         else None,
     )
+
+
+def _validate_observation_record_versions(
+    sections: tuple[Section, ...],
+    version: _ObservationVersion,
+    profile: Profile,
+    evidence: RawJson,
+) -> None:
+    if _before_version(version, _ObservationVersion.V2_7):
+        for section_name, kind, message in (
+            (
+                "references",
+                "source_role",
+                "source_role records require observation schema_version 2.7.0",
+            ),
+            (
+                "declarations",
+                "source_ownership",
+                "source_ownership requires observation schema_version 2.7.0",
+            ),
+        ):
+            if any(
+                record.kind == kind
+                for section in sections
+                if section.name == section_name
+                for record in section.records
+            ):
+                raise ValueError(message)
+        if any(
+            _has_field((key for key, _ in record.data.entries), "reference_context")
+            for section in sections
+            if section.name == "references"
+            for record in section.records
+        ):
+            raise ValueError("reference_context requires observation schema_version 2.7.0")
+    if version in {_ObservationVersion.V2_1, _ObservationVersion.V2_2}:
+        python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
+        for section in sections:
+            if section.name == ObservedSection.CALLS:
+                for call in section.records:
+                    if python_calls and not _has_field(
+                        (key for key, _ in call.data.entries), "call_binding"
+                    ):
+                        raise ValueError("Python 2.1.0 calls require explicit call_binding or null")
+                    _call_binding(call.data.get("call_binding"))
+    if not _before_version(version, _ObservationVersion.V2_7):
+        if not isinstance(evidence, list):
+            raise ValueError("observation evidence must be an array")
+        _validate_source_ownership_vocabulary(sections)
+        _validate_source_role_identities(
+            (record for section in sections for record in section.records),
+            {item.id: item for item in (parse_evidence(value, "evidence[]") for value in evidence)},
+        )
 
 
 def _parse_analyzer(raw: RawJson, label: str) -> AnalyzerInfo:
@@ -541,7 +618,43 @@ def _validate_profile_sections(model: Mapping[str, RawJson], profile: Profile) -
             raise ValueError(f"{section} must be an array for analyzer {profile.analyzer}")
 
 
+def _validate_source_ownership_vocabulary(sections: tuple[Section, ...]) -> None:
+    references = next((section.records for section in sections if section.name == "references"), ())
+    for record in references:
+        if record.kind in {"value_reference", "attribute_reference"} and record.data.get(
+            "reference_context"
+        ) not in {"value", "annotation", "unknown"}:
+            raise ValueError("2.7.0 reference needs a typed source context")
+        if record.kind != "source_role":
+            continue
+        validate_source_role_vocabulary(record, version="2.7.0")
+    rules = {
+        record.id
+        for section in sections
+        if section.name == "declarations"
+        for record in section.records
+        if record.kind == "source_ownership"
+    }
+    if rules:
+        receipts = [
+            record
+            for section in sections
+            if section.name == "scope_observations"
+            for record in section.records
+            if record.kind == "rule_evaluation" and bool(set(record.rule_ids) & rules)
+        ]
+        if any(record.data.get("source_ownership_scope_proof") is None for record in receipts):
+            raise ValueError("2.7.0 source_ownership rules require bound evaluation receipts")
+
+
 def observation_payload(observation: Observation) -> dict[str, RawJson]:
+    if _before_version(_observation_version(observation.schema_version), _ObservationVersion.V2_6) and any(
+        record.kind == _ConstructSelectorFactKind.SELECTOR
+        for section in observation.sections
+        if section.name == ObservedSection.CONSTRUCTS
+        for record in section.records
+    ):
+        raise ValueError("construct selector facts require observation schema 2.6.0")
     if (
         _observation_version(observation.schema_version)
         not in {
@@ -551,6 +664,8 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
             _ObservationVersion.V2_3,
             _ObservationVersion.V2_4,
             _ObservationVersion.V2_5,
+            _ObservationVersion.V2_6,
+            _ObservationVersion.V2_7,
         }
         and observation.runtime is not None
         and observation.runtime.requirement_state != RuntimeRequirementState.DECLARED
@@ -632,51 +747,22 @@ def encode_canonical_model(model: dict[str, RawJson]) -> dict[str, RawJson]:
     evidence_items = [_object(entry, "evidence[]") for entry in raw_evidence]
     evidence_rows = [[item[field] for field in EVIDENCE_FIELDS] for item in evidence_items]
 
-    counts: Counter[str] = Counter()
-
-    def count_strings(value: object) -> None:
-        if isinstance(value, str):
-            counts[value] += 1
-        elif isinstance(value, list):
-            for entry in value:
-                count_strings(entry)
-        elif isinstance(value, dict):
-            for entry in value.values():
-                count_strings(entry)
-
-    count_strings(rows_by_section)
-    count_strings(evidence_rows)
-    string_table = sorted(
-        value
-        for value, count in counts.items()
-        # Literal $$m would otherwise collide with historical $$$m escaping.
-        if value == _StringSentinel.ESCAPED_MISSING
-        or (count >= 2 and len(value) >= 8 and (count - 1) * len(value) - count * 8 > 100)
+    # AD-2: missing cells use a private NaN sentinel until intern writes "$m".
+    interned_tree, string_table = intern_strings(
+        {"sections": rows_by_section, "evidence": evidence_rows},
+        profitable=observation_profitable,
+        missing_value=_MISSING_VALUE,
+        escape_reserved=observation_escaped,
     )
-    string_indexes = {value: index for index, value in enumerate(string_table)}
-
-    # AD-2: rows mix RawJson with the _MISSING_VALUE sentinel; see rows_by_section.
-    def intern(value: Any) -> Any:
-        if value is _MISSING_VALUE:
-            return "$m"
-        if isinstance(value, str):
-            if value in string_indexes:
-                return f"${string_indexes[value]}"
-            if (
-                _string_sentinel(value) is not None
-                or _STRING_REFERENCE.fullmatch(value)
-                or _ESCAPED_STRING_REFERENCE.fullmatch(value)
-            ):
-                return f"${value}"
-            return value
-        if isinstance(value, list):
-            return [intern(entry) for entry in value]
-        if isinstance(value, dict):
-            return {key: intern(entry) for key, entry in value.items()}
-        return value
-
-    encoded.update({section: intern(rows) for section, rows in rows_by_section.items()})
-    encoded["evidence"] = intern(evidence_rows)
+    if not isinstance(interned_tree, dict):
+        raise ValueError("interned observation must be an object")
+    interned = _raw_object(interned_tree)
+    interned_sections = interned.get("sections")
+    interned_evidence = interned.get("evidence")
+    if not isinstance(interned_sections, dict) or not isinstance(interned_evidence, list):
+        raise ValueError("interned observation sections and evidence must have valid shapes")
+    encoded.update(interned_sections)
+    encoded["evidence"] = interned_evidence
     encoding: dict[str, RawJson] = {
         "kind": _EncodingKind.COLUMNAR.value,
         "record_fields": list(RECORD_FIELDS),
@@ -694,7 +780,9 @@ def decode_canonical_model(encoded: dict[str, RawJson]) -> dict[str, RawJson]:
     """Inflate the canonical columnar report into the in-memory ArchitectureIR."""
     encoding = encoded.get("encoding")
     if not _is_columnar(encoding):
-        _validate_profile_sections(encoded, _observation_profile(encoded))
+        profile = _observation_profile(encoded)
+        _validate_profile_sections(encoded, profile)
+        _validate_selector_schema_floor(encoded)
         return encoded
     profile = _observation_profile(encoded)
     _validate_profile_sections(encoded, profile)
@@ -754,7 +842,19 @@ def decode_canonical_model(encoded: dict[str, RawJson]) -> dict[str, RawJson]:
     model["evidence"] = [
         dict(zip(evidence_fields, expand(row), strict=True)) for row in encoded_evidence
     ]
+    _validate_selector_schema_floor(model)
     return model
+
+
+def _validate_selector_schema_floor(model: dict[str, RawJson]) -> None:
+    if not _before_version(_observation_version(model["schema_version"]), _ObservationVersion.V2_6):
+        return
+    constructs = model.get("constructs")
+    if isinstance(constructs, list) and any(
+        isinstance(record, dict) and record.get("kind") == "construct_selector"
+        for record in constructs
+    ):
+        raise ValueError("construct selector facts require observation schema 2.6.0")
 
 
 def canonical_report_bytes(model: Observation | dict[str, RawJson]) -> bytes:

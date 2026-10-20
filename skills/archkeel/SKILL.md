@@ -317,6 +317,15 @@ contract 3.10; older readers must reject that evidence. The current reader
 continues to accept historical observation formats.
 
 Use `catalog_argument` to compare a bound operation argument against canonical Python enum string values, and `catalog_use` to require a real selected member read. The contract names declaration owners, never copied values or `used` flags. Comments, docs, definitions and annotation-only links are not reads; `TYPE_CHECKING` reads count syntactically. Missing or partial scope remains UNKNOWN. These rules require contract 3.14 and observation 2.9; older saved artifacts remain readable but cannot certify them. See AD-251 for limits.
+Use `forbidden_construct.selector` when a policy must select one nominal
+receiver/member and access or comparison role. Contract 3.11 and observation
+2.6 enable the Python slice: annotated direct member reads, positional literal
+reflection names, selected local constructors and type probes, literal equality
+in either direction, membership, `match`, and `startswith`/`endswith`.
+Dynamic names, unannotated or ambiguous receivers and missing selected subjects
+remain UNKNOWN. Other language profiles do not claim selector support. See
+[AD-248](../docs/architecture/decisions/ad-248-construct-selectors.md) and
+the [rule grammar](../docs/rules.md#forbidden-construct).
 
 ## Daily loop
 

@@ -36,6 +36,7 @@ global coverage and cycle closure stay incomplete. See
 | Reject a written string literal at one bound call parameter | `forbidden_call_argument` (3.10) |
 | Require selected call arguments to name canonical enum catalog entries | `catalog_argument` (3.14) |
 | Require catalog members to have a genuine source read in scope | `catalog_use` (3.14) |
+| Retire a source name or confine its definition, use, transfer, default or fallback to a canonical owner | `source_ownership` (3.12) |
 
 Python static imports and proven literal `importlib.import_module` / `__import__`
 calls feed the same dependency rules. An unknown loader binding or target withholds
@@ -78,6 +79,15 @@ empty list. See
 [AD-247](architecture/decisions/ad-247-written-call-arguments-bind-to-observed-formals.md).
 
 `catalog_argument` selects a source scope, canonical operation, formal parameter and enum owner. It accepts exact string values declared by that enum and canonical enum member expressions; overlays name separate enum owners. Wrong string literals FAIL. Dynamic arguments, unresolved calls, or ambiguous catalog owners remain UNKNOWN. `catalog_use` requires each enum entry (or a named member) to have a real value/attribute read in its selected scope. Comments, docstrings, definitions and annotation-only references do not count. `TYPE_CHECKING` reads count syntactically. Prefix scope matching remains the default; `source_match: "exact"` selects one module or scope. Catalog rules are Python-only and require observation 2.9 and contract 3.14. See [AD-251](architecture/decisions/ad-251-catalog-arguments-and-source-usage.md).
+`source_ownership` is Python-only. `retired` selects `symbols` with the `definition`,
+`read`, `write` and/or `delete` roles. `confined` selects `symbols` with an `owner`, or
+formal `parameters` with a `value_owner`; choose the corresponding role subset, including
+`value_transfer`, `parameter_default` and `fallback` only where evidence supports it.
+Resolved references must match a unique admitted reference at the same source location.
+Literal defaults/fallbacks carry no reference target; unsupported expressions remain
+UNKNOWN. Dictionary callable transfers are bounded to direct names and zero-argument
+lambda calls. Missing, ambiguous, mutated or unlinked source evidence cannot certify a
+rule. See [AD-249](architecture/decisions/ad-249-source-ownership-defaults.md).
 
 ### Ownership and dependency decisions
 
@@ -254,6 +264,15 @@ cite those symbols and do not extend the rule to the containing module. Incomple
 source coverage still prevents PASS. Aliases/shadowing are limits. Exact type-ignore
 allowances bind scope, line, AST statement and tag; moving or changing them needs
 review.
+
+Contract 3.11 adds an optional closed `selector` record with `receiver`, `role`,
+`member` and, for value comparisons, `literal`. Supported roles are `read`,
+`write`, `call`, `reflect`, `constructor`, `type_probe`, `equality`,
+`membership`, `match`, `startswith` and `endswith`. It selects one nominal
+receiver/member role; it does not turn arbitrary predicates into policy. The
+Python observer's selector facts require observation 2.6. Dynamic names and
+unproven receiver/member identity yield UNKNOWN, and older readers reject facts
+relabelled to an earlier version. See [AD-248](architecture/decisions/ad-248-construct-selectors.md).
 
 The native TypeScript/JavaScript collector provides PARTIAL evidence for written
 string equality/inequality and `switch` case literals, including plain templates

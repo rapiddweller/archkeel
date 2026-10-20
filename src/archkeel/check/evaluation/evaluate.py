@@ -75,6 +75,7 @@ from .rules import (
     rule_violations,
     source_domains_complete,
     source_selector_domains,
+    source_ownership_unknowns,
     symbol_limits,
 )
 from .state import evaluate_contexts
@@ -376,6 +377,7 @@ def _inside_rule_results(
             packages=packages,
             modules=modules,
             symbols=symbols,
+            references=references,
             blank_modules=blank_modules,
             module_cycles=module_cycles,
             profile=profile,
@@ -709,6 +711,7 @@ def _evaluate_inside_contract(
     packages: Sequence[RawRecord],
     modules: Sequence[RawRecord],
     symbols: Sequence[RawRecord],
+    references: Sequence[RawRecord],
     blank_modules: frozenset[str],
     module_cycles: Sequence[RawRecord],
     profile: Profile,
@@ -748,6 +751,7 @@ def _evaluate_inside_contract(
         packages=packages,
         modules=modules,
         symbols=symbols,
+        references=references,
         blank_modules=blank_modules,
         module_cycles=module_cycles,
         contract=scoped,
@@ -765,6 +769,9 @@ def _evaluate_inside_contract(
         receipt_scan_roots=receipt_scan_roots,
         type_shapes=type_shapes,
     )
+    selector_unknowns = [
+        item for item in allowance_facts if item["kind"] == "construct_selector_unknown"
+    ]
     unknowns: list[RawRecord] = (
         boundary_type_limits(
             symbols,
@@ -805,7 +812,14 @@ def _evaluate_inside_contract(
         scope=parent.label,
     )
     unknowns.extend(protocol_unknowns)
-    return violations, unknowns, failures, allowance_facts
+    unknowns.extend(selector_unknowns)
+    unknowns.extend(source_ownership_unknowns(references, symbols, scoped.rules, source_modules))
+    return (
+        violations,
+        unknowns,
+        failures,
+        [item for item in allowance_facts if item["kind"] != "construct_selector_unknown"],
+    )
 
 
 def _unproven_binding_view(item: RawRecord) -> RawRecord:
@@ -1075,6 +1089,7 @@ def evaluate_source(
         packages=package_facts,
         modules=module_facts,
         symbols=symbols,
+        references=references,
         blank_modules=blank_modules,
         # AD-98: a module-level cycle rule judges the SCCs this report measures, not a copy.
         module_cycles=module_cycles,
@@ -1163,6 +1178,11 @@ def evaluate_source(
         ],
         key=lambda item: item["id"],
     )
+    selector_unknowns = [
+        item
+        for item in (*boundary_allowances, *inside_allowances)
+        if item["kind"] == "construct_selector_unknown"
+    ]
     numeric_operand_unknowns = [
         item
         for item in (*boundary_allowances, *inside_allowances)
@@ -1171,14 +1191,23 @@ def evaluate_source(
     typing_signals = sorted(
         [
             *typing_signals,
-            *(item for item in boundary_allowances if item["kind"] != "numeric_operand_unknown"),
-            *(item for item in inside_allowances if item["kind"] != "numeric_operand_unknown"),
+            *(
+                item
+                for item in boundary_allowances
+                if item["kind"] not in {"numeric_operand_unknown", "construct_selector_unknown"}
+            ),
+            *(
+                item
+                for item in inside_allowances
+                if item["kind"] not in {"numeric_operand_unknown", "construct_selector_unknown"}
+            ),
         ],
         key=lambda item: item["id"],
     )
 
     unknowns = [
         *(_analysis_limits(calls, declarations, namespace) if is_python else []),
+        *source_ownership_unknowns(references, symbols, contract.rules, None),
         *source_unknowns,
         *dynamic_dependency_limits(contract, source_unknowns),
         *symbol_limits(
@@ -1222,6 +1251,7 @@ def evaluate_source(
             "name.",
         ),
         *inside_unknowns,
+        *selector_unknowns,
         *numeric_operand_unknowns,
         *failures,
         *rule_failures,

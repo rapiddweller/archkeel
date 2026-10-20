@@ -52,6 +52,8 @@ from archkeel.ir.model import (
     CompleteExternalScopeRule,
     CompleteRequiresRule,
     ComponentRole,
+    ConstructSelector,
+    ConstructSelectorRole,
     ContractCapability,
     ContractCommand,
     ContractComponent,
@@ -85,6 +87,9 @@ from archkeel.ir.model import (
     RootLayoutRule,
     SelectorMatch,
     SiblingIsolationRule,
+    SourceOwnershipMode,
+    SourceOwnershipRole,
+    SourceOwnershipRule,
     SymbolClassKind,
     SymbolPlacementRule,
     TypeIgnoreAllowance,
@@ -296,6 +301,10 @@ def parse_contract(raw: object) -> ArchitectureContract:
         )
     ):
         raise ValueError("catalog rules require contract schema_version 3.14.0")
+    if not supports_feature(version, ContractFeature.CONSTRUCT_SELECTOR) and any(
+        _has_field(_object(value, "rule"), "selector") for value in rules_raw
+    ):
+        raise ValueError("construct selectors require contract schema_version 3.11.0")
     if (
         not supports_feature(version, ContractFeature.LAYERS)
         and ArchitectureRuleKind.LAYER_ORDER in kinds
@@ -311,6 +320,11 @@ def parse_contract(raw: object) -> ArchitectureContract:
         _has_field(_object(value, "rule"), "target_kind") for value in rules_raw
     ):
         raise ValueError("import namespace targets require contract schema_version 3.5.0")
+    if (
+        not supports_feature(version, ContractFeature.SOURCE_OWNERSHIP)
+        and ArchitectureRuleKind.SOURCE_OWNERSHIP in kinds
+    ):
+        raise ValueError("source_ownership requires contract schema_version 3.12.0")
     if not supports_feature(version, ContractFeature.MODULE_OBJECT_GRANTS) and any(
         _has_field(_object(value, "rule"), "module_object_grants") for value in rules_raw
     ):
@@ -446,14 +460,28 @@ def _validate_encoding_version(contract: ArchitectureContract) -> None:
         isinstance(rule, (CatalogArgumentRule, CatalogUseRule)) for rule in contract.rules
     ) and not supports_feature(contract.schema_version, ContractFeature.CATALOG_ARGUMENT):
         raise ValueError("catalog rules require contract schema_version 3.14.0")
+    if not supports_feature(contract.schema_version, ContractFeature.CONSTRUCT_SELECTOR) and any(
+        isinstance(rule, ForbiddenConstructRule) and rule.selector is not None
+        for rule in contract.rules
+    ):
+        raise ValueError("construct selectors require contract schema_version 3.11.0")
+    if not supports_feature(contract.schema_version, ContractFeature.SOURCE_OWNERSHIP) and any(
+        isinstance(rule, SourceOwnershipRule) for rule in contract.rules
+    ):
+        raise ValueError("source_ownership requires contract schema_version 3.12.0")
     if not supports_feature(contract.schema_version, ContractFeature.MODULE_OBJECT_GRANTS) and any(
         isinstance(rule, InterfaceBoundaryRule) and rule.module_object_grants is not None
         for rule in contract.rules
     ):
         raise ValueError("module_object_grants require contract schema_version 3.6.0")
-    if not supports_feature(contract.schema_version, ContractFeature.LAYERS) and (
-        any(component.layer is not None for component in contract.components)
-        or any(isinstance(rule, LayerOrderRule) for rule in contract.rules)
+    _validate_layer_feature_version(contract)
+
+
+def _validate_layer_feature_version(contract: ArchitectureContract) -> None:
+    if supports_feature(contract.schema_version, ContractFeature.LAYERS):
+        return
+    if any(component.layer is not None for component in contract.components) or any(
+        isinstance(rule, LayerOrderRule) for rule in contract.rules
     ):
         raise ValueError("layer and layer_order require contract schema_version 2.3.0")
     if not supports_feature(contract.schema_version, ContractFeature.ALIAS_BODY) and any(
@@ -914,7 +942,7 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
     item, item_id, provenance = _contract_record(
         raw,
         {"kind", "source", "constructs", "rationale", "decided_by"},
-        {"allowed_sources", "exact_sources", "allowed_type_ignores"},
+        {"allowed_sources", "exact_sources", "allowed_type_ignores", "selector"},
         label,
     )
     raw_constructs = _contract_strings(item["constructs"], f"{label}.constructs", required=True)
@@ -944,6 +972,7 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
         )
     if len(set(ignores)) != len(ignores):
         raise ValueError(f"{label}.allowed_type_ignores must contain unique entries")
+    selector = _parse_construct_selector(item, label)
     return ForbiddenConstructRule(
         item_id,
         ArchitectureRuleKind.FORBIDDEN_CONSTRUCT,
@@ -955,7 +984,140 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
         allowed,
         exact,
         tuple(ignores),
+        selector,
     )
+
+
+def _qualified_names(raw: RawJson, label: str, *, required: bool = False) -> tuple[str, ...]:
+    values = _contract_strings(raw, label, required=required)
+    if any(not all(part.isidentifier() for part in value.split(".")) for value in values):
+        raise ValueError(f"{label} must contain qualified identifiers")
+    return values
+
+
+def _parse_source_ownership(raw: RawJson, label: str) -> SourceOwnershipRule:
+    item, item_id, provenance = _contract_record(
+        raw,
+        {"kind", "source", "mode", "roles", "rationale", "decided_by"},
+        {"symbols", "parameters", "owner", "value_owner"},
+        label,
+    )
+    try:
+        mode = SourceOwnershipMode(_string(item["mode"], f"{label}.mode"))
+        roles = tuple(
+            SourceOwnershipRole(value)
+            for value in _contract_strings(item["roles"], f"{label}.roles", required=True)
+        )
+    except ValueError as error:
+        raise ValueError(f"{label}.mode or roles contains an unsupported value") from error
+    if len(set(roles)) != len(roles):
+        raise ValueError(f"{label}.roles must contain unique values")
+    symbols = _qualified_names(item.get("symbols", []), f"{label}.symbols")
+    parameters = _qualified_names(item.get("parameters", []), f"{label}.parameters")
+    if any(not value.rpartition(".")[0] for value in parameters):
+        raise ValueError(f"{label}.parameters must name function.parameter")
+    owner = item.get("owner")
+    owner = _nonempty(owner, f"{label}.owner") if owner is not None else None
+    value_owner = item.get("value_owner")
+    value_owner = (
+        _nonempty(value_owner, f"{label}.value_owner") if value_owner is not None else None
+    )
+    symbol_roles = {
+        SourceOwnershipRole.DEFINITION,
+        SourceOwnershipRole.READ,
+        SourceOwnershipRole.WRITE,
+        SourceOwnershipRole.DELETE,
+        SourceOwnershipRole.VALUE_TRANSFER,
+    }
+    parameter_roles = {SourceOwnershipRole.PARAMETER_DEFAULT, SourceOwnershipRole.FALLBACK}
+    selected_symbol_roles = set(roles) & symbol_roles
+    selected_parameter_roles = set(roles) & parameter_roles
+    if bool(symbols) != bool(selected_symbol_roles) or bool(parameters) != bool(
+        selected_parameter_roles
+    ):
+        raise ValueError(f"{label} selectors must match their selected roles")
+    if mode is SourceOwnershipMode.RETIRED:
+        if (
+            (
+                set(roles)
+                - {
+                    SourceOwnershipRole.DEFINITION,
+                    SourceOwnershipRole.READ,
+                    SourceOwnershipRole.WRITE,
+                    SourceOwnershipRole.DELETE,
+                }
+            )
+            or owner is not None
+            or value_owner is not None
+        ):
+            raise ValueError(
+                f"{label}.retired cannot select owners, parameters, defaults, or fallbacks"
+            )
+    elif (bool(selected_symbol_roles) != (owner is not None)) or (
+        bool(selected_parameter_roles) != (value_owner is not None)
+    ):
+        raise ValueError(f"{label}.confined needs the owner for every selected role")
+    return SourceOwnershipRule(
+        item_id,
+        ArchitectureRuleKind.SOURCE_OWNERSHIP,
+        _nonempty(item["source"], f"{label}.source"),
+        mode,
+        roles,
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
+        symbols,
+        parameters,
+        owner,
+        value_owner,
+    )
+
+
+def _parse_construct_selector(item: dict[str, RawJson], label: str) -> ConstructSelector | None:
+    if not _has_field(item, "selector"):
+        return None
+    selected = _contract_fields(
+        _object(item["selector"], f"{label}.selector"),
+        {"receiver", "role"},
+        {"member", "literal"},
+        f"{label}.selector",
+    )
+    try:
+        role = ConstructSelectorRole(_nonempty(selected["role"], f"{label}.selector.role"))
+    except ValueError as exc:
+        raise ValueError(f"{label}.selector.role is unsupported") from exc
+    receiver = _nonempty(selected["receiver"], f"{label}.selector.receiver")
+    member_value = selected.get("member")
+    member = (
+        _nonempty(member_value, f"{label}.selector.member") if member_value is not None else None
+    )
+    literal = selected.get("literal")
+    if literal is not None and not isinstance(literal, str):
+        raise ValueError(f"{label}.selector.literal must be a string")
+    literal_roles = {
+        ConstructSelectorRole.EQUALITY,
+        ConstructSelectorRole.MEMBERSHIP,
+        ConstructSelectorRole.MATCH,
+        ConstructSelectorRole.STARTSWITH,
+        ConstructSelectorRole.ENDSWITH,
+    }
+    access_roles = {
+        ConstructSelectorRole.READ,
+        ConstructSelectorRole.WRITE,
+        ConstructSelectorRole.CALL,
+    }
+    if role in access_roles and literal is not None:
+        raise ValueError(f"{label}.selector.literal is not valid for access roles")
+    memberless_roles = {ConstructSelectorRole.CONSTRUCTOR, ConstructSelectorRole.TYPE_PROBE}
+    if (role in memberless_roles) == (member is not None):
+        raise ValueError(f"{label}.selector.member is required for member roles")
+    if (role in literal_roles) != (literal is not None):
+        raise ValueError(f"{label}.selector.literal is required only for operand roles")
+    if not all(part.isidentifier() for part in receiver.split(".")) or (
+        member is not None and not member.isidentifier()
+    ):
+        raise ValueError(f"{label}.selector receiver and member must be qualified identifiers")
+    return ConstructSelector(receiver, member, role, literal)
 
 
 def _parse_external_dependency_scope(raw: RawJson, label: str) -> ExternalDependencyScopeRule:
@@ -1532,6 +1694,7 @@ _RULE_PARSERS: Final[dict[ArchitectureRuleKind, Callable[[RawJson, str], Archite
     ArchitectureRuleKind.FORBIDDEN_DEPENDENCY: _parse_forbidden_dependency,
     ArchitectureRuleKind.ALLOWED_DEPENDENCY: _parse_allowed_dependency,
     ArchitectureRuleKind.FORBIDDEN_CONSTRUCT: _parse_forbidden_construct,
+    ArchitectureRuleKind.SOURCE_OWNERSHIP: _parse_source_ownership,
     ArchitectureRuleKind.EXTERNAL_DEPENDENCY_SCOPE: _parse_external_dependency_scope,
     ArchitectureRuleKind.COMPLETE_ASSIGNMENT: _parse_complete_assignment,
     ArchitectureRuleKind.ROOT_LAYOUT: _parse_root_layout,

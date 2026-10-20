@@ -14,6 +14,7 @@ class ContractFeature(StrEnum):
     FORBIDDEN_CALL_ARGUMENT = "forbidden_call_argument"
     CATALOG_ARGUMENT = "catalog_argument"
     CATALOG_USE = "catalog_use"
+    CONSTRUCT_SELECTOR = "construct_selector"
     UML = "uml"
     LAYERS = "layers"
     ALIAS_BODY = "alias_body"
@@ -25,6 +26,7 @@ class ContractFeature(StrEnum):
     MODULE_OBJECT_GRANTS = "module_object_grants"
     BOUNDED_NUMERIC_OPERAND = "bounded_numeric_operand"
     PROTOCOL_DECLARATIONS = "protocol_declarations"
+    SOURCE_OWNERSHIP = "source_ownership"
 
 
 class ContractVersion(StrEnum):
@@ -58,6 +60,7 @@ _FEATURE_START: dict[ContractFeature, ContractVersion] = {
     ContractFeature.FORBIDDEN_CALL_ARGUMENT: ContractVersion.V3_10,
     ContractFeature.CATALOG_ARGUMENT: ContractVersion.V3_14,
     ContractFeature.CATALOG_USE: ContractVersion.V3_14,
+    ContractFeature.CONSTRUCT_SELECTOR: ContractVersion.V3_11,
     ContractFeature.UML: ContractVersion.V2_2,
     ContractFeature.LAYERS: ContractVersion.V2_3,
     ContractFeature.ALIAS_BODY: ContractVersion.V3_0,
@@ -68,6 +71,7 @@ _FEATURE_START: dict[ContractFeature, ContractVersion] = {
     ContractFeature.IMPORT_NAMESPACES: ContractVersion.V3_5,
     ContractFeature.MODULE_OBJECT_GRANTS: ContractVersion.V3_6,
     ContractFeature.PROTOCOL_DECLARATIONS: ContractVersion.V3_9,
+    ContractFeature.SOURCE_OWNERSHIP: ContractVersion.V3_12,
 }
 
 

@@ -32,6 +32,8 @@ from archkeel.ir.model import (
     CompleteExternalScopeRule,
     CompleteRequiresRule,
     ComponentRole,
+    ConstructSelector,
+    ConstructSelectorRole,
     ContractComponent,
     ExternalDependencyScopeRule,
     ForbiddenCallArgumentRule,
@@ -44,6 +46,9 @@ from archkeel.ir.model import (
     RequiredComponent,
     RootLayoutRule,
     SiblingIsolationRule,
+    SourceOwnershipMode,
+    SourceOwnershipRole,
+    SourceOwnershipRule,
     SymbolPlacementRule,
 )
 from archkeel.ir.widening import (
@@ -213,6 +218,20 @@ def _catalog_use(**overrides: object) -> CatalogUseRule:
         "pkg.consumer",
         "pkg.catalog.OptionKey",
         (),
+        "because",
+        _PROVENANCE,
+        "architect",
+    )
+    return replace(base, **overrides)
+
+
+def _source_ownership(**overrides: object) -> SourceOwnershipRule:
+    base = SourceOwnershipRule(
+        "R",
+        "source_ownership",
+        "pkg.api",
+        SourceOwnershipMode.CONFINED,
+        (SourceOwnershipRole.DEFINITION,),
         "because",
         _PROVENANCE,
         "architect",
@@ -451,6 +470,8 @@ _RULE_CASES: tuple[tuple[str, ArchitectureRule | None, ArchitectureRule | None, 
     ("catalog_use removed", _catalog_use(), None, True),
     ("forbidden_call_argument added", None, _forbidden_call_argument(), False),
     ("forbidden_call_argument removed", _forbidden_call_argument(), None, True),
+    ("source_ownership added", None, _source_ownership(), False),
+    ("source_ownership removed", _source_ownership(), None, True),
 )
 
 
@@ -492,6 +513,12 @@ def test_every_typed_rule_kind_has_one_widening_classification() -> None:
 def test_catalog_selector_changes_fail_closed_in_both_directions(before, after) -> None:
     assert _rule_diff(before, after)
     assert _rule_diff(after, before)
+def test_source_ownership_field_changes_fail_closed() -> None:
+    findings = _rule_diff(
+        _source_ownership(),
+        _source_ownership(roles=(SourceOwnershipRole.DEFINITION, SourceOwnershipRole.READ)),
+    )
+    assert any("roles changed" in finding for finding in findings)
 
 
 # --- Table-driven: one row per component-field widening/narrowing this module enumerates. ---
@@ -639,6 +666,24 @@ def test_narrowing_never_needs_an_amendment() -> None:
     before = _forbidden_construct(constructs=("eval",))
     after = _forbidden_construct(constructs=("eval", "exec"))
     assert contract_widenings(_contract(rules=(before,)), _contract(rules=(after,))) == ()
+
+
+def test_construct_selector_changes_are_named_as_widenings():
+    before = _forbidden_construct(
+        selector=ConstructSelector(
+            "pkg.Connection", "backend", ConstructSelectorRole.EQUALITY, "flat"
+        )
+    )
+    after = _forbidden_construct(
+        selector=ConstructSelector("pkg.Label", "backend", ConstructSelectorRole.EQUALITY, "flat")
+    )
+    assert any("selector changed" in item for item in _rule_diff(before, after))
+    after = _forbidden_construct(
+        selector=ConstructSelector(
+            "pkg.Connection", "backend", ConstructSelectorRole.EQUALITY, "cloud"
+        )
+    )
+    assert any("selector changed" in item for item in _rule_diff(before, after))
 
 
 def test_an_unenumerated_difference_is_treated_as_widening() -> None:

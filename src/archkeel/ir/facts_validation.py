@@ -4,7 +4,10 @@
 """Cross-reference and source-payload invariants of the collection protocol."""
 
 import ast
-from collections.abc import Collection, Iterable, Mapping
+import re
+import sys
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import PurePosixPath
 
@@ -27,6 +30,7 @@ from .facts import (
     Evidence,
     EvidenceClass,
     ExternalPackageTarget,
+    FileFact,
     JsonValue,
     LocalTarget,
     MethodKind,
@@ -38,6 +42,7 @@ from .facts import (
     ResolutionInput,
     SourceFacts,
     SourceProfile,
+    SourceReferenceContext,
     SourceResolution,
     SourceSectionName,
     UnresolvedTarget,
@@ -93,6 +98,11 @@ _STRING_FIELDS = frozenset(
         "source_scope",
         "declaration_scope",
         "declaration_definition_id",
+        "reference_context",
+        "declaration_role",
+        "declaration_status",
+        "declaration_owner_scope",
+        "declaration_owner_id",
         "owner",
         "module",
         "qualified_name",
@@ -164,6 +174,7 @@ _STRING_ARRAYS = frozenset(
     {
         "targets",
         "evidence_ids",
+        "declaration_evidence_ids",
         "target_evidence_ids",
         "bases",
         "decorators",
@@ -210,19 +221,48 @@ def _payload(value: RecordData) -> None:
             raise ValueError(f"source payload {key} must be a string array")
 
 
+@dataclass(frozen=True, slots=True)
+class _SourceProofIndex:
+    files_by_module: Mapping[str, tuple[FileFact, ...]]
+    imports_by_binding: Mapping[tuple[str, str], tuple[Record, ...]]
+    selector_imports: tuple[Record, ...]
+
+
+def _source_proof_index(
+    files: Sequence[FileFact],
+    records: Sequence[Record],
+    selector_imports: Sequence[Record],
+) -> _SourceProofIndex:
+    files_by_module: dict[str, list[FileFact]] = {}
+    imports_by_binding: dict[tuple[str, str], list[Record]] = {}
+    for item in files:
+        files_by_module.setdefault(item.module, []).append(item)
+    for record in records:
+        if record.kind != "import":
+            continue
+        module, binding = record.data.get("source_module"), record.data.get("binding")
+        if isinstance(module, str) and isinstance(binding, str):
+            imports_by_binding.setdefault((module, binding), []).append(record)
+    return _SourceProofIndex(
+        {name: tuple(items) for name, items in files_by_module.items()},
+        {key: tuple(items) for key, items in imports_by_binding.items()},
+        tuple(selector_imports),
+    )
+
+
 def _signature_origin(
-    data: RecordData, spelling: str, records: list[Record], facts: SourceFacts
+    data: RecordData, spelling: str, proof_index: _SourceProofIndex
 ) -> str | None:
     root, _, suffix = spelling.partition(".")
     module = data.get("module")
-    files = [file for file in facts.files if file.module == module]
+    files = proof_index.files_by_module.get(module, ()) if isinstance(module, str) else ()
+    imported_rows = (
+        proof_index.imports_by_binding.get((module, root), ()) if isinstance(module, str) else ()
+    )
     matches = [
         record
-        for record in records
-        if record.kind == "import"
-        and record.data.get("source_module") == module
-        and record.data.get("binding") == root
-        and record.data.get("module_level_import") is True
+        for record in imported_rows
+        if record.data.get("module_level_import") is True
         and record.data.get("under_type_checking") is False
     ]
     if len(files) != 1 or root not in files[0].stable_bindings or len(matches) != 1:
@@ -251,13 +291,22 @@ def _annotation_class_origin(
     parameter: RecordData,
     facts: SourceFacts,
     declarations: Mapping[str, list[Record]],
+    proof_index: _SourceProofIndex | None = None,
 ) -> str | None:
     annotation = parameter.get("annotation")
     module = initializer.data.get("module")
     if not isinstance(annotation, str) or not annotation or not isinstance(module, str):
         return None
-    records = [record for section in facts.sections for record in section.records]
-    imported = _signature_origin(initializer.data, annotation, records, facts)
+    if proof_index is None:
+        records = [record for section in facts.sections for record in section.records]
+        selector_imports = tuple(
+            item
+            for section in facts.sections
+            if section.name is SourceSectionName.IMPORTS
+            for item in section.records
+        )
+        proof_index = _source_proof_index(facts.files, records, selector_imports)
+    imported = _signature_origin(initializer.data, annotation, proof_index)
     candidates = (imported,) if imported is not None else (f"{module}.{annotation}",)
     matches = [
         target
@@ -302,6 +351,593 @@ def _qualified_identifier(value: str) -> bool:
                 return False
             start = index + 1
     return python_identifier(value[start:])
+
+
+def _selector_evidence_excerpt(
+    item: Evidence, role: object
+) -> tuple[tuple[ast.stmt, ...], int, int] | None:
+    parsed = _parse_numeric_evidence_excerpt(item.excerpt)
+    if parsed is not None:
+        roots, line_offset = parsed
+        return roots, line_offset, 0
+    indentation = len(item.excerpt) - len(item.excerpt.lstrip(" "))
+    continuation = item.excerpt[indentation:]
+    for operator in ("and", "or"):
+        prefix = f"{operator} "
+        if role != "match" and continuation.startswith(prefix):
+            rewritten = item.excerpt[:indentation] + f"True {prefix}" + continuation[len(prefix) :]
+            try:
+                wrapper = ast.parse(f"if True:\n{rewritten}\n")
+            except (IndentationError, SyntaxError, ValueError, RecursionError):
+                return None
+            if wrapper.body and isinstance(wrapper.body[0], ast.If):
+                return tuple(wrapper.body[0].body), 1, len(f"True {prefix}") - len(prefix)
+    if role != "match" and item.excerpt.rstrip().endswith(("(", "[", "{")):
+        for closing in range(1, 9):
+            rewritten = f"{item.excerpt}False{')' * closing}"
+            parsed = _parse_numeric_evidence_excerpt(rewritten)
+            if parsed is not None:
+                roots, line_offset = parsed
+                return roots, line_offset, 0
+    if role != "match" or not item.excerpt.rstrip().endswith(":"):
+        return None
+    body = " " * (indentation + 4) + "case _: pass"
+    try:
+        wrapper = ast.parse(f"if True:\n{item.excerpt}\n{body}\n")
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    if not wrapper.body or not isinstance(wrapper.body[0], ast.If):
+        return None
+    return tuple(wrapper.body[0].body), 1, 0
+
+
+def _selector_source_receiver(
+    record: Record, binding: CallBinding, evidence: Mapping[str, Evidence]
+) -> tuple[ast.expr, tuple[int, int, int, int]] | None:
+    site_ids = set(record.evidence_ids) - set(binding.evidence_ids)
+    for identifier in site_ids:
+        item = evidence.get(identifier)
+        if item is None:
+            continue
+        parsed = _selector_evidence_excerpt(item, record.data.get("selector_role"))
+        if parsed is None:
+            continue
+        roots, offset, column_offset = parsed
+        nodes = [node for root in roots for node in ast.walk(root)]
+        source_line = item.line
+
+        def source_span(
+            node: ast.AST,
+            source_line: int = source_line,
+            line_offset: int = offset,
+            column_shift: int = column_offset,
+        ) -> tuple[int, int, int, int] | None:
+            span = _numeric_node_span(node, source_line, line_offset)
+            if span is None:
+                return None
+            return span[0], span[1] - column_shift, span[2], span[3] - column_shift
+
+        anchored = [
+            (node, span)
+            for node in nodes
+            if (span := source_span(node)) is not None
+            and span[0] == item.line
+            and span[1] == item.column
+        ]
+        selected = _selector_source_candidate(record, binding, item, anchored, source_span)
+        if selected is not None:
+            span = next(
+                (span for node, span in anchored if node is selected or selected in ast.walk(node)),
+                None,
+            )
+            if span is not None:
+                selected_span = source_span(selected)
+                return selected, selected_span or span
+    return None
+
+
+def _selector_source_candidate(
+    record: Record,
+    binding: CallBinding,
+    item: Evidence,
+    anchored: list[tuple[ast.AST, tuple[int, int, int, int]]],
+    source_span: Callable[[ast.AST], tuple[int, int, int, int] | None],
+) -> ast.expr | None:
+    role, member = record.data.get("selector_role"), record.data.get("member")
+    if role == "match":
+        return next(
+            (
+                node.subject.value
+                for node, _ in anchored
+                if isinstance(node, ast.Match) and isinstance(node.subject, ast.Attribute)
+            ),
+            None,
+        )
+    if role == "reflect":
+        return next(
+            (node.args[0] for node, _ in anchored if isinstance(node, ast.Call) and node.args),
+            None,
+        )
+    if role in {"startswith", "endswith"}:
+        return next(
+            (
+                node.func.value.value
+                if isinstance(node.func, ast.Attribute)
+                and isinstance(node.func.value, ast.Attribute)
+                else node.func.value
+                for node, _ in anchored
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            ),
+            None,
+        )
+    if role not in {"read", "write", "call", "equality", "membership"}:
+        return None
+    candidates = {
+        id(node): node
+        for root, _ in anchored
+        for node in ast.walk(root)
+        if isinstance(node, ast.Attribute)
+        and node.attr == member
+        and (
+            binding.origin is not CallBindingOrigin.DECLARED_RECEIVER
+            or isinstance(node.value, ast.Name)
+            and node.value.id == record.data.get("receiver_parameter")
+        )
+        and (span := source_span(node)) is not None
+        and span[:2] == (item.line, item.column)
+    }
+    attribute = next(iter(candidates.values())) if len(candidates) == 1 else None
+    return attribute.value if attribute is not None else None
+
+
+def _selector_source_classes(
+    record: Record, binding: CallBinding, evidence: Mapping[str, Evidence]
+) -> tuple[ast.expr, ...]:
+    matches: list[ast.expr] = []
+    for identifier in set(record.evidence_ids) - set(binding.evidence_ids):
+        item = evidence.get(identifier)
+        parsed = (
+            _selector_evidence_excerpt(item, record.data.get("selector_role"))
+            if item is not None
+            else None
+        )
+        if item is None or parsed is None:
+            continue
+        roots, offset, column_offset = parsed
+        nodes = [node for root in roots for node in ast.walk(root)]
+        for node in nodes:
+            span = _numeric_node_span(node, item.line, offset)
+            if span is not None:
+                span = span[0], span[1] - column_offset, span[2], span[3] - column_offset
+            if span is None or span[:2] != (item.line, item.column):
+                continue
+            if record.data.get("selector_role") == "constructor" and isinstance(node, ast.Call):
+                matches.append(node.func)
+            elif (
+                record.data.get("selector_role") == "type_probe"
+                and isinstance(node, ast.Name | ast.Attribute)
+                and any(
+                    isinstance(call, ast.Call)
+                    and len(call.args) > 1
+                    and call.args[1] is node
+                    and (
+                        isinstance(call.func, ast.Name)
+                        and call.func.id in {"isinstance", "issubclass"}
+                        or isinstance(call.func, ast.Attribute)
+                        and call.func.attr in {"isinstance", "issubclass"}
+                        and isinstance(call.func.value, ast.Name)
+                        and call.func.value.id == "builtins"
+                    )
+                    for call in nodes
+                )
+            ):
+                matches.append(node)
+    return tuple(matches)
+
+
+def selector_receiver_site_matches(
+    record: Record,
+    binding: CallBinding,
+    receiver_parameter: str | None,
+    declarations: Mapping[str, list[Record]],
+    evidence: Mapping[str, Evidence],
+    imports: Sequence[Record] = (),
+) -> bool:
+    if binding.origin is CallBindingOrigin.DIRECT:
+        return _direct_selector_receiver_matches(record, binding, declarations, evidence, imports)
+    source_site = _selector_source_receiver(record, binding, evidence)
+    expression = source_site[0] if source_site is not None else None
+    if binding.origin is CallBindingOrigin.DECLARED_RECEIVER:
+        return isinstance(expression, ast.Name) and expression.id == receiver_parameter
+    proof = binding.proof
+    if binding.origin is CallBindingOrigin.STORED_RECEIVER and proof is not None:
+        owner = proof.get("owner")
+        selector_owner = record.data.get("owner")
+        initializers = declarations.get(f"{owner}.__init__", []) if isinstance(owner, str) else []
+        receiver = (
+            initializers[0].data.get("receiver_parameter") if len(initializers) == 1 else None
+        )
+        return (
+            isinstance(owner, str)
+            and isinstance(selector_owner, str)
+            and selector_owner.startswith(f"{owner}.")
+            and isinstance(expression, ast.Attribute)
+            and expression.attr == proof.get("field")
+            and isinstance(expression.value, ast.Name)
+            and isinstance(receiver, str)
+            and expression.value.id == receiver
+        )
+    if binding.origin is CallBindingOrigin.CONSTRUCTED_RECEIVER and proof is not None:
+        assignment_name = proof.get("assignment_name")
+        if isinstance(assignment_name, str):
+            return isinstance(expression, ast.Name) and expression.id == assignment_name
+        constructor_id = proof.get("constructor_evidence_id")
+        constructor = evidence.get(constructor_id) if isinstance(constructor_id, str) else None
+        expression_span = source_site[1] if source_site is not None else None
+        return (
+            isinstance(expression, ast.Call)
+            and constructor is not None
+            and expression_span is not None
+            and expression_span[:2] == (constructor.line, constructor.column)
+        )
+    return expression is not None
+
+
+def _direct_selector_receiver_matches(
+    record: Record,
+    binding: CallBinding,
+    declarations: Mapping[str, list[Record]],
+    evidence: Mapping[str, Evidence],
+    imports: Sequence[Record],
+) -> bool:
+    source_classes = _selector_source_classes(record, binding, evidence)
+    declarations_for_target = declarations.get(binding.target, [])
+    module = (
+        declarations_for_target[0].data.get("module")
+        if len(declarations_for_target) == 1 and declarations_for_target[0].kind == "class"
+        else None
+    )
+    owner = record.data.get("owner")
+    for target in source_classes:
+        written = ast.unparse(target)
+        if (
+            isinstance(module, str)
+            and isinstance(owner, str)
+            and (owner == module or owner.startswith(module + "."))
+            and binding.target == f"{module}.{written}"
+        ):
+            return True
+        if _imported_selector_target_matches(target, binding, imports, owner):
+            return True
+    return False
+
+
+def _imported_selector_target_matches(
+    target: ast.expr,
+    binding: CallBinding,
+    imports: Sequence[Record],
+    owner: JsonValue,
+) -> bool:
+    suffix: list[str] = []
+    root = target
+    while isinstance(root, ast.Attribute):
+        suffix.append(root.attr)
+        root = root.value
+    if not isinstance(root, ast.Name) or not isinstance(owner, str):
+        return False
+    matching_imports = [
+        item
+        for item in imports
+        if item.data.get("binding") == root.id
+        and isinstance(item.data.get("source_module"), str)
+        and owner.startswith(f"{item.data.get('source_module')}.")
+        and item.data.get("symbols_known") is True
+        and set(item.evidence_ids) <= set(binding.evidence_ids)
+    ]
+    if len(matching_imports) != 1:
+        return False
+    imported = matching_imports[0]
+    target_module, symbol = imported.data.get("target_module"), imported.data.get("symbol")
+    canonical = (
+        f"{target_module}.{symbol}"
+        if isinstance(target_module, str) and isinstance(symbol, str)
+        else target_module
+    )
+    if not isinstance(canonical, str):
+        return False
+    candidates = [canonical]
+    origin = imported.data.get("origin_definition")
+    chain = imported.data.get("reexport_chain")
+    if (
+        isinstance(origin, str)
+        and isinstance(chain, list | tuple)
+        and chain
+        and chain[-1] == origin
+    ):
+        candidates.append(origin)
+    return any(
+        binding.target == ".".join([candidate, *reversed(suffix)]) for candidate in candidates
+    )
+
+
+def _selector_receiver_proof(
+    facts: SourceFacts,
+    record: Record,
+    binding: CallBinding | None,
+    receiver_parameter: str | None,
+    declarations: Mapping[str, list[Record]],
+    evidence: Mapping[str, Evidence],
+    proof_index: _SourceProofIndex,
+) -> None:
+    receiver_type = record.data.get("receiver_type")
+    if binding is None:
+        if receiver_type is not None:
+            raise ValueError("known selector receiver needs its typed source binding")
+        return
+    if (
+        binding.target != receiver_type
+        or not set(binding.evidence_ids) <= set(record.evidence_ids)
+        or not set(binding.evidence_ids) <= set(evidence)
+    ):
+        raise ValueError("selector receiver binding evidence disagrees with its source fact")
+    if binding.origin in {
+        CallBindingOrigin.DIRECT,
+        CallBindingOrigin.DECLARED_RECEIVER,
+        CallBindingOrigin.STORED_RECEIVER,
+        CallBindingOrigin.CONSTRUCTED_RECEIVER,
+    } and not selector_receiver_site_matches(
+        record,
+        binding,
+        receiver_parameter,
+        declarations,
+        evidence,
+        proof_index.selector_imports,
+    ):
+        raise ValueError("selector receiver proof does not match its source expression")
+    targets = declarations.get(binding.target, [])
+    if binding.origin is CallBindingOrigin.DIRECT:
+        _selector_direct_receiver_proof(
+            binding, receiver_parameter, targets, proof_index.selector_imports
+        )
+        return
+    if binding.origin is CallBindingOrigin.DECLARED_RECEIVER:
+        _selector_declared_receiver_proof(
+            facts, record, binding, receiver_parameter, declarations, targets, proof_index
+        )
+        return
+    proof = binding.proof
+    if proof is None:
+        raise ValueError("extended selector receiver needs its typed origin proof")
+    if binding.origin is CallBindingOrigin.STORED_RECEIVER:
+        _selector_stored_receiver_proof(facts, binding, declarations, targets, proof_index)
+        return
+    if binding.origin is CallBindingOrigin.CONSTRUCTED_RECEIVER:
+        _selector_constructed_receiver_proof(facts, record, binding, proof, targets, evidence)
+        return
+    raise ValueError("selector receiver origin is unsupported")
+
+
+def _selector_direct_receiver_proof(
+    binding: CallBinding,
+    receiver_parameter: str | None,
+    targets: list[Record],
+    imports: Sequence[Record],
+) -> None:
+    # The source-site proof binds local expressions to declarations and imported aliases to
+    # typed import rows. Imported declarations live in another source module, so their evidence
+    # cannot be copied into this selector record without breaking source-file ownership.
+    local_class = (
+        len(targets) == 1
+        and targets[0].kind == "class"
+        and targets[0].data.get("source_binding_unique") is True
+    )
+    imported_class = any(
+        item.data.get("symbols_known") is True
+        and item.data.get("source_binding_unique") is True
+        and f"{item.data.get('target_module')}.{item.data.get('symbol')}" == binding.target
+        and set(item.evidence_ids) <= set(binding.evidence_ids)
+        for item in imports
+    )
+    if receiver_parameter is not None or not (local_class or imported_class):
+        raise ValueError("selector class receiver needs its stable declaration")
+
+
+def _selector_declared_receiver_proof(
+    facts: SourceFacts,
+    record: Record,
+    binding: CallBinding,
+    receiver_parameter: str | None,
+    declarations: Mapping[str, list[Record]],
+    targets: list[Record],
+    proof_index: _SourceProofIndex,
+) -> None:
+    owner_name = record.data.get("owner")
+    owners = declarations.get(owner_name, []) if isinstance(owner_name, str) else []
+    parameters = owners[0].data.get("parameters") if len(owners) == 1 else None
+    selected = (
+        [
+            item
+            for item in parameters
+            if isinstance(item, RecordData) and item.get("name") == receiver_parameter
+        ]
+        if isinstance(parameters, tuple)
+        else []
+    )
+    annotation_target = (
+        _annotation_class_origin(owners[0], selected[0], facts, declarations, proof_index)
+        if len(owners) == 1 and len(selected) == 1
+        else None
+    )
+    if (
+        len(owners) != 1
+        or owners[0].kind not in {"function", "method"}
+        or receiver_parameter is None
+        or len(selected) != 1
+        or annotation_target != binding.target
+        or len(targets) != 1
+        or targets[0].kind != "class"
+        or targets[0].data.get("source_binding_unique") is not True
+        or not set(owners[0].evidence_ids) <= set(binding.evidence_ids)
+    ):
+        raise ValueError("declared selector receiver needs its exact typed parameter proof")
+
+
+def _selector_stored_receiver_proof(
+    facts: SourceFacts,
+    binding: CallBinding,
+    declarations: Mapping[str, list[Record]],
+    targets: list[Record],
+    proof_index: _SourceProofIndex,
+) -> None:
+    proof = binding.proof
+    if proof is None:
+        raise ValueError("stored selector receiver needs its typed origin proof")
+    owner_name, field = proof.get("owner"), proof.get("field")
+    parameter_name, witnesses = proof.get("parameter"), proof.get("witness_evidence_ids")
+    owners = declarations.get(owner_name, []) if isinstance(owner_name, str) else []
+    initializers = (
+        declarations.get(f"{owner_name}.__init__", []) if isinstance(owner_name, str) else []
+    )
+    writes = initializers[0].data.get("stored_field_writes") if len(initializers) == 1 else None
+    witness_ids = witnesses if isinstance(witnesses, tuple) else ()
+    linked = (
+        [
+            item
+            for item in writes
+            if isinstance(item, RecordData)
+            and item.get("field") == field
+            and item.get("parameter") == parameter_name
+            and item.get("evidence_id") == (witness_ids[0] if witness_ids else None)
+            and len(witness_ids) == 2
+            and item.get("annotation_evidence_id") == witness_ids[1]
+            and item.get("receiver") == initializers[0].data.get("receiver_parameter")
+            and item.get("annotation_target") == binding.target
+        ]
+        if isinstance(writes, tuple)
+        else []
+    )
+    parameters = initializers[0].data.get("parameters") if len(initializers) == 1 else None
+    typed = (
+        [
+            item
+            for item in parameters
+            if isinstance(item, RecordData)
+            and item.get("name") == parameter_name
+            and isinstance(item.get("annotation"), str)
+        ]
+        if isinstance(parameters, tuple)
+        else []
+    )
+    annotation_target = (
+        _annotation_class_origin(initializers[0], typed[0], facts, declarations, proof_index)
+        if len(initializers) == 1 and len(typed) == 1
+        else None
+    )
+    if (
+        proof.get("kind") != "stored_field"
+        or proof.get("target") != binding.target
+        or len(owners) != 1
+        or owners[0].kind != "class"
+        or owners[0].data.get("source_binding_unique") is not True
+        or len(initializers) != 1
+        or len(linked) != 1
+        or len(typed) != 1
+        or annotation_target != binding.target
+        or not isinstance(witnesses, tuple)
+        or len(witnesses) != 2
+        or not set(witnesses) <= set(binding.evidence_ids)
+        or len(targets) != 1
+        or targets[0].kind != "class"
+        or targets[0].data.get("source_binding_unique") is not True
+        or not set(owners[0].evidence_ids) <= set(binding.evidence_ids)
+    ):
+        raise ValueError("stored selector receiver needs a linked initializer annotation")
+
+
+def _selector_constructed_receiver_proof(
+    facts: SourceFacts,
+    record: Record,
+    binding: CallBinding,
+    proof: RecordData,
+    targets: list[Record],
+    evidence: Mapping[str, Evidence],
+) -> None:
+    constructor_id = proof.get("constructor_evidence_id")
+    assignment_id, assignment_name = (
+        proof.get("assignment_evidence_id"),
+        proof.get("assignment_name"),
+    )
+    target_calls = [
+        candidate
+        for section in facts.sections
+        if section.name is SourceSectionName.CALLS
+        for candidate in section.records
+        if isinstance(constructor_id, str)
+        and constructor_id in candidate.evidence_ids
+        and candidate.kind.endswith("_call")
+        and isinstance(candidate_targets := candidate.data.get("targets"), tuple)
+        and binding.target in candidate_targets
+    ]
+    selector_evidence = [
+        evidence[item]
+        for item in record.evidence_ids
+        if item not in binding.evidence_ids and item in evidence
+    ]
+    linked_assignments = _selector_linked_assignments(
+        facts, constructor_id, assignment_id, assignment_name
+    )
+    assignment_evidence = evidence.get(assignment_id) if isinstance(assignment_id, str) else None
+    if (
+        proof.get("kind") != "construction"
+        or proof.get("target") != binding.target
+        or len(targets) != 1
+        or targets[0].kind != "class"
+        or targets[0].data.get("default_instance_result") is not True
+        or not isinstance(constructor_id, str)
+        or len(target_calls) != 1
+        or not selector_evidence
+        or assignment_id is not None
+        and (
+            not isinstance(assignment_name, str)
+            or len(linked_assignments) != 1
+            or linked_assignments[0][0].data.get("source_scope") != record.data.get("owner")
+            or assignment_evidence is None
+            or assignment_evidence.line >= max(item.line for item in selector_evidence)
+            or not isinstance(assignment_id, str)
+            or assignment_id not in binding.evidence_ids
+        )
+        or assignment_id is None
+        and assignment_name is not None
+    ):
+        raise ValueError("constructed selector receiver needs its linked allocation witness")
+
+
+def _selector_linked_assignments(
+    facts: SourceFacts, constructor_id: object, assignment_id: object, assignment_name: object
+) -> list[tuple[Record, RecordData]]:
+    linked: list[tuple[Record, RecordData]] = []
+    if not isinstance(constructor_id, str) or not isinstance(assignment_id, str):
+        return linked
+    for section in facts.sections:
+        if section.name is not SourceSectionName.CALLS:
+            continue
+        for candidate in section.records:
+            if constructor_id not in candidate.evidence_ids:
+                continue
+            bindings = candidate.data.get("result_bindings")
+            if not isinstance(bindings, tuple):
+                continue
+            for item in bindings:
+                ids = item.get("evidence_ids") if isinstance(item, RecordData) else None
+                if (
+                    isinstance(item, RecordData)
+                    and item.get("name") == assignment_name
+                    and item.get("target_kind") == "name"
+                    and isinstance(ids, tuple)
+                    and assignment_id in ids
+                ):
+                    linked.append((candidate, item))
+    return linked
 
 
 def _last_segment(value: str) -> str:
@@ -470,6 +1106,7 @@ def _contextmanager_signatures(
     records: list[Record],
     evidence: dict[str, Evidence],
     inputs: Mapping[str, ResolutionInput],
+    proof_index: _SourceProofIndex,
 ) -> None:
     bindings = {binding.qualified_name: binding for binding in facts.provider_bindings}
     for record in records:
@@ -493,8 +1130,8 @@ def _contextmanager_signatures(
         ):
             raise ValueError("contextmanager signature source/runtime identity mismatch")
         source = _signature_shapes(data, signature, dict(facts.type_shapes))
-        decorated = _signature_origin(data, decorators[0], records, facts)
-        iterator = _signature_origin(data, source.head.text, records, facts)
+        decorated = _signature_origin(data, decorators[0], proof_index)
+        iterator = _signature_origin(data, source.head.text, proof_index)
         factory = _signature_terminal(decorated, bindings) if decorated is not None else None
         payload = _signature_terminal(iterator, bindings) if iterator is not None else None
         wrapper = bindings.get(signature.effective_return.wrapper)
@@ -1916,6 +2553,7 @@ def _call_origin_proof(
     binding: CallBinding,
     declarations: Mapping[str, list[Record]],
     evidence: Mapping[str, Evidence],
+    proof_index: _SourceProofIndex,
 ) -> None:
     proof = binding.proof
     if proof is None:
@@ -1930,7 +2568,7 @@ def _call_origin_proof(
         return
     _validate_call_proof_runtime(facts, proof)
     if binding.origin is CallBindingOrigin.STORED_RECEIVER:
-        _stored_receiver_proof(facts, record, binding, proof, declarations, evidence)
+        _stored_receiver_proof(facts, record, binding, proof, declarations, evidence, proof_index)
     elif binding.origin is CallBindingOrigin.CONSTRUCTED_RECEIVER:
         _constructed_receiver_proof(facts, record, binding, proof, declarations, evidence)
     elif binding.origin is CallBindingOrigin.CONSTRUCTOR:
@@ -1958,6 +2596,7 @@ def _stored_receiver_proof(
     proof: RecordData,
     declarations: Mapping[str, list[Record]],
     evidence: Mapping[str, Evidence],
+    proof_index: _SourceProofIndex,
 ) -> None:
     owner_name, field, parameter, target = (
         proof.get("owner"),
@@ -1975,6 +2614,7 @@ def _stored_receiver_proof(
         parameter,
         target,
         witnesses,
+        proof_index,
     )
     if linked is None:
         raise ValueError("stored receiver needs a linked initializer and annotation witness")
@@ -2027,6 +2667,7 @@ def _stored_receiver_links(
     parameter: JsonValue,
     target: JsonValue,
     witnesses: JsonValue,
+    proof_index: _SourceProofIndex,
 ) -> (
     tuple[
         list[Record],
@@ -2081,7 +2722,9 @@ def _stored_receiver_links(
     else:
         path_matches, path_evidence = False, ()
     annotation_target = (
-        _annotation_class_origin(initializers[0], typed_parameters[0], facts, declarations)
+        _annotation_class_origin(
+            initializers[0], typed_parameters[0], facts, declarations, proof_index
+        )
         if len(typed_parameters) == 1
         else None
     )
@@ -2307,6 +2950,13 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
     if record.rule_ids or record.provenance:
         raise ValueError("source records cannot carry rules or contract provenance")
     fields = {key for key, _ in record.data.entries}
+    if section is SourceSectionName.REFERENCES and record.kind in {
+        "value_reference",
+        "attribute_reference",
+    }:
+        context = record.data.get("reference_context")
+        if context not in {item.value for item in SourceReferenceContext}:
+            raise ValueError("reference needs a typed source context")
     declaration = {"declaration_scope", "declaration_definition_id"}
     if fields & declaration and (
         section != SourceSectionName.REFERENCES or not declaration <= fields
@@ -2329,6 +2979,8 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
         contextmanager_signature(record.data.get("contextmanager_signature"))
     if "base_declarations" in fields:
         _base_declarations(record, section)
+    if section is SourceSectionName.REFERENCES and record.kind == "source_role":
+        validate_source_role_vocabulary(record)
     if "call_binding" in fields:
         if section is not SourceSectionName.CALLS:
             raise ValueError("call binding needs its call owner")
@@ -2338,6 +2990,162 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
             raise ValueError("call arguments need their call owner")
         call_arguments(record.data.get("call_arguments"))
     _payload(record.data)
+
+
+def _reference_annotation_excerpt(reference: Record, evidence: Evidence) -> bool | None:
+    """Classify an anchored occurrence; return None when its bounded excerpt is incomplete."""
+    expression = reference.data.get("expression")
+    if not isinstance(expression, str):
+        return None
+    context = source_reference_context(evidence.excerpt, evidence.column, expression)
+    if context is SourceReferenceContext.ANNOTATION:
+        return True
+    if context is SourceReferenceContext.VALUE:
+        return False
+    return None
+
+
+def source_reference_context(
+    excerpt: str, column: int, expression: str
+) -> SourceReferenceContext | None:
+    """Return a source context only when the bounded syntax anchors the expression."""
+    tree = _reference_excerpt_tree(excerpt)
+    if tree is None:
+        return None
+    matches = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Name | ast.Attribute)
+        and node.col_offset == column
+        and ast.unparse(node) == expression
+    ]
+    if not matches:
+        return None
+    annotations = {
+        id(node) for annotation in _annotation_roots(tree) for node in ast.walk(annotation)
+    }
+    return (
+        SourceReferenceContext.ANNOTATION
+        if any(id(node) in annotations for node in matches)
+        else SourceReferenceContext.VALUE
+    )
+
+
+def _reference_excerpt_tree(excerpt: str) -> ast.Module | None:
+    try:
+        return ast.parse(excerpt)
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        parsed = _parse_numeric_evidence_excerpt(excerpt)
+        if parsed is not None:
+            return ast.Module(body=list(parsed[0]), type_ignores=[])
+    stripped = excerpt.rstrip()
+    if not stripped.endswith(("(", "[", "{")):
+        return None
+    closing = {"(": ")", "[": "]", "{": "}"}[stripped[-1]]
+    for count in range(1, 9):
+        candidate = f"{excerpt}None{closing * count}"
+        try:
+            return ast.parse(candidate)
+        except (IndentationError, SyntaxError, ValueError, RecursionError):
+            parsed = _parse_numeric_evidence_excerpt(candidate)
+            if parsed is not None:
+                return ast.Module(body=list(parsed[0]), type_ignores=[])
+    return None
+
+
+def _annotation_roots(tree: ast.Module) -> tuple[ast.expr, ...]:
+    roots: list[ast.expr] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.arg) and node.annotation is not None:
+            roots.append(node.annotation)
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.returns:
+            roots.append(node.returns)
+        elif isinstance(node, ast.AnnAssign):
+            roots.append(node.annotation)
+        elif sys.version_info >= (3, 12) and isinstance(node, ast.TypeAlias):
+            roots.append(node.value)
+    return tuple(roots)
+
+
+def _validate_reference_contexts(
+    records: Iterable[Record], evidence: Mapping[str, Evidence], profile: SourceProfile
+) -> None:
+    if profile is not SourceProfile.PYTHON:
+        return
+    for record in records:
+        if record.kind not in {"value_reference", "attribute_reference"}:
+            continue
+        if record.data.get("reference_context") == SourceReferenceContext.UNKNOWN:
+            continue
+        if record.data.get("reference_context") != SourceReferenceContext.VALUE:
+            continue
+        contexts = [
+            _reference_annotation_excerpt(record, evidence[item])
+            for item in record.evidence_ids
+            if item in evidence
+        ]
+        if True in contexts:
+            raise ValueError("value reference contradicts its annotated source occurrence")
+        if False not in contexts:
+            raise ValueError("value reference lacks a complete bounded source occurrence")
+
+
+def validate_source_role_vocabulary(record: Record, *, version: str = "source") -> None:
+    """Validate the closed source-role wire vocabulary at source and saved-report boundaries."""
+    required = {
+        "role",
+        "canonical_name",
+        "expression",
+        "status",
+        "targets",
+        "use",
+        "declaration_id",
+        "source_scope",
+        "source_module",
+        "line",
+        "column",
+        "end_line",
+        "end_column",
+    }
+    prefix = f"{version} source_role" if version != "source" else "source_role"
+    fields = {key for key, _ in record.data.entries}
+    if not required <= fields:
+        raise ValueError(f"{prefix} needs complete declaration and span fields")
+    if record.data.get("role") not in {
+        "definition",
+        "read",
+        "write",
+        "delete",
+        "value_transfer",
+        "parameter_default",
+        "fallback",
+    }:
+        raise ValueError(f"{prefix} has an unsupported role")
+    if record.data.get("use") != "source_role":
+        raise ValueError(f"{prefix} needs its typed use discriminator")
+    parse_source_resolution(record.data.get("status"))
+    for name in ("canonical_name", "expression", "declaration_id", "source_scope", "source_module"):
+        if not isinstance(record.data.get(name), str) or not record.data.get(name):
+            raise ValueError(f"{prefix}.{name} must be nonempty")
+    targets = record.data.get("targets")
+    if not isinstance(targets, tuple) or any(
+        not isinstance(item, str) or not item for item in targets
+    ):
+        raise ValueError(f"{prefix}.targets must be strings")
+    start = (record.data.get("line"), record.data.get("column"))
+    end = (record.data.get("end_line"), record.data.get("end_column"))
+    if (
+        not isinstance(start[0], int)
+        or not isinstance(end[0], int)
+        or start[0] < 1
+        or end[0] < 1
+        or not isinstance(start[1], int)
+        or not isinstance(end[1], int)
+        or start[1] < 0
+        or end[1] < 0
+        or end <= start
+    ):
+        raise ValueError(f"{prefix} needs a complete ordered source span")
 
 
 def _base_declarations(record: Record, section: SourceSectionName) -> None:
@@ -2580,6 +3388,537 @@ def _script_effect_binding(
     )
 
 
+def _validate_source_role_identities(
+    records: Iterable[Record], evidence: Mapping[str, Evidence]
+) -> None:
+    """Bind policy roles and local reads to witnessed declaration anchors."""
+    all_records = tuple(records)
+    roles = tuple(record for record in all_records if record.kind == "source_role")
+    anchors, symbols, member_anchors, imports = _source_role_indexes(all_records, roles)
+    for role in roles:
+        _validate_source_role(
+            role, all_records, anchors, symbols, member_anchors, imports, evidence
+        )
+    _validate_local_source_references(all_records, anchors, evidence, symbols)
+    _validate_unique_local_declaration_anchors(all_records)
+
+
+def _source_role_indexes(
+    records: tuple[Record, ...], roles: tuple[Record, ...]
+) -> tuple[
+    dict[tuple[str, str], list[Record]],
+    dict[str, list[Record]],
+    dict[tuple[str, str], list[RecordData]],
+    list[Record],
+]:
+    anchors: dict[tuple[str, str], list[Record]] = {}
+    for role in roles:
+        if role.data.get("role") != "definition":
+            continue
+        canonical_name = role.data.get("canonical_name")
+        declaration_id = role.data.get("declaration_id")
+        if not isinstance(canonical_name, str) or not isinstance(declaration_id, str):
+            raise ValueError("definition role needs its canonical declaration identity")
+        key = (canonical_name, declaration_id)
+        anchors.setdefault(key, []).append(role)
+    symbols: dict[str, list[Record]] = {}
+    member_anchors: dict[tuple[str, str], list[RecordData]] = {}
+    imports: list[Record] = []
+    for record in records:
+        if record.kind == "import":
+            imports.append(record)
+        if record.data.get("qualified_name"):
+            name = record.data.get("qualified_name")
+            if isinstance(name, str):
+                symbols.setdefault(name, []).append(record)
+                if record.kind in {
+                    "class",
+                    "function",
+                    "method",
+                } or record.data.get("record_kind") in {"static_constant", "dynamic_binding"}:
+                    anchors.setdefault((name, record.id), []).append(record)
+        if record.kind in {"class", "function", "method"}:
+            name = record.data.get("qualified_name")
+            if isinstance(name, str):
+                attributes = record.data.get("attribute_declarations")
+                if isinstance(attributes, tuple):
+                    for attribute in attributes:
+                        if not isinstance(attribute, RecordData):
+                            continue
+                        attribute_name = attribute.get("name")
+                        attribute_id = attribute.get("definition_id")
+                        if isinstance(attribute_name, str) and isinstance(attribute_id, str):
+                            member_anchors.setdefault(
+                                (f"{name}.{attribute_name}", attribute_id), []
+                            ).append(attribute)
+
+    for reference in records:
+        targets = reference.data.get("targets")
+        declaration_id = reference.data.get("declaration_id")
+        if (
+            reference.kind in {"value_reference", "attribute_reference"}
+            and reference.data.get("declaration_role") == "definition"
+            and isinstance(targets, tuple)
+            and len(targets) == 1
+            and isinstance(targets[0], str)
+            and isinstance(declaration_id, str)
+        ):
+            anchors.setdefault((targets[0], declaration_id), []).append(reference)
+
+    return anchors, symbols, member_anchors, imports
+
+
+def _validate_source_role(
+    role: Record,
+    all_records: tuple[Record, ...],
+    anchors: Mapping[tuple[str, str], list[Record]],
+    symbols: Mapping[str, list[Record]],
+    member_anchors: Mapping[tuple[str, str], list[RecordData]],
+    imports: list[Record],
+    evidence: Mapping[str, Evidence],
+) -> None:
+    role_name, canonical, declaration_id, source_scope, witness = _source_role_witness(
+        role, evidence
+    )
+    if role_name == "definition":
+        _validate_definition_source_role(
+            role,
+            canonical,
+            declaration_id,
+            source_scope,
+            witness,
+            symbols,
+            member_anchors,
+            evidence,
+        )
+    elif role_name in {"parameter_default", "fallback"}:
+        _validate_parameter_source_role(
+            role, canonical, declaration_id, source_scope, witness, anchors, all_records, evidence
+        )
+    else:
+        _validate_owned_source_role(
+            role,
+            role_name,
+            canonical,
+            declaration_id,
+            source_scope,
+            witness,
+            anchors,
+            member_anchors,
+            imports,
+            all_records,
+            evidence,
+        )
+
+
+def _source_role_witness(
+    role: Record, evidence: Mapping[str, Evidence]
+) -> tuple[str | None, str, str, object, Evidence]:
+    role_name = role.data.get("role")
+    canonical = role.data.get("canonical_name")
+    declaration_id = role.data.get("declaration_id")
+    if (
+        not isinstance(canonical, str)
+        or not canonical
+        or not isinstance(declaration_id, str)
+        or not declaration_id
+    ):
+        raise ValueError("source role needs a canonical declaration identity")
+    if len(role.evidence_ids) != 1:
+        raise ValueError("source role needs one exact source witness")
+    witness = evidence[role.evidence_ids[0]]
+    if (witness.line, witness.column, witness.end_line) != (
+        role.data.get("line"),
+        role.data.get("column"),
+        role.data.get("end_line"),
+    ):
+        raise ValueError("source role identity disagrees with its source witness")
+    return (
+        role_name if isinstance(role_name, str) else None,
+        canonical,
+        declaration_id,
+        role.data.get("source_scope"),
+        witness,
+    )
+
+
+def _validate_definition_source_role(
+    role: Record,
+    canonical: str,
+    declaration_id: str,
+    source_scope: object,
+    witness: Evidence,
+    symbols: Mapping[str, list[Record]],
+    member_anchors: Mapping[tuple[str, str], list[RecordData]],
+    evidence: Mapping[str, Evidence],
+) -> None:
+    declaration_scope = canonical.rpartition(".")[0]
+    if not isinstance(source_scope, str) or not (
+        canonical.startswith(source_scope + ".")
+        or source_scope == declaration_scope
+        or source_scope.startswith(declaration_scope + ".")
+    ):
+        raise ValueError("definition role needs its lexical declaration owner")
+    symbol_matches = symbols.get(canonical, ())
+    source_symbol = len(symbol_matches) == 1 and symbol_matches[0].id == declaration_id
+    member_matches = member_anchors.get((canonical, declaration_id), ())
+    member_ids = member_matches[0].get("evidence_ids") if len(member_matches) == 1 else None
+    source_member = isinstance(member_ids, tuple) and any(
+        isinstance(identity, str)
+        and identity in evidence
+        and evidence[identity].file == witness.file
+        and evidence[identity].line <= witness.line <= evidence[identity].end_line
+        for identity in member_ids
+    )
+    valid_id = declaration_id in {
+        stable_id("DECL", witness.file, canonical),
+        stable_id("SYM", canonical, witness.file, witness.line, witness.column),
+    }
+    if not (source_symbol or source_member or valid_id):
+        raise ValueError("definition role has no source-derived declaration identity")
+    _validate_definition_source_span(role, canonical, witness)
+
+
+def _validate_definition_source_span(role: Record, canonical: str, witness: Evidence) -> None:
+    encoded = witness.excerpt.encode("utf-8")
+    start, end = role.data.get("column"), role.data.get("end_column")
+    span = (
+        encoded[start:end].decode("utf-8", errors="ignore")
+        if isinstance(start, int) and isinstance(end, int) and end <= len(encoded)
+        else ""
+    )
+    suffix = (
+        encoded[start:].decode("utf-8", errors="ignore")
+        if isinstance(start, int) and start <= len(encoded)
+        else ""
+    )
+    expected = canonical.rpartition(".")[2]
+    declaration = (
+        re.match(r"\s*(?:async\s+)?(?:def|class)\s+([A-Za-z_]\w*)", suffix)
+        if suffix.lstrip().startswith(("def ", "async def ", "class "))
+        else None
+    )
+    observed = (
+        span.strip() if span.strip() == expected else declaration.group(1) if declaration else None
+    )
+    if observed is not None and observed.rsplit(".", 1)[-1].strip() != expected:
+        raise ValueError("definition role name disagrees with its source span")
+
+
+def _validate_parameter_source_role(
+    role: Record,
+    canonical: str,
+    declaration_id: str,
+    source_scope: object,
+    witness: Evidence,
+    anchors: Mapping[tuple[str, str], list[Record]],
+    records: tuple[Record, ...],
+    evidence: Mapping[str, Evidence],
+) -> None:
+    parameter = role.data.get("parameter")
+    if not isinstance(parameter, str) or parameter != canonical:
+        raise ValueError("parameter role needs its exact formal parameter")
+    owners = [
+        name
+        for (name, identity), matches in anchors.items()
+        if identity == declaration_id and len(matches) == 1 and parameter.startswith(name + ".")
+    ]
+    if len(owners) != 1:
+        raise ValueError("parameter role needs its unique function declaration anchor")
+    if not isinstance(source_scope, str) or not (
+        source_scope == owners[0]
+        or source_scope.startswith(owners[0] + ".")
+        or owners[0].startswith(source_scope + ".")
+    ):
+        raise ValueError("parameter role scope disagrees with its declaration owner")
+    kind, targets, status = (
+        role.data.get("expression_kind"),
+        role.data.get("targets"),
+        role.data.get("status"),
+    )
+    if kind in {"literal", "unsupported"}:
+        if targets != ():
+            raise ValueError("literal or unsupported source role cannot claim reference targets")
+    elif kind == "reference":
+        if not targets and status != SourceResolution.RESOLVED:
+            return
+        matches = _matching_role_references(role, records, witness, evidence)
+        if len(matches) != 1 or not targets or status != SourceResolution.RESOLVED:
+            raise ValueError("source role target lacks matching reference evidence")
+    else:
+        raise ValueError("parameter role has an unsupported value expression kind")
+
+
+def _validate_owned_source_role(
+    role: Record,
+    role_name: str | None,
+    canonical: str,
+    declaration_id: str,
+    source_scope: object,
+    witness: Evidence,
+    anchors: Mapping[tuple[str, str], list[Record]],
+    member_anchors: Mapping[tuple[str, str], list[RecordData]],
+    imports: list[Record],
+    records: tuple[Record, ...],
+    evidence: Mapping[str, Evidence],
+) -> None:
+    anchored = (
+        len(anchors.get((canonical, declaration_id), ())) == 1
+        or len(member_anchors.get((canonical, declaration_id), ())) == 1
+    )
+    if anchored:
+        if role_name in {"write", "delete", "read"}:
+            declaration_scope = canonical.rpartition(".")[0]
+            if not isinstance(source_scope, str) or not (
+                source_scope == declaration_scope
+                or source_scope.startswith(declaration_scope + ".")
+            ):
+                raise ValueError("local source role disagrees with its lexical declaration scope")
+        return
+    excerpt = witness.excerpt
+    imported = any(
+        item.data.get("source_module") == role.data.get("source_module")
+        and item.data.get("origin_definition") == canonical
+        and _import_binds_source(item, excerpt)
+        for item in imports
+    )
+    anchored_prefix = any(
+        canonical.startswith(prefix + ".") and identity == declaration_id
+        for prefix, identity in member_anchors
+    )
+    chained = (
+        role.data.get("status") == SourceResolution.PARTIALLY_RESOLVED
+        and anchored_prefix
+        and canonical.rsplit(".", 1)[-1] in excerpt
+    )
+    reference_unknown = (
+        role_name in {"value_transfer", "read"}
+        and role.data.get("status") == SourceResolution.PARTIALLY_RESOLVED
+        and role.data.get("targets") == ()
+        and bool(_matching_role_references(role, records, witness, evidence))
+    )
+    unresolved = (
+        role_name in {"value_transfer", "read", "write", "delete"}
+        and role.data.get("status")
+        in {SourceResolution.UNRESOLVED, SourceResolution.PARTIALLY_RESOLVED}
+        and role.data.get("targets") == ()
+        and (canonical.rsplit(".", 1)[-1] in excerpt or reference_unknown)
+        and declaration_id
+        in {stable_id("DECL", canonical), stable_id("DECL", witness.file, canonical)}
+    )
+    if not _valid_unanchored_source_role(
+        role, role_name, canonical, declaration_id, imported, chained, unresolved, reference_unknown
+    ):
+        raise ValueError(
+            f"source role {role_name} for {canonical} has no unique witnessed declaration anchor"
+        )
+
+
+def _import_binds_source(item: Record, excerpt: str) -> bool:
+    binding = item.data.get("binding")
+    return isinstance(binding, str) and binding in excerpt
+
+
+def _matching_role_references(
+    role: Record, records: tuple[Record, ...], witness: Evidence, evidence: Mapping[str, Evidence]
+) -> list[Record]:
+    matches = []
+    for candidate in records:
+        if (
+            candidate.kind not in {"value_reference", "attribute_reference"}
+            or len(candidate.evidence_ids) != 1
+        ):
+            continue
+        if candidate.data.get("source_scope") != role.data.get(
+            "source_scope"
+        ) or candidate.data.get("source_module") != role.data.get("source_module"):
+            continue
+        if role.data.get("role") in {"parameter_default", "fallback"}:
+            if (
+                candidate.data.get("reference_context") != "value"
+                or candidate.data.get("expression") != role.data.get("expression")
+                or candidate.data.get("targets") != role.data.get("targets")
+            ):
+                continue
+        elif candidate.data.get("targets") != (role.data.get("canonical_name"),):
+            continue
+        reference_witness = evidence[candidate.evidence_ids[0]]
+        if (
+            reference_witness.file == witness.file
+            and (reference_witness.line, reference_witness.column)
+            >= (role.data.get("line"), role.data.get("column"))
+            and (reference_witness.line, reference_witness.column)
+            < (role.data.get("end_line"), role.data.get("end_column"))
+        ):
+            matches.append(candidate)
+    return matches
+
+
+def _valid_unanchored_source_role(
+    role: Record,
+    role_name: str | None,
+    canonical: str,
+    declaration_id: str,
+    imported: bool,
+    chained: bool,
+    unresolved: bool,
+    reference_unknown: bool,
+) -> bool:
+    reference_anchored = reference_unknown and len(_as_tuple(role.data.get("targets"))) == 0
+    allowed_status = role.data.get("status") in {
+        SourceResolution.RESOLVED,
+        SourceResolution.PARTIALLY_RESOLVED,
+    }
+    anchored = imported or chained or reference_anchored
+    if (
+        role_name not in {"value_transfer", "read"}
+        or not allowed_status
+        or not anchored
+        or declaration_id != stable_id("DECL", canonical)
+    ):
+        return unresolved
+    return True
+
+
+def _as_tuple(value: object) -> tuple[object, ...]:
+    return value if isinstance(value, tuple) else ()
+
+
+def _validate_local_source_references(
+    records: tuple[Record, ...],
+    anchors: Mapping[tuple[str, str], list[Record]],
+    evidence: Mapping[str, Evidence],
+    symbols: Mapping[str, list[Record]],
+) -> None:
+    for reference in records:
+        if reference.kind not in {"value_reference", "attribute_reference"}:
+            continue
+        if reference.data.get("local_source_binding") is not True:
+            continue
+        _validate_local_source_reference(reference, anchors, evidence, symbols)
+
+
+def _validate_local_source_reference(
+    reference: Record,
+    anchors: Mapping[tuple[str, str], list[Record]],
+    evidence: Mapping[str, Evidence],
+    symbols: Mapping[str, list[Record]],
+) -> None:
+    targets = reference.data.get("targets")
+    declaration_id = reference.data.get("declaration_id")
+    source_scope = reference.data.get("source_scope")
+    if not isinstance(targets, tuple) or len(targets) != 1 or not isinstance(targets[0], str):
+        raise ValueError("local reference needs one declaration target")
+    if not isinstance(declaration_id, str):
+        raise ValueError("local reference needs one declaration identity")
+    declaration_scope = targets[0].rpartition(".")[0]
+    if not isinstance(source_scope, str) or not (
+        source_scope == declaration_scope or source_scope.startswith(declaration_scope + ".")
+    ):
+        raise ValueError("local reference target disagrees with its lexical scope")
+    if reference.data.get("declaration_role") == "definition":
+        _validate_local_definition_reference(
+            reference, targets[0], declaration_id, evidence, symbols
+        )
+        if _only_anchor(anchors, targets[0], declaration_id) is not reference:
+            raise ValueError("local definition duplicates an existing declaration anchor")
+    elif len(anchors.get((targets[0], declaration_id), ())) != 1:
+        raise ValueError("local reference has no unique witnessed declaration anchor")
+
+
+def _validate_local_definition_reference(
+    reference: Record,
+    target: str,
+    declaration_id: str,
+    evidence: Mapping[str, Evidence],
+    symbols: Mapping[str, list[Record]],
+) -> None:
+    ids = reference.data.get("declaration_evidence_ids")
+    if not isinstance(ids, tuple) or len(ids) != 1 or not isinstance(ids[0], str):
+        raise ValueError("local definition needs one exact declaration witness")
+    witness, use = evidence[ids[0]], evidence[reference.evidence_ids[0]]
+    owner = reference.data.get("declaration_owner_scope")
+    owner_id = reference.data.get("declaration_owner_id")
+    owner_records = symbols.get(owner, ()) if isinstance(owner, str) else ()
+    owner_matches = [
+        item
+        for item in owner_records
+        if item.id == owner_id and item.kind in {"function", "method"}
+    ]
+    owner_witnessed = _local_declaration_owner_witnessed(
+        reference, owner, owner_id, owner_matches, witness, evidence
+    )
+    if not _local_definition_witness_matches(
+        target, declaration_id, reference, witness, use, owner, owner_witnessed
+    ):
+        raise ValueError("local definition witness disagrees with its declaration identity")
+
+
+def _local_declaration_owner_witnessed(
+    reference: Record,
+    owner: object,
+    owner_id: object,
+    owner_matches: list[Record],
+    witness: Evidence,
+    evidence: Mapping[str, Evidence],
+) -> bool:
+    if len(owner_matches) == 1:
+        return any(
+            evidence[identity].file == witness.file
+            and evidence[identity].line <= witness.line <= evidence[identity].end_line
+            for identity in owner_matches[0].evidence_ids
+        )
+    module = reference.data.get("source_module")
+    return isinstance(module, str) and owner == module and owner_id == stable_id("MOD", module)
+
+
+def _local_definition_witness_matches(
+    target: str,
+    declaration_id: str,
+    reference: Record,
+    witness: Evidence,
+    use: Evidence,
+    owner: object,
+    owner_witnessed: bool,
+) -> bool:
+    name = target.rpartition(".")[2]
+    suffix = witness.excerpt.encode("utf-8")[witness.column :].decode("utf-8", errors="ignore")
+    declaration_scope = target.rpartition(".")[0]
+    nested = isinstance(owner, str) and declaration_scope.startswith(owner + ".<")
+    return (
+        declaration_id == stable_id("DECL", witness.file, target)
+        and witness.file == use.file
+        and re.match(rf"{re.escape(name)}\b", suffix) is not None
+        and (owner == declaration_scope or nested)
+        and owner_witnessed
+        and reference.data.get("declaration_status")
+        in {SourceResolution.RESOLVED, SourceResolution.PARTIALLY_RESOLVED}
+    )
+
+
+def _only_anchor(
+    anchors: Mapping[tuple[str, str], list[Record]], target: str, declaration_id: str
+) -> Record | None:
+    matches = anchors.get((target, declaration_id), ())
+    return matches[0] if len(matches) == 1 else None
+
+
+def _validate_unique_local_declaration_anchors(records: tuple[Record, ...]) -> None:
+    keys = []
+    for record in records:
+        if record.kind not in {"value_reference", "attribute_reference"}:
+            continue
+        if record.data.get("declaration_role") != "definition":
+            continue
+        targets = record.data.get("targets")
+        declaration_id = record.data.get("declaration_id")
+        if isinstance(targets, tuple) and targets and isinstance(targets[0], str):
+            if isinstance(declaration_id, str):
+                keys.append((targets[0], declaration_id))
+    if len(set(keys)) != len(keys):
+        raise ValueError("local declaration has duplicate definition anchors")
+
+
 def validate_source_facts(facts: SourceFacts) -> None:
     """Reject claims that cannot be replayed by Core against a separate contract."""
     selected = _unique(facts.coverage.selected_files, "selected file")
@@ -2685,6 +4024,13 @@ def validate_source_facts(facts: SourceFacts) -> None:
     if names != declared:
         raise ValueError("source sections disagree with declared capabilities")
     records = [record for section in facts.sections for record in section.records]
+    selector_imports = tuple(
+        item
+        for section in facts.sections
+        if section.name is SourceSectionName.IMPORTS
+        for item in section.records
+    )
+    proof_index = _source_proof_index(facts.files, records, selector_imports)
     declarations_by_id = {
         record.id: record
         for section in facts.sections
@@ -2767,15 +4113,21 @@ def validate_source_facts(facts: SourceFacts) -> None:
                     expected_file,
                 )
             construct = record.data.get("construct")
-            if construct is not None and not any(
-                entry.name == construct and entry.status != ConstructSupport.UNSUPPORTED
-                for entry in facts.capabilities.constructs
+            if (
+                construct is not None
+                and record.kind != "construct_selector"
+                and not any(
+                    entry.name == construct and entry.status != ConstructSupport.UNSUPPORTED
+                    for entry in facts.capabilities.constructs
+                )
             ):
                 raise ValueError("source construct disagrees with declared capabilities")
     fact_ids = record_ids | file_ids
     for record in records:
         if not set(record.fact_ids).issubset(fact_ids):
             raise ValueError("dangling source fact reference")
+    _validate_reference_contexts(records, base_by_id, facts.profile)
+    _validate_source_role_identities(records, base_by_id)
     declarations: dict[str, list[Record]] = {}
     for symbol_section in facts.sections:
         if symbol_section.name is not SourceSectionName.SYMBOLS:
@@ -2855,7 +4207,24 @@ def validate_source_facts(facts: SourceFacts) -> None:
             ):
                 raise ValueError("call binding disagrees with its target declaration")
             if call_proof is not None:
-                _call_origin_proof(facts, record, call_proof, declarations, typed_evidence)
+                _call_origin_proof(
+                    facts, record, call_proof, declarations, typed_evidence, proof_index
+                )
+    for section in facts.sections:
+        if section.name is not SourceSectionName.CONSTRUCTS:
+            continue
+        for record in section.records:
+            if record.kind == "construct_selector":
+                receiver_parameter = record.data.get("receiver_parameter")
+                _selector_receiver_proof(
+                    facts,
+                    record,
+                    call_binding(record.data.get("receiver_binding")),
+                    receiver_parameter if isinstance(receiver_parameter, str) else None,
+                    declarations,
+                    typed_evidence,
+                    proof_index,
+                )
     record_by_id = {record.id: record for record in records}
     effects = [record for record in records if record.kind == "script_namespace_effect"]
     effect_gaps = [
@@ -2880,7 +4249,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
         allow_script_effects=script_effects,
     )
     _property_bindings(records, base_by_id)
-    _contextmanager_signatures(facts, records, base_by_id, input_by_path)
+    _contextmanager_signatures(facts, records, base_by_id, input_by_path, proof_index)
     _member_inventory_bindings(records)
     for gap in facts.coverage.gaps:
         _source_record(gap, SourceSectionName.UNKNOWNS)
