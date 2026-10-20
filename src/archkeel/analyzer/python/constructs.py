@@ -1032,6 +1032,58 @@ class ConstructCollector(ast.NodeVisitor):
         owner = self.scope_stack[-1]
         line, _, column = location(node)
         evidence_id = add_evidence(self.evidence, self.module, node)
+        receiver, status, receiver_binding, receiver_parameter, receiver_evidence = (
+            self._selector_receiver_proof(node, role, receiver, literal, status, receiver_node)
+        )
+        data: RecordData = {
+            "owner": owner,
+            "construct": "selector",
+            "selector_role": role,
+            "receiver_type": receiver,
+            "member": member,
+            "literal": literal,
+            "status": status,
+            "operation": operation,
+            "receiver_binding": receiver_binding,
+            "receiver_parameter": receiver_parameter,
+        }
+        item_id = stable_id(
+            "CONSTRUCT-SELECTOR",
+            self.module.rel_path,
+            line,
+            column,
+            role,
+            receiver or "",
+            member or "",
+            literal or "",
+            operation,
+        )
+
+        if item_id in self.selector_ids:
+            return
+        self.selector_ids.add(item_id)
+        self.items.append(
+            classified(
+                item_id=item_id,
+                evidence_class=EvidenceClass.FACT,
+                area="constructs",
+                kind="construct_selector",
+                title=f"{owner} has a {role} selector observation",
+                subjects=[owner],
+                evidence_ids=[evidence_id, *receiver_evidence],
+                data=data,
+            )
+        )
+
+    def _selector_receiver_proof(
+        self,
+        node: ast.AST,
+        role: str,
+        receiver: str | None,
+        literal: str | None,
+        status: str,
+        receiver_node: ast.expr | None,
+    ) -> tuple[str | None, str, dict[str, object] | None, str | None, list[str]]:
         proven_receiver, receiver_binding, receiver_parameter, receiver_evidence = (
             self._receiver_binding(receiver_node, node)
         )
@@ -1073,45 +1125,7 @@ class ConstructCollector(ast.NodeVisitor):
             receiver_binding = None
             receiver_parameter = None
             receiver_evidence = []
-        data: RecordData = {
-            "owner": owner,
-            "construct": "selector",
-            "selector_role": role,
-            "receiver_type": receiver,
-            "member": member,
-            "literal": literal,
-            "status": status,
-            "operation": operation,
-            "receiver_binding": receiver_binding,
-            "receiver_parameter": receiver_parameter,
-        }
-        item_id = stable_id(
-            "CONSTRUCT-SELECTOR",
-            self.module.rel_path,
-            line,
-            column,
-            role,
-            receiver or "",
-            member or "",
-            literal or "",
-            operation,
-        )
-
-        if item_id in self.selector_ids:
-            return
-        self.selector_ids.add(item_id)
-        self.items.append(
-            classified(
-                item_id=item_id,
-                evidence_class=EvidenceClass.FACT,
-                area="constructs",
-                kind="construct_selector",
-                title=f"{owner} has a {role} selector observation",
-                subjects=[owner],
-                evidence_ids=[evidence_id, *receiver_evidence],
-                data=data,
-            )
-        )
+        return receiver, status, receiver_binding, receiver_parameter, receiver_evidence
 
     def _selector_excerpt_replays(self, node: ast.AST) -> bool:
         line, _, _ = location(node)
