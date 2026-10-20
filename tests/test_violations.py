@@ -20,6 +20,7 @@ from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
 from archkeel.ir.baseline import ViolationFingerprint, observed_violations
 from archkeel.ir.codec import decode_canonical_model, parse_contract, parse_observation
+from archkeel.ir.model import SCHEMA_VERSION
 from fixtures.architecture_demo import CATALOG
 
 CONFIG = ScanConfig(("shop",), "shop", "architecture-contract.json", "0" * 64)
@@ -159,7 +160,7 @@ def test_ir_codec_no_longer_reads_a_file(tmp_path: Path) -> None:
     raw = decode_json(report_path.read_bytes())
     assert isinstance(raw, dict)
     observation = parse_observation(decode_canonical_model(raw))
-    assert observation.schema_version == "2.1.0"
+    assert observation.schema_version == SCHEMA_VERSION
 
 
 def test_load_violations_rejects_a_violation_with_no_rule_ids(tmp_path: Path) -> None:
