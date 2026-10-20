@@ -616,6 +616,143 @@ def test_native_member_mutation_revokes_identity(tmp_path):
     assert row.status == "UNKNOWN" and not row.evaluation_proven
 
 
+@pytest.mark.parametrize("hook", ["__getattr__", "__getattribute__"])
+@pytest.mark.parametrize("hook_shape", ["method", "class_attribute", "conditional_method"])
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_constructed_dynamic_attribute_hook_withholds_method_identity(
+    tmp_path, hook, hook_shape, mounted, columnar
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    hook_source = (
+        f"    def {hook}(self, name): return lambda: None\n"
+        if hook_shape == "method"
+        else (
+            f"    {hook} = lambda self, name: None\n"
+            if hook_shape == "class_attribute"
+            else f"    if flag:\n        def {hook}(self, name): return lambda: None\n"
+        )
+    )
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\ndef run():\n    built = Storage()\n    built.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={
+            "sample/storage.py": "class Storage:\n" + hook_source + "    def page(self): pass\n"
+        },
+    )
+    [call] = [
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "built.page"
+    ]
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"dynamic-hook-{hook}-{hook_shape}-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == row.status == "UNKNOWN"
+    assert not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_native_mutation_in_another_module_revokes_import_identity(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "import random\ndef run(): random.random()\n",
+        target="random.random",
+        allowed=(),
+        mounted=mounted,
+        extra={
+            "sample/mutation.py": "import random\n"
+            "def replacement(): return 0\nrandom.random = replacement\n"
+        },
+    )
+    [call] = [
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "random.random"
+    ]
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"cross-module-native-mutation-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == row.status == "UNKNOWN"
+    assert not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        'import sys\nsys.modules["random"].random = replacement',
+        'from sys import modules as loaded\nloaded["random"].random = replacement',
+        'import sys as system\ntable = system.modules\ntable["random"].random = replacement',
+        'import sys\nrng = sys.modules["random"]\nrng.random = replacement',
+        'import sys\ntable, = sys.modules,\ntable["random"].random = replacement',
+        'import sys\nrng, = sys.modules["random"],\nrng.random = replacement',
+    ],
+    ids=[
+        "sys-modules",
+        "imported-modules",
+        "aliased-modules",
+        "module-object",
+        "unpacked-table",
+        "unpacked-module",
+    ],
+)
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_sys_modules_member_mutation_revokes_native_identity(tmp_path, mutation, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "import random\ndef replacement(): return 0\n"
+        + mutation
+        + "\ndef run(): random.random()\n",
+        target="random.random",
+        allowed=(),
+        mounted=mounted,
+    )
+    [call] = [
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "random.random"
+    ]
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"sys-modules-mutation-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == row.status == "UNKNOWN"
+    assert not replayed.evaluation_proven
+
+
 @pytest.mark.parametrize("mounted", [False, True])
 @pytest.mark.parametrize("columnar", [False, True])
 def test_native_provider_escape_to_mutating_helper_revokes_identity(tmp_path, mounted, columnar):

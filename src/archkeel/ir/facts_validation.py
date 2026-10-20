@@ -2386,6 +2386,14 @@ def _stored_receiver_proof(
         raise ValueError("stored receiver proof disagrees with its source expressions")
 
 
+def _class_has_dynamic_lookup(declaration: Record) -> bool:
+    members = _record_data_value(declaration.data, "class_members")
+    return _record_data_value(declaration.data, "class_body_control_flow") is True or (
+        isinstance(members, tuple | list)
+        and any(name in members for name in ("__getattribute__", "__getattr__", "__setattr__"))
+    )
+
+
 def _stored_receiver_links(
     facts: SourceFacts,
     binding: CallBinding,
@@ -2416,6 +2424,7 @@ def _stored_receiver_links(
     if (
         _record_data_value(owners[0].data, "source_binding_unique") is not True
         or _record_data_value(owners[0].data, "source_member_binding_static") is not True
+        or _class_has_dynamic_lookup(owners[0])
         or initializers[0].kind != "method"
     ):
         return None
@@ -2460,6 +2469,7 @@ def _stored_receiver_links(
     if (
         _record_data_value(stored_types[0].data, "source_binding_unique") is not True
         or _record_data_value(stored_types[0].data, "source_member_binding_static") is not True
+        or _class_has_dynamic_lookup(stored_types[0])
     ):
         return None
     return owners, initializers, linked_writes, typed_parameters, stored_types, path_evidence
@@ -2520,9 +2530,11 @@ def _constructed_member_owners_static(
         len(constructed) == 1
         and constructed[0].kind == "class"
         and _record_data_value(constructed[0].data, "source_member_owner_static") is True
+        and not _class_has_dynamic_lookup(constructed[0])
         and len(method_owners) == 1
         and method_owners[0].kind == "class"
         and _record_data_value(method_owners[0].data, "source_member_owner_static") is True
+        and not _class_has_dynamic_lookup(method_owners[0])
     )
 
 
