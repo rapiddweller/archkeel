@@ -1127,25 +1127,10 @@ def _rule_references(
     index: int, rule: ArchitectureRule, external: frozenset[str]
 ) -> list[ModuleReference]:
     """One rule's fields that name a module, a module prefix or a qualified symbol."""
-    if isinstance(rule, CallOwnerRule):
-        return _call_owner_references(index, rule)
-    if isinstance(rule, ForbiddenCallArgumentRule):
-        return _references(
-            f"/rules/{index}",
-            [("source", (rule.source,), True), ("target", (rule.target,), False)],
-        )
+    special = _special_rule_references(index, rule)
+    if special is not None:
+        return special
     named: list[tuple[str, tuple[str, ...], bool]] = []
-    if isinstance(rule, ForbiddenEffectUnderConditionRule):
-        return [
-            *_references(
-                f"/rules/{index}",
-                [
-                    ("source", (rule.source,), True),
-                    ("target", (rule.target,), False),
-                ],
-            ),
-            ModuleReference(f"/rules/{index}/condition/owner", rule.condition.owner, False),
-        ]
     if isinstance(
         rule,
         ForbiddenDependencyRule
@@ -1209,6 +1194,26 @@ def _rule_references(
             for item, allowance in enumerate(rule.allowed_type_ignores)
         ]
     return references
+
+
+def _special_rule_references(index: int, rule: ArchitectureRule) -> list[ModuleReference] | None:
+    if isinstance(rule, CallOwnerRule):
+        return _call_owner_references(index, rule)
+    if isinstance(rule, ForbiddenCallArgumentRule):
+        return _references(
+            f"/rules/{index}",
+            [("source", (rule.source,), True), ("target", (rule.target,), False)],
+        )
+    if isinstance(rule, ForbiddenEffectUnderConditionRule):
+        references = _references(
+            f"/rules/{index}",
+            [("source", (rule.source,), True), ("target", (rule.target,), False)],
+        )
+        references.append(
+            ModuleReference(f"/rules/{index}/condition/owner", rule.condition.owner, False)
+        )
+        return references
+    return None
 
 
 def module_references(

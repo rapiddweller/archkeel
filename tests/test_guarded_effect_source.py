@@ -1,3 +1,7 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
 from test_exact_module_ownership import _component, _observe_tree, _rule
 
 from archkeel.ir.decisions import rule_assessments

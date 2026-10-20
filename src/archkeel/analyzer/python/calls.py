@@ -85,6 +85,15 @@ def _partition_first(value: str, separator: str) -> tuple[str, str, str]:
     return value, "", ""
 
 
+def _call_receivers(collector: CallCollector, node: ast.Call) -> dict[str, ReceiverType]:
+    names = {child.id for child in ast.walk(node.func) if isinstance(child, ast.Name)}
+    return {
+        name: receiver
+        for name in names
+        if (receiver := collector._receiver(node.func, name)) is not None
+    }
+
+
 GuardedPathCandidate = tuple[str, str, str, ast.AST, tuple[GuardedCallPath, ...]]
 _BUILTIN_EXCEPTION_TARGETS = frozenset(
     {
@@ -1546,57 +1555,9 @@ class CallCollector(ast.NodeVisitor):
         ):
             return []
 
-        actual_nodes: list[ast.expr] = [
-            argument.value if isinstance(argument, ast.Starred) else argument
-            for argument in node.args
-        ]
-        actual_nodes.extend(argument.value for argument in node.keywords)
         result: list[RecordData] = []
-        actuals_supported = node.end_lineno == node.lineno
-        for kind, owner, name, _, _ in candidates:
-            actuals: list[RecordData] = []
-            evidence_ids = set(binding["evidence_ids"])
-            for index, expression in enumerate(actual_nodes):
-                evidence_id = add_evidence(
-                    self.evidence,
-                    self.module,
-                    (*node.args, *node.keywords)[index],
-                )
-                evidence_ids.add(evidence_id)
-                token_kind = GuardHelperTokenKind.UNKNOWN
-                token_value = None
-                condition = None
-                candidate = _same_condition(expression, name, "self" if kind == "member" else None)
-                if (
-                    actuals_supported
-                    and isinstance(expression, ast.Constant)
-                    and isinstance(expression.value, bool)
-                ):
-                    token_kind = GuardHelperTokenKind.BOOLEAN_LITERAL
-                    token_value = expression.value
-                elif actuals_supported and candidate:
-                    token_kind = GuardHelperTokenKind.CONDITION
-                    condition = {"kind": kind, "owner": owner, "name": name}
-                elif (
-                    actuals_supported
-                    and
-                    isinstance(expression, ast.UnaryOp)
-                    and isinstance(expression.op, ast.Not)
-                    and _same_condition(
-                        expression.operand, name, "self" if kind == "member" else None
-                    )
-                ):
-                    token_kind = GuardHelperTokenKind.NOT_CONDITION
-                    condition = {"kind": kind, "owner": owner, "name": name}
-                actuals.append(
-                    {
-                        "argument_index": index,
-                        "token_kind": token_kind,
-                        "token_value": token_value,
-                        "condition": condition,
-                        "evidence_ids": [evidence_id],
-                    }
-                )
+        for candidate in candidates:
+            actuals, evidence_ids = self._helper_actuals(node, binding, candidate)
             result.append(
                 {
                     "target": target,
@@ -1607,13 +1568,62 @@ class CallCollector(ast.NodeVisitor):
             )
         return result
 
+    def _helper_actuals(
+        self,
+        node: ast.Call,
+        binding: RecordData,
+        candidate: GuardedPathCandidate,
+    ) -> tuple[list[RecordData], set[str]]:
+        kind, owner, name, _, _ = candidate
+        actual_nodes: list[ast.expr] = [
+            argument.value if isinstance(argument, ast.Starred) else argument
+            for argument in node.args
+        ]
+        actual_nodes.extend(argument.value for argument in node.keywords)
+        actual_evidence = (*node.args, *node.keywords)
+        actuals_supported = node.end_lineno == node.lineno
+        actuals: list[RecordData] = []
+        evidence_ids = set(binding["evidence_ids"])
+        for index, expression in enumerate(actual_nodes):
+            evidence_id = add_evidence(self.evidence, self.module, actual_evidence[index])
+            evidence_ids.add(evidence_id)
+            token_kind = GuardHelperTokenKind.UNKNOWN
+            token_value = None
+            condition = None
+            member_receiver = "self" if kind == "member" else None
+            candidate_matches = _same_condition(expression, name, member_receiver)
+            if (
+                actuals_supported
+                and isinstance(expression, ast.Constant)
+                and isinstance(expression.value, bool)
+            ):
+                token_kind = GuardHelperTokenKind.BOOLEAN_LITERAL
+                token_value = expression.value
+            elif actuals_supported and candidate_matches:
+                token_kind = GuardHelperTokenKind.CONDITION
+                condition = {"kind": kind, "owner": owner, "name": name}
+            elif (
+                actuals_supported
+                and isinstance(expression, ast.UnaryOp)
+                and isinstance(expression.op, ast.Not)
+                and _same_condition(expression.operand, name, member_receiver)
+            ):
+                token_kind = GuardHelperTokenKind.NOT_CONDITION
+                condition = {"kind": kind, "owner": owner, "name": name}
+            actuals.append(
+                {
+                    "argument_index": index,
+                    "token_kind": token_kind,
+                    "token_value": token_value,
+                    "condition": condition,
+                    "evidence_ids": [evidence_id],
+                }
+            )
+        return actuals, evidence_ids
+
     def visit_Call(self, node: ast.Call) -> None:
         scope = self.scopes.by_node[node]
-        receivers = {
-            name: receiver
-            for name in {child.id for child in ast.walk(node.func) if isinstance(child, ast.Name)}
-            if (receiver := self._receiver(node.func, name)) is not None
-        }
+        receivers = _call_receivers(self, node)
         expression = annotation_text(node.func) or "<unparseable>"
         status, targets, reason, candidate_count = resolve_name(
             node.func,

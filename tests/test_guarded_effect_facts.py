@@ -1,3 +1,7 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
 import pytest
 
 from archkeel.ir.facts import GuardedEffectEvidence, RecordData, guarded_effect

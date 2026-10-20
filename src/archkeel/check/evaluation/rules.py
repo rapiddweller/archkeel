@@ -2244,6 +2244,16 @@ _SeparateReceiptRule: TypeAlias = (
 )
 
 
+def _observed_rule_modules(
+    modules: Sequence[RawRecord], source_modules: frozenset[str] | None
+) -> tuple[RawRecord, ...]:
+    return tuple(
+        item
+        for item in modules
+        if source_modules is None or item["data"]["qualified_name"] in source_modules
+    )
+
+
 def rule_evaluation_facts(
     contract: ArchitectureContract,
     *,
@@ -2261,11 +2271,7 @@ def rule_evaluation_facts(
     Unsupported/declaration-only rules receive no receipt. Named construct owners require
     actual symbol evidence; module evidence alone cannot certify those owners.
     """
-    observed = tuple(
-        item
-        for item in modules
-        if source_modules is None or item["data"]["qualified_name"] in source_modules
-    )
+    observed = _observed_rule_modules(modules, source_modules)
     facts: list[RawRecord] = []
     for rule in contract.rules:
         if rule.kind in profile.unsupported_rules or isinstance(

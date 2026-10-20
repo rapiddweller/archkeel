@@ -1,3 +1,7 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+
 import ast
 
 from archkeel.analyzer.python.guard_paths import guarded_call_paths
