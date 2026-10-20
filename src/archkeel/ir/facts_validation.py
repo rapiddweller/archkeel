@@ -4,7 +4,7 @@
 """Cross-reference and source-payload invariants of the collection protocol."""
 
 import ast
-from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from functools import lru_cache
 from pathlib import PurePosixPath
 
@@ -324,14 +324,15 @@ def _selector_evidence_excerpt(
                 return None
             if wrapper.body and isinstance(wrapper.body[0], ast.If):
                 return tuple(wrapper.body[0].body), 1, len(f"True {prefix}") - len(prefix)
-    if role != "match" and excerpt.rstrip().endswith(("(", "[", "{")):
+    stripped: str = excerpt.rstrip()
+    if role != "match" and stripped.endswith(("(", "[", "{")):
         for closing in range(1, 9):
             rewritten = f"{excerpt}False{')' * closing}"
             parsed = _parse_numeric_evidence_excerpt(rewritten)
             if parsed is not None:
                 roots, line_offset = parsed
                 return roots, line_offset, 0
-    if role != "match" or not excerpt.rstrip().endswith(":"):
+    if role != "match" or not stripped.endswith(":"):
         return None
     body = " " * (indentation + 4) + "case _: pass"
     try:
@@ -341,6 +342,15 @@ def _selector_evidence_excerpt(
     if not wrapper.body or not isinstance(wrapper.body[0], ast.If):
         return None
     return tuple(wrapper.body[0].body), 1, 0
+
+
+def _selector_node_span(
+    node: ast.AST, source_line: int, line_offset: int, column_shift: int
+) -> tuple[int, int, int, int] | None:
+    span = _numeric_node_span(node, source_line, line_offset)
+    if span is None:
+        return None
+    return span[0], span[1] - column_shift, span[2], span[3] - column_shift
 
 
 def _selector_source_receiver(
@@ -356,36 +366,23 @@ def _selector_source_receiver(
             continue
         roots, offset, column_offset = parsed
         nodes = [node for root in roots for node in ast.walk(root)]
-        source_line = item.line
-
-        def source_span(
-            node: ast.AST,
-            source_line: int = source_line,
-            line_offset: int = offset,
-            column_shift: int = column_offset,
-        ) -> tuple[int, int, int, int] | None:
-            span = _numeric_node_span(node, source_line, line_offset)
-            if span is None:
-                return None
-            return span[0], span[1] - column_shift, span[2], span[3] - column_shift
-
-        span_for_node: Callable[[ast.AST], tuple[int, int, int, int] | None] = source_span
-
         anchored = [
             (node, span)
             for node in nodes
-            if (span := span_for_node(node)) is not None
+            if (span := _selector_node_span(node, item.line, offset, column_offset)) is not None
             and span[0] == item.line
             and span[1] == item.column
         ]
-        selected = _selector_source_candidate(record, binding, item, anchored, span_for_node)
+        selected = _selector_source_candidate(
+            record, binding, item, anchored, offset, column_offset
+        )
         if selected is not None:
             span = next(
                 (span for node, span in anchored if node is selected or selected in ast.walk(node)),
                 None,
             )
             if span is not None:
-                selected_span = span_for_node(selected)
+                selected_span = _selector_node_span(selected, item.line, offset, column_offset)
                 return selected, selected_span or span
     return None
 
@@ -395,7 +392,8 @@ def _selector_source_candidate(
     binding: CallBinding,
     item: Evidence,
     anchored: list[tuple[ast.AST, tuple[int, int, int, int]]],
-    source_span: Callable[[ast.AST], tuple[int, int, int, int] | None],
+    line_offset: int,
+    column_shift: int,
 ) -> ast.expr | None:
     role, member = record.data.get("selector_role"), record.data.get("member")
     if role == "match":
@@ -437,7 +435,7 @@ def _selector_source_candidate(
             or isinstance(node.value, ast.Name)
             and node.value.id == record.data.get("receiver_parameter")
         )
-        and (span := source_span(node)) is not None
+        and (span := _selector_node_span(node, item.line, line_offset, column_shift)) is not None
         and span[:2] == (item.line, item.column)
     }
     attribute = next(iter(candidates.values())) if len(candidates) == 1 else None
@@ -501,7 +499,9 @@ def selector_receiver_site_matches(
         receiver = (
             initializer_data.get("receiver_parameter") if initializer_data is not None else None
         )
-        selector_owner_name = selector_owner if isinstance(selector_owner, str) else None
+        selector_owner_name: str | None = (
+            selector_owner if isinstance(selector_owner, str) else None
+        )
         return (
             isinstance(owner, str)
             and selector_owner_name is not None
@@ -546,7 +546,7 @@ def _direct_selector_receiver_matches(
         else None
     )
     owner = record.data.get("owner")
-    owner_name = owner if isinstance(owner, str) else None
+    owner_name: str | None = owner if isinstance(owner, str) else None
     for target in source_classes:
         written = ast.unparse(target)
         if (
@@ -574,12 +574,13 @@ def _imported_selector_target_matches(
         root = root.value
     if not isinstance(root, ast.Name) or not isinstance(owner, str):
         return False
+    owner_name: str = owner
     matching_imports = [
         item
         for item in imports
         if item.data.get("binding") == root.id
         and isinstance((source_module := item.data.get("source_module")), str)
-        and (owner == source_module or owner.startswith(f"{source_module}."))
+        and (owner_name == source_module or owner_name.startswith(f"{source_module}."))
         and item.data.get("symbols_known") is True
         and set(item.evidence_ids) <= set(binding.evidence_ids)
     ]
@@ -669,10 +670,12 @@ def _selector_direct_receiver_proof(
     # The source-site proof binds local expressions to declarations and imported aliases to
     # typed import rows. Imported declarations live in another source module, so their evidence
     # cannot be copied into this selector record without breaking source-file ownership.
+    target_data: RecordData | None = targets[0].data if len(targets) == 1 else None
     local_class = (
         len(targets) == 1
         and targets[0].kind == "class"
-        and targets[0].data.get("source_binding_unique") is True
+        and target_data is not None
+        and target_data.get("source_binding_unique") is True
     )
     imported_class = any(
         item.data.get("symbols_known") is True
@@ -838,21 +841,24 @@ def _selector_constructed_receiver_proof(
     linked_assignments = _selector_linked_assignments(
         facts, constructor_id, assignment_id, assignment_name
     )
+    target_data: RecordData | None = targets[0].data if len(targets) == 1 else None
+    linked_call: Record | None = linked_assignments[0][0] if len(linked_assignments) == 1 else None
     assignment_evidence = evidence.get(assignment_id) if isinstance(assignment_id, str) else None
     if (
         proof.get("kind") != "construction"
         or proof.get("target") != binding.target
         or len(targets) != 1
         or targets[0].kind != "class"
-        or targets[0].data.get("default_instance_result") is not True
+        or target_data is None
+        or target_data.get("default_instance_result") is not True
         or not isinstance(constructor_id, str)
         or len(target_calls) != 1
         or not selector_evidence
         or assignment_id is not None
         and (
             not isinstance(assignment_name, str)
-            or len(linked_assignments) != 1
-            or linked_assignments[0][0].data.get("source_scope") != record.data.get("owner")
+            or linked_call is None
+            or linked_call.data.get("source_scope") != record.data.get("owner")
             or assignment_evidence is None
             or assignment_evidence.line >= max(item.line for item in selector_evidence)
             or not isinstance(assignment_id, str)
