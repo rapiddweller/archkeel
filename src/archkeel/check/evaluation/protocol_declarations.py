@@ -71,6 +71,7 @@ def _selected_positions(
         if (
             not isinstance(module, str)
             or not isinstance(qualified_name, str)
+            or data.get("namespace_bound") is not True
             or not in_scope(module, rule.source)
             or (source_modules is not None and module not in source_modules)
         ):

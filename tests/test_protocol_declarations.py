@@ -90,6 +90,48 @@ def test_protocol_selector_identity_duplicates_are_reader_semantics() -> None:
             parse_contract(raw)
 
 
+@pytest.mark.parametrize("role", ["parameter", "member"])
+@pytest.mark.parametrize(
+    "annotation,status", [(None, "UNKNOWN"), ("Reader", "PASS"), ("Concrete", "FAIL")]
+)
+@pytest.mark.parametrize("columnar", [False, True])
+def test_local_definitions_do_not_count_as_api_declarations(
+    tmp_path: Path, role: str, annotation: str | None, status: str, columnar: bool
+) -> None:
+    from archkeel.ir.decisions import unknown_positions_by_rule
+
+    raw = _contract()
+    raw["rules"][0]["selectors"] = [
+        {"role": role, "name": "client" if role == "parameter" else "reader", "visibility": "all"}
+    ]
+    (tmp_path / "contract.json").write_text(json.dumps(raw))
+    (tmp_path / "sample").mkdir()
+    source = (
+        "from typing import Protocol\n"
+        "class Reader(Protocol): ...\nclass Concrete: pass\n"
+        "def outer():\n"
+        "    def local(client: Concrete): pass\n"
+        "    class Local:\n        reader: Concrete\n"
+    )
+    if annotation is not None:
+        source += (
+            f"def consume(client: {annotation}): pass\n"
+            if role == "parameter"
+            else f"class Holder:\n    reader: {annotation}\n"
+        )
+    (tmp_path / "sample/core.py").write_text(source)
+    result = _observe(tmp_path)
+    assert not result.diagnostics and result.observation is not None
+    rows = rule_assessments(
+        result.observation, undecided_by_rule=unknown_positions_by_rule(result.observation)
+    )
+    assert rows[0].status.value == status
+    payload = observation_payload(result.observation)
+    saved = tmp_path / "local.json"
+    saved.write_text(json.dumps(encode_canonical_model(payload) if columnar else payload))
+    assert run_saved_report(saved).rule_assessments == rows
+
+
 @pytest.mark.parametrize("annotation,status", [("Reader", "UNKNOWN"), ("Concrete", "FAIL")])
 def test_each_selector_requires_its_own_matches(
     tmp_path: Path, annotation: str, status: str

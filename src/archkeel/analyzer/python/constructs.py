@@ -646,7 +646,7 @@ class ConstructCollector(ast.NodeVisitor):
             ]
             if name in stable_direct_module_bindings(self.module) and len(matches) == 1:
                 assignment = matches[0]
-        elif owner is not None and owner is self.scopes.by_node.get(use):
+        elif owner is not None:
             sites = owner.bindings.get(name, [])
             if len(sites) == 1:
                 candidate = self.scopes.parents.get(sites[0])

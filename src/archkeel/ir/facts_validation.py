@@ -230,6 +230,18 @@ def _signature_origin(
     target, symbol = binding.get("target_module"), binding.get("symbol")
     if not isinstance(target, str) or symbol is not None and not isinstance(symbol, str):
         return None
+    if binding.get("source_binding_unique") is not True or binding.get("symbols_known") is not True:
+        return None
+    if isinstance(symbol, str):
+        origin = binding.get("origin_definition")
+        if (
+            not isinstance(origin, str)
+            or not _qualified_identifier(origin)
+            or binding.get("origin_binding_unique") is not True
+            or binding.get("reexport_candidate") is True
+        ):
+            return None
+        return ".".join(part for part in (origin, suffix) if part)
     return ".".join(part for part in (target, symbol, suffix) if part)
 
 
@@ -336,15 +348,48 @@ def _call_expression_matches_source(
 
 
 def _stored_write_matches_source(item: Evidence, receiver: str, field: str, parameter: str) -> bool:
-    start = _evidence_column_index(item)
-    expected = f"{receiver}.{field}"
-    if start is None or not _starts_with(item.excerpt[start:], expected):
+    parsed = _numeric_evidence_nodes(item)
+    if parsed is None:
         return False
-    position = start + len(expected)
-    if position < len(item.excerpt) and item.excerpt[position] not in " \t:=":
-        return False
+    statements, line_offset = parsed
+    for statement in statements:
+        for candidate in ast.walk(statement):
+            if not isinstance(candidate, ast.Assign | ast.AnnAssign):
+                continue
+            span = _numeric_node_span(candidate, item.line, line_offset)
+            if (
+                span is None
+                or span[0] != item.line
+                or span[1] != item.column
+                or span[2] != item.end_line
+            ):
+                continue
+            if _stored_assignment_matches(candidate, receiver, field, parameter):
+                return True
+    return False
+
+
+def _stored_assignment_matches(
+    assignment: ast.Assign | ast.AnnAssign, receiver: str, field: str, parameter: str
+) -> bool:
+    target: ast.expr
+    value: ast.expr | None
+    if isinstance(assignment, ast.Assign):
+        if len(assignment.targets) != 1:
+            return False
+        target = assignment.targets[0]
+        value = assignment.value
+    else:
+        target = assignment.target
+        value = assignment.value
     return (
-        "=" in item.excerpt[position:] and python_identifier(field) and python_identifier(parameter)
+        isinstance(target, ast.Attribute)
+        and isinstance(target.ctx, ast.Store)
+        and isinstance(target.value, ast.Name)
+        and target.value.id == receiver
+        and target.attr == field
+        and isinstance(value, ast.Name)
+        and value.id == parameter
     )
 
 
@@ -1649,7 +1694,9 @@ def _constructed_call_matches_source(
     if isinstance(assignment_name, str):
         expression = f"{assignment_name}.{_last_segment(binding.target)}"
     elif assignment_name is None and len(constructors) == 1:
-        constructor_expression = constructors[0].data.get("expression")
+        constructor = constructors[0]
+        constructor_data = constructor.data
+        constructor_expression = constructor_data.get("expression")
         if not isinstance(constructor_expression, str):
             return False
         expression = f"{constructor_expression}().{_last_segment(binding.target)}"

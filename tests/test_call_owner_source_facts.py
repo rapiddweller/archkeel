@@ -12,6 +12,7 @@ from archkeel.analyzer.python.collect import collect, provider_sources
 from archkeel.ir.facts_codec import (
     CollectionResponse,
     ProtocolError,
+    RecordData,
     decode_response,
     encode_response,
 )
@@ -25,13 +26,21 @@ from archkeel.ir.protocol import (
 )
 
 
-def _payload(tmp_path: Path, caller: str, *, other: str = "", native: bool = False) -> dict:
+def _payload(
+    tmp_path: Path,
+    caller: str,
+    *,
+    other: str = "",
+    native: bool = False,
+    extra: dict[str, str] | None = None,
+) -> dict:
     files = {
         "sample/__init__.py": "",
         "sample/caller.py": caller,
         "sample/storage.py": "class Store:\n    def page(self): pass\n",
         "sample/other.py": other,
     }
+    files.update(extra or {})
     for relative, source in files.items():
         path = tmp_path / relative
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -84,6 +93,116 @@ def test_stored_receiver_field_and_call_expression_cannot_be_retargeted(tmp_path
     call["data"]["call_binding"]["proof"]["field"] = "other"
     with pytest.raises(ProtocolError):
         decode_response(json.dumps(payload).encode())
+
+
+def test_stored_receiver_rhs_must_match_its_typed_parameter(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "from .storage import Store\nfrom .other import Other\nclass Holder:\n"
+        "    def __init__(self, client: Store, other: Other): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        other="class Other:\n    def page(self): pass\n",
+    )
+    initializer = next(
+        item
+        for item in _records(payload, "symbols")
+        if item["data"].get("qualified_name") == "sample.caller.Holder.__init__"
+    )
+    other = next(
+        item
+        for item in _records(payload, "symbols")
+        if item["data"].get("qualified_name") == "sample.other.Other"
+    )
+    method = next(
+        item
+        for item in _records(payload, "symbols")
+        if item["data"].get("qualified_name") == "sample.other.Other.page"
+    )
+    call = next(
+        item
+        for item in _records(payload, "calls")
+        if item["data"]["expression"] == "self.client.page"
+    )
+    initializer["data"]["stored_field_writes"][0]["parameter"] = "other"
+    initializer["data"]["stored_field_writes"][0]["annotation_target"] = "sample.other.Other"
+    binding = call["data"]["call_binding"]
+    binding["target"] = "sample.other.Other.page"
+    binding["proof"]["parameter"] = "other"
+    binding["proof"]["target"] = "sample.other.Other"
+    binding["evidence_ids"] = sorted(
+        set(binding["evidence_ids"] + other["evidence_ids"] + method["evidence_ids"])
+    )
+    call["data"]["targets"] = [binding["target"]]
+    call["data"]["target_evidence_ids"] = method["evidence_ids"]
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
+
+
+@pytest.mark.parametrize(
+    "caller,expected",
+    [
+        (
+            "from .pkg import Vault as Selected\nclass Holder:\n"
+            "    def __init__(self, client: Selected): self.client = client\n"
+            "    def run(self): self.client.page()\n",
+            "sample.pkg.types.Vault",
+        ),
+        (
+            "from .pkg import Vault\nfrom .other import Vault\nclass Holder:\n"
+            "    def __init__(self, client: Vault): self.client = client\n"
+            "    def run(self): self.client.page()\n",
+            None,
+        ),
+    ],
+)
+def test_stored_annotation_origin_uses_unique_reexport_binding(tmp_path, caller, expected):
+    payload = _payload(
+        tmp_path,
+        caller,
+        extra={
+            "sample/pkg/__init__.py": "from .types import Vault\n",
+            "sample/pkg/types.py": "class Vault:\n    def page(self): pass\n",
+            "sample/other.py": "class Vault:\n    def page(self): pass\n",
+        },
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    call = next(
+        record
+        for section in facts.sections
+        if section.name.value == "calls"
+        for record in section.records
+        if record.data.get("expression") == "self.client.page"
+    )
+    binding = call.data.get("call_binding")
+    if expected is None:
+        assert binding is None
+    else:
+        assert isinstance(binding, RecordData)
+        assert binding.get("origin") == "stored_receiver"
+        assert binding.get("target") == f"{expected}.page"
+        assert binding.get("proof").get("target") == expected
+    from archkeel.ir.facts_validation import _annotation_class_origin
+
+    symbols = next(section for section in facts.sections if section.name.value == "symbols")
+    initializer = next(
+        record
+        for record in symbols.records
+        if record.data.get("qualified_name") == "sample.caller.Holder.__init__"
+    )
+    parameters = initializer.data.get("parameters")
+    assert isinstance(parameters, tuple)
+    parameter = next(
+        item for item in parameters if isinstance(item, RecordData) and item.get("name") == "client"
+    )
+    declarations: dict[str, list] = {}
+    for section in facts.sections:
+        if section.name.value != "symbols":
+            continue
+        for record in section.records:
+            name = record.data.get("qualified_name")
+            if record.kind in {"class", "function", "method"} and isinstance(name, str):
+                declarations.setdefault(name, []).append(record)
+    assert _annotation_class_origin(initializer, parameter, facts, declarations) == expected
 
 
 def test_constructed_receiver_cannot_use_another_real_allocation(tmp_path):

@@ -444,7 +444,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         contextmanager_signatures(modules, providers, symbols, provider_bindings, evidence)
     type_shapes = collect_type_shapes(symbol_type_expressions(symbols))
     symbol_index = build_symbol_index(symbols)
-    calls = collect_calls(modules, symbol_index, evidence, provider_bindings, runtime)
+    calls = collect_calls(modules, symbol_index, evidence, provider_bindings, runtime, imports)
     dynamic_imports, dynamic_limits = collect_dynamic_imports(
         modules, calls, imports, evidence, namespace=request.scope.namespace
     )

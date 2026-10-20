@@ -527,6 +527,52 @@ def test_cycle_and_late_alias_remain_unknown(tmp_path):
     assert len([row for row in observation.records("unknowns") if row.rule_ids == ("RULE",)]) == 2
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        "    def inner():\n        return job_nonce % WIDTH\n    return inner()\n",
+        "    return (lambda: job_nonce % WIDTH)()\n",
+        "    return [job_nonce % WIDTH for item in range(2)]\n",
+    ],
+)
+@pytest.mark.parametrize("width,status", [(3, "FAIL"), (4, "PASS")])
+def test_numeric_aliases_follow_enclosing_lexical_ownership(tmp_path, body, width, status):
+    _write_probe(tmp_path)
+    (tmp_path / "sample/core.py").write_text(
+        f"def choose(job_nonce):\n    WIDTH = {width}\n" + body
+    )
+    observation, rows = _rule_rows(tmp_path)
+    assert rows[0].status.value == status and rows[0].undecided == 0
+    for columnar in (False, True):
+        saved = tmp_path / "saved.json"
+        saved.write_bytes(
+            canonical_report_bytes(observation)
+            if columnar
+            else json.dumps(observation_payload(observation)).encode()
+        )
+        assert run_saved_report(saved).rule_assessments == rows
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "def choose(job_nonce):\n    WIDTH = 4\n"
+        "    def inner(WIDTH): return job_nonce % WIDTH\n    return inner(3)\n",
+        "def choose(job_nonce):\n    WIDTH = 4\n"
+        "    def inner():\n        nonlocal WIDTH\n        WIDTH = 3\n"
+        "        return job_nonce % WIDTH\n    return inner()\n",
+        "def choose(job_nonce):\n"
+        "    def inner(): return job_nonce % WIDTH\n    WIDTH = 4\n    return inner()\n",
+        "class Holder:\n    WIDTH = 4\n    def choose(self, job_nonce): return job_nonce % WIDTH\n",
+    ],
+)
+def test_enclosing_numeric_aliases_reject_shadowing_mutation_and_late_binding(tmp_path, source):
+    _write_probe(tmp_path)
+    (tmp_path / "sample/core.py").write_text(source)
+    _, rows = _rule_rows(tmp_path)
+    assert rows[0].status.value == "UNKNOWN"
+
+
 def test_empty_selected_source_never_passes(tmp_path):
     _write_probe(tmp_path)
     (tmp_path / "sample/core.py").write_text("")
