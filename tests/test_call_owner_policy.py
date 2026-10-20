@@ -70,6 +70,71 @@ def test_stored_receiver_assessment_survives_saved_report_replay(tmp_path):
     assert replayed == row
 
 
+@pytest.mark.parametrize("allowed,expected", [((), "FAIL"), (("sample.caller",), "PASS")])
+def test_constructed_receiver_owner_is_proven_and_replays(tmp_path, allowed, expected):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\ndef run(): Storage().page()\n",
+        allowed=allowed,
+        extra={"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+    )
+    assert row.status == expected and row.evaluation_proven
+    assert row.count == (1 if expected == "FAIL" else 0)
+    path = tmp_path / "constructed-report.json"
+    path.write_bytes(canonical_report_bytes(result.observation))
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed == row
+
+
+def test_constructed_receiver_owner_escape_is_unknown_and_replays(tmp_path):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\n"
+        "def replacement(self): pass\n"
+        "def mutate(cls): cls.page = replacement\n"
+        "mutate(Storage)\n"
+        "def run(): Storage().page()\n",
+        allowed=(),
+        extra={"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "Storage().page"
+    )
+    assert call.data.get("call_binding") is None
+    path = tmp_path / "escaped-constructed-report.json"
+    path.write_bytes(canonical_report_bytes(result.observation))
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+def test_constructed_receiver_with_unproven_inherited_constructor_is_unknown(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\ndef run(): Storage().page()\n",
+        target="sample.storage.Base.page",
+        allowed=(),
+        extra={
+            "sample/storage.py": "class Base:\n def page(self): pass\nclass Storage(Base): pass\n"
+        },
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "Storage().page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
 @pytest.mark.parametrize("mounted", [False, True])
 def test_stored_typed_receiver_is_proven_beyond_candidate_resolution(tmp_path, mounted):
     result, row = _observe(
