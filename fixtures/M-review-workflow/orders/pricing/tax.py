@@ -1,3 +1,6 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 from orders.pricing.base import Line
 
 _STANDARD = {"de": 0.19, "fr": 0.20, "se": 0.25}

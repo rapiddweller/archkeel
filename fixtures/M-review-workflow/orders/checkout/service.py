@@ -1,3 +1,6 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 from orders.checkout.receipts import Receipt
 from orders.checkout.rounding import round_cents
 from orders.pricing import price

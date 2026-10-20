@@ -1,3 +1,6 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 import importlib
 from collections.abc import Callable
 from types import ModuleType

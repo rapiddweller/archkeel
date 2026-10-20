@@ -1,3 +1,6 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 from orders.pricing.base import Line, PriceStep
 from orders.pricing.bulk import BulkDiscount
 from orders.pricing.catalog import net

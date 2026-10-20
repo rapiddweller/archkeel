@@ -1,3 +1,6 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 from orders.pricing.base import Line
 
 _COUPONS = {"WELCOME5": 5.0, "SPRING10": 10.0}

@@ -1,3 +1,6 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 class _Memory:
     def __init__(self) -> None:
         self.rows: list[tuple[str, int, int]] = []
