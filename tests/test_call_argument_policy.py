@@ -284,6 +284,12 @@ def test_source_facts_reject_a_forged_string_literal_value(tmp_path):
 
 
 def test_unbounded_multiline_call_keeps_identity_and_unknown_argument_inventory(tmp_path):
+    from test_result_schema import _validator
+
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import result_payload
+    from archkeel.ir.model import SCHEMA_VERSION
+
     result, row = _observe(
         tmp_path,
         "from .storage import page\ndef consume(spec):\n    page(\n        'SELECT 1'\n    )\n",
@@ -293,6 +299,17 @@ def test_unbounded_multiline_call_keeps_identity_and_unknown_argument_inventory(
     call = next(item for item in raw["calls"] if item["data"]["expression"] == "page")
     assert call["data"]["call_binding"] is not None
     assert call["data"]["call_arguments"] is None
+    validator = _validator("command-result-9.0.schema.json")
+    for profile in ("decoded", "python-decoded"):
+        schema = validator.evolve(
+            schema={"$ref": f"urn:archkeel:architecture-ir:{profile}:{SCHEMA_VERSION}"}
+        )
+        assert not list(schema.iter_errors(raw))
+    saved = tmp_path / "multiline-observation.json"
+    saved.write_text(json.dumps(raw))
+    replay = run_saved_report(saved)
+    assert replay.rule_assessments[0].status == "UNKNOWN"
+    assert not list(validator.iter_errors(result_payload(replay)))
 
 
 def test_source_facts_reject_reordered_actual_evidence(tmp_path):
