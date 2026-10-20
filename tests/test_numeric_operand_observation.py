@@ -572,6 +572,26 @@ def test_numeric_module_alias_cannot_drop_an_enclosing_shadow_scope(tmp_path):
             6,
             (4,),
         ),
+        (
+            "def choose(job_nonce):\n"
+            "    SAFE = 9\n"
+            "    keep = job_nonce % SAFE\n"
+            "    WIDTH = 4\n"
+            "    def sibling(*args: (WIDTH := 5)): return args\n"
+            "    forged = job_nonce % WIDTH\n",
+            6,
+            (4,),
+        ),
+        (
+            "def choose(job_nonce):\n"
+            "    SAFE = 9\n"
+            "    keep = job_nonce % SAFE\n"
+            "    WIDTH = 4\n"
+            "    def sibling(**kwargs: (WIDTH := 5)): return kwargs\n"
+            "    forged = job_nonce % WIDTH\n",
+            6,
+            (4,),
+        ),
     ],
 )
 def test_numeric_local_alias_claim_rejects_late_or_rebound_write(

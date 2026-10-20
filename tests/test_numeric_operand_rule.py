@@ -445,6 +445,12 @@ def test_complete_numeric_report_replays_with_one_receipt(tmp_path, operand, exp
         "    class Nested:\n        def method(self, WIDTH): return WIDTH\n",
         "    (lambda WIDTH: WIDTH)(5)\n",
         "    [WIDTH for WIDTH in (5,)]\n",
+        "    def middle():\n"
+        "        WIDTH = 5\n"
+        "        def sibling():\n"
+        "            nonlocal WIDTH\n"
+        "            WIDTH = 6\n"
+        "        return WIDTH\n",
     ],
     ids=[
         "sibling-parameter",
@@ -454,6 +460,7 @@ def test_complete_numeric_report_replays_with_one_receipt(tmp_path, operand, exp
         "method-parameter",
         "lambda-parameter",
         "comprehension-target",
+        "intermediate-nonlocal",
     ],
 )
 def test_numeric_alias_ignores_bindings_in_nested_sibling_scopes(tmp_path, columnar, sibling):
@@ -496,6 +503,8 @@ def test_numeric_alias_ignores_bindings_in_nested_sibling_scopes(tmp_path, colum
         "    def WIDTH(): return 5\n",
         "    [(WIDTH := 5) for _ in (0,)]\n",
         "    def sibling(value=(WIDTH := 5)): return value\n",
+        "    def sibling(*args: (WIDTH := 5)): return args\n",
+        "    def sibling(**kwargs: (WIDTH := 5)): return kwargs\n",
         "    def identity(value): return value\n"
         "    @((WIDTH := identity))\n"
         "    def sibling(): return None\n",
@@ -504,6 +513,8 @@ def test_numeric_alias_ignores_bindings_in_nested_sibling_scopes(tmp_path, colum
         "nested-definition-binds-outer",
         "comprehension-walrus-rebinds-outer",
         "nested-default-walrus-rebinds-outer",
+        "vararg-annotation-walrus-rebinds-outer",
+        "kwarg-annotation-walrus-rebinds-outer",
         "nested-decorator-walrus-rebinds-outer",
     ],
 )
