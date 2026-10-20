@@ -181,13 +181,13 @@ def _evaluate_calls(
     for call in calls:
         parsed = parse_record(call)
         binding = call_binding(parsed.data.get("call_binding"))
+        if binding is not None and binding.target != rule.target:
+            continue
         actuals = call_arguments(parsed.data.get("call_arguments"))
         if binding is None or actuals is None:
             limits.append(
                 _limit(rule, scope, "Call target or actual arguments are unproven", [call])
             )
-            continue
-        if binding.target != rule.target:
             continue
         if not target_proven or signature is None:
             continue
