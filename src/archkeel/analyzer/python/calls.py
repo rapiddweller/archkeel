@@ -356,18 +356,6 @@ class CallCollector(ast.NodeVisitor):
             return None
         # The receiver and copied parameter must keep their entry values throughout __init__.
         receiver_name = parameters[0].arg
-        initializer_names = {
-            argument.arg
-            for argument in (
-                *initializer.args.posonlyargs,
-                *initializer.args.args,
-                *initializer.args.kwonlyargs,
-            )
-        }
-        if initializer.args.vararg is not None:
-            initializer_names.add(initializer.args.vararg.arg)
-        if initializer.args.kwarg is not None:
-            initializer_names.add(initializer.args.kwarg.arg)
         reassigned: set[str] = set()
         for child in ast.walk(initializer):
             if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store):
@@ -472,6 +460,16 @@ class CallCollector(ast.NodeVisitor):
             return None
         write_evidence = add_evidence(self.evidence, self.module, write)
         annotation_evidence = add_evidence(self.evidence, self.module, parameter.annotation)
+        initializer_declaration = self.index.binding_declarations.get(f"{class_name}.__init__")
+        if initializer_declaration is not None:
+            for typed_write in initializer_declaration["data"].get("stored_field_writes", []):
+                if (
+                    typed_write.get("evidence_id") == write_evidence
+                    and typed_write.get("annotation_evidence_id") == annotation_evidence
+                    and typed_write.get("field") == node.attr
+                    and typed_write.get("parameter") == parameter.arg
+                ):
+                    typed_write["annotation_target"] = owners[0]
         evidence = [
             *declaration["evidence_ids"],
             *owner_declaration["evidence_ids"],

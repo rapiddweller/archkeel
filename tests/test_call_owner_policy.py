@@ -720,6 +720,64 @@ def test_call_binding_response_roundtrip_and_schema(owner_facts):
 
 
 @pytest.mark.parametrize(
+    "caller,target,provider",
+    [
+        (
+            "from .storage import Storage\nclass Holder:\n"
+            "    def __init__(self, client: Storage): self.client = client\n"
+            "    def run(self): self.client.page()\n",
+            "sample.storage.Storage.page",
+            "from typing import Protocol\nclass Storage(Protocol):\n"
+            "    def page(self) -> None: ...\n",
+        ),
+        (
+            "from .storage import Store\ndef run():\n"
+            "    store = Store()\n    store.page()\n",
+            "sample.storage.Store.page",
+            "class Store:\n    def page(self): pass\n",
+        ),
+        (
+            "import random\ndef run():\n    random.random()\n",
+            "random.random",
+            "class Store:\n    def page(self): pass\n",
+        ),
+    ],
+)
+def test_extended_call_proofs_validate_against_published_source_schema(
+    tmp_path, caller, target, provider
+):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    _observe(
+        tmp_path,
+        caller,
+        target=target,
+        allowed=(),
+        extra={"sample/storage.py": provider},
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    encoded = encode_response(CollectionResponse(facts))
+    assert encode_response(decode_response(encoded)) == encoded
+    response = json.loads(encoded)
+    schema = json.loads((ROOT / "schema/source-facts.schema.json").read_bytes())
+    assert not list(Draft202012Validator(schema).iter_errors(response))
+
+
+@pytest.mark.parametrize(
     "change",
     ["missing", "origin", "extended-origin", "target", "call-evidence", "dangling", "extra"],
 )
@@ -787,6 +845,55 @@ def test_forged_stored_receiver_links_are_rejected(tmp_path, change):
             item.id for item in facts.evidence if item.id not in proof["witness_evidence_ids"]
         )
         proof["witness_evidence_ids"][0 if change == "write_evidence" else 1] = unrelated
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_stored_receiver_cannot_be_retargeted_to_an_unrelated_method(tmp_path):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    _observe(
+        tmp_path,
+        "from .storage import Storage\nfrom .other import Other\nclass Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        extra={
+            "sample/other.py": "class Other:\n    def page(self): pass\n",
+        },
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    sections = payload["facts"]["sections"]
+    calls = next(s["records"] for s in sections if s["name"] == "calls")
+    symbols = next(s["records"] for s in sections if s["name"] == "symbols")
+    call = next(r for r in calls if r["data"]["expression"] == "self.client.page")
+    other = next(r for r in symbols if r["data"].get("qualified_name") == "sample.other.Other")
+    other_method = next(
+        r for r in symbols if r["data"].get("qualified_name") == "sample.other.Other.page"
+    )
+    call["data"]["targets"] = ["sample.other.Other.page"]
+    binding = call["data"]["call_binding"]
+    binding["target"] = "sample.other.Other.page"
+    binding["proof"]["target"] = "sample.other.Other"
+    binding["evidence_ids"] = sorted(
+        set(binding["evidence_ids"] + other["evidence_ids"] + other_method["evidence_ids"])
+    )
     with pytest.raises(ProtocolError):
         decode_response(json.dumps(payload).encode())
 

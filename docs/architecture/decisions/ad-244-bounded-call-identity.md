@@ -15,9 +15,13 @@ the defining method. Ambiguous bases and inherited overrides remain UNKNOWN.
 The native witness is a stable, unshadowed import binding to one of these
 canonical CPython standard-library identities: `random.random`, `random.Random`
 and its listed `Random` methods, `datetime.datetime.now`, and `secrets.token_hex`.
-The target string records the runtime identity; import-source and call evidence
-bind the written alias to that identity. The analyzer does not import or inspect
-the host module to infer its members. Other external APIs remain UNKNOWN until
+Random and secrets identities are tied to exact captured provider member
+declarations and their source digests. The datetime witness inspects the
+collector's isolated Python runtime using `inspect.getattr_static` to observe
+`datetime.datetime.__dict__["now"]` as the built-in class-method descriptor with
+the canonical owner and member names; it also binds the stdlib source digest and
+runtime implementation/version. This admits only the observed CPython descriptor
+and does not import project modules. Other external APIs remain UNKNOWN until
 they have an explicit provider-source or native witness.
 
 Only `direct` and `declared_receiver` origins are valid in observation 2.1.

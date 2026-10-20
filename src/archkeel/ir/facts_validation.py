@@ -559,6 +559,65 @@ def _native_call_witness(facts: SourceFacts, binding: CallBinding) -> None:
             raise ValueError("datetime native call needs its observed stdlib descriptor witness")
 
 
+def _stored_method_path(
+    receiver_type: str,
+    target: str,
+    declarations: Mapping[str, list[Record]],
+) -> tuple[bool, tuple[str, ...]]:
+    method_name = target.rpartition(".")[2]
+    current = receiver_type
+    seen: set[str] = set()
+    path_evidence: set[str] = set()
+    while current not in seen:
+        seen.add(current)
+        owners = declarations.get(current, [])
+        if len(owners) != 1 or owners[0].kind != "class":
+            return False, ()
+        owner = owners[0]
+        path_evidence.update(owner.evidence_ids)
+        if declarations.get(f"{current}.__getattribute__") or declarations.get(
+            f"{current}.__getattr__"
+        ):
+            return False, ()
+        methods = declarations.get(f"{current}.{method_name}", [])
+        if methods:
+            if (
+                len(methods) != 1
+                or methods[0].kind != "method"
+                or methods[0].data.get("parent") != current
+                or methods[0].data.get("decorators")
+                or methods[0].data.get("qualified_name") != target
+            ):
+                return False, ()
+            return True, tuple(sorted(path_evidence | set(methods[0].evidence_ids)))
+        if owner.data.get("class_header_static") is not True:
+            return False, ()
+        attributes = owner.data.get("attribute_declarations")
+        if isinstance(attributes, tuple) and any(
+            isinstance(attribute, RecordData) and attribute.get("name") == method_name
+            for attribute in attributes
+        ):
+            return False, ()
+        bases = owner.data.get("base_declarations")
+        if not isinstance(bases, tuple) or len(bases) != 1 or not isinstance(bases[0], RecordData):
+            return False, ()
+        base = bases[0]
+        base_targets = base.get("targets")
+        base_evidence = base.get("evidence_ids")
+        if (
+            base.get("status") != SourceResolution.RESOLVED
+            or not isinstance(base_targets, tuple)
+            or len(base_targets) != 1
+            or not isinstance(base_targets[0], str)
+            or not isinstance(base_evidence, tuple)
+            or any(not isinstance(item, str) for item in base_evidence)
+        ):
+            return False, ()
+        path_evidence.update(item for item in base_evidence if isinstance(item, str))
+        current = base_targets[0]
+    return False, ()
+
+
 def _call_origin_proof(
     facts: SourceFacts,
     record: Record,
@@ -629,6 +688,11 @@ def _call_origin_proof(
             if isinstance(parameters, tuple)
             else []
         )
+        matches_receiver_path, receiver_path_evidence = (
+            _stored_method_path(target, binding.target, declarations)
+            if isinstance(target, str)
+            else (False, ())
+        )
         if (
             not isinstance(field, str)
             or not field.isidentifier()
@@ -640,9 +704,14 @@ def _call_origin_proof(
             or owners[0].data.get("source_member_binding_static") is not True
             or len(initializers) != 1
             or len(linked_writes) != 1
+            or linked_writes[0].get("annotation_target") != target
             or len(typed_parameters) != 1
             or len(stored_types) != 1
             or stored_types[0].kind != "class"
+            or stored_types[0].data.get("source_binding_unique") is not True
+            or stored_types[0].data.get("source_member_binding_static") is not True
+            or not matches_receiver_path
+            or not set(receiver_path_evidence) <= set(binding.evidence_ids)
             or not isinstance(witnesses, tuple)
             or len(witnesses) != 2
             or any(
