@@ -356,13 +356,13 @@ def _selector_node_span(
 def _selector_source_receiver(
     record: Record, binding: CallBinding, evidence: Mapping[str, Evidence]
 ) -> tuple[ast.expr, tuple[int, int, int, int]] | None:
-    site_ids = set(record.evidence_ids) - set(binding.evidence_ids)
+    site_ids: set[str] = set(record.evidence_ids) - set(binding.evidence_ids)
     if binding.origin is CallBindingOrigin.CONSTRUCTED_RECEIVER and binding.proof is not None:
         constructor_id = binding.proof.get("constructor_evidence_id")
         if isinstance(constructor_id, str) and constructor_id in record.evidence_ids:
             # Nested receiver and selector share a start column, so the source-evidence
             # identity is the same. Keep that location eligible as the selector site.
-            site_ids.add(constructor_id)
+            site_ids = site_ids | {constructor_id}
     for identifier in site_ids:
         item = evidence.get(identifier)
         if item is None:
@@ -499,8 +499,9 @@ def selector_receiver_site_matches(
             parameter_owner = selector_owner
         if not isinstance(selector_owner, str) or not isinstance(parameter_owner, str):
             return False
-        if selector_owner != parameter_owner and not selector_owner.startswith(
-            f"{parameter_owner}."
+        if (
+            selector_owner != parameter_owner
+            and selector_owner[: len(parameter_owner) + 1] != f"{parameter_owner}."
         ):
             return False
         if not selector_parameter_scope_matches(record, binding, declarations, evidence):
@@ -521,7 +522,7 @@ def selector_receiver_site_matches(
         )
         selector_owner_name: str = selector_owner
         return (
-            selector_owner_name.startswith(f"{owner}.")
+            selector_owner_name[: len(owner) + 1] == f"{owner}."
             and isinstance(expression, ast.Attribute)
             and expression.attr == proof.get("field")
             and isinstance(expression.value, ast.Name)
@@ -595,7 +596,12 @@ def _selector_parameter_scope_chain(
     parameter_owners = declarations.get(parameter_owner, [])
     if len(selector_owners) != 1 or len(parameter_owners) != 1:
         return None
-    module_name = selector_owners[0].data.get("module")
+    module_value: JsonValue = None
+    for key, value in selector_owners[0].data.entries:
+        if key == "module":
+            module_value = value
+            break
+    module_name = module_value
     if not isinstance(module_name, str):
         return None
     expected: list[Record] = []
@@ -962,7 +968,7 @@ def _selector_declared_receiver_proof(
         or not isinstance(owner_name, str)
         or not isinstance(parameter_owner, str)
         or owner_name != parameter_owner
-        and not owner_name.startswith(f"{parameter_owner}.")
+        and owner_name[: len(parameter_owner) + 1] != f"{parameter_owner}."
         or len(selected) != 1
         or annotation_target != binding.target
         or len(targets) != 1

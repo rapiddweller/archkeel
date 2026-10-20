@@ -424,7 +424,7 @@ def _has_selector_vocabulary(sections: tuple[Section, ...]) -> bool:
             if {
                 _SelectorRecordField.RECEIVER_PARAMETER_OWNER,
                 _SelectorRecordField.RECEIVER_PARAMETER_SCOPES,
-            }.intersection(key for key, _ in record.data.entries):
+            } & {key for key, _ in record.data.entries}:
                 return True
             if section.name == ObservedSection.UNKNOWNS and (
                 record.kind == _ConstructSelectorFactKind.UNKNOWN
