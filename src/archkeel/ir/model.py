@@ -1136,13 +1136,16 @@ def _rule_references(
         )
     named: list[tuple[str, tuple[str, ...], bool]] = []
     if isinstance(rule, ForbiddenEffectUnderConditionRule):
-        return _references(
-            f"/rules/{index}",
-            [
-                ("source", (rule.source,), True),
-                ("condition.owner", (rule.condition.owner,), False),
-            ],
-        )
+        return [
+            *_references(
+                f"/rules/{index}",
+                [
+                    ("source", (rule.source,), True),
+                    ("target", (rule.target,), False),
+                ],
+            ),
+            ModuleReference(f"/rules/{index}/condition/owner", rule.condition.owner, False),
+        ]
     if isinstance(
         rule,
         ForbiddenDependencyRule

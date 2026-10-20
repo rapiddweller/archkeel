@@ -5,7 +5,11 @@ import pytest
 from jsonschema import Draft202012Validator
 
 from archkeel.ir.codec import contract_bytes, parse_contract
-from archkeel.ir.model import ForbiddenEffectUnderConditionRule
+from archkeel.ir.model import (
+    ForbiddenEffectUnderConditionRule,
+    module_references,
+)
+from archkeel.ir.renames import renamed_contract
 
 ROOT = Path(__file__).parents[1]
 
@@ -68,3 +72,20 @@ def test_guarded_effect_rule_requires_its_contract_feature_version():
 
     old_schema = json.loads((ROOT / "schema/architecture-contract-3.7.schema.json").read_text())
     assert not Draft202012Validator(old_schema).is_valid(_contract(version="3.7.0"))
+
+
+def test_guarded_effect_rule_fields_are_registered_for_module_renames():
+    contract = parse_contract(_contract())
+    references = {reference.pointer: reference for reference in module_references(contract)}
+    assert references["/rules/0/source"].value == "sample.core"
+    assert references["/rules/0/source"].held
+    assert references["/rules/0/target"].value == "secrets.token_hex"
+    assert not references["/rules/0/target"].held
+    assert references["/rules/0/condition/owner"].value == "sample.core.generate"
+
+    moved = renamed_contract(contract, {"sample.core": "moved.core"})
+    rule = moved.rules[0]
+    assert isinstance(rule, ForbiddenEffectUnderConditionRule)
+    assert rule.source == "moved.core"
+    assert rule.target == "secrets.token_hex"
+    assert rule.condition.owner == "moved.core.generate"

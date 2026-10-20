@@ -74,9 +74,21 @@ class _ObservationVersion(StrEnum):
     V2_8 = SCHEMA_VERSION
 
 
+_VERSION_NUMBERS = {
+    _ObservationVersion.V1_2: (1, 2),
+    _ObservationVersion.V1_3: (1, 3),
+    _ObservationVersion.V2: (2, 0),
+    _ObservationVersion.V2_1: (2, 1),
+    _ObservationVersion.V2_2: (2, 2),
+    _ObservationVersion.V2_3: (2, 3),
+    _ObservationVersion.V2_4: (2, 4),
+    _ObservationVersion.V2_5: (2, 5),
+    _ObservationVersion.V2_8: (2, 8),
+}
+
+
 def _version_at_least(version: _ObservationVersion, minimum: tuple[int, int]) -> bool:
-    major, minor, _patch = (int(part) for part in version.value.split("."))
-    return (major, minor) >= minimum
+    return _VERSION_NUMBERS[version] >= minimum
 
 
 class _VersionedConstruct(StrEnum):
@@ -518,6 +530,7 @@ def _validate_profile_sections(model: Mapping[str, RawJson], profile: Profile) -
 
 
 def observation_payload(observation: Observation) -> dict[str, RawJson]:
+    _validate_guarded_effect_version(observation)
     if (
         _observation_version(observation.schema_version)
         not in {
@@ -569,6 +582,23 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
     )
     _validate_profile_sections(result, profile)
     return result
+
+
+def _validate_guarded_effect_version(observation: Observation) -> None:
+    version = _observation_version(observation.schema_version)
+    if _version_at_least(version, (2, 8)):
+        return
+    for section in observation.sections:
+        if section.name == ObservedSection.CALLS and any(
+            _has_field((key for key, _ in call.data.entries), "guarded_effect")
+            for call in section.records
+        ):
+            raise ValueError("guarded-effect evidence requires observation 2.8.0")
+        if section.name == ObservedSection.SYMBOLS and any(
+            _has_field((key for key, _ in symbol.data.entries), "guard_boolean_members")
+            for symbol in section.records
+        ):
+            raise ValueError("guard Boolean members require observation 2.8.0")
 
 
 def _field_selected(name: str, excluded: set[str]) -> bool:

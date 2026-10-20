@@ -1,7 +1,6 @@
 import copy
 import json
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -285,29 +284,7 @@ def _helper_inputs(value=True):
     return modules, symbols, calls
 
 
-def test_private_helper_binding_substitutes_the_callers_boolean_path(monkeypatch):
-    def argument_decoder(raw):
-        if not isinstance(raw, tuple):
-            return None
-        return tuple(
-            SimpleNamespace(evidence_ids=tuple(item.get("evidence_ids", ()))) for item in raw
-        )
-
-    binder = SimpleNamespace(
-        bind_call_arguments=lambda _signature, actuals, *, bound_receiver: (
-            SimpleNamespace(by_parameter=(("flag", (0,)),))
-            if len(actuals) == 1 and bound_receiver is False
-            else None
-        )
-    )
-    monkeypatch.setattr(
-        "archkeel.check.evaluation.guarded_effects.import_module",
-        lambda name: (
-            SimpleNamespace(call_arguments=argument_decoder)
-            if name == "archkeel.ir.facts"
-            else binder
-        ),
-    )
+def test_private_helper_binding_substitutes_the_callers_boolean_path():
     modules, symbols, calls = _helper_inputs(True)
 
     violations, limits, receipts = guarded_effect_results(
@@ -326,29 +303,7 @@ def test_private_helper_binding_substitutes_the_callers_boolean_path(monkeypatch
     assert set(violations[0]["fact_ids"]) == {"helper-call", "helper-symbol", "effect-call"}
 
 
-def test_helper_call_sites_keep_their_opposite_condition_paths(monkeypatch):
-    def argument_decoder(raw):
-        if not isinstance(raw, tuple):
-            return None
-        return tuple(
-            SimpleNamespace(evidence_ids=tuple(item.get("evidence_ids", ()))) for item in raw
-        )
-
-    binder = SimpleNamespace(
-        bind_call_arguments=lambda _signature, actuals, *, bound_receiver: (
-            SimpleNamespace(by_parameter=(("flag", (0,)),))
-            if len(actuals) == 1 and bound_receiver is False
-            else None
-        )
-    )
-    monkeypatch.setattr(
-        "archkeel.check.evaluation.guarded_effects.import_module",
-        lambda name: (
-            SimpleNamespace(call_arguments=argument_decoder)
-            if name == "archkeel.ir.facts"
-            else binder
-        ),
-    )
+def test_helper_call_sites_keep_their_opposite_condition_paths():
     modules, symbols, calls = _helper_inputs(True)
     false_call = copy.deepcopy(calls[0])
     false_call["id"] = "helper-call-false"
@@ -371,22 +326,9 @@ def test_helper_call_sites_keep_their_opposite_condition_paths(monkeypatch):
     assert len(receipts) == 1
 
 
-def test_unbound_helper_actual_remains_unknown(monkeypatch):
-    def argument_decoder(raw):
-        return tuple(
-            SimpleNamespace(evidence_ids=tuple(item.get("evidence_ids", ()))) for item in raw
-        )
-
-    binder = SimpleNamespace(bind_call_arguments=lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(
-        "archkeel.check.evaluation.guarded_effects.import_module",
-        lambda name: (
-            SimpleNamespace(call_arguments=argument_decoder)
-            if name == "archkeel.ir.facts"
-            else binder
-        ),
-    )
+def test_unbound_helper_actual_remains_unknown():
     modules, symbols, calls = _helper_inputs(True)
+    calls[0]["data"]["call_arguments"][0]["kind"] = "starred_positional"
 
     violations, limits, receipts = guarded_effect_results(
         _contract(),

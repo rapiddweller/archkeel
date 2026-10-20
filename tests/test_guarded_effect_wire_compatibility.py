@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 from test_analyzer import _parsed_module
 from test_delta import _model, _record
@@ -5,7 +7,7 @@ from test_result_schema import _validator
 
 from archkeel.analyzer.python.calls import collect_calls
 from archkeel.analyzer.python.resolve import build_symbol_index
-from archkeel.ir.codec import parse_observation
+from archkeel.ir.codec import observation_payload, parse_observation
 
 
 def test_collector_attaches_typed_condition_and_path_evidence_to_call():
@@ -90,6 +92,56 @@ def test_guarded_effect_facts_require_observation_2_8():
     raw["schema_version"] = "2.8.0"
     raw["calls"][0]["data"]["call_arguments"] = None
     assert len(parse_observation(raw).records("calls")) == 1
+
+
+def test_observation_writer_rejects_guard_facts_under_older_schema():
+    raw = _model(git_head="a" * 40)
+    raw["schema_version"] = "2.8.0"
+    raw["calls"] = [
+        _record(
+            "effect",
+            kind="call",
+            data={
+                "call_binding": None,
+                "call_arguments": None,
+                "guarded_effect": [
+                    {
+                        "condition": {"kind": "parameter", "owner": "sample.run", "name": "seeded"},
+                        "condition_value": True,
+                        "condition_evidence_ids": ["e-condition"],
+                        "path_evidence_ids": ["e-path"],
+                        "effect_binding_evidence_ids": ["e-binding"],
+                        "complete": False,
+                        "unknown_reason": "missing_binding",
+                        "helper_bindings": [],
+                    }
+                ],
+            },
+        )
+    ]
+    raw["symbols"] = [
+        _record(
+            "run",
+            kind="function",
+            data={"guard_boolean_members": [{"name": "seeded", "evidence_ids": ["e-member"]}]},
+        )
+    ]
+    observation = parse_observation(raw)
+    calls_only = replace(
+        observation,
+        schema_version="2.5.0",
+        sections=tuple(section for section in observation.sections if section.name == "calls"),
+    )
+    with pytest.raises(ValueError, match="guarded-effect evidence requires observation 2.8.0"):
+        observation_payload(calls_only)
+
+    symbols_only = replace(
+        observation,
+        schema_version="2.5.0",
+        sections=tuple(section for section in observation.sections if section.name == "symbols"),
+    )
+    with pytest.raises(ValueError, match="guard Boolean members require observation 2.8.0"):
+        observation_payload(symbols_only)
 
 
 def test_python_decoded_2_8_schema_admits_only_typed_guard_proofs():

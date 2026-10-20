@@ -1374,6 +1374,55 @@ def _ends_with(value: str, suffix: str) -> bool:
     length = len(suffix)
     return len(value) >= length and value[len(value) - length :] == suffix
 
+def _source_guard_boolean_members(record: Record, section: SourceSectionName) -> None:
+    value = record.data.get("guard_boolean_members")
+    if (
+        section is not SourceSectionName.SYMBOLS
+        or record.kind != "class"
+        or not isinstance(value, tuple)
+        or any(
+            not isinstance(item, RecordData)
+            or {key for key, _ in item.entries} != {"name", "evidence_ids"}
+            or not isinstance(item.get("name"), str)
+            or not item.get("name")
+            for item in value
+        )
+    ):
+        raise ValueError("guard Boolean member declarations need a class symbol")
+    if len({item.get("name") for item in value if isinstance(item, RecordData)}) != len(value):
+        raise ValueError("guard Boolean member declarations must have unique names")
+    for item in value:
+        if not isinstance(item, RecordData):
+            continue
+        evidence_ids = item.get("evidence_ids")
+        if (
+            not isinstance(evidence_ids, tuple)
+            or not evidence_ids
+            or any(not isinstance(identifier, str) or not identifier for identifier in evidence_ids)
+            or len(set(evidence_ids)) != len(evidence_ids)
+        ):
+            raise ValueError("guard Boolean member evidence_ids must be unique and nonempty")
+
+
+def _source_guarded_effect(record: Record, section: SourceSectionName) -> None:
+    if section is not SourceSectionName.CALLS:
+        raise ValueError("guarded effect evidence needs its call owner")
+    raw_guarded = record.data.get("guarded_effect")
+    if not isinstance(raw_guarded, tuple):
+        raise ValueError("guarded effect evidence must be an array")
+    binding = call_binding(record.data.get("call_binding"))
+    for raw_item in raw_guarded:
+        proof = guarded_effect(raw_item)
+        if proof.complete and (
+            binding is None or proof.effect_binding_evidence_ids != binding.evidence_ids
+        ):
+            raise ValueError("guarded effect must reference its canonical call binding")
+        if any(
+            binding is None or helper.call_id != record.id or helper.target != binding.target
+            for helper in proof.helper_bindings
+        ):
+            raise ValueError("guarded-effect helper identity disagrees with its call binding")
+
 
 def _source_record(record: Record, section: SourceSectionName) -> None:
     if record.evidence_class not in (EvidenceClass.FACT, EvidenceClass.UNKNOWN):
@@ -1408,37 +1457,7 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
     if "base_declarations" in fields:
         _base_declarations(record, section)
     if "guard_boolean_members" in fields:
-        value = record.data.get("guard_boolean_members")
-        if (
-            section is not SourceSectionName.SYMBOLS
-            or record.kind != "class"
-            or not isinstance(value, tuple)
-            or any(
-                not isinstance(item, RecordData)
-                or {key for key, _ in item.entries} != {"name", "evidence_ids"}
-                or not isinstance(item.get("name"), str)
-                or not item.get("name")
-                for item in value
-            )
-        ):
-            raise ValueError("guard Boolean member declarations need a class symbol")
-        if len({item.get("name") for item in value if isinstance(item, RecordData)}) != len(value):
-            raise ValueError("guard Boolean member declarations must have unique names")
-        for item in value:
-            if isinstance(item, RecordData):
-                evidence_ids = item.get("evidence_ids")
-                if (
-                    not isinstance(evidence_ids, tuple)
-                    or not evidence_ids
-                    or any(
-                        not isinstance(identifier, str) or not identifier
-                        for identifier in evidence_ids
-                    )
-                    or len(set(evidence_ids)) != len(evidence_ids)
-                ):
-                    raise ValueError(
-                        "guard Boolean member evidence_ids must be unique and nonempty"
-                    )
+        _source_guard_boolean_members(record, section)
     if "call_binding" in fields:
         if section is not SourceSectionName.CALLS:
             raise ValueError("call binding needs its call owner")
@@ -1448,23 +1467,7 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
             raise ValueError("call arguments need their call owner")
         call_arguments(record.data.get("call_arguments"))
     if "guarded_effect" in fields:
-        if section != SourceSectionName.CALLS:
-            raise ValueError("guarded effect evidence needs its call owner")
-        raw_guarded = record.data.get("guarded_effect")
-        if not isinstance(raw_guarded, tuple):
-            raise ValueError("guarded effect evidence must be an array")
-        binding = call_binding(record.data.get("call_binding"))
-        for raw_item in raw_guarded:
-            proof = guarded_effect(raw_item)
-            if proof.complete and (
-                binding is None or proof.effect_binding_evidence_ids != binding.evidence_ids
-            ):
-                raise ValueError("guarded effect must reference its canonical call binding")
-            if any(
-                binding is None or helper.call_id != record.id or helper.target != binding.target
-                for helper in proof.helper_bindings
-            ):
-                raise ValueError("guarded-effect helper identity disagrees with its call binding")
+        _source_guarded_effect(record, section)
     _payload(record.data)
 
 

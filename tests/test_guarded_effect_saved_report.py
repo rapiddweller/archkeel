@@ -79,16 +79,19 @@ def generate(seeded: bool):
     replayed = {row.id: row for row in run_saved_report(path).rule_assessments}
     assert replayed == assessments
 
-    receipt = next(
-        row
+    receipts = {
+        row["rule_ids"][0]: row
         for row in raw["scope_observations"]
-        if row["kind"] == "rule_evaluation" and row["rule_ids"] == ["ROOT"]
-    )
-    receipt["data"]["call_scope_proof"]["binding_id"] = "0" * 64
+        if row["kind"] == "rule_evaluation" and row["rule_ids"] in (["ROOT"], ["all:MOUNTED"])
+    }
+    assert set(receipts) == {"ROOT", "all:MOUNTED"}
+    for receipt in receipts.values():
+        receipt["data"]["call_scope_proof"]["binding_id"] = "0" * 64
     path.write_bytes(canonical_report_bytes(raw) if columnar else json.dumps(raw).encode("utf-8"))
     tampered = {row.id: row for row in run_saved_report(path).rule_assessments}
-    assert tampered["ROOT"].status == ("FAIL" if expected == "FAIL" else "UNKNOWN")
-    assert not tampered["ROOT"].evaluation_proven
+    for identifier in ("ROOT", "all:MOUNTED"):
+        assert tampered[identifier].status == ("FAIL" if expected == "FAIL" else "UNKNOWN")
+        assert not tampered[identifier].evaluation_proven
 
 
 @pytest.mark.parametrize("columnar", [False, True])
