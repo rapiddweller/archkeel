@@ -1310,3 +1310,125 @@ def test_selector_partial_source_scope_is_unknown_without_hiding_known_failures(
         assert replayed.status == expected_status
         assert not replayed.evaluation_proven
         assert not replay.diagnostics
+
+
+@pytest.mark.parametrize("mounted", [False, True], ids=["root", "mounted"])
+def test_ambiguous_selector_receiver_is_unknown_live_and_in_saved_reports(
+    tmp_path: Path, mounted: bool
+):
+    root = tmp_path / "repo"
+    (root / "sample").mkdir(parents=True)
+    (root / "sample/__init__.py").write_text("")
+    (root / "sample/core.py").write_text(
+        "class Connection:\n    backend: str\n"
+        "class Label:\n    backend: str\n"
+        "def route(conn: Connection, label: Label, unclear):\n"
+        '    conn.backend == "flat"\n'
+        '    label.backend == "flat"\n'
+        '    unclear.backend == "flat"\n'
+    )
+    (root / "docs/architecture").mkdir(parents=True)
+    (root / "docs/architecture/sample.md").write_text("Selector fixture.\n")
+    (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    rule = {
+        "id": "SELECT",
+        "kind": "forbidden_construct",
+        "source": "sample",
+        "constructs": ["string_literal_compare"],
+        "selector": {
+            "receiver": "sample.core.Connection",
+            "member": "backend",
+            "role": "equality",
+            "literal": "round",
+        },
+        "rationale": "Keep route selection on the declared port.",
+        "provenance": ["docs/architecture/sample.md"],
+        "decided_by": "architect",
+    }
+    component = {
+        "id": "COMPONENT",
+        "label": "component",
+        "role": "component",
+        "packages": ["sample"],
+        "responsibilities": ["Own sample."],
+        "forbidden_responsibilities": [],
+        "provenance": ["docs/architecture/sample.md"],
+    }
+    if mounted:
+        (root / "inside.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "3.11.0",
+                    "components": [component],
+                    "rules": [rule],
+                }
+            )
+        )
+        contract = {
+            "schema_version": "3.11.0",
+            "components": [{**component, "id": "PARENT", "inside": "inside.json"}],
+            "rules": [],
+        }
+    else:
+        contract = {"schema_version": "3.11.0", "components": [], "rules": [rule]}
+    (root / "contract.json").write_text(json.dumps(contract))
+    for command in (
+        ["git", "init", "-q", "-b", "main"],
+        ["git", "config", "user.email", "test@example.invalid"],
+        ["git", "config", "user.name", "Test"],
+        ["git", "add", "-A"],
+        ["git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "fixture"],
+    ):
+        subprocess.run(command, cwd=root, check=True, capture_output=True)
+
+    live, encoded = run_report(
+        root,
+        config=ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
+        analyzer=observe,
+    )
+    assert encoded is not None, live.diagnostics[0].unknown_claim if live.diagnostics else None
+    assert live.rule_assessments is not None
+    [native] = [row for row in live.rule_assessments if row.id.endswith("SELECT")]
+    assert native.status == "UNKNOWN"
+    assert native.evaluation_proven
+
+    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    assert any(
+        row.kind == "construct_selector_unknown"
+        and any(rule_id.endswith("SELECT") for rule_id in row.rule_ids)
+        for row in model.records("unknowns") or ()
+    )
+    [receipt] = [
+        row
+        for row in model.records("scope_observations") or ()
+        if row.kind == "rule_evaluation"
+        and any(rule_id.endswith("SELECT") for rule_id in row.rule_ids)
+    ]
+    assert receipt.data.get("claim") == "construct_selector"
+    selector = receipt.data.get("selector")
+    assert selector.get("receiver") == "sample.core.Connection"
+    assert selector.get("member") == "backend"
+    assert selector.get("role") == "equality"
+    assert selector.get("literal") == "round"
+    proof = receipt.data.get("selector_scope_proof")
+    assert proof.get("source_modules") == ("sample", "sample.core")
+    assert proof.get("selected_files") == ("sample/__init__.py", "sample/core.py")
+    assert proof.get("inventory_fact_ids")
+    assert proof.get("binding_id", "").startswith("RULE-EVALUATION-PROOF-")
+    assert proof.get("result_digest", "").startswith("RULE-RESULT-")
+    assert len(proof.get("contract_digest", "")) == 64
+    assert len(proof.get("source_digest", "")) == 64
+
+    for index, payload in enumerate(
+        (observation_payload(model), decode_canonical_model(json.loads(encoded)))
+    ):
+        path = tmp_path / f"ambiguous-selector-{mounted}-{index}.json"
+        path.write_bytes(canonical_json_bytes(payload))
+        replay = run_saved_report(path)
+        assert not replay.diagnostics, replay.diagnostics
+        assert replay.rule_assessments is not None
+        [saved] = [row for row in replay.rule_assessments if row.id == native.id]
+        assert (saved.status, saved.evaluation_proven) == (
+            native.status,
+            native.evaluation_proven,
+        )
