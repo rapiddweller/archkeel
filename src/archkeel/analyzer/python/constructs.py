@@ -666,6 +666,7 @@ class ConstructCollector(ast.NodeVisitor):
         comparisons: _LiteralComparisons,
         symbol_index: SymbolIndex | None = None,
         call_collector: SelectorReceiverResolver | None = None,
+        include_parameter_owner_proof: bool = True,
     ) -> None:
         self.module = module
         self.evidence = evidence
@@ -674,6 +675,7 @@ class ConstructCollector(ast.NodeVisitor):
         self.comparisons = comparisons
         self.symbol_index = symbol_index
         self.call_collector = call_collector
+        self.include_parameter_owner_proof = include_parameter_owner_proof
         self.inherits_stack: list[bool] = []
         self.scopes = comparisons.scopes
         self.parents = {
@@ -1164,6 +1166,14 @@ class ConstructCollector(ast.NodeVisitor):
             receiver_parameter_owner,
             receiver_parameter_scopes,
         ) = self._selector_receiver_proof(node, role, receiver, literal, status, receiver_node)
+        if receiver_parameter_owner is not None and not self.include_parameter_owner_proof:
+            receiver = None
+            status = "unknown"
+            receiver_binding = None
+            receiver_parameter = None
+            receiver_evidence = []
+            receiver_parameter_owner = None
+            receiver_parameter_scopes = None
         data: RecordData = {
             "owner": owner,
             "construct": "selector",
@@ -1180,7 +1190,7 @@ class ConstructCollector(ast.NodeVisitor):
                     "receiver_parameter_owner": receiver_parameter_owner,
                     "receiver_parameter_scopes": receiver_parameter_scopes,
                 }
-                if receiver_parameter_owner is not None
+                if receiver_parameter_owner is not None and self.include_parameter_owner_proof
                 else {}
             ),
         }
@@ -1805,6 +1815,7 @@ def collect_constructs(
     imports: Sequence[RawRecord] = (),
     symbol_index: SymbolIndex | None = None,
     receiver_resolvers: Sequence[SelectorReceiverResolver] = (),
+    include_parameter_owner_proof: bool = True,
 ) -> list[RawRecord]:
     """Collect written constructs using scanned literal providers and resolved import origins."""
     contexts = [_LiteralComparisons(module) for module in parsed]
@@ -1842,7 +1853,14 @@ def collect_constructs(
         context.enum_member_names = enum_member_names
         context.origins = origins
         context.collections = _literal_collections(context)
-        collector = ConstructCollector(module, evidence, context, symbol_index, call_collector)
+        collector = ConstructCollector(
+            module,
+            evidence,
+            context,
+            symbol_index,
+            call_collector,
+            include_parameter_owner_proof,
+        )
         collector.local_classes = known_classes
         collector.local_members = _class_member_names(module)
         collector.visit(module.tree)
