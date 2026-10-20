@@ -956,9 +956,7 @@ class CallCollector(ast.NodeVisitor):
             changed_targets = self._native_expression_targets(item)
             if isinstance(item, ast.Name) and isinstance(node, ast.Assign | ast.AnnAssign):
                 value = node.value
-                if value is not None and changed_targets.intersection(
-                    self._native_expression_targets(value)
-                ):
+                if value is not None and changed_targets & self._native_expression_targets(value):
                     continue
             for changed_target in changed_targets:
                 if target == changed_target or _starts_with(target, f"{changed_target}."):
