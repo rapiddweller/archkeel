@@ -469,8 +469,7 @@ def test_interface_profile_follows_a_reexport_to_the_declared_facade_name() -> N
 
 def test_interface_profile_trusts_all_only_when_the_analyzer_proved_it_literal() -> None:
     """AD-99: `all_exports` alone cannot tell a literal from one a later statement extends; the
-    analyzer's `all_literal` fact decides. An empty `__all__` stays open, the way
-    `interface_boundary` reads it."""
+    analyzer's `all_literal` fact decides. A proven empty `__all__` lists no names (AD-244)."""
     observation = _observation(
         declarations=(
             _declaration("b", ["pkg.b"], ["pkg.b.empty", "pkg.b.extended", "pkg.b.legacy"]),
@@ -495,7 +494,7 @@ def test_interface_profile_trusts_all_only_when_the_analyzer_proved_it_literal()
         (item.module, item.exported_names, item.enumerated)
         for item in interface_profile(observation).facades
     ] == [
-        ("pkg.b.empty", ("helper",), False),
+        ("pkg.b.empty", (), True),
         ("pkg.b.extended", ("A",), False),
         ("pkg.b.legacy", ("A",), False),
     ]

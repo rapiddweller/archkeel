@@ -18,12 +18,14 @@ from archkeel.ir.model import (
     Diagnostic,
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
+    ModuleExports,
     Observation,
     RecordData,
     SelectorMatch,
     component_owns_module,
     in_scope,
     interface_covers_import,
+    module_exports,
     module_in_ownership,
 )
 from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
@@ -36,7 +38,6 @@ from .public_api import (
     _facade_covers_import,
     _imports_by_target,
     _inherited_facade_candidates,
-    _literal_exports,
     _planned_entry_diagnostics,
     _public_entry_diagnostics,
     _published_parent_components,
@@ -124,7 +125,7 @@ def _import_published_through_ancestors(
     mount: InsideContractMount,
     mounts_by_parent: dict[str, InsideContractMount],
     available_by_owner: dict[str, frozenset[str]],
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
 ) -> bool:
     """Require publication at every boundary crossed by an outside import."""
     ancestor = mount
@@ -175,7 +176,7 @@ def _inside_imports_by_target(
     available_by_owner: dict[str, frozenset[str]],
 ) -> dict[str, list[RecordData]]:
     """Collect local and ancestor-published uses of this mount's interfaces."""
-    exports_by_module = _literal_exports(observation)
+    exports_by_module = module_exports(observation)
     imports_by_target: dict[str, list[RecordData]] = _imports_by_target(
         scoped,
         observation,

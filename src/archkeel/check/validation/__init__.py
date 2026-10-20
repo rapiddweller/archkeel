@@ -150,7 +150,6 @@ from .public_api import _facade_covers_import as _facade_covers_import
 from .public_api import _facade_types as _facade_types
 from .public_api import _imports_by_target as _imports_by_target
 from .public_api import _inherited_facade_candidates as _inherited_facade_candidates
-from .public_api import _literal_exports as _literal_exports
 from .public_api import _missing_public_entry as _missing_public_entry
 from .public_api import _parent_reexport_proven as _parent_reexport_proven
 from .public_api import _planned_entry_diagnostics as _planned_entry_diagnostics

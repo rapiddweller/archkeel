@@ -280,9 +280,9 @@ def test_an_all_that_is_not_one_literal_is_unknown_not_pass(
     ]
 
 
-def test_an_empty_all_is_an_open_facade_not_one_of_no_names(tmp_path: Path) -> None:
-    """Round 2: `interface_boundary` reads `__all__ = []` as no `__all__`, so cli still imports
-    render_order through it; counting zero names would let any facade pass any budget."""
+def test_an_empty_all_is_a_facade_of_no_names(tmp_path: Path) -> None:
+    """AD-244: `__all__ = []` states an empty surface, so the facade counts no names and cli's
+    import of render_order through it is an interface violation, not budget headroom."""
     text = (FIXTURE_DIR / "shop/render/text.py").read_text()
     files: dict[str, str | None] = {
         "shop/render/text.py": text.replace(
@@ -292,23 +292,15 @@ def test_an_empty_all_is_an_open_facade_not_one_of_no_names(tmp_path: Path) -> N
         + "\n\ndef render_total(order: Order) -> str:\n    return str(order.total())\n"
     }
 
-    over = _run(tmp_path / "over", (("render", 0),), files=files)
-    under = _run(tmp_path / "under", (("render", 5),), files=files)
-
-    assert [(item.code, item.unknown_claim) for item in over.diagnostics] == [
-        (
-            "budget.exceeded",
-            "The render facade counts at least 2 names, 2 over max_names 0: "
-            "shop.render.text:render_order, shop.render.text:render_total.",
-        )
-    ]
-    assert [(item.code, item.unknown_claim) for item in under.diagnostics] == [
-        (
-            "budget.unknown",
-            "The render facade counts at least 2 names against max_names 5; not enumerated: "
-            "shop.render.text.",
-        )
-    ]
+    for budget in (0, 5):
+        result = _run(tmp_path / str(budget), (("render", budget),), files=files)
+        assert [(item.code, item.unknown_claim) for item in result.diagnostics] == [
+            (
+                "rule.violated",
+                "The observed code violates the declared rule: shop.cli.main reaches "
+                "shop.render.text.render_order outside its declared interface",
+            )
+        ]
 
 
 def test_a_whole_module_import_makes_a_pair_unknown_until_it_is_over(tmp_path: Path) -> None:
