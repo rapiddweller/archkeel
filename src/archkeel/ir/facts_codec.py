@@ -191,6 +191,26 @@ class _PathToken(StrEnum):
     SLASH = "/"
 
 
+class _SourceFactsField(StrEnum):
+    SECTIONS = "sections"
+    EVIDENCE = "evidence"
+    CANDIDATE_EVIDENCE = "candidate_evidence"
+    ENCODING = "encoding"
+    STRING_TABLE = "string_table"
+
+
+_SOURCE_FACTS_DETAIL_FIELDS = frozenset(
+    {
+        _SourceFactsField.SECTIONS,
+        _SourceFactsField.EVIDENCE,
+        _SourceFactsField.CANDIDATE_EVIDENCE,
+    }
+)
+_SOURCE_FACTS_ENCODING_FIELDS = frozenset(
+    {_SourceFactsField.ENCODING, _SourceFactsField.STRING_TABLE}
+)
+
+
 class ProtocolError(ValueError):
     """The collection message cannot substantiate the claims it carries."""
 
@@ -1068,11 +1088,7 @@ def _compact_source_facts(value: RawJson) -> dict[str, RawJson]:
         )
         cursor += record_count
     compact: dict[str, RawJson] = {
-        **{
-            key: item
-            for key, item in facts.items()
-            if key not in {"sections", "evidence", "candidate_evidence"}
-        },
+        **{key: item for key, item in facts.items() if key not in _SOURCE_FACTS_DETAIL_FIELDS},
         "sections": compact_sections,
         "evidence": rows["evidence"],
         "candidate_evidence": rows["candidate_evidence"],
@@ -1203,7 +1219,7 @@ def _expand_source_facts(value: RawJson) -> dict[str, RawJson]:
         expanded_sections.append({"name": name, "records": section_records})
         cursor += record_count
     expanded: dict[str, RawJson] = {
-        key: entry for key, entry in item.items() if key not in {"encoding", "string_table"}
+        key: entry for key, entry in item.items() if key not in _SOURCE_FACTS_ENCODING_FIELDS
     }
     expanded["sections"] = expanded_sections
     expanded["evidence"] = _expand_evidence_rows(expanded_row_object["evidence"], "evidence")
