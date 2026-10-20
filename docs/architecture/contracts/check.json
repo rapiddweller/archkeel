@@ -99,8 +99,7 @@
             "archkeel.check.evaluation.evaluate:ScanResult",
             "archkeel.check.evaluation.evaluate:evaluate_source",
             "archkeel.check.evaluation.rules:public_api_exposed_types",
-            "archkeel.check.uml_evaluation:evaluate_uml",
-            "archkeel.check.evaluation.repository_files:repository_file_results"
+            "archkeel.check.uml_evaluation:evaluate_uml"
           ]
         }
       ],
@@ -167,8 +166,7 @@
         "archkeel.check.evaluation.evaluate:ScanResult",
         "archkeel.check.evaluation.evaluate:evaluate_source",
         "archkeel.check.evaluation.rules:public_api_exposed_types",
-        "archkeel.check.uml_evaluation:evaluate_uml",
-        "archkeel.check.evaluation.repository_files:repository_file_results"
+        "archkeel.check.uml_evaluation:evaluate_uml"
       ]
     },
     {
@@ -222,8 +220,7 @@
         "archkeel.check.git",
         "archkeel.check.python_profile",
         "archkeel.check.runtime",
-        "archkeel.check.ordering",
-        "archkeel.check.repository_inputs"
+        "archkeel.check.ordering"
       ],
       "responsibilities": [
         "Acquire immutable repository, runtime and forge inputs through typed ports."
@@ -266,10 +263,7 @@
         "archkeel.check.python_profile:crossing_imports",
         "archkeel.check.python_profile:is_crossing_import",
         "archkeel.check.runtime:runtime_diagnostic",
-        "archkeel.check.runtime:has_invalid_python_requirement",
-        "archkeel.check.ports:RepositoryInputReader",
-        "archkeel.check.ports:RepositorySnapshotPaths",
-        "archkeel.check.repository_inputs:read_repository_inputs"
+        "archkeel.check.runtime:has_invalid_python_requirement"
       ]
     }
   ],
@@ -399,18 +393,6 @@
       {
         "path": "src/archkeel/check/evaluation/topology.py",
         "responsibility": "Aggregate dependency and declared-scope evidence in Core."
-      },
-      {
-        "path": "src/archkeel/check/repository_inputs.py",
-        "responsibility": "Capture repository text bytes, exact provenance witnesses and snapshot completeness through the typed input port."
-      },
-      {
-        "path": "src/archkeel/check/evaluation/repository_files.py",
-        "responsibility": "Evaluate the declared physical line limit and emit authenticated inventory and rule receipts."
-      },
-      {
-        "path": "src/archkeel/check/evaluation/facade_declarations.py",
-        "responsibility": "Own declaration-only facade discovery from source signatures and publication evidence; leave mount-specific type decisions to boundary evaluation."
       }
     ],
     "uml": {
@@ -672,8 +654,7 @@
         {
           "language": "python",
           "provenance": [
-            "docs/superpowers/plans/2026-10-17-snapshot-language.md",
-            "docs/architecture/decisions/ad-243-contract-owned-source-maintenance.md"
+            "docs/superpowers/plans/2026-10-17-snapshot-language.md"
           ],
           "id": "SNAPSHOT-LANGUAGE-ENTRY",
           "kind": "function",
@@ -719,13 +700,6 @@
                 "annotation": "str | None",
                 "kind": "keyword_only",
                 "default": "None",
-                "default_known": true
-              },
-              {
-                "name": "repository_selections",
-                "annotation": "tuple[RepositoryFileSelection, ...]",
-                "kind": "keyword_only",
-                "default": "()",
                 "default_known": true
               }
             ],
@@ -1897,8 +1871,7 @@
             "Observe the supplied immutable scope; the implementation returns diagnostics rather than granting missing evidence."
           ],
           "provenance": [
-            "docs/architecture/target/design.md",
-            "docs/architecture/decisions/ad-243-contract-owned-source-maintenance.md"
+            "docs/architecture/target/design.md"
           ],
           "signature": {
             "parameters": [
@@ -1963,13 +1936,6 @@
                 "annotation": "Language",
                 "kind": "keyword_only",
                 "default": null,
-                "default_known": true
-              },
-              {
-                "name": "repository_snapshot",
-                "annotation": "RepositorySnapshotPaths | None",
-                "kind": "keyword_only",
-                "default": "None",
                 "default_known": true
               }
             ],
@@ -2099,8 +2065,7 @@
             "Validate selected inputs, collect once and return conservative typed observation/error evidence."
           ],
           "provenance": [
-            "docs/architecture/target/design.md",
-            "docs/architecture/decisions/ad-243-contract-owned-source-maintenance.md"
+            "docs/architecture/target/design.md"
           ],
           "signature": {
             "parameters": [
@@ -2165,13 +2130,6 @@
                 "annotation": "Language",
                 "kind": "keyword_only",
                 "default": "Language.PYTHON",
-                "default_known": true
-              },
-              {
-                "name": "repository_snapshot",
-                "annotation": "RepositorySnapshotPaths | None",
-                "kind": "keyword_only",
-                "default": "None",
                 "default_known": true
               }
             ],

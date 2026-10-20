@@ -46,13 +46,11 @@ from archkeel.ir.protocol import (
     SourceScope,
     TypeScriptSettings,
 )
-from archkeel.ir.repository_files import MaxFileLinesRule, RepositoryFileSelection
 from archkeel.ir.source_graph import member_inventory_proof
 
 from .declarations import ContractError, load_contract
 from .observation import assemble_observation
-from .ports import RepositoryInputReader, RepositorySnapshotPaths, SourceCollector
-from .repository_inputs import read_repository_inputs
+from .ports import SourceCollector
 from .runtime import runtime_diagnostic
 
 
@@ -78,7 +76,7 @@ def _contract_input_failure(error: _ContractInputError) -> ObservationResult:
 
 def _nested_reference_failure(
     root: Path, contract_path: Path, contract: _ArchitectureContract, digest: str
-) -> tuple[ObservationResult | None, tuple[RepositoryFileSelection, ...]]:
+) -> ObservationResult | None:
     repository = root.resolve()
     identity = contract_path.resolve().relative_to(repository).as_posix()
 
@@ -105,21 +103,11 @@ def _nested_reference_failure(
                 issue.input_error.subject,
                 str(issue.input_error),
             )
-            return _contract_input_failure(error), ()
-    selections = tuple(
-        dict.fromkeys(
-            rule.selection
-            for declared in (contract, *(mount.contract for mount in tree.mounts))
-            for rule in declared.rules
-            if isinstance(rule, MaxFileLinesRule)
-        )
-    )
-    return None, selections
+            return _contract_input_failure(error)
+    return None
 
 
-def _contract_failure(
-    path: Path, contract_root: Path
-) -> tuple[ObservationResult | None, tuple[RepositoryFileSelection, ...]]:
+def _contract_failure(path: Path, contract_root: Path) -> ObservationResult | None:
     try:
         contract, digest = load_contract(path)
     except ContractVersionError as error:
@@ -128,16 +116,16 @@ def _contract_failure(
             path.name,
             f"Contract schema {error.actual} cannot be validated as {CONTRACT_SCHEMA_VERSION}.",
             "Migrate the contract using docs/rules.md#migrating-from-1-1-0.",
-        ), ()
+        )
     except _ContractInputError as error:
-        return _contract_input_failure(error), ()
+        return _contract_input_failure(error)
     except ContractError as error:
         return _failure(
             DiagnosticKind.PARSE_ERROR,
             path.name,
             f"The architecture contract cannot be decoded: {error}",
             "Correct the contract structure and run report again.",
-        ), ()
+        )
     return _nested_reference_failure(contract_root, path, contract, digest)
 
 
@@ -287,55 +275,11 @@ def _observation_result(
     )
 
 
-def _source_root_failure(
-    source_root: Path, roots: tuple[str, ...], language: Language
-) -> ObservationResult | None:
-    suffix = PROFILES[language].source_suffix
-    for root in roots:
-        directory = source_root / root
-        file_root = language == Language.TYPESCRIPT and directory.is_file()
-        if not directory.is_dir() and not file_root:
-            return _failure(
-                DiagnosticKind.SCOPE_EMPTY,
-                root,
-                "The scan root does not exist.",
-                "Correct scan.roots in archkeel.toml.",
-            )
-        paths = (directory,) if file_root else directory.rglob(f"*{suffix}")
-        for path in paths:
-            if not path.resolve().is_relative_to(source_root):
-                return _failure(
-                    DiagnosticKind.PARSE_ERROR,
-                    str(path),
-                    "Source path escapes repository.",
-                    "Remove the source symlink or correct the scan scope.",
-                )
-    return None
-
-
-def _collection_failure(facts: CollectionError) -> ObservationResult:
-    kind: DiagnosticKind = (
-        DiagnosticKind.TIMEOUT
-        if facts.kind == CollectionErrorKind.TIMEOUT
-        else DiagnosticKind.MISSING_TOOL
-        if facts.kind == CollectionErrorKind.MISSING_TOOL
-        else DiagnosticKind.PARSE_ERROR
-    )
-    return _failure(
-        kind,
-        facts.subject,
-        facts.message,
-        "Repair the configured collector or its source inputs and retry.",
-    )
-
-
 def _observe(
     collector: SourceCollector,
     tsconfig: str,
     source_root: Path,
     *,
-    repository_reader: RepositoryInputReader,
-    repository_snapshot: RepositorySnapshotPaths | None = None,
     roots: tuple[str, ...],
     namespace: str,
     contract: str,
@@ -346,13 +290,30 @@ def _observe(
 ) -> ObservationResult:
     source_root = source_root.resolve()
     contract_root = contract_root.resolve()
+    suffix = PROFILES[language].source_suffix
     try:
         contract_file = contract_root / contract
-        failure, selections = _contract_failure(contract_file, contract_root)
-        if failure is not None:
+        if failure := _contract_failure(contract_file, contract_root):
             return failure
-        if failure := _source_root_failure(source_root, roots, language):
-            return failure
+        for root in roots:
+            directory = source_root / root
+            file_root = language == Language.TYPESCRIPT and directory.is_file()
+            if not directory.is_dir() and not file_root:
+                return _failure(
+                    DiagnosticKind.SCOPE_EMPTY,
+                    root,
+                    "The scan root does not exist.",
+                    "Correct scan.roots in archkeel.toml.",
+                )
+            paths = (directory,) if file_root else directory.rglob(f"*{suffix}")
+            for path in paths:
+                if not path.resolve().is_relative_to(source_root):
+                    return _failure(
+                        DiagnosticKind.PARSE_ERROR,
+                        str(path),
+                        "Source path escapes repository.",
+                        "Remove the source symlink or correct the scan scope.",
+                    )
         resolver: ResolverSettings = (
             PythonSettings()
             if language == Language.PYTHON
@@ -367,16 +328,21 @@ def _observe(
         )
         facts = collector.collect(request)
         if isinstance(facts, CollectionError):
-            return _collection_failure(facts)
-        inventories = tuple(
-            repository_reader(
-                source_root, selection, git_head=git_head, dirty=dirty, snapshot=repository_snapshot
+            kind: DiagnosticKind = (
+                DiagnosticKind.TIMEOUT
+                if facts.kind == CollectionErrorKind.TIMEOUT
+                else DiagnosticKind.MISSING_TOOL
+                if facts.kind == CollectionErrorKind.MISSING_TOOL
+                else DiagnosticKind.PARSE_ERROR
             )
-            for selection in selections
-        )
+            return _failure(
+                kind,
+                facts.subject,
+                facts.message,
+                "Repair the configured collector or its source inputs and retry.",
+            )
         model, _ = assemble_observation(
             facts,
-            repository_inventories=inventories,
             contract_root=contract_root,
             contract_path=contract_file,
             roots=roots,
@@ -411,7 +377,6 @@ def _observe(
 class Observer:
     collector: SourceCollector
     tsconfig: str = "tsconfig.json"
-    repository_reader: RepositoryInputReader = read_repository_inputs
 
     def __call__(
         self,
@@ -424,14 +389,11 @@ class Observer:
         dirty: bool,
         contract_root: Path,
         language: Language = Language.PYTHON,
-        repository_snapshot: RepositorySnapshotPaths | None = None,
     ) -> ObservationResult:
         return _observe(
             self.collector,
             self.tsconfig,
             source_root,
-            repository_reader=self.repository_reader,
-            repository_snapshot=repository_snapshot,
             roots=roots,
             namespace=namespace,
             contract=contract,

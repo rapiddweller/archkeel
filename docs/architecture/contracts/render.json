@@ -58,8 +58,7 @@
       "role": "projection",
       "exact_modules": [
         "archkeel.render.atlas",
-        "archkeel.render.atlas_deviations",
-        "archkeel.render.atlas_evidence"
+        "archkeel.render.atlas_deviations"
       ],
       "public": [
         "archkeel.render.atlas:atlas_payload",
@@ -1048,10 +1047,10 @@
         {
           "id": "COMPACT-RENDER-BOUNDARY-PERMISSIONS-PAYLOAD",
           "kind": "function",
-          "qualified_name": "archkeel.render.atlas_evidence.boundary_permissions_payload",
+          "qualified_name": "archkeel.render.atlas.boundary_permissions_payload",
           "language": "python",
           "presence": "planned",
-          "parent_id": "RENDER-UML-atlas-evidence",
+          "parent_id": "RENDER-UML-atlas",
           "responsibilities": [
             "Project authenticated boundary permission context for the browser without granting permissions."
           ],
@@ -1161,20 +1160,6 @@
             "kind": "public",
             "basis": "declared"
           }
-        },
-        {
-          "id": "RENDER-UML-atlas-evidence",
-          "kind": "module",
-          "qualified_name": "archkeel.render.atlas_evidence",
-          "language": "python",
-          "parent_id": "RENDER-ATLAS-PAYLOAD",
-          "presence": "planned",
-          "responsibilities": [
-            "Project authenticated rule, finding and permission evidence into browser data."
-          ],
-          "provenance": [
-            "docs/architecture/decisions/ad-243-contract-owned-source-maintenance.md"
-          ]
         }
       ],
       "relationships": [
@@ -1285,10 +1270,6 @@
       {
         "path": "src/archkeel/render/summary_badges.py",
         "responsibility": "Own the normalized Badge value and verdict-to-display projection."
-      },
-      {
-        "path": "src/archkeel/render/atlas_evidence.py",
-        "responsibility": "Project authenticated rule assessments, findings and permission evidence into browser data without recomputing policy."
       }
     ]
   }

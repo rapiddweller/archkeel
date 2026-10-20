@@ -31,16 +31,6 @@ global coverage and cycle closure stay incomplete. See
 | Forbid selected syntactic constructs | `forbidden_construct` |
 | Declared requirements follow layer direction | `layer_order` |
 | Restrict a statically bound function/method to selected callers | `call_owner` (3.7) |
-| Limit maintained source, tests and tools by physical file size | `max_file_lines` (3.8) |
-
-`max_file_lines` declares `max_lines` and a repository `selection` independently
-of language parsing. Scopes select suffixes, exact basenames or shebang scripts.
-Physical lines use LF, CRLF or CR separators; an unterminated final line counts.
-Exclusions require exact file digests or pinned manifests naming exact file digests.
-A changed upstream file loses its exclusion. Generated outputs still need their
-separate freshness checks. Empty, unreadable, incomplete or mismatched snapshots
-cannot PASS; known oversized files remain violations beside those gaps.
-Saved receipts bind the declaration, complete inventory and snapshot identity.
 
 Python static imports and proven literal `importlib.import_module` / `__import__`
 calls feed the same dependency rules. An unknown loader binding or target withholds

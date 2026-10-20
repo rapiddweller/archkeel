@@ -1,6 +1,6 @@
 {
-  "$schema": "schema/architecture-contract-3.8.schema.json",
-  "schema_version": "3.8.0",
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
+  "schema_version": "2.3.0",
   "components": [
     {
       "id": "COMP-API",
@@ -173,10 +173,6 @@
         "archkeel.ir.contract_version:ContractFeature",
         "archkeel.ir.contract_version:ContractVersion",
         "archkeel.ir.contract_version:supports_feature",
-        "archkeel.ir.repository_files",
-        "archkeel.ir.codec_repository_files",
-        "archkeel.ir.repository_file_proof",
-        "archkeel.ir.repository_manifest",
         "archkeel.ir.source_records:source_name_visibility"
       ],
       "responsibilities": [
@@ -268,10 +264,9 @@
           "component": "ir",
           "through": [
             "archkeel.ir.codec",
-            "archkeel.ir.model:Command",
-            "archkeel.ir.repository_files:RepositorySnapshotPaths"
+            "archkeel.ir.model:Command"
           ],
-          "rationale": "Serialize typed observations and carry immutable revision identity through the legacy observe adapter."
+          "rationale": "Serialize the typed observation to the legacy JSON payload at the CLI compatibility boundary."
         },
         {
           "component": "render",
@@ -920,10 +915,9 @@
         "archkeel.ir.host_records",
         "archkeel.check.snapshot",
         "archkeel.ir.structure",
-        "archkeel.analyzer.process",
-        "archkeel.ir.repository_files"
+        "archkeel.analyzer.process"
       ],
-      "rationale": "Each closed vocabulary belongs to its domain or wire boundary: shared state and source facts own domain controls; codecs own private wire tags; TypeScript parser and collector own their private controls and share the published syntax port; consumers use published nominal types. Contract versions and feature availability belong to contract_version. The Python Source binding model owns import, lexical binding and compiler-scope control types. Amendment versions and verification outcomes belong to the coherent immutable amendment artifact owner. Measurement budgets, availability and metric comparisons stay with their existing measurement DTO owner. The Python construct owner holds its private written predicate syntax vocabulary. TypeScript source_input owns shared filename/specifier grammar and source/format metadata. The Core boundary evaluator owns its private undecidable-position reasons. Atlas deviation values, deterministic pair derivation and wire emission belong to render.atlas_deviations. The Python Source adapter owns the private AST field grammar that feeds definition contexts; shared context kinds remain facts-owned. Compact architecture projection values own component-pair permission states. Host replay evidence owns its closed expectation publication and candidate submission events. The existing snapshot owner owns the supported regular Git blob byte-pair grammar shared by immutable input readers; the Git consumer does not own that enum. Structure measurement levels belong to the existing pure ir.structure measurement owner. The existing collector process owner owns its recognized POSIX/Windows lifecycle controls; other OS names keep their existing open fallback. Repository-file selection, exclusion and evidence-gap vocabularies belong to their immutable governance DTO owner.",
+      "rationale": "Each closed vocabulary belongs to its domain or wire boundary: shared state and source facts own domain controls; codecs own private wire tags; TypeScript parser and collector own their private controls and share the published syntax port; consumers use published nominal types. Contract versions and feature availability belong to contract_version. The Python Source binding model owns import, lexical binding and compiler-scope control types. Amendment versions and verification outcomes belong to the coherent immutable amendment artifact owner. Measurement budgets, availability and metric comparisons stay with their existing measurement DTO owner. The Python construct owner holds its private written predicate syntax vocabulary. TypeScript source_input owns shared filename/specifier grammar and source/format metadata. The Core boundary evaluator owns its private undecidable-position reasons. Atlas deviation values, deterministic pair derivation and wire emission belong to render.atlas_deviations. The Python Source adapter owns the private AST field grammar that feeds definition contexts; shared context kinds remain facts-owned. Compact architecture projection values own component-pair permission states. Host replay evidence owns its closed expectation publication and candidate submission events. The existing snapshot owner owns the supported regular Git blob byte-pair grammar shared by immutable input readers; the Git consumer does not own that enum. Structure measurement levels belong to the existing pure ir.structure measurement owner. The existing collector process owner owns its recognized POSIX/Windows lifecycle controls; other OS names keep their existing open fallback.",
       "provenance": [
         "docs/architecture/archkeel.md",
         "docs/architecture/typed-amendment-artifact.md",
@@ -1470,145 +1464,6 @@
       "rationale": "Known process platform decisions use the owned nominal port; OS-name parsing has no raw-string control exception and other platform names preserve direct-process fallback.",
       "provenance": [
         "docs/architecture/language-adapter-target.md"
-      ],
-      "decided_by": "architect"
-    },
-    {
-      "id": "SOURCE-MAX500",
-      "kind": "max_file_lines",
-      "selection": {
-        "scopes": [
-          {
-            "root": ".",
-            "suffixes": [
-              ".py",
-              ".js",
-              ".mjs",
-              ".cjs",
-              ".ts",
-              ".tsx",
-              ".jsx",
-              ".mts",
-              ".cts",
-              ".css",
-              ".scss",
-              ".dart",
-              ".sh",
-              ".bash",
-              ".zsh"
-            ],
-            "exact_filenames": [
-              "Makefile"
-            ],
-            "shebang": true
-          },
-          {
-            "root": ".github/workflows",
-            "suffixes": [
-              ".yml",
-              ".yaml"
-            ],
-            "exact_filenames": [],
-            "shebang": false
-          }
-        ],
-        "exclusions": [
-          {
-            "kind": "manifest",
-            "path": "fixtures/J-compass/SNAPSHOT.json",
-            "sha256": "a47b692f8d12fa3edd768382939e55113dcb4c76b7fe746bd1fce70ab83f15a6",
-            "rationale": "Unchanged upstream fixture files; each manifest entry must match its pinned digest.",
-            "provenance": [
-              "fixtures/J-compass/SNAPSHOT.json"
-            ]
-          },
-          {
-            "kind": "manifest",
-            "path": "fixtures/K-python-realworld/SNAPSHOT.json",
-            "sha256": "c30ac18d41f50a7006bd7afd47827c75a4321258267cfdfc54f1ef2adcaf5f84",
-            "rationale": "Unchanged upstream fixture files; each manifest entry must match its pinned digest.",
-            "provenance": [
-              "fixtures/K-python-realworld/SNAPSHOT.json"
-            ]
-          },
-          {
-            "kind": "manifest",
-            "path": "fixtures/L-nest-realworld/SNAPSHOT.json",
-            "sha256": "1e578f406ce455cee0a7d463195aa0f77e4e676226a27863164004d6e696e861",
-            "rationale": "Unchanged upstream fixture files; each manifest entry must match its pinned digest.",
-            "provenance": [
-              "fixtures/L-nest-realworld/SNAPSHOT.json"
-            ]
-          },
-          {
-            "kind": "manifest",
-            "path": "fixtures/L-nest-realworld/resolver-inputs/provenance.json",
-            "sha256": "5ef3bb88511aa66341be5dec8be1e5423a1ba8be1789854cefbd1ca9048bdadc",
-            "rationale": "Unchanged upstream fixture files; each manifest entry must match its pinned digest.",
-            "provenance": [
-              "fixtures/L-nest-realworld/resolver-inputs/provenance.json"
-            ]
-          },
-          {
-            "kind": "file",
-            "path": "src/archkeel/render/assets/elkjs-0.12.0.bundled.js",
-            "sha256": "1222e44f953ce7746af23801e723708f8e6f436b8b377a6a5fc7552f34a307b3",
-            "rationale": "Generated or vendored artifact; the named owner checks its build provenance and freshness.",
-            "provenance": [
-              "src/archkeel/render/assets/ELKJS-LICENSE.md"
-            ]
-          },
-          {
-            "kind": "file",
-            "path": "src/archkeel/render/assets/flow.runtime.js",
-            "sha256": "e5a81200740479ddcb660af276fb87036c23d127998ccc53fba55e284381aabd",
-            "rationale": "Generated or vendored artifact; the named owner checks its build provenance and freshness.",
-            "provenance": [
-              "tools/browser_runtime.py"
-            ]
-          },
-          {
-            "kind": "file",
-            "path": "src/archkeel/render/assets/explorer.runtime.js",
-            "sha256": "182784d2deb53b97eaac7049cb95e50eb8cdec1c1ca59ab94a5f95662bc7f9eb",
-            "rationale": "Generated or vendored artifact; the named owner checks its build provenance and freshness.",
-            "provenance": [
-              "tools/browser_runtime.py"
-            ]
-          },
-          {
-            "kind": "file",
-            "path": "src/archkeel/render/assets/report-graph-vocabulary.ts",
-            "sha256": "6d802a2296f3bc48cc74db872348e439b41697f063a50f569b650b787a30c793",
-            "rationale": "Generated or vendored artifact; the named owner checks its build provenance and freshness.",
-            "provenance": [
-              "tools/browser_graph_protocol.py"
-            ]
-          },
-          {
-            "kind": "file",
-            "path": "src/archkeel/render/assets/report-graph-protocol.js",
-            "sha256": "1017c5f9f5203c230d1b24e48e838b91dd6cbf8213cc2776b8c71542261344af",
-            "rationale": "Generated or vendored artifact; the named owner checks its build provenance and freshness.",
-            "provenance": [
-              "Makefile"
-            ]
-          },
-          {
-            "kind": "file",
-            "path": "src/archkeel/render/assets/report-graph-protocol.types.d.ts",
-            "sha256": "da3848494c76edb23c782cabe5aa0a3a0e95f19f9ee9a947731fd00c4163e97a",
-            "rationale": "Generated or vendored artifact; the named owner checks its build provenance and freshness.",
-            "provenance": [
-              "Makefile"
-            ]
-          }
-        ]
-      },
-      "max_lines": 500,
-      "rationale": "Keep every maintained source, test and tool cohesive and reviewable; split oversized responsibilities without changing behavior.",
-      "provenance": [
-        "docs/architecture/decisions/ad-243-contract-owned-source-maintenance.md"
       ],
       "decided_by": "architect"
     }

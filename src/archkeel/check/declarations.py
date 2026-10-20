@@ -16,7 +16,6 @@ from archkeel.ir.codec import (
     decode_json,
     parse_contract,
 )
-from archkeel.ir.codec_repository_files import repository_selection_payload
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawRecord, classified
 from archkeel.ir.model import (
@@ -39,7 +38,6 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
     LayerOrderRule,
-    MaxFileLinesRule,
     NoComponentCyclesRule,
     RootLayoutRule,
     SelectorMatch,
@@ -73,18 +71,7 @@ def load_contract(path: Path) -> tuple[ArchitectureContract, str]:
 def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
     subjects: list[str]
     data: RecordData
-    if isinstance(rule, MaxFileLinesRule):
-        area, title, subjects = (
-            "repository_files",
-            f"Selected text files have at most {rule.max_lines} lines",
-            [scope.root for scope in rule.selection.scopes],
-        )
-        data = {
-            "selection": repository_selection_payload(rule.selection),
-            "max_lines": rule.max_lines,
-            "rationale": rule.rationale,
-        }
-    elif isinstance(rule, CallOwnerRule):
+    if isinstance(rule, CallOwnerRule):
         area, title, subjects = (
             "calls",
             f"Only declared callers invoke {rule.target}",

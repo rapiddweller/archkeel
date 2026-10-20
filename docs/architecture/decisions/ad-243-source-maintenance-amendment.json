@@ -1,9 +1,9 @@
 {
-  "after_baseline_digest": "46a17dc04c1bb092a809d5faa280fc4cfec2d764908638e5db88e85923b0ddfc",
-  "after_digest": "064dab1596c36317315dc3d58417960cfdcbfc344dd7e4fd9f08c3302bb99b83",
+  "after_baseline_digest": "26ffcd551f4af8b9cacce4801cec54a3e9b619029be2e1f51cf36ee276d1d780",
+  "after_digest": "74f29882abdc4c3da80a85c588ac45a7386920bafdef067e9c3eba69617feeaf",
   "before_baseline_digest": "d04df1d73d2aaafecb9129bb8bef7a40d98c4fb13bfef053e698b780bdbe964a",
   "before_digest": "374fbde41db25209914a9eb7a3efee92395bbd7856e91ccb3564932dd0be95a4",
   "decided_by": "Codex (agent; user-authorized SPOT consolidation and contract modeling)",
-  "rationale": "Consolidate source-name privacy and cross-package symbol decisions at their canonical owners. Add native Contract 3.8 max_file_lines with a hard 500-line ceiling for maintained sources, tests and tools, complete snapshot-bound inventory and exact hash-bound upstream/generated exclusions; no oversized-source allowance. Declare the immutable repository-file DTO owner, exact reader/evaluator ports and optional snapshot signatures required by this capability. Preserve component directions and all coupling ceilings. Keep the already tightened calls_unresolved ceiling 838 and every other baseline budget unchanged; existing oversized files remain violations, not accepted baseline entries. Reuse module exploration within one report invocation; the existing Atlas payload port accepts optional precomputed exploration. Assign the evidence projection and declaration derivation modules to their existing component owners. No new component direction or budget ceiling.",
+  "rationale": "Centralize source-spelling privacy and cross-package symbol decisions at their declared owners; use the same effective dependency profile for violation and UNKNOWN consumers. The existing Atlas payload port accepts optional invocation-local module exploration shared by both HTML pages. Keep all Main rules and coupling ceilings; retain the tightened unresolved-call budget 827 versus Main 840. The user explicitly moved native MAX500 capability, its unchanged hard target and responsibility-based file moves to a separate PR; none of its open findings are accepted here.",
   "schema_version": "2.0.0"
 }

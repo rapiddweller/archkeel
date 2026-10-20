@@ -1,8 +1,7 @@
 # Compact Target definition scope
 
-Historical scope of merged PR #604. Follow-up source-maintenance constraints are
-owned by [AD-243](../decisions/ad-243-contract-owned-source-maintenance.md) and the
-root Contract's `SOURCE-MAX500` rule; complete source alignment remains open.
+Status: contracts, owner corrections and native evidence foundations implemented;
+full architecture acceptance remains open.
 Baseline: `006bc089852a80bd60f8723e2c4b4f9bfb6d1210`.
 The earlier experiment at `2378c9006390f40d63f2948a0eff4ed0e3f895b4` is retained
 on `feat/detailed-target-architecture-experiment`; PR #604 is rebuilt from the baseline.
@@ -102,7 +101,7 @@ Empty experiment directories are not source packages.
 | `api.py` | 1 / 0 | Read the complete reader path through file read, strict decoding and violation projection. Keep this stable I/O edge; exact import ports and signature are native intent. |
 | `analyzer` | 4 / 3 | Traced collector setup, request/response binding, bounded pipe exchange, deadline and POSIX process-group cleanup; Windows helper internals remain structurally reviewed. Keep runtime/bootstrap above isolated language adapters. |
 | `analyzer/python` | 18 / 0 | Traced collector assembly, definition contexts and the closed callable-signature proof into symbol/call evidence; other specialist bodies structurally reviewed. Keep source/binding/member foundations below isolated collectors. |
-| `analyzer/dart` | 6 / 0 | Structural review plus snapshot/syntax/resolution/collection declarations and ports; no new complete parser/resolver semantic review. Keep the five existing owners; split responsibilities within them to satisfy AD-243. |
+| `analyzer/dart` | 6 / 0 | Structural review plus snapshot/syntax/resolution/collection declarations and ports; no new complete parser/resolver semantic review. Keep the five existing owners; file length alone does not justify a split. |
 | `analyzer/typescript` | 7 / 0 | Structural review plus input/configuration/syntax/resolution port declarations; no new complete parser/resolver semantic review. Keep these independently changing owners. |
 | `check` | 18 / 2 | Traced shared repository observation, UML authentication, report/saved-report boundaries and Check input ordering; remaining workflow helpers structurally reviewed. Keep shared observation below command consumers. |
 | `check/evaluation` | 8 / 0 | Reviewed coverage composition/profile-rule callers and call-owner binding/target proof. The recursive interpreter has separate source/body permission controls. `evaluate` composes coverage and `rules` owns availability; no coverage module is needed. |

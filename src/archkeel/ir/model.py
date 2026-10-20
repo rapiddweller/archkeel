@@ -90,7 +90,6 @@ from .host_records import InitialPRHeadEvidence
 from .measurements import MeasurementBudgetName as MeasurementBudgetName
 from .measurements import Measurements
 from .measurements import NameBudgetKind as NameBudgetKind
-from .repository_files import MaxFileLinesRule as MaxFileLinesRule
 from .source_records import source_name_visibility as _source_name_visibility
 
 if TYPE_CHECKING:
@@ -730,8 +729,7 @@ class BoundaryTypesRule(ArchitectureRuleGrammar):
 
 
 ArchitectureRule: TypeAlias = (
-    MaxFileLinesRule
-    | CallOwnerRule
+    CallOwnerRule
     | ForbiddenDependencyRule
     | AllowedDependencyRule
     | ForbiddenConstructRule

@@ -1,52 +1,41 @@
-# Declaration and report reuse
+# Report reuse and PR separation
 
-DRY/SPOT decisions take priority; split only along coherent responsibilities.
-The narrow audit found no additional duplicated rule implementation: Interface
-and Requires consumers share their verdict owners; rendering consumes Core decisions.
-This is a bounded observation, not proof of repository-wide absence.
+DRY/SPOT decisions take priority. Source-spelling privacy and cross-package symbol
+classification have canonical owners; violation and UNKNOWN consumers use the same
+effective dependency profile. These are bounded consolidations, not proof that the
+repository contains no other duplicated decisions.
 
-Thirteen unchanged facade-declaration functions now have one cohesive owner,
-separate from mount-specific type assessment. Seven unchanged Atlas evidence
-functions have one projection owner. Both moves preserve ASTs and import facades.
-The two graph-test modules were separated into coherent API, permission,
-authentication, coverage and ownership tests: all 218 cases are preserved.
-No additional size-driven splitting is planned by this checkpoint.
+One report invocation derives immutable module exploration once and shares it
+between its two HTML pages. Matching Core projection validation still precedes
+this work. Standalone APIs remain compatible; later report invocations recompute.
 
-A broad facade memo was tested and removed. It saved 1.307 Core CPU seconds
-while retaining 313,047 negative and 7,262 positive entries. Its lifetime and
-plumbing were unnecessary complexity for that gain. The 58 MB difference in
-the first full CLI pair was not attributable to the memo; an unchanged baseline
-also varied by roughly 57 MB between runs.
+The earlier combined branch (`a6d11d39`) measured 82.484 to 80.755 seconds on one
+frozen 1,174-file / 37-contract EE CLI pair (2.10%). Both HTML files were byte-identical.
+That measurement predates the PR separation; the exact smaller head has not been
+remeasured. The initial 27.33% full-CLI checkpoint has its own separate receipt in
+[collector-performance-2026-10-19.md](collector-performance-2026-10-19.md).
+No memory saving or stable tail-latency improvement is established.
 
-The retained optimization derives module exploration once per report invocation
-and shares it between the two HTML pages. Matching Core projection validation
-still precedes this work. Standalone APIs remain compatible; repeated report
-invocations recompute their own exploration.
+A broad facade memo was measured and removed: 1.307 Core CPU seconds did not justify
+its plumbing and more than 313,000 negative entries. It is absent from both PRs.
 
-LOCAL VERIFIED: frozen 1,174-file / 37-contract EE input; checkpoint `002bac4e`
-versus the final working tree, Python 3.11.12, identical installed metadata,
-no bytecode caches and unchanged 300-second / 256-MiB collector limits.
+On 20 October, CI run 39367566451 confirmed the combined branch's known failures:
+145 SOURCE-MAX500 violations, 854 unresolved calls against 838, and two file-inventory
+gaps. Report tests rejected the same rule through the shared self-report fixture.
+The amendment was valid; no workflow defect caused these failures.
 
-| Actual full CLI | Checkpoint | Final |
-| --- | ---: | ---: |
-| Wall, including shutdown | 82.484 s | 80.755 s |
-| CPU, including waited children | 82.051 s | 80.303 s |
-| OS wait4 peak RSS | 2,140,471,296 B | 2,151,727,104 B |
+The user authorized separate PRs. Performance/DRY remains in #621. Native file rules,
+DTOs, snapshot integration, schema, rule tests and responsibility-based file moves
+remain together in `feat/contract-source-maintenance`. The hard target and findings
+are preserved; no violation allowance, budget increase or test bypass was added.
 
-Wall reduction is 2.10%, a small incremental gain. RSS is not aggregate concurrent
-process-tree memory; the 0.53% difference has no established cause. This is one
-fresh pair, not a stability or tail-latency result. Both HTML files are byte-identical.
-Reports match after only analyzer-code-digest normalization; stdout matches after
-only output-path normalization. Normalized report SHA-256:
-`966f02ec270b51a647209ae7fa501453a9fd3a28bd14c8a32cf6c6ee90e8aee6`.
+LOCAL VERIFIED: all 126 native rule assessments pass, with zero violations and
+UNKNOWN positions. Calls are 827; the baseline was tightened accordingly. Focused
+Core checks: 417 PASS. Report suite: 84 PASS. Lint, typing, build, wheel/sdist smoke,
+browser build checks and Mermaid pass. Astra found no material split findings.
+The broad Core run was interrupted with 6150 visible passes, 13 skips and seven
+failures; it has no complete summary and is not a passing result. A retry with
+verbose node IDs and immediate failure reporting is investigating the first error.
 
-LOCAL VERIFIED: 336 integration cases and 83 facade cases pass; lint, typing,
-build and wheel/sdist smoke checks pass. The exact Contract/baseline amendment
-binding passes. Native validation has 126 passing rule assessments and one
-failure: 145 maintained files exceed 500 lines. It also reports 854 unresolved
-calls against the unchanged 838 budget and two file-inventory gaps. The baseline
-accepts none of these findings. The corrected Atlas definition mapping passes.
-
-Astra reviewed maintainability, reliability, performance and extensibility,
-including the final Contract mapping, without material findings in this package.
-CI-ONLY VERIFICATION: not run. Global source-size and baseline acceptance remain open.
+CI-ONLY VERIFICATION: the old combined head failed; the smaller head is submitted
+for fresh CI. Merge is conditional on successful checks.
