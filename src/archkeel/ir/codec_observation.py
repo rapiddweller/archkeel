@@ -739,7 +739,9 @@ def decode_canonical_model(encoded: dict[str, RawJson]) -> dict[str, RawJson]:
     """Inflate the canonical columnar report into the in-memory ArchitectureIR."""
     encoding = encoded.get("encoding")
     if not _is_columnar(encoding):
-        _validate_profile_sections(encoded, _observation_profile(encoded))
+        profile = _observation_profile(encoded)
+        _validate_profile_sections(encoded, profile)
+        _validate_selector_schema_floor(encoded)
         return encoded
     profile = _observation_profile(encoded)
     _validate_profile_sections(encoded, profile)
@@ -799,7 +801,19 @@ def decode_canonical_model(encoded: dict[str, RawJson]) -> dict[str, RawJson]:
     model["evidence"] = [
         dict(zip(evidence_fields, expand(row), strict=True)) for row in encoded_evidence
     ]
+    _validate_selector_schema_floor(model)
     return model
+
+
+def _validate_selector_schema_floor(model: dict[str, RawJson]) -> None:
+    if _observation_version(model["schema_version"]) is _ObservationVersion.V2_6:
+        return
+    constructs = model.get("constructs")
+    if isinstance(constructs, list) and any(
+        isinstance(record, dict) and record.get("kind") == "construct_selector"
+        for record in constructs
+    ):
+        raise ValueError("construct selector facts require observation schema 2.6.0")
 
 
 def canonical_report_bytes(model: Observation | dict[str, RawJson]) -> bytes:

@@ -236,6 +236,18 @@ def _signature_origin(
     target, symbol = binding.get("target_module"), binding.get("symbol")
     if not isinstance(target, str) or symbol is not None and not isinstance(symbol, str):
         return None
+    if binding.get("source_binding_unique") is not True or binding.get("symbols_known") is not True:
+        return None
+    if isinstance(symbol, str):
+        origin = binding.get("origin_definition")
+        if (
+            not isinstance(origin, str)
+            or not _qualified_identifier(origin)
+            or binding.get("origin_binding_unique") is not True
+            or binding.get("reexport_candidate") is True
+        ):
+            return None
+        return ".".join(part for part in (origin, suffix) if part)
     return ".".join(part for part in (target, symbol, suffix) if part)
 
 
@@ -491,7 +503,7 @@ def _selector_receiver_site_matches(
             if (
                 isinstance(module, str)
                 and isinstance(owner, str)
-                and owner.startswith(module + ".")
+                and (owner == module or owner.startswith(module + "."))
                 and binding.target == f"{module}.{written}"
             ):
                 return True
@@ -1733,6 +1745,12 @@ def _call_origin_proof(
         }:
             raise ValueError("extended call binding needs its typed origin proof")
         return
+    expression = record.data.get("expression")
+    if not isinstance(expression, str) or not _call_expression_matches_source(
+        record, expression, evidence
+    ):
+        raise ValueError("call binding expression does not match its source evidence")
+    _native_call_witness(facts, binding)
     _validate_call_proof_runtime(facts, proof)
     if binding.origin is CallBindingOrigin.STORED_RECEIVER:
         _stored_receiver_proof(facts, binding, proof, declarations, evidence)
@@ -1827,6 +1845,7 @@ def _stored_receiver_links(
 ):
     if not isinstance(owner_name, str):
         return None
+    evidence_by_id = {item.id: item for item in facts.evidence}
     owners = declarations.get(owner_name, [])
     initializers = declarations.get(f"{owner_name}.__init__", [])
     stored_types = declarations.get(target, []) if isinstance(target, str) else []
@@ -1853,6 +1872,12 @@ def _stored_receiver_links(
         and len(witnesses) == 2
         and _record_data_value(item, "annotation_evidence_id") == witnesses[1]
         and _record_data_value(item, "receiver") == receiver
+        and isinstance(receiver, str)
+        and isinstance(field, str)
+        and isinstance(parameter, str)
+        and isinstance(write_id, str)
+        and write_id in evidence_by_id
+        and _stored_write_matches_source(evidence_by_id[write_id], receiver, field, parameter)
     ]
     parameters = _record_data_value(initializers[0].data, "parameters")
     parameter_entries = parameters if isinstance(parameters, tuple) else ()
@@ -1895,6 +1920,13 @@ def _constructed_receiver_proof(
     constructor_id = proof.get("constructor_evidence_id")
     assignment_id = proof.get("assignment_evidence_id")
     assignment_name = proof.get("assignment_name")
+    expression = record.data.get("expression")
+    if (
+        not isinstance(expression, str)
+        or not isinstance(assignment_name, str)
+        or not expression.startswith(assignment_name + ".")
+    ):
+        raise ValueError("constructed receiver expression disagrees with its allocation")
     targets = declarations.get(target, []) if isinstance(target, str) else []
     calls, assignments = _constructed_receiver_links(
         facts, target, constructor_id, assignment_id, assignment_name
