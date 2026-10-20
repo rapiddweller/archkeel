@@ -887,6 +887,11 @@ def test_stored_receiver_cannot_be_retargeted_to_an_unrelated_method(tmp_path):
     other_method = next(
         r for r in symbols if r["data"].get("qualified_name") == "sample.other.Other.page"
     )
+    initializer = next(
+        r
+        for r in symbols
+        if r["data"].get("qualified_name") == "sample.caller.Holder.__init__"
+    )
     call["data"]["targets"] = ["sample.other.Other.page"]
     binding = call["data"]["call_binding"]
     binding["target"] = "sample.other.Other.page"
@@ -894,6 +899,10 @@ def test_stored_receiver_cannot_be_retargeted_to_an_unrelated_method(tmp_path):
     binding["evidence_ids"] = sorted(
         set(binding["evidence_ids"] + other["evidence_ids"] + other_method["evidence_ids"])
     )
+    stored_write = next(
+        item for item in initializer["data"]["stored_field_writes"] if item["field"] == "client"
+    )
+    stored_write["annotation_target"] = "sample.other.Other"
     with pytest.raises(ProtocolError):
         decode_response(json.dumps(payload).encode())
 
