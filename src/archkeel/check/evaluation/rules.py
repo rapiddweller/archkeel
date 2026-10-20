@@ -1966,6 +1966,14 @@ def rule_violations(
     cycle_namespace_complete, cycle_graph_components = _cycle_scan_coverage(
         contract, modules, profile, cycle_scan_roots, cycle_namespace
     )
+    receipt_scope_complete = scope_receipts_complete(
+        contract,
+        modules,
+        profile,
+        source_roots,
+        source_exact_modules,
+        receipt_scan_roots if receipt_scan_roots is not None else cycle_scan_roots,
+    )
     result = _collect_rule_violations(
         imports=imports,
         typing_signals=typing_signals,
@@ -1986,39 +1994,7 @@ def rule_violations(
         allowance_facts=allowance_facts,
         assessment_facts=assessment_facts,
         assessment_parent=assessment_parent,
-        receipt_scope_complete=(
-            not (
-                package_scopes := (
-                    *source_roots,
-                    *(
-                        package
-                        for component in contract.components
-                        for package in component.packages
-                    ),
-                )
-            )
-            or _scan_covers_packages(
-                package_scopes,
-                modules,
-                profile,
-                receipt_scan_roots if receipt_scan_roots is not None else cycle_scan_roots,
-            )
-        )
-        and _scan_covers_exact_modules(
-            tuple(
-                module
-                for module in (
-                    *source_exact_modules,
-                    *(
-                        exact_module
-                        for component in contract.components
-                        for exact_module in component.exact_modules or ()
-                    ),
-                )
-            ),
-            modules,
-            receipt_scan_roots if receipt_scan_roots is not None else cycle_scan_roots,
-        ),
+        receipt_scope_complete=receipt_scope_complete,
         cycle_scope_complete=(
             len(cycle_graph_components) == len(contract.components) and bool(contract.components)
         ),
@@ -2035,6 +2011,7 @@ def rule_violations(
         type_shapes=type_shapes,
         profile=profile,
         scope=assessment_parent or "root",
+        receipt_scope_complete=receipt_scope_complete,
     )
     result.extend(protocol_violations)
     if assessment_facts is not None:
@@ -2163,13 +2140,14 @@ def source_selector_domains(
     exact_module_scopes: Sequence[str] = (),
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """Resolve a source prefix to its physical module domain and intersect its mount."""
-    module_names = tuple(
-        item["data"]["qualified_name"]
-        for item in modules
-        if isinstance(item["data"].get("qualified_name"), str)
-    )
+    module_names: list[str] = []
+    for item in modules:
+        data: dict[str, object] = item["data"]
+        name = data.get("qualified_name")
+        if isinstance(name, str):
+            module_names.append(name)
     module_prefixes = [name for name in module_names if in_scope(source, name)]
-    selector = max(module_prefixes, key=lambda name: len(name.split(".")), default=source)
+    selector = max(module_prefixes, key=len, default=source)
     packages: set[str] = set()
     exact_selected = (selector,) if selector != source else ()
     if exact_selected:
@@ -2223,6 +2201,39 @@ def _scan_covers_exact_modules(
         )
         for name in exact_modules
     )
+
+
+def scope_receipts_complete(
+    contract: ArchitectureContract,
+    modules: Sequence[RawRecord],
+    profile: Profile,
+    source_roots: tuple[str, ...],
+    source_exact_modules: tuple[str, ...],
+    scan_roots: tuple[str, ...],
+) -> bool:
+    """Prove receipts cover declared, exact, and protocol source domains."""
+    selector_sources: list[str] = []
+    for rule in contract.rules:
+        if not isinstance(rule, ProtocolDeclarationsRule):
+            continue
+        if _modules_for_rule_source(rule.source, modules, contract):
+            selector_sources.append(rule.source)
+    package_scopes = (
+        *source_roots,
+        *(package for component in contract.components for package in component.packages),
+        *selector_sources,
+    )
+    exact_scopes = (
+        *source_exact_modules,
+        *(
+            exact_module
+            for component in contract.components
+            for exact_module in component.exact_modules or ()
+        ),
+    )
+    return (
+        not package_scopes or _scan_covers_packages(package_scopes, modules, profile, scan_roots)
+    ) and _scan_covers_exact_modules(exact_scopes, modules, scan_roots)
 
 
 def _relative_path(value: str) -> PurePosixPath:

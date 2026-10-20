@@ -444,6 +444,31 @@ def test_class_a_covers_every_rule_kind() -> None:
     assert kinds <= items
 
 
+@pytest.mark.parametrize(
+    ("variant_id", "expected"),
+    [
+        ("class-a-forbidden-call-argument-fail", "FAIL"),
+        ("class-a-forbidden-call-argument-pass", "PASS"),
+        ("class-a-forbidden-call-argument-unknown", "UNKNOWN"),
+    ],
+)
+def test_forbidden_call_argument_variants_have_real_assessments(
+    tmp_path: Path,
+    variant_id: str,
+    expected: str,
+) -> None:
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    report, architecture = run_report(
+        root, config=load_config(root, variant.config), analyzer=observe
+    )
+    assert architecture is not None
+    row = next(
+        item for item in report.rule_assessments or () if item.id == "APP-NO-LITERAL-ORDER-ID"
+    )
+    assert row.status.value == expected
+
+
 # allowed_dependency records a permission, never a violation: the analyzer never evaluates it
 # against a run (docs/rules.md), so no run, `tour` included, can ever make it fire (AD-11).
 _KIND_CANNOT_VIOLATE = {"allowed_dependency"}
