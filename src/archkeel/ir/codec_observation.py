@@ -204,6 +204,16 @@ def _uses_protocol_declaration_fields(section: Section) -> bool:
 
 class _ConstructSelectorFactKind(StrEnum):
     SELECTOR = "construct_selector"
+    UNKNOWN = "construct_selector_unknown"
+
+
+class _SelectorRecordField(StrEnum):
+    CLAIM = "claim"
+    DECLARATION = "selector"
+
+
+class _SelectorRecordKind(StrEnum):
+    RULE_EVALUATION = "rule_evaluation"
 
 
 class _StringSentinel(StrEnum):
@@ -353,6 +363,16 @@ def _validate_versioned_records(
         _ObservationVersion.V2_2,
     } and any(_uses_protocol_declaration_fields(section) for section in sections):
         raise ValueError("protocol_declarations require observation schema 2.3.0")
+    _validate_selector_and_argument_versions(schema_version, sections, profile)
+
+
+def _validate_selector_and_argument_versions(
+    schema_version: _ObservationVersion, sections: tuple[Section, ...], profile: Profile
+) -> None:
+    if _has_selector_vocabulary(sections) and _before_version(
+        schema_version, _ObservationVersion.V2_6
+    ):
+        raise ValueError("construct selector facts require observation schema 2.6.0")
     python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
     for section in sections:
         if section.name != ObservedSection.CALLS:
@@ -372,6 +392,34 @@ def _validate_versioned_records(
                     raise ValueError("call arguments require the canonical call binding")
             elif has_arguments:
                 raise ValueError("call_arguments require observation schema 2.5.0")
+
+
+def _has_selector_vocabulary(sections: tuple[Section, ...]) -> bool:
+    for section in sections:
+        for record in section.records:
+            if section.name == ObservedSection.CONSTRUCTS and (
+                record.kind == _ConstructSelectorFactKind.SELECTOR
+            ):
+                return True
+            if section.name == ObservedSection.UNKNOWNS and (
+                record.kind == _ConstructSelectorFactKind.UNKNOWN
+            ):
+                return True
+            if section.name == _VersionedSection.DECLARATIONS and (
+                record.kind == ArchitectureRuleKind.FORBIDDEN_CONSTRUCT
+                and record.data.get(_SelectorRecordField.DECLARATION) is not None
+            ):
+                return True
+            if section.name == _VersionedSection.SCOPE_OBSERVATIONS and (
+                record.kind == _SelectorRecordKind.RULE_EVALUATION
+                and (
+                    record.data.get(_SelectorRecordField.CLAIM)
+                    == _ConstructSelectorFactKind.SELECTOR
+                    or record.data.get(_SelectorRecordField.DECLARATION) is not None
+                )
+            ):
+                return True
+    return False
 
 
 def parse_observation(raw: object) -> Observation:
@@ -672,16 +720,8 @@ def _validate_source_ownership_vocabulary(sections: tuple[Section, ...]) -> None
 
 def observation_payload(observation: Observation) -> dict[str, RawJson]:
     _validate_guarded_effect_version(observation)
-    schema_version = _observation_version(observation.schema_version)
-    if schema_version not in {
-        _ObservationVersion.V2_6,
-        _ObservationVersion.V2_7,
-        _ObservationVersion.V2_8,
-    } and any(
-        record.kind == _ConstructSelectorFactKind.SELECTOR
-        for section in observation.sections
-        if section.name == ObservedSection.CONSTRUCTS
-        for record in section.records
+    if _has_selector_vocabulary(observation.sections) and _before_version(
+        _observation_version(observation.schema_version), _ObservationVersion.V2_6
     ):
         raise ValueError("construct selector facts require observation schema 2.6.0")
     if (

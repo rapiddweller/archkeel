@@ -337,6 +337,13 @@ class CallCollector(ast.NodeVisitor):
             if isinstance(reference, ast.Name)
             for target in self._native_expression_targets(reference)
         }
+        self.escaped_native_targets.update(
+            target
+            for reference in member_escape_references(
+                module, module.all_nodes, member_surface=True, owner_exposure_only=True
+            )
+            for target in self._native_expression_targets(reference)
+        )
         self.scope_bindings: dict[ast.ClassDef | FunctionNode, frozenset[str]] = {}
         self.guarded_paths: dict[
             tuple[FunctionNode, str], dict[tuple[int, int], tuple[GuardedCallPath, ...]]
@@ -1204,7 +1211,12 @@ class CallCollector(ast.NodeVisitor):
             if len(sites) != 1 or not isinstance(sites[0], ast.Name):
                 return None
             assignment = self.parents.get(sites[0])
-            if not isinstance(assignment, ast.Assign | ast.AnnAssign) or assignment.value is None:
+            if (
+                not isinstance(assignment, ast.Assign | ast.AnnAssign)
+                or assignment.value is None
+                or isinstance(assignment, ast.Assign)
+                and len(assignment.targets) != 1
+            ):
                 return None
             if (assignment.lineno, assignment.col_offset) >= (node.lineno, node.col_offset):
                 return None

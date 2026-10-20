@@ -5,7 +5,7 @@
 
 import json
 from collections.abc import Iterator
-from dataclasses import asdict, fields, is_dataclass
+from dataclasses import asdict, fields, is_dataclass, replace
 from pathlib import Path
 from types import NoneType, UnionType
 from typing import get_args, get_origin, get_type_hints
@@ -931,6 +931,16 @@ def test_maximal_contract_key_binding_requires_3_1() -> None:
         parse_contract(raw)
     schema = json.loads((ROOT / "schema/architecture-contract-3.0.schema.json").read_bytes())
     assert list(Draft202012Validator(schema).iter_errors(raw))
+
+
+def test_contract_encoder_checks_features_after_layer_introduction() -> None:
+    contract = replace(
+        parse_contract(_maximal_contract("3.0.0")),
+        schema_version=ContractVersion.V2_3,
+    )
+
+    with pytest.raises(ValueError, match="alias_body"):
+        contract_bytes(contract)
 
 
 @pytest.mark.parametrize("version", ("3.0.0", "3.1.0", "3.2.0"))
