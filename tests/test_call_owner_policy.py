@@ -826,6 +826,14 @@ def test_dynamic_stored_member_mutation_revokes_field_proof(tmp_path, operation,
         ("alias = random\nalias2 = alias\n", "alias2.random = replacement", (), "UNKNOWN"),
         ("alias = random\n", "setattr(alias, name, replacement)", (), "UNKNOWN"),
         ("alias = random\n", "delattr(alias, name)", (), "UNKNOWN"),
+        ("box = [random]\n", "box[0].random = replacement", (), "UNKNOWN"),
+        ("box, = [random]\n", "box.random = replacement", (), "UNKNOWN"),
+        (
+            "class Holder: pass\nholder = Holder()\n",
+            "holder.provider = random\nholder.provider.random = replacement",
+            (),
+            "UNKNOWN",
+        ),
         ("", "if flag:\n    alias = random\nalias.random = replacement", (), "UNKNOWN"),
         (
             "alias = random\n",
@@ -839,6 +847,9 @@ def test_dynamic_stored_member_mutation_revokes_field_proof(tmp_path, operation,
         "alias-chain",
         "alias-dynamic-setattr",
         "alias-dynamic-delattr",
+        "provider-stored-in-container",
+        "provider-unpacked-from-container",
+        "provider-stored-on-object",
         "conditional-alias",
         "conditional-rebind",
     ],
@@ -1146,6 +1157,25 @@ def test_native_receiver_owner(tmp_path, caller, allowed, expected, mounted):
         ),
         (
             "import random\ndef replacement(self): pass\ndef run():\n"
+            "    rng = alias = random.Random()\n    alias.random = replacement\n"
+            "    rng.random()\n",
+            "UNKNOWN",
+            "rng.random",
+        ),
+        (
+            "import random\ndef replacement(self): pass\ndef run():\n"
+            "    rng = random.Random()\n    alias = rng\n"
+            "    alias.random = replacement\n    rng.random()\n",
+            "UNKNOWN",
+            "rng.random",
+        ),
+        (
+            "import random\ndef run(): rng = random.Random(); rng.random()\n",
+            "FAIL",
+            "rng.random",
+        ),
+        (
+            "import random\ndef replacement(self): pass\ndef run():\n"
             "    rng = random.Random()\n    rng.random = replacement\n    rng.random()\n",
             "UNKNOWN",
             "rng.random",
@@ -1176,6 +1206,9 @@ def test_native_receiver_owner(tmp_path, caller, allowed, expected, mounted):
     ],
     ids=[
         "unmutated-instance",
+        "chained-alias-mutation",
+        "assigned-alias-mutation",
+        "same-line-allocation-and-call",
         "mutated-instance",
         "deleted-instance-method",
         "delattr-instance-method",

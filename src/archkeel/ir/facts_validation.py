@@ -2196,7 +2196,9 @@ def _native_receiver_witness(
                     and isinstance(references, tuple)
                     and witnesses.intersection(item for item in references if isinstance(item, str))
                     and any(
-                        item in evidence and evidence[item].line < _record_line(record, evidence)
+                        item in evidence
+                        and (evidence[item].line, evidence[item].column)
+                        < _record_position(record, evidence)
                         for item in references
                         if isinstance(item, str)
                     )
@@ -2207,9 +2209,13 @@ def _native_receiver_witness(
     raise ValueError("native receiver needs its exact captured Random construction")
 
 
-def _record_line(record: Record, evidence: Mapping[str, Evidence]) -> int:
-    lines = [evidence[item].line for item in record.evidence_ids if item in evidence]
-    return min(lines) if lines else 0
+def _record_position(record: Record, evidence: Mapping[str, Evidence]) -> tuple[int, int]:
+    positions = [
+        (evidence[item].line, evidence[item].column)
+        for item in record.evidence_ids
+        if item in evidence
+    ]
+    return min(positions) if positions else (0, 0)
 
 
 def _stored_method_path(
