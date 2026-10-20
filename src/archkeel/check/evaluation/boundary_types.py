@@ -1347,6 +1347,49 @@ def _type_alias_verdict(
     )
 
 
+def _canonical_type_identity_verdict(
+    annotation: str,
+    module: str,
+    contract: ArchitectureContract,
+    exports: dict[str, frozenset[str]],
+    imports: BindingIndex,
+    classes: BindingIndex,
+    type_shapes: TypeShapeIndex,
+) -> _Position:
+    """Drop only statically proven single-name aliases from a type identity result."""
+    identity = _boundary_type_verdict(
+        annotation,
+        module,
+        contract,
+        exports,
+        imports,
+        classes,
+        enter_fields=False,
+        type_shapes=type_shapes,
+    )
+    if identity.undecidable is not None:
+        return identity
+    aliases: set[tuple[str, str]] = set()
+    for origin in identity.resolved:
+        symbol = classes.get(origin)
+        if not isinstance(symbol, dict) or symbol.get("record_kind") != "type_alias":
+            continue
+        alias = symbol.get("alias")
+        shape = type_shapes.get(alias) if isinstance(alias, str) else None
+        if not _alias_binding_static(symbol, member_surface=False) or not isinstance(
+            shape, (TypeName, TypeMember)
+        ):
+            return _Position(undecidable=_Cause.OTHER)
+        aliases.add(origin)
+    if not aliases:
+        return identity
+    targets = set(identity.resolved) - aliases
+    if len(targets) != 1:
+        return _Position(undecidable=_Cause.OTHER)
+    resolved = tuple(sorted(targets))
+    return replace(identity, resolved=resolved, named_origins=resolved)
+
+
 def _unresolved_named_verdict(
     annotation: str,
     module: str,

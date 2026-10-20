@@ -76,9 +76,6 @@
           },
           {
             "$ref": "#/$defs/protocolDeclarations"
-          },
-          {
-            "$ref": "#/$defs/protocolDeclarations"
           }
         ]
       }

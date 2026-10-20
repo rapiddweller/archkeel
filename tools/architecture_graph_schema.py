@@ -516,7 +516,9 @@ def _update_contract_schema(path: Path) -> None:
             },
         }
         choices = schema["properties"]["rules"]["items"]["oneOf"]
-        choices.append({"$ref": "#/$defs/protocolDeclarations"})
+        reference = {"$ref": "#/$defs/protocolDeclarations"}
+        choices[:] = [choice for choice in choices if choice != reference]
+        choices.append(reference)
     schema["$defs"]["component"]["properties"]["layer"] = {
         "type": "string",
         "pattern": "\\S",

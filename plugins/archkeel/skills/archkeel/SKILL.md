@@ -100,9 +100,10 @@ When an API role must declare a canonical port, use contract 3.9.0's
 `protocol_declarations`. Select a source scope plus exact `parameter` or annotated class
 `member` names and visibility; this includes future declarations. The canonical dotted
 `protocol` must resolve to a scanned Protocol. An optional selector permits only that Protocol
-with `None`; broader unions, missing annotations, `object`, and `Any` fail. Unresolved or
-shadowed aliases remain UNKNOWN. This rule checks declaration identity; MyPy checks
-assignability, and it does not replace structural conformance review.
+with `None`; broader unions, missing annotations, `object`, and `Any` fail. Statically
+proven single-name `TypeAlias` chains resolve to their target; unsupported alias shapes,
+including union-valued aliases, remain UNKNOWN. Shadowed and unresolved names also remain
+UNKNOWN. MyPy checks assignability, and the rule does not replace structural conformance review.
 
 Then pick one of two modes. The architect chooses; do not choose for them.
 
