@@ -201,3 +201,35 @@ def test_rule_source_is_checked_without_component_ownership(tmp_path: Path):
     assert result.observation is not None, result.diagnostics
     row = _assessment(result.observation)
     assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+@pytest.mark.parametrize("source", ["sample.safe.caller.run", "sample.safe.caller.Worker"])
+def test_symbol_source_selector_uses_its_complete_module_domain(tmp_path: Path, source: str):
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/safe/caller.py": (
+                "class Storage:\n    def page(self): pass\n"
+                "def run(): Storage().page()\n"
+                "class Worker:\n    def run(self): Storage().page()\n"
+            ),
+            "sample/core.py": "",
+        },
+        {
+            "schema_version": "3.7.0",
+            "components": [],
+            "rules": [
+                _rule(
+                    "call_owner",
+                    source=source,
+                    target="sample.safe.caller.Storage.page",
+                    allowed_sources=[source],
+                    exact_sources=[],
+                )
+            ],
+        },
+        roots=("sample/safe",),
+    )
+    assert result.observation is not None, result.diagnostics
+    row = _assessment(result.observation)
+    assert row.status == "PASS" and row.evaluation_proven
