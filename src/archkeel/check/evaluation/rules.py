@@ -1539,7 +1539,11 @@ def _source_ownership_violations(
         if not isinstance(rule, SourceOwnershipRule):
             continue
         value_owner: str | None = rule.value_owner
-        owner_module = str.rsplit(value_owner, ".", 1)[0] if value_owner is not None else None
+        if value_owner is None:
+            owner_module = None
+        else:
+            owner_name: str = value_owner
+            owner_module = owner_name.rsplit(".", 1)[0]
         owner_records = _ownership_owner_records(symbols, value_owner, source_modules)
         owner_data: dict[str, object] = owner_records[0]["data"] if owner_records else {}
         value_owner_valid = (
@@ -1732,7 +1736,8 @@ def _unknown_source_value_owner(
     value_owner: str | None = rule.value_owner
     if value_owner is None:
         return None
-    owner_module = str.rsplit(value_owner, ".", 1)[0]
+    owner_name: str = value_owner
+    owner_module = owner_name.rsplit(".", 1)[0]
     owners = _ownership_owner_records(symbols, value_owner, source_modules)
     owner_data: dict[str, object] = owners[0]["data"] if owners else {}
     if (
