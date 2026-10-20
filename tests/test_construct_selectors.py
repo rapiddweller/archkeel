@@ -114,6 +114,11 @@ def route(conn: Connection, label: Label, key: str, ambiguous):
     assert len([row for row in findings if row["evidence_class"] == "VIOLATION"]) == 2
     assert not any(row["data"].get("member") == "password" for row in findings)
     assert any(row["evidence_class"] == "UNKNOWN" for row in findings)
+    safe_literal_signals = collect_constructs(
+        [_parsed_module('class Connection:\n    backend: str\ndef f(conn: Connection):\n    conn.backend == "wide"\n', module="sample.core")],
+        {},
+    )
+    assert _construct_violations(safe_literal_signals, [rule]) == []
     rows = [row for row in signals if row["kind"] == "construct_selector"]
     assert any(row["data"]["selector_role"] == "reflect" for row in rows)
     read_rule = ForbiddenConstructRule(

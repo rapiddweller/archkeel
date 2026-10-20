@@ -272,11 +272,6 @@ def _construct_violations(
                 receiver = data.get("receiver_type")
                 if receiver is not None and receiver != selector.receiver:
                     continue
-                if selector.literal is not None and data.get("literal") not in (
-                    None,
-                    selector.literal,
-                ):
-                    continue
                 applicable.append(item)
             if not applicable:
                 violations.append(
@@ -303,9 +298,12 @@ def _construct_violations(
                     data.get("status") == "decided"
                     and data.get("receiver_type") == selector.receiver
                 )
-                known = known and (
-                    selector.literal is None or data.get("literal") == selector.literal
-                )
+                literal_matches = selector.literal is None or data.get("literal") == selector.literal
+                if known and not literal_matches:
+                    # A different observed literal is a proven safe comparison for this
+                    # selector, rather than a missing subject or unresolved evidence.
+                    continue
+                known = known and literal_matches
                 if known:
                     violations.append(
                         classified(
