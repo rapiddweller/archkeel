@@ -265,7 +265,11 @@ _PROVENANCE = ["docs/architecture/shop.md"]
 def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
     """The shop contract fills every field available to its version."""
     raw = json.loads((ROOT / "fixtures/F-architecture/architecture-contract.json").read_text())
-    raw["rules"] = [rule for rule in raw["rules"] if rule["kind"] != "call_owner"]
+    raw["rules"] = [
+        rule
+        for rule in raw["rules"]
+        if rule["kind"] not in {"call_owner", "bounded_numeric_operand"}
+    ]
     app = next(item for item in raw["components"] if item["id"] == "COMP-APP")
     app["exact_modules"] = ["shop.app.orders"]
     app["planned"] = ["shop.app.refunds"]
