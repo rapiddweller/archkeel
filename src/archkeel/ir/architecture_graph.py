@@ -176,6 +176,13 @@ class ArchitectureRuleKind(StrEnum):
     SIBLING_ISOLATION = "sibling_isolation"
     SYMBOL_PLACEMENT = "symbol_placement"
     BOUNDARY_TYPES = "boundary_types"
+    BOUNDED_NUMERIC_OPERAND = "bounded_numeric_operand"
+
+
+class NumericOperandForm(StrEnum):
+    BINARY = "binary"
+    AUGMENTED = "augmented"
+    BOTH = "both"
 
 
 class ArchitectureRuleGrammar:

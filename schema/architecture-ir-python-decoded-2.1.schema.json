@@ -162,7 +162,32 @@
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/typing_signals"
     },
     "constructs": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/constructs"
+      "allOf": [
+        {
+          "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/constructs"
+        },
+        {
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "kind": {
+                      "const": "numeric_operand"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
     },
     "contexts": {
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/contexts"

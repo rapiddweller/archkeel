@@ -23,6 +23,7 @@ from archkeel.ir.model import (
     ArchitectureContract,
     ArchitectureRule,
     BoundaryTypesRule,
+    BoundedNumericOperandRule,
     CallOwnerRule,
     CompatibilityLifetime,
     CompleteAssignmentRule,
@@ -148,6 +149,19 @@ def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
                 if rule.allowed_type_ignores
                 else {}
             ),
+            "rationale": rule.rationale,
+        }
+    elif isinstance(rule, BoundedNumericOperandRule):
+        area, title, subjects = (
+            "type_architecture",
+            f"Modulo operands ending in {rule.terminal_suffix} are at least {rule.minimum_value}",
+            [rule.source],
+        )
+        data = {
+            "source": rule.source,
+            "form": rule.form.value,
+            "terminal_suffix": rule.terminal_suffix,
+            "minimum_value": rule.minimum_value,
             "rationale": rule.rationale,
         }
     elif isinstance(rule, ExternalDependencyScopeRule):

@@ -419,6 +419,37 @@ def _update_contract_schema(path: Path) -> None:
         schema["$defs"]["forbiddenDependency"]["properties"]["target_kind"] = {
             "enum": ["module", "import_namespace"]
         }
+    if version is not None and supports_feature(version, ContractFeature.BOUNDED_NUMERIC_OPERAND):
+        schema["$defs"]["boundedNumericOperand"] = {
+            "type": "object",
+            "required": [
+                "id",
+                "kind",
+                "source",
+                "form",
+                "terminal_suffix",
+                "minimum_value",
+                "rationale",
+                "provenance",
+                "decided_by",
+            ],
+            "additionalProperties": False,
+            "properties": {
+                "id": {"$ref": "#/$defs/nonEmpty"},
+                "kind": {"const": "bounded_numeric_operand"},
+                "source": {"$ref": "#/$defs/nonEmpty"},
+                "form": {"enum": ["binary", "augmented", "both"]},
+                "terminal_suffix": {"$ref": "#/$defs/nonEmpty"},
+                "minimum_value": {"type": "integer", "minimum": 0},
+                "rationale": {"$ref": "#/$defs/nonEmpty"},
+                "provenance": {"$ref": "#/$defs/provenance"},
+                "decided_by": {"$ref": "#/$defs/decidedBy"},
+            },
+        }
+        numeric_rule = {"$ref": "#/$defs/boundedNumericOperand"}
+        choices = schema["properties"]["rules"]["items"]["oneOf"]
+        choices[:] = [choice for choice in choices if choice != numeric_rule]
+        choices.append(numeric_rule)
     if version is not None and supports_feature(version, ContractFeature.MODULE_OBJECT_GRANTS):
         schema["$defs"]["moduleObjectGrant"] = {
             "type": "object",

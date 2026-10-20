@@ -43,6 +43,8 @@ def _string_predicate(node: ast.Call) -> _StringPredicate | None:
 
 _BROAD_NAMES = frozenset({"Exception", "BaseException"})
 _REFLECTION_CALLS = {"setattr": "setattr_call", "delattr": "delattr_call", "vars": "vars_call"}
+_INTEGER_DEPTH = 12
+_INTEGER_BITS = 4096
 # A stub carrying one of these declares a shape; emptiness is its interface, not a gap (AD-29).
 _STUB_DECORATORS = frozenset(
     {
@@ -484,6 +486,160 @@ class ConstructCollector(ast.NodeVisitor):
         self.scope_stack: list[str] = [module.module]
         self.comparisons = comparisons
         self.inherits_stack: list[bool] = []
+        self.scopes = comparisons.scopes
+
+    def _integer(
+        self, node: ast.expr, use: ast.AST, depth: int = 0, seen: frozenset[str] = frozenset()
+    ) -> tuple[int | None, list[dict[str, str | int]]]:
+        """Evaluate a small exact integer grammar, refusing expensive work before it runs."""
+        value: int | None
+        if depth > _INTEGER_DEPTH:
+            return None, []
+        if isinstance(node, ast.Constant) and type(node.value) is int:
+            value = node.value
+            return (value, []) if abs(value).bit_length() <= _INTEGER_BITS else (None, [])
+        if isinstance(node, ast.Constant) and type(node.value) is bool:
+            value = int(node.value)
+            return (value, []) if abs(value).bit_length() <= _INTEGER_BITS else (None, [])
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+            value, derivation = self._integer(node.operand, use, depth + 1, seen)
+            if value is None:
+                return None, derivation
+            return (value if isinstance(node.op, ast.UAdd) else -value), derivation
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Pow):
+            base, left = self._integer(node.left, use, depth + 1, seen)
+            exponent, right = self._integer(node.right, use, depth + 1, seen)
+            if base is None or exponent is None or exponent < 0 or exponent > 256:
+                return None, []
+            if abs(base).bit_length() * exponent > _INTEGER_BITS:
+                return None, []
+            result = pow(base, exponent)
+            return (result, left + right) if result.bit_length() <= _INTEGER_BITS else (None, [])
+        if isinstance(node, ast.Name):
+            name = node.id
+            if name in seen:
+                return None, []
+            binding = self.scopes.lookup(node, name)
+            owner = binding.owner
+            assignment = None
+            if owner is self.scopes.root:
+                matches = [
+                    statement
+                    for statement in self.module.tree.body
+                    if isinstance(statement, ast.Assign | ast.AnnAssign)
+                    and any(
+                        isinstance(target, ast.Name) and target.id == name
+                        for target in (
+                            statement.targets
+                            if isinstance(statement, ast.Assign)
+                            else [statement.target]
+                        )
+                    )
+                ]
+                if name in stable_direct_module_bindings(self.module) and len(matches) == 1:
+                    assignment = matches[0]
+            elif owner is not None and owner is self.scopes.by_node.get(use):
+                sites = owner.bindings.get(name, [])
+                if len(sites) == 1:
+                    candidate = self.scopes.parents.get(sites[0])
+                    if (
+                        isinstance(candidate, (ast.Assign, ast.AnnAssign))
+                        and self.scopes.parents.get(candidate) is owner.node
+                    ):
+                        assignment = candidate
+            if assignment is None or assignment.value is None:
+                return None, []
+            use_line, use_column, _ = location(use)
+            assignment_line, assignment_column, _ = location(assignment)
+            if (assignment_line, assignment_column) >= (use_line, use_column):
+                return None, []
+            value, derivation = self._integer(
+                assignment.value, assignment, depth + 1, seen | {name}
+            )
+            if value is None:
+                return None, []
+            evidence_id = add_evidence(self.evidence, self.module, assignment)
+            line, _, column = location(assignment)
+            end_line = getattr(assignment, "end_lineno", line)
+            end_column = getattr(assignment, "end_col_offset", column)
+            origin = {
+                "name": name,
+                "value": value,
+                "expression": ast.unparse(assignment.value),
+                "evidence_id": evidence_id,
+                "line": line,
+                "column": column,
+                "end_line": end_line,
+                "end_column": end_column,
+            }
+            return value, [origin, *derivation]
+        return None, []
+
+    @staticmethod
+    def _terminal_name(node: ast.expr) -> str | None:
+        return (
+            node.id
+            if isinstance(node, ast.Name)
+            else node.attr
+            if isinstance(node, ast.Attribute)
+            else None
+        )
+
+    def _modulo(
+        self, node: ast.BinOp | ast.AugAssign, left: ast.expr, right: ast.expr, form: str
+    ) -> None:
+        subject = self._terminal_name(left)
+        value, derivation = self._integer(right, node)
+        start = (node.lineno, node.col_offset)
+        end = (
+            getattr(node, "end_lineno", node.lineno),
+            getattr(node, "end_col_offset", node.col_offset),
+        )
+        evidence_id = add_evidence(self.evidence, self.module, node)
+        evidence_ids = [evidence_id]
+        for item in derivation:
+            alias_evidence = item.get("evidence_id")
+            if not isinstance(alias_evidence, str):
+                raise AssertionError("numeric alias proof must retain its evidence id")
+            evidence_ids.append(alias_evidence)
+        owner = self.scope_stack[-1]
+        self.items.append(
+            classified(
+                item_id=stable_id(
+                    "CONSTRUCT", self.module.rel_path, *start, *end, "numeric_operand"
+                ),
+                evidence_class=EvidenceClass.FACT,
+                area="constructs",
+                kind="numeric_operand",
+                title=f"{owner} uses modulo operand",
+                subjects=[owner],
+                evidence_ids=evidence_ids,
+                data={
+                    "owner": owner,
+                    "module": self.module.module,
+                    "operation": "modulo",
+                    "form": form,
+                    "line": start[0],
+                    "column": start[1],
+                    "end_line": end[0],
+                    "end_column": end[1],
+                    "subject": subject,
+                    "proof": "known" if value is not None else "unknown",
+                    "value": value,
+                    "derivation": derivation,
+                },
+            )
+        )
+
+    def visit_BinOp(self, node: ast.BinOp) -> None:
+        if isinstance(node.op, ast.Mod):
+            self._modulo(node, node.left, node.right, "binary")
+        self.generic_visit(node)
+
+    def visit_AugAssign(self, node: ast.AugAssign) -> None:
+        if isinstance(node.op, ast.Mod):
+            self._modulo(node, node.target, node.value, "augmented")
+        self.generic_visit(node)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         qualified = f"{self.scope_stack[-1]}.{node.name}"

@@ -17,7 +17,11 @@ from archkeel.ir.codec import (
     load_inside_contract_tree,
     parse_observation,
 )
-from archkeel.ir.decisions import dependency_binding_id, rule_evaluation_binding_id
+from archkeel.ir.decisions import (
+    dependency_binding_id,
+    numeric_operand_inventory_binding_id,
+    rule_evaluation_binding_id,
+)
 from archkeel.ir.digest import package_digest
 from archkeel.ir.facts import ResolutionRole as _ResolutionRole
 from archkeel.ir.facts import (
@@ -723,6 +727,78 @@ def _certify_call_owner_scopes(
         }
 
 
+def _certify_numeric_operand_scopes(
+    scan: ScanResult,
+    facts: SourceFacts,
+    contract_digest: str,
+    declarations: list[RawRecord],
+) -> None:
+    """Bind numeric claims to selected inputs, contracts and the complete fact inventory."""
+    identifiers = {item["id"] for item in declarations if item["kind"] == "bounded_numeric_operand"}
+    receipts = [
+        item
+        for item in scan.scope_observations
+        if item["kind"] == "rule_evaluation"
+        and len(item["rule_ids"]) == 1
+        and item["rule_ids"][0] in identifiers
+    ]
+    if not receipts:
+        return
+    modules = tuple(parse_record(item) for item in scan.modules)
+    constructs = tuple(
+        parse_record(item) for item in scan.constructs if item["kind"] == "numeric_operand"
+    )
+    rule_declarations = tuple(
+        parse_record(item) for item in declarations if item["kind"] == "bounded_numeric_operand"
+    )
+    failures = tuple(parse_record(item) for item in scan.coverage["failures"])
+    evidence = tuple(parse_evidence(item) for item in scan.evidence)
+    inventory_binding = numeric_operand_inventory_binding_id(
+        (
+            Section("modules", modules),
+            Section("constructs", constructs),
+            Section("declarations", rule_declarations),
+        ),
+        failures,
+        evidence,
+    )
+    selected_files = tuple(sorted(facts.coverage.selected_files))
+    module_files = {
+        item.data.get("file") for item in modules if isinstance(item.data.get("file"), str)
+    }
+    physically_complete = (
+        bool(selected_files)
+        and set(selected_files) == module_files
+        and facts.coverage.files_read == facts.coverage.files_parsed == len(selected_files)
+        and scan.coverage["files_discovered"]
+        == scan.coverage["files_read"]
+        == scan.coverage["files_parsed"]
+        == len(selected_files)
+        and scan.coverage["status"] == "PASS"
+        and not failures
+    )
+    for receipt in receipts:
+        receipt["data"]["assessment_complete"] = (
+            receipt["data"].get("assessment_complete") is True and physically_complete
+        )
+        proof = {
+            "source_digest": facts.source.source_digest,
+            "source_scope": list(facts.source.scope),
+            "contract_digest": contract_digest,
+            "observation_schema_version": SCHEMA_VERSION,
+            "scope": receipt["data"].get("scope"),
+            "selected_files": list(selected_files),
+            "module_ids": sorted(item.id for item in modules),
+            "operation_ids": sorted(item.id for item in constructs),
+        }
+        receipt["data"]["numeric_scope_proof"] = {
+            **proof,
+            "binding_id": rule_evaluation_binding_id(
+                inventory_binding, parse_record(receipt), SCHEMA_VERSION
+            ),
+        }
+
+
 def _certify_dependency_scopes(
     scan: ScanResult, facts: SourceFacts, contract_digest: str, declarations: list[RawRecord]
 ) -> None:
@@ -834,6 +910,7 @@ def assemble_observation(
     )
     _certify_dependency_scopes(scan, facts, full_contract_digest, declarations)
     _certify_call_owner_scopes(scan, facts, full_contract_digest, declarations)
+    _certify_numeric_operand_scopes(scan, facts, full_contract_digest, declarations)
     model: dict[str, object] = {
         "schema_version": SCHEMA_VERSION,
         "analyzer": {

@@ -20,6 +20,7 @@ from .architecture_graph import ComponentRole as ComponentRole
 from .architecture_graph import ContractModuleTarget as ContractModuleTarget
 from .architecture_graph import DecisionMaker as DecisionMaker
 from .architecture_graph import ExternalDependencyScopeRule as ExternalDependencyScopeRule
+from .architecture_graph import NumericOperandForm as NumericOperandForm
 from .architecture_graph import RootLayoutRule as RootLayoutRule
 from .architecture_graph import RuleAssessment as RuleAssessment
 from .architecture_graph import RuleAssessmentStatus as RuleAssessmentStatus
@@ -102,7 +103,7 @@ def public_api_id(selector: str) -> str:
     return f"API-{hashlib.sha256(selector.encode()).hexdigest()[:16]}"
 
 
-SCHEMA_VERSION = "2.1.0"
+SCHEMA_VERSION = "2.2.0"
 DELTA_SCHEMA_VERSION = "2.0.0"
 
 
@@ -464,6 +465,19 @@ class CallOwnerRule(ArchitectureRuleGrammar):
 
 
 @dataclass(frozen=True, slots=True)
+class BoundedNumericOperandRule(ArchitectureRuleGrammar):
+    id: str
+    kind: Literal[ArchitectureRuleKind.BOUNDED_NUMERIC_OPERAND]
+    source: str
+    form: NumericOperandForm
+    terminal_suffix: str
+    minimum_value: int
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+
+
+@dataclass(frozen=True, slots=True)
 class ForbiddenDependencyRule(ArchitectureRuleGrammar):
     id: str
     kind: Literal[ArchitectureRuleKind.FORBIDDEN_DEPENDENCY]
@@ -730,6 +744,7 @@ class BoundaryTypesRule(ArchitectureRuleGrammar):
 
 ArchitectureRule: TypeAlias = (
     CallOwnerRule
+    | BoundedNumericOperandRule
     | ForbiddenDependencyRule
     | AllowedDependencyRule
     | ForbiddenConstructRule

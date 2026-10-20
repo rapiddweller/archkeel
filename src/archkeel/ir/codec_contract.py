@@ -15,6 +15,7 @@ from typing import Final, Literal
 from archkeel.ir.architecture_graph import (
     ArchitectureRuleKind,
     DecisionMaker,
+    NumericOperandForm,
     _validate_module_target_path,
     validate_layout_rule,
     validate_module_target,
@@ -41,6 +42,7 @@ from archkeel.ir.model import (
     BoundaryAliasBody,
     BoundaryTypeAllowance,
     BoundaryTypesRule,
+    BoundedNumericOperandRule,
     CallOwnerRule,
     CompatibilityLifetime,
     CompatibilityShim,
@@ -259,6 +261,11 @@ def parse_contract(raw: object) -> ArchitectureContract:
     uml = parse_target(declarations["uml"]) if _has_field(declarations, "uml") else None
     kinds = tuple(_rule_kind(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
     if (
+        not supports_feature(version, ContractFeature.BOUNDED_NUMERIC_OPERAND)
+        and ArchitectureRuleKind.BOUNDED_NUMERIC_OPERAND in kinds
+    ):
+        raise ValueError("bounded_numeric_operand requires contract schema_version 3.8.0")
+    if (
         not supports_feature(version, ContractFeature.CALL_OWNER)
         and ArchitectureRuleKind.CALL_OWNER in kinds
     ):
@@ -393,6 +400,10 @@ def parse_contract(raw: object) -> ArchitectureContract:
 
 
 def _validate_encoding_version(contract: ArchitectureContract) -> None:
+    if not supports_feature(
+        contract.schema_version, ContractFeature.BOUNDED_NUMERIC_OPERAND
+    ) and any(isinstance(rule, BoundedNumericOperandRule) for rule in contract.rules):
+        raise ValueError("bounded_numeric_operand requires contract schema_version 3.8.0")
     if not supports_feature(contract.schema_version, ContractFeature.CALL_OWNER) and any(
         isinstance(rule, CallOwnerRule) for rule in contract.rules
     ):
@@ -1315,7 +1326,34 @@ def _parse_call_owner(raw: RawJson, label: str) -> CallOwnerRule:
     )
 
 
+def _parse_bounded_numeric_operand(raw: RawJson, label: str) -> BoundedNumericOperandRule:
+    item, item_id, provenance = _contract_record(
+        raw,
+        {"kind", "source", "form", "terminal_suffix", "minimum_value", "rationale", "decided_by"},
+        set(),
+        label,
+    )
+    try:
+        form = NumericOperandForm(_string(item["form"], f"{label}.form"))
+    except ValueError as error:
+        raise ValueError(f"{label}.form is invalid") from error
+    minimum = _count(item["minimum_value"], f"{label}.minimum_value")
+    suffix = _nonempty(item["terminal_suffix"], f"{label}.terminal_suffix")
+    return BoundedNumericOperandRule(
+        item_id,
+        ArchitectureRuleKind.BOUNDED_NUMERIC_OPERAND,
+        _nonempty(item["source"], f"{label}.source"),
+        form,
+        suffix,
+        minimum,
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
+    )
+
+
 _RULE_PARSERS: Final[dict[ArchitectureRuleKind, Callable[[RawJson, str], ArchitectureRule]]] = {
+    ArchitectureRuleKind.BOUNDED_NUMERIC_OPERAND: _parse_bounded_numeric_operand,
     ArchitectureRuleKind.CALL_OWNER: _parse_call_owner,
     ArchitectureRuleKind.FORBIDDEN_DEPENDENCY: _parse_forbidden_dependency,
     ArchitectureRuleKind.ALLOWED_DEPENDENCY: _parse_allowed_dependency,

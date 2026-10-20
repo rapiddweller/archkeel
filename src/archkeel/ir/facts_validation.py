@@ -470,7 +470,104 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
         raise ValueError("reference declaration needs both identity fields")
     if fields & declaration and any(record.data.get(key) == "" for key in declaration):
         raise ValueError("reference declaration identities must be nonempty")
-    if not set(_REQUIRED[section]).issubset(fields):
+    required = _REQUIRED[section]
+    if section is SourceSectionName.CONSTRUCTS and record.kind == "numeric_operand":
+        required = (
+            "owner",
+            "module",
+            "operation",
+            "form",
+            "line",
+            "column",
+            "end_line",
+            "end_column",
+            "subject",
+            "proof",
+            "value",
+            "derivation",
+        )
+        data = record.data
+        span_names = ("line", "column", "end_line", "end_column")
+        span = tuple(data.get(name) for name in span_names)
+        value = data.get("value")
+        derivation = data.get("derivation")
+        if (
+            fields != set(required)
+            or data.get("operation") != "modulo"
+            or data.get("form") not in {"binary", "augmented"}
+            or data.get("proof") not in {"known", "unknown"}
+            or not record.evidence_ids
+            or not isinstance(data.get("owner"), str)
+            or not data.get("owner")
+            or not isinstance(data.get("module"), str)
+            or not data.get("module")
+            or data.get("subject") is not None
+            and (not isinstance(data.get("subject"), str) or not data.get("subject"))
+            or not all(isinstance(item, int) and not isinstance(item, bool) for item in span)
+            or not isinstance(span[0], int)
+            or not isinstance(span[1], int)
+            or not isinstance(span[2], int)
+            or not isinstance(span[3], int)
+            or span[0] < 1
+            or span[1] < 0
+            or span[2] < span[0]
+            or span[3] < 0
+            or span[2] == span[0]
+            and span[3] <= span[1]
+            or data.get("proof") == "known"
+            and (
+                not isinstance(value, int)
+                or isinstance(value, bool)
+                or abs(value).bit_length() > 4096
+            )
+            or data.get("proof") == "unknown"
+            and value is not None
+            or not isinstance(derivation, tuple)
+        ):
+            raise ValueError("invalid numeric operand source proof")
+        for item in derivation:
+            if not isinstance(item, RecordData):
+                raise ValueError("invalid numeric operand alias proof")
+            origin_fields = {key for key, _ in item.entries}
+            origin_value = item.get("value")
+            origin_span = tuple(item.get(name) for name in span_names)
+            if (
+                origin_fields
+                != {
+                    "name",
+                    "value",
+                    "expression",
+                    "evidence_id",
+                    "line",
+                    "column",
+                    "end_line",
+                    "end_column",
+                }
+                or not isinstance(item.get("name"), str)
+                or not item.get("name")
+                or not isinstance(origin_value, int)
+                or isinstance(origin_value, bool)
+                or abs(origin_value).bit_length() > 4096
+                or not isinstance(item.get("expression"), str)
+                or not item.get("expression")
+                or not isinstance(item.get("evidence_id"), str)
+                or item.get("evidence_id") not in record.evidence_ids
+                or not all(
+                    isinstance(field, int) and not isinstance(field, bool) for field in origin_span
+                )
+                or not isinstance(origin_span[0], int)
+                or not isinstance(origin_span[1], int)
+                or not isinstance(origin_span[2], int)
+                or not isinstance(origin_span[3], int)
+                or origin_span[0] < 1
+                or origin_span[1] < 0
+                or origin_span[2] < origin_span[0]
+                or origin_span[3] < 0
+            ):
+                raise ValueError("invalid numeric operand alias proof")
+        if data.get("proof") == "unknown" and derivation:
+            raise ValueError("invalid numeric operand source proof")
+    if not set(required).issubset(fields):
         raise ValueError(f"{section} source payload is missing required fields")
     if record.data.get("member_inventories") is not None:
         if section != SourceSectionName.SYMBOLS or record.kind != "class":
@@ -834,6 +931,50 @@ def validate_source_facts(facts: SourceFacts) -> None:
     for section in facts.sections:
         for record in section.records:
             _source_record(record, section.name)
+            if section.name is SourceSectionName.CONSTRUCTS and record.kind == "numeric_operand":
+                operation_span = (
+                    record.data.get("line"),
+                    record.data.get("column"),
+                    record.data.get("end_line"),
+                )
+                if not all(
+                    isinstance(item, int) and not isinstance(item, bool) for item in operation_span
+                ):
+                    raise ValueError("invalid numeric operand span")
+                if not any(
+                    (
+                        base_by_id[evidence_id].line,
+                        base_by_id[evidence_id].column,
+                        base_by_id[evidence_id].end_line,
+                    )
+                    == operation_span
+                    for evidence_id in record.evidence_ids
+                ):
+                    raise ValueError("numeric operand span disagrees with its evidence")
+                derivation = record.data.get("derivation")
+                if not isinstance(derivation, tuple):
+                    raise ValueError("invalid numeric operand derivation")
+                for origin in derivation:
+                    if not isinstance(origin, RecordData):
+                        raise ValueError("invalid numeric operand alias derivation")
+                    evidence_id = origin.get("evidence_id")
+                    line, column, end_line = (
+                        origin.get("line"),
+                        origin.get("column"),
+                        origin.get("end_line"),
+                    )
+                    if not isinstance(evidence_id, str) or not all(
+                        isinstance(item, int) and not isinstance(item, bool)
+                        for item in (line, column, end_line)
+                    ):
+                        raise ValueError("invalid numeric operand alias derivation")
+                    declaration = base_by_id[evidence_id]
+                    if (
+                        declaration.line,
+                        declaration.column,
+                        declaration.end_line,
+                    ) != (line, column, end_line):
+                        raise ValueError("numeric alias derivation disagrees with its evidence")
             construct = record.data.get("construct")
             if construct is not None and not any(
                 entry.name == construct and entry.status != ConstructSupport.UNSUPPORTED

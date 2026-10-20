@@ -63,7 +63,8 @@ class _ObservationVersion(StrEnum):
     V1_2 = "1.2.0"
     V1_3 = "1.3.0"
     V2 = "2.0.0"
-    V2_1 = SCHEMA_VERSION
+    V2_1 = "2.1.0"
+    V2_2 = SCHEMA_VERSION
 
 
 class _EncodingKind(StrEnum):
@@ -196,7 +197,14 @@ def parse_observation(raw: object) -> Observation:
         for name in CLASSIFIED_SECTIONS
         if isinstance(section_items := item[name], list)
     )
-    if schema_version is _ObservationVersion.V2_1:
+    if schema_version is not _ObservationVersion.V2_2 and any(
+        record.kind == "numeric_operand"
+        for section in sections
+        if section.name == ObservedSection.CONSTRUCTS
+        for record in section.records
+    ):
+        raise ValueError("numeric_operand constructs require observation schema 2.2.0")
+    if schema_version in {_ObservationVersion.V2_1, _ObservationVersion.V2_2}:
         python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
         for section in sections:
             if section.name == ObservedSection.CALLS:
@@ -229,7 +237,7 @@ def parse_observation(raw: object) -> Observation:
         runtime=_parse_runtime(
             item["runtime"],
             allow_requirement_state=schema_version
-            in {_ObservationVersion.V2, _ObservationVersion.V2_1},
+            in {_ObservationVersion.V2, _ObservationVersion.V2_1, _ObservationVersion.V2_2},
         )
         if item.get("runtime", _MISSING_VALUE) is not _MISSING_VALUE
         else None,
@@ -382,7 +390,7 @@ def _validate_profile_sections(model: Mapping[str, RawJson], profile: Profile) -
 def observation_payload(observation: Observation) -> dict[str, RawJson]:
     if (
         _observation_version(observation.schema_version)
-        not in {_ObservationVersion.V2, _ObservationVersion.V2_1}
+        not in {_ObservationVersion.V2, _ObservationVersion.V2_1, _ObservationVersion.V2_2}
         and observation.runtime is not None
         and observation.runtime.requirement_state != RuntimeRequirementState.DECLARED
     ):
@@ -418,6 +426,13 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
             for section in observation.sections
         }
     )
+    if _observation_version(observation.schema_version) is not _ObservationVersion.V2_2 and any(
+        record.kind == "numeric_operand"
+        for section in observation.sections
+        if section.name == ObservedSection.CONSTRUCTS
+        for record in section.records
+    ):
+        raise ValueError("numeric_operand constructs require observation schema 2.2.0")
     _validate_profile_sections(result, profile)
     return result
 

@@ -86,7 +86,32 @@
       "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/typing_signals"
     },
     "constructs": {
-      "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/constructs"
+      "allOf": [
+        {
+          "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/constructs"
+        },
+        {
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "kind": {
+                      "const": "numeric_operand"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
     },
     "contexts": {
       "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/contexts"
@@ -107,7 +132,10 @@
       "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/python_version"
     },
     "bindings": {
-      "type": ["array", "null"]
+      "type": [
+        "array",
+        "null"
+      ]
     },
     "references": {
       "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/references"
@@ -126,7 +154,9 @@
         "properties": {
           "analyzer": {
             "properties": {
-              "name": {"const": "archkeel-typescript-imports"}
+              "name": {
+                "const": "archkeel-typescript-imports"
+              }
             }
           }
         }
@@ -135,13 +165,19 @@
         "properties": {
           "bindings": {
             "anyOf": [
-              {"type": "null"},
+              {
+                "type": "null"
+              },
               {
                 "type": "array",
                 "items": {
                   "oneOf": [
-                    {"$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/bindings/items"},
-                    {"$ref": "#/$defs/directExportBinding"}
+                    {
+                      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/bindings/items"
+                    },
+                    {
+                      "$ref": "#/$defs/directExportBinding"
+                    }
                   ]
                 }
               }
@@ -193,21 +229,48 @@
   "$defs": {
     "directExportBinding": {
       "allOf": [
-        {"$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"},
+        {
+          "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+        },
         {
           "properties": {
-            "evidence_class": {"const": "FACT"},
-            "area": {"const": "source"},
-            "kind": {"const": "bindings"},
-            "evidence_ids": {"minItems": 1},
+            "evidence_class": {
+              "const": "FACT"
+            },
+            "area": {
+              "const": "source"
+            },
+            "kind": {
+              "const": "bindings"
+            },
+            "evidence_ids": {
+              "minItems": 1
+            },
             "data": {
               "type": "object",
-              "required": ["module", "source_module", "source_scope", "name"],
+              "required": [
+                "module",
+                "source_module",
+                "source_scope",
+                "name"
+              ],
               "properties": {
-                "module": {"type": "string", "minLength": 1},
-                "source_module": {"type": "string", "minLength": 1},
-                "source_scope": {"type": "string", "minLength": 1},
-                "name": {"type": "string", "minLength": 1}
+                "module": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "source_module": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "source_scope": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                }
               },
               "additionalProperties": false
             }

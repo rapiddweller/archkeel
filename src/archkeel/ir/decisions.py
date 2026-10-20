@@ -9,6 +9,7 @@ component edges, so validation and reports share one derivation.
 
 from __future__ import annotations
 
+import json
 import re
 from collections import Counter as _Counter
 from collections.abc import Iterable as _Iterable
@@ -24,6 +25,7 @@ from .codec_contract import parse_dependency_selector
 from .duplication import repeated_logic
 from .facts import RuntimeRequirementState as _RuntimeRequirementState
 from .facts import SourceProfile as _SourceProfile
+from .facts_codec import thaw_data as _thaw_data
 from .facts_validation import validate_source_bindings
 from .interfaces import component_owners, owner_of
 from .measurements import RatchetError
@@ -774,6 +776,112 @@ def _rule_receipt_complete(
             and receipt.rule_ids == (declaration.id,)
             and _call_owner_receipt_complete(observation, receipt)
         )
+    if declaration.kind == "bounded_numeric_operand":
+        if receipt is None:
+            return False
+        threshold = declaration.data.get("minimum_value")
+        suffix = declaration.data.get("terminal_suffix")
+        form = declaration.data.get("form")
+        if (
+            not isinstance(threshold, int)
+            or isinstance(threshold, bool)
+            or not isinstance(suffix, str)
+            or not isinstance(form, str)
+        ):
+            return False
+        modules = {
+            item.data.get("qualified_name")
+            for item in observation.records("modules") or ()
+            if isinstance(item.data.get("qualified_name"), str)
+        }
+        selected = set(receipt.subjects)
+        expected_modules = {
+            module
+            for module in modules
+            if in_scope(str(module), str(declaration.data.get("source")))
+        }
+        operations = tuple(
+            item
+            for item in observation.records("constructs") or ()
+            if item.kind == "numeric_operand"
+            and item.data.get("module") in selected
+            and isinstance(subject := item.data.get("subject"), str)
+            and subject.endswith(suffix)
+            and form in {"both", item.data.get("form")}
+        )
+        binding = stable_id(
+            "NUMERIC-OPERAND",
+            declaration.id,
+            json.dumps(
+                sorted((item.id, _thaw_data(item.data)) for item in operations),
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+        )
+        proof = receipt.data.get("numeric_scope_proof")
+        coverage = observation.coverage
+        selected_files = proof.get("selected_files") if isinstance(proof, RecordData) else None
+        module_ids = proof.get("module_ids") if isinstance(proof, RecordData) else None
+        operation_ids = proof.get("operation_ids") if isinstance(proof, RecordData) else None
+        modules_records = observation.records("modules") or ()
+        numeric_records = tuple(
+            item
+            for item in observation.records("constructs") or ()
+            if item.kind == "numeric_operand"
+        )
+        evidence = observation.evidence
+        inventory_binding = numeric_operand_inventory_binding_id(
+            observation.sections, coverage.failures, evidence
+        )
+        return (
+            receipt.rule_ids == (declaration.id,)
+            and receipt.data.get("assessment_complete") is True
+            and receipt.data.get("threshold") == threshold
+            and receipt.data.get("terminal_suffix") == suffix
+            and receipt.data.get("form") == form
+            and bool(selected)
+            and selected == expected_modules
+            and all(
+                in_scope(str(module), str(declaration.data.get("source"))) for module in selected
+            )
+            and observation.coverage.status == Verdict.PASS
+            and not observation.coverage.failures
+            and set(receipt.fact_ids) == {item.id for item in operations}
+            and receipt.data.get("operation_binding") == binding
+            and isinstance(proof, RecordData)
+            and {key for key, _ in proof.entries}
+            == {
+                "source_digest",
+                "source_scope",
+                "contract_digest",
+                "observation_schema_version",
+                "scope",
+                "selected_files",
+                "module_ids",
+                "operation_ids",
+                "binding_id",
+            }
+            and proof.get("source_digest") == observation.source.source_digest
+            and proof.get("source_scope") == observation.source.scope
+            and proof.get("contract_digest") == observation.contract.digest
+            and proof.get("observation_schema_version") == observation.schema_version
+            and proof.get("scope") == receipt.data.get("scope")
+            and isinstance(selected_files, tuple)
+            and bool(selected_files)
+            and all(isinstance(path, str) for path in selected_files)
+            and len(set(selected_files)) == len(selected_files)
+            and coverage.files_discovered
+            == coverage.files_read
+            == coverage.files_parsed
+            == len(selected_files)
+            and set(selected_files) == {item.data.get("file") for item in modules_records}
+            and isinstance(module_ids, tuple)
+            and module_ids == tuple(sorted(item.id for item in modules_records))
+            and isinstance(operation_ids, tuple)
+            and operation_ids == tuple(sorted(item.id for item in numeric_records))
+            and proof.get("binding_id")
+            == rule_evaluation_binding_id(inventory_binding, receipt, observation.schema_version)
+        )
     return receipt is not None and receipt.data.get("assessment_complete", True) is True
 
 
@@ -864,6 +972,34 @@ def dependency_binding_id(
     )
 
 
+def numeric_operand_inventory_binding_id(
+    sections: _Iterable[Section],
+    failures: _Iterable[Record],
+    evidence: _Iterable[Evidence],
+) -> str:
+    """Bind physical modules, numeric operation proofs, declarations and their evidence."""
+    bound = [
+        record
+        for section in sections
+        for record in section.records
+        if section.name == "modules"
+        or section.name == "constructs"
+        and record.kind == "numeric_operand"
+        or section.name == "declarations"
+        and record.kind == "bounded_numeric_operand"
+    ]
+    bound.extend(failures)
+    return stable_id(
+        "NUMERIC-OPERAND-INVENTORY",
+        repr(
+            (
+                tuple(sorted(bound, key=lambda item: item.id)),
+                tuple(sorted(evidence, key=lambda item: item.id)),
+            )
+        ),
+    )
+
+
 def rule_evaluation_binding_id(
     inventory_binding_id: str, receipt: Record, observation_schema_version: str
 ) -> str:
@@ -880,7 +1016,9 @@ def rule_evaluation_binding_id(
         receipt.fact_ids,
         receipt.provenance,
         tuple(
-            (key, value) for key, value in sorted(receipt.data.entries) if key != "call_scope_proof"
+            (key, value)
+            for key, value in sorted(receipt.data.entries)
+            if key not in {"call_scope_proof", "numeric_scope_proof"}
         ),
     )
     return stable_id(
@@ -1073,6 +1211,17 @@ def rule_assessments(
         undecided = undecided_by_rule.get(identifier, 0)
         violation_count = violations[identifier]
         receipt = receipts.get(identifier)
+        if declaration.kind == "bounded_numeric_operand":
+            receipt = next(
+                (
+                    item
+                    for item in observation.records("scope_observations") or ()
+                    if item.kind == "rule_evaluation"
+                    and item.rule_ids == (identifier,)
+                    and isinstance(item.data.get("operation_binding"), str)
+                ),
+                None,
+            )
         receipt_complete = _rule_receipt_complete(observation, declaration, receipt)
         scope_complete = _rule_scope_complete(observation, declaration, receipt, complete)
         evaluation_proven = scope_complete and receipt_complete

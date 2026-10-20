@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import builtins as _builtins
+import json
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from collections.abc import Set as AbstractSet
@@ -31,6 +32,7 @@ from archkeel.ir.model import (
     ArchitectureContract,
     ArchitectureRule,
     BoundaryTypesRule,
+    BoundedNumericOperandRule,
     CallOwnerRule,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
@@ -961,6 +963,7 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
     if isinstance(
         rule,
         ForbiddenConstructRule
+        | BoundedNumericOperandRule
         | CompleteAssignmentRule
         | CompleteExternalScopeRule
         | BoundaryTypesRule,
@@ -1643,6 +1646,73 @@ def _layer_order_violations(contract: ArchitectureContract, scope: str) -> list[
     return violations
 
 
+def _numeric_operand_violations(
+    signals: Sequence[RawRecord],
+    rules: Sequence[ArchitectureRule],
+    source_modules: frozenset[str] | None,
+) -> list[RawRecord]:
+    result: list[RawRecord] = []
+    for rule in rules:
+        if not isinstance(rule, BoundedNumericOperandRule):
+            continue
+        for item in signals:
+            data = item["data"]
+            owner, subject, form = data.get("owner"), data.get("subject"), data.get("form")
+            module = data.get("module")
+            if (
+                item["kind"] != "numeric_operand"
+                or not isinstance(owner, str)
+                or not isinstance(module, str)
+                or not in_scope(module, rule.source)
+                or source_modules is not None
+                and module not in source_modules
+                or not isinstance(subject, str)
+                or not subject.endswith(rule.terminal_suffix)
+                or rule.form.value not in {"both", form}
+            ):
+                continue
+            if (
+                data.get("proof") == "known"
+                and isinstance(data.get("value"), int)
+                and not isinstance(data.get("value"), bool)
+            ):
+                if data["value"] >= rule.minimum_value:
+                    continue
+                evidence_class = EvidenceClass.VIOLATION
+                kind = rule.kind.value
+                title = f"{subject} modulo operand is below {rule.minimum_value}"
+            else:
+                evidence_class = EvidenceClass.UNKNOWN
+                kind = "numeric_operand_unknown"
+                title = f"{subject} modulo operand is not statically known"
+            result.append(
+                classified(
+                    item_id=stable_id(
+                        "VIO" if evidence_class is EvidenceClass.VIOLATION else "UNKNOWN",
+                        rule.id,
+                        item["id"],
+                    ),
+                    evidence_class=evidence_class,
+                    area="rules",
+                    kind=kind,
+                    title=title,
+                    subjects=[owner, subject],
+                    evidence_ids=item["evidence_ids"],
+                    rule_ids=[rule.id],
+                    fact_ids=[item["id"]],
+                    data={
+                        "threshold": rule.minimum_value,
+                        "terminal_suffix": rule.terminal_suffix,
+                        "form": form,
+                        "proof": data.get("proof"),
+                        "value": data.get("value"),
+                        "derivation": data.get("derivation", []),
+                    },
+                )
+            )
+    return result
+
+
 def _layer_metadata_failures(
     contract: ArchitectureContract, rule: LayerOrderRule
 ) -> list[RawRecord]:
@@ -1717,6 +1787,7 @@ def _collect_rule_violations(
         *_construct_violations(
             [*typing_signals, *constructs], contract.rules, source_modules, allowance_facts
         ),
+        *_numeric_operand_violations(constructs, contract.rules, source_modules),
         *_external_dependency_violations(imports, contract.rules, source_modules),
         *_external_completeness_violations(
             imports, modules, contract.rules, profile.standard_library, source_modules
@@ -1769,6 +1840,7 @@ def _collect_rule_violations(
                 blank_modules=blank_modules,
                 receipt_scope_complete=receipt_scope_complete,
                 symbols=symbols,
+                constructs=constructs,
             )
         )
     return sorted(result, key=lambda item: item["id"])
@@ -1893,7 +1965,9 @@ def rule_violations(
         cycle_graph_components=cycle_graph_components,
         cycle_namespace_complete=cycle_namespace_complete,
     )
-    return result, allowance_facts
+    numeric_unknowns = [item for item in result if item["kind"] == "numeric_operand_unknown"]
+    violations = [item for item in result if item["kind"] != "numeric_operand_unknown"]
+    return violations, [*allowance_facts, *numeric_unknowns]
 
 
 def _cycle_scan_coverage(
@@ -2058,6 +2132,7 @@ def rule_evaluation_facts(
     blank_modules: frozenset[str],
     receipt_scope_complete: bool,
     symbols: Sequence[RawRecord] = (),
+    constructs: Sequence[RawRecord] = (),
 ) -> list[RawRecord]:
     """Record completed evaluations or ownership blockers for one observation scope.
 
@@ -2119,6 +2194,42 @@ def rule_evaluation_facts(
                     frozenset(item["data"]["qualified_name"] for item in observed),
                 )
                 subjects = [item["data"]["qualified_name"] for item in selected]
+        elif isinstance(rule, BoundedNumericOperandRule):
+            selected = _modules_for_rule_source(rule.source, observed, contract)
+            operations = tuple(
+                item
+                for item in constructs
+                if item["kind"] == "numeric_operand"
+                and item["data"].get("module")
+                in {module["data"]["qualified_name"] for module in selected}
+                and isinstance(item["data"].get("subject"), str)
+                and item["data"]["subject"].endswith(rule.terminal_suffix)
+                and rule.form.value in {"both", item["data"].get("form")}
+            )
+            if selected:
+                facts.append(
+                    _rule_evaluation_receipt(
+                        rule,
+                        scope,
+                        operations,
+                        subjects=[item["data"]["qualified_name"] for item in selected],
+                        data={
+                            "threshold": rule.minimum_value,
+                            "terminal_suffix": rule.terminal_suffix,
+                            "form": rule.form.value,
+                            "assessment_complete": bool(operations),
+                            "operation_binding": stable_id(
+                                "NUMERIC-OPERAND",
+                                rule.id,
+                                json.dumps(
+                                    sorted((item["id"], item["data"]) for item in operations),
+                                    sort_keys=True,
+                                    separators=(",", ":"),
+                                ),
+                            ),
+                        },
+                    )
+                )
         elif isinstance(
             rule, CompleteAssignmentRule | CompleteExternalScopeRule | SymbolPlacementRule
         ):
