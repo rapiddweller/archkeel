@@ -172,6 +172,46 @@ def _class_attribute_declarations(
     return result
 
 
+def _guard_boolean_member_declarations(
+    node: ast.ClassDef, module: ParsedModule, evidence: dict[str, RawEvidence]
+) -> list[RecordData]:
+    """Record only explicitly Boolean class or instance members used by guard proofs."""
+    declarations: dict[str, ast.AST] = {}
+    ambiguous: set[str] = set()
+    for child in node.body:
+        if isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
+            if annotation_text(child.annotation) == "bool":
+                if child.target.id in declarations:
+                    ambiguous.add(child.target.id)
+                else:
+                    declarations[child.target.id] = child
+        elif isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
+            receiver = next(iter((*child.args.posonlyargs, *child.args.args)), None)
+            if receiver is None:
+                continue
+            for statement in ast.walk(child):
+                if (
+                    isinstance(statement, ast.AnnAssign)
+                    and isinstance(statement.target, ast.Attribute)
+                    and isinstance(statement.target.value, ast.Name)
+                    and statement.target.value.id == receiver.arg
+                    and annotation_text(statement.annotation) == "bool"
+                ):
+                    name = statement.target.attr
+                    if name in declarations:
+                        ambiguous.add(name)
+                    else:
+                        declarations[name] = statement
+    return [
+        {
+            "name": name,
+            "evidence_ids": [add_evidence(evidence, module, statement)],
+        }
+        for name, statement in sorted(declarations.items())
+        if name not in ambiguous
+    ]
+
+
 def _class_member_names(node: ast.ClassDef) -> list[str]:
     """Names bound directly in a class body, including non-method overrides."""
     names: set[str] = set()
@@ -277,6 +317,7 @@ def _symbol_data(
     }
     if isinstance(node, ast.ClassDef):
         data.update(_class_symbol_data(module, node, evidence, member_escapes))
+        data["guard_boolean_members"] = _guard_boolean_member_declarations(node, module, evidence)
         if data["source_binding_unique"] is True and (
             properties := property_bindings(module, node)
         ):

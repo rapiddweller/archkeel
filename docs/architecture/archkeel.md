@@ -122,3 +122,4 @@ and canonical type identity; their exact and optional-union semantics are record
 | [AD-246](decisions/ad-246-bounded-numeric-operand.md) | Bind selected modulo bounds to bounded source-derived integer proofs. |
 
 | [AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md) | Bind explicitly written actuals to proven formals before applying argument policies. |
+| [AD-250](decisions/ad-250-bounded-guarded-effect-ownership.md) | Prove bounded Boolean paths and one call-site-specific private helper hop for canonical effects. |

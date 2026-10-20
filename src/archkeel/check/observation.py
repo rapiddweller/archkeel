@@ -705,7 +705,10 @@ def _certify_call_owner_scopes(
     scan: ScanResult, facts: SourceFacts, contract_digest: str, declarations: list[RawRecord]
 ) -> None:
     rules = {
-        r["id"] for r in declarations if r["kind"] in {"call_owner", "forbidden_call_argument"}
+        r["id"]
+        for r in declarations
+        if r["kind"]
+        in {"call_owner", "forbidden_call_argument", "forbidden_effect_under_condition"}
     }
     receipts = [
         r

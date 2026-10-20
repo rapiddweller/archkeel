@@ -479,6 +479,23 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
         interface["module_object_grants"] = [
             {"source_module": "shop.app.orders", "target_module": "shop.model"}
         ]
+    if version == "3.13.0":
+        raw["rules"].append(
+            {
+                "id": "NO-RANDOM-WHEN-SEEDED",
+                "kind": "forbidden_effect_under_condition",
+                "source": "shop.app.orders",
+                "target": "secrets.token_hex",
+                "condition": {
+                    "kind": "parameter",
+                    "owner": "shop.app.orders.generate",
+                    "name": "seeded",
+                },
+                "rationale": "Seeded calls use deterministic bytes.",
+                "provenance": _PROVENANCE,
+                "decided_by": "architect",
+            }
+        )
     if version == "3.7.0":
         raw["rules"].append(
             {
@@ -767,6 +784,9 @@ def test_the_maximal_contract_fills_every_field() -> None:
             "3.8.0",
             "3.9.0",
             "3.10.0",
+            "3.11.0",
+            "3.12.0",
+            "3.13.0",
         )
     ]
 

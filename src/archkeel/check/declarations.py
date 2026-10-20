@@ -38,6 +38,7 @@ from archkeel.ir.model import (
     ForbiddenCallArgumentRule,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
+    ForbiddenEffectUnderConditionRule,
     InterfaceBoundaryRule,
     LayerOrderRule,
     NoComponentCyclesRule,
@@ -97,6 +98,22 @@ def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
             "source": rule.source,
             "target": rule.target,
             "parameter": rule.parameter,
+            "rationale": rule.rationale,
+        }
+    elif isinstance(rule, ForbiddenEffectUnderConditionRule):
+        area, title, subjects = (
+            "calls",
+            f"Forbid {rule.target} while {rule.condition.owner}.{rule.condition.name} is true",
+            [rule.source, rule.target, rule.condition.owner],
+        )
+        data = {
+            "source": rule.source,
+            "target": rule.target,
+            "condition": {
+                "kind": rule.condition.kind,
+                "owner": rule.condition.owner,
+                "name": rule.condition.name,
+            },
             "rationale": rule.rationale,
         }
     elif isinstance(rule, ForbiddenDependencyRule):

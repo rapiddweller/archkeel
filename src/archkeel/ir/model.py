@@ -51,6 +51,8 @@ from .facts import (
 from .facts import (
     AnalyzerInfo as AnalyzerInfo,
 )
+from .facts import ConditionSelector as ConditionSelector
+from .facts import ConditionSelectorKind as ConditionSelectorKind
 from .facts import (
     Evidence as Evidence,
 )
@@ -105,7 +107,7 @@ def public_api_id(selector: str) -> str:
     return f"API-{hashlib.sha256(selector.encode()).hexdigest()[:16]}"
 
 
-SCHEMA_VERSION = "2.5.0"
+SCHEMA_VERSION = "2.8.0"
 DELTA_SCHEMA_VERSION = "2.0.0"
 
 
@@ -518,6 +520,18 @@ class ForbiddenCallArgumentRule(ArchitectureRuleGrammar):
 
 
 @dataclass(frozen=True, slots=True)
+class ForbiddenEffectUnderConditionRule(ArchitectureRuleGrammar):
+    id: str
+    kind: Literal[ArchitectureRuleKind.FORBIDDEN_EFFECT_UNDER_CONDITION]
+    source: str
+    target: str
+    condition: ConditionSelector
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+
+
+@dataclass(frozen=True, slots=True)
 class ForbiddenDependencyRule(ArchitectureRuleGrammar):
     id: str
     kind: Literal[ArchitectureRuleKind.FORBIDDEN_DEPENDENCY]
@@ -812,6 +826,7 @@ ArchitectureRule: TypeAlias = (
     CallOwnerRule
     | BoundedNumericOperandRule
     | ForbiddenCallArgumentRule
+    | ForbiddenEffectUnderConditionRule
     | ForbiddenDependencyRule
     | AllowedDependencyRule
     | ForbiddenConstructRule
@@ -1120,6 +1135,14 @@ def _rule_references(
             [("source", (rule.source,), True), ("target", (rule.target,), False)],
         )
     named: list[tuple[str, tuple[str, ...], bool]] = []
+    if isinstance(rule, ForbiddenEffectUnderConditionRule):
+        return _references(
+            f"/rules/{index}",
+            [
+                ("source", (rule.source,), True),
+                ("condition.owner", (rule.condition.owner,), False),
+            ],
+        )
     if isinstance(
         rule,
         ForbiddenDependencyRule

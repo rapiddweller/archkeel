@@ -48,6 +48,14 @@ recognizes written string constants, including empty and adjacent literals;
 f-strings, concatenations and named expressions remain unclaimed. It does not
 check actual type compatibility. Argument facts require
 observation 2.5 and contract 3.10; older readers reject the new evidence.
+`forbidden_effect_under_condition` proves only declared Boolean parameters or members,
+truth/negation, `if`/`else`, ternary expressions, and early `return`/`raise` domination.
+It follows at most one unique private helper whose actuals bind to its observed signature.
+Reassignment, named expressions, short-circuit Boolean operators, loops, exception/finally
+paths, reflection, ambiguous identities, helper chains and recursion remain UNKNOWN. A
+known forbidden effect remains FAIL beside unrelated UNKNOWN paths. These receipts bind
+the source, contract, selected inventory, effect and exact rule claim; they are consistency
+bindings, not artifact authentication ([AD-250](architecture/decisions/ad-250-bounded-guarded-effect-ownership.md)).
 
 An explicitly certified `complete_requires` scope can PASS with unrelated source
 resolution gaps. Arbitrary imports still block their own scopes and ancestors;

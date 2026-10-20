@@ -50,6 +50,8 @@ from archkeel.ir.model import (
     CompleteExternalScopeRule,
     CompleteRequiresRule,
     ComponentRole,
+    ConditionSelector,
+    ConditionSelectorKind,
     ContractCapability,
     ContractCommand,
     ContractComponent,
@@ -70,6 +72,7 @@ from archkeel.ir.model import (
     ForbiddenConstructKind,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
+    ForbiddenEffectUnderConditionRule,
     InterfaceBoundaryRule,
     LayerOrderRule,
     ModuleObjectGrant,
@@ -286,6 +289,11 @@ def parse_contract(raw: object) -> ArchitectureContract:
     ):
         raise ValueError("forbidden_call_argument requires contract schema_version 3.10.0")
     if (
+        not supports_feature(version, ContractFeature.GUARDED_EFFECT)
+        and ArchitectureRuleKind.FORBIDDEN_EFFECT_UNDER_CONDITION in kinds
+    ):
+        raise ValueError("forbidden_effect_under_condition requires contract schema_version 3.13.0")
+    if (
         not supports_feature(version, ContractFeature.LAYERS)
         and ArchitectureRuleKind.LAYER_ORDER in kinds
     ):
@@ -431,6 +439,10 @@ def _validate_encoding_version(contract: ArchitectureContract) -> None:
         contract.schema_version, ContractFeature.FORBIDDEN_CALL_ARGUMENT
     ) and any(isinstance(rule, ForbiddenCallArgumentRule) for rule in contract.rules):
         raise ValueError("forbidden_call_argument requires contract schema_version 3.10.0")
+    if not supports_feature(contract.schema_version, ContractFeature.GUARDED_EFFECT) and any(
+        isinstance(rule, ForbiddenEffectUnderConditionRule) for rule in contract.rules
+    ):
+        raise ValueError("forbidden_effect_under_condition requires contract schema_version 3.13.0")
     if not supports_feature(contract.schema_version, ContractFeature.MODULE_OBJECT_GRANTS) and any(
         isinstance(rule, InterfaceBoundaryRule) and rule.module_object_grants is not None
         for rule in contract.rules
@@ -1456,10 +1468,37 @@ def _parse_forbidden_call_argument(raw: RawJson, label: str) -> ForbiddenCallArg
     )
 
 
+def _parse_forbidden_effect_under_condition(
+    raw: RawJson, label: str
+) -> ForbiddenEffectUnderConditionRule:
+    item, item_id, provenance = _contract_record(
+        raw,
+        {"kind", "source", "target", "condition", "rationale", "decided_by"},
+        set(),
+        label,
+    )
+    selector = _exact(item["condition"], {"kind", "owner", "name"}, f"{label}.condition")
+    return ForbiddenEffectUnderConditionRule(
+        item_id,
+        ArchitectureRuleKind.FORBIDDEN_EFFECT_UNDER_CONDITION,
+        _nonempty(item["source"], f"{label}.source"),
+        _nonempty(item["target"], f"{label}.target"),
+        ConditionSelector(
+            ConditionSelectorKind(_nonempty(selector["kind"], f"{label}.condition.kind")),
+            _nonempty(selector["owner"], f"{label}.condition.owner"),
+            _nonempty(selector["name"], f"{label}.condition.name"),
+        ),
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
+    )
+
+
 _RULE_PARSERS: Final[dict[ArchitectureRuleKind, Callable[[RawJson, str], ArchitectureRule]]] = {
     ArchitectureRuleKind.BOUNDED_NUMERIC_OPERAND: _parse_bounded_numeric_operand,
     ArchitectureRuleKind.CALL_OWNER: _parse_call_owner,
     ArchitectureRuleKind.FORBIDDEN_CALL_ARGUMENT: _parse_forbidden_call_argument,
+    ArchitectureRuleKind.FORBIDDEN_EFFECT_UNDER_CONDITION: _parse_forbidden_effect_under_condition,
     ArchitectureRuleKind.FORBIDDEN_DEPENDENCY: _parse_forbidden_dependency,
     ArchitectureRuleKind.ALLOWED_DEPENDENCY: _parse_allowed_dependency,
     ArchitectureRuleKind.FORBIDDEN_CONSTRUCT: _parse_forbidden_construct,

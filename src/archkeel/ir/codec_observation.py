@@ -38,6 +38,7 @@ from archkeel.ir.model import (
     CLASSIFIED_SECTIONS,
     EVIDENCE_FIELDS,
     RECORD_FIELDS,
+    SCHEMA_VERSION,
     AnalyzerInfo,
     ContractInfo,
     Coverage,
@@ -70,6 +71,12 @@ class _ObservationVersion(StrEnum):
     V2_3 = "2.3.0"
     V2_4 = "2.4.0"
     V2_5 = "2.5.0"
+    V2_8 = SCHEMA_VERSION
+
+
+def _version_at_least(version: _ObservationVersion, minimum: tuple[int, int]) -> bool:
+    major, minor, _patch = (int(part) for part in version.value.split("."))
+    return (major, minor) >= minimum
 
 
 class _VersionedConstruct(StrEnum):
@@ -283,7 +290,7 @@ def _validate_versioned_records(
             continue
         for call in section.records:
             has_arguments = _has_field((key for key, _ in call.data.entries), "call_arguments")
-            if schema_version is _ObservationVersion.V2_5:
+            if _version_at_least(schema_version, (2, 5)):
                 if python_calls and not has_arguments:
                     raise ValueError("Python 2.5.0 calls require explicit call_arguments")
                 arguments = (
@@ -326,7 +333,18 @@ def parse_observation(raw: object) -> Observation:
         if isinstance(section_items := item[name], list)
     )
     _validate_versioned_records(schema_version, sections, profile)
-
+    if schema_version is not _ObservationVersion.V2_8:
+        for section in sections:
+            if section.name is ObservedSection.CALLS and any(
+                _has_field((key for key, _ in call.data.entries), "guarded_effect")
+                for call in section.records
+            ):
+                raise ValueError("guarded-effect evidence requires observation 2.8.0")
+            if section.name is ObservedSection.SYMBOLS and any(
+                _has_field((key for key, _ in symbol.data.entries), "guard_boolean_members")
+                for symbol in section.records
+            ):
+                raise ValueError("guard Boolean members require observation 2.8.0")
     return Observation(
         schema_version=schema_version,
         analyzer=AnalyzerInfo(
@@ -349,15 +367,7 @@ def parse_observation(raw: object) -> Observation:
         else None,
         runtime=_parse_runtime(
             item["runtime"],
-            allow_requirement_state=schema_version
-            in {
-                _ObservationVersion.V2,
-                _ObservationVersion.V2_1,
-                _ObservationVersion.V2_2,
-                _ObservationVersion.V2_3,
-                _ObservationVersion.V2_4,
-                _ObservationVersion.V2_5,
-            },
+            allow_requirement_state=_version_at_least(schema_version, (2, 0)),
         )
         if item.get("runtime", _MISSING_VALUE) is not _MISSING_VALUE
         else None,
@@ -517,6 +527,7 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
             _ObservationVersion.V2_3,
             _ObservationVersion.V2_4,
             _ObservationVersion.V2_5,
+            _ObservationVersion.V2_8,
         }
         and observation.runtime is not None
         and observation.runtime.requirement_state != RuntimeRequirementState.DECLARED

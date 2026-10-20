@@ -34,6 +34,7 @@ global coverage and cycle closure stay incomplete. See
 | Bound selected binary/augmented modulo operands | `bounded_numeric_operand` (3.8) |
 
 | Reject a written string literal at one bound call parameter | `forbidden_call_argument` (3.10) |
+| Forbid a canonical effect while a declared Boolean condition is true | `forbidden_effect_under_condition` (3.13) |
 
 Python static imports and proven literal `importlib.import_module` / `__import__`
 calls feed the same dependency rules. An unknown loader binding or target withholds
@@ -74,6 +75,12 @@ unproven target/receiver leaves the scope UNKNOWN. Calls without canonical
 binding carry null argument facts; a proven call with no actuals carries an
 empty list. See
 [AD-247](architecture/decisions/ad-247-written-call-arguments-bind-to-observed-formals.md).
+`forbidden_effect_under_condition` selects a Boolean parameter or declared Boolean member,
+canonical effect target, and source scope. It proves truth/negation, `if`/`else`, ternary,
+and early `return`/`raise` paths; it may follow one unique private helper with bound actuals.
+Unconditional effects are reachable while the condition is true. Stale or unsupported flow,
+missing declarations, helper chains and recursion remain UNKNOWN. See
+[AD-250](architecture/decisions/ad-250-bounded-guarded-effect-ownership.md).
 
 ### Ownership and dependency decisions
 

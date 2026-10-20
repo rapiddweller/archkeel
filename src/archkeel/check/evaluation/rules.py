@@ -47,6 +47,7 @@ from archkeel.ir.model import (
     ForbiddenConstructKind,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
+    ForbiddenEffectUnderConditionRule,
     InterfaceBoundaryRule,
     LayerOrderRule,
     ModuleExports,
@@ -951,6 +952,8 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
     if isinstance(rule, CallOwnerRule):
         return {}
     if isinstance(rule, ForbiddenCallArgumentRule):
+        return {"source": (rule.source,)}
+    if isinstance(rule, ForbiddenEffectUnderConditionRule):
         return {"source": (rule.source,)}
     if isinstance(rule, ForbiddenDependencyRule | AllowedDependencyRule):
         return {"source": (rule.source,), "target": (rule.target,)}
@@ -2265,7 +2268,9 @@ def rule_evaluation_facts(
     )
     facts: list[RawRecord] = []
     for rule in contract.rules:
-        if rule.kind in profile.unsupported_rules or isinstance(rule, _SeparateReceiptRule):
+        if rule.kind in profile.unsupported_rules or isinstance(
+            rule, _SeparateReceiptRule | ForbiddenEffectUnderConditionRule
+        ):
             continue
         if isinstance(rule, LayerOrderRule):
             facts.extend(_layer_order_evaluation_facts(contract, rule, scope))
@@ -2302,6 +2307,8 @@ def rule_evaluation_facts(
             )
         elif isinstance(rule, ForbiddenConstructRule):
             selected, subjects = _construct_rule_domain(rule.source, observed, contract, symbols)
+        elif isinstance(rule, ForbiddenEffectUnderConditionRule):
+            selected = _modules_for_rule_source(rule.source, observed, contract)
         elif isinstance(
             rule,
             BoundedNumericOperandRule

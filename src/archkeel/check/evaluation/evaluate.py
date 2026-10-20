@@ -15,6 +15,7 @@ from archkeel.ir.codec import InsideContractMount
 from archkeel.ir.facts import (
     CALL_ARGUMENTS_FEATURE,
     CALL_BINDINGS_FEATURE,
+    GUARDED_EFFECTS_FEATURE,
     SOURCE_RESOLUTION_GAP_KIND,
     BuiltinTarget,
     ConstructCapability,
@@ -57,6 +58,7 @@ from archkeel.ir.type_shapes import TypeShapeIndex
 
 from .call_argument_policy import call_argument_results
 from .call_owners import call_owner_results
+from .guarded_effects import guarded_effect_results
 from .imports import strip_internal_reexport_facts
 from .protocol_declarations import protocol_declaration_results
 from .rule_support import dynamic_dependency_limits
@@ -312,6 +314,7 @@ def _inside_rule_results(
     calls_complete: bool,
     bindings_measured: bool,
     arguments_measured: bool,
+    guarded_paths_measured: bool,
     root_contract: ArchitectureContract | None = None,
     imports: Sequence[RawRecord],
     source_unknowns: Sequence[RawRecord],
@@ -423,11 +426,24 @@ def _inside_rule_results(
             bindings_measured=bindings_measured,
             arguments_measured=arguments_measured,
             blank_modules=blank_modules,
-            source_modules=source_modules,
         )
         violations.extend(argument_violations)
         unknowns.extend(argument_limits)
         assessments.extend(argument_receipts)
+        effect_violations, effect_limits, effect_receipts = guarded_effect_results(
+            scoped,
+            scope=mount.parent_id,
+            calls=calls,
+            modules=modules,
+            symbols=symbols,
+            complete=calls_complete,
+            bindings_measured=bindings_measured,
+            paths_measured=guarded_paths_measured,
+            source_modules=source_modules,
+        )
+        violations.extend(effect_violations)
+        unknowns.extend(effect_limits)
+        assessments.extend(effect_receipts)
     return _sort_inside_rule_results(
         violations, unknowns, failures, assessments, allowances, symbols
     )
@@ -940,6 +956,7 @@ def evaluate_source(
     calls_complete = _source_inventory_complete(facts)
     bindings_measured = CALL_BINDINGS_FEATURE in facts.capabilities.resolution_features
     arguments_measured = CALL_ARGUMENTS_FEATURE in facts.capabilities.resolution_features
+    guarded_paths_measured = GUARDED_EFFECTS_FEATURE in facts.capabilities.resolution_features
     (
         inside_violations,
         inside_unknowns,
@@ -956,6 +973,7 @@ def evaluate_source(
         calls_complete=calls_complete,
         bindings_measured=bindings_measured,
         arguments_measured=arguments_measured,
+        guarded_paths_measured=guarded_paths_measured,
         root_contract=contract,
         imports=imports,
         source_unknowns=source_unknowns,
@@ -1099,6 +1117,19 @@ def evaluate_source(
     violations += argument_violations
     unknowns += argument_limits
     scope_observations += argument_receipts
+    effect_violations, effect_limits, effect_receipts = guarded_effect_results(
+        contract,
+        scope="root",
+        calls=calls,
+        modules=module_facts,
+        symbols=symbols,
+        complete=calls_complete,
+        bindings_measured=bindings_measured,
+        paths_measured=guarded_paths_measured,
+    )
+    violations += effect_violations
+    unknowns += effect_limits
+    scope_observations += effect_receipts
 
     incomplete_dependencies = {
         rule_id

@@ -163,6 +163,7 @@ class DecisionMaker(StrEnum):
 class ArchitectureRuleKind(StrEnum):
     CALL_OWNER = "call_owner"
     FORBIDDEN_CALL_ARGUMENT = "forbidden_call_argument"
+    FORBIDDEN_EFFECT_UNDER_CONDITION = "forbidden_effect_under_condition"
     FORBIDDEN_DEPENDENCY = "forbidden_dependency"
     ALLOWED_DEPENDENCY = "allowed_dependency"
     FORBIDDEN_CONSTRUCT = "forbidden_construct"

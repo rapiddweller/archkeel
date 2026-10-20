@@ -315,6 +315,14 @@ retiring any method-name scanner. Argument facts require observation 2.5 and
 contract 3.10; older readers must reject that evidence. The current reader
 continues to accept historical observation formats.
 
+`forbidden_effect_under_condition` is a static ownership rule. It can prove a declared
+Boolean parameter/member through truth, negation, `if`/`else`, ternary and early
+`return`/`raise`, plus one unique private helper with signature-bound actuals. A known
+unconditional effect is reachable while the condition is true. Reassignment, named
+expressions, short-circuiting, loops, `try`/`finally`, reflection and helper chains or
+recursion remain UNKNOWN. Inspect the rule receipt and path evidence before relying on
+PASS; see [AD-250](../../docs/architecture/decisions/ad-250-bounded-guarded-effect-ownership.md).
+
 ## Daily loop
 
 Validation reports `responsibility.missing` only for components explicitly marked

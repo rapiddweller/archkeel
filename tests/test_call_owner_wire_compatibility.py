@@ -24,7 +24,7 @@ from archkeel.ir.model import Diagnostic, RunResult
 
 
 @pytest.mark.parametrize("version", ["6.0", "7.0", "8.0", "9.0"])
-@pytest.mark.parametrize("wire", ["2.0.0", "2.1.0"])
+@pytest.mark.parametrize("wire", ["2.0.0", "2.1.0", "2.8.0"])
 def test_command_versions_preserve_their_observation_boundary(version, wire):
     raw = _model(git_head="a" * 40)
     raw["schema_version"] = wire
@@ -41,14 +41,16 @@ def test_command_versions_preserve_their_observation_boundary(version, wire):
     )
     validator = _validator(name)
     packet = result_payload(result)
-    assert validator.is_valid(packet) is (wire == "2.0.0" or version == "9.0")
+    assert validator.is_valid(packet) is (
+        wire == "2.0.0" or version == "9.0" and wire in {"2.1.0", "2.8.0"}
+    )
     packet["schema_version"] = "future-command-version"
     assert not validator.is_valid(packet)
 
 
 @pytest.mark.parametrize("profile", ["decoded", "python-decoded"])
-@pytest.mark.parametrize("wire", ["1.3.0", "2.0.0", "2.1.0"])
-@pytest.mark.parametrize("version", ["2.0.0", "2.1.0"])
+@pytest.mark.parametrize("wire", ["1.3.0", "2.0.0", "2.1.0", "2.8.0"])
+@pytest.mark.parametrize("version", ["2.0.0", "2.1.0", "2.8.0"])
 def test_decoded_resource_ids_keep_their_version_scope(profile, wire, version):
     raw = _model(git_head="a" * 40)
     raw["schema_version"] = wire

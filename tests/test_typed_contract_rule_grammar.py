@@ -35,6 +35,14 @@ RULES = {
         "ForbiddenCallArgumentRule",
         {"source": "sample", "target": "sample.store.page", "parameter": "query"},
     ),
+    "forbidden_effect_under_condition": (
+        "ForbiddenEffectUnderConditionRule",
+        {
+            "source": "sample",
+            "target": "sample.random_bytes",
+            "condition": {"kind": "parameter", "owner": "sample.generate", "name": "seeded"},
+        },
+    ),
     "forbidden_dependency": (
         "ForbiddenDependencyRule",
         {"source": "sample.core", "target": "json", "include_type_checking": True},
@@ -63,7 +71,7 @@ RULES = {
 
 def _raw():
     raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
-    raw["schema_version"] = "3.10.0"
+    raw["schema_version"] = "3.13.0"
     raw["rules"] = []
     return raw
 
@@ -76,6 +84,7 @@ def test_every_rule_variant_decodes_the_shared_kind_and_attribution(kind):
         "call_owner": "3.7.0",
         "bounded_numeric_operand": "3.8.0",
         "protocol_declarations": "3.9.0",
+        "forbidden_effect_under_condition": "3.13.0",
     }.get(kind, "3.10.0")
     raw["rules"] = [
         {

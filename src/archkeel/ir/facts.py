@@ -301,6 +301,7 @@ NATIVE_CALL_TARGETS = frozenset(
         "secrets.token_hex",
     }
 )
+GUARDED_EFFECTS_FEATURE = "guarded_effect_paths"
 
 
 @dataclass(frozen=True, slots=True)
@@ -380,6 +381,200 @@ def call_arguments(value: JsonValue) -> tuple[CallArgument, ...] | None:
             )
         )
     return tuple(result)
+
+
+class ConditionSelectorKind(StrEnum):
+    PARAMETER = "parameter"
+    MEMBER = "member"
+
+
+@dataclass(frozen=True, slots=True)
+class ConditionSelector:
+    kind: ConditionSelectorKind
+    owner: str
+    name: str
+
+    def __post_init__(self) -> None:
+        builtins.object.__setattr__(self, "kind", ConditionSelectorKind(self.kind))
+
+
+@dataclass(frozen=True, slots=True)
+class GuardHelperArgument:
+    argument_index: int
+    token_kind: str
+    token_value: bool | None
+    condition: ConditionSelector | None
+    evidence_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class GuardHelperBinding:
+    target: str
+    call_id: str
+    arguments: tuple[GuardHelperArgument, ...]
+    evidence_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class GuardedEffectEvidence:
+    condition: ConditionSelector
+    condition_value: bool | None
+    condition_evidence_ids: tuple[str, ...]
+    path_evidence_ids: tuple[str, ...]
+    effect_binding_evidence_ids: tuple[str, ...]
+    complete: bool
+    unknown_reason: str | None
+    helper_bindings: tuple[GuardHelperBinding, ...]
+
+
+def _evidence_ids(value: JsonValue, label: str) -> tuple[str, ...]:
+    if (
+        not isinstance(value, tuple)
+        or not value
+        or any(not isinstance(item, str) or not item for item in value)
+        or len(set(value)) != len(value)
+    ):
+        raise ValueError(f"{label} must contain unique nonempty evidence IDs")
+    return tuple(item for item in value if isinstance(item, str))
+
+
+def _guard_helper_binding(value: JsonValue) -> GuardHelperBinding:
+    if not isinstance(value, RecordData) or {key for key, _ in value.entries} != {
+        "target",
+        "call_id",
+        "arguments",
+        "evidence_ids",
+    }:
+        raise ValueError("invalid guarded-effect helper binding fields")
+    target, call_id, arguments_raw = (
+        value.get("target"),
+        value.get("call_id"),
+        value.get("arguments"),
+    )
+    if not isinstance(target, str) or not target or not isinstance(call_id, str) or not call_id:
+        raise ValueError("invalid guarded-effect helper binding identity")
+    if not isinstance(arguments_raw, tuple):
+        raise ValueError("invalid guarded-effect helper arguments")
+    arguments: list[GuardHelperArgument] = []
+    for argument in arguments_raw:
+        if not isinstance(argument, RecordData) or {key for key, _ in argument.entries} != {
+            "argument_index",
+            "token_kind",
+            "token_value",
+            "condition",
+            "evidence_ids",
+        }:
+            raise ValueError("invalid guarded-effect helper argument fields")
+        index, token_kind, token_value = (
+            argument.get("argument_index"),
+            argument.get("token_kind"),
+            argument.get("token_value"),
+        )
+        if (
+            not isinstance(index, int)
+            or isinstance(index, bool)
+            or index < 0
+            or not isinstance(token_kind, str)
+            or token_kind not in {"boolean_literal", "condition", "not_condition", "unknown"}
+            or token_value is not None
+            and not isinstance(token_value, bool)
+            or token_kind == "boolean_literal"
+            and not isinstance(token_value, bool)
+            or token_kind != "boolean_literal"
+            and token_value is not None
+        ):
+            raise ValueError("invalid guarded-effect helper argument values")
+        raw_condition = argument.get("condition")
+        condition = None
+        if raw_condition is not None:
+            if not isinstance(raw_condition, RecordData) or {
+                key for key, _ in raw_condition.entries
+            } != {"kind", "owner", "name"}:
+                raise ValueError("invalid guarded-effect helper condition")
+            kind, owner, name = (
+                raw_condition.get("kind"),
+                raw_condition.get("owner"),
+                raw_condition.get("name"),
+            )
+            if not isinstance(kind, str) or not isinstance(owner, str) or not isinstance(name, str):
+                raise ValueError("invalid guarded-effect helper condition")
+            condition = ConditionSelector(ConditionSelectorKind(kind), owner, name)
+        if (token_kind in {"condition", "not_condition"}) != (condition is not None):
+            raise ValueError("guarded-effect helper token must match its condition selector")
+        arguments.append(
+            GuardHelperArgument(
+                index,
+                token_kind,
+                token_value,
+                condition,
+                _evidence_ids(argument.get("evidence_ids"), "helper evidence_ids"),
+            )
+        )
+    evidence_ids = _evidence_ids(value.get("evidence_ids"), "helper evidence_ids")
+    return GuardHelperBinding(target, call_id, tuple(arguments), evidence_ids)
+
+
+def guarded_effect(value: JsonValue) -> GuardedEffectEvidence:
+    """Decode one strict path witness; call identity remains in `call_binding`."""
+    if not isinstance(value, RecordData) or {key for key, _ in value.entries} != {
+        "condition",
+        "condition_value",
+        "condition_evidence_ids",
+        "path_evidence_ids",
+        "effect_binding_evidence_ids",
+        "complete",
+        "unknown_reason",
+        "helper_bindings",
+    }:
+        raise ValueError("invalid guarded-effect fields")
+    selector = value.get("condition")
+    if not isinstance(selector, RecordData) or {key for key, _ in selector.entries} != {
+        "kind",
+        "owner",
+        "name",
+    }:
+        raise ValueError("invalid guarded-effect condition fields")
+    kind, owner, name = selector.get("kind"), selector.get("owner"), selector.get("name")
+    if not isinstance(kind, str) or not kind:
+        raise ValueError("invalid guarded-effect condition values")
+    if not isinstance(owner, str) or not owner:
+        raise ValueError("invalid guarded-effect condition values")
+    if not isinstance(name, str) or not name:
+        raise ValueError("invalid guarded-effect condition values")
+    condition = ConditionSelector(ConditionSelectorKind(kind), owner, name)
+    condition_value = value.get("condition_value")
+    if condition_value is not None and not isinstance(condition_value, bool):
+        raise ValueError("guarded-effect condition_value must be Boolean or null")
+    complete = value.get("complete")
+    if not isinstance(complete, bool):
+        raise ValueError("guarded-effect complete must be Boolean")
+    unknown_reason = value.get("unknown_reason")
+    if unknown_reason is not None and (not isinstance(unknown_reason, str) or not unknown_reason):
+        raise ValueError("guarded-effect unknown_reason must be nonempty or null")
+    if complete and unknown_reason is not None:
+        raise ValueError("complete guarded-effect evidence cannot retain unknown_reason")
+    if not complete and unknown_reason is None:
+        raise ValueError("incomplete guarded-effect evidence requires unknown_reason")
+    helpers_raw = value.get("helper_bindings")
+    if not isinstance(helpers_raw, tuple):
+        raise ValueError("guarded-effect helper_bindings must be an array")
+    effect_ids = value.get("effect_binding_evidence_ids")
+    if not isinstance(effect_ids, tuple):
+        raise ValueError("guarded-effect effect_binding_evidence_ids must be evidence IDs")
+    if any(not isinstance(item, str) or not item for item in effect_ids):
+        raise ValueError("guarded-effect effect_binding_evidence_ids must be evidence IDs")
+    if complete and not effect_ids:
+        raise ValueError("complete guarded-effect evidence requires call binding evidence")
+    return GuardedEffectEvidence(
+        condition,
+        condition_value,
+        _evidence_ids(value.get("condition_evidence_ids"), "condition_evidence_ids"),
+        _evidence_ids(value.get("path_evidence_ids"), "path_evidence_ids"),
+        tuple(item for item in effect_ids if isinstance(item, str)),
+        complete,
+        unknown_reason,
+        tuple(_guard_helper_binding(item) for item in helpers_raw),
+    )
 
 
 def call_binding(value: JsonValue) -> CallBinding | None:

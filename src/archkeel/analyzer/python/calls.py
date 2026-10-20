@@ -29,6 +29,7 @@ from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 
 from .binding_types import BindingKind
+from .guard_paths import GuardedCallPath, guarded_call_paths
 from .receiver_types import (
     ReceiverOrigin,
     ReceiverType,
@@ -42,7 +43,7 @@ from .resolve import (
     iterated_call_result_type,
     resolve_name,
 )
-from .scopes import LexicalScopes
+from .scopes import LexicalScopes, Scope
 from .source import (
     FunctionNode,
     ParsedModule,
@@ -80,6 +81,16 @@ def _partition_first(value: str, separator: str) -> tuple[str, str, str]:
         if value[index] == separator:
             return value[:index], separator, value[index + 1 :]
     return value, "", ""
+
+
+def _same_condition(expression: ast.expr, name: str, receiver: str | None) -> bool:
+    return (isinstance(expression, ast.Name) and expression.id == name) or (
+        receiver is not None
+        and isinstance(expression, ast.Attribute)
+        and expression.attr == name
+        and isinstance(expression.value, ast.Name)
+        and expression.value.id == receiver
+    )
 
 
 def _bind_receiver(
@@ -216,6 +227,65 @@ class CallCollector(ast.NodeVisitor):
             if (binding := self.scopes.lookup(reference, reference.id)).owner is not None
         }
         self.scope_bindings: dict[ast.ClassDef | FunctionNode, frozenset[str]] = {}
+        self.guarded_paths: dict[
+            tuple[FunctionNode, str], dict[tuple[int, int], tuple[GuardedCallPath, ...]]
+        ] = {}
+        member_paths: dict[
+            tuple[FunctionNode, str],
+            tuple[ast.ClassDef, ast.AST, dict[tuple[int, int], tuple[GuardedCallPath, ...]]],
+        ] = {}
+        for function in module.all_nodes:
+            if not isinstance(function, ast.FunctionDef | ast.AsyncFunctionDef):
+                continue
+            for argument in (
+                *function.args.posonlyargs,
+                *function.args.args,
+                *function.args.kwonlyargs,
+            ):
+                if annotation_text(argument.annotation) != "bool":
+                    continue
+                by_location: dict[tuple[int, int], list[GuardedCallPath]] = {}
+                for path in guarded_call_paths(function, argument.arg):
+                    by_location.setdefault((path.line, path.column), []).append(path)
+                self.guarded_paths[(function, argument.arg)] = {
+                    location: tuple(paths) for location, paths in by_location.items()
+                }
+            parent = self.parents.get(function)
+            if not isinstance(parent, ast.ClassDef) or function.decorator_list:
+                continue
+            receiver = next(iter((*function.args.posonlyargs, *function.args.args)), None)
+            if receiver is None:
+                continue
+            declarations: dict[str, list[ast.AST]] = {}
+            for statement in parent.body:
+                if (
+                    isinstance(statement, ast.AnnAssign)
+                    and isinstance(statement.target, ast.Name)
+                    and annotation_text(statement.annotation) == "bool"
+                ):
+                    declarations.setdefault(statement.target.id, []).append(statement)
+                if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef):
+                    for child in ast.walk(statement):
+                        if (
+                            isinstance(child, ast.AnnAssign)
+                            and isinstance(child.target, ast.Attribute)
+                            and isinstance(child.target.value, ast.Name)
+                            and child.target.value.id == receiver.arg
+                            and annotation_text(child.annotation) == "bool"
+                        ):
+                            declarations.setdefault(child.target.attr, []).append(child)
+            for name, sites in declarations.items():
+                if len(sites) != 1:
+                    continue
+                member_by_location: dict[tuple[int, int], list[GuardedCallPath]] = {}
+                for path in guarded_call_paths(function, name, receiver_name=receiver.arg):
+                    member_by_location.setdefault((path.line, path.column), []).append(path)
+                member_paths[(function, name)] = (
+                    parent,
+                    sites[0],
+                    {location: tuple(paths) for location, paths in member_by_location.items()},
+                )
+        self.member_paths = member_paths
 
     def _construction(
         self,
@@ -1248,6 +1318,175 @@ class CallCollector(ast.NodeVisitor):
             )
         return arguments
 
+    def _guarded_effect(
+        self,
+        node: ast.Call,
+        scope: Scope,
+        call_evidence_id: str,
+        item_id: str,
+        binding: RecordData | None,
+        *,
+        resolution_status: SourceResolution,
+        resolved_targets: list[str],
+    ) -> tuple[RecordData, ...]:
+        owner = scope.node
+        if not isinstance(owner, ast.FunctionDef | ast.AsyncFunctionDef):
+            return ()
+        candidates: list[tuple[str, str, str, ast.AST, tuple[GuardedCallPath, ...]]] = []
+        for argument in (*owner.args.posonlyargs, *owner.args.args, *owner.args.kwonlyargs):
+            paths = self.guarded_paths.get((owner, argument.arg), {}).get(
+                (node.lineno, node.col_offset), ()
+            )
+            if paths:
+                candidates.append(
+                    ("parameter", scope.qualified_name, argument.arg, argument, paths)
+                )
+        for (function, name), (
+            class_node,
+            declaration,
+            paths_by_location,
+        ) in self.member_paths.items():
+            if function is not owner:
+                continue
+            paths = paths_by_location.get((node.lineno, node.col_offset), ())
+            if paths:
+                class_scope = scope.parent
+                if class_scope is None or class_scope.node is not class_node:
+                    continue
+                candidates.append(("member", class_scope.qualified_name, name, declaration, paths))
+        facts: list[RecordData] = []
+        helper_bindings = self._helper_bindings(node, binding, item_id, candidates)
+        raise_constructor_target = None
+        if (
+            resolution_status is SourceResolution.RESOLVED
+            and len(resolved_targets) == 1
+            and resolved_targets[0].startswith("builtins.")
+        ):
+            builtin_name = resolved_targets[0].removeprefix("builtins.")
+            builtin_value = getattr(builtins, builtin_name, None)
+            if isinstance(builtin_value, type) and issubclass(builtin_value, BaseException):
+                raise_constructor_target = resolved_targets[0]
+        for kind, declaration_owner, name, declaration, paths in candidates:
+            for path in paths:
+                condition_evidence = add_evidence(self.evidence, self.module, declaration)
+                path_evidence = tuple(
+                    sorted(
+                        {
+                            add_evidence(self.evidence, self.module, path_node)
+                            for path_node in path.path_nodes
+                        }
+                    )
+                ) or (call_evidence_id,)
+                binding_ids = binding.get("evidence_ids") if binding is not None else None
+                effect_ids = binding_ids if isinstance(binding_ids, list) else []
+                complete = path.unknown_reason is None and bool(effect_ids)
+                facts.append(
+                    {
+                        "condition": {
+                            "kind": kind,
+                            "owner": declaration_owner,
+                            "name": name,
+                        },
+                        "condition_value": path.condition_value,
+                        "condition_evidence_ids": [condition_evidence],
+                        "path_evidence_ids": list(path_evidence),
+                        "effect_binding_evidence_ids": list(effect_ids),
+                        "complete": complete,
+                        "unknown_reason": (
+                            None
+                            if complete
+                            else path.unknown_reason
+                            if path.unknown_reason is not None
+                            else f"raise_constructor_builtin:{raise_constructor_target}"
+                            if path.raised_exception_constructor
+                            and raise_constructor_target is not None
+                            else "canonical_call_binding_missing"
+                        ),
+                        "helper_bindings": helper_bindings,
+                    }
+                )
+        return tuple(facts)
+
+    def _helper_bindings(
+        self,
+        node: ast.Call,
+        binding: RecordData | None,
+        item_id: str,
+        candidates: list[tuple[str, str, str, ast.AST, tuple[GuardedCallPath, ...]]],
+    ) -> list[RecordData]:
+        if binding is None or binding.get("origin") is not CallBindingOrigin.DIRECT:
+            return []
+        target = binding.get("target")
+        declaration = (
+            self.index.binding_declarations.get(target) if isinstance(target, str) else None
+        )
+        if declaration is None or declaration["kind"] != "function":
+            return []
+        target_data = declaration["data"]
+        visibility = target_data.get("visibility_detail")
+        if (
+            target_data.get("source_binding_unique") is not True
+            or target_data.get("source_binding_static") is not True
+            or target_data.get("decorators")
+            or not isinstance(visibility, dict)
+            or visibility.get("kind") != "private"
+        ):
+            return []
+
+        actual_nodes: list[ast.expr] = [
+            argument.value if isinstance(argument, ast.Starred) else argument
+            for argument in node.args
+        ]
+        actual_nodes.extend(argument.value for argument in node.keywords)
+        result: list[RecordData] = []
+        for kind, owner, name, _, _ in candidates:
+            actuals: list[RecordData] = []
+            evidence_ids = set(binding["evidence_ids"])
+            for index, expression in enumerate(actual_nodes):
+                evidence_id = add_evidence(
+                    self.evidence,
+                    self.module,
+                    (*node.args, *node.keywords)[index],
+                )
+                evidence_ids.add(evidence_id)
+                token_kind = "unknown"
+                token_value = None
+                condition = None
+                candidate = _same_condition(expression, name, "self" if kind == "member" else None)
+                if isinstance(expression, ast.Constant) and isinstance(expression.value, bool):
+                    token_kind = "boolean_literal"
+                    token_value = expression.value
+                elif candidate:
+                    token_kind = "condition"
+                    condition = {"kind": kind, "owner": owner, "name": name}
+                elif (
+                    isinstance(expression, ast.UnaryOp)
+                    and isinstance(expression.op, ast.Not)
+                    and _same_condition(
+                        expression.operand, name, "self" if kind == "member" else None
+                    )
+                ):
+                    token_kind = "not_condition"
+                    condition = {"kind": kind, "owner": owner, "name": name}
+                actuals.append(
+                    {
+                        "argument_index": index,
+                        "token_kind": token_kind,
+                        "token_value": token_value,
+                        "condition": condition,
+                        "evidence_ids": [evidence_id],
+                    }
+                )
+            result.append(
+                {
+                    "target": target,
+                    "call_id": item_id,
+                    "arguments": actuals,
+                    "evidence_ids": sorted(evidence_ids),
+                }
+            )
+        return result
+
     def visit_Call(self, node: ast.Call) -> None:
         scope = self.scopes.by_node[node]
         receivers = {
@@ -1278,6 +1517,15 @@ class CallCollector(ast.NodeVisitor):
                 for evidence_id in self.symbol_evidence.get(target, [])
             }
         )
+        guarded_effect = self._guarded_effect(
+            node,
+            scope,
+            evidence_id,
+            item_id,
+            binding,
+            resolution_status=status,
+            resolved_targets=targets,
+        )
         self.items.append(
             classified(
                 item_id=item_id,
@@ -1306,6 +1554,7 @@ class CallCollector(ast.NodeVisitor):
                         node, expression, status, targets, candidate_count > len(targets)
                     ),
                     "call_binding": binding,
+                    **({"guarded_effect": list(guarded_effect)} if guarded_effect else {}),
                 },
             )
         )

@@ -873,7 +873,11 @@ def _rule_receipt_complete(
 ) -> bool:
     if declaration.kind == "no_component_cycles":
         return receipt is not None and receipt.data.get("cycle_scope_complete") is True
-    if declaration.kind in {"call_owner", "forbidden_call_argument"}:
+    if declaration.kind in {
+        "call_owner",
+        "forbidden_call_argument",
+        "forbidden_effect_under_condition",
+    }:
         return (
             receipt is not None
             and receipt.rule_ids == (declaration.id,)
@@ -1012,7 +1016,12 @@ def dependency_binding_id(
                 "complete_requires",
             }
             or include_calls
-            and record.kind in {"call_owner", "forbidden_call_argument"}
+            and record.kind
+            in {
+                "call_owner",
+                "forbidden_call_argument",
+                "forbidden_effect_under_condition",
+            }
             or record.kind == "protocol_declarations"
         )
     ]

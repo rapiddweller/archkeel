@@ -15,6 +15,7 @@ from .facts import (
     MAX_NUMERIC_EVIDENCE_CHARS,
     MAX_STATIC_INTEGER,
     NATIVE_CALL_TARGETS,
+    GUARDED_EFFECTS_FEATURE,
     SOURCE_RESOLUTION_GAP_KIND,
     BuiltinTarget,
     CallBinding,
@@ -41,6 +42,7 @@ from .facts import (
     call_arguments,
     call_binding,
     contextmanager_signature,
+    guarded_effect,
     in_scope,
     member_inventories,
     parse_method_kind,
@@ -1405,6 +1407,38 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
         contextmanager_signature(record.data.get("contextmanager_signature"))
     if "base_declarations" in fields:
         _base_declarations(record, section)
+    if "guard_boolean_members" in fields:
+        value = record.data.get("guard_boolean_members")
+        if (
+            section is not SourceSectionName.SYMBOLS
+            or record.kind != "class"
+            or not isinstance(value, tuple)
+            or any(
+                not isinstance(item, RecordData)
+                or {key for key, _ in item.entries} != {"name", "evidence_ids"}
+                or not isinstance(item.get("name"), str)
+                or not item.get("name")
+                for item in value
+            )
+        ):
+            raise ValueError("guard Boolean member declarations need a class symbol")
+        if len({item.get("name") for item in value if isinstance(item, RecordData)}) != len(value):
+            raise ValueError("guard Boolean member declarations must have unique names")
+        for item in value:
+            if isinstance(item, RecordData):
+                evidence_ids = item.get("evidence_ids")
+                if (
+                    not isinstance(evidence_ids, tuple)
+                    or not evidence_ids
+                    or any(
+                        not isinstance(identifier, str) or not identifier
+                        for identifier in evidence_ids
+                    )
+                    or len(set(evidence_ids)) != len(evidence_ids)
+                ):
+                    raise ValueError(
+                        "guard Boolean member evidence_ids must be unique and nonempty"
+                    )
     if "call_binding" in fields:
         if section is not SourceSectionName.CALLS:
             raise ValueError("call binding needs its call owner")
@@ -1413,6 +1447,24 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
         if section is not SourceSectionName.CALLS:
             raise ValueError("call arguments need their call owner")
         call_arguments(record.data.get("call_arguments"))
+    if "guarded_effect" in fields:
+        if section != SourceSectionName.CALLS:
+            raise ValueError("guarded effect evidence needs its call owner")
+        raw_guarded = record.data.get("guarded_effect")
+        if not isinstance(raw_guarded, tuple):
+            raise ValueError("guarded effect evidence must be an array")
+        binding = call_binding(record.data.get("call_binding"))
+        for raw_item in raw_guarded:
+            proof = guarded_effect(raw_item)
+            if proof.complete and (
+                binding is None or proof.effect_binding_evidence_ids != binding.evidence_ids
+            ):
+                raise ValueError("guarded effect must reference its canonical call binding")
+            if any(
+                binding is None or helper.call_id != record.id or helper.target != binding.target
+                for helper in proof.helper_bindings
+            ):
+                raise ValueError("guarded-effect helper identity disagrees with its call binding")
     _payload(record.data)
 
 
@@ -1757,6 +1809,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
         raise ValueError("module evidence disagrees with source file")
     names = _unique((section.name for section in facts.sections), "section")
     declared = _unique(facts.capabilities.sections, "capability section")
+    resolution_features = _unique(facts.capabilities.resolution_features, "resolution feature")
     _unique((entry.name for entry in facts.capabilities.constructs), "construct capability")
     if names != declared:
         raise ValueError("source sections disagree with declared capabilities")
@@ -1829,6 +1882,17 @@ def validate_source_facts(facts: SourceFacts) -> None:
                 raise ValueError("source construct disagrees with declared capabilities")
     fact_ids = record_ids | file_ids
     for record in records:
+        guard_members = record.data.get("guard_boolean_members")
+        if isinstance(guard_members, tuple) and any(
+            isinstance(member, RecordData)
+            and isinstance((member_ids := member.get("evidence_ids")), tuple)
+            and any(
+                not isinstance(identifier, str) or identifier not in evidence_ids
+                for identifier in member_ids
+            )
+            for member in guard_members
+        ):
+            raise ValueError("guard Boolean member references missing source evidence")
         if not set(record.fact_ids).issubset(fact_ids):
             raise ValueError("dangling source fact reference")
     declarations: dict[str, list[Record]] = {}
@@ -1886,6 +1950,37 @@ def validate_source_facts(facts: SourceFacts) -> None:
                 or not set(record.evidence_ids) <= set(call_proof.evidence_ids)
             ):
                 raise ValueError("call binding evidence disagrees with its call")
+            guarded_raw = record.data.get("guarded_effect")
+            if guarded_raw is not None and (
+                facts.profile is not SourceProfile.PYTHON
+                or GUARDED_EFFECTS_FEATURE not in resolution_features
+            ):
+                raise ValueError("guarded-effect facts need their declared Python capability")
+            if guarded_raw is not None:
+                for item in guarded_raw if isinstance(guarded_raw, tuple) else ():
+                    proof = guarded_effect(item)
+                    if (
+                        not set(
+                            (
+                                *proof.condition_evidence_ids,
+                                *proof.path_evidence_ids,
+                                *proof.effect_binding_evidence_ids,
+                                *(
+                                    identifier
+                                    for helper in proof.helper_bindings
+                                    for identifier in helper.evidence_ids
+                                ),
+                                *(
+                                    identifier
+                                    for helper in proof.helper_bindings
+                                    for argument in helper.arguments
+                                    for identifier in argument.evidence_ids
+                                ),
+                            )
+                        )
+                        <= evidence_ids
+                    ):
+                        raise ValueError("guarded effect contains dangling evidence references")
             targets = record.data.get("targets")
             if call_proof is not None and (
                 not isinstance(targets, tuple)
