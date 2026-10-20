@@ -569,6 +569,10 @@
         "responsibility": "Pure validation and serialization of the process boundary."
       },
       {
+        "path": "src/archkeel/ir/guard_paths.py",
+        "responsibility": "Define the bounded source path grammar shared by collection and replay."
+      },
+      {
         "path": "src/archkeel/ir/codec_strings.py",
         "responsibility": "Intern lossless JSON strings for source and observation wire encodings."
       },

@@ -3,8 +3,51 @@
 # SPDX-License-Identifier: MIT
 
 import ast
+import json
+from pathlib import Path
 
 from archkeel.analyzer.python.guard_paths import guarded_call_paths
+from archkeel.ir.codec import parse_contract
+from archkeel.ir.model import requires_covers
+
+ROOT = Path(__file__).parents[1]
+
+
+def test_shared_path_grammar_has_declared_source_ownership():
+    root = json.loads((ROOT / "architecture-contract.json").read_text())
+    ir = json.loads((ROOT / "docs/architecture/contracts/ir.json").read_text())
+    python = json.loads((ROOT / "docs/architecture/contracts/python.json").read_text())
+    codec = next(item for item in ir["components"] if item["label"] == "facts-codec")
+    collectors = next(item for item in python["components"] if item["label"] == "collectors")
+    analyzer = next(item for item in root["components"] if item["label"] == "analyzer")
+    ir_owner = next(item for item in root["components"] if item["label"] == "ir")
+    required = next(item for item in analyzer["requires"] if item["component"] == "ir")
+
+    assert "archkeel.ir.guard_paths" in codec["packages"]
+    assert {
+        "archkeel.ir.guard_paths:GuardedCallPath",
+        "archkeel.ir.guard_paths:guarded_call_paths",
+    } <= set(codec["public"])
+    assert {
+        "archkeel.ir.guard_paths:GuardedCallPath",
+        "archkeel.ir.guard_paths:guarded_call_paths",
+    } <= set(required["through"])
+    assert {
+        "archkeel.ir.guard_paths:GuardedCallPath",
+        "archkeel.ir.guard_paths:guarded_call_paths",
+    } <= set(ir_owner["public"])
+    assert all(item["component"] != "facts-codec" for item in collectors["requires"])
+    parsed_root = parse_contract(root)
+    parsed_analyzer = next(item for item in parsed_root.components if item.label == "analyzer")
+    assert requires_covers(parsed_analyzer, "ir", "archkeel.ir.guard_paths", "guarded_call_paths")
+    expected_modules = {
+        "src/archkeel/ir/guard_paths.py",
+        "src/archkeel/analyzer/python/guard_paths.py",
+    }
+    declared_modules = {
+        item["path"] for contract in (ir, python) for item in contract["declarations"]["modules"]
+    }
+    assert expected_modules <= declared_modules
 
 
 def _paths(source: str, function_name: str = "target"):
