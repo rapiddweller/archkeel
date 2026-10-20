@@ -536,19 +536,25 @@ def _rules_widenings(
 def _requires_widenings(
     subject: str, before: tuple[RequiredComponent, ...], after: tuple[RequiredComponent, ...]
 ) -> list[WideningChange]:
-    before_map = {item.component: item for item in before}
-    after_map = {item.component: item for item in after}
-    findings = [
-        WideningChange(subject, "requires", f"{subject}.requires gained an edge to {name!r}")
-        for name in sorted(set(after_map) - set(before_map))
-    ]
-    # A requires entry no longer present is a removed permission: narrowing, not reported.
-    for name in sorted(set(before_map) & set(after_map)):
-        findings += _generic_field_widenings(
-            f"{subject}.requires[{name!r}]",
-            before_map[name],
-            after_map[name],
-            handled=frozenset({"component"}),
+    # A component may be required by several entries, so entries are compared as a set, never
+    # keyed by component: any entry not present before grants something new (fail closed),
+    # and an entry no longer present is a removed permission: narrowing, not reported.
+    before_entries = {(item.component, item.through, item.decided_by) for item in before}
+    before_components = {item.component for item in before}
+    findings: list[WideningChange] = []
+    for name, through, decided_by in sorted(
+        {(item.component, item.through, item.decided_by) for item in after} - before_entries,
+        key=repr,
+    ):
+        findings.append(
+            WideningChange(
+                subject,
+                "requires",
+                f"{subject}.requires gained an edge to {name!r}"
+                if name not in before_components
+                else f"{subject}.requires[{name!r}] gained an entry through {list(through)}"
+                + ("" if decided_by is None else f", decided by {decided_by}"),
+            )
         )
     return findings
 
