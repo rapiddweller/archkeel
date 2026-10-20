@@ -29,10 +29,47 @@ from archkeel.ir.profiles import PROFILES
 from archkeel.ir.widening import Amendment
 
 ROOT = Path(__file__).parents[1]
+SCHEMA_FILES = tuple(sorted((ROOT / "schema").glob("*.schema.json")))
 
 
 def _schema(name: str) -> dict:
     return json.loads((ROOT / "schema" / name).read_bytes())
+
+
+def _call_binding_refs(value: object) -> list[str]:
+    if isinstance(value, dict):
+        refs = [
+            reference
+            for key, reference in value.items()
+            if key == "$ref"
+            and isinstance(reference, str)
+            and reference.endswith("#/$defs/CallBinding")
+        ]
+        nested = []
+        for child in value.values():
+            nested.extend(_call_binding_refs(child))
+        return refs + nested
+    if isinstance(value, list):
+        return [reference for child in value for reference in _call_binding_refs(child)]
+    return []
+
+
+@pytest.mark.parametrize("schema_path", SCHEMA_FILES, ids=lambda path: path.name)
+def test_bundled_schemas_are_valid_draft_2020_12_schemas(schema_path: Path) -> None:
+    Draft202012Validator.check_schema(json.loads(schema_path.read_bytes()))
+
+
+@pytest.mark.parametrize(
+    ("version", "source_facts_version"),
+    [(f"2.{minor}", "4.0.0") for minor in range(1, 7)] + [("2.7", "5.0.0")],
+)
+def test_historical_python_schemas_reference_the_matching_call_binding_schema(
+    version: str, source_facts_version: str
+) -> None:
+    schema = _schema(f"architecture-ir-python-decoded-{version}.schema.json")
+    assert _call_binding_refs(schema) == [
+        f"https://archkeel.dev/schema/source-facts/{source_facts_version}#/$defs/CallBinding"
+    ]
 
 
 @pytest.fixture(scope="module")
