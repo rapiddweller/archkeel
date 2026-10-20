@@ -1366,7 +1366,7 @@ class ConstructCollector(ast.NodeVisitor):
                     operation="probe",
                     receiver_node=node.args[0],
                 )
-            elif receiver is not None or self._parameter_receiver(node.args[0]):
+            else:
                 self._selector_record(
                     node, "reflect", receiver, None, status="unknown", operation="probe"
                 )
@@ -1393,12 +1393,7 @@ class ConstructCollector(ast.NodeVisitor):
     def _string_predicate_selector(
         self, node: ast.Call, predicate: _StringPredicate | None
     ) -> None:
-        if (
-            predicate is None
-            or not isinstance(node.func, ast.Attribute)
-            or not node.args
-            or not _predicate_matches(self.comparisons, node.args[0])
-        ):
+        if predicate is None or not isinstance(node.func, ast.Attribute) or not node.args:
             return
         selected = node.func.value
         receiver_node = selected.value if isinstance(selected, ast.Attribute) else selected
@@ -1408,9 +1403,7 @@ class ConstructCollector(ast.NodeVisitor):
             else self._receiver_type(selected)
         )
         member = selected.attr if isinstance(selected, ast.Attribute) else node.func.attr
-        if receiver_type is None and not (
-            isinstance(selected, ast.Attribute) and self._parameter_receiver(receiver_node)
-        ):
+        if receiver_type is None and not isinstance(selected, ast.Attribute):
             return
         literals = self.comparisons.string_values(node.args[0])
         if literals is not None:
@@ -1438,7 +1431,7 @@ class ConstructCollector(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         name = _as_written(node.func)
-        if name is not None and name in _REFLECTION_CALLS:
+        if name is not None and name in _REFLECTION_CALLS and self._builtin_call(node.func, name):
             self._record(node, kind=_REFLECTION_CALLS[name], construct=name, handled=None)
             self._reflection_selector(node, name)
         self._selected_type_call(node, name)
@@ -1464,7 +1457,8 @@ class ConstructCollector(ast.NodeVisitor):
         if node.attr == "__dict__" and not outer_of_chain:
             self._record(node, kind="dunder_dict", construct="dunder_dict", handled=None)
         receiver = self._receiver_type(node.value)
-        if receiver is not None or self._parameter_receiver(node.value):
+        unresolved_name = isinstance(node.value, ast.Name) and node.value.id not in {"self", "cls"}
+        if receiver is not None or self._parameter_receiver(node.value) or unresolved_name:
             parent = self.parents.get(node)
             operation = (
                 "call"
@@ -1526,7 +1520,7 @@ class ConstructCollector(ast.NodeVisitor):
                                 "compare",
                                 selected.value,
                             )
-                    elif receiver is not None or self._parameter_receiver(selected.value):
+                    else:
                         self._selector_record(
                             selected,
                             role,
@@ -1551,42 +1545,41 @@ class ConstructCollector(ast.NodeVisitor):
         if isinstance(node.subject, ast.Attribute):
             receiver_node = node.subject.value
             receiver = self._receiver_type(receiver_node)
-            if receiver is not None or self._parameter_receiver(receiver_node):
-                values: list[str] = []
-                unsupported = False
-                for case in node.cases:
-                    pattern = case.pattern
-                    if isinstance(pattern, ast.MatchValue):
-                        literal = self.comparisons.string_value(pattern.value)
-                        if literal is None:
-                            unsupported = True
-                        else:
-                            values.append(literal)
-                    elif any(isinstance(part, ast.MatchValue) for part in ast.walk(pattern)):
+            values: list[str] = []
+            unsupported = False
+            for case in node.cases:
+                pattern = case.pattern
+                if isinstance(pattern, ast.MatchValue):
+                    literal = self.comparisons.string_value(pattern.value)
+                    if literal is None:
                         unsupported = True
-                status = "decided" if receiver is not None else "unknown"
-                for literal in dict.fromkeys(values):
-                    self._selector_record(
-                        node,
-                        "match",
-                        receiver,
-                        node.subject.attr,
-                        literal,
-                        status,
-                        "compare",
-                        receiver_node,
-                    )
-                if unsupported or not values:
-                    self._selector_record(
-                        node,
-                        "match",
-                        receiver,
-                        node.subject.attr,
-                        None,
-                        "unknown",
-                        "compare",
-                        receiver_node,
-                    )
+                    else:
+                        values.append(literal)
+                elif any(isinstance(part, ast.MatchValue) for part in ast.walk(pattern)):
+                    unsupported = True
+            status = "decided" if receiver is not None else "unknown"
+            for literal in dict.fromkeys(values):
+                self._selector_record(
+                    node,
+                    "match",
+                    receiver,
+                    node.subject.attr,
+                    literal,
+                    status,
+                    "compare",
+                    receiver_node,
+                )
+            if unsupported or not values:
+                self._selector_record(
+                    node,
+                    "match",
+                    receiver,
+                    node.subject.attr,
+                    None,
+                    "unknown",
+                    "compare",
+                    receiver_node,
+                )
         self.generic_visit(node)
 
     def _record(

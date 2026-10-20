@@ -30,6 +30,10 @@ from archkeel.ir.codec import (
     parse_observation,
 )
 from archkeel.ir.codec_contract import parse_contract
+from archkeel.ir.codec_observation import (
+    _ObservationVersion,
+    _validate_selector_and_argument_versions,
+)
 from archkeel.ir.decisions import (
     rule_assessments,
     rule_evaluation_binding_id,
@@ -40,6 +44,7 @@ from archkeel.ir.facts import (
     CallBinding,
     CallBindingOrigin,
     Evidence,
+    EvidenceClass,
     ForbiddenConstructKind,
     Record,
     RecordData,
@@ -51,7 +56,13 @@ from archkeel.ir.facts_codec import (
     selector_receiver_site_matches,
 )
 from archkeel.ir.facts_validation import _selector_evidence_excerpt
-from archkeel.ir.model import ConstructSelector, ConstructSelectorRole, ForbiddenConstructRule
+from archkeel.ir.model import (
+    ConstructSelector,
+    ConstructSelectorRole,
+    ForbiddenConstructRule,
+    Section,
+)
+from archkeel.ir.profiles import ObservedSection, profile_for
 from archkeel.ir.trace import trace_valid_violations
 
 
@@ -108,6 +119,21 @@ def test_selected_scope_without_applicable_facts_is_unknown():
     assert len(findings) == 1
     assert findings[0]["evidence_class"] == "UNKNOWN"
     assert findings[0]["kind"] == "construct_selector_unknown"
+
+
+def test_shadowed_reflection_names_are_not_builtin_constructs():
+    module = _parsed_module(
+        "def getattr(value, name): return value\n"
+        "def route(value):\n"
+        '    getattr(value, "backend")\n'
+        "    def hasattr(value, name): return True\n"
+        '    hasattr(value, "backend")\n',
+        module="sample.core",
+    )
+
+    facts = collect_constructs([module], {})
+
+    assert not [row for row in facts if row["kind"] in {"getattr_call", "hasattr_call"}]
 
 
 def test_dynamic_call_facts_for_one_source_site_produce_one_construct_finding():
@@ -238,6 +264,157 @@ def test_ambiguous_string_predicate_does_not_disappear_beside_safe_literal():
     findings = _construct_violations(signals, [rule])
     assert not any(row["evidence_class"] == "VIOLATION" for row in findings)
     assert any(row["evidence_class"] == "UNKNOWN" for row in findings)
+
+
+@pytest.mark.parametrize(
+    ("source", "role"),
+    [
+        (
+            "class Connection:\n    backend: str\n"
+            "def route(conn: Connection, key):\n"
+            "    candidate = factory()\n"
+            '    conn.backend == "wide"\n'
+            "    candidate.backend == key\n",
+            ConstructSelectorRole.EQUALITY,
+        ),
+        (
+            "class Connection:\n    backend: str\n"
+            "def route(conn: Connection):\n"
+            "    candidate = factory()\n"
+            '    match conn.backend:\n        case "wide": pass\n'
+            '    match candidate.backend:\n        case "flat": pass\n',
+            ConstructSelectorRole.MATCH,
+        ),
+        (
+            "class Connection:\n    backend: str\n"
+            "def route(conn: Connection):\n"
+            "    candidate = factory()\n"
+            "    candidate.backend\n",
+            ConstructSelectorRole.READ,
+        ),
+        (
+            "class Connection:\n    backend: str\n"
+            "def route(conn: Connection):\n"
+            "    candidate = factory()\n"
+            "    candidate.backend()\n",
+            ConstructSelectorRole.CALL,
+        ),
+        (
+            "class Connection:\n    backend: str\n"
+            "def route(conn: Connection):\n"
+            "    candidate = factory()\n"
+            '    candidate.backend = "flat"\n',
+            ConstructSelectorRole.WRITE,
+        ),
+        (
+            "class Connection:\n    backend: str\n"
+            "def route(conn: Connection):\n"
+            "    candidate = factory()\n"
+            '    getattr(candidate, "backend")\n',
+            ConstructSelectorRole.REFLECT,
+        ),
+        (
+            "class Connection:\n    backend: str\n"
+            "def route(conn: Connection, key):\n"
+            "    candidate = factory()\n"
+            "    candidate.backend.startswith(key)\n",
+            ConstructSelectorRole.STARTSWITH,
+        ),
+    ],
+)
+def test_unresolved_local_receivers_remain_in_selector_inventory(
+    source: str, role: ConstructSelectorRole
+):
+    signals = collect_constructs([_parsed_module(source, module="sample.core")], {})
+    unresolved = [
+        row
+        for row in signals
+        if row["kind"] == "construct_selector"
+        and row["data"]["selector_role"] == role.value
+        and row["data"]["status"] == "unknown"
+    ]
+    assert unresolved
+    assert all(row["data"]["receiver_type"] is None for row in unresolved)
+    rule = ForbiddenConstructRule(
+        "SELECT",
+        ArchitectureRuleKind.FORBIDDEN_CONSTRUCT,
+        "sample.core",
+        (),
+        "Keep the selected receiver proven.",
+        ("test",),
+        DecisionMaker.ARCHITECT,
+        selector=ConstructSelector("sample.core.Connection", "backend", role, "flat"),
+    )
+    findings = _construct_violations(signals, [rule])
+    assert not any(row["evidence_class"] == "VIOLATION" for row in findings)
+    assert any(row["evidence_class"] == "UNKNOWN" for row in findings)
+
+
+def test_unproven_local_string_predicate_is_retained_as_unknown():
+    module = _parsed_module(
+        'def route():\n    connection = factory()\n    connection.backend.startswith("flat")\n',
+        module="sample.core",
+    )
+
+    signals = collect_constructs([module], {})
+    [selector] = [
+        row
+        for row in signals
+        if row["kind"] == "construct_selector" and row["data"]["selector_role"] == "startswith"
+    ]
+
+    assert selector["data"]["receiver_type"] is None
+    assert selector["data"]["member"] == "backend"
+    assert selector["data"]["status"] == "unknown"
+
+
+@pytest.mark.parametrize(
+    ("section_name", "kind", "entries"),
+    [
+        (ObservedSection.CONSTRUCTS, "construct_selector", ()),
+        (ObservedSection.UNKNOWNS, "construct_selector_unknown", ()),
+        (
+            "declarations",
+            "forbidden_construct",
+            (("selector", RecordData(())),),
+        ),
+        (
+            "scope_observations",
+            "rule_evaluation",
+            (("claim", "construct_selector"),),
+        ),
+        (
+            "scope_observations",
+            "rule_evaluation",
+            (("selector", RecordData(())),),
+        ),
+    ],
+)
+def test_selector_vocabulary_requires_its_introducing_observation_version(
+    section_name: str, kind: str, entries: tuple[tuple[str, object], ...]
+):
+    record = Record(
+        "RECORD-1",
+        EvidenceClass.FACT,
+        "type_architecture",
+        kind,
+        "selector fixture",
+        (),
+        (),
+        (),
+        (),
+        (),
+        RecordData(entries),
+    )
+    sections = (Section(section_name, (record,)),)
+
+    with pytest.raises(ValueError, match="selector facts require observation schema 2.6.0"):
+        _validate_selector_and_argument_versions(
+            _ObservationVersion.V2_5, sections, profile_for("archkeel-python-analyzer")
+        )
+    _validate_selector_and_argument_versions(
+        _ObservationVersion.V2_6, sections, profile_for("archkeel-python-analyzer")
+    )
 
 
 def test_collector_and_evaluator_select_member_and_literal_not_spellings():
@@ -644,15 +821,15 @@ def test_selected_membership_match_predicates_aliases_and_roles():
     assert reflects[0]["status"] == "unknown"
 
 
-def test_selector_receiver_collection_reuses_stored_field_proof():
+def test_selector_receiver_collection_reuses_stored_field_proof_for_call_predicate():
     module = _parsed_module(
         "class Connection:\n    backend: str\n"
         "class Label:\n    backend: str\n"
         "class Holder:\n"
         "    def __init__(self, conn: Connection, label: Label):\n"
         "        self.conn = conn\n        self.label = label\n"
-        '    def route(self):\n        self.conn.backend == "flat"\n'
-        '        self.label.backend == "flat"\n',
+        '    def route(self):\n        self.conn.backend.startswith("flat")\n'
+        '        self.label.backend.startswith("flat")\n',
         module="sample.core",
     )
     evidence = {}
@@ -668,7 +845,6 @@ def test_selector_receiver_collection_reuses_stored_field_proof():
     )
     donor = next(row for row in selectors if row["data"]["receiver_type"] == "sample.core.Label")
     assert selector["data"]["status"] == "decided"
-    assert selector["data"]["receiver_type"] == "sample.core.Connection"
     binding = selector["data"]["receiver_binding"]
     assert binding["origin"] == "stored_receiver"
     assert binding["proof"]["kind"] == "stored_field"
@@ -698,6 +874,32 @@ def test_selector_receiver_collection_reuses_stored_field_proof():
     assert not selector_receiver_site_matches(
         changed, changed_binding, None, declarations, evidence_records
     )
+
+
+def test_selector_receiver_collection_marks_escaped_equality_receiver_unknown():
+    module = _parsed_module(
+        "class Connection:\n    backend: str\n"
+        "class Holder:\n"
+        "    def __init__(self, conn: Connection): self.conn = conn\n"
+        '    def route(self): self.conn.backend == "flat"\n',
+        module="sample.core",
+    )
+    evidence = {}
+    symbols, _, _ = collect_symbols([module], evidence)
+    symbol_index = build_symbol_index(symbols)
+    _, resolvers = collect_calls_with_resolvers([module], symbol_index, evidence)
+    facts = collect_constructs(
+        [module], evidence, symbol_index=symbol_index, receiver_resolvers=resolvers
+    )
+    selector = next(
+        row
+        for row in facts
+        if row["kind"] == "construct_selector"
+        and row["data"].get("selector_role") == "equality"
+        and row["data"].get("member") == "backend"
+    )
+    assert selector["data"]["receiver_type"] is None
+    assert selector["data"]["status"] == "unknown"
 
 
 def test_constructed_selector_assignment_cannot_be_retargeted_to_another_type():
@@ -862,6 +1064,18 @@ def test_native_saved_report_keeps_fail_and_unknown_for_selected_scope(tmp_path:
             relabeled["references"].append(item)
     with pytest.raises(ValueError, match="selector facts require observation schema 2.6.0"):
         parse_observation(relabeled)
+    stripped = copy.deepcopy(relabeled)
+    stripped["constructs"] = [
+        row for row in stripped["constructs"] if row["kind"] != "construct_selector"
+    ]
+    assert stripped["declarations"]
+    assert any(row["kind"] == "construct_selector_unknown" for row in stripped["unknowns"])
+    assert any(
+        row["kind"] == "rule_evaluation" and row["data"].get("claim") == "construct_selector"
+        for row in stripped["scope_observations"]
+    )
+    with pytest.raises(ValueError, match="selector facts require observation schema 2.6.0"):
+        parse_observation(stripped)
 
     ordinary = observation_payload(model)
     columnar = decode_canonical_model(json.loads(encoded))
@@ -958,7 +1172,7 @@ def _transplant_label_selector(payload: dict[str, object]) -> None:
     )
 
 
-def test_native_stored_and_constructed_selector_receivers_replay_and_reject_retarget(
+def test_native_escaped_stored_and_constructed_selector_receivers_replay(
     tmp_path: Path,
 ):
     root = tmp_path / "repo"
@@ -974,6 +1188,12 @@ def test_native_stored_and_constructed_selector_receivers_replay_and_reject_reta
         '        self.label.backend == "flat"\n'
         "        built = Built()\n"
         '        built.backend == "flat"\n'
+        "class StoredHolder:\n"
+        "    def __init__(self, conn: Connection, label: Label):\n"
+        "        self.conn = conn\n        self.label = label\n"
+        "    def route(self):\n"
+        '        self.conn.backend.startswith("flat")\n'
+        '        self.label.backend.startswith("flat")\n'
     )
     (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
     contract = {
@@ -1010,6 +1230,21 @@ def test_native_stored_and_constructed_selector_receivers_replay_and_reject_reta
                 "provenance": ["contract.json"],
                 "decided_by": "architect",
             },
+            {
+                "id": "SELECT_STORED",
+                "kind": "forbidden_construct",
+                "source": "sample.core",
+                "constructs": ["string_literal_compare"],
+                "selector": {
+                    "receiver": "sample.core.Connection",
+                    "member": "backend",
+                    "role": "startswith",
+                    "literal": "flat",
+                },
+                "rationale": "Keep stored connection route selection explicit.",
+                "provenance": ["contract.json"],
+                "decided_by": "architect",
+            },
         ],
     }
     (root / "contract.json").write_text(json.dumps(contract))
@@ -1028,16 +1263,15 @@ def test_native_stored_and_constructed_selector_receivers_replay_and_reject_reta
     )
     assert encoded is not None, result.diagnostics
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
-    selected = [
+    equality_unknown = [
         row
         for row in model.records("constructs")
         if row.kind == "construct_selector"
         and row.data.get("selector_role") == "equality"
-        and row.data.get("receiver_type") == "sample.core.Connection"
+        and row.data.get("member") == "backend"
+        and row.data.get("receiver_type") is None
     ]
-    assert {row.data.get("receiver_binding").get("origin") for row in selected} == {
-        "stored_receiver"
-    }
+    assert {row.data.get("status") for row in equality_unknown} == {"unknown"}
     built = [
         row
         for row in model.records("constructs")
@@ -1048,8 +1282,19 @@ def test_native_stored_and_constructed_selector_receivers_replay_and_reject_reta
     assert {row.data.get("receiver_binding").get("origin") for row in built} == {
         "constructed_receiver"
     }
-    assert next(row for row in result.rule_assessments if row.id == "SELECT").status == "FAIL"
+    stored = [
+        row
+        for row in model.records("constructs")
+        if row.kind == "construct_selector"
+        and row.data.get("selector_role") == "startswith"
+        and row.data.get("receiver_type") == "sample.core.Connection"
+    ]
+    assert {row.data.get("receiver_binding").get("origin") for row in stored} == {"stored_receiver"}
+    assert next(row for row in result.rule_assessments if row.id == "SELECT").status == "UNKNOWN"
     assert next(row for row in result.rule_assessments if row.id == "SELECT_BUILT").status == "FAIL"
+    assert (
+        next(row for row in result.rule_assessments if row.id == "SELECT_STORED").status == "FAIL"
+    )
 
     payloads = (observation_payload(model), decode_canonical_model(json.loads(encoded)))
     for index, payload in enumerate(payloads):
@@ -1057,16 +1302,22 @@ def test_native_stored_and_constructed_selector_receivers_replay_and_reject_reta
         valid_path.write_bytes(canonical_json_bytes(payload))
         replay = run_saved_report(valid_path)
         assert not replay.diagnostics
-        assert next(row for row in replay.rule_assessments if row.id == "SELECT").status == "FAIL"
+        assert (
+            next(row for row in replay.rule_assessments if row.id == "SELECT").status == "UNKNOWN"
+        )
         assert (
             next(row for row in replay.rule_assessments if row.id == "SELECT_BUILT").status
+            == "FAIL"
+        )
+        assert (
+            next(row for row in replay.rule_assessments if row.id == "SELECT_STORED").status
             == "FAIL"
         )
 
         selectors = [
             row
             for row in payload["constructs"]
-            if row["kind"] == "construct_selector" and row["data"]["selector_role"] == "equality"
+            if row["kind"] == "construct_selector" and row["data"]["selector_role"] == "startswith"
         ]
         target = next(
             row
@@ -1382,8 +1633,32 @@ def test_selector_partial_source_scope_is_unknown_without_hiding_known_failures(
 
 
 @pytest.mark.parametrize("mounted", [False, True], ids=["root", "mounted"])
+@pytest.mark.parametrize(
+    ("local_use", "role", "literal", "safe_literal"),
+    [
+        (
+            "candidate.backend == key",
+            "equality",
+            "flat",
+            "wide",
+        ),
+        (
+            'match candidate.backend:\n        case "flat": pass',
+            "match",
+            "flat",
+            "wide",
+        ),
+        (
+            'unclear.backend == "flat"',
+            "equality",
+            "round",
+            "flat",
+        ),
+    ],
+    ids=["dynamic-compare", "match-case", "unannotated-parameter"],
+)
 def test_ambiguous_selector_receiver_is_unknown_live_and_in_saved_reports(
-    tmp_path: Path, mounted: bool
+    tmp_path: Path, mounted: bool, local_use: str, role: str, literal: str, safe_literal: str
 ):
     root = tmp_path / "repo"
     (root / "sample").mkdir(parents=True)
@@ -1391,10 +1666,11 @@ def test_ambiguous_selector_receiver_is_unknown_live_and_in_saved_reports(
     (root / "sample/core.py").write_text(
         "class Connection:\n    backend: str\n"
         "class Label:\n    backend: str\n"
-        "def route(conn: Connection, label: Label, unclear):\n"
-        '    conn.backend == "flat"\n'
+        "def route(conn: Connection, label: Label, key, unclear):\n"
+        f'    conn.backend == "{safe_literal}"\n'
         '    label.backend == "flat"\n'
-        '    unclear.backend == "flat"\n'
+        "    candidate = factory()\n"
+        f"    {local_use}\n"
     )
     (root / "docs/architecture").mkdir(parents=True)
     (root / "docs/architecture/sample.md").write_text("Selector fixture.\n")
@@ -1407,8 +1683,8 @@ def test_ambiguous_selector_receiver_is_unknown_live_and_in_saved_reports(
         "selector": {
             "receiver": "sample.core.Connection",
             "member": "backend",
-            "role": "equality",
-            "literal": "round",
+            "role": role,
+            "literal": literal,
         },
         "rationale": "Keep route selection on the declared port.",
         "provenance": ["docs/architecture/sample.md"],
@@ -1477,8 +1753,8 @@ def test_ambiguous_selector_receiver_is_unknown_live_and_in_saved_reports(
     selector = receipt.data.get("selector")
     assert selector.get("receiver") == "sample.core.Connection"
     assert selector.get("member") == "backend"
-    assert selector.get("role") == "equality"
-    assert selector.get("literal") == "round"
+    assert selector.get("role") == role
+    assert selector.get("literal") == literal
     proof = receipt.data.get("selector_scope_proof")
     assert proof.get("source_modules") == ("sample", "sample.core")
     assert proof.get("selected_files") == ("sample/__init__.py", "sample/core.py")

@@ -3057,7 +3057,9 @@ def _native_receiver_witness(
                     and isinstance(references, tuple)
                     and witnesses.intersection(item for item in references if isinstance(item, str))
                     and any(
-                        item in evidence and evidence[item].line < _record_line(record, evidence)
+                        item in evidence
+                        and (evidence[item].line, evidence[item].column)
+                        < _record_position(record, evidence)
                         for item in references
                         if isinstance(item, str)
                     )
@@ -3068,9 +3070,13 @@ def _native_receiver_witness(
     raise ValueError("native receiver needs its exact captured Random construction")
 
 
-def _record_line(record: Record, evidence: Mapping[str, Evidence]) -> int:
-    lines = [evidence[item].line for item in record.evidence_ids if item in evidence]
-    return min(lines) if lines else 0
+def _record_position(record: Record, evidence: Mapping[str, Evidence]) -> tuple[int, int]:
+    positions = [
+        (evidence[item].line, evidence[item].column)
+        for item in record.evidence_ids
+        if item in evidence
+    ]
+    return min(positions) if positions else (0, 0)
 
 
 def _stored_method_path(
@@ -4826,7 +4832,7 @@ def _validate_definition_source_span(role: Record, canonical: str, witness: Evid
     if declaration is None:
         return
     matched: re.Match[str] = declaration
-    observed: str = matched.group(1)
+    observed: str = matched[1]
     observed_tail: str = observed.rsplit(".", 1)[-1]
     if observed_tail.strip() != expected:
         raise ValueError("definition role name disagrees with its source span")
@@ -4865,6 +4871,10 @@ def _validate_parameter_source_role(
         or owner_scope.startswith(scope + ".")
     ):
         raise ValueError("parameter role scope disagrees with its declaration owner")
+    if role.data.get("role") == "parameter_default":
+        _validate_parameter_default_owner(
+            role, parameter_name, declaration_id, owner_scope, witness, records, evidence
+        )
     kind, targets, status = (
         role.data.get("expression_kind"),
         role.data.get("targets"),
@@ -4881,6 +4891,111 @@ def _validate_parameter_source_role(
             raise ValueError("source role target lacks matching reference evidence")
     else:
         raise ValueError("parameter role has an unsupported value expression kind")
+
+
+def _validate_parameter_default_owner(
+    role: Record,
+    parameter_name: str,
+    declaration_id: str,
+    owner_scope: str,
+    witness: Evidence,
+    records: tuple[Record, ...],
+    evidence: Mapping[str, Evidence],
+) -> None:
+    declarations = [
+        record
+        for record in records
+        if record.id == declaration_id
+        and record.kind in {"function", "method"}
+        and record.data.get("qualified_name") == owner_scope
+    ]
+    if len(declarations) != 1:
+        raise ValueError("parameter default source witness needs its declared callable")
+    declaration = declarations[0]
+    default = _parameter_default_value(declaration, parameter_name)
+    owner_evidence = [evidence[item] for item in declaration.evidence_ids]
+    spans = [
+        item
+        for item in owner_evidence
+        if item.file == witness.file and item.line <= witness.line <= item.end_line
+    ]
+    if len(spans) != 1:
+        raise ValueError("parameter default source witness is outside its callable")
+    if witness.line == spans[0].line and witness.excerpt == spans[0].excerpt:
+        _validate_parameter_default_span(role, default, witness)
+        return
+    if role.data.get("expression_kind") != "unsupported":
+        raise ValueError("parameter default source witness is not in its callable header")
+    expression = role.data.get("expression")
+    status = role.data.get("status")
+    targets = role.data.get("targets")
+    if (
+        status == SourceResolution.RESOLVED
+        or targets != ()
+        or not isinstance(expression, str)
+        or not _same_expression(expression, default)
+    ):
+        raise ValueError("unbounded parameter default must remain unsupported")
+
+
+def _parameter_default_value(declaration: Record, parameter_name: str) -> str:
+    parameters = declaration.data.get("parameters")
+    if not isinstance(parameters, tuple):
+        raise ValueError("parameter default source witness needs declared formals")
+    leaf = parameter_name.rpartition(".")[2]
+    matching = [
+        item for item in parameters if isinstance(item, RecordData) and item.get("name") == leaf
+    ]
+    if len(matching) != 1:
+        raise ValueError("parameter default source witness needs one declared formal")
+    parameter = matching[0]
+    default = parameter.get("default")
+    if parameter.get("default_known") is not True or not isinstance(default, str):
+        raise ValueError("parameter default source witness needs a known default")
+    return default
+
+
+def _validate_parameter_default_span(role: Record, default: str, witness: Evidence) -> None:
+    start, end = role.data.get("column"), role.data.get("end_column")
+    excerpt: str = witness.excerpt
+    encoded: bytes = excerpt.encode("utf-8")
+    if (
+        not isinstance(start, int)
+        or not isinstance(end, int)
+        or not 0 <= start < end <= len(encoded)
+    ):
+        raise ValueError("parameter default source witness has an invalid span")
+    span_bytes: bytes = encoded[start:end]
+    span: str = span_bytes.decode("utf-8", errors="ignore")
+    if not _same_expression(span, default):
+        raise ValueError("parameter default source witness disagrees with its callable default")
+    kind = role.data.get("expression_kind")
+    if kind == "reference":
+        expression = role.data.get("expression")
+        if not isinstance(expression, str) or not _same_expression(expression, default):
+            raise ValueError("parameter default expression disagrees with its callable default")
+    elif kind == "literal":
+        constant = role.data.get("constant")
+        try:
+            value = ast.literal_eval(default)
+        except (ValueError, SyntaxError):
+            raise ValueError("parameter default literal is invalid") from None
+        if type(constant) is not type(value) or constant != value:
+            raise ValueError("parameter default literal disagrees with its callable default")
+    elif kind == "unsupported":
+        if role.data.get("status") == SourceResolution.RESOLVED or role.data.get("targets") != ():
+            raise ValueError("unsupported parameter default cannot be resolved")
+    else:
+        raise ValueError("parameter default expression kind is invalid")
+
+
+def _same_expression(first: str, second: str) -> bool:
+    try:
+        left = ast.parse(first, mode="eval").body
+        right = ast.parse(second, mode="eval").body
+    except SyntaxError:
+        return False
+    return ast.dump(left, include_attributes=False) == ast.dump(right, include_attributes=False)
 
 
 def _validate_owned_source_role(

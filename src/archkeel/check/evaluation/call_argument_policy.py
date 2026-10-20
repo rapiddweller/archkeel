@@ -218,10 +218,16 @@ def _evaluate_calls(
         indexes = next(
             (actuals for formal, actuals in bound.by_parameter if formal == parameter), ()
         )
-        for index in indexes:
-            argument = actuals[index]
-            if argument.value_kind is CallArgumentValueKind.STRING_LITERAL:
-                violations.append(_violation(rule, scope, call, binding, argument.evidence_ids))
+        literal_evidence = sorted(
+            {
+                evidence_id
+                for index in indexes
+                if actuals[index].value_kind is CallArgumentValueKind.STRING_LITERAL
+                for evidence_id in actuals[index].evidence_ids
+            }
+        )
+        if literal_evidence:
+            violations.append(_violation(rule, scope, call, binding, literal_evidence))
     return violations, limits
 
 
@@ -1278,7 +1284,10 @@ def _signature_has_parameter(signature: RecordData | None, name: str) -> bool:
         return False
     for parameter in parameters:
         parameter_name = parameter.get("name") if isinstance(parameter, RecordData) else None
-        if isinstance(parameter_name, str) and parameter_name in {name, f"*{name}", f"**{name}"}:
+        if isinstance(parameter_name, str) and name in {
+            parameter_name,
+            parameter_name.lstrip("*"),
+        }:
             return True
     return False
 
