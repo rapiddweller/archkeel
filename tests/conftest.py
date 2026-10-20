@@ -1,6 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+import argparse
 import json
 import subprocess
 import sys
@@ -93,3 +94,30 @@ def pytest_testnodedown(error: object | None) -> None:
     # xdist can return success after a worker crashes during collection.
     if error is not None:
         pytest.exit(f"Test worker crashed: {error}", returncode=1)
+
+
+def _shard(value: str) -> tuple[int, int]:
+    index, _, total = value.partition("/")
+    if not (index.isdigit() and total.isdigit() and int(index) < int(total)):
+        raise argparse.ArgumentTypeError(f"expected I/N with 0 <= I < N, got {value!r}")
+    return int(index), int(total)
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption("--shard", type=_shard, help="run every N-th collected test from I: I/N")
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    shard = config.getoption("shard")
+    if shard is None:
+        return
+    index, total = shard
+    # Round-robin by test, not by file: one slow file must not pin a whole shard.
+    kept = items[index::total]
+    if not kept:
+        raise pytest.UsageError(f"--shard={index}/{total} selects no tests")
+    config.hook.pytest_deselected(
+        items=[item for number, item in enumerate(items) if number % total != index]
+    )
+    items[:] = kept
