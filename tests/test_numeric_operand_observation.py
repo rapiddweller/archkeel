@@ -231,17 +231,35 @@ def test_numeric_alias_claim_must_be_a_preceding_unique_binding_in_its_scope(
     "source",
     [
         "WIDTH = 4\nchoose = lambda job_nonce, WIDTH: job_nonce % WIDTH\n",
+        "WIDTH = 4\nchoose = lambda WIDTH: (lambda job_nonce: job_nonce % WIDTH)\n",
+        "WIDTH = 4\nchoose = lambda job_nonce: (WIDTH := 3, job_nonce % WIDTH)[1]\n",
         "WIDTH = 4\nvalues = [job_nonce % WIDTH for WIDTH in (1,)]\n",
+        "WIDTH = 4\nvalues = [(WIDTH := 3, job_nonce % WIDTH)[1] for job_nonce in (1,)]\n",
         "WIDTH = 4\nclass Holder:\n    WIDTH = 8\n"
         "    choose = lambda job_nonce, WIDTH: job_nonce % WIDTH\n",
         "WIDTH = 4\nclass Holder:\n    WIDTH = 8\n"
+        "    choose = lambda WIDTH: (lambda job_nonce: job_nonce % WIDTH)\n",
+        "WIDTH = 4\nclass Holder:\n    WIDTH = 8\n"
+        "    choose = lambda job_nonce: (WIDTH := 3, job_nonce % WIDTH)[1]\n",
+        "WIDTH = 4\nclass Holder:\n    WIDTH = 8\n"
         "    values = [job_nonce % WIDTH for WIDTH in (1,)]\n",
+        "WIDTH = 4\ndef choose(WIDTH):\n    return lambda job_nonce: job_nonce % WIDTH\n",
+        "WIDTH = 4\nclass Holder:\n"
+        "    def choose(self, WIDTH):\n"
+        "        return lambda job_nonce: job_nonce % WIDTH\n",
     ],
     ids=[
         "module-lambda-parameter",
+        "nested-module-lambda-parameter",
+        "module-lambda-walrus",
         "module-comprehension-target",
+        "module-comprehension-walrus",
         "class-lambda-parameter",
+        "nested-class-lambda-parameter",
+        "class-lambda-walrus",
         "class-comprehension-target",
+        "named-function-parameter",
+        "named-method-parameter",
     ],
 )
 def test_anonymous_class_scope_binders_reject_forged_module_alias(tmp_path, source):
@@ -265,6 +283,7 @@ def test_anonymous_class_scope_binders_reject_forged_module_alias(tmp_path, sour
         )
     )
     payload = json.loads(encode_response(CollectionResponse(facts)))
+    assert decode_response(json.dumps(payload).encode()).facts == facts
     operation = next(
         row
         for section in payload["facts"]["sections"]
@@ -292,6 +311,50 @@ def test_anonymous_class_scope_binders_reject_forged_module_alias(tmp_path, sour
         }
     ]
     operation["evidence_ids"].append(width["id"])
+
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_local_numeric_alias_forgery_respects_anonymous_outer_binding(tmp_path):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "def outer():\n"
+        "    WIDTH = 4\n"
+        "    safe = lambda job_nonce: job_nonce % WIDTH\n"
+        "    shadow = lambda job_nonce, WIDTH: job_nonce % WIDTH\n"
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    assert decode_response(json.dumps(payload).encode()).facts == facts
+    operations = [
+        row
+        for section in payload["facts"]["sections"]
+        for row in section["records"]
+        if row["kind"] == "numeric_operand"
+    ]
+    safe = next(row for row in operations if row["data"]["proof"] == "known")
+    shadow = next(row for row in operations if row["data"]["proof"] == "unknown")
+    shadow["data"]["proof"] = "known"
+    shadow["data"]["value"] = 4
+    shadow["data"]["derivation"] = safe["data"]["derivation"]
+    shadow["evidence_ids"].extend(safe["evidence_ids"])
 
     with pytest.raises(ProtocolError):
         decode_response(json.dumps(payload).encode())

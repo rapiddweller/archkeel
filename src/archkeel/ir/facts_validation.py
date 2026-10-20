@@ -900,11 +900,12 @@ def _numeric_local_alias_assignment(
         return None
     owner, line_offset = owner_result
     use = _numeric_operation_in_owner(owner, operation, scope_evidence, line_offset, owner_name)
-    return (
-        _numeric_unique_local_assignment(owner, origin, scope_evidence, line_offset, use)
-        if use is not None
-        else None
-    )
+    if (
+        use is None
+        or _numeric_anonymous_scope_allows_module(owner, use, str(origin.get("name"))) is False
+    ):
+        return None
+    return _numeric_unique_local_assignment(owner, origin, scope_evidence, line_offset, use)
 
 
 def _numeric_module_alias_supported(
@@ -1064,13 +1065,14 @@ def _numeric_module_use_scope(
     )
     if operation_node is None:
         return False
+    anonymous_scope = _numeric_anonymous_scope_allows_module(owner, operation_node, name)
+    if anonymous_scope is False:
+        return False
+    if isinstance(owner, ast.ClassDef) and anonymous_scope is True:
+        return True
     is_method_scope = operation.data.get("owner") != owner_name and symbol.kind == "class"
     if is_method_scope:
         return True
-    if isinstance(owner, ast.ClassDef):
-        anonymous_scope = _numeric_anonymous_scope_allows_module(owner, operation_node, name)
-        if anonymous_scope is not None:
-            return anonymous_scope
     return not _numeric_other_binding(owner, name) and not any(
         isinstance(node, ast.Name) and node.id == name and isinstance(node.ctx, ast.Store | ast.Del)
         for node in _numeric_lexical_scope_nodes(owner)
@@ -1121,32 +1123,59 @@ def _numeric_anonymous_scope_allows_module(
         child: parent for parent in ast.walk(owner) for child in ast.iter_child_nodes(parent)
     }
     node = operation
+    found_anonymous_scope = False
+    name_is_bound = False
     while node is not owner:
         parent = parents.get(node)
         if parent is None:
-            return None
+            return False
         if isinstance(parent, ast.Lambda) and node is parent.body:
+            found_anonymous_scope = True
             arguments = parent.args
             parameters = (
                 *arguments.posonlyargs,
                 *arguments.args,
                 *arguments.kwonlyargs,
             )
-            bound = any(argument.arg == name for argument in parameters)
-            bound = bound or arguments.vararg is not None and arguments.vararg.arg == name
-            bound = bound or arguments.kwarg is not None and arguments.kwarg.arg == name
-            return not bound
+            name_is_bound = name_is_bound or any(argument.arg == name for argument in parameters)
+            name_is_bound = name_is_bound or (
+                arguments.vararg is not None and arguments.vararg.arg == name
+            )
+            name_is_bound = name_is_bound or (
+                arguments.kwarg is not None and arguments.kwarg.arg == name
+            )
+            name_is_bound = name_is_bound or _numeric_anonymous_walrus_binds(parent.body, name)
         if isinstance(parent, ast.ListComp | ast.SetComp | ast.GeneratorExp | ast.DictComp):
             if parent.generators and not _numeric_is_within(
                 operation, parent.generators[0].iter, parents
             ):
-                return not any(
+                found_anonymous_scope = True
+                name_is_bound = name_is_bound or any(
                     isinstance(target, ast.Name) and target.id == name
                     for generator in parent.generators
                     for target in ast.walk(generator.target)
                 )
+                name_is_bound = name_is_bound or _numeric_anonymous_walrus_binds(parent, name)
         node = parent
-    return None
+    return not name_is_bound if found_anonymous_scope else None
+
+
+def _numeric_anonymous_walrus_binds(scope: ast.AST, name: str) -> bool:
+    pending = [scope]
+    while pending:
+        node = pending.pop()
+        if node is not scope and isinstance(
+            node, ast.Lambda | ast.ListComp | ast.SetComp | ast.GeneratorExp | ast.DictComp
+        ):
+            continue
+        if (
+            isinstance(node, ast.NamedExpr)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == name
+        ):
+            return True
+        pending.extend(ast.iter_child_nodes(node))
+    return False
 
 
 def _numeric_is_within(
