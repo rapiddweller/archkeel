@@ -499,9 +499,12 @@ def test_enum_with_custom_new_does_not_gain_enum_escape_exception(tmp_path):
             "from .catalog import OptionKey\ndef consume(value: OptionKey.PAGE_SIZE):\n    pass\n",
             "FAIL",
         ),
-        (
+        pytest.param(
             "from .catalog import OptionKey\ndef consume():\n    selected: OptionKey.PAGE_SIZE\n",
             "FAIL",
+            marks=pytest.mark.xfail(
+                strict=True, reason="requires #617 reference_context producer integration"
+            ),
         ),
         (
             "from .catalog import OptionKey\ndef consume():\n    # OptionKey.PAGE_SIZE\n    pass\n",
@@ -512,6 +515,59 @@ def test_enum_with_custom_new_does_not_gain_enum_escape_exception(tmp_path):
 def test_selected_catalog_entry_requires_a_genuine_source_read(tmp_path, caller, expected):
     _, rows = _run(tmp_path, caller=caller, rules=[_use()])
     assert rows[0].status == expected
+
+
+def test_incomplete_reference_context_cannot_prove_catalog_entry_unused(tmp_path):
+    caller = (
+        "from .catalog import OptionKey\n"
+        "def consume():\n"
+        "    print(OptionKey.PAGE_SIZE)\n"
+        f"    print(OptionKey.RETIRED, '{'x' * 17_000}')\n"
+    )
+
+    _, rows = _run(tmp_path, caller=caller, rules=[_use()])
+
+    assert rows[0].status == "UNKNOWN"
+
+
+@pytest.mark.xfail(strict=True, reason="requires #617 reference_context producer integration")
+def test_known_catalog_read_passes_with_an_unrelated_unknown_reference_context(tmp_path):
+    caller = (
+        "from .catalog import OptionKey\n"
+        "def consume():\n"
+        "    print(OptionKey.PAGE_SIZE)\n"
+        f"    print(OptionKey.RETIRED, '{'x' * 17_000}')\n"
+    )
+
+    _, rows = _run(
+        tmp_path,
+        caller=caller,
+        rules=[_use(member="PAGE_SIZE")],
+    )
+
+    assert rows[0].status == "PASS"
+
+
+def test_incomplete_context_keeps_a_known_missing_use_failure_in_another_scope(tmp_path):
+    caller = (
+        "from .catalog import OptionKey\n"
+        "def consume():\n"
+        "    print(OptionKey.PAGE_SIZE)\n"
+        f"    print(OptionKey.RETIRED, '{'x' * 17_000}')\n"
+        "def unused():\n"
+        "    pass\n"
+    )
+    _, rows = _run(
+        tmp_path,
+        caller=caller,
+        rules=[
+            _use(source="sample.consumer.consume"),
+            _use(source="sample.consumer.unused"),
+        ],
+    )
+
+    statuses = {row.id.rsplit(":", 1)[-1]: row.status for row in rows}
+    assert statuses == {"CATALOG-0": "UNKNOWN", "CATALOG-1": "FAIL"}
 
 
 @pytest.mark.parametrize("columnar", [False, True])

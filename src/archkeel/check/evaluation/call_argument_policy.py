@@ -558,9 +558,17 @@ def _catalog_reference_context_complete(
     references: Sequence[RawRecord], reference_data: dict[str, RecordData]
 ) -> bool:
     return all(
-        _record_text(reference_data[reference["id"]], "reference_context")
-        in {"value", "annotation"}
-        for reference in references
+        _catalog_reference_context_known(reference, reference_data) for reference in references
+    )
+
+
+def _catalog_reference_context_known(
+    reference: RawRecord, reference_data: dict[str, RecordData]
+) -> bool:
+    data = reference_data[reference["id"]]
+    context = _record_text(data, "reference_context")
+    return context in {"value", "annotation"} or (
+        context is None and _record_text(data, "declaration_scope") is not None
     )
 
 
@@ -787,7 +795,7 @@ def _catalog_use_results(
 ) -> tuple[list[RawRecord], list[RawRecord]]:
     violations: list[RawRecord] = []
     limits: list[RawRecord] = []
-    if not references_measured or not context_complete:
+    if not references_measured:
         limits.append(
             _catalog_limit(
                 rule,
@@ -816,6 +824,7 @@ def _catalog_use_results(
         if _record_text(reference_data[reference["id"]], "declaration_scope") is None
         and _record_text(reference_data[reference["id"]], "reference_context") == "value"
     ]
+    unused: list[tuple[str, RawRecord]] = []
     for identity, (owner, _, _) in selected_entries.items():
         owner_name = _record_text(parse_record(owner).data, "qualified_name")
         used = any(
@@ -824,7 +833,10 @@ def _catalog_use_results(
             == last_name(identity)
             for reference in value_refs
         )
-        if not used and complete and references_measured:
+        if used:
+            continue
+        unused.append((identity, owner))
+        if complete and references_measured and context_complete:
             violations.append(
                 _catalog_violation(
                     rule,
@@ -834,6 +846,15 @@ def _catalog_use_results(
                     [owner],
                 )
             )
+    if unused and references_measured and not context_complete:
+        limits.append(
+            _catalog_limit(
+                rule,
+                scope,
+                "Incomplete reference contexts cannot prove an entry has no source read",
+                [*supporting_facts, *(owner for _, owner in unused)],
+            )
+        )
     return violations, limits
 
 
