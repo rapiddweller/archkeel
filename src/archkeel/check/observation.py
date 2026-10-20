@@ -895,6 +895,8 @@ def _certify_source_ownership_scopes(
         for r in scan.scope_observations
         if r["kind"] == "rule_evaluation" and len(r["rule_ids"]) == 1 and r["rule_ids"][0] in rules
     ]
+    if not receipts:
+        return
     proof = {
         "source_digest": facts.source.source_digest,
         "source_scope": list(facts.source.scope),
@@ -902,9 +904,12 @@ def _certify_source_ownership_scopes(
         "selected_files": list(facts.coverage.selected_files),
     }
     inventory_binding_id = _dependency_binding_id(scan, declarations, include_source_ownership=True)
-    result_sections = (
-        Section("violations", tuple(parse_record(item) for item in scan.violations)),
-        Section("unknowns", tuple(parse_record(item) for item in scan.unknowns)),
+    result_sections = tuple(
+        Section(
+            name,
+            tuple(parse_record(decode_json(canonical_json_bytes(item))) for item in records),
+        )
+        for name, records in (("violations", scan.violations), ("unknowns", scan.unknowns))
     )
     for receipt in receipts:
         receipt["data"]["source_ownership_scope_proof"] = {
