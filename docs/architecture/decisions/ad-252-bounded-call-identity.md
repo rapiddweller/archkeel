@@ -9,8 +9,11 @@ Stored fields are admitted when one plain initializer copies one typed parameter
 to one `self.field`, the owner and type resolve uniquely, and no competing write,
 delete, descriptor, or dynamic attribute hook is observed. Construction is
 admitted for one stable imported or local class with a proved default instance
-result. Inheritance follows a unique, source-resolved single-base chain and names
-the defining method. Ambiguous bases and inherited overrides remain UNKNOWN.
+result. Inherited method resolution is available only after the receiver is
+otherwise admitted; inheriting a default constructor does not by itself prove
+default construction. Inheritance follows a unique, source-resolved single-base
+chain and names the defining method. Ambiguous bases and inherited overrides
+remain UNKNOWN.
 
 The native witness is a stable, unshadowed import binding to one of these
 canonical CPython standard-library identities: `random.random`, `random.Random`
@@ -31,6 +34,10 @@ versions. This consistency binding does not authenticate a modified artifact
 or prove runtime dispatch.
 There is no general runtime type inference, dynamic dispatch, custom allocation,
 arbitrary descriptor, or arbitrary MRO support.
+Member assignments and deletions, including `setattr` and `delattr`, revoke a
+matching native identity. A statically unresolved member name conservatively
+revokes native members under the affected provider; a uniquely known unrelated
+member does not revoke other native identities.
 
 [Digest-bound declaration amendment](ad-252-bounded-call-identity-amendment.json)
 records the new public proof field without raising any measurement budget.

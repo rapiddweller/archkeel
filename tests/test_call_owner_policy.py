@@ -494,6 +494,172 @@ def test_native_member_mutation_revokes_identity(tmp_path):
 
 
 @pytest.mark.parametrize(
+    "caller,expression,extra",
+    [
+        (
+            "from .storage import Storage\n"
+            "def replacement(self): pass\n"
+            "def run():\n store=Storage()\n store.page=replacement\n store.page()\n",
+            "store.page",
+            {"sample/storage.py": "class Storage:\n def page(self): pass\n"},
+        ),
+        (
+            "from .storage import Storage, Other\n"
+            "storage=Storage()\n"
+            "class Holder:\n"
+            " def __init__(self, client: Storage): self.client=client\n"
+            " def run(self): self.client.page()\n"
+            "holder=Holder(storage)\nholder.client=Other()\nholder.run()\n",
+            "self.client.page",
+            {
+                "sample/storage.py": (
+                    "class Storage:\n def page(self): pass\nclass Other:\n def page(self): pass\n"
+                )
+            },
+        ),
+        (
+            "from .storage import Storage\n"
+            "class Holder:\n"
+            " def __init__(self, client: Storage): self.client=client\n"
+            " def run(self): self.client.page()\n"
+            "storage=Storage()\nholder=Holder(storage)\n"
+            "def run(): holder.run()\n",
+            "self.client.page",
+            {
+                "sample/storage.py": (
+                    "class Storage:\n def page(self): pass\nclass Other:\n def page(self): pass\n"
+                ),
+                "sample/mutator.py": (
+                    "from .caller import holder\nfrom .storage import Other\n"
+                    "holder.client=Other()\n"
+                ),
+            },
+        ),
+    ],
+    ids=["constructed-instance-write", "external-stored-field-write", "cross-module-field-write"],
+)
+@pytest.mark.parametrize("columnar", [False, True])
+def test_receiver_member_mutation_is_unknown_in_native_and_saved_reports(
+    tmp_path, caller, expression, extra, columnar
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        caller,
+        target="sample.storage.Storage.page",
+        allowed=(),
+        extra=extra,
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == expression
+    )
+    assert call.data.get("call_binding") is None
+    path = tmp_path / "mutated-receiver-report.json"
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("columnar", [False, True])
+def test_unmutated_holder_stored_receiver_remains_proven_on_replay(tmp_path, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\n"
+        "class Holder:\n"
+        " def __init__(self, client: Storage): self.client=client\n"
+        " def run(self): self.client.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+    )
+    assert row.status == "FAIL" and row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    )
+    assert call.data.get("call_binding").get("target") == "sample.storage.Storage.page"
+    path = tmp_path / "unmutated-holder-report.json"
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == row.status
+    assert replayed.evaluation_proven == row.evaluation_proven
+
+
+@pytest.mark.parametrize("operation", ["setattr", "delattr"])
+@pytest.mark.parametrize(
+    "name_expression,expected",
+    [("'random'", "UNKNOWN"), ("name", "UNKNOWN"), ("'shuffle'", "PASS")],
+    ids=["matching-static-name", "unresolved-name", "unrelated-static-name"],
+)
+@pytest.mark.parametrize("columnar", [False, True])
+def test_dynamic_native_mutation_is_bounded_and_replays(
+    tmp_path, operation, name_expression, expected, columnar
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    mutation = (
+        f"{operation}(random, {name_expression}, replacement)\n"
+        if operation == "setattr"
+        else f"{operation}(random, {name_expression})\n"
+    )
+    name_binding = "name = choose_name()\n" if name_expression == "name" else ""
+    result, row = _observe(
+        tmp_path,
+        "import random\n"
+        + name_binding
+        + "def choose_name(): return 'random'\n"
+        + "def replacement(): return 0\n"
+        + "def mutate():\n    "
+        + mutation
+        + "mutate()\n"
+        + "def run(): random.random()\n",
+        target="random.random",
+        allowed=("sample.caller.run", "sample.caller.mutate"),
+        source="sample.caller.run",
+    )
+    proven = expected == "PASS"
+    assert row.status == expected and row.evaluation_proven is proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "random.random"
+    )
+    if proven:
+        assert call.data.get("call_binding").get("target") == "random.random"
+    else:
+        assert call.data.get("call_binding") is None
+    path = tmp_path / "native-mutation-report.json"
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == row.status
+    assert replayed.evaluation_proven == row.evaluation_proven
+
+
+@pytest.mark.parametrize(
     "caller",
     [
         "from datetime import datetime as clock\n"
