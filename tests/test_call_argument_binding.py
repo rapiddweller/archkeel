@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: MIT
 """Actuals bind only through admitted pure-data Python signatures."""
 
+import pytest
+
 from archkeel.check.evaluation.call_arguments import bind_call_arguments
 from archkeel.ir.facts import CallArgument, CallArgumentKind, CallArgumentValueKind, RecordData
 
@@ -136,3 +138,23 @@ def test_variadic_actuals_keep_their_own_formal_destinations():
         ("label", (2,)),
         ("options", (3,)),
     )
+
+
+@pytest.mark.parametrize(
+    "parameters",
+    [(), (_parameter("options", "kwargs"),), (_parameter("label", "keyword_only"),)],
+)
+def test_bound_receiver_needs_a_positional_destination(parameters):
+    assert bind_call_arguments(_signature(*parameters), (), bound_receiver=True) is None
+
+
+def test_variadic_bound_receiver_still_requires_keyword_only_actuals():
+    signature = _signature(_parameter("*args", "varargs"), _parameter("label", "keyword_only"))
+    assert bind_call_arguments(signature, (), bound_receiver=True) is None
+    result = bind_call_arguments(
+        signature,
+        (_argument("positional"), _argument("keyword", "label")),
+        bound_receiver=True,
+    )
+    assert result is not None
+    assert result.by_parameter == (("args", (0,)), ("label", (1,)))
