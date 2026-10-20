@@ -1535,11 +1535,12 @@ def _source_ownership_violations(
     for rule in rules:
         if not isinstance(rule, SourceOwnershipRule):
             continue
-        owner_module = rule.value_owner.rsplit(".", 1)[0] if rule.value_owner is not None else None
-        owner_records = _ownership_owner_records(symbols, rule.value_owner, source_modules)
+        value_owner: str | None = rule.value_owner
+        owner_module = value_owner.rsplit(".", 1)[0] if value_owner is not None else None
+        owner_records = _ownership_owner_records(symbols, value_owner, source_modules)
         owner_data: dict[str, object] = owner_records[0]["data"] if owner_records else {}
         value_owner_valid = (
-            rule.value_owner is None
+            value_owner is None
             or len(owner_records) == 1
             and owner_data.get("record_kind") == "static_constant"
             and (source_modules is None or owner_module in source_modules)
@@ -1725,10 +1726,11 @@ def _unknown_source_value_owner(
     symbols: Sequence[RawRecord],
     source_modules: frozenset[str] | None,
 ) -> RawRecord | None:
-    if rule.value_owner is None:
+    value_owner: str | None = rule.value_owner
+    if value_owner is None:
         return None
-    owner_module = rule.value_owner.rsplit(".", 1)[0]
-    owners = _ownership_owner_records(symbols, rule.value_owner, source_modules)
+    owner_module = value_owner.rsplit(".", 1)[0]
+    owners = _ownership_owner_records(symbols, value_owner, source_modules)
     owner_data: dict[str, object] = owners[0]["data"] if owners else {}
     if (
         len(owners) == 1
@@ -1741,8 +1743,8 @@ def _unknown_source_value_owner(
         evidence_class=EvidenceClass.UNKNOWN,
         area="source_architecture",
         kind="source_ownership_limit",
-        title=f"Cannot establish one canonical value owner for {rule.value_owner}",
-        subjects=[rule.value_owner],
+        title=f"Cannot establish one canonical value owner for {value_owner}",
+        subjects=[value_owner],
         rule_ids=[rule.id],
         data={"source": rule.source, "owner": rule.value_owner},
     )
