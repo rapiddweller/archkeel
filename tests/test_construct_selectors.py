@@ -717,15 +717,15 @@ def test_selected_membership_match_predicates_aliases_and_roles():
     assert reflects[0]["status"] == "unknown"
 
 
-def test_selector_receiver_collection_reuses_stored_field_proof():
+def test_selector_receiver_collection_reuses_stored_field_proof_for_call_predicate():
     module = _parsed_module(
         "class Connection:\n    backend: str\n"
         "class Label:\n    backend: str\n"
         "class Holder:\n"
         "    def __init__(self, conn: Connection, label: Label):\n"
         "        self.conn = conn\n        self.label = label\n"
-        '    def route(self):\n        self.conn.backend == "flat"\n'
-        '        self.label.backend == "flat"\n',
+        '    def route(self):\n        self.conn.backend.startswith("flat")\n'
+        '        self.label.backend.startswith("flat")\n',
         module="sample.core",
     )
     evidence = {}
@@ -741,7 +741,6 @@ def test_selector_receiver_collection_reuses_stored_field_proof():
     )
     donor = next(row for row in selectors if row["data"]["receiver_type"] == "sample.core.Label")
     assert selector["data"]["status"] == "decided"
-    assert selector["data"]["receiver_type"] == "sample.core.Connection"
     binding = selector["data"]["receiver_binding"]
     assert binding["origin"] == "stored_receiver"
     assert binding["proof"]["kind"] == "stored_field"
@@ -771,6 +770,26 @@ def test_selector_receiver_collection_reuses_stored_field_proof():
     assert not selector_receiver_site_matches(
         changed, changed_binding, None, declarations, evidence_records
     )
+
+
+def test_selector_receiver_collection_marks_escaped_equality_receiver_unknown():
+    module = _parsed_module(
+        "class Connection:\n    backend: str\n"
+        "class Holder:\n"
+        "    def __init__(self, conn: Connection): self.conn = conn\n"
+        '    def route(self): self.conn.backend == "flat"\n',
+        module="sample.core",
+    )
+    evidence = {}
+    symbols, _, _ = collect_symbols([module], evidence)
+    symbol_index = build_symbol_index(symbols)
+    _, resolvers = collect_calls_with_resolvers([module], symbol_index, evidence)
+    facts = collect_constructs(
+        [module], evidence, symbol_index=symbol_index, receiver_resolvers=resolvers
+    )
+    [selector] = [row for row in facts if row["kind"] == "construct_selector"]
+    assert selector["data"]["receiver_type"] is None
+    assert selector["data"]["status"] == "unknown"
 
 
 def test_constructed_selector_assignment_cannot_be_retargeted_to_another_type():
@@ -1034,7 +1053,7 @@ def _transplant_label_selector(payload: dict[str, object]) -> None:
     )
 
 
-def test_native_stored_and_constructed_selector_receivers_replay_and_reject_retarget(
+def test_native_escaped_stored_and_constructed_selector_receivers_replay(
     tmp_path: Path,
 ):
     root = tmp_path / "repo"
@@ -1050,6 +1069,12 @@ def test_native_stored_and_constructed_selector_receivers_replay_and_reject_reta
         '        self.label.backend == "flat"\n'
         "        built = Built()\n"
         '        built.backend == "flat"\n'
+        "class StoredHolder:\n"
+        "    def __init__(self, conn: Connection, label: Label):\n"
+        "        self.conn = conn\n        self.label = label\n"
+        "    def route(self):\n"
+        '        self.conn.backend.startswith("flat")\n'
+        '        self.label.backend.startswith("flat")\n'
     )
     (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
     contract = {
@@ -1086,6 +1111,21 @@ def test_native_stored_and_constructed_selector_receivers_replay_and_reject_reta
                 "provenance": ["contract.json"],
                 "decided_by": "architect",
             },
+            {
+                "id": "SELECT_STORED",
+                "kind": "forbidden_construct",
+                "source": "sample.core",
+                "constructs": ["string_literal_compare"],
+                "selector": {
+                    "receiver": "sample.core.Connection",
+                    "member": "backend",
+                    "role": "startswith",
+                    "literal": "flat",
+                },
+                "rationale": "Keep stored connection route selection explicit.",
+                "provenance": ["contract.json"],
+                "decided_by": "architect",
+            },
         ],
     }
     (root / "contract.json").write_text(json.dumps(contract))
@@ -1104,16 +1144,15 @@ def test_native_stored_and_constructed_selector_receivers_replay_and_reject_reta
     )
     assert encoded is not None, result.diagnostics
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
-    selected = [
+    equality_unknown = [
         row
         for row in model.records("constructs")
         if row.kind == "construct_selector"
         and row.data.get("selector_role") == "equality"
-        and row.data.get("receiver_type") == "sample.core.Connection"
+        and row.data.get("member") == "backend"
+        and row.data.get("receiver_type") is None
     ]
-    assert {row.data.get("receiver_binding").get("origin") for row in selected} == {
-        "stored_receiver"
-    }
+    assert {row.data.get("status") for row in equality_unknown} == {"unknown"}
     built = [
         row
         for row in model.records("constructs")
@@ -1124,8 +1163,19 @@ def test_native_stored_and_constructed_selector_receivers_replay_and_reject_reta
     assert {row.data.get("receiver_binding").get("origin") for row in built} == {
         "constructed_receiver"
     }
-    assert next(row for row in result.rule_assessments if row.id == "SELECT").status == "FAIL"
+    stored = [
+        row
+        for row in model.records("constructs")
+        if row.kind == "construct_selector"
+        and row.data.get("selector_role") == "startswith"
+        and row.data.get("receiver_type") == "sample.core.Connection"
+    ]
+    assert {row.data.get("receiver_binding").get("origin") for row in stored} == {"stored_receiver"}
+    assert next(row for row in result.rule_assessments if row.id == "SELECT").status == "UNKNOWN"
     assert next(row for row in result.rule_assessments if row.id == "SELECT_BUILT").status == "FAIL"
+    assert (
+        next(row for row in result.rule_assessments if row.id == "SELECT_STORED").status == "FAIL"
+    )
 
     payloads = (observation_payload(model), decode_canonical_model(json.loads(encoded)))
     for index, payload in enumerate(payloads):
@@ -1133,16 +1183,22 @@ def test_native_stored_and_constructed_selector_receivers_replay_and_reject_reta
         valid_path.write_bytes(canonical_json_bytes(payload))
         replay = run_saved_report(valid_path)
         assert not replay.diagnostics
-        assert next(row for row in replay.rule_assessments if row.id == "SELECT").status == "FAIL"
+        assert (
+            next(row for row in replay.rule_assessments if row.id == "SELECT").status == "UNKNOWN"
+        )
         assert (
             next(row for row in replay.rule_assessments if row.id == "SELECT_BUILT").status
+            == "FAIL"
+        )
+        assert (
+            next(row for row in replay.rule_assessments if row.id == "SELECT_STORED").status
             == "FAIL"
         )
 
         selectors = [
             row
             for row in payload["constructs"]
-            if row["kind"] == "construct_selector" and row["data"]["selector_role"] == "equality"
+            if row["kind"] == "construct_selector" and row["data"]["selector_role"] == "startswith"
         ]
         target = next(
             row
