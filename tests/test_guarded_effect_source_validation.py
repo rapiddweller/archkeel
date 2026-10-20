@@ -58,6 +58,89 @@ def test_source_facts_reject_guard_truth_retargeted_from_path_evidence(tmp_path)
         decode_response(json.dumps(payload).encode())
 
 
+@pytest.mark.parametrize(
+    ("body", "expected_values"),
+    [
+        (
+            "if seeded:\n        pass\n    else:\n        pass\n    _effect()",
+            {True, False},
+        ),
+        ("if seeded:\n        return\n    _effect()", {False}),
+        ("if seeded:\n        raise ValueError()\n    _effect()", {False}),
+        ("if seeded:\n        pass\n    else:\n        _effect()", {False}),
+        (
+            "if seeded:\n        if not seeded:\n            _effect()\n    else:\n        pass",
+            {False},
+        ),
+    ],
+)
+def test_source_facts_replay_full_function_guard_paths(tmp_path, body, expected_values):
+    payload = _payload(
+        tmp_path,
+        f"def _effect(): pass\ndef generate(seeded: bool):\n    {body}\n",
+    )
+    call = _call(payload, "_effect")
+    values = {item["condition_value"] for item in call["data"]["guarded_effect"]}
+
+    assert values == expected_values
+    decode_response(json.dumps(payload).encode())
+
+
+def test_source_facts_reject_polarity_not_reachable_at_call_site(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "def _effect(): pass\n"
+        "def generate(seeded: bool):\n"
+        "    if seeded:\n"
+        "        return\n"
+        "    _effect()\n",
+    )
+    _call(payload, "_effect")["data"]["guarded_effect"][0]["condition_value"] = True
+
+    with pytest.raises(
+        ValueError, match="guarded-effect condition value disagrees with its source path"
+    ):
+        decode_response(json.dumps(payload).encode())
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "if seeded:\n        pass\n    else:\n        _effect()",
+        "if seeded:\n        if not seeded:\n            _effect()\n    else:\n        pass",
+    ],
+)
+def test_source_facts_reject_tampered_else_and_nested_guard_polarity(tmp_path, body):
+    payload = _payload(
+        tmp_path,
+        f"def _effect(): pass\ndef generate(seeded: bool):\n    {body}\n",
+    )
+    _call(payload, "_effect")["data"]["guarded_effect"][0]["condition_value"] = True
+
+    with pytest.raises(
+        ValueError, match="guarded-effect condition value disagrees with its source path"
+    ):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_oversized_guard_context_is_scoped_to_unknown(tmp_path):
+    large_literal = "x" * 16_385
+    payload = _payload(
+        tmp_path,
+        "def _effect(): pass\n"
+        "def generate(seeded: bool):\n"
+        "    if seeded:\n"
+        "        _effect()\n"
+        f"    value = '{large_literal}'\n",
+    )
+    proof = _call(payload, "_effect")["data"]["guarded_effect"][0]
+
+    assert proof["condition_value"] is None
+    assert proof["complete"] is False
+    assert proof["unknown_reason"] == "control_flow_context_too_large"
+    decode_response(json.dumps(payload).encode())
+
+
 def test_source_facts_reject_helper_actual_retargeted_from_its_source(tmp_path):
     payload = _payload(
         tmp_path,

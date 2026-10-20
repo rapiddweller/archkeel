@@ -7,6 +7,7 @@ import ast
 from collections.abc import Collection, Iterable, Mapping
 from functools import lru_cache
 from pathlib import PurePosixPath
+from textwrap import dedent
 
 from .facts import (
     CALL_ARGUMENTS_FEATURE,
@@ -58,6 +59,7 @@ from .facts import (
 )
 from .facts import MemberKind as _MemberKind
 from .facts import ResolutionRole as _ResolutionRole
+from .guard_paths import GuardedCallPath, guarded_call_paths
 from .state_facts import ArgumentPass, AttributeAccess
 from .type_shapes import TypeApplication, TypeShape
 
@@ -2500,124 +2502,169 @@ def _guard_path_matches_condition(
     path_evidence_ids: tuple[str, ...],
     evidence: Mapping[str, Evidence],
 ) -> bool:
-    call_source = next(
-        (evidence[identifier].file for identifier in record.evidence_ids if identifier in evidence),
-        None,
-    )
     call_evidence = next(
         (evidence[identifier] for identifier in record.evidence_ids if identifier in evidence),
         None,
     )
-    call_node = _source_call_node(record, call_evidence)
+    if call_evidence is None:
+        return False
+    context_items: list[tuple[Evidence, ast.FunctionDef | ast.AsyncFunctionDef, int]] = []
     for identifier in path_evidence_ids:
         item = evidence.get(identifier)
-        if item is None or item.file != call_source:
+        if item is None or item.file != call_evidence.file:
             continue
-        parsed = _parse_numeric_evidence_excerpt(item.excerpt)
-        if parsed is None:
-            continue
-        roots, line_offset = parsed
-        for root in roots:
-            for node in ast.walk(root):
-                if not isinstance(node, ast.If | ast.IfExp):
-                    continue
-                if not _source_node_starts_at(node.test, item.line, item.column, line_offset):
-                    continue
-                guard_value = _guard_test_value(node.test, name, kind)
-                if (
-                    call_evidence is not None
-                    and call_evidence.line == item.line
-                    and call_evidence.excerpt == item.excerpt
-                ):
-                    call_node = _source_call_node_in_tree(record, call_evidence, root, line_offset)
-                value = _source_guard_branch_value(
-                    node, item, guard_value, call_evidence, call_node
-                )
-                if value is expected_value:
-                    return True
+        context = _guard_context(item)
+        if context is not None:
+            context_items.append((item, context[0], context[1]))
+    return any(
+        _guard_context_proves_path(
+            record,
+            name,
+            kind,
+            expected_value,
+            path_evidence_ids,
+            call_evidence,
+            context,
+            function,
+            column_offset,
+            evidence,
+        )
+        for context, function, column_offset in context_items
+    )
+
+
+def _guard_context(
+    item: Evidence,
+) -> tuple[ast.FunctionDef | ast.AsyncFunctionDef, int] | None:
+    if not item.excerpt or len(item.excerpt) > MAX_NUMERIC_EVIDENCE_CHARS:
+        return None
+    indentation = item.excerpt[: len(item.excerpt) - len(item.excerpt.lstrip(" \t"))]
+    column_offset = len(indentation.encode("utf-8"))
+    try:
+        roots = ast.parse(dedent(item.excerpt)).body
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    if (
+        len(roots) != 1
+        or not isinstance(roots[0], ast.FunctionDef | ast.AsyncFunctionDef)
+        or roots[0].end_lineno is None
+        or item.line + roots[0].end_lineno - 1 != item.end_line
+    ):
+        return None
+    return roots[0], column_offset
+
+
+def _guard_context_proves_path(
+    record: Record,
+    name: str,
+    kind: str,
+    expected_value: bool,
+    path_evidence_ids: tuple[str, ...],
+    call_evidence: Evidence,
+    context_evidence: Evidence,
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    column_offset: int,
+    evidence: Mapping[str, Evidence],
+) -> bool:
+    if not _guard_context_binds_call(
+        record, call_evidence, context_evidence, function, column_offset
+    ):
+        return False
+    guard_evidence = [
+        evidence[identifier]
+        for identifier in path_evidence_ids
+        if identifier in evidence and evidence[identifier] != context_evidence
+    ]
+    guard_locations = {
+        (item.line, item.column) for item in guard_evidence if item.file == call_evidence.file
+    }
+    if any(
+        not _guard_evidence_matches_context(item, function, context_evidence, column_offset)
+        for item in guard_evidence
+    ):
+        return False
+    receiver = None
+    if kind == "member":
+        parameters = (*function.args.posonlyargs, *function.args.args)
+        if not parameters:
+            return False
+        receiver = parameters[0].arg
+    for path in guarded_call_paths(function, name, receiver_name=receiver):
+        if (
+            (context_evidence.line + path.line - 1, column_offset + path.column)
+            == (call_evidence.line, call_evidence.column)
+            and path.condition_value is expected_value
+            and _replayed_path_guard_locations(path, context_evidence, column_offset)
+            == guard_locations
+        ):
+            return True
     return False
 
 
-def _source_call_node_in_tree(
-    record: Record, item: Evidence | None, root: ast.AST, line_offset: int
-) -> ast.Call | None:
+def _guard_context_binds_call(
+    record: Record,
+    call_evidence: Evidence,
+    context_evidence: Evidence,
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    column_offset: int,
+) -> bool:
+    scope = record.data.get("source_scope")
     expression = record.data.get("expression")
-    if item is None or not isinstance(expression, str):
-        return None
-    for node in ast.walk(root):
-        if (
-            isinstance(node, ast.Call)
-            and _source_node_starts_at(node, item.line, item.column, line_offset)
-            and ast.unparse(node.func) == expression
-        ):
-            return node
-    return None
-
-
-def _source_call_node(record: Record, item: Evidence | None) -> ast.Call | None:
-    if item is None:
-        return None
-    parsed = _parse_numeric_evidence_excerpt(item.excerpt)
-    if parsed is None:
-        return None
-    roots, line_offset = parsed
-    expression = record.data.get("expression")
-    if not isinstance(expression, str):
-        return None
-    for root in roots:
-        for node in ast.walk(root):
-            if (
-                isinstance(node, ast.Call)
-                and _source_node_starts_at(node, item.line, item.column, line_offset)
-                and ast.unparse(node.func) == expression
-            ):
-                return node
-    return None
-
-
-def _source_guard_branch_value(
-    guard: ast.If | ast.IfExp,
-    guard_evidence: Evidence,
-    guard_value: bool | None,
-    call_evidence: Evidence | None,
-    call_node: ast.Call | None,
-) -> bool | None:
-    if guard_value is None or call_evidence is None:
-        return None
     if (
-        call_evidence.line == guard_evidence.line
-        and call_evidence.excerpt == guard_evidence.excerpt
+        not isinstance(scope, str)
+        or scope.rpartition(".")[2] != function.name
+        or not isinstance(expression, str)
+        or context_evidence.file != call_evidence.file
     ):
-        body = guard.body if isinstance(guard, ast.If) else (guard.body,)
-        alternate = guard.orelse if isinstance(guard, ast.If) else (guard.orelse,)
-        if call_node is not None and any(
-            child is call_node for statement in body for child in ast.walk(statement)
-        ):
-            return guard_value
-        if call_node is not None and any(
-            child is call_node for statement in alternate for child in ast.walk(statement)
-        ):
-            return not guard_value
-        return None
-    guard_indent = len(guard_evidence.excerpt) - len(guard_evidence.excerpt.lstrip(" \t"))
-    call_indent = len(call_evidence.excerpt) - len(call_evidence.excerpt.lstrip(" \t"))
-    return guard_value if call_indent > guard_indent else not guard_value
-
-
-def _guard_test_value(expression: ast.expr, name: str, kind: str) -> bool | None:
-    candidate = expression
-    negated = False
-    if isinstance(candidate, ast.UnaryOp) and isinstance(candidate.op, ast.Not):
-        candidate = candidate.operand
-        negated = True
-    matches = (
-        isinstance(candidate, ast.Name) and candidate.id == name
-        if kind == "parameter"
-        else isinstance(candidate, ast.Attribute)
-        and candidate.attr == name
-        and isinstance(candidate.value, ast.Name)
+        return False
+    line_index = call_evidence.line - context_evidence.line
+    source_lines = context_evidence.excerpt.splitlines()
+    return (
+        0 <= line_index < len(source_lines)
+        and source_lines[line_index] == call_evidence.excerpt
+        and any(
+            isinstance(node, ast.Call)
+            and (context_evidence.line + node.lineno - 1, column_offset + node.col_offset)
+            == (call_evidence.line, call_evidence.column)
+            and _ast_expression(node.func) == expression
+            for node in ast.walk(function)
+        )
     )
-    return not negated if matches else None
+
+
+def _guard_evidence_matches_context(
+    item: Evidence,
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    context_evidence: Evidence,
+    column_offset: int,
+) -> bool:
+    line_index = item.line - context_evidence.line
+    lines = context_evidence.excerpt.splitlines()
+    if not (0 <= line_index < len(lines)) or lines[line_index] != item.excerpt:
+        return False
+    return any(
+        isinstance(node, ast.If | ast.IfExp)
+        and (context_evidence.line + node.test.lineno - 1, column_offset + node.test.col_offset)
+        == (item.line, item.column)
+        for node in ast.walk(function)
+    )
+
+
+def _ast_expression(node: ast.expr) -> str | None:
+    try:
+        return ast.unparse(node)
+    except (RecursionError, ValueError):
+        return None
+
+
+def _replayed_path_guard_locations(
+    path: GuardedCallPath, context_evidence: Evidence, column_offset: int
+) -> set[tuple[int, int]]:
+    return {
+        (context_evidence.line + node.lineno - 1, column_offset + node.col_offset)
+        for node in path.path_nodes
+        if isinstance(node, ast.expr)
+    }
 
 
 def _numeric_binding_scopes(value: JsonValue, evidence_ids: tuple[str, ...]) -> bool:

@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import TypeVar
 
 from archkeel.ir.facts import (
+    MAX_NUMERIC_EVIDENCE_CHARS,
     NATIVE_CALL_TARGETS,
     CallBindingOrigin,
     EvidenceClass,
@@ -1494,6 +1495,7 @@ class CallCollector(ast.NodeVisitor):
             return ()
         candidates = self._guarded_candidates(node, owner, scope)
         facts: list[RecordData] = []
+        context_evidence_id = self._guard_context_evidence(owner)
         helper_bindings = self._helper_bindings(node, binding, item_id, candidates)
         raise_constructor_target = None
         if resolution_status is SourceResolution.RESOLVED and len(resolved_targets) == 1:
@@ -1507,12 +1509,31 @@ class CallCollector(ast.NodeVisitor):
                         candidate,
                         path,
                         call_evidence_id,
+                        context_evidence_id,
                         binding,
                         helper_bindings,
                         raise_constructor_target,
                     )
                 )
         return tuple(facts)
+
+    def _guard_context_evidence(self, owner: ast.FunctionDef | ast.AsyncFunctionDef) -> str | None:
+        line, end_line, column = location(owner)
+        excerpt = "\n".join(self.module.lines[line - 1 : end_line]).rstrip()
+        if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS:
+            return None
+        evidence_id = stable_id(
+            "EVD", "guard_context", self.module.rel_path, line, end_line, column
+        )
+        self.evidence[evidence_id] = {
+            "id": evidence_id,
+            "file": self.module.rel_path,
+            "line": line,
+            "end_line": end_line,
+            "column": column,
+            "excerpt": excerpt,
+        }
+        return evidence_id
 
     def _guarded_candidates(
         self, node: ast.Call, owner: FunctionNode, scope: Scope
@@ -1549,6 +1570,7 @@ class CallCollector(ast.NodeVisitor):
         candidate: GuardedPathCandidate,
         path: GuardedCallPath,
         call_evidence_id: str,
+        context_evidence_id: str | None,
         binding: RecordData | None,
         helper_bindings: list[RecordData],
         raise_constructor_target: str | None,
@@ -1561,23 +1583,28 @@ class CallCollector(ast.NodeVisitor):
                     add_evidence(self.evidence, self.module, path_node)
                     for path_node in path.path_nodes
                 }
+                | ({context_evidence_id} if context_evidence_id is not None else set())
             )
         ) or (call_evidence_id,)
         binding_ids = binding.get("evidence_ids") if binding is not None else None
         effect_ids = binding_ids if isinstance(binding_ids, list) else []
-        complete = path.unknown_reason is None and bool(effect_ids)
+        complete = (
+            path.unknown_reason is None and bool(effect_ids) and context_evidence_id is not None
+        )
         unknown_reason = (
             None
             if complete
             else path.unknown_reason
             if path.unknown_reason is not None
+            else "control_flow_context_too_large"
+            if context_evidence_id is None
             else f"raise_constructor_builtin:{raise_constructor_target}"
             if path.raised_exception_constructor and raise_constructor_target is not None
             else "canonical_call_binding_missing"
         )
         return {
             "condition": {"kind": kind, "owner": declaration_owner, "name": name},
-            "condition_value": path.condition_value,
+            "condition_value": path.condition_value if context_evidence_id is not None else None,
             "condition_evidence_ids": [condition_evidence],
             "path_evidence_ids": list(path_evidence),
             "effect_binding_evidence_ids": list(effect_ids),
