@@ -20,6 +20,7 @@ from archkeel.ir.codec import (
 from archkeel.ir.decisions import (
     dependency_binding_id,
     numeric_operand_inventory_binding_id,
+    protocol_declaration_result_digest,
     rule_evaluation_binding_id,
     rule_result_digest,
     selector_inventory_binding_id,
@@ -822,11 +823,9 @@ def _certify_numeric_operand_scopes(
         and scan.coverage["status"] == "PASS"
         and not failures
     )
-    results = tuple(
-        Section(name, tuple(parse_record(item) for item in records))
-        for name, records in (("violations", scan.violations), ("unknowns", scan.unknowns))
-    )
     for receipt in receipts:
+        rule_id = receipt["rule_ids"][0]
+        results = _numeric_rule_results(scan, rule_id)
         receipt["data"]["assessment_complete"] = (
             "assessment_complete" in receipt["data"]
             and receipt["data"]["assessment_complete"] is True
@@ -844,7 +843,7 @@ def _certify_numeric_operand_scopes(
         }
         receipt["data"]["numeric_scope_proof"] = {
             **proof,
-            "result_digest": rule_result_digest(results, receipt["rule_ids"][0]),
+            "result_digest": rule_result_digest(results, rule_id),
             "binding_id": rule_evaluation_binding_id(
                 inventory_binding, parse_record(receipt), SCHEMA_VERSION
             ),
@@ -869,15 +868,18 @@ def _certify_protocol_declaration_scopes(
         "selected_files": list(facts.coverage.selected_files),
     }
     inventory_binding_id = _dependency_binding_id(scan, declarations)
-    result_sections = (
-        Section("violations", tuple(parse_record(item) for item in scan.violations)),
-        Section("unknowns", tuple(parse_record(item) for item in scan.unknowns)),
-    )
     for receipt in receipts:
         receipt_id = receipt["rule_ids"][0]
+        relevant_records = tuple(
+            parse_record(item)
+            for group in (scan.violations, scan.unknowns)
+            for item in group
+            if receipt_id in item["rule_ids"]
+            and item["kind"] in {"protocol_declaration", "protocol_declaration_limit"}
+        )
         receipt["data"]["protocol_scope_proof"] = {
             **proof,
-            "result_digest": rule_result_digest(result_sections, receipt_id),
+            "result_digest": protocol_declaration_result_digest(relevant_records, receipt_id),
             "binding_id": rule_evaluation_binding_id(
                 inventory_binding_id, parse_record(receipt), SCHEMA_VERSION
             ),
@@ -962,6 +964,21 @@ def _certify_selector_scopes(
                 inventory_binding, parse_record(receipt), SCHEMA_VERSION
             ),
         }
+
+
+def _numeric_rule_results(scan: ScanResult, rule_id: str) -> tuple[Section, ...]:
+    return tuple(
+        Section(
+            name,
+            tuple(
+                parse_record(item)
+                for item in records
+                if item["evidence_class"] in {EvidenceClass.VIOLATION, EvidenceClass.UNKNOWN}
+                and rule_id in item["rule_ids"]
+            ),
+        )
+        for name, records in (("violations", scan.violations), ("unknowns", scan.unknowns))
+    )
 
 
 def _certify_dependency_scopes(

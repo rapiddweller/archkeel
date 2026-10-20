@@ -1489,12 +1489,38 @@ def _call_owner_receipt_complete(observation: Observation, receipt: Record | Non
     )
 
 
+def protocol_declaration_result_digest(records: _Iterable[Record], rule_id: str) -> str:
+    """Bind protocol declaration verdicts to their source-derived result records."""
+    selected = tuple(
+        sorted(
+            (
+                record.kind,
+                record.id,
+                record.evidence_class,
+                record.area,
+                record.title,
+                record.subjects,
+                record.evidence_ids,
+                record.rule_ids,
+                record.fact_ids,
+                record.provenance,
+                record.data,
+            )
+            for record in records
+            if rule_id in record.rule_ids
+            and record.kind in {"protocol_declaration", "protocol_declaration_limit"}
+        )
+    )
+    return stable_id("PROTOCOL-DECLARATION-RESULT", rule_id, repr(selected))
+
+
 def _protocol_declaration_receipt_complete(observation: Observation, receipt: Record) -> bool:
     proof = receipt.data.get("protocol_scope_proof")
     if not isinstance(proof, RecordData):
         return False
     coverage = observation.coverage
     selected = proof.get("selected_files")
+    records = tuple(record for section in observation.sections for record in section.records)
     rule_id = receipt.rule_ids[0]
     return (
         coverage.status == Verdict.PASS
@@ -1510,7 +1536,16 @@ def _protocol_declaration_receipt_complete(observation: Observation, receipt: Re
         and proof.get("source_digest") == observation.source.source_digest
         and proof.get("source_scope") == observation.source.scope
         and proof.get("contract_digest") == observation.contract.digest
-        and proof.get("result_digest") == rule_result_digest(observation.sections, rule_id)
+        and all(
+            section.name == "violations"
+            if record.kind == "protocol_declaration"
+            else section.name == "unknowns"
+            for section in observation.sections
+            for record in section.records
+            if rule_id in record.rule_ids
+            and record.kind in {"protocol_declaration", "protocol_declaration_limit"}
+        )
+        and proof.get("result_digest") == protocol_declaration_result_digest(records, rule_id)
         and proof.get("binding_id")
         == rule_evaluation_binding_id(
             dependency_binding_id(observation.sections, coverage.failures, observation.evidence),
