@@ -186,7 +186,7 @@ def test_absent_variadic_selector_does_not_certify_a_normalized_violation(
     ],
 )
 @pytest.mark.parametrize("mounted", [False, True])
-def test_each_variadic_literal_has_a_distinct_violation_and_saved_replay(
+def test_variadic_literals_share_one_violation_with_all_evidence_and_saved_replay(
     tmp_path, formal, actual, mounted
 ):
     from archkeel.check.report import run_saved_report
@@ -200,10 +200,8 @@ def test_each_variadic_literal_has_a_distinct_violation_and_saved_replay(
         mounted=mounted,
     )
     assert row.status == "FAIL" and row.evaluation_proven
-    violations = result.observation.records("violations")
-    assert len(violations) == 2
-    assert len({item.id for item in violations}) == 2
-    assert len({item.evidence_ids for item in violations}) == 2
+    [violation] = result.observation.records("violations")
+    assert len(violation.evidence_ids) == 2
     for name, payload in (
         ("ordinary", json.dumps(observation_payload(result.observation)).encode()),
         ("columnar", canonical_report_bytes(result.observation)),
