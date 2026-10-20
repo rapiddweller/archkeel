@@ -30,7 +30,11 @@ def _payload(tmp_path, source: str) -> dict:
 
 
 def _call(payload: dict, expression: str) -> dict:
-    calls = next(section["records"] for section in payload["facts"]["sections"] if section["name"] == "calls")
+    calls = next(
+        section["records"]
+        for section in payload["facts"]["sections"]
+        if section["name"] == "calls"
+    )
     return next(row for row in calls if row["data"].get("expression") == expression)
 
 
@@ -41,5 +45,7 @@ def test_source_facts_reject_guard_truth_retargeted_from_path_evidence(tmp_path)
     )
     _call(payload, "_effect")["data"]["guarded_effect"][0]["condition_value"] = False
 
-    with pytest.raises(ValueError, match="guarded-effect condition value disagrees with its source path"):
+    with pytest.raises(
+        ValueError, match="guarded-effect condition value disagrees with its source path"
+    ):
         decode_response(json.dumps(payload).encode())

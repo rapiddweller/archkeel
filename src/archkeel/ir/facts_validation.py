@@ -1733,7 +1733,10 @@ def _source_guard_branch_value(
 ) -> bool | None:
     if guard_value is None or call_evidence is None:
         return None
-    if call_evidence.line == guard_evidence.line and call_evidence.excerpt == guard_evidence.excerpt:
+    if (
+        call_evidence.line == guard_evidence.line
+        and call_evidence.excerpt == guard_evidence.excerpt
+    ):
         body = guard.body if isinstance(guard, ast.If) else (guard.body,)
         alternate = guard.orelse if isinstance(guard, ast.If) else (guard.orelse,)
         if call_node is not None and any(
