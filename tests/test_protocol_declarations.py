@@ -384,6 +384,100 @@ def test_method_parameter_uses_final_method_binding_proof(
     assert replayed == row
 
 
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_function_parameters_require_proven_decorator_binding(
+    tmp_path: Path, mounted: bool, columnar: bool
+) -> None:
+    rule_specs = (
+        ("READER", "reader", "Reader", "", "PASS"),
+        ("CONCRETE", "concrete", "Concrete", "", "FAIL"),
+        ("MISSING", "missing", None, "", "FAIL"),
+        ("OPAQUE", "opaque", "Reader", "@opaque\n", "UNKNOWN"),
+    )
+    rules = [
+        {
+            "id": f"APP-{rule_id}-DECLARATIONS",
+            "kind": "protocol_declarations",
+            "source": "sample.core",
+            "protocol": "sample.core.Reader",
+            "selectors": [{"role": "parameter", "name": name, "visibility": "public"}],
+            "rationale": "Selected functions expose the Reader port.",
+            "provenance": ["docs/architecture/sample.md"],
+            "decided_by": "architect",
+        }
+        for rule_id, name, _, _, _ in rule_specs
+    ]
+    function_sources = []
+    for _, name, annotation, decorator, _ in rule_specs:
+        annotation_source = f": {annotation}" if annotation else ""
+        function_sources.append(
+            f"{decorator}def {name}_function({name}{annotation_source}): pass\n"
+        )
+    core_source = (
+        "from typing import Protocol\n"
+        "class Reader(Protocol):\n    def read(self) -> bytes: ...\n"
+        "class Concrete: pass\n"
+        "def opaque(function): return function\n" + "".join(function_sources)
+    )
+    files = {
+        "sample/__init__.py": "",
+        "sample/core.py": core_source,
+        "sample/other.py": "value = 1\n",
+    }
+    if mounted:
+        files["inside.json"] = json.dumps(
+            {
+                "schema_version": "3.9.0",
+                "components": [
+                    _component("core", ["sample.core"]),
+                    _component("other", ["sample.other"]),
+                ],
+                "rules": rules,
+            }
+        )
+        contract = {
+            "schema_version": "3.9.0",
+            "components": [_component("all", ["sample"], inside="inside.json")],
+            "rules": [],
+        }
+    else:
+        contract = {
+            "schema_version": "3.9.0",
+            "components": [
+                _component("core", ["sample.core"]),
+                _component("other", ["sample.other"]),
+            ],
+            "rules": rules,
+        }
+    result = _observe_tree(tmp_path, files, contract)
+    assert result.observation is not None, result.diagnostics
+    assessments = rule_assessments(
+        result.observation,
+        undecided_by_rule=unknown_positions_by_rule(result.observation),
+    )
+    observed = {row.id.rsplit(":", 1)[-1]: row.status.value for row in assessments}
+    assert observed == {
+        f"APP-{rule_id}-DECLARATIONS": status for rule_id, _, _, _, status in rule_specs
+    }
+    payload = observation_payload(result.observation)
+    saved = tmp_path / "function-parameters.json"
+    saved.write_bytes(canonical_report_bytes(payload) if columnar else json.dumps(payload).encode())
+    replay = run_saved_report(saved)
+    assert not replay.diagnostics
+    assert replay.rule_assessments == assessments
+
+
+def test_function_declaration_binding_requires_signature_decorator_proof() -> None:
+    from archkeel.check.evaluation.protocol_declarations import _declaration_binding_proven
+
+    function = {
+        "kind": "function",
+        "data": {"source_binding_unique": True, "signature_decorators_proven": False},
+    }
+    assert not _declaration_binding_proven(function)
+
+
 def test_imported_and_quoted_aliases_resolve_but_unresolved_names_stay_unknown(
     tmp_path: Path,
 ) -> None:
