@@ -97,6 +97,10 @@ class _ObservationSection(StrEnum):
     DECLARATIONS = "declarations"
 
 
+class _ConstructSelectorFactKind(StrEnum):
+    SELECTOR = "construct_selector"
+
+
 class _StringSentinel(StrEnum):
     MISSING = "$m"
     ESCAPED_MISSING = "$$m"
@@ -257,7 +261,7 @@ def parse_observation(raw: object) -> Observation:
         raise ValueError("protocol_declarations require observation schema 2.3.0")
 
     has_selectors = any(
-        record.kind == "construct_selector"
+        record.kind == _ConstructSelectorFactKind.SELECTOR
         for section in sections
         if section.name == ObservedSection.CONSTRUCTS
         for record in section.records
@@ -471,7 +475,7 @@ def _validate_profile_sections(model: Mapping[str, RawJson], profile: Profile) -
 
 def observation_payload(observation: Observation) -> dict[str, RawJson]:
     if _observation_version(observation.schema_version) is not _ObservationVersion.V2_6 and any(
-        record.kind == "construct_selector"
+        record.kind == _ConstructSelectorFactKind.SELECTOR
         for section in observation.sections
         if section.name == ObservedSection.CONSTRUCTS
         for record in section.records

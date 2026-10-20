@@ -543,7 +543,7 @@ class CallCollector(ast.NodeVisitor):
         return False
 
     def _constructed_type(
-        self, expression: ast.expr, call_site: ast.Call
+        self, expression: ast.expr, call_site: ast.expr
     ) -> tuple[str, list[str], dict[str, object]] | None:
         if isinstance(expression, ast.Name):
             binding = self.scopes.lookup(expression, expression.id)

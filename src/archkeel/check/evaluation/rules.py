@@ -245,110 +245,7 @@ def _construct_violations(
         if not isinstance(rule, ForbiddenConstructRule):
             continue
         if rule.selector is not None:
-            selector = rule.selector
-            applicable: list[RawRecord] = []
-            for item in signals:
-                data = item["data"]
-                if item["kind"] != "construct_selector":
-                    continue
-                owner = data.get("owner")
-                if not isinstance(owner, str):
-                    continue
-                scope = owner.split(":", 1)[0]
-                belongs = source_modules is None or any(
-                    owner == module or owner.startswith(f"{module}.") for module in source_modules
-                )
-                if (
-                    not belongs
-                    or not in_scope(scope, rule.source)
-                    or any(in_scope(scope, allowed) for allowed in rule.allowed_sources)
-                    or scope in rule.exact_sources
-                    or data.get("selector_role") != selector.role.value
-                    or selector.member is not None
-                    and data.get("member") != selector.member
-                    and not (data.get("member") is None and data.get("status") == "unknown")
-                ):
-                    continue
-                receiver = data.get("receiver_type")
-                if receiver is not None and receiver != selector.receiver:
-                    continue
-                applicable.append(item)
-            if not applicable:
-                violations.append(
-                    classified(
-                        item_id=stable_id("UNKNOWN-CONSTRUCT-SELECTOR-SUBJECT", rule.id),
-                        evidence_class=EvidenceClass.UNKNOWN,
-                        area="analysis_coverage",
-                        kind="rule-without-selector-subject",
-                        title=f"{rule.id}: no selected {selector.role.value} subject was observed",
-                        subjects=[rule.source],
-                        rule_ids=[rule.id],
-                        data={
-                            "selector_role": selector.role.value,
-                            "receiver": selector.receiver,
-                            "member": selector.member,
-                            "literal": selector.literal,
-                        },
-                    )
-                )
-            for item in applicable:
-                data = item["data"]
-                owner = data["owner"]
-                known = (
-                    data.get("status") == "decided"
-                    and data.get("receiver_type") == selector.receiver
-                )
-                literal_matches = selector.literal is None or data.get("literal") == selector.literal
-                if known and not literal_matches:
-                    # A different observed literal is a proven safe comparison for this
-                    # selector, rather than a missing subject or unresolved evidence.
-                    continue
-                known = known and literal_matches
-                if known:
-                    violations.append(
-                        classified(
-                            item_id=stable_id("VIO-SELECTOR", rule.id, item["id"]),
-                            evidence_class=EvidenceClass.VIOLATION,
-                            area="type_architecture",
-                            kind=rule.kind,
-                            title=(
-                                f"{owner} uses selected {selector.role.value} on "
-                                f"{selector.member or selector.receiver}"
-                            ),
-                            subjects=[owner],
-                            evidence_ids=item["evidence_ids"],
-                            rule_ids=[rule.id],
-                            fact_ids=[item["id"]],
-                            provenance=list(rule.provenance),
-                            data={
-                                "source": rule.source,
-                                "selector_role": selector.role.value,
-                                "receiver": selector.receiver,
-                                "member": selector.member,
-                                "literal": selector.literal,
-                            },
-                        )
-                    )
-                else:
-                    violations.append(
-                        classified(
-                            item_id=stable_id("UNKNOWN-CONSTRUCT-SELECTOR", rule.id, item["id"]),
-                            evidence_class=EvidenceClass.UNKNOWN,
-                            area="analysis_coverage",
-                            kind="construct_selector_unknown",
-                            title=f"{owner} has unresolved selected {selector.role.value} evidence",
-                            subjects=[owner],
-                            evidence_ids=item["evidence_ids"],
-                            rule_ids=[rule.id],
-                            fact_ids=[item["id"]],
-                            data={
-                                "selector_role": selector.role.value,
-                                "receiver": selector.receiver,
-                                "member": selector.member,
-                                "literal": selector.literal,
-                            },
-                        )
-                    )
+            violations.extend(_selector_construct_violations(signals, rule, source_modules))
             continue
         for item in signals:
             if item["kind"] == "construct_selector":
@@ -2511,3 +2408,145 @@ def _modules_for_rule_source(
         for item in observed
         if module_in_ownership(item["data"]["qualified_name"], packages, exact)
     )
+
+
+def _selector_construct_violations(
+    signals: Sequence[RawRecord],
+    rule: ForbiddenConstructRule,
+    source_modules: frozenset[str] | None,
+) -> list[RawRecord]:
+    selector = rule.selector
+    assert selector is not None
+    applicable: list[RawRecord] = []
+    for item in signals:
+        if item["kind"] != "construct_selector":
+            continue
+        data: RecordData = item["data"]
+        owner_value = data.get("owner")
+        if not isinstance(owner_value, str):
+            continue
+        owner: str = owner_value
+        scope: str = owner.partition(":")[0]
+        belongs = source_modules is None or any(
+            owner == module or owner.startswith(f"{module}.") for module in source_modules
+        )
+        if (
+            not belongs
+            or not in_scope(scope, rule.source)
+            or any(in_scope(scope, allowed) for allowed in rule.allowed_sources)
+            or scope in rule.exact_sources
+            or data.get("selector_role") != selector.role.value
+            or selector.member is not None
+            and data.get("member") != selector.member
+            and not (data.get("member") is None and data.get("status") == "unknown")
+        ):
+            continue
+        receiver = data.get("receiver_type")
+        if receiver is not None and receiver != selector.receiver:
+            continue
+        applicable.append(item)
+
+    violations: list[RawRecord] = []
+    if not applicable:
+        violations.append(
+            classified(
+                item_id=stable_id("UNKNOWN-CONSTRUCT-SELECTOR-SUBJECT", rule.id),
+                evidence_class=EvidenceClass.UNKNOWN,
+                area="analysis_coverage",
+                kind="rule-without-selector-subject",
+                title=f"{rule.id}: no selected {selector.role.value} subject was observed",
+                subjects=[rule.source],
+                rule_ids=[rule.id],
+                data={
+                    "selector_role": selector.role.value,
+                    "receiver": selector.receiver,
+                    "member": selector.member,
+                    "literal": selector.literal,
+                },
+            )
+        )
+    for item in applicable:
+        selected_data: RecordData = item["data"]
+        selected_owner_value = selected_data.get("owner")
+        selected_owner: str = (
+            selected_owner_value if isinstance(selected_owner_value, str) else rule.source
+        )
+        known = (
+            selected_data.get("status") == "decided"
+            and selected_data.get("receiver_type") == selector.receiver
+        )
+        observed_literal = selected_data.get("literal")
+        literal_matches = selector.literal is None or observed_literal == selector.literal
+        literal_conflicts = (
+            selector.literal is not None
+            and isinstance(observed_literal, str)
+            and observed_literal != selector.literal
+        )
+        if known and literal_conflicts:
+            continue
+        if known and literal_matches:
+            violations.append(
+                classified(
+                    item_id=stable_id("VIO-SELECTOR", rule.id, item["id"]),
+                    evidence_class=EvidenceClass.VIOLATION,
+                    area="type_architecture",
+                    kind=rule.kind,
+                    title=(
+                        f"{selected_owner} uses selected {selector.role.value} on "
+                        f"{selector.member or selector.receiver}"
+                    ),
+                    subjects=[selected_owner],
+                    evidence_ids=item["evidence_ids"],
+                    rule_ids=[rule.id],
+                    fact_ids=[item["id"]],
+                    provenance=list(rule.provenance),
+                    data={
+                        "source": rule.source,
+                        "selector_role": selector.role.value,
+                        "receiver": selector.receiver,
+                        "member": selector.member,
+                        "literal": selector.literal,
+                    },
+                )
+            )
+        else:
+            violations.append(
+                classified(
+                    item_id=stable_id("UNKNOWN-CONSTRUCT-SELECTOR", rule.id, item["id"]),
+                    evidence_class=EvidenceClass.UNKNOWN,
+                    area="analysis_coverage",
+                    kind="construct_selector_unknown",
+                    title=(
+                        f"{selected_owner} has unresolved selected {selector.role.value} evidence"
+                    ),
+                    subjects=[selected_owner],
+                    evidence_ids=item["evidence_ids"],
+                    rule_ids=[rule.id],
+                    fact_ids=[item["id"]],
+                    data={
+                        "selector_role": selector.role.value,
+                        "receiver": selector.receiver,
+                        "member": selector.member,
+                        "literal": selector.literal,
+                    },
+                )
+            )
+    return violations
+
+
+def _selector_inventory(
+    constructs: Sequence[RawRecord], selected_names: frozenset[str]
+) -> tuple[RawRecord, ...]:
+    inventory: list[RawRecord] = []
+    for item in constructs:
+        if item["kind"] != "construct_selector":
+            continue
+        data: RecordData = item["data"]
+        owner_value = data.get("owner")
+        if not isinstance(owner_value, str):
+            continue
+        owner: str = owner_value
+        scope: str = owner.partition(":")[0]
+        if any(scope == name or scope.startswith(f"{name}.") for name in selected_names):
+            inventory.append(item)
+    return tuple(inventory)

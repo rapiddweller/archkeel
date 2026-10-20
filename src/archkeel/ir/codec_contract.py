@@ -941,7 +941,7 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
     if len(set(ignores)) != len(ignores):
         raise ValueError(f"{label}.allowed_type_ignores must contain unique entries")
     selector = None
-    if "selector" in item:
+    if _has_field(item, "selector"):
         selected = _contract_fields(
             _object(item["selector"], f"{label}.selector"),
             {"receiver", "role"},

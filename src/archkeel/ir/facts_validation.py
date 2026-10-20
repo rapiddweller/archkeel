@@ -118,6 +118,7 @@ _OPTIONAL_STRINGS = frozenset(
         "return_annotation",
         "alias_expression",
         "receiver_type",
+        "receiver_parameter",
         "member",
         "literal",
     }
@@ -251,6 +252,258 @@ def _annotation_class_origin(
         and declarations[target][0].kind == "class"
     ]
     return matches[0] if len(matches) == 1 else None
+
+
+def _selector_receiver_proof(
+    facts: SourceFacts,
+    record: Record,
+    binding: CallBinding | None,
+    receiver_parameter: str | None,
+    declarations: Mapping[str, list[Record]],
+    evidence: Mapping[str, Evidence],
+) -> None:
+    receiver_type = record.data.get("receiver_type")
+    if binding is None:
+        if receiver_type is not None:
+            raise ValueError("known selector receiver needs its typed source binding")
+        return
+    if (
+        binding.target != receiver_type
+        or not set(binding.evidence_ids) <= set(record.evidence_ids)
+        or not set(binding.evidence_ids) <= set(evidence)
+    ):
+        raise ValueError("selector receiver binding evidence disagrees with its source fact")
+    targets = declarations.get(binding.target, [])
+    if binding.origin is CallBindingOrigin.DIRECT:
+        _selector_direct_receiver_proof(binding, receiver_parameter, targets)
+        return
+    if binding.origin is CallBindingOrigin.DECLARED_RECEIVER:
+        _selector_declared_receiver_proof(
+            facts, record, binding, receiver_parameter, declarations, targets
+        )
+        return
+    proof = binding.proof
+    if proof is None:
+        raise ValueError("extended selector receiver needs its typed origin proof")
+    if binding.origin is CallBindingOrigin.STORED_RECEIVER:
+        _selector_stored_receiver_proof(facts, binding, declarations, targets)
+        return
+    if binding.origin is CallBindingOrigin.CONSTRUCTED_RECEIVER:
+        _selector_constructed_receiver_proof(facts, record, binding, proof, targets, evidence)
+        return
+    raise ValueError("selector receiver origin is unsupported")
+
+
+def _selector_direct_receiver_proof(
+    binding: CallBinding, receiver_parameter: str | None, targets: list[Record]
+) -> None:
+    if (
+        receiver_parameter is not None
+        or len(targets) != 1
+        or targets[0].kind != "class"
+        or targets[0].data.get("source_binding_unique") is not True
+        or not set(targets[0].evidence_ids) <= set(binding.evidence_ids)
+    ):
+        raise ValueError("selector class receiver needs its stable declaration")
+
+
+def _selector_declared_receiver_proof(
+    facts: SourceFacts,
+    record: Record,
+    binding: CallBinding,
+    receiver_parameter: str | None,
+    declarations: Mapping[str, list[Record]],
+    targets: list[Record],
+) -> None:
+    owner_name = record.data.get("owner")
+    owners = declarations.get(owner_name, []) if isinstance(owner_name, str) else []
+    parameters = owners[0].data.get("parameters") if len(owners) == 1 else None
+    selected = (
+        [
+            item
+            for item in parameters
+            if isinstance(item, RecordData) and item.get("name") == receiver_parameter
+        ]
+        if isinstance(parameters, tuple)
+        else []
+    )
+    annotation_target = (
+        _annotation_class_origin(owners[0], selected[0], facts, declarations)
+        if len(owners) == 1 and len(selected) == 1
+        else None
+    )
+    if (
+        len(owners) != 1
+        or owners[0].kind not in {"function", "method"}
+        or receiver_parameter is None
+        or len(selected) != 1
+        or annotation_target != binding.target
+        or len(targets) != 1
+        or targets[0].kind != "class"
+        or targets[0].data.get("source_binding_unique") is not True
+        or not set(owners[0].evidence_ids) <= set(binding.evidence_ids)
+        or not set(targets[0].evidence_ids) <= set(binding.evidence_ids)
+    ):
+        raise ValueError("declared selector receiver needs its exact typed parameter proof")
+
+
+def _selector_stored_receiver_proof(
+    facts: SourceFacts,
+    binding: CallBinding,
+    declarations: Mapping[str, list[Record]],
+    targets: list[Record],
+) -> None:
+    proof = binding.proof
+    if proof is None:
+        raise ValueError("stored selector receiver needs its typed origin proof")
+    owner_name, field = proof.get("owner"), proof.get("field")
+    parameter_name, witnesses = proof.get("parameter"), proof.get("witness_evidence_ids")
+    owners = declarations.get(owner_name, []) if isinstance(owner_name, str) else []
+    initializers = (
+        declarations.get(f"{owner_name}.__init__", []) if isinstance(owner_name, str) else []
+    )
+    writes = initializers[0].data.get("stored_field_writes") if len(initializers) == 1 else None
+    witness_ids = witnesses if isinstance(witnesses, tuple) else ()
+    linked = (
+        [
+            item
+            for item in writes
+            if isinstance(item, RecordData)
+            and item.get("field") == field
+            and item.get("parameter") == parameter_name
+            and item.get("evidence_id") == (witness_ids[0] if witness_ids else None)
+            and len(witness_ids) == 2
+            and item.get("annotation_evidence_id") == witness_ids[1]
+            and item.get("receiver") == initializers[0].data.get("receiver_parameter")
+            and item.get("annotation_target") == binding.target
+        ]
+        if isinstance(writes, tuple)
+        else []
+    )
+    parameters = initializers[0].data.get("parameters") if len(initializers) == 1 else None
+    typed = (
+        [
+            item
+            for item in parameters
+            if isinstance(item, RecordData)
+            and item.get("name") == parameter_name
+            and isinstance(item.get("annotation"), str)
+        ]
+        if isinstance(parameters, tuple)
+        else []
+    )
+    annotation_target = (
+        _annotation_class_origin(initializers[0], typed[0], facts, declarations)
+        if len(initializers) == 1 and len(typed) == 1
+        else None
+    )
+    if (
+        proof.get("kind") != "stored_field"
+        or proof.get("target") != binding.target
+        or len(owners) != 1
+        or owners[0].kind != "class"
+        or owners[0].data.get("source_binding_unique") is not True
+        or len(initializers) != 1
+        or len(linked) != 1
+        or len(typed) != 1
+        or annotation_target != binding.target
+        or not isinstance(witnesses, tuple)
+        or len(witnesses) != 2
+        or not set(witnesses) <= set(binding.evidence_ids)
+        or len(targets) != 1
+        or targets[0].kind != "class"
+        or targets[0].data.get("source_binding_unique") is not True
+        or not set(owners[0].evidence_ids) <= set(binding.evidence_ids)
+        or not set(targets[0].evidence_ids) <= set(binding.evidence_ids)
+    ):
+        raise ValueError("stored selector receiver needs a linked initializer annotation")
+
+
+def _selector_constructed_receiver_proof(
+    facts: SourceFacts,
+    record: Record,
+    binding: CallBinding,
+    proof: RecordData,
+    targets: list[Record],
+    evidence: Mapping[str, Evidence],
+) -> None:
+    constructor_id = proof.get("constructor_evidence_id")
+    assignment_id, assignment_name = (
+        proof.get("assignment_evidence_id"),
+        proof.get("assignment_name"),
+    )
+    target_calls = [
+        candidate
+        for section in facts.sections
+        if section.name is SourceSectionName.CALLS
+        for candidate in section.records
+        if isinstance(constructor_id, str)
+        and constructor_id in candidate.evidence_ids
+        and candidate.kind.endswith("_call")
+        and isinstance(candidate_targets := candidate.data.get("targets"), tuple)
+        and binding.target in candidate_targets
+    ]
+    selector_evidence = [
+        evidence[item]
+        for item in record.evidence_ids
+        if item not in binding.evidence_ids and item in evidence
+    ]
+    linked_assignments = _selector_linked_assignments(
+        facts, constructor_id, assignment_id, assignment_name
+    )
+    assignment_evidence = evidence.get(assignment_id) if isinstance(assignment_id, str) else None
+    if (
+        proof.get("kind") != "construction"
+        or proof.get("target") != binding.target
+        or len(targets) != 1
+        or targets[0].kind != "class"
+        or targets[0].data.get("default_instance_result") is not True
+        or not isinstance(constructor_id, str)
+        or len(target_calls) != 1
+        or not selector_evidence
+        or assignment_id is not None
+        and (
+            not isinstance(assignment_name, str)
+            or len(linked_assignments) != 1
+            or linked_assignments[0][0].data.get("source_scope") != record.data.get("owner")
+            or assignment_evidence is None
+            or assignment_evidence.line >= max(item.line for item in selector_evidence)
+            or not isinstance(assignment_id, str)
+            or assignment_id not in binding.evidence_ids
+        )
+        or assignment_id is None
+        and assignment_name is not None
+        or not set(targets[0].evidence_ids) <= set(binding.evidence_ids)
+    ):
+        raise ValueError("constructed selector receiver needs its linked allocation witness")
+
+
+def _selector_linked_assignments(
+    facts: SourceFacts, constructor_id: object, assignment_id: object, assignment_name: object
+) -> list[tuple[Record, RecordData]]:
+    linked: list[tuple[Record, RecordData]] = []
+    if not isinstance(constructor_id, str) or not isinstance(assignment_id, str):
+        return linked
+    for section in facts.sections:
+        if section.name is not SourceSectionName.CALLS:
+            continue
+        for candidate in section.records:
+            if constructor_id not in candidate.evidence_ids:
+                continue
+            bindings = candidate.data.get("result_bindings")
+            if not isinstance(bindings, tuple):
+                continue
+            for item in bindings:
+                ids = item.get("evidence_ids") if isinstance(item, RecordData) else None
+                if (
+                    isinstance(item, RecordData)
+                    and item.get("name") == assignment_name
+                    and item.get("target_kind") == "name"
+                    and isinstance(ids, tuple)
+                    and assignment_id in ids
+                ):
+                    linked.append((candidate, item))
+    return linked
 
 
 def _signature_terminal(name: str, bindings: dict[str, ProviderBinding]) -> ProviderBinding | None:
@@ -969,7 +1222,7 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
     if not set(required).issubset(fields):
         raise ValueError(f"{section} source payload is missing required fields")
     if record.kind == "construct_selector":
-        required = {
+        selector_required = {
             "owner",
             "construct",
             "selector_role",
@@ -978,8 +1231,10 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
             "literal",
             "status",
             "operation",
+            "receiver_binding",
+            "receiver_parameter",
         }
-        if section is not SourceSectionName.CONSTRUCTS or fields != required:
+        if section is not SourceSectionName.CONSTRUCTS or fields != selector_required:
             raise ValueError("construct selector facts need the closed selector payload")
         if record.data.get("construct") != "selector":
             raise ValueError("construct selector facts need selector construct identity")
@@ -1049,6 +1304,24 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
             raise ValueError("construct selector role cannot carry a literal")
         if record.data.get("status") == "decided" and record.data.get("receiver_type") is None:
             raise ValueError("decided construct selector needs a receiver type")
+        receiver_binding = call_binding(record.data.get("receiver_binding"))
+        receiver_type = record.data.get("receiver_type")
+        receiver_parameter = record.data.get("receiver_parameter")
+        if receiver_binding is not None and (
+            receiver_binding.target != receiver_type
+            or receiver_parameter is not None
+            and receiver_binding.origin is not CallBindingOrigin.DECLARED_RECEIVER
+        ):
+            raise ValueError("construct selector receiver binding disagrees with its receiver")
+        if receiver_parameter is not None and (
+            not isinstance(receiver_parameter, str)
+            or not receiver_parameter.isidentifier()
+            or receiver_binding is None
+            or receiver_binding.origin is not CallBindingOrigin.DECLARED_RECEIVER
+        ):
+            raise ValueError("declared selector receiver needs its parameter identity")
+        if receiver_type is not None and receiver_binding is None:
+            raise ValueError("known construct selector needs a linked receiver binding")
         if (
             role in {"equality", "membership", "match", "startswith", "endswith"}
             and record.data.get("status") == "decided"
@@ -1557,6 +1830,20 @@ def validate_source_facts(facts: SourceFacts) -> None:
                 )
             ):
                 raise ValueError("call binding disagrees with its target declaration")
+    for section in facts.sections:
+        if section.name is not SourceSectionName.CONSTRUCTS:
+            continue
+        for record in section.records:
+            if record.kind == "construct_selector":
+                receiver_parameter = record.data.get("receiver_parameter")
+                _selector_receiver_proof(
+                    facts,
+                    record,
+                    call_binding(record.data.get("receiver_binding")),
+                    receiver_parameter if isinstance(receiver_parameter, str) else None,
+                    declarations,
+                    base_by_id,
+                )
     record_by_id = {record.id: record for record in records}
     effects = [record for record in records if record.kind == "script_namespace_effect"]
     effect_gaps = [

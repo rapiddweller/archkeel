@@ -11,12 +11,20 @@ import pytest
 from test_analyzer import _parsed_module
 
 from archkeel.analyzer.python.constructs import collect_constructs
+from archkeel.analyzer.python.resolve import build_symbol_index
+from archkeel.analyzer.python.symbols import collect_symbols
 from archkeel.check.evaluation.rules import _construct_violations
 from archkeel.check.ports import ScanConfig
-from archkeel.check.report import run_report
+from archkeel.check.report import run_report, run_saved_report
 from archkeel.cli.observe import observe
 from archkeel.ir.architecture_graph import ArchitectureRuleKind, DecisionMaker
-from archkeel.ir.codec import decode_canonical_model, parse_observation
+from archkeel.ir.codec import (
+    canonical_json_bytes,
+    decode_canonical_model,
+    encode_canonical_model,
+    observation_payload,
+    parse_observation,
+)
 from archkeel.ir.codec_contract import parse_contract
 from archkeel.ir.model import ConstructSelector, ConstructSelectorRole, ForbiddenConstructRule
 from archkeel.ir.trace import trace_valid_violations
@@ -77,6 +85,85 @@ def test_selected_scope_without_applicable_facts_is_unknown():
     assert findings[0]["kind"] == "rule-without-selector-subject"
 
 
+@pytest.mark.parametrize(
+    ("source", "role", "literal"),
+    [
+        (
+            "class Connection: pass\nclass Label: pass\n"
+            'def route(conn: Connection):\n    conn = Label()\n    conn.backend == "flat"\n',
+            ConstructSelectorRole.EQUALITY,
+            "flat",
+        ),
+        (
+            "class Connection:\n    backend: str\n"
+            "def route(conn: Connection):\n    match conn.backend:\n"
+            "        case ['flat']:\n            pass\n",
+            ConstructSelectorRole.MATCH,
+            "flat",
+        ),
+    ],
+)
+def test_mutated_receivers_and_nested_match_patterns_stay_unknown(
+    source: str, role: ConstructSelectorRole, literal: str
+):
+    signals = collect_constructs([_parsed_module(source, module="sample.core")], {})
+    [selector] = [
+        row
+        for row in signals
+        if row["kind"] == "construct_selector" and row["data"]["selector_role"] == role.value
+    ]
+    assert selector["data"]["status"] == "unknown"
+    if role is ConstructSelectorRole.EQUALITY:
+        assert selector["data"]["receiver_type"] is None
+    else:
+        assert selector["data"]["receiver_type"] == "sample.core.Connection"
+    rule = ForbiddenConstructRule(
+        "SELECT",
+        ArchitectureRuleKind.FORBIDDEN_CONSTRUCT,
+        "sample.core",
+        (),
+        "Keep the selected receiver proven.",
+        ("test",),
+        DecisionMaker.ARCHITECT,
+        selector=ConstructSelector("sample.core.Connection", "backend", role, literal),
+    )
+    findings = _construct_violations(signals, [rule])
+    assert not any(row["evidence_class"] == "VIOLATION" for row in findings)
+    assert any(row["evidence_class"] == "UNKNOWN" for row in findings)
+
+
+def test_ambiguous_string_predicate_does_not_disappear_beside_safe_literal():
+    source = (
+        'FLAT = "flat"\nclass Connection:\n    backend: str\n'
+        "def route(conn: Connection, maybe):\n"
+        '    conn.backend.startswith("wide")\n'
+        "    maybe.backend.startswith(FLAT)\n"
+    )
+    signals = collect_constructs([_parsed_module(source, module="sample.core")], {})
+    selected = [
+        row
+        for row in signals
+        if row["kind"] == "construct_selector" and row["data"]["selector_role"] == "startswith"
+    ]
+    assert {row["data"]["literal"] for row in selected} == {"wide", "flat"}
+    assert any(row["data"]["status"] == "unknown" for row in selected)
+    rule = ForbiddenConstructRule(
+        "SELECT",
+        ArchitectureRuleKind.FORBIDDEN_CONSTRUCT,
+        "sample.core",
+        (),
+        "Keep the selected receiver proven.",
+        ("test",),
+        DecisionMaker.ARCHITECT,
+        selector=ConstructSelector(
+            "sample.core.Connection", "backend", ConstructSelectorRole.STARTSWITH, "flat"
+        ),
+    )
+    findings = _construct_violations(signals, [rule])
+    assert not any(row["evidence_class"] == "VIOLATION" for row in findings)
+    assert any(row["evidence_class"] == "UNKNOWN" for row in findings)
+
+
 def test_collector_and_evaluator_select_member_and_literal_not_spellings():
     source = """
 class Connection:
@@ -115,7 +202,13 @@ def route(conn: Connection, label: Label, key: str, ambiguous):
     assert not any(row["data"].get("member") == "password" for row in findings)
     assert any(row["evidence_class"] == "UNKNOWN" for row in findings)
     safe_literal_signals = collect_constructs(
-        [_parsed_module('class Connection:\n    backend: str\ndef f(conn: Connection):\n    conn.backend == "wide"\n', module="sample.core")],
+        [
+            _parsed_module(
+                "class Connection:\n    backend: str\n"
+                'def f(conn: Connection):\n    conn.backend == "wide"\n',
+                module="sample.core",
+            )
+        ],
         {},
     )
     assert _construct_violations(safe_literal_signals, [rule]) == []
@@ -216,6 +309,26 @@ def test_selected_membership_match_predicates_aliases_and_roles():
     assert reflects[0]["status"] == "unknown"
 
 
+def test_selector_receiver_collection_reuses_stored_field_proof():
+    module = _parsed_module(
+        "class Connection:\n    backend: str\n"
+        "class Holder:\n"
+        "    def __init__(self, conn: Connection):\n        self.conn = conn\n"
+        '    def route(self):\n        self.conn.backend == "flat"\n',
+        module="sample.core",
+    )
+    evidence = {}
+    symbols, _, _ = collect_symbols([module], evidence)
+    facts = collect_constructs([module], evidence, symbol_index=build_symbol_index(symbols))
+    [selector] = [row for row in facts if row["kind"] == "construct_selector"]
+    assert selector["data"]["status"] == "decided"
+    assert selector["data"]["receiver_type"] == "sample.core.Connection"
+    binding = selector["data"]["receiver_binding"]
+    assert binding["origin"] == "stored_receiver"
+    assert binding["proof"]["kind"] == "stored_field"
+    assert binding["proof"]["field"] == "conn"
+
+
 def test_native_saved_report_keeps_fail_and_unknown_for_selected_scope(tmp_path: Path):
     root = tmp_path / "repo"
     (root / "sample").mkdir(parents=True)
@@ -285,3 +398,26 @@ def test_native_saved_report_keeps_fail_and_unknown_for_selected_scope(tmp_path:
     relabeled["schema_version"] = "2.5.0"
     with pytest.raises(ValueError, match="selector facts require observation schema 2.6.0"):
         parse_observation(relabeled)
+
+    ordinary = observation_payload(model)
+    columnar = decode_canonical_model(json.loads(encoded))
+    for payload in (ordinary, columnar):
+        selectors = [
+            item
+            for item in payload["constructs"]
+            if item["kind"] == "construct_selector"
+            and item["data"]["selector_role"] == "equality"
+            and item["data"]["receiver_type"] == "sample.core.Connection"
+        ]
+        assert selectors
+        selectors[0]["data"]["receiver_type"] = "sample.core.Label"
+        selectors[0]["data"]["receiver_binding"]["target"] = "sample.core.Label"
+
+    ordinary_path = tmp_path / "tampered-ordinary.json"
+    ordinary_path.write_bytes(canonical_json_bytes(ordinary))
+    columnar_path = tmp_path / "tampered-columnar.json"
+    columnar_path.write_bytes(canonical_json_bytes(encode_canonical_model(columnar)))
+    for saved in (ordinary_path, columnar_path):
+        replay = run_saved_report(saved)
+        assert replay.rule_assessments is None
+        assert replay.diagnostics
