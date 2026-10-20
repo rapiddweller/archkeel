@@ -359,6 +359,54 @@ def test_unbounded_multiline_call_keeps_identity_and_unknown_argument_inventory(
     assert current_schema.is_valid(raw)
 
 
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize(
+    ("callee", "actual", "expected"),
+    [
+        ("other", "spec", "PASS"),
+        ("other", "'selected literal'", "FAIL"),
+        ("page", "spec", "UNKNOWN"),
+        ("unbound", "spec", "UNKNOWN"),
+    ],
+)
+def test_argument_inventory_is_required_only_for_potentially_selected_calls(
+    tmp_path, mounted, callee, actual, expected
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes
+    from archkeel.ir.decisions import unknown_positions_by_rule
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import page, other\n"
+        "def consume(spec):\n"
+        f"    page({actual})\n"
+        f"    {callee}(\n"
+        "        'unbounded literal'\n"
+        "    )\n",
+        storage="def page(query): pass\ndef other(query): pass\n",
+        mounted=mounted,
+    )
+    [row] = rule_assessments(
+        result.observation, undecided_by_rule=unknown_positions_by_rule(result.observation)
+    )
+    calls = observation_payload(result.observation)["calls"]
+    unbounded = next(call for call in calls if call["data"]["call_arguments"] is None)
+    binding = unbounded["data"]["call_binding"]
+    assert (binding["target"] if binding else None) == (
+        None if callee == "unbound" else f"sample.storage.{callee}"
+    )
+    assert row.status == expected
+    assert row.evaluation_proven == (expected != "UNKNOWN")
+    for name, payload in (
+        ("ordinary", json.dumps(observation_payload(result.observation)).encode()),
+        ("columnar", canonical_report_bytes(result.observation)),
+    ):
+        saved = tmp_path / f"{name}.json"
+        saved.write_bytes(payload)
+        assert run_saved_report(saved).rule_assessments == (row,)
+
+
 def test_source_facts_reject_reordered_actual_evidence(tmp_path):
     from archkeel.analyzer.python.collect import collect
     from archkeel.ir.facts_codec import (
