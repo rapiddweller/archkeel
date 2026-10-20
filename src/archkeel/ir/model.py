@@ -1245,6 +1245,12 @@ def _rule_references(
         )
     if isinstance(rule, CatalogArgumentRule | CatalogUseRule):
         return _catalog_references(index, rule)
+    return _generic_rule_references(index, rule, external)
+
+
+def _generic_rule_references(
+    index: int, rule: ArchitectureRule, external: frozenset[str]
+) -> list[ModuleReference]:
     special = _special_rule_references(index, rule)
     if special is not None:
         return special

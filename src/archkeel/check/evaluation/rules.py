@@ -1217,35 +1217,17 @@ def rule_subject_failures(
     for rule in rules:
         if isinstance(rule, LayerOrderRule) and contract is not None:
             rule_failures.extend(_layer_metadata_failures(contract, rule))
-        scopes = rule_scopes(rule)
-        if isinstance(rule, ForbiddenDependencyRule) and (
-            rule.target in sdk_libraries
-            or rule.target_kind is DependencyTargetKind.IMPORT_NAMESPACE
-        ):
-            scopes = {"source": scopes["source"]}
-        source_subjects: AbstractSet[str] = module_names | planned_subjects
-        if isinstance(rule, BoundedNumericOperandRule) and contract is not None:
-            numeric_modules = _numeric_rule_subject_modules(
-                rule, observed_modules, contract, source_modules
-            )
-            source_subjects = source_subjects | set(numeric_modules)
-            scopes = {"source": numeric_modules}
-        if isinstance(rule, ForbiddenCallArgumentRule):
-            source_subjects = source_subjects | _call_argument_subject_symbols(
-                symbols, source_modules
-            )
-        target_subjects: AbstractSet[str] = (target_module_names or module_names) | planned_subjects
-        if isinstance(rule, ForbiddenConstructRule):
-            owner_modules = (
-                module_names if source_modules is None else module_names & source_modules
-            )
-            source_subjects = source_subjects | {
-                item["data"]["qualified_name"]
-                for item in _construct_subject_symbols(rule.source, symbols, owner_modules)
-            }
-        source_subjects = source_subjects | _source_policy_symbol_subjects(
-            rule, symbols, source_modules
+        scopes, source_subjects = _rule_source_subjects(
+            rule,
+            module_names,
+            planned_subjects,
+            observed_modules,
+            contract,
+            symbols,
+            sdk_libraries,
+            source_modules,
         )
+        target_subjects: AbstractSet[str] = (target_module_names or module_names) | planned_subjects
         facade_scoped = False
         if isinstance(rule, BoundaryTypesRule) and contract is not None:
             source_subjects = _boundary_type_subject_modules(
@@ -1269,6 +1251,42 @@ def rule_subject_failures(
                 _missing_rule_subject_failure(rule, scopes, matches, facade_scoped)
             )
     return rule_failures
+
+
+def _rule_source_subjects(
+    rule: ArchitectureRule,
+    module_names: set[str],
+    planned_subjects: AbstractSet[str],
+    observed_modules: Sequence[RawRecord],
+    contract: ArchitectureContract | None,
+    symbols: Sequence[RawRecord],
+    sdk_libraries: frozenset[str],
+    source_modules: frozenset[str] | None,
+) -> tuple[dict[str, tuple[str, ...]], AbstractSet[str]]:
+    scopes = rule_scopes(rule)
+    if isinstance(rule, ForbiddenDependencyRule) and (
+        rule.target in sdk_libraries or rule.target_kind is DependencyTargetKind.IMPORT_NAMESPACE
+    ):
+        scopes = {"source": scopes["source"]}
+    source_subjects: AbstractSet[str] = module_names | planned_subjects
+    if isinstance(rule, BoundedNumericOperandRule) and contract is not None:
+        numeric_modules = _numeric_rule_subject_modules(
+            rule, observed_modules, contract, source_modules
+        )
+        source_subjects = source_subjects | set(numeric_modules)
+        scopes = {"source": numeric_modules}
+    if isinstance(rule, ForbiddenCallArgumentRule):
+        source_subjects = source_subjects | _call_argument_subject_symbols(symbols, source_modules)
+    if isinstance(rule, ForbiddenConstructRule):
+        owner_modules = module_names if source_modules is None else module_names & source_modules
+        source_subjects = source_subjects | {
+            item["data"]["qualified_name"]
+            for item in _construct_subject_symbols(rule.source, symbols, owner_modules)
+        }
+    source_subjects = source_subjects | _source_policy_symbol_subjects(
+        rule, symbols, source_modules
+    )
+    return scopes, source_subjects
 
 
 def _source_policy_symbol_subjects(
