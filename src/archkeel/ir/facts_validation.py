@@ -409,6 +409,11 @@ def _selector_source_receiver(
                 for node in ast.walk(root)
                 if isinstance(node, ast.Attribute)
                 and node.attr == member
+                and (
+                    binding.origin is not CallBindingOrigin.DECLARED_RECEIVER
+                    or isinstance(node.value, ast.Name)
+                    and node.value.id == record.data.get("receiver_parameter")
+                )
                 and (span := source_span(node)) is not None
                 and span[:2] == (item.line, item.column)
             }
@@ -479,7 +484,7 @@ def _selector_receiver_site_matches(
             if (
                 isinstance(module, str)
                 and isinstance(owner, str)
-                and owner.startswith(module + ".")
+                and (owner == module or owner.startswith(module + "."))
                 and binding.target == f"{module}.{written}"
             ):
                 return True
@@ -838,6 +843,8 @@ def _selector_linked_assignments(
                 ):
                     linked.append((candidate, item))
     return linked
+
+
 def _last_segment(value: str) -> str:
     start = 0
     for index, character in enumerate(value):
@@ -893,6 +900,8 @@ def _stored_write_matches_source(item: Evidence, receiver: str, field: str, para
     return (
         "=" in item.excerpt[position:] and python_identifier(field) and python_identifier(parameter)
     )
+
+
 def _signature_terminal(name: str, bindings: dict[str, ProviderBinding]) -> ProviderBinding | None:
     seen: set[str] = set()
     while name not in seen:

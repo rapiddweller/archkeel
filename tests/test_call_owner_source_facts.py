@@ -161,8 +161,7 @@ def test_native_selector_annotation_uses_proven_reexport_origin(tmp_path):
 def test_ambiguous_reexport_annotation_does_not_prove_selector_receiver(tmp_path):
     payload = _payload(
         tmp_path,
-        "from .pkg import Store\nfrom .other import Store\n"
-        "def run(store: Store): store.page()\n",
+        "from .pkg import Store\nfrom .other import Store\ndef run(store: Store): store.page()\n",
         native=True,
         extra={
             "sample/pkg/__init__.py": "from .types import Store\n",
@@ -183,6 +182,144 @@ def test_ambiguous_reexport_annotation_does_not_prove_selector_receiver(tmp_path
         or record.data.get("receiver_binding").get("target") != "sample.pkg.types.Store"
         for record in selectors
     )
+
+
+def test_native_imported_type_probe_has_import_evidence(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "from .types import Store as Selected\n"
+        "def run(value): return isinstance(value, Selected)\n",
+        native=True,
+        extra={
+            "sample/types.py": "class Store: pass\n",
+        },
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    selectors = [
+        record
+        for section in facts.sections
+        if section.name.value == "constructs"
+        for record in section.records
+        if record.kind == "construct_selector"
+    ]
+    [selector] = selectors
+    binding = selector.data.get("receiver_binding")
+    assert binding is not None
+    assert binding.get("target") == "sample.types.Store"
+    assert binding.get("evidence_ids")
+
+
+def test_native_reexported_type_probe_stays_unknown_without_an_origin_route(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "from .pkg import Store as Selected\ndef run(value): return isinstance(value, Selected)\n",
+        native=True,
+        extra={
+            "sample/pkg/__init__.py": "from .types import Store\n",
+            "sample/pkg/types.py": "class Store: pass\n",
+        },
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    selectors = [
+        record
+        for section in facts.sections
+        if section.name.value == "constructs"
+        for record in section.records
+        if record.kind == "construct_selector"
+    ]
+    [selector] = selectors
+    assert selector.data.get("status") == "unknown"
+    assert selector.data.get("receiver_type") is None
+    assert selector.data.get("receiver_binding") is None
+
+
+def test_native_multiline_type_probe_stays_unknown_without_operation_excerpt(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "from .storage import Store\n"
+        "def run(value):\n"
+        "    return isinstance(\n"
+        "        value, Store\n"
+        "    )\n",
+        native=True,
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    selectors = [
+        record
+        for section in facts.sections
+        if section.name.value == "constructs"
+        for record in section.records
+        if record.kind == "construct_selector"
+    ]
+    [selector] = selectors
+    assert selector.data.get("selector_role") == "type_probe"
+    assert selector.data.get("status") == "unknown"
+    assert selector.data.get("receiver_type") is None
+    assert selector.data.get("receiver_binding") is None
+
+
+def test_native_nested_function_cannot_reuse_outer_parameter_binding(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "from .storage import Store\n"
+        "def outer(store: Store):\n"
+        "    def inner(): return store.page()\n",
+        native=True,
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    selectors = [
+        record
+        for section in facts.sections
+        if section.name.value == "constructs"
+        for record in section.records
+        if record.kind == "construct_selector"
+    ]
+    [selector] = selectors
+    assert selector.data.get("owner") == "sample.caller.outer.inner"
+    assert selector.data.get("status") == "unknown"
+    assert selector.data.get("receiver_type") is None
+    assert selector.data.get("receiver_binding") is None
+
+
+def test_native_module_level_local_constructor_has_a_source_binding(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "class Store: pass\nSELECTED = Store()\n",
+        native=True,
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    selectors = [
+        record
+        for section in facts.sections
+        if section.name.value == "constructs"
+        for record in section.records
+        if record.kind == "construct_selector"
+    ]
+    [selector] = selectors
+    assert selector.data.get("owner") == "sample.caller"
+    assert selector.data.get("receiver_type") == "sample.caller.Store"
+    assert selector.data.get("receiver_binding") is not None
+
+
+def test_native_nested_attribute_chain_keeps_exact_declared_receiver(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "class Store:\n    parent: Store\ndef run(store: Store): return store.parent.parent\n",
+        native=True,
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    selectors = [
+        record
+        for section in facts.sections
+        if section.name.value == "constructs"
+        for record in section.records
+        if record.kind == "construct_selector"
+    ]
+    [selector] = selectors
+    assert selector.data.get("selector_role") == "read"
+    assert selector.data.get("member") == "parent"
+    assert selector.data.get("receiver_type") == "sample.caller.Store"
+    assert selector.data.get("receiver_parameter") == "store"
 
 
 def test_native_binding_cannot_use_another_imports_witness(tmp_path):

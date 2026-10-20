@@ -846,31 +846,34 @@ class ConstructCollector(ast.NodeVisitor):
         if expression is None:
             return None, None, None, []
         if isinstance(expression, ast.Name):
-            for annotations in reversed(self.parameter_annotations):
-                declared = annotations.get(expression.id)
-                if declared is not None:
-                    target, annotation = declared
-                    annotation_evidence = add_evidence(self.evidence, self.module, annotation)
-                    support_evidence = [annotation_evidence]
-                    if self.symbol_index is not None:
-                        for qualified_name in (self.scope_stack[-1], target):
-                            declaration = self.symbol_index.binding_declarations.get(qualified_name)
-                            if (
-                                declaration is not None
-                                and declaration["data"].get("module") == self.module.module
-                            ):
-                                support_evidence.extend(declaration["evidence_ids"])
-                    support_evidence = sorted(set(support_evidence))
-                    return (
-                        target,
-                        {
-                            "origin": CallBindingOrigin.DECLARED_RECEIVER.value,
-                            "target": target,
-                            "evidence_ids": support_evidence,
-                        },
-                        expression.id,
-                        support_evidence,
-                    )
+            declared = (
+                self.parameter_annotations[-1].get(expression.id)
+                if self.parameter_annotations
+                else None
+            )
+            if declared is not None:
+                target, annotation = declared
+                annotation_evidence = add_evidence(self.evidence, self.module, annotation)
+                support_evidence = [annotation_evidence]
+                if self.symbol_index is not None:
+                    for qualified_name in (self.scope_stack[-1], target):
+                        declaration = self.symbol_index.binding_declarations.get(qualified_name)
+                        if (
+                            declaration is not None
+                            and declaration["data"].get("module") == self.module.module
+                        ):
+                            support_evidence.extend(declaration["evidence_ids"])
+                support_evidence = sorted(set(support_evidence))
+                return (
+                    target,
+                    {
+                        "origin": CallBindingOrigin.DECLARED_RECEIVER.value,
+                        "target": target,
+                        "evidence_ids": support_evidence,
+                    },
+                    expression.id,
+                    support_evidence,
+                )
         if self.call_collector is None:
             return self._receiver_type(expression), None, None, []
         call_site = use if isinstance(use, ast.Call) else expression
@@ -962,11 +965,15 @@ class ConstructCollector(ast.NodeVisitor):
                     receiver_evidence = list(declaration["evidence_ids"])
                 else:
                     receiver_evidence = self._selector_import_evidence(node, role, receiver)
-                receiver_binding = {
-                    "origin": CallBindingOrigin.DIRECT.value,
-                    "target": receiver,
-                    "evidence_ids": receiver_evidence,
-                }
+                if receiver_evidence:
+                    receiver_binding = {
+                        "origin": CallBindingOrigin.DIRECT.value,
+                        "target": receiver,
+                        "evidence_ids": receiver_evidence,
+                    }
+                else:
+                    status = "unknown"
+                    receiver = None
         if receiver is not None and receiver_node is not None and receiver_binding is None:
             status = "unknown"
             receiver = None
@@ -1043,14 +1050,16 @@ class ConstructCollector(ast.NodeVisitor):
                 return False
 
     def _selector_import_evidence(self, node: ast.AST, role: str, target: str) -> list[str]:
-        if not isinstance(node, ast.Call):
-            return []
         expression = (
             node.func
-            if role == "constructor"
-            else node.args[1]
-            if role == "type_probe" and len(node.args) > 1
-            else None
+            if role == "constructor" and isinstance(node, ast.Call)
+            else (
+                node.args[1]
+                if role == "type_probe" and isinstance(node, ast.Call) and len(node.args) > 1
+                else node
+                if role == "type_probe"
+                else None
+            )
         )
         if expression is None:
             return []
@@ -1191,7 +1200,12 @@ class ConstructCollector(ast.NodeVisitor):
                 target = self.comparisons._canonical_name(node.args[1])
                 if target in self.local_classes:
                     self._selector_record(
-                        node.args[1], "type_probe", target, None, operation="probe"
+                        node.args[1],
+                        "type_probe",
+                        target,
+                        None,
+                        operation="probe",
+                        receiver_node=node.args[1] if node.lineno != node.end_lineno else None,
                     )
         target = self.comparisons._canonical_name(node.func)
         if target in self.local_classes:
