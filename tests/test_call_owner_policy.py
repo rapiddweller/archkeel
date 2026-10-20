@@ -116,6 +116,58 @@ def test_constructed_receiver_owner_escape_is_unknown_and_replays(tmp_path):
     assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
 
 
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize(
+    "setup,escaped_receiver",
+    [
+        ("", "x"),
+        ("alias = x\n", "alias"),
+        ("box = [x]\n", "box[0]"),
+        ("holder = Holder()\nholder.value = x\n", "holder.value"),
+    ],
+    ids=["direct-argument", "alias-argument", "container-argument", "attribute-storage"],
+)
+def test_constructed_receiver_escape_to_helper_is_unknown_and_replays(
+    tmp_path, mounted, columnar, setup, escaped_receiver
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    caller = (
+        "from .storage import Storage\n"
+        "class Holder: pass\n"
+        "def mutate(value): value.page = lambda: None\n"
+        "def run():\n    x = Storage()\n"
+        + "".join(f"    {line}\n" for line in setup.splitlines())
+        + f"    mutate({escaped_receiver})\n    x.page()\n"
+    )
+    result, row = _observe(
+        tmp_path,
+        caller,
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "x.page"
+    )
+    assert call.data.get("call_binding") is None
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"escaped-constructed-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
 def test_constructed_receiver_with_unproven_inherited_constructor_is_unknown(tmp_path):
     result, row = _observe(
         tmp_path,
