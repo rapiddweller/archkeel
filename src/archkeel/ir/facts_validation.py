@@ -930,6 +930,8 @@ def _parse_numeric_evidence_excerpt(
 ) -> tuple[tuple[ast.stmt, ...], int] | None:
     if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
         return None
+    if excerpt.lstrip(" \t").startswith("@"):
+        return _parse_numeric_decorator_excerpt(excerpt)
     if _numeric_elif_start(excerpt) is not None:
         return _parse_numeric_elif_excerpt(excerpt)
     try:
@@ -943,6 +945,34 @@ def _parse_numeric_evidence_excerpt(
         if parsed is None or len(parsed[0]) != 1:
             return None
         return parsed if _numeric_header_has_synthetic_body(parsed[0][0]) else None
+
+
+def _parse_numeric_decorator_excerpt(
+    excerpt: str,
+) -> tuple[tuple[ast.stmt, ...], int] | None:
+    indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+    unit = "\t" if "\t" in indentation else "    "
+    prefix = "if True:\n" if indentation else ""
+    source = (
+        f"{prefix}{excerpt}\n"
+        f"{indentation}def __archkeel_numeric_witness__():\n"
+        f"{indentation}{unit}pass"
+    )
+    try:
+        parsed = ast.parse(source)
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    roots = tuple(parsed.body)
+    if indentation and (len(roots) != 1 or not isinstance(roots[0], ast.If)):
+        return None
+    body = tuple(roots[0].body) if indentation and isinstance(roots[0], ast.If) else roots
+    if (
+        len(body) != 1
+        or not isinstance(body[0], ast.FunctionDef)
+        or len(body[0].decorator_list) != 1
+    ):
+        return None
+    return roots, 1 if indentation else 0
 
 
 def _numeric_elif_start(excerpt: str) -> int | None:
