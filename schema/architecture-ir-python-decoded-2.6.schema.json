@@ -305,6 +305,28 @@
                         }
                       }
                     }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "call_arguments": {
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "call_arguments"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "call_binding": {
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "call_binding"
+                      ]
+                    }
                   }
                 ]
               }
