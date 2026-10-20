@@ -926,7 +926,8 @@ class CallCollector(ast.NodeVisitor):
         return {origin + (f".{suffix}" if separator else "") for origin in origins}
 
     def _native_alias_targets(self, name: str, owner: Scope, seen: frozenset[str]) -> set[str]:
-        sites = owner.bindings.get(name, ())
+        bindings: dict[str, list[ast.AST]] = owner.bindings
+        sites = bindings.get(name, ())
         origins: set[str] = set()
         for site in sites:
             if not isinstance(site, ast.Name):
