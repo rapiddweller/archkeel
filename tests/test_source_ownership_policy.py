@@ -424,6 +424,131 @@ def test_inline_parameter_default_and_fallback_duplicate_canonical_value(tmp_pat
     assert stale_assessment.status == "FAIL" and not stale_assessment.evaluation_proven
 
 
+def test_parameter_default_cannot_borrow_another_callable_source_witness(tmp_path):
+    import copy
+
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload, parse_observation
+    from archkeel.ir.facts import stable_id
+
+    contract = _contract(
+        {
+            "mode": "confined",
+            "value_owner": "sample.defaults.FALLBACK_REGION",
+            "parameters": [
+                "sample.consumer.normalize.region",
+                "sample.consumer.bad.region",
+            ],
+            "roles": ["parameter_default"],
+        }
+    )
+    contract["components"] = [_component("all", ["sample"])]
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/defaults.py": 'FALLBACK_REGION = "ZZ"\n',
+            "sample/consumer.py": (
+                "from .defaults import FALLBACK_REGION\n"
+                "def normalize(region=FALLBACK_REGION): return region\n"
+                'def bad(region="ZZ"): return region\n'
+            ),
+        },
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+    changed = copy.deepcopy(observation_payload(result.observation))
+    roles = [
+        item
+        for item in changed["references"]
+        if item["kind"] == "source_role" and item["data"].get("role") == "parameter_default"
+    ]
+    donor = next(item for item in roles if item["data"].get("expression_kind") == "reference")
+    recipient = next(item for item in roles if item["data"].get("expression_kind") == "literal")
+    recipient["evidence_ids"] = donor["evidence_ids"]
+    recipient["data"].pop("constant", None)
+    for field in (
+        "expression_kind",
+        "expression",
+        "status",
+        "targets",
+        "line",
+        "column",
+        "end_line",
+        "end_column",
+    ):
+        recipient["data"][field] = donor["data"][field]
+    source = next(item for item in changed["evidence"] if item["id"] == donor["evidence_ids"][0])
+    recipient["id"] = stable_id(
+        "SOURCE-ROLE",
+        source["file"],
+        recipient["data"]["line"],
+        recipient["data"]["column"],
+        recipient["data"]["end_line"],
+        recipient["data"]["end_column"],
+        recipient["data"]["role"],
+        recipient["data"]["canonical_name"],
+    )
+    with pytest.raises(ValueError, match="parameter default source witness"):
+        parse_observation(changed)
+    saved = tmp_path / "tampered.json"
+    saved.write_bytes(canonical_report_bytes(changed))
+    replay = run_saved_report(saved)
+    assert any(
+        "parameter default source witness" in item.unknown_claim for item in replay.diagnostics
+    )
+
+
+def test_multiline_parameter_default_remains_an_unsupported_unknown(tmp_path):
+    from archkeel.ir.decisions import rule_assessments
+
+    contract = _contract(
+        {
+            "mode": "confined",
+            "value_owner": "sample.defaults.FALLBACK_REGION",
+            "parameters": ["sample.consumer.normalize.region"],
+            "roles": ["parameter_default"],
+        }
+    )
+    contract["components"] = [_component("all", ["sample"])]
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/defaults.py": 'FALLBACK_REGION = "ZZ"\n',
+            "sample/consumer.py": (
+                "from .defaults import FALLBACK_REGION\n"
+                "def normalize(\n"
+                "    region=FALLBACK_REGION,\n"
+                "):\n"
+                "    return region\n"
+            ),
+        },
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+    roles = [
+        item
+        for item in result.observation.records("references")
+        if item.kind == "source_role" and item.data.get("role") == "parameter_default"
+    ]
+    assert len(roles) == 1
+    assert roles[0].data.get("expression_kind") == "unsupported"
+    assert roles[0].data.get("status") != "resolved"
+    unknowns = [
+        item
+        for item in result.observation.records("unknowns")
+        if item.kind == "source_ownership_limit" and "ownership" in item.rule_ids
+    ]
+    assert len(unknowns) == 1
+    [assessment] = [
+        item
+        for item in rule_assessments(result.observation, undecided_by_rule={"ownership": 1})
+        if item.id == "ownership"
+    ]
+    assert assessment.status.value == "UNKNOWN"
+
+
 def test_missing_canonical_default_owner_is_unknown_not_a_guess(tmp_path):
     from archkeel.check.report import run_saved_report
     from archkeel.ir.codec import canonical_report_bytes

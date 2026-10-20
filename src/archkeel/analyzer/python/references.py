@@ -299,6 +299,21 @@ class ReferenceCollector(ast.NodeVisitor):
         owner = f"{parent_scope.qualified_name}.{function.name}"
         parameter = f"{owner}.{argument.arg}"
         declaration_id = definition_id(self.module, function, owner)
+        function_line, _, _ = location(function)
+        expression_line, expression_end, _ = location(expression)
+        if expression_line != function_line or expression_end != expression_line:
+            self._source_role(
+                expression,
+                "parameter_default",
+                parameter,
+                declaration_id,
+                parameter=parameter,
+                expression_kind="unsupported",
+                status=SourceResolution.PARTIALLY_RESOLVED,
+                targets=[],
+                expression=ast.unparse(expression),
+            )
+            return
         self._source_role(
             expression,
             "parameter_default",
