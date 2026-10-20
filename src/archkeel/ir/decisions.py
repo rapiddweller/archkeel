@@ -793,6 +793,7 @@ def _numeric_scope_proven(observation: Observation, receipt: Record) -> bool:
             "module_ids",
             "operation_ids",
             "binding_id",
+            "result_digest",
         }
         and proof.get("source_digest") == observation.source.source_digest
         and proof.get("source_scope") == observation.source.scope
@@ -812,6 +813,8 @@ def _numeric_scope_proven(observation: Observation, receipt: Record) -> bool:
         and module_ids == tuple(sorted(item.id for item in modules_records))
         and isinstance(operation_ids, tuple)
         and operation_ids == tuple(sorted(item.id for item in numeric_records))
+        and proof.get("result_digest")
+        == rule_result_digest(observation.sections, receipt.rule_ids[0])
         and proof.get("binding_id")
         == rule_evaluation_binding_id(inventory_binding, receipt, observation.schema_version)
     )
@@ -1080,6 +1083,23 @@ def rule_evaluation_binding_id(
     return stable_id(
         "RULE-EVALUATION-PROOF", observation_schema_version, inventory_binding_id, repr(claim)
     )
+
+
+def rule_result_digest(sections: _Iterable[Section], rule_id: str) -> str:
+    """Bind every rule-linked violation or unknown to its section and complete record."""
+    selected = tuple(
+        sorted(
+            (
+                (section.name, record)
+                for section in sections
+                for record in section.records
+                if rule_id in record.rule_ids
+                and record.evidence_class in {EvidenceClass.VIOLATION, EvidenceClass.UNKNOWN}
+            ),
+            key=lambda item: (item[0], item[1].id),
+        )
+    )
+    return stable_id("RULE-RESULT", rule_id, repr(selected))
 
 
 def _native_scope_runtime_valid(runtime: RuntimeInfo) -> bool:
