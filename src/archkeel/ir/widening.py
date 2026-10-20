@@ -90,6 +90,7 @@ _PERMISSION_RULE_KINDS: Final = frozenset({"allowed_dependency"})
 _RESTRICTION_RULE_KINDS: Final = frozenset(
     {
         "call_owner",
+        "bounded_numeric_operand",
         "forbidden_dependency",
         "forbidden_construct",
         "external_dependency_scope",

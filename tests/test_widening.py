@@ -25,6 +25,7 @@ from archkeel.ir.model import (
     ArchitectureRule,
     BoundaryTypeAllowance,
     BoundaryTypesRule,
+    BoundedNumericOperandRule,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
@@ -140,6 +141,20 @@ def _symbol_placement(**overrides: object) -> SymbolPlacementRule:
 def _boundary_types(**overrides: object) -> BoundaryTypesRule:
     base = BoundaryTypesRule("R", "boundary_types", "pkg", "because", _PROVENANCE, "architect")
     return replace(base, **overrides)
+
+
+def _bounded_numeric_operand() -> BoundedNumericOperandRule:
+    return BoundedNumericOperandRule(
+        "R",
+        "bounded_numeric_operand",
+        "pkg.a",
+        "both",
+        "nonce",
+        16,
+        "because",
+        _PROVENANCE,
+        "architect",
+    )
 
 
 def _component(**overrides: object) -> ContractComponent:
@@ -349,6 +364,8 @@ _RULE_CASES: tuple[tuple[str, ArchitectureRule | None, ArchitectureRule | None, 
     ("symbol_placement removed", _symbol_placement(), None, True),
     ("boundary_types added", None, _boundary_types(), False),
     ("boundary_types removed", _boundary_types(), None, True),
+    ("bounded_numeric_operand added", None, _bounded_numeric_operand(), False),
+    ("bounded_numeric_operand removed", _bounded_numeric_operand(), None, True),
 )
 
 

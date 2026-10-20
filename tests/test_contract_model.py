@@ -493,6 +493,20 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
                 "decided_by": "architect",
             }
         )
+    if version == "3.8.0":
+        raw["rules"].append(
+            {
+                "id": "NUMERIC-OPERAND",
+                "kind": "bounded_numeric_operand",
+                "source": "shop.app",
+                "form": "both",
+                "terminal_suffix": "nonce",
+                "minimum_value": 16,
+                "rationale": "Keep the modulo range large enough.",
+                "provenance": _PROVENANCE,
+                "decided_by": "architect",
+            }
+        )
     return raw
 
 
@@ -707,7 +721,17 @@ def test_the_maximal_contract_fills_every_field() -> None:
     """The completeness test below only sees a field this contract fills."""
     documents = [
         json.loads(contract_bytes(parse_contract(_maximal_contract(version))))
-        for version in ("3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0", "3.6.0", "3.7.0")
+        for version in (
+            "3.0.0",
+            "3.1.0",
+            "3.2.0",
+            "3.3.0",
+            "3.4.0",
+            "3.5.0",
+            "3.6.0",
+            "3.7.0",
+            "3.8.0",
+        )
     ]
 
     assert _unfilled(ArchitectureContract, documents, "contract") == []
@@ -771,7 +795,7 @@ def test_validate_holds_the_namespace_to_the_fields_it_held_before(version: str)
     )
 
 
-@pytest.mark.parametrize("version", ("3.0.0", "3.1.0", "3.2.0"))
+@pytest.mark.parametrize("version", ("3.0.0", "3.1.0", "3.2.0", "3.8.0"))
 def test_maximal_contract_matches_its_version_schema(version: str) -> None:
     raw = json.loads(contract_bytes(parse_contract(_maximal_contract(version))))
     schema = json.loads(

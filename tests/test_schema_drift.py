@@ -433,7 +433,7 @@ def test_requirement_state_schema_is_versioned_and_legacy_report_remains_valid()
 
 
 @pytest.mark.parametrize("profile", PROFILES.values(), ids=lambda profile: profile.analyzer)
-@pytest.mark.parametrize("version", ["2.0.0", "2.1.0"])
+@pytest.mark.parametrize("version", ["2.0.0", "2.1.0", "2.2.0"])
 def test_shared_observation_schema_preserves_each_profile_and_provenance(profile, version) -> None:
     registry = Registry().with_resources(
         (schema["$id"], Resource.from_contents(schema))
@@ -487,7 +487,7 @@ def test_shared_observation_schema_preserves_each_profile_and_provenance(profile
 
 @pytest.mark.parametrize("field", ["runtime", "producer"])
 @pytest.mark.parametrize("value", ["", " ", "unknown", "UNKNOWN", None, False])
-@pytest.mark.parametrize("version", ["2.0.0", "2.1.0"])
+@pytest.mark.parametrize("version", ["2.0.0", "2.1.0", "2.2.0"])
 def test_shared_observation_schema_rejects_unknown_provenance(field, value, version) -> None:
     registry = Registry().with_resources(
         (schema["$id"], Resource.from_contents(schema))
