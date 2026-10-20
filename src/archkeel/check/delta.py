@@ -519,7 +519,16 @@ def build_architecture_delta(
         and baseline.contract.digest == contract_digest
         and baseline.schema_version == head.schema_version
         and head.schema_version
-        in {"1.3.0", "2.0.0", "2.1.0", "2.2.0", "2.3.0", "2.4.0", SCHEMA_VERSION}
+        in {
+            "1.3.0",
+            "2.0.0",
+            "2.1.0",
+            "2.2.0",
+            "2.3.0",
+            "2.4.0",
+            "2.5.0",
+            SCHEMA_VERSION,
+        }
         and bool(baseline.source.scope)
         and all(baseline.source.scope + head.source.scope)
         and sorted(baseline.source.scope) == sorted(head.source.scope)
