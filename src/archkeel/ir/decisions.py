@@ -1286,6 +1286,15 @@ def _protocol_declaration_receipt_complete(observation: Observation, receipt: Re
         and proof.get("source_digest") == observation.source.source_digest
         and proof.get("source_scope") == observation.source.scope
         and proof.get("contract_digest") == observation.contract.digest
+        and all(
+            section.name == "violations"
+            if record.kind == "protocol_declaration"
+            else section.name == "unknowns"
+            for section in observation.sections
+            for record in section.records
+            if rule_id in record.rule_ids
+            and record.kind in {"protocol_declaration", "protocol_declaration_limit"}
+        )
         and proof.get("result_digest") == protocol_declaration_result_digest(records, rule_id)
         and proof.get("binding_id")
         == rule_evaluation_binding_id(
