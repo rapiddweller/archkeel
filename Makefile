@@ -73,7 +73,7 @@ pr-test: browser-runtime-install
 		tests/test_call_owner_policy.py tests/test_call_owner_source_facts.py tests/test_call_owner_wire_compatibility.py tests/test_call_scope_receipt_identity.py \
 		tests/test_call_argument_policy.py \
 		tests/test_call_owner_scan_completeness.py \
-		tests/test_call_owner_scan_completeness.py tests/test_call_argument_scan_completeness.py \
+		tests/test_call_argument_scan_completeness.py \
 		tests/test_numeric_operand_rule.py tests/test_numeric_operand_observation.py tests/test_protocol_declarations.py \
 		tests/test_guard_paths.py tests/test_guarded_effect_contract.py tests/test_guarded_effect_evaluation.py \
 		tests/test_guarded_effect_facts.py tests/test_guarded_effect_saved_report.py tests/test_guarded_effect_source.py \
@@ -82,6 +82,8 @@ pr-test: browser-runtime-install
 		tests/test_protocol_conditional_identity.py \
 		tests/test_typescript_namespace_identities.py \
 		tests/test_result_schema.py \
+		tests/test_construct_selectors.py \
+		tests/test_source_ownership_policy.py tests/test_source_facts_columnar.py \
 		tests/test_dart_parse.py tests/test_dart_snapshot.py tests/test_dart_resolve.py \
 		tests/test_dart_typed_controls.py tests/test_dart_local_callable_shadowing.py \
 		tests/test_dart_sdk_free.py tests/test_dart_inner_collect.py tests/test_dart_target.py \

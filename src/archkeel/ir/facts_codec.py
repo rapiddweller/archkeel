@@ -13,6 +13,7 @@ from enum import StrEnum
 from math import isfinite
 from pathlib import PurePosixPath, PureWindowsPath
 
+from .codec_strings import expand_strings, intern_strings, profitable_string
 from .facts import (
     EVIDENCE_FIELDS,
     RECORD_FIELDS,
@@ -55,6 +56,12 @@ from .facts import (
     RawJson as RawJson,
 )
 from .facts_validation import _call_excerpt_matches, validate_source_facts
+from .facts_validation import (
+    selector_receiver_site_matches as selector_receiver_site_matches,
+)
+from .facts_validation import (
+    source_reference_context as source_reference_context,
+)
 from .protocol import (
     PYTHON_IMPORT_SURVEY_SECTIONS,
     CollectionRequest,
@@ -185,6 +192,11 @@ class _PathToken(StrEnum):
     BACKSLASH = "\\"
     COLON = ":"
     SLASH = "/"
+
+
+class _SourceFactsWire(StrEnum):
+    COLUMNAR_V1 = "source-facts-columnar-v1"
+    STRING_REFERENCE = "$<index>"
 
 
 class ProtocolError(ValueError):
@@ -366,7 +378,9 @@ def decode_request(payload: bytes) -> CollectionRequest:
 
 def _python_settings(raw: dict[str, RawJson], version: ProtocolVersion) -> PythonSettings:
     fields = (
-        {"language", "provider_sources", "phase"} if version is ProtocolVersion.V4 else {"language"}
+        {"language", "provider_sources", "phase"}
+        if version in {ProtocolVersion.V4, ProtocolVersion.V5}
+        else {"language"}
     )
     _object(raw, fields, "resolver")
     try:
@@ -385,7 +399,7 @@ def encode_request(request: CollectionRequest) -> bytes:
     version = _version(request.protocol_version)
     resolver: dict[str, RawJson] = {"language": request.resolver.language}
     if isinstance(request.resolver, PythonSettings):
-        if version is ProtocolVersion.V4:
+        if version in {ProtocolVersion.V4, ProtocolVersion.V5}:
             resolver["phase"] = request.resolver.phase
             resolver["provider_sources"] = [
                 _python_provider_payload(entry) for entry in request.resolver.provider_sources
@@ -794,7 +808,11 @@ def _shape(value: RawJson, protocol_version: ProtocolVersion) -> TypeShape:
         return TypeUnion(
             text, _shape(value["left"], protocol_version), _shape(value["right"], protocol_version)
         )
-    if kind is _ShapeKind.LIST and protocol_version in {ProtocolVersion.V3, ProtocolVersion.V4}:
+    if kind is _ShapeKind.LIST and protocol_version in {
+        ProtocolVersion.V3,
+        ProtocolVersion.V4,
+        ProtocolVersion.V5,
+    }:
         _object(value, {"kind", "text", "elements"}, "type list")
         return TypeList(
             text,
@@ -939,7 +957,13 @@ def _file_payload(entry: FileFact) -> dict[str, RawJson]:
 def _runtime_info(value: RawJson, protocol_version: ProtocolVersion) -> RuntimeInfo:
     expected = (
         {"name", "version", "required", "requirement_state"}
-        if protocol_version in {ProtocolVersion.V2, ProtocolVersion.V3, ProtocolVersion.V4}
+        if protocol_version
+        in {
+            ProtocolVersion.V2,
+            ProtocolVersion.V3,
+            ProtocolVersion.V4,
+            ProtocolVersion.V5,
+        }
         else {"name", "version", "required"}
     )
     if not isinstance(value, dict) or set(value) != expected:
@@ -972,7 +996,7 @@ def _source_facts(value: RawJson, version: ProtocolVersion) -> SourceFacts:
             "state",
             "candidate_evidence",
         }
-        | ({"provider_bindings"} if version is ProtocolVersion.V4 else set()),
+        | ({"provider_bindings"} if version in {ProtocolVersion.V4, ProtocolVersion.V5} else set()),
         "facts",
     )
     adapter = _object(item["adapter"], {"name", "version", "code_digest"}, "adapter")
@@ -1024,6 +1048,161 @@ def _source_facts(value: RawJson, version: ProtocolVersion) -> SourceFacts:
     return facts
 
 
+def _compact_source_facts(value: RawJson) -> dict[str, RawJson]:
+    """Encode source facts as positional rows plus an exactly profitable string table."""
+    facts = _compact_object(value, "facts")
+    sections = _array(facts["sections"], "sections")
+    data_fields: list[RawJson] = [
+        field
+        for field in sorted(
+            {
+                key
+                for raw_section in sections
+                for raw_record in _array(
+                    _compact_object(raw_section, "section")["records"], "records"
+                )
+                for key in _compact_object(_compact_object(raw_record, "record")["data"], "data")
+            }
+        )
+    ]
+    data_indexes = {field: index for index, field in enumerate(data_fields)}
+    packed_sections: list[RawJson] = []
+    for raw_section in sections:
+        section = _compact_object(raw_section, "section")
+        packed_records: list[RawJson] = []
+        for raw_record in _array(section["records"], "records"):
+            record = _compact_object(raw_record, "record")
+            data = _compact_object(record["data"], "record.data")
+            packed_records.append(
+                [
+                    *(record[field] for field in RECORD_FIELDS[:-1]),
+                    [[data_indexes[key], data[key]] for key in sorted(data)],
+                ]
+            )
+        packed_sections.append({"name": section["name"], "records": packed_records})
+
+    def evidence_rows(raw: RawJson, label: str) -> list[RawJson]:
+        rows: list[RawJson] = []
+        for entry in _array(raw, label):
+            evidence = _compact_object(entry, "evidence")
+            rows.append([evidence[field] for field in EVIDENCE_FIELDS])
+        return rows
+
+    packed: dict[str, RawJson] = {
+        **{
+            key: item
+            for key, item in facts.items()
+            if key not in {"sections", "evidence", "candidate_evidence"}
+        },
+        "sections": packed_sections,
+        "evidence": evidence_rows(facts["evidence"], "evidence"),
+        "candidate_evidence": evidence_rows(facts["candidate_evidence"], "candidate evidence"),
+    }
+    compact_tree, table = intern_strings(packed, profitable=profitable_string)
+    compact = _compact_object(compact_tree, "compact source facts")
+    compact["encoding"] = {
+        "kind": _SourceFactsWire.COLUMNAR_V1.value,
+        "record_fields": list(RECORD_FIELDS),
+        "evidence_fields": list(EVIDENCE_FIELDS),
+        "data_fields": data_fields,
+        "string_reference": _SourceFactsWire.STRING_REFERENCE.value,
+    }
+    table_rows: list[RawJson] = [entry for entry in table]
+    compact["string_table"] = table_rows
+    return compact
+
+
+def _compact_object(raw: object, label: str) -> dict[str, RawJson]:
+    """Shallow-check encoder-owned objects; the final tree walk validates nested JSON."""
+    if not isinstance(raw, dict):
+        raise ProtocolError(f"{label} must be an object")
+    if any(not isinstance(key, str) for key in raw):
+        raise ProtocolError("JSON fields must be strings")
+    return raw
+
+
+def _expand_source_facts(value: RawJson) -> dict[str, RawJson]:
+    """Validate and expand V5 rows before ordinary source-fact validation."""
+    item = _record_object(value, "compact source facts")
+    encoding = _object(
+        item.get("encoding"),
+        {"kind", "record_fields", "evidence_fields", "data_fields", "string_reference"},
+        "source encoding",
+    )
+    if encoding != {
+        "kind": _SourceFactsWire.COLUMNAR_V1.value,
+        "record_fields": list(RECORD_FIELDS),
+        "evidence_fields": list(EVIDENCE_FIELDS),
+        "data_fields": encoding.get("data_fields"),
+        "string_reference": _SourceFactsWire.STRING_REFERENCE.value,
+    }:
+        raise ProtocolError("unsupported source facts columnar encoding")
+    data_fields = tuple(
+        _record_string(field, "encoding.data_fields[]")
+        for field in _array(encoding["data_fields"], "encoding.data_fields")
+    )
+    if tuple(sorted(set(data_fields))) != data_fields:
+        raise ProtocolError("source encoding data fields must be sorted and unique")
+    table = tuple(
+        _record_string(entry, "string_table[]")
+        for entry in _array(item.get("string_table"), "string_table")
+    )
+    if tuple(sorted(set(table))) != table:
+        raise ProtocolError("source string table must be sorted and unique")
+    encoded = {key: entry for key, entry in item.items() if key not in {"encoding", "string_table"}}
+    expanded = expand_strings(encoded, list(table))
+    if not isinstance(expanded, dict):
+        raise ProtocolError("expanded source facts must be an object")
+    sections = _array(expanded["sections"], "sections")
+    section_names: set[str] = set()
+    for raw_section in sections:
+        section = _object(raw_section, {"name", "records"}, "compact section")
+        name = _string(section["name"], "section.name")
+        if name in section_names:
+            raise ProtocolError("duplicate compact source section")
+        section_names.add(name)
+        rows = _array(section["records"], "compact records")
+        records: list[RawJson] = []
+        for raw_row in rows:
+            row = _array(raw_row, "compact record")
+            if len(row) != len(RECORD_FIELDS):
+                raise ProtocolError("compact source record width mismatch")
+            data_pairs = _array(row[-1], "compact record data")
+            data: dict[str, RawJson] = {}
+            previous = -1
+            for pair_raw in data_pairs:
+                pair = _array(pair_raw, "compact data pair")
+                if len(pair) != 2 or not isinstance(pair[0], int) or isinstance(pair[0], bool):
+                    raise ProtocolError("compact data pair is invalid")
+                index = pair[0]
+                if index <= previous or index >= len(data_fields):
+                    raise ProtocolError("compact data field index is invalid")
+                previous = index
+                data[data_fields[index]] = pair[1]
+            record = dict(zip(RECORD_FIELDS[:-1], row[:-1], strict=True))
+            record["data"] = data
+            records.append(record)
+        section["records"] = records
+    expanded["evidence"] = _expand_evidence_rows(expanded["evidence"], "evidence")
+    expanded["candidate_evidence"] = _expand_evidence_rows(
+        expanded["candidate_evidence"], "candidate evidence"
+    )
+    if _compact_source_facts(expanded) != item:
+        raise ProtocolError("source facts columnar encoding is not canonical")
+    return expanded
+
+
+def _expand_evidence_rows(value: RawJson, label: str) -> list[RawJson]:
+    rows = _array(value, label)
+    output: list[RawJson] = []
+    for raw_row in rows:
+        row = _array(raw_row, f"{label} row")
+        if len(row) != len(EVIDENCE_FIELDS):
+            raise ProtocolError(f"{label} row width mismatch")
+        output.append(dict(zip(EVIDENCE_FIELDS, row, strict=True)))
+    return output
+
+
 def _response(decoded: RawJson) -> CollectionResponse:
     try:
         if not isinstance(decoded, dict):
@@ -1032,10 +1211,17 @@ def _response(decoded: RawJson) -> CollectionResponse:
         raw = _object(
             decoded,
             {"protocol_version", "facts"}
-            | ({"provider_sources"} if version is ProtocolVersion.V4 else set()),
+            | (
+                {"provider_sources"}
+                if version in {ProtocolVersion.V4, ProtocolVersion.V5}
+                else set()
+            ),
             "response",
         )
-        facts = _source_facts(raw["facts"], version)
+        raw_facts = raw["facts"]
+        if version is ProtocolVersion.V5:
+            raw_facts = _expand_source_facts(raw_facts)
+        facts = _source_facts(raw_facts, version)
         providers = _python_providers(raw.get("provider_sources", []))
         if providers and (
             facts.profile is not SourceProfile.PYTHON
@@ -1106,14 +1292,15 @@ def _runtime_payload(runtime: RuntimeInfo, version: ProtocolVersion) -> dict[str
         "required": runtime.required,
         **(
             {"requirement_state": runtime.requirement_state}
-            if version in {ProtocolVersion.V2, ProtocolVersion.V3, ProtocolVersion.V4}
+            if version
+            in {ProtocolVersion.V2, ProtocolVersion.V3, ProtocolVersion.V4, ProtocolVersion.V5}
             else {}
         ),
     }
 
 
 def _contextmanager_protocol(facts: SourceFacts, version: ProtocolVersion) -> None:
-    if version is not ProtocolVersion.V4 and any(
+    if version not in {ProtocolVersion.V4, ProtocolVersion.V5} and any(
         record.data.get("contextmanager_signature") is not None
         for section in facts.sections
         for record in section.records
@@ -1131,7 +1318,7 @@ def _facts_payload(
                     _provider_binding_payload(entry) for entry in facts.provider_bindings
                 ]
             }
-            if version is ProtocolVersion.V4
+            if version in {ProtocolVersion.V4, ProtocolVersion.V5}
             else {}
         ),
         "state": thaw_data(state_data(facts.state)),
@@ -1193,9 +1380,9 @@ def encode_response(response: CollectionResponse) -> bytes:
     facts = response.facts
     version = _version(response.protocol_version)
     _contextmanager_protocol(facts, version)
-    if facts.provider_bindings and version is not ProtocolVersion.V4:
+    if facts.provider_bindings and version not in {ProtocolVersion.V4, ProtocolVersion.V5}:
         raise ProtocolError("provider bindings require collection protocol 4.0.0")
-    if response.provider_sources and version is not ProtocolVersion.V4:
+    if response.provider_sources and version not in {ProtocolVersion.V4, ProtocolVersion.V5}:
         raise ProtocolError("captured provider sources require collection protocol 4.0.0")
     runtime = _runtime_payload(facts.runtime, version)
     raw: dict[str, RawJson] = {
@@ -1206,11 +1393,13 @@ def encode_response(response: CollectionResponse) -> bytes:
                     _python_provider_payload(entry) for entry in response.provider_sources
                 ]
             }
-            if version is ProtocolVersion.V4
+            if version in {ProtocolVersion.V4, ProtocolVersion.V5}
             else {}
         ),
         "facts": _facts_payload(facts, version, runtime),
     }
+    if version is ProtocolVersion.V5:
+        raw["facts"] = _compact_source_facts(raw["facts"])
     payload = json.dumps(
         raw, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
     ).encode()

@@ -149,9 +149,6 @@ ALLOWED_LONG_FUNCTIONS = {
     ("src/archkeel/cli/__init__.py::main"): (
         "Composition root; one error boundary maps every command to a result."
     ),
-    ("src/archkeel/ir/codec_observation.py::encode_canonical_model"): (
-        "Columnizing and interning share the sentinel rows."
-    ),
     ("src/archkeel/ir/codec_contract.py::parse_contract"): (
         "Field lists plus one parser per kind; the duplicate-id check spans all groups."
     ),

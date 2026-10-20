@@ -380,7 +380,16 @@ def test_call_argument_evidence_requires_the_new_observation_version(tmp_path):
     assert parse_observation(raw).schema_version == "2.8.0"
 
     old = json.loads(json.dumps(raw))
-    old["schema_version"] = "2.1.0"
+    old["schema_version"] = "2.4.0"
+    old["declarations"] = [
+        item for item in old["declarations"] if item["kind"] != "source_ownership"
+    ]
+    old_references = old["references"]
+    old["references"] = []
+    for item in old_references:
+        if item["kind"] != "source_role":
+            item["data"].pop("reference_context", None)
+            old["references"].append(item)
     with pytest.raises(ValueError, match="call_arguments require"):
         parse_observation(old)
 

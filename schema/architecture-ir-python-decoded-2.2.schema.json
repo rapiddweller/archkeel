@@ -90,7 +90,55 @@
           {
             "properties": {
               "data": {
-                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "call_binding": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "https://archkeel.dev/schema/source-facts/5.0.0#/$defs/CallBinding"
+                      }
+                    ]
+                  },
+                  "candidate_count": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/candidate_count"
+                  },
+                  "candidates_truncated": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/candidates_truncated"
+                  },
+                  "construction": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/construction"
+                  },
+                  "expression": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/expression"
+                  },
+                  "reason": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/reason"
+                  },
+                  "result_bindings": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/result_bindings"
+                  },
+                  "source_definition_id": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/source_definition_id"
+                  },
+                  "source_module": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/source_module"
+                  },
+                  "source_scope": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/source_scope"
+                  },
+                  "status": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/status"
+                  },
+                  "target_evidence_ids": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/target_evidence_ids"
+                  },
+                  "targets": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/targets"
+                  }
+                },
                 "required": [
                   "source_scope",
                   "source_module",
@@ -103,25 +151,24 @@
                   "target_evidence_ids",
                   "call_binding"
                 ],
+                "type": "object"
+              }
+            }
+          },
+          {
+            "properties": {
+              "data": {
                 "additionalProperties": false,
                 "properties": {
-                  "source_scope": {
-                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/source_scope"
-                  },
-                  "source_definition_id": {
-                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/source_definition_id"
-                  },
-                  "source_module": {
-                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/source_module"
-                  },
-                  "expression": {
-                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/expression"
-                  },
-                  "status": {
-                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/status"
-                  },
-                  "targets": {
-                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/targets"
+                  "call_binding": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "https://archkeel.dev/schema/source-facts/5.0.0#/$defs/CallBinding"
+                      }
+                    ]
                   },
                   "candidate_count": {
                     "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/candidate_count"
@@ -129,17 +176,35 @@
                   "candidates_truncated": {
                     "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/candidates_truncated"
                   },
+                  "construction": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/construction"
+                  },
+                  "expression": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/expression"
+                  },
                   "reason": {
                     "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/reason"
-                  },
-                  "target_evidence_ids": {
-                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/target_evidence_ids"
                   },
                   "result_bindings": {
                     "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/result_bindings"
                   },
-                  "construction": {
-                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/construction"
+                  "source_definition_id": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/source_definition_id"
+                  },
+                  "source_module": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/source_module"
+                  },
+                  "source_scope": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/source_scope"
+                  },
+                  "status": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/status"
+                  },
+                  "target_evidence_ids": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/target_evidence_ids"
+                  },
+                  "targets": {
+                    "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/targets"
                   },
                   "call_binding": {
                     "oneOf": [
@@ -147,11 +212,24 @@
                         "type": "null"
                       },
                       {
-                        "$ref": "https://archkeel.dev/schema/source-facts/4.0.0#/$defs/CallBinding"
+                        "$ref": "https://archkeel.dev/schema/source-facts/5.0.0#/$defs/CallBinding"
                       }
                     ]
                   }
-                }
+                },
+                "required": [
+                  "source_scope",
+                  "source_module",
+                  "expression",
+                  "status",
+                  "targets",
+                  "candidate_count",
+                  "candidates_truncated",
+                  "reason",
+                  "target_evidence_ids",
+                  "call_binding"
+                ],
+                "type": "object"
               }
             }
           }
@@ -347,7 +425,8 @@
             ]
           }
         }
-      ]
+      ],
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/constructs"
     },
     "contexts": {
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/contexts"
@@ -415,7 +494,7 @@
             }
           }
         },
-        "violations": {
+        "unknowns": {
           "items": {
             "not": {
               "properties": {
@@ -432,7 +511,7 @@
             }
           }
         },
-        "unknowns": {
+        "violations": {
           "items": {
             "not": {
               "properties": {
@@ -452,6 +531,16 @@
       }
     }
   ],
-  "title": "Python ArchitectureIR 2.1.0, decoded observation profile",
-  "$comment": "AD-241. Versioned call ownership evidence. Reuse unchanged historical constraints without widening published resources. Register all bundled schemas by $id for offline validation."
+  "title": {
+    "anyOf": [
+      "Python ArchitectureIR 2.1.0, decoded observation profile",
+      "ArchitectureIR Python profile 2.2.0"
+    ]
+  },
+  "$comment": {
+    "anyOf": [
+      "AD-241. Versioned call ownership evidence. Reuse unchanged historical constraints without widening published resources. Register all bundled schemas by $id for offline validation.",
+      "AD-249. Python source ownership role facts are validated at ingress and saved-report replay."
+    ]
+  }
 }

@@ -35,6 +35,7 @@ global coverage and cycle closure stay incomplete. See
 
 | Reject a written string literal at one bound call parameter | `forbidden_call_argument` (3.10) |
 | Forbid a canonical effect while a declared Boolean condition is true | `forbidden_effect_under_condition` (3.13) |
+| Retire a source name or confine its definition, use, transfer, default or fallback to a canonical owner | `source_ownership` (3.12) |
 
 Python static imports and proven literal `importlib.import_module` / `__import__`
 calls feed the same dependency rules. An unknown loader binding or target withholds
@@ -81,6 +82,16 @@ and early `return`/`raise` paths; it may follow one unique private helper with b
 Unconditional effects are reachable while the condition is true. Stale or unsupported flow,
 missing declarations, helper chains and recursion remain UNKNOWN. See
 [AD-250](architecture/decisions/ad-250-bounded-guarded-effect-ownership.md).
+
+`source_ownership` is Python-only. `retired` selects `symbols` with the `definition`,
+`read`, `write` and/or `delete` roles. `confined` selects `symbols` with an `owner`, or
+formal `parameters` with a `value_owner`; choose the corresponding role subset, including
+`value_transfer`, `parameter_default` and `fallback` only where evidence supports it.
+Resolved references must match a unique admitted reference at the same source location.
+Literal defaults/fallbacks carry no reference target; unsupported expressions remain
+UNKNOWN. Dictionary callable transfers are bounded to direct names and zero-argument
+lambda calls. Missing, ambiguous, mutated or unlinked source evidence cannot certify a
+rule. See [AD-249](architecture/decisions/ad-249-source-ownership-defaults.md).
 
 ### Ownership and dependency decisions
 
@@ -257,6 +268,15 @@ cite those symbols and do not extend the rule to the containing module. Incomple
 source coverage still prevents PASS. Aliases/shadowing are limits. Exact type-ignore
 allowances bind scope, line, AST statement and tag; moving or changing them needs
 review.
+
+Contract 3.11 adds an optional closed `selector` record with `receiver`, `role`,
+`member` and, for value comparisons, `literal`. Supported roles are `read`,
+`write`, `call`, `reflect`, `constructor`, `type_probe`, `equality`,
+`membership`, `match`, `startswith` and `endswith`. It selects one nominal
+receiver/member role; it does not turn arbitrary predicates into policy. The
+Python observer's selector facts require observation 2.6. Dynamic names and
+unproven receiver/member identity yield UNKNOWN, and older readers reject facts
+relabelled to an earlier version. See [AD-248](architecture/decisions/ad-248-construct-selectors.md).
 
 The native TypeScript/JavaScript collector provides PARTIAL evidence for written
 string equality/inequality and `switch` case literals, including plain templates

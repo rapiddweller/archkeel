@@ -276,6 +276,7 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
             "forbidden_call_argument",
             "forbidden_effect_under_condition",
         }
+        and (version in {"3.12.0", "3.13.0"} or rule["kind"] != "source_ownership")
     ]
     app = next(item for item in raw["components"] if item["id"] == "COMP-APP")
     app["exact_modules"] = ["shop.app.orders"]
@@ -569,6 +570,18 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
                 "decided_by": "architect",
             }
         )
+    if version == "3.11.0":
+        rules["CONSTRUCT-NO-STRING-LITERAL-COMPARE"]["selector"] = {
+            "receiver": "shop.model.Connection",
+            "member": "backend",
+            "role": "equality",
+            "literal": "flat",
+        }
+    if version == "3.12.0":
+        ownership = next(rule for rule in raw["rules"] if rule["kind"] == "source_ownership")
+        ownership["roles"].append("parameter_default")
+        ownership["parameters"] = ["shop.model.entities.Connection.timeout"]
+        ownership["value_owner"] = "shop.model.entities.Connection"
     return raw
 
 
@@ -880,7 +893,7 @@ def test_maximal_contract_matches_its_version_schema(version: str) -> None:
     raw = json.loads(contract_bytes(parse_contract(_maximal_contract(version))))
     schema = json.loads(
         (
-            ROOT / f"schema/architecture-contract-{'.'.join(version.split('.')[:2])}.schema.json"
+            ROOT / f"schema/architecture-contract-{version.rsplit('.', 1)[0]}.schema.json"
         ).read_bytes()
     )
     assert not list(Draft202012Validator(schema).iter_errors(raw))

@@ -268,7 +268,7 @@ def markdown() -> str:
 ## Full-project journeys
 
 The [published gallery](https://rapiddweller.github.io/archkeel/demos/) groups each pinned
-application with its baseline and three source-only variants. Observation, coverage, declared
+application with its baseline and four source-only variants. Observation, coverage, declared
 rules and UML comparison are shown separately.
 
 {project_overview}
@@ -280,7 +280,8 @@ and `forbidden_effect_under_condition`: `secrets.token_hex` on a seeded run.
 
 The clean shop sample returns a fixed token for seeded runs and calls `secrets.token_hex` only
 for unseeded runs. `class-a-forbidden-effect-under-condition` and the default tour move the effect
-under the declared `seeded` condition and produce `EFFECT-NO-TOKEN-WHEN-SEEDED`.
+under the declared `seeded` condition and produce `EFFECT-NO-TOKEN-WHEN-SEEDED`. A separate
+`source_ownership` variant reads a model-owned helper from the app layer.
 
 ```sh
 make demo-architecture VARIANT=tour OUTPUT=build/demo.json

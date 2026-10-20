@@ -93,6 +93,14 @@ class SourceResolution(StrEnum):
     UNRESOLVED = "unresolved"
 
 
+class SourceReferenceContext(StrEnum):
+    """Source occurrence contexts used for ownership classification."""
+
+    VALUE = "value"
+    ANNOTATION = "annotation"
+    UNKNOWN = "unknown"
+
+
 def parse_source_resolution(value: JsonValue | RawJson) -> SourceResolution | None:
     """Recognize source resolution at an owned port; future record data remains opaque."""
     if isinstance(value, SourceResolution):

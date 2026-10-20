@@ -345,7 +345,8 @@ def _protocol_rule_results(
     receipt_scope_complete: bool,
 ) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord]]:
     """Evaluate one selector rule and issue only a complete source-scope receipt."""
-    target_module, _, target_name = rule.protocol.rpartition(".")
+    protocol_name: str = rule.protocol
+    target_module, _, target_name = protocol_name.rpartition(".")
     target_record = classes_by_location.get((target_module, target_name))
     target_valid = (
         isinstance(target_record, dict)

@@ -594,6 +594,63 @@ class TypeIgnoreAllowance:
     tag: str
 
 
+class ConstructSelectorRole(StrEnum):
+    READ = "read"
+    WRITE = "write"
+    CALL = "call"
+    REFLECT = "reflect"
+    CONSTRUCTOR = "constructor"
+    TYPE_PROBE = "type_probe"
+    EQUALITY = "equality"
+    MEMBERSHIP = "membership"
+    MATCH = "match"
+    STARTSWITH = "startswith"
+    ENDSWITH = "endswith"
+
+
+@dataclass(frozen=True, slots=True)
+class ConstructSelector:
+    """One nominal receiver/member selection with an optional literal operand."""
+
+    receiver: str
+    member: str | None
+    role: ConstructSelectorRole
+    literal: str | None = None
+
+
+class SourceOwnershipMode(StrEnum):
+    RETIRED = "retired"
+    CONFINED = "confined"
+
+
+class SourceOwnershipRole(StrEnum):
+    DEFINITION = "definition"
+    READ = "read"
+    WRITE = "write"
+    DELETE = "delete"
+    VALUE_TRANSFER = "value_transfer"
+    PARAMETER_DEFAULT = "parameter_default"
+    FALLBACK = "fallback"
+
+
+@dataclass(frozen=True, slots=True)
+class SourceOwnershipRule(ArchitectureRuleGrammar):
+    """A source-bound name, callable transfer, default, or fallback ownership constraint."""
+
+    id: str
+    kind: Literal[ArchitectureRuleKind.SOURCE_OWNERSHIP]
+    source: str
+    mode: SourceOwnershipMode
+    roles: tuple[SourceOwnershipRole, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+    symbols: tuple[str, ...] = ()
+    parameters: tuple[str, ...] = ()
+    owner: str | None = None
+    value_owner: str | None = None
+
+
 @dataclass(frozen=True, slots=True)
 class ForbiddenConstructRule(ArchitectureRuleGrammar):
     """`allowed_sources` match an owner scope by prefix, `exact_sources` only the scope named."""
@@ -608,6 +665,7 @@ class ForbiddenConstructRule(ArchitectureRuleGrammar):
     allowed_sources: tuple[str, ...] = ()
     exact_sources: tuple[str, ...] = ()
     allowed_type_ignores: tuple[TypeIgnoreAllowance, ...] = ()
+    selector: ConstructSelector | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -834,6 +892,7 @@ ArchitectureRule: TypeAlias = (
     | ForbiddenDependencyRule
     | AllowedDependencyRule
     | ForbiddenConstructRule
+    | SourceOwnershipRule
     | ExternalDependencyScopeRule
     | CompleteAssignmentRule
     | RootLayoutRule
@@ -1141,6 +1200,7 @@ def _rule_references(
         | AllowedDependencyRule
         | ForbiddenConstructRule
         | BoundedNumericOperandRule
+        | SourceOwnershipRule
         | CompleteAssignmentRule
         | CompleteExternalScopeRule
         | SymbolPlacementRule
@@ -1169,6 +1229,8 @@ def _rule_references(
         named += [("allowed_sources", rule.allowed_sources, True)]
     if isinstance(rule, ExternalDependencyScopeRule | SymbolPlacementRule | BoundaryTypesRule):
         named += [("exact_sources", rule.exact_sources, True)]
+    if isinstance(rule, SourceOwnershipRule):
+        return _source_ownership_references(index, rule, named)
     if isinstance(rule, ForbiddenConstructRule):
         named += [
             ("allowed_sources", rule.allowed_sources, False),
@@ -1218,6 +1280,26 @@ def _special_rule_references(index: int, rule: ArchitectureRule) -> list[ModuleR
         )
         return references
     return None
+
+
+def _source_ownership_references(
+    index: int, rule: SourceOwnershipRule, named: list[tuple[str, tuple[str, ...], bool]]
+) -> list[ModuleReference]:
+    if rule.owner is not None:
+        named.append(("owner", (rule.owner,), True))
+    references = _references(f"/rules/{index}", named)
+    for field, values in (("symbols", rule.symbols), ("parameters", rule.parameters)):
+        references.extend(
+            ModuleReference(f"/rules/{index}/{field}/{position}", value, False)
+            for position, value in enumerate(values)
+        )
+    if rule.value_owner is not None:
+        references.append(
+            ModuleReference(
+                f"/rules/{index}/value_owner", rule.value_owner.rpartition(".")[0], False
+            )
+        )
+    return references
 
 
 def module_references(

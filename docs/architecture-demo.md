@@ -18,6 +18,7 @@ and `forbidden_effect_under_condition`: `secrets.token_hex` on a seeded run.
 The clean shop sample returns a fixed token for seeded runs and calls `secrets.token_hex` only
 for unseeded runs. `class-a-forbidden-effect-under-condition` and the default tour move the effect
 under the declared `seeded` condition and produce `EFFECT-NO-TOKEN-WHEN-SEEDED`.
+and `source_ownership`: a model-owned helper read from the app layer.
 
 ```sh
 make demo-architecture VARIANT=tour OUTPUT=build/demo.json

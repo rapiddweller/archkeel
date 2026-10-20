@@ -73,7 +73,8 @@
         "archkeel.ir.guard_paths",
         "archkeel.ir.facts_codec",
         "archkeel.ir.facts_validation",
-        "archkeel.ir.state_codec"
+        "archkeel.ir.state_codec",
+        "archkeel.ir.codec_strings"
       ],
       "responsibilities": [
         "Strictly decode, validate and encode source facts and process envelopes.",
@@ -105,7 +106,13 @@
         "archkeel.ir.guard_paths:GuardedCallPath",
         "archkeel.ir.guard_paths:guarded_call_paths",
         "archkeel.ir.facts_validation:validate_source_facts",
-        "archkeel.ir.facts_validation:validate_source_bindings"
+        "archkeel.ir.facts_validation:validate_source_bindings",
+        "archkeel.ir.facts_codec:source_reference_context",
+        "archkeel.ir.codec_strings:intern_strings",
+        "archkeel.ir.codec_strings:expand_strings",
+        "archkeel.ir.codec_strings:profitable_string",
+        "archkeel.ir.codec_strings:observation_profitable",
+        "archkeel.ir.codec_strings:observation_escaped"
       ]
     },
     {
@@ -574,6 +581,10 @@
       {
         "path": "src/archkeel/ir/diagnostics.py",
         "responsibility": "Own immutable diagnostics, source locations and nominal diagnostic vocabulary with their validation invariants."
+      },
+      {
+        "path": "src/archkeel/ir/codec_strings.py",
+        "responsibility": "Provide pure, lossless JSON string interning and expansion for IR wire encodings."
       }
     ],
     "uml": {

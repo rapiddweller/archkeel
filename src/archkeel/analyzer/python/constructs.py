@@ -9,10 +9,12 @@ import ast
 from collections import Counter
 from collections.abc import Sequence
 from enum import Enum
+from typing import Protocol
 
 from archkeel.ir.facts import (
     MAX_NUMERIC_EVIDENCE_CHARS,
     MAX_STATIC_INTEGER,
+    CallBindingOrigin,
     EvidenceClass,
     SourceNameVisibility,
     stable_id,
@@ -21,6 +23,7 @@ from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 from archkeel.ir.source_records import source_name_visibility as _source_name_visibility
 
+from .resolve import SymbolIndex
 from .scopes import BindingKind, LexicalScopes, Scope
 from .source import (
     ParsedModule,
@@ -28,6 +31,7 @@ from .source import (
     body_is_empty,
     decorator_names,
     location,
+    own_scope,
     stable_direct_module_bindings,
 )
 
@@ -172,7 +176,13 @@ def _string_predicate(node: ast.Call) -> _StringPredicate | None:
 
 
 _BROAD_NAMES = frozenset({"Exception", "BaseException"})
-_REFLECTION_CALLS = {"setattr": "setattr_call", "delattr": "delattr_call", "vars": "vars_call"}
+_REFLECTION_CALLS = {
+    "getattr": "getattr_call",
+    "hasattr": "hasattr_call",
+    "setattr": "setattr_call",
+    "delattr": "delattr_call",
+    "vars": "vars_call",
+}
 _INTEGER_DEPTH = 12
 # A stub carrying one of these declares a shape; emptiness is its interface, not a gap (AD-29).
 _STUB_DECORATORS = frozenset(
@@ -184,6 +194,20 @@ _STUB_DECORATORS = frozenset(
         "overload",
     }
 )
+
+
+class SelectorReceiverResolver(Protocol):
+    """Typed call evidence reused to resolve selector receiver origins."""
+
+    index: SymbolIndex
+
+    def _stored_type(
+        self, node: ast.Attribute
+    ) -> tuple[str, list[str], dict[str, object]] | None: ...
+
+    def _constructed_type(
+        self, expression: ast.expr, call_site: ast.expr
+    ) -> tuple[str, list[str], dict[str, object]] | None: ...
 
 
 def _raises_not_implemented(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
@@ -426,6 +450,8 @@ class _LiteralComparisons:
         self.module = module
         self.scopes = LexicalScopes.for_module(module)
         module_values, class_values, enum_classes = _static_string_constants(module)
+        self.module_values = module_values
+        self.class_values = class_values
         self.origins: dict[str, str] = {}
         self.stable_names = stable_direct_module_bindings(module)
         enum_value_classes = frozenset(
@@ -458,6 +484,32 @@ class _LiteralComparisons:
             if "value" not in class_values[owner] and value is not None
         )
         self.collections: dict[str, ast.Tuple | ast.List | ast.Set] = {}
+
+    def string_value(self, node: ast.expr) -> str | None:
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        if isinstance(node, ast.Name) and self._module_name(node):
+            value = self.module_values.get(node.id)
+            return value if isinstance(value, str) else None
+        if isinstance(node, ast.Attribute):
+            owner = _dotted_name(node.value)
+            values = self.class_values.get(f"{self.module.module}.{owner}") if owner else None
+            value = values.get(node.attr) if values else None
+            return value if isinstance(value, str) else None
+        return None
+
+    def string_values(self, node: ast.expr) -> tuple[str, ...] | None:
+        scalar = self.string_value(node)
+        if scalar is not None:
+            return (scalar,)
+        collection: ast.expr = node
+        if isinstance(node, ast.Name):
+            collection = self.collections.get(node.id, node)
+        if isinstance(collection, ast.Tuple | ast.List | ast.Set):
+            values = tuple(self.string_value(item) for item in collection.elts)
+            if values and all(value is not None for value in values):
+                return tuple(value for value in values if value is not None)
+        return None
 
     def _module_name(self, node: ast.expr) -> bool:
         root = node
@@ -608,14 +660,29 @@ class ConstructCollector(ast.NodeVisitor):
         module: ParsedModule,
         evidence: dict[str, RawEvidence],
         comparisons: _LiteralComparisons,
+        symbol_index: SymbolIndex | None = None,
+        call_collector: SelectorReceiverResolver | None = None,
+        imports: Sequence[RawRecord] = (),
     ) -> None:
         self.module = module
         self.evidence = evidence
         self.items: list[RawRecord] = []
         self.scope_stack: list[str] = [module.module]
         self.comparisons = comparisons
+        self.symbol_index = symbol_index
+        self.call_collector = call_collector
+        self.imports = imports
         self.inherits_stack: list[bool] = []
         self.scopes = comparisons.scopes
+        self.parents = {
+            child: parent for parent in module.all_nodes for child in ast.iter_child_nodes(parent)
+        }
+        self.receiver_types: list[dict[str, str | None]] = []
+        self.parameter_receivers: list[set[str]] = []
+        self.parameter_annotations: list[dict[str, tuple[str, ast.expr]]] = []
+        self.local_classes: set[str] = set()
+        self.local_members: set[str] = set()
+        self.selector_ids: set[str] = set()
 
     def _integer(
         self, node: ast.expr, use: ast.AST, depth: int = 0, seen: frozenset[str] = frozenset()
@@ -878,6 +945,281 @@ class ConstructCollector(ast.NodeVisitor):
             self._modulo(node, node.target, node.value, "augmented")
         self.generic_visit(node)
 
+    def _receiver_type(self, node: ast.expr) -> str | None:
+        if not isinstance(node, ast.Name) or not self.receiver_types:
+            return None
+        return self.receiver_types[-1].get(node.id)
+
+    def _parameter_receiver(self, node: ast.expr) -> bool:
+        return isinstance(node, ast.Name) and any(
+            node.id in frame for frame in self.parameter_receivers
+        )
+
+    def _receiver_binding(
+        self, expression: ast.expr | None, use: ast.AST
+    ) -> tuple[str | None, dict[str, object] | None, str | None, list[str]]:
+        if expression is None:
+            return None, None, None, []
+        if isinstance(expression, ast.Name):
+            declared = (
+                self.parameter_annotations[-1].get(expression.id)
+                if self.parameter_annotations
+                else None
+            )
+            if declared is not None:
+                target, annotation = declared
+                annotation_evidence = add_evidence(self.evidence, self.module, annotation)
+                support_evidence = [annotation_evidence]
+                if self.symbol_index is not None:
+                    for qualified_name in (self.scope_stack[-1], target):
+                        declaration = self.symbol_index.binding_declarations.get(qualified_name)
+                        if (
+                            declaration is not None
+                            and declaration["data"].get("module") == self.module.module
+                        ):
+                            support_evidence.extend(declaration["evidence_ids"])
+                support_evidence = sorted(set(support_evidence))
+                return (
+                    target,
+                    {
+                        "origin": CallBindingOrigin.DECLARED_RECEIVER.value,
+                        "target": target,
+                        "evidence_ids": support_evidence,
+                    },
+                    expression.id,
+                    support_evidence,
+                )
+        if self.call_collector is None:
+            return self._receiver_type(expression), None, None, []
+        call_site = use if isinstance(use, ast.Call) else expression
+        if isinstance(expression, ast.Attribute):
+            stored = self.call_collector._stored_type(expression)
+            if stored is not None:
+                target, evidence, proof = stored
+                evidence = self._local_evidence(evidence)
+                return (
+                    target,
+                    {
+                        "origin": CallBindingOrigin.STORED_RECEIVER.value,
+                        "target": target,
+                        "evidence_ids": evidence,
+                        "proof": proof,
+                    },
+                    None,
+                    evidence,
+                )
+        constructed = self.call_collector._constructed_type(expression, call_site)
+        if constructed is not None:
+            target, evidence, proof = constructed
+            evidence = self._local_evidence(evidence)
+            return (
+                target,
+                {
+                    "origin": CallBindingOrigin.CONSTRUCTED_RECEIVER.value,
+                    "target": target,
+                    "evidence_ids": evidence,
+                    "proof": proof,
+                },
+                None,
+                evidence,
+            )
+        return self._receiver_type(expression), None, None, []
+
+    def _local_evidence(self, identifiers: list[str]) -> list[str]:
+        return sorted(
+            identifier
+            for identifier in set(identifiers)
+            if (item := self.evidence.get(identifier)) is not None
+            and item.get("file") == self.module.rel_path
+        )
+
+    def _builtin_call(self, node: ast.expr, name: str) -> bool:
+        if isinstance(node, ast.Name) and node.id == name:
+            binding = self.comparisons.scopes.lookup(node, node.id)
+            return binding.kind is BindingKind.UNBOUND and not binding.uncertain
+        if (
+            isinstance(node, ast.Attribute)
+            and node.attr == name
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "builtins"
+        ):
+            binding = self.comparisons.scopes.lookup(node.value, node.value.id)
+            return binding.kind is BindingKind.UNBOUND and not binding.uncertain
+        return False
+
+    def _selector_record(
+        self,
+        node: ast.AST,
+        role: str,
+        receiver: str | None,
+        member: str | None,
+        literal: str | None = None,
+        status: str = "decided",
+        operation: str = "read",
+        receiver_node: ast.expr | None = None,
+    ) -> None:
+        owner = self.scope_stack[-1]
+        line, _, column = location(node)
+        evidence_id = add_evidence(self.evidence, self.module, node)
+        receiver, status, receiver_binding, receiver_parameter, receiver_evidence = (
+            self._selector_receiver_proof(node, role, receiver, literal, status, receiver_node)
+        )
+        data: RecordData = {
+            "owner": owner,
+            "construct": "selector",
+            "selector_role": role,
+            "receiver_type": receiver,
+            "member": member,
+            "literal": literal,
+            "status": status,
+            "operation": operation,
+            "receiver_binding": receiver_binding,
+            "receiver_parameter": receiver_parameter,
+        }
+        item_id = stable_id(
+            "CONSTRUCT-SELECTOR",
+            self.module.rel_path,
+            line,
+            column,
+            role,
+            receiver or "",
+            member or "",
+            literal or "",
+            operation,
+        )
+
+        if item_id in self.selector_ids:
+            return
+        self.selector_ids.add(item_id)
+        self.items.append(
+            classified(
+                item_id=item_id,
+                evidence_class=EvidenceClass.FACT,
+                area="constructs",
+                kind="construct_selector",
+                title=f"{owner} has a {role} selector observation",
+                subjects=[owner],
+                evidence_ids=[evidence_id, *receiver_evidence],
+                data=data,
+            )
+        )
+
+    def _selector_receiver_proof(
+        self,
+        node: ast.AST,
+        role: str,
+        receiver: str | None,
+        literal: str | None,
+        status: str,
+        receiver_node: ast.expr | None,
+    ) -> tuple[str | None, str, dict[str, object] | None, str | None, list[str]]:
+        proven_receiver, receiver_binding, receiver_parameter, receiver_evidence = (
+            self._receiver_binding(receiver_node, node)
+        )
+        if receiver is None and proven_receiver is not None:
+            receiver = proven_receiver
+            if role in {"read", "write", "call", "reflect", "constructor", "type_probe"} or (
+                literal is not None
+            ):
+                status = "decided"
+        elif receiver is not None and proven_receiver is not None and receiver != proven_receiver:
+            receiver = None
+        if receiver_node is None and receiver is not None and self.symbol_index is not None:
+            declaration = self.symbol_index.binding_declarations.get(receiver)
+            if declaration is not None:
+                declaration_module = declaration["data"].get("module")
+                if declaration_module == self.module.module:
+                    receiver_evidence = list(declaration["evidence_ids"])
+                else:
+                    receiver_evidence = self._selector_import_evidence(node, role, receiver)
+                if receiver_evidence:
+                    receiver_binding = {
+                        "origin": CallBindingOrigin.DIRECT.value,
+                        "target": receiver,
+                        "evidence_ids": receiver_evidence,
+                    }
+                else:
+                    status = "unknown"
+                    receiver = None
+        if receiver is not None and receiver_node is not None and receiver_binding is None:
+            status = "unknown"
+            receiver = None
+        if receiver_binding is not None and not self._selector_excerpt_replays(node):
+            # The validator deliberately proves selectors from their bounded source excerpt.
+            # A selector inside a multiline expression can start on a line that is not a
+            # standalone Python fragment (for example ``), FilesToWrite()``). Do not emit a
+            # typed receiver binding that the independent reader cannot replay from that line.
+            status = "unknown"
+            receiver = None
+            receiver_binding = None
+            receiver_parameter = None
+            receiver_evidence = []
+        return receiver, status, receiver_binding, receiver_parameter, receiver_evidence
+
+    def _selector_excerpt_replays(self, node: ast.AST) -> bool:
+        line, _, _ = location(node)
+        excerpt = self.module.lines[line - 1].rstrip() if line <= len(self.module.lines) else ""
+        if not excerpt:
+            return False
+        try:
+            ast.parse(excerpt)
+            return True
+        except (IndentationError, SyntaxError, ValueError, RecursionError):
+            try:
+                ast.parse(f"if True:\n{excerpt}\n")
+                return True
+            except (IndentationError, SyntaxError, ValueError, RecursionError):
+                if isinstance(node, ast.Match) and excerpt.rstrip().endswith(":"):
+                    indent = len(excerpt) - len(excerpt.lstrip(" "))
+                    try:
+                        ast.parse(f"if True:\n{excerpt}\n{' ' * (indent + 4)}case _: pass\n")
+                        return True
+                    except (IndentationError, SyntaxError, ValueError, RecursionError):
+                        pass
+                return False
+
+    def _selector_import_evidence(self, node: ast.AST, role: str, target: str) -> list[str]:
+        expression = (
+            node.func
+            if role == "constructor" and isinstance(node, ast.Call)
+            else (
+                node.args[1]
+                if role == "type_probe" and isinstance(node, ast.Call) and len(node.args) > 1
+                else node
+                if role == "type_probe"
+                else None
+            )
+        )
+        if expression is None:
+            return []
+        suffix: list[str] = []
+        root = expression
+        while isinstance(root, ast.Attribute):
+            suffix.append(root.attr)
+            root = root.value
+        if not isinstance(root, ast.Name):
+            return []
+        if role == "type_probe":
+            direct_targets = {
+                f"{item['data'].get('target_module')}.{item['data'].get('symbol')}"
+                for item in self.imports
+                if item["data"].get("source_module") == self.module.module
+                and item["data"].get("binding") == root.id
+                and isinstance(item["data"].get("target_module"), str)
+                and isinstance(item["data"].get("symbol"), str)
+            }
+            if target not in direct_targets:
+                return []
+        matches = [
+            item
+            for item in self.imports
+            if item["data"].get("source_module") == self.module.module
+            and item["data"].get("binding") == root.id
+            and isinstance(item["data"].get("origin_definition"), str)
+            and target == ".".join([item["data"]["origin_definition"], *reversed(suffix)])
+        ]
+        return list(matches[0]["evidence_ids"]) if len(matches) == 1 else []
+
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self._visit_definition_header(node)
         qualified = f"{self.scope_stack[-1]}.{node.name}"
@@ -909,6 +1251,53 @@ class ConstructCollector(ast.NodeVisitor):
     def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         self._visit_definition_header(node)
         self.scope_stack.append(f"{self.scope_stack[-1]}.{node.name}")
+        arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+        receivers = {
+            argument.arg: (
+                annotation_target
+                if argument.annotation is not None
+                and (annotation_target := self.comparisons._canonical_name(argument.annotation))
+                in self.local_classes
+                else None
+            )
+            for argument in arguments
+        }
+        for statement in own_scope(node):
+            targets: list[ast.expr] = []
+            if isinstance(statement, ast.Assign):
+                targets = statement.targets
+            elif isinstance(statement, ast.AnnAssign | ast.AugAssign):
+                targets = [statement.target]
+            elif isinstance(statement, ast.For | ast.AsyncFor):
+                targets = [statement.target]
+            elif isinstance(statement, ast.NamedExpr):
+                targets = [statement.target]
+            elif isinstance(statement, ast.withitem) and statement.optional_vars is not None:
+                targets = [statement.optional_vars]
+            for target in targets:
+                for part in ast.walk(target):
+                    if (
+                        isinstance(part, ast.Name)
+                        and isinstance(part.ctx, ast.Store)
+                        and part.id in receivers
+                    ):
+                        receivers[part.id] = None
+            if isinstance(statement, ast.ExceptHandler) and statement.name in receivers:
+                receivers[statement.name] = None
+        parameter_annotations = {
+            argument.arg: (
+                annotation_target,
+                argument.annotation,
+            )
+            for argument in arguments
+            if argument.annotation is not None
+            and (annotation_target := self.comparisons._canonical_name(argument.annotation))
+            in self.local_classes
+            and receivers.get(argument.arg) == annotation_target
+        }
+        self.receiver_types.append(receivers)
+        self.parameter_receivers.append({argument.arg for argument in arguments})
+        self.parameter_annotations.append(parameter_annotations)
         form = self._placeholder_form(node)
         if form is not None:
             self._record(
@@ -916,6 +1305,9 @@ class ConstructCollector(ast.NodeVisitor):
             )
         for statement in node.body:
             self.visit(statement)
+        self.parameter_receivers.pop()
+        self.parameter_annotations.pop()
+        self.receiver_types.pop()
         self.scope_stack.pop()
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
@@ -934,10 +1326,96 @@ class ConstructCollector(ast.NodeVisitor):
             self._record(node, kind="broad_except", construct="broad_except", handled=handled)
         self.generic_visit(node)
 
+    def _reflection_selector(self, node: ast.Call, name: str) -> None:
+        if node.args and self._builtin_call(node.func, name):
+            receiver = self._receiver_type(node.args[0])
+            member = self.comparisons.string_value(node.args[1]) if len(node.args) > 1 else None
+            if member is not None:
+                self._selector_record(
+                    node,
+                    "reflect",
+                    receiver,
+                    member,
+                    status="decided" if receiver is not None else "unknown",
+                    operation="probe",
+                    receiver_node=node.args[0],
+                )
+            elif receiver is not None or self._parameter_receiver(node.args[0]):
+                self._selector_record(
+                    node, "reflect", receiver, None, status="unknown", operation="probe"
+                )
+        elif node.keywords:
+            self._selector_record(node, "reflect", None, None, status="unknown", operation="probe")
+
+    def _selected_type_call(self, node: ast.Call, name: str | None) -> None:
+        if name in {"isinstance", "issubclass"} and self._builtin_call(node.func, name):
+            if len(node.args) >= 2:
+                target = self.comparisons._canonical_name(node.args[1])
+                if target in self.local_classes:
+                    self._selector_record(
+                        node.args[1],
+                        "type_probe",
+                        target,
+                        None,
+                        operation="probe",
+                        receiver_node=node.args[1] if node.lineno != node.end_lineno else None,
+                    )
+        target = self.comparisons._canonical_name(node.func)
+        if target in self.local_classes:
+            self._selector_record(node, "constructor", target, None, operation="construct")
+
+    def _string_predicate_selector(
+        self, node: ast.Call, predicate: _StringPredicate | None
+    ) -> None:
+        if (
+            predicate is None
+            or not isinstance(node.func, ast.Attribute)
+            or not node.args
+            or not _predicate_matches(self.comparisons, node.args[0])
+        ):
+            return
+        selected = node.func.value
+        receiver_node = selected.value if isinstance(selected, ast.Attribute) else selected
+        receiver_type = (
+            self._receiver_type(selected.value)
+            if isinstance(selected, ast.Attribute)
+            else self._receiver_type(selected)
+        )
+        member = selected.attr if isinstance(selected, ast.Attribute) else node.func.attr
+        if receiver_type is None and not (
+            isinstance(selected, ast.Attribute) and self._parameter_receiver(receiver_node)
+        ):
+            return
+        literals = self.comparisons.string_values(node.args[0])
+        if literals is not None:
+            for literal in dict.fromkeys(literals):
+                self._selector_record(
+                    node,
+                    predicate.value,
+                    receiver_type,
+                    member,
+                    literal,
+                    "decided" if receiver_type is not None else "unknown",
+                    "compare",
+                    receiver_node,
+                )
+        else:
+            self._selector_record(
+                node,
+                predicate.value,
+                receiver_type,
+                member,
+                status="unknown",
+                operation="compare",
+                receiver_node=receiver_node,
+            )
+
     def visit_Call(self, node: ast.Call) -> None:
         name = _as_written(node.func)
         if name is not None and name in _REFLECTION_CALLS:
             self._record(node, kind=_REFLECTION_CALLS[name], construct=name, handled=None)
+            self._reflection_selector(node, name)
+        self._selected_type_call(node, name)
         predicate = _string_predicate(node)
         if (
             predicate is not None
@@ -951,6 +1429,7 @@ class ConstructCollector(ast.NodeVisitor):
                 handled=None,
                 form=predicate.value,
             )
+        self._string_predicate_selector(node, predicate)
         self.generic_visit(node)
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
@@ -958,6 +1437,24 @@ class ConstructCollector(ast.NodeVisitor):
         outer_of_chain = isinstance(node.value, ast.Attribute) and node.value.attr == "__dict__"
         if node.attr == "__dict__" and not outer_of_chain:
             self._record(node, kind="dunder_dict", construct="dunder_dict", handled=None)
+        receiver = self._receiver_type(node.value)
+        if receiver is not None or self._parameter_receiver(node.value):
+            parent = self.parents.get(node)
+            operation = (
+                "call"
+                if isinstance(parent, ast.Call) and parent.func is node
+                else ("write" if isinstance(node.ctx, ast.Store) else "read")
+            )
+            if not (isinstance(parent, ast.Compare) and node in [parent.left, *parent.comparators]):
+                self._selector_record(
+                    node,
+                    operation,
+                    receiver,
+                    node.attr,
+                    status="decided" if receiver is not None else "unknown",
+                    operation=operation,
+                    receiver_node=node.value,
+                )
         self.generic_visit(node)
 
     def visit_Compare(self, node: ast.Compare) -> None:
@@ -970,6 +1467,50 @@ class ConstructCollector(ast.NodeVisitor):
                 handled=None,
                 form=form,
             )
+        operands = [node.left, *node.comparators]
+        for operator, left, right in zip(node.ops, operands[:-1], operands[1:], strict=True):
+            role = (
+                "equality"
+                if isinstance(operator, ast.Eq | ast.NotEq)
+                else ("membership" if isinstance(operator, ast.In | ast.NotIn) else None)
+            )
+            if role is None:
+                continue
+            for selected, other in ((left, right), (right, left)):
+                if isinstance(selected, ast.Attribute):
+                    receiver = self._receiver_type(selected.value)
+                    literals = (
+                        self.comparisons.string_values(other)
+                        if role == "membership"
+                        else (
+                            (value,)
+                            if (value := self.comparisons.string_value(other)) is not None
+                            else None
+                        )
+                    )
+                    if literals:
+                        for literal in dict.fromkeys(literals):
+                            self._selector_record(
+                                selected,
+                                role,
+                                receiver,
+                                selected.attr,
+                                literal,
+                                "decided" if receiver is not None else "unknown",
+                                "compare",
+                                selected.value,
+                            )
+                    elif receiver is not None or self._parameter_receiver(selected.value):
+                        self._selector_record(
+                            selected,
+                            role,
+                            receiver,
+                            selected.attr,
+                            None,
+                            "unknown",
+                            "compare",
+                            selected.value,
+                        )
         self.generic_visit(node)
 
     def visit_Match(self, node: ast.Match) -> None:
@@ -981,6 +1522,45 @@ class ConstructCollector(ast.NodeVisitor):
                 handled=None,
                 form="match",
             )
+        if isinstance(node.subject, ast.Attribute):
+            receiver_node = node.subject.value
+            receiver = self._receiver_type(receiver_node)
+            if receiver is not None or self._parameter_receiver(receiver_node):
+                values: list[str] = []
+                unsupported = False
+                for case in node.cases:
+                    pattern = case.pattern
+                    if isinstance(pattern, ast.MatchValue):
+                        literal = self.comparisons.string_value(pattern.value)
+                        if literal is None:
+                            unsupported = True
+                        else:
+                            values.append(literal)
+                    elif any(isinstance(part, ast.MatchValue) for part in ast.walk(pattern)):
+                        unsupported = True
+                status = "decided" if receiver is not None else "unknown"
+                for literal in dict.fromkeys(values):
+                    self._selector_record(
+                        node,
+                        "match",
+                        receiver,
+                        node.subject.attr,
+                        literal,
+                        status,
+                        "compare",
+                        receiver_node,
+                    )
+                if unsupported or not values:
+                    self._selector_record(
+                        node,
+                        "match",
+                        receiver,
+                        node.subject.attr,
+                        None,
+                        "unknown",
+                        "compare",
+                        receiver_node,
+                    )
         self.generic_visit(node)
 
     def _record(
@@ -1033,11 +1613,28 @@ def _literal_import_origins(imports: Sequence[RawRecord]) -> dict[str, str]:
     return origins
 
 
+def _class_member_names(module: ParsedModule) -> set[str]:
+    names: set[str] = set()
+    for declaration in module.tree.body:
+        if not isinstance(declaration, ast.ClassDef):
+            continue
+        for member in declaration.body:
+            if isinstance(member, ast.FunctionDef | ast.AsyncFunctionDef):
+                names.add(member.name)
+            elif isinstance(member, ast.Assign):
+                names.update(target.id for target in member.targets if isinstance(target, ast.Name))
+            elif isinstance(member, ast.AnnAssign) and isinstance(member.target, ast.Name):
+                names.add(member.target.id)
+    return names
+
+
 def collect_constructs(
     parsed: Sequence[ParsedModule],
     evidence: dict[str, RawEvidence],
     *,
     imports: Sequence[RawRecord] = (),
+    symbol_index: SymbolIndex | None = None,
+    receiver_resolvers: Sequence[SelectorReceiverResolver] = (),
 ) -> list[RawRecord]:
     """Collect written constructs using scanned literal providers and resolved import origins."""
     contexts = [_LiteralComparisons(module) for module in parsed]
@@ -1048,13 +1645,35 @@ def collect_constructs(
         name for context in providers for name in context.enum_member_names
     )
     origins = _literal_import_origins(imports)
+    known_classes = {
+        f"{module.module.module}.{node.name}"
+        for module in providers
+        for node in module.module.tree.body
+        if isinstance(node, ast.ClassDef)
+    }
+    if symbol_index is not None:
+        known_classes.update(
+            origin
+            for item in imports
+            if (origin := item["data"].get("origin_definition")) is not None
+            and isinstance(origin, str)
+            and (declaration := symbol_index.binding_declarations.get(origin)) is not None
+            and declaration["kind"] == "class"
+            and item["data"].get("source_binding_unique") is True
+            and item["data"].get("origin_binding_unique") is True
+        )
     items: list[RawRecord] = []
-    for module, context in zip(parsed, contexts, strict=True):
+    resolvers = receiver_resolvers or (None,) * len(parsed)
+    for module, context, call_collector in zip(parsed, contexts, resolvers, strict=True):
         context.scalar_names = scalar_names
         context.enum_member_names = enum_member_names
         context.origins = origins
         context.collections = _literal_collections(context)
-        collector = ConstructCollector(module, evidence, context)
+        collector = ConstructCollector(
+            module, evidence, context, symbol_index, call_collector, imports
+        )
+        collector.local_classes = known_classes
+        collector.local_members = _class_member_names(module)
         collector.visit(module.tree)
         items.extend(collector.items)
     items.sort(key=lambda item: item["id"])

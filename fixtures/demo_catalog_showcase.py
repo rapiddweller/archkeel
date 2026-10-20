@@ -14,7 +14,7 @@ from fixtures.demo_catalog_dependencies import (
     STORE_INSIDE_WITH_REPOSITORY_PEER_GRANT,
 )
 from fixtures.demo_catalog_interfaces import MAIN_WITH_UNDERSCORE_IMPORT
-from fixtures.demo_catalog_support import HEADER, Variant
+from fixtures.demo_catalog_support import FIXTURE_DIR, HEADER, Variant
 from fixtures.demo_catalog_types import ROGUE_DATACLASS_MODULE
 
 _TOUR_RENDER_TEXT = HEADER + (
@@ -40,6 +40,7 @@ _TOUR_APP_ORDERS = HEADER + (
     "from pathlib import Path\n"
     "from typing import TYPE_CHECKING\n\n"
     "from shop.model.entities import Line, Money, Order\n"
+    "from shop.model import entities\n"
     "from shop.store import OrderRepository\n"
     "from shop.store.backend.files import write_payload\n"
     "from shop.store.sqlite import vacuum\n"
@@ -70,6 +71,8 @@ _TOUR_APP_ORDERS = HEADER + (
     "    for entry in order.lines:\n"
     "        running = running + entry.total()\n"
     "    return running\n\n\n"
+    "def external_nonce_bucket(job_nonce: int) -> int:\n"
+    "    return entities._nonce_bucket(job_nonce)\n\n\n"
     "def touch_store(connection: object, retries: int) -> str:\n"
     '    """A stray runtime reach into the store internals, for the showcase tour."""\n'
     "    attempts = 0\n"
@@ -240,8 +243,8 @@ _TOUR = Variant(
     "parameter on place_order itself, the one function app.orders declares public (AD-63: "
     "only a declared facade function is inspected, so touch_store's own bare-object "
     "parameter, never declared, no longer fires here), a modulo operand below its "
-    "declared width, a concrete reader member in place of its required protocol, and a literal "
-    "order ID at a store path lookup. "
+    "declared width, a concrete reader member in place of its required protocol, a literal "
+    "order ID at a store path lookup, and a nonce helper read outside its declared model owner. "
     "CONSTRUCT-NO-DYNAMIC answers both the eval and the getattr; "
     "validate reports the rule.violated diagnostics plus 2 "
     "closed_world.observed_forbidden pairs (model->render, render->store) and 1 graph.drift, "
@@ -288,6 +291,7 @@ _TOUR = Variant(
         "EXTERNAL-JSON-STORE",
         "INTERFACE-BOUNDARY",
         "LAYERS-MODEL",
+        "MODEL-NONCE-OWNER",
         "MODEL-NONCE-WIDTH",
         "MODEL-TYPES-IN-ENTITIES",
         "ROOT-LAYOUT",
@@ -331,10 +335,26 @@ _CLEAN = Variant(
     id="clean",
     section="clean",
     item="shop sample",
-    summary="The unmodified shop sample; validate and report both report no findings.",
+    summary="The unmodified shop sample; its nonce helper stays within the declared model owner.",
     files={},
     expected_violations=(),
     expected_codes=(),
 )
 
-VARIANTS: tuple[Variant, ...] = (_TOUR, _SEEDED_EFFECT, _CLEAN)
+_SOURCE_OWNERSHIP_ESCAPE = Variant(
+    id="class-a-source-ownership-escaped-read",
+    section="class_a",
+    item="source_ownership:confined read",
+    summary="A model-owned nonce helper is read from the app layer.",
+    files={
+        "shop/app/orders.py": (FIXTURE_DIR / "shop/app/orders.py").read_text()
+        + "\nfrom shop.model import entities\n\n"
+        "def external_nonce_bucket(job_nonce: int) -> int:\n"
+        "    return entities._nonce_bucket(job_nonce)\n"
+    },
+    expected_violations=("MODEL-NONCE-OWNER",),
+    expected_codes=("rule.violated",),
+    expected_declared_rules="FAIL",
+)
+
+VARIANTS: tuple[Variant, ...] = (_TOUR, _SEEDED_EFFECT, _CLEAN, _SOURCE_OWNERSHIP_ESCAPE)

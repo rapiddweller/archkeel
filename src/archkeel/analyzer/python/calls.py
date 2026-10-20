@@ -844,7 +844,7 @@ class CallCollector(ast.NodeVisitor):
         return False
 
     def _constructed_type(
-        self, expression: ast.expr, call_site: ast.Call
+        self, expression: ast.expr, call_site: ast.expr
     ) -> tuple[str, list[str], dict[str, object]] | None:
         if isinstance(expression, ast.Name):
             binding = self.scopes.lookup(expression, expression.id)
@@ -1826,10 +1826,27 @@ def collect_calls(
     imports: Sequence[RawRecord] = (),
 ) -> list[RawRecord]:
     """Run the call collector over every module and sort the records by id."""
+    calls, _ = collect_calls_with_resolvers(
+        parsed, index, evidence, provider_bindings, runtime, imports
+    )
+    return calls
+
+
+def collect_calls_with_resolvers(
+    parsed: Sequence[ParsedModule],
+    index: SymbolIndex,
+    evidence: dict[str, RawEvidence],
+    provider_bindings: Sequence[ProviderBinding] = (),
+    runtime: RuntimeInfo | None = None,
+    imports: Sequence[RawRecord] = (),
+) -> tuple[list[RawRecord], tuple[CallCollector, ...]]:
+    """Collect calls and retain their per-module resolver for construct evidence."""
     calls: list[RawRecord] = []
+    resolvers: list[CallCollector] = []
     for module in parsed:
         call_collector = CallCollector(module, index, evidence, provider_bindings, runtime, imports)
         call_collector.visit(module.tree)
         calls.extend(call_collector.items)
+        resolvers.append(call_collector)
     calls.sort(key=lambda item: item["id"])
-    return calls
+    return calls, tuple(resolvers)

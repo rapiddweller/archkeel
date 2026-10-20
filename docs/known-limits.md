@@ -63,6 +63,14 @@ known forbidden effect remains FAIL beside unrelated UNKNOWN paths. These receip
 the source, contract, selected inventory, effect and exact rule claim; they are consistency
 bindings, not artifact authentication ([AD-250](architecture/decisions/ad-250-bounded-guarded-effect-ownership.md)).
 
+`forbidden_construct.selector` adds nominal Python selections for member reads,
+reflection probes, constructors, type probes, equality, membership, `match`,
+`startswith` and `endswith`. The current receiver proof begins with direct unique
+annotations on scanned classes. Dynamic reflection names, unannotated or
+ambiguous receivers and scopes with no selected subject remain UNKNOWN. Other
+language profiles do not support this slice. Selector facts require observation
+2.6 and contract 3.11; older readers reject the new evidence.
+
 An explicitly certified `complete_requires` scope can PASS with unrelated source
 resolution gaps. Arbitrary imports still block their own scopes and ancestors;
 signature gaps do not prove or disprove imports. Legacy or unbound gaps remain

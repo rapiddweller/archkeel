@@ -933,6 +933,20 @@
                 "kind": "keyword_only",
                 "default": "()",
                 "default_known": true
+              },
+              {
+                "name": "symbol_index",
+                "annotation": "SymbolIndex | None",
+                "kind": "keyword_only",
+                "default": "None",
+                "default_known": true
+              },
+              {
+                "name": "receiver_resolvers",
+                "annotation": "Sequence[SelectorReceiverResolver]",
+                "kind": "keyword_only",
+                "default": "()",
+                "default_known": true
               }
             ],
             "returns": "list[RawRecord]"

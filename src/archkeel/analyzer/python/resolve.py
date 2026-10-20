@@ -75,6 +75,7 @@ class SymbolIndex:
     binding_ids: frozenset[str]
     declaration_names: frozenset[str]
     binding_declarations: dict[str, RawRecord]
+    symbol_ids: dict[str, str]
 
 
 def build_symbol_index(symbols: Sequence[RawRecord]) -> SymbolIndex:
@@ -134,6 +135,11 @@ def build_symbol_index(symbols: Sequence[RawRecord]) -> SymbolIndex:
             for item in symbols
             if counts[item["data"]["qualified_name"]] == 1
             and item["kind"] in {"class", "function", "method"}
+        },
+        {
+            item["data"]["qualified_name"]: item["id"]
+            for item in symbols
+            if counts[item["data"]["qualified_name"]] == 1
         },
     )
 

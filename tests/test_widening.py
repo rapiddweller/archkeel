@@ -32,6 +32,8 @@ from archkeel.ir.model import (
     ComponentRole,
     ConditionSelector,
     ConditionSelectorKind,
+    ConstructSelector,
+    ConstructSelectorRole,
     ContractComponent,
     ExternalDependencyScopeRule,
     ForbiddenConstructRule,
@@ -44,6 +46,9 @@ from archkeel.ir.model import (
     RequiredComponent,
     RootLayoutRule,
     SiblingIsolationRule,
+    SourceOwnershipMode,
+    SourceOwnershipRole,
+    SourceOwnershipRule,
     SymbolPlacementRule,
 )
 from archkeel.ir.widening import (
@@ -183,6 +188,20 @@ def _protocol_declarations(**overrides: object) -> ProtocolDeclarationsRule:
         "pkg.a",
         "pkg.ports.Reader",
         (ProtocolDeclarationSelector("parameter", "client", "public"),),
+        "because",
+        _PROVENANCE,
+        "architect",
+    )
+    return replace(base, **overrides)
+
+
+def _source_ownership(**overrides: object) -> SourceOwnershipRule:
+    base = SourceOwnershipRule(
+        "R",
+        "source_ownership",
+        "pkg.api",
+        SourceOwnershipMode.CONFINED,
+        (SourceOwnershipRole.DEFINITION,),
         "because",
         _PROVENANCE,
         "architect",
@@ -430,6 +449,8 @@ _RULE_CASES: tuple[tuple[str, ArchitectureRule | None, ArchitectureRule | None, 
         ),
         True,
     ),
+    ("source_ownership added", None, _source_ownership(), False),
+    ("source_ownership removed", _source_ownership(), None, True),
 )
 
 
@@ -447,6 +468,14 @@ def test_every_typed_rule_kind_has_one_widening_classification() -> None:
     """The typed ArchitectureRule union is the source of truth for this partition."""
     assert _PERMISSION_RULE_KINDS.isdisjoint(_RESTRICTION_RULE_KINDS)
     assert _PERMISSION_RULE_KINDS | _RESTRICTION_RULE_KINDS == RULE_KINDS
+
+
+def test_source_ownership_field_changes_fail_closed() -> None:
+    findings = _rule_diff(
+        _source_ownership(),
+        _source_ownership(roles=(SourceOwnershipRole.DEFINITION, SourceOwnershipRole.READ)),
+    )
+    assert any("roles changed" in finding for finding in findings)
 
 
 # --- Table-driven: one row per component-field widening/narrowing this module enumerates. ---
@@ -594,6 +623,24 @@ def test_narrowing_never_needs_an_amendment() -> None:
     before = _forbidden_construct(constructs=("eval",))
     after = _forbidden_construct(constructs=("eval", "exec"))
     assert contract_widenings(_contract(rules=(before,)), _contract(rules=(after,))) == ()
+
+
+def test_construct_selector_changes_are_named_as_widenings():
+    before = _forbidden_construct(
+        selector=ConstructSelector(
+            "pkg.Connection", "backend", ConstructSelectorRole.EQUALITY, "flat"
+        )
+    )
+    after = _forbidden_construct(
+        selector=ConstructSelector("pkg.Label", "backend", ConstructSelectorRole.EQUALITY, "flat")
+    )
+    assert any("selector changed" in item for item in _rule_diff(before, after))
+    after = _forbidden_construct(
+        selector=ConstructSelector(
+            "pkg.Connection", "backend", ConstructSelectorRole.EQUALITY, "cloud"
+        )
+    )
+    assert any("selector changed" in item for item in _rule_diff(before, after))
 
 
 def test_an_unenumerated_difference_is_treated_as_widening() -> None:

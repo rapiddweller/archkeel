@@ -187,7 +187,7 @@
                         "type": "null"
                       },
                       {
-                        "$ref": "https://archkeel.dev/schema/source-facts/4.0.0#/$defs/CallBinding"
+                        "$ref": "https://archkeel.dev/schema/source-facts/5.0.0#/$defs/CallBinding"
                       }
                     ]
                   },
@@ -550,7 +550,7 @@
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/typing_signals"
     },
     "constructs": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/constructs"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.4.0#/properties/constructs"
     },
     "contexts": {
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/contexts"
@@ -574,7 +574,211 @@
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/bindings"
     },
     "references": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/references"
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "HYPOTHESIS"
+                    }
+                  },
+                  "required": [
+                    "evidence_class"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "properties": {
+              "data": {
+                "type": "object",
+                "required": [
+                  "source_scope",
+                  "source_module",
+                  "expression",
+                  "status",
+                  "targets",
+                  "use"
+                ],
+                "dependentRequired": {
+                  "declaration_scope": [
+                    "declaration_definition_id"
+                  ],
+                  "declaration_definition_id": [
+                    "declaration_scope"
+                  ]
+                },
+                "properties": {
+                  "declaration_scope": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "declaration_definition_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "source_scope": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "source_definition_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1
+                  },
+                  "source_module": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "expression": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "resolved",
+                      "partially_resolved"
+                    ]
+                  },
+                  "targets": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "use": {
+                    "enum": [
+                      "value",
+                      "attribute",
+                      "source_role"
+                    ]
+                  },
+                  "reference_context": {
+                    "enum": [
+                      "value",
+                      "annotation",
+                      "unknown"
+                    ]
+                  },
+                  "role": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "canonical_name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "declaration_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "declaration_owner_scope": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "declaration_owner_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "line": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "column": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "end_line": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "end_column": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "data"
+            ]
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "value_reference",
+                    "attribute_reference"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "data": {
+                  "required": [
+                    "reference_context"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "source_role"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "data": {
+                  "required": [
+                    "role",
+                    "canonical_name",
+                    "declaration_id"
+                  ],
+                  "properties": {
+                    "use": {
+                      "const": "source_role"
+                    }
+                  }
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "data": {
+                  "properties": {
+                    "targets": {
+                      "minItems": 1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
     },
     "runtime": {
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/runtime"
@@ -586,5 +790,6 @@
     }
   ],
   "title": "ArchitectureIR Python 2.8.0, decoded observation profile",
-  "$comment": "AD-241. Versioned call ownership evidence. Reuse unchanged historical constraints without widening published resources. Register all bundled schemas by $id for offline validation."
+  "$comment": "AD-241. Versioned call ownership evidence. Reuse unchanged historical constraints without widening published resources. Register all bundled schemas by $id for offline validation.",
+  "$defs": {}
 }

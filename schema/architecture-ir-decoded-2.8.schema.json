@@ -80,7 +80,7 @@
       "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/cycles"
     },
     "calls": {
-      "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/calls"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.8.0#/properties/calls"
     },
     "typing_signals": {
       "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/typing_signals"
@@ -113,7 +113,65 @@
       ]
     },
     "references": {
-      "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/references"
+      "allOf": [
+        {
+          "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/references"
+        },
+        {
+          "items": {
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "value_reference",
+                        "attribute_reference"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "data": {
+                      "required": [
+                        "reference_context"
+                      ],
+                      "properties": {
+                        "reference_context": {
+                          "enum": [
+                            "value",
+                            "annotation",
+                            "unknown"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "data": {
+                    "properties": {
+                      "reference_context": {
+                        "enum": [
+                          "value",
+                          "annotation",
+                          "unknown"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
     },
     "runtime": {
       "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/runtime"
@@ -179,6 +237,26 @@
     },
     {
       "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/allOf/3"
+    },
+    {
+      "if": {
+        "properties": {
+          "analyzer": {
+            "properties": {
+              "name": {
+                "const": "archkeel-python-analyzer"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "constructs": {
+            "$ref": "urn:archkeel:architecture-ir:python-decoded:2.6.0#/properties/constructs"
+          }
+        }
+      }
     },
     {
       "if": {

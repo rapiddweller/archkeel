@@ -8,10 +8,10 @@ from __future__ import annotations
 import builtins as _builtins
 import json
 from collections import defaultdict
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from pathlib import PurePosixPath
-from typing import Final, TypeAlias, assert_never
+from typing import Final, TypeAlias, assert_never, cast
 from typing import Literal as _Literal
 
 from archkeel.ir.architecture_graph import AssessmentStatus as _Verdict
@@ -37,6 +37,7 @@ from archkeel.ir.model import (
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
+    ConstructSelector,
     ContractComponent,
     ContractDeclarations,
     CycleLevel,
@@ -55,6 +56,7 @@ from archkeel.ir.model import (
     ProtocolDeclarationsRule,
     RootLayoutRule,
     SiblingIsolationRule,
+    SourceOwnershipRule,
     SymbolPlacementRule,
     component_owns_module,
     forbidden_dependency_scopes,
@@ -241,81 +243,117 @@ def _construct_violations(
     rules: Sequence[ArchitectureRule],
     source_modules: frozenset[str] | None = None,
     allowance_facts: list[RawRecord] | None = None,
+    receipt_scope_complete: bool = True,
 ) -> list[RawRecord]:
     violations: list[RawRecord] = []
+    seen_sources: dict[tuple[str, tuple[str, ...], tuple[str, ...], str], int] = {}
     for rule in rules:
         if not isinstance(rule, ForbiddenConstructRule):
             continue
+        if rule.selector is not None:
+            violations.extend(
+                _selector_construct_violations(
+                    signals, rule, source_modules, receipt_scope_complete
+                )
+            )
+            continue
         for item in signals:
-            data = item["data"]
-            construct: ForbiddenConstructKind | None = _CONSTRUCT_SIGNALS.get(item["kind"])
-            if "construct" in data:
-                construct = ForbiddenConstructKind(data["construct"])
-            owner = data["owner"]
-            scope = owner.split(":", 1)[0]
-            belongs_to_source = source_modules is None or any(
-                owner == module or owner.startswith(f"{module}.") for module in source_modules
-            )
-            if (
-                not belongs_to_source
-                or construct is None
-                or construct not in rule.constructs
-                or not in_scope(scope, rule.source)
-                or any(in_scope(scope, allowed) for allowed in rule.allowed_sources)
-                or scope in rule.exact_sources
-            ):
+            violation = _construct_violation(item, rule, source_modules, allowance_facts)
+            if violation is None:
                 continue
-            allowance = next(
-                (
-                    entry
-                    for entry in rule.allowed_type_ignores
-                    if construct is ForbiddenConstructKind.TYPE_IGNORE
-                    and data.get("qualified_name") == entry.qualified_name
-                    and data.get("line") == entry.line
-                    and data.get("statement") == entry.statement
-                    and data.get("tag") == entry.tag
-                ),
-                None,
-            )
-            if allowance is not None:
-                if allowance_facts is not None:
-                    allowance_facts.append(
-                        classified(
-                            item_id=stable_id("TYPE-IGNORE-ALLOWANCE", rule.id, item["id"]),
-                            evidence_class=EvidenceClass.FACT,
-                            area="type_architecture",
-                            kind="type_ignore_allowance",
-                            title=f"{allowance.qualified_name}:{allowance.line} has an exact "
-                            "type-ignore allowance",
-                            subjects=[allowance.qualified_name],
-                            evidence_ids=item["evidence_ids"],
-                            rule_ids=[rule.id],
-                            fact_ids=[item["id"]],
-                            provenance=list(rule.provenance),
-                            data={
-                                "qualified_name": allowance.qualified_name,
-                                "line": allowance.line,
-                                "statement": allowance.statement,
-                                "tag": allowance.tag,
-                            },
-                        )
-                    )
+            construct = violation["data"].get("construct")
+            if not isinstance(construct, str):
+                violations.append(violation)
                 continue
-            violations.append(
+            evidence_ids = tuple(violation["evidence_ids"])
+            site_identity = evidence_ids or tuple(violation["fact_ids"])
+            key = (rule.id, tuple(violation["subjects"]), site_identity, construct)
+            previous_index = seen_sources.get(key)
+            if previous_index is None:
+                violations.append(violation)
+                seen_sources[key] = len(violations) - 1
+            elif evidence_ids:
+                previous = violations[previous_index]
+                previous["fact_ids"] = sorted(
+                    set(previous["fact_ids"]) | set(violation["fact_ids"])
+                )
+    return sorted(violations, key=lambda item: item["id"])
+
+
+def _construct_violation(
+    item: RawRecord,
+    rule: ForbiddenConstructRule,
+    source_modules: frozenset[str] | None,
+    allowance_facts: list[RawRecord] | None,
+) -> RawRecord | None:
+    if item["kind"] == "construct_selector":
+        return None
+    data = item["data"]
+    construct: ForbiddenConstructKind | None = _CONSTRUCT_SIGNALS.get(item["kind"])
+    if "construct" in data:
+        construct = ForbiddenConstructKind(data["construct"])
+    owner = data["owner"]
+    scope = owner.split(":", 1)[0]
+    belongs = source_modules is None or any(
+        owner == module or owner.startswith(f"{module}.") for module in source_modules
+    )
+    if (
+        not belongs
+        or construct is None
+        or construct not in rule.constructs
+        or not in_scope(scope, rule.source)
+        or any(in_scope(scope, allowed) for allowed in rule.allowed_sources)
+        or scope in rule.exact_sources
+    ):
+        return None
+    allowance = next(
+        (
+            entry
+            for entry in rule.allowed_type_ignores
+            if construct is ForbiddenConstructKind.TYPE_IGNORE
+            and data.get("qualified_name") == entry.qualified_name
+            and data.get("line") == entry.line
+            and data.get("statement") == entry.statement
+            and data.get("tag") == entry.tag
+        ),
+        None,
+    )
+    if allowance is not None:
+        if allowance_facts is not None:
+            allowance_facts.append(
                 classified(
-                    item_id=stable_id("VIO", rule.id, item["id"]),
-                    evidence_class=EvidenceClass.VIOLATION,
+                    item_id=stable_id("TYPE-IGNORE-ALLOWANCE", rule.id, item["id"]),
+                    evidence_class=EvidenceClass.FACT,
                     area="type_architecture",
-                    kind=rule.kind,
-                    title=f"{owner} uses forbidden {construct.value}",
-                    subjects=[owner],
+                    kind="type_ignore_allowance",
+                    title=f"{allowance.qualified_name}:{allowance.line} has an exact "
+                    "type-ignore allowance",
+                    subjects=[allowance.qualified_name],
                     evidence_ids=item["evidence_ids"],
                     rule_ids=[rule.id],
                     fact_ids=[item["id"]],
-                    data={"source": rule.source, "construct": construct.value},
+                    provenance=list(rule.provenance),
+                    data={
+                        "qualified_name": allowance.qualified_name,
+                        "line": allowance.line,
+                        "statement": allowance.statement,
+                        "tag": allowance.tag,
+                    },
                 )
             )
-    return sorted(violations, key=lambda item: item["id"])
+        return None
+    return classified(
+        item_id=stable_id("VIO", rule.id, item["id"]),
+        evidence_class=EvidenceClass.VIOLATION,
+        area="type_architecture",
+        kind=rule.kind,
+        title=f"{owner} uses forbidden {construct.value}",
+        subjects=[owner],
+        evidence_ids=item["evidence_ids"],
+        rule_ids=[rule.id],
+        fact_ids=[item["id"]],
+        data={"source": rule.source, "construct": construct.value},
+    )
 
 
 def _external_dependency_violations(
@@ -981,6 +1019,8 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
         return {"source": (rule.source,)}
     if isinstance(rule, RootLayoutRule):
         return {"root": (rule.root,)}
+    if isinstance(rule, SourceOwnershipRule):
+        return {"source": (rule.source,)}
     if isinstance(rule, SymbolPlacementRule):
         scopes = {"source": (rule.source,)}
         scopes.update(
@@ -1271,23 +1311,26 @@ def _unsupported_module_object_grants(
     ]
 
 
-def profile_failures(
-    contract: ArchitectureContract,
-    profile: Profile,
-    constructs: tuple[ConstructCapability, ...],
-) -> list[RawRecord]:
-    """One coverage failure per contract item the scanning profile cannot decide (AD-97).
-
-    A rule the profile never evaluates would otherwise read as a clean pass; a declaration or
-    budget it cannot observe would read as empty. Both gate the run with exit 2 instead.
-    """
-    declarations = contract.declarations or ContractDeclarations()
+def _profile_capability_state(
+    declarations: ContractDeclarations, constructs: tuple[ConstructCapability, ...]
+) -> tuple[set[ForbiddenConstructKind], dict[DeclarationField, bool]]:
     supported = {entry.name for entry in constructs if entry.status != ConstructSupport.UNSUPPORTED}
     declared: dict[DeclarationField, bool] = {
         "context_roots": bool(declarations.context_roots),
         "facade_budgets": bool(declarations.facade_budgets),
         "coupling_budgets": bool(declarations.coupling_budgets),
     }
+    return supported, declared
+
+
+def profile_failures(
+    contract: ArchitectureContract,
+    profile: Profile,
+    constructs: tuple[ConstructCapability, ...],
+) -> list[RawRecord]:
+    """Report rules or declarations that this scanning profile cannot decide (AD-97)."""
+    declarations = contract.declarations or ContractDeclarations()
+    supported, declared = _profile_capability_state(declarations, constructs)
     items = _unsupported_module_object_grants(contract, profile) + [
         *(
             (rule.id, [rule.id], f"rule kind {rule.kind}")
@@ -1298,12 +1341,18 @@ def profile_failures(
             (
                 rule.id,
                 [rule.id],
-                "constructs "
+                "construct selectors"
+                if rule.selector is not None and profile.analyzer != "archkeel-python-analyzer"
+                else "constructs "
                 + ", ".join(kind for kind in rule.constructs if kind not in supported),
             )
             for rule in contract.rules
             if isinstance(rule, ForbiddenConstructRule)
-            and any(kind not in supported for kind in rule.constructs)
+            and (
+                any(kind not in supported for kind in rule.constructs)
+                or rule.selector is not None
+                and profile.analyzer != "archkeel-python-analyzer"
+            )
         ),
         *(
             (rule.id, [rule.id], "symbol-level dependency selector")
@@ -1468,6 +1517,336 @@ def _symbol_placement_violations(
                 )
             )
     return sorted(violations, key=lambda item: item["id"])
+
+
+def _source_ownership_violations(
+    references: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    rules: Sequence[ArchitectureRule],
+    source_modules: frozenset[str] | None,
+) -> list[RawRecord]:
+    violations: list[RawRecord] = []
+    candidates = _source_ownership_candidates(references, symbols)
+    for rule in rules:
+        if not isinstance(rule, SourceOwnershipRule):
+            continue
+        owner_module = rule.value_owner.rsplit(".", 1)[0] if rule.value_owner is not None else None
+        owner_records = [
+            item
+            for item in symbols
+            if item["data"].get("qualified_name") == rule.value_owner
+            and (source_modules is None or item["data"].get("module") in source_modules)
+        ]
+        value_owner_valid = (
+            rule.value_owner is None
+            or len(owner_records) == 1
+            and owner_records[0]["data"].get("record_kind") == "static_constant"
+            and (source_modules is None or owner_module in source_modules)
+        )
+        selected = set(rule.symbols) | set(rule.parameters)
+        for item, data, role, name, targets, evidence_ids in candidates:
+            if role not in rule.roles or not isinstance(name, str):
+                continue
+            matched = name in selected or (role == "read" and bool(set(targets) & selected))
+            if not matched:
+                continue
+            if role in {"parameter_default", "fallback"} and not value_owner_valid:
+                continue
+            source_module = data.get("source_module")
+            if not isinstance(source_module, str) or not in_scope(source_module, rule.source):
+                continue
+            if source_modules is not None and source_module not in source_modules:
+                continue
+            if data.get("status") != "resolved" and not _stable_source_ownership_read(
+                role, data, targets, selected, symbols
+            ):
+                continue
+            confined = rule.mode.value == "confined" and (
+                (
+                    name in rule.symbols
+                    and rule.owner is not None
+                    and in_scope(source_module, rule.owner)
+                )
+                or (
+                    name in rule.parameters
+                    and rule.value_owner is not None
+                    and targets == (rule.value_owner,)
+                )
+            )
+            if confined:
+                continue
+            violations.append(
+                classified(
+                    item_id=stable_id("VIO", rule.id, item["id"], role),
+                    evidence_class=EvidenceClass.VIOLATION,
+                    area="source_architecture",
+                    kind=rule.kind,
+                    title=f"{role} of {name} violates source ownership",
+                    subjects=[name, source_module] if isinstance(source_module, str) else [name],
+                    evidence_ids=list(evidence_ids),
+                    rule_ids=[rule.id],
+                    fact_ids=[item["id"]],
+                    data={"source": rule.source, "role": role, "canonical_name": name},
+                )
+            )
+    return sorted(violations, key=lambda item: item["id"])
+
+
+def _stable_source_ownership_read(
+    role: str,
+    data: Mapping[str, object],
+    targets: tuple[str, ...],
+    selected: set[str],
+    symbols: Sequence[RawRecord],
+) -> bool:
+    if role != "read":
+        return False
+    if data.get("local_source_binding") is True:
+        return True
+    if len(targets) != 1 or targets[0] not in selected:
+        return False
+    matches = [
+        symbol
+        for symbol in symbols
+        if symbol["data"].get("qualified_name") == targets[0]
+        and symbol["data"].get("record_kind") in {"static_constant", "dynamic_binding"}
+    ]
+    return len(matches) == 1
+
+
+def source_ownership_unknowns(
+    references: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    rules: Sequence[ArchitectureRule],
+    source_modules: frozenset[str] | None,
+) -> list[RawRecord]:
+    unknowns: list[RawRecord] = []
+    candidates = _source_ownership_candidates(references, symbols)
+    for rule in rules:
+        if not isinstance(rule, SourceOwnershipRule):
+            continue
+        selected = set(rule.symbols) | set(rule.parameters)
+        unknowns.extend(_unknown_reference_contexts(rule, references, selected, source_modules))
+        unknowns.extend(_unknown_source_candidates(rule, candidates, selected, source_modules))
+        owner_unknown = _unknown_source_value_owner(rule, symbols, source_modules)
+        if owner_unknown is not None:
+            unknowns.append(owner_unknown)
+    return sorted(unknowns, key=lambda item: item["id"])
+
+
+def _unknown_reference_contexts(
+    rule: SourceOwnershipRule,
+    references: Sequence[RawRecord],
+    selected: set[str],
+    source_modules: frozenset[str] | None,
+) -> list[RawRecord]:
+    if "read" not in rule.roles:
+        return []
+    unknowns: list[RawRecord] = []
+    for item in references:
+        data = item["data"]
+        matches = set(_string_targets(data.get("targets"))) & selected
+        source_module = data.get("source_module")
+        if (
+            item["kind"] in {"value_reference", "attribute_reference"}
+            and data.get("reference_context") == "unknown"
+            and matches
+            and isinstance(source_module, str)
+            and in_scope(source_module, rule.source)
+            and (source_modules is None or source_module in source_modules)
+        ):
+            unknowns.append(
+                classified(
+                    item_id=stable_id("SOURCE-OWNERSHIP-LIMIT", rule.id, item["id"]),
+                    evidence_class=EvidenceClass.UNKNOWN,
+                    area="source_architecture",
+                    kind="source_ownership_limit",
+                    title="Cannot classify source-reference context safely",
+                    subjects=sorted(matches),
+                    evidence_ids=list(item["evidence_ids"]),
+                    rule_ids=[rule.id],
+                    fact_ids=[item["id"]],
+                    data={"source": rule.source, "role": "read", "candidates": sorted(matches)},
+                )
+            )
+    return unknowns
+
+
+def _unknown_source_candidates(
+    rule: SourceOwnershipRule,
+    candidates: Sequence[_SourceOwnershipCandidate],
+    selected: set[str],
+    source_modules: frozenset[str] | None,
+) -> list[RawRecord]:
+    unknowns: list[RawRecord] = []
+    for item, data, role, name, targets, evidence_ids in candidates:
+        source_module = data.get("source_module")
+        matches = (
+            isinstance(name, str)
+            and name in selected
+            or (role == "read" and bool(set(targets) & selected))
+        )
+        if not (
+            role in rule.roles
+            and matches
+            and isinstance(source_module, str)
+            and data.get("status") != "resolved"
+            and in_scope(source_module, rule.source)
+            and (source_modules is None or source_module in source_modules)
+        ):
+            continue
+        unknowns.append(
+            classified(
+                item_id=stable_id("SOURCE-OWNERSHIP-LIMIT", rule.id, item["id"]),
+                evidence_class=EvidenceClass.UNKNOWN,
+                area="source_architecture",
+                kind="source_ownership_limit",
+                title=f"Cannot resolve {role} of {name} safely",
+                subjects=[name] if isinstance(name, str) else sorted(set(targets) & selected),
+                evidence_ids=list(evidence_ids),
+                rule_ids=[rule.id],
+                fact_ids=[item["id"]],
+                data={
+                    "source": rule.source,
+                    "role": role,
+                    **({"canonical_name": name} if isinstance(name, str) else {}),
+                    "candidates": sorted(set(targets) & selected),
+                },
+            )
+        )
+    return unknowns
+
+
+def _unknown_source_value_owner(
+    rule: SourceOwnershipRule,
+    symbols: Sequence[RawRecord],
+    source_modules: frozenset[str] | None,
+) -> RawRecord | None:
+    if rule.value_owner is None:
+        return None
+    owner_module = rule.value_owner.rsplit(".", 1)[0]
+    owners = [
+        item
+        for item in symbols
+        if item["data"].get("qualified_name") == rule.value_owner
+        and (source_modules is None or item["data"].get("module") in source_modules)
+    ]
+    if (
+        len(owners) == 1
+        and owners[0]["data"].get("record_kind") == "static_constant"
+        and (source_modules is None or owner_module in source_modules)
+    ):
+        return None
+    return classified(
+        item_id=stable_id("SOURCE-OWNERSHIP-OWNER-LIMIT", rule.id),
+        evidence_class=EvidenceClass.UNKNOWN,
+        area="source_architecture",
+        kind="source_ownership_limit",
+        title=f"Cannot establish one canonical value owner for {rule.value_owner}",
+        subjects=[rule.value_owner],
+        rule_ids=[rule.id],
+        data={"source": rule.source, "owner": rule.value_owner},
+    )
+
+
+_SourceOwnershipCandidate: TypeAlias = tuple[
+    RawRecord, Mapping[str, object], str | None, str | None, tuple[str, ...], tuple[str, ...]
+]
+
+
+def _source_ownership_candidates(
+    references: Sequence[RawRecord], symbols: Sequence[RawRecord]
+) -> tuple[_SourceOwnershipCandidate, ...]:
+    return (*_reference_ownership_candidates(references), *_symbol_ownership_candidates(symbols))
+
+
+def _reference_ownership_candidates(
+    references: Sequence[RawRecord],
+) -> tuple[_SourceOwnershipCandidate, ...]:
+    candidates: list[_SourceOwnershipCandidate] = []
+    for item in references:
+        data = cast(Mapping[str, object], dict(item["data"].items()))
+        targets = _string_targets(data.get("targets"))
+        if item["kind"] == "source_role":
+            candidates.append(_source_role_candidate(item, data, targets))
+        elif item["kind"] in {"value_reference", "attribute_reference"}:
+            candidates.extend(_reference_role_candidates(item, data, targets))
+    return tuple(candidates)
+
+
+def _string_targets(value: object) -> tuple[str, ...]:
+    if not isinstance(value, (tuple, list)):
+        return ()
+    return tuple(target for target in value if isinstance(target, str))
+
+
+def _source_role_candidate(
+    item: RawRecord, data: Mapping[str, object], targets: tuple[str, ...]
+) -> _SourceOwnershipCandidate:
+    role = data.get("role")
+    name = data.get("canonical_name")
+    return (
+        item,
+        data,
+        role if isinstance(role, str) else None,
+        name if isinstance(name, str) else None,
+        targets,
+        tuple(item["evidence_ids"]),
+    )
+
+
+def _reference_role_candidates(
+    item: RawRecord, data: Mapping[str, object], targets: tuple[str, ...]
+) -> tuple[_SourceOwnershipCandidate, ...]:
+    candidates: list[_SourceOwnershipCandidate] = []
+    if data.get("reference_context") == "value":
+        candidates.append(
+            (
+                item,
+                data,
+                "read",
+                targets[0] if len(targets) == 1 else None,
+                targets,
+                tuple(item["evidence_ids"]),
+            )
+        )
+    if data.get("declaration_role") == "definition" and targets:
+        definition_data = dict(data)
+        definition_data["status"] = data.get("declaration_status")
+        raw_evidence = data.get("declaration_evidence_ids", ())
+        evidence_ids = _string_targets(raw_evidence)
+        candidates.append((item, definition_data, "definition", targets[0], targets, evidence_ids))
+    return tuple(candidates)
+
+
+def _symbol_ownership_candidates(
+    symbols: Sequence[RawRecord],
+) -> tuple[_SourceOwnershipCandidate, ...]:
+    return tuple(
+        candidate
+        for item in symbols
+        if (candidate := _symbol_ownership_candidate(item)) is not None
+    )
+
+
+def _symbol_ownership_candidate(item: RawRecord) -> _SourceOwnershipCandidate | None:
+    data = item["data"]
+    if item["kind"] not in {"class", "function", "method"} and data.get("record_kind") not in {
+        "static_constant",
+        "dynamic_binding",
+    }:
+        return None
+    name, module = data.get("qualified_name"), data.get("module")
+    if not isinstance(name, str) or not isinstance(module, str):
+        return None
+    return (
+        item,
+        {"source_module": module, "status": "resolved"},
+        "definition",
+        name,
+        (name,),
+        tuple(item["evidence_ids"]),
+    )
 
 
 def _requires_import_verdicts(
@@ -1823,6 +2202,7 @@ def _collect_rule_violations(
     constructs: Sequence[RawRecord],
     modules: Sequence[RawRecord],
     symbols: Sequence[RawRecord],
+    references: Sequence[RawRecord],
     blank_modules: frozenset[str],
     module_cycles: Sequence[RawRecord],
     contract: ArchitectureContract,
@@ -1845,7 +2225,11 @@ def _collect_rule_violations(
     result = [
         *_dependency_violations(iter(forbidden_matches)),
         *_construct_violations(
-            [*typing_signals, *constructs], contract.rules, source_modules, allowance_facts
+            [*typing_signals, *constructs],
+            contract.rules,
+            source_modules,
+            allowance_facts,
+            receipt_scope_complete,
         ),
         *_numeric_operand_violations(constructs, contract, modules, source_modules),
         *_external_dependency_violations(imports, contract.rules, source_modules),
@@ -1887,6 +2271,7 @@ def _collect_rule_violations(
         ),
         *_sibling_violations(imports, contract.rules, source_modules),
         *_symbol_placement_violations(symbols, contract.rules, source_modules),
+        *_source_ownership_violations(references, symbols, contract.rules, source_modules),
         *boundary_violations,
     ]
     if assessment_facts is not None:
@@ -1915,6 +2300,7 @@ def rule_violations(
     packages: Sequence[RawRecord],
     modules: Sequence[RawRecord],
     symbols: Sequence[RawRecord],
+    references: Sequence[RawRecord] = (),
     blank_modules: frozenset[str],
     module_cycles: Sequence[RawRecord],
     contract: ArchitectureContract,
@@ -1980,6 +2366,7 @@ def rule_violations(
         constructs=constructs,
         modules=modules,
         symbols=symbols,
+        references=references,
         blank_modules=blank_modules,
         module_cycles=module_cycles,
         contract=contract,
@@ -2017,8 +2404,13 @@ def rule_violations(
     if assessment_facts is not None:
         assessment_facts.extend(protocol_receipts)
     numeric_unknowns = [item for item in result if item["kind"] == "numeric_operand_unknown"]
-    violations = [item for item in result if item["kind"] != "numeric_operand_unknown"]
-    return violations, [*allowance_facts, *numeric_unknowns]
+    selector_unknowns = [item for item in result if item["kind"] == "construct_selector_unknown"]
+    violations = [
+        item
+        for item in result
+        if item["kind"] not in {"numeric_operand_unknown", "construct_selector_unknown"}
+    ]
+    return violations, [*allowance_facts, *numeric_unknowns, *selector_unknowns]
 
 
 def _cycle_scan_coverage(
@@ -2118,6 +2510,55 @@ def _scan_covers_packages(
     )
 
 
+def scope_receipts_complete(
+    contract: ArchitectureContract,
+    modules: Sequence[RawRecord],
+    profile: Profile,
+    source_roots: tuple[str, ...],
+    source_exact_modules: tuple[str, ...],
+    scan_roots: tuple[str, ...],
+) -> bool:
+    """Prove receipt scopes cover declared, selector, and protocol sources."""
+    receipt_source_scopes: list[str] = []
+    for rule in contract.rules:
+        if isinstance(rule, ProtocolDeclarationsRule) and _modules_for_rule_source(
+            rule.source, modules, contract
+        ):
+            receipt_source_scopes.append(rule.source)
+        elif isinstance(rule, ForbiddenConstructRule) and rule.selector is not None:
+            receipt_source_scopes.append(_selector_receipt_scope(rule.source, modules, contract))
+    package_scopes = (
+        *source_roots,
+        *(package for component in contract.components for package in component.packages),
+        *receipt_source_scopes,
+    )
+    exact_scopes = (
+        *source_exact_modules,
+        *(
+            exact_module
+            for component in contract.components
+            for exact_module in component.exact_modules or ()
+        ),
+    )
+    return (
+        not package_scopes or _scan_covers_packages(package_scopes, modules, profile, scan_roots)
+    ) and _scan_covers_exact_modules(exact_scopes, modules, scan_roots)
+
+
+def _selector_receipt_scope(
+    source: str, modules: Sequence[RawRecord], contract: ArchitectureContract
+) -> str:
+    """Return the narrowest module/package scope enclosing a selector source."""
+    if _modules_for_rule_source(source, modules, contract):
+        return source
+    parts = source.split(".")
+    for end in range(len(parts) - 1, 0, -1):
+        candidate = ".".join(parts[:end])
+        if _modules_for_rule_source(candidate, modules, contract):
+            return candidate
+    return ".".join(parts[:-1]) if len(parts) > 1 else source
+
+
 def source_domains_complete(
     *,
     modules: Sequence[RawRecord],
@@ -2201,39 +2642,6 @@ def _scan_covers_exact_modules(
         )
         for name in exact_modules
     )
-
-
-def scope_receipts_complete(
-    contract: ArchitectureContract,
-    modules: Sequence[RawRecord],
-    profile: Profile,
-    source_roots: tuple[str, ...],
-    source_exact_modules: tuple[str, ...],
-    scan_roots: tuple[str, ...],
-) -> bool:
-    """Prove receipts cover declared, exact, and protocol source domains."""
-    selector_sources: list[str] = []
-    for rule in contract.rules:
-        if not isinstance(rule, ProtocolDeclarationsRule):
-            continue
-        if _modules_for_rule_source(rule.source, modules, contract):
-            selector_sources.append(rule.source)
-    package_scopes = (
-        *source_roots,
-        *(package for component in contract.components for package in component.packages),
-        *selector_sources,
-    )
-    exact_scopes = (
-        *source_exact_modules,
-        *(
-            exact_module
-            for component in contract.components
-            for exact_module in component.exact_modules or ()
-        ),
-    )
-    return (
-        not package_scopes or _scan_covers_packages(package_scopes, modules, profile, scan_roots)
-    ) and _scan_covers_exact_modules(exact_scopes, modules, scan_roots)
 
 
 def _relative_path(value: str) -> PurePosixPath:
@@ -2345,72 +2753,125 @@ def rule_evaluation_facts(
     symbols: Sequence[RawRecord] = (),
     constructs: Sequence[RawRecord] = (),
 ) -> list[RawRecord]:
-    """Issue completion receipts and explanatory blockers for one observed scope.
-
-    Unsupported/declaration-only rules receive no receipt. Named construct owners require
-    actual symbol evidence; module evidence alone cannot certify those owners.
-    """
+    """Issue completion receipts and explanatory blockers for one observed scope."""
     observed = _observed_rule_modules(modules, source_modules)
-    facts: list[RawRecord] = []
-    for rule in contract.rules:
-        if rule.kind in profile.unsupported_rules or isinstance(
-            rule, _SeparateReceiptRule | ForbiddenEffectUnderConditionRule
-        ):
-            continue
-        if isinstance(rule, LayerOrderRule):
-            facts.extend(_layer_order_evaluation_facts(contract, rule, scope))
-            continue
-        subjects: Sequence[str] | None = None
-        if isinstance(rule, ExternalDependencyScopeRule):
-            # allowed_sources is an exception list, not the rule's observed scope.
-            selected = observed
-        elif isinstance(rule, CompleteRequiresRule | InterfaceBoundaryRule):
-            selected = (
-                observed
-                if _inside_rule_scope_is_complete(
-                    contract, observed, profile, blank_modules, receipt_scope_complete
-                )
-                else ()
-            )
-            if not selected and receipt_scope_complete:
-                facts.extend(
-                    _inside_ownership_blockers(
-                        rule, scope, contract, observed, profile, blank_modules
-                    )
-                )
-        elif isinstance(rule, ForbiddenDependencyRule):
-            selected = _forbidden_rule_modules(rule, observed, contract)
-        elif isinstance(rule, SiblingIsolationRule):
-            selected = tuple(
-                item
-                for item in observed
-                if any(in_scope(item["data"]["qualified_name"], member) for member in rule.members)
-            )
-        elif isinstance(rule, RootLayoutRule):
-            selected = tuple(
-                item for item in observed if in_scope(item["data"]["qualified_name"], rule.root)
-            )
-        elif isinstance(rule, ForbiddenConstructRule):
-            selected, subjects = _construct_rule_domain(rule.source, observed, contract, symbols)
-        elif isinstance(rule, ForbiddenEffectUnderConditionRule):
-            selected = _modules_for_rule_source(rule.source, observed, contract)
-        elif isinstance(
+    return [
+        fact
+        for rule in contract.rules
+        for fact in _rule_evaluation_facts_for_rule(
             rule,
-            BoundedNumericOperandRule
-            | CompleteAssignmentRule
-            | CompleteExternalScopeRule
-            | SymbolPlacementRule,
-        ):
-            selected = _modules_for_rule_source(rule.source, observed, contract)
-        else:
-            assert_never(rule)
-        if selected:
-            facts.append(
-                _numeric_rule_receipt(rule, scope, selected, constructs)
-                if isinstance(rule, BoundedNumericOperandRule)
-                else _rule_evaluation_receipt(rule, scope, selected, subjects=subjects)
+            contract,
+            profile,
+            scope,
+            observed,
+            blank_modules,
+            receipt_scope_complete,
+            symbols,
+            constructs,
+        )
+    ]
+
+
+def _rule_evaluation_facts_for_rule(
+    rule: ArchitectureRule,
+    contract: ArchitectureContract,
+    profile: Profile,
+    scope: str,
+    observed: Sequence[RawRecord],
+    blank_modules: frozenset[str],
+    receipt_scope_complete: bool,
+    symbols: Sequence[RawRecord],
+    constructs: Sequence[RawRecord],
+) -> list[RawRecord]:
+    if rule.kind in profile.unsupported_rules or isinstance(
+        rule, _SeparateReceiptRule | ForbiddenEffectUnderConditionRule
+    ):
+        return []
+    if isinstance(rule, LayerOrderRule):
+        return _layer_order_evaluation_facts(contract, rule, scope)
+    subjects: Sequence[str] | None = None
+    facts: list[RawRecord] = []
+    if isinstance(rule, ExternalDependencyScopeRule):
+        selected = observed
+    elif isinstance(rule, CompleteRequiresRule | InterfaceBoundaryRule):
+        selected = (
+            observed
+            if _inside_rule_scope_is_complete(
+                contract, observed, profile, blank_modules, receipt_scope_complete
             )
+            else ()
+        )
+        if not selected and receipt_scope_complete:
+            facts.extend(
+                _inside_ownership_blockers(rule, scope, contract, observed, profile, blank_modules)
+            )
+    elif isinstance(rule, ForbiddenDependencyRule):
+        selected = _forbidden_rule_modules(rule, observed, contract)
+    elif isinstance(rule, SiblingIsolationRule):
+        selected = tuple(
+            item
+            for item in observed
+            if any(in_scope(item["data"]["qualified_name"], member) for member in rule.members)
+        )
+    elif isinstance(rule, RootLayoutRule):
+        selected = tuple(
+            item for item in observed if in_scope(item["data"]["qualified_name"], rule.root)
+        )
+    elif isinstance(rule, SourceOwnershipRule):
+        selected = _modules_for_rule_source(rule.source, observed, contract)
+    elif isinstance(rule, ForbiddenConstructRule):
+        selected, subjects = _construct_rule_domain(rule.source, observed, contract, symbols)
+        if rule.selector is not None and selected and receipt_scope_complete:
+            facts.append(
+                _selector_rule_receipt(rule, rule.selector, scope, selected, subjects, constructs)
+            )
+    elif isinstance(
+        rule,
+        BoundedNumericOperandRule
+        | CompleteAssignmentRule
+        | CompleteExternalScopeRule
+        | SymbolPlacementRule
+        | ProtocolDeclarationsRule,
+    ):
+        selected = _modules_for_rule_source(rule.source, observed, contract)
+    else:
+        assert_never(rule)
+    if selected and not (isinstance(rule, ForbiddenConstructRule) and rule.selector is not None):
+        facts.append(
+            _numeric_rule_receipt(rule, scope, selected, constructs)
+            if isinstance(rule, BoundedNumericOperandRule)
+            else _rule_evaluation_receipt(rule, scope, selected, subjects=subjects)
+        )
     return facts
+
+
+def _selector_rule_receipt(
+    rule: ForbiddenConstructRule,
+    selector: ConstructSelector,
+    scope: str,
+    selected: Sequence[RawRecord],
+    subjects: Sequence[str] | None,
+    constructs: Sequence[RawRecord],
+) -> RawRecord:
+    selected_names = frozenset(item["data"]["qualified_name"] for item in selected)
+    inventory = _selector_inventory(constructs, selected_names)
+    return _rule_evaluation_receipt(
+        rule,
+        scope,
+        [*selected, *inventory],
+        subjects=subjects or [item["data"]["qualified_name"] for item in selected],
+        data={
+            "claim": "construct_selector",
+            "selector": {
+                "receiver": selector.receiver,
+                "member": selector.member,
+                "role": selector.role.value,
+                "literal": selector.literal,
+            },
+            "source_modules": sorted(selected_names),
+            "inventory_fact_ids": sorted(item["id"] for item in inventory),
+        },
+    )
 
 
 def _inside_ownership_blockers(
@@ -2517,3 +2978,172 @@ def _modules_for_rule_source(
         for item in observed
         if module_in_ownership(item["data"]["qualified_name"], packages, exact)
     )
+
+
+def _selector_construct_violations(
+    signals: Sequence[RawRecord],
+    rule: ForbiddenConstructRule,
+    source_modules: frozenset[str] | None,
+    receipt_scope_complete: bool = True,
+) -> list[RawRecord]:
+    selector = rule.selector
+    if selector is None:
+        raise ValueError("selector construct evaluation requires a selector")
+    applicable = tuple(
+        item for item in signals if _selector_signal_matches(item, rule, selector, source_modules)
+    )
+    violations = (
+        [_selector_unknown(rule, selector, incomplete=not receipt_scope_complete)]
+        if not applicable
+        else [
+            result
+            for item in applicable
+            if (result := _selector_result(item, rule, selector)) is not None
+        ]
+    )
+    if not receipt_scope_complete and applicable:
+        violations.append(_selector_unknown(rule, selector, scope_only=True))
+    return violations
+
+
+def _selector_signal_matches(
+    item: RawRecord,
+    rule: ForbiddenConstructRule,
+    selector: ConstructSelector,
+    source_modules: frozenset[str] | None,
+) -> bool:
+    if item["kind"] != "construct_selector":
+        return False
+    data = item["data"]
+    owner = data.get("owner")
+    if not isinstance(owner, str):
+        return False
+    scope = owner.partition(":")[0]
+    belongs = source_modules is None or any(
+        owner == module or owner.startswith(f"{module}.") for module in source_modules
+    )
+    return (
+        belongs
+        and in_scope(scope, rule.source)
+        and not any(in_scope(scope, allowed) for allowed in rule.allowed_sources)
+        and scope not in rule.exact_sources
+        and data.get("selector_role") == selector.role.value
+        and (
+            selector.member is None
+            or data.get("member") == selector.member
+            or data.get("member") is None
+            and data.get("status") == "unknown"
+        )
+        and (data.get("receiver_type") is None or data.get("receiver_type") == selector.receiver)
+    )
+
+
+def _selector_result(
+    item: RawRecord, rule: ForbiddenConstructRule, selector: ConstructSelector
+) -> RawRecord | None:
+    data = item["data"]
+    owner_value = data.get("owner")
+    owner = owner_value if isinstance(owner_value, str) else rule.source
+    known = data.get("status") == "decided" and data.get("receiver_type") == selector.receiver
+    observed_literal = data.get("literal")
+    literal_matches = selector.literal is None or observed_literal == selector.literal
+    literal_conflicts = (
+        selector.literal is not None
+        and isinstance(observed_literal, str)
+        and observed_literal != selector.literal
+    )
+    if known and literal_conflicts:
+        return None
+    if known and literal_matches:
+        return classified(
+            item_id=stable_id("VIO-SELECTOR", rule.id, item["id"]),
+            evidence_class=EvidenceClass.VIOLATION,
+            area="type_architecture",
+            kind=rule.kind,
+            title=(
+                f"{owner} uses selected {selector.role.value} on "
+                f"{selector.member or selector.receiver}"
+            ),
+            subjects=[owner],
+            evidence_ids=item["evidence_ids"],
+            rule_ids=[rule.id],
+            fact_ids=[item["id"]],
+            provenance=list(rule.provenance),
+            data={
+                "source": rule.source,
+                "selector_role": selector.role.value,
+                "receiver": selector.receiver,
+                "member": selector.member,
+                "literal": selector.literal,
+            },
+        )
+    return _selector_unknown(rule, selector, item=item)
+
+
+def _selector_unknown(
+    rule: ForbiddenConstructRule,
+    selector: ConstructSelector,
+    *,
+    item: RawRecord | None = None,
+    incomplete: bool = False,
+    scope_only: bool = False,
+) -> RawRecord:
+    data = item["data"] if item is not None else {}
+    owner_value = data.get("owner")
+    owner = owner_value if isinstance(owner_value, str) else rule.source
+    incomplete = incomplete or scope_only
+    item_id = (
+        stable_id("UNKNOWN-CONSTRUCT-SELECTOR-SCOPE", rule.id)
+        if scope_only
+        else stable_id("UNKNOWN-CONSTRUCT-SELECTOR", rule.id, item["id"])
+        if item is not None
+        else stable_id("UNKNOWN-CONSTRUCT-SELECTOR-SUBJECT", rule.id)
+    )
+    return classified(
+        item_id=item_id,
+        evidence_class=EvidenceClass.UNKNOWN,
+        area="analysis_coverage",
+        kind="construct_selector_unknown",
+        title=(
+            f"{rule.id}: selected {selector.role.value} scope is incomplete"
+            if incomplete
+            else f"{owner} has unresolved selected {selector.role.value} evidence"
+            if item is not None
+            else f"{rule.id}: no selected {selector.role.value} subject was observed"
+        ),
+        subjects=[owner],
+        evidence_ids=item["evidence_ids"] if item is not None else [],
+        rule_ids=[rule.id],
+        fact_ids=[item["id"]] if item is not None else [],
+        data={
+            "selector_role": selector.role.value,
+            "receiver": selector.receiver,
+            "member": selector.member,
+            "literal": selector.literal,
+            **(
+                {"reason": "incomplete_source_scope"}
+                if incomplete
+                else {}
+                if item is not None
+                else {"reason": "no_selected_subject"}
+            ),
+        },
+    )
+
+
+def _selector_inventory(
+    constructs: Sequence[RawRecord], selected_names: frozenset[str]
+) -> tuple[RawRecord, ...]:
+    inventory: list[RawRecord] = []
+    for item in constructs:
+        if item["kind"] != "construct_selector":
+            continue
+        data: RecordData = item["data"]
+        owner_value = data.get("owner")
+        if not isinstance(owner_value, str):
+            continue
+        owner: str = owner_value
+        scope: str = owner.partition(":")[0]
+        if any(scope == name or scope.startswith(f"{name}.") for name in selected_names):
+            inventory.append(item)
+    return tuple(inventory)
