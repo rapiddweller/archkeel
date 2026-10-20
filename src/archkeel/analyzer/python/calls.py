@@ -12,7 +12,7 @@ import hashlib
 import inspect
 import sys
 import sysconfig
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import TypeVar
 
@@ -43,7 +43,7 @@ from .resolve import (
     iterated_call_result_type,
     resolve_name,
 )
-from .scopes import LexicalScopes
+from .scopes import LexicalScopes, Scope
 from .source import (
     FunctionNode,
     ParsedModule,
@@ -666,7 +666,8 @@ class CallCollector(ast.NodeVisitor):
                     and isinstance(child.args[0], ast.Name)
                     and child.args[0].id in aliases
                 ):
-                    if isinstance(child.args[1], ast.Constant) and child.args[1].value == field:
+                    member = child.args[1]
+                    if not isinstance(member, ast.Constant) or member.value == field:
                         return True
         return False
 
@@ -829,15 +830,9 @@ class CallCollector(ast.NodeVisitor):
         return target, [add_evidence(self.evidence, self.module, sites[0])]
 
     def _native_target_revoked(self, target: str) -> bool:
-        def canonical(expression: ast.expr) -> str | None:
-            value = dotted_expression(expression)
-            if value is None:
-                return None
-            root, separator, suffix = _partition_first(value, ".")
-            binding = self.scopes.lookup(expression, root)
-            if binding.uncertain or len(binding.targets) != 1:
-                return None
-            return binding.targets[0] + (f".{suffix}" if separator else "")
+        def canonical(expression: ast.expr, seen: frozenset[str] = frozenset()) -> str | None:
+            possible = self._native_expression_targets(expression, seen)
+            return next(iter(possible)) if len(possible) == 1 else None
 
         sys_modules_aliases = {"sys.modules"}
         changed = True
@@ -875,11 +870,7 @@ class CallCollector(ast.NodeVisitor):
                 targets = (node.target,)
             elif isinstance(node, ast.Delete):
                 targets = tuple(item for item in node.targets if isinstance(item, ast.expr))
-            if any(
-                (changed_target := canonical(item)) is not None
-                and (target == changed_target or _starts_with(target, f"{changed_target}."))
-                for item in targets
-            ):
+            if self._native_targets_mutated(node, targets, target, canonical):
                 return True
             for mutation in targets:
                 if not isinstance(mutation, ast.Subscript):
@@ -902,6 +893,61 @@ class CallCollector(ast.NodeVisitor):
                         else target == owner or _starts_with(target, f"{owner}.")
                     ):
                         return True
+        return False
+
+    def _native_expression_targets(
+        self, expression: ast.expr, seen: frozenset[str] = frozenset()
+    ) -> set[str]:
+        value = dotted_expression(expression)
+        if value is None:
+            return set()
+        root, separator, suffix = _partition_first(value, ".")
+        binding = self.scopes.lookup(expression, root)
+        if binding.kind in {BindingKind.MODULE, BindingKind.SYMBOL} and len(binding.targets) == 1:
+            origins = {binding.targets[0]}
+        elif binding.owner is not None and root not in seen:
+            origins = self._native_alias_targets(root, binding.owner, seen | {root})
+        else:
+            return set()
+        return {origin + (f".{suffix}" if separator else "") for origin in origins}
+
+    def _native_alias_targets(self, name: str, owner: Scope, seen: frozenset[str]) -> set[str]:
+        sites = owner.bindings.get(name, ())
+        origins: set[str] = set()
+        for site in sites:
+            if not isinstance(site, ast.Name):
+                continue
+            assignment = self.parents.get(site)
+            if not isinstance(assignment, ast.Assign | ast.AnnAssign) or assignment.value is None:
+                continue
+            origins.update(self._native_expression_targets(assignment.value, seen))
+        return origins
+
+    def _native_targets_mutated(
+        self,
+        node: ast.AST,
+        targets: tuple[ast.expr, ...],
+        target: str,
+        canonical: Callable[[ast.expr], str | None],
+    ) -> bool:
+        for item in targets:
+            if isinstance(item, ast.Name):
+                binding = self.scopes.lookup(item, item.id)
+                sites = binding.owner.bindings.get(item.id, ()) if binding.owner else ()
+                if not any(
+                    isinstance(self.parents.get(site), ast.Import | ast.ImportFrom)
+                    for site in sites
+                ):
+                    continue
+            changed_target = canonical(item)
+            if changed_target is None:
+                continue
+            if isinstance(item, ast.Name) and isinstance(node, ast.Assign | ast.AnnAssign):
+                value = node.value
+                if value is not None and canonical(value) == changed_target:
+                    continue
+            if target == changed_target or _starts_with(target, f"{changed_target}."):
+                return True
         return False
 
     def _native_call(
