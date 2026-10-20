@@ -23,6 +23,7 @@ from archkeel.ir.facts import (
     parse_source_name_visibility,
     parse_symbol_class_kind,
 )
+from archkeel.ir.facts import RawJson as RawJson
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawRecord, classified
 from archkeel.ir.graph import strongly_connected_components
@@ -259,7 +260,8 @@ def _construct_violations(
             violation = _construct_violation(item, rule, source_modules, allowance_facts)
             if violation is None:
                 continue
-            construct = violation["data"].get("construct")
+            violation_data: dict[str, RawJson] = violation["data"]
+            construct = violation_data.get("construct")
             if not isinstance(construct, str):
                 violations.append(violation)
                 continue
@@ -286,11 +288,17 @@ def _construct_violation(
 ) -> RawRecord | None:
     if item["kind"] == "construct_selector":
         return None
-    data = item["data"]
+    data: dict[str, RawJson] = item["data"]
     construct: ForbiddenConstructKind | None = _CONSTRUCT_SIGNALS.get(item["kind"])
     if "construct" in data:
-        construct = ForbiddenConstructKind(data["construct"])
-    owner = data["owner"]
+        construct_value = data["construct"]
+        construct = (
+            ForbiddenConstructKind(construct_value) if isinstance(construct_value, str) else None
+        )
+    owner_value = data["owner"]
+    if not isinstance(owner_value, str):
+        return None
+    owner = owner_value
     scope = owner.split(":", 1)[0]
     belongs = source_modules is None or any(
         owner == module or owner.startswith(f"{module}.") for module in source_modules
@@ -2650,7 +2658,7 @@ def _selector_construct_violations(
     applicable = tuple(
         item for item in signals if _selector_signal_matches(item, rule, selector, source_modules)
     )
-    violations = (
+    violations: list[RawRecord] = (
         [_selector_unknown(rule, selector, incomplete=not receipt_scope_complete)]
         if not applicable
         else [
@@ -2672,7 +2680,7 @@ def _selector_signal_matches(
 ) -> bool:
     if item["kind"] != "construct_selector":
         return False
-    data = item["data"]
+    data: dict[str, RawJson] = item["data"]
     owner = data.get("owner")
     if not isinstance(owner, str):
         return False
