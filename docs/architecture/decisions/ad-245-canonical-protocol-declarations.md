@@ -6,6 +6,8 @@ A `protocol_declarations` rule selects parameter and annotated class-member decl
 
 The required identity is a canonical dotted source symbol resolved through the existing `boundary_types` binding and signature evidence, including proven imports, reexports, quoted forward references, and statically proven single-name `TypeAlias` chains. Annotation text alone cannot establish identity. Unsupported alias shapes, such as a union-valued alias, remain UNKNOWN. A simple requirement accepts exactly that Protocol. An explicitly optional requirement also accepts exactly that Protocol together with `None`, including `Optional[Protocol]`. Other union arms, including a concrete implementation type, fail. Missing annotations, `object`, and `Any` fail. Shadowed, ambiguous, or unresolved names are UNKNOWN.
 
+Class-local shadowing recorded for a selected annotation makes that position UNKNOWN, including method parameters whose annotations are affected by their enclosing class scope. For an annotated class-member position, any class-body control flow recorded by the collector makes the position UNKNOWN. This evidence is class-wide, so a conditional statement unrelated to the selected member can still prevent a proof. A missing annotation remains a known FAIL, and UNKNOWN positions do not erase known FAIL findings at other selected positions.
+
 A selector with no matches, an absent governed source scope, or incomplete mounted source evidence is UNKNOWN, never PASS. This rule evaluates declarations and does not inspect function bodies or prove that an implementation structurally satisfies a Protocol. MyPy owns assignability; structural conformance remains with #356.
 
 ## Consequences
