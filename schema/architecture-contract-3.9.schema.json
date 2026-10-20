@@ -2120,7 +2120,7 @@
         },
         "name": {
           "type": "string",
-          "pattern": "\\S"
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?![\\s\\S])"
         },
         "visibility": {
           "enum": [
@@ -2155,11 +2155,11 @@
         },
         "source": {
           "type": "string",
-          "pattern": "\\S"
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*(?![\\s\\S])"
         },
         "protocol": {
           "type": "string",
-          "pattern": "\\S"
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*(?![\\s\\S])"
         },
         "selectors": {
           "type": "array",

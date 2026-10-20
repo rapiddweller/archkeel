@@ -68,6 +68,82 @@ def test_protocol_declaration_rule_has_typed_round_trip() -> None:
     assert parse_contract(json.loads(contract_bytes(contract))) == contract
 
 
+@pytest.mark.parametrize("annotation,status", [("Reader", "UNKNOWN"), ("Concrete", "FAIL")])
+def test_each_selector_requires_its_own_matches(
+    tmp_path: Path, annotation: str, status: str
+) -> None:
+    from archkeel.ir.decisions import unknown_positions_by_rule
+
+    (tmp_path / "contract.json").write_text(json.dumps(_contract()))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "from typing import Protocol\n"
+        "class Reader(Protocol):\n    def read(self) -> bytes: ...\n"
+        "class Concrete: pass\n"
+        f"def consume(client: {annotation}): return None\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    rows = rule_assessments(
+        result.observation, undecided_by_rule=unknown_positions_by_rule(result.observation)
+    )
+    [row] = [item for item in rows if item.id == "APP-READER-DECLARATIONS"]
+    assert row.status.value == status
+    assert row.undecided > 0
+    assert not row.evaluation_proven
+    for columnar in (False, True):
+        saved = tmp_path / "saved.json"
+        payload = observation_payload(result.observation)
+        saved.write_text(json.dumps(encode_canonical_model(payload) if columnar else payload))
+        assert run_saved_report(saved).rule_assessments == rows
+
+
+@pytest.mark.parametrize("prefix", ["*", "**"])
+@pytest.mark.parametrize("annotation,status", [("Reader", "PASS"), ("Concrete", "FAIL")])
+def test_variadic_parameters_match_their_source_identifier(
+    tmp_path: Path, prefix: str, annotation: str, status: str
+) -> None:
+    raw = _contract()
+    raw["rules"][0]["selectors"] = [raw["rules"][0]["selectors"][0]]
+    (tmp_path / "contract.json").write_text(json.dumps(raw))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "from typing import Protocol\n"
+        "class Reader(Protocol):\n    def read(self) -> bytes: ...\n"
+        "class Concrete: pass\n"
+        f"def consume({prefix}client: {annotation}): return None\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    [row] = [
+        item
+        for item in rule_assessments(result.observation, undecided_by_rule={})
+        if item.id == "APP-READER-DECLARATIONS"
+    ]
+    assert row.status.value == status
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("name", "not-a-name"),
+        ("name", "client\n"),
+        ("source", "sample..core"),
+        ("source", "sample.core\n"),
+        ("protocol", "sample.Reader-1"),
+        ("protocol", "sample.Reader\n"),
+    ],
+)
+def test_protocol_schema_rejects_non_identifier_selectors(field: str, value: str) -> None:
+    raw = _contract()
+    target = raw["rules"][0]["selectors"][0] if field == "name" else raw["rules"][0]
+    target[field] = value
+    with pytest.raises(ValueError):
+        parse_contract(raw)
+    schema = json.loads((ROOT / "schema/architecture-contract-3.9.schema.json").read_bytes())
+    assert list(Draft202012Validator(schema).iter_errors(raw))
+
+
 def test_selected_public_positions_require_the_canonical_protocol(tmp_path: Path) -> None:
     raw = _contract()
     raw["rules"][0]["selectors"] = [
@@ -306,7 +382,9 @@ def test_older_contract_versions_reject_protocol_declaration_rule() -> None:
 def test_legacy_reports_reject_all_protocol_vocabulary(
     tmp_path: Path, section_name: str, boundary: str
 ) -> None:
-    (tmp_path / "contract.json").write_text(json.dumps(_contract()))
+    raw = _contract()
+    raw["rules"][0]["selectors"] = [raw["rules"][0]["selectors"][0]]
+    (tmp_path / "contract.json").write_text(json.dumps(raw))
     (tmp_path / "sample").mkdir()
     (tmp_path / "sample/core.py").write_text(
         "from typing import Protocol\n"
