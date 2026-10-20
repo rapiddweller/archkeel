@@ -2127,6 +2127,59 @@ def _scan_covers_packages(
     )
 
 
+def source_domains_complete(
+    *,
+    modules: Sequence[RawRecord],
+    profile: Profile,
+    package_scopes: Sequence[str],
+    exact_module_scopes: Sequence[str],
+    scan_roots: tuple[str, ...],
+) -> bool:
+    """Prove that selected package and exact-module domains were fully scanned."""
+    return (
+        not package_scopes or _scan_covers_packages(package_scopes, modules, profile, scan_roots)
+    ) and _scan_covers_exact_modules(exact_module_scopes, modules, scan_roots)
+
+
+def source_selector_domains(
+    source: str,
+    modules: Sequence[RawRecord],
+    *,
+    package_scopes: Sequence[str] = (),
+    exact_module_scopes: Sequence[str] = (),
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Resolve a source prefix to its physical module domain and intersect its mount."""
+    module_names = tuple(
+        item["data"]["qualified_name"]
+        for item in modules
+        if isinstance(item["data"].get("qualified_name"), str)
+    )
+    module_prefixes = [name for name in module_names if in_scope(source, name)]
+    selector = max(module_prefixes, key=lambda name: len(name.split(".")), default=source)
+    packages: set[str] = set()
+    exact_selected = (selector,) if selector != source else ()
+    if exact_selected:
+        if package_scopes and not any(in_scope(selector, package) for package in package_scopes):
+            exact_selected = ()
+    elif package_scopes:
+        for package in package_scopes:
+            if in_scope(package, selector):
+                packages.add(package)
+            elif in_scope(selector, package):
+                packages.add(selector)
+    elif not exact_module_scopes:
+        packages.add(selector)
+    exact_modules = tuple(
+        dict.fromkeys(
+            (
+                *exact_selected,
+                *(module for module in exact_module_scopes if in_scope(module, selector)),
+            )
+        )
+    )
+    return tuple(sorted(packages)), exact_modules
+
+
 def _scan_covers_ownership(
     component: ContractComponent,
     modules: Sequence[RawRecord],

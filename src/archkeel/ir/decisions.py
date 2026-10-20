@@ -793,6 +793,7 @@ def _numeric_scope_proven(observation: Observation, receipt: Record) -> bool:
             "module_ids",
             "operation_ids",
             "binding_id",
+            "result_digest",
         }
         and proof.get("source_digest") == observation.source.source_digest
         and proof.get("source_scope") == observation.source.scope
@@ -812,6 +813,8 @@ def _numeric_scope_proven(observation: Observation, receipt: Record) -> bool:
         and module_ids == tuple(sorted(item.id for item in modules_records))
         and isinstance(operation_ids, tuple)
         and operation_ids == tuple(sorted(item.id for item in numeric_records))
+        and proof.get("result_digest")
+        == rule_result_digest(observation.sections, receipt.rule_ids[0])
         and proof.get("binding_id")
         == rule_evaluation_binding_id(inventory_binding, receipt, observation.schema_version)
     )

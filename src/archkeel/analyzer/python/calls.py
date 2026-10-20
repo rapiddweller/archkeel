@@ -1178,7 +1178,14 @@ class CallCollector(ast.NodeVisitor):
         owner_declaration = self.index.binding_declarations.get(
             parent if isinstance(parent, str) else ""
         )
-        if owner_declaration is None:
+        constructed_declaration = self.index.binding_declarations.get(owner)
+        if (
+            owner_declaration is None
+            or constructed_declaration is None
+            or _mapping_value(constructed_declaration["data"], "source_member_owner_static")
+            is not True
+            or _mapping_value(owner_declaration["data"], "source_member_owner_static") is not True
+        ):
             return None
         return self._receiver_binding_record(
             CallBindingOrigin.CONSTRUCTED_RECEIVER,
