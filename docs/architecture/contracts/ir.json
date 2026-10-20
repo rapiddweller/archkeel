@@ -72,6 +72,7 @@
       "packages": [
         "archkeel.ir.facts_codec",
         "archkeel.ir.facts_validation",
+        "archkeel.ir.source_proofs",
         "archkeel.ir.state_codec"
       ],
       "responsibilities": [
@@ -101,7 +102,8 @@
       "public": [
         "archkeel.ir.facts_codec",
         "archkeel.ir.facts_validation:validate_source_facts",
-        "archkeel.ir.facts_validation:validate_source_bindings"
+        "archkeel.ir.facts_validation:validate_source_bindings",
+        "archkeel.ir.source_proofs:class_instance_member_write_names"
       ]
     },
     {
