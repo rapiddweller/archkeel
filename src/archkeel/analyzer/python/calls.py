@@ -230,6 +230,7 @@ class CallCollector(ast.NodeVisitor):
             for reference in member_escape_references(
                 module, module.all_nodes, member_surface=True, owner_exposure_only=True
             )
+            if self._receiver_escape_reference(reference)
             if (binding := self.scopes.lookup(reference, reference.id)).owner is not None
         }
         self.escaped_native_targets = {
@@ -677,6 +678,47 @@ class CallCollector(ast.NodeVisitor):
             if expanded == aliases:
                 return False
             aliases = expanded
+
+    def _receiver_escape_reference(self, reference: ast.Name) -> bool:
+        current: ast.AST = reference
+        while current in self.parents:
+            parent = self.parents[current]
+            if isinstance(parent, ast.Call):
+                if current in parent.args or any(
+                    keyword.value is current for keyword in parent.keywords
+                ):
+                    return True
+                return False
+            if isinstance(parent, ast.Attribute):
+                if isinstance(parent.ctx, ast.Store | ast.Del):
+                    return True
+                current = parent
+                continue
+            if isinstance(parent, ast.Compare) and current in (
+                parent.left,
+                *parent.comparators,
+            ):
+                return False
+            if isinstance(parent, ast.Assign | ast.AnnAssign):
+                value = parent.value
+                targets = parent.targets if isinstance(parent, ast.Assign) else (parent.target,)
+                if (
+                    value is current
+                    and isinstance(value, ast.Name)
+                    and all(isinstance(target, ast.Name) for target in targets)
+                ):
+                    return False
+                return True
+            if isinstance(
+                parent, ast.AugAssign | ast.NamedExpr | ast.Return | ast.Yield | ast.YieldFrom
+            ):
+                return True
+            if isinstance(
+                parent, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Lambda
+            ):
+                return True
+            current = parent
+        return True
 
     def _in_direct_function_body(self, node: ast.AST, function: ast.AST) -> bool:
         current = node
