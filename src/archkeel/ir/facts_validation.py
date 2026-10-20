@@ -10,11 +10,13 @@ from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import PurePosixPath
+from textwrap import dedent
 
 from .facts import (
     CALL_ARGUMENTS_FEATURE,
     CALL_BINDINGS_FEATURE,
     EXTENDED_CALL_BINDINGS_FEATURE,
+    GUARDED_EFFECTS_FEATURE,
     MAX_NUMERIC_EVIDENCE_CHARS,
     MAX_STATIC_INTEGER,
     NATIVE_CALL_TARGETS,
@@ -31,6 +33,8 @@ from .facts import (
     EvidenceClass,
     ExternalPackageTarget,
     FileFact,
+    GuardedEffectEvidence,
+    GuardHelperArgument,
     JsonValue,
     LocalTarget,
     MethodKind,
@@ -49,6 +53,7 @@ from .facts import (
     call_arguments,
     call_binding,
     contextmanager_signature,
+    guarded_effect,
     in_scope,
     member_inventories,
     parse_method_kind,
@@ -59,6 +64,7 @@ from .facts import (
 )
 from .facts import MemberKind as _MemberKind
 from .facts import ResolutionRole as _ResolutionRole
+from .guard_paths import GuardedCallPath, guarded_call_paths
 from .state_facts import ArgumentPass, AttributeAccess
 from .type_shapes import TypeApplication, TypeShape
 
@@ -89,6 +95,17 @@ _REQUIRED = {
     SourceSectionName.CONSTRUCTS: ("owner", "construct"),
     SourceSectionName.UNKNOWNS: (),
 }
+
+GuardFunctionContext = tuple[
+    str,
+    str,
+    str,
+    int,
+    int,
+    int,
+    str | None,
+    tuple[tuple[str, tuple[str, ...]], ...],
+]
 _STRING_FIELDS = frozenset(
     {
         "source_module",
@@ -1438,7 +1455,9 @@ def _numeric_operation_owner_matches(
         if parent is None:
             return False
         node = parent
-        if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+        if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef) and (
+            _numeric_definition_contains_in_body(node, operation_node, parents)
+        ):
             definitions.append(node)
     qualified_owner = scope_owner
     for definition in reversed(
@@ -1446,6 +1465,20 @@ def _numeric_operation_owner_matches(
     ):
         qualified_owner = f"{qualified_owner}.{definition.name}"
     return operation.data.get("owner") == qualified_owner
+
+
+def _numeric_definition_contains_in_body(
+    definition: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
+    operation: ast.AST,
+    parents: Mapping[ast.AST, ast.AST],
+) -> bool:
+    node = operation
+    while parents.get(node) is not definition:
+        parent = parents.get(node)
+        if parent is None:
+            return False
+        node = parent
+    return any(node is statement for statement in definition.body)
 
 
 def _numeric_unique_local_assignment(
@@ -1763,6 +1796,9 @@ def _parse_numeric_evidence_excerpt(
 ) -> tuple[tuple[ast.stmt, ...], int] | None:
     if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
         return None
+    stripped: str = excerpt.lstrip(" \t")
+    if stripped.startswith("@"):
+        return _parse_numeric_decorator_excerpt(excerpt)
     if _numeric_elif_start(excerpt) is not None:
         return _parse_numeric_elif_excerpt(excerpt)
     try:
@@ -1776,6 +1812,34 @@ def _parse_numeric_evidence_excerpt(
         if parsed is None or len(parsed[0]) != 1:
             return None
         return parsed if _numeric_header_has_synthetic_body(parsed[0][0]) else None
+
+
+def _parse_numeric_decorator_excerpt(
+    excerpt: str,
+) -> tuple[tuple[ast.stmt, ...], int] | None:
+    indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+    unit = "\t" if "\t" in indentation else "    "
+    prefix = "if True:\n" if indentation else ""
+    source = (
+        f"{prefix}{excerpt}\n"
+        f"{indentation}def __archkeel_numeric_witness__():\n"
+        f"{indentation}{unit}pass"
+    )
+    try:
+        parsed = ast.parse(source)
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    roots = tuple(parsed.body)
+    if indentation and (len(roots) != 1 or not isinstance(roots[0], ast.If)):
+        return None
+    body = tuple(roots[0].body) if indentation and isinstance(roots[0], ast.If) else roots
+    if (
+        len(body) != 1
+        or not isinstance(body[0], ast.FunctionDef)
+        or len(body[0].decorator_list) != 1
+    ):
+        return None
+    return roots, 1 if indentation else 0
 
 
 def _numeric_elif_start(excerpt: str) -> int | None:
@@ -2788,7 +2852,8 @@ def _constructed_member_owners_static(
     if not isinstance(target, str):
         return False
     constructed = declarations.get(target, [])
-    method_owner_name = binding.target.rpartition(".")[0]
+    target_name: str = binding.target
+    method_owner_name = target_name.rpartition(".")[0]
     method_owners = declarations.get(method_owner_name, [])
     return (
         len(constructed) == 1
@@ -2927,6 +2992,541 @@ def _ends_with(value: str, suffix: str) -> bool:
     return len(value) >= length and value[len(value) - length :] == suffix
 
 
+def _source_guard_boolean_members(record: Record, section: SourceSectionName) -> None:
+    value = record.data.get("guard_boolean_members")
+    if (
+        section is not SourceSectionName.SYMBOLS
+        or record.kind != "class"
+        or not isinstance(value, tuple)
+        or any(
+            not isinstance(item, RecordData)
+            or {key for key, _ in item.entries} != {"name", "evidence_ids"}
+            or not isinstance(item.get("name"), str)
+            or not item.get("name")
+            for item in value
+        )
+    ):
+        raise ValueError("guard Boolean member declarations need a class symbol")
+    if len({item.get("name") for item in value if isinstance(item, RecordData)}) != len(value):
+        raise ValueError("guard Boolean member declarations must have unique names")
+    for item in value:
+        if not isinstance(item, RecordData):
+            continue
+        evidence_ids = item.get("evidence_ids")
+        if (
+            not isinstance(evidence_ids, tuple)
+            or not evidence_ids
+            or any(not isinstance(identifier, str) or not identifier for identifier in evidence_ids)
+            or len(set(evidence_ids)) != len(evidence_ids)
+        ):
+            raise ValueError("guard Boolean member evidence_ids must be unique and nonempty")
+
+
+def _source_guarded_effect(
+    record: Record,
+    section: SourceSectionName,
+    evidence: Mapping[str, Evidence],
+    imports: tuple[Record, ...],
+    function_contexts: frozenset[GuardFunctionContext] = frozenset(),
+) -> None:
+    if section is not SourceSectionName.CALLS:
+        raise ValueError("guarded effect evidence needs its call owner")
+    raw_guarded = record.data.get("guarded_effect")
+    if not isinstance(raw_guarded, tuple):
+        raise ValueError("guarded effect evidence must be an array")
+    binding = call_binding(record.data.get("call_binding"))
+    for raw_item in raw_guarded:
+        proof = guarded_effect(raw_item)
+        if proof.condition_value is not None and not _guard_path_matches_condition(
+            record,
+            proof.condition.name,
+            proof.condition.kind.value,
+            proof.condition.owner,
+            proof.condition_evidence_ids,
+            proof.condition_value,
+            proof.path_evidence_ids,
+            evidence,
+            function_contexts,
+        ):
+            raise ValueError("guarded-effect condition value disagrees with its source path")
+        arguments = call_arguments(record.data.get("call_arguments"))
+        call_evidence = next(
+            (evidence[identifier] for identifier in record.evidence_ids if identifier in evidence),
+            None,
+        )
+        if proof.helper_bindings and not _guarded_helper_arguments_match_source(
+            record, proof, arguments, call_evidence, evidence
+        ):
+            raise ValueError("guarded-effect helper argument disagrees with its source")
+        if proof.complete and (
+            binding is None or proof.effect_binding_evidence_ids != binding.evidence_ids
+        ):
+            raise ValueError("guarded effect must reference its canonical call binding")
+        if proof.helper_bindings and not _source_helper_target_matches_call(
+            record, binding, evidence, imports
+        ):
+            raise ValueError("guarded-effect helper target disagrees with its written callee")
+        if any(
+            binding is None or helper.call_id != record.id or helper.target != binding.target
+            for helper in proof.helper_bindings
+        ):
+            raise ValueError("guarded-effect helper identity disagrees with its call binding")
+
+
+def _source_helper_target_matches_call(
+    record: Record,
+    binding: CallBinding | None,
+    evidence: Mapping[str, Evidence],
+    imports: tuple[Record, ...],
+) -> bool:
+    expression = record.data.get("expression")
+    target = binding.target if binding is not None else ""
+    source_module = record.data.get("source_module")
+    if (
+        binding is None
+        or binding.origin is not CallBindingOrigin.DIRECT
+        or not isinstance(expression, str)
+        or not _call_expression_matches_source(record, expression, evidence)
+    ):
+        return False
+    target_module, _, target_name = target.rpartition(".")
+    expression_name = expression.rpartition(".")[-1]
+    if target_module == source_module:
+        return target_name == expression_name
+    for imported in imports:
+        module = imported.data.get("target_module")
+        symbol = imported.data.get("symbol")
+        if (
+            imported.data.get("source_module") == source_module
+            and imported.data.get("binding") == expression
+            and imported.data.get("source_binding_unique") is True
+            and isinstance(module, str)
+            and module + (f".{symbol}" if isinstance(symbol, str) else "") == target
+        ):
+            return True
+    return False
+
+
+def _guarded_helper_arguments_match_source(
+    record: Record,
+    proof: GuardedEffectEvidence,
+    arguments: tuple[CallArgument, ...] | None,
+    call_evidence: Evidence | None,
+    evidence: Mapping[str, Evidence],
+) -> bool:
+    helpers = proof.helper_bindings
+    if arguments is None:
+        return all(
+            actual.token_kind.value == "unknown"
+            for helper in helpers
+            for actual in helper.arguments
+        )
+    if call_evidence is None or not _call_arguments_match_source(
+        record, arguments, evidence, call_evidence.file
+    ):
+        return False
+    actuals = _source_call_actuals(record, call_evidence)
+    if actuals is None:
+        return False
+    for helper in helpers:
+        if len(helper.arguments) != len(arguments):
+            return False
+        for actual in helper.arguments:
+            index = actual.argument_index
+            if (
+                index >= len(arguments)
+                or actual.evidence_ids != arguments[index].evidence_ids
+                or actual.condition is not None
+                and (
+                    actual.condition.kind is not proof.condition.kind
+                    or actual.condition.owner != proof.condition.owner
+                )
+                or not _guarded_actual_matches_condition(actual, actuals[index])
+            ):
+                return False
+    return True
+
+
+def _source_call_actuals(record: Record, evidence: Evidence) -> tuple[ast.expr, ...] | None:
+    parsed = _call_evidence_nodes(evidence.excerpt)
+    if parsed is None:
+        return None
+    roots, line_offset = parsed
+    expression = record.data.get("expression")
+    calls = [
+        node
+        for root in roots
+        for node in ast.walk(root)
+        if isinstance(node, ast.Call)
+        and _source_node_starts_at(node, evidence.line, evidence.column, line_offset)
+        and _call_expression(node) == expression
+    ]
+    if len(calls) != 1:
+        return None
+    node = calls[0]
+    positional = [
+        argument.value if isinstance(argument, ast.Starred) else argument for argument in node.args
+    ]
+    return tuple(positional + [keyword.value for keyword in node.keywords])
+
+
+def _source_node_starts_at(node: ast.AST, line: int, column: int, line_offset: int) -> bool:
+    span = _numeric_node_span(node, line, line_offset)
+    return span is not None and span[:2] == (line, column)
+
+
+def _guarded_actual_matches_condition(actual: GuardHelperArgument, expression: ast.expr) -> bool:
+    token_kind = actual.token_kind.value
+    if token_kind == "unknown":
+        return True
+    selector = actual.condition
+    if token_kind == "boolean_literal":
+        return isinstance(expression, ast.Constant) and expression.value is actual.token_value
+    if selector is None:
+        return False
+    candidate = expression
+    negated = False
+    if isinstance(candidate, ast.UnaryOp) and isinstance(candidate.op, ast.Not):
+        candidate = candidate.operand
+        negated = True
+    matches = (
+        isinstance(candidate, ast.Name) and candidate.id == selector.name
+        if selector.kind.value == "parameter"
+        else isinstance(candidate, ast.Attribute)
+        and candidate.attr == selector.name
+        and isinstance(candidate.value, ast.Name)
+        and candidate.value.id == "self"
+    )
+    return matches and (token_kind == "not_condition") == negated
+
+
+def _guard_path_matches_condition(
+    record: Record,
+    name: str,
+    kind: str,
+    owner: str,
+    condition_evidence_ids: tuple[str, ...],
+    expected_value: bool,
+    path_evidence_ids: tuple[str, ...],
+    evidence: Mapping[str, Evidence],
+    function_contexts: frozenset[GuardFunctionContext],
+) -> bool:
+    call_evidence = next(
+        (evidence[identifier] for identifier in record.evidence_ids if identifier in evidence),
+        None,
+    )
+    if call_evidence is None:
+        return False
+    context_items: list[tuple[Evidence, ast.FunctionDef | ast.AsyncFunctionDef, int]] = []
+    for identifier in path_evidence_ids:
+        item = evidence.get(identifier)
+        if item is None or item.file != call_evidence.file:
+            continue
+        context = _guard_context(item)
+        if context is not None:
+            context_items.append((item, context[0], context[1]))
+    return any(
+        _guard_context_proves_path(
+            record,
+            name,
+            kind,
+            owner,
+            condition_evidence_ids,
+            expected_value,
+            path_evidence_ids,
+            call_evidence,
+            context,
+            function,
+            column_offset,
+            evidence,
+            function_contexts,
+        )
+        for context, function, column_offset in context_items
+    )
+
+
+@lru_cache(maxsize=256)
+def _guard_context(
+    item: Evidence,
+) -> tuple[ast.FunctionDef | ast.AsyncFunctionDef, int] | None:
+    if not item.excerpt or len(item.excerpt) > MAX_NUMERIC_EVIDENCE_CHARS:
+        return None
+    indentation = item.excerpt[: len(item.excerpt) - len(item.excerpt.lstrip(" \t"))]
+    column_offset = len(indentation.encode("utf-8"))
+    try:
+        roots = ast.parse(dedent(item.excerpt)).body
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    if (
+        len(roots) != 1
+        or not isinstance(roots[0], ast.FunctionDef | ast.AsyncFunctionDef)
+        or roots[0].end_lineno is None
+        or item.line + roots[0].end_lineno - 1 != item.end_line
+    ):
+        return None
+    return roots[0], column_offset
+
+
+def _guard_context_proves_path(
+    record: Record,
+    name: str,
+    kind: str,
+    owner: str,
+    condition_evidence_ids: tuple[str, ...],
+    expected_value: bool,
+    path_evidence_ids: tuple[str, ...],
+    call_evidence: Evidence,
+    context_evidence: Evidence,
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    column_offset: int,
+    evidence: Mapping[str, Evidence],
+    function_contexts: frozenset[GuardFunctionContext],
+) -> bool:
+    if not _guard_context_binds_call(
+        record,
+        call_evidence,
+        context_evidence,
+        function,
+        column_offset,
+        function_contexts,
+    ):
+        return False
+    if not _guard_condition_owner_binds_context(
+        record,
+        name,
+        kind,
+        owner,
+        condition_evidence_ids,
+        context_evidence,
+        function,
+        column_offset,
+        evidence,
+        function_contexts,
+    ):
+        return False
+    guard_evidence = [
+        evidence[identifier]
+        for identifier in path_evidence_ids
+        if identifier in evidence and evidence[identifier] != context_evidence
+    ]
+    guard_locations = {
+        (item.line, item.column) for item in guard_evidence if item.file == call_evidence.file
+    }
+    if any(
+        not _guard_evidence_matches_context(item, function, context_evidence, column_offset)
+        for item in guard_evidence
+    ):
+        return False
+    receiver = None
+    if kind == "member":
+        parameters = (*function.args.posonlyargs, *function.args.args)
+        if not parameters:
+            return False
+        receiver = parameters[0].arg
+    local_call = (
+        call_evidence.line - context_evidence.line + 1,
+        call_evidence.column - column_offset,
+    )
+    for path in _guarded_paths_by_site(function, name, receiver).get(local_call, ()):
+        if (
+            (context_evidence.line + path.line - 1, column_offset + path.column)
+            == (call_evidence.line, call_evidence.column)
+            and path.condition_value is expected_value
+            and _replayed_path_guard_locations(path, context_evidence, column_offset)
+            == guard_locations
+        ):
+            return True
+    return False
+
+
+def _guard_context_binds_call(
+    record: Record,
+    call_evidence: Evidence,
+    context_evidence: Evidence,
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    column_offset: int,
+    function_contexts: frozenset[GuardFunctionContext],
+) -> bool:
+    scope = record.data.get("source_scope")
+    module = record.data.get("source_module")
+    expression = record.data.get("expression")
+    if (
+        not isinstance(scope, str)
+        or not isinstance(module, str)
+        or not any(
+            item[:6]
+            == (
+                scope,
+                module,
+                context_evidence.file,
+                context_evidence.line,
+                context_evidence.end_line,
+                context_evidence.column,
+            )
+            for item in function_contexts
+        )
+        or scope.rpartition(".")[2] != function.name
+        or not isinstance(expression, str)
+        or context_evidence.file != call_evidence.file
+    ):
+        return False
+    line_index = call_evidence.line - context_evidence.line
+    source_lines = _guard_context_source_lines(context_evidence)
+    return (
+        0 <= line_index < len(source_lines)
+        and source_lines[line_index] == call_evidence.excerpt
+        and (
+            call_evidence.line - context_evidence.line + 1,
+            call_evidence.column - column_offset,
+            expression,
+        )
+        in _guard_context_call_sites(function)
+    )
+
+
+def _guard_condition_owner_binds_context(
+    record: Record,
+    name: str,
+    kind: str,
+    owner: str,
+    condition_evidence_ids: tuple[str, ...],
+    context: Evidence,
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    column_offset: int,
+    evidence: Mapping[str, Evidence],
+    function_contexts: frozenset[GuardFunctionContext],
+) -> bool:
+    scope = record.data.get("source_scope")
+    module = record.data.get("source_module")
+    if not isinstance(scope, str) or not isinstance(module, str):
+        return False
+    matching = [
+        item
+        for item in function_contexts
+        if item[:6] == (scope, module, context.file, context.line, context.end_line, context.column)
+    ]
+    if len(matching) != 1:
+        return False
+    context_fact = matching[0]
+    expected_owner = scope if kind == "parameter" else context_fact[6]
+    if expected_owner is None or owner != expected_owner:
+        return False
+    if kind == "member":
+        member_evidence = dict(context_fact[7]).get(name)
+        return member_evidence is not None and set(condition_evidence_ids) == set(member_evidence)
+    return _guard_parameter_evidence_matches(
+        name,
+        condition_evidence_ids,
+        function,
+        context,
+        column_offset,
+        evidence,
+    )
+
+
+def _guard_parameter_evidence_matches(
+    name: str,
+    condition_evidence_ids: tuple[str, ...],
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    context: Evidence,
+    column_offset: int,
+    evidence: Mapping[str, Evidence],
+) -> bool:
+    arguments = (
+        *function.args.posonlyargs,
+        *function.args.args,
+        *function.args.kwonlyargs,
+    )
+    matching = [argument for argument in arguments if argument.arg == name]
+    if len(matching) != 1:
+        return False
+    argument = matching[0]
+    expected_location = (
+        context.line + argument.lineno - 1,
+        context.line + (argument.end_lineno or argument.lineno) - 1,
+        column_offset + argument.col_offset,
+    )
+    matching_ids = {
+        identifier
+        for identifier in condition_evidence_ids
+        if (item := evidence.get(identifier)) is not None
+        and item.file == context.file
+        and (item.line, item.end_line, item.column) == expected_location
+    }
+    return len(matching_ids) == 1 and set(condition_evidence_ids) == matching_ids
+
+
+@lru_cache(maxsize=256)
+def _guard_context_source_lines(context: Evidence) -> tuple[str, ...]:
+    return tuple(context.excerpt.splitlines())
+
+
+@lru_cache(maxsize=256)
+def _guard_context_call_sites(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> frozenset[tuple[int, int, str]]:
+    return frozenset(
+        (node.lineno, node.col_offset, expression)
+        for node in ast.walk(function)
+        if isinstance(node, ast.Call) and (expression := _ast_expression(node.func)) is not None
+    )
+
+
+@lru_cache(maxsize=256)
+def _guard_context_guard_sites(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> frozenset[tuple[int, int]]:
+    return frozenset(
+        (node.test.lineno, node.test.col_offset)
+        for node in ast.walk(function)
+        if isinstance(node, ast.If | ast.IfExp)
+    )
+
+
+@lru_cache(maxsize=256)
+def _guarded_paths_by_site(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    name: str,
+    receiver: str | None,
+) -> dict[tuple[int, int], tuple[GuardedCallPath, ...]]:
+    paths: dict[tuple[int, int], list[GuardedCallPath]] = {}
+    for path in guarded_call_paths(function, name, receiver_name=receiver):
+        paths.setdefault((path.line, path.column), []).append(path)
+    return {site: tuple(items) for site, items in paths.items()}
+
+
+def _guard_evidence_matches_context(
+    item: Evidence,
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    context_evidence: Evidence,
+    column_offset: int,
+) -> bool:
+    line_index = item.line - context_evidence.line
+    lines = _guard_context_source_lines(context_evidence)
+    if not (0 <= line_index < len(lines)) or lines[line_index] != item.excerpt:
+        return False
+    return (item.line - context_evidence.line + 1, item.column - column_offset) in (
+        _guard_context_guard_sites(function)
+    )
+
+
+def _ast_expression(node: ast.expr) -> str | None:
+    try:
+        return ast.unparse(node)
+    except (RecursionError, ValueError):
+        return None
+
+
+def _replayed_path_guard_locations(
+    path: GuardedCallPath, context_evidence: Evidence, column_offset: int
+) -> set[tuple[int, int]]:
+    return {
+        (context_evidence.line + node.lineno - 1, column_offset + node.col_offset)
+        for node in path.path_nodes
+        if isinstance(node, ast.expr)
+    }
+
+
 def _numeric_binding_scopes(value: JsonValue, evidence_ids: tuple[str, ...]) -> bool:
     if not isinstance(value, tuple):
         return False
@@ -2940,7 +3540,73 @@ def _numeric_binding_scopes(value: JsonValue, evidence_ids: tuple[str, ...]) -> 
     )
 
 
-def _source_record(record: Record, section: SourceSectionName) -> None:
+def _guard_function_contexts(
+    symbols: tuple[Record, ...], evidence: Mapping[str, Evidence]
+) -> frozenset[GuardFunctionContext]:
+    contexts: set[GuardFunctionContext] = set()
+    members_by_class = {
+        qualified: _guard_member_evidence(symbol.data.get("guard_boolean_members"))
+        for symbol in symbols
+        if symbol.kind == "class"
+        and isinstance((qualified := symbol.data.get("qualified_name")), str)
+    }
+    for symbol in symbols:
+        qualified = symbol.data.get("qualified_name")
+        module = symbol.data.get("module")
+        if (
+            symbol.kind not in {"function", "method"}
+            or not isinstance(qualified, str)
+            or not isinstance(module, str)
+        ):
+            continue
+        parent = symbol.data.get("parent")
+        if parent is not None and not isinstance(parent, str):
+            continue
+        for identifier in symbol.evidence_ids:
+            item = evidence.get(identifier)
+            if item is not None:
+                contexts.add(
+                    (
+                        qualified,
+                        module,
+                        item.file,
+                        item.line,
+                        item.end_line,
+                        item.column,
+                        parent,
+                        members_by_class.get(parent, ()) if isinstance(parent, str) else (),
+                    )
+                )
+    return frozenset(contexts)
+
+
+def _guard_member_evidence(value: JsonValue) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    if not isinstance(value, tuple):
+        return ()
+    result = []
+    for item in value:
+        if not isinstance(item, RecordData):
+            continue
+        name, identifiers = item.get("name"), item.get("evidence_ids")
+        if (
+            isinstance(name, str)
+            and isinstance(identifiers, tuple)
+            and all(isinstance(identifier, str) for identifier in identifiers)
+        ):
+            valid_ids = tuple(
+                identifier for identifier in identifiers if isinstance(identifier, str)
+            )
+            result.append((name, valid_ids))
+    return tuple(sorted(result))
+
+
+def _source_record(
+    record: Record,
+    section: SourceSectionName,
+    evidence: Mapping[str, Evidence] | None = None,
+    imports: tuple[Record, ...] = (),
+    function_contexts: frozenset[GuardFunctionContext] = frozenset(),
+) -> None:
     if record.evidence_class not in (EvidenceClass.FACT, EvidenceClass.UNKNOWN):
         raise ValueError("source records cannot carry governance decisions")
     if section == SourceSectionName.UNKNOWNS and record.evidence_class != EvidenceClass.UNKNOWN:
@@ -2981,6 +3647,8 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
         _base_declarations(record, section)
     if section is SourceSectionName.REFERENCES and record.kind == "source_role":
         validate_source_role_vocabulary(record)
+    if "guard_boolean_members" in fields:
+        _source_guard_boolean_members(record, section)
     if "call_binding" in fields:
         if section is not SourceSectionName.CALLS:
             raise ValueError("call binding needs its call owner")
@@ -2989,6 +3657,8 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
         if section is not SourceSectionName.CALLS:
             raise ValueError("call arguments need their call owner")
         call_arguments(record.data.get("call_arguments"))
+    if "guarded_effect" in fields:
+        _source_guarded_effect(record, section, evidence or {}, imports, function_contexts)
     _payload(record.data)
 
 
@@ -4020,6 +4690,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
         raise ValueError("module evidence disagrees with source file")
     names = _unique((section.name for section in facts.sections), "section")
     declared = _unique(facts.capabilities.sections, "capability section")
+    resolution_features = _unique(facts.capabilities.resolution_features, "resolution feature")
     _unique((entry.name for entry in facts.capabilities.constructs), "construct capability")
     if names != declared:
         raise ValueError("source sections disagree with declared capabilities")
@@ -4046,15 +4717,28 @@ def validate_source_facts(facts: SourceFacts) -> None:
     declarations_by_name = {
         name: tuple(declarations) for name, declarations in declaration_groups.items()
     }
+    function_contexts = _guard_function_contexts(tuple(declarations_by_id.values()), base_by_id)
     record_ids = _unique((record.id for record in records), "source record id")
     if file_ids & record_ids:
         raise ValueError("file and record ids collide")
     for record in records:
         if not set(record.evidence_ids).issubset(evidence_ids):
             raise ValueError("dangling source evidence reference")
+    source_imports = tuple(
+        item
+        for imported_section in facts.sections
+        if imported_section.name is SourceSectionName.IMPORTS
+        for item in imported_section.records
+    )
     for section in facts.sections:
         for record in section.records:
-            _source_record(record, section.name)
+            _source_record(
+                record,
+                section.name,
+                base_by_id,
+                source_imports,
+                function_contexts,
+            )
             if section.name is SourceSectionName.CONSTRUCTS and record.kind == "numeric_operand":
                 operation_span = (
                     record.data.get("line"),
@@ -4124,6 +4808,17 @@ def validate_source_facts(facts: SourceFacts) -> None:
                 raise ValueError("source construct disagrees with declared capabilities")
     fact_ids = record_ids | file_ids
     for record in records:
+        guard_members = record.data.get("guard_boolean_members")
+        if isinstance(guard_members, tuple) and any(
+            isinstance(member, RecordData)
+            and isinstance((member_ids := member.get("evidence_ids")), tuple)
+            and any(
+                not isinstance(identifier, str) or identifier not in evidence_ids
+                for identifier in member_ids
+            )
+            for member in guard_members
+        ):
+            raise ValueError("guard Boolean member references missing source evidence")
         if not set(record.fact_ids).issubset(fact_ids):
             raise ValueError("dangling source fact reference")
     _validate_reference_contexts(records, base_by_id, facts.profile)
@@ -4194,6 +4889,37 @@ def validate_source_facts(facts: SourceFacts) -> None:
                 or not set(record.evidence_ids) <= set(call_proof.evidence_ids)
             ):
                 raise ValueError("call binding evidence disagrees with its call")
+            guarded_raw = record.data.get("guarded_effect")
+            if guarded_raw is not None and (
+                facts.profile is not SourceProfile.PYTHON
+                or GUARDED_EFFECTS_FEATURE not in resolution_features
+            ):
+                raise ValueError("guarded-effect facts need their declared Python capability")
+            if guarded_raw is not None:
+                for item in guarded_raw if isinstance(guarded_raw, tuple) else ():
+                    proof = guarded_effect(item)
+                    if (
+                        not set(
+                            (
+                                *proof.condition_evidence_ids,
+                                *proof.path_evidence_ids,
+                                *proof.effect_binding_evidence_ids,
+                                *(
+                                    identifier
+                                    for helper in proof.helper_bindings
+                                    for identifier in helper.evidence_ids
+                                ),
+                                *(
+                                    identifier
+                                    for helper in proof.helper_bindings
+                                    for argument in helper.arguments
+                                    for identifier in argument.evidence_ids
+                                ),
+                            )
+                        )
+                        <= evidence_ids
+                    ):
+                        raise ValueError("guarded effect contains dangling evidence references")
             targets = record.data.get("targets")
             if call_proof is not None and (
                 not isinstance(targets, tuple)

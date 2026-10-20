@@ -12,6 +12,13 @@ rules and UML comparison are shown separately.
 
 Create a report with several deliberate violations:
 
+The default tour also shows `forbidden_call_argument`: a literal order ID at the store lookup,
+and `forbidden_effect_under_condition`: `secrets.token_hex` on a seeded run.
+
+The clean shop sample returns a fixed token for seeded runs and calls `secrets.token_hex` only
+for unseeded runs. `class-a-forbidden-effect-under-condition` and the default tour move the effect
+under the declared `seeded` condition and produce `EFFECT-NO-TOKEN-WHEN-SEEDED`.
+
 ```sh
 make demo-architecture VARIANT=tour OUTPUT=build/demo.json
 ```
@@ -56,6 +63,7 @@ complete, authenticated dependency or direct-member scope; global coverage stays
 | `python-realworld-forbidden-edge` | Route imports SQL directly; rule FAIL. |
 | `python-realworld-signature-fail` | `Article.tags` changes to `List[int]`; UML FAIL. |
 | `python-realworld-dynamic-unknown` | `getattr` login call; UNKNOWN. |
+| `class-a-forbidden-effect-under-condition` | `secrets.token_hex` on the seeded branch; FAIL. |
 | `nest-realworld-forbidden-edge` | Shared validation imports `Article`; `REQUIRES-COMPLETE` FAIL. |
 | `nest-realworld-signature-fail` | `ArticleService.findFeed` return type changes; UML FAIL. |
 | `nest-realworld-dynamic-unknown` | Type assertion makes the `User` creates relation UNKNOWN. |

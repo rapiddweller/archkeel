@@ -51,6 +51,8 @@ from .facts import (
 from .facts import (
     AnalyzerInfo as AnalyzerInfo,
 )
+from .facts import ConditionSelector as ConditionSelector
+from .facts import ConditionSelectorKind as ConditionSelectorKind
 from .facts import (
     Evidence as Evidence,
 )
@@ -551,6 +553,18 @@ class CatalogUseRule(ArchitectureRuleGrammar):
 
 
 @dataclass(frozen=True, slots=True)
+class ForbiddenEffectUnderConditionRule(ArchitectureRuleGrammar):
+    id: str
+    kind: Literal[ArchitectureRuleKind.FORBIDDEN_EFFECT_UNDER_CONDITION]
+    source: str
+    target: str
+    condition: ConditionSelector
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+
+
+@dataclass(frozen=True, slots=True)
 class ForbiddenDependencyRule(ArchitectureRuleGrammar):
     id: str
     kind: Literal[ArchitectureRuleKind.FORBIDDEN_DEPENDENCY]
@@ -905,6 +919,7 @@ ArchitectureRule: TypeAlias = (
     | ForbiddenCallArgumentRule
     | CatalogArgumentRule
     | CatalogUseRule
+    | ForbiddenEffectUnderConditionRule
     | ForbiddenDependencyRule
     | AllowedDependencyRule
     | ForbiddenConstructRule
@@ -1230,6 +1245,9 @@ def _rule_references(
         )
     if isinstance(rule, CatalogArgumentRule | CatalogUseRule):
         return _catalog_references(index, rule)
+    special = _special_rule_references(index, rule)
+    if special is not None:
+        return special
     named: list[tuple[str, tuple[str, ...], bool]] = []
     if isinstance(
         rule,
@@ -1317,6 +1335,26 @@ def _source_ownership_references(
             )
         )
     return references
+
+
+def _special_rule_references(index: int, rule: ArchitectureRule) -> list[ModuleReference] | None:
+    if isinstance(rule, CallOwnerRule):
+        return _call_owner_references(index, rule)
+    if isinstance(rule, ForbiddenCallArgumentRule):
+        return _references(
+            f"/rules/{index}",
+            [("source", (rule.source,), True), ("target", (rule.target,), False)],
+        )
+    if isinstance(rule, ForbiddenEffectUnderConditionRule):
+        references = _references(
+            f"/rules/{index}",
+            [("source", (rule.source,), True), ("target", (rule.target,), False)],
+        )
+        references.append(
+            ModuleReference(f"/rules/{index}/condition/owner", rule.condition.owner, False)
+        )
+        return references
+    return None
 
 
 def module_references(

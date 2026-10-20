@@ -84,12 +84,12 @@ def _argument(source="sample.consumer"):
     }
 
 
-def _use(source="sample.consumer"):
+def _use(source="sample.consumer", member="PAGE_SIZE"):
     return {
         "kind": "catalog_use",
         "source": source,
         "catalog": "sample.catalog.OptionKey",
-        "member": "PAGE_SIZE",
+        "member": member,
     }
 
 
@@ -506,9 +506,6 @@ def test_enum_with_custom_new_does_not_gain_enum_escape_exception(tmp_path):
         pytest.param(
             "from .catalog import OptionKey\ndef consume():\n    print(OptionKey.PAGE_SIZE)\n",
             "PASS",
-            marks=pytest.mark.xfail(
-                strict=True, reason="requires #617 reference_context producer integration"
-            ),
         ),
         pytest.param(
             "from typing import TYPE_CHECKING\n"
@@ -516,9 +513,6 @@ def test_enum_with_custom_new_does_not_gain_enum_escape_exception(tmp_path):
             "if TYPE_CHECKING:\n    TYPE_KEY = Keys.PAGE_SIZE\n"
             "def consume():\n    pass\n",
             "PASS",
-            marks=pytest.mark.xfail(
-                strict=True, reason="requires #617 reference_context producer integration"
-            ),
         ),
         (
             "from .catalog import OptionKey\ndef consume():\n    pass\n",
@@ -536,9 +530,6 @@ def test_enum_with_custom_new_does_not_gain_enum_escape_exception(tmp_path):
         pytest.param(
             "from .catalog import OptionKey\ndef consume():\n    selected: OptionKey.PAGE_SIZE\n",
             "FAIL",
-            marks=pytest.mark.xfail(
-                strict=True, reason="requires #617 reference_context producer integration"
-            ),
         ),
         (
             "from .catalog import OptionKey\ndef consume():\n    # OptionKey.PAGE_SIZE\n    pass\n",
@@ -555,8 +546,7 @@ def test_incomplete_reference_context_cannot_prove_catalog_entry_unused(tmp_path
     caller = (
         "from .catalog import OptionKey\n"
         "def consume():\n"
-        "    print(OptionKey.PAGE_SIZE)\n"
-        f"    print(OptionKey.RETIRED, '{'x' * 17_000}')\n"
+        f"    print(OptionKey.PAGE_SIZE, '{'x' * 17_000}')\n"
     )
 
     _, rows = _run(tmp_path, caller=caller, rules=[_use()])
@@ -564,7 +554,6 @@ def test_incomplete_reference_context_cannot_prove_catalog_entry_unused(tmp_path
     assert rows[0].status == "UNKNOWN"
 
 
-@pytest.mark.xfail(strict=True, reason="requires #617 reference_context producer integration")
 def test_known_catalog_read_passes_with_an_unrelated_unknown_reference_context(tmp_path):
     caller = (
         "from .catalog import OptionKey\n"
@@ -583,7 +572,6 @@ def test_known_catalog_read_passes_with_an_unrelated_unknown_reference_context(t
 
 
 @pytest.mark.parametrize("columnar", [False, True])
-@pytest.mark.xfail(strict=True, reason="requires #617 reference_context producer integration")
 def test_catalog_use_positive_saved_receipt_replays(tmp_path, columnar):
     from archkeel.check.report import run_saved_report
     from archkeel.ir.codec import encode_canonical_model, observation_payload
@@ -624,7 +612,7 @@ def test_incomplete_context_keeps_a_known_missing_use_failure_in_another_scope(t
     )
 
     statuses = {row.id.rsplit(":", 1)[-1]: row.status for row in rows}
-    assert statuses == {"CATALOG-0": "UNKNOWN", "CATALOG-1": "FAIL"}
+    assert statuses == {"CATALOG-0": "PASS", "CATALOG-1": "FAIL"}
 
 
 @pytest.mark.parametrize("columnar", [False, True])

@@ -72,9 +72,15 @@ pr-test: browser-runtime-install
 		tests/test_scoped_dependency_proof.py \
 		tests/test_call_owner_policy.py tests/test_call_owner_source_facts.py tests/test_call_owner_wire_compatibility.py tests/test_call_scope_receipt_identity.py \
 		tests/test_call_argument_policy.py \
-		tests/test_call_owner_scan_completeness.py \
+		tests/test_call_owner_scan_completeness.py tests/test_call_argument_scan_completeness.py \
+		tests/test_call_argument_policy.py tests/test_call_argument_binding.py \
 		tests/test_numeric_operand_rule.py tests/test_numeric_operand_observation.py tests/test_protocol_declarations.py \
+		tests/test_source_ownership_policy.py \
 		tests/test_catalog_policy_native.py tests/test_catalog_policy_scan_completeness.py \
+		tests/test_guard_paths.py tests/test_guarded_effect_contract.py tests/test_guarded_effect_evaluation.py \
+		tests/test_guarded_effect_facts.py tests/test_guarded_effect_saved_report.py tests/test_guarded_effect_source.py \
+		tests/test_guarded_effect_wire_compatibility.py tests/test_guarded_effect_source_validation.py \
+		tests/test_guarded_effect_scan_completeness.py \
 		tests/test_protocol_conditional_identity.py \
 		tests/test_typescript_namespace_identities.py \
 		tests/test_result_schema.py \
@@ -246,7 +252,8 @@ report-pages:
 	$(UV) run --locked python -m tools.report_pages
 
 architecture-graph-schema:
-	$(UV) run --locked python -m tools.architecture_graph_schema schema/architecture-graph.schema.json --contract schema/architecture-contract.schema.json --contract schema/architecture-contract-3.0.schema.json --contract schema/architecture-contract-3.1.schema.json --contract schema/architecture-contract-3.2.schema.json --contract schema/architecture-contract-3.3.schema.json --contract schema/architecture-contract-3.4.schema.json --contract schema/architecture-contract-3.5.schema.json --contract schema/architecture-contract-3.6.schema.json --contract schema/architecture-contract-3.7.schema.json --contract schema/architecture-contract-3.8.schema.json --contract schema/architecture-contract-3.9.schema.json --contract schema/architecture-contract-3.10.schema.json --contract schema/architecture-contract-3.11.schema.json --contract schema/architecture-contract-3.12.schema.json --contract schema/architecture-contract-3.14.schema.json --comparison schema/architecture-comparison.schema.json --report schema/architecture-report.schema.json --source-inventory schema/source-member-inventory.schema.json --source-profile schema/architecture-ir-python-decoded.schema.json --projection schema/architecture-projection.schema.json --command schema/architecture-command-2.0.schema.json
+	$(UV) run --locked python -m tools.architecture_graph_schema schema/architecture-graph.schema.json --contract schema/architecture-contract.schema.json --contract schema/architecture-contract-3.0.schema.json --contract schema/architecture-contract-3.1.schema.json --contract schema/architecture-contract-3.2.schema.json --contract schema/architecture-contract-3.3.schema.json --contract schema/architecture-contract-3.4.schema.json --contract schema/architecture-contract-3.5.schema.json --contract schema/architecture-contract-3.6.schema.json --contract schema/architecture-contract-3.7.schema.json --contract schema/architecture-contract-3.8.schema.json --contract schema/architecture-contract-3.9.schema.json --contract schema/architecture-contract-3.10.schema.json --contract schema/architecture-contract-3.11.schema.json --contract schema/architecture-contract-3.12.schema.json --contract schema/architecture-contract-3.13.schema.json --contract schema/architecture-contract-3.14.schema.json --comparison schema/architecture-comparison.schema.json --report schema/architecture-report.schema.json --source-inventory schema/source-member-inventory.schema.json --source-profile schema/architecture-ir-python-decoded.schema.json --projection schema/architecture-projection.schema.json --command schema/architecture-command-2.0.schema.json
+
 lint:
 	$(UV) run --locked ruff format --check $(LINT_PATHS)
 	$(UV) run --locked ruff check $(LINT_PATHS)

@@ -165,6 +165,7 @@ class ArchitectureRuleKind(StrEnum):
     FORBIDDEN_CALL_ARGUMENT = "forbidden_call_argument"
     CATALOG_ARGUMENT = "catalog_argument"
     CATALOG_USE = "catalog_use"
+    FORBIDDEN_EFFECT_UNDER_CONDITION = "forbidden_effect_under_condition"
     FORBIDDEN_DEPENDENCY = "forbidden_dependency"
     ALLOWED_DEPENDENCY = "allowed_dependency"
     FORBIDDEN_CONSTRUCT = "forbidden_construct"

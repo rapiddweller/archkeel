@@ -50,6 +50,7 @@ from archkeel.ir.model import (
     ForbiddenConstructKind,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
+    ForbiddenEffectUnderConditionRule,
     InterfaceBoundaryRule,
     LayerOrderRule,
     ModuleExports,
@@ -976,7 +977,8 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
         return {}
     if isinstance(rule, ForbiddenCallArgumentRule):
         return {"source": (rule.source,)}
-    if isinstance(rule, CatalogArgumentRule | CatalogUseRule):
+    if isinstance(rule, CatalogArgumentRule | CatalogUseRule | ForbiddenEffectUnderConditionRule):
+        return {"source": (rule.source,)}
         return {"source": (rule.source,)}
     if isinstance(rule, ForbiddenDependencyRule | AllowedDependencyRule):
         return {"source": (rule.source,), "target": (rule.target,)}
@@ -1211,6 +1213,10 @@ def rule_subject_failures(
             )
             source_subjects = source_subjects | set(numeric_modules)
             scopes = {"source": numeric_modules}
+        if isinstance(rule, ForbiddenCallArgumentRule):
+            source_subjects = source_subjects | _call_argument_subject_symbols(
+                symbols, source_modules
+            )
         target_subjects: AbstractSet[str] = (target_module_names or module_names) | planned_subjects
         if isinstance(rule, ForbiddenConstructRule):
             owner_modules = (
@@ -1269,6 +1275,17 @@ def _source_policy_symbol_subjects(
             if match is SelectorMatch.EXACT
             else in_scope(item["data"]["qualified_name"], rule.source)
         )
+    }
+
+
+def _call_argument_subject_symbols(
+    symbols: Sequence[RawRecord], source_modules: frozenset[str] | None
+) -> set[str]:
+    return {
+        item["data"]["qualified_name"]
+        for item in symbols
+        if item["kind"] in {"class", "function", "method"}
+        and (source_modules is None or item["data"]["module"] in source_modules)
     }
 
 
@@ -2349,6 +2366,14 @@ def rule_violations(
     cycle_namespace_complete, cycle_graph_components = _cycle_scan_coverage(
         contract, modules, profile, cycle_scan_roots, cycle_namespace
     )
+    receipt_scope_complete = scope_receipts_complete(
+        contract,
+        modules,
+        profile,
+        source_roots,
+        source_exact_modules,
+        receipt_scan_roots if receipt_scan_roots is not None else cycle_scan_roots,
+    )
     result = _collect_rule_violations(
         imports=imports,
         typing_signals=typing_signals,
@@ -2370,14 +2395,7 @@ def rule_violations(
         allowance_facts=allowance_facts,
         assessment_facts=assessment_facts,
         assessment_parent=assessment_parent,
-        receipt_scope_complete=scope_receipts_complete(
-            contract,
-            modules,
-            profile,
-            source_roots,
-            source_exact_modules,
-            receipt_scan_roots if receipt_scan_roots is not None else cycle_scan_roots,
-        ),
+        receipt_scope_complete=receipt_scope_complete,
         cycle_scope_complete=(
             len(cycle_graph_components) == len(contract.components) and bool(contract.components)
         ),
@@ -2394,6 +2412,7 @@ def rule_violations(
         type_shapes=type_shapes,
         profile=profile,
         scope=assessment_parent or "root",
+        receipt_scope_complete=receipt_scope_complete,
     )
     result.extend(protocol_violations)
     if assessment_facts is not None:
@@ -2528,13 +2547,14 @@ def source_selector_domains(
     match: SelectorMatch = SelectorMatch.PREFIX,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """Resolve a source prefix to its physical module domain and intersect its mount."""
-    module_names = tuple(
-        item["data"]["qualified_name"]
-        for item in modules
-        if isinstance(item["data"].get("qualified_name"), str)
-    )
+    module_names: list[str] = []
+    for item in modules:
+        data: dict[str, object] = item["data"]
+        name = data.get("qualified_name")
+        if isinstance(name, str):
+            module_names.append(name)
     module_prefixes = [name for name in module_names if in_scope(source, name)]
-    selector = max(module_prefixes, key=lambda name: len(name.split(".")), default=source)
+    selector = max(module_prefixes, key=len, default=source)
     packages: set[str] = set()
     exact_selected = (selector,) if selector != source or match is SelectorMatch.EXACT else ()
     if exact_selected:
@@ -2557,6 +2577,8 @@ def source_selector_domains(
         )
     )
     return tuple(sorted(packages)), exact_modules
+
+
 def scope_receipts_complete(
     contract: ArchitectureContract,
     modules: Sequence[RawRecord],
@@ -2565,7 +2587,7 @@ def scope_receipts_complete(
     source_exact_modules: tuple[str, ...],
     scan_roots: tuple[str, ...],
 ) -> bool:
-    """Prove receipt scopes cover declared, selector, and protocol sources."""
+    """Prove receipt scopes cover declared and selector source domains."""
     receipt_source_scopes: list[str] = []
     for rule in contract.rules:
         if isinstance(rule, ProtocolDeclarationsRule) and _modules_for_rule_source(
@@ -2573,6 +2595,15 @@ def scope_receipts_complete(
         ):
             receipt_source_scopes.append(rule.source)
         elif isinstance(rule, ForbiddenConstructRule) and rule.selector is not None:
+            receipt_source_scopes.append(_selector_receipt_scope(rule.source, modules, contract))
+        elif isinstance(
+            rule,
+            SourceOwnershipRule
+            | ForbiddenCallArgumentRule
+            | CatalogArgumentRule
+            | CatalogUseRule
+            | ForbiddenEffectUnderConditionRule,
+        ):
             receipt_source_scopes.append(_selector_receipt_scope(rule.source, modules, contract))
     package_scopes = (
         *source_roots,
@@ -2714,6 +2745,16 @@ def _construct_rule_domain(
     return selected, [item["data"]["qualified_name"] for item in selected]
 
 
+def _observed_rule_modules(
+    modules: Sequence[RawRecord], source_modules: frozenset[str] | None
+) -> tuple[RawRecord, ...]:
+    return tuple(
+        item
+        for item in modules
+        if source_modules is None or item["data"]["qualified_name"] in source_modules
+    )
+
+
 _SeparateReceiptRule: TypeAlias = (
     AllowedDependencyRule
     | BoundaryTypesRule
@@ -2723,6 +2764,7 @@ _SeparateReceiptRule: TypeAlias = (
     | ForbiddenCallArgumentRule
     | CatalogArgumentRule
     | CatalogUseRule
+    | ForbiddenEffectUnderConditionRule
 )
 
 

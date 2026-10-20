@@ -183,6 +183,18 @@
             },
             "source_binding_static": {
               "type": "boolean"
+            },
+            "guarded_effect": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/GuardedEffectEvidence"
+              }
+            },
+            "guard_boolean_members": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/GuardBooleanMember"
+              }
             }
           }
         }
@@ -2964,6 +2976,411 @@
         "string_table"
       ],
       "additionalProperties": false
+    },
+    "ConditionSelector": {
+      "type": "object",
+      "required": [
+        "kind",
+        "owner",
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "parameter",
+            "member"
+          ]
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "GuardHelperArgument": {
+      "type": "object",
+      "required": [
+        "argument_index",
+        "token_kind",
+        "token_value",
+        "condition",
+        "evidence_ids"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "argument_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "token_kind": {
+          "enum": [
+            "boolean_literal",
+            "condition",
+            "not_condition",
+            "unknown"
+          ]
+        },
+        "token_value": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "condition": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": [
+                "kind",
+                "owner",
+                "name"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "parameter",
+                    "member"
+                  ]
+                },
+                "owner": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "GuardHelperBinding": {
+      "type": "object",
+      "required": [
+        "target",
+        "call_id",
+        "arguments",
+        "evidence_ids"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "call_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "arguments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "argument_index",
+              "token_kind",
+              "token_value",
+              "condition",
+              "evidence_ids"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "argument_index": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "token_kind": {
+                "enum": [
+                  "boolean_literal",
+                  "condition",
+                  "not_condition",
+                  "unknown"
+                ]
+              },
+              "token_value": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "condition": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "owner",
+                      "name"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "parameter",
+                          "member"
+                        ]
+                      },
+                      "owner": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "evidence_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              }
+            }
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "GuardedEffectEvidence": {
+      "type": "object",
+      "required": [
+        "condition",
+        "condition_value",
+        "condition_evidence_ids",
+        "path_evidence_ids",
+        "effect_binding_evidence_ids",
+        "complete",
+        "unknown_reason",
+        "helper_bindings"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "type": "object",
+          "required": [
+            "kind",
+            "owner",
+            "name"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "parameter",
+                "member"
+              ]
+            },
+            "owner": {
+              "type": "string",
+              "minLength": 1
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "condition_value": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "condition_evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "path_evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "effect_binding_evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "unknown_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "helper_bindings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "target",
+              "call_id",
+              "arguments",
+              "evidence_ids"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "target": {
+                "type": "string",
+                "minLength": 1
+              },
+              "call_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "arguments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "argument_index",
+                    "token_kind",
+                    "token_value",
+                    "condition",
+                    "evidence_ids"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "argument_index": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "token_kind": {
+                      "enum": [
+                        "boolean_literal",
+                        "condition",
+                        "not_condition",
+                        "unknown"
+                      ]
+                    },
+                    "token_value": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "condition": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "owner",
+                            "name"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "enum": [
+                                "parameter",
+                                "member"
+                              ]
+                            },
+                            "owner": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "evidence_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "uniqueItems": true
+                    }
+                  }
+                }
+              },
+              "evidence_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "GuardBooleanMember": {
+      "type": "object",
+      "required": [
+        "name",
+        "evidence_ids"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
     }
   },
   "oneOf": [

@@ -1,6 +1,6 @@
 {
-  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.7.schema.json",
-  "schema_version": "3.7.0",
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.13.schema.json",
+  "schema_version": "3.13.0",
   "components": [
     {
       "id": "COMP-MODEL",
@@ -142,6 +142,20 @@
       "target": "shop.app.maintenance.run_maintenance",
       "allowed_sources": [],
       "rationale": "Describing a connection must not run store maintenance.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "EFFECT-NO-TOKEN-WHEN-SEEDED",
+      "kind": "forbidden_effect_under_condition",
+      "source": "shop.app.tokens",
+      "target": "secrets.token_hex",
+      "condition": {
+        "kind": "parameter",
+        "owner": "shop.app.tokens.token_for_run",
+        "name": "seeded"
+      },
+      "rationale": "Seeded runs must return a fixed token and avoid nondeterministic effects.",
       "provenance": ["docs/architecture/shop.md"],
       "decided_by": "architect"
     },
@@ -503,6 +517,44 @@
       "kind": "boundary_types",
       "source": "shop.app",
       "rationale": "shop.app's functions take and return typed models, never a bare dict standing in for one.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "MODEL-NONCE-WIDTH",
+      "kind": "bounded_numeric_operand",
+      "source": "shop.model",
+      "form": "both",
+      "terminal_suffix": "nonce",
+      "minimum_value": 8,
+      "rationale": "The sample's bucket operation retains its declared operand floor.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "STORE-READER-DECLARATION",
+      "kind": "protocol_declarations",
+      "source": "shop.store.repository",
+      "protocol": "shop.store.repository.RepositoryReader",
+      "selectors": [
+        {
+          "role": "member",
+          "name": "reader",
+          "visibility": "public",
+          "optional": false
+        }
+      ],
+      "rationale": "The repository's reader member is typed to its canonical protocol.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "APP-NO-LITERAL-ORDER-ID",
+      "kind": "forbidden_call_argument",
+      "source": "shop.store.lookup",
+      "target": "shop.store.lookup.lookup_order",
+      "parameter": "order_id",
+      "rationale": "Order lookup IDs come from the caller and are never embedded at call sites.",
       "provenance": ["docs/architecture/shop.md"],
       "decided_by": "architect"
     },

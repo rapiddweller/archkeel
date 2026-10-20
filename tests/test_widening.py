@@ -32,6 +32,8 @@ from archkeel.ir.model import (
     CompleteExternalScopeRule,
     CompleteRequiresRule,
     ComponentRole,
+    ConditionSelector,
+    ConditionSelectorKind,
     ConstructSelector,
     ConstructSelectorRole,
     ContractComponent,
@@ -39,6 +41,7 @@ from archkeel.ir.model import (
     ForbiddenCallArgumentRule,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
+    ForbiddenEffectUnderConditionRule,
     InterfaceBoundaryRule,
     NoComponentCyclesRule,
     ProtocolDeclarationSelector,
@@ -92,6 +95,20 @@ def _forbidden_call_argument(**overrides: object) -> ForbiddenCallArgumentRule:
         "pkg.a",
         "pkg.b",
         "value",
+        "because",
+        _PROVENANCE,
+        "architect",
+    )
+    return replace(base, **overrides)
+
+
+def _forbidden_effect_under_condition(**overrides: object) -> ForbiddenEffectUnderConditionRule:
+    base = ForbiddenEffectUnderConditionRule(
+        "R",
+        "forbidden_effect_under_condition",
+        "pkg.a",
+        "pkg.effect",
+        ConditionSelector(ConditionSelectorKind.PARAMETER, "pkg.a.run", "seeded"),
         "because",
         _PROVENANCE,
         "architect",
@@ -320,6 +337,21 @@ _RULE_CASES: tuple[tuple[str, ArchitectureRule | None, ArchitectureRule | None, 
     ("allowed_dependency removed", _allowed_dependency(), None, False),
     ("forbidden_construct added", None, _forbidden_construct(), False),
     ("forbidden_construct removed", _forbidden_construct(), None, True),
+    ("forbidden_effect_under_condition added", None, _forbidden_effect_under_condition(), False),
+    (
+        "forbidden_effect_under_condition removed",
+        _forbidden_effect_under_condition(),
+        None,
+        True,
+    ),
+    (
+        "forbidden_effect_under_condition condition changed",
+        _forbidden_effect_under_condition(),
+        _forbidden_effect_under_condition(
+            condition=ConditionSelector(ConditionSelectorKind.MEMBER, "pkg.a", "seeded")
+        ),
+        True,
+    ),
     (
         "forbidden_construct.constructs lost an entry",
         _forbidden_construct(constructs=("eval", "exec")),
@@ -513,6 +545,8 @@ def test_every_typed_rule_kind_has_one_widening_classification() -> None:
 def test_catalog_selector_changes_fail_closed_in_both_directions(before, after) -> None:
     assert _rule_diff(before, after)
     assert _rule_diff(after, before)
+
+
 def test_source_ownership_field_changes_fail_closed() -> None:
     findings = _rule_diff(
         _source_ownership(),

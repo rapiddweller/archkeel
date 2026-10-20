@@ -337,6 +337,13 @@ UNKNOWN. This rule is available with contract 3.8 and observation wire 2.2; olde
 must reject those formats rather than silently ignore the rule or role facts. See
 [AD-249](https://github.com/rapiddweller/archkeel/blob/main/docs/architecture/decisions/ad-249-source-ownership-defaults.md)
 and the [rule catalog](https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md).
+`forbidden_effect_under_condition` is a static ownership rule. It can prove a declared
+Boolean parameter/member through truth, negation, `if`/`else`, ternary and early
+`return`/`raise`, plus one unique private helper with signature-bound actuals. A known
+unconditional effect is reachable while the condition is true. Reassignment, named
+expressions, short-circuiting, loops, `try`/`finally`, reflection and helper chains or
+recursion remain UNKNOWN. Inspect the rule receipt and path evidence before relying on
+PASS; see [AD-250](../../docs/architecture/decisions/ad-250-bounded-guarded-effect-ownership.md).
 
 ## Daily loop
 

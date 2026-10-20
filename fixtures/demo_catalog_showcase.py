@@ -193,6 +193,33 @@ _TOUR_STORE_SQLITE = HEADER + (
     "        if candidate.stat().st_size == 0:\n"
     "            candidate.unlink()\n"
 )
+_TOUR_ORDER_LOOKUP = HEADER + (
+    '"""Resolve an order path for the showcase example."""\n\n'
+    "from __future__ import annotations\n\n"
+    "from pathlib import Path\n\n"
+    "from shop.store.backend.paths import order_path\n\n\n"
+    "def lookup_order(root: Path, order_id: str) -> Path:\n"
+    "    return order_path(root, order_id)\n\n\n"
+    "def find_order(root: Path, order_id: str) -> Path:\n"
+    '    return lookup_order(root, "tour-order")\n'
+)
+_TOUR_TOKENS = HEADER + (
+    '"""Generate tokens with a forbidden seeded-path effect for the tour."""\n\n'
+    "import secrets\n\n\n"
+    "def token_for_run(seeded: bool) -> str:\n"
+    "    if seeded:\n"
+    "        return secrets.token_hex(8)\n"
+    '    return "fixed-token"\n'
+)
+_SEEDED_EFFECT = Variant(
+    id="class-a-forbidden-effect-under-condition",
+    section="class_a",
+    item="forbidden_effect_under_condition",
+    summary="A seeded token call reaches the canonical secrets.token_hex effect.",
+    files={"shop/app/tokens.py": _TOUR_TOKENS},
+    expected_violations=("EFFECT-NO-TOKEN-WHEN-SEEDED",),
+    expected_codes=("rule.violated",),
+)
 _TOUR = Variant(
     id="tour",
     section="showcase",
@@ -203,6 +230,7 @@ _TOUR = Variant(
     "app->store.backend reach one package level deeper, an app->json scope violation, an "
     "app->shop_analytics reach no rule names at all, a cli->render underscore reach, a "
     "three-member model/render/store cycle that also violates DEP-MODEL-NO-RENDER, an "
+    "effect policy violation for secrets.token_hex under the seeded parameter, an "
     "assert, an eval and a getattr, an Any parameter in shop.model's audit probe, a "
     "broad except outside the one exactly exempted function, an "
     "unassigned module, a store.sqlite->store.repository peer reach (the inside contract "
@@ -211,9 +239,11 @@ _TOUR = Variant(
     "one itself), a dataclass declared outside shop.model.entities, and a bare-object "
     "parameter on place_order itself, the one function app.orders declares public (AD-63: "
     "only a declared facade function is inspected, so touch_store's own bare-object "
-    "parameter, never declared, no longer fires here). Real "
-    "run: 21 rule ids and 22 violations, since CONSTRUCT-NO-DYNAMIC answers both the eval "
-    "and the getattr; at validate time the same 22 rule.violated diagnostics plus 2 "
+    "parameter, never declared, no longer fires here), a modulo operand below its "
+    "declared width, a concrete reader member in place of its required protocol, and a literal "
+    "order ID at a store path lookup. "
+    "CONSTRUCT-NO-DYNAMIC answers both the eval and the getattr; "
+    "validate reports the rule.violated diagnostics plus 2 "
     "closed_world.observed_forbidden pairs (model->render, render->store) and 1 graph.drift, "
     "since the marked component graph never declared either edge.",
     files={
@@ -222,16 +252,23 @@ _TOUR = Variant(
         "shop/render/text.py": _TOUR_RENDER_TEXT,
         "shop/app/orders.py": _TOUR_APP_ORDERS,
         "shop/app/analytics.py": ANALYTICS_MODULE_WITH_UNDECLARED_PACKAGE,
-        "shop/store/repository.py": REPOSITORY_WITH_MONEY_IMPORT,
+        "shop/store/repository.py": REPOSITORY_WITH_MONEY_IMPORT.replace(
+            "reader: RepositoryReader", "reader: OrderRepository"
+        ),
+        "shop/store/lookup.py": _TOUR_ORDER_LOOKUP,
+        "shop/app/tokens.py": _TOUR_TOKENS,
         "shop/store/sqlite.py": _TOUR_STORE_SQLITE,
         "shop/store/architecture-contract.json": STORE_INSIDE_WITH_REPOSITORY_PEER_GRANT,
         "shop/cli/main.py": MAIN_WITH_UNDERSCORE_IMPORT,
-        "shop/model/entities.py": _TOUR_MODEL_ENTITIES,
+        "shop/model/entities.py": _TOUR_MODEL_ENTITIES
+        + "\n\ndef _nonce_bucket(job_nonce: int, width: int = 8) -> int:\n"
+        + "    return job_nonce % 3\n",
         "shop/model/promotions.py": _TOUR_MODEL_PROMOTIONS,
         "shop/app/maintenance.py": _TOUR_APP_MAINTENANCE,
         "shop/extra.py": SHOP_EXTRA,
     },
     expected_violations=(
+        "APP-NO-LITERAL-ORDER-ID",
         "APP-TYPES-NOT-DICT",
         "ASSIGNMENT-COMPLETE",
         "CALL-DESCRIBE-NO-MAINTENANCE",
@@ -246,19 +283,26 @@ _TOUR = Variant(
         "DEP-MODEL-NO-RENDER",
         "DEP-RENDER-NO-STORE",
         "DEP-STORE-NO-MONEY",
+        "EFFECT-NO-TOKEN-WHEN-SEEDED",
         "EXTERNAL-COMPLETE",
         "EXTERNAL-JSON-STORE",
         "INTERFACE-BOUNDARY",
         "LAYERS-MODEL",
+        "MODEL-NONCE-WIDTH",
         "MODEL-TYPES-IN-ENTITIES",
         "ROOT-LAYOUT",
         "STORE-PEERS-ISOLATED",
+        "STORE-READER-DECLARATION",
         "store:STORE-REQUIRES-COMPLETE",
     ),
     expected_codes=(
         "closed_world.observed_forbidden",
         "closed_world.observed_forbidden",
         "graph.drift",
+        "rule.violated",
+        "rule.violated",
+        "rule.violated",
+        "rule.violated",
         "rule.violated",
         "rule.violated",
         "rule.violated",
@@ -293,4 +337,4 @@ _CLEAN = Variant(
     expected_codes=(),
 )
 
-VARIANTS: tuple[Variant, ...] = (_TOUR, _CLEAN)
+VARIANTS: tuple[Variant, ...] = (_TOUR, _SEEDED_EFFECT, _CLEAN)

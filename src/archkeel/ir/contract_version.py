@@ -15,6 +15,7 @@ class ContractFeature(StrEnum):
     CATALOG_ARGUMENT = "catalog_argument"
     CATALOG_USE = "catalog_use"
     CONSTRUCT_SELECTOR = "construct_selector"
+    GUARDED_EFFECT = "guarded_effect"
     UML = "uml"
     LAYERS = "layers"
     ALIAS_BODY = "alias_body"
@@ -61,6 +62,7 @@ _FEATURE_START: dict[ContractFeature, ContractVersion] = {
     ContractFeature.CATALOG_ARGUMENT: ContractVersion.V3_14,
     ContractFeature.CATALOG_USE: ContractVersion.V3_14,
     ContractFeature.CONSTRUCT_SELECTOR: ContractVersion.V3_11,
+    ContractFeature.GUARDED_EFFECT: ContractVersion.V3_13,
     ContractFeature.UML: ContractVersion.V2_2,
     ContractFeature.LAYERS: ContractVersion.V2_3,
     ContractFeature.ALIAS_BODY: ContractVersion.V3_0,

@@ -259,3 +259,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-252 | [Bounded call identity](ad-252-bounded-call-identity.md) |
 | AD-251 | [Catalog arguments and source usage](ad-251-catalog-arguments-and-source-usage.md) |
 | AD-249 | [Source ownership names one declaration](ad-249-source-ownership-defaults.md) |
+| AD-250 | [Bounded guarded effect ownership](ad-250-bounded-guarded-effect-ownership.md) |

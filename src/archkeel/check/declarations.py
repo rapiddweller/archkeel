@@ -40,6 +40,7 @@ from archkeel.ir.model import (
     ForbiddenCallArgumentRule,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
+    ForbiddenEffectUnderConditionRule,
     InterfaceBoundaryRule,
     LayerOrderRule,
     NoComponentCyclesRule,
@@ -130,6 +131,22 @@ def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
             "source_match": rule.source_match,
             "rationale": rule.rationale,
             **({"member": rule.member} if rule.member is not None else {}),
+        }
+    elif isinstance(rule, ForbiddenEffectUnderConditionRule):
+        area, title, subjects = (
+            "calls",
+            f"Forbid {rule.target} while {rule.condition.owner}.{rule.condition.name} is true",
+            [rule.source, rule.target, rule.condition.owner],
+        )
+        data = {
+            "source": rule.source,
+            "target": rule.target,
+            "condition": {
+                "kind": rule.condition.kind,
+                "owner": rule.condition.owner,
+                "name": rule.condition.name,
+            },
+            "rationale": rule.rationale,
         }
     elif isinstance(rule, ForbiddenDependencyRule):
         target = ".".join(filter(None, (rule.target, rule.target_symbol)))

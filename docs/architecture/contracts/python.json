@@ -88,6 +88,7 @@
         "archkeel.analyzer.python.bindings",
         "archkeel.analyzer.python.calls",
         "archkeel.analyzer.python.constructs",
+        "archkeel.analyzer.python.guard_paths",
         "archkeel.analyzer.python.imports",
         "archkeel.analyzer.python.private_attributes",
         "archkeel.analyzer.python.references",
@@ -97,7 +98,8 @@
         "archkeel.analyzer.python.typing_signals"
       ],
       "responsibilities": [
-        "Emit specialized Python call, binding, state and type facts from shared source evidence."
+        "Emit specialized Python call, binding, state and type facts from shared source evidence.",
+        "The call collector owns typed guarded-effect path and one-hop helper-binding facts; it does not evaluate policy."
       ],
       "forbidden_responsibilities": [
         "Importing peer collectors, importing Core policy, or evaluating architecture rules.",

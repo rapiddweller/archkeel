@@ -29,6 +29,7 @@ from archkeel.ir.facts import (
     CALL_ARGUMENTS_FEATURE,
     CALL_BINDINGS_FEATURE,
     EXTENDED_CALL_BINDINGS_FEATURE,
+    GUARDED_EFFECTS_FEATURE,
     NATIVE_CALL_TARGETS,
     BuiltinTarget,
     Capabilities,
@@ -502,6 +503,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
                 CALL_BINDINGS_FEATURE,
                 EXTENDED_CALL_BINDINGS_FEATURE,
                 CALL_ARGUMENTS_FEATURE,
+                GUARDED_EFFECTS_FEATURE,
             ),
             constructs=tuple(
                 ConstructCapability(kind, ConstructSupport.DECIDED)

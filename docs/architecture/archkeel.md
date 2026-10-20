@@ -128,3 +128,4 @@ and canonical type identity; their exact and optional-union semantics are record
 | [AD-251](decisions/ad-251-catalog-arguments-and-source-usage.md) | Check catalog membership and genuine source reads through canonical declarations. |
 | [AD-248](decisions/ad-248-construct-selectors.md) | Select one nominal receiver, member and construct role without global spelling bans. |
 | [AD-249](decisions/ad-249-source-ownership-defaults.md) | Constrain source definitions, value transfers, defaults, and fallbacks to canonical owners. |
+| [AD-250](decisions/ad-250-bounded-guarded-effect-ownership.md) | Prove bounded Boolean paths and one call-site-specific private helper hop for canonical effects. |

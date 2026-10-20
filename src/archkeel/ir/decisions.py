@@ -883,6 +883,7 @@ def _rule_receipt_complete(
         "forbidden_call_argument",
         "catalog_argument",
         "catalog_use",
+        "forbidden_effect_under_condition",
     }:
         return (
             receipt is not None
@@ -1213,10 +1214,18 @@ def dependency_binding_id(
                 "complete_requires",
             }
             or include_calls
-            and record.kind in {"call_owner", "forbidden_call_argument", "catalog_argument", "catalog_use"}
+            and record.kind
+            in {
+                "call_owner",
+                "forbidden_call_argument",
+                "catalog_argument",
+                "catalog_use",
+                "forbidden_effect_under_condition",
+            }
             or record.kind in {"protocol_declarations", "bounded_numeric_operand"}
             or include_source_ownership
             and record.kind == "source_ownership"
+            or record.kind == "protocol_declarations"
         )
     ]
     bound.extend(failures)

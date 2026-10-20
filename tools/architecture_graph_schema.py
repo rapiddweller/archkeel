@@ -352,6 +352,8 @@ def _update_contract_schema(path: Path) -> None:
     schema = json.loads(path.read_bytes())
     raw_version = schema["properties"]["schema_version"].get("const")
     version = ContractVersion(raw_version) if raw_version is not None else None
+    if version is not None:
+        schema["$id"] = f"urn:archkeel:architecture-contract:{version.value}"
     if version is not None and supports_feature(version, ContractFeature.KEY_ALIAS_BODY):
         selector = schema["$defs"]["boundaryTypes"]["properties"]["allowed_positions"]["items"]
         selector["properties"]["key_alias_body"] = {
@@ -559,6 +561,44 @@ def _update_contract_schema(path: Path) -> None:
         },
     }
     choices = schema["properties"]["rules"]["items"]["oneOf"]
+    if version is not None and supports_feature(version, ContractFeature.GUARDED_EFFECT):
+        schema["$defs"]["conditionSelector"] = {
+            "type": "object",
+            "required": ["kind", "owner", "name"],
+            "additionalProperties": False,
+            "properties": {
+                "kind": {"enum": ["parameter", "member"]},
+                "owner": {"$ref": "#/$defs/nonEmpty"},
+                "name": {"$ref": "#/$defs/nonEmpty"},
+            },
+        }
+        schema["$defs"]["forbiddenEffectUnderCondition"] = {
+            "type": "object",
+            "required": [
+                "id",
+                "kind",
+                "source",
+                "target",
+                "condition",
+                "rationale",
+                "provenance",
+                "decided_by",
+            ],
+            "additionalProperties": False,
+            "properties": {
+                **{
+                    key: value
+                    for key, value in schema["$defs"]["callOwner"]["properties"].items()
+                    if key not in {"target", "allowed_sources", "exact_sources"}
+                },
+                "kind": {"const": "forbidden_effect_under_condition"},
+                "target": {"$ref": "#/$defs/nonEmpty"},
+                "condition": {"$ref": "#/$defs/conditionSelector"},
+            },
+        }
+        reference = {"$ref": "#/$defs/forbiddenEffectUnderCondition"}
+        if reference not in choices:
+            choices.append(reference)
     reference = {"$ref": "#/$defs/layerOrder"}
     if reference not in choices:
         choices.append(reference)

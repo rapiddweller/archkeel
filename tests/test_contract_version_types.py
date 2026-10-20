@@ -89,6 +89,7 @@ def test_parser_keeps_rejecting_unsupported_or_nontext_versions(invalid):
         ("CATALOG_USE", "3.13.0", "3.14.0"),
         ("CONSTRUCT_SELECTOR", "3.10.0", "3.11.0"),
         ("SOURCE_OWNERSHIP", "3.11.0", "3.12.0"),
+        ("GUARDED_EFFECT", "3.12.0", "3.13.0"),
     ],
 )
 def test_feature_policy_keeps_each_existing_introduction_boundary(feature, before, first):
