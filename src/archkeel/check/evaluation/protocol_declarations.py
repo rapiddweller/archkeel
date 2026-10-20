@@ -239,7 +239,7 @@ def _public_declaration(symbol: RawRecord, symbols: Sequence[RawRecord]) -> bool
     if not _public(symbol):
         return False
     data: RawData = symbol["data"]
-    parent = data.get("parent") if symbol["kind"] == "method" else None
+    parent = data.get("parent") if symbol["kind"] in {"method", "class"} else None
     while isinstance(parent, str):
         owners = _classes_named(symbols, parent)
         if len(owners) != 1 or not _public(owners[0]):
@@ -298,6 +298,10 @@ def _select_member(
     symbols: Sequence[RawRecord],
 ) -> None:
     if symbol["kind"] != "class":
+        return
+    if selector.visibility is ProtocolDeclarationVisibility.PUBLIC and not _public_declaration(
+        symbol, symbols
+    ):
         return
     data: RawData = symbol["data"]
     attributes = data.get("attribute_declarations", ())

@@ -754,6 +754,69 @@ def test_public_parameter_selectors_follow_all_enclosing_class_visibility(
 
 @pytest.mark.parametrize("mounted", [False, True])
 @pytest.mark.parametrize("columnar", [False, True])
+def test_public_member_selectors_follow_enclosing_class_visibility(
+    tmp_path: Path, mounted: bool, columnar: bool
+) -> None:
+    selectors = (
+        ("public_member", "reader", "public", "PASS"),
+        ("nested_private_owner", "nested_reader", "public", "PASS"),
+        ("private_only", "hidden", "public", "UNKNOWN"),
+        ("all_private", "hidden", "all", "FAIL"),
+    )
+    rules = [
+        {
+            "id": f"APP-{rule_id.upper()}-DECLARATIONS",
+            "kind": "protocol_declarations",
+            "source": "sample.core",
+            "protocol": "sample.core.Reader",
+            "selectors": [{"role": "member", "name": name, "visibility": visibility}],
+            "rationale": "Selected members use the canonical Reader port.",
+            "provenance": ["docs/architecture/sample.md"],
+            "decided_by": "architect",
+        }
+        for rule_id, name, visibility, _ in selectors
+    ]
+    raw = _contract()
+    raw["rules"] = rules
+    files = {
+        "sample/__init__.py": "",
+        "sample/core.py": (
+            "from typing import Protocol\n"
+            "class Reader(Protocol): ...\nclass Concrete: ...\n"
+            "class _Internal:\n    reader: Concrete\n    hidden: Concrete\n"
+            "class Outer:\n    class _Inner:\n        nested_reader: Concrete\n"
+            "class Public:\n    reader: Reader\n    nested_reader: Reader\n"
+        ),
+    }
+    if mounted:
+        files["inside.json"] = json.dumps(
+            {
+                "schema_version": "3.9.0",
+                "components": [_component("all", ["sample"])],
+                "rules": rules,
+            }
+        )
+        raw["components"] = [_component("outer", ["sample"], inside="inside.json")]
+        raw["rules"] = []
+    result = _observe_tree(tmp_path, files, raw)
+    assert not result.diagnostics and result.observation is not None
+    assessments = rule_assessments(
+        result.observation, undecided_by_rule=unknown_positions_by_rule(result.observation)
+    )
+    observed = {row.id.rsplit(":", 1)[-1]: row.status.value for row in assessments}
+    assert observed == {
+        f"APP-{rule_id.upper()}-DECLARATIONS": status for rule_id, _, _, status in selectors
+    }
+    payload = observation_payload(result.observation)
+    saved = tmp_path / "public-member-visibility.json"
+    saved.write_bytes(canonical_report_bytes(payload) if columnar else json.dumps(payload).encode())
+    replay = run_saved_report(saved)
+    assert not replay.diagnostics
+    assert replay.rule_assessments == assessments
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
 def test_private_parameter_selector_still_includes_private_class_declarations(
     tmp_path: Path, mounted: bool, columnar: bool
 ) -> None:
