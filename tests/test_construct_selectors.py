@@ -350,6 +350,68 @@ def test_unresolved_local_receivers_remain_in_selector_inventory(
     assert any(row["evidence_class"] == "UNKNOWN" for row in findings)
 
 
+def test_receiver_annotation_is_bound_to_exact_lexical_scope():
+    source = (
+        "class Connection:\n    password: str\n"
+        "def route(conn: Connection, others, other):\n"
+        "    direct = conn.password\n"
+        "    captured = [conn.password for item in others]\n"
+        "    shadowed = [conn.password for conn in others]\n"
+        "    free_lambda = (lambda item: conn.password)(other)\n"
+        "    shadowed_lambda = (lambda conn: conn.password)(other)\n"
+        "def loop_route(conn: Connection, others):\n"
+        "    for conn in others:\n        looped = conn.password\n"
+        "def except_route(conn: Connection):\n"
+        "    try:\n        raise ValueError\n"
+        "    except ValueError as conn:\n        caught = conn.password\n"
+        "def nested_route(conn: Connection):\n"
+        "    direct = conn.password\n"
+        "    def shadowed(conn):\n        return conn.password\n"
+        "    def captured():\n        return conn.password\n"
+        "def reassigned_route(conn: Connection):\n"
+        "    conn = factory()\n"
+        "    reassigned = conn.password\n"
+        "def match_route(conn: Connection, candidate):\n"
+        "    match candidate:\n        case conn:\n            matched = conn.password\n"
+    )
+    evidence = {}
+    signals = collect_constructs([_parsed_module(source, module="sample.core")], evidence)
+    selectors = [
+        row
+        for row in signals
+        if row["kind"] == "construct_selector" and row["data"]["member"] == "password"
+    ]
+    selectors_by_line = {evidence[row["evidence_ids"][0]]["line"]: row for row in selectors}
+    assert {line: row["data"]["status"] for line, row in selectors_by_line.items()} == {
+        4: "decided",
+        5: "decided",
+        6: "unknown",
+        7: "decided",
+        8: "unknown",
+        11: "unknown",
+        16: "unknown",
+        18: "decided",
+        20: "unknown",
+        22: "decided",
+        25: "unknown",
+        29: "unknown",
+    }
+    assert {line: row["data"]["receiver_type"] for line, row in selectors_by_line.items()} == {
+        4: "sample.core.Connection",
+        5: "sample.core.Connection",
+        6: None,
+        7: "sample.core.Connection",
+        8: None,
+        11: None,
+        16: None,
+        18: "sample.core.Connection",
+        20: None,
+        22: "sample.core.Connection",
+        25: None,
+        29: None,
+    }
+
+
 def test_unproven_local_string_predicate_is_retained_as_unknown():
     module = _parsed_module(
         'def route():\n    connection = factory()\n    connection.backend.startswith("flat")\n',
@@ -525,11 +587,11 @@ def test_selected_constructor_and_type_probe_are_separate_roles():
     ) == ["constructor", "type_probe", "type_probe"]
 
 
-def test_nested_function_cannot_reuse_outer_typed_receiver_proof():
+def test_nested_parameter_shadow_cannot_reuse_outer_typed_receiver_proof():
     module = _parsed_module(
         "class Connection: pass\n"
         "def outer(conn: Connection):\n"
-        "    def inner():\n"
+        "    def inner(conn):\n"
         "        conn.backend == 'flat'\n",
         module="sample.core",
     )
@@ -793,6 +855,7 @@ def test_selected_membership_match_predicates_aliases_and_roles():
         "def route(conn: Connection, label: Label):\n"
         "    conn.backend in BACKENDS\n"
         '    conn.backend in ("flat", "wide")\n'
+        "    conn.backend\n"
         "    match conn.backend:\n"
         '        case "flat": pass\n'
         "    conn.backend.startswith(FLAT)\n"
@@ -814,6 +877,26 @@ def test_selected_membership_match_predicates_aliases_and_roles():
     assert ("endswith", "flat") in pairs
     assert ("write", None) in pairs
     assert ("call", None) in pairs
+    reads = [
+        row
+        for row in selectors
+        if row["selector_role"] == "read"
+        and row["receiver_type"] == "sample.core.Connection"
+        and row["member"] == "backend"
+    ]
+    assert len(reads) == 1
+    read_rule = ForbiddenConstructRule(
+        "READ",
+        ArchitectureRuleKind.FORBIDDEN_CONSTRUCT,
+        "sample.core",
+        (),
+        "ordinary backend reads stay observable",
+        ("test",),
+        DecisionMaker.ARCHITECT,
+        selector=ConstructSelector("sample.core.Connection", "backend", ConstructSelectorRole.READ),
+    )
+    read_findings = _construct_violations(facts, [read_rule])
+    assert len([row for row in read_findings if row["evidence_class"] == "VIOLATION"]) == 1
     # A shadowed builtin and unsupported keyword-only spellings are not asserted to be valid
     # reflection calls; the keyword call remains scoped unresolved evidence.
     reflects = [row for row in selectors if row["selector_role"] == "reflect"]
@@ -960,11 +1043,12 @@ def test_native_saved_report_keeps_fail_and_unknown_for_selected_scope(tmp_path:
     (root / "sample/core.py").write_text(
         "class Connection:\n    backend: str\n"
         "class Label:\n    backend: str\n"
-        "def route(conn: Connection, label: Label, unclear):\n"
+        "def route(conn: Connection, label: Label, unclear, key):\n"
         '    conn.backend == "flat"\n'
         '    "flat" == conn.backend\n'
         '    label.backend == "flat"\n'
         '    unclear.backend == "flat"\n'
+        "    getattr(conn, key)\n"
     )
     (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
     contract = {
@@ -1019,6 +1103,15 @@ def test_native_saved_report_keeps_fail_and_unknown_for_selected_scope(tmp_path:
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     assert model.schema_version == "2.7.0"
     assert any(row.kind == "construct_selector" for row in model.records("constructs"))
+    reflection = [
+        row
+        for row in model.records("constructs")
+        if row.kind == "construct_selector" and row.data.get("selector_role") == "reflect"
+    ]
+    assert len(reflection) == 1
+    assert reflection[0].data.get("status") == "unknown"
+    assert reflection[0].data.get("receiver_type") == "sample.core.Connection"
+    assert reflection[0].data.get("receiver_binding").get("origin") == "declared_receiver"
     assert len(trace_valid_violations(model)) == 3
     selected = [
         row
@@ -1452,6 +1545,130 @@ def _selector_scope_fixture(root: Path, *, mounted: bool, source: str = "sample"
     )
     assert result.observation is not None, result.diagnostics
     return result.observation
+
+
+def _selector_read_role_fixture(root: Path, *, mounted: bool):
+    (root / "sample").mkdir(parents=True)
+    (root / "sample/__init__.py").write_text("")
+    (root / "sample/core.py").write_text(
+        "class Connection:\n    backend: str\n"
+        "def route(conn: Connection, key):\n"
+        "    conn.backend\n"
+        "    match conn.backend:\n        case 'flat': pass\n"
+        "    conn.backend.startswith('flat')\n"
+        "    getattr(conn, key)\n"
+    )
+    (root / "docs/architecture").mkdir(parents=True)
+    (root / "docs/architecture/sample.md").write_text("Fixture provenance.\n")
+    (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    rule = {
+        "id": "READ",
+        "kind": "forbidden_construct",
+        "source": "sample",
+        "constructs": ["string_literal_compare"],
+        "selector": {
+            "receiver": "sample.core.Connection",
+            "member": "backend",
+            "role": "read",
+        },
+        "rationale": "Only ordinary reads are forbidden.",
+        "provenance": ["docs/architecture/sample.md"],
+        "decided_by": "architect",
+    }
+    provenance = ["docs/architecture/sample.md"]
+    if mounted:
+        (root / "inside.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "3.11.0",
+                    "components": [
+                        {
+                            "id": "COMP-child",
+                            "label": "child",
+                            "role": "component",
+                            "packages": ["sample"],
+                            "responsibilities": ["Own child."],
+                            "forbidden_responsibilities": [],
+                            "provenance": provenance,
+                        }
+                    ],
+                    "rules": [rule],
+                }
+            )
+        )
+        contract = {
+            "schema_version": "3.11.0",
+            "components": [
+                {
+                    "id": "COMP-parent",
+                    "label": "parent",
+                    "role": "component",
+                    "packages": ["sample"],
+                    "responsibilities": ["Own parent."],
+                    "forbidden_responsibilities": [],
+                    "provenance": provenance,
+                    "inside": "inside.json",
+                }
+            ],
+            "rules": [],
+        }
+    else:
+        contract = {"schema_version": "3.11.0", "components": [], "rules": [rule]}
+    (root / "contract.json").write_text(json.dumps(contract))
+    result = observe(
+        root,
+        roots=("sample",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=root,
+    )
+    assert result.observation is not None, result.diagnostics
+    return result.observation
+
+
+@pytest.mark.parametrize("mounted", [False, True], ids=["root", "mounted"])
+def test_read_role_excludes_match_and_predicate_operands_live_and_saved(
+    tmp_path: Path, mounted: bool
+):
+    model = _selector_read_role_fixture(tmp_path / "repo", mounted=mounted)
+    reads = [
+        row
+        for row in model.records("constructs")
+        if row.kind == "construct_selector"
+        and row.data.get("selector_role") == "read"
+        and row.data.get("member") == "backend"
+    ]
+    assert len(reads) == 1
+    reflects = [
+        row
+        for row in model.records("constructs")
+        if row.kind == "construct_selector" and row.data.get("selector_role") == "reflect"
+    ]
+    assert len(reflects) == 1
+    assert reflects[0].data.get("status") == "unknown"
+    assert reflects[0].data.get("receiver_type") == "sample.core.Connection"
+    assert reflects[0].data.get("receiver_binding").get("origin") == "declared_receiver"
+    assert (
+        next(
+            row for row in rule_assessments(model, undecided_by_rule={}) if row.id.endswith("READ")
+        ).status
+        == "FAIL"
+    )
+    ordinary = observation_payload(model)
+    columnar = decode_canonical_model(
+        json.loads(canonical_json_bytes(encode_canonical_model(ordinary)))
+    )
+    payloads = (ordinary, columnar)
+    for index, payload in enumerate(payloads):
+        path = tmp_path / f"read-role-{mounted}-{index}.json"
+        path.write_bytes(canonical_json_bytes(payload))
+        replay = run_saved_report(path)
+        assert replay.rule_assessments is not None, replay.diagnostics
+        [assessment] = [row for row in replay.rule_assessments if row.id.endswith("READ")]
+        assert assessment.status == "FAIL"
+        assert not replay.diagnostics
 
 
 @pytest.mark.parametrize(

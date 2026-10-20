@@ -51,7 +51,11 @@ def test_written_string_predicate_is_a_trace_valid_failure(tmp_path, source, for
 def test_predicate_observation_does_not_infer_runtime_or_unrelated_calls(tmp_path, source):
     result = _observe_one_rule(tmp_path, RULE, {"core.py": source})
     assert not result.diagnostics and result.observation is not None
-    assert not result.observation.records("constructs")
+    constructs = result.observation.records("constructs") or ()
+    assert all(
+        row.kind == "construct_selector" and row.data.get("status") == "unknown"
+        for row in constructs
+    )
     assert not trace_valid_violations(result.observation)
 
 
@@ -116,7 +120,11 @@ def test_literal_prefix_vocabulary_cannot_hide_inside_a_tuple_or_range_call(tmp_
 def test_unproven_collections_and_non_prefix_arguments_are_not_vocabulary(tmp_path, source):
     result = _observe_one_rule(tmp_path, RULE, {"core.py": source})
     assert not result.diagnostics and result.observation is not None
-    assert not result.observation.records("constructs")
+    constructs = result.observation.records("constructs") or ()
+    assert all(
+        row.kind == "construct_selector" and row.data.get("status") == "unknown"
+        for row in constructs
+    )
     assert not trace_valid_violations(result.observation)
 
 
@@ -124,8 +132,13 @@ def test_prefix_evidence_keeps_the_exact_written_call_and_native_span(tmp_path):
     source = 'def parse(value):\n    return value.startswith("import", 1)\n'
     result = _observe_one_rule(tmp_path, RULE, {"core.py": source})
     assert not result.diagnostics and result.observation is not None
-    assert len(result.observation.records("constructs")) == 1
-    [construct] = result.observation.records("constructs")
+    constructs = [
+        row
+        for row in result.observation.records("constructs")
+        if row.kind == "string_literal_compare"
+    ]
+    assert len(constructs) == 1
+    [construct] = constructs
     evidence = {row.id: row for row in result.observation.evidence}
     [site] = [evidence[identity] for identity in construct.evidence_ids]
     assert (site.file, site.line, site.end_line, site.column, site.excerpt) == (
@@ -150,7 +163,12 @@ def test_named_tuple_can_be_shared_by_membership_and_first_predicate_argument(tm
     )
     result = _observe_one_rule(tmp_path, RULE, {"core.py": source})
     assert not result.diagnostics and result.observation is not None
-    assert sorted(row.data.get("form") for row in result.observation.records("constructs")) == [
+    constructs = [
+        row
+        for row in result.observation.records("constructs")
+        if row.kind == "string_literal_compare"
+    ]
+    assert sorted(row.data.get("form") for row in constructs) == [
         "membership",
         "startswith",
     ]

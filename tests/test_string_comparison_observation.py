@@ -801,7 +801,16 @@ def test_imported_value_named_collection_escape_is_not_a_literal_proof(tmp_path)
         },
     )
     assert not result.diagnostics and result.observation is not None
-    assert not result.observation.records("constructs")
+    constructs = result.observation.records("constructs") or ()
+    assert all(
+        row.kind == "construct_selector" and row.data.get("status") == "unknown"
+        for row in constructs
+    )
+    assert not [
+        row
+        for row in result.observation.records("constructs")
+        if row.kind == "string_literal_compare"
+    ]
     assert not trace_valid_violations(result.observation)
 
 

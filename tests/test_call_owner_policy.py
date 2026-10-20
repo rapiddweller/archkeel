@@ -89,6 +89,77 @@ def test_constructed_receiver_owner_is_proven_and_replays(tmp_path, allowed, exp
     assert replayed == row
 
 
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_ordinary_member_read_does_not_escape_constructed_receiver(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\ndef run():\n"
+        "    built = Storage()\n    built.backend == 'flat'\n    built.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+    )
+    [call] = [
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "built.page"
+    ]
+    assert call.data.get("call_binding").get("target") == "sample.storage.Storage.page"
+    assert row.status == "FAIL" and row.evaluation_proven
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"ordinary-member-read-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed == row
+
+
+def test_bare_constructed_receiver_comparison_remains_unknown(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\ndef run():\n"
+        "    built = Storage()\n    built == object()\n    built.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        extra={"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "built.page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+def test_stored_receiver_member_comparison_keeps_public_owner_unknown(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def route(self):\n"
+        "        self.client.backend == 'flat'\n        self.client.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        extra={"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
 def test_constructed_receiver_owner_escape_is_unknown_and_replays(tmp_path):
     from archkeel.check.report import run_saved_report
     from archkeel.ir.codec import canonical_report_bytes
@@ -112,6 +183,58 @@ def test_constructed_receiver_owner_escape_is_unknown_and_replays(tmp_path):
     assert call.data.get("call_binding") is None
     path = tmp_path / "escaped-constructed-report.json"
     path.write_bytes(canonical_report_bytes(result.observation))
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize(
+    "setup,escaped_receiver",
+    [
+        ("", "x"),
+        ("alias = x\n", "alias"),
+        ("box = [x]\n", "box[0]"),
+        ("holder = Holder()\nholder.value = x\n", "holder.value"),
+    ],
+    ids=["direct-argument", "alias-argument", "container-argument", "attribute-storage"],
+)
+def test_constructed_receiver_escape_to_helper_is_unknown_and_replays(
+    tmp_path, mounted, columnar, setup, escaped_receiver
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    caller = (
+        "from .storage import Storage\n"
+        "class Holder: pass\n"
+        "def mutate(value): value.page = lambda: None\n"
+        "def run():\n    x = Storage()\n"
+        + "".join(f"    {line}\n" for line in setup.splitlines())
+        + f"    mutate({escaped_receiver})\n    x.page()\n"
+    )
+    result, row = _observe(
+        tmp_path,
+        caller,
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "x.page"
+    )
+    assert call.data.get("call_binding") is None
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"escaped-constructed-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
     [replayed] = run_saved_report(path).rule_assessments
     assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
 
