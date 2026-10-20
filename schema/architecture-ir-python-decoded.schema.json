@@ -1174,6 +1174,76 @@
           }
         }
       }
+    },
+    {
+      "properties": {
+        "declarations": {
+          "items": {
+            "not": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "protocol_declarations"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          }
+        },
+        "scope_observations": {
+          "items": {
+            "not": {
+              "properties": {
+                "data": {
+                  "required": [
+                    "protocol_scope_proof"
+                  ]
+                }
+              },
+              "required": [
+                "data"
+              ]
+            }
+          }
+        },
+        "violations": {
+          "items": {
+            "not": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "protocol_declaration",
+                    "protocol_declaration_limit"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          }
+        },
+        "unknowns": {
+          "items": {
+            "not": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "protocol_declaration",
+                    "protocol_declaration_limit"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          }
+        }
+      }
     }
   ],
   "$defs": {

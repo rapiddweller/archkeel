@@ -91,6 +91,7 @@ _RESTRICTION_RULE_KINDS: Final = frozenset(
     {
         "call_owner",
         "bounded_numeric_operand",
+        "protocol_declarations",
         "forbidden_dependency",
         "forbidden_construct",
         "external_dependency_scope",

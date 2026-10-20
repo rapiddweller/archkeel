@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
 from test_analyzer import _observe
 from test_exact_module_ownership import _component, _observe_tree
 
@@ -301,7 +302,7 @@ def test_older_contract_versions_reject_protocol_declaration_rule() -> None:
 
 
 @pytest.mark.parametrize("section_name", ["declarations", "scope_observations", "violations"])
-@pytest.mark.parametrize("boundary", ["read", "write"])
+@pytest.mark.parametrize("boundary", ["read", "write", "schema", "python_schema"])
 def test_legacy_reports_reject_all_protocol_vocabulary(
     tmp_path: Path, section_name: str, boundary: str
 ) -> None:
@@ -319,7 +320,25 @@ def test_legacy_reports_reject_all_protocol_vocabulary(
         for section in result.observation.sections
     )
     observation = replace(result.observation, sections=sections)
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema))
+        for path in (ROOT / "schema").glob("*.json")
+        if (schema := json.loads(path.read_bytes()))
+    )
     for version in ("2.0.0", "2.1.0", "2.2.0"):
+        if boundary in {"schema", "python_schema"}:
+            profile = "python-decoded" if boundary == "python_schema" else "decoded"
+            payload = observation_payload(observation)
+            current = Draft202012Validator(
+                {"$ref": f"urn:archkeel:architecture-ir:{profile}:2.3.0"}, registry=registry
+            )
+            assert not list(current.iter_errors(payload))
+            payload["schema_version"] = version
+            legacy = Draft202012Validator(
+                {"$ref": f"urn:archkeel:architecture-ir:{profile}:{version}"}, registry=registry
+            )
+            assert list(legacy.iter_errors(payload)), (version, section_name)
+            continue
         with pytest.raises(ValueError, match="observation schema 2.3.0"):
             if boundary == "write":
                 observation_payload(replace(observation, schema_version=version))
