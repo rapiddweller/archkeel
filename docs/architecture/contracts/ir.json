@@ -78,7 +78,8 @@
       ],
       "responsibilities": [
         "Strictly decode, validate and encode source facts and process envelopes.",
-        "Own the bounded source path grammar shared by collection and guarded-effect replay."
+"Own the bounded source path grammar shared by collection and guarded-effect replay.",
+        "Intern lossless JSON strings for source and observation wire encodings."
       ],
       "forbidden_responsibilities": [
         "Policy and I/O.",
@@ -571,6 +572,10 @@
         "responsibility": "Pure validation and serialization of the process boundary."
       },
       {
+        "path": "src/archkeel/ir/codec_strings.py",
+        "responsibility": "Intern lossless JSON strings for source and observation wire encodings."
+      },
+      {
         "path": "src/archkeel/ir/graph.py",
         "responsibility": "Shared pure SCC, path and rank algorithms."
       },
@@ -581,10 +586,6 @@
       {
         "path": "src/archkeel/ir/diagnostics.py",
         "responsibility": "Own immutable diagnostics, source locations and nominal diagnostic vocabulary with their validation invariants."
-      },
-      {
-        "path": "src/archkeel/ir/codec_strings.py",
-        "responsibility": "Provide pure, lossless JSON string interning and expansion for IR wire encodings."
       }
     ],
     "uml": {

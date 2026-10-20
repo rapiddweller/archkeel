@@ -56,7 +56,7 @@
 <text x="86" y="898" fill="#E8E8E2" font-size="12.5" font-weight="600">The agent drafts the inside</text>
 <text x="56" y="942" fill="#8A8A84" font-size="9.8" font-family="ui-monospace, Menlo, monospace">$ archkeel init --source shop/store</text>
 <text x="56" y="955" fill="#8A8A84" font-size="9.8" font-family="ui-monospace, Menlo, monospace">--namespace shop.store --force</text>
-<text x="56" y="976" fill="#5EEAD4" font-size="10.5">4 sub-components, 12 pairs, 3 observed</text>
+<text x="56" y="976" fill="#5EEAD4" font-size="10.5">5 sub-components, 20 pairs, 4 observed</text>
 <path d="M 180.0 1002 V 1018.0 Q 180.0 1030.0 192.0 1030.0 H 788.0 Q 800.0 1030.0 800.0 1042.0 V 1048" fill="none" stroke="#6E6E66" stroke-width="1.8" stroke-linecap="round" marker-end="url(#tip)"/>
 <rect x="660" y="1058" width="280" height="128" rx="10" fill="#141414" stroke="#2A2A28"/>
 <rect x="660" y="1058" width="3" height="128" rx="1.5" fill="#C5F82A"/>
@@ -75,7 +75,7 @@
 <text x="396" y="1266" fill="#E8E8E2" font-size="12.5" font-weight="600">An agent crosses a closed</text>
 <text x="396" y="1281" fill="#E8E8E2" font-size="12.5" font-weight="600">boundary</text>
 <text x="366" y="1310" fill="#8A8A84" font-size="9.8" font-family="ui-monospace, Menlo, monospace">$ archkeel report</text>
-<text x="366" y="1344" fill="#FF6B6B" font-size="10.5">FAIL, 3 violations:</text>
+<text x="366" y="1344" fill="#FF6B6B" font-size="10.5">FAIL, 4 violations:</text>
 <text x="366" y="1357" fill="#FF6B6B" font-size="10.5">store:STORE-REQUIRES-COMPLETE</text>
 <text x="40" y="1454" fill="#8A8A84" font-size="11.5">Pre-approved fixture decisions are replayed; this run contains no live approvals.</text>
 </svg>

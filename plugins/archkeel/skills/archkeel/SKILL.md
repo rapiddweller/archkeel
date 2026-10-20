@@ -392,7 +392,8 @@ usable and incomplete until the architect decides it.
   decisions.
 - The same two commands report `claims`, the Class D review claims. They never change a
   verdict or an exit code; bring a nonzero count to the architect as reading work, and never
-  delete code because a claim named it.
+  delete code because a claim named it. `--json` carries only counts; the HTML page of
+  `report --only architecture` names each claimed symbol, binding, repetition and type.
 
 ## Nested contracts: the inside of a component
 

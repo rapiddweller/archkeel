@@ -38,7 +38,7 @@ pr-test: browser-runtime-install
 		tests/test_contract_model.py tests/test_contract_version_types.py tests/test_dependency_selectors.py tests/test_requires_symbol_ports.py tests/test_typed_dependency_api.py tests/test_dependency_api_target.py tests/test_module_object_grants.py tests/test_dependency_typed_control.py tests/test_typed_state_protocol.py tests/test_typed_python_bindings.py tests/test_typed_python_receivers.py tests/test_typed_method_descriptors.py tests/test_typed_graph_vocabulary.py tests/test_typed_diagnostic_owner.py tests/test_state_facts.py tests/test_boundary_type_nested_mapping.py tests/test_typed_dict_bound_aliases.py tests/test_decisions.py tests/test_typed_python_properties.py tests/test_typed_contract_rule_grammar.py tests/test_typed_contract_rule_native.py tests/test_core_command_result.py tests/test_typed_measurement_controls.py tests/test_typed_parameter_kinds.py tests/test_atlas_deviation_target.py tests/test_definition_context_types.py tests/test_permission_status_types.py tests/test_snapshot_language_types.py tests/test_source_resolution_types.py tests/test_known_delta_action_types.py tests/test_typed_symbol_class_kinds.py tests/test_source_name_visibility.py tests/test_git_blob_types.py tests/test_typed_structure_levels.py tests/test_classifier_projections.py tests/test_unresolved_call_change_types.py \
 		tests/test_target_graph.py::test_contract_corpus_preserves_version_and_uml_presence \
 		tests/test_report_exploration_reuse.py \
-		tests/test_collection_protocol.py tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py tests/test_source_trust_boundary.py tests/test_shared_runtime_bootstrap.py \
+		tests/test_collection_protocol.py tests/test_source_facts_columnar.py tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py tests/test_source_trust_boundary.py tests/test_shared_runtime_bootstrap.py \
 		tests/test_python_class_value_proofs.py tests/test_local_inherited_methods.py tests/test_inherited_generic_facade_negative.py tests/test_python_provider_sources.py tests/test_python_contextmanager_signatures.py tests/test_boundary_types_contextmanager.py \
 		'tests/test_architecture_demo.py::test_variant_produces_the_catalogued_findings[class-a-inherited-generic-return]' \
 		'tests/test_architecture_demo.py::test_variant_produces_the_catalogued_findings[class-a-inherited-generic-undeclared-return]' \
@@ -107,7 +107,7 @@ pr-test: browser-runtime-install
 		tests/test_target_navigation_graph.py \
 		tests/test_annotation_carriers.py \
 		tests/test_absent_import_namespace.py tests/test_dynamic_dependency_policy.py tests/test_string_comparison_observation.py tests/test_local_string_comparisons.py tests/test_string_predicate_observation.py tests/test_python_string_predicate_target.py tests/test_typed_host_events.py \
-		tests/test_empty_literal_all.py
+		tests/test_empty_literal_all.py tests/test_review_workflow_fixture.py
 
 pr-report-test:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q \
@@ -200,7 +200,7 @@ test:
 		-q $(PYTEST_STOP) --durations=20 --junitxml=test-artifacts/pytest/results.xml
 
 collector-safety:
-	$(UV) run --locked python -m pytest -q tests/test_collection_protocol.py tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py \
+	$(UV) run --locked python -m pytest -q tests/test_collection_protocol.py tests/test_source_facts_columnar.py tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py \
 		tests/test_collection_process.py tests/test_collection_runtime_gate.py \
 		tests/test_runtime.py tests/test_source_trust_boundary.py \
 		tests/test_collector_interrupt.py tests/test_windows_launcher_startup.py \

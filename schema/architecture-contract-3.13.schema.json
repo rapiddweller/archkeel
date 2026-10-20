@@ -15,7 +15,7 @@
       "$ref": "#/$defs/nonEmpty"
     },
     "schema_version": {
-      "const": "3.12.0"
+      "const": "3.13.0"
     },
     "components": {
       "type": "array",
