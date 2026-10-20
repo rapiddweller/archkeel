@@ -8,4 +8,7 @@ Definitions, reads, writes, deletes, value transfers, defaults, and fallback exp
 
 Receipts bind the rule, selected facts, canonical owner/value declaration, source and contract digests, scope and wire version. Mounted rules see only their selected physical source domain; partial or empty domains cannot prove absence. Existing product normalization, RNG, and worker-invariance tests remain independent.
 
+Source-fact collection protocol 5.0.0 carries the same validated fact set as 4.0.0 in a lossless columnar encoding. Record fields, sparse record-data pairs, evidence rows, candidate-evidence rows, and a profitable UTF-8 string table are expanded before the normal source-fact validator runs. The encoding preserves candidate evidence and UNKNOWN records, has a strict format marker, and is rejected by 1.0.0–4.0.0 readers. It keeps the collector's existing 64 MiB stdout bound; it does not change evidence selection or semantics.
+The shared `archkeel.ir.codec_strings` helper owns pure lossless string interning and expansion for source and observation IR encodings. Observation encoding keeps its existing profitability threshold and reserved-marker behavior, so saved report bytes remain stable.
+
 This uses lexical origins and source-bound syntax already collected by Archkeel. A second scanner, copied default inventory, or executing imported code would create drift or unsafe evidence. Native source-to-saved-report, mutation, mixed FAIL/UNKNOWN, mount, and replay tests are the proof boundary.

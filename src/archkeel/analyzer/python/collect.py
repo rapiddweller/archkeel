@@ -164,10 +164,10 @@ class PythonProviderCollector:
             replace(
                 request,
                 resolver=PythonSettings(provider_sources=providers),
-                protocol_version=ProtocolVersion.V4,
+                protocol_version=ProtocolVersion.V5,
             )
             if providers
-            else request
+            else replace(request, protocol_version=ProtocolVersion.V5)
         )
         remaining_collector: ProcessCollector = replace(self.collector, timeout_seconds=remaining)
         enriched = remaining_collector.collect(final_request)
@@ -440,7 +440,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         unsafe_creation_providers=unsafe_creation_providers,
         unsafe_source_header_providers=explicit_factory_unsafe_providers(imports, modules),
     )
-    if request.protocol_version is ProtocolVersion.V4:
+    if request.protocol_version in {ProtocolVersion.V4, ProtocolVersion.V5}:
         contextmanager_signatures(modules, providers, symbols, provider_bindings, evidence)
     type_shapes = collect_type_shapes(symbol_type_expressions(symbols))
     symbol_index = build_symbol_index(symbols)

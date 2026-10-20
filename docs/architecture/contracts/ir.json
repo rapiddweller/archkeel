@@ -570,6 +570,10 @@
       {
         "path": "src/archkeel/ir/diagnostics.py",
         "responsibility": "Own immutable diagnostics, source locations and nominal diagnostic vocabulary with their validation invariants."
+      },
+      {
+        "path": "src/archkeel/ir/codec_strings.py",
+        "responsibility": "Provide pure, lossless JSON string interning and expansion for IR wire encodings."
       }
     ],
     "uml": {

@@ -1215,27 +1215,7 @@ def _rule_references(
     if isinstance(rule, ExternalDependencyScopeRule | SymbolPlacementRule | BoundaryTypesRule):
         named += [("exact_sources", rule.exact_sources, True)]
     if isinstance(rule, SourceOwnershipRule):
-        named += [("source", (rule.source,), True)]
-        if rule.owner is not None:
-            named += [("owner", (rule.owner,), True)]
-        references = _references(f"/rules/{index}", named)
-        references += [
-            ModuleReference(f"/rules/{index}/symbols/{position}", value, False)
-            for position, value in enumerate(rule.symbols)
-        ]
-        references += [
-            ModuleReference(f"/rules/{index}/parameters/{position}", value, False)
-            for position, value in enumerate(rule.parameters)
-        ]
-        if rule.value_owner is not None:
-            references.append(
-                ModuleReference(
-                    f"/rules/{index}/value_owner",
-                    rule.value_owner.rpartition(".")[0],
-                    False,
-                )
-            )
-        return references
+        return _source_ownership_references(index, rule, named)
     if isinstance(rule, ForbiddenConstructRule):
         named += [
             ("allowed_sources", rule.allowed_sources, False),
@@ -1264,6 +1244,26 @@ def _rule_references(
             )
             for item, allowance in enumerate(rule.allowed_type_ignores)
         ]
+    return references
+
+
+def _source_ownership_references(
+    index: int, rule: SourceOwnershipRule, named: list[tuple[str, tuple[str, ...], bool]]
+) -> list[ModuleReference]:
+    if rule.owner is not None:
+        named.append(("owner", (rule.owner,), True))
+    references = _references(f"/rules/{index}", named)
+    for field, values in (("symbols", rule.symbols), ("parameters", rule.parameters)):
+        references.extend(
+            ModuleReference(f"/rules/{index}/{field}/{position}", value, False)
+            for position, value in enumerate(values)
+        )
+    if rule.value_owner is not None:
+        references.append(
+            ModuleReference(
+                f"/rules/{index}/value_owner", rule.value_owner.rpartition(".")[0], False
+            )
+        )
     return references
 
 

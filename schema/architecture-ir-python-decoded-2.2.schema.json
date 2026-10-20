@@ -205,6 +205,16 @@
                   },
                   "targets": {
                     "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/calls/items/allOf/1/properties/data/properties/targets"
+                  },
+                  "call_binding": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "https://archkeel.dev/schema/source-facts/5.0.0#/$defs/CallBinding"
+                      }
+                    ]
                   }
                 },
                 "required": [

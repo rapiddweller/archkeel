@@ -6,14 +6,14 @@
 from __future__ import annotations
 
 import re
-from collections import Counter
 from collections.abc import Mapping
 from dataclasses import asdict, replace
 from enum import StrEnum
 from math import isfinite
-from typing import Any, TypeGuard
+from typing import Any, TypeGuard, cast
 
 from archkeel.ir.architecture_graph import ArchitectureRuleKind
+from archkeel.ir.codec_strings import intern_strings, observation_escaped, observation_profitable
 from archkeel.ir.codec_wire import (
     _count,
     _exact,
@@ -349,73 +349,8 @@ def parse_observation(raw: object) -> Observation:
         for name in CLASSIFIED_SECTIONS
         if isinstance(section_items := item[name], list)
     )
+    _validate_observation_record_versions(sections, schema_version, profile, evidence_raw)
     _validate_versioned_records(schema_version, sections, profile)
-
-    has_selectors = any(
-        record.kind == _ConstructSelectorFactKind.SELECTOR
-        for section in sections
-        if section.name == ObservedSection.CONSTRUCTS
-        for record in section.records
-    )
-    if has_selectors and schema_version is not _ObservationVersion.V2_6:
-        raise ValueError("construct selector facts require observation schema 2.6.0")
-    if _before_version(schema_version, _ObservationVersion.V2_2) and any(
-        record.kind == "source_role"
-        for section in sections
-        if section.name == "references"
-        for record in section.records
-    ):
-        raise ValueError("source_role records require observation schema_version 2.2.0")
-    if _before_version(schema_version, _ObservationVersion.V2_2) and any(
-        record.kind == "source_ownership"
-        for section in sections
-        if section.name == "declarations"
-        for record in section.records
-    ):
-        raise ValueError("source_ownership requires observation schema_version 2.2.0")
-    if not _before_version(schema_version, _ObservationVersion.V2_2):
-        _validate_source_ownership_vocabulary(sections)
-        _validate_source_role_identities(
-            (record for section in sections for record in section.records),
-            {
-                item.id: item
-                for item in (parse_evidence(value, "evidence[]") for value in evidence_raw)
-            },
-        )
-    _validate_versioned_records(schema_version, sections, profile)
-    if not _before_version(schema_version, _ObservationVersion.V2_5):
-        python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
-        for section in sections:
-            if section.name == ObservedSection.CALLS:
-                for call in section.records:
-                    if python_calls and not _has_field(
-                        (key for key, _ in call.data.entries), "call_arguments"
-                    ):
-                        raise ValueError(
-                            f"Python {schema_version.value} calls require explicit call_arguments"
-                        )
-                    arguments = call.data.get("call_arguments")
-                    if _has_field((key for key, _ in call.data.entries), "call_arguments"):
-                        _call_arguments(arguments)
-                    binding = _call_binding(call.data.get("call_binding"))
-                    if (arguments is None) != (binding is None):
-                        raise ValueError("call arguments require the canonical call binding")
-    elif _before_version(schema_version, _ObservationVersion.V2_5):
-        for section in sections:
-            if section.name == ObservedSection.CALLS and any(
-                _has_field((key for key, _ in call.data.entries), "call_arguments")
-                for call in section.records
-            ):
-                raise ValueError("call_arguments require observation schema 2.5.0")
-    if not _before_version(schema_version, _ObservationVersion.V2_2):
-        _validate_source_ownership_vocabulary(sections)
-        _validate_source_role_identities(
-            (record for section in sections for record in section.records),
-            {
-                item.id: item
-                for item in (parse_evidence(value, "evidence[]") for value in evidence_raw)
-            },
-        )
     return Observation(
         schema_version=schema_version,
         analyzer=AnalyzerInfo(
@@ -455,6 +390,52 @@ def parse_observation(raw: object) -> Observation:
         if item.get("producer", _MISSING_VALUE) is not _MISSING_VALUE
         else None,
     )
+
+
+def _validate_observation_record_versions(
+    sections: tuple[Section, ...],
+    version: _ObservationVersion,
+    profile: Profile,
+    evidence: RawJson,
+) -> None:
+    if _before_version(version, _ObservationVersion.V2_2):
+        for section_name, kind, message in (
+            (
+                "references",
+                "source_role",
+                "source_role records require observation schema_version 2.2.0",
+            ),
+            (
+                "declarations",
+                "source_ownership",
+                "source_ownership requires observation schema_version 2.2.0",
+            ),
+        ):
+            if any(
+                record.kind == kind
+                for section in sections
+                if section.name == section_name
+                for record in section.records
+            ):
+                raise ValueError(message)
+    if version in {_ObservationVersion.V2_1, _ObservationVersion.V2_2}:
+        python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
+        for section in sections:
+            if section.name == ObservedSection.CALLS:
+                for call in section.records:
+                    if python_calls and not _has_field(
+                        (key for key, _ in call.data.entries), "call_binding"
+                    ):
+                        raise ValueError("Python 2.1.0 calls require explicit call_binding or null")
+                    _call_binding(call.data.get("call_binding"))
+    if not _before_version(version, _ObservationVersion.V2_2):
+        if not isinstance(evidence, list):
+            raise ValueError("observation evidence must be an array")
+        _validate_source_ownership_vocabulary(sections)
+        _validate_source_role_identities(
+            (record for section in sections for record in section.records),
+            {item.id: item for item in (parse_evidence(value, "evidence[]") for value in evidence)},
+        )
 
 
 def _parse_analyzer(raw: RawJson, label: str) -> AnalyzerInfo:
@@ -725,51 +706,17 @@ def encode_canonical_model(model: dict[str, RawJson]) -> dict[str, RawJson]:
     evidence_items = [_object(entry, "evidence[]") for entry in raw_evidence]
     evidence_rows = [[item[field] for field in EVIDENCE_FIELDS] for item in evidence_items]
 
-    counts: Counter[str] = Counter()
-
-    def count_strings(value: object) -> None:
-        if isinstance(value, str):
-            counts[value] += 1
-        elif isinstance(value, list):
-            for entry in value:
-                count_strings(entry)
-        elif isinstance(value, dict):
-            for entry in value.values():
-                count_strings(entry)
-
-    count_strings(rows_by_section)
-    count_strings(evidence_rows)
-    string_table = sorted(
-        value
-        for value, count in counts.items()
-        # Literal $$m would otherwise collide with historical $$$m escaping.
-        if value == _StringSentinel.ESCAPED_MISSING
-        or (count >= 2 and len(value) >= 8 and (count - 1) * len(value) - count * 8 > 100)
-    )
-    string_indexes = {value: index for index, value in enumerate(string_table)}
-
     # AD-2: rows mix RawJson with the _MISSING_VALUE sentinel; see rows_by_section.
-    def intern(value: Any) -> Any:
-        if value is _MISSING_VALUE:
-            return "$m"
-        if isinstance(value, str):
-            if value in string_indexes:
-                return f"${string_indexes[value]}"
-            if (
-                _string_sentinel(value) is not None
-                or _STRING_REFERENCE.fullmatch(value)
-                or _ESCAPED_STRING_REFERENCE.fullmatch(value)
-            ):
-                return f"${value}"
-            return value
-        if isinstance(value, list):
-            return [intern(entry) for entry in value]
-        if isinstance(value, dict):
-            return {key: intern(entry) for key, entry in value.items()}
-        return value
-
-    encoded.update({section: intern(rows) for section, rows in rows_by_section.items()})
-    encoded["evidence"] = intern(evidence_rows)
+    interned, string_table = intern_strings(
+        {"sections": rows_by_section, "evidence": evidence_rows},
+        profitable=observation_profitable,
+        missing_value=cast(RawJson, _MISSING_VALUE),
+        escape_reserved=observation_escaped,
+    )
+    interned_object = cast(dict[str, RawJson], interned)
+    interned_sections = cast(dict[str, RawJson], interned_object["sections"])
+    encoded.update(interned_sections)
+    encoded["evidence"] = interned_object["evidence"]
     encoding: dict[str, RawJson] = {
         "kind": _EncodingKind.COLUMNAR.value,
         "record_fields": list(RECORD_FIELDS),
