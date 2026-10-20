@@ -53,7 +53,10 @@ from archkeel.ir.facts import (
     SourceSectionName,
     call_binding,
 )
-from archkeel.ir.facts_validation import validate_source_bindings
+from archkeel.ir.facts_validation import (
+    _selector_receiver_site_matches,
+    validate_source_bindings,
+)
 from archkeel.ir.model import (
     AssessmentStatus as _AssessmentStatus,
 )
@@ -1027,6 +1030,19 @@ def _validate_saved_selector_receivers(model: Observation) -> None:
             binding.evidence_ids
         ) <= set(evidence):
             raise ValueError("saved selector receiver has dangling source evidence")
+        if binding.origin in {
+            CallBindingOrigin.DIRECT,
+            CallBindingOrigin.DECLARED_RECEIVER,
+            CallBindingOrigin.STORED_RECEIVER,
+            CallBindingOrigin.CONSTRUCTED_RECEIVER,
+        } and not _selector_receiver_site_matches(
+            selector,
+            binding,
+            parameter if isinstance(parameter, str) else None,
+            declarations,
+            evidence,
+        ):
+            raise ValueError("saved selector proof does not match its source expression")
         targets = declarations.get(binding.target, [])
         if binding.origin is CallBindingOrigin.DIRECT:
             _saved_selector_direct(binding, parameter, targets)
