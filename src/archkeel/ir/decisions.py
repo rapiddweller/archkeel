@@ -1082,6 +1082,23 @@ def rule_evaluation_binding_id(
     )
 
 
+def rule_result_digest(sections: _Iterable[Section], rule_id: str) -> str:
+    """Bind every rule-linked violation or unknown to its section and complete record."""
+    selected = tuple(
+        sorted(
+            (
+                (section.name, record)
+                for section in sections
+                for record in section.records
+                if rule_id in record.rule_ids
+                and record.evidence_class in {EvidenceClass.VIOLATION, EvidenceClass.UNKNOWN}
+            ),
+            key=lambda item: (item[0], item[1].id, repr(item[1])),
+        )
+    )
+    return stable_id("RULE-RESULT", rule_id, repr(selected))
+
+
 def _native_scope_runtime_valid(runtime: RuntimeInfo) -> bool:
     """Replay only a simple numeric Python lower bound already validated by Core."""
     if (
@@ -1217,6 +1234,9 @@ def _call_owner_receipt_complete(observation: Observation, receipt: Record | Non
     return (
         coverage.status == Verdict.PASS
         and not coverage.failures
+        and bool(receipt.rule_ids)
+        and proof.get("result_digest")
+        == rule_result_digest(observation.sections, receipt.rule_ids[0])
         and isinstance(selected, tuple)
         and bool(selected)
         and coverage.files_discovered
@@ -1286,6 +1306,15 @@ def _protocol_declaration_receipt_complete(observation: Observation, receipt: Re
         and proof.get("source_digest") == observation.source.source_digest
         and proof.get("source_scope") == observation.source.scope
         and proof.get("contract_digest") == observation.contract.digest
+        and all(
+            section.name == "violations"
+            if record.kind == "protocol_declaration"
+            else section.name == "unknowns"
+            for section in observation.sections
+            for record in section.records
+            if rule_id in record.rule_ids
+            and record.kind in {"protocol_declaration", "protocol_declaration_limit"}
+        )
         and proof.get("result_digest") == protocol_declaration_result_digest(records, rule_id)
         and proof.get("binding_id")
         == rule_evaluation_binding_id(
