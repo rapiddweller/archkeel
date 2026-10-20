@@ -43,6 +43,40 @@ def call_argument_results(
     violations: list[RawRecord] = []
     limits: list[RawRecord] = []
     receipts: list[RawRecord] = []
+    for rule in contract.rules:
+        if not isinstance(rule, ForbiddenCallArgumentRule):
+            continue
+        found, unknown, proven = _rule_results(
+            rule,
+            scope=scope,
+            calls=calls,
+            modules=modules,
+            symbols=symbols,
+            complete=complete,
+            bindings_measured=bindings_measured,
+            arguments_measured=arguments_measured,
+            blank_modules=blank_modules,
+            source_modules=source_modules,
+        )
+        violations.extend(found)
+        limits.extend(unknown)
+        receipts.extend(proven)
+    return violations, limits, receipts
+
+
+def _rule_results(
+    rule: ForbiddenCallArgumentRule,
+    *,
+    scope: str,
+    calls: Sequence[RawRecord],
+    modules: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    complete: bool,
+    bindings_measured: bool,
+    arguments_measured: bool,
+    blank_modules: frozenset[str],
+    source_modules: frozenset[str] | None,
+) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord]]:
     source_records = [
         record
         for record in modules
@@ -52,51 +86,38 @@ def call_argument_results(
         for record in symbols
         if source_modules is None or record["data"]["module"] in source_modules
     ]
-    for rule in contract.rules:
-        if not isinstance(rule, ForbiddenCallArgumentRule):
-            continue
-        subjects = [
-            record
-            for record in source_records
-            if in_scope(record["data"]["qualified_name"], rule.source)
-            and record["data"]["qualified_name"] not in blank_modules
-        ]
-        selected = [
-            call
-            for call in calls
-            if (source_modules is None or call["data"]["source_module"] in source_modules)
-            and in_scope(call["data"]["source_scope"], rule.source)
-        ]
-        targets = [
-            record
-            for record in symbols
-            if record["data"]["qualified_name"] == rule.target
-            and record["kind"] in {"class", "function", "method"}
-        ]
-        target_proven = len(targets) == 1 and _target_binding_static(targets[0], symbols)
-        rule_limits: list[RawRecord] = []
-        if (
-            not subjects
-            or not target_proven
-            or not complete
-            or not bindings_measured
-            or not arguments_measured
-        ):
-            rule_limits.append(
-                _limit(
-                    rule,
-                    scope,
-                    "Observed source, target, signatures and complete argument consideration "
-                    "are required",
-                    [*subjects, *targets],
-                )
-            )
-        signature = parse_record(targets[0]).data if target_proven else None
-        if target_proven and not _signature_available(signature):
-            rule_limits.append(
-                _limit(rule, scope, "The selected target has no proven callable signature", targets)
-            )
-        elif target_proven and not _signature_has_parameter(signature, rule.parameter):
+    subjects = [
+        record
+        for record in source_records
+        if in_scope(record["data"]["qualified_name"], rule.source)
+        and record["data"]["qualified_name"] not in blank_modules
+    ]
+    selected = [
+        call
+        for call in calls
+        if (source_modules is None or call["data"]["source_module"] in source_modules)
+        and in_scope(call["data"]["source_scope"], rule.source)
+    ]
+    targets = [
+        record
+        for record in symbols
+        if record["data"]["qualified_name"] == rule.target
+        and record["kind"] in {"class", "function", "method"}
+    ]
+    target_proven = len(targets) == 1 and _target_binding_static(targets[0], symbols)
+    rule_limits = _rule_limits(
+        rule,
+        scope,
+        subjects,
+        targets,
+        complete,
+        bindings_measured,
+        arguments_measured,
+        target_proven,
+    )
+    signature = parse_record(targets[0]).data if target_proven else None
+    if target_proven and _signature_available(signature):
+        if not _signature_has_parameter(signature, rule.parameter):
             rule_limits.append(
                 _limit(
                     rule,
@@ -105,44 +126,86 @@ def call_argument_results(
                     targets,
                 )
             )
-        for call in selected:
-            parsed_call = parse_record(call)
-            binding = call_binding(parsed_call.data.get("call_binding"))
-            actuals = call_arguments(parsed_call.data.get("call_arguments"))
-            if binding is None or actuals is None:
-                rule_limits.append(
-                    _limit(rule, scope, "Call target or actual arguments are unproven", [call])
-                )
-                continue
-            if binding.target != rule.target:
-                continue
-            if not target_proven or signature is None:
-                continue
-            bound = bind_call_arguments(
-                signature,
-                actuals,
-                bound_receiver=binding.origin.value in _BOUND_RECEIVER_ORIGINS,
+    elif target_proven:
+        rule_limits.append(
+            _limit(rule, scope, "The selected target has no proven callable signature", targets)
+        )
+    found, unknown = _evaluate_calls(rule, scope, selected, targets, target_proven, signature)
+    rule_limits.extend(unknown)
+    receipts = (
+        [_rule_evaluation_receipt(rule, scope, [*subjects, *targets, *selected])]
+        if not rule_limits
+        else []
+    )
+    return found, rule_limits, receipts
+
+
+def _rule_limits(
+    rule: ForbiddenCallArgumentRule,
+    scope: str,
+    subjects: Sequence[RawRecord],
+    targets: Sequence[RawRecord],
+    complete: bool,
+    bindings_measured: bool,
+    arguments_measured: bool,
+    target_proven: bool,
+) -> list[RawRecord]:
+    if subjects and target_proven and complete and bindings_measured and arguments_measured:
+        return []
+    return [
+        _limit(
+            rule,
+            scope,
+            "Observed source, target, signatures and complete argument consideration are required",
+            [*subjects, *targets],
+        )
+    ]
+
+
+def _evaluate_calls(
+    rule: ForbiddenCallArgumentRule,
+    scope: str,
+    calls: Sequence[RawRecord],
+    targets: Sequence[RawRecord],
+    target_proven: bool,
+    signature: RecordData | None,
+) -> tuple[list[RawRecord], list[RawRecord]]:
+    violations: list[RawRecord] = []
+    limits: list[RawRecord] = []
+    for call in calls:
+        parsed = parse_record(call)
+        binding = call_binding(parsed.data.get("call_binding"))
+        actuals = call_arguments(parsed.data.get("call_arguments"))
+        if binding is None or actuals is None:
+            limits.append(
+                _limit(rule, scope, "Call target or actual arguments are unproven", [call])
             )
-            if bound is None:
-                rule_limits.append(
-                    _limit(
-                        rule,
-                        scope,
-                        "Actual arguments do not bind to the observed signature",
-                        [call, *targets],
-                    )
+            continue
+        if binding.target != rule.target:
+            continue
+        if not target_proven or signature is None:
+            continue
+        bound = bind_call_arguments(
+            signature,
+            actuals,
+            bound_receiver=binding.origin.value in _BOUND_RECEIVER_ORIGINS,
+        )
+        if bound is None:
+            limits.append(
+                _limit(
+                    rule,
+                    scope,
+                    "Actual arguments do not bind to the observed signature",
+                    [call, *targets],
                 )
-                continue
-            selected_indexes = dict(bound.by_parameter).get(rule.parameter, ())
-            for index in selected_indexes:
-                if actuals[index].value_kind is CallArgumentValueKind.STRING_LITERAL:
-                    violations.append(
-                        _violation(rule, scope, call, binding, actuals[index].evidence_ids)
-                    )
-        limits.extend(rule_limits)
-        if not rule_limits:
-            receipts.append(_rule_evaluation_receipt(rule, scope, [*subjects, *targets, *selected]))
-    return violations, limits, receipts
+            )
+            continue
+        indexes = dict(bound.by_parameter).get(rule.parameter, ())
+        for index in indexes:
+            argument = actuals[index]
+            if argument.value_kind is CallArgumentValueKind.STRING_LITERAL:
+                violations.append(_violation(rule, scope, call, binding, argument.evidence_ids))
+    return violations, limits
 
 
 def _limit(

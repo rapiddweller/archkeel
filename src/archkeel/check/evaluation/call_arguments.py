@@ -35,6 +35,21 @@ def bind_call_arguments(
     bound_receiver: bool,
 ) -> BoundCallArguments | None:
     """Bind only explicit, non-spread actuals; unknown or invalid shapes have no proof."""
+    parameters = _signature_parameters(signature, bound_receiver)
+    if parameters is None or any(
+        argument.kind in {CallArgumentKind.STARRED_POSITIONAL, CallArgumentKind.STARRED_KEYWORD}
+        for argument in arguments
+    ):
+        return None
+    bound, renamed = _bind_actuals(parameters, arguments)
+    if bound is None:
+        return None
+    return _group_bound(parameters, renamed, bound)
+
+
+def _signature_parameters(
+    signature: RecordData, bound_receiver: bool
+) -> list[inspect.Parameter] | None:
     raw_parameters = signature.get("parameters")
     if not isinstance(raw_parameters, tuple):
         return None
@@ -61,7 +76,6 @@ def bind_call_arguments(
             parameters.append(inspect.Parameter(name, parameter_kind, default=default))
         except (TypeError, ValueError):
             return None
-
     if bound_receiver:
         receiver = signature.get("receiver_parameter")
         if (
@@ -73,13 +87,12 @@ def bind_call_arguments(
         ):
             return None
         parameters.pop(0)
+    return parameters
 
-    if any(
-        argument.kind in {CallArgumentKind.STARRED_POSITIONAL, CallArgumentKind.STARRED_KEYWORD}
-        for argument in arguments
-    ):
-        return None
 
+def _bind_actuals(
+    parameters: list[inspect.Parameter], arguments: tuple[CallArgument, ...]
+) -> tuple[inspect.BoundArguments | None, dict[str, str]]:
     keyword_names = {
         argument.keyword
         for argument in arguments
@@ -88,7 +101,7 @@ def bind_call_arguments(
     if len(keyword_names) != sum(
         argument.kind is CallArgumentKind.KEYWORD for argument in arguments
     ):
-        return None
+        return None, {}
     has_kwargs = any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters)
     renamed: dict[str, str] = {}
     if has_kwargs:
@@ -120,8 +133,15 @@ def bind_call_arguments(
         }
         bound = signature_value.bind(*positional, **keywords)
     except (TypeError, ValueError):
-        return None
+        return None, {}
+    return bound, renamed
 
+
+def _group_bound(
+    parameters: list[inspect.Parameter],
+    renamed: dict[str, str],
+    bound: inspect.BoundArguments,
+) -> BoundCallArguments:
     grouped: list[tuple[str, tuple[int, ...]]] = []
     for parameter in parameters:
         formal_name = renamed.get(parameter.name, parameter.name)
