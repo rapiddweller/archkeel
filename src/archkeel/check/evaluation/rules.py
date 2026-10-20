@@ -2123,6 +2123,20 @@ def _scan_covers_packages(
     )
 
 
+def scope_receipts_complete(
+    *,
+    modules: Sequence[RawRecord],
+    profile: Profile,
+    package_scopes: Sequence[str],
+    exact_module_scopes: Sequence[str],
+    scan_roots: tuple[str, ...],
+) -> bool:
+    """Prove that selected package and exact-module domains were fully scanned."""
+    return (
+        not package_scopes or _scan_covers_packages(package_scopes, modules, profile, scan_roots)
+    ) and _scan_covers_exact_modules(exact_module_scopes, modules, scan_roots)
+
+
 def _scan_covers_ownership(
     component: ContractComponent,
     modules: Sequence[RawRecord],
