@@ -32,6 +32,45 @@ from .source import (
 )
 
 
+def _numeric_evidence_excerpt_supported(excerpt: str) -> bool:
+    if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
+        return False
+    try:
+        ast.parse(excerpt)
+        return True
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        try:
+            wrapper = ast.parse(f"if True:\n{excerpt}\n")
+        except (IndentationError, SyntaxError, ValueError, RecursionError):
+            wrapper = None
+        if wrapper is not None and len(wrapper.body) == 1 and isinstance(wrapper.body[0], ast.If):
+            return True
+        indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+        unit = "\t" if "\t" in indentation else "    "
+        suite = f"{excerpt}\n{indentation}{unit}pass"
+        try:
+            parsed = ast.parse(suite)
+        except (IndentationError, SyntaxError, ValueError, RecursionError):
+            try:
+                wrapper = ast.parse(f"if True:\n{suite}\n")
+            except (IndentationError, SyntaxError, ValueError, RecursionError):
+                return False
+            return (
+                len(wrapper.body) == 1
+                and isinstance(wrapper.body[0], ast.If)
+                and len(wrapper.body[0].body) == 1
+                and isinstance(wrapper.body[0].body[0], ast.If | ast.While)
+                and len(wrapper.body[0].body[0].body) == 1
+                and isinstance(wrapper.body[0].body[0].body[0], ast.Pass)
+            )
+        return (
+            len(parsed.body) == 1
+            and isinstance(parsed.body[0], ast.If | ast.While)
+            and len(parsed.body[0].body) == 1
+            and isinstance(parsed.body[0].body[0], ast.Pass)
+        )
+
+
 class _StringPredicate(Enum):
     STARTSWITH = "startswith"
     ENDSWITH = "endswith"
@@ -614,6 +653,7 @@ class ConstructCollector(ast.NodeVisitor):
                 or line < 1
                 or line > len(self.module.lines)
                 or len(self.module.lines[line - 1]) > MAX_NUMERIC_EVIDENCE_CHARS
+                or not _numeric_evidence_excerpt_supported(self.module.lines[line - 1])
                 for line in evidence_lines
             )
         ):

@@ -509,10 +509,37 @@ def _parse_numeric_evidence_excerpt(
         try:
             wrapper = ast.parse(f"if True:\n{excerpt}\n")
         except (IndentationError, SyntaxError, ValueError, RecursionError):
+            wrapper = None
+        if wrapper is not None and len(wrapper.body) == 1 and isinstance(wrapper.body[0], ast.If):
+            return tuple(wrapper.body[0].body), 1
+        indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+        unit = "\t" if "\t" in indentation else "    "
+        suite = f"{excerpt}\n{indentation}{unit}pass"
+        try:
+            parsed = ast.parse(suite)
+        except (IndentationError, SyntaxError, ValueError, RecursionError):
+            try:
+                wrapper = ast.parse(f"if True:\n{suite}\n")
+            except (IndentationError, SyntaxError, ValueError, RecursionError):
+                return None
+            if (
+                len(wrapper.body) == 1
+                and isinstance(wrapper.body[0], ast.If)
+                and len(wrapper.body[0].body) == 1
+                and isinstance(wrapper.body[0].body[0], ast.If | ast.While)
+                and len(wrapper.body[0].body[0].body) == 1
+                and isinstance(wrapper.body[0].body[0].body[0], ast.Pass)
+            ):
+                return tuple(wrapper.body[0].body), 1
             return None
-        if not wrapper.body or not isinstance(wrapper.body[0], ast.If):
-            return None
-        return tuple(wrapper.body[0].body), 1
+        if (
+            len(parsed.body) == 1
+            and isinstance(parsed.body[0], ast.If | ast.While)
+            and len(parsed.body[0].body) == 1
+            and isinstance(parsed.body[0].body[0], ast.Pass)
+        ):
+            return tuple(parsed.body), 0
+        return None
 
 
 def _numeric_evidence_nodes(evidence: Evidence) -> tuple[tuple[ast.stmt, ...], int] | None:

@@ -306,6 +306,42 @@ def test_multiline_numeric_witnesses_remain_unknown(tmp_path, source):
     assert operations[0].data.get("derivation") == ()
 
 
+@pytest.mark.parametrize(("keyword", "body"), [("if", "return True"), ("while", "break")])
+def test_single_line_control_condition_numeric_witness_replays(tmp_path, keyword, body):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        f"def choose(nonce_λ):\n    {keyword} (nonce_λ % 4): # checked branch\n"
+        f"        {body}\n    return False\n"
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    response = decode_response(encode_response(CollectionResponse(facts)))
+    operation = next(
+        row
+        for section in response.facts.sections
+        for row in section.records
+        if row.kind == "numeric_operand"
+    )
+    assert operation.data.get("proof") == "known"
+    assert operation.data.get("value") == 4
+    assert operation.data.get("subject") == "nonce_λ"
+
+
 def test_modulo_operations_have_distinct_full_spans_and_constant_proofs():
     source = """SMALL = 16
 WIDE = 2**64
