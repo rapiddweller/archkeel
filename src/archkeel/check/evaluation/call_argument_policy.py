@@ -262,7 +262,7 @@ def _signature_has_parameter(signature: RecordData | None, name: str) -> bool:
         parameter_name = parameter.get("name") if isinstance(parameter, RecordData) else None
         if isinstance(parameter_name, str) and name in {
             parameter_name,
-            parameter_name.lstrip("*"),
+            str.lstrip(parameter_name, "*"),
         }:
             return True
     return False

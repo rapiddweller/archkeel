@@ -241,11 +241,23 @@ class CallCollector(ast.NodeVisitor):
             if isinstance(reference, ast.Name)
             for target in self._native_expression_targets(reference)
         }
+        builtin_mutator_receivers = {
+            call.args[0]
+            for call in module.all_nodes
+            if (
+                isinstance(call, ast.Call)
+                and self._is_builtin_native_mutator(call)
+                and call.args
+                and isinstance(call.args[0], ast.Name)
+                and self._native_expression_targets(call.args[0])
+            )
+        }
         self.escaped_native_targets.update(
             target
             for reference in member_escape_references(
                 module, module.all_nodes, member_surface=True, owner_exposure_only=True
             )
+            if reference not in builtin_mutator_receivers
             for target in self._native_expression_targets(reference)
         )
         self.scope_bindings: dict[ast.ClassDef | FunctionNode, frozenset[str]] = {}
@@ -632,7 +644,7 @@ class CallCollector(ast.NodeVisitor):
         ):
             return None
         binding = self.scopes.lookup(receiver, receiver.id)
-        if binding.owner is None or (binding.owner.node, receiver.id) in self.escaped_bindings:
+        if binding.owner is None or self._receiver_escaped(binding.owner, receiver.id):
             return None
         return current_method
 
@@ -641,6 +653,30 @@ class CallCollector(ast.NodeVisitor):
         while current in self.parents:
             current = self.parents[current]
             yield current
+
+    def _receiver_escaped(self, owner: Scope, name: str) -> bool:
+        aliases = {name}
+        while True:
+            if any((owner.node, alias) in self.escaped_bindings for alias in aliases):
+                return True
+            expanded = set(aliases)
+            for alias, sites in owner.bindings.items():
+                for site in sites:
+                    if not isinstance(site, ast.Name) or not isinstance(site.ctx, ast.Store):
+                        continue
+                    assignment = self.parents.get(site)
+                    value = (
+                        assignment.value
+                        if isinstance(assignment, ast.Assign | ast.AnnAssign)
+                        else None
+                    )
+                    if isinstance(value, ast.Name) and value.id in aliases:
+                        source = self.scopes.lookup(value, value.id)
+                        if source.owner is owner:
+                            expanded.add(alias)
+            if expanded == aliases:
+                return False
+            aliases = expanded
 
     def _in_direct_function_body(self, node: ast.AST, function: ast.AST) -> bool:
         current = node
@@ -695,7 +731,11 @@ class CallCollector(ast.NodeVisitor):
     ) -> tuple[str, list[str], dict[str, object]] | None:
         if isinstance(expression, ast.Name):
             binding = self.scopes.lookup(expression, expression.id)
-            if binding.uncertain or binding.owner is None:
+            if (
+                binding.uncertain
+                or binding.owner is None
+                or self._receiver_escaped(binding.owner, expression.id)
+            ):
                 return None
             sites = binding.owner.bindings.get(expression.id, ())
             if len(sites) != 1 or not isinstance(sites[0], ast.Name):
@@ -1031,7 +1071,7 @@ class CallCollector(ast.NodeVisitor):
             if (
                 binding.uncertain
                 or binding.owner is None
-                or (binding.owner.node, receiver.id) in self.escaped_bindings
+                or self._receiver_escaped(binding.owner, receiver.id)
             ):
                 return None
             sites = binding.owner.bindings.get(receiver.id, ())
@@ -1353,7 +1393,7 @@ class CallCollector(ast.NodeVisitor):
         if (
             binding.owner is None
             or binding.uncertain
-            or (binding.owner.node, receiver.id) in self.escaped_bindings
+            or self._receiver_escaped(binding.owner, receiver.id)
         ):
             return None
         sites = binding.owner.bindings.get(receiver.id, ())

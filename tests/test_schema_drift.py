@@ -35,6 +35,21 @@ def _schema(name: str) -> dict:
     return json.loads((ROOT / "schema" / name).read_bytes())
 
 
+@pytest.mark.parametrize("version", ["2.1.0", "2.2.0", "2.3.0", "2.4.0", "2.5.0"])
+@pytest.mark.parametrize("versioned", [False, True])
+def test_command_result_observation_branches_preserve_historical_formats(version, versioned):
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema))
+        for schema in (_schema(path.name) for path in (ROOT / "schema").glob("*.json"))
+    )
+    branch = _schema("command-result-9.0.schema.json")["anyOf"][2 if versioned else 1]
+    validator = Draft202012Validator(branch["properties"]["observation"], registry=registry)
+    observation = _model(git_head="a" * 40, schema_version=version)
+    validator.validate(observation)
+    observation["schema_version"] = "2.99.0"
+    assert not validator.is_valid(observation)
+
+
 @pytest.fixture(scope="module")
 def typescript_export_binding(tmp_path_factory):
     from test_typescript_collect import _facts
