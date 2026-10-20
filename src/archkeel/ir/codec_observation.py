@@ -130,8 +130,7 @@ def _uses_catalog_literal_fields(sections: tuple[Section, ...]) -> bool:
         and any(
             isinstance(attributes := record.data.get("attribute_declarations"), tuple)
             and any(
-                isinstance(attribute, RecordData)
-                and attribute.get("literal_value") is not None
+                isinstance(attribute, RecordData) and attribute.get("literal_value") is not None
                 for attribute in attributes
             )
             for record in section.records

@@ -298,8 +298,7 @@ Contract 3.8 `bounded_numeric_operand` checks selected Python `%` and `%=` sites
 by written terminal identifier suffix. Only bounded integer/Boolean literals,
 unary signs, powers and unique preceding aliases prove values. Review its source
 evidence: each operation and alias must fit a replayable single-line excerpt
-of at most 16,384 characters; `if`, `elif`, `while`, `for`, `with`, function
-and class headers are supported. Multiline
+of at most 16,384 characters; `if`/`while` conditions are supported. Multiline
 or otherwise incomplete evidence remains UNKNOWN. Review the source
 receipt and UNKNOWNs; it does not establish runtime types, reachability, entropy
 or collision freedom. Empty/missing selected scope is UNKNOWN. See

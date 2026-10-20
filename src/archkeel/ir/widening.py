@@ -109,7 +109,6 @@ _RESTRICTION_RULE_KINDS: Final = frozenset(
         "boundary_types",
         "catalog_argument",
         "catalog_use",
-        "forbidden_call_argument",
     }
 )
 
