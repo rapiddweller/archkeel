@@ -301,6 +301,26 @@ def test_selected_constructor_and_type_probe_are_separate_roles():
     ) == ["constructor", "type_probe", "type_probe"]
 
 
+def test_nested_function_cannot_reuse_outer_typed_receiver_proof():
+    module = _parsed_module(
+        "class Connection: pass\n"
+        "def outer(conn: Connection):\n"
+        "    def inner():\n"
+        "        conn.backend == 'flat'\n",
+        module="sample.core",
+    )
+
+    selectors = [
+        row
+        for row in collect_constructs([module], {})
+        if row["kind"] == "construct_selector" and row["data"]["selector_role"] == "equality"
+    ]
+
+    assert len(selectors) == 1
+    assert selectors[0]["data"]["receiver_type"] is None
+    assert selectors[0]["data"]["status"] == "unknown"
+
+
 def test_direct_class_selector_binding_cannot_be_retargeted_to_another_class():
     module = _parsed_module(
         "class Connection: pass\nclass Label: pass\ndef build():\n    Connection()\n    Label()\n",

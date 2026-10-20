@@ -11,10 +11,17 @@ unreferenced, which was wrong for every candidate it produced on Archkeel itself
 from __future__ import annotations
 
 import ast
+import sys
 from collections.abc import Sequence
 
-from archkeel.ir.facts import EvidenceClass, SourceResolution, in_scope, stable_id
-from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
+from archkeel.ir.facts import (
+    EvidenceClass,
+    SourceReferenceContext,
+    SourceResolution,
+    in_scope,
+    stable_id,
+)
+from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified, source_reference_context
 
 from .resolve import SymbolIndex, dotted_expression, resolve_name
 from .scopes import LexicalScopes
@@ -27,6 +34,12 @@ from .source import (
     location,
     unique_direct_module_bindings,
 )
+
+
+def _end_location(node: ast.AST, line: int, column: int) -> tuple[int, int]:
+    if isinstance(node, ast.expr | ast.stmt | ast.arg):
+        return node.end_lineno or line, node.end_col_offset or column + 1
+    return line, column + 1
 
 
 def _enum_member_classes(
@@ -110,8 +123,7 @@ class ReferenceCollector(ast.NodeVisitor):
                 declaration_id = stable_id("DECL", canonical_name)
         evidence_id = add_evidence(self.evidence, self.module, node)
         line, _, column = location(node)
-        end_line = getattr(node, "end_lineno", line) or line
-        end_column = getattr(node, "end_col_offset", column + 1) or column + 1
+        end_line, end_column = _end_location(node, line, column)
         scope = self.scopes.by_node[node]
         declaration_owner = scope
         while declaration_owner.parent is not None and declaration_owner.definition_id is None:
@@ -246,6 +258,16 @@ class ReferenceCollector(ast.NodeVisitor):
                 if target not in self.index.names and target not in self.index.declaration_names:
                     status = SourceResolution.PARTIALLY_RESOLVED
                     targets = []
+            line, _, column = location(node)
+            excerpt = self.module.lines[line - 1] if line <= len(self.module.lines) else ""
+            context = source_reference_context(excerpt, column, ast.unparse(node))
+            if status == SourceResolution.RESOLVED and context is not SourceReferenceContext.VALUE:
+                return {
+                    "expression_kind": "reference",
+                    "status": SourceResolution.PARTIALLY_RESOLVED,
+                    "targets": [],
+                    "expression": ast.unparse(node),
+                }
             return {
                 "expression_kind": "reference",
                 "status": status,
@@ -492,6 +514,17 @@ class ReferenceCollector(ast.NodeVisitor):
         line, _, column = location(node)
         text = annotation_text(node) or expression
         declaration = self._annotation_declaration(node)
+        source_context = source_reference_context(
+            self.evidence[evidence_id]["excerpt"], column, text
+        )
+        if source_context is None or (
+            declaration.get("reference_context") == SourceReferenceContext.ANNOTATION
+            and source_context is not SourceReferenceContext.ANNOTATION
+        ):
+            context = SourceReferenceContext.UNKNOWN
+            declaration = {}
+        else:
+            context = source_context
         self.items.append(
             classified(
                 item_id=stable_id("REF", self.module.rel_path, line, column, text),
@@ -511,9 +544,7 @@ class ReferenceCollector(ast.NodeVisitor):
                     "status": status,
                     "targets": sorted(internal),
                     "use": use,
-                    "reference_context": "annotation"
-                    if declaration.get("reference_context") == "annotation"
-                    else "value",
+                    "reference_context": context,
                     **(
                         {
                             "declaration_id": self._binding_declaration_id(local_name, local=True),
@@ -601,7 +632,11 @@ class ReferenceCollector(ast.NodeVisitor):
                 return self._operation_reference_context(parent, annotation)
             if isinstance(parent, ast.AnnAssign) and parent.annotation is current:
                 return self._scoped_annotation(parent)
-            if type(parent).__name__ == "TypeAlias" and getattr(parent, "value", None) is current:
+            if (
+                sys.version_info >= (3, 12)
+                and isinstance(parent, ast.TypeAlias)
+                and parent.value is current
+            ):
                 return self._scoped_annotation(parent)
             if isinstance(parent, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
                 return {}

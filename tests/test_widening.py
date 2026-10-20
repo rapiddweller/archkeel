@@ -171,6 +171,13 @@ def _protocol_declarations(**overrides: object) -> ProtocolDeclarationsRule:
         "pkg.a",
         "pkg.ports.Reader",
         (ProtocolDeclarationSelector("parameter", "client", "public"),),
+        "because",
+        _PROVENANCE,
+        "architect",
+    )
+    return replace(base, **overrides)
+
+
 def _source_ownership(**overrides: object) -> SourceOwnershipRule:
     base = SourceOwnershipRule(
         "R",

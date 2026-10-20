@@ -583,8 +583,8 @@ def _validate_source_ownership_vocabulary(sections: tuple[Section, ...]) -> None
     for record in references:
         if record.kind in {"value_reference", "attribute_reference"} and record.data.get(
             "reference_context"
-        ) not in {"value", "annotation"}:
-            raise ValueError("2.2.0 reference needs a typed value or annotation context")
+        ) not in {"value", "annotation", "unknown"}:
+            raise ValueError("2.2.0 reference needs a typed source context")
         if record.kind != "source_role":
             continue
         validate_source_role_vocabulary(record, version="2.2.0")

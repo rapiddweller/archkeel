@@ -1087,7 +1087,8 @@ def rule_evaluation_binding_id(
         tuple(
             (key, value)
             for key, value in sorted(receipt.data.entries)
-            if key not in {
+            if key
+            not in {
                 "call_scope_proof",
                 "numeric_scope_proof",
                 "protocol_scope_proof",
@@ -1314,7 +1315,6 @@ def _protocol_declaration_receipt_complete(observation: Observation, receipt: Re
     )
 
 
-
 def _source_ownership_receipt_complete(observation: Observation, receipt: Record) -> bool:
     proof = receipt.data.get("source_ownership_scope_proof")
     if not isinstance(proof, RecordData):
@@ -1347,7 +1347,6 @@ def _source_ownership_receipt_complete(observation: Observation, receipt: Record
             observation.schema_version,
         )
     )
-
 
 
 def rule_assessments(

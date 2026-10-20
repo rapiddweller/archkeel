@@ -5,6 +5,7 @@
 
 import ast
 import re
+import sys
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from functools import lru_cache
 from pathlib import PurePosixPath
@@ -36,6 +37,7 @@ from .facts import (
     ResolutionInput,
     SourceFacts,
     SourceProfile,
+    SourceReferenceContext,
     SourceResolution,
     SourceSectionName,
     UnresolvedTarget,
@@ -420,6 +422,7 @@ def _selector_source_receiver(
 def _selector_source_class(
     record: Record, binding: CallBinding, evidence: Mapping[str, Evidence]
 ) -> ast.expr | None:
+    matches: list[tuple[int, ast.expr]] = []
     for identifier in set(record.evidence_ids) - set(binding.evidence_ids):
         item = evidence.get(identifier)
         parsed = (
@@ -438,14 +441,12 @@ def _selector_source_class(
             if span is None or span[:2] != (item.line, item.column):
                 continue
             if record.data.get("selector_role") == "constructor" and isinstance(node, ast.Call):
-                return node.func
-            if record.data.get("selector_role") == "type_probe" and any(
-                isinstance(call, ast.Call) and len(call.args) > 1 and call.args[1] is node
-                for call in nodes
+                matches.append((span[3] - span[1], node.func))
+            elif record.data.get("selector_role") == "type_probe" and isinstance(
+                node, ast.Name | ast.Attribute
             ):
-                if isinstance(node, ast.expr):
-                    return node
-    return None
+                matches.append((span[3] - span[1], node))
+    return min(matches, key=lambda item: item[0])[1] if matches else None
 
 
 def _selector_receiver_site_matches(
@@ -496,9 +497,19 @@ def _selector_receiver_site_matches(
             if isinstance(target_module, str) and isinstance(symbol, str)
             else target_module
         )
-        return isinstance(canonical, str) and binding.target == ".".join(
-            [canonical, *reversed(suffix)]
-        )
+        if not isinstance(canonical, str):
+            return False
+        reexport_chain = imported.data.get("reexport_chain")
+        origin = imported.data.get("origin_definition")
+        target_bases: list[str] = [canonical]
+        if (
+            isinstance(origin, str)
+            and isinstance(reexport_chain, list | tuple)
+            and reexport_chain
+            and reexport_chain[-1] == origin
+        ):
+            target_bases.append(origin)
+        return any(binding.target == ".".join([base, *reversed(suffix)]) for base in target_bases)
     source_site = _selector_source_receiver(record, binding, evidence)
     expression = source_site[0] if source_site is not None else None
     if binding.origin is CallBindingOrigin.DECLARED_RECEIVER:
@@ -1938,8 +1949,8 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
         "attribute_reference",
     }:
         context = record.data.get("reference_context")
-        if context not in {"value", "annotation"}:
-            raise ValueError("reference needs a typed value or annotation context")
+        if context not in {item.value for item in SourceReferenceContext}:
+            raise ValueError("reference needs a typed source context")
     declaration = {"declaration_scope", "declaration_definition_id"}
     if fields & declaration and (
         section != SourceSectionName.REFERENCES or not declaration <= fields
@@ -1975,24 +1986,65 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
     _payload(record.data)
 
 
-def _reference_annotation_excerpt(reference: Record, evidence: Evidence) -> bool:
-    """Recognize one bounded annotated occurrence in its captured source line."""
-    try:
-        tree = ast.parse(evidence.excerpt)
-    except SyntaxError:
-        return False
+def _reference_annotation_excerpt(reference: Record, evidence: Evidence) -> bool | None:
+    """Classify an anchored occurrence; return None when its bounded excerpt is incomplete."""
     expression = reference.data.get("expression")
     if not isinstance(expression, str):
+        return None
+    context = source_reference_context(evidence.excerpt, evidence.column, expression)
+    if context is SourceReferenceContext.ANNOTATION:
+        return True
+    if context is SourceReferenceContext.VALUE:
         return False
-    for annotation in _annotation_roots(tree):
-        for node in ast.walk(annotation):
-            if (
-                isinstance(node, ast.Name | ast.Attribute)
-                and node.col_offset == evidence.column
-                and ast.unparse(node) == expression
-            ):
-                return True
-    return False
+    return None
+
+
+def source_reference_context(
+    excerpt: str, column: int, expression: str
+) -> SourceReferenceContext | None:
+    """Return a source context only when the bounded syntax anchors the expression."""
+    tree = _reference_excerpt_tree(excerpt)
+    if tree is None:
+        return None
+    matches = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Name | ast.Attribute)
+        and node.col_offset == column
+        and ast.unparse(node) == expression
+    ]
+    if not matches:
+        return None
+    annotations = {
+        id(node) for annotation in _annotation_roots(tree) for node in ast.walk(annotation)
+    }
+    return (
+        SourceReferenceContext.ANNOTATION
+        if any(id(node) in annotations for node in matches)
+        else SourceReferenceContext.VALUE
+    )
+
+
+def _reference_excerpt_tree(excerpt: str) -> ast.Module | None:
+    try:
+        return ast.parse(excerpt)
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        parsed = _parse_numeric_evidence_excerpt(excerpt)
+        if parsed is not None:
+            return ast.Module(body=list(parsed[0]), type_ignores=[])
+    stripped = excerpt.rstrip()
+    if not stripped.endswith(("(", "[", "{")):
+        return None
+    closing = {"(": ")", "[": "]", "{": "}"}[stripped[-1]]
+    for count in range(1, 9):
+        candidate = f"{excerpt}None{closing * count}"
+        try:
+            return ast.parse(candidate)
+        except (IndentationError, SyntaxError, ValueError, RecursionError):
+            parsed = _parse_numeric_evidence_excerpt(candidate)
+            if parsed is not None:
+                return ast.Module(body=list(parsed[0]), type_ignores=[])
+    return None
 
 
 def _annotation_roots(tree: ast.Module) -> tuple[ast.expr, ...]:
@@ -2004,10 +2056,8 @@ def _annotation_roots(tree: ast.Module) -> tuple[ast.expr, ...]:
             roots.append(node.returns)
         elif isinstance(node, ast.AnnAssign):
             roots.append(node.annotation)
-        elif type(node).__name__ == "TypeAlias":
-            value = getattr(node, "value", None)
-            if isinstance(value, ast.expr):
-                roots.append(value)
+        elif sys.version_info >= (3, 12) and isinstance(node, ast.TypeAlias):
+            roots.append(node.value)
     return tuple(roots)
 
 
@@ -2019,14 +2069,19 @@ def _validate_reference_contexts(
     for record in records:
         if record.kind not in {"value_reference", "attribute_reference"}:
             continue
-        if record.data.get("reference_context") != "value":
+        if record.data.get("reference_context") == SourceReferenceContext.UNKNOWN:
             continue
-        if any(
+        if record.data.get("reference_context") != SourceReferenceContext.VALUE:
+            continue
+        contexts = [
             _reference_annotation_excerpt(record, evidence[item])
             for item in record.evidence_ids
             if item in evidence
-        ):
+        ]
+        if True in contexts:
             raise ValueError("value reference contradicts its annotated source occurrence")
+        if False not in contexts:
+            raise ValueError("value reference lacks a complete bounded source occurrence")
 
 
 def validate_source_role_vocabulary(record: Record, *, version: str = "source") -> None:

@@ -24,7 +24,6 @@ def with_rule(kind: str, **fields: object) -> str:
         value["schema_version"] = "3.11.0"
     elif kind == "call_owner":
         value["schema_version"] = "3.7.0"
-<<<<<<< HEAD
     elif kind == "bounded_numeric_operand":
         value["schema_version"] = "3.8.0"
     elif kind == "protocol_declarations":

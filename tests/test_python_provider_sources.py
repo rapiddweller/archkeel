@@ -425,7 +425,7 @@ def test_import_survey_retains_file_inputs_and_coverage_without_deeper_analysis(
         "_provider_bindings",
         "resolve_reexports",
         "collect_symbols",
-        "collect_calls",
+        "collect_calls_with_resolvers",
         "collect_references",
         "collect_bindings",
         "collect_typing_signals",

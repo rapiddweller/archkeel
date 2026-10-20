@@ -446,6 +446,43 @@ def test_missing_canonical_default_owner_is_unknown_not_a_guess(tmp_path):
     assert assessment.status == "UNKNOWN"
 
 
+def test_unknown_reference_context_cannot_certify_a_source_read():
+    from archkeel.check.evaluation.rules import source_ownership_unknowns
+
+    [rule] = parse_contract(
+        _contract(
+            {
+                "mode": "retired",
+                "symbols": ["sample.consumer.PAGE_SIZE"],
+                "roles": ["read"],
+            }
+        )
+    ).rules
+    reference = {
+        "id": "REF-1",
+        "evidence_class": "FACT",
+        "area": "call_hierarchy",
+        "kind": "attribute_reference",
+        "title": "Reference PAGE_SIZE",
+        "subjects": ["sample.consumer"],
+        "evidence_ids": ["E-1"],
+        "rule_ids": [],
+        "fact_ids": [],
+        "provenance": [],
+        "data": {
+            "source_module": "sample.consumer",
+            "source_scope": "sample.consumer",
+            "expression": "PAGE_SIZE",
+            "reference_context": "unknown",
+            "status": "resolved",
+            "targets": ["sample.consumer.PAGE_SIZE"],
+        },
+    }
+    [unknown] = source_ownership_unknowns([reference], [], [rule], frozenset({"sample.consumer"}))
+    assert unknown["kind"] == "source_ownership_limit"
+    assert unknown["evidence_ids"] == ["E-1"]
+
+
 def test_alias_reads_resolve_to_the_owned_symbol_without_matching_shadowing(tmp_path):
     from archkeel.ir.decisions import rule_assessments
 
@@ -643,7 +680,7 @@ def test_source_ownership_schemas_describe_current_contract_and_saved_observatio
     assert result.observation is not None, result.diagnostics
     observation = observation_payload(result.observation)
     Draft202012Validator(
-        json.loads((ROOT / "schema/architecture-ir-decoded-2.2.schema.json").read_bytes()),
+        json.loads((ROOT / "schema/architecture-ir-decoded-2.6.schema.json").read_bytes()),
         registry=registry,
     ).validate(observation)
     Draft202012Validator.check_schema(

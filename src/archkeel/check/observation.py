@@ -844,7 +844,6 @@ def _certify_protocol_declaration_scopes(
         }
 
 
-
 def _certify_source_ownership_scopes(
     scan: ScanResult, facts: SourceFacts, contract_digest: str, declarations: list[RawRecord]
 ) -> None:
@@ -868,7 +867,6 @@ def _certify_source_ownership_scopes(
                 inventory_binding_id, parse_record(receipt), SCHEMA_VERSION
             ),
         }
-
 
 
 def _certify_dependency_scopes(

@@ -644,6 +644,7 @@ class ConstructCollector(ast.NodeVisitor):
         comparisons: _LiteralComparisons,
         symbol_index: SymbolIndex | None = None,
         call_collector: SelectorReceiverResolver | None = None,
+        imports: Sequence[RawRecord] = (),
     ) -> None:
         self.module = module
         self.evidence = evidence
@@ -652,6 +653,7 @@ class ConstructCollector(ast.NodeVisitor):
         self.comparisons = comparisons
         self.symbol_index = symbol_index
         self.call_collector = call_collector
+        self.imports = imports
         self.inherits_stack: list[bool] = []
         self.scopes = comparisons.scopes
         self.parents = {
@@ -842,16 +844,15 @@ class ConstructCollector(ast.NodeVisitor):
         self.generic_visit(node)
 
     def _receiver_type(self, node: ast.expr) -> str | None:
-        if not isinstance(node, ast.Name):
+        if not isinstance(node, ast.Name) or not self.receiver_types:
             return None
-        for scope in reversed(self.receiver_types):
-            if node.id in scope:
-                return scope[node.id]
-        return None
+        return self.receiver_types[-1].get(node.id)
 
     def _parameter_receiver(self, node: ast.expr) -> bool:
-        return isinstance(node, ast.Name) and any(
-            node.id in parameters for parameters in reversed(self.parameter_receivers)
+        return (
+            isinstance(node, ast.Name)
+            and bool(self.parameter_receivers)
+            and node.id in self.parameter_receivers[-1]
         )
 
     def _receiver_binding(
@@ -859,32 +860,31 @@ class ConstructCollector(ast.NodeVisitor):
     ) -> tuple[str | None, dict[str, object] | None, str | None, list[str]]:
         if expression is None:
             return None, None, None, []
-        if isinstance(expression, ast.Name):
-            for annotations in reversed(self.parameter_annotations):
-                declared = annotations.get(expression.id)
-                if declared is not None:
-                    target, annotation = declared
-                    annotation_evidence = add_evidence(self.evidence, self.module, annotation)
-                    support_evidence = [annotation_evidence]
-                    if self.symbol_index is not None:
-                        for qualified_name in (self.scope_stack[-1], target):
-                            declaration = self.symbol_index.binding_declarations.get(qualified_name)
-                            if (
-                                declaration is not None
-                                and declaration["data"].get("module") == self.module.module
-                            ):
-                                support_evidence.extend(declaration["evidence_ids"])
-                    support_evidence = sorted(set(support_evidence))
-                    return (
-                        target,
-                        {
-                            "origin": CallBindingOrigin.DECLARED_RECEIVER.value,
-                            "target": target,
-                            "evidence_ids": support_evidence,
-                        },
-                        expression.id,
-                        support_evidence,
-                    )
+        if isinstance(expression, ast.Name) and self.parameter_annotations:
+            declared = self.parameter_annotations[-1].get(expression.id)
+            if declared is not None:
+                target, annotation = declared
+                annotation_evidence = add_evidence(self.evidence, self.module, annotation)
+                support_evidence = [annotation_evidence]
+                if self.symbol_index is not None:
+                    for qualified_name in (self.scope_stack[-1], target):
+                        declaration = self.symbol_index.binding_declarations.get(qualified_name)
+                        if (
+                            declaration is not None
+                            and declaration["data"].get("module") == self.module.module
+                        ):
+                            support_evidence.extend(declaration["evidence_ids"])
+                support_evidence = sorted(set(support_evidence))
+                return (
+                    target,
+                    {
+                        "origin": CallBindingOrigin.DECLARED_RECEIVER.value,
+                        "target": target,
+                        "evidence_ids": support_evidence,
+                    },
+                    expression.id,
+                    support_evidence,
+                )
         if self.call_collector is None:
             return self._receiver_type(expression), None, None, []
         call_site = use if isinstance(use, ast.Call) else expression
@@ -976,6 +976,7 @@ class ConstructCollector(ast.NodeVisitor):
                     receiver_evidence = list(declaration["evidence_ids"])
                 else:
                     receiver_evidence = self._selector_import_evidence(node, role, receiver)
+                receiver_evidence = sorted(set(receiver_evidence))
                 receiver_binding = {
                     "origin": CallBindingOrigin.DIRECT.value,
                     "target": receiver,
@@ -1057,15 +1058,11 @@ class ConstructCollector(ast.NodeVisitor):
                 return False
 
     def _selector_import_evidence(self, node: ast.AST, role: str, target: str) -> list[str]:
-        if not isinstance(node, ast.Call):
-            return []
-        expression = (
-            node.func
-            if role == "constructor"
-            else node.args[1]
-            if role == "type_probe" and len(node.args) > 1
-            else None
-        )
+        expression: ast.expr | None = None
+        if role == "constructor" and isinstance(node, ast.Call):
+            expression = node.func
+        elif role == "type_probe":
+            expression = node if isinstance(node, ast.expr) else None
         if expression is None:
             return []
         suffix: list[str] = []
@@ -1076,12 +1073,14 @@ class ConstructCollector(ast.NodeVisitor):
         if not isinstance(root, ast.Name):
             return []
         matches = [
-            statement
-            for statement, aliases in self.module.import_aliases.items()
-            if aliases.get(root.id) is not None
-            and target == ".".join([aliases[root.id].target, *reversed(suffix)])
+            item
+            for item in self.imports
+            if item["data"].get("source_module") == self.module.module
+            and item["data"].get("binding") == root.id
+            and isinstance(item["data"].get("origin_definition"), str)
+            and target == ".".join([item["data"]["origin_definition"], *reversed(suffix)])
         ]
-        return [add_evidence(self.evidence, self.module, matches[0])] if len(matches) == 1 else []
+        return list(matches[0]["evidence_ids"]) if len(matches) == 1 else []
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         qualified = f"{self.scope_stack[-1]}.{node.name}"
@@ -1516,7 +1515,9 @@ def collect_constructs(
         context.enum_member_names = enum_member_names
         context.origins = origins
         context.collections = _literal_collections(context)
-        collector = ConstructCollector(module, evidence, context, symbol_index, call_collector)
+        collector = ConstructCollector(
+            module, evidence, context, symbol_index, call_collector, imports
+        )
         collector.local_classes = known_classes
         collector.local_members = _class_member_names(module)
         collector.visit(module.tree)

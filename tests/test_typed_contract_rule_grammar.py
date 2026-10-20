@@ -44,7 +44,6 @@ RULES = {
         {"source": "sample", "class_kinds": ["enum"], "allowed_sources": ["sample"]},
     ),
     "boundary_types": ("BoundaryTypesRule", {"source": "sample"}),
-<<<<<<< HEAD
     "protocol_declarations": (
         "ProtocolDeclarationsRule",
         {

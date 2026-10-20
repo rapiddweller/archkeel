@@ -55,7 +55,12 @@ from .facts import (
 from .facts import (
     RawJson as RawJson,
 )
-from .facts_validation import validate_source_facts
+from .facts_validation import (
+    source_reference_context as source_reference_context,
+)
+from .facts_validation import (
+    validate_source_facts as validate_source_facts,
+)
 from .protocol import (
     PYTHON_IMPORT_SURVEY_SECTIONS,
     CollectionRequest,

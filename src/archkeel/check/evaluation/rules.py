@@ -1573,8 +1573,40 @@ def source_ownership_unknowns(
         if not isinstance(rule, SourceOwnershipRule):
             continue
         selected = set(rule.symbols) | set(rule.parameters)
-        for item, data, role, name, targets, evidence_ids in candidates:
-            source_module = data.get("source_module")
+        if "read" in rule.roles:
+            for item in references:
+                data = item["data"]
+                targets = _string_targets(data.get("targets"))
+                source_module = data.get("source_module")
+                matches = set(targets) & selected
+                if (
+                    item["kind"] in {"value_reference", "attribute_reference"}
+                    and data.get("reference_context") == "unknown"
+                    and matches
+                    and isinstance(source_module, str)
+                    and in_scope(source_module, rule.source)
+                    and (source_modules is None or source_module in source_modules)
+                ):
+                    unknowns.append(
+                        classified(
+                            item_id=stable_id("SOURCE-OWNERSHIP-LIMIT", rule.id, item["id"]),
+                            evidence_class=EvidenceClass.UNKNOWN,
+                            area="source_architecture",
+                            kind="source_ownership_limit",
+                            title="Cannot classify source-reference context safely",
+                            subjects=sorted(matches),
+                            evidence_ids=list(item["evidence_ids"]),
+                            rule_ids=[rule.id],
+                            fact_ids=[item["id"]],
+                            data={
+                                "source": rule.source,
+                                "role": "read",
+                                "candidates": sorted(matches),
+                            },
+                        )
+                    )
+        for item, candidate_data, role, name, targets, evidence_ids in candidates:
+            source_module = candidate_data.get("source_module")
             matched = (
                 isinstance(name, str)
                 and name in selected
@@ -1584,7 +1616,7 @@ def source_ownership_unknowns(
                 role in rule.roles
                 and matched
                 and isinstance(source_module, str)
-                and data.get("status") != "resolved"
+                and candidate_data.get("status") != "resolved"
                 and in_scope(source_module, rule.source)
                 and (source_modules is None or source_module in source_modules)
             ):

@@ -67,6 +67,7 @@ def test_source_reference_declaration_identity_pair(details, accepted):
         "status": "resolved",
         "targets": ["project.store"],
         "use": "value",
+        "reference_context": "annotation",
         **details,
     }
     section = next(
@@ -454,7 +455,52 @@ def test_completed_exchange_stops_detached_stdio_worker(tmp_path: Path, exit_kin
                     raise
 
 
-def test_reference_context_cannot_reclassify_an_annotated_occurrence(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "statement",
+    (
+        "def run(arg: Keys.PAGE_SIZE): pass",
+        "def run() -> Keys.PAGE_SIZE: pass",
+        "value: Keys.PAGE_SIZE = 1",
+    ),
+)
+def test_reference_context_cannot_reclassify_an_annotated_occurrence(
+    tmp_path: Path, statement: str
+) -> None:
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.protocol import PythonSettings
+
+    package = tmp_path / "sample"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    (package / "catalog.py").write_text("from enum import Enum\nclass Keys(Enum): PAGE_SIZE = 1\n")
+    (package / "caller.py").write_text(f"from .catalog import Keys\n{statement}\n")
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    reference = next(
+        record
+        for section in payload["facts"]["sections"]
+        if section["name"] == "references"
+        for record in section["records"]
+        if record["kind"] == "attribute_reference"
+        and record["data"].get("expression") == "Keys.PAGE_SIZE"
+    )
+    assert reference["data"]["reference_context"] == "annotation"
+    reference["data"]["reference_context"] = "value"
+    reference["data"].pop("declaration_scope", None)
+    reference["data"].pop("declaration_definition_id", None)
+    with pytest.raises(
+        ProtocolError, match="annotated source occurrence|complete bounded source occurrence"
+    ):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_reference_context_rejects_an_incomplete_multiline_witness(tmp_path: Path) -> None:
     from archkeel.analyzer.python.collect import collect
     from archkeel.ir.protocol import PythonSettings
 
@@ -481,9 +527,69 @@ def test_reference_context_cannot_reclassify_an_annotated_occurrence(tmp_path: P
         if record["kind"] == "attribute_reference"
         and record["data"].get("expression") == "Keys.PAGE_SIZE"
     )
-    assert reference["data"]["reference_context"] == "annotation"
     reference["data"]["reference_context"] = "value"
-    reference["data"].pop("declaration_scope")
-    reference["data"].pop("declaration_definition_id")
-    with pytest.raises(ProtocolError, match="annotated source occurrence"):
+    reference["data"].pop("declaration_scope", None)
+    reference["data"].pop("declaration_definition_id", None)
+    evidence_ids = set(reference["evidence_ids"])
+    for section in ("evidence", "candidate_evidence"):
+        for item in payload["facts"][section]:
+            if item["id"] in evidence_ids:
+                item["excerpt"] = "    arg: Keys.PAGE_SIZE,"
+    with pytest.raises(ProtocolError, match="complete bounded source occurrence"):
         decode_response(json.dumps(payload).encode())
+    reference["data"]["reference_context"] = "unknown"
+    assert decode_response(json.dumps(payload).encode()).facts
+
+
+@pytest.mark.parametrize(
+    "excerpt,expected",
+    (
+        ("def run() -> Keys.PAGE_SIZE: pass", True),
+        ("value: Keys.PAGE_SIZE = 1", True),
+        pytest.param(
+            "type Alias = Keys.PAGE_SIZE",
+            True,
+            marks=pytest.mark.skipif(
+                sys.version_info < (3, 12), reason="PEP 695 requires Python 3.12"
+            ),
+        ),
+        ("    arg: Keys.PAGE_SIZE,", None),
+    ),
+)
+def test_reference_context_excerpt_requires_a_complete_occurrence(excerpt, expected) -> None:
+    from types import SimpleNamespace
+
+    from archkeel.ir.facts_validation import _reference_annotation_excerpt
+
+    reference = SimpleNamespace(data=SimpleNamespace(get=lambda key: "Keys.PAGE_SIZE"))
+    evidence = SimpleNamespace(excerpt=excerpt, column=excerpt.index("Keys.PAGE_SIZE"))
+    assert _reference_annotation_excerpt(reference, evidence) is expected
+
+
+def test_reference_context_accepts_a_complete_value_occurrence(tmp_path: Path) -> None:
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.protocol import PythonSettings
+
+    package = tmp_path / "sample"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    (package / "catalog.py").write_text("from enum import Enum\nclass Keys(Enum): PAGE_SIZE = 1\n")
+    (package / "caller.py").write_text("from .catalog import Keys\nvalue = Keys.PAGE_SIZE\n")
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    reference = next(
+        record
+        for section in payload["facts"]["sections"]
+        if section["name"] == "references"
+        for record in section["records"]
+        if record["kind"] == "attribute_reference"
+        and record["data"].get("expression") == "Keys.PAGE_SIZE"
+    )
+    assert reference["data"]["reference_context"] == "value"
+    decode_response(json.dumps(payload).encode())

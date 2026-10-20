@@ -99,6 +99,13 @@
             "overloaded": {
               "type": "boolean"
             },
+            "reference_context": {
+              "enum": [
+                "value",
+                "annotation",
+                "unknown"
+              ]
+            },
             "reexport_candidates": {
               "type": "array",
               "items": {
