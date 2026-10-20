@@ -204,10 +204,11 @@ def test_reference_annotation_ownership_schema(details, accepted):
     assert Draft202012Validator(data).is_valid(reference) == accepted
 
 
-def test_local_definition_reference_schema_accepts_only_typed_ownership_fields():
-    data = _schema("architecture-ir-python-decoded-2.7.schema.json")["properties"]["references"][
-        "items"
-    ]["allOf"][1]["properties"]["data"]
+@pytest.mark.parametrize("version", ["2.7", "2.8"])
+def test_local_definition_reference_schema_accepts_only_typed_ownership_fields(version):
+    data = _schema(f"architecture-ir-python-decoded-{version}.schema.json")["properties"][
+        "references"
+    ]["items"]["allOf"][1]["properties"]["data"]
     reference = {
         "source_scope": "sample.consumer",
         "source_module": "sample.consumer",
@@ -233,8 +234,9 @@ def test_local_definition_reference_schema_accepts_only_typed_ownership_fields()
         assert not validator.is_valid(malformed)
 
 
-def test_source_role_schema_accepts_unresolved_transfers_only_for_roles():
-    profile = _schema("architecture-ir-python-decoded-2.7.schema.json")
+@pytest.mark.parametrize("version", ["2.7", "2.8"])
+def test_source_role_schema_accepts_unresolved_transfers_only_for_roles(version):
+    profile = _schema(f"architecture-ir-python-decoded-{version}.schema.json")
     registry = Registry().with_resources(
         (schema["$id"], Resource.from_contents(schema))
         for schema in (_schema(path.name) for path in SCHEMA_FILES)

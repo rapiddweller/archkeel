@@ -646,7 +646,8 @@
                   "status": {
                     "enum": [
                       "resolved",
-                      "partially_resolved"
+                      "partially_resolved",
+                      "unresolved"
                     ]
                   },
                   "targets": {
@@ -710,13 +711,42 @@
                     "type": "string",
                     "minLength": 1
                   },
+                  "declaration_role": {
+                    "const": "definition"
+                  },
+                  "declaration_evidence_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
+                  },
+                  "declaration_status": {
+                    "enum": [
+                      "resolved",
+                      "partially_resolved",
+                      null
+                    ]
+                  },
+                  "local_source_binding": {
+                    "type": "boolean"
+                  },
+                  "transfer_kind": {
+                    "enum": [
+                      "dictionary_value",
+                      "dictionary_lambda_call",
+                      "unsupported_dictionary_value"
+                    ]
+                  },
                   "line": {
                     "type": "integer",
                     "minimum": 1
                   },
                   "column": {
                     "type": "integer",
-                    "minimum": 1
+                    "minimum": 0
                   },
                   "end_line": {
                     "type": "integer",
@@ -822,9 +852,24 @@
               }
             },
             "else": {
+              "not": {
+                "properties": {
+                  "data": {
+                    "required": [
+                      "transfer_kind"
+                    ]
+                  }
+                }
+              },
               "properties": {
                 "data": {
                   "properties": {
+                    "status": {
+                      "enum": [
+                        "resolved",
+                        "partially_resolved"
+                      ]
+                    },
                     "targets": {
                       "minItems": 1
                     }
