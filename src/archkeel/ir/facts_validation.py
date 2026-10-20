@@ -1057,18 +1057,52 @@ def _numeric_module_use_scope(
     if owner_result is None:
         return False
     owner, line_offset = owner_result
-    if (
-        _numeric_operation_in_owner(owner, operation, scope_evidence, line_offset, owner_name)
-        is None
-    ):
+    operation_node = _numeric_operation_in_owner(
+        owner, operation, scope_evidence, line_offset, owner_name
+    )
+    if operation_node is None:
         return False
-    is_method_scope = operation.data.get("owner") != owner_name and symbol.kind == "class"
+    is_method_scope = (operation.data.get("owner") != owner_name and symbol.kind == "class") or (
+        isinstance(owner, ast.ClassDef)
+        and _numeric_anonymous_body_skips_class(owner, operation_node)
+    )
     if is_method_scope:
         return True
     return not _numeric_other_binding(owner, name) and not any(
         isinstance(node, ast.Name) and node.id == name and isinstance(node.ctx, ast.Store | ast.Del)
         for node in _numeric_lexical_scope_nodes(owner)
     )
+
+
+def _numeric_anonymous_body_skips_class(owner: ast.ClassDef, operation: ast.AST) -> bool:
+    parents = {
+        child: parent for parent in ast.walk(owner) for child in ast.iter_child_nodes(parent)
+    }
+    node = operation
+    while node is not owner:
+        parent = parents.get(node)
+        if parent is None:
+            return False
+        if isinstance(parent, ast.Lambda) and node is parent.body:
+            return True
+        if isinstance(parent, ast.ListComp | ast.SetComp | ast.GeneratorExp | ast.DictComp):
+            if parent.generators and not _numeric_is_within(
+                operation, parent.generators[0].iter, parents
+            ):
+                return True
+        node = parent
+    return False
+
+
+def _numeric_is_within(
+    node: ast.AST, ancestor: ast.AST, parents: Mapping[ast.AST, ast.AST]
+) -> bool:
+    while node is not ancestor:
+        parent = parents.get(node)
+        if parent is None:
+            return False
+        node = parent
+    return True
 
 
 def _numeric_owner_evidence_matches(

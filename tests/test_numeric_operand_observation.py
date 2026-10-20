@@ -1093,6 +1093,57 @@ def test_module_alias_proof_rejects_every_rebinding_form(source):
     assert operation["data"]["derivation"] == []
 
 
+def test_class_anonymous_scope_cannot_retarget_module_alias_to_class_binding(tmp_path):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    source = (
+        "WIDTH = 4\n"
+        "class Holder:\n"
+        "    WIDTH = 8\n"
+        "    choose = lambda job_nonce: job_nonce % WIDTH\n"
+    )
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(source)
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    records = [record for section in payload["facts"]["sections"] for record in section["records"]]
+    operation = next(record for record in records if record["kind"] == "numeric_operand")
+    class_assignment = next(
+        evidence
+        for evidence in payload["facts"]["evidence"]
+        if evidence["line"] == 3 and evidence["excerpt"].strip() == "WIDTH = 8"
+    )
+    origin = operation["data"]["derivation"][0]
+    origin.update(
+        evidence_id=class_assignment["id"],
+        value=8,
+        expression="8",
+        line=3,
+        column=4,
+        end_line=3,
+        end_column=13,
+    )
+    operation["data"]["value"] = 8
+    operation["evidence_ids"] = sorted({*operation["evidence_ids"], class_assignment["id"]})
+
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
+
+
 def test_local_alias_shadowing_and_oversized_direct_integer_are_unknown():
     source = (
         """\
