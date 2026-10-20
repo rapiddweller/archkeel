@@ -35,10 +35,6 @@ from archkeel.ir.facts import (
 )
 from archkeel.ir.facts import call_arguments as _call_arguments
 from archkeel.ir.facts import call_binding as _call_binding
-from archkeel.ir.facts_validation import (
-    _validate_source_role_identities,
-    validate_source_role_vocabulary,
-)
 from archkeel.ir.model import (
     CLASSIFIED_SECTIONS,
     EVIDENCE_FIELDS,
@@ -64,6 +60,8 @@ from archkeel.ir.profiles import (
 from .facts_codec import parse_evidence as parse_evidence
 from .facts_codec import parse_record as parse_record
 from .facts_codec import record_payload as _record_payload
+from .facts_codec import validate_source_role_identities as _validate_source_role_identities
+from .facts_codec import validate_source_role_vocabulary as validate_source_role_vocabulary
 
 
 class _ObservationVersion(StrEnum):
