@@ -2730,10 +2730,31 @@ def _validate_local_definition_reference(
         for item in owner_records
         if item.id == owner_id and item.kind in {"function", "method"}
     ]
+    owner_witnessed = _local_declaration_owner_witnessed(
+        reference, owner, owner_id, owner_matches, witness, evidence
+    )
     if not _local_definition_witness_matches(
-        target, declaration_id, reference, witness, use, owner, owner_matches, evidence
+        target, declaration_id, reference, witness, use, owner, owner_witnessed
     ):
         raise ValueError("local definition witness disagrees with its declaration identity")
+
+
+def _local_declaration_owner_witnessed(
+    reference: Record,
+    owner: object,
+    owner_id: object,
+    owner_matches: list[Record],
+    witness: Evidence,
+    evidence: Mapping[str, Evidence],
+) -> bool:
+    if len(owner_matches) == 1:
+        return any(
+            evidence[identity].file == witness.file
+            and evidence[identity].line <= witness.line <= evidence[identity].end_line
+            for identity in owner_matches[0].evidence_ids
+        )
+    module = reference.data.get("source_module")
+    return isinstance(module, str) and owner == module and owner_id == stable_id("MOD", module)
 
 
 def _local_definition_witness_matches(
@@ -2743,8 +2764,7 @@ def _local_definition_witness_matches(
     witness: Evidence,
     use: Evidence,
     owner: object,
-    owner_matches: list[Record],
-    evidence: Mapping[str, Evidence],
+    owner_witnessed: bool,
 ) -> bool:
     name = target.rpartition(".")[2]
     suffix = witness.excerpt.encode("utf-8")[witness.column :].decode("utf-8", errors="ignore")
@@ -2755,12 +2775,7 @@ def _local_definition_witness_matches(
         and witness.file == use.file
         and re.match(rf"{re.escape(name)}\b", suffix) is not None
         and (owner == declaration_scope or nested)
-        and len(owner_matches) == 1
-        and any(
-            evidence[identity].file == witness.file
-            and evidence[identity].line <= witness.line <= evidence[identity].end_line
-            for identity in owner_matches[0].evidence_ids
-        )
+        and owner_witnessed
         and reference.data.get("declaration_status")
         in {SourceResolution.RESOLVED, SourceResolution.PARTIALLY_RESOLVED}
     )

@@ -547,6 +547,24 @@ def test_same_named_local_declarations_cannot_exchange_read_evidence(tmp_path):
         parse_observation(changed_anchor)
 
 
+def test_module_comprehension_local_uses_the_module_declaration_anchor(tmp_path):
+    contract = _contract(
+        {"mode": "retired", "symbols": ["sample.consumer.MAPPING"], "roles": ["definition"]}
+    )
+    contract["components"] = [_component("all", ["sample"])]
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/consumer.py": (
+                "MAPPING = {value: position for position, value in enumerate(VALUES)}\n"
+            ),
+        },
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+
+
 def test_default_and_fallback_targets_need_matching_reference_evidence(tmp_path):
     import copy
 
