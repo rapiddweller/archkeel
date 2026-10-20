@@ -254,7 +254,10 @@ def _signature_has_parameter(signature: RecordData | None, name: str) -> bool:
         return False
     for parameter in parameters:
         parameter_name = parameter.get("name") if isinstance(parameter, RecordData) else None
-        if isinstance(parameter_name, str) and parameter_name in {name, f"*{name}", f"**{name}"}:
+        if isinstance(parameter_name, str) and name in {
+            parameter_name,
+            parameter_name.lstrip("*"),
+        }:
             return True
     return False
 
@@ -268,7 +271,9 @@ def _violation(
 ) -> RawRecord:
     data = call["data"]
     return classified(
-        item_id=stable_id("VIOL-CALL-ARGUMENT", scope, rule.id, call["id"], rule.parameter),
+        item_id=stable_id(
+            "VIOL-CALL-ARGUMENT", scope, rule.id, call["id"], rule.parameter, *evidence_ids
+        ),
         evidence_class=EvidenceClass.VIOLATION,
         area="calls",
         kind="forbidden_call_argument",
