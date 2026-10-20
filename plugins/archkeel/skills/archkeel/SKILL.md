@@ -276,8 +276,16 @@ Use `call_owner` only where its installed observer proves the complete selected
 call scope. Its initial plain-function/annotated-parameter support does not prove
 external, constructed or stored receivers, arguments or guards. Check the rule
 receipt and supported forms before retiring any method-name scanner. New observations
-use wire2.1; older readers must reject them rather than omit the new rule.
+use wire 2.2; older readers must reject them rather than omit the new rule.
 The new reader continues to accept historical1.2/1.3/2.0 observations.
+
+Contract 3.8 `bounded_numeric_operand` checks selected Python `%` and `%=` sites
+by written terminal identifier suffix. Only bounded integer/Boolean literals,
+unary signs, powers and unique preceding aliases prove values. Review its source
+receipt and UNKNOWNs; it does not establish runtime types, reachability, entropy
+or collision freedom. Empty/missing selected scope is UNKNOWN. See
+[AD-246](../../docs/architecture/decisions/ad-246-bounded-numeric-operand.md)
+and [rule limits](../../docs/known-limits.md).
 
 ## Daily loop
 
