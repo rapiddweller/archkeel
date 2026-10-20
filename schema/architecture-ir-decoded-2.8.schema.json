@@ -80,7 +80,7 @@
       "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/cycles"
     },
     "calls": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.8.0#/properties/calls"
+      "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/calls"
     },
     "typing_signals": {
       "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/typing_signals"
