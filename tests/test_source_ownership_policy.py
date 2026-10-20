@@ -603,7 +603,7 @@ def test_alias_reads_resolve_to_the_owned_symbol_without_matching_shadowing(tmp_
         for item in rule_assessments(result.observation, undecided_by_rule={})
         if item.id == "ownership"
     ]
-    assert assessment.status == "FAIL" and assessment.count == 1
+    assert assessment.status == "FAIL" and assessment.count == 1 and assessment.evaluation_proven
 
 
 def test_same_named_local_declarations_cannot_exchange_read_evidence(tmp_path):
@@ -908,4 +908,4 @@ def test_mounted_ownership_scope_does_not_leak_to_sibling_modules(tmp_path):
         for item in rule_assessments(result.observation, undecided_by_rule={})
         if item.id == "core:inside_ownership"
     ]
-    assert assessment.status == "FAIL" and assessment.count == 1
+    assert assessment.status == "FAIL" and assessment.count == 1 and assessment.evaluation_proven
