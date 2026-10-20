@@ -1,8 +1,8 @@
 {
   "after_baseline_digest": "927d1a4f4aba9d73b8e5e561969ad4fb553857f0054752dedefaee94780f0b2c",
-  "after_digest": "ebcb0a0f2c02a86077b0f339ce558822f273414610e6ff3685e276ea456c55c1",
+  "after_digest": "50ce5d83cb6a9edcdf34c078cc0fe4749ca1ee78023c11153eedcfb9466f1029",
   "before_baseline_digest": "927d1a4f4aba9d73b8e5e561969ad4fb553857f0054752dedefaee94780f0b2c",
-  "before_digest": "bf55e52f2f5492755793ca042ec5ba55cf16f7eb6ea780d195f7c029b46a921c",
+  "before_digest": "043e40c6de10deef683e8cf4fb60aa22a9263de933f463e3503f4af978bb4b4b",
   "decided_by": "architect",
   "rationale": "Expose the lossless string interner as a precise facts-codec interface shared by source-facts V5 and the observation codec, preserving all prior wire behavior and measurement ceilings.",
   "schema_version": "2.0.0"
