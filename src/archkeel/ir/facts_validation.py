@@ -3611,8 +3611,10 @@ def _source_helper_target_matches_call(
         or not _call_expression_matches_source(record, expression, evidence)
     ):
         return False
-    target_module, _, target_name = target.rpartition(".")
-    expression_name = expression.rpartition(".")[-1]
+    target_name_text: str = target
+    expression_text: str = expression
+    target_module, _, target_name = target_name_text.rpartition(".")
+    expression_name = expression_text.rpartition(".")[-1]
     if target_module == source_module:
         return target_name == expression_name
     for imported in imports:
@@ -3773,8 +3775,9 @@ def _guard_context(
 ) -> tuple[ast.FunctionDef | ast.AsyncFunctionDef, int] | None:
     if not item.excerpt or len(item.excerpt) > MAX_NUMERIC_EVIDENCE_CHARS:
         return None
-    indentation = item.excerpt[: len(item.excerpt) - len(item.excerpt.lstrip(" \t"))]
-    column_offset = len(indentation.encode("utf-8"))
+    excerpt: str = item.excerpt
+    indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+    column_offset = len(indentation)
     try:
         roots = ast.parse(dedent(item.excerpt)).body
     except (IndentationError, SyntaxError, ValueError, RecursionError):
@@ -3849,7 +3852,11 @@ def _guard_context_proves_path(
         call_evidence.line - context_evidence.line + 1,
         call_evidence.column - column_offset,
     )
-    for path in _guarded_paths_by_site(function, name, receiver).get(local_call, ()):
+    paths_by_site: dict[tuple[int, int], tuple[GuardedCallPath, ...]] = _guarded_paths_by_site(
+        function, name, receiver
+    )
+    paths = paths_by_site[local_call] if local_call in paths_by_site else ()
+    for path in paths:
         if (
             (context_evidence.line + path.line - 1, column_offset + path.column)
             == (call_evidence.line, call_evidence.column)
@@ -3887,7 +3894,7 @@ def _guard_context_binds_call(
             )
             for item in function_contexts
         )
-        or scope.rpartition(".")[2] != function.name
+        or _qualified_name_parts(scope)[2] != function.name
         or not isinstance(expression, str)
         or context_evidence.file != call_evidence.file
     ):
@@ -3934,7 +3941,11 @@ def _guard_condition_owner_binds_context(
     if expected_owner is None or owner != expected_owner:
         return False
     if kind == "member":
-        member_evidence = dict(context_fact[7]).get(name)
+        member_evidence = None
+        for member_name, evidence_ids in context_fact[7]:
+            if member_name == name:
+                member_evidence = evidence_ids
+                break
         return member_evidence is not None and set(condition_evidence_ids) == set(member_evidence)
     return _guard_parameter_evidence_matches(
         name,
@@ -3980,7 +3991,8 @@ def _guard_parameter_evidence_matches(
 
 @lru_cache(maxsize=256)
 def _guard_context_source_lines(context: Evidence) -> tuple[str, ...]:
-    return tuple(context.excerpt.splitlines())
+    excerpt: str = context.excerpt
+    return tuple(excerpt.splitlines())
 
 
 @lru_cache(maxsize=256)
@@ -4013,8 +4025,16 @@ def _guarded_paths_by_site(
 ) -> dict[tuple[int, int], tuple[GuardedCallPath, ...]]:
     paths: dict[tuple[int, int], list[GuardedCallPath]] = {}
     for path in guarded_call_paths(function, name, receiver_name=receiver):
-        paths.setdefault((path.line, path.column), []).append(path)
+        site = (path.line, path.column)
+        site_paths: list[GuardedCallPath] = paths.setdefault(site, [])
+        site_paths.append(path)
     return {site: tuple(items) for site, items in paths.items()}
+
+
+def _qualified_name_parts(value: str) -> tuple[str, str, str]:
+    """Split one statically proven qualified scope at its final separator."""
+    owner, separator, name = value.rpartition(".")
+    return owner, separator, name
 
 
 def _guard_evidence_matches_context(

@@ -79,7 +79,7 @@
       ],
       "responsibilities": [
         "Strictly decode, validate and encode source facts and process envelopes.",
-"Own the bounded source path grammar shared by collection and guarded-effect replay.",
+        "Own the bounded source path grammar shared by collection and guarded-effect replay.",
         "Intern lossless JSON strings for source and observation wire encodings."
       ],
       "forbidden_responsibilities": [
@@ -8821,6 +8821,20 @@
           "parent_id": "TARGET-FACTS-CODEC",
           "responsibilities": [
             "Adapt immutable source facts to the existing process wire format."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/decisions/ad-250-bounded-guarded-effect-ownership.md"
+          ],
+          "id": "GUARDED-CALL-PATH-GRAMMAR",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.guard_paths",
+          "parent_id": "TARGET-FACTS-CODEC",
+          "responsibilities": [
+            "Define the bounded source path grammar shared by collection and guarded-effect replay."
           ]
         },
         {
