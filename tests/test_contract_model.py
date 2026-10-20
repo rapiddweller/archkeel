@@ -627,6 +627,8 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
                     "catalog": "shop.model.OptionKey",
                     "overlays": ["shop.app.CustomOption"],
                     "member": "PAGE_SIZE",
+                    "target": "shop.model.Store.read_option",
+                    "parameter": "key",
                     "rationale": "Use every declared option.",
                     "provenance": _PROVENANCE,
                     "decided_by": "architect",

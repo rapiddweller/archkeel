@@ -1684,12 +1684,15 @@ def _parse_catalog_use(raw: RawJson, label: str) -> CatalogUseRule:
     item, item_id, provenance = _contract_record(
         raw,
         {"kind", "source", "catalog", "rationale", "decided_by"},
-        {"overlays", "member", "source_match"},
+        {"overlays", "member", "source_match", "target", "parameter"},
         label,
     )
     member = item.get("member")
     if member is not None:
         member = _nonempty(member, f"{label}.member")
+    target, parameter = item.get("target"), item.get("parameter")
+    if (target is None) != (parameter is None):
+        raise ValueError(f"{label}.target and {label}.parameter must be provided together")
     return CatalogUseRule(
         item_id,
         ArchitectureRuleKind.CATALOG_USE,
@@ -1703,6 +1706,8 @@ def _parse_catalog_use(raw: RawJson, label: str) -> CatalogUseRule:
         SelectorMatch(
             _string(item.get("source_match", SelectorMatch.PREFIX), f"{label}.source_match")
         ),
+        _nonempty(target, f"{label}.target") if target is not None else None,
+        _nonempty(parameter, f"{label}.parameter") if parameter is not None else None,
     )
 
 

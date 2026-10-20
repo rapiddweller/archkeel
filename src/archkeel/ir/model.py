@@ -550,6 +550,8 @@ class CatalogUseRule(ArchitectureRuleGrammar):
     decided_by: DecisionMaker
     member: str | None = None
     source_match: SelectorMatch = SelectorMatch.PREFIX
+    target: str | None = None
+    parameter: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1228,6 +1230,8 @@ def _catalog_references(
         ("overlays", rule.overlays, True),
     ]
     if isinstance(rule, CatalogArgumentRule):
+        named.insert(1, ("target", (rule.target,), True))
+    elif rule.target is not None:
         named.insert(1, ("target", (rule.target,), True))
     return _references(f"/rules/{index}", named)
 

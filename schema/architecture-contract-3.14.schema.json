@@ -84,16 +84,16 @@
             "$ref": "#/$defs/catalogUse"
           },
           {
-            "$ref": "#/$defs/boundedNumericOperand"
-          },
-          {
-            "$ref": "#/$defs/protocolDeclarations"
-          },
-          {
             "$ref": "#/$defs/sourceOwnership"
           },
           {
             "$ref": "#/$defs/forbiddenEffectUnderCondition"
+          },
+          {
+            "$ref": "#/$defs/boundedNumericOperand"
+          },
+          {
+            "$ref": "#/$defs/protocolDeclarations"
           }
         ]
       }
@@ -980,6 +980,9 @@
               }
             }
           }
+        },
+        "selector": {
+          "$ref": "#/$defs/constructSelector"
         }
       }
     },
@@ -2264,8 +2267,40 @@
         },
         "member": {
           "$ref": "#/$defs/nonEmpty"
+        },
+        "target": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "parameter": {
+          "$ref": "#/$defs/nonEmpty"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "target"
+            ]
+          },
+          "then": {
+            "required": [
+              "parameter"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "parameter"
+            ]
+          },
+          "then": {
+            "required": [
+              "target"
+            ]
+          }
+        }
+      ]
     },
     "boundedNumericOperand": {
       "type": "object",
@@ -2372,12 +2407,12 @@
         },
         "protocol": {
           "type": "string",
-          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*(?![\\s\\S])"
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+(?![\\s\\S])"
         },
         "selectors": {
           "type": "array",
           "minItems": 1,
-          "uniqueItems": true,
+          "description": "Unique role/name pairs are enforced by the contract reader.",
           "items": {
             "$ref": "#/$defs/protocolDeclarationSelector"
           }
@@ -2509,6 +2544,116 @@
           "$ref": "#/$defs/conditionSelector"
         }
       }
+    },
+    "conditionSelector": {
+      "type": "object",
+      "required": [
+        "kind",
+        "owner",
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "parameter",
+            "member"
+          ]
+        },
+        "owner": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "name": {
+          "$ref": "#/$defs/nonEmpty"
+        }
+      }
+    },
+    "constructSelector": {
+      "type": "object",
+      "required": [
+        "receiver",
+        "role"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "receiver": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "member": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "role": {
+          "enum": [
+            "read",
+            "write",
+            "call",
+            "reflect",
+            "constructor",
+            "type_probe",
+            "equality",
+            "membership",
+            "match",
+            "startswith",
+            "endswith"
+          ]
+        },
+        "literal": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "enum": [
+                  "constructor",
+                  "type_probe"
+                ]
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "member"
+              ]
+            }
+          },
+          "else": {
+            "required": [
+              "member"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "enum": [
+                  "equality",
+                  "membership",
+                  "match",
+                  "startswith",
+                  "endswith"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "literal"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "literal"
+              ]
+            }
+          }
+        }
+      ]
     }
   }
 }

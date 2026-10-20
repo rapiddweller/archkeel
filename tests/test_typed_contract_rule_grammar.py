@@ -41,6 +41,8 @@ RULES = {
             "overlays": ["sample.options.ExtraKey"],
             "member": "PAGE_SIZE",
             "source_match": "exact",
+            "target": "sample.options.read_option",
+            "parameter": "key",
         },
     ),
     "forbidden_effect_under_condition": (

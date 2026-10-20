@@ -785,6 +785,8 @@
       "id": "APP-OPTION-KEY-USED",
       "kind": "catalog_use",
       "source": "shop.app.orders.read_catalog_option",
+      "target": "shop.app.catalog.read_option",
+      "parameter": "key",
       "catalog": "shop.app.catalog.OptionKey",
       "member": "PAGE_SIZE",
       "rationale": "The page-size option stays in use by the application.",

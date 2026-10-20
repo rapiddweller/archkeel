@@ -131,6 +131,7 @@ def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
             "source_match": rule.source_match,
             "rationale": rule.rationale,
             **({"member": rule.member} if rule.member is not None else {}),
+            **({"target": rule.target, "parameter": rule.parameter} if rule.target else {}),
         }
     elif isinstance(rule, ForbiddenEffectUnderConditionRule):
         area, title, subjects = (

@@ -43,6 +43,7 @@ def _run(
     rules,
     catalog_suffix: str = "",
     extra_files: dict[str, str] | None = None,
+    mounted: bool = False,
 ):
     config = (
         "from enum import StrEnum\n"
@@ -56,15 +57,49 @@ def _run(
         "__all__ = ['OptionKey', 'read_option']\n"
         "def read_option(key: str) -> None: pass\n" + catalog_suffix
     )
+    contract = _raw(*rules)
+    if mounted:
+        contract["components"] = [
+            {
+                "id": "COMP-CONSUMER",
+                "label": "consumer",
+                "role": "component",
+                "packages": ["sample.consumer"],
+                "responsibilities": [],
+                "forbidden_responsibilities": [],
+                "provenance": ["docs/architecture/catalog.md"],
+            }
+        ]
     files = {
         "pyproject.toml": '[project]\nrequires-python = ">=3.11"\n',
         "docs/architecture/catalog.md": "Synthetic catalog decision.\n",
-        "contract.json": json.dumps(_raw(*rules)),
+        "contract.json": json.dumps(
+            {
+                "schema_version": "3.14.0",
+                "components": [
+                    {
+                        "id": "COMP-SAMPLE",
+                        "label": "sample",
+                        "role": "component",
+                        "packages": ["sample.consumer"],
+                        "responsibilities": [],
+                        "forbidden_responsibilities": [],
+                        "provenance": ["docs/architecture/catalog.md"],
+                        "inside": "inside.json",
+                    }
+                ],
+                "rules": [],
+            }
+            if mounted
+            else contract
+        ),
         "sample/__init__.py": "",
         "sample/catalog.py": config,
         "sample/consumer.py": caller,
         **(extra_files or {}),
     }
+    if mounted:
+        files["inside.json"] = json.dumps(contract)
     for relative, content in files.items():
         path = tmp_path / relative
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -92,13 +127,22 @@ def _argument(source="sample.consumer"):
     }
 
 
-def _use(source="sample.consumer", member="PAGE_SIZE"):
-    return {
+def _use(source="sample.consumer", member="PAGE_SIZE", *, target=None, parameter=None):
+    rule = {
         "kind": "catalog_use",
         "source": source,
         "catalog": "sample.catalog.OptionKey",
         "member": member,
     }
+    if target is not None:
+        rule["target"] = target
+    if parameter is not None:
+        rule["parameter"] = parameter
+    return rule
+
+
+def _read_option_use(member="PAGE_SIZE"):
+    return _use(target="sample.consumer.read_option", parameter="key", member=member)
 
 
 @pytest.mark.parametrize("profile", [DART, TYPESCRIPT])
@@ -122,6 +166,8 @@ def test_catalog_selector_references_are_renamed_as_canonical_module_references(
             {
                 **_use("sample.consumer"),
                 "overlays": ["sample.catalog.ExtraKey"],
+                "target": "sample.consumer.read_option",
+                "parameter": "key",
             },
         )
     )
@@ -134,6 +180,7 @@ def test_catalog_selector_references_are_renamed_as_canonical_module_references(
     assert references["/rules/1/source"].value == "sample.consumer"
     assert references["/rules/1/catalog"].value == "sample.catalog.OptionKey"
     assert references["/rules/1/overlays/0"].value == "sample.catalog.ExtraKey"
+    assert references["/rules/1/target"].value == "sample.consumer.read_option"
     assert all(item.held for item in references.values())
 
     renamed = renamed_contract(contract, {"sample": "renamed"})
@@ -142,6 +189,18 @@ def test_catalog_selector_references_are_renamed_as_canonical_module_references(
     assert moved["/rules/0/target"] == "renamed.consumer.read_option"
     assert moved["/rules/0/catalog"] == "renamed.catalog.OptionKey"
     assert moved["/rules/0/overlays/0"] == "renamed.catalog.ExtraKey"
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"target": "sample.consumer.read_option"},
+        {"parameter": "key"},
+    ],
+)
+def test_catalog_use_read_operation_selectors_must_be_paired(fields):
+    with pytest.raises(ValueError, match="target and .*parameter must be provided together"):
+        parse_contract(_raw({**_use(), **fields}))
 
 
 def test_python_catalog_literal_values_are_versioned_in_observation_schemas(tmp_path):
@@ -311,6 +370,218 @@ def test_bound_operation_argument_uses_canonical_enum_values(tmp_path, actual, e
         assert result.observation.records("violations")[0].kind == "catalog_argument"
 
 
+@pytest.mark.parametrize(
+    ("actual", "expected"),
+    [
+        ('"page_size"', "PASS"),
+        ('key="page_size"', "PASS"),
+        ("key", "UNKNOWN"),
+        ('"not_a_catalog_entry"', "FAIL"),
+    ],
+)
+@pytest.mark.parametrize("mounted", [False, True])
+def test_selected_read_call_arguments_count_as_catalog_use(tmp_path, actual, expected, mounted):
+    _, rows = _run(
+        tmp_path,
+        mounted=mounted,
+        caller=(
+            "def read_option(key: str) -> None: pass\n"
+            "def consume(key):\n"
+            f"    read_option({actual})\n"
+        ),
+        rules=[_read_option_use()],
+    )
+    assert rows[0].status == expected
+
+
+def test_selected_read_call_accepts_the_displayed_variadic_formal(tmp_path):
+    rule = _read_option_use()
+    rule["parameter"] = "*keys"
+    _, rows = _run(
+        tmp_path,
+        caller=(
+            "def read_option(*keys: str) -> None: pass\n"
+            "def consume():\n"
+            '    read_option("page_size")\n'
+        ),
+        rules=[rule],
+    )
+    assert rows[0].status == "PASS" and rows[0].evaluation_proven
+
+
+def test_declared_overlay_enum_member_counts_as_catalog_argument(tmp_path):
+    rule = _argument()
+    rule["overlays"] = ["sample.catalog.ExtraKey"]
+    _, rows = _run(
+        tmp_path,
+        caller=(
+            "from .catalog import ExtraKey\n"
+            "def read_option(key: str) -> None: pass\n"
+            "def consume():\n"
+            "    read_option(ExtraKey.NEW)\n"
+        ),
+        rules=[rule],
+    )
+    assert rows[0].status == "PASS"
+
+
+def test_same_invalid_variadic_actuals_keep_distinct_catalog_violations(tmp_path):
+    result, rows = _run(
+        tmp_path,
+        caller=(
+            "def read_option(*key: str) -> None: pass\n"
+            "def consume():\n"
+            '    read_option("unknown", "unknown")\n'
+        ),
+        rules=[_argument()],
+    )
+    assert rows[0].status == "FAIL" and rows[0].count == 2
+    violations = result.observation.records("violations") or ()
+    assert len([item for item in violations if item.kind == "catalog_argument"]) == 2
+    assert len({item.id for item in violations if item.kind == "catalog_argument"}) == 2
+
+
+def test_declared_overlay_enum_member_counts_as_selected_catalog_use(tmp_path):
+    rule = _read_option_use(member="NEW")
+    rule["overlays"] = ["sample.catalog.ExtraKey"]
+    _, rows = _run(
+        tmp_path,
+        caller=(
+            "from .catalog import ExtraKey\n"
+            "def read_option(key: str) -> None: pass\n"
+            "def consume():\n"
+            "    read_option(ExtraKey.NEW)\n"
+        ),
+        rules=[rule],
+    )
+    assert rows[0].status == "PASS"
+
+
+def test_duplicate_literal_across_catalog_owners_does_not_prove_selected_use(tmp_path):
+    rule = _read_option_use(member="PAGE_SIZE")
+    rule["overlays"] = ["sample.catalog.OtherKey"]
+    _, rows = _run(
+        tmp_path,
+        caller=(
+            "def read_option(key: str) -> None: pass\n"
+            "def consume():\n"
+            '    read_option("page_size")\n'
+        ),
+        rules=[rule],
+        catalog_suffix=(
+            "class OtherKey(StrEnum):\n"
+            "    NEW = 'page_size'\n"
+        ),
+    )
+    assert rows[0].status == "UNKNOWN"
+    assert not rows[0].evaluation_proven
+
+
+def test_ambiguous_owner_reference_does_not_prove_selected_call_use(tmp_path):
+    _, rows = _run(
+        tmp_path,
+        caller=(
+            "from .catalog import OptionKey as Keys\n"
+            "from .other import OptionKey as Keys\n"
+            "def read_option(key: str) -> None: pass\n"
+            "def consume():\n"
+            "    read_option(Keys.PAGE_SIZE)\n"
+        ),
+        rules=[_read_option_use()],
+        extra_files={"sample/other.py": "class OptionKey: PAGE_SIZE = 'page_size'\n"},
+    )
+    assert rows[0].status == "UNKNOWN"
+    assert not rows[0].evaluation_proven
+
+
+def test_missing_foreign_catalog_owner_cannot_be_replaced_by_same_named_member(tmp_path):
+    rule = _read_option_use()
+    rule["catalog"] = "sample.missing.OptionKey"
+    _, rows = _run(
+        tmp_path,
+        caller=(
+            "def read_option(key: str) -> None: pass\n"
+            "def consume():\n"
+            '    read_option("page_size")\n'
+        ),
+        rules=[rule],
+    )
+    assert rows[0].status == "UNKNOWN"
+    assert not rows[0].evaluation_proven
+
+
+def test_unknown_selected_entry_value_does_not_prove_nonuse(tmp_path):
+    _, rows = _run(
+        tmp_path,
+        caller=(
+            "def read_option(key: str) -> None: pass\n"
+            "def consume():\n"
+            '    read_option("other")\n'
+        ),
+        rules=[{**_read_option_use(member="RETIRED"), "catalog": "sample.catalog.PartialKey"}],
+        catalog_suffix=(
+            "from enum import Enum\n"
+            "class PartialKey(Enum):\n"
+            "    PAGE_SIZE = 'page_size'\n"
+            "    RETIRED = 42\n"
+        ),
+    )
+    assert rows[0].status == "UNKNOWN"
+    assert not rows[0].evaluation_proven
+
+
+def test_known_catalog_use_is_retained_with_an_unknown_entry_value(tmp_path):
+    rule = _read_option_use()
+    rule["catalog"] = "sample.catalog.BasicKey"
+    rule["member"] = None
+    rule["overlays"] = ["sample.catalog.PartialKey"]
+    result, rows = _run(
+        tmp_path,
+        caller=(
+            "def read_option(key: str) -> None: pass\n"
+            "def consume():\n"
+            '    read_option("page_size")\n'
+            '    read_option("other")\n'
+        ),
+        rules=[rule],
+        catalog_suffix=(
+            "class BasicKey(StrEnum):\n"
+            "    PAGE_SIZE = 'page_size'\n"
+            "from enum import Enum\n"
+            "class PartialKey(Enum):\n"
+            "    RETIRED = 42\n"
+        ),
+    )
+    assert rows[0].status == "UNKNOWN"
+    assert not rows[0].evaluation_proven
+    known_owner = next(
+        item
+        for item in result.observation.records("symbols") or ()
+        if item.data.get("qualified_name") == "sample.catalog.BasicKey"
+    )
+    assert all(
+        known_owner.id not in item.fact_ids
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "catalog_limit"
+    )
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+def test_unrelated_same_text_call_does_not_count_as_catalog_use(tmp_path, mounted):
+    _, rows = _run(
+        tmp_path,
+        mounted=mounted,
+        caller=(
+            "def read_option(key: str) -> None: pass\n"
+            "def unrelated(key: str) -> None: pass\n"
+            "def consume():\n"
+            '    unrelated("page_size")\n'
+        ),
+        rules=[_read_option_use()],
+    )
+    assert rows[0].status == "FAIL"
+
+
 def test_unrelated_call_does_not_enter_catalog_argument_policy(tmp_path):
     _, rows = _run(
         tmp_path,
@@ -324,6 +595,47 @@ def test_unrelated_call_does_not_enter_catalog_argument_policy(tmp_path):
         rules=[_argument()],
     )
     assert rows[0].status == "PASS"
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize(("selected", "expected"), [("page_size", "PASS"), ("unknown", "FAIL")])
+def test_unrelated_multiline_call_does_not_poison_catalog_argument(
+    tmp_path, mounted, selected, expected
+):
+    _, rows = _run(
+        tmp_path,
+        mounted=mounted,
+        caller=(
+            "def read_option(key: str) -> None: pass\n"
+            "def other(value: str) -> None: pass\n"
+            "def consume():\n"
+            f'    read_option("{selected}")\n'
+            "    other(\n"
+            '        "not selected"\n'
+            "    )\n"
+        ),
+        rules=[_argument()],
+    )
+    assert rows[0].status == expected
+    assert rows[0].evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize(
+    "call",
+    [
+        'read_option(\n        "page_size"\n    )',
+        'unknown_operation(\n        "page_size"\n    )',
+    ],
+)
+def test_selected_multiline_and_unbound_calls_remain_unknown(tmp_path, mounted, call):
+    _, rows = _run(
+        tmp_path,
+        mounted=mounted,
+        caller=(f"def read_option(key: str) -> None: pass\ndef consume():\n    {call}\n"),
+        rules=[_argument()],
+    )
+    assert rows[0].status == "UNKNOWN"
 
 
 def test_known_catalog_argument_failure_survives_an_unknown_argument(tmp_path):
@@ -608,25 +920,118 @@ def test_known_catalog_read_passes_with_an_unrelated_unknown_reference_context(t
 
 
 @pytest.mark.parametrize("columnar", [False, True])
-def test_catalog_use_positive_saved_receipt_replays(tmp_path, columnar):
+@pytest.mark.parametrize("mounted", [False, True])
+def test_catalog_use_positive_saved_receipt_replays(tmp_path, columnar, mounted):
     from archkeel.check.report import run_saved_report
     from archkeel.ir.codec import encode_canonical_model, observation_payload
 
     result, rows = _run(
         tmp_path,
-        caller="from .catalog import OptionKey\ndef consume():\n    print(OptionKey.PAGE_SIZE)\n",
-        rules=[_use()],
+        mounted=mounted,
+        caller=(
+            "def read_option(key: str) -> None: pass\n"
+            "def consume():\n"
+            '    read_option("page_size")\n'
+        ),
+        rules=[_read_option_use()],
     )
     assert rows[0].status == "PASS" and rows[0].evaluation_proven
 
     assert result.observation is not None
     payload = observation_payload(result.observation)
+    owner = next(
+        item
+        for item in result.observation.records("symbols") or ()
+        if item.data.get("qualified_name") == "sample.catalog.OptionKey"
+    )
+    target = next(
+        item
+        for item in result.observation.records("symbols") or ()
+        if item.data.get("qualified_name") == "sample.consumer.read_option"
+    )
+    selected_call = next(
+        item
+        for item in result.observation.records("calls") or ()
+        if item.data.get("expression") == "read_option"
+        and item.data.get("source_scope") == "sample.consumer.consume"
+    )
+    receipt = next(
+        item
+        for item in result.observation.records("scope_observations") or ()
+        if item.kind == "rule_evaluation"
+        and len(item.rule_ids) == 1
+        and item.rule_ids[0].endswith("CATALOG-0")
+    )
+    assert owner.id in receipt.fact_ids
+    assert target.id in receipt.fact_ids
+    assert selected_call.id in receipt.fact_ids
     saved = tmp_path / "catalog-use-positive.json"
     saved.write_text(json.dumps(encode_canonical_model(payload) if columnar else payload))
     replay = run_saved_report(saved)
     replayed = next(row for row in replay.rule_assessments if row.id.endswith("CATALOG-0"))
 
     assert replayed.status == "PASS" and replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize("mutation", ["omit-owner", "transplant-scope"])
+def test_mounted_catalog_use_receipt_binds_foreign_owner_and_exact_source(
+    tmp_path, columnar, mutation
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import encode_canonical_model, observation_payload
+
+    rule = _read_option_use()
+    rule["source"] = "sample.consumer.consume"
+    rule["source_match"] = "exact"
+    result, rows = _run(
+        tmp_path,
+        mounted=True,
+        caller=(
+            "def read_option(key: str) -> None: pass\n"
+            "def consume():\n"
+            '    read_option("page_size")\n'
+            "def outside():\n"
+            '    read_option("page_size")\n'
+        ),
+        rules=[rule],
+    )
+    assert rows[0].status == "PASS" and rows[0].evaluation_proven
+    payload = copy.deepcopy(observation_payload(result.observation))
+    owner = next(
+        item
+        for item in payload["symbols"]
+        if item["data"].get("qualified_name") == "sample.catalog.OptionKey"
+    )
+    call_by_scope = {
+        item["data"]["source_scope"]: item
+        for item in payload["calls"]
+        if item["data"].get("expression") == "read_option"
+    }
+    selected_call = call_by_scope["sample.consumer.consume"]
+    outside_call = call_by_scope["sample.consumer.outside"]
+    receipt = next(
+        item
+        for item in payload["scope_observations"]
+        if item["kind"] == "rule_evaluation"
+        and item.get("rule_ids")
+        and item["rule_ids"][0].endswith("CATALOG-0")
+    )
+    assert owner["id"] in receipt["fact_ids"]
+    assert selected_call["id"] in receipt["fact_ids"]
+    assert outside_call["id"] not in receipt["fact_ids"]
+    if mutation == "omit-owner":
+        receipt["fact_ids"].remove(owner["id"])
+    else:
+        receipt["fact_ids"].remove(selected_call["id"])
+        receipt["fact_ids"].append(outside_call["id"])
+
+    saved = tmp_path / "transplanted-catalog-use.json"
+    saved.write_text(json.dumps(encode_canonical_model(payload) if columnar else payload))
+    replay = run_saved_report(saved)
+    replayed = next(row for row in replay.rule_assessments if row.id.endswith("CATALOG-0"))
+
+    assert replayed.status != "PASS" or not replayed.evaluation_proven
 
 
 def test_incomplete_context_keeps_a_known_missing_use_failure_in_another_scope(tmp_path):

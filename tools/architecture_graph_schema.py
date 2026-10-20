@@ -696,7 +696,13 @@ def _update_contract_schema(path: Path) -> None:
                 "overlays": selector["overlays"],
                 "source_match": selector["source_match"],
                 "member": {"$ref": "#/$defs/nonEmpty"},
+                "target": {"$ref": "#/$defs/nonEmpty"},
+                "parameter": {"$ref": "#/$defs/nonEmpty"},
             },
+            "allOf": [
+                {"if": {"required": ["target"]}, "then": {"required": ["parameter"]}},
+                {"if": {"required": ["parameter"]}, "then": {"required": ["target"]}},
+            ],
         }
         for name in ("catalogArgument", "catalogUse"):
             reference = {"$ref": f"#/$defs/{name}"}
