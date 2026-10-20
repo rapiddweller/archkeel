@@ -938,14 +938,32 @@ def test_stored_property_receiver_stays_unknown_and_replays(tmp_path, mounted, c
             {
                 "sample/storage.py": "def replacement(self): pass\n"
                 "class Base:\n    def page(self): pass\n"
-                "class Child(Base):\n    page = replacement\n"
+                "class Child(Base):\n"
+                "    def __init__(self): pass\n"
+                "    page = replacement\n"
             },
             "Child().page",
             "sample.storage.Base.page",
             "UNKNOWN",
         ),
+        (
+            "from .storage import Child\ndef run(client: Child): client.page()\n",
+            {
+                "sample/storage.py": "def replacement(self): pass\n"
+                "class Base:\n    def page(self): pass\n"
+                "class Child(Base):\n    page = replacement\n"
+            },
+            "client.page",
+            "sample.storage.Base.page",
+            "UNKNOWN",
+        ),
     ],
-    ids=["multiline-constructor", "chained-stored-write", "inherited-class-attribute"],
+    ids=[
+        "multiline-constructor",
+        "chained-stored-write",
+        "inherited-class-attribute",
+        "declared-inherited-class-attribute",
+    ],
 )
 def test_call_owner_multiline_chain_and_inherited_shadow_replay(
     tmp_path, caller, extra, expression, target, expected, mounted, columnar
