@@ -624,15 +624,14 @@ def _validate_source_ownership_vocabulary(sections: tuple[Section, ...]) -> None
 
 
 def observation_payload(observation: Observation) -> dict[str, RawJson]:
-    if (
-        _observation_version(observation.schema_version)
-        not in {_ObservationVersion.V2_6, _ObservationVersion.V2_7}
-        and any(
+    if _observation_version(observation.schema_version) not in {
+        _ObservationVersion.V2_6,
+        _ObservationVersion.V2_7,
+    } and any(
         record.kind == _ConstructSelectorFactKind.SELECTOR
         for section in observation.sections
         if section.name == ObservedSection.CONSTRUCTS
         for record in section.records
-        )
     ):
         raise ValueError("construct selector facts require observation schema 2.6.0")
     if (

@@ -994,9 +994,7 @@ def test_mounted_source_receipt_cannot_claim_sibling_scope_with_recomputed_bindi
         if item["kind"] == "rule_evaluation" and item["rule_ids"] == ["core:inside_ownership"]
     ]
     receipt["subjects"] = ["sample.outside.consumer"]
-    receipt["data"]["source_ownership_scope_proof"]["source_modules"] = [
-        "sample.outside.consumer"
-    ]
+    receipt["data"]["source_ownership_scope_proof"]["source_modules"] = ["sample.outside.consumer"]
 
     forged = parse_observation(changed)
     [forged_receipt] = [
