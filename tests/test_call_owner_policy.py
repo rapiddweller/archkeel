@@ -493,6 +493,206 @@ def test_native_member_mutation_revokes_identity(tmp_path):
     assert row.status == "UNKNOWN" and not row.evaluation_proven
 
 
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_native_provider_escape_to_mutating_helper_revokes_identity(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "import random\n"
+        "def replacement(): return 0\n"
+        "def mutate(provider): provider.random = replacement\n"
+        "def run():\n    mutate(random)\n    random.random()\n",
+        target="random.random",
+        allowed=(),
+        mounted=mounted,
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "random.random"
+    )
+    assert call.data.get("call_binding") is None
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"escaped-native-provider-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize(
+    "setup,mutation",
+    [
+        ("alias = random\n", "mutate(alias)"),
+        ("alias = random\nif flag: alias = other\n", "mutate(alias)"),
+        ("", "mutate([random])"),
+        ("", "mutate(provider=random)"),
+    ],
+    ids=["alias", "conditional-alias", "container", "keyword"],
+)
+def test_native_provider_escape_tracks_aliases_and_argument_shapes(
+    tmp_path, mounted, columnar, setup, mutation
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    mutate = (
+        "def mutate(provider): provider.random = replacement\n"
+        if "provider=" not in mutation
+        else "def mutate(*, provider): provider.random = replacement\n"
+    )
+    result, row = _observe(
+        tmp_path,
+        "import random\nother = object()\n"
+        "def replacement(): return 0\n"
+        + setup
+        + mutate
+        + f"{mutation}\n"
+        + "def run(): random.random()\n",
+        target="random.random",
+        allowed=(),
+        mounted=mounted,
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "random.random"
+    )
+    assert call.data.get("call_binding") is None
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"escaped-provider-shape-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_shadowed_setattr_is_not_treated_as_the_builtin(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "import random\ndef replacement(): return 0\n"
+        "def setattr(provider, *args): provider.random = replacement\n"
+        "setattr(random, 'unrelated', 0)\n"
+        "def run(): random.random()\n",
+        target="random.random",
+        allowed=(),
+        mounted=mounted,
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "random.random"
+    )
+    assert call.data.get("call_binding") is None
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"shadowed-setattr-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize(
+    "shadow",
+    [
+        "def run(setattr):\n    setattr(random, 'unrelated', 0)\n    random.random()\n",
+        "def run():\n    setattr = injected\n    setattr(random, 'unrelated', 0)\n"
+        "    random.random()\n",
+    ],
+    ids=["parameter", "local"],
+)
+def test_native_mutator_name_must_be_an_unbound_builtin(tmp_path, mounted, columnar, shadow):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "import random\n" + shadow,
+        target="random.random",
+        allowed=(),
+        mounted=mounted,
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "random.random"
+    )
+    assert call.data.get("call_binding") is None
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"shadowed-native-mutator-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_stored_receiver_escape_to_mutating_helper_revokes_identity(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage, Other\n"
+        "def mutate(holder): holder.client = Other()\n"
+        "class Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def run(self):\n        mutate(self)\n        self.client.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={
+            "sample/storage.py": "class Storage:\n def page(self): pass\n"
+            "class Other:\n def page(self): pass\n"
+        },
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    )
+    assert call.data.get("call_binding") is None
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"escaped-stored-receiver-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
 @pytest.mark.parametrize(
     "caller,expression,extra",
     [
