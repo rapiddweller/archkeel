@@ -400,7 +400,7 @@ def test_source_response_is_immutable_and_preserves_alternate_parser_identity() 
         response.facts.coverage.files_read = 0
 
 
-@pytest.mark.parametrize("version", ["1.0.0", "2.0.0", "3.0.0", "4.0.0"])
+@pytest.mark.parametrize("version", ["1.0.0", "2.0.0", "3.0.0", "4.0.0", "5.0.0"])
 def test_response_encoder_validates_without_reparsing_its_json(version):
     from unittest.mock import patch
 
@@ -409,7 +409,20 @@ def test_response_encoder_validates_without_reparsing_its_json(version):
 
     response = CollectionResponse(decode_response(json.dumps(_response()).encode()).facts, version)
     with patch("archkeel.ir.facts_codec._decode", side_effect=AssertionError("JSON reparse")):
-        encoded = encode_response(response)
+        if version == "5.0.0":
+            from archkeel.ir import facts_codec as codec
+            from archkeel.ir.protocol import ProtocolVersion
+
+            runtime = codec._runtime_payload(response.facts.runtime, ProtocolVersion.V5)
+            raw = codec._facts_payload(response.facts, ProtocolVersion.V5, runtime)
+            with patch(
+                "archkeel.ir.facts_codec._json_value",
+                side_effect=AssertionError("deep-copy JSON normalization"),
+            ):
+                codec._compact_source_facts(raw)
+            encoded = encode_response(response)
+        else:
+            encoded = encode_response(response)
     assert decode_response(encoded) == response
     assert (
         encoded
@@ -882,7 +895,8 @@ def test_owned_decoder_does_not_recopy_validated_record_trees():
     assert codec.record_payload(public)["data"]["nested"]["items"] == [1, "text"]
 
 
-def test_encoder_checks_owned_json_before_semantic_claims():
+@pytest.mark.parametrize("version", ["3.0.0", "5.0.0"])
+def test_encoder_checks_owned_json_before_semantic_claims(version):
     from dataclasses import replace
 
     from archkeel.ir import facts_codec as codec
@@ -905,4 +919,4 @@ def test_encoder_checks_owned_json_before_semantic_claims():
     )
     # Owned raw JSON must be valid before semantic claims such as the adapter digest are checked.
     with pytest.raises(codec.ProtocolError, match="JSON fields must be strings"):
-        codec.encode_response(replace(response, facts=facts))
+        codec.encode_response(replace(response, facts=facts, protocol_version=version))

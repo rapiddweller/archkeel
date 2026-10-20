@@ -1050,7 +1050,7 @@ def _source_facts(value: RawJson, version: ProtocolVersion) -> SourceFacts:
 
 def _compact_source_facts(value: RawJson) -> dict[str, RawJson]:
     """Encode source facts as positional rows plus an exactly profitable string table."""
-    facts = _record_object(value, "facts")
+    facts = _compact_object(value, "facts")
     sections = _array(facts["sections"], "sections")
     data_fields: list[RawJson] = [
         field
@@ -1059,20 +1059,20 @@ def _compact_source_facts(value: RawJson) -> dict[str, RawJson]:
                 key
                 for raw_section in sections
                 for raw_record in _array(
-                    _record_object(raw_section, "section")["records"], "records"
+                    _compact_object(raw_section, "section")["records"], "records"
                 )
-                for key in _record_object(_record_object(raw_record, "record")["data"], "data")
+                for key in _compact_object(_compact_object(raw_record, "record")["data"], "data")
             }
         )
     ]
     data_indexes = {field: index for index, field in enumerate(data_fields)}
     packed_sections: list[RawJson] = []
     for raw_section in sections:
-        section = _record_object(raw_section, "section")
+        section = _compact_object(raw_section, "section")
         packed_records: list[RawJson] = []
         for raw_record in _array(section["records"], "records"):
-            record = _record_object(raw_record, "record")
-            data = _record_object(record["data"], "record.data")
+            record = _compact_object(raw_record, "record")
+            data = _compact_object(record["data"], "record.data")
             packed_records.append(
                 [
                     *(record[field] for field in RECORD_FIELDS[:-1]),
@@ -1084,7 +1084,7 @@ def _compact_source_facts(value: RawJson) -> dict[str, RawJson]:
     def evidence_rows(raw: RawJson, label: str) -> list[RawJson]:
         rows: list[RawJson] = []
         for entry in _array(raw, label):
-            evidence = _record_object(entry, "evidence")
+            evidence = _compact_object(entry, "evidence")
             rows.append([evidence[field] for field in EVIDENCE_FIELDS])
         return rows
 
@@ -1099,7 +1099,7 @@ def _compact_source_facts(value: RawJson) -> dict[str, RawJson]:
         "candidate_evidence": evidence_rows(facts["candidate_evidence"], "candidate evidence"),
     }
     compact_tree, table = intern_strings(packed, profitable=profitable_string)
-    compact = _record_object(compact_tree, "compact source facts")
+    compact = _compact_object(compact_tree, "compact source facts")
     compact["encoding"] = {
         "kind": _SourceFactsWire.COLUMNAR_V1.value,
         "record_fields": list(RECORD_FIELDS),
@@ -1110,6 +1110,15 @@ def _compact_source_facts(value: RawJson) -> dict[str, RawJson]:
     table_rows: list[RawJson] = [entry for entry in table]
     compact["string_table"] = table_rows
     return compact
+
+
+def _compact_object(raw: object, label: str) -> dict[str, RawJson]:
+    """Shallow-check encoder-owned objects; the final tree walk validates nested JSON."""
+    if not isinstance(raw, dict):
+        raise ProtocolError(f"{label} must be an object")
+    if any(not isinstance(key, str) for key in raw):
+        raise ProtocolError("JSON fields must be strings")
+    return raw
 
 
 def _expand_source_facts(value: RawJson) -> dict[str, RawJson]:
