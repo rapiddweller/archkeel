@@ -203,6 +203,23 @@ _TOUR_ORDER_LOOKUP = HEADER + (
     "def find_order(root: Path, order_id: str) -> Path:\n"
     '    return lookup_order(root, "tour-order")\n'
 )
+_TOUR_TOKENS = HEADER + (
+    '"""Generate tokens with a forbidden seeded-path effect for the tour."""\n\n'
+    "import secrets\n\n\n"
+    "def token_for_run(seeded: bool) -> str:\n"
+    "    if seeded:\n"
+    "        return secrets.token_hex(8)\n"
+    '    return "fixed-token"\n'
+)
+_SEEDED_EFFECT = Variant(
+    id="class-a-forbidden-effect-under-condition",
+    section="class_a",
+    item="forbidden_effect_under_condition",
+    summary="A seeded token call reaches the canonical secrets.token_hex effect.",
+    files={"shop/app/tokens.py": _TOUR_TOKENS},
+    expected_violations=("EFFECT-NO-TOKEN-WHEN-SEEDED",),
+    expected_codes=("rule.violated",),
+)
 _TOUR = Variant(
     id="tour",
     section="showcase",
@@ -213,6 +230,7 @@ _TOUR = Variant(
     "app->store.backend reach one package level deeper, an app->json scope violation, an "
     "app->shop_analytics reach no rule names at all, a cli->render underscore reach, a "
     "three-member model/render/store cycle that also violates DEP-MODEL-NO-RENDER, an "
+    "effect policy violation for secrets.token_hex under the seeded parameter, an "
     "assert, an eval and a getattr, an Any parameter in shop.model's audit probe, a "
     "broad except outside the one exactly exempted function, an "
     "unassigned module, a store.sqlite->store.repository peer reach (the inside contract "
@@ -238,6 +256,7 @@ _TOUR = Variant(
             "reader: RepositoryReader", "reader: OrderRepository"
         ),
         "shop/store/lookup.py": _TOUR_ORDER_LOOKUP,
+        "shop/app/tokens.py": _TOUR_TOKENS,
         "shop/store/sqlite.py": _TOUR_STORE_SQLITE,
         "shop/store/architecture-contract.json": STORE_INSIDE_WITH_REPOSITORY_PEER_GRANT,
         "shop/cli/main.py": MAIN_WITH_UNDERSCORE_IMPORT,
@@ -264,6 +283,7 @@ _TOUR = Variant(
         "DEP-MODEL-NO-RENDER",
         "DEP-RENDER-NO-STORE",
         "DEP-STORE-NO-MONEY",
+        "EFFECT-NO-TOKEN-WHEN-SEEDED",
         "EXTERNAL-COMPLETE",
         "EXTERNAL-JSON-STORE",
         "INTERFACE-BOUNDARY",
@@ -304,6 +324,7 @@ _TOUR = Variant(
         "rule.violated",
         "rule.violated",
         "rule.violated",
+        "rule.violated",
     ),
 )
 _CLEAN = Variant(
@@ -316,4 +337,4 @@ _CLEAN = Variant(
     expected_codes=(),
 )
 
-VARIANTS: tuple[Variant, ...] = (_TOUR, _CLEAN)
+VARIANTS: tuple[Variant, ...] = (_TOUR, _SEEDED_EFFECT, _CLEAN)

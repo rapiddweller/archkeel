@@ -469,6 +469,33 @@ def test_forbidden_call_argument_variants_have_real_assessments(
     assert row.status.value == expected
 
 
+@pytest.mark.parametrize(
+    ("variant_id", "expected"),
+    [
+        ("clean", "PASS"),
+        ("class-a-forbidden-effect-under-condition", "FAIL"),
+        ("tour", "FAIL"),
+    ],
+)
+def test_guarded_effect_demo_assessments_are_real(
+    tmp_path: Path,
+    variant_id: str,
+    expected: str,
+) -> None:
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    report, architecture = run_report(
+        root, config=load_config(root, variant.config), analyzer=observe
+    )
+    assert architecture is not None
+    row = next(
+        item
+        for item in report.rule_assessments or ()
+        if item.id == "EFFECT-NO-TOKEN-WHEN-SEEDED"
+    )
+    assert row.status.value == expected
+
+
 # allowed_dependency records a permission, never a violation: the analyzer never evaluates it
 # against a run (docs/rules.md), so no run, `tour` included, can ever make it fire (AD-11).
 _KIND_CANNOT_VIOLATE = {"allowed_dependency"}
