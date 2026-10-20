@@ -1452,12 +1452,7 @@ def _numeric_operation_expression(
     matches: list[ast.BinOp | ast.AugAssign] = []
     for evidence_id in record.evidence_ids:
         evidence = evidence_by_id.get(evidence_id)
-        if (
-            evidence is None
-            or evidence.file != expected_file
-            or (evidence.line, evidence.column, evidence.end_line)
-            != (expected[0], expected[1], expected[2])
-        ):
+        if evidence is None or evidence.file != expected_file:
             continue
         parsed = _numeric_evidence_nodes(evidence)
         if parsed is None:
@@ -1465,20 +1460,27 @@ def _numeric_operation_expression(
         nodes, line_offset = parsed
         for root in nodes:
             for node in ast.walk(root):
-                if _numeric_node_span(node, evidence.line, line_offset) != expected:
+                span = _numeric_node_span(node, evidence.line, line_offset)
+                if span is None or span[:2] != (evidence.line, evidence.column):
                     continue
+                operation: ast.BinOp | ast.AugAssign
                 if (
                     data.get("form") == "binary"
                     and isinstance(node, ast.BinOp)
                     and isinstance(node.op, ast.Mod)
                 ):
-                    matches.append(node)
+                    operation = node
                 elif (
                     data.get("form") == "augmented"
                     and isinstance(node, ast.AugAssign)
                     and isinstance(node.op, ast.Mod)
                 ):
-                    matches.append(node)
+                    operation = node
+                else:
+                    continue
+                if span != expected or span[2] != evidence.end_line:
+                    raise ValueError("numeric operand source span disagrees with its evidence")
+                matches.append(operation)
     return matches[0] if len(matches) == 1 else None
 
 
