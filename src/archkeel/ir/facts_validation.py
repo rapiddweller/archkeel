@@ -21,6 +21,7 @@ from .facts import (
     Evidence,
     EvidenceClass,
     ExternalPackageTarget,
+    JsonValue,
     LocalTarget,
     MethodKind,
     PropertyOrigin,
@@ -544,10 +545,13 @@ def _numeric_scope_owner(
         return None
     nodes, line_offset = parsed
     owner_span = (scope_evidence.line, scope_evidence.column, scope_evidence.end_line)
+    if not owner_name.startswith(module_name + "."):
+        return None
+    owner_leaf = owner_name.rpartition(".")[2]
     owners = [
         node
-        for qualified, node in _numeric_definition_nodes(nodes, module_name)
-        if qualified == owner_name
+        for _, node in _numeric_definition_nodes(nodes, module_name)
+        if node.name == owner_leaf
         and node.end_lineno is not None
         and (
             node.lineno - line_offset + scope_evidence.line - 1,
@@ -753,7 +757,6 @@ def _numeric_module_alias_supported(
         or not _numeric_module_use_chain_supported(
             operation,
             name,
-            declarations_by_name,
             declarations_by_id,
             evidence_by_id,
             expected_file,
@@ -772,7 +775,6 @@ def _numeric_module_alias_supported(
 def _numeric_module_use_chain_supported(
     operation: Record,
     name: str,
-    declarations_by_name: Mapping[str, tuple[Record, ...]],
     declarations_by_id: Mapping[str, Record],
     evidence_by_id: Mapping[str, Evidence],
     expected_file: str,
@@ -784,20 +786,26 @@ def _numeric_module_use_chain_supported(
         return False
     if operation_owner == module_name:
         return not chain
-    owner_declarations = declarations_by_name.get(operation_owner, ())
-    if len(owner_declarations) != 1:
+    if not chain or not isinstance(chain[0], RecordData):
+        return False
+    owner_id = chain[0].get("scope_symbol_id")
+    owner = declarations_by_id.get(owner_id) if isinstance(owner_id, str) else None
+    if owner is None or owner.data.get("qualified_name") != operation_owner:
         return False
     expected_ids: list[str] = []
-    owner = owner_declarations[0]
     while owner.kind in {"function", "method", "class"}:
         expected_ids.append(owner.id)
-        parent_id = owner.data.get("lexical_parent_id")
-        if not isinstance(parent_id, str) or parent_id not in declarations_by_id:
+        parent, valid = _numeric_lexical_parent(owner, declarations_by_id, module_name)
+        if not valid:
+            return False
+        if parent is None:
             break
-        owner = declarations_by_id[parent_id]
-    if [
-        item.get("scope_symbol_id") for item in chain if isinstance(item, RecordData)
-    ] != expected_ids:
+        owner = parent
+    if (
+        any(not isinstance(item, RecordData) for item in chain)
+        or [item.get("scope_symbol_id") for item in chain if isinstance(item, RecordData)]
+        != expected_ids
+    ):
         return False
     for item in chain:
         if not isinstance(item, RecordData):
@@ -812,6 +820,25 @@ def _numeric_module_use_chain_supported(
         ):
             return False
     return True
+
+
+def _numeric_lexical_parent(
+    owner: Record, declarations_by_id: Mapping[str, Record], module_name: str
+) -> tuple[Record | None, bool]:
+    qualified_name = owner.data.get("qualified_name")
+    parent_name = owner.data.get("parent")
+    parent_id = owner.data.get("lexical_parent_id")
+    if not isinstance(qualified_name, str) or not qualified_name.startswith(module_name + "."):
+        return None, False
+    expected_parent = qualified_name.rpartition(".")[0]
+    if expected_parent == module_name:
+        return None, parent_name is None and parent_id is None
+    if parent_name != expected_parent or not isinstance(parent_id, str):
+        return None, False
+    parent = declarations_by_id.get(parent_id)
+    if parent is None or parent.data.get("qualified_name") != expected_parent:
+        return None, False
+    return parent, True
 
 
 def _numeric_module_use_scope(
@@ -1259,7 +1286,7 @@ def _numeric_operand_record(record: Record, fields: set[str]) -> tuple[str, ...]
     return required
 
 
-def _numeric_binding_scopes(value: object, evidence_ids: tuple[str, ...]) -> bool:
+def _numeric_binding_scopes(value: JsonValue, evidence_ids: tuple[str, ...]) -> bool:
     if not isinstance(value, tuple):
         return False
     fields = {"scope_owner", "scope_evidence_id", "scope_symbol_id"}

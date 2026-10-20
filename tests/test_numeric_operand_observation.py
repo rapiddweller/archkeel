@@ -263,6 +263,151 @@ def test_numeric_alias_in_a_nested_ancestor_scope_keeps_a_valid_witness(tmp_path
 
 
 @pytest.mark.parametrize(
+    ("source", "expected_count"),
+    [
+        (
+            "WIDTH = 4\n"
+            "def outer(job_nonce):\n"
+            "    def middle():\n"
+            "        def inner(): return job_nonce % WIDTH\n"
+            "        return inner()\n"
+            "    return middle()\n",
+            1,
+        ),
+        (
+            "WIDTH = 4\n"
+            "class Holder:\n"
+            "    WIDTH = 8\n"
+            "    def choose(self, job_nonce): return job_nonce % WIDTH\n",
+            1,
+        ),
+        (
+            "WIDTH = 4\n"
+            "def outer(job_nonce):\n"
+            "    def inner(): return job_nonce % WIDTH\n"
+            "    def inner(): return job_nonce % WIDTH\n"
+            "    return inner()\n",
+            2,
+        ),
+    ],
+)
+def test_numeric_module_alias_scope_chain_round_trips_native_facts(
+    tmp_path, source, expected_count
+):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(source)
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    response = decode_response(encode_response(CollectionResponse(facts)))
+    operations = [
+        record
+        for section in response.facts.sections
+        for record in section.records
+        if record.kind == "numeric_operand"
+    ]
+    assert len(operations) == expected_count
+    assert [record.data.get("proof") for record in operations] == ["known"] * expected_count
+    assert [record.data.get("value") for record in operations] == [4] * expected_count
+
+
+def test_numeric_module_alias_cannot_drop_an_enclosing_shadow_scope(tmp_path):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "WIDTH = 4\n"
+        "def safe(job_nonce): return job_nonce % WIDTH\n"
+        "def outer(job_nonce):\n"
+        "    WIDTH = 8\n"
+        "    def choose(): return job_nonce % WIDTH\n"
+        "    return choose()\n"
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    sections = payload["facts"]["sections"]
+    records = [record for section in sections for record in section["records"]]
+    safe = next(
+        record
+        for record in records
+        if record["kind"] == "numeric_operand" and record["data"]["owner"] == "sample.core.safe"
+    )
+    target = next(
+        record
+        for record in records
+        if record["kind"] == "numeric_operand"
+        and record["data"]["owner"] == "sample.core.outer.choose"
+    )
+    target["data"]["proof"] = "known"
+    target["data"]["value"] = 4
+    target["data"]["derivation"] = safe["data"]["derivation"]
+    target["data"]["binding_scopes"] = [
+        scope
+        for scope in target["data"]["binding_scopes"]
+        if scope["scope_owner"] != "sample.core.outer"
+    ]
+    original_target = next(
+        record
+        for section in facts.sections
+        for record in section.records
+        if record.kind == "numeric_operand"
+        and record.data.get("owner") == "sample.core.outer.choose"
+    )
+    outer_scope_id = next(
+        scope.get("scope_evidence_id")
+        for scope in original_target.data.get("binding_scopes")
+        if scope.get("scope_owner") == "sample.core.outer"
+    )
+    target["evidence_ids"] = sorted(
+        {
+            *target["evidence_ids"],
+            *(item["evidence_id"] for item in safe["data"]["derivation"]),
+            outer_scope_id,
+        }
+    )
+    inner_symbol = next(
+        record
+        for section in payload["facts"]["sections"]
+        if section["name"] == "symbols"
+        for record in section["records"]
+        if record["data"].get("qualified_name") == "sample.core.outer.choose"
+    )
+    inner_symbol["data"]["parent"] = None
+    inner_symbol["data"]["lexical_parent_id"] = None
+
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
+
+
+@pytest.mark.parametrize(
     ("source", "forged_line", "binding_lines"),
     [
         (
