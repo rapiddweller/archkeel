@@ -37,7 +37,26 @@ def test_saved_call_policy_requires_a_reader_with_the_new_wire_version(tmp_path,
     assert replayed == row
 
 
-def test_stored_receiver_candidates_cannot_certify_call_ownership(tmp_path):
+def test_saved_observation_21_rejects_extended_call_identity(tmp_path):
+    from archkeel.ir.codec import observation_payload, parse_observation
+
+    result, _ = _observe(
+        tmp_path,
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        allowed=(),
+    )
+    payload = observation_payload(result.observation)
+    payload["schema_version"] = "2.1.0"
+    with pytest.raises(ValueError, match="cannot carry extended call bindings"):
+        parse_observation(payload)
+
+
+def test_stored_receiver_assessment_survives_saved_report_replay(tmp_path):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes
+
     result, row = _observe(
         tmp_path,
         "from .storage import Storage\nclass Holder:\n"
@@ -45,15 +64,296 @@ def test_stored_receiver_candidates_cannot_certify_call_ownership(tmp_path):
         "    def run(self): self.client.page()\n",
         allowed=(),
     )
+    path = tmp_path / "architecture.json"
+    path.write_bytes(canonical_report_bytes(result.observation))
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed == row
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+def test_stored_typed_receiver_is_proven_beyond_candidate_resolution(tmp_path, mounted):
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        allowed=(),
+        mounted=mounted,
+    )
     call = next(
         record
         for record in result.observation.records("calls")
         if record.data.get("expression") == "self.client.page"
     )
-    assert call.data.get("status") == "partially_resolved"
     assert call.data.get("targets") == ("sample.storage.Storage.page",)
+    assert call.data.get("call_binding").get("target") == "sample.storage.Storage.page"
+    assert row.status == "FAIL" and row.count == 1
+
+
+@pytest.mark.parametrize(
+    "caller",
+    [
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, client: Storage, flag: bool):\n"
+        "        if flag: self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self):\n        client = object(); self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def run(self):\n        self = object(); self.client.page()\n",
+    ],
+)
+def test_stored_receiver_mutations_and_shadowing_stay_unknown(tmp_path, caller):
+    result, row = _observe(tmp_path, caller, allowed=())
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN"
+
+
+def test_mixed_known_violation_and_unknown_receiver_keeps_failure_visible(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def run(self): self.client.page()\n"
+        "def uncertain(client): client.page()\n",
+        allowed=(),
+    )
+    assert row.status == "FAIL" and row.count == 1 and not row.evaluation_proven
+    assert any(item.kind == "call_owner" for item in result.observation.records("violations"))
+    assert any(item.kind == "call_owner_limit" for item in result.observation.records("unknowns"))
+
+
+@pytest.mark.parametrize(
+    "caller,expression",
+    [
+        ("from .storage import Store\ndef run(): Store().page()\n", "Store().page"),
+        (
+            "from .storage import Store\ndef run():\n    store = Store()\n    store.page()\n",
+            "store.page",
+        ),
+    ],
+)
+def test_proven_default_construction_binds_method_identity(tmp_path, caller, expression):
+    result, row = _observe(
+        tmp_path,
+        caller,
+        target="sample.storage.Store.page",
+        allowed=(),
+        extra={"sample/storage.py": "class Store:\n    def page(self): pass\n"},
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == expression
+    )
+    assert call.data.get("call_binding").get("target") == "sample.storage.Store.page"
+    assert row.status == "FAIL" and row.count == 1
+
+
+@pytest.mark.parametrize(
+    "caller,provider",
+    [
+        (
+            "from .storage import Store\ndef run():\n    store = Store()\n"
+            "    store = unknown_factory()\n    store.page()\n",
+            "class Store:\n    def page(self): pass\n",
+        ),
+        (
+            "from .storage import Store\ndef run(): Store().page()\n",
+            "class Store:\n    def __new__(cls): return object.__new__(cls)\n"
+            "    def page(self): pass\n",
+        ),
+    ],
+)
+def test_conflicting_or_custom_allocation_remains_unknown(tmp_path, caller, provider):
+    result, row = _observe(
+        tmp_path,
+        caller,
+        target="sample.storage.Store.page",
+        allowed=(),
+        extra={"sample/storage.py": provider},
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") in {"Store().page", "store.page"}
+    )
     assert call.data.get("call_binding") is None
     assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+@pytest.mark.parametrize(
+    "mutations",
+    [
+        "self.client = Other()",
+        "del self.client",
+        "def __getattribute__(self, name): return super().__getattribute__(name)",
+    ],
+)
+def test_changed_or_dynamic_stored_receiver_remains_unknown(tmp_path, mutations):
+    init_body = "self.client = client"
+    run_body = ""
+    if mutations.startswith("del ") or mutations.startswith("self.client ="):
+        run_body = f"\n    def mutate(self): {mutations}"
+    else:
+        init_body += "\n    " + mutations
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\nclass Holder:\n"
+        f"    def __init__(self, client: Storage): {init_body}\n"
+        "    def run(self): self.client.page()"
+        f"{run_body}\n",
+        allowed=(),
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+@pytest.mark.parametrize(
+    "caller,target,expression",
+    [
+        ("import random\ndef run(): random.random()\n", "random.random", "random.random"),
+        (
+            "import random as rng\ndef run(): rng.Random().random()\n",
+            "random.Random.random",
+            "rng.Random().random",
+        ),
+        (
+            "from datetime import datetime as clock\ndef run(): clock.now()\n",
+            "datetime.datetime.now",
+            "clock.now",
+        ),
+        (
+            "from secrets import token_hex as token\ndef run(): token()\n",
+            "secrets.token_hex",
+            "token",
+        ),
+    ],
+)
+def test_selected_stdlib_calls_use_import_bound_runtime_identity(
+    tmp_path, caller, target, expression
+):
+    result, row = _observe(tmp_path, caller, target=target, allowed=())
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == expression
+    )
+    binding = call.data.get("call_binding")
+    assert binding is not None and binding.get("target") == target
+    assert len(binding.get("evidence_ids")) >= 2
+    assert row.status == "FAIL" and row.count == 1
+
+
+def test_shadowed_stdlib_spelling_does_not_get_native_call_identity(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "class Other:\n    def random(self): pass\ndef run(random: Other): random.random()\n",
+        target="random.random",
+        allowed=(),
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "random.random"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+def test_native_provider_reassignment_revokes_identity(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "import random as rng\ndef run():\n    rng = unknown_factory()\n    rng.random()\n",
+        target="random.random",
+        allowed=(),
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "rng.random"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+def test_native_member_mutation_revokes_identity(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "import random\ndef run():\n    random.random = unknown\n    random.random()\n",
+        target="random.random",
+        allowed=(),
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "random.random"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+@pytest.mark.parametrize(
+    "caller",
+    [
+        "from datetime import datetime as clock\n"
+        "def run():\n    clock.now = unknown\n    clock.now()\n",
+        "import sys\nimport datetime\n"
+        "sys.modules['datetime'] = unknown\ndef run(): datetime.datetime.now()\n",
+        "import datetime\ndatetime.datetime = unknown\ndef run(): datetime.datetime.now()\n",
+        "import sys\nmodules = sys.modules\nimport datetime\n"
+        "modules['datetime'] = unknown\ndef run(): datetime.datetime.now()\n",
+        "class datetime:\n    class datetime:\n        def now(self): pass\n"
+        "def run(): datetime.datetime.now()\n",
+    ],
+)
+def test_datetime_shadow_or_revocation_stays_unknown(tmp_path, caller):
+    result, row = _observe(
+        tmp_path,
+        caller,
+        target="datetime.datetime.now",
+        allowed=(),
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression").endswith("now")
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+def test_inherited_stored_receiver_resolves_only_its_unique_base_method(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Store\nclass Holder:\n"
+        "    def __init__(self, client: Store): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        target="sample.storage.Base.page",
+        allowed=(),
+        extra={
+            "sample/storage.py": "class Base:\n    def page(self): pass\nclass Store(Base): pass\n"
+        },
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    )
+    assert call.data.get("call_binding").get("target") == "sample.storage.Base.page"
+    assert row.status == "FAIL" and row.count == 1
 
 
 def _observe(
@@ -371,7 +671,12 @@ def test_uncalled_target_requires_its_binding_proof(tmp_path, provider, target, 
 @pytest.fixture
 def owner_facts(tmp_path):
     from archkeel.analyzer.python.collect import collect
-    from archkeel.ir.protocol import CollectionRequest, PythonSettings, SnapshotInput, SourceScope
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
 
     _observe(
         tmp_path, "from .storage import Storage\ndef run(client: Storage):\n    client.page()\n"
@@ -415,7 +720,8 @@ def test_call_binding_response_roundtrip_and_schema(owner_facts):
 
 
 @pytest.mark.parametrize(
-    "change", ["missing", "origin", "target", "call-evidence", "dangling", "extra"]
+    "change",
+    ["missing", "origin", "extended-origin", "target", "call-evidence", "dangling", "extra"],
 )
 def test_forged_or_omitted_binding_proof_is_rejected(owner_facts, change):
     from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
@@ -429,6 +735,8 @@ def test_forged_or_omitted_binding_proof_is_rejected(owner_facts, change):
         del data["call_binding"]
     elif change == "origin":
         binding["origin"] = "runtime_guess"
+    elif change == "extended-origin":
+        binding["origin"] = "stored_receiver"
     elif change == "target":
         binding["target"] = "sample.storage.settle"
     elif change == "call-evidence":
@@ -439,6 +747,83 @@ def test_forged_or_omitted_binding_proof_is_rejected(owner_facts, change):
         binding["evidence_ids"].append("missing-evidence")
     else:
         binding["allowed"] = True
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
+
+
+@pytest.mark.parametrize("change", ["field", "parameter", "write_evidence", "annotation_evidence"])
+def test_forged_stored_receiver_links_are_rejected(tmp_path, change):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    _observe(
+        tmp_path,
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    calls = next(s["records"] for s in payload["facts"]["sections"] if s["name"] == "calls")
+    call = next(r for r in calls if r["data"]["expression"] == "self.client.page")
+    proof = call["data"]["call_binding"]["proof"]
+    if change in {"field", "parameter"}:
+        proof[change] = "other"
+    else:
+        unrelated = next(
+            item.id for item in facts.evidence if item.id not in proof["witness_evidence_ids"]
+        )
+        proof["witness_evidence_ids"][0 if change == "write_evidence" else 1] = unrelated
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
+
+
+@pytest.mark.parametrize("change", ["assignment_name", "assignment_evidence"])
+def test_forged_construction_assignment_link_is_rejected(tmp_path, change):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    _observe(
+        tmp_path,
+        "from .storage import Store\ndef run():\n    store = Store()\n    store.page()\n",
+        target="sample.storage.Store.page",
+        extra={"sample/storage.py": "class Store:\n    def page(self): pass\n"},
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    calls = next(s["records"] for s in payload["facts"]["sections"] if s["name"] == "calls")
+    call = next(r for r in calls if r["data"]["expression"] == "store.page")
+    proof = call["data"]["call_binding"]["proof"]
+    if change == "assignment_name":
+        proof[change] = "other"
+    else:
+        proof[change] = call["evidence_ids"][0]
     with pytest.raises(ProtocolError):
         decode_response(json.dumps(payload).encode())
 

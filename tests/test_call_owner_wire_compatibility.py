@@ -19,6 +19,7 @@ from archkeel.ir.codec import (
     parse_observation,
     result_payload,
 )
+from archkeel.ir.facts import RecordData, call_binding
 from archkeel.ir.model import Diagnostic, RunResult
 
 
@@ -72,6 +73,44 @@ def test_current_reader_refuses_future_or_malformed_call_bindings(binding):
     raw["calls"] = [_record("call", kind="call", data={"call_binding": binding})]
     with pytest.raises(ValueError):
         parse_observation(raw)
+
+
+@pytest.mark.parametrize(
+    "change,value",
+    [
+        ("descriptor_owner_module", "other"),
+        ("descriptor_member", "utcnow"),
+        ("descriptor_kind", "function"),
+        ("runtime_name", "other-python"),
+        ("runtime_implementation", "pypy"),
+        ("stdlib_source_digest", "0"),
+    ],
+)
+def test_native_datetime_proof_rejects_tampered_descriptor_identity(change, value):
+    proof = {
+        "kind": "native_descriptor",
+        "target": "datetime.datetime.now",
+        "runtime_name": "python",
+        "runtime_version": "3.13.0",
+        "runtime_implementation": "cpython",
+        "descriptor_owner_module": "datetime",
+        "descriptor_owner_qualname": "datetime",
+        "descriptor_member": "now",
+        "descriptor_kind": "classmethod_descriptor",
+        "stdlib_source_digest": "a" * 64,
+        "witness_evidence_ids": ("call-evidence",),
+    }
+    proof[change] = value
+    payload = RecordData(
+        (
+            ("origin", "native"),
+            ("target", "datetime.datetime.now"),
+            ("evidence_ids", ("call-evidence",)),
+            ("proof", RecordData(tuple(sorted(proof.items())))),
+        )
+    )
+    with pytest.raises(ValueError, match="native descriptor proof"):
+        call_binding(payload)
 
 
 @pytest.mark.parametrize("profile", ["decoded", "python-decoded"])

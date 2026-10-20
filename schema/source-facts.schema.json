@@ -2033,7 +2033,12 @@
         "origin": {
           "enum": [
             "direct",
-            "declared_receiver"
+            "declared_receiver",
+            "stored_receiver",
+            "constructed_receiver",
+            "constructor",
+            "native",
+            "native_receiver"
           ]
         },
         "target": {
@@ -2048,6 +2053,247 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "proof": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/StoredFieldCallProof"
+            },
+            {
+              "$ref": "#/$defs/ConstructionCallProof"
+            },
+            {
+              "$ref": "#/$defs/ConstructorCallProof"
+            },
+            {
+              "$ref": "#/$defs/ProviderMemberCallProof"
+            },
+            {
+              "$ref": "#/$defs/NativeDescriptorCallProof"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "origin": {
+                "enum": [
+                  "stored_receiver",
+                  "constructed_receiver",
+                  "constructor",
+                  "native",
+                  "native_receiver"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "proof"
+            ]
+          }
+        }
+      ]
+    },
+    "StoredFieldCallProof": {
+      "type": "object",
+      "required": [
+        "kind",
+        "owner",
+        "field",
+        "parameter",
+        "witness_evidence_ids"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "stored_field"
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parameter": {
+          "type": "string",
+          "minLength": 1
+        },
+        "witness_evidence_ids": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "ConstructionCallProof": {
+      "type": "object",
+      "required": [
+        "kind",
+        "target",
+        "constructor_evidence_id",
+        "assignment_evidence_id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "construction"
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "constructor_evidence_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assignment_evidence_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "ConstructorCallProof": {
+      "type": "object",
+      "required": [
+        "kind",
+        "target",
+        "constructor_evidence_id",
+        "provider_evidence_id",
+        "runtime_name",
+        "runtime_version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "constructor"
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "constructor_evidence_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_evidence_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "runtime_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtime_version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "ProviderMemberCallProof": {
+      "type": "object",
+      "required": [
+        "kind",
+        "target",
+        "provider_evidence_id",
+        "runtime_name",
+        "runtime_version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "provider_member"
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_evidence_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtime_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtime_version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "NativeDescriptorCallProof": {
+      "type": "object",
+      "required": [
+        "kind",
+        "target",
+        "runtime_name",
+        "runtime_version",
+        "runtime_implementation",
+        "descriptor_owner_module",
+        "descriptor_owner_qualname",
+        "descriptor_member",
+        "descriptor_kind",
+        "stdlib_source_digest",
+        "witness_evidence_ids"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "native_descriptor"
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtime_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtime_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "witness_evidence_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "runtime_implementation": {
+          "const": "cpython"
+        },
+        "descriptor_owner_module": {
+          "const": "datetime"
+        },
+        "descriptor_owner_qualname": {
+          "const": "datetime"
+        },
+        "descriptor_member": {
+          "const": "now"
+        },
+        "descriptor_kind": {
+          "const": "classmethod_descriptor"
+        },
+        "stdlib_source_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
         }
       }
     }

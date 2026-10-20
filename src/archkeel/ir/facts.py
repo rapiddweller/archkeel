@@ -207,9 +207,35 @@ RawJson: TypeAlias = str | int | float | bool | None | list["RawJson"] | dict[st
 class CallBindingOrigin(StrEnum):
     DIRECT = "direct"
     DECLARED_RECEIVER = "declared_receiver"
+    STORED_RECEIVER = "stored_receiver"
+    CONSTRUCTED_RECEIVER = "constructed_receiver"
+    CONSTRUCTOR = "constructor"
+    NATIVE = "native"
+    NATIVE_RECEIVER = "native_receiver"
 
 
 CALL_BINDINGS_FEATURE = "canonical_call_bindings"
+EXTENDED_CALL_BINDINGS_FEATURE = "extended_call_bindings"
+NATIVE_CALL_TARGETS = frozenset(
+    {
+        "random.Random",
+        "random.random",
+        "random.Random.random",
+        "random.Random.randrange",
+        "random.Random.randint",
+        "random.Random.choice",
+        "random.Random.choices",
+        "random.Random.sample",
+        "random.Random.shuffle",
+        "random.Random.uniform",
+        "random.Random.getrandbits",
+        "random.Random.seed",
+        "random.Random.getstate",
+        "random.Random.setstate",
+        "datetime.datetime.now",
+        "secrets.token_hex",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,16 +243,19 @@ class CallBinding:
     origin: CallBindingOrigin
     target: str
     evidence_ids: tuple[str, ...]
+    proof: RecordData | None = None
 
 
 def call_binding(value: JsonValue) -> CallBinding | None:
     if value is None:
         return None
-    if not isinstance(value, RecordData) or {key for key, _ in value.entries} != {
-        "origin",
-        "target",
-        "evidence_ids",
-    }:
+    if not isinstance(value, RecordData):
+        raise ValueError("invalid call binding fields")
+    fields = {key for key, _ in value.entries}
+    if fields not in (
+        {"origin", "target", "evidence_ids"},
+        {"origin", "target", "evidence_ids", "proof"},
+    ):
         raise ValueError("invalid call binding fields")
     origin, target, evidence = value.get("origin"), value.get("target"), value.get("evidence_ids")
     if (
@@ -238,8 +267,151 @@ def call_binding(value: JsonValue) -> CallBinding | None:
         or any(not isinstance(item, str) or not item for item in evidence)
     ):
         raise ValueError("invalid call binding values")
+    proof = value.get("proof")
+    if proof is not None and not isinstance(proof, RecordData):
+        raise ValueError("invalid call binding proof")
+    parsed_origin = CallBindingOrigin(origin)
+    if (
+        parsed_origin
+        in {
+            CallBindingOrigin.STORED_RECEIVER,
+            CallBindingOrigin.CONSTRUCTED_RECEIVER,
+            CallBindingOrigin.CONSTRUCTOR,
+            CallBindingOrigin.NATIVE,
+            CallBindingOrigin.NATIVE_RECEIVER,
+        }
+        and proof is None
+    ):
+        raise ValueError("extended call binding needs a typed origin proof")
+    if proof is not None:
+        proof_kind = proof.get("kind")
+        proof_fields = {key for key, _ in proof.entries}
+        required_fields = {
+            "stored_field": {
+                "kind", "owner", "field", "parameter", "target", "witness_evidence_ids"
+            },
+            "construction": {
+                "kind",
+                "target",
+                "constructor_evidence_id",
+                "assignment_evidence_id",
+                "assignment_name",
+            },
+            "constructor": {
+                "kind",
+                "target",
+                "constructor_evidence_id",
+                "provider_evidence_id",
+                "runtime_name",
+                "runtime_version",
+            },
+            "provider_member": {
+                "kind",
+                "target",
+                "provider_evidence_id",
+                "runtime_name",
+                "runtime_version",
+            },
+            "native_descriptor": {
+                "kind",
+                "target",
+                "runtime_name",
+                "runtime_version",
+                "runtime_implementation",
+                "descriptor_owner_module",
+                "descriptor_owner_qualname",
+                "descriptor_member",
+                "descriptor_kind",
+                "stdlib_source_digest",
+                "witness_evidence_ids",
+            },
+        }
+        if not isinstance(proof_kind, str) or proof_fields != required_fields.get(proof_kind):
+            raise ValueError("invalid call binding proof fields")
+        if (
+            proof_kind in {"constructor", "provider_member", "native_descriptor"}
+            and proof.get("target") != target
+        ):
+            raise ValueError("call binding proof disagrees with its canonical target")
+        if proof_kind == "stored_field" and parsed_origin is not CallBindingOrigin.STORED_RECEIVER:
+            raise ValueError("stored-field proof needs a stored receiver origin")
+        if (
+            proof_kind == "construction"
+            and parsed_origin is not CallBindingOrigin.CONSTRUCTED_RECEIVER
+        ):
+            raise ValueError("construction proof needs a constructed receiver origin")
+        if proof_kind == "constructor" and parsed_origin is not CallBindingOrigin.CONSTRUCTOR:
+            raise ValueError("constructor proof needs a constructor origin")
+        if proof_kind == "native_descriptor" and parsed_origin is not CallBindingOrigin.NATIVE:
+            raise ValueError("native descriptor proof needs an unbound native origin")
+        if proof_kind == "native_descriptor":
+            source_digest = proof.get("stdlib_source_digest")
+            if (
+                target != "datetime.datetime.now"
+                or proof.get("runtime_name") != "python"
+                or proof.get("runtime_implementation") != "cpython"
+                or proof.get("descriptor_owner_module") != "datetime"
+                or proof.get("descriptor_owner_qualname") != "datetime"
+                or proof.get("descriptor_member") != "now"
+                or proof.get("descriptor_kind") != "classmethod_descriptor"
+                or not isinstance(source_digest, str)
+                or len(source_digest) != 64
+                or any(character not in "0123456789abcdef" for character in source_digest)
+            ):
+                raise ValueError(
+                    "native descriptor proof disagrees with the admitted runtime identity"
+                )
+        if proof_kind == "provider_member" and parsed_origin not in {
+            CallBindingOrigin.NATIVE,
+            CallBindingOrigin.NATIVE_RECEIVER,
+            CallBindingOrigin.CONSTRUCTOR,
+        }:
+            raise ValueError("provider member proof needs a native call origin")
+        for key in ("constructor_evidence_id", "provider_evidence_id", "assignment_evidence_id"):
+            item = proof.get(key)
+            if item is not None and (not isinstance(item, str) or not item):
+                raise ValueError("invalid call binding proof evidence reference")
+        for key in (
+            "runtime_name",
+            "runtime_version",
+            "runtime_implementation",
+            "descriptor_owner_module",
+            "descriptor_owner_qualname",
+            "descriptor_member",
+            "descriptor_kind",
+            "stdlib_source_digest",
+            "owner",
+            "field",
+            "parameter",
+        ):
+            item = proof.get(key)
+            if item is not None and (not isinstance(item, str) or not item):
+                raise ValueError("invalid call binding proof identity")
+        witness_ids = proof.get("witness_evidence_ids")
+        if witness_ids is not None and (
+            not isinstance(witness_ids, tuple)
+            or not witness_ids
+            or any(not isinstance(item, str) or not item for item in witness_ids)
+        ):
+            raise ValueError("invalid call binding proof witness references")
+        references = {
+            proof.get(key)
+            for key in (
+                "constructor_evidence_id",
+                "provider_evidence_id",
+                "assignment_evidence_id",
+            )
+            if isinstance(proof.get(key), str)
+        }
+        if isinstance(witness_ids, tuple):
+            references.update(item for item in witness_ids if isinstance(item, str))
+        if not references <= set(evidence):
+            raise ValueError("call binding proof references evidence outside its binding")
     return CallBinding(
-        CallBindingOrigin(origin), target, tuple(item for item in evidence if isinstance(item, str))
+        parsed_origin,
+        target,
+        tuple(item for item in evidence if isinstance(item, str)),
+        proof,
     )
 
 

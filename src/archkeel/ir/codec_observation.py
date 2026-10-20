@@ -26,6 +26,7 @@ from archkeel.ir.codec_wire import (
     canonical_json_bytes,
 )
 from archkeel.ir.facts import (
+    CallBindingOrigin,
     RuntimeRequirementState,
     SourceProfile,
     parse_runtime_requirement_state,
@@ -67,6 +68,7 @@ class _ObservationVersion(StrEnum):
     V2_1 = "2.1.0"
     V2_2 = "2.2.0"
     V2_3 = "2.3.0"
+    V2_4 = "2.4.0"
 
 
 class _VersionedConstruct(StrEnum):
@@ -203,6 +205,7 @@ def _validate_versioned_records(
         _ObservationVersion.V2_1,
         _ObservationVersion.V2_2,
         _ObservationVersion.V2_3,
+        _ObservationVersion.V2_4,
     }:
         python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
         for section in sections:
@@ -212,7 +215,16 @@ def _validate_versioned_records(
                         (key for key, _ in call.data.entries), "call_binding"
                     ):
                         raise ValueError("Python 2.1.0 calls require explicit call_binding or null")
-                    _call_binding(call.data.get("call_binding"))
+                    binding = _call_binding(call.data.get("call_binding"))
+                    if (
+                        schema_version is not _ObservationVersion.V2_4
+                        and binding is not None
+                        and binding.origin
+                        not in {CallBindingOrigin.DIRECT, CallBindingOrigin.DECLARED_RECEIVER}
+                    ):
+                        raise ValueError(
+                            "extended call bindings require observation schema 2.4.0"
+                        )
     if schema_version in {
         _ObservationVersion.V1_2,
         _ObservationVersion.V1_3,

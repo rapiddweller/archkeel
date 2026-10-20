@@ -27,6 +27,8 @@ from archkeel.analyzer.runtime import (
 )
 from archkeel.ir.facts import (
     CALL_BINDINGS_FEATURE,
+    EXTENDED_CALL_BINDINGS_FEATURE,
+    NATIVE_CALL_TARGETS,
     BuiltinTarget,
     Capabilities,
     CollectionCoverage,
@@ -427,6 +429,10 @@ def collect(request: CollectionRequest) -> SourceFacts:
     )
     providers = _provider_modules(captured_sources, modules)
     provider_bindings = _provider_bindings(providers, modules, imports, evidence)
+    required, requirement_state = python_requirement(root)
+    adapter, runtime = collector_provenance(
+        Language.PYTHON, required=required, requirement_state=requirement_state
+    )
     symbols, symbol_nodes, symbol_owners = collect_symbols(
         modules,
         evidence,
@@ -437,7 +443,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         contextmanager_signatures(modules, providers, symbols, provider_bindings, evidence)
     type_shapes = collect_type_shapes(symbol_type_expressions(symbols))
     symbol_index = build_symbol_index(symbols)
-    calls = collect_calls(modules, symbol_index, evidence)
+    calls = collect_calls(modules, symbol_index, evidence, provider_bindings, runtime)
     dynamic_imports, dynamic_limits = collect_dynamic_imports(
         modules, calls, imports, evidence, namespace=request.scope.namespace
     )
@@ -471,10 +477,6 @@ def collect(request: CollectionRequest) -> SourceFacts:
     for item in private_evidence:
         evidence[item.id] = _raw_evidence(item)
 
-    required, requirement_state = python_requirement(root)
-    adapter, runtime = collector_provenance(
-        Language.PYTHON, required=required, requirement_state=requirement_state
-    )
     return SourceFacts(
         SourceProfile.PYTHON,
         adapter,
@@ -487,7 +489,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         ),
         Capabilities(
             _SECTION_NAMES,
-            resolution_features=(CALL_BINDINGS_FEATURE,),
+            resolution_features=(CALL_BINDINGS_FEATURE, EXTENDED_CALL_BINDINGS_FEATURE),
             constructs=tuple(
                 ConstructCapability(kind, ConstructSupport.DECIDED)
                 for kind in ForbiddenConstructKind
@@ -625,6 +627,13 @@ def _provider_bindings(
         for item in imports
         if item["data"]["symbol"] not in {None, "*"}
     }
+    wanted.update(
+        item["data"]["target_module"] for item in imports if item["data"]["symbol"] is None
+    )
+    imported_modules = {item["data"]["target_module"] for item in imports}
+    wanted.update(
+        target for target in NATIVE_CALL_TARGETS if target.partition(".")[0] in imported_modules
+    )
     decorators = {
         resolve_static_name(module, node.decorator_list[0])
         for module in selected
@@ -639,12 +648,15 @@ def _provider_bindings(
     bindings = _provider_aliases(wanted, by_module, provider_imports, evidence, discover=discover)
     for module in providers:
         runtime_parent = _provider_parents_static(module.module, by_module)
-        if not runtime_parent and not _provider_parents_static(
-            module.module, by_module, source_identity=True
+        stdlib_root = module.module in sys.stdlib_module_names and "." not in module.module
+        if (
+            not runtime_parent
+            and not _provider_parents_static(module.module, by_module, source_identity=True)
+            and not stdlib_root
         ):
             continue
         if (
-            runtime_parent
+            (runtime_parent or stdlib_root)
             and module.module in wanted
             and _provider_identity_static(module, registry_identity=False)
         ):
@@ -663,11 +675,55 @@ def _provider_bindings(
                 ):
                     continue
                 if not runtime_parent:
-                    if qualified in direct_wanted:
+                    if qualified in direct_wanted and not stdlib_root:
                         continue
-                    kind = ProviderBindingKind.DECLARATION
+                    if not stdlib_root:
+                        kind = ProviderBindingKind.DECLARATION
                 evidence_id = add_evidence(evidence, module, node)
                 bindings.append(ProviderBinding(qualified, kind, evidence_id))
+            if isinstance(node, ast.ClassDef):
+                class_methods = {
+                    method.name
+                    for method in node.body
+                    if isinstance(method, ast.FunctionDef | ast.AsyncFunctionDef)
+                }
+                for method in node.body:
+                    if not isinstance(method, ast.FunctionDef | ast.AsyncFunctionDef):
+                        continue
+                    qualified = f"{module.module}.{node.name}.{method.name}"
+                    if (
+                        qualified in wanted
+                        and not method.decorator_list
+                        and node.name not in module.global_names
+                        and module.scope_bound_names.count(node.name) == 1
+                        and class_header_static(node)
+                        and _provider_identity_static(module, registry_identity=False)
+                    ):
+                        bindings.append(
+                            ProviderBinding(
+                                qualified,
+                                ProviderBindingKind.FUNCTION,
+                                add_evidence(evidence, module, method),
+                            )
+                        )
+                for native_target in wanted & NATIVE_CALL_TARGETS:
+                    prefix = f"{module.module}.{node.name}."
+                    member = (
+                        native_target[len(prefix) :] if native_target.startswith(prefix) else ""
+                    )
+                    if (
+                        member
+                        and member not in class_methods
+                        and class_header_static(node)
+                        and _provider_identity_static(module, registry_identity=False)
+                    ):
+                        bindings.append(
+                            ProviderBinding(
+                                native_target,
+                                ProviderBindingKind.FUNCTION,
+                                add_evidence(evidence, module, node),
+                            )
+                        )
     return tuple(sorted(bindings, key=lambda item: item.qualified_name))
 
 
