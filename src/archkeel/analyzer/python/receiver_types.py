@@ -26,8 +26,10 @@ _METHOD_TABLES: dict[str, tuple[str, frozenset[str]]] = {
     "random.Random": (
         "random.Random",
         frozenset(
-            "choice choices gauss getrandbits getstate randbytes randint randrange random sample seed setstate shuffle uniform"
-            .split()
+            (
+                "choice choices gauss getrandbits getstate randbytes randint randrange "
+                "random sample seed setstate shuffle uniform"
+            ).split()
         ),
     ),
     "list": (
