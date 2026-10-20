@@ -900,11 +900,12 @@ def _numeric_local_alias_assignment(
         return None
     owner, line_offset = owner_result
     use = _numeric_operation_in_owner(owner, operation, scope_evidence, line_offset, owner_name)
-    return (
-        _numeric_unique_local_assignment(owner, origin, scope_evidence, line_offset, use)
-        if use is not None
-        else None
-    )
+    if (
+        use is None
+        or _numeric_anonymous_scope_allows_module(owner, use, str(origin.get("name"))) is False
+    ):
+        return None
+    return _numeric_unique_local_assignment(owner, origin, scope_evidence, line_offset, use)
 
 
 def _numeric_module_alias_supported(
@@ -959,7 +960,9 @@ def _numeric_module_use_chain_supported(
     if not isinstance(chain, tuple) or not isinstance(operation_owner, str):
         return False
     if operation_owner == module_name:
-        return not chain
+        return not chain and not _numeric_module_anonymous_binding(
+            operation, name, evidence_by_id, expected_file
+        )
     if not chain:
         return False
     first_scope = chain[0]
@@ -1057,11 +1060,16 @@ def _numeric_module_use_scope(
     if owner_result is None:
         return False
     owner, line_offset = owner_result
-    if (
-        _numeric_operation_in_owner(owner, operation, scope_evidence, line_offset, owner_name)
-        is None
-    ):
+    operation_node = _numeric_operation_in_owner(
+        owner, operation, scope_evidence, line_offset, owner_name
+    )
+    if operation_node is None:
         return False
+    anonymous_scope = _numeric_anonymous_scope_allows_module(owner, operation_node, name)
+    if anonymous_scope is False:
+        return False
+    if isinstance(owner, ast.ClassDef) and anonymous_scope is True:
+        return True
     is_method_scope = operation.data.get("owner") != owner_name and symbol.kind == "class"
     if is_method_scope:
         return True
@@ -1069,6 +1077,105 @@ def _numeric_module_use_scope(
         isinstance(node, ast.Name) and node.id == name and isinstance(node.ctx, ast.Store | ast.Del)
         for node in _numeric_lexical_scope_nodes(owner)
     )
+
+
+def _numeric_module_anonymous_binding(
+    operation: Record,
+    name: str,
+    evidence_by_id: Mapping[str, Evidence],
+    expected_file: str,
+) -> bool:
+    expected = tuple(
+        operation.data.get(field) for field in ("line", "column", "end_line", "end_column")
+    )
+    matches: list[tuple[ast.stmt, ast.AST]] = []
+    for evidence_id in operation.evidence_ids:
+        evidence = evidence_by_id.get(evidence_id)
+        if evidence is None or evidence.file != expected_file:
+            continue
+        parsed = _numeric_evidence_nodes(evidence)
+        if parsed is None:
+            continue
+        nodes, line_offset = parsed
+        for root in nodes:
+            for node in ast.walk(root):
+                if (
+                    _numeric_node_span(node, evidence.line, line_offset) == expected
+                    and isinstance(node, ast.BinOp | ast.AugAssign)
+                    and (
+                        isinstance(node, ast.BinOp)
+                        and isinstance(node.op, ast.Mod)
+                        or isinstance(node, ast.AugAssign)
+                        and isinstance(node.op, ast.Mod)
+                    )
+                ):
+                    matches.append((root, node))
+    if len(matches) != 1:
+        return True
+    root, operation_node = matches[0]
+    return _numeric_anonymous_scope_allows_module(root, operation_node, name) is False
+
+
+def _numeric_anonymous_scope_allows_module(
+    owner: ast.AST, operation: ast.AST, name: str
+) -> bool | None:
+    parents = {
+        child: parent for parent in ast.walk(owner) for child in ast.iter_child_nodes(parent)
+    }
+    node = operation
+    found_anonymous_scope = False
+    name_is_bound = False
+    while node is not owner:
+        parent = parents.get(node)
+        if parent is None:
+            return False
+        if isinstance(parent, ast.Lambda) and node is parent.body:
+            found_anonymous_scope = True
+            arguments = parent.args
+            parameters = (
+                *arguments.posonlyargs,
+                *arguments.args,
+                *arguments.kwonlyargs,
+            )
+            name_is_bound = name_is_bound or any(argument.arg == name for argument in parameters)
+            name_is_bound = name_is_bound or (
+                arguments.vararg is not None and arguments.vararg.arg == name
+            )
+            name_is_bound = name_is_bound or (
+                arguments.kwarg is not None and arguments.kwarg.arg == name
+            )
+            name_is_bound = name_is_bound or _numeric_anonymous_walrus_binds(parent.body, name)
+        if isinstance(parent, ast.ListComp | ast.SetComp | ast.GeneratorExp | ast.DictComp):
+            if parent.generators and not _numeric_is_within(
+                operation, parent.generators[0].iter, parents
+            ):
+                found_anonymous_scope = True
+                name_is_bound = name_is_bound or any(
+                    isinstance(target, ast.Name) and target.id == name
+                    for generator in parent.generators
+                    for target in ast.walk(generator.target)
+                )
+                name_is_bound = name_is_bound or _numeric_anonymous_walrus_binds(parent, name)
+        node = parent
+    return not name_is_bound if found_anonymous_scope else None
+
+
+def _numeric_anonymous_walrus_binds(scope: ast.AST, name: str) -> bool:
+    for node in _numeric_lexical_nodes(scope, scope):
+        if isinstance(node, ast.Name) and node.id == name and isinstance(node.ctx, ast.Store):
+            return True
+    return False
+
+
+def _numeric_is_within(
+    node: ast.AST, ancestor: ast.AST, parents: Mapping[ast.AST, ast.AST]
+) -> bool:
+    while node is not ancestor:
+        parent = parents.get(node)
+        if parent is None:
+            return False
+        node = parent
+    return True
 
 
 def _numeric_owner_evidence_matches(

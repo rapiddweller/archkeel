@@ -696,6 +696,58 @@ def test_numeric_aliases_follow_enclosing_lexical_ownership(tmp_path, body, widt
 
 
 @pytest.mark.parametrize(
+    ("source", "expected_status", "expected_value"),
+    [
+        (
+            "WIDTH = 4\n"
+            "class Holder:\n"
+            "    WIDTH = 8\n"
+            "    choose = lambda job_nonce: job_nonce % WIDTH\n",
+            "PASS",
+            4,
+        ),
+        (
+            "WIDTH = 4\n"
+            "class Holder:\n"
+            "    WIDTH = 8\n"
+            "    values = [job_nonce % WIDTH for job_nonce in (1,)]\n",
+            "PASS",
+            4,
+        ),
+        (
+            "WIDTH = 8\n"
+            "class Holder:\n"
+            "    WIDTH = 3\n"
+            "    values = [item for item in (job_nonce % WIDTH,)]\n",
+            "FAIL",
+            3,
+        ),
+    ],
+    ids=["lambda-body-skips-class", "comprehension-body-skips-class", "comprehension-outer-iter"],
+)
+def test_anonymous_scopes_in_class_bodies_keep_lexical_alias_resolution(
+    tmp_path, source, expected_status, expected_value
+):
+    _write_probe(tmp_path, minimum=4)
+    (tmp_path / "sample/core.py").write_text(source)
+    observation, rows = _rule_rows(tmp_path)
+    assert len(rows) == 1 and rows[0].status.value == expected_status
+    numeric = next(
+        record for record in observation.records("constructs") if record.kind == "numeric_operand"
+    )
+    assert numeric.data.get("proof") == "known" and numeric.data.get("value") == expected_value
+    for columnar in (False, True):
+        saved = tmp_path / "anonymous-scope.json"
+        saved.write_bytes(
+            canonical_report_bytes(observation)
+            if columnar
+            else json.dumps(observation_payload(observation)).encode()
+        )
+        replay = run_saved_report(saved)
+        assert not replay.diagnostics and replay.rule_assessments == rows
+
+
+@pytest.mark.parametrize(
     "source",
     [
         "def choose(job_nonce):\n    WIDTH = 4\n"
