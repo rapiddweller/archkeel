@@ -55,7 +55,7 @@ from archkeel.ir.model import (
 from archkeel.ir.profiles import Profile, profile_for
 from archkeel.ir.type_shapes import TypeShapeIndex
 
-from .call_argument_policy import call_argument_results
+from .call_argument_policy import call_argument_results, catalog_results
 from .call_owners import call_owner_results
 from .imports import strip_internal_reexport_facts
 from .protocol_declarations import protocol_declaration_results
@@ -309,9 +309,11 @@ def _inside_rule_results(
     construct_capabilities: tuple[ConstructCapability, ...],
     symbols_measured: bool,
     calls: Sequence[RawRecord],
+    references: Sequence[RawRecord],
     calls_complete: bool,
     bindings_measured: bool,
     arguments_measured: bool,
+    references_measured: bool,
     root_contract: ArchitectureContract | None = None,
     imports: Sequence[RawRecord],
     source_unknowns: Sequence[RawRecord],
@@ -428,6 +430,23 @@ def _inside_rule_results(
         violations.extend(argument_violations)
         unknowns.extend(argument_limits)
         assessments.extend(argument_receipts)
+        catalog_violations, catalog_limits, catalog_receipts = catalog_results(
+            scoped,
+            scope=mount.parent_id,
+            calls=calls,
+            modules=modules,
+            symbols=symbols,
+            references=references,
+            complete=calls_complete,
+            bindings_measured=bindings_measured,
+            arguments_measured=arguments_measured,
+            references_measured=references_measured,
+            blank_modules=blank_modules,
+            source_modules=source_modules,
+        )
+        violations.extend(catalog_violations)
+        unknowns.extend(catalog_limits)
+        assessments.extend(catalog_receipts)
     return _sort_inside_rule_results(
         violations, unknowns, failures, assessments, allowances, symbols
     )
@@ -953,9 +972,11 @@ def evaluate_source(
         construct_capabilities=facts.capabilities.constructs,
         symbols_measured=symbols_measured,
         calls=calls,
+        references=references,
         calls_complete=calls_complete,
         bindings_measured=bindings_measured,
         arguments_measured=arguments_measured,
+        references_measured=SourceSectionName.REFERENCES in facts.capabilities.sections,
         root_contract=contract,
         imports=imports,
         source_unknowns=source_unknowns,
@@ -1099,6 +1120,22 @@ def evaluate_source(
     violations += argument_violations
     unknowns += argument_limits
     scope_observations += argument_receipts
+    catalog_violations, catalog_limits, catalog_receipts = catalog_results(
+        contract,
+        scope="root",
+        calls=calls,
+        modules=module_facts,
+        symbols=symbols,
+        references=references,
+        complete=calls_complete,
+        bindings_measured=bindings_measured,
+        arguments_measured=arguments_measured,
+        references_measured=SourceSectionName.REFERENCES in facts.capabilities.sections,
+        blank_modules=blank_modules,
+    )
+    violations += catalog_violations
+    unknowns += catalog_limits
+    scope_observations += catalog_receipts
 
     incomplete_dependencies = {
         rule_id

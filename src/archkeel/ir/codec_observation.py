@@ -42,6 +42,7 @@ from archkeel.ir.model import (
     ContractInfo,
     Coverage,
     Observation,
+    RecordData,
     RuntimeInfo,
     Section,
     SourceInfo,
@@ -70,6 +71,10 @@ class _ObservationVersion(StrEnum):
     V2_3 = "2.3.0"
     V2_4 = "2.4.0"
     V2_5 = "2.5.0"
+    V2_6 = "2.6.0"
+    V2_7 = "2.7.0"
+    V2_8 = "2.8.0"
+    V2_9 = "2.9.0"
 
 
 class _VersionedConstruct(StrEnum):
@@ -117,6 +122,22 @@ def _requires_numeric_version(version: _ObservationVersion) -> bool:
         _ObservationVersion.V2,
         _ObservationVersion.V2_1,
     }
+
+
+def _uses_catalog_literal_fields(sections: tuple[Section, ...]) -> bool:
+    return any(
+        section.name == ObservedSection.SYMBOLS
+        and any(
+            isinstance(attributes := record.data.get("attribute_declarations"), tuple)
+            and any(
+                isinstance(attribute, RecordData)
+                and attribute.get("literal_value") is not None
+                for attribute in attributes
+            )
+            for record in section.records
+        )
+        for section in sections
+    )
 
 
 class _EncodingKind(StrEnum):
@@ -283,9 +304,17 @@ def _validate_versioned_records(
             continue
         for call in section.records:
             has_arguments = _has_field((key for key, _ in call.data.entries), "call_arguments")
-            if schema_version is _ObservationVersion.V2_5:
+            if schema_version in {
+                _ObservationVersion.V2_5,
+                _ObservationVersion.V2_6,
+                _ObservationVersion.V2_7,
+                _ObservationVersion.V2_8,
+                _ObservationVersion.V2_9,
+            }:
                 if python_calls and not has_arguments:
-                    raise ValueError("Python 2.5.0 calls require explicit call_arguments")
+                    raise ValueError(
+                        f"Python {schema_version.value} calls require explicit call_arguments"
+                    )
                 arguments = (
                     _call_arguments(call.data.get("call_arguments")) if has_arguments else None
                 )
@@ -294,6 +323,8 @@ def _validate_versioned_records(
                     raise ValueError("call arguments require the canonical call binding")
             elif has_arguments:
                 raise ValueError("call_arguments require observation schema 2.5.0")
+    if schema_version is not _ObservationVersion.V2_9 and _uses_catalog_literal_fields(sections):
+        raise ValueError("catalog literal values require observation schema 2.9.0")
 
 
 def parse_observation(raw: object) -> Observation:
@@ -326,7 +357,6 @@ def parse_observation(raw: object) -> Observation:
         if isinstance(section_items := item[name], list)
     )
     _validate_versioned_records(schema_version, sections, profile)
-
     return Observation(
         schema_version=schema_version,
         analyzer=AnalyzerInfo(
@@ -357,6 +387,10 @@ def parse_observation(raw: object) -> Observation:
                 _ObservationVersion.V2_3,
                 _ObservationVersion.V2_4,
                 _ObservationVersion.V2_5,
+                _ObservationVersion.V2_6,
+                _ObservationVersion.V2_7,
+                _ObservationVersion.V2_8,
+                _ObservationVersion.V2_9,
             },
         )
         if item.get("runtime", _MISSING_VALUE) is not _MISSING_VALUE

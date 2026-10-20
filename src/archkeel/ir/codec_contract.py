@@ -44,6 +44,8 @@ from archkeel.ir.model import (
     BoundaryTypesRule,
     BoundedNumericOperandRule,
     CallOwnerRule,
+    CatalogArgumentRule,
+    CatalogUseRule,
     CompatibilityLifetime,
     CompatibilityShim,
     CompleteAssignmentRule,
@@ -285,6 +287,14 @@ def parse_contract(raw: object) -> ArchitectureContract:
         and ArchitectureRuleKind.FORBIDDEN_CALL_ARGUMENT in kinds
     ):
         raise ValueError("forbidden_call_argument requires contract schema_version 3.10.0")
+    if any(
+        not supports_feature(version, feature) and any(kind is rule_kind for kind in kinds)
+        for feature, rule_kind in (
+            (ContractFeature.CATALOG_ARGUMENT, ArchitectureRuleKind.CATALOG_ARGUMENT),
+            (ContractFeature.CATALOG_USE, ArchitectureRuleKind.CATALOG_USE),
+        )
+    ):
+        raise ValueError("catalog rules require contract schema_version 3.14.0")
     if (
         not supports_feature(version, ContractFeature.LAYERS)
         and ArchitectureRuleKind.LAYER_ORDER in kinds
@@ -431,6 +441,10 @@ def _validate_encoding_version(contract: ArchitectureContract) -> None:
         contract.schema_version, ContractFeature.FORBIDDEN_CALL_ARGUMENT
     ) and any(isinstance(rule, ForbiddenCallArgumentRule) for rule in contract.rules):
         raise ValueError("forbidden_call_argument requires contract schema_version 3.10.0")
+    if any(
+        isinstance(rule, (CatalogArgumentRule, CatalogUseRule)) for rule in contract.rules
+    ) and not supports_feature(contract.schema_version, ContractFeature.CATALOG_ARGUMENT):
+        raise ValueError("catalog rules require contract schema_version 3.14.0")
     if not supports_feature(contract.schema_version, ContractFeature.MODULE_OBJECT_GRANTS) and any(
         isinstance(rule, InterfaceBoundaryRule) and rule.module_object_grants is not None
         for rule in contract.rules
@@ -1456,10 +1470,62 @@ def _parse_forbidden_call_argument(raw: RawJson, label: str) -> ForbiddenCallArg
     )
 
 
+def _parse_catalog_argument(raw: RawJson, label: str) -> CatalogArgumentRule:
+    item, item_id, provenance = _contract_record(
+        raw,
+        {"kind", "source", "target", "parameter", "catalog", "rationale", "decided_by"},
+        {"overlays", "source_match"},
+        label,
+    )
+    return CatalogArgumentRule(
+        item_id,
+        ArchitectureRuleKind.CATALOG_ARGUMENT,
+        _nonempty(item["source"], f"{label}.source"),
+        _nonempty(item["target"], f"{label}.target"),
+        _nonempty(item["parameter"], f"{label}.parameter"),
+        _nonempty(item["catalog"], f"{label}.catalog"),
+        _contract_strings(item.get("overlays", []), f"{label}.overlays"),
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
+        SelectorMatch(
+            _string(item.get("source_match", SelectorMatch.PREFIX), f"{label}.source_match")
+        ),
+    )
+
+
+def _parse_catalog_use(raw: RawJson, label: str) -> CatalogUseRule:
+    item, item_id, provenance = _contract_record(
+        raw,
+        {"kind", "source", "catalog", "rationale", "decided_by"},
+        {"overlays", "member", "source_match"},
+        label,
+    )
+    member = item.get("member")
+    if member is not None:
+        member = _nonempty(member, f"{label}.member")
+    return CatalogUseRule(
+        item_id,
+        ArchitectureRuleKind.CATALOG_USE,
+        _nonempty(item["source"], f"{label}.source"),
+        _nonempty(item["catalog"], f"{label}.catalog"),
+        _contract_strings(item.get("overlays", []), f"{label}.overlays"),
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
+        member,
+        SelectorMatch(
+            _string(item.get("source_match", SelectorMatch.PREFIX), f"{label}.source_match")
+        ),
+    )
+
+
 _RULE_PARSERS: Final[dict[ArchitectureRuleKind, Callable[[RawJson, str], ArchitectureRule]]] = {
     ArchitectureRuleKind.BOUNDED_NUMERIC_OPERAND: _parse_bounded_numeric_operand,
     ArchitectureRuleKind.CALL_OWNER: _parse_call_owner,
     ArchitectureRuleKind.FORBIDDEN_CALL_ARGUMENT: _parse_forbidden_call_argument,
+    ArchitectureRuleKind.CATALOG_ARGUMENT: _parse_catalog_argument,
+    ArchitectureRuleKind.CATALOG_USE: _parse_catalog_use,
     ArchitectureRuleKind.FORBIDDEN_DEPENDENCY: _parse_forbidden_dependency,
     ArchitectureRuleKind.ALLOWED_DEPENDENCY: _parse_allowed_dependency,
     ArchitectureRuleKind.FORBIDDEN_CONSTRUCT: _parse_forbidden_construct,

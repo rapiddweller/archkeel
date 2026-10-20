@@ -35,6 +35,19 @@ RULES = {
         "ForbiddenCallArgumentRule",
         {"source": "sample", "target": "sample.store.page", "parameter": "query"},
     ),
+    "catalog_argument": (
+        "CatalogArgumentRule",
+        {
+            "source": "sample",
+            "target": "sample.store.read",
+            "parameter": "key",
+            "catalog": "sample.options.OptionKey",
+        },
+    ),
+    "catalog_use": (
+        "CatalogUseRule",
+        {"source": "sample", "catalog": "sample.options.OptionKey"},
+    ),
     "forbidden_dependency": (
         "ForbiddenDependencyRule",
         {"source": "sample.core", "target": "json", "include_type_checking": True},
@@ -76,6 +89,9 @@ def test_every_rule_variant_decodes_the_shared_kind_and_attribution(kind):
         "call_owner": "3.7.0",
         "bounded_numeric_operand": "3.8.0",
         "protocol_declarations": "3.9.0",
+        "forbidden_call_argument": "3.10.0",
+        "catalog_argument": "3.14.0",
+        "catalog_use": "3.14.0",
     }.get(kind, "3.10.0")
     raw["rules"] = [
         {

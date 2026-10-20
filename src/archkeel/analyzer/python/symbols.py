@@ -167,6 +167,13 @@ def _class_attribute_declarations(
                     ),
                     "evidence_ids": [add_evidence(evidence, module, child)],
                     **({"static": True} if isinstance(child, ast.Assign) else {}),
+                    **(
+                        {"literal_value": child.value.value}
+                        if isinstance(child, ast.Assign | ast.AnnAssign)
+                        and isinstance(child.value, ast.Constant)
+                        and type(child.value.value) is str
+                        else {}
+                    ),
                 }
             )
     return result

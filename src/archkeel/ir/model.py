@@ -105,7 +105,7 @@ def public_api_id(selector: str) -> str:
     return f"API-{hashlib.sha256(selector.encode()).hexdigest()[:16]}"
 
 
-SCHEMA_VERSION = "2.5.0"
+SCHEMA_VERSION = "2.9.0"
 DELTA_SCHEMA_VERSION = "2.0.0"
 
 
@@ -518,6 +518,35 @@ class ForbiddenCallArgumentRule(ArchitectureRuleGrammar):
 
 
 @dataclass(frozen=True, slots=True)
+class CatalogArgumentRule(ArchitectureRuleGrammar):
+    id: str
+    kind: Literal[ArchitectureRuleKind.CATALOG_ARGUMENT]
+    source: str
+    target: str
+    parameter: str
+    catalog: str
+    overlays: tuple[str, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+    source_match: SelectorMatch = SelectorMatch.PREFIX
+
+
+@dataclass(frozen=True, slots=True)
+class CatalogUseRule(ArchitectureRuleGrammar):
+    id: str
+    kind: Literal[ArchitectureRuleKind.CATALOG_USE]
+    source: str
+    catalog: str
+    overlays: tuple[str, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+    member: str | None = None
+    source_match: SelectorMatch = SelectorMatch.PREFIX
+
+
+@dataclass(frozen=True, slots=True)
 class ForbiddenDependencyRule(ArchitectureRuleGrammar):
     id: str
     kind: Literal[ArchitectureRuleKind.FORBIDDEN_DEPENDENCY]
@@ -812,6 +841,8 @@ ArchitectureRule: TypeAlias = (
     CallOwnerRule
     | BoundedNumericOperandRule
     | ForbiddenCallArgumentRule
+    | CatalogArgumentRule
+    | CatalogUseRule
     | ForbiddenDependencyRule
     | AllowedDependencyRule
     | ForbiddenConstructRule

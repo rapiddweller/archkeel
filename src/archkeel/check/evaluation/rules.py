@@ -34,6 +34,8 @@ from archkeel.ir.model import (
     BoundaryTypesRule,
     BoundedNumericOperandRule,
     CallOwnerRule,
+    CatalogArgumentRule,
+    CatalogUseRule,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
@@ -951,6 +953,8 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
     if isinstance(rule, CallOwnerRule):
         return {}
     if isinstance(rule, ForbiddenCallArgumentRule):
+        return {"source": (rule.source,)}
+    if isinstance(rule, CatalogArgumentRule | CatalogUseRule):
         return {"source": (rule.source,)}
     if isinstance(rule, ForbiddenDependencyRule | AllowedDependencyRule):
         return {"source": (rule.source,), "target": (rule.target,)}
@@ -2238,6 +2242,8 @@ _SeparateReceiptRule: TypeAlias = (
     | CallOwnerRule
     | ProtocolDeclarationsRule
     | ForbiddenCallArgumentRule
+    | CatalogArgumentRule
+    | CatalogUseRule
 )
 
 

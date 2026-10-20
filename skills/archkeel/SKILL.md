@@ -315,6 +315,8 @@ retiring any method-name scanner. Argument facts require observation 2.5 and
 contract 3.10; older readers must reject that evidence. The current reader
 continues to accept historical observation formats.
 
+Use `catalog_argument` to compare a bound operation argument against canonical Python enum string values, and `catalog_use` to require a real selected member read. The contract names declaration owners, never copied values or `used` flags. Comments, docs, definitions and annotation-only links are not reads; `TYPE_CHECKING` reads count syntactically. Missing or partial scope remains UNKNOWN. These rules require contract 3.14 and observation 2.9; older saved artifacts remain readable but cannot certify them. See AD-251 for limits.
+
 ## Daily loop
 
 Validation reports `responsibility.missing` only for components explicitly marked

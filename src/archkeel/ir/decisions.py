@@ -873,7 +873,12 @@ def _rule_receipt_complete(
 ) -> bool:
     if declaration.kind == "no_component_cycles":
         return receipt is not None and receipt.data.get("cycle_scope_complete") is True
-    if declaration.kind in {"call_owner", "forbidden_call_argument"}:
+    if declaration.kind in {
+        "call_owner",
+        "forbidden_call_argument",
+        "catalog_argument",
+        "catalog_use",
+    }:
         return (
             receipt is not None
             and receipt.rule_ids == (declaration.id,)
@@ -1000,7 +1005,7 @@ def dependency_binding_id(
         for record in section.records
         if section.name in {"modules", "imports", "symbols"}
         or section.name == "references"
-        and record.kind == "script_namespace_effect"
+        and (record.kind == "script_namespace_effect" or include_calls)
         or include_calls
         and section.name == "calls"
         or section.name == "declarations"
@@ -1012,8 +1017,9 @@ def dependency_binding_id(
                 "complete_requires",
             }
             or include_calls
-            and record.kind in {"call_owner", "forbidden_call_argument"}
-            or record.kind == "protocol_declarations"
+            and record.kind
+            in {"call_owner", "forbidden_call_argument", "catalog_argument", "catalog_use"}
+            or record.kind in {"protocol_declarations", "bounded_numeric_operand"}
         )
     ]
     bound.extend(failures)
