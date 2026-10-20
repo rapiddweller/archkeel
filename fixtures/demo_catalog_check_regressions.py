@@ -31,10 +31,12 @@ _VIOLATION = CheckExpectation(
     expectation_fulfilled="FAIL",
     git_predicate="PASS",
     host_order="PASS",
-    regressed_scalars=("violations",),
+    # Exposing OrderRepository also exposes its order_path dependency. Its revoked static
+    # call binding leaves the argument policy UNKNOWN, which must regress its own ratchet.
+    regressed_scalars=("violations", "unknown_positions"),
     # The new import is also a new module-level dependency_edges entry (AD-44), declared
     # alongside the violation itself.
-    regressed_dimensions=("violations", "dependency_edges"),
+    regressed_dimensions=("violations", "dependency_edges", "unknowns"),
 )
 
 _PRIVATE_CROSSING_FILES = _files_of(_INTERFACE_VARIANTS, "class-a-interface-boundary-underscore")
