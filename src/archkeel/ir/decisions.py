@@ -909,50 +909,12 @@ def _selector_receipt_complete(
     proof = receipt.data.get("selector_scope_proof")
     selector = declaration.data.get("selector")
     claim = receipt.data.get("selector")
-    if (
-        not isinstance(proof, RecordData)
-        or {key for key, _ in proof.entries}
-        != {
-            "source_digest",
-            "source_scope",
-            "contract_digest",
-            "selected_files",
-            "source_modules",
-            "inventory_fact_ids",
-            "result_digest",
-            "binding_id",
-        }
-        or not isinstance(selector, RecordData)
-        or not isinstance(claim, RecordData)
-        or any(
-            claim.get(key) != selector.get(key) for key in ("receiver", "member", "role", "literal")
-        )
-    ):
+    if not isinstance(proof, RecordData) or not isinstance(selector, RecordData):
         return False
-    source_modules = proof.get("source_modules")
-    inventory_ids = proof.get("inventory_fact_ids")
-    receipt_inventory_ids = receipt.data.get("inventory_fact_ids")
-    selected_files = proof.get("selected_files")
-    if (
-        not isinstance(source_modules, tuple)
-        or not isinstance(inventory_ids, tuple)
-        or not isinstance(receipt_inventory_ids, tuple)
-        or not isinstance(selected_files, tuple)
-    ):
+    parts = _selector_receipt_claim_parts(proof, selector, claim, receipt)
+    if parts is None:
         return False
-    source_names = tuple(item for item in source_modules if isinstance(item, str))
-    expected_inventory = tuple(item for item in inventory_ids if isinstance(item, str))
-    receipt_inventory = tuple(item for item in receipt_inventory_ids if isinstance(item, str))
-    selected_paths = tuple(item for item in selected_files if isinstance(item, str))
-    if (
-        len(source_names) != len(source_modules)
-        or len(expected_inventory) != len(inventory_ids)
-        or len(receipt_inventory) != len(receipt_inventory_ids)
-        or len(selected_paths) != len(selected_files)
-        or source_names != tuple(sorted(set(source_names)))
-        or not source_names
-    ):
-        return False
+    source_names, expected_inventory, receipt_inventory, selected_paths = parts
     if frozenset(source_names) != _selector_source_names(observation, declaration):
         return False
     modules = tuple(
@@ -1006,6 +968,57 @@ def _selector_receipt_complete(
             observation.schema_version,
         )
     )
+
+
+def _selector_receipt_claim_parts(
+    proof: RecordData,
+    selector: RecordData,
+    claim: JsonValue,
+    receipt: Record,
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...], tuple[str, ...]] | None:
+    if (
+        {key for key, _ in proof.entries}
+        != {
+            "source_digest",
+            "source_scope",
+            "contract_digest",
+            "selected_files",
+            "source_modules",
+            "inventory_fact_ids",
+            "result_digest",
+            "binding_id",
+        }
+        or not isinstance(claim, RecordData)
+        or any(
+            claim.get(key) != selector.get(key) for key in ("receiver", "member", "role", "literal")
+        )
+    ):
+        return None
+    source_modules = proof.get("source_modules")
+    inventory_ids = proof.get("inventory_fact_ids")
+    receipt_inventory_ids = receipt.data.get("inventory_fact_ids")
+    selected_files = proof.get("selected_files")
+    if not (
+        isinstance(source_modules, tuple)
+        and isinstance(inventory_ids, tuple)
+        and isinstance(receipt_inventory_ids, tuple)
+        and isinstance(selected_files, tuple)
+    ):
+        return None
+    source_names = tuple(item for item in source_modules if isinstance(item, str))
+    expected_inventory = tuple(item for item in inventory_ids if isinstance(item, str))
+    receipt_inventory = tuple(item for item in receipt_inventory_ids if isinstance(item, str))
+    selected_paths = tuple(item for item in selected_files if isinstance(item, str))
+    if (
+        len(source_names) != len(source_modules)
+        or len(expected_inventory) != len(inventory_ids)
+        or len(receipt_inventory) != len(receipt_inventory_ids)
+        or len(selected_paths) != len(selected_files)
+        or source_names != tuple(sorted(set(source_names)))
+        or not source_names
+    ):
+        return None
+    return source_names, expected_inventory, receipt_inventory, selected_paths
 
 
 def _selector_source_names(observation: Observation, declaration: Record) -> frozenset[str]:

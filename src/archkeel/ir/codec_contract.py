@@ -460,9 +460,14 @@ def _validate_encoding_version(contract: ArchitectureContract) -> None:
         for rule in contract.rules
     ):
         raise ValueError("module_object_grants require contract schema_version 3.6.0")
-    if not supports_feature(contract.schema_version, ContractFeature.LAYERS) and (
-        any(component.layer is not None for component in contract.components)
-        or any(isinstance(rule, LayerOrderRule) for rule in contract.rules)
+    _validate_layer_feature_version(contract)
+
+
+def _validate_layer_feature_version(contract: ArchitectureContract) -> None:
+    if supports_feature(contract.schema_version, ContractFeature.LAYERS):
+        return
+    if any(component.layer is not None for component in contract.components) or any(
+        isinstance(rule, LayerOrderRule) for rule in contract.rules
     ):
         raise ValueError("layer and layer_order require contract schema_version 2.3.0")
     if not supports_feature(contract.schema_version, ContractFeature.ALIAS_BODY) and any(
@@ -953,51 +958,7 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
         )
     if len(set(ignores)) != len(ignores):
         raise ValueError(f"{label}.allowed_type_ignores must contain unique entries")
-    selector = None
-    if _has_field(item, "selector"):
-        selected = _contract_fields(
-            _object(item["selector"], f"{label}.selector"),
-            {"receiver", "role"},
-            {"member", "literal"},
-            f"{label}.selector",
-        )
-        try:
-            role = ConstructSelectorRole(_nonempty(selected["role"], f"{label}.selector.role"))
-        except ValueError as exc:
-            raise ValueError(f"{label}.selector.role is unsupported") from exc
-        receiver = _nonempty(selected["receiver"], f"{label}.selector.receiver")
-        member_value = selected.get("member")
-        member = (
-            _nonempty(member_value, f"{label}.selector.member")
-            if member_value is not None
-            else None
-        )
-        literal = selected.get("literal")
-        if literal is not None and not isinstance(literal, str):
-            raise ValueError(f"{label}.selector.literal must be a string")
-        literal_roles = {
-            ConstructSelectorRole.EQUALITY,
-            ConstructSelectorRole.MEMBERSHIP,
-            ConstructSelectorRole.MATCH,
-            ConstructSelectorRole.STARTSWITH,
-            ConstructSelectorRole.ENDSWITH,
-        }
-        if (
-            role
-            in {ConstructSelectorRole.READ, ConstructSelectorRole.WRITE, ConstructSelectorRole.CALL}
-            and literal is not None
-        ):
-            raise ValueError(f"{label}.selector.literal is not valid for access roles")
-        memberless_roles = {ConstructSelectorRole.CONSTRUCTOR, ConstructSelectorRole.TYPE_PROBE}
-        if (role in memberless_roles) == (member is not None):
-            raise ValueError(f"{label}.selector.member is required for member roles")
-        if (role in literal_roles) != (literal is not None):
-            raise ValueError(f"{label}.selector.literal is required only for operand roles")
-        if not all(part.isidentifier() for part in receiver.split(".")) or (
-            member is not None and not member.isidentifier()
-        ):
-            raise ValueError(f"{label}.selector receiver and member must be qualified identifiers")
-        selector = ConstructSelector(receiver, member, role, literal)
+    selector = _parse_construct_selector(item, label)
     return ForbiddenConstructRule(
         item_id,
         ArchitectureRuleKind.FORBIDDEN_CONSTRUCT,
@@ -1096,6 +1057,53 @@ def _parse_source_ownership(raw: RawJson, label: str) -> SourceOwnershipRule:
         owner,
         value_owner,
     )
+
+
+def _parse_construct_selector(item: dict[str, RawJson], label: str) -> ConstructSelector | None:
+    if not _has_field(item, "selector"):
+        return None
+    selected = _contract_fields(
+        _object(item["selector"], f"{label}.selector"),
+        {"receiver", "role"},
+        {"member", "literal"},
+        f"{label}.selector",
+    )
+    try:
+        role = ConstructSelectorRole(_nonempty(selected["role"], f"{label}.selector.role"))
+    except ValueError as exc:
+        raise ValueError(f"{label}.selector.role is unsupported") from exc
+    receiver = _nonempty(selected["receiver"], f"{label}.selector.receiver")
+    member_value = selected.get("member")
+    member = (
+        _nonempty(member_value, f"{label}.selector.member") if member_value is not None else None
+    )
+    literal = selected.get("literal")
+    if literal is not None and not isinstance(literal, str):
+        raise ValueError(f"{label}.selector.literal must be a string")
+    literal_roles = {
+        ConstructSelectorRole.EQUALITY,
+        ConstructSelectorRole.MEMBERSHIP,
+        ConstructSelectorRole.MATCH,
+        ConstructSelectorRole.STARTSWITH,
+        ConstructSelectorRole.ENDSWITH,
+    }
+    access_roles = {
+        ConstructSelectorRole.READ,
+        ConstructSelectorRole.WRITE,
+        ConstructSelectorRole.CALL,
+    }
+    if role in access_roles and literal is not None:
+        raise ValueError(f"{label}.selector.literal is not valid for access roles")
+    memberless_roles = {ConstructSelectorRole.CONSTRUCTOR, ConstructSelectorRole.TYPE_PROBE}
+    if (role in memberless_roles) == (member is not None):
+        raise ValueError(f"{label}.selector.member is required for member roles")
+    if (role in literal_roles) != (literal is not None):
+        raise ValueError(f"{label}.selector.literal is required only for operand roles")
+    if not all(part.isidentifier() for part in receiver.split(".")) or (
+        member is not None and not member.isidentifier()
+    ):
+        raise ValueError(f"{label}.selector receiver and member must be qualified identifiers")
+    return ConstructSelector(receiver, member, role, literal)
 
 
 def _parse_external_dependency_scope(raw: RawJson, label: str) -> ExternalDependencyScopeRule:

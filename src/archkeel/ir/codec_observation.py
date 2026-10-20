@@ -356,8 +356,8 @@ def parse_observation(raw: object) -> Observation:
         for name in CLASSIFIED_SECTIONS
         if isinstance(section_items := item[name], list)
     )
-    _validate_observation_record_versions(sections, schema_version, profile, evidence_raw)
     _validate_versioned_records(schema_version, sections, profile)
+    _validate_observation_record_versions(sections, schema_version, profile, evidence_raw)
     _validate_selector_schema_floor(item)
     return Observation(
         schema_version=schema_version,
