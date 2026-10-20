@@ -23,7 +23,7 @@ from archkeel.ir.type_shapes import TypeShapeIndex
 
 from .boundary_types import (
     BindingIndex,
-    _boundary_type_verdict,
+    _canonical_type_identity_verdict,
     _union_parameters,
     boundary_type_indexes,
     resolve_named_type,
@@ -125,14 +125,13 @@ def _identity_verdict(
     shape = type_shapes.get(annotation)
     if annotation.startswith(("'", '"')) and shape is not None:
         annotation = shape.text
-    verdict = _boundary_type_verdict(
+    verdict = _canonical_type_identity_verdict(
         annotation,
         module,
         contract,
         exports,
         imports_by_binding,
         classes_by_location,
-        enter_fields=False,
         type_shapes=type_shapes,
     )
     if verdict.undecidable is not None:
@@ -147,14 +146,13 @@ def _identity_verdict(
         if len(arms) != 2 or arms.count("None") != 1:
             return "FAIL", "wrong_protocol_identity"
         member = next(arm for arm in arms if arm != "None")
-        optional_verdict = _boundary_type_verdict(
+        optional_verdict = _canonical_type_identity_verdict(
             member,
             module,
             contract,
             exports,
             imports_by_binding,
             classes_by_location,
-            enter_fields=False,
             type_shapes=type_shapes,
         )
         if optional_verdict.undecidable is not None:

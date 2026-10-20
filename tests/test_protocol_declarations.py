@@ -129,11 +129,16 @@ def test_imported_and_quoted_aliases_resolve_but_unresolved_names_stay_unknown(
     )
     (tmp_path / "sample/facade.py").write_text("from .ports import Reader as ExportedReader\n")
     (tmp_path / "sample/app.py").write_text(
+        "from typing import TypeAlias\n"
         "from .facade import ExportedReader as Port\n"
+        "CanonicalPort: TypeAlias = Port\n"
         "class Concrete:\n    def read(self) -> bytes: return b''\n"
         "def imported(client: Port): return client.read()\n"
         "def quoted(client: 'Port'): return client.read()\n"
+        "def type_alias(client: CanonicalPort): return client.read()\n"
         "def wrong(client: Concrete): return client.read()\n"
+        "ConcretePort: TypeAlias = Concrete | Port\n"
+        "def unsupported_alias(client: ConcretePort): return None\n"
         "def unresolved(client: 'MissingPort'): return None\n"
     )
     (tmp_path / "sample/shadow.py").write_text(
@@ -149,14 +154,23 @@ def test_imported_and_quoted_aliases_resolve_but_unresolved_names_stay_unknown(
     unknowns = result.observation.records("unknowns") or ()
     assert any(
         item.kind == "protocol_declaration_limit"
-        and item.data.get("qualified_name") in {"sample.app.unresolved", "sample.shadow.shadowed"}
+        and item.data.get("qualified_name")
+        in {
+            "sample.app.unresolved",
+            "sample.app.unsupported_alias",
+            "sample.shadow.shadowed",
+        }
         for item in unknowns
     )
     assert {
         item.data.get("qualified_name")
         for item in unknowns
         if item.kind == "protocol_declaration_limit"
-    } >= {"sample.app.unresolved", "sample.shadow.shadowed"}
+    } >= {
+        "sample.app.unresolved",
+        "sample.app.unsupported_alias",
+        "sample.shadow.shadowed",
+    }
     saved = tmp_path / "saved-report.json"
     saved.write_bytes(canonical_report_bytes(result.observation))
     replay = run_saved_report(saved)
