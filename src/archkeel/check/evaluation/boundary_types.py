@@ -1352,7 +1352,7 @@ def _canonical_type_identity_verdict(
     annotation: str,
     module: str,
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     imports: BindingIndex,
     classes: BindingIndex,
     type_shapes: TypeShapeIndex,
