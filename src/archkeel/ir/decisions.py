@@ -953,6 +953,8 @@ def _selector_receipt_complete(
         or not source_names
     ):
         return False
+    if frozenset(source_names) != _selector_source_names(observation, declaration):
+        return False
     modules = tuple(
         item
         for item in observation.records("modules") or ()
@@ -1004,6 +1006,65 @@ def _selector_receipt_complete(
             observation.schema_version,
         )
     )
+
+
+def _selector_source_names(observation: Observation, declaration: Record) -> frozenset[str]:
+    """Rebuild the exact module or symbol source domain selected by a construct rule."""
+    module_names = _source_rule_modules(observation, declaration)
+    if module_names:
+        return module_names
+    source = declaration.data.get("source")
+    if not isinstance(source, str):
+        return frozenset()
+    parent_modules = _parent_scope_modules(observation, declaration.data.get("parent_id"))
+    if not parent_modules:
+        return frozenset()
+    return frozenset(
+        qualified_name
+        for item in observation.records("symbols") or ()
+        if item.kind in {"class", "function", "method"}
+        and isinstance(module := item.data.get("module"), str)
+        and module in parent_modules
+        and isinstance(qualified_name := item.data.get("qualified_name"), str)
+        and in_scope(qualified_name, module)
+        and in_scope(qualified_name, source)
+    )
+
+
+def _parent_scope_modules(observation: Observation, parent_id: JsonValue) -> frozenset[str]:
+    """Return physical modules inside every enclosing component boundary."""
+    names = frozenset(
+        qualified_name
+        for item in observation.records("modules") or ()
+        if isinstance(qualified_name := item.data.get("qualified_name"), str)
+    )
+    if parent_id is None:
+        return names
+    components = tuple(
+        item for item in observation.records("declarations") or () if item.kind in _COMPONENT_KINDS
+    )
+    visited: set[str] = set()
+    while parent_id is not None:
+        if not isinstance(parent_id, str) or parent_id in visited:
+            return frozenset()
+        visited.add(parent_id)
+        parents = tuple(
+            item
+            for item in components
+            if (
+                f"{ancestor}:{item.title}"
+                if isinstance(ancestor := item.data.get("parent_id"), str)
+                else item.title
+            )
+            == parent_id
+        )
+        if len(parents) != 1:
+            return frozenset()
+        parent = parents[0]
+        _, packages, exact = _declared_scope_ownership(parent)
+        names = frozenset(name for name in names if module_in_ownership(name, packages, exact))
+        parent_id = parent.data.get("parent_id")
+    return names
 
 
 def _declared_scope_ownership(record: Record) -> ComponentOwnership:
