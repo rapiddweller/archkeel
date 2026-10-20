@@ -1444,7 +1444,9 @@ def test_numeric_operation_subject_must_match_left_terminal_name(tmp_path, form)
         decode_response(json.dumps(payload).encode())
 
 
-@pytest.mark.parametrize("field", ["column", "end_line", "end_column", "subject"])
+@pytest.mark.parametrize(
+    "field", ["column", "end_line", "end_column", "form_and_subject", "subject"]
+)
 def test_parseable_unknown_numeric_operation_rejects_forged_source_anchor(tmp_path, field):
     from dataclasses import replace
 
@@ -1484,7 +1486,10 @@ def test_parseable_unknown_numeric_operation_rejects_forged_source_anchor(tmp_pa
     ]
     assert {row["data"]["proof"] for row in operations} == {"known", "unknown"}
     unknown = next(row for row in operations if row["data"]["proof"] == "unknown")
-    if field == "subject":
+    if field == "form_and_subject":
+        unknown["data"]["form"] = "augmented"
+        unknown["data"]["subject"] = "other_nonce"
+    elif field == "subject":
         unknown["data"][field] = "other_nonce"
     else:
         unknown["data"][field] += 1
@@ -1505,6 +1510,45 @@ def test_parseable_unknown_numeric_operation_rejects_forged_source_anchor(tmp_pa
         validate_source_facts(malformed)
     with pytest.raises(ProtocolError, match="numeric operand"):
         decode_response(json.dumps(payload).encode())
+
+
+def test_duplicate_numeric_evidence_ids_keep_one_source_operation(tmp_path):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text("def choose(job_nonce): return job_nonce % 4\n")
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    operation = next(
+        row
+        for section in payload["facts"]["sections"]
+        for row in section["records"]
+        if row["kind"] == "numeric_operand"
+    )
+    assert operation["data"]["proof"] == "known"
+    operation["evidence_ids"].append(operation["evidence_ids"][0])
+    decoded = decode_response(json.dumps(payload).encode())
+    decoded_operation = next(
+        row
+        for section in decoded.facts.sections
+        for row in section.records
+        if row.kind == "numeric_operand"
+    )
+    assert decoded_operation.data.get("proof") == "known"
 
 
 @pytest.mark.parametrize(
