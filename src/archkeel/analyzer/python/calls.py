@@ -12,7 +12,7 @@ import hashlib
 import inspect
 import sys
 import sysconfig
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import TypeVar
 
@@ -830,10 +830,6 @@ class CallCollector(ast.NodeVisitor):
         return target, [add_evidence(self.evidence, self.module, sites[0])]
 
     def _native_target_revoked(self, target: str) -> bool:
-        def canonical(expression: ast.expr, seen: frozenset[str] = frozenset()) -> str | None:
-            possible = self._native_expression_targets(expression, seen)
-            return next(iter(possible)) if len(possible) == 1 else None
-
         sys_modules_aliases = {"sys.modules"}
         changed = True
         while changed:
@@ -870,7 +866,7 @@ class CallCollector(ast.NodeVisitor):
                 targets = (node.target,)
             elif isinstance(node, ast.Delete):
                 targets = tuple(item for item in node.targets if isinstance(item, ast.expr))
-            if self._native_targets_mutated(node, targets, target, canonical):
+            if self._native_targets_mutated(node, targets, target):
                 return True
             for mutation in targets:
                 if not isinstance(mutation, ast.Subscript):
@@ -885,14 +881,13 @@ class CallCollector(ast.NodeVisitor):
                     return True
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
                 if node.func.id in {"setattr", "delattr"} and len(node.args) >= 2:
-                    owner = canonical(node.args[0])
                     member = node.args[1]
-                    if owner is not None and (
-                        f"{owner}.{member.value}" == target
-                        if isinstance(member, ast.Constant) and isinstance(member.value, str)
-                        else target == owner or _starts_with(target, f"{owner}.")
-                    ):
-                        return True
+                    for owner in self._native_expression_targets(node.args[0]):
+                        if isinstance(member, ast.Constant) and isinstance(member.value, str):
+                            if f"{owner}.{member.value}" == target:
+                                return True
+                        elif target == owner or _starts_with(target, f"{owner}."):
+                            return True
         return False
 
     def _native_expression_targets(
@@ -920,7 +915,7 @@ class CallCollector(ast.NodeVisitor):
             assignment = self.parents.get(site)
             if not isinstance(assignment, ast.Assign | ast.AnnAssign) or assignment.value is None:
                 continue
-            origins.update(self._native_expression_targets(assignment.value, seen))
+            origins = origins | self._native_expression_targets(assignment.value, seen)
         return origins
 
     def _native_targets_mutated(
@@ -928,7 +923,6 @@ class CallCollector(ast.NodeVisitor):
         node: ast.AST,
         targets: tuple[ast.expr, ...],
         target: str,
-        canonical: Callable[[ast.expr], str | None],
     ) -> bool:
         for item in targets:
             if isinstance(item, ast.Name):
@@ -939,15 +933,16 @@ class CallCollector(ast.NodeVisitor):
                     for site in sites
                 ):
                     continue
-            changed_target = canonical(item)
-            if changed_target is None:
-                continue
+            changed_targets = self._native_expression_targets(item)
             if isinstance(item, ast.Name) and isinstance(node, ast.Assign | ast.AnnAssign):
                 value = node.value
-                if value is not None and canonical(value) == changed_target:
+                if value is not None and changed_targets.intersection(
+                    self._native_expression_targets(value)
+                ):
                     continue
-            if target == changed_target or _starts_with(target, f"{changed_target}."):
-                return True
+            for changed_target in changed_targets:
+                if target == changed_target or _starts_with(target, f"{changed_target}."):
+                    return True
         return False
 
     def _native_call(
