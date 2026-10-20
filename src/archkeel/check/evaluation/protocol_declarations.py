@@ -109,13 +109,16 @@ def _member_methods(symbols: Sequence[RawRecord], owner_id: str, name: str) -> l
 def _nested_class_members(
     symbols: Sequence[RawRecord], owner_id: str, name: str
 ) -> list[RawRecord]:
-    return [
-        symbol
-        for symbol in symbols
-        if symbol["kind"] == "class"
-        and symbol["data"].get("lexical_parent_id") == owner_id
-        and symbol["data"].get("name") == name
-    ]
+    result: list[RawRecord] = []
+    for symbol in symbols:
+        data: RawData = symbol["data"]
+        if (
+            symbol["kind"] == "class"
+            and data.get("lexical_parent_id") == owner_id
+            and data.get("name") == name
+        ):
+            result.append(symbol)
+    return result
 
 
 def _class_binding_proven(symbol: RawRecord, symbols: Sequence[RawRecord]) -> bool:
@@ -179,7 +182,17 @@ def _nested_class_binding_proven(symbol: RawRecord, symbols: Sequence[RawRecord]
     )
 
 
-def _decorated_method_binding_proven(symbol: RawRecord, owner: RawRecord) -> bool:
+def _method_name_unshadowed_by_class(
+    symbol: RawRecord, owner: RawRecord, symbols: Sequence[RawRecord]
+) -> bool:
+    data: RawData = symbol["data"]
+    name = data.get("name")
+    return isinstance(name, str) and not _nested_class_members(symbols, owner["id"], name)
+
+
+def _decorated_method_binding_proven(
+    symbol: RawRecord, owner: RawRecord, symbols: Sequence[RawRecord]
+) -> bool:
     data: RawData = symbol["data"]
     decorators = data.get("decorators", ())
     owner_data: RawData = owner["data"]
@@ -210,6 +223,7 @@ def _decorated_method_binding_proven(symbol: RawRecord, owner: RawRecord) -> boo
             isinstance(item, dict | RecordData) and item.get("name") == data.get("name")
             for item in attributes
         )
+        and _method_name_unshadowed_by_class(symbol, owner, symbols)
     )
 
 
@@ -242,7 +256,7 @@ def _nested_method_binding_proven(
         and isinstance(definitions, (tuple, list))
         and definitions.count(symbol["id"]) == 1
         and len(_member_methods(symbols, owner["id"], name)) == 1
-        and not _nested_class_members(symbols, owner["id"], name)
+        and _method_name_unshadowed_by_class(symbol, owner, symbols)
         and name in owner_data.get("class_members", ())
         and not attribute_conflict
         and owner_data.get("class_body_control_flow") is not True
@@ -510,7 +524,7 @@ def _position_status(
     class_owners = _classes_named(symbols, owner_name)
     if symbol["kind"] == "method" and len(class_owners) == 1:
         owner = class_owners[0]
-        binding_is_unique |= _decorated_method_binding_proven(symbol, owner) or (
+        binding_is_unique |= _decorated_method_binding_proven(symbol, owner, symbols) or (
             _nested_method_binding_proven(symbol, owner, symbols)
         )
     if symbol["kind"] == "method":
@@ -646,9 +660,12 @@ def _protocol_rule_results(
     protocol_name: str = rule.protocol
     target_module, _, target_name = protocol_name.rpartition(".")
     target_record = classes_by_location.get((target_module, target_name))
+    target_symbols = _classes_named(symbols, protocol_name)
     target_valid = (
-        isinstance(target_record, dict)
+        isinstance(target_record, dict | RecordData)
         and parse_symbol_class_kind(target_record.get("class_kind")) is SymbolClassKind.PROTOCOL
+        and len(target_symbols) == 1
+        and _class_binding_proven(target_symbols[0], symbols)
     )
     selected = _selected_positions(rule, symbols, source_modules)
     unmatched = _unmatched_selectors(rule, selected)
