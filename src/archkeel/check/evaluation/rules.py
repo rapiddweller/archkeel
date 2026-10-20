@@ -1086,6 +1086,19 @@ def _construct_subject_symbols(
     return tuple(selected)
 
 
+def _numeric_rule_subject_modules(
+    rule: BoundedNumericOperandRule,
+    observed_modules: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    source_modules: frozenset[str] | None,
+) -> tuple[str, ...]:
+    return tuple(
+        item["data"]["qualified_name"]
+        for item in _modules_for_rule_source(rule.source, observed_modules, contract)
+        if source_modules is None or item["data"]["qualified_name"] in source_modules
+    )
+
+
 def _rule_subject_matches(
     rule: ArchitectureRule,
     contract: ArchitectureContract | None,
@@ -1158,10 +1171,8 @@ def rule_subject_failures(
             scopes = {"source": scopes["source"]}
         source_subjects: AbstractSet[str] = module_names | planned_subjects
         if isinstance(rule, BoundedNumericOperandRule) and contract is not None:
-            numeric_modules = tuple(
-                item["data"]["qualified_name"]
-                for item in _modules_for_rule_source(rule.source, observed_modules, contract)
-                if source_modules is None or item["data"]["qualified_name"] in source_modules
+            numeric_modules = _numeric_rule_subject_modules(
+                rule, observed_modules, contract, source_modules
             )
             source_subjects = source_subjects | set(numeric_modules)
             scopes = {"source": numeric_modules}
@@ -1193,23 +1204,33 @@ def rule_subject_failures(
         matches = _rule_subject_matches(rule, contract, scopes, source_subjects, target_subjects)
         missing = [side for side, count in matches.items() if count == 0]
         if missing:
-            reason = "no declared facade function" if facade_scoped else "no scanned modules"
             rule_failures.append(
-                classified(
-                    item_id=stable_id("UNKNOWN-RULE-SUBJECTS", rule.id),
-                    evidence_class=EvidenceClass.UNKNOWN,
-                    area="analysis_coverage",
-                    kind="rule-without-subjects",
-                    title=f"{rule.id}: {reason} for {', '.join(missing)}",
-                    subjects=[scope for side in missing for scope in scopes[side]],
-                    rule_ids=[rule.id],
-                    data={
-                        "missing": missing,
-                        **{f"{side}_matches": count for side, count in matches.items()},
-                    },
-                )
+                _missing_rule_subject_failure(rule, scopes, matches, facade_scoped)
             )
     return rule_failures
+
+
+def _missing_rule_subject_failure(
+    rule: ArchitectureRule,
+    scopes: dict[str, tuple[str, ...]],
+    matches: dict[str, int],
+    facade_scoped: bool,
+) -> RawRecord:
+    missing = [side for side, count in matches.items() if count == 0]
+    reason = "no declared facade function" if facade_scoped else "no scanned modules"
+    return classified(
+        item_id=stable_id("UNKNOWN-RULE-SUBJECTS", rule.id),
+        evidence_class=EvidenceClass.UNKNOWN,
+        area="analysis_coverage",
+        kind="rule-without-subjects",
+        title=f"{rule.id}: {reason} for {', '.join(missing)}",
+        subjects=[scope for side in missing for scope in scopes[side]],
+        rule_ids=[rule.id],
+        data={
+            "missing": missing,
+            **{f"{side}_matches": count for side, count in matches.items()},
+        },
+    )
 
 
 def _unsupported_module_object_grants(
