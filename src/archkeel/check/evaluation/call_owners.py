@@ -49,7 +49,9 @@ def _native_target_witnessed(target: str, calls: Sequence[RawRecord]) -> bool:
         CallBindingOrigin.CONSTRUCTOR,
     }
     for call in calls:
-        binding = call_binding(parse_record(call).data.get("call_binding"))
+        parsed_call = parse_record(call)
+        call_data = parsed_call.data
+        binding = call_binding(call_data.get("call_binding"))
         proof = binding.proof if binding is not None else None
         if (
             binding is None

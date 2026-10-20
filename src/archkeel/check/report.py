@@ -810,12 +810,11 @@ def _saved_annotation_target(
     return matches[0] if len(matches) == 1 else None
 
 
-def _saved_top_level_import(
-    record: Record, binding: str, evidence: dict[str, Evidence]
-) -> bool:
-    if record.data.get("source_binding_unique") is not True or record.data.get(
-        "symbols_known"
-    ) is not True:
+def _saved_top_level_import(record: Record, binding: str, evidence: dict[str, Evidence]) -> bool:
+    if (
+        record.data.get("source_binding_unique") is not True
+        or record.data.get("symbols_known") is not True
+    ):
         return False
     symbol = record.data.get("symbol")
     for identifier in record.evidence_ids:
@@ -836,7 +835,10 @@ def _saved_top_level_import(
             ):
                 return True
         elif isinstance(statement, ast.Import) and symbol is None:
-            if any((alias.asname or alias.name.partition(".")[0]) == binding for alias in statement.names):
+            if any(
+                (alias.asname or alias.name.partition(".")[0]) == binding
+                for alias in statement.names
+            ):
                 return True
     return False
 
