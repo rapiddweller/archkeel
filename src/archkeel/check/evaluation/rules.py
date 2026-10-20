@@ -2230,6 +2230,7 @@ def rule_evaluation_facts(
                         },
                     )
                 )
+            continue
         elif isinstance(
             rule, CompleteAssignmentRule | CompleteExternalScopeRule | SymbolPlacementRule
         ):

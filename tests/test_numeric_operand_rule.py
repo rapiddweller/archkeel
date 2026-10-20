@@ -158,6 +158,44 @@ def _rule_rows(tmp_path):
 
 
 @pytest.mark.parametrize(
+    ("operand", "expected"),
+    [("3", "FAIL"), ("4", "PASS"), ("2**8", "PASS"), ("dynamic", "UNKNOWN")],
+)
+def test_complete_numeric_report_replays_with_one_receipt(tmp_path, operand, expected):
+    from test_exact_module_ownership import _observe_tree
+
+    _write_probe(tmp_path)
+    contract = json.loads((tmp_path / "contract.json").read_bytes())
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/core.py": f"def choose(job_nonce, dynamic): return job_nonce % {operand}\n",
+        },
+        contract,
+    )
+    assert not result.diagnostics and result.observation is not None
+    model = result.observation
+    rows = rule_assessments(model, undecided_by_rule=unknown_positions_by_rule(model))
+    assert len(rows) == 1 and rows[0].status == expected
+    receipts = [
+        record
+        for record in model.records("scope_observations")
+        if record.kind == "rule_evaluation" and record.rule_ids == ("RULE",)
+    ]
+    assert len(receipts) == 1
+    for content in (
+        canonical_report_bytes(model),
+        json.dumps(observation_payload(model)).encode(),
+    ):
+        saved = tmp_path / "numeric.json"
+        saved.write_bytes(content)
+        replayed = run_saved_report(saved)
+        assert not replayed.diagnostics
+        assert replayed.rule_assessments == rows
+
+
+@pytest.mark.parametrize(
     ("value", "status"),
     [(4_294_967_295, "FAIL"), (4_294_967_296, "PASS"), (4_294_967_297, "PASS")],
 )
@@ -349,13 +387,15 @@ def test_saved_numeric_receipt_rejects_changed_operand_proof(tmp_path):
         {
             "pyproject.toml": '[project]\nrequires-python = ">=3.11"\n',
             "contract.json": json.dumps(contract),
-            "sample/core.py": "SMALL = 16\ndef choose(job_nonce):\n    return job_nonce % SMALL\n",
+            "sample/core.py": (
+                "WIDTH = 2**64\ndef choose(job_nonce):\n    return job_nonce % WIDTH\n"
+            ),
         },
         fixture=fixture,
     )
     config = ScanConfig((".",), "sample", "contract.json", "0" * 64)
     live, packet = run_report(root, config=config, analyzer=observe, only_architecture=True)
-    assert packet is not None and live.declared_rules == "UNKNOWN"
+    assert packet is not None and live.declared_rules == "PASS"
     saved = tmp_path / "saved.json"
     observation = parse_observation(decode_canonical_model(json.loads(packet)))
     payload = observation_payload(observation)
@@ -476,4 +516,4 @@ def test_saved_numeric_receipt_rejects_changed_operand_proof(tmp_path):
             tampered = replace(tampered, sections=tuple(altered))
         saved.write_bytes(canonical_report_bytes(tampered))
         replay = run_saved_report(saved, only_architecture=True)
-        assert replay.diagnostics and replay.declared_rules == "UNKNOWN", mutation
+        assert replay.declared_rules == "UNKNOWN", (mutation, replay.rule_assessments)
