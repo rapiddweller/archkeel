@@ -301,7 +301,10 @@
                     "then": {
                       "properties": {
                         "call_arguments": {
-                          "type": "array"
+                          "type": [
+                            "array",
+                            "null"
+                          ]
                         }
                       }
                     }
