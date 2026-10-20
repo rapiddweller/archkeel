@@ -792,7 +792,7 @@ def _saved_annotation_target(
     elif imported:
         return None
     else:
-        candidates = [f"{module}.{spelling}"]
+        candidates = (f"{module}.{spelling}",)
     matches = [
         target
         for candidate in candidates
