@@ -67,9 +67,9 @@ def _signature_parameters(
         parameter_kind = _PARAMETER_KINDS.get(kind)
         if parameter_kind is None:
             return None
-        if kind == "varargs" and name.startswith("*"):
+        if kind == "varargs" and name[:1] == "*":
             name = name[1:]
-        elif kind == "kwargs" and name.startswith("**"):
+        elif kind == "kwargs" and name[:2] == "**":
             name = name[2:]
         default = _DEFAULT if raw.get("default") is not None else inspect.Parameter.empty
         try:
@@ -114,9 +114,14 @@ def _bind_actuals(
                 name = f"__archkeel_posonly_{index}"
                 while name in used_names:
                     name += "_"
-                used_names.add(name)
+                used_names = used_names | {name}
                 renamed[name] = parameter.name
-                parameters[index] = parameter.replace(name=name)
+                parameters[index] = inspect.Parameter(
+                    name,
+                    parameter.kind,
+                    default=parameter.default,
+                    annotation=parameter.annotation,
+                )
 
     try:
         signature_value = inspect.Signature(parameters)
@@ -131,7 +136,7 @@ def _bind_actuals(
             for index, argument in enumerate(arguments)
             if argument.kind is CallArgumentKind.KEYWORD and argument.keyword is not None
         }
-        bound = signature_value.bind(*positional, **keywords)
+        bound = inspect.Signature.bind(signature_value, *positional, **keywords)
     except (TypeError, ValueError):
         return None, {}
     return bound, renamed
@@ -150,7 +155,8 @@ def _group_bound(
         if parameter.kind is inspect.Parameter.VAR_POSITIONAL:
             indexes = tuple(item for item in actual or () if isinstance(item, int))
         elif parameter.kind is inspect.Parameter.VAR_KEYWORD:
-            indexes = tuple(item for item in (actual or {}).values() if isinstance(item, int))
+            values = actual or {}
+            indexes = tuple(values[key] for key in values if isinstance(values[key], int))
         elif isinstance(actual, int):
             indexes = (actual,)
         else:

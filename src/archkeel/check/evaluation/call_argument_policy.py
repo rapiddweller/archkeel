@@ -200,7 +200,9 @@ def _evaluate_calls(
                 )
             )
             continue
-        indexes = dict(bound.by_parameter).get(rule.parameter, ())
+        indexes = next(
+            (actuals for formal, actuals in bound.by_parameter if formal == rule.parameter), ()
+        )
         for index in indexes:
             argument = actuals[index]
             if argument.value_kind is CallArgumentValueKind.STRING_LITERAL:
@@ -246,10 +248,7 @@ def _signature_has_parameter(signature: RecordData | None, name: str) -> bool:
         return False
     for parameter in parameters:
         parameter_name = parameter.get("name") if isinstance(parameter, RecordData) else None
-        if (
-            isinstance(parameter_name, str)
-            and parameter_name.removeprefix("**").removeprefix("*") == name
-        ):
+        if isinstance(parameter_name, str) and parameter_name in {name, f"*{name}", f"**{name}"}:
             return True
     return False
 

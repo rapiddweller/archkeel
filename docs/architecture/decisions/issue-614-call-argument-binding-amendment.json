@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "26ffcd551f4af8b9cacce4801cec54a3e9b619029be2e1f51cf36ee276d1d780",
+  "after_digest": "457e5c696e09f07a3f6658db2d18d0fe004eeafe75b7555ea5c78c593822c69b",
+  "before_baseline_digest": "26ffcd551f4af8b9cacce4801cec54a3e9b619029be2e1f51cf36ee276d1d780",
+  "before_digest": "a1dd2da54f4267823ac5eebfc9e8b6cc9ae64104c757b7d7b56e3a69f7733091",
+  "decided_by": "architect",
+  "rationale": "Add explicit ownership for the pure call-argument binder and the forbidden literal argument evaluator; bind findings and receipts to canonical observed signatures without applying defaults or evaluating expressions, and retain all existing measurement ceilings.",
+  "schema_version": "2.0.0"
+}
