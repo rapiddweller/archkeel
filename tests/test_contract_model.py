@@ -274,6 +274,7 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
             "bounded_numeric_operand",
             "protocol_declarations",
             "forbidden_call_argument",
+            "forbidden_effect_under_condition",
         }
     ]
     app = next(item for item in raw["components"] if item["id"] == "COMP-APP")
@@ -861,7 +862,20 @@ def test_validate_holds_the_namespace_to_the_fields_it_held_before(version: str)
     )
 
 
-@pytest.mark.parametrize("version", ("3.0.0", "3.1.0", "3.2.0", "3.8.0", "3.9.0", "3.10.0"))
+@pytest.mark.parametrize(
+    "version",
+    (
+        "3.0.0",
+        "3.1.0",
+        "3.2.0",
+        "3.8.0",
+        "3.9.0",
+        "3.10.0",
+        "3.11.0",
+        "3.12.0",
+        "3.13.0",
+    ),
+)
 def test_maximal_contract_matches_its_version_schema(version: str) -> None:
     raw = json.loads(contract_bytes(parse_contract(_maximal_contract(version))))
     schema = json.loads(
