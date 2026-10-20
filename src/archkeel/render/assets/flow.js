@@ -560,6 +560,7 @@ export let flow;
 
   function emphasizeUmlScene(focus, previewing = false) {
     if (!renderedScene) return;
+    root.dataset.emphasis = String(Boolean(focus));
     const related = new Set(focus?.type === "node" ? [focus.id] : []);
     const active = new Set();
     renderedScene.edges.forEach((edge) => {
@@ -2684,6 +2685,7 @@ export let flow;
     const scene = renderedScene;
     if (!scene) return;
     const focus = preview || (umlSelection?.type === "node" ? { type: "node", id: umlSelection.id } : null);
+    root.dataset.emphasis = String(Boolean(focus));
     const nodes = new Set(), edges = new Set();
     if (focus?.type === "node") {
       nodes.add(focus.id);
@@ -2804,6 +2806,8 @@ export let flow;
         const edgeFocus = { type: "edge", id: route.edge.id, source: route.edge.source, target: route.edge.target };
         drawn.group.addEventListener("pointerenter", () => atlasEmphasize(edgeFocus));
         drawn.group.addEventListener("pointerleave", () => atlasEmphasize());
+        drawn.hit.addEventListener("focus", () => atlasEmphasize(edgeFocus));
+        drawn.hit.addEventListener("blur", () => atlasEmphasize());
       },
     }, scene.layoutRoutes);
     atlasEmphasize();

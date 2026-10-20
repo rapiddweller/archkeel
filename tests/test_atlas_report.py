@@ -2251,6 +2251,7 @@ def test_offline_atlas_and_uml_share_shell_empty_scope_and_url_theme(tmp_path):
         page.locator('.flow-nodes [data-label="core"]').press("Enter")
         page.get_by_role("button", name="Switch to light theme", exact=True).click()
         page.locator('.flow-nodes [data-label="empty.py"]').press("Enter")
+        page.wait_for_selector(".atlas-heading")
         assert page.locator(".atlas-heading").count() == 1
         assert page.locator(".flow-views [data-flow-view]").count() == 3
         assert page.locator(".theme-toggle").count() == 1
@@ -2651,6 +2652,33 @@ def test_components_and_modules_choice_uses_native_scope_and_survives_return(tmp
         page.wait_for_function(
             "() => document.querySelectorAll('.flow-nodes [data-uml-kind=module]').length > 0"
         )
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_module_view_is_idle_until_an_element_is_emphasized(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    index, _ = _route_pages(tmp_path, local_imports=True)
+    errors = []
+    playwright, browser, page = _browser_page(api, index.read_text(), errors=errors)
+    pulses = "document.getAnimations().filter(a => a.animationName === 'flow-pulse')"
+    try:
+        page.goto(index.as_uri() + "?content=modules&theme=light")
+        page.wait_for_selector('[data-layout-state="ready"]', state="attached")
+        assert page.locator(".edge .pulse").count() > 0
+        assert page.evaluate(f"{pulses}.length") == 0
+        source = page.locator(".edge[data-uml-source]").first.get_attribute("data-uml-source")
+        page.locator(f'.flow-nodes [data-uml-id="{source}"]').hover()
+        assert page.evaluate(f"{pulses}.length") > 0
+        assert page.evaluate(
+            f"{pulses}.every(a => !a.effect.target.closest('.edge').classList.contains('dim'))"
+        )
+        page.mouse.move(1, 1)
+        assert page.evaluate(f"{pulses}.length") == 0
+        page.locator(".edge .hit").first.focus()
+        assert page.evaluate(f"{pulses}.length") > 0
         assert not errors
     finally:
         browser.close()
