@@ -35,7 +35,7 @@ from .source import (
 def _numeric_evidence_excerpt_supported(excerpt: str) -> bool:
     if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
         return False
-    if excerpt.lstrip().startswith(("elif ", "elif\t", "elif(")):
+    if _numeric_elif_start(excerpt) is not None:
         return _numeric_elif_excerpt_supported(excerpt)
     try:
         ast.parse(excerpt)
@@ -51,6 +51,17 @@ def _numeric_evidence_excerpt_supported(excerpt: str) -> bool:
             and len(parsed[0]) == 1
             and _numeric_header_has_synthetic_body(parsed[0][0])
         )
+
+
+def _numeric_elif_start(excerpt: str) -> int | None:
+    for index, character in enumerate(excerpt):
+        if character not in " \t":
+            if excerpt[index : index + 4] != "elif":
+                return None
+            if index + 4 < len(excerpt) and excerpt[index + 4] not in " \t(":
+                return None
+            return index
+    return None
 
 
 def _numeric_indented_excerpt(
