@@ -558,7 +558,8 @@ def _catalog_reference_context_complete(
     references: Sequence[RawRecord], reference_data: dict[str, RecordData]
 ) -> bool:
     return all(
-        reference_data[reference["id"]].get("reference_context") in {"value", "annotation"}
+        _record_text(reference_data[reference["id"]], "reference_context")
+        in {"value", "annotation"}
         for reference in references
     )
 
@@ -812,8 +813,8 @@ def _catalog_use_results(
     value_refs = [
         reference
         for reference in references
-        if reference_data[reference["id"]].get("declaration_scope") is None
-        and reference_data[reference["id"]].get("reference_context") == "value"
+        if _record_text(reference_data[reference["id"]], "declaration_scope") is None
+        and _record_text(reference_data[reference["id"]], "reference_context") == "value"
     ]
     for identity, (owner, _, _) in selected_entries.items():
         owner_name = _record_text(parse_record(owner).data, "qualified_name")
