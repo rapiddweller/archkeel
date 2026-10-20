@@ -31,10 +31,21 @@
         },
         "observation": {
           "anyOf": [
-            {"$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"},
-            {"$ref": "urn:archkeel:architecture-ir:decoded:2.2.0"},
-            {"$ref": "urn:archkeel:architecture-ir:decoded:2.3.0"},
-            {"$ref": "urn:archkeel:architecture-ir:decoded:2.4.0"}
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.2.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.3.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.4.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.5.0"
+            }
           ]
         },
         "python_version": {
@@ -185,10 +196,12 @@
         },
         "observation": {
           "anyOf": [
-            {"$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"},
-            {"$ref": "urn:archkeel:architecture-ir:decoded:2.2.0"},
-            {"$ref": "urn:archkeel:architecture-ir:decoded:2.3.0"},
-            {"$ref": "urn:archkeel:architecture-ir:decoded:2.4.0"}
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.5.0"
+            }
           ]
         },
         "python_version": {

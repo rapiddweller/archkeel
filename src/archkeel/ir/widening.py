@@ -43,6 +43,7 @@ from .model import (
     ContractDeclarations,
     DependencyTargetKind,
     ExternalDependencyScopeRule,
+    ForbiddenCallArgumentRule,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
@@ -473,6 +474,10 @@ def _matched_rule_widenings(
         after, ExternalDependencyScopeRule | CallOwnerRule
     ):
         return _external_dependency_scope_widenings(subject, before, after)
+    if isinstance(before, ForbiddenCallArgumentRule) and isinstance(
+        after, ForbiddenCallArgumentRule
+    ):
+        return _generic_field_widenings(subject, before, after, handled=frozenset())
     if isinstance(before, CompleteRequiresRule) and isinstance(after, CompleteRequiresRule):
         return _type_checking_rule_widenings(subject, before, after)
     if isinstance(before, RootLayoutRule) and isinstance(after, RootLayoutRule):

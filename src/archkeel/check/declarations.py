@@ -35,6 +35,7 @@ from archkeel.ir.model import (
     DependencyTargetKind,
     EvidenceClass,
     ExternalDependencyScopeRule,
+    ForbiddenCallArgumentRule,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
@@ -84,6 +85,18 @@ def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
             "target": rule.target,
             "allowed_sources": sorted(rule.allowed_sources),
             "exact_sources": sorted(rule.exact_sources),
+            "rationale": rule.rationale,
+        }
+    elif isinstance(rule, ForbiddenCallArgumentRule):
+        area, title, subjects = (
+            "calls",
+            f"{rule.target}.{rule.parameter} cannot receive a written string literal",
+            [rule.source, rule.target],
+        )
+        data = {
+            "source": rule.source,
+            "target": rule.target,
+            "parameter": rule.parameter,
             "rationale": rule.rationale,
         }
     elif isinstance(rule, ForbiddenDependencyRule):

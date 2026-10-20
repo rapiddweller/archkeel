@@ -32,12 +32,12 @@ from archkeel.ir.facts import (
     parse_runtime_requirement_state,
     source_dirty,
 )
+from archkeel.ir.facts import call_arguments as _call_arguments
 from archkeel.ir.facts import call_binding as _call_binding
 from archkeel.ir.model import (
     CLASSIFIED_SECTIONS,
     EVIDENCE_FIELDS,
     RECORD_FIELDS,
-    SCHEMA_VERSION,
     AnalyzerInfo,
     ContractInfo,
     Coverage,
@@ -69,7 +69,8 @@ class _ObservationVersion(StrEnum):
     V2_1 = "2.1.0"
     V2_2 = "2.2.0"
     V2_3 = "2.3.0"
-    V2_4 = SCHEMA_VERSION
+    V2_4 = "2.4.0"
+    V2_5 = "2.5.0"
 
 
 class _VersionedConstruct(StrEnum):
@@ -80,6 +81,7 @@ def _uses_numeric_operand_fields(record: Record) -> bool:
     return record.kind == _VersionedConstruct.NUMERIC_OPERAND or _has_field(
         (key for key, _ in record.data.entries), "derivation"
     )
+
 
 
 class _EncodingKind(StrEnum):
@@ -220,6 +222,7 @@ def parse_observation(raw: object) -> Observation:
         _ObservationVersion.V2_2,
         _ObservationVersion.V2_3,
         _ObservationVersion.V2_4,
+        _ObservationVersion.V2_5,
     } and any(
         _uses_numeric_operand_fields(record)
         for section in sections
@@ -239,13 +242,17 @@ def parse_observation(raw: object) -> Observation:
                         _ObservationVersion.V2_2,
                         _ObservationVersion.V2_3,
                         _ObservationVersion.V2_4,
+                        _ObservationVersion.V2_5,
                     }
                     and not _has_field((key for key, _ in call.data.entries), "call_binding")
                 ):
                     raise ValueError("Python 2.1.0 calls require explicit call_binding or null")
                 binding = _call_binding(call.data.get("call_binding"))
                 if (
-                    schema_version is not _ObservationVersion.V2_4
+                    schema_version not in {
+                        _ObservationVersion.V2_4,
+                        _ObservationVersion.V2_5,
+                    }
                     and binding is not None
                     and binding.origin
                     not in {CallBindingOrigin.DIRECT, CallBindingOrigin.DECLARED_RECEIVER}
@@ -254,6 +261,7 @@ def parse_observation(raw: object) -> Observation:
     if schema_version not in {
         _ObservationVersion.V2_3,
         _ObservationVersion.V2_4,
+        _ObservationVersion.V2_5,
     } and any(
         record.kind == ArchitectureRuleKind.PROTOCOL_DECLARATIONS
         for section in sections
@@ -261,6 +269,29 @@ def parse_observation(raw: object) -> Observation:
         for record in section.records
     ):
         raise ValueError("protocol_declarations require observation schema 2.3.0")
+
+    if schema_version is _ObservationVersion.V2_5:
+        python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
+        for section in sections:
+            if section.name == ObservedSection.CALLS:
+                for call in section.records:
+                    if python_calls and not _has_field(
+                        (key for key, _ in call.data.entries), "call_arguments"
+                    ):
+                        raise ValueError("Python 2.5.0 calls require explicit call_arguments")
+                    arguments = call.data.get("call_arguments")
+                    if _has_field((key for key, _ in call.data.entries), "call_arguments"):
+                        _call_arguments(arguments)
+                    binding = _call_binding(call.data.get("call_binding"))
+                    if (arguments is None) != (binding is None):
+                        raise ValueError("call arguments require the canonical call binding")
+    else:
+        for section in sections:
+            if section.name == ObservedSection.CALLS and any(
+                _has_field((key for key, _ in call.data.entries), "call_arguments")
+                for call in section.records
+            ):
+                raise ValueError("call_arguments require observation schema 2.5.0")
     return Observation(
         schema_version=schema_version,
         analyzer=AnalyzerInfo(
@@ -290,6 +321,7 @@ def parse_observation(raw: object) -> Observation:
                 _ObservationVersion.V2_2,
                 _ObservationVersion.V2_3,
                 _ObservationVersion.V2_4,
+                _ObservationVersion.V2_5,
             },
         )
         if item.get("runtime", _MISSING_VALUE) is not _MISSING_VALUE

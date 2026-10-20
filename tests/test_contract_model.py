@@ -528,6 +528,19 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
                 "decided_by": "architect",
             }
         )
+    if version == "3.10.0":
+        raw["rules"].append(
+            {
+                "id": "FORBID-LITERAL-QUERY",
+                "kind": "forbidden_call_argument",
+                "source": "shop.app",
+                "target": "shop.model.Store.page",
+                "parameter": "query",
+                "rationale": "Use a typed query specification.",
+                "provenance": _PROVENANCE,
+                "decided_by": "architect",
+            }
+        )
     return raw
 
 
@@ -753,6 +766,8 @@ def test_the_maximal_contract_fills_every_field() -> None:
             "3.7.0",
             "3.8.0",
             "3.9.0",
+
+            "3.10.0",
         )
     ]
 

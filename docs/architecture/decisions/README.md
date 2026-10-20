@@ -250,6 +250,8 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-240 | [Literal dynamic dependencies](ad-240-literal-dynamic-dependencies.md) |
 | AD-241 | [Call ownership policy](ad-241-call-ownership-policy.md) |
 | AD-244 | [Bounded call identity](ad-244-bounded-call-identity.md) |
+
+| AD-247 | [Written call arguments bind to observed formals](ad-247-written-call-arguments-bind-to-observed-formals.md) |
 | AD-242 | [Explicit browser module ports](ad-242-explicit-browser-module-ports.md) |
 | AD-243 | [Contract-owned source maintenance](ad-243-contract-owned-source-maintenance.md) |
 | AD-245 | [Canonical Protocol declarations](ad-245-canonical-protocol-declarations.md) |

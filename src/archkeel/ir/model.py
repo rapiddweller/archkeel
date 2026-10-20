@@ -105,7 +105,7 @@ def public_api_id(selector: str) -> str:
     return f"API-{hashlib.sha256(selector.encode()).hexdigest()[:16]}"
 
 
-SCHEMA_VERSION = "2.4.0"
+SCHEMA_VERSION = "2.5.0"
 DELTA_SCHEMA_VERSION = "2.0.0"
 
 
@@ -474,6 +474,15 @@ class BoundedNumericOperandRule(ArchitectureRuleGrammar):
     form: NumericOperandForm
     terminal_suffix: str
     minimum_value: int
+
+
+@dataclass(frozen=True, slots=True)
+class ForbiddenCallArgumentRule(ArchitectureRuleGrammar):
+    id: str
+    kind: Literal[ArchitectureRuleKind.FORBIDDEN_CALL_ARGUMENT]
+    source: str
+    target: str
+    parameter: str
     rationale: str
     provenance: tuple[str, ...]
     decided_by: DecisionMaker
@@ -773,6 +782,8 @@ class ProtocolDeclarationsRule(ArchitectureRuleGrammar):
 ArchitectureRule: TypeAlias = (
     CallOwnerRule
     | BoundedNumericOperandRule
+
+    | ForbiddenCallArgumentRule
     | ForbiddenDependencyRule
     | AllowedDependencyRule
     | ForbiddenConstructRule
@@ -1062,6 +1073,11 @@ def _rule_references(
     """One rule's fields that name a module, a module prefix or a qualified symbol."""
     if isinstance(rule, CallOwnerRule):
         return _call_owner_references(index, rule)
+    if isinstance(rule, ForbiddenCallArgumentRule):
+        return _references(
+            f"/rules/{index}",
+            [("source", (rule.source,), True), ("target", (rule.target,), False)],
+        )
     named: list[tuple[str, tuple[str, ...], bool]] = []
     if isinstance(
         rule,

@@ -1065,6 +1065,43 @@ class CallCollector(ast.NodeVisitor):
             ),
         }
 
+    def _call_arguments(self, node: ast.Call) -> list[RecordData]:
+        arguments: list[RecordData] = []
+        for argument in node.args:
+            value = argument.value if isinstance(argument, ast.Starred) else argument
+            arguments.append(
+                {
+                    "kind": "starred_positional"
+                    if isinstance(argument, ast.Starred)
+                    else "positional",
+                    "keyword": None,
+                    "value_kind": "string_literal"
+                    if isinstance(value, ast.Constant) and isinstance(value.value, str)
+                    else "other",
+                    "value": value.value
+                    if isinstance(value, ast.Constant) and isinstance(value.value, str)
+                    else None,
+                    "evidence_ids": [add_evidence(self.evidence, self.module, argument)],
+                }
+            )
+        for keyword in node.keywords:
+            arguments.append(
+                {
+                    "kind": "keyword" if keyword.arg is not None else "starred_keyword",
+                    "keyword": keyword.arg,
+                    "value_kind": "string_literal"
+                    if isinstance(keyword.value, ast.Constant)
+                    and isinstance(keyword.value.value, str)
+                    else "other",
+                    "value": keyword.value.value
+                    if isinstance(keyword.value, ast.Constant)
+                    and isinstance(keyword.value.value, str)
+                    else None,
+                    "evidence_ids": [add_evidence(self.evidence, self.module, keyword)],
+                }
+            )
+        return arguments
+
     def visit_Call(self, node: ast.Call) -> None:
         scope = self.scopes.by_node[node]
         receivers = {
@@ -1117,6 +1154,7 @@ class CallCollector(ast.NodeVisitor):
                     "candidates_truncated": candidate_count > len(targets),
                     "reason": reason,
                     "target_evidence_ids": target_evidence_ids,
+                    "call_arguments": self._call_arguments(node) if binding is not None else None,
                     "result_bindings": self._result_bindings(node, item_id),
                     "construction": self._construction(
                         node, expression, status, targets, candidate_count > len(targets)
