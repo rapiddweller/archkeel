@@ -746,7 +746,7 @@ def _catalog_literal_actual(
     rule: CatalogArgumentRule,
     scope: str,
     call: RawRecord,
-    value: object,
+    value: str | None,
     entries: dict[str, _CatalogEntry],
     owners: Sequence[RawRecord],
     violations: list[RawRecord],
