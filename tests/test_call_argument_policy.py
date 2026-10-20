@@ -154,15 +154,62 @@ def test_variadic_selectors_bind_displayed_and_plain_names(
         assert replayed.status == expected and replayed.evaluation_proven
 
 
-@pytest.mark.parametrize("parameter", ["**args", "***args", "****args"])
-def test_absent_variadic_selector_does_not_certify_a_normalized_violation(tmp_path, parameter):
+@pytest.mark.parametrize(
+    "formal,parameter,actual",
+    [
+        ("*args", "**args", "'literal'"),
+        ("*args", "***args", "'literal'"),
+        ("*args", "****args", "'literal'"),
+        ("**kwargs", "*kwargs", "item='literal'"),
+        ("**kwargs", "***kwargs", "item='literal'"),
+    ],
+)
+@pytest.mark.parametrize("mounted", [False, True])
+def test_absent_variadic_selector_does_not_certify_a_normalized_violation(
+    tmp_path, formal, parameter, actual, mounted
+):
     _, row = _observe(
         tmp_path,
-        "from .storage import page\ndef consume():\n    page('literal')\n",
-        storage="def page(*args): pass\n",
+        f"from .storage import page\ndef consume():\n    page({actual})\n",
+        storage=f"def page({formal}): pass\n",
         parameter=parameter,
+        mounted=mounted,
     )
     assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+@pytest.mark.parametrize(
+    "formal,actual",
+    [
+        ("*args", "'same', value, 'same'"),
+        ("**kwargs", "first='same', allowed=value, second='same'"),
+    ],
+)
+@pytest.mark.parametrize("mounted", [False, True])
+def test_variadic_literals_share_one_violation_with_all_evidence_and_saved_replay(
+    tmp_path, formal, actual, mounted
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes
+
+    result, row = _observe(
+        tmp_path,
+        f"from .storage import page\ndef consume(value):\n    page({actual})\n",
+        storage=f"def page({formal}): pass\n",
+        parameter=formal,
+        mounted=mounted,
+    )
+    assert row.status == "FAIL" and row.evaluation_proven
+    [violation] = result.observation.records("violations")
+    assert len(violation.evidence_ids) == 2
+    for name, payload in (
+        ("ordinary", json.dumps(observation_payload(result.observation)).encode()),
+        ("columnar", canonical_report_bytes(result.observation)),
+    ):
+        saved = tmp_path / f"{name}.json"
+        saved.write_bytes(payload)
+        [replayed] = run_saved_report(saved).rule_assessments
+        assert replayed.status == "FAIL" and replayed.evaluation_proven
 
 
 @pytest.mark.parametrize(

@@ -855,6 +855,128 @@ def test_private_parameter_selector_still_includes_private_class_declarations(
     assert replay.rule_assessments == assessments
 
 
+_ORDERED_CLASS_BINDING_CASES = {
+    "variadic_shadow": "UNKNOWN",
+    "keyword_variadic_shadow": "UNKNOWN",
+    "stale_member": "UNKNOWN",
+    "replaced_method": "UNKNOWN",
+    "good_parameter": "PASS",
+    "good_member": "PASS",
+    "concrete_member": "FAIL",
+}
+
+
+def _ordered_class_binding_rules() -> list[dict[str, object]]:
+    rules = [
+        {
+            "id": f"APP-{name.upper()}-DECLARATIONS",
+            "kind": "protocol_declarations",
+            "source": "sample.core",
+            "protocol": "sample.core.Reader",
+            "selectors": [
+                {
+                    "role": (
+                        "member"
+                        if name in {"stale_member", "good_member", "concrete_member"}
+                        else "parameter"
+                    ),
+                    "name": {
+                        "variadic_shadow": "client",
+                        "keyword_variadic_shadow": "kwargs",
+                        "stale_member": "reader",
+                        "replaced_method": "client",
+                        "good_parameter": "trusted",
+                        "good_member": "good_reader",
+                        "concrete_member": "bad_reader",
+                    }[name],
+                    "visibility": "all",
+                }
+            ],
+            "rationale": "Selected positions use the canonical Reader port.",
+            "provenance": ["docs/architecture/sample.md"],
+            "decided_by": "architect",
+        }
+        for name in _ORDERED_CLASS_BINDING_CASES
+    ]
+    return rules
+
+
+def _ordered_class_binding_fixture(
+    tmp_path: Path, rules: list[dict[str, object]], mounted: bool
+) -> tuple[dict[str, object], dict[str, str]]:
+    raw = _contract()
+    raw["rules"] = rules
+    files = {
+        "sample/__init__.py": "",
+        "sample/core.py": (
+            "from typing import Protocol\n"
+            "class Reader(Protocol): ...\n"
+            "class Concrete: ...\n"
+            "class VariadicService:\n"
+            "    Reader = Concrete\n"
+            "    def consume(self, *client: Reader, **kwargs: Reader): pass\n"
+            "class MemberService:\n"
+            "    reader: Reader\n"
+            "    class reader: ...\n"
+            "class ReplacedMethodService:\n"
+            "    def consume(self, client: Reader): pass\n"
+            "    class consume: ...\n"
+            "class GoodService:\n"
+            "    good_reader: Reader\n"
+            "    def consume(self, trusted: Reader): pass\n"
+            "class ConcreteService:\n"
+            "    bad_reader: Concrete\n"
+        ),
+    }
+    if mounted:
+        files["inside.json"] = json.dumps(
+            {
+                "schema_version": "3.9.0",
+                "components": [_component("all", ["sample"])],
+                "rules": rules,
+            }
+        )
+        raw["components"] = [_component("outer", ["sample"], inside="inside.json")]
+        raw["rules"] = []
+    return raw, files
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_protocol_selector_binding_checks_variadic_and_nested_class_bindings(
+    tmp_path: Path, mounted: bool, columnar: bool
+) -> None:
+    rules = _ordered_class_binding_rules()
+    raw, files = _ordered_class_binding_fixture(tmp_path, rules, mounted)
+    result = _observe_tree(tmp_path, files, raw)
+    assert not result.diagnostics and result.observation is not None
+    assessments = rule_assessments(
+        result.observation, undecided_by_rule=unknown_positions_by_rule(result.observation)
+    )
+    observed = {row.id.rsplit(":", 1)[-1]: row.status.value for row in assessments}
+    expected = {
+        f"APP-{name.upper()}-DECLARATIONS": status
+        for name, status in _ORDERED_CLASS_BINDING_CASES.items()
+    }
+    assert observed == expected
+    [variadic_method] = [
+        symbol
+        for symbol in result.observation.records("symbols") or ()
+        if symbol.kind == "method"
+        and symbol.data.get("qualified_name") == "sample.core.VariadicService.consume"
+    ]
+    uncertainty_keys = {
+        key for key, _ in variadic_method.data.get("annotation_binding_uncertainties", ()).entries
+    }
+    assert {"*client", "**kwargs"} <= uncertainty_keys
+    payload = observation_payload(result.observation)
+    saved = tmp_path / "ordered-class-bindings.json"
+    saved.write_bytes(canonical_report_bytes(payload) if columnar else json.dumps(payload).encode())
+    replay = run_saved_report(saved)
+    assert not replay.diagnostics
+    assert replay.rule_assessments == assessments
+
+
 def test_function_declaration_binding_requires_signature_decorator_proof() -> None:
     from archkeel.check.evaluation.protocol_declarations import _declaration_binding_proven
 
