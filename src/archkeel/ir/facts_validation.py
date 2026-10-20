@@ -503,43 +503,93 @@ def _parse_numeric_evidence_excerpt(
 ) -> tuple[tuple[ast.stmt, ...], int] | None:
     if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
         return None
+    if excerpt.lstrip().startswith(("elif ", "elif\t", "elif(")):
+        return _parse_numeric_elif_excerpt(excerpt)
     try:
         return tuple(ast.parse(excerpt).body), 0
     except (IndentationError, SyntaxError, ValueError, RecursionError):
-        try:
-            wrapper = ast.parse(f"if True:\n{excerpt}\n")
-        except (IndentationError, SyntaxError, ValueError, RecursionError):
-            wrapper = None
-        if wrapper is not None and len(wrapper.body) == 1 and isinstance(wrapper.body[0], ast.If):
-            return tuple(wrapper.body[0].body), 1
         indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
-        unit = "\t" if "\t" in indentation else "    "
-        suite = f"{excerpt}\n{indentation}{unit}pass"
-        try:
-            parsed = ast.parse(suite)
-        except (IndentationError, SyntaxError, ValueError, RecursionError):
-            try:
-                wrapper = ast.parse(f"if True:\n{suite}\n")
-            except (IndentationError, SyntaxError, ValueError, RecursionError):
-                return None
-            if (
-                len(wrapper.body) == 1
-                and isinstance(wrapper.body[0], ast.If)
-                and len(wrapper.body[0].body) == 1
-                and isinstance(wrapper.body[0].body[0], ast.If | ast.While)
-                and len(wrapper.body[0].body[0].body) == 1
-                and isinstance(wrapper.body[0].body[0].body[0], ast.Pass)
-            ):
-                return tuple(wrapper.body[0].body), 1
+        parsed = _parse_indented_numeric_excerpt(excerpt, indentation, synthetic_body=False)
+        if parsed is not None:
+            return parsed
+        parsed = _parse_indented_numeric_excerpt(excerpt, indentation, synthetic_body=True)
+        if parsed is None or len(parsed[0]) != 1:
             return None
-        if (
-            len(parsed.body) == 1
-            and isinstance(parsed.body[0], ast.If | ast.While)
-            and len(parsed.body[0].body) == 1
-            and isinstance(parsed.body[0].body[0], ast.Pass)
-        ):
-            return tuple(parsed.body), 0
+        return parsed if _numeric_header_has_synthetic_body(parsed[0][0]) else None
+
+
+def _parse_indented_numeric_excerpt(
+    excerpt: str, indentation: str, *, synthetic_body: bool
+) -> tuple[tuple[ast.stmt, ...], int] | None:
+    unit = "\t" if "\t" in indentation else "    "
+    if len(indentation) % len(unit):
         return None
+    depth = len(indentation) // len(unit)
+    wrappers = "".join(f"{unit * level}if True:\n" for level in range(depth))
+    suffix = f"\n{indentation}{unit}pass" if synthetic_body else ""
+    try:
+        parsed = ast.parse(wrappers + excerpt + suffix)
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    roots = tuple(parsed.body)
+    for _ in range(depth):
+        if len(roots) != 1 or not isinstance(roots[0], ast.If):
+            return None
+        roots = tuple(roots[0].body)
+    return roots, depth
+
+
+def _numeric_header_has_synthetic_body(node: ast.stmt) -> bool:
+    header_types = (
+        ast.If,
+        ast.While,
+        ast.For,
+        ast.AsyncFor,
+        ast.With,
+        ast.AsyncWith,
+        ast.FunctionDef,
+        ast.AsyncFunctionDef,
+        ast.ClassDef,
+    )
+    return (
+        isinstance(node, header_types)
+        and len(node.body) == 1
+        and isinstance(node.body[0], ast.Pass)
+    )
+
+
+def _parse_numeric_elif_excerpt(excerpt: str) -> tuple[tuple[ast.stmt, ...], int] | None:
+    indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+    unit = "\t" if "\t" in indentation else "    "
+    if not indentation or len(indentation) % len(unit):
+        return None
+    depth = len(indentation) // len(unit)
+    wrappers = "".join(f"{unit * level}if True:\n" for level in range(depth))
+    source = (
+        f"{wrappers}{indentation}if True:\n{indentation}{unit}pass\n"
+        f"{excerpt}\n{indentation}{unit}pass"
+    )
+    try:
+        parsed = ast.parse(source)
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    if len(parsed.body) == 1 and isinstance(parsed.body[0], ast.If):
+        roots = tuple(parsed.body)
+        for _ in range(depth):
+            if len(roots) != 1 or not isinstance(roots[0], ast.If):
+                return None
+            roots = tuple(roots[0].body)
+        if len(roots) != 1 or not isinstance(roots[0], ast.If):
+            return None
+        preceding = roots[0]
+        if len(preceding.body) != 1 or not isinstance(preceding.body[0], ast.Pass):
+            return None
+        if len(preceding.orelse) != 1 or not isinstance(preceding.orelse[0], ast.If):
+            return None
+        alternate = preceding.orelse[0]
+        if _numeric_header_has_synthetic_body(alternate):
+            return tuple(parsed.body), depth + 2
+    return None
 
 
 def _numeric_evidence_nodes(evidence: Evidence) -> tuple[tuple[ast.stmt, ...], int] | None:

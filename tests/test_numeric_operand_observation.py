@@ -382,6 +382,68 @@ def choose(job_nonce, dynamic):
     assert derivation[0]["line"] == 1
 
 
+def test_elif_modulo_header_retains_known_operand_and_original_span():
+    source = """\
+def choose(job_nonce, enabled):
+    if enabled:
+        return 0
+    elif job_nonce % 4:  # numeric branch
+        return 1
+    return 0
+"""
+    module = _parsed_module(source, "sample.mod", rel_path="sample.py")
+    operation = next(
+        row for row in collect_constructs([module], {}) if row["kind"] == "numeric_operand"
+    )
+
+    assert operation["data"]["proof"] == "known"
+    assert operation["data"]["value"] == 4
+    assert operation["data"]["line"] == 4
+    assert operation["data"]["column"] == 9
+    assert operation["data"]["end_column"] == 22
+
+
+def test_nested_elif_modulo_header_keeps_exact_source_columns():
+    source = """\
+def choose(job_nonce, enabled, nested):
+    if enabled:
+        if nested:
+            return 0
+        elif(job_nonce % 4):  # nested numeric branch
+            return 1
+    return 0
+"""
+    module = _parsed_module(source, "sample.mod", rel_path="sample.py")
+    operation = next(
+        row for row in collect_constructs([module], {}) if row["kind"] == "numeric_operand"
+    )
+
+    assert operation["data"]["proof"] == "known"
+    assert operation["data"]["value"] == 4
+    assert operation["data"]["line"] == 5
+    assert operation["data"]["column"] == 13
+    assert operation["data"]["end_column"] == 26
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "def choose(job_nonce):\n    for item in job_nonce % 4:\n        return item\n",
+        "def choose(job_nonce):\n    with job_nonce % 4 as item:\n        return item\n",
+        "def choose(job_nonce, value=job_nonce % 4):\n    return value\n",
+        "class Choose(job_nonce % 4):\n    pass\n",
+    ],
+)
+def test_single_line_header_modulo_evidence_replays_with_original_span(source):
+    module = _parsed_module(source, "sample.mod", rel_path="sample.py")
+    operation = next(
+        row for row in collect_constructs([module], {}) if row["kind"] == "numeric_operand"
+    )
+
+    assert operation["data"]["proof"] == "known"
+    assert operation["data"]["value"] == 4
+
+
 @pytest.mark.parametrize(
     "source",
     [

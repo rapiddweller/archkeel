@@ -26,7 +26,8 @@ bindings do not authenticate artifacts. Other language profiles do not support i
 selects written Name/Attribute terminal identifiers and proves bounded exact
 integer/Boolean literals, unary signs, powers and unique preceding aliases.
 Known operations and aliases require replayable single-line source excerpts of
-at most 16,384 characters; `if`/`while` conditions are supported. Multiline or
+at most 16,384 characters; `if`, `elif`, `while`, `for`, `with`, function and
+class headers are supported. Multiline or
 otherwise incomplete evidence remains UNKNOWN.
 Unsupported expressions, unstable or shadowed bindings, oversized values, and
 empty or missing selected scopes remain UNKNOWN. It does not infer runtime types,
