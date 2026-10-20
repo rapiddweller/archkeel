@@ -1051,3 +1051,213 @@ def test_partial_root_scan_cannot_prove_complete_source_ownership(tmp_path):
         if item.id == "ownership"
     ]
     assert assessment.status == "UNKNOWN" and not assessment.evaluation_proven
+
+
+@pytest.mark.parametrize("layout_root", ["src", "src/sample"])
+def test_src_layout_root_source_ownership_replays_as_proven(tmp_path, layout_root):
+    import json
+
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+    from archkeel.ir.decisions import rule_assessments
+
+    contract = _contract(
+        {"mode": "retired", "symbols": ["sample.consumer.retired_cursor"], "roles": ["definition"]}
+    )
+    contract["components"] = [_component("all", ["sample"])]
+    result = _observe_tree(
+        tmp_path,
+        {
+            "src/sample/__init__.py": "",
+            "src/sample/consumer.py": "active_cursor = 1\n",
+            "src/sample/safe.py": "active_cursor = 2\n",
+        },
+        contract,
+        roots=(layout_root,),
+    )
+    assert result.observation is not None, result.diagnostics
+    [assessment] = [
+        row
+        for row in rule_assessments(result.observation, undecided_by_rule={})
+        if row.id == "ownership"
+    ]
+    assert assessment.status == "PASS" and assessment.evaluation_proven
+
+    ordinary = tmp_path / "ordinary.json"
+    ordinary.write_text(json.dumps(observation_payload(result.observation)))
+    [ordinary_assessment] = [
+        row for row in run_saved_report(ordinary).rule_assessments if row.id == "ownership"
+    ]
+    columnar = tmp_path / "columnar.json"
+    columnar.write_bytes(canonical_report_bytes(result.observation))
+    [columnar_assessment] = [
+        row for row in run_saved_report(columnar).rule_assessments if row.id == "ownership"
+    ]
+    assert ordinary_assessment == columnar_assessment == assessment
+
+
+def test_src_layout_partial_root_scan_stays_unknown_on_replay(tmp_path):
+    import json
+
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+    from archkeel.ir.decisions import rule_assessments
+
+    contract = _contract(
+        {"mode": "retired", "symbols": ["sample.consumer.retired_cursor"], "roles": ["definition"]}
+    )
+    contract["components"] = [_component("all", ["sample"])]
+    result = _observe_tree(
+        tmp_path,
+        {
+            "src/sample/__init__.py": "",
+            "src/sample/consumer.py": "active_cursor = 1\n",
+            "src/sample/safe/__init__.py": "",
+            "src/sample/safe/other.py": "retired_cursor = 2\n",
+        },
+        contract,
+        roots=("src/sample/safe",),
+    )
+    assert result.observation is not None, result.diagnostics
+    [assessment] = [
+        row
+        for row in rule_assessments(result.observation, undecided_by_rule={})
+        if row.id == "ownership"
+    ]
+    assert assessment.status == "UNKNOWN" and not assessment.evaluation_proven
+    ordinary = tmp_path / "ordinary.json"
+    ordinary.write_text(json.dumps(observation_payload(result.observation)))
+    columnar = tmp_path / "columnar.json"
+    columnar.write_bytes(canonical_report_bytes(result.observation))
+    for saved in (ordinary, columnar):
+        [replayed] = [
+            row for row in run_saved_report(saved).rule_assessments if row.id == "ownership"
+        ]
+        assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+def test_src_layout_mounted_partial_root_keeps_sibling_unknown(tmp_path):
+    import json
+
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+    from archkeel.ir.decisions import rule_assessments
+
+    contract = _contract(
+        {
+            "mode": "retired",
+            "symbols": ["sample.core.consumer.retired_cursor"],
+            "roles": ["definition"],
+        }
+    )
+    contract["rules"] = []
+    contract["components"] = [
+        _component("core", ["sample.core"], inside="inside.json"),
+        _component("outside", ["sample.outside"]),
+    ]
+    inside = {
+        "schema_version": "3.12.0",
+        "components": [_component("consumer", ["sample.core.consumer"])],
+        "rules": [
+            _source_rule(
+                id="inside_ownership",
+                source="sample.core.consumer",
+                mode="retired",
+                symbols=["sample.core.consumer.retired_cursor"],
+                roles=["definition"],
+            )
+        ],
+    }
+    result = _observe_tree(
+        tmp_path,
+        {
+            "inside.json": json.dumps(inside),
+            "src/sample/__init__.py": "",
+            "src/sample/core/__init__.py": "",
+            "src/sample/core/consumer.py": "active_cursor = 1\n",
+            "src/sample/core/safe/__init__.py": "",
+            "src/sample/core/safe/other.py": "retired_cursor = 2\n",
+            "src/sample/outside/__init__.py": "",
+        },
+        contract,
+        roots=("src/sample/core/safe",),
+    )
+    assert result.observation is not None, result.diagnostics
+    [assessment] = [
+        row
+        for row in rule_assessments(result.observation, undecided_by_rule={})
+        if row.id == "core:inside_ownership"
+    ]
+    assert assessment.status == "UNKNOWN" and not assessment.evaluation_proven
+    ordinary = tmp_path / "ordinary.json"
+    ordinary.write_text(json.dumps(observation_payload(result.observation)))
+    columnar = tmp_path / "columnar.json"
+    columnar.write_bytes(canonical_report_bytes(result.observation))
+    for saved in (ordinary, columnar):
+        [replayed] = [
+            row
+            for row in run_saved_report(saved).rule_assessments
+            if row.id == "core:inside_ownership"
+        ]
+        assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+def test_src_layout_mounted_source_ownership_replays_as_proven(tmp_path):
+    import json
+
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+    from archkeel.ir.decisions import rule_assessments
+
+    contract = _contract(
+        {
+            "mode": "retired",
+            "symbols": ["sample.core.consumer.retired_cursor"],
+            "roles": ["definition"],
+        }
+    )
+    contract["rules"] = []
+    contract["components"] = [_component("core", ["sample.core"], inside="inside.json")]
+    inside = {
+        "schema_version": "3.12.0",
+        "components": [_component("consumer", ["sample.core.consumer"])],
+        "rules": [
+            _source_rule(
+                id="inside_ownership",
+                source="sample.core.consumer",
+                mode="retired",
+                symbols=["sample.core.consumer.retired_cursor"],
+                roles=["definition"],
+            )
+        ],
+    }
+    result = _observe_tree(
+        tmp_path,
+        {
+            "inside.json": json.dumps(inside),
+            "src/sample/__init__.py": "",
+            "src/sample/core/__init__.py": "",
+            "src/sample/core/consumer.py": "active_cursor = 1\n",
+            "src/sample/outside/__init__.py": "",
+        },
+        contract,
+        roots=("src",),
+    )
+    assert result.observation is not None, result.diagnostics
+    [assessment] = [
+        row
+        for row in rule_assessments(result.observation, undecided_by_rule={})
+        if row.id == "core:inside_ownership"
+    ]
+    assert assessment.status == "PASS" and assessment.evaluation_proven
+    ordinary = tmp_path / "ordinary.json"
+    ordinary.write_text(json.dumps(observation_payload(result.observation)))
+    columnar = tmp_path / "columnar.json"
+    columnar.write_bytes(canonical_report_bytes(result.observation))
+    for saved in (ordinary, columnar):
+        [replayed] = [
+            row
+            for row in run_saved_report(saved).rule_assessments
+            if row.id == "core:inside_ownership"
+        ]
+        assert replayed == assessment

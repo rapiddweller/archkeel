@@ -1561,16 +1561,54 @@ def _source_ownership_receipt_complete(observation: Observation, receipt: Record
 
 
 def _source_scope_covers_rule(observation: Observation, declaration: Record) -> bool:
-    """Require the requested scan roots to cover the complete declared source prefix."""
+    """Require scan roots to contain the mapped physical source prefix."""
     source = declaration.data.get("source")
     if not isinstance(source, str):
         return False
-    source_path = source.replace(".", "/")
     roots = tuple(scope.removesuffix("/**/*.py") for scope in observation.source.scope)
-    return any(
-        root in {"", "."} or source_path == root or source_path.startswith(f"{root}/")
-        for root in roots
+    source_parts = tuple(source.split("."))
+    mapped_prefixes = tuple(
+        prefix
+        for item in observation.records("modules") or ()
+        if isinstance(name := item.data.get("qualified_name"), str)
+        and _qualified_module_under_source(name, source_parts)
+        and isinstance(file := item.data.get("file"), str)
+        and (prefix := _physical_source_prefix(name, file, source_parts)) is not None
     )
+    return bool(mapped_prefixes) and all(
+        _physical_path_covered(prefix, roots) for prefix in mapped_prefixes
+    )
+
+
+def _qualified_module_under_source(name: str, source_parts: tuple[str, ...]) -> bool:
+    parts = tuple(name.split("."))
+    return parts[: len(source_parts)] == source_parts
+
+
+def _physical_source_prefix(
+    module: str, file: str, source_parts: tuple[str, ...]
+) -> _PurePosixPath | None:
+    """Map a source-qualified prefix through one observed module/file pair."""
+    module_parts = tuple(module.split("."))
+    path = _PurePosixPath(file)
+    if len(module_parts) == len(source_parts):
+        return path
+    suffix = module_parts[len(source_parts) :]
+    physical_module = path.parent if path.name == "__init__.py" else path.with_suffix("")
+    if len(suffix) > len(physical_module.parts):
+        return None
+    prefix_parts = physical_module.parts[: len(physical_module.parts) - len(suffix)]
+    return _PurePosixPath(*prefix_parts) if prefix_parts else _PurePosixPath(".")
+
+
+def _physical_path_covered(path: _PurePosixPath, roots: tuple[str, ...]) -> bool:
+    for raw_root in roots:
+        root = _PurePosixPath(raw_root)
+        if root in {_PurePosixPath(""), _PurePosixPath(".")}:
+            return True
+        if path == root or path.is_relative_to(root):
+            return True
+    return False
 
 
 def rule_assessments(
