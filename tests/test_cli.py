@@ -1412,3 +1412,29 @@ def test_check_heading_symlink_loop_preserves_saved_and_stdout_verdicts(
     for key in ("observation_complete", "declared_rules", "expectation_fulfilled"):
         assert saved[key] == emitted[key] == "PASS"
     assert "<h1>sample</h1>" in (tmp_path / "result.check.html").read_text()
+
+
+_FULL_ERROR = "--full requires --only architecture"
+_RULE_ERROR = "--rule narrows violations; --only calls or architecture cannot select a rule"
+
+
+@pytest.mark.parametrize(
+    ("options", "message"),
+    [
+        (("--full",), _FULL_ERROR),
+        (("--only", "violations", "--full"), _FULL_ERROR),
+        (("--only", "calls", "--rule", "R"), _RULE_ERROR),
+        (("--only", "architecture", "--rule", "R"), _RULE_ERROR),
+        # Several errors at once: one priority for live and saved reports.
+        (("--only", "calls", "--rule", "R", "--full"), _FULL_ERROR),
+    ],
+)
+@pytest.mark.parametrize("source", ["live", "saved"])
+def test_report_option_errors_are_one_rule_set(tmp_path, capsys, source, options, message):
+    # The live root has no archkeel.toml: option errors come before reading configuration.
+    subject = tmp_path if source == "live" else tmp_path / "architecture.json"
+    where = ("--root" if source == "live" else "--input", str(subject))
+    assert main(["report", *where, *options, "--json"]) == 2
+    [diagnostic] = json.loads(capsys.readouterr().out)["diagnostics"]
+    assert diagnostic["unknown_claim"].endswith(message)
+    assert diagnostic["subject"] == str(subject)

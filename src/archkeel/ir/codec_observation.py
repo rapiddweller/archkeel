@@ -42,7 +42,6 @@ from archkeel.ir.model import (
     ContractInfo,
     Coverage,
     Observation,
-    Record,
     RuntimeInfo,
     Section,
     SourceInfo,
@@ -76,10 +75,47 @@ class _VersionedConstruct(StrEnum):
     NUMERIC_OPERAND = "numeric_operand"
 
 
-def _uses_numeric_operand_fields(record: Record) -> bool:
-    return record.kind == _VersionedConstruct.NUMERIC_OPERAND or _has_field(
-        (key for key, _ in record.data.entries), "derivation"
-    )
+class _VersionedNumericField(StrEnum):
+    DERIVATION = "derivation"
+    NUMERIC_SCOPE_PROOF = "numeric_scope_proof"
+    OPERATION_BINDING = "operation_binding"
+
+
+class _VersionedSection(StrEnum):
+    DECLARATIONS = "declarations"
+    SCOPE_OBSERVATIONS = "scope_observations"
+
+
+def _uses_numeric_operand_fields(section: Section) -> bool:
+    for record in section.records:
+        fields = (key for key, _ in record.data.entries)
+        if section.name == ObservedSection.CONSTRUCTS and (
+            record.kind == _VersionedConstruct.NUMERIC_OPERAND
+            or _has_field(fields, _VersionedNumericField.DERIVATION)
+        ):
+            return True
+        if (
+            section.name == _VersionedSection.DECLARATIONS
+            and record.kind == ArchitectureRuleKind.BOUNDED_NUMERIC_OPERAND
+        ):
+            return True
+        if section.name == _VersionedSection.SCOPE_OBSERVATIONS and (
+            _has_field(fields, _VersionedNumericField.NUMERIC_SCOPE_PROOF)
+            or _has_field(
+                (key for key, _ in record.data.entries), _VersionedNumericField.OPERATION_BINDING
+            )
+        ):
+            return True
+    return False
+
+
+def _requires_numeric_version(version: _ObservationVersion) -> bool:
+    return version in {
+        _ObservationVersion.V1_2,
+        _ObservationVersion.V1_3,
+        _ObservationVersion.V2,
+        _ObservationVersion.V2_1,
+    }
 
 
 class _EncodingKind(StrEnum):
@@ -204,18 +240,12 @@ def _percent(value: RawJson, label: str) -> float:
 def _validate_versioned_records(
     schema_version: _ObservationVersion, sections: tuple[Section, ...], profile: Profile
 ) -> None:
-    if schema_version in {
-        _ObservationVersion.V1_2,
-        _ObservationVersion.V1_3,
-        _ObservationVersion.V2,
-        _ObservationVersion.V2_1,
-    } and any(
-        _uses_numeric_operand_fields(record)
-        for section in sections
-        if section.name == ObservedSection.CONSTRUCTS
-        for record in section.records
+    if _requires_numeric_version(schema_version) and any(
+        _uses_numeric_operand_fields(section) for section in sections
     ):
-        raise ValueError("numeric_operand constructs require observation schema 2.2.0")
+        raise ValueError(
+            "numeric_operand constructs require 2.2.0; declarations and receipts do too"
+        )
     if schema_version in {
         _ObservationVersion.V2_1,
         _ObservationVersion.V2_2,

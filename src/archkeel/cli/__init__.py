@@ -442,6 +442,15 @@ def build_parser() -> _Parser:
     return parser
 
 
+def _report_option_error(args: CLIArguments) -> str | None:
+    """The one priority for report option conflicts, live or saved, before any file is read."""
+    if args.full and args.only is not ReportMode.ARCHITECTURE:
+        return "--full requires --only architecture"
+    if args.only in {ReportMode.CALLS, ReportMode.ARCHITECTURE} and args.rule is not None:
+        return "--rule narrows violations; --only calls or architecture cannot select a rule"
+    return None
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     command = Command.ARGUMENTS
@@ -475,6 +484,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             if command is Command.REPORT and args.input is not None
             else f"observing {root.name}"
         )
+        if command is Command.REPORT and (error := _report_option_error(args)):
+            subject = str(args.input if args.input is not None else root)
+            parser.error(error)
         with progress(f"archkeel {command}: {activity}"):
             if command is Command.INIT:
                 subject = str(root)
@@ -497,16 +509,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 files = requested_files.entries
             elif command is Command.REPORT and args.input is not None:
-                if args.full and args.only is not ReportMode.ARCHITECTURE:
-                    parser.error("--full requires --only architecture")
-                if (
-                    args.only in {ReportMode.CALLS, ReportMode.ARCHITECTURE}
-                    and args.rule is not None
-                ):
-                    parser.error(
-                        "--rule narrows violations; --only calls or architecture "
-                        "cannot select a rule"
-                    )
                 subject = str(args.input)
                 conflicts = tuple(
                     option
@@ -532,16 +534,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             elif command is Command.REPORT:
                 config = load_config(root, args.config or CONFIG_PATH)
                 subject = str(root)
-                if (
-                    args.only in {ReportMode.CALLS, ReportMode.ARCHITECTURE}
-                    and args.rule is not None
-                ):
-                    parser.error(
-                        "--rule narrows violations; --only calls or architecture "
-                        "cannot select a rule"
-                    )
-                if args.full and args.only is not ReportMode.ARCHITECTURE:
-                    parser.error("--full requires --only architecture")
                 result, architecture = run_report(
                     root,
                     config=config,
