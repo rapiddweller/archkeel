@@ -8,7 +8,7 @@ from __future__ import annotations
 import builtins as _builtins
 import json
 from collections import defaultdict
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterator, Sequence
 from collections.abc import Set as AbstractSet
 from pathlib import PurePosixPath
 from typing import Final, TypeAlias, assert_never
@@ -1528,16 +1528,12 @@ def _source_ownership_violations(
         if not isinstance(rule, SourceOwnershipRule):
             continue
         owner_module = rule.value_owner.rsplit(".", 1)[0] if rule.value_owner is not None else None
-        owner_records = [
-            item
-            for item in symbols
-            if item["data"].get("qualified_name") == rule.value_owner
-            and (source_modules is None or item["data"].get("module") in source_modules)
-        ]
+        owner_records = _ownership_owner_records(symbols, rule.value_owner, source_modules)
+        owner_data: dict[str, object] = owner_records[0]["data"] if owner_records else {}
         value_owner_valid = (
             rule.value_owner is None
             or len(owner_records) == 1
-            and owner_records[0]["data"].get("record_kind") == "static_constant"
+            and owner_data.get("record_kind") == "static_constant"
             and (source_modules is None or owner_module in source_modules)
         )
         selected = set(rule.symbols) | set(rule.parameters)
@@ -1591,7 +1587,7 @@ def _source_ownership_violations(
 
 def _stable_source_ownership_read(
     role: str,
-    data: Mapping[str, object],
+    data: dict[str, object],
     targets: tuple[str, ...],
     selected: set[str],
     symbols: Sequence[RawRecord],
@@ -1602,12 +1598,14 @@ def _stable_source_ownership_read(
         return True
     if len(targets) != 1 or targets[0] not in selected:
         return False
-    matches = [
-        symbol
-        for symbol in symbols
-        if symbol["data"].get("qualified_name") == targets[0]
-        and symbol["data"].get("record_kind") in {"static_constant", "dynamic_binding"}
-    ]
+    matches = []
+    for symbol in symbols:
+        symbol_data: dict[str, object] = symbol["data"]
+        if symbol_data.get("qualified_name") == targets[0] and symbol_data.get("record_kind") in {
+            "static_constant",
+            "dynamic_binding",
+        }:
+            matches.append(symbol)
     return len(matches) == 1
 
 
@@ -1641,8 +1639,8 @@ def _unknown_reference_contexts(
         return []
     unknowns: list[RawRecord] = []
     for item in references:
-        data = item["data"]
-        matches = set(_string_targets(data.get("targets"))) & selected
+        data: dict[str, object] = item["data"]
+        matches = set(_ownership_targets(data, "targets")) & selected
         source_module = data.get("source_module")
         if (
             item["kind"] in {"value_reference", "attribute_reference"}
@@ -1722,15 +1720,11 @@ def _unknown_source_value_owner(
     if rule.value_owner is None:
         return None
     owner_module = rule.value_owner.rsplit(".", 1)[0]
-    owners = [
-        item
-        for item in symbols
-        if item["data"].get("qualified_name") == rule.value_owner
-        and (source_modules is None or item["data"].get("module") in source_modules)
-    ]
+    owners = _ownership_owner_records(symbols, rule.value_owner, source_modules)
+    owner_data: dict[str, object] = owners[0]["data"] if owners else {}
     if (
         len(owners) == 1
-        and owners[0]["data"].get("record_kind") == "static_constant"
+        and owner_data.get("record_kind") == "static_constant"
         and (source_modules is None or owner_module in source_modules)
     ):
         return None
@@ -1747,8 +1741,23 @@ def _unknown_source_value_owner(
 
 
 _SourceOwnershipCandidate: TypeAlias = tuple[
-    RawRecord, Mapping[str, object], str | None, str | None, tuple[str, ...], tuple[str, ...]
+    RawRecord, dict[str, object], str | None, str | None, tuple[str, ...], tuple[str, ...]
 ]
+
+
+def _ownership_owner_records(
+    symbols: Sequence[RawRecord],
+    owner_name: str | None,
+    source_modules: frozenset[str] | None,
+) -> list[RawRecord]:
+    owners = []
+    for item in symbols:
+        data: dict[str, object] = item["data"]
+        if data.get("qualified_name") == owner_name and (
+            source_modules is None or data.get("module") in source_modules
+        ):
+            owners.append(item)
+    return owners
 
 
 def _source_ownership_candidates(
@@ -1762,8 +1771,8 @@ def _reference_ownership_candidates(
 ) -> tuple[_SourceOwnershipCandidate, ...]:
     candidates: list[_SourceOwnershipCandidate] = []
     for item in references:
-        data: Mapping[str, object] = item["data"]
-        targets = _string_targets(data.get("targets"))
+        data: dict[str, object] = item["data"]
+        targets = _ownership_targets(data, "targets")
         if item["kind"] == "source_role":
             candidates.append(_source_role_candidate(item, data, targets))
         elif item["kind"] in {"value_reference", "attribute_reference"}:
@@ -1771,14 +1780,15 @@ def _reference_ownership_candidates(
     return tuple(candidates)
 
 
-def _string_targets(value: object) -> tuple[str, ...]:
+def _ownership_targets(data: dict[str, object], field: str) -> tuple[str, ...]:
+    value = data.get(field)
     if not isinstance(value, (tuple, list)):
         return ()
     return tuple(target for target in value if isinstance(target, str))
 
 
 def _source_role_candidate(
-    item: RawRecord, data: Mapping[str, object], targets: tuple[str, ...]
+    item: RawRecord, data: dict[str, object], targets: tuple[str, ...]
 ) -> _SourceOwnershipCandidate:
     role = data.get("role")
     name = data.get("canonical_name")
@@ -1793,7 +1803,7 @@ def _source_role_candidate(
 
 
 def _reference_role_candidates(
-    item: RawRecord, data: Mapping[str, object], targets: tuple[str, ...]
+    item: RawRecord, data: dict[str, object], targets: tuple[str, ...]
 ) -> tuple[_SourceOwnershipCandidate, ...]:
     candidates: list[_SourceOwnershipCandidate] = []
     if data.get("reference_context") == "value":
@@ -1810,8 +1820,7 @@ def _reference_role_candidates(
     if data.get("declaration_role") == "definition" and targets:
         definition_data = dict(data)
         definition_data["status"] = data.get("declaration_status")
-        raw_evidence = data.get("declaration_evidence_ids", ())
-        evidence_ids = _string_targets(raw_evidence)
+        evidence_ids = _ownership_targets(data, "declaration_evidence_ids")
         candidates.append((item, definition_data, "definition", targets[0], targets, evidence_ids))
     return tuple(candidates)
 
@@ -1827,7 +1836,7 @@ def _symbol_ownership_candidates(
 
 
 def _symbol_ownership_candidate(item: RawRecord) -> _SourceOwnershipCandidate | None:
-    data = item["data"]
+    data: dict[str, object] = item["data"]
     if item["kind"] not in {"class", "function", "method"} and data.get("record_kind") not in {
         "static_constant",
         "dynamic_binding",
