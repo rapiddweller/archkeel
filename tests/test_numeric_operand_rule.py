@@ -433,6 +433,32 @@ def test_complete_numeric_report_replays_with_one_receipt(tmp_path, operand, exp
         assert replayed.rule_assessments == rows
 
 
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize("operand,section", [("3", "violations"), ("dynamic", "unknowns")])
+@pytest.mark.parametrize("mutation", ["relocate", "delete", "change"])
+def test_saved_numeric_results_are_bound_to_their_sections(
+    tmp_path, operand, section, mutation, columnar
+):
+    _write_probe(tmp_path)
+    (tmp_path / "sample/core.py").write_text(
+        f"def choose(job_nonce, dynamic): return job_nonce % {operand}\n"
+    )
+    model, _ = _rule_rows(tmp_path)
+    payload = observation_payload(model)
+    finding = next(item for item in payload[section] if "RULE" in item["rule_ids"])
+    if mutation == "change":
+        finding["title"] = "Changed result"
+    else:
+        payload[section].remove(finding)
+        if mutation == "relocate":
+            payload["scope_observations"].append(finding)
+    saved = tmp_path / "changed-result.json"
+    saved.write_bytes(canonical_report_bytes(payload) if columnar else json.dumps(payload).encode())
+    [row] = run_saved_report(saved).rule_assessments
+    assert not row.evaluation_proven
+    assert row.status.value != "PASS"
+
+
 @pytest.mark.parametrize(
     ("value", "status"),
     [(4_294_967_295, "FAIL"), (4_294_967_296, "PASS"), (4_294_967_297, "PASS")],

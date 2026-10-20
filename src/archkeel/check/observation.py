@@ -21,6 +21,7 @@ from archkeel.ir.decisions import (
     dependency_binding_id,
     numeric_operand_inventory_binding_id,
     rule_evaluation_binding_id,
+    rule_result_digest,
 )
 from archkeel.ir.digest import package_digest
 from archkeel.ir.facts import ResolutionRole as _ResolutionRole
@@ -775,6 +776,10 @@ def _certify_numeric_operand_scopes(
         and scan.coverage["status"] == "PASS"
         and not failures
     )
+    results = tuple(
+        Section(name, tuple(parse_record(item) for item in records))
+        for name, records in (("violations", scan.violations), ("unknowns", scan.unknowns))
+    )
     for receipt in receipts:
         receipt["data"]["assessment_complete"] = (
             "assessment_complete" in receipt["data"]
@@ -793,6 +798,7 @@ def _certify_numeric_operand_scopes(
         }
         receipt["data"]["numeric_scope_proof"] = {
             **proof,
+            "result_digest": rule_result_digest(results, receipt["rule_ids"][0]),
             "binding_id": rule_evaluation_binding_id(
                 inventory_binding, parse_record(receipt), SCHEMA_VERSION
             ),
