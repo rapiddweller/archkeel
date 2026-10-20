@@ -26,8 +26,7 @@ from archkeel.ir.facts import (
     stable_id,
 )
 from archkeel.ir.facts_codec import RawData as RecordData
-from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
-from archkeel.ir.facts_validation import _call_excerpt_matches
+from archkeel.ir.facts_codec import RawEvidence, RawRecord, call_excerpt_matches, classified
 
 from .binding_types import BindingKind
 from .receiver_types import (
@@ -1279,6 +1278,7 @@ class CallCollector(ast.NodeVisitor):
                 for evidence_id in self.symbol_evidence.get(target, [])
             }
         )
+        source_line = self.module.lines[node.lineno - 1]
         self.items.append(
             classified(
                 item_id=item_id,
@@ -1305,9 +1305,9 @@ class CallCollector(ast.NodeVisitor):
                         self._call_arguments(node)
                         if binding is not None
                         and node.end_lineno == node.lineno
-                        and _call_excerpt_matches(
+                        and call_excerpt_matches(
                             expression,
-                            self.module.lines[node.lineno - 1].rstrip(),
+                            source_line,
                             node.lineno,
                             node.col_offset,
                             node.end_lineno,

@@ -913,8 +913,8 @@ def _call_actual_span(
 ) -> tuple[int, int, int, int] | None:
     if not isinstance(node, ast.stmt | ast.expr | ast.keyword):
         return None
-    end_line = getattr(node, "end_lineno", None)
-    end_column = getattr(node, "end_col_offset", None)
+    end_line = node.end_lineno
+    end_column = node.end_col_offset
     if end_line is None or end_column is None:
         return None
     return (
