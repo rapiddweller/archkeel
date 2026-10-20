@@ -5,16 +5,20 @@ from typing import Protocol
 
 
 class Backend(Protocol):
-    def write(self, sku: str, total_cents: int) -> None: ...
+    def write(self, sku: str, quantity: int, total_cents: int) -> None: ...
 
 
-# Deployment configuration names the backend; each is imported only when selected.
+# The cloud backend needs the optional `cloud` extra (boto3); deployments without it must
+# still start, so each backend is imported only when configuration selects it.
 _LOADERS: dict[str, Callable[[], ModuleType]] = {
     "memory": lambda: importlib.import_module("orders.storage.backends.memory"),
-    "sqlite": lambda: importlib.import_module("orders.storage.backends.sqlite"),
+    "file": lambda: importlib.import_module("orders.storage.backends.file"),
+    "cloud": lambda: importlib.import_module("orders.storage.backends.cloud"),
 }
 
 
 def load_backend(name: str) -> Backend:
+    if name not in _LOADERS:
+        raise ValueError(f"unknown ORDERS_BACKEND {name!r}; expected one of {sorted(_LOADERS)}")
     backend: Backend = _LOADERS[name]().BACKEND
     return backend

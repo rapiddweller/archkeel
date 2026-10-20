@@ -58,7 +58,7 @@
       "id": "ASSIGNMENT-COMPLETE",
       "kind": "complete_assignment",
       "source": "orders.storage",
-      "rationale": "Every module has exactly one owner, so a review can name who answers for it.",
+      "rationale": "Every module under orders.storage has exactly one owner, so a review can name who answers for it.",
       "provenance": [
         "docs/target.md"
       ],
@@ -67,7 +67,7 @@
     {
       "id": "COMPONENT-NO-CYCLES",
       "kind": "no_component_cycles",
-      "rationale": "Order placement flows one way: entry, checkout, pricing and storage.",
+      "rationale": "Backends never call back into the repository that selects them.",
       "provenance": [
         "docs/target.md"
       ],
@@ -76,7 +76,7 @@
     {
       "id": "INTERFACE-BOUNDARY",
       "kind": "interface_boundary",
-      "rationale": "Callers use a component's declared API, never its internals.",
+      "rationale": "The repository reaches backends only through discovery.",
       "provenance": [
         "docs/target.md"
       ],
@@ -86,7 +86,7 @@
     {
       "id": "REQUIRES-COMPLETE",
       "kind": "complete_requires",
-      "rationale": "Every cross-component import is a declared, reasoned dependency.",
+      "rationale": "The repository's dependency on discovery is declared.",
       "provenance": [
         "docs/target.md"
       ],

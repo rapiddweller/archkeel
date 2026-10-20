@@ -160,7 +160,7 @@
       "id": "ASSIGNMENT-COMPLETE",
       "kind": "complete_assignment",
       "source": "orders",
-      "rationale": "Every module has exactly one owner, so a review can name who answers for it.",
+      "rationale": "Every module under orders has exactly one owner, so a review can name who answers for it.",
       "provenance": [
         "docs/target.md"
       ],
@@ -169,7 +169,7 @@
     {
       "id": "COMPONENT-NO-CYCLES",
       "kind": "no_component_cycles",
-      "rationale": "Order placement flows one way: entry, checkout, pricing and storage.",
+      "rationale": "Order placement flows one way: entry, checkout, then pricing and storage.",
       "provenance": [
         "docs/target.md"
       ],

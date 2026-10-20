@@ -2,15 +2,16 @@
   "schema_version": "2.2.0",
   "components": [
     {
-      "id": "checkout-service",
+      "id": "checkout-operation",
       "label": "Checkout operation",
       "role": "component",
       "packages": [],
       "public": [
-        "orders.checkout.service:place"
+        "orders.checkout.service:place",
+        "orders.checkout.rounding:round_cents"
       ],
       "responsibilities": [
-        "Orchestrate pricing, rounding and persistence for one order line."
+        "Price one order line, round it to cents and persist the receipt."
       ],
       "forbidden_responsibilities": [],
       "provenance": [
@@ -25,19 +26,12 @@
           ],
           "rationale": "The operation returns a receipt.",
           "decided_by": "agent"
-        },
-        {
-          "component": "Cent rounding",
-          "through": [
-            "orders.checkout.rounding:round_cents"
-          ],
-          "rationale": "Totals are stored in whole cents.",
-          "decided_by": "agent"
         }
       ],
       "exact_modules": [
         "orders.checkout",
-        "orders.checkout.service"
+        "orders.checkout.service",
+        "orders.checkout.rounding"
       ]
     },
     {
@@ -60,27 +54,6 @@
       "exact_modules": [
         "orders.checkout.receipts"
       ]
-    },
-    {
-      "id": "checkout-rounding",
-      "label": "Cent rounding",
-      "role": "component",
-      "packages": [],
-      "public": [
-        "orders.checkout.rounding:round_cents"
-      ],
-      "responsibilities": [
-        "Round a gross amount to whole cents."
-      ],
-      "forbidden_responsibilities": [],
-      "provenance": [
-        "docs/target.md"
-      ],
-      "decided_by": "agent",
-      "requires": [],
-      "exact_modules": [
-        "orders.checkout.rounding"
-      ]
     }
   ],
   "rules": [
@@ -88,7 +61,7 @@
       "id": "ASSIGNMENT-COMPLETE",
       "kind": "complete_assignment",
       "source": "orders.checkout",
-      "rationale": "Every module has exactly one owner, so a review can name who answers for it.",
+      "rationale": "Every module under orders.checkout has exactly one owner, so a review can name who answers for it.",
       "provenance": [
         "docs/target.md"
       ],
@@ -97,7 +70,7 @@
     {
       "id": "COMPONENT-NO-CYCLES",
       "kind": "no_component_cycles",
-      "rationale": "Order placement flows one way: entry, checkout, pricing and storage.",
+      "rationale": "The receipt model never depends on the operation that builds it.",
       "provenance": [
         "docs/target.md"
       ],
@@ -106,7 +79,7 @@
     {
       "id": "INTERFACE-BOUNDARY",
       "kind": "interface_boundary",
-      "rationale": "Callers use a component's declared API, never its internals.",
+      "rationale": "The receipt is the only type the operation shares inside checkout.",
       "provenance": [
         "docs/target.md"
       ],
@@ -116,7 +89,7 @@
     {
       "id": "REQUIRES-COMPLETE",
       "kind": "complete_requires",
-      "rationale": "Every cross-component import is a declared, reasoned dependency.",
+      "rationale": "The operation's use of the receipt model is declared.",
       "provenance": [
         "docs/target.md"
       ],

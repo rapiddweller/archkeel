@@ -1,7 +1,6 @@
-_UNIT_PRICES = {"book": 12.5, "pen": 1.2}
+from orders.pricing.base import Line
+from orders.pricing.pipeline import run
 
 
-def price(sku: str, quantity: int, region: str) -> float:
-    from orders.pricing.registry import RULES
-
-    return RULES[region].gross(_UNIT_PRICES[sku] * quantity)
+def price(sku: str, quantity: int, region: str, coupon: str | None = None) -> float:
+    return run(Line(sku, quantity, region, coupon))

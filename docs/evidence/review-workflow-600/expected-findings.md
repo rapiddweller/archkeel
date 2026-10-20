@@ -1,7 +1,9 @@
 # Expected review findings: `fixtures/M-review-workflow`
 
-Committed before any review run (#600). A run passes a scenario when its decision matches
-and its rationale cites the named evidence. Wording may differ. The contract is green
+Revision 2, committed before run 2 (#600). Revision 1 (16d3e6b) graded run 1; S3 and S4
+then failed because of fixture defects, so the fixture changed, not the earlier grading
+([run 1](run-1.md)). A run passes a scenario when its decision matches and its rationale
+cites the named evidence. Wording may differ. The contract is green
 (12/12 PASS), so every finding below is review judgment, never a FAIL.
 
 ## Required of every run
@@ -11,6 +13,7 @@ and its rationale cites the named evidence. Wording may differ. The contract is 
 - States review coverage per package and marks anything unreviewed.
 - Each finding names a source location, impact, a delete/simplify/keep decision and UNKNOWNs.
 - Keeps contract facts (PASS) separate from reviewer judgment.
+- Names the symbols behind nonzero review-claim counts, or says where they are listed.
 
 ## S1 Green but generic leaf: `orders.common.util`
 
@@ -33,14 +36,20 @@ and its rationale cites the named evidence. Wording may differ. The contract is 
 
 - Decision: **keep**.
 - Evidence: a real caller (`storage.repository.save`, selected by `ORDERS_BACKEND`), the
-  `Backend` protocol, and literal lazy loaders that ArchKeel proves as dependencies.
-- Not expected: replacing discovery with static imports, or inventing an import to
-  "justify" the backends.
+  `Backend` protocol, a fail-fast check for unknown names, and the `cloud` backend's
+  optional `boto3` extra (`pyproject.toml`): deployments without it must still start, so
+  backends load only when selected. ArchKeel proves the literal loaders as dependencies.
+- Not expected: static imports of every backend, or inventing an import to "justify" the
+  backends. Acceptable side note: the `BACKEND` attribute of a loaded module is untyped
+  until it meets the `Backend` annotation.
 
 ## S4 Cohesive larger package: `orders.pricing`
 
 - Decision: **keep**.
-- Evidence: ten direct modules exceed the review threshold of seven, but eight are region
-  rules behind one `TaxRule` protocol, plus the protocol and the registry.
-- Not expected: splitting into arbitrary groups, `misc`/`utils`, or re-export barrels.
-  A side note on the function-local registry import in `price` is acceptable.
+- Evidence: ten direct modules exceed the review threshold of seven, but each holds one
+  distinct pricing rule (clearance, bulk, coupon, VAT, small-order surcharge, shipping,
+  currency) behind the `PriceStep` protocol, plus the line model, catalog and the ordered
+  pipeline.
+- Not expected: splitting by count, merging distinct rules into one module, `misc`/`utils`,
+  or re-export barrels. Acceptable: a note that discount steps could form a subpackage if
+  they grow.

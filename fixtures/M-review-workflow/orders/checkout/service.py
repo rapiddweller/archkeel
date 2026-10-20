@@ -4,7 +4,7 @@ from orders.pricing import price
 from orders.storage import save
 
 
-def place(sku: str, quantity: int, region: str) -> Receipt:
-    receipt = Receipt(sku, quantity, round_cents(price(sku, quantity, region)))
-    save(receipt.sku, receipt.total_cents)
+def place(sku: str, quantity: int, region: str, coupon: str | None = None) -> Receipt:
+    receipt = Receipt(sku, quantity, round_cents(price(sku, quantity, region, coupon)))
+    save(receipt.sku, receipt.quantity, receipt.total_cents)
     return receipt
