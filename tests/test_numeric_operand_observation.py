@@ -360,9 +360,7 @@ def test_numeric_module_alias_scope_chain_round_trips_native_facts(
             8,
         ),
         (
-            "def outer(job_nonce):\n"
-            "    WIDTH = 8\n"
-            "    class Inner(job_nonce % WIDTH): pass\n",
+            "def outer(job_nonce):\n    WIDTH = 8\n    class Inner(job_nonce % WIDTH): pass\n",
             "sample.core.outer",
             8,
         ),

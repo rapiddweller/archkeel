@@ -1,6 +1,6 @@
 {
-  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.7.schema.json",
-  "schema_version": "3.7.0",
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.8.schema.json",
+  "schema_version": "3.8.0",
   "components": [
     {
       "id": "COMP-MODEL",
@@ -503,6 +503,17 @@
       "kind": "boundary_types",
       "source": "shop.app",
       "rationale": "shop.app's functions take and return typed models, never a bare dict standing in for one.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "MODEL-NONCE-WIDTH",
+      "kind": "bounded_numeric_operand",
+      "source": "shop.model",
+      "form": "both",
+      "terminal_suffix": "nonce",
+      "minimum_value": 8,
+      "rationale": "The sample's bucket operation retains its declared operand floor.",
       "provenance": ["docs/architecture/shop.md"],
       "decided_by": "architect"
     },
