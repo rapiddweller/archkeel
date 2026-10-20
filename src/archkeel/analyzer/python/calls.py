@@ -28,6 +28,7 @@ from archkeel.ir.facts import (
 )
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
+from archkeel.ir.facts_validation import _call_excerpt_matches
 
 from .binding_types import BindingKind
 from .guard_paths import GuardedCallPath, guarded_call_paths
@@ -1660,7 +1661,19 @@ class CallCollector(ast.NodeVisitor):
                     "candidates_truncated": candidate_count > len(targets),
                     "reason": reason,
                     "target_evidence_ids": target_evidence_ids,
-                    "call_arguments": self._call_arguments(node) if binding is not None else None,
+                    "call_arguments": (
+                        self._call_arguments(node)
+                        if binding is not None
+                        and node.end_lineno == node.lineno
+                        and _call_excerpt_matches(
+                            expression,
+                            self.module.lines[node.lineno - 1].rstrip(),
+                            node.lineno,
+                            node.col_offset,
+                            node.end_lineno,
+                        )
+                        else None
+                    ),
                     "result_bindings": self._result_bindings(node, item_id),
                     "construction": self._construction(
                         node, expression, status, targets, candidate_count > len(targets)
