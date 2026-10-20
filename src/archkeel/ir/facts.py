@@ -61,7 +61,7 @@ class StringTablePolicy(StrEnum):
     OBSERVATION = "observation"
 
 
-class _ReservedString(StrEnum):
+class ReservedString(StrEnum):
     DOLLAR = "$"
     DOUBLE_DOLLAR = "$$"
     MISSING = "$m"

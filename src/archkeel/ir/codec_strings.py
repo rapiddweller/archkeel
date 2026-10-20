@@ -10,8 +10,8 @@ import re
 from collections import Counter
 
 from archkeel.ir.facts import RawJson
+from archkeel.ir.facts import ReservedString as ReservedString
 from archkeel.ir.facts import StringTablePolicy as StringTablePolicy
-from archkeel.ir.facts import _ReservedString as _ReservedString
 
 _REFERENCE = r"^\$\d+$"
 _ESCAPED_REFERENCE = r"^\$\$+\d+$"
@@ -83,7 +83,7 @@ def expand_strings(value: RawJson, table: list[str]) -> RawJson:
                 if index >= len(table):
                     raise ValueError("string table reference is out of range")
                 return table[index]
-            if item[:2] == _ReservedString.DOUBLE_DOLLAR:
+            if item[:2] == ReservedString.DOUBLE_DOLLAR:
                 return item[1:]
         if isinstance(item, list):
             return [decode(child) for child in item]
@@ -115,7 +115,7 @@ def observation_profitable(text: str, occurrences: int) -> bool:
 def observation_escaped(text: str) -> bool:
     """Escape the historical missing marker and string-reference spellings."""
     return (
-        text in {_ReservedString.MISSING, _ReservedString.DOUBLE_MISSING}
+        text in {ReservedString.MISSING, ReservedString.DOUBLE_MISSING}
         or re.fullmatch(_REFERENCE, text) is not None
         or re.fullmatch(_ESCAPED_REFERENCE, text) is not None
     )
@@ -130,4 +130,4 @@ def _profitable(policy: StringTablePolicy, text: str, occurrences: int) -> bool:
 def _reserved_reference(text: str, policy: StringTablePolicy) -> bool:
     if policy is StringTablePolicy.OBSERVATION:
         return observation_escaped(text)
-    return text[:1] == _ReservedString.DOLLAR
+    return text[:1] == ReservedString.DOLLAR
