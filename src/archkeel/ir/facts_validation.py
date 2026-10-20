@@ -5078,12 +5078,15 @@ def _local_declaration_owner_witnessed(
 ) -> bool:
     if len(owner_matches) == 1 and owner_matches[0].kind == "class":
         scope = reference.data.get("source_scope")
+        use = evidence[reference.evidence_ids[0]]
         return (
             isinstance(owner, str)
             and isinstance(scope, str)
-            and scope.startswith(owner + ".<")
+            and (scope == owner or scope.startswith(owner + ".<"))
             and any(
-                evidence[identity].file == witness.file
+                evidence[identity].file == witness.file == use.file
+                and evidence[identity].line <= witness.line <= evidence[identity].end_line
+                and evidence[identity].line <= use.line <= evidence[identity].end_line
                 for identity in owner_matches[0].evidence_ids
             )
         )

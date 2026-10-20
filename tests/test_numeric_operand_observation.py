@@ -918,6 +918,14 @@ def test_numeric_module_alias_scope_chain_round_trips_native_facts(
             "sample.core.Holder",
             16,
         ),
+        (
+            "class Holder:\n"
+            "    WIDTH = 16\n"
+            "    @classmethod\n"
+            "    def choose(cls, value=job_nonce % WIDTH): return value\n",
+            "sample.core.Holder",
+            16,
+        ),
     ],
 )
 def test_numeric_definition_headers_use_their_enclosing_lexical_scope(
@@ -993,6 +1001,85 @@ def test_numeric_definition_headers_use_their_enclosing_lexical_scope(
             else json.dumps(observation_payload(observed.observation)).encode()
         )
         assert run_saved_report(saved).rule_assessments == assessments
+
+
+def test_class_default_reference_cannot_be_retargeted_to_same_named_foreign_class(tmp_path):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts import RecordData, stable_id
+    from archkeel.ir.facts_validation import validate_source_facts
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "class First:\n"
+        "    class Holder:\n"
+        "        WIDTH = 16\n"
+        "        @classmethod\n"
+        "        def choose(cls, value=job_nonce % WIDTH): return value\n"
+        "class Second:\n"
+        "    class Holder:\n"
+        "        WIDTH = 32\n"
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    validate_source_facts(facts)
+    records = [record for section in facts.sections for record in section.records]
+    second = next(
+        record
+        for record in records
+        if record.kind == "class"
+        and record.data.get("qualified_name") == "sample.core.Second.Holder"
+    )
+    member = next(
+        item
+        for item in second.data.get("attribute_declarations", ())
+        if isinstance(item, RecordData) and item.get("name") == "WIDTH"
+    )
+    [witness_id] = member.get("evidence_ids")
+    reference = next(
+        record
+        for record in records
+        if record.kind == "value_reference"
+        and record.data.get("expression") == "WIDTH"
+        and record.data.get("local_source_binding") is True
+    )
+    target = "sample.core.Second.Holder.WIDTH"
+    data = dict(reference.data.entries)
+    data.update(
+        {
+            "declaration_evidence_ids": (witness_id,),
+            "declaration_id": stable_id("DECL", "sample/core.py", target),
+            "declaration_owner_id": second.id,
+            "declaration_owner_scope": "sample.core.Second.Holder",
+            "source_definition_id": second.id,
+            "source_scope": "sample.core.Second.Holder",
+            "targets": (target,),
+        }
+    )
+    rewritten = tuple(
+        replace(
+            section,
+            records=tuple(
+                replace(record, data=RecordData(tuple(data.items())))
+                if record.id == reference.id
+                else record
+                for record in section.records
+            ),
+        )
+        for section in facts.sections
+    )
+    with pytest.raises(ValueError, match="local definition witness"):
+        validate_source_facts(replace(facts, sections=rewritten))
 
 
 def test_numeric_module_alias_cannot_drop_an_enclosing_shadow_scope(tmp_path):
