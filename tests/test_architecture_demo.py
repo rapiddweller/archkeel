@@ -387,6 +387,7 @@ def test_recursive_wide_report_includes_catalog_isolated_module_and_package_root
     expected = {
         "shop.app.maintenance",
         "shop.app.orders",
+        "shop.app.tokens",
         "shop.cli.main",
         "shop.model.entities",
         "shop.render.text",

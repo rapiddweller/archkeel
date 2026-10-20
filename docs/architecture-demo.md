@@ -3,7 +3,7 @@
 ## Full-project journeys
 
 The [published gallery](https://rapiddweller.github.io/archkeel/demos/) groups each pinned
-application with its baseline and three source-only variants. Observation, coverage, declared
+application with its baseline and four source-only variants. Observation, coverage, declared
 rules and UML comparison are shown separately.
 
 - **Compass booking** — [flutter/samples@5541c59ab8e9d7e74c1a35ef22bd43a487fc596c](https://github.com/flutter/samples/tree/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c), 111 Dart files, 89 libraries, 22 parts. Authentication through search, results, activities and booking, backed by repositories and local/remote services. Target: Feature ownership, nested booking components, and closed class/member APIs. Evidence limit: Thirty typed source-resolution gaps leave coverage incomplete; they are not confirmed syntax errors.
@@ -17,8 +17,8 @@ and `forbidden_effect_under_condition`: `secrets.token_hex` on a seeded run.
 
 The clean shop sample returns a fixed token for seeded runs and calls `secrets.token_hex` only
 for unseeded runs. `class-a-forbidden-effect-under-condition` and the default tour move the effect
-under the declared `seeded` condition and produce `EFFECT-NO-TOKEN-WHEN-SEEDED`.
-and `source_ownership`: a model-owned helper read from the app layer.
+under the declared `seeded` condition and produce `EFFECT-NO-TOKEN-WHEN-SEEDED`. A separate
+`source_ownership` variant reads a model-owned helper from the app layer.
 
 ```sh
 make demo-architecture VARIANT=tour OUTPUT=build/demo.json

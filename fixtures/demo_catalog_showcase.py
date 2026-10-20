@@ -329,6 +329,7 @@ _TOUR = Variant(
         "rule.violated",
         "rule.violated",
         "rule.violated",
+        "rule.violated",
     ),
 )
 _CLEAN = Variant(
