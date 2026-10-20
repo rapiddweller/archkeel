@@ -1,3 +1,8 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""Reject guarded-effect claims that disagree with their captured source."""
+
 import json
 
 import pytest
