@@ -1159,6 +1159,32 @@ def test_saved_owner_receipt_is_bound_to_calls_and_evidence(tmp_path, change):
     assert row.status == "UNKNOWN" and not row.evaluation_proven
 
 
+@pytest.mark.parametrize("change", ["relocate", "delete", "change"])
+def test_saved_owner_receipt_binds_rule_result_section_and_contents(tmp_path, change):
+    from archkeel.ir.codec import observation_payload, parse_observation
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\ndef run(c: Storage):\n    c.page()\n",
+        allowed=(),
+    )
+    assert row.status == "FAIL" and row.evaluation_proven
+    payload = observation_payload(result.observation)
+    [violation] = payload["violations"]
+    if change == "relocate":
+        payload["violations"].clear()
+        payload["scope_observations"].append(violation)
+    elif change == "delete":
+        payload["violations"].clear()
+    else:
+        violation["title"] = "changed finding"
+    saved = parse_observation(payload)
+    [replayed] = [
+        item for item in rule_assessments(saved, undecided_by_rule={}) if item.kind == "call_owner"
+    ]
+    assert replayed.status != "PASS" and not replayed.evaluation_proven
+
+
 @pytest.mark.parametrize(
     "mount, caller, source, expected",
     [

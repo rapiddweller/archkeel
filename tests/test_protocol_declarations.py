@@ -349,7 +349,7 @@ def test_imported_and_quoted_aliases_resolve_but_unresolved_names_stay_unknown(
         item.data.get("qualified_name")
         for item in unknowns
         if item.kind == "protocol_declaration_limit"
-    } >= {
+    } == {
         "sample.app.unresolved",
         "sample.app.unsupported_alias",
         "sample.shadow.shadowed",
@@ -675,6 +675,40 @@ def test_missing_protocol_port_is_unknown(tmp_path: Path) -> None:
         and item.data.get("reason") == "protocol_missing_or_ambiguous"
         for item in result.observation.records("unknowns") or ()
     )
+
+
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize(
+    "annotation,source_section,kind",
+    [
+        ("Concrete", "violations", "protocol_declaration"),
+        ("MissingPort", "unknowns", "protocol_declaration_limit"),
+    ],
+)
+def test_protocol_result_cannot_move_out_of_its_semantic_section(
+    tmp_path: Path, annotation: str, source_section: str, kind: str, columnar: bool
+) -> None:
+    raw = _contract()
+    raw["rules"][0]["selectors"] = [{"role": "parameter", "name": "client", "visibility": "public"}]
+    (tmp_path / "contract.json").write_text(json.dumps(raw))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "from typing import Protocol\nclass Reader(Protocol): ...\n"
+        "class Concrete: pass\n"
+        f"def consume(client: {annotation}): pass\n"
+    )
+    result = _observe(tmp_path)
+    assert not result.diagnostics and result.observation is not None
+    payload = observation_payload(result.observation)
+    moved = next(record for record in payload[source_section] if record["kind"] == kind)
+    payload[source_section].remove(moved)
+    payload["scope_observations"].append(moved)
+    saved = tmp_path / "moved-result.json"
+    saved.write_text(json.dumps(encode_canonical_model(payload) if columnar else payload))
+    replay = run_saved_report(saved)
+    [row] = [row for row in replay.rule_assessments or () if row.id == "APP-READER-DECLARATIONS"]
+    assert row.status.value == "UNKNOWN"
+    assert not row.evaluation_proven
 
 
 @pytest.mark.parametrize("tamper", ["source_digest", "contract_digest", "schema"])
