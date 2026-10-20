@@ -8,25 +8,14 @@ from __future__ import annotations
 import json
 import re
 from collections import Counter
-from enum import StrEnum
 
 from archkeel.ir.facts import RawJson
+from archkeel.ir.facts import StringTablePolicy as StringTablePolicy
+from archkeel.ir.facts import _ReservedString as _ReservedString
 
 _REFERENCE = r"^\$\d+$"
 _ESCAPED_REFERENCE = r"^\$\$+\d+$"
 _MISSING = "$m"
-
-
-class StringTablePolicy(StrEnum):
-    SOURCE_FACTS = "source-facts"
-    OBSERVATION = "observation"
-
-
-class _ReservedString(StrEnum):
-    DOLLAR = "$"
-    DOUBLE_DOLLAR = "$$"
-    MISSING = "$m"
-    DOUBLE_MISSING = "$$m"
 
 
 def intern_strings(

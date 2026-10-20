@@ -33,6 +33,7 @@ from archkeel.ir.codec_wire import (
 )
 from archkeel.ir.contract_version import CONTRACT_SCHEMA_VERSION as CONTRACT_SCHEMA_VERSION
 from archkeel.ir.contract_version import ContractFeature, ContractVersion, supports_feature
+from archkeel.ir.facts import python_identifier
 from archkeel.ir.facts_codec import record_payload
 from archkeel.ir.graph_codec import parse_target
 from archkeel.ir.model import (
@@ -1004,8 +1005,8 @@ def _parse_construct_selector(item: dict[str, RawJson], label: str) -> Construct
         raise ValueError(f"{label}.selector.literal is required only for operand roles")
     receiver_text: str = receiver
     receiver_parts: list[str] = receiver_text.split(".")
-    receiver_is_qualified_identifier: bool = all(part.isidentifier() for part in receiver_parts)
-    member_is_identifier: bool = member is None or member.isidentifier()
+    receiver_is_qualified_identifier: bool = all(python_identifier(part) for part in receiver_parts)
+    member_is_identifier: bool = member is None or python_identifier(member)
     if not receiver_is_qualified_identifier or not member_is_identifier:
         raise ValueError(f"{label}.selector receiver and member must be qualified identifiers")
     return ConstructSelector(receiver, member, role, literal)

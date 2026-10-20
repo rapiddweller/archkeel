@@ -121,6 +121,15 @@ def _validator(schema_name: str) -> Draft202012Validator:
     return Draft202012Validator(schema, registry=registry)
 
 
+def test_historical_python_call_binding_reference_resolves_frozen_v4_schema() -> None:
+    validator = _validator("architecture-ir-python-decoded-2.6.schema.json")
+    call_binding = validator.evolve(
+        schema={"$ref": ("https://archkeel.dev/schema/source-facts/4.0.0#/$defs/CallBinding")}
+    )
+
+    assert not call_binding.is_valid({})
+
+
 @pytest.fixture(scope="module")
 def legacy_validator() -> Draft202012Validator:
     return _validator("command-result.schema.json")
