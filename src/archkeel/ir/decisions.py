@@ -1082,6 +1082,23 @@ def rule_evaluation_binding_id(
     )
 
 
+def rule_result_digest(sections: _Iterable[Section], rule_id: str) -> str:
+    """Bind every rule-linked violation or unknown to its section and complete record."""
+    selected = tuple(
+        sorted(
+            (
+                (section.name, record)
+                for section in sections
+                for record in section.records
+                if rule_id in record.rule_ids
+                and record.evidence_class in {EvidenceClass.VIOLATION, EvidenceClass.UNKNOWN}
+            ),
+            key=lambda item: (item[0], item[1].id),
+        )
+    )
+    return stable_id("RULE-RESULT", rule_id, repr(selected))
+
+
 def _native_scope_runtime_valid(runtime: RuntimeInfo) -> bool:
     """Replay only a simple numeric Python lower bound already validated by Core."""
     if (
