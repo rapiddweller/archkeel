@@ -106,7 +106,7 @@ def test_selected_scope_without_applicable_facts_is_unknown():
     findings = _construct_violations([], [rule])
     assert len(findings) == 1
     assert findings[0]["evidence_class"] == "UNKNOWN"
-    assert findings[0]["kind"] == "rule-without-selector-subject"
+    assert findings[0]["kind"] == "construct_selector_unknown"
 
 
 def test_bounded_selector_excerpt_supports_match_headers():
@@ -1194,3 +1194,148 @@ def test_selector_receipt_cannot_retarget_source_modules_to_safe_sibling(
         assert replay.rule_assessments is not None, replay.diagnostics
         assessment = next(row for row in replay.rule_assessments if row.id == original.id)
         assert not (assessment.status == "PASS" and assessment.evaluation_proven)
+
+
+def _partial_selector_scope_fixture(root: Path, *, mounted: bool, literal: str):
+    (root / "sample/core").mkdir(parents=True)
+    (root / "sample/safe").mkdir(parents=True)
+    (root / "sample/__init__.py").write_text("")
+    (root / "sample/core/__init__.py").write_text("")
+    (root / "sample/safe/__init__.py").write_text("")
+    (root / "sample/safe/ports.py").write_text(
+        "class Connection:\n    backend: str\n"
+        "def route(conn: Connection):\n"
+        f"    conn.backend == {literal!r}\n"
+    )
+    (root / "sample/core/routes.py").write_text(
+        "from sample.safe.ports import Connection\n"
+        "def route(conn: Connection):\n    conn.backend == 'flat'\n"
+    )
+    (root / "docs/architecture").mkdir(parents=True)
+    (root / "docs/architecture/sample.md").write_text("Fixture provenance.\n")
+    (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    rule = {
+        "id": "SELECT",
+        "kind": "forbidden_construct",
+        "source": "sample",
+        "constructs": ["string_literal_compare"],
+        "selector": {
+            "receiver": "sample.safe.ports.Connection",
+            "member": "backend",
+            "role": "equality",
+            "literal": "flat",
+        },
+        "rationale": "Exercise partial selector source coverage.",
+        "provenance": ["docs/architecture/sample.md"],
+        "decided_by": "architect",
+    }
+    if mounted:
+        provenance = ["docs/architecture/sample.md"]
+        (root / "inside.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "3.11.0",
+                    "components": [
+                        {
+                            "id": "COMP-child",
+                            "label": "child",
+                            "role": "component",
+                            "packages": ["sample"],
+                            "responsibilities": ["Own child."],
+                            "forbidden_responsibilities": [],
+                            "provenance": provenance,
+                        }
+                    ],
+                    "rules": [rule],
+                }
+            )
+        )
+        contract = {
+            "schema_version": "3.11.0",
+            "components": [
+                {
+                    "id": "COMP-parent",
+                    "label": "parent",
+                    "role": "component",
+                    "packages": ["sample"],
+                    "responsibilities": ["Own parent."],
+                    "forbidden_responsibilities": [],
+                    "provenance": provenance,
+                    "inside": "inside.json",
+                }
+            ],
+            "rules": [],
+        }
+    else:
+        contract = {"schema_version": "3.11.0", "components": [], "rules": [rule]}
+    (root / "contract.json").write_text(json.dumps(contract))
+    result = observe(
+        root,
+        roots=("sample/safe",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=root,
+    )
+    assert result.observation is not None, result.diagnostics
+    return result.observation
+
+
+@pytest.mark.parametrize("mounted", [False, True], ids=["root", "mounted"])
+@pytest.mark.parametrize(
+    ("literal", "expected_status"),
+    [("round", "UNKNOWN"), ("flat", "FAIL")],
+    ids=["covered-safe-subset", "known-fail-remains-visible"],
+)
+def test_selector_partial_source_scope_is_unknown_without_hiding_known_failures(
+    tmp_path: Path, mounted: bool, literal: str, expected_status: str
+):
+    model = _partial_selector_scope_fixture(tmp_path / "repo", mounted=mounted, literal=literal)
+    assessments = rule_assessments(model, undecided_by_rule={})
+    [assessment] = [row for row in assessments if row.id.endswith("SELECT")]
+    assert assessment.status == expected_status
+    assert not assessment.evaluation_proven
+    assert model.coverage.status == "PASS"
+    unknown_rows = [
+        row
+        for row in model.records("unknowns") or ()
+        if row.kind == "construct_selector_unknown"
+        and any(rule_id.endswith("SELECT") for rule_id in row.rule_ids)
+    ]
+    assert unknown_rows, [
+        (row.kind, row.rule_ids, row.data) for row in model.records("violations") or ()
+    ] + [(row.kind, row.rule_ids, row.data) for row in model.records("unknowns") or ()]
+    if expected_status == "FAIL":
+        assert any(
+            row.kind == "forbidden_construct"
+            and any(rule_id.endswith("SELECT") for rule_id in row.rule_ids)
+            for row in model.records("violations") or ()
+        )
+    for index, payload in enumerate(
+        (
+            observation_payload(model),
+            decode_canonical_model(
+                json.loads(canonical_json_bytes(encode_canonical_model(observation_payload(model))))
+            ),
+        )
+    ):
+        assert any(
+            row["kind"] == "construct_selector_unknown"
+            and any(rule_id.endswith("SELECT") for rule_id in row["rule_ids"])
+            for row in payload["unknowns"]
+        )
+        if expected_status == "FAIL":
+            assert any(
+                row["kind"] == "forbidden_construct"
+                and any(rule_id.endswith("SELECT") for rule_id in row["rule_ids"])
+                for row in payload["violations"]
+            )
+        path = tmp_path / f"partial-selector-{mounted}-{expected_status}-{index}.json"
+        path.write_bytes(canonical_json_bytes(encode_canonical_model(payload)))
+        replay = run_saved_report(path)
+        assert replay.rule_assessments is not None, replay.diagnostics
+        [replayed] = [row for row in replay.rule_assessments if row.id.endswith("SELECT")]
+        assert replayed.status == expected_status
+        assert not replayed.evaluation_proven
+        assert not replay.diagnostics

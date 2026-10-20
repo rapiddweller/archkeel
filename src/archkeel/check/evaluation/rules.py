@@ -241,13 +241,18 @@ def _construct_violations(
     rules: Sequence[ArchitectureRule],
     source_modules: frozenset[str] | None = None,
     allowance_facts: list[RawRecord] | None = None,
+    receipt_scope_complete: bool = True,
 ) -> list[RawRecord]:
     violations: list[RawRecord] = []
     for rule in rules:
         if not isinstance(rule, ForbiddenConstructRule):
             continue
         if rule.selector is not None:
-            violations.extend(_selector_construct_violations(signals, rule, source_modules))
+            violations.extend(
+                _selector_construct_violations(
+                    signals, rule, source_modules, receipt_scope_complete
+                )
+            )
             continue
         for item in signals:
             if item["kind"] == "construct_selector":
@@ -2145,7 +2150,11 @@ def _collect_rule_violations(
     result = [
         *_dependency_violations(iter(forbidden_matches)),
         *_construct_violations(
-            [*typing_signals, *constructs], contract.rules, source_modules, allowance_facts
+            [*typing_signals, *constructs],
+            contract.rules,
+            source_modules,
+            allowance_facts,
+            receipt_scope_complete,
         ),
         *_numeric_operand_violations(constructs, contract, modules, source_modules),
         *_external_dependency_violations(imports, contract.rules, source_modules),
@@ -2289,37 +2298,12 @@ def rule_violations(
         allowance_facts=allowance_facts,
         assessment_facts=assessment_facts,
         assessment_parent=assessment_parent,
-        receipt_scope_complete=(
-            not (
-                package_scopes := (
-                    *source_roots,
-                    *(
-                        package
-                        for component in contract.components
-                        for package in component.packages
-                    ),
-                )
-            )
-            or _scan_covers_packages(
-                package_scopes,
-                modules,
-                profile,
-                receipt_scan_roots if receipt_scan_roots is not None else cycle_scan_roots,
-            )
-        )
-        and _scan_covers_exact_modules(
-            tuple(
-                module
-                for module in (
-                    *source_exact_modules,
-                    *(
-                        exact_module
-                        for component in contract.components
-                        for exact_module in component.exact_modules or ()
-                    ),
-                )
-            ),
+        receipt_scope_complete=scope_receipts_complete(
+            contract,
             modules,
+            profile,
+            source_roots,
+            source_exact_modules,
             receipt_scan_roots if receipt_scan_roots is not None else cycle_scan_roots,
         ),
         cycle_scope_complete=(
@@ -2447,6 +2431,52 @@ def _scan_covers_packages(
         and all(any(_contains(root, path) for root in scan_roots) for path in paths)
         for package in packages
     )
+
+
+def scope_receipts_complete(
+    contract: ArchitectureContract,
+    modules: Sequence[RawRecord],
+    profile: Profile,
+    source_roots: tuple[str, ...],
+    source_exact_modules: tuple[str, ...],
+    scan_roots: tuple[str, ...],
+) -> bool:
+    """Prove receipt scopes cover declared packages and exact modules in this scan."""
+    selector_packages = tuple(
+        _selector_receipt_scope(rule.source, modules, contract)
+        for rule in contract.rules
+        if isinstance(rule, ForbiddenConstructRule) and rule.selector is not None
+    )
+    package_scopes = (
+        *source_roots,
+        *(package for component in contract.components for package in component.packages),
+        *selector_packages,
+    )
+    exact_scopes = (
+        *source_exact_modules,
+        *(
+            exact_module
+            for component in contract.components
+            for exact_module in component.exact_modules or ()
+        ),
+    )
+    return (
+        not package_scopes or _scan_covers_packages(package_scopes, modules, profile, scan_roots)
+    ) and _scan_covers_exact_modules(exact_scopes, modules, scan_roots)
+
+
+def _selector_receipt_scope(
+    source: str, modules: Sequence[RawRecord], contract: ArchitectureContract
+) -> str:
+    """Return the narrowest module/package scope enclosing a selector source."""
+    if _modules_for_rule_source(source, modules, contract):
+        return source
+    parts = source.split(".")
+    for end in range(len(parts) - 1, 0, -1):
+        candidate = ".".join(parts[:end])
+        if _modules_for_rule_source(candidate, modules, contract):
+            return candidate
+    return ".".join(parts[:-1]) if len(parts) > 1 else source
 
 
 def _scan_covers_ownership(
@@ -2626,7 +2656,7 @@ def rule_evaluation_facts(
             selected = _modules_for_rule_source(rule.source, observed, contract)
         elif isinstance(rule, ForbiddenConstructRule):
             selected, subjects = _construct_rule_domain(rule.source, observed, contract, symbols)
-            if rule.selector is not None and selected:
+            if rule.selector is not None and selected and receipt_scope_complete:
                 selected_names = frozenset(item["data"]["qualified_name"] for item in selected)
                 inventory = _selector_inventory(constructs, selected_names)
                 facts.append(
@@ -2789,6 +2819,7 @@ def _selector_construct_violations(
     signals: Sequence[RawRecord],
     rule: ForbiddenConstructRule,
     source_modules: frozenset[str] | None,
+    receipt_scope_complete: bool = True,
 ) -> list[RawRecord]:
     selector = rule.selector
     if selector is None:
@@ -2829,8 +2860,12 @@ def _selector_construct_violations(
                 item_id=stable_id("UNKNOWN-CONSTRUCT-SELECTOR-SUBJECT", rule.id),
                 evidence_class=EvidenceClass.UNKNOWN,
                 area="analysis_coverage",
-                kind="rule-without-selector-subject",
-                title=f"{rule.id}: no selected {selector.role.value} subject was observed",
+                kind="construct_selector_unknown",
+                title=(
+                    f"{rule.id}: no selected {selector.role.value} subject was observed"
+                    if receipt_scope_complete
+                    else f"{rule.id}: selected {selector.role.value} scope is incomplete"
+                ),
                 subjects=[rule.source],
                 rule_ids=[rule.id],
                 data={
@@ -2838,6 +2873,11 @@ def _selector_construct_violations(
                     "receiver": selector.receiver,
                     "member": selector.member,
                     "literal": selector.literal,
+                    "reason": (
+                        "no_selected_subject"
+                        if receipt_scope_complete
+                        else "incomplete_source_scope"
+                    ),
                 },
             )
         )
@@ -2907,6 +2947,25 @@ def _selector_construct_violations(
                     },
                 )
             )
+    if receipt_scope_complete is False and applicable:
+        violations.append(
+            classified(
+                item_id=stable_id("UNKNOWN-CONSTRUCT-SELECTOR-SCOPE", rule.id),
+                evidence_class=EvidenceClass.UNKNOWN,
+                area="analysis_coverage",
+                kind="construct_selector_unknown",
+                title=f"{rule.id}: selected {selector.role.value} scope is incomplete",
+                subjects=[rule.source],
+                rule_ids=[rule.id],
+                data={
+                    "selector_role": selector.role.value,
+                    "receiver": selector.receiver,
+                    "member": selector.member,
+                    "literal": selector.literal,
+                    "reason": "incomplete_source_scope",
+                },
+            )
+        )
     return violations
 
 
