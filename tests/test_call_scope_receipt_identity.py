@@ -95,6 +95,6 @@ def test_saved_reader_rejects_receipt_from_another_observation_version(tmp_path,
     before = _read(tmp_path, raw, columnar)["KNOWN"]
     assert before.status == "PASS" and before.evaluation_proven
     assert raw["schema_version"] == SCHEMA_VERSION
-    raw["schema_version"] = "2.0.0"
+    raw["schema_version"] = "2.5.0"
     after = _read(tmp_path, raw, columnar)["KNOWN"]
     assert after.status == "UNKNOWN" and not after.evaluation_proven

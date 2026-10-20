@@ -79,6 +79,12 @@
           },
           {
             "$ref": "#/$defs/forbiddenCallArgument"
+          },
+          {
+            "$ref": "#/$defs/boundedNumericOperand"
+          },
+          {
+            "$ref": "#/$defs/protocolDeclarations"
           }
         ]
       }
@@ -2203,6 +2209,141 @@
         },
         "decided_by": {
           "$ref": "#/$defs/decidedBy"
+        }
+      }
+    },
+    "boundedNumericOperand": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "form",
+        "terminal_suffix",
+        "minimum_value",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "const": "bounded_numeric_operand"
+        },
+        "source": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "form": {
+          "enum": [
+            "binary",
+            "augmented",
+            "both"
+          ]
+        },
+        "terminal_suffix": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "minimum_value": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        }
+      }
+    },
+    "protocolDeclarationSelector": {
+      "type": "object",
+      "required": [
+        "role",
+        "name",
+        "visibility"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "enum": [
+            "parameter",
+            "member"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?![\\s\\S])"
+        },
+        "visibility": {
+          "enum": [
+            "public",
+            "all"
+          ]
+        },
+        "optional": {
+          "type": "boolean"
+        }
+      }
+    },
+    "protocolDeclarations": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "protocol",
+        "selectors",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "const": "protocol_declarations"
+        },
+        "source": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*(?![\\s\\S])"
+        },
+        "protocol": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*(?![\\s\\S])"
+        },
+        "selectors": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/protocolDeclarationSelector"
+          }
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "\\S"
+          }
+        },
+        "decided_by": {
+          "enum": [
+            "architect",
+            "agent"
+          ]
         }
       }
     }

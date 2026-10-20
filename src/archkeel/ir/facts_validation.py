@@ -12,10 +12,10 @@ from .facts import (
     CALL_ARGUMENTS_FEATURE,
     CALL_BINDINGS_FEATURE,
     EXTENDED_CALL_BINDINGS_FEATURE,
+    GUARDED_EFFECTS_FEATURE,
     MAX_NUMERIC_EVIDENCE_CHARS,
     MAX_STATIC_INTEGER,
     NATIVE_CALL_TARGETS,
-    GUARDED_EFFECTS_FEATURE,
     SOURCE_RESOLUTION_GAP_KIND,
     BuiltinTarget,
     CallBinding,
@@ -1373,6 +1373,7 @@ def _starts_with(value: str, prefix: str) -> bool:
 def _ends_with(value: str, suffix: str) -> bool:
     length = len(suffix)
     return len(value) >= length and value[len(value) - length :] == suffix
+
 
 def _source_guard_boolean_members(record: Record, section: SourceSectionName) -> None:
     value = record.data.get("guard_boolean_members")

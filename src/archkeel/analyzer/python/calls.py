@@ -20,9 +20,9 @@ from archkeel.ir.facts import (
     NATIVE_CALL_TARGETS,
     CallBindingOrigin,
     EvidenceClass,
+    GuardHelperTokenKind,
     ProviderBinding,
     RuntimeInfo,
-    GuardHelperTokenKind,
     SourceResolution,
     stable_id,
 )
@@ -82,6 +82,7 @@ def _partition_first(value: str, separator: str) -> tuple[str, str, str]:
         if value[index] == separator:
             return value[:index], separator, value[index + 1 :]
     return value, "", ""
+
 
 GuardedPathCandidate = tuple[str, str, str, ast.AST, tuple[GuardedCallPath, ...]]
 _BUILTIN_EXCEPTION_TARGETS = frozenset(

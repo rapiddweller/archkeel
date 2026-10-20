@@ -106,6 +106,50 @@ def generate(seeded: bool):
     assert assessment.evaluation_proven
 
 
+def test_native_secrets_effect_is_proven_directly_and_through_one_helper(tmp_path):
+    contract = {
+        "schema_version": "3.13.0",
+        "components": [_component("all", ["sample"])],
+        "rules": [
+            _rule(
+                "forbidden_effect_under_condition",
+                source="sample.core",
+                target="secrets.token_hex",
+                condition={
+                    "kind": "parameter",
+                    "owner": "sample.core.generate",
+                    "name": "seeded",
+                },
+            )
+        ],
+    }
+    sources = (
+        "import secrets\ndef generate(seeded: bool):\n"
+        "    if seeded:\n        secrets.token_hex(8)\n",
+        "import secrets\ndef _nonce(flag: bool):\n"
+        "    if flag:\n        secrets.token_hex(8)\n\n"
+        "def generate(seeded: bool):\n    if seeded:\n        _nonce(seeded)\n",
+    )
+    for index, source in enumerate(sources):
+        result = _observe_tree(
+            tmp_path / str(index),
+            {"sample/__init__.py": "", "sample/core.py": source},
+            contract,
+        )
+        assert result.observation is not None, result.coverage
+        [assessment] = rule_assessments(result.observation, undecided_by_rule={})
+        assert assessment.status == "FAIL"
+        assert assessment.count == 1
+        assert assessment.evaluation_proven
+        [call] = [
+            item
+            for item in result.observation.records("calls") or ()
+            if item.data.get("expression") == "secrets.token_hex"
+        ]
+        binding = call.data.get("call_binding")
+        assert binding is not None and binding.get("target") == "secrets.token_hex"
+
+
 def test_native_true_guarded_effect_fails_but_early_return_dominates(tmp_path):
     contract = {
         "schema_version": "3.13.0",
