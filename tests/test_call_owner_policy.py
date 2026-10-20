@@ -90,6 +90,23 @@ def test_stored_typed_receiver_is_proven_beyond_candidate_resolution(tmp_path, m
     assert row.status == "FAIL" and row.count == 1
 
 
+def test_unicode_python_identifier_stored_receiver_is_proven(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, café: Storage): self.café = café\n"
+        "    def run(self): self.café.page()\n",
+        allowed=(),
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.café.page"
+    )
+    assert call.data.get("call_binding").get("target") == "sample.storage.Storage.page"
+    assert row.status == "FAIL" and row.count == 1
+
+
 @pytest.mark.parametrize(
     "caller",
     [
