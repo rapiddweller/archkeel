@@ -930,7 +930,8 @@ def _parse_numeric_evidence_excerpt(
 ) -> tuple[tuple[ast.stmt, ...], int] | None:
     if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
         return None
-    if excerpt.lstrip(" \t").startswith("@"):
+    stripped: str = excerpt.lstrip(" \t")
+    if stripped.startswith("@"):
         return _parse_numeric_decorator_excerpt(excerpt)
     if _numeric_elif_start(excerpt) is not None:
         return _parse_numeric_elif_excerpt(excerpt)

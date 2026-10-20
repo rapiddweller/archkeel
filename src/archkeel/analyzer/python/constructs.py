@@ -37,7 +37,8 @@ _NumericAlias = dict[str, str | int]
 def _numeric_evidence_excerpt_supported(excerpt: str) -> bool:
     if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
         return False
-    if excerpt.lstrip(" \t").startswith("@"):
+    stripped: str = excerpt.lstrip(" \t")
+    if stripped.startswith("@"):
         return _numeric_decorator_excerpt(excerpt) is not None
     if _numeric_elif_start(excerpt) is not None:
         return _numeric_elif_excerpt_supported(excerpt)
