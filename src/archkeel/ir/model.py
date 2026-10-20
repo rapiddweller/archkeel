@@ -21,6 +21,8 @@ from .architecture_graph import ContractModuleTarget as ContractModuleTarget
 from .architecture_graph import DecisionMaker as DecisionMaker
 from .architecture_graph import ExternalDependencyScopeRule as ExternalDependencyScopeRule
 from .architecture_graph import NumericOperandForm as NumericOperandForm
+from .architecture_graph import ProtocolDeclarationRole as ProtocolDeclarationRole
+from .architecture_graph import ProtocolDeclarationVisibility as ProtocolDeclarationVisibility
 from .architecture_graph import RootLayoutRule as RootLayoutRule
 from .architecture_graph import RuleAssessment as RuleAssessment
 from .architecture_graph import RuleAssessmentStatus as RuleAssessmentStatus
@@ -103,7 +105,7 @@ def public_api_id(selector: str) -> str:
     return f"API-{hashlib.sha256(selector.encode()).hexdigest()[:16]}"
 
 
-SCHEMA_VERSION = "2.2.0"
+SCHEMA_VERSION = "2.3.0"
 DELTA_SCHEMA_VERSION = "2.0.0"
 
 
@@ -742,6 +744,32 @@ class BoundaryTypesRule(ArchitectureRuleGrammar):
     allowed_positions: tuple[BoundaryTypeAllowance, ...] = ()
 
 
+@dataclass(frozen=True, slots=True)
+class ProtocolDeclarationSelector:
+    role: ProtocolDeclarationRole
+    name: str
+    visibility: ProtocolDeclarationVisibility
+    optional: bool = False
+
+    def __post_init__(self) -> None:
+        builtins.object.__setattr__(self, "role", ProtocolDeclarationRole(self.role))
+        builtins.object.__setattr__(
+            self, "visibility", ProtocolDeclarationVisibility(self.visibility)
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ProtocolDeclarationsRule(ArchitectureRuleGrammar):
+    id: str
+    kind: Literal[ArchitectureRuleKind.PROTOCOL_DECLARATIONS]
+    source: str
+    protocol: str
+    selectors: tuple[ProtocolDeclarationSelector, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+
+
 ArchitectureRule: TypeAlias = (
     CallOwnerRule
     | BoundedNumericOperandRule
@@ -759,6 +787,7 @@ ArchitectureRule: TypeAlias = (
     | SiblingIsolationRule
     | SymbolPlacementRule
     | BoundaryTypesRule
+    | ProtocolDeclarationsRule
 )
 
 # Typed authoring kinds come from ArchitectureRule. Record consumers also assess UML intent.
@@ -1043,7 +1072,8 @@ def _rule_references(
         | CompleteAssignmentRule
         | CompleteExternalScopeRule
         | SymbolPlacementRule
-        | BoundaryTypesRule,
+        | BoundaryTypesRule
+        | ProtocolDeclarationsRule,
     ):
         named += [("source", (rule.source,), True)]
     if isinstance(rule, AllowedDependencyRule):
@@ -1095,6 +1125,9 @@ def _rule_references(
         ]
     if isinstance(rule, BoundaryTypesRule):
         references += _boundary_allowance_references(index, rule.allowed_positions)
+    if isinstance(rule, ProtocolDeclarationsRule):
+        target_module = rule.protocol.rpartition(".")[0]
+        references.append(ModuleReference(f"/rules/{index}/protocol", target_module, True))
     if isinstance(rule, ForbiddenConstructRule):
         references += [
             ModuleReference(

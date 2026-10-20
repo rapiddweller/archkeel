@@ -49,6 +49,7 @@ from archkeel.ir.model import (
     InterfaceBoundaryRule,
     LayerOrderRule,
     NoComponentCyclesRule,
+    ProtocolDeclarationsRule,
     RootLayoutRule,
     SiblingIsolationRule,
     SymbolPlacementRule,
@@ -171,6 +172,7 @@ from .boundary_types import boundary_type_limits as boundary_type_limits
 from .boundary_types import facade_signature_types as facade_signature_types
 from .boundary_types import public_api_exposed_types as public_api_exposed_types
 from .boundary_types import resolve_named_type as resolve_named_type
+from .protocol_declarations import protocol_declaration_results
 from .rule_support import DeclaredFacade as DeclaredFacade
 from .rule_support import FacadeEntry as FacadeEntry
 from .rule_support import ReexportIndex as ReexportIndex
@@ -966,7 +968,8 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
         | BoundedNumericOperandRule
         | CompleteAssignmentRule
         | CompleteExternalScopeRule
-        | BoundaryTypesRule,
+        | BoundaryTypesRule
+        | ProtocolDeclarationsRule,
     ):
         return {"source": (rule.source,)}
     if isinstance(rule, RootLayoutRule):
@@ -1970,6 +1973,20 @@ def rule_violations(
         cycle_graph_components=cycle_graph_components,
         cycle_namespace_complete=cycle_namespace_complete,
     )
+    protocol_violations, _, protocol_receipts = protocol_declaration_results(
+        symbols=symbols,
+        imports=imports,
+        modules=modules,
+        contract=contract,
+        source_modules=source_modules,
+        uncertain_reexport_origins=uncertain_reexport_origins,
+        type_shapes=type_shapes,
+        profile=profile,
+        scope=assessment_parent or "root",
+    )
+    result.extend(protocol_violations)
+    if assessment_facts is not None:
+        assessment_facts.extend(protocol_receipts)
     numeric_unknowns = [item for item in result if item["kind"] == "numeric_operand_unknown"]
     violations = [item for item in result if item["kind"] != "numeric_operand_unknown"]
     return violations, [*allowance_facts, *numeric_unknowns]
@@ -2205,7 +2222,12 @@ def rule_evaluation_facts(
     facts: list[RawRecord] = []
     for rule in contract.rules:
         if rule.kind in profile.unsupported_rules or isinstance(
-            rule, AllowedDependencyRule | BoundaryTypesRule | NoComponentCyclesRule | CallOwnerRule
+            rule,
+            AllowedDependencyRule
+            | BoundaryTypesRule
+            | NoComponentCyclesRule
+            | CallOwnerRule
+            | ProtocolDeclarationsRule,
         ):
             continue
         if isinstance(rule, LayerOrderRule):

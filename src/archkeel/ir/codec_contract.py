@@ -73,6 +73,10 @@ from archkeel.ir.model import (
     LayerOrderRule,
     ModuleObjectGrant,
     NoComponentCyclesRule,
+    ProtocolDeclarationRole,
+    ProtocolDeclarationSelector,
+    ProtocolDeclarationsRule,
+    ProtocolDeclarationVisibility,
     Record,
     RequiredComponent,
     RootLayoutRule,
@@ -271,6 +275,11 @@ def parse_contract(raw: object) -> ArchitectureContract:
     ):
         raise ValueError("call_owner requires contract schema_version 3.7.0")
     if (
+        not supports_feature(version, ContractFeature.PROTOCOL_DECLARATIONS)
+        and ArchitectureRuleKind.PROTOCOL_DECLARATIONS in kinds
+    ):
+        raise ValueError("protocol_declarations requires contract schema_version 3.9.0")
+    if (
         not supports_feature(version, ContractFeature.LAYERS)
         and ArchitectureRuleKind.LAYER_ORDER in kinds
     ):
@@ -408,6 +417,10 @@ def _validate_encoding_version(contract: ArchitectureContract) -> None:
         isinstance(rule, CallOwnerRule) for rule in contract.rules
     ):
         raise ValueError("call_owner requires contract schema_version 3.7.0")
+    if not supports_feature(contract.schema_version, ContractFeature.PROTOCOL_DECLARATIONS) and any(
+        isinstance(rule, ProtocolDeclarationsRule) for rule in contract.rules
+    ):
+        raise ValueError("protocol_declarations requires contract schema_version 3.9.0")
     if not supports_feature(contract.schema_version, ContractFeature.MODULE_OBJECT_GRANTS) and any(
         isinstance(rule, InterfaceBoundaryRule) and rule.module_object_grants is not None
         for rule in contract.rules
@@ -1306,6 +1319,64 @@ def _parse_boundary_types(raw: RawJson, label: str) -> BoundaryTypesRule:
     )
 
 
+def _parse_protocol_declarations(raw: RawJson, label: str) -> ProtocolDeclarationsRule:
+    item, item_id, provenance = _contract_record(
+        raw,
+        {"kind", "source", "protocol", "selectors", "rationale", "decided_by"},
+        set(),
+        label,
+    )
+    source = _nonempty(item["source"], f"{label}.source")
+    protocol = _nonempty(item["protocol"], f"{label}.protocol")
+    if _PACKAGE_NAME.fullmatch(source) is None or _PACKAGE_NAME.fullmatch(protocol) is None:
+        raise ValueError(f"{label}.source and {label}.protocol must be dotted source identities")
+    raw_selectors = item["selectors"]
+    if not isinstance(raw_selectors, list) or not raw_selectors:
+        raise ValueError(f"{label}.selectors must be a nonempty array")
+    selectors: list[ProtocolDeclarationSelector] = []
+    for index, value in enumerate(raw_selectors):
+        selector_label = f"{label}.selectors[{index}]"
+        selector = _contract_fields(
+            value,
+            {"role", "name", "visibility"},
+            {"optional"},
+            selector_label,
+        )
+        try:
+            role = ProtocolDeclarationRole(_nonempty(selector["role"], f"{selector_label}.role"))
+            visibility = ProtocolDeclarationVisibility(
+                _nonempty(selector["visibility"], f"{selector_label}.visibility")
+            )
+        except ValueError as error:
+            raise ValueError(f"{selector_label} has an unsupported role or visibility") from error
+        optional = selector.get("optional", False)
+        if not isinstance(optional, bool):
+            raise ValueError(f"{selector_label}.optional must be boolean")
+        name = _nonempty(selector["name"], f"{selector_label}.name")
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) is None:
+            raise ValueError(f"{selector_label}.name must be one exact source identifier")
+        selectors.append(
+            ProtocolDeclarationSelector(
+                role,
+                name,
+                visibility,
+                optional,
+            )
+        )
+    if len({(item.role, item.name) for item in selectors}) != len(selectors):
+        raise ValueError(f"{label}.selectors must not repeat a role and name")
+    return ProtocolDeclarationsRule(
+        item_id,
+        ArchitectureRuleKind.PROTOCOL_DECLARATIONS,
+        source,
+        protocol,
+        tuple(selectors),
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
+    )
+
+
 def _parse_call_owner(raw: RawJson, label: str) -> CallOwnerRule:
     item, item_id, provenance = _contract_record(
         raw,
@@ -1369,6 +1440,7 @@ _RULE_PARSERS: Final[dict[ArchitectureRuleKind, Callable[[RawJson, str], Archite
     ArchitectureRuleKind.SIBLING_ISOLATION: _parse_sibling_isolation,
     ArchitectureRuleKind.SYMBOL_PLACEMENT: _parse_symbol_placement,
     ArchitectureRuleKind.BOUNDARY_TYPES: _parse_boundary_types,
+    ArchitectureRuleKind.PROTOCOL_DECLARATIONS: _parse_protocol_declarations,
 }
 
 
