@@ -503,7 +503,7 @@ def _parse_numeric_evidence_excerpt(
 ) -> tuple[tuple[ast.stmt, ...], int] | None:
     if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
         return None
-    if excerpt.lstrip().startswith(("elif ", "elif\t", "elif(")):
+    if _numeric_elif_start(excerpt) is not None:
         return _parse_numeric_elif_excerpt(excerpt)
     try:
         return tuple(ast.parse(excerpt).body), 0
@@ -516,6 +516,17 @@ def _parse_numeric_evidence_excerpt(
         if parsed is None or len(parsed[0]) != 1:
             return None
         return parsed if _numeric_header_has_synthetic_body(parsed[0][0]) else None
+
+
+def _numeric_elif_start(excerpt: str) -> int | None:
+    for index, character in enumerate(excerpt):
+        if character not in " \t":
+            if excerpt[index : index + 4] != "elif":
+                return None
+            if index + 4 < len(excerpt) and excerpt[index + 4] not in " \t(":
+                return None
+            return index
+    return None
 
 
 def _parse_indented_numeric_excerpt(
