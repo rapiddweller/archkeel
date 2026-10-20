@@ -1,0 +1,126 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "checkout-service",
+      "label": "Checkout operation",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "orders.checkout.service:place"
+      ],
+      "responsibilities": [
+        "Orchestrate pricing, rounding and persistence for one order line."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "Receipt model",
+          "through": [
+            "orders.checkout.receipts:Receipt"
+          ],
+          "rationale": "The operation returns a receipt.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "Cent rounding",
+          "through": [
+            "orders.checkout.rounding:round_cents"
+          ],
+          "rationale": "Totals are stored in whole cents.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "orders.checkout",
+        "orders.checkout.service"
+      ]
+    },
+    {
+      "id": "checkout-receipts",
+      "label": "Receipt model",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "orders.checkout.receipts:Receipt"
+      ],
+      "responsibilities": [
+        "Define the immutable receipt returned to callers."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "exact_modules": [
+        "orders.checkout.receipts"
+      ]
+    },
+    {
+      "id": "checkout-rounding",
+      "label": "Cent rounding",
+      "role": "component",
+      "packages": [],
+      "public": [
+        "orders.checkout.rounding:round_cents"
+      ],
+      "responsibilities": [
+        "Round a gross amount to whole cents."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "exact_modules": [
+        "orders.checkout.rounding"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "ASSIGNMENT-COMPLETE",
+      "kind": "complete_assignment",
+      "source": "orders.checkout",
+      "rationale": "Every module has exactly one owner, so a review can name who answers for it.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "COMPONENT-NO-CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Order placement flows one way: entry, checkout, pricing and storage.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "INTERFACE-BOUNDARY",
+      "kind": "interface_boundary",
+      "rationale": "Callers use a component's declared API, never its internals.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "include_type_checking": true
+    },
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Every cross-component import is a declared, reasoned dependency.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ]
+}
