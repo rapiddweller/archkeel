@@ -75,6 +75,9 @@
             "$ref": "#/$defs/callOwner"
           },
           {
+            "$ref": "#/$defs/boundedNumericOperand"
+          },
+          {
             "$ref": "#/$defs/protocolDeclarations"
           }
         ]
@@ -2183,6 +2186,55 @@
             "architect",
             "agent"
           ]
+        }
+      }
+    },
+    "boundedNumericOperand": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "form",
+        "terminal_suffix",
+        "minimum_value",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "const": "bounded_numeric_operand"
+        },
+        "source": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "form": {
+          "enum": [
+            "binary",
+            "augmented",
+            "both"
+          ]
+        },
+        "terminal_suffix": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "minimum_value": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
         }
       }
     }
