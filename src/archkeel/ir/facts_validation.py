@@ -685,10 +685,15 @@ def _numeric_definition_header_nodes(
         yield from _numeric_lexical_nodes(expression, arguments)
     for expression in (*arguments.defaults, *(value for value in arguments.kw_defaults if value)):
         yield from _numeric_lexical_nodes(expression, arguments)
+    annotated_arguments = (
+        *arguments.posonlyargs,
+        *arguments.args,
+        *([arguments.vararg] if arguments.vararg is not None else []),
+        *arguments.kwonlyargs,
+        *([arguments.kwarg] if arguments.kwarg is not None else []),
+    )
     annotations = (
-        argument.annotation
-        for argument in (*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs)
-        if argument.annotation is not None
+        argument.annotation for argument in annotated_arguments if argument.annotation is not None
     )
     for annotation in annotations:
         yield from _numeric_lexical_nodes(annotation, arguments)
@@ -769,7 +774,7 @@ def _numeric_other_binding(owner: ast.AST, name: str) -> bool:
         )
     ):
         return True
-    if any(isinstance(node, ast.Nonlocal) and name in node.names for node in ast.walk(owner)):
+    if _numeric_nonlocal_targets_owner(owner, name):
         return True
     for node in _numeric_lexical_scope_nodes(owner):
         if isinstance(node, ast.arg) and node.arg == name:
@@ -787,6 +792,73 @@ def _numeric_other_binding(owner: ast.AST, name: str) -> bool:
                 return True
         if isinstance(node, ast.Global | ast.Nonlocal) and name in node.names:
             return True
+        if isinstance(node, ast.ExceptHandler) and node.name == name:
+            return True
+        if isinstance(node, ast.MatchAs | ast.MatchStar) and node.name == name:
+            return True
+        if isinstance(node, ast.MatchMapping) and node.rest == name:
+            return True
+    return False
+
+
+def _numeric_nonlocal_targets_owner(owner: ast.AST, name: str) -> bool:
+    if not isinstance(owner, ast.FunctionDef | ast.AsyncFunctionDef):
+        return False
+    parents = {
+        child: parent for parent in ast.walk(owner) for child in ast.iter_child_nodes(parent)
+    }
+    for node in ast.walk(owner):
+        if not isinstance(node, ast.Nonlocal) or name not in node.names:
+            continue
+        scope = _numeric_enclosing_function(parents.get(node), parents)
+        while scope is not None and scope is not owner:
+            scope = _numeric_enclosing_function(parents.get(scope), parents)
+            if scope is owner:
+                return True
+            if scope is not None and _numeric_function_binds_locally(scope, name):
+                break
+    return False
+
+
+def _numeric_enclosing_function(
+    node: ast.AST | None, parents: Mapping[ast.AST, ast.AST]
+) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    while node is not None:
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            return node
+        node = parents.get(node)
+    return None
+
+
+def _numeric_function_binds_locally(
+    function: ast.FunctionDef | ast.AsyncFunctionDef, name: str
+) -> bool:
+    if any(
+        argument.arg == name
+        for argument in (
+            *function.args.posonlyargs,
+            *function.args.args,
+            *([function.args.vararg] if function.args.vararg is not None else []),
+            *function.args.kwonlyargs,
+            *([function.args.kwarg] if function.args.kwarg is not None else []),
+        )
+    ):
+        return True
+    for node in _numeric_lexical_scope_nodes(function):
+        if (
+            isinstance(node, ast.Name)
+            and node.id == name
+            and isinstance(node.ctx, ast.Store | ast.Del)
+        ):
+            return True
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            if node.name == name:
+                return True
+        if isinstance(node, ast.alias):
+            if node.asname == name or (
+                node.asname is None and (node.name == name or node.name.startswith(name + "."))
+            ):
+                return True
         if isinstance(node, ast.ExceptHandler) and node.name == name:
             return True
         if isinstance(node, ast.MatchAs | ast.MatchStar) and node.name == name:
