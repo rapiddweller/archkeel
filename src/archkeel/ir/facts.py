@@ -54,6 +54,20 @@ class RuntimeRequirementState(StrEnum):
     REQUIREMENT_INVALID = "requirement_invalid"
 
 
+class StringTablePolicy(StrEnum):
+    """Typed policy names for the lossless JSON string table."""
+
+    SOURCE_FACTS = "source-facts"
+    OBSERVATION = "observation"
+
+
+class _ReservedString(StrEnum):
+    DOLLAR = "$"
+    DOUBLE_DOLLAR = "$$"
+    MISSING = "$m"
+    DOUBLE_MISSING = "$$m"
+
+
 def parse_runtime_requirement_state(value: str) -> RuntimeRequirementState:
     """Validate the shared runtime vocabulary once, at a wire or metadata boundary."""
     try:

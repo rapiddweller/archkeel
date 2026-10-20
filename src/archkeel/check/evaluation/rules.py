@@ -299,7 +299,7 @@ def _construct_violation(
     owner_value = data["owner"]
     if not isinstance(owner_value, str):
         return None
-    owner = owner_value
+    owner: str = owner_value
     scope = owner.split(":", 1)[0]
     belongs = source_modules is None or any(
         owner == module or owner.startswith(f"{module}.") for module in source_modules
@@ -3024,9 +3024,10 @@ def _selector_signal_matches(
     owner = data.get("owner")
     if not isinstance(owner, str):
         return False
-    scope = owner.partition(":")[0]
+    owner_text: str = owner
+    scope = owner_text.partition(":")[0]
     belongs = source_modules is None or any(
-        owner == module or owner.startswith(f"{module}.") for module in source_modules
+        owner_text == module or owner_text.startswith(f"{module}.") for module in source_modules
     )
     return (
         belongs
