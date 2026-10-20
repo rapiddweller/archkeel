@@ -58,6 +58,14 @@ def _parameter_name(parameter: RawData) -> str | None:
     return name[2:] if name[:2] == "**" else name[1:] if name[:1] == "*" else name
 
 
+def _position_binding_uncertain(data: RawData, position: str) -> bool:
+    role, _, name = position.partition(".")
+    uncertainties = data.get("annotation_binding_uncertainties", {})
+    if isinstance(uncertainties, dict) and uncertainties.get(name):
+        return True
+    return role == "member" and data.get("class_body_control_flow") is True
+
+
 def _selected_positions(
     rule: ProtocolDeclarationsRule,
     symbols: Sequence[RawRecord],
@@ -266,6 +274,8 @@ def _protocol_findings(
             status, reason = "UNKNOWN", "declaration_binding_ambiguous"
         elif annotation is None:
             status, reason = "FAIL", "missing_annotation"
+        elif _position_binding_uncertain(data, position):
+            status, reason = "UNKNOWN", "annotation_binding_uncertain"
         else:
             status, reason = _identity_verdict(
                 annotation,
@@ -345,7 +355,8 @@ def _protocol_rule_results(
     receipt_scope_complete: bool,
 ) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord]]:
     """Evaluate one selector rule and issue only a complete source-scope receipt."""
-    target_module, _, target_name = rule.protocol.rpartition(".")
+    protocol_name: str = rule.protocol
+    target_module, _, target_name = protocol_name.rpartition(".")
     target_record = classes_by_location.get((target_module, target_name))
     target_valid = (
         isinstance(target_record, dict)

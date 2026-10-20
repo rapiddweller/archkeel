@@ -1004,6 +1004,7 @@ _SHOP_PY_FILES = (
     "shop/store/backend/files.py",
     "shop/store/backend/paths.py",
     "shop/store/codec.py",
+    "shop/store/lookup.py",
     "shop/store/repository.py",
     "shop/store/sqlite.py",
 )

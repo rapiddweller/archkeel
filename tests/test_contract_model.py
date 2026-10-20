@@ -572,12 +572,11 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
             }
         )
     if version == "3.11.0":
-        construct = next(rule for rule in raw["rules"] if rule["kind"] == "forbidden_construct")
-        construct["selector"] = {
-            "receiver": "query",
-            "member": "lower",
+        rules["CONSTRUCT-NO-STRING-LITERAL-COMPARE"]["selector"] = {
+            "receiver": "shop.model.Connection",
+            "member": "backend",
             "role": "equality",
-            "literal": "fixed",
+            "literal": "flat",
         }
     if version == "3.12.0":
         raw["rules"].append(

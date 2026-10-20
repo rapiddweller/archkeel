@@ -601,6 +601,60 @@ _COMPONENT_CASES: tuple[
         _component(requires=()),
         False,
     ),
+    (
+        "first of two entries to one component widened",
+        _component(
+            requires=(
+                RequiredComponent("other", "because", ("pkg.a",)),
+                RequiredComponent("other", "because", ("pkg.b",)),
+            )
+        ),
+        _component(
+            requires=(
+                RequiredComponent("other", "because", ("pkg.a", "pkg.c")),
+                RequiredComponent("other", "because", ("pkg.b",)),
+            )
+        ),
+        True,
+    ),
+    (
+        "one of two entries to one component removed",
+        _component(
+            requires=(
+                RequiredComponent("other", "because", ("pkg.a",)),
+                RequiredComponent("other", "because", ("pkg.b",)),
+            )
+        ),
+        _component(requires=(RequiredComponent("other", "because", ("pkg.b",)),)),
+        False,
+    ),
+    (
+        "second entry to one component added",
+        _component(requires=(RequiredComponent("other", "because", ("pkg.a",)),)),
+        _component(
+            requires=(
+                RequiredComponent("other", "because", ("pkg.a",)),
+                RequiredComponent("other", "because", ("pkg.b",)),
+            )
+        ),
+        True,
+    ),
+    (
+        "entries to one component reordered",
+        _component(
+            requires=(
+                RequiredComponent("other", "because", ("pkg.a",)),
+                RequiredComponent("other", "because", ("pkg.b",)),
+            )
+        ),
+        _component(
+            requires=(
+                RequiredComponent("other", "because", ("pkg.b",)),
+                RequiredComponent("other", "because", ("pkg.a",)),
+            )
+        ),
+        False,
+    ),
     ("component added", None, _component(), True),
     ("component removed", _component(), None, True),
     (
