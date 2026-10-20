@@ -24,6 +24,7 @@ from archkeel.ir.codec import (
 from archkeel.ir.codec_observation import observation_payload
 from archkeel.ir.decisions import rule_assessments, unknown_positions_by_rule
 from archkeel.ir.facts import RecordData
+from archkeel.ir.model import SCHEMA_VERSION
 from archkeel.ir.profiles import DART, TYPESCRIPT
 from archkeel.ir.trace import trace_valid_violations
 
@@ -477,7 +478,8 @@ def test_saved_numeric_receipt_rejects_changed_operand_proof(tmp_path):
         if "$id" in schema
     )
     current_validator = Draft202012Validator(
-        {"$ref": "urn:archkeel:architecture-ir:python-decoded:2.3.0"}, registry=registry
+        {"$ref": f"urn:archkeel:architecture-ir:python-decoded:{SCHEMA_VERSION}"},
+        registry=registry,
     )
     assert current_validator.is_valid(payload), [
         (error.json_path, error.message) for error in current_validator.iter_errors(payload)
