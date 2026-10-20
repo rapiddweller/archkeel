@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import ast
+import sys
 from collections import Counter
 from collections.abc import Sequence
 from enum import Enum
@@ -1629,9 +1630,32 @@ class ConstructCollector(ast.NodeVisitor):
                 )
         self.generic_visit(node)
 
-    @staticmethod
-    def _is_nonruntime_attribute_context(node: ast.Attribute, parent: ast.AST | None) -> bool:
-        return isinstance(parent, ast.ExceptHandler) and parent.type is node
+    def _is_nonruntime_attribute_context(self, node: ast.Attribute, parent: ast.AST | None) -> bool:
+        current: ast.AST = node
+        while parent is not None:
+            if isinstance(parent, ast.ExceptHandler) and parent.type is current:
+                return True
+            if isinstance(parent, ast.arg) and parent.annotation is current:
+                return True
+            if isinstance(parent, ast.AnnAssign) and parent.annotation is current:
+                return True
+            if (
+                isinstance(parent, ast.FunctionDef | ast.AsyncFunctionDef)
+                and parent.returns is current
+            ):
+                return True
+            if (
+                sys.version_info >= (3, 12)
+                and isinstance(parent, ast.TypeAlias)
+                and parent.value is current
+            ):
+                return True
+            if isinstance(
+                parent, ast.Module | ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
+            ):
+                return False
+            current, parent = parent, self.parents.get(parent)
+        return False
 
     def _has_role_specific_attribute_operand(
         self, node: ast.Attribute, parent: ast.AST | None
