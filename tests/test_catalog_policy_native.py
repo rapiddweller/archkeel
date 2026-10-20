@@ -288,7 +288,7 @@ def test_unrelated_call_does_not_enter_catalog_argument_policy(tmp_path):
 
 
 def test_known_catalog_argument_failure_survives_an_unknown_argument(tmp_path):
-    result, rows = _run(
+    result, _ = _run(
         tmp_path,
         caller=(
             "from .catalog import OptionKey\n"
@@ -307,8 +307,7 @@ def test_known_catalog_argument_failure_survives_an_unknown_argument(tmp_path):
     assert row.status == "FAIL"
     assert row.count == 1 and row.undecided > 0 and not row.evaluation_proven
     assert any(
-        item.kind == "catalog_limit"
-        for item in result.observation.records("unknowns") or ()
+        item.kind == "catalog_limit" for item in result.observation.records("unknowns") or ()
     )
 
 
@@ -568,9 +567,7 @@ def test_saved_catalog_receipt_rejects_changed_bound_inventory(tmp_path, mutatio
         else:
             receipt["data"]["call_scope_proof"]["selected_files"][0] = "outside.py"
     saved = tmp_path / "stale-catalog.json"
-    saved.write_text(
-        json.dumps(encode_canonical_model(raw) if columnar else raw)
-    )
+    saved.write_text(json.dumps(encode_canonical_model(raw) if columnar else raw))
 
     replay = run_saved_report(saved)
 
