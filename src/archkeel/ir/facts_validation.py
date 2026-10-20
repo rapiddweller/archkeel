@@ -403,6 +403,11 @@ def _selector_source_receiver(
                 for node in ast.walk(root)
                 if isinstance(node, ast.Attribute)
                 and node.attr == member
+                and (
+                    binding.origin is not CallBindingOrigin.DECLARED_RECEIVER
+                    or isinstance(node.value, ast.Name)
+                    and node.value.id == record.data.get("receiver_parameter")
+                )
                 and (span := source_span(node)) is not None
                 and span[:2] == (item.line, item.column)
             }
@@ -419,10 +424,10 @@ def _selector_source_receiver(
     return None
 
 
-def _selector_source_class(
+def _selector_source_classes(
     record: Record, binding: CallBinding, evidence: Mapping[str, Evidence]
-) -> ast.expr | None:
-    matches: list[tuple[int, ast.expr]] = []
+) -> tuple[ast.expr, ...]:
+    matches: list[ast.expr] = []
     for identifier in set(record.evidence_ids) - set(binding.evidence_ids):
         item = evidence.get(identifier)
         parsed = (
@@ -441,12 +446,27 @@ def _selector_source_class(
             if span is None or span[:2] != (item.line, item.column):
                 continue
             if record.data.get("selector_role") == "constructor" and isinstance(node, ast.Call):
-                matches.append((span[3] - span[1], node.func))
-            elif record.data.get("selector_role") == "type_probe" and isinstance(
-                node, ast.Name | ast.Attribute
+                matches.append(node.func)
+            elif (
+                record.data.get("selector_role") == "type_probe"
+                and isinstance(node, ast.Name | ast.Attribute)
+                and any(
+                    isinstance(call, ast.Call)
+                    and len(call.args) > 1
+                    and call.args[1] is node
+                    and (
+                        isinstance(call.func, ast.Name)
+                        and call.func.id in {"isinstance", "issubclass"}
+                        or isinstance(call.func, ast.Attribute)
+                        and call.func.attr in {"isinstance", "issubclass"}
+                        and isinstance(call.func.value, ast.Name)
+                        and call.func.value.id == "builtins"
+                    )
+                    for call in nodes
+                )
             ):
-                matches.append((span[3] - span[1], node))
-    return min(matches, key=lambda item: item[0])[1] if matches else None
+                matches.append(node)
+    return tuple(matches)
 
 
 def _selector_receiver_site_matches(
@@ -458,58 +478,65 @@ def _selector_receiver_site_matches(
     imports: Sequence[Record] = (),
 ) -> bool:
     if binding.origin is CallBindingOrigin.DIRECT:
-        target = _selector_source_class(record, binding, evidence)
+        source_classes = _selector_source_classes(record, binding, evidence)
         declarations_for_target = declarations.get(binding.target, [])
         module = (
             declarations_for_target[0].data.get("module")
             if len(declarations_for_target) == 1 and declarations_for_target[0].kind == "class"
             else None
         )
-        if target is None:
-            return False
-        written = ast.unparse(target)
         owner = record.data.get("owner")
-        if isinstance(module, str) and isinstance(owner, str) and owner.startswith(module + "."):
-            if binding.target == f"{module}.{written}":
+        for target in source_classes:
+            written = ast.unparse(target)
+            if (
+                isinstance(module, str)
+                and isinstance(owner, str)
+                and owner.startswith(module + ".")
+                and binding.target == f"{module}.{written}"
+            ):
                 return True
-        root = target
-        suffix: list[str] = []
-        while isinstance(root, ast.Attribute):
-            suffix.append(root.attr)
-            root = root.value
-        if not isinstance(root, ast.Name) or not isinstance(owner, str):
-            return False
-        matching_imports = [
-            item
-            for item in imports
-            if item.data.get("binding") == root.id
-            and isinstance(item.data.get("source_module"), str)
-            and owner.startswith(f"{item.data.get('source_module')}.")
-            and item.data.get("symbols_known") is True
-            and set(item.evidence_ids) <= set(binding.evidence_ids)
-        ]
-        if len(matching_imports) != 1:
-            return False
-        imported = matching_imports[0]
-        target_module, symbol = imported.data.get("target_module"), imported.data.get("symbol")
-        canonical = (
-            f"{target_module}.{symbol}"
-            if isinstance(target_module, str) and isinstance(symbol, str)
-            else target_module
-        )
-        if not isinstance(canonical, str):
-            return False
-        reexport_chain = imported.data.get("reexport_chain")
-        origin = imported.data.get("origin_definition")
-        target_bases: list[str] = [canonical]
-        if (
-            isinstance(origin, str)
-            and isinstance(reexport_chain, list | tuple)
-            and reexport_chain
-            and reexport_chain[-1] == origin
-        ):
-            target_bases.append(origin)
-        return any(binding.target == ".".join([base, *reversed(suffix)]) for base in target_bases)
+        for target in source_classes:
+            root = target
+            suffix: list[str] = []
+            while isinstance(root, ast.Attribute):
+                suffix.append(root.attr)
+                root = root.value
+            if not isinstance(root, ast.Name) or not isinstance(owner, str):
+                continue
+            matching_imports = [
+                item
+                for item in imports
+                if item.data.get("binding") == root.id
+                and isinstance(item.data.get("source_module"), str)
+                and owner.startswith(f"{item.data.get('source_module')}.")
+                and item.data.get("symbols_known") is True
+                and set(item.evidence_ids) <= set(binding.evidence_ids)
+            ]
+            if len(matching_imports) != 1:
+                continue
+            imported = matching_imports[0]
+            target_module = imported.data.get("target_module")
+            symbol = imported.data.get("symbol")
+            canonical = (
+                f"{target_module}.{symbol}"
+                if isinstance(target_module, str) and isinstance(symbol, str)
+                else target_module
+            )
+            if not isinstance(canonical, str):
+                continue
+            reexport_chain = imported.data.get("reexport_chain")
+            origin = imported.data.get("origin_definition")
+            target_bases: list[str] = [canonical]
+            if (
+                isinstance(origin, str)
+                and isinstance(reexport_chain, list | tuple)
+                and reexport_chain
+                and reexport_chain[-1] == origin
+            ):
+                target_bases.append(origin)
+            if any(binding.target == ".".join([base, *reversed(suffix)]) for base in target_bases):
+                return True
+        return False
     source_site = _selector_source_receiver(record, binding, evidence)
     expression = source_site[0] if source_site is not None else None
     if binding.origin is CallBindingOrigin.DECLARED_RECEIVER:
@@ -832,6 +859,63 @@ def _selector_linked_assignments(
                 ):
                     linked.append((candidate, item))
     return linked
+
+
+def _last_segment(value: str) -> str:
+    start = 0
+    for index, character in enumerate(value):
+        if character == ".":
+            start = index + 1
+    return value[start:]
+
+
+def _evidence_column_index(evidence: Evidence) -> int | None:
+    offset = 0
+    for index, character in enumerate(evidence.excerpt):
+        if offset == evidence.column:
+            return index
+        codepoint = ord(character)
+        offset += (
+            1 if codepoint < 0x80 else 2 if codepoint < 0x800 else 3 if codepoint < 0x10000 else 4
+        )
+        if offset > evidence.column:
+            return None
+    return len(evidence.excerpt) if offset == evidence.column else None
+
+
+def _call_expression_matches_source(
+    record: Record, expression: str, evidence: Mapping[str, Evidence]
+) -> bool:
+    if record.data.get("expression") != expression:
+        return False
+    for evidence_id in record.evidence_ids:
+        item = evidence.get(evidence_id)
+        if item is None or record.id != stable_id(
+            "CALL", item.file, item.line, item.column, expression
+        ):
+            continue
+        start = _evidence_column_index(item)
+        if start is None or not _starts_with(item.excerpt[start:], expression):
+            continue
+        end = start + len(expression)
+        while end < len(item.excerpt) and item.excerpt[end] in " \t":
+            end += 1
+        if end < len(item.excerpt) and item.excerpt[end] == "(":
+            return True
+    return False
+
+
+def _stored_write_matches_source(item: Evidence, receiver: str, field: str, parameter: str) -> bool:
+    start = _evidence_column_index(item)
+    expected = f"{receiver}.{field}"
+    if start is None or not _starts_with(item.excerpt[start:], expected):
+        return False
+    position = start + len(expected)
+    if position < len(item.excerpt) and item.excerpt[position] not in " \t:=":
+        return False
+    return (
+        "=" in item.excerpt[position:] and python_identifier(field) and python_identifier(parameter)
+    )
 
 
 def _signature_terminal(name: str, bindings: dict[str, ProviderBinding]) -> ProviderBinding | None:
