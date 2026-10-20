@@ -2439,9 +2439,7 @@ def _guarded_helper_arguments_match_source(
     return True
 
 
-def _source_call_actuals(
-    record: Record, evidence: Evidence
-) -> tuple[ast.expr, ...] | None:
+def _source_call_actuals(record: Record, evidence: Evidence) -> tuple[ast.expr, ...] | None:
     parsed = _call_evidence_nodes(evidence.excerpt)
     if parsed is None:
         return None
@@ -2469,9 +2467,7 @@ def _source_node_starts_at(node: ast.AST, line: int, column: int, line_offset: i
     return span is not None and span[:2] == (line, column)
 
 
-def _guarded_actual_matches_condition(
-    actual: GuardHelperArgument, expression: ast.expr
-) -> bool:
+def _guarded_actual_matches_condition(actual: GuardHelperArgument, expression: ast.expr) -> bool:
     token_kind = actual.token_kind.value
     if token_kind == "unknown":
         return True

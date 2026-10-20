@@ -40,9 +40,7 @@ def _payload(tmp_path, source: str | dict[str, str]) -> dict:
 
 def _call(payload: dict, expression: str) -> dict:
     calls = next(
-        section["records"]
-        for section in payload["facts"]["sections"]
-        if section["name"] == "calls"
+        section["records"] for section in payload["facts"]["sections"] if section["name"] == "calls"
     )
     return next(row for row in calls if row["data"].get("expression") == expression)
 
