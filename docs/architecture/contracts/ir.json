@@ -107,7 +107,6 @@
         "archkeel.ir.facts_validation:validate_source_facts",
         "archkeel.ir.facts_validation:validate_source_bindings",
         "archkeel.ir.facts_codec:source_reference_context",
-        "archkeel.ir.codec_strings:intern_strings",
         "archkeel.ir.codec_strings:expand_strings",
         "archkeel.ir.codec_strings:profitable_string",
         "archkeel.ir.codec_strings:observation_profitable",
