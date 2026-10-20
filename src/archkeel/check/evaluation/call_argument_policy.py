@@ -209,10 +209,16 @@ def _evaluate_calls(
         indexes = next(
             (actuals for formal, actuals in bound.by_parameter if formal == parameter), ()
         )
-        for index in indexes:
-            argument = actuals[index]
-            if argument.value_kind is CallArgumentValueKind.STRING_LITERAL:
-                violations.append(_violation(rule, scope, call, binding, argument.evidence_ids))
+        literal_evidence = sorted(
+            {
+                evidence_id
+                for index in indexes
+                if actuals[index].value_kind is CallArgumentValueKind.STRING_LITERAL
+                for evidence_id in actuals[index].evidence_ids
+            }
+        )
+        if literal_evidence:
+            violations.append(_violation(rule, scope, call, binding, literal_evidence))
     return violations, limits
 
 
@@ -271,9 +277,7 @@ def _violation(
 ) -> RawRecord:
     data = call["data"]
     return classified(
-        item_id=stable_id(
-            "VIOL-CALL-ARGUMENT", scope, rule.id, call["id"], rule.parameter, *evidence_ids
-        ),
+        item_id=stable_id("VIOL-CALL-ARGUMENT", scope, rule.id, call["id"], rule.parameter),
         evidence_class=EvidenceClass.VIOLATION,
         area="calls",
         kind="forbidden_call_argument",
