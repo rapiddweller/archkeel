@@ -235,6 +235,8 @@ def test_numeric_alias_claim_must_be_a_preceding_unique_binding_in_its_scope(
         "WIDTH = 4\nchoose = lambda job_nonce: (WIDTH := 3, job_nonce % WIDTH)[1]\n",
         "WIDTH = 4\nvalues = [job_nonce % WIDTH for WIDTH in (1,)]\n",
         "WIDTH = 4\nvalues = [(WIDTH := 3, job_nonce % WIDTH)[1] for job_nonce in (1,)]\n",
+        "WIDTH = 4\nchoose = lambda job_nonce: ([[(WIDTH := 3) for j in (1,)] "
+        "for i in (1,)], job_nonce % WIDTH)[1]\n",
         "WIDTH = 4\nclass Holder:\n    WIDTH = 8\n"
         "    choose = lambda job_nonce, WIDTH: job_nonce % WIDTH\n",
         "WIDTH = 4\nclass Holder:\n    WIDTH = 8\n"
@@ -254,6 +256,7 @@ def test_numeric_alias_claim_must_be_a_preceding_unique_binding_in_its_scope(
         "module-lambda-walrus",
         "module-comprehension-target",
         "module-comprehension-walrus",
+        "nested-comprehension-walrus",
         "class-lambda-parameter",
         "nested-class-lambda-parameter",
         "class-lambda-walrus",
@@ -358,6 +361,59 @@ def test_local_numeric_alias_forgery_respects_anonymous_outer_binding(tmp_path):
 
     with pytest.raises(ProtocolError):
         decode_response(json.dumps(payload).encode())
+
+
+def test_nested_lambda_local_walrus_does_not_shadow_outer_module_alias(tmp_path):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "WIDTH = 4\nchoose = lambda job_nonce: ((lambda: (WIDTH := 3))(), job_nonce % WIDTH)[1]\n"
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    operation = next(
+        row
+        for section in payload["facts"]["sections"]
+        for row in section["records"]
+        if row["kind"] == "numeric_operand"
+    )
+    assert operation["data"]["proof"] == "unknown"
+    width = next(
+        row
+        for row in payload["facts"]["evidence"]
+        if row["line"] == 1 and row["excerpt"] == "WIDTH = 4"
+    )
+    operation["data"]["proof"] = "known"
+    operation["data"]["value"] = 4
+    operation["data"]["derivation"] = [
+        {
+            "name": "WIDTH",
+            "value": 4,
+            "expression": "4",
+            "evidence_id": width["id"],
+            "line": 1,
+            "column": 0,
+            "end_line": 1,
+            "end_column": 9,
+        }
+    ]
+    operation["evidence_ids"].append(width["id"])
+    assert decode_response(json.dumps(payload).encode()).facts
 
 
 def test_numeric_alias_in_a_nested_ancestor_scope_keeps_a_valid_witness(tmp_path):

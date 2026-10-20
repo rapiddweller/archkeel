@@ -1161,20 +1161,9 @@ def _numeric_anonymous_scope_allows_module(
 
 
 def _numeric_anonymous_walrus_binds(scope: ast.AST, name: str) -> bool:
-    pending = [scope]
-    while pending:
-        node = pending.pop()
-        if node is not scope and isinstance(
-            node, ast.Lambda | ast.ListComp | ast.SetComp | ast.GeneratorExp | ast.DictComp
-        ):
-            continue
-        if (
-            isinstance(node, ast.NamedExpr)
-            and isinstance(node.target, ast.Name)
-            and node.target.id == name
-        ):
+    for node in _numeric_lexical_nodes(scope, scope):
+        if isinstance(node, ast.Name) and node.id == name and isinstance(node.ctx, ast.Store):
             return True
-        pending.extend(ast.iter_child_nodes(node))
     return False
 
 
