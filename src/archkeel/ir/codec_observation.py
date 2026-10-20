@@ -281,7 +281,7 @@ def _validate_versioned_records(
                     if python_calls and not _has_field(
                         (key for key, _ in call.data.entries), "call_binding"
                     ):
-                        raise ValueError("Python 2.1.0 calls require explicit call_binding or null")
+                        raise ValueError("Python calls require explicit call_binding or null")
                     binding = _call_binding(call.data.get("call_binding"))
                     if (
                         schema_version
