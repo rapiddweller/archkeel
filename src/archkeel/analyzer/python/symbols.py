@@ -808,6 +808,11 @@ def _assignment_symbol(
             "visibility": _source_name_visibility(name),
             "visibility_detail": _python_visibility(name),
             **(
+                {"source_binding_unique": name in stable_direct_module_bindings(module)}
+                if kind in {"static_constant", "dynamic_binding"} and node in module.tree.body
+                else {}
+            ),
+            **(
                 {
                     "source_binding_unique": name in stable_direct_module_bindings(module),
                     "source_member_binding_static": name not in member_escapes,

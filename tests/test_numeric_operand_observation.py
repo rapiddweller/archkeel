@@ -141,6 +141,238 @@ def test_numeric_alias_claims_must_match_their_source_witnesses(tmp_path, mutati
         decode_response(json.dumps(payload).encode())
 
 
+@pytest.mark.parametrize(
+    "source,assignment_line",
+    [
+        (
+            "def choose(job_nonce): return job_nonce % WIDTH\nWIDTH = 4\n",
+            2,
+        ),
+        (
+            "def unrelated(job_nonce):\n    WIDTH = 4\n    return job_nonce % WIDTH\n"
+            "def choose(job_nonce):\n    return job_nonce % WIDTH\n",
+            2,
+        ),
+        (
+            "WIDTH = 4\nWIDTH = 8\ndef choose(job_nonce): return job_nonce % WIDTH\n",
+            1,
+        ),
+    ],
+)
+def test_numeric_alias_claim_must_be_a_preceding_unique_binding_in_its_scope(
+    tmp_path, source, assignment_line
+):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(source)
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    sections = payload["facts"]["sections"]
+    operation = next(
+        record
+        for section in sections
+        for record in section["records"]
+        if record["kind"] == "numeric_operand" and record["data"]["owner"] == "sample.core.choose"
+    )
+    if "def unrelated" in source:
+        unrelated = next(
+            record
+            for section in sections
+            for record in section["records"]
+            if record["kind"] == "numeric_operand"
+            and record["data"]["owner"] == "sample.core.unrelated"
+            and record["data"]["proof"] == "known"
+        )
+        borrowed_origin = unrelated["data"]["derivation"][0]
+    else:
+        evidence = next(
+            row
+            for row in payload["facts"]["evidence"]
+            if row["line"] == assignment_line and "WIDTH =" in row["excerpt"]
+        )
+        borrowed_origin = {
+            "name": "WIDTH",
+            "value": 4,
+            "expression": "4",
+            "evidence_id": evidence["id"],
+            "line": evidence["line"],
+            "column": evidence["column"],
+            "end_line": evidence["end_line"],
+            "end_column": evidence["column"] + len("WIDTH = 4"),
+        }
+    operation["data"]["proof"] = "known"
+    operation["data"]["value"] = 4
+    operation["data"]["derivation"] = [borrowed_origin]
+    operation["evidence_ids"].extend(
+        [borrowed_origin["evidence_id"]]
+        + ([borrowed_origin["scope_evidence_id"]] if "scope_evidence_id" in borrowed_origin else [])
+    )
+
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_numeric_alias_in_a_nested_ancestor_scope_keeps_a_valid_witness(tmp_path):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "def outer():\n    WIDTH = 4\n    def inner(job_nonce):\n        return job_nonce % WIDTH\n"
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+
+    response = decode_response(encode_response(CollectionResponse(facts)))
+
+    operation = next(
+        record
+        for section in response.facts.sections
+        for record in section.records
+        if record.kind == "numeric_operand"
+    )
+    assert operation.data.get("proof") == "known"
+    assert operation.data.get("value") == 4
+
+
+@pytest.mark.parametrize(
+    ("source", "forged_line", "binding_lines"),
+    [
+        (
+            "def choose(job_nonce):\n"
+            "    SAFE = 9\n"
+            "    keep = job_nonce % SAFE\n"
+            "    forged = job_nonce % WIDTH\n"
+            "    WIDTH = 4\n",
+            4,
+            (5,),
+        ),
+        (
+            "def choose(job_nonce):\n"
+            "    SAFE = 9\n"
+            "    keep = job_nonce % SAFE\n"
+            "    forged = job_nonce % WIDTH\n"
+            "    WIDTH = 4\n"
+            "    WIDTH = 8\n",
+            4,
+            (5, 6),
+        ),
+    ],
+)
+def test_numeric_local_alias_claim_rejects_late_or_rebound_write(
+    tmp_path, source, forged_line, binding_lines
+):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts import stable_id
+    from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(source)
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    sections = payload["facts"]["sections"]
+    operations = [
+        record
+        for section in sections
+        for record in section["records"]
+        if record["kind"] == "numeric_operand"
+    ]
+    target = next(record for record in operations if record["data"]["line"] == forged_line)
+    trusted = next(
+        record
+        for record in operations
+        if record["data"]["proof"] == "known" and record["data"]["derivation"][0]["name"] == "SAFE"
+    )
+    trusted_origin = trusted["data"]["derivation"][0]
+    evidence = payload["facts"]["evidence"]
+    source_lines = source.splitlines()
+    assignments = [
+        next(
+            (row for row in evidence if row["line"] == line and "WIDTH =" in row["excerpt"]),
+            None,
+        )
+        for line in binding_lines
+    ]
+    first = assignments[0]
+    if first is None:
+        line = binding_lines[0]
+        first = {
+            "id": stable_id("EVD", "sample/core.py", line, line, 4),
+            "file": "sample/core.py",
+            "line": line,
+            "end_line": line,
+            "column": 4,
+            "excerpt": source_lines[line - 1],
+        }
+        evidence.append(first)
+    target["data"]["proof"] = "known"
+    target["data"]["value"] = 4
+    target["data"]["derivation"] = [
+        {
+            "name": "WIDTH",
+            "value": 4,
+            "expression": "4",
+            "evidence_id": first["id"],
+            "line": first["line"],
+            "column": first["column"],
+            "end_line": first["end_line"],
+            "end_column": first["column"] + len("WIDTH = 4"),
+            "scope_evidence_id": trusted_origin["scope_evidence_id"],
+            "scope_owner": trusted_origin["scope_owner"],
+            "scope_symbol_id": trusted_origin["scope_symbol_id"],
+        }
+    ]
+    target["evidence_ids"].extend([first["id"], trusted_origin["scope_evidence_id"]])
+    target["evidence_ids"] = sorted(set(target["evidence_ids"]))
+    assert (
+        stable_id("SYM", "sample.core.choose", "sample/core.py", 1, 0)
+        == (trusted_origin["scope_symbol_id"])
+    )
+
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
+
+
 def test_same_line_indented_and_semicolon_aliases_validate(tmp_path):
     from archkeel.analyzer.python.collect import collect
     from archkeel.ir.facts_codec import decode_response, encode_response
@@ -174,6 +406,96 @@ def test_same_line_indented_and_semicolon_aliases_validate(tmp_path):
         if row.kind == "numeric_operand"
     ]
     assert [row.data.get("value") for row in operations] == [4, 8]
+
+
+def test_module_expression_alias_uses_unique_source_binding_inventory(tmp_path):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "WIDE = 2**64\ndef choose(job_nonce): return job_nonce % WIDE\n"
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+
+    response = decode_response(encode_response(CollectionResponse(facts)))
+
+    operation = next(
+        record
+        for section in response.facts.sections
+        for record in section.records
+        if record.kind == "numeric_operand"
+    )
+    assert operation.data.get("proof") == "known"
+    assert operation.data.get("value") == 2**64
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "WIDTH = 4\n"
+        "def safe(job_nonce): return job_nonce % WIDTH\n"
+        "def choose(WIDTH, job_nonce): return job_nonce % WIDTH\n",
+        "WIDTH = 4\n"
+        "def safe(job_nonce): return job_nonce % WIDTH\n"
+        "def choose(job_nonce):\n"
+        "    WIDTH = 8\n"
+        "    return job_nonce % WIDTH\n",
+    ],
+)
+def test_module_alias_claim_cannot_cross_a_local_shadow(tmp_path, source):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(source)
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    sections = payload["facts"]["sections"]
+    operations = [
+        record
+        for section in sections
+        for record in section["records"]
+        if record["kind"] == "numeric_operand"
+    ]
+    trusted = next(record for record in operations if record["data"]["owner"] == "sample.core.safe")
+    target = next(
+        record for record in operations if record["data"]["owner"] == "sample.core.choose"
+    )
+    target["data"]["proof"] = "known"
+    target["data"]["value"] = 4
+    target["data"]["derivation"] = [trusted["data"]["derivation"][0]]
+    target["evidence_ids"].append(trusted["data"]["derivation"][0]["evidence_id"])
+    target["evidence_ids"] = sorted(set(target["evidence_ids"]))
+
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
 
 
 def test_repeated_alias_origin_is_valid_when_expression_reuses_name(tmp_path):
