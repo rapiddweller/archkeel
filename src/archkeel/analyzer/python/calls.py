@@ -245,6 +245,7 @@ class CallCollector(ast.NodeVisitor):
             if _mapping_value(item["data"], "source_module") == module.module
         )
         self.native_mutation_collectors: Sequence[CallCollector] = (self,)
+        self.native_revocation_cache: dict[str, bool] = {}
         self.items: list[RawRecord] = []
         self.scopes = LexicalScopes.for_module(module)
         self.receivers = {
@@ -1003,10 +1004,14 @@ class CallCollector(ast.NodeVisitor):
         return target, [add_evidence(self.evidence, self.module, sites[0])]
 
     def _native_target_revoked(self, target: str) -> bool:
-        return any(
+        if target in self.native_revocation_cache:
+            return self.native_revocation_cache[target]
+        revoked = any(
             collector._native_target_revoked_in_module(target)
             for collector in self.native_mutation_collectors
         )
+        self.native_revocation_cache[target] = revoked
+        return revoked
 
     def _sys_modules_aliases(self) -> set[str]:
         aliases = {"sys.modules"}
@@ -1723,8 +1728,10 @@ def collect_calls(
         CallCollector(module, index, evidence, provider_bindings, runtime, imports)
         for module in parsed
     ]
+    revocation_cache: dict[str, bool] = {}
     for call_collector in collectors:
         call_collector.native_mutation_collectors = tuple(collectors)
+        call_collector.native_revocation_cache = revocation_cache
     for call_collector in collectors:
         call_collector.visit(call_collector.module.tree)
         calls.extend(call_collector.items)
