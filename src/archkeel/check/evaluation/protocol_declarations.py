@@ -62,7 +62,9 @@ def _parameter_name(parameter: RawData) -> str | None:
 def _position_binding_uncertain(data: RawData, position: str) -> bool:
     role, _, name = position.partition(".")
     uncertainties = data.get("annotation_binding_uncertainties", {})
-    if isinstance(uncertainties, dict) and uncertainties.get(name):
+    if isinstance(uncertainties, dict | RecordData) and any(
+        uncertainties.get(candidate) for candidate in (name, f"*{name}", f"**{name}")
+    ):
         return True
     return role == "member" and data.get("class_body_control_flow") is True
 
@@ -102,6 +104,18 @@ def _member_methods(symbols: Sequence[RawRecord], owner_id: str, name: str) -> l
         ):
             result.append(symbol)
     return result
+
+
+def _nested_class_members(
+    symbols: Sequence[RawRecord], owner_id: str, name: str
+) -> list[RawRecord]:
+    return [
+        symbol
+        for symbol in symbols
+        if symbol["kind"] == "class"
+        and symbol["data"].get("lexical_parent_id") == owner_id
+        and symbol["data"].get("name") == name
+    ]
 
 
 def _class_binding_proven(symbol: RawRecord, symbols: Sequence[RawRecord]) -> bool:
@@ -228,6 +242,7 @@ def _nested_method_binding_proven(
         and isinstance(definitions, (tuple, list))
         and definitions.count(symbol["id"]) == 1
         and len(_member_methods(symbols, owner["id"], name)) == 1
+        and not _nested_class_members(symbols, owner["id"], name)
         and name in owner_data.get("class_members", ())
         and not attribute_conflict
         and owner_data.get("class_body_control_flow") is not True
@@ -319,7 +334,10 @@ def _select_member(
         evidence_ids = tuple(evidence) if isinstance(evidence, (tuple, list)) else ()
         key = (symbol["id"], position)
         previous = selected.get(key)
-        overridden = bool(_member_methods(symbols, symbol["id"], selector.name))
+        overridden = bool(
+            _member_methods(symbols, symbol["id"], selector.name)
+            or _nested_class_members(symbols, symbol["id"], selector.name)
+        )
         uncertain = not _attribute_inventory_complete(symbol) or overridden
         if previous is None:
             selected[key] = (
