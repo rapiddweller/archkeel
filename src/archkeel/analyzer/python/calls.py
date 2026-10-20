@@ -232,6 +232,15 @@ class CallCollector(ast.NodeVisitor):
             )
             if (binding := self.scopes.lookup(reference, reference.id)).owner is not None
         }
+        self.escaped_native_targets = {
+            target
+            for call in module.all_nodes
+            if isinstance(call, ast.Call) and not self._is_builtin_native_mutator(call)
+            for argument in [*call.args, *(item.value for item in call.keywords)]
+            for reference in ast.walk(argument)
+            if isinstance(reference, ast.Name)
+            for target in self._native_expression_targets(reference)
+        }
         self.scope_bindings: dict[ast.ClassDef | FunctionNode, frozenset[str]] = {}
 
     def _construction(
@@ -615,6 +624,9 @@ class CallCollector(ast.NodeVisitor):
             for child in ast.walk(current_method)
         ):
             return None
+        binding = self.scopes.lookup(receiver, receiver.id)
+        if binding.owner is None or (binding.owner.node, receiver.id) in self.escaped_bindings:
+            return None
         return current_method
 
     def _ancestors(self, node: ast.AST) -> Iterator[ast.AST]:
@@ -819,6 +831,7 @@ class CallCollector(ast.NodeVisitor):
             or binding.uncertain
             or len(binding.targets) != 1
             or binding.owner is None
+            or binding.targets[0] in self.escaped_native_targets
         ):
             return None
         sites = binding.owner.bindings.get(root, ())
@@ -890,6 +903,12 @@ class CallCollector(ast.NodeVisitor):
                             return True
         return False
 
+    def _is_builtin_native_mutator(self, node: ast.Call) -> bool:
+        if not isinstance(node.func, ast.Name) or node.func.id not in {"setattr", "delattr"}:
+            return False
+        binding = self.scopes.lookup(node.func, node.func.id)
+        return binding.kind is BindingKind.UNBOUND and not binding.uncertain
+
     def _native_expression_targets(
         self, expression: ast.expr, seen: frozenset[str] = frozenset()
     ) -> set[str]:
@@ -907,7 +926,8 @@ class CallCollector(ast.NodeVisitor):
         return {origin + (f".{suffix}" if separator else "") for origin in origins}
 
     def _native_alias_targets(self, name: str, owner: Scope, seen: frozenset[str]) -> set[str]:
-        sites = owner.bindings.get(name, ())
+        bindings: dict[str, list[ast.AST]] = owner.bindings
+        sites = bindings.get(name, ())
         origins: set[str] = set()
         for site in sites:
             if not isinstance(site, ast.Name):
