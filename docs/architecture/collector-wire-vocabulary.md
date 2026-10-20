@@ -36,6 +36,11 @@ original return, runtime and supported provider roles. Tags become owned enums;
 wire spellings and original signature fields remain unchanged. Earlier protocols
 reject this metadata. Unsupported source transformations remain UNKNOWN.
 
+V5 keeps the V4 collection envelope and facts, but encodes source records and evidence
+as canonical positional rows with a sorted data-field table and lossless repeated-string
+references. Decoding expands this transport representation before applying the same
+strict source-facts validator. V1–V4 retain their original wire formats.
+
 This migration covers the named collector/codec modules. It does not assert that every historical string-controlled branch in the repository has been migrated.
 
 SourceProfile and SourceSectionName are nominal enums decoded at ingress, with exactly the former three profile IDs and eight section names. ObservedSection remains a compatibility name for the shared section identity owner. Its old six-value Literal annotation imposed no runtime validation; only this internal annotation now names the full canonical vocabulary. Registered profile subsets and mandatory imports/unknowns validation remain unchanged and have decoder controls.

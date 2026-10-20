@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import re
-from collections import Counter
 from collections.abc import Mapping
 from dataclasses import asdict, replace
 from enum import StrEnum
@@ -14,6 +13,11 @@ from math import isfinite
 from typing import Any, TypeGuard
 
 from archkeel.ir.architecture_graph import ArchitectureRuleKind
+from archkeel.ir.codec_strings import (
+    intern_strings,
+    observation_escaped,
+    observation_profitable,
+)
 from archkeel.ir.codec_wire import (
     _count,
     _exact,
@@ -660,51 +664,16 @@ def encode_canonical_model(model: dict[str, RawJson]) -> dict[str, RawJson]:
     evidence_items = [_object(entry, "evidence[]") for entry in raw_evidence]
     evidence_rows = [[item[field] for field in EVIDENCE_FIELDS] for item in evidence_items]
 
-    counts: Counter[str] = Counter()
-
-    def count_strings(value: object) -> None:
-        if isinstance(value, str):
-            counts[value] += 1
-        elif isinstance(value, list):
-            for entry in value:
-                count_strings(entry)
-        elif isinstance(value, dict):
-            for entry in value.values():
-                count_strings(entry)
-
-    count_strings(rows_by_section)
-    count_strings(evidence_rows)
-    string_table = sorted(
-        value
-        for value, count in counts.items()
-        # Literal $$m would otherwise collide with historical $$$m escaping.
-        if value == _StringSentinel.ESCAPED_MISSING
-        or (count >= 2 and len(value) >= 8 and (count - 1) * len(value) - count * 8 > 100)
+    interned, string_table = intern_strings(
+        {"sections": rows_by_section, "evidence": evidence_rows},
+        profitable=observation_profitable,
+        missing_value=_MISSING_VALUE,
+        escape_reserved=observation_escaped,
     )
-    string_indexes = {value: index for index, value in enumerate(string_table)}
-
-    # AD-2: rows mix RawJson with the _MISSING_VALUE sentinel; see rows_by_section.
-    def intern(value: Any) -> Any:
-        if value is _MISSING_VALUE:
-            return "$m"
-        if isinstance(value, str):
-            if value in string_indexes:
-                return f"${string_indexes[value]}"
-            if (
-                _string_sentinel(value) is not None
-                or _STRING_REFERENCE.fullmatch(value)
-                or _ESCAPED_STRING_REFERENCE.fullmatch(value)
-            ):
-                return f"${value}"
-            return value
-        if isinstance(value, list):
-            return [intern(entry) for entry in value]
-        if isinstance(value, dict):
-            return {key: intern(entry) for key, entry in value.items()}
-        return value
-
-    encoded.update({section: intern(rows) for section, rows in rows_by_section.items()})
-    encoded["evidence"] = intern(evidence_rows)
+    interned_object = _object(interned, "interned observation rows")
+    interned_sections = _object(interned_object["sections"], "interned sections")
+    encoded.update(interned_sections)
+    encoded["evidence"] = interned_object["evidence"]
     encoding: dict[str, RawJson] = {
         "kind": _EncodingKind.COLUMNAR.value,
         "record_fields": list(RECORD_FIELDS),

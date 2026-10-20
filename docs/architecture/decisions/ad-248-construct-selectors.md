@@ -26,3 +26,8 @@ parse snippets, or infer runtime types from a variable name. Unannotated or
 mutated receivers stay UNKNOWN. Tests cover both equality directions,
 unrelated receiver controls, dynamic reflection, constructor and type probes,
 and saved report decoding.
+
+The native full collection uses SourceFacts protocol V5's lossless compact rows so
+the complete selector evidence remains within the existing bounded collector output.
+The V4 provider survey and all V1–V4 wire formats remain unchanged; V5 expands before
+the existing strict facts validator runs.
