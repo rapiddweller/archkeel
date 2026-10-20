@@ -100,6 +100,21 @@ def test_equal_runtime_is_retained_in_delta() -> None:
     assert delta.coverage.status == "PASS"
 
 
+def test_supported_21_observations_remain_comparable_after_a_writer_bump() -> None:
+    raw = _model(git_head="a" * 40)
+    raw["schema_version"] = "2.1.0"
+    observation = parse_observation(raw)
+    delta = build_architecture_delta(
+        observation,
+        observation,
+        baseline_digest="a" * 64,
+        head_digest="a" * 64,
+        checker_digest="c" * 64,
+    )
+    assert delta.coverage.status == "PASS"
+    assert delta.ratchets.status == "SUPPORTED"
+
+
 @pytest.mark.parametrize("version", ["", "3.12", "invalid", None, True])
 def test_explicit_invalid_runtime_provenance_is_rejected(version: object) -> None:
     raw = _model(git_head="a" * 40)

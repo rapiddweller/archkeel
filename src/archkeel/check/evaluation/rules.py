@@ -1656,12 +1656,13 @@ def _numeric_operand_violations(
         if not isinstance(rule, BoundedNumericOperandRule):
             continue
         for item in signals:
+            if item["kind"] != "numeric_operand":
+                continue
             data = item["data"]
             owner, subject, form = data["owner"], data["subject"], data["form"]
             module = data["module"]
             if (
-                item["kind"] != "numeric_operand"
-                or not isinstance(owner, str)
+                not isinstance(owner, str)
                 or not isinstance(module, str)
                 or not in_scope(module, rule.source)
                 or source_modules is not None

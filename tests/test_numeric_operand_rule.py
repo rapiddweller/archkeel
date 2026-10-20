@@ -158,6 +158,77 @@ def _rule_rows(tmp_path):
 
 
 @pytest.mark.parametrize(
+    "other",
+    [
+        "assert True\n",
+        "try:\n    value = 1\nexcept Exception:\n    value = 2\n",
+        "def placeholder(): pass\n",
+        "def label(value): return value == 'fixed'\n",
+    ],
+)
+def test_numeric_rule_skips_other_construct_kinds(tmp_path, other):
+    _write_probe(tmp_path)
+    (tmp_path / "sample/core.py").write_text(
+        other + "def choose(job_nonce): return job_nonce % 4\n"
+    )
+    _, rows = _rule_rows(tmp_path)
+    assert rows[0].status == "PASS"
+
+
+@pytest.mark.parametrize("known_failure", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_mounted_numeric_unknowns_remain_undecided_on_replay(tmp_path, known_failure, columnar):
+    from test_exact_module_ownership import _observe_tree
+
+    _write_probe(tmp_path, mounted=True)
+    contract = json.loads((tmp_path / "contract.json").read_bytes())
+    body = "    small = job_nonce % 1\n" if known_failure else ""
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/core.py": (
+                "def choose(job_nonce, dynamic):\n" + body + "    return job_nonce % dynamic\n"
+            ),
+        },
+        contract,
+    )
+    assert not result.diagnostics and result.observation is not None
+    model = result.observation
+    rows = rule_assessments(model, undecided_by_rule=unknown_positions_by_rule(model))
+    assert len(rows) == 1
+    assert rows[0].status == ("FAIL" if known_failure else "UNKNOWN")
+    assert rows[0].undecided == 1
+    assert any(item.kind == "numeric_operand_unknown" for item in model.records("unknowns"))
+    assert not any(
+        item.kind == "numeric_operand_unknown" for item in model.records("typing_signals")
+    )
+    saved = tmp_path / "mounted.json"
+    saved.write_bytes(
+        canonical_report_bytes(model)
+        if columnar
+        else json.dumps(observation_payload(model)).encode()
+    )
+    replay = run_saved_report(saved)
+    assert not replay.diagnostics
+    assert replay.rule_assessments == rows
+
+
+@pytest.mark.parametrize("version", ["1.3.0", "2.0.0", "2.1.0"])
+def test_legacy_reader_rejects_numeric_kind_without_derivation(tmp_path, version):
+    _write_probe(tmp_path)
+    (tmp_path / "sample/core.py").write_text("def choose(job_nonce): return job_nonce % 4\n")
+    model, _ = _rule_rows(tmp_path)
+    raw = observation_payload(model)
+    raw["schema_version"] = version
+    for item in raw["constructs"]:
+        if item["kind"] == "numeric_operand":
+            item["data"].pop("derivation", None)
+    with pytest.raises(ValueError, match="numeric_operand constructs require"):
+        parse_observation(raw)
+
+
+@pytest.mark.parametrize(
     ("operand", "expected"),
     [("3", "FAIL"), ("4", "PASS"), ("2**8", "PASS"), ("dynamic", "UNKNOWN")],
 )

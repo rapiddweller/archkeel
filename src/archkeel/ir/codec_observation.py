@@ -68,8 +68,14 @@ class _ObservationVersion(StrEnum):
     V2_2 = SCHEMA_VERSION
 
 
+class _VersionedConstruct(StrEnum):
+    NUMERIC_OPERAND = "numeric_operand"
+
+
 def _uses_numeric_operand_fields(record: Record) -> bool:
-    return _has_field((key for key, _ in record.data.entries), "derivation")
+    return record.kind == _VersionedConstruct.NUMERIC_OPERAND or _has_field(
+        (key for key, _ in record.data.entries), "derivation"
+    )
 
 
 class _EncodingKind(StrEnum):

@@ -970,13 +970,15 @@ def evaluate_source(
         key=lambda item: item["id"],
     )
     numeric_operand_unknowns = [
-        item for item in boundary_allowances if item["kind"] == "numeric_operand_unknown"
+        item
+        for item in (*boundary_allowances, *inside_allowances)
+        if item["kind"] == "numeric_operand_unknown"
     ]
     typing_signals = sorted(
         [
             *typing_signals,
             *(item for item in boundary_allowances if item["kind"] != "numeric_operand_unknown"),
-            *inside_allowances,
+            *(item for item in inside_allowances if item["kind"] != "numeric_operand_unknown"),
         ],
         key=lambda item: item["id"],
     )
