@@ -266,6 +266,90 @@ def test_ambiguous_string_predicate_does_not_disappear_beside_safe_literal():
     assert any(row["evidence_class"] == "UNKNOWN" for row in findings)
 
 
+@pytest.mark.parametrize(
+    ("source", "role"),
+    [
+        (
+            "class Connection:\n    backend: str\n"
+            "def route(conn: Connection, key):\n"
+            "    candidate = factory()\n"
+            '    conn.backend == "wide"\n'
+            "    candidate.backend == key\n",
+            ConstructSelectorRole.EQUALITY,
+        ),
+        (
+            "class Connection:\n    backend: str\n"
+            "def route(conn: Connection):\n"
+            "    candidate = factory()\n"
+            '    match conn.backend:\n        case "wide": pass\n'
+            '    match candidate.backend:\n        case "flat": pass\n',
+            ConstructSelectorRole.MATCH,
+        ),
+        (
+            "class Connection:\n    backend: str\n"
+            "def route(conn: Connection):\n"
+            "    candidate = factory()\n"
+            "    candidate.backend\n",
+            ConstructSelectorRole.READ,
+        ),
+        (
+            "class Connection:\n    backend: str\n"
+            "def route(conn: Connection):\n"
+            "    candidate = factory()\n"
+            "    candidate.backend()\n",
+            ConstructSelectorRole.CALL,
+        ),
+        (
+            "class Connection:\n    backend: str\n"
+            "def route(conn: Connection):\n"
+            "    candidate = factory()\n"
+            '    candidate.backend = "flat"\n',
+            ConstructSelectorRole.WRITE,
+        ),
+        (
+            "class Connection:\n    backend: str\n"
+            "def route(conn: Connection):\n"
+            "    candidate = factory()\n"
+            '    getattr(candidate, "backend")\n',
+            ConstructSelectorRole.REFLECT,
+        ),
+        (
+            "class Connection:\n    backend: str\n"
+            "def route(conn: Connection, key):\n"
+            "    candidate = factory()\n"
+            "    candidate.backend.startswith(key)\n",
+            ConstructSelectorRole.STARTSWITH,
+        ),
+    ],
+)
+def test_unresolved_local_receivers_remain_in_selector_inventory(
+    source: str, role: ConstructSelectorRole
+):
+    signals = collect_constructs([_parsed_module(source, module="sample.core")], {})
+    unresolved = [
+        row
+        for row in signals
+        if row["kind"] == "construct_selector"
+        and row["data"]["selector_role"] == role.value
+        and row["data"]["status"] == "unknown"
+    ]
+    assert unresolved
+    assert all(row["data"]["receiver_type"] is None for row in unresolved)
+    rule = ForbiddenConstructRule(
+        "SELECT",
+        ArchitectureRuleKind.FORBIDDEN_CONSTRUCT,
+        "sample.core",
+        (),
+        "Keep the selected receiver proven.",
+        ("test",),
+        DecisionMaker.ARCHITECT,
+        selector=ConstructSelector("sample.core.Connection", "backend", role, "flat"),
+    )
+    findings = _construct_violations(signals, [rule])
+    assert not any(row["evidence_class"] == "VIOLATION" for row in findings)
+    assert any(row["evidence_class"] == "UNKNOWN" for row in findings)
+
+
 def test_unproven_local_string_predicate_is_retained_as_unknown():
     module = _parsed_module(
         'def route():\n    connection = factory()\n    connection.backend.startswith("flat")\n',
@@ -807,7 +891,13 @@ def test_selector_receiver_collection_marks_escaped_equality_receiver_unknown():
     facts = collect_constructs(
         [module], evidence, symbol_index=symbol_index, receiver_resolvers=resolvers
     )
-    [selector] = [row for row in facts if row["kind"] == "construct_selector"]
+    selector = next(
+        row
+        for row in facts
+        if row["kind"] == "construct_selector"
+        and row["data"].get("selector_role") == "equality"
+        and row["data"].get("member") == "backend"
+    )
     assert selector["data"]["receiver_type"] is None
     assert selector["data"]["status"] == "unknown"
 
@@ -1543,8 +1633,32 @@ def test_selector_partial_source_scope_is_unknown_without_hiding_known_failures(
 
 
 @pytest.mark.parametrize("mounted", [False, True], ids=["root", "mounted"])
+@pytest.mark.parametrize(
+    ("local_use", "role", "literal", "safe_literal"),
+    [
+        (
+            "candidate.backend == key",
+            "equality",
+            "flat",
+            "wide",
+        ),
+        (
+            'match candidate.backend:\n        case "flat": pass',
+            "match",
+            "flat",
+            "wide",
+        ),
+        (
+            'unclear.backend == "flat"',
+            "equality",
+            "round",
+            "flat",
+        ),
+    ],
+    ids=["dynamic-compare", "match-case", "unannotated-parameter"],
+)
 def test_ambiguous_selector_receiver_is_unknown_live_and_in_saved_reports(
-    tmp_path: Path, mounted: bool
+    tmp_path: Path, mounted: bool, local_use: str, role: str, literal: str, safe_literal: str
 ):
     root = tmp_path / "repo"
     (root / "sample").mkdir(parents=True)
@@ -1552,10 +1666,11 @@ def test_ambiguous_selector_receiver_is_unknown_live_and_in_saved_reports(
     (root / "sample/core.py").write_text(
         "class Connection:\n    backend: str\n"
         "class Label:\n    backend: str\n"
-        "def route(conn: Connection, label: Label, unclear):\n"
-        '    conn.backend == "flat"\n'
+        "def route(conn: Connection, label: Label, key, unclear):\n"
+        f'    conn.backend == "{safe_literal}"\n'
         '    label.backend == "flat"\n'
-        '    unclear.backend == "flat"\n'
+        "    candidate = factory()\n"
+        f"    {local_use}\n"
     )
     (root / "docs/architecture").mkdir(parents=True)
     (root / "docs/architecture/sample.md").write_text("Selector fixture.\n")
@@ -1568,8 +1683,8 @@ def test_ambiguous_selector_receiver_is_unknown_live_and_in_saved_reports(
         "selector": {
             "receiver": "sample.core.Connection",
             "member": "backend",
-            "role": "equality",
-            "literal": "round",
+            "role": role,
+            "literal": literal,
         },
         "rationale": "Keep route selection on the declared port.",
         "provenance": ["docs/architecture/sample.md"],
@@ -1638,8 +1753,8 @@ def test_ambiguous_selector_receiver_is_unknown_live_and_in_saved_reports(
     selector = receipt.data.get("selector")
     assert selector.get("receiver") == "sample.core.Connection"
     assert selector.get("member") == "backend"
-    assert selector.get("role") == "equality"
-    assert selector.get("literal") == "round"
+    assert selector.get("role") == role
+    assert selector.get("literal") == literal
     proof = receipt.data.get("selector_scope_proof")
     assert proof.get("source_modules") == ("sample", "sample.core")
     assert proof.get("selected_files") == ("sample/__init__.py", "sample/core.py")
