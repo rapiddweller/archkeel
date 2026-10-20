@@ -126,6 +126,20 @@ def _limit(rule: CallOwnerRule, scope: str, reason: str, facts: Sequence[RawReco
     )
 
 
+def _rule_target_proven(
+    rule: CallOwnerRule,
+    targets: Sequence[RawRecord],
+    calls: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+) -> bool:
+    if not targets:
+        return _native_target_witnessed(rule.target, calls)
+    return len(targets) == 1 and (
+        _target_binding_static(targets[0], symbols)
+        or _constructed_target_binding_static(targets[0], calls, symbols)
+    )
+
+
 def call_owner_results(
     contract: ArchitectureContract,
     *,
@@ -168,13 +182,7 @@ def call_owner_results(
             and r["kind"] in {"class", "function", "method"}
         ]
         rule_limits: list[RawRecord] = []
-        target_proven = (
-            len(targets) == 1
-            and (
-                _target_binding_static(targets[0], symbols)
-                or _constructed_target_binding_static(targets[0], selected, symbols)
-            )
-        ) or (not targets and _native_target_witnessed(rule.target, selected))
+        target_proven = _rule_target_proven(rule, targets, selected, symbols)
         if not subjects or not target_proven or not complete or not bindings_measured:
             rule_limits.append(
                 _limit(

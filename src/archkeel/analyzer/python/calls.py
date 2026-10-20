@@ -895,11 +895,10 @@ class CallCollector(ast.NodeVisitor):
                 if node.func.id in {"setattr", "delattr"} and len(node.args) >= 2:
                     owner = canonical(node.args[0])
                     member = node.args[1]
-                    if (
-                        owner is not None
-                        and isinstance(member, ast.Constant)
-                        and isinstance(member.value, str)
-                        and f"{owner}.{member.value}" == target
+                    if owner is not None and (
+                        f"{owner}.{member.value}" == target
+                        if isinstance(member, ast.Constant) and isinstance(member.value, str)
+                        else target == owner or _starts_with(target, f"{owner}.")
                     ):
                         return True
         return False
