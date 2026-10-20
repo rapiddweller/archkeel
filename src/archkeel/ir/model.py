@@ -1294,10 +1294,9 @@ def _source_ownership_references(
             for position, value in enumerate(values)
         )
     if rule.value_owner is not None:
+        value_owner: str = rule.value_owner
         references.append(
-            ModuleReference(
-                f"/rules/{index}/value_owner", rule.value_owner.rpartition(".")[0], False
-            )
+            ModuleReference(f"/rules/{index}/value_owner", value_owner.rpartition(".")[0], False)
         )
     return references
 

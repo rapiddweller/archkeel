@@ -13,7 +13,15 @@ from enum import StrEnum
 from math import isfinite
 from pathlib import PurePosixPath, PureWindowsPath
 
-from .codec_strings import expand_strings, intern_strings, profitable_string
+from .codec_strings import (
+    StringTablePolicy as StringTablePolicy,
+)
+from .codec_strings import (
+    expand_strings,
+)
+from .codec_strings import (
+    intern_strings as intern_strings,
+)
 from .facts import (
     EVIDENCE_FIELDS,
     RECORD_FIELDS,
@@ -55,12 +63,19 @@ from .facts import (
 from .facts import (
     RawJson as RawJson,
 )
-from .facts_validation import _call_excerpt_matches, validate_source_facts
+from .facts_validation import (
+    _call_excerpt_matches,
+    _validate_source_role_identities,
+    validate_source_facts,
+)
 from .facts_validation import (
     selector_receiver_site_matches as selector_receiver_site_matches,
 )
 from .facts_validation import (
     source_reference_context as source_reference_context,
+)
+from .facts_validation import (
+    validate_source_role_vocabulary as validate_source_role_vocabulary,
 )
 from .protocol import (
     PYTHON_IMPORT_SURVEY_SECTIONS,
@@ -109,6 +124,8 @@ from .type_shapes import (
     TypeUnpack,
     UnresolvedType,
 )
+
+validate_source_role_identities = _validate_source_role_identities
 
 
 def call_excerpt_matches(
@@ -1076,7 +1093,7 @@ def _compact_source_facts(value: RawJson) -> dict[str, RawJson]:
                     facts["candidate_evidence"], "candidate evidence"
                 ),
             },
-            profitable=profitable_string,
+            policy=StringTablePolicy.SOURCE_FACTS,
         )
     except ValueError as error:
         raise ProtocolError(str(error)) from error

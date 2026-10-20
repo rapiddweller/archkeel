@@ -213,15 +213,21 @@ class ReferenceCollector(ast.NodeVisitor):
             return symbol_id
         owner, _, member = name.rpartition(".")
         class_declaration = self.index.binding_declarations.get(owner)
-        if class_declaration is not None and class_declaration.get("kind") != "class":
+        class_data = class_declaration["data"] if class_declaration is not None else {}
+        class_kind = class_data["kind"] if "kind" in class_data else None
+        if class_declaration is not None and class_kind != "class":
             class_declaration = None
         attributes = (
-            class_declaration["data"].get("attribute_declarations", ()) if class_declaration else ()
+            class_declaration["data"]["attribute_declarations"]
+            if class_declaration is not None
+            and "attribute_declarations" in class_declaration["data"]
+            else ()
         )
         for attribute in attributes:
-            definition_id = attribute.get("definition_id")
-            if attribute.get("name") == member and isinstance(definition_id, str):
-                return str(definition_id)
+            definition_id = attribute["definition_id"] if "definition_id" in attribute else None
+            attribute_name = attribute["name"] if "name" in attribute else None
+            if attribute_name == member and isinstance(definition_id, str):
+                return definition_id
         return stable_id("DECL", self.module.rel_path, name) if local else stable_id("DECL", name)
 
     def _has_canonical_declaration(self, name: str, declaration_id: str) -> bool:
@@ -229,15 +235,22 @@ class ReferenceCollector(ast.NodeVisitor):
             return True
         owner, _, member = name.rpartition(".")
         class_declaration = self.index.binding_declarations.get(owner)
-        if class_declaration is not None and class_declaration.get("kind") != "class":
+        class_data = class_declaration["data"] if class_declaration is not None else {}
+        class_kind = class_data["kind"] if "kind" in class_data else None
+        if class_declaration is not None and class_kind != "class":
             class_declaration = None
         attributes = (
-            class_declaration["data"].get("attribute_declarations", ()) if class_declaration else ()
+            class_declaration["data"]["attribute_declarations"]
+            if class_declaration is not None
+            and "attribute_declarations" in class_declaration["data"]
+            else ()
         )
-        return any(
-            attribute.get("name") == member and attribute.get("definition_id") == declaration_id
-            for attribute in attributes
-        )
+        for attribute in attributes:
+            attribute_name = attribute["name"] if "name" in attribute else None
+            definition_id = attribute["definition_id"] if "definition_id" in attribute else None
+            if attribute_name == member and definition_id == declaration_id:
+                return True
+        return False
 
     def _expression(self, node: ast.expr) -> dict[str, object]:
         if isinstance(node, ast.Constant) and isinstance(
@@ -431,9 +444,10 @@ class ReferenceCollector(ast.NodeVisitor):
                 continue
             for target in targets:
                 alias = self.module.aliases.get(child.id)
-                if (alias is not None and alias.target == target) or target.rpartition(".")[
-                    2
-                ] == child.id:
+                target_name: str = target
+                if (alias is not None and alias.target == target_name) or target_name.rpartition(
+                    "."
+                )[2] == child.id:
                     candidates.add(target)
             for target in sorted(candidates):
                 self._source_role(
@@ -706,41 +720,59 @@ def collect_references(
     return references
 
 
+def _source_role_definition_key(item: RawRecord) -> tuple[str, str] | None:
+    data = item["data"]
+    if item["kind"] != "source_role" or "role" not in data or data["role"] != "definition":
+        return None
+    canonical_name = data["canonical_name"] if "canonical_name" in data else None
+    declaration_id = data["declaration_id"] if "declaration_id" in data else None
+    if isinstance(canonical_name, str) and isinstance(declaration_id, str):
+        return canonical_name, declaration_id
+    return None
+
+
 def _reuse_local_definition_references(items: list[RawRecord]) -> list[RawRecord]:
     """Link one exact local read to its declaration instead of duplicating a role record."""
     definitions = {
-        (item["data"].get("canonical_name"), item["data"].get("declaration_id")): item
-        for item in items
-        if item["kind"] == "source_role"
-        and item["data"].get("role") == "definition"
-        and isinstance(item["data"].get("canonical_name"), str)
+        key: item for item in items if (key := _source_role_definition_key(item)) is not None
     }
-    linked: set[tuple[object, object]] = set()
+    linked: set[tuple[str, str]] = set()
     for item in items:
         data = item["data"]
         if item["kind"] not in {"value_reference", "attribute_reference"}:
             continue
-        targets = data.get("targets", ())
-        key = (targets[0] if len(targets) == 1 else None, data.get("declaration_id"))
+        targets = data["targets"] if "targets" in data else ()
+        target = targets[0] if isinstance(targets, list) and len(targets) == 1 else None
+        declaration_id = data["declaration_id"] if "declaration_id" in data else None
+        if not isinstance(target, str) or not isinstance(declaration_id, str):
+            continue
+        key = (target, declaration_id)
         definition = definitions.get(key)
-        if definition is None or key in linked or data.get("local_source_binding") is not True:
+        if (
+            definition is None
+            or key in linked
+            or "local_source_binding" not in data
+            or data["local_source_binding"] is not True
+        ):
             continue
         data["declaration_role"] = "definition"
         data["declaration_evidence_ids"] = list(definition["evidence_ids"])
-        data["declaration_status"] = definition["data"].get("status")
-        data["declaration_owner_scope"] = definition["data"].get(
-            "declaration_owner_scope", definition["data"].get("source_scope")
+        definition_data = definition["data"]
+        data["declaration_status"] = (
+            definition_data["status"] if "status" in definition_data else None
         )
-        owner_id = definition["data"].get("declaration_owner_id")
+        owner_scope = (
+            definition_data["declaration_owner_scope"]
+            if "declaration_owner_scope" in definition_data
+            else (definition_data["source_scope"] if "source_scope" in definition_data else None)
+        )
+        data["declaration_owner_scope"] = owner_scope
+        owner_id = (
+            definition_data["declaration_owner_id"]
+            if "declaration_owner_id" in definition_data
+            else None
+        )
         if isinstance(owner_id, str):
             data["declaration_owner_id"] = owner_id
         linked.add(key)
-    return [
-        item
-        for item in items
-        if not (
-            item["kind"] == "source_role"
-            and item["data"].get("role") == "definition"
-            and (item["data"].get("canonical_name"), item["data"].get("declaration_id")) in linked
-        )
-    ]
+    return [item for item in items if _source_role_definition_key(item) not in linked]

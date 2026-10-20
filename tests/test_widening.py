@@ -464,6 +464,25 @@ def test_rule_kind_widening_table(
     assert bool(findings) == widens, (label, findings)
 
 
+def test_bounded_numeric_threshold_direction() -> None:
+    before = replace(_bounded_numeric_operand(), minimum_value=16)
+    assert _rule_diff(before, replace(_bounded_numeric_operand(), minimum_value=32)) == ()
+    findings = _rule_diff(before, replace(_bounded_numeric_operand(), minimum_value=8))
+    assert len(findings) == 1
+    assert "minimum_value" in findings[0]
+
+
+@pytest.mark.parametrize(
+    "field,value", [("source", "pkg.b"), ("form", "binary"), ("terminal_suffix", "_id")]
+)
+def test_bounded_numeric_unclassified_fields_fail_closed(field: str, value: str) -> None:
+    findings = _rule_diff(
+        _bounded_numeric_operand(), replace(_bounded_numeric_operand(), **{field: value})
+    )
+    assert findings
+    assert any(field in finding for finding in findings)
+
+
 def test_every_typed_rule_kind_has_one_widening_classification() -> None:
     """The typed ArchitectureRule union is the source of truth for this partition."""
     assert _PERMISSION_RULE_KINDS.isdisjoint(_RESTRICTION_RULE_KINDS)

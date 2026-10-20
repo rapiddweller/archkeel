@@ -934,13 +934,14 @@ def _selector_receipt_complete(
     selected_records = (*modules, *symbols)
     if not selected_records or set(receipt.subjects) != set(source_names):
         return False
-    selectors = tuple(
-        item
-        for item in observation.records("constructs") or ()
-        if item.kind == "construct_selector"
-        and isinstance((owner := item.data.get("owner")), str)
-        and any(owner == module or owner.startswith(f"{module}.") for module in source_names)
-    )
+    selectors: list[Record] = []
+    for item in observation.records("constructs") or ():
+        owner_value = item.data.get("owner")
+        if item.kind != "construct_selector" or not isinstance(owner_value, str):
+            continue
+        owner: str = owner_value
+        if any(owner == module or owner.startswith(f"{module}.") for module in source_names):
+            selectors.append(item)
     expected_inventory_ids = tuple(sorted(item.id for item in selectors))
     expected_fact_ids = {item.id for item in selected_records} | set(expected_inventory_ids)
     all_modules = observation.records("modules") or ()
@@ -1619,10 +1620,15 @@ def _source_ownership_receipt_complete(observation: Observation, receipt: Record
 
 def _source_scope_covers_rule(observation: Observation, declaration: Record) -> bool:
     """Require scan roots to contain the mapped physical source prefix."""
-    source = declaration.data.get("source")
-    if not isinstance(source, str):
+    source_value = declaration.data.get("source")
+    if not isinstance(source_value, str):
         return False
-    roots = tuple(scope.removesuffix("/**/*.py") for scope in observation.source.scope)
+    source: str = source_value
+    root_paths: list[str] = []
+    for raw_scope in observation.source.scope:
+        scope: str = raw_scope
+        root_paths.append(scope.removesuffix("/**/*.py"))
+    roots = tuple(root_paths)
     source_parts = tuple(source.split("."))
     mapped_prefixes = tuple(
         prefix
@@ -1647,11 +1653,15 @@ def _physical_source_prefix(
 ) -> _PurePosixPath | None:
     """Map a source-qualified prefix through one observed module/file pair."""
     module_parts = tuple(module.split("."))
-    path = _PurePosixPath(file)
+    path: _PurePosixPath = _PurePosixPath(file)
     if len(module_parts) == len(source_parts):
         return path
     suffix = module_parts[len(source_parts) :]
-    physical_module = path.parent if path.name == "__init__.py" else path.with_suffix("")
+    physical_module = (
+        path.parent
+        if path.name == "__init__.py"
+        else _PurePosixPath(file.removesuffix(path.suffix))
+    )
     if len(suffix) > len(physical_module.parts):
         return None
     prefix_parts = physical_module.parts[: len(physical_module.parts) - len(suffix)]
@@ -1663,7 +1673,7 @@ def _physical_path_covered(path: _PurePosixPath, roots: tuple[str, ...]) -> bool
         root = _PurePosixPath(raw_root)
         if root in {_PurePosixPath(""), _PurePosixPath(".")}:
             return True
-        if path == root or path.is_relative_to(root):
+        if path.parts[: len(root.parts)] == root.parts:
             return True
     return False
 
