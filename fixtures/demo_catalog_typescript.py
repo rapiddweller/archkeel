@@ -24,6 +24,10 @@ def with_rule(kind: str, **fields: object) -> str:
         value["schema_version"] = "3.11.0"
     elif kind == "call_owner":
         value["schema_version"] = "3.7.0"
+    elif kind == "bounded_numeric_operand":
+        value["schema_version"] = "3.8.0"
+    elif kind == "protocol_declarations":
+        value["schema_version"] = "3.9.0"
     elif kind == "forbidden_call_argument":
         value["schema_version"] = "3.10.0"
     value["rules"].append(
@@ -73,6 +77,19 @@ def example(
 
 
 UNSUPPORTED_RULES = {
+    "protocol_declarations": {
+        "source": "shop",
+        "protocol": "shop.Port",
+        "selectors": [
+            {"role": "parameter", "name": "port", "visibility": "all", "optional": False}
+        ],
+    },
+    "bounded_numeric_operand": {
+        "source": "shop",
+        "form": "both",
+        "terminal_suffix": "nonce",
+        "minimum_value": 4,
+    },
     "call_owner": {"source": "shop", "target": "shop.src.main_x2e_ts.main"},
     "forbidden_call_argument": {
         "source": "shop",

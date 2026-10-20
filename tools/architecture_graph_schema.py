@@ -470,13 +470,18 @@ def _update_contract_schema(path: Path) -> None:
         }
     if version is not None and supports_feature(version, ContractFeature.PROTOCOL_DECLARATIONS):
         non_empty = {"type": "string", "pattern": "\\S"}
+        identifier = {"type": "string", "pattern": r"^[A-Za-z_][A-Za-z0-9_]*(?![\s\S])"}
+        dotted_identifier = {
+            "type": "string",
+            "pattern": r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*(?![\s\S])",
+        }
         schema["$defs"]["protocolDeclarationSelector"] = {
             "type": "object",
             "required": ["role", "name", "visibility"],
             "additionalProperties": False,
             "properties": {
                 "role": {"enum": ["parameter", "member"]},
-                "name": non_empty,
+                "name": identifier,
                 "visibility": {"enum": ["public", "all"]},
                 "optional": {"type": "boolean"},
             },
@@ -497,8 +502,8 @@ def _update_contract_schema(path: Path) -> None:
             "properties": {
                 "id": {"$ref": "#/$defs/nonEmpty"},
                 "kind": {"const": "protocol_declarations"},
-                "source": non_empty,
-                "protocol": non_empty,
+                "source": dotted_identifier,
+                "protocol": dotted_identifier,
                 "selectors": {
                     "type": "array",
                     "minItems": 1,

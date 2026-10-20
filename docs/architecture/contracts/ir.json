@@ -12613,7 +12613,7 @@
           "language": "python",
           "presence": "planned",
           "provenance": [
-            "docs/architecture/decisions/ad-244-bounded-call-identity.md"
+            "docs/architecture/decisions/ad-252-bounded-call-identity.md"
           ],
           "visibility": {
             "kind": "public",

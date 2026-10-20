@@ -12,6 +12,7 @@ from archkeel.ir.facts_codec import RawData, RawRecord, classified
 from archkeel.ir.model import (
     ArchitectureContract,
     EvidenceClass,
+    ModuleExports,
     ProtocolDeclarationRole,
     ProtocolDeclarationsRule,
     ProtocolDeclarationVisibility,
@@ -46,6 +47,13 @@ def _attribute_visibility(attribute: RawData) -> str | None:
     return None
 
 
+def _parameter_name(parameter: RawData) -> str | None:
+    if not isinstance(parameter, dict):
+        return None
+    name = parameter.get("name")
+    return str.lstrip(name, "*") if isinstance(name, str) else None
+
+
 def _selected_positions(
     rule: ProtocolDeclarationsRule,
     symbols: Sequence[RawRecord],
@@ -73,7 +81,10 @@ def _selected_positions(
                     continue
                 parameters = data.get("parameters", ())
                 for parameter in parameters if isinstance(parameters, (tuple, list)) else ():
-                    if not isinstance(parameter, dict) or parameter.get("name") != selector.name:
+                    if (
+                        not isinstance(parameter, dict)
+                        or _parameter_name(parameter) != selector.name
+                    ):
                         continue
                     position = f"parameter.{selector.name}"
                     annotation = parameter.get("annotation")
@@ -113,7 +124,7 @@ def _identity_verdict(
     module: str,
     target: tuple[str, str],
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     type_shapes: TypeShapeIndex,
@@ -174,6 +185,134 @@ def _identity_verdict(
     return "FAIL", "wrong_protocol_identity"
 
 
+def _protocol_position_finding(
+    rule: ProtocolDeclarationsRule,
+    symbol: RawRecord,
+    position: str,
+    annotation: str | None,
+    evidence_ids: tuple[str, ...],
+    facts: list[str],
+    status: str,
+    reason: str,
+) -> RawRecord | None:
+    if status not in {"FAIL", "UNKNOWN"}:
+        return None
+    failed = status == "FAIL"
+    data: RawData = {
+        "qualified_name": symbol["data"]["qualified_name"],
+        "position": position,
+        "protocol": rule.protocol,
+        "reason": reason,
+    }
+    if failed:
+        data["annotation"] = annotation
+    return classified(
+        item_id=stable_id(
+            "VIO" if failed else "UNKNOWN-PROTOCOL-DECLARATION", rule.id, symbol["id"], position
+        ),
+        evidence_class=EvidenceClass.VIOLATION if failed else EvidenceClass.UNKNOWN,
+        area="api_surface" if failed else "analysis_coverage",
+        kind="protocol_declaration" if failed else "protocol_declaration_limit",
+        title=(
+            f"{symbol['data']['qualified_name']} {position} does not declare {rule.protocol}"
+            if failed
+            else f"{symbol['data']['qualified_name']} {position} cannot be resolved"
+        ),
+        subjects=[symbol["data"]["qualified_name"], position, rule.protocol],
+        evidence_ids=list(evidence_ids),
+        rule_ids=[rule.id],
+        fact_ids=facts,
+        data=data,
+    )
+
+
+def _protocol_findings(
+    rule: ProtocolDeclarationsRule,
+    selected: Sequence[tuple[RawRecord, str, str | None, tuple[str, ...]]],
+    symbols: Sequence[RawRecord],
+    target: tuple[str, str],
+    contract: ArchitectureContract,
+    exports: ModuleExports,
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    type_shapes: TypeShapeIndex,
+) -> tuple[list[RawRecord], list[RawRecord]]:
+    violations: list[RawRecord] = []
+    unknowns: list[RawRecord] = []
+    target_module, target_name = target
+    for symbol, position, annotation, evidence_ids in selected:
+        selector = next(
+            selector
+            for selector in rule.selectors
+            if position == f"{selector.role.value}.{selector.name}"
+        )
+        if annotation is None:
+            status, reason = "FAIL", "missing_annotation"
+        else:
+            status, reason = _identity_verdict(
+                annotation,
+                symbol["data"]["module"],
+                target,
+                contract,
+                exports,
+                imports_by_binding,
+                classes_by_location,
+                type_shapes,
+                selector.optional,
+            )
+        facts = [symbol["id"]]
+        target_fact = next(
+            (
+                item["id"]
+                for item in symbols
+                if item["data"]["module"] == target_module
+                and item["data"]["name"] == target_name
+                and item["kind"] == "class"
+            ),
+            None,
+        )
+        if target_fact is not None:
+            facts.append(target_fact)
+        finding = _protocol_position_finding(
+            rule, symbol, position, annotation, evidence_ids, facts, status, reason
+        )
+        if finding is not None:
+            if status == "FAIL":
+                violations.append(finding)
+            else:
+                unknowns.append(finding)
+    return violations, unknowns
+
+
+def _protocol_scope_limit(
+    rule: ProtocolDeclarationsRule, modules: Sequence[RawRecord], reason: str
+) -> RawRecord:
+    return classified(
+        item_id=stable_id("UNKNOWN-PROTOCOL-DECLARATIONS", rule.id, reason),
+        evidence_class=EvidenceClass.UNKNOWN,
+        area="analysis_coverage",
+        kind="protocol_declaration_limit",
+        title=f"{rule.id} cannot evaluate selected Protocol declarations: {reason}",
+        subjects=[rule.source, rule.protocol],
+        rule_ids=[rule.id],
+        fact_ids=[item["id"] for item in modules],
+        evidence_ids=sorted({evidence for item in modules for evidence in item["evidence_ids"]}),
+        data={"source": rule.source, "protocol": rule.protocol, "reason": reason},
+    )
+
+
+def _unmatched_selectors(
+    rule: ProtocolDeclarationsRule,
+    selected: Sequence[tuple[RawRecord, str, str | None, tuple[str, ...]]],
+) -> tuple[str, ...]:
+    positions = {item[1] for item in selected}
+    return tuple(
+        position
+        for selector in rule.selectors
+        if (position := f"{selector.role.value}.{selector.name}") not in positions
+    )
+
+
 def protocol_declaration_results(
     *,
     symbols: Sequence[RawRecord],
@@ -213,13 +352,14 @@ def protocol_declaration_results(
             and parse_symbol_class_kind(target_record.get("class_kind")) is SymbolClassKind.PROTOCOL
         )
         selected = _selected_positions(rule, symbols, source_modules)
+        unmatched = _unmatched_selectors(rule, selected)
         selected_modules = [
             module
             for module in modules
             if in_scope(module["data"]["qualified_name"], rule.source)
             and (source_modules is None or module["data"]["qualified_name"] in source_modules)
         ]
-        if selected and target_valid:
+        if not unmatched and target_valid:
             receipts.append(
                 _rule_evaluation_receipt(
                     rule,
@@ -229,106 +369,25 @@ def protocol_declaration_results(
                     data={"protocol": rule.protocol},
                 )
             )
+        if unmatched or not target_valid:
+            reason = "empty_scope" if unmatched else "protocol_missing_or_ambiguous"
+            unknowns.append(_protocol_scope_limit(rule, selected_modules, reason))
         if not selected or not target_valid:
-            reason = "empty_scope" if not selected else "protocol_missing_or_ambiguous"
-            unknowns.append(
-                classified(
-                    item_id=stable_id("UNKNOWN-PROTOCOL-DECLARATIONS", rule.id, reason),
-                    evidence_class=EvidenceClass.UNKNOWN,
-                    area="analysis_coverage",
-                    kind="protocol_declaration_limit",
-                    title=f"{rule.id} cannot evaluate selected Protocol declarations: {reason}",
-                    subjects=[rule.source, rule.protocol],
-                    rule_ids=[rule.id],
-                    fact_ids=[item["id"] for item in selected_modules],
-                    evidence_ids=sorted(
-                        {evidence for item in selected_modules for evidence in item["evidence_ids"]}
-                    ),
-                    data={"source": rule.source, "protocol": rule.protocol, "reason": reason},
-                )
-            )
             continue
         target = (target_module, target_name)
-        for symbol, position, annotation, evidence_ids in selected:
-            selector = next(
-                selector
-                for selector in rule.selectors
-                if position == f"{selector.role.value}.{selector.name}"
-            )
-            if annotation is None:
-                status, reason = "FAIL", "missing_annotation"
-            else:
-                status, reason = _identity_verdict(
-                    annotation,
-                    symbol["data"]["module"],
-                    target,
-                    contract,
-                    exports,
-                    imports_by_binding,
-                    classes_by_location,
-                    type_shapes,
-                    selector.optional,
-                )
-            facts = [symbol["id"]]
-            if isinstance(target_record, dict):
-                target_fact = next(
-                    (
-                        item["id"]
-                        for item in symbols
-                        if item["data"]["module"] == target_module
-                        and item["data"]["name"] == target_name
-                        and item["kind"] == "class"
-                    ),
-                    None,
-                )
-                if target_fact is not None:
-                    facts.append(target_fact)
-            if status == "FAIL":
-                violations.append(
-                    classified(
-                        item_id=stable_id("VIO", rule.id, symbol["id"], position),
-                        evidence_class=EvidenceClass.VIOLATION,
-                        area="api_surface",
-                        kind="protocol_declaration",
-                        title=(
-                            f"{symbol['data']['qualified_name']} {position} "
-                            f"does not declare {rule.protocol}"
-                        ),
-                        subjects=[symbol["data"]["qualified_name"], position, rule.protocol],
-                        evidence_ids=list(evidence_ids),
-                        rule_ids=[rule.id],
-                        fact_ids=facts,
-                        data={
-                            "qualified_name": symbol["data"]["qualified_name"],
-                            "position": position,
-                            "annotation": annotation,
-                            "protocol": rule.protocol,
-                            "reason": reason,
-                        },
-                    )
-                )
-            elif status == "UNKNOWN":
-                unknowns.append(
-                    classified(
-                        item_id=stable_id(
-                            "UNKNOWN-PROTOCOL-DECLARATION", rule.id, symbol["id"], position
-                        ),
-                        evidence_class=EvidenceClass.UNKNOWN,
-                        area="analysis_coverage",
-                        kind="protocol_declaration_limit",
-                        title=f"{symbol['data']['qualified_name']} {position} cannot be resolved",
-                        subjects=[symbol["data"]["qualified_name"], position, rule.protocol],
-                        evidence_ids=list(evidence_ids),
-                        rule_ids=[rule.id],
-                        fact_ids=facts,
-                        data={
-                            "qualified_name": symbol["data"]["qualified_name"],
-                            "position": position,
-                            "protocol": rule.protocol,
-                            "reason": reason,
-                        },
-                    )
-                )
+        failed, undecided = _protocol_findings(
+            rule,
+            selected,
+            symbols,
+            target,
+            contract,
+            exports,
+            imports_by_binding,
+            classes_by_location,
+            type_shapes,
+        )
+        violations.extend(failed)
+        unknowns.extend(undecided)
     return (
         sorted(violations, key=lambda item: item["id"]),
         sorted(unknowns, key=lambda item: item["id"]),

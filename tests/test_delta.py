@@ -442,7 +442,7 @@ def test_delta_ratchets_retain_supported_observation_history(schema_version: str
         checker_digest=package_digest(),
     )
 
-    assert delta.ratchets.status.value == "supported"
+    assert delta.ratchets.status.value == "SUPPORTED"
 
 
 def test_one_module_with_one_intra_component_import_is_one_semantic_change(

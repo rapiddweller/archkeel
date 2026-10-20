@@ -63,6 +63,7 @@ RULES = {
     ),
 }
 RULE_SCHEMA_VERSIONS = {
+    "forbidden_construct": "3.11.0",
     "forbidden_call_argument": "3.10.0",
     "protocol_declarations": "3.9.0",
     "bounded_numeric_operand": "3.8.0",

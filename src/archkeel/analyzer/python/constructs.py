@@ -12,6 +12,7 @@ from enum import Enum
 from typing import Protocol
 
 from archkeel.ir.facts import (
+    MAX_NUMERIC_EVIDENCE_CHARS,
     MAX_STATIC_INTEGER,
     CallBindingOrigin,
     EvidenceClass,
@@ -33,6 +34,112 @@ from .source import (
     own_scope,
     stable_direct_module_bindings,
 )
+
+
+def _numeric_evidence_excerpt_supported(excerpt: str) -> bool:
+    if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
+        return False
+    if _numeric_elif_start(excerpt) is not None:
+        return _numeric_elif_excerpt_supported(excerpt)
+    try:
+        ast.parse(excerpt)
+        return True
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+        parsed = _numeric_indented_excerpt(excerpt, indentation, synthetic_body=False)
+        if parsed is not None:
+            return True
+        parsed = _numeric_indented_excerpt(excerpt, indentation, synthetic_body=True)
+        return (
+            parsed is not None
+            and len(parsed[0]) == 1
+            and _numeric_header_has_synthetic_body(parsed[0][0])
+        )
+
+
+def _numeric_elif_start(excerpt: str) -> int | None:
+    for index, character in enumerate(excerpt):
+        if character not in " \t":
+            if excerpt[index : index + 4] != "elif":
+                return None
+            if index + 4 < len(excerpt) and excerpt[index + 4] not in " \t(":
+                return None
+            return index
+    return None
+
+
+def _numeric_indented_excerpt(
+    excerpt: str, indentation: str, *, synthetic_body: bool
+) -> tuple[tuple[ast.stmt, ...], int] | None:
+    unit = "\t" if "\t" in indentation else "    "
+    if len(indentation) % len(unit):
+        return None
+    depth = len(indentation) // len(unit)
+    wrappers = "".join(f"{unit * level}if True:\n" for level in range(depth))
+    suffix = f"\n{indentation}{unit}pass" if synthetic_body else ""
+    try:
+        parsed = ast.parse(wrappers + excerpt + suffix)
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    roots = tuple(parsed.body)
+    for _ in range(depth):
+        if len(roots) != 1 or not isinstance(roots[0], ast.If):
+            return None
+        roots = tuple(roots[0].body)
+    return roots, depth
+
+
+def _numeric_header_has_synthetic_body(node: ast.stmt) -> bool:
+    header_types = (
+        ast.If,
+        ast.While,
+        ast.For,
+        ast.AsyncFor,
+        ast.With,
+        ast.AsyncWith,
+        ast.FunctionDef,
+        ast.AsyncFunctionDef,
+        ast.ClassDef,
+    )
+    return (
+        isinstance(node, header_types)
+        and len(node.body) == 1
+        and isinstance(node.body[0], ast.Pass)
+    )
+
+
+def _numeric_elif_excerpt_supported(excerpt: str) -> bool:
+    indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+    unit = "\t" if "\t" in indentation else "    "
+    if not indentation or len(indentation) % len(unit):
+        return False
+    depth = len(indentation) // len(unit)
+    wrappers = "".join(f"{unit * level}if True:\n" for level in range(depth))
+    source = (
+        f"{wrappers}{indentation}if True:\n{indentation}{unit}pass\n"
+        f"{excerpt}\n{indentation}{unit}pass"
+    )
+    try:
+        parsed = ast.parse(source)
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return False
+    if len(parsed.body) != 1 or not isinstance(parsed.body[0], ast.If):
+        return False
+    roots = tuple(parsed.body)
+    for _ in range(depth):
+        if len(roots) != 1 or not isinstance(roots[0], ast.If):
+            return False
+        roots = tuple(roots[0].body)
+    if len(roots) != 1 or not isinstance(roots[0], ast.If):
+        return False
+    preceding = roots[0]
+    return (
+        len(preceding.body) == 1
+        and isinstance(preceding.body[0], ast.Pass)
+        and len(preceding.orelse) == 1
+        and isinstance(preceding.orelse[0], ast.If)
+        and _numeric_header_has_synthetic_body(preceding.orelse[0])
+    )
 
 
 class _StringPredicate(Enum):
@@ -590,66 +697,69 @@ class ConstructCollector(ast.NodeVisitor):
                 result = -result
             return result, left + right
         if isinstance(node, ast.Name):
-            name = node.id
-            if name in seen:
-                return None, []
-            binding = self.scopes.lookup(node, name)
-            owner = binding.owner
-            assignment = None
-            if owner is self.scopes.root:
-                matches = [
-                    statement
-                    for statement in self.module.tree.body
-                    if isinstance(statement, ast.Assign | ast.AnnAssign)
-                    and any(
-                        isinstance(target, ast.Name) and target.id == name
-                        for target in (
-                            statement.targets
-                            if isinstance(statement, ast.Assign)
-                            else [statement.target]
-                        )
-                    )
-                ]
-                if name in stable_direct_module_bindings(self.module) and len(matches) == 1:
-                    assignment = matches[0]
-            elif owner is not None and owner is self.scopes.by_node.get(use):
-                sites = owner.bindings.get(name, [])
-                if len(sites) == 1:
-                    candidate = self.scopes.parents.get(sites[0])
-                    if (
-                        isinstance(candidate, (ast.Assign, ast.AnnAssign))
-                        and self.scopes.parents.get(candidate) is owner.node
-                    ):
-                        assignment = candidate
-            if assignment is None or assignment.value is None:
-                return None, []
-            use_line, use_column, _ = location(use)
-            assignment_line, assignment_column, _ = location(assignment)
-            if (assignment_line, assignment_column) >= (use_line, use_column):
-                return None, []
-            value, derivation = self._integer(
-                assignment.value, assignment, depth + 1, seen | {name}
-            )
-            if value is None:
-                return None, []
-            evidence_id = add_evidence(self.evidence, self.module, assignment)
-            line, _, column = location(assignment)
-            end_line: int = assignment.end_lineno if assignment.end_lineno is not None else line
-            end_column: int = (
-                assignment.end_col_offset if assignment.end_col_offset is not None else column
-            )
-            origin: dict[str, str | int] = {
-                "name": name,
-                "value": value,
-                "expression": ast.unparse(assignment.value),
-                "evidence_id": evidence_id,
-                "line": line,
-                "column": column,
-                "end_line": end_line,
-                "end_column": end_column,
-            }
-            return value, [origin, *derivation]
+            return self._integer_alias(node, use, depth, seen)
         return None, []
+
+    def _integer_alias(
+        self, node: ast.Name, use: ast.AST, depth: int, seen: frozenset[str]
+    ) -> tuple[int | None, list[dict[str, str | int]]]:
+        name = node.id
+        if name in seen:
+            return None, []
+        binding = self.scopes.lookup(node, name)
+        owner = binding.owner
+        assignment = None
+        if owner is self.scopes.root:
+            matches = [
+                statement
+                for statement in self.module.tree.body
+                if isinstance(statement, ast.Assign | ast.AnnAssign)
+                and any(
+                    isinstance(target, ast.Name) and target.id == name
+                    for target in (
+                        statement.targets
+                        if isinstance(statement, ast.Assign)
+                        else [statement.target]
+                    )
+                )
+            ]
+            if name in stable_direct_module_bindings(self.module) and len(matches) == 1:
+                assignment = matches[0]
+        elif owner is not None and owner is self.scopes.by_node.get(use):
+            sites = owner.bindings.get(name, [])
+            if len(sites) == 1:
+                candidate = self.scopes.parents.get(sites[0])
+                if (
+                    isinstance(candidate, (ast.Assign, ast.AnnAssign))
+                    and self.scopes.parents.get(candidate) is owner.node
+                ):
+                    assignment = candidate
+        if assignment is None or assignment.value is None:
+            return None, []
+        use_line, use_column, _ = location(use)
+        assignment_line, assignment_column, _ = location(assignment)
+        if (assignment_line, assignment_column) >= (use_line, use_column):
+            return None, []
+        value, derivation = self._integer(assignment.value, assignment, depth + 1, seen | {name})
+        if value is None:
+            return None, []
+        evidence_id = add_evidence(self.evidence, self.module, assignment)
+        line, _, column = location(assignment)
+        end_line: int = assignment.end_lineno if assignment.end_lineno is not None else line
+        end_column: int = (
+            assignment.end_col_offset if assignment.end_col_offset is not None else column
+        )
+        origin: dict[str, str | int] = {
+            "name": name,
+            "value": value,
+            "expression": ast.unparse(assignment.value),
+            "evidence_id": evidence_id,
+            "line": line,
+            "column": column,
+            "end_line": end_line,
+            "end_column": end_column,
+        }
+        return value, [origin, *derivation]
 
     @staticmethod
     def _terminal_name(node: ast.expr) -> str | None:
@@ -666,6 +776,20 @@ class ConstructCollector(ast.NodeVisitor):
     ) -> None:
         subject = self._terminal_name(left)
         value, derivation = self._integer(right, node)
+        evidence_lines = [node.lineno, *(item["line"] for item in derivation)]
+        if value is not None and (
+            node.end_lineno != node.lineno
+            or any(item["line"] != item["end_line"] for item in derivation)
+            or any(
+                not isinstance(line, int)
+                or line < 1
+                or line > len(self.module.lines)
+                or len(self.module.lines[line - 1]) > MAX_NUMERIC_EVIDENCE_CHARS
+                or not _numeric_evidence_excerpt_supported(self.module.lines[line - 1])
+                for line in evidence_lines
+            )
+        ):
+            value, derivation = None, []
         start = (node.lineno, node.col_offset)
         end = (
             node.end_lineno if node.end_lineno is not None else node.lineno,
@@ -860,6 +984,16 @@ class ConstructCollector(ast.NodeVisitor):
         if receiver is not None and receiver_node is not None and receiver_binding is None:
             status = "unknown"
             receiver = None
+        if receiver_binding is not None and not self._selector_excerpt_replays(node):
+            # The validator deliberately proves selectors from their bounded source excerpt.
+            # A selector inside a multiline expression can start on a line that is not a
+            # standalone Python fragment (for example ``), FilesToWrite()``). Do not emit a
+            # typed receiver binding that the independent reader cannot replay from that line.
+            status = "unknown"
+            receiver = None
+            receiver_binding = None
+            receiver_parameter = None
+            receiver_evidence = []
         data: RecordData = {
             "owner": owner,
             "construct": "selector",
@@ -899,6 +1033,28 @@ class ConstructCollector(ast.NodeVisitor):
                 data=data,
             )
         )
+
+    def _selector_excerpt_replays(self, node: ast.AST) -> bool:
+        line, _, _ = location(node)
+        excerpt = self.module.lines[line - 1].rstrip() if line <= len(self.module.lines) else ""
+        if not excerpt:
+            return False
+        try:
+            ast.parse(excerpt)
+            return True
+        except (IndentationError, SyntaxError, ValueError, RecursionError):
+            try:
+                ast.parse(f"if True:\n{excerpt}\n")
+                return True
+            except (IndentationError, SyntaxError, ValueError, RecursionError):
+                if isinstance(node, ast.Match) and excerpt.rstrip().endswith(":"):
+                    indent = len(excerpt) - len(excerpt.lstrip(" "))
+                    try:
+                        ast.parse(f"if True:\n{excerpt}\n{' ' * (indent + 4)}case _: pass\n")
+                        return True
+                    except (IndentationError, SyntaxError, ValueError, RecursionError):
+                        pass
+                return False
 
     def _selector_import_evidence(self, node: ast.AST, role: str, target: str) -> list[str]:
         if not isinstance(node, ast.Call):
@@ -1048,7 +1204,9 @@ class ConstructCollector(ast.NodeVisitor):
             if len(node.args) >= 2:
                 target = self.comparisons._canonical_name(node.args[1])
                 if target in self.local_classes:
-                    self._selector_record(node, "type_probe", target, None, operation="probe")
+                    self._selector_record(
+                        node.args[1], "type_probe", target, None, operation="probe"
+                    )
         target = self.comparisons._canonical_name(node.func)
         if target in self.local_classes:
             self._selector_record(node, "constructor", target, None, operation="construct")

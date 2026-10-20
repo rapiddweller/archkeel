@@ -38,6 +38,8 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
     NoComponentCyclesRule,
+    ProtocolDeclarationSelector,
+    ProtocolDeclarationsRule,
     RequiredComponent,
     RootLayoutRule,
     SiblingIsolationRule,
@@ -157,6 +159,20 @@ def _bounded_numeric_operand() -> BoundedNumericOperandRule:
         _PROVENANCE,
         "architect",
     )
+
+
+def _protocol_declarations(**overrides: object) -> ProtocolDeclarationsRule:
+    base = ProtocolDeclarationsRule(
+        "R",
+        "protocol_declarations",
+        "pkg.a",
+        "pkg.ports.Reader",
+        (ProtocolDeclarationSelector("parameter", "client", "public"),),
+        "because",
+        _PROVENANCE,
+        "architect",
+    )
+    return replace(base, **overrides)
 
 
 def _component(**overrides: object) -> ContractComponent:
@@ -368,6 +384,22 @@ _RULE_CASES: tuple[tuple[str, ArchitectureRule | None, ArchitectureRule | None, 
     ("boundary_types removed", _boundary_types(), None, True),
     ("bounded_numeric_operand added", None, _bounded_numeric_operand(), False),
     ("bounded_numeric_operand removed", _bounded_numeric_operand(), None, True),
+    ("protocol_declarations added", None, _protocol_declarations(), False),
+    ("protocol_declarations removed", _protocol_declarations(), None, True),
+    (
+        "protocol_declarations port changed",
+        _protocol_declarations(),
+        _protocol_declarations(protocol="pkg.ports.Writer"),
+        True,
+    ),
+    (
+        "protocol_declarations selector changed",
+        _protocol_declarations(),
+        _protocol_declarations(
+            selectors=(ProtocolDeclarationSelector("parameter", "client", "public", True),)
+        ),
+        True,
+    ),
 )
 
 

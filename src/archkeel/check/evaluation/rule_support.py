@@ -22,12 +22,14 @@ from archkeel.ir.model import (
     ExternalDependencyScopeRule,
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
+    ModuleExports,
     NoComponentCyclesRule,
     SiblingIsolationRule,
     forbidden_dependency_scopes,
     in_scope,
     module_in_ownership,
     stable_id,
+    stated_exports,
 )
 
 # AD-97: an import either decides a symbol rule or, when the scan cannot see which names it
@@ -146,8 +148,8 @@ def _forbidden_dependency_matches(
             yield rule, item
 
 
-def exports_by_module(modules: Sequence[RawRecord]) -> dict[str, frozenset[str]]:
-    """Map each scanned module to its literal `__all__`, or an empty set when it declares none.
+def exports_by_module(modules: Sequence[RawRecord]) -> ModuleExports:
+    """Map each scanned module to its stated `__all__`, or None when it states none (AD-244).
 
     Shared by `interface_boundary` and `boundary_types` (AD-63): both need the same answer to
     "does this module's `__all__` narrow which of its names are public", so both read it from
@@ -156,7 +158,10 @@ def exports_by_module(modules: Sequence[RawRecord]) -> dict[str, frozenset[str]]
     `rule_violations` and `rule_subject_failures` too (issue #56).
     """
     return {
-        item["data"]["qualified_name"]: frozenset(item["data"]["all_exports"]) for item in modules
+        item["data"]["qualified_name"]: stated_exports(
+            tuple(item["data"]["all_exports"]), item["data"]["all_literal"]
+        )
+        for item in modules
     }
 
 

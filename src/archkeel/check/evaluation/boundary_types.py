@@ -40,6 +40,7 @@ from archkeel.ir.model import (
     ContractComponent,
     EvidenceClass,
     ForbiddenDependencyRule,
+    ModuleExports,
     component_owns_module,
     facade_covers,
     in_scope,
@@ -642,7 +643,7 @@ def boundary_type_indexes(
     symbols: Sequence[RawRecord],
     imports: Sequence[RawRecord],
     contract: ArchitectureContract | None = None,
-    exports_by_module: dict[str, frozenset[str]] | None = None,
+    exports_by_module: ModuleExports | None = None,
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
     ancestor_contracts: Sequence[ArchitectureContract] = (),
 ) -> tuple[BindingIndex, BindingIndex]:
@@ -706,7 +707,7 @@ def _index_owner_facade_type_states(
     imports: Sequence[RawRecord],
     imports_by_binding: BindingIndex,
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     uncertain_reexport_origins: UncertainReexportOrigins,
 ) -> None:
     proven: set[tuple[str, str, str]] = set()
@@ -756,7 +757,7 @@ def _typing_wrapper_verdict(
     annotation: str,
     module: str,
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
@@ -849,7 +850,7 @@ def _boundary_type_verdict(
     annotation: str,
     module: str,
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
@@ -999,7 +1000,7 @@ def _enum_member_verdict(
     annotation: str,
     module: str,
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
@@ -1074,7 +1075,7 @@ def _bound_alias_metadata(
     module: str,
     alias_origin: tuple[str, str],
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     imports: BindingIndex,
     classes: BindingIndex,
     type_shapes: TypeShapeIndex,
@@ -1142,7 +1143,7 @@ def _bound_alias_body(
     alias: str,
     origin: tuple[str, str],
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     imports: BindingIndex,
     classes: BindingIndex,
     type_shapes: TypeShapeIndex,
@@ -1272,7 +1273,7 @@ def _type_alias_verdict(
     annotation: str,
     module: str,
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     imports: BindingIndex,
     classes: BindingIndex,
     *,
@@ -1351,12 +1352,13 @@ def _canonical_type_identity_verdict(
     annotation: str,
     module: str,
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     imports: BindingIndex,
     classes: BindingIndex,
     type_shapes: TypeShapeIndex,
+    _aliases_seen: frozenset[tuple[str, str]] = frozenset(),
 ) -> _Position:
-    """Drop only statically proven single-name aliases from a type identity result."""
+    """Resolve proven single-name aliases without inspecting a type's fields."""
     identity = _boundary_type_verdict(
         annotation,
         module,
@@ -1364,26 +1366,45 @@ def _canonical_type_identity_verdict(
         exports,
         imports,
         classes,
+        enter_collections=False,
         enter_fields=False,
         type_shapes=type_shapes,
     )
     if identity.undecidable is not None:
         return identity
-    aliases: set[tuple[str, str]] = set()
+    targets: set[tuple[str, str]] = set()
+    expanded_alias = False
     for origin in identity.resolved:
         symbol = classes.get(origin)
         if not isinstance(symbol, dict) or symbol.get("record_kind") != "type_alias":
+            targets.add(origin)
             continue
         alias = symbol.get("alias")
         shape = type_shapes.get(alias) if isinstance(alias, str) else None
-        if not _alias_binding_static(symbol, member_surface=False) or not isinstance(
-            shape, (TypeName, TypeMember)
+        if (
+            origin in _aliases_seen
+            or not isinstance(alias, str)
+            or not _alias_binding_static(symbol, member_surface=False)
+            or not isinstance(shape, (TypeName, TypeMember))
         ):
             return _Position(undecidable=_Cause.OTHER)
-        aliases.add(origin)
-    if not aliases:
+        expanded = _canonical_type_identity_verdict(
+            alias,
+            origin[0],
+            contract,
+            exports,
+            imports,
+            classes.module_bindings if classes.module_bindings is not None else classes,
+            type_shapes,
+            _aliases_seen | {origin},
+        )
+        expanded = _imported_alias_verdict(expanded, module, annotation, imports)
+        if expanded.undecidable is not None:
+            return expanded
+        targets.update(expanded.resolved)
+        expanded_alias = True
+    if not expanded_alias:
         return identity
-    targets = set(identity.resolved) - aliases
     if len(targets) != 1:
         return _Position(undecidable=_Cause.OTHER)
     resolved = tuple(sorted(targets))
@@ -1458,7 +1479,7 @@ def _named_type_verdict(
     annotation: str,
     module: str,
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
@@ -1543,7 +1564,7 @@ def _owned_type_verdict(
     class_kind: SymbolClassKind | None,
     reached: tuple[tuple[str, str], ...],
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     visited: frozenset[tuple[str, str]],
@@ -1778,7 +1799,7 @@ def _callable_signature_verdict(
     shape: TypeApplication,
     module: str,
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     imports: BindingIndex,
     classes: BindingIndex,
     visited: frozenset[tuple[str, str]],
@@ -1821,7 +1842,7 @@ def _union_annotation_verdict(
     parameters: list[str],
     module: str,
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     imports: BindingIndex,
     classes: BindingIndex,
     visited: frozenset[tuple[str, str]],
@@ -1860,7 +1881,7 @@ def _annotation_shape_verdict(
     annotation: str,
     module: str,
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
@@ -2245,7 +2266,7 @@ def _nullable_key_alias_proof(
     classes: BindingIndex,
     type_shapes: TypeShapeIndex,
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     visited: frozenset[tuple[str, str]],
     aliases_seen: frozenset[tuple[str, str]],
 ) -> tuple[BoundaryAliasBody, tuple[str, str], tuple[tuple[str, str], ...]] | None:
@@ -2340,7 +2361,7 @@ def _typed_mapping_union_proof(
     classes: BindingIndex,
     type_shapes: TypeShapeIndex,
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     visited: frozenset[tuple[str, str]],
     aliases_seen: frozenset[tuple[str, str]],
 ) -> _TypedMappingUnion | None:
@@ -2420,7 +2441,7 @@ def _mapping_union_verdict(
     classes: BindingIndex,
     type_shapes: TypeShapeIndex,
     contract: ArchitectureContract | None,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     visited: frozenset[tuple[str, str]],
     aliases_seen: frozenset[tuple[str, str]],
 ) -> _Position:
@@ -2549,7 +2570,7 @@ def _mapping_container_verdict(
     parameters: list[str],
     module: str,
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     visited: frozenset[tuple[str, str]],
@@ -2701,7 +2722,7 @@ def _declared_field_verdict(
     origin_symbol: RecordData | _AmbiguousBinding | None,
     module: str,
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
@@ -2917,7 +2938,7 @@ def _recursive_dto_alias_verdict(
     alias: str,
     resolved: tuple[str, str],
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     imports: BindingIndex,
     classes: BindingIndex,
     visited: frozenset[tuple[str, str]],
@@ -2999,7 +3020,7 @@ def _guarded_tuple_alias(
     annotation: str | None,
     module: str,
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     imports: BindingIndex,
     classes: BindingIndex,
     aliases_seen: frozenset[tuple[str, str]],
@@ -3064,7 +3085,7 @@ def _recursive_tuple_parameter(
     origin: tuple[str, str],
     module: str,
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     imports: BindingIndex,
     classes: BindingIndex,
     *,
@@ -3122,7 +3143,7 @@ def _collection_verdict(
     annotation: str,
     module: str,
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
@@ -3201,7 +3222,7 @@ def _combined_annotation_verdict(
     parameters: list[str],
     module: str,
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
@@ -3395,7 +3416,7 @@ def _contextmanager_verdict(
     annotation: str,
     module: str,
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     imports: BindingIndex,
     classes: BindingIndex,
     shapes: TypeShapeIndex,
@@ -3451,7 +3472,7 @@ def _source_local_function(data: RecordData) -> bool:
 def _declared_facade_positions(
     item: RawRecord,
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports: Sequence[RawRecord] = (),
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
     reexports: ReexportIndex | None = None,
@@ -3533,7 +3554,7 @@ def _declared_facade_positions(
 def _declared_facade_inherited_positions(
     data: RecordData,
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports: Sequence[RawRecord],
     uncertain_reexport_origins: UncertainReexportOrigins | None,
     reexports: ReexportIndex | None,
@@ -3583,7 +3604,7 @@ def _declared_facade_inherited_positions(
 def _declared_facade_method_positions(
     data: RecordData,
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports: Sequence[RawRecord],
     uncertain_reexport_origins: UncertainReexportOrigins | None,
     reexports: ReexportIndex | None,
@@ -3679,7 +3700,7 @@ def _reexport_declaration_proven(
 def _reexport_facade_entries(
     origin: str,
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports: Sequence[RawRecord],
     uncertain_reexport_origins: UncertainReexportOrigins,
     reexports: ReexportIndex | None = None,
@@ -3731,7 +3752,7 @@ def _facade_positions(
     item: RawRecord,
     rule: BoundaryTypesRule,
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports: Sequence[RawRecord] = (),
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
     reexports: ReexportIndex | None = None,
@@ -3798,7 +3819,7 @@ def facade_signature_types(
     symbols: Sequence[RawRecord],
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
     *,
     type_shapes: TypeShapeIndex,
@@ -3966,7 +3987,7 @@ def _scoped_facade_signature_types(
     symbols: Sequence[RawRecord],
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     uncertain_reexport_origins: UncertainReexportOrigins,
     source_modules: frozenset[str],
     scope_id: str,
@@ -4137,7 +4158,7 @@ def _declared_field_binding_static(data: RecordData, name: str) -> bool:
 def _declared_field_reach(
     item: RawRecord,
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     bindings: BindingIndex,
     classes: BindingIndex,
     published: bool,
@@ -4205,7 +4226,7 @@ def _resolved_position_types(
     module: str,
     positions: Sequence[tuple[str, str]],
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
@@ -4333,7 +4354,7 @@ def _effective_method_surface(
     symbols: Sequence[RawRecord],
     methods_by_parent: dict[str, list[RawRecord]],
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     imports: BindingIndex,
     classes: BindingIndex,
     *,
@@ -4414,7 +4435,7 @@ def _inherited_facade_types(
     symbols: Sequence[RawRecord],
     methods_by_parent: dict[str, list[RawRecord]],
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
@@ -4546,7 +4567,7 @@ def _declared_chain_positions(
 def _bound_method_positions(
     bound: _BoundMethod,
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     *,
     type_shapes: TypeShapeIndex,
 ) -> tuple[set[str], list[tuple[str, str, str, str, _Position]]]:
@@ -4584,7 +4605,7 @@ def _direct_generic_candidate_types(
     classes_by_qualified_name: dict[str, RawRecord],
     methods_by_parent: dict[str, list[RawRecord]],
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
@@ -4793,7 +4814,7 @@ def _inherited_generic_candidate_types(
     classes_by_qualified_name: dict[str, RawRecord],
     methods_by_parent: dict[str, list[RawRecord]],
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     *,
@@ -5540,7 +5561,7 @@ def _boundary_types_violations(
     symbols: Sequence[RawRecord],
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     uncertain_reexport_origins: UncertainReexportOrigins,
     source_modules: frozenset[str] | None = None,
     ancestor_contracts: Sequence[ArchitectureContract] = (),
@@ -5943,7 +5964,7 @@ def _unresolved_public_alias_routes(
     symbols: Sequence[RawRecord],
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     uncertain_reexport_origins: UncertainReexportOrigins,
     scanned_modules: set[str],
     stable_bindings_by_module: dict[str, frozenset[str]],
@@ -6167,7 +6188,7 @@ def boundary_type_limits(
     symbols: Sequence[RawRecord],
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     evidence: dict[str, RawEvidence],
     uncertain_reexport_origins: UncertainReexportOrigins,
     scanned_modules: set[str],
@@ -6235,7 +6256,7 @@ def _boundary_rule_positions(
     rule: BoundaryTypesRule,
     ordered_symbols: Sequence[RawRecord],
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports: Sequence[RawRecord],
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
@@ -6390,7 +6411,7 @@ def _undecidable_declared_positions(
     resolution_module: str,
     ambiguous_facade: bool,
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     occurrence: int,
@@ -6499,7 +6520,7 @@ def _public_api_positions(
     symbol: RawRecord,
     symbols: Sequence[RawRecord],
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     imports: BindingIndex,
     classes: BindingIndex,
     *,
@@ -6539,7 +6560,7 @@ def _public_api_field_positions(
     symbol: RawRecord,
     symbols: Sequence[RawRecord],
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     imports: BindingIndex,
     classes: BindingIndex,
     *,
@@ -6652,7 +6673,7 @@ def _public_api_base(
     symbol: RawRecord,
     symbols: Sequence[RawRecord],
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     imports: BindingIndex,
     classes: BindingIndex,
     *,
@@ -6738,7 +6759,7 @@ def _public_api_generic_bindings(
     expression: TypeApplication,
     module: str,
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     imports: BindingIndex,
     classes: BindingIndex,
     *,
@@ -6897,7 +6918,7 @@ def _boundary_rule_results(
     symbols: Sequence[RawRecord],
     contract: ArchitectureContract,
     components: tuple[ComponentOwnership, ...],
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     uncertain_reexport_origins: UncertainReexportOrigins,
     source_modules: frozenset[str] | None,
     ancestor_contracts: Sequence[ArchitectureContract],

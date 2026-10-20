@@ -24,6 +24,7 @@ from .facts import (
     Evidence,
     EvidenceClass,
     ExternalPackageTarget,
+    JsonValue,
     LocalTarget,
     MethodKind,
     PropertyOrigin,
@@ -108,8 +109,6 @@ _STRING_FIELDS = frozenset(
         "attribute",
         "path",
         "source_file",
-        "selector_role",
-        "operation",
     }
 )
 _OPTIONAL_STRINGS = frozenset(
@@ -120,10 +119,6 @@ _OPTIONAL_STRINGS = frozenset(
         "binding",
         "return_annotation",
         "alias_expression",
-        "receiver_type",
-        "receiver_parameter",
-        "member",
-        "literal",
     }
 )
 _BOOLEAN_FIELDS = frozenset(
@@ -257,39 +252,25 @@ def _annotation_class_origin(
     return matches[0] if len(matches) == 1 else None
 
 
-# Shared with bounded numeric source validation: selector ingress uses the same
-# single-line, size-limited excerpt parser and AST span mapping rather than a scanner.
-@lru_cache(maxsize=256)
-def _parse_numeric_evidence_excerpt(
-    excerpt: str,
-) -> tuple[tuple[ast.stmt, ...], int] | None:
-    if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
+def _provider_source_module(path: str) -> str | None:
+    prefix = ".archkeel-providers/"
+    if not _starts_with(path, prefix):
         return None
-    try:
-        return tuple(ast.parse(excerpt).body), 0
-    except (IndentationError, SyntaxError, ValueError, RecursionError):
-        try:
-            wrapper = ast.parse(f"if True:\n{excerpt}\n")
-        except (IndentationError, SyntaxError, ValueError, RecursionError):
-            return None
-        if not wrapper.body or not isinstance(wrapper.body[0], ast.If):
-            return None
-        return tuple(wrapper.body[0].body), 1
+    relative = path[len(prefix) :]
+    if _ends_with(relative, "/__init__.py"):
+        relative = relative[: -len("/__init__.py")]
+    elif _ends_with(relative, ".py"):
+        relative = relative[:-3]
+    else:
+        return None
+    parts = str.split(relative, "/")
+    if not all(str.isidentifier(part) for part in parts):
+        return None
+    return ".".join(parts)
 
 
-def _numeric_node_span(
-    node: ast.AST, source_line: int, line_offset: int
-) -> tuple[int, int, int, int] | None:
-    if not isinstance(node, ast.stmt | ast.expr):
-        return None
-    if node.end_lineno is None or node.end_col_offset is None:
-        return None
-    return (
-        node.lineno - line_offset + source_line - 1,
-        node.col_offset,
-        node.end_lineno - line_offset + source_line - 1,
-        node.end_col_offset,
-    )
+def _qualified_identifier(value: str) -> bool:
+    return bool(value) and all(str.isidentifier(part) for part in str.split(value, "."))
 
 
 def _selector_evidence_excerpt(
@@ -1080,6 +1061,407 @@ def _call_declaration(
     return target
 
 
+def _numeric_operand_alias(item: RecordData, evidence_ids: tuple[str, ...]) -> None:
+    span_names = ("line", "column", "end_line", "end_column")
+    origin_fields = {key for key, _ in item.entries}
+    origin_value = item.get("value")
+    origin_span = tuple(item.get(name) for name in span_names)
+    if (
+        origin_fields
+        != {
+            "name",
+            "value",
+            "expression",
+            "evidence_id",
+            "line",
+            "column",
+            "end_line",
+            "end_column",
+        }
+        or not isinstance(item.get("name"), str)
+        or not item.get("name")
+        or not isinstance(origin_value, int)
+        or isinstance(origin_value, bool)
+        or origin_value < -MAX_STATIC_INTEGER
+        or origin_value > MAX_STATIC_INTEGER
+        or not isinstance(item.get("expression"), str)
+        or not item.get("expression")
+        or not isinstance(item.get("evidence_id"), str)
+        or item.get("evidence_id") not in evidence_ids
+        or not all(isinstance(field, int) and not isinstance(field, bool) for field in origin_span)
+        or not isinstance(origin_span[0], int)
+        or not isinstance(origin_span[1], int)
+        or not isinstance(origin_span[2], int)
+        or not isinstance(origin_span[3], int)
+        or origin_span[0] < 1
+        or origin_span[1] < 0
+        or origin_span[2] < origin_span[0]
+        or origin_span[3] < 0
+    ):
+        raise ValueError("invalid numeric operand alias proof")
+
+
+@lru_cache(maxsize=256)
+def _parse_numeric_evidence_excerpt(
+    excerpt: str,
+) -> tuple[tuple[ast.stmt, ...], int] | None:
+    if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
+        return None
+    if _numeric_elif_start(excerpt) is not None:
+        return _parse_numeric_elif_excerpt(excerpt)
+    try:
+        return tuple(ast.parse(excerpt).body), 0
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+        parsed = _parse_indented_numeric_excerpt(excerpt, indentation, synthetic_body=False)
+        if parsed is not None:
+            return parsed
+        parsed = _parse_indented_numeric_excerpt(excerpt, indentation, synthetic_body=True)
+        if parsed is None or len(parsed[0]) != 1:
+            return None
+        return parsed if _numeric_header_has_synthetic_body(parsed[0][0]) else None
+
+
+def _numeric_elif_start(excerpt: str) -> int | None:
+    for index, character in enumerate(excerpt):
+        if character not in " \t":
+            if excerpt[index : index + 4] != "elif":
+                return None
+            if index + 4 < len(excerpt) and excerpt[index + 4] not in " \t(":
+                return None
+            return index
+    return None
+
+
+def _parse_indented_numeric_excerpt(
+    excerpt: str, indentation: str, *, synthetic_body: bool
+) -> tuple[tuple[ast.stmt, ...], int] | None:
+    unit = "\t" if "\t" in indentation else "    "
+    if len(indentation) % len(unit):
+        return None
+    depth = len(indentation) // len(unit)
+    wrappers = "".join(f"{unit * level}if True:\n" for level in range(depth))
+    suffix = f"\n{indentation}{unit}pass" if synthetic_body else ""
+    try:
+        parsed = ast.parse(wrappers + excerpt + suffix)
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    roots = tuple(parsed.body)
+    for _ in range(depth):
+        if len(roots) != 1 or not isinstance(roots[0], ast.If):
+            return None
+        roots = tuple(roots[0].body)
+    return roots, depth
+
+
+def _numeric_header_has_synthetic_body(node: ast.stmt) -> bool:
+    header_types = (
+        ast.If,
+        ast.While,
+        ast.For,
+        ast.AsyncFor,
+        ast.With,
+        ast.AsyncWith,
+        ast.FunctionDef,
+        ast.AsyncFunctionDef,
+        ast.ClassDef,
+    )
+    return (
+        isinstance(node, header_types)
+        and len(node.body) == 1
+        and isinstance(node.body[0], ast.Pass)
+    )
+
+
+def _parse_numeric_elif_excerpt(excerpt: str) -> tuple[tuple[ast.stmt, ...], int] | None:
+    indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+    unit = "\t" if "\t" in indentation else "    "
+    if not indentation or len(indentation) % len(unit):
+        return None
+    depth = len(indentation) // len(unit)
+    wrappers = "".join(f"{unit * level}if True:\n" for level in range(depth))
+    source = (
+        f"{wrappers}{indentation}if True:\n{indentation}{unit}pass\n"
+        f"{excerpt}\n{indentation}{unit}pass"
+    )
+    try:
+        parsed = ast.parse(source)
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    if len(parsed.body) == 1 and isinstance(parsed.body[0], ast.If):
+        roots = tuple(parsed.body)
+        for _ in range(depth):
+            if len(roots) != 1 or not isinstance(roots[0], ast.If):
+                return None
+            roots = tuple(roots[0].body)
+        if len(roots) != 1 or not isinstance(roots[0], ast.If):
+            return None
+        preceding = roots[0]
+        if len(preceding.body) != 1 or not isinstance(preceding.body[0], ast.Pass):
+            return None
+        if len(preceding.orelse) != 1 or not isinstance(preceding.orelse[0], ast.If):
+            return None
+        alternate = preceding.orelse[0]
+        if _numeric_header_has_synthetic_body(alternate):
+            return tuple(parsed.body), depth + 2
+    return None
+
+
+def _numeric_evidence_nodes(evidence: Evidence) -> tuple[tuple[ast.stmt, ...], int] | None:
+    return _parse_numeric_evidence_excerpt(evidence.excerpt)
+
+
+def _numeric_node_span(
+    node: ast.AST, source_line: int, line_offset: int
+) -> tuple[int, int, int, int] | None:
+    if not isinstance(node, ast.stmt | ast.expr):
+        return None
+    if node.end_lineno is None or node.end_col_offset is None:
+        return None
+    return (
+        node.lineno - line_offset + source_line - 1,
+        node.col_offset,
+        node.end_lineno - line_offset + source_line - 1,
+        node.end_col_offset,
+    )
+
+
+def _numeric_assignment_expression(
+    origin: RecordData, evidence_by_id: Mapping[str, Evidence], expected_file: str
+) -> ast.expr | None:
+    evidence_id = origin.get("evidence_id")
+    if not isinstance(evidence_id, str):
+        return None
+    evidence = evidence_by_id.get(evidence_id)
+    if evidence is None or evidence.file != expected_file:
+        return None
+    parsed = _numeric_evidence_nodes(evidence)
+    if parsed is None:
+        return None
+    nodes, line_offset = parsed
+    expected = tuple(origin.get(name) for name in ("line", "column", "end_line", "end_column"))
+    matches: list[ast.expr] = []
+    for root in nodes:
+        for node in ast.walk(root):
+            if _numeric_node_span(node, evidence.line, line_offset) != expected:
+                continue
+            value: ast.expr | None = None
+            targets: tuple[ast.expr, ...] = ()
+            if isinstance(node, ast.Assign):
+                value, targets = node.value, tuple(node.targets)
+            elif isinstance(node, ast.AnnAssign):
+                value, targets = node.value, (node.target,)
+            if value is not None and any(
+                isinstance(target, ast.Name) and target.id == origin.get("name")
+                for target in targets
+            ):
+                matches.append(value)
+    if len(matches) != 1:
+        return None
+    try:
+        expression = ast.unparse(matches[0])
+    except (RecursionError, ValueError):
+        return None
+    if expression != origin.get("expression"):
+        return None
+    return matches[0]
+
+
+def _numeric_operation_expression(
+    record: Record, evidence_by_id: Mapping[str, Evidence], expected_file: str
+) -> ast.BinOp | ast.AugAssign | None:
+    data = record.data
+    expected = tuple(data.get(name) for name in ("line", "column", "end_line", "end_column"))
+    matches: list[ast.BinOp | ast.AugAssign] = []
+    for evidence_id in record.evidence_ids:
+        evidence = evidence_by_id.get(evidence_id)
+        if (
+            evidence is None
+            or evidence.file != expected_file
+            or (evidence.line, evidence.column, evidence.end_line)
+            != (expected[0], expected[1], expected[2])
+        ):
+            continue
+        parsed = _numeric_evidence_nodes(evidence)
+        if parsed is None:
+            continue
+        nodes, line_offset = parsed
+        for root in nodes:
+            for node in ast.walk(root):
+                if _numeric_node_span(node, evidence.line, line_offset) != expected:
+                    continue
+                if (
+                    data.get("form") == "binary"
+                    and isinstance(node, ast.BinOp)
+                    and isinstance(node.op, ast.Mod)
+                ):
+                    matches.append(node)
+                elif (
+                    data.get("form") == "augmented"
+                    and isinstance(node, ast.AugAssign)
+                    and isinstance(node.op, ast.Mod)
+                ):
+                    matches.append(node)
+    return matches[0] if len(matches) == 1 else None
+
+
+def _bounded_numeric_value(
+    node: ast.expr,
+    aliases: Mapping[str, ast.expr],
+    seen: frozenset[str] = frozenset(),
+    depth: int = 0,
+) -> int | None:
+    if depth > 12:
+        return None
+    if isinstance(node, ast.Constant):
+        if type(node.value) is int:
+            constant_value = node.value
+            return (
+                constant_value
+                if -MAX_STATIC_INTEGER <= constant_value <= MAX_STATIC_INTEGER
+                else None
+            )
+        if type(node.value) is bool:
+            return int(node.value)
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+        unary_value = _bounded_numeric_value(node.operand, aliases, seen, depth + 1)
+        if unary_value is None:
+            return None
+        return unary_value if isinstance(node.op, ast.UAdd) else -unary_value
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Pow):
+        base = _bounded_numeric_value(node.left, aliases, seen, depth + 1)
+        exponent = _bounded_numeric_value(node.right, aliases, seen, depth + 1)
+        if base is None or exponent is None or exponent < 0 or exponent > 256:
+            return None
+        magnitude = -base if base < 0 else base
+        result = 1
+        for _ in range(exponent):
+            if magnitude and result > MAX_STATIC_INTEGER // magnitude:
+                return None
+            result *= magnitude
+        return -result if base < 0 and exponent % 2 else result
+    if isinstance(node, ast.Name) and node.id in aliases and node.id not in seen:
+        return _bounded_numeric_value(aliases[node.id], aliases, seen | {node.id}, depth + 1)
+    return None
+
+
+def _validate_numeric_operand_witness(
+    record: Record,
+    evidence_by_id: Mapping[str, Evidence],
+    expected_file: str,
+) -> None:
+    data = record.data
+    expression = _numeric_operation_expression(record, evidence_by_id, expected_file)
+    if expression is None:
+        if data.get("proof") == "known":
+            raise ValueError("known numeric operand lacks a complete source witness")
+        return
+    left = expression.left if isinstance(expression, ast.BinOp) else expression.target
+    subject = (
+        left.id
+        if isinstance(left, ast.Name)
+        else left.attr
+        if isinstance(left, ast.Attribute)
+        else None
+    )
+    if data.get("subject") != subject:
+        raise ValueError("numeric operand subject disagrees with its source expression")
+    if data.get("proof") != "known":
+        return
+    operand = expression.right if isinstance(expression, ast.BinOp) else expression.value
+    derivation = data.get("derivation")
+    if not isinstance(derivation, tuple):
+        raise ValueError("invalid numeric operand derivation")
+    aliases: dict[str, ast.expr] = {}
+    origins: dict[str, RecordData] = {}
+    for origin in derivation:
+        if not isinstance(origin, RecordData):
+            raise ValueError("invalid numeric operand derivation")
+        name = origin.get("name")
+        if not isinstance(name, str):
+            raise ValueError("numeric operand alias name is invalid")
+        alias_expression = _numeric_assignment_expression(origin, evidence_by_id, expected_file)
+        if alias_expression is None:
+            raise ValueError("numeric alias lacks a complete source witness")
+        if name in origins:
+            if origins[name] != origin:
+                raise ValueError("numeric operand alias has conflicting source origins")
+            continue
+        aliases[name] = alias_expression
+        origins[name] = origin
+    for name, origin in origins.items():
+        value = _bounded_numeric_value(aliases[name], aliases, frozenset({name}))
+        if value is None or value != origin.get("value"):
+            raise ValueError("numeric alias value disagrees with its expression")
+    value = _bounded_numeric_value(operand, aliases)
+    if value is None or value != data.get("value"):
+        raise ValueError("numeric operand value disagrees with its expression")
+
+
+def _numeric_operand_record(record: Record, fields: set[str]) -> tuple[str, ...]:
+    required = (
+        "owner",
+        "module",
+        "operation",
+        "form",
+        "line",
+        "column",
+        "end_line",
+        "end_column",
+        "subject",
+        "proof",
+        "value",
+        "derivation",
+    )
+    data = record.data
+    span_names = ("line", "column", "end_line", "end_column")
+    span = tuple(data.get(name) for name in span_names)
+    value = data.get("value")
+    derivation = data.get("derivation")
+    if (
+        fields != set(required)
+        or data.get("operation") != "modulo"
+        or data.get("form") not in {"binary", "augmented"}
+        or data.get("proof") not in {"known", "unknown"}
+        or not record.evidence_ids
+        or not isinstance(data.get("owner"), str)
+        or not data.get("owner")
+        or not isinstance(data.get("module"), str)
+        or not data.get("module")
+        or data.get("subject") is not None
+        and (not isinstance(data.get("subject"), str) or not data.get("subject"))
+        or not all(isinstance(item, int) and not isinstance(item, bool) for item in span)
+        or not isinstance(span[0], int)
+        or not isinstance(span[1], int)
+        or not isinstance(span[2], int)
+        or not isinstance(span[3], int)
+        or span[0] < 1
+        or span[1] < 0
+        or span[2] < span[0]
+        or span[3] < 0
+        or span[2] == span[0]
+        and span[3] <= span[1]
+        or data.get("proof") == "known"
+        and (
+            not isinstance(value, int)
+            or isinstance(value, bool)
+            or value < -MAX_STATIC_INTEGER
+            or value > MAX_STATIC_INTEGER
+        )
+        or data.get("proof") == "unknown"
+        and value is not None
+        or not isinstance(derivation, tuple)
+    ):
+        raise ValueError("invalid numeric operand source proof")
+    for item in derivation:
+        if not isinstance(item, RecordData):
+            raise ValueError("invalid numeric operand alias proof")
+        _numeric_operand_alias(item, record.evidence_ids)
+    if data.get("proof") == "unknown" and derivation:
+        raise ValueError("invalid numeric operand source proof")
+    return required
+
+
 def _native_call_witness(facts: SourceFacts, binding: CallBinding) -> None:
     """Require a canonical import and captured provider/runtime witness for native calls."""
     if (
@@ -1116,12 +1498,12 @@ def _native_call_witness(facts: SourceFacts, binding: CallBinding) -> None:
                 imported_targets.add(module + (f".{symbol}" if isinstance(symbol, str) else ""))
     if not any(
         binding.target == target
-        or binding.target.startswith(target + ".")
-        or target.startswith(binding.target + ".")
+        or _starts_with(binding.target, target + ".")
+        or _starts_with(target, binding.target + ".")
         for target in imported_targets
     ):
         raise ValueError("native call needs its matching stable import evidence")
-    if binding.target.startswith(("random.", "secrets.")):
+    if _starts_with(binding.target, "random.") or _starts_with(binding.target, "secrets."):
         provider = next(
             (item for item in facts.provider_bindings if item.qualified_name == binding.target),
             None,
@@ -1181,28 +1563,29 @@ def _stored_method_path(
             if (
                 len(methods) != 1
                 or methods[0].kind != "method"
-                or methods[0].data.get("parent") != current
-                or methods[0].data.get("decorators")
-                or methods[0].data.get("qualified_name") != target
+                or _record_data_value(methods[0].data, "parent") != current
+                or _record_data_value(methods[0].data, "decorators")
+                or _record_data_value(methods[0].data, "qualified_name") != target
             ):
                 return False, ()
             return True, tuple(sorted(path_evidence | set(methods[0].evidence_ids)))
-        if owner.data.get("class_header_static") is not True:
+        if _record_data_value(owner.data, "class_header_static") is not True:
             return False, ()
-        attributes = owner.data.get("attribute_declarations")
+        attributes = _record_data_value(owner.data, "attribute_declarations")
         if isinstance(attributes, tuple) and any(
-            isinstance(attribute, RecordData) and attribute.get("name") == method_name
+            isinstance(attribute, RecordData)
+            and _record_data_value(attribute, "name") == method_name
             for attribute in attributes
         ):
             return False, ()
-        bases = owner.data.get("base_declarations")
+        bases = _record_data_value(owner.data, "base_declarations")
         if not isinstance(bases, tuple) or len(bases) != 1 or not isinstance(bases[0], RecordData):
             return False, ()
         base = bases[0]
-        base_targets = base.get("targets")
-        base_evidence = base.get("evidence_ids")
+        base_targets = _record_data_value(base, "targets")
+        base_evidence = _record_data_value(base, "evidence_ids")
         if (
-            base.get("status") != SourceResolution.RESOLVED
+            _record_data_value(base, "status") != SourceResolution.RESOLVED
             or not isinstance(base_targets, tuple)
             or len(base_targets) != 1
             or not isinstance(base_targets[0], str)
@@ -1233,188 +1616,289 @@ def _call_origin_proof(
         }:
             raise ValueError("extended call binding needs its typed origin proof")
         return
+    _validate_call_proof_runtime(facts, proof)
+    if binding.origin is CallBindingOrigin.STORED_RECEIVER:
+        _stored_receiver_proof(facts, binding, proof, declarations, evidence)
+    elif binding.origin is CallBindingOrigin.CONSTRUCTED_RECEIVER:
+        _constructed_receiver_proof(facts, record, proof, declarations, evidence)
+    elif binding.origin is CallBindingOrigin.CONSTRUCTOR:
+        _constructor_origin_proof(record, proof, declarations)
+
+
+def _validate_call_proof_runtime(facts: SourceFacts, proof: RecordData) -> None:
     if proof.get("runtime_name") is not None and (
         proof.get("runtime_name") != facts.runtime.name
         or proof.get("runtime_version") != facts.runtime.version
     ):
         raise ValueError("call proof runtime identity disagrees with the source snapshot")
-    if binding.origin is CallBindingOrigin.STORED_RECEIVER:
-        owner_name = proof.get("owner")
-        field = proof.get("field")
-        parameter = proof.get("parameter")
-        target = proof.get("target")
-        witnesses = proof.get("witness_evidence_ids")
-        owners = declarations.get(owner_name, []) if isinstance(owner_name, str) else []
-        initializers = (
-            declarations.get(f"{owner_name}.__init__", []) if isinstance(owner_name, str) else []
-        )
-        stored_types = declarations.get(target, []) if isinstance(target, str) else []
-        target_declarations = declarations.get(binding.target, [])
-        write_evidence = witnesses[0] if isinstance(witnesses, tuple) and witnesses else None
-        typed_writes = (
-            initializers[0].data.get("stored_field_writes")
-            if len(initializers) == 1 and initializers[0].kind == "method"
-            else None
-        )
-        linked_writes = (
-            [
-                item
-                for item in typed_writes
-                if isinstance(item, RecordData)
-                and item.get("field") == field
-                and item.get("parameter") == parameter
-                and item.get("evidence_id") == write_evidence
-                and isinstance(witnesses, tuple)
-                and len(witnesses) == 2
-                and item.get("annotation_evidence_id") == witnesses[1]
-                and isinstance(owner_name, str)
-                and item.get("receiver") == initializers[0].data.get("receiver_parameter")
-            ]
-            if isinstance(typed_writes, tuple)
-            else []
-        )
-        parameters = initializers[0].data.get("parameters") if len(initializers) == 1 else None
-        typed_parameters = (
-            [
-                item
-                for item in parameters
-                if isinstance(item, RecordData)
-                and item.get("name") == parameter
-                and isinstance(item.get("annotation"), str)
-            ]
-            if isinstance(parameters, tuple)
-            else []
-        )
-        matches_receiver_path, receiver_path_evidence = (
-            _stored_method_path(target, binding.target, declarations)
-            if isinstance(target, str)
-            else (False, ())
-        )
-        annotation_target = (
-            _annotation_class_origin(initializers[0], typed_parameters[0], facts, declarations)
-            if len(initializers) == 1 and len(typed_parameters) == 1
-            else None
-        )
-        if (
-            not isinstance(field, str)
-            or not field.isidentifier()
-            or not isinstance(parameter, str)
-            or not parameter.isidentifier()
-            or len(owners) != 1
-            or owners[0].kind != "class"
-            or owners[0].data.get("source_binding_unique") is not True
-            or owners[0].data.get("source_member_binding_static") is not True
-            or len(initializers) != 1
-            or len(linked_writes) != 1
-            or linked_writes[0].get("annotation_target") != target
-            or annotation_target != target
-            or len(typed_parameters) != 1
-            or len(stored_types) != 1
-            or stored_types[0].kind != "class"
-            or stored_types[0].data.get("source_binding_unique") is not True
-            or stored_types[0].data.get("source_member_binding_static") is not True
-            or not matches_receiver_path
-            or not set(receiver_path_evidence) <= set(binding.evidence_ids)
-            or not isinstance(witnesses, tuple)
-            or len(witnesses) != 2
-            or any(
-                not isinstance(item, str)
-                or item not in evidence
-                or evidence[item].file not in facts.coverage.selected_files
-                for item in witnesses
-            )
-        ):
-            raise ValueError("stored receiver needs a linked initializer and annotation witness")
-        if len(target_declarations) != 1 or target_declarations[0].kind != "method":
-            raise ValueError("stored receiver needs one canonical method declaration")
-    elif binding.origin is CallBindingOrigin.CONSTRUCTED_RECEIVER:
-        target = proof.get("target")
-        constructors = proof.get("constructor_evidence_id")
-        assignment = proof.get("assignment_evidence_id")
-        targets = declarations.get(target, []) if isinstance(target, str) else []
-        target_name = target if isinstance(target, str) else ""
-        constructor_id = constructors if isinstance(constructors, str) else ""
-        assignment_id = assignment if isinstance(assignment, str) else ""
 
-        def result_bindings(candidate: Record) -> tuple[RecordData, ...]:
-            value = candidate.data.get("result_bindings")
-            return (
-                tuple(item for item in value if isinstance(item, RecordData))
-                if isinstance(value, tuple)
+
+def _stored_receiver_proof(
+    facts: SourceFacts,
+    binding: CallBinding,
+    proof: RecordData,
+    declarations: Mapping[str, list[Record]],
+    evidence: Mapping[str, Evidence],
+) -> None:
+    owner_name, field, parameter, target = (
+        proof.get("owner"),
+        proof.get("field"),
+        proof.get("parameter"),
+        proof.get("target"),
+    )
+    witnesses = proof.get("witness_evidence_ids")
+    linked = _stored_receiver_links(
+        facts,
+        binding,
+        declarations,
+        owner_name,
+        field,
+        parameter,
+        target,
+        witnesses,
+    )
+    if linked is None:
+        raise ValueError("stored receiver needs a linked initializer and annotation witness")
+    owners, initializers, typed_writes, typed_parameters, stored_types, path_evidence = linked
+    if (
+        not isinstance(field, str)
+        or not isinstance(parameter, str)
+        or not isinstance(witnesses, tuple)
+        or len(witnesses) != 2
+        or any(
+            not isinstance(item, str)
+            or item not in evidence
+            or evidence[item].file not in facts.coverage.selected_files
+            for item in witnesses
+        )
+    ):
+        raise ValueError("stored receiver needs selected initializer witnesses")
+    if not _qualified_identifier(field) or not _qualified_identifier(parameter):
+        raise ValueError("stored receiver field and parameter must be identifiers")
+    if len(typed_writes) != 1 or len(typed_parameters) != 1 or len(stored_types) != 1:
+        raise ValueError("stored receiver needs unique typed field and parameter declarations")
+    if _record_data_value(typed_writes[0], "annotation_target") != target:
+        raise ValueError("stored receiver annotation does not prove its claimed target")
+    if not set(path_evidence) <= set(binding.evidence_ids):
+        raise ValueError("stored receiver method path is missing evidence")
+    target_declarations = declarations.get(binding.target, [])
+    if len(target_declarations) != 1 or target_declarations[0].kind != "method":
+        raise ValueError("stored receiver needs one canonical method declaration")
+    if len(owners) != 1 or len(initializers) != 1:
+        raise ValueError("stored receiver needs one canonical owner and initializer")
+
+
+def _stored_receiver_links(
+    facts: SourceFacts,
+    binding: CallBinding,
+    declarations: Mapping[str, list[Record]],
+    owner_name: JsonValue,
+    field: JsonValue,
+    parameter: JsonValue,
+    target: JsonValue,
+    witnesses: JsonValue,
+) -> (
+    tuple[
+        list[Record],
+        list[Record],
+        list[RecordData],
+        list[RecordData],
+        list[Record],
+        tuple[str, ...],
+    ]
+    | None
+):
+    if not isinstance(owner_name, str):
+        return None
+    owners = declarations.get(owner_name, [])
+    initializers = declarations.get(f"{owner_name}.__init__", [])
+    stored_types = declarations.get(target, []) if isinstance(target, str) else []
+    if len(owners) != 1 or len(initializers) != 1 or owners[0].kind != "class":
+        return None
+    if (
+        _record_data_value(owners[0].data, "source_binding_unique") is not True
+        or _record_data_value(owners[0].data, "source_member_binding_static") is not True
+        or initializers[0].kind != "method"
+    ):
+        return None
+    writes = _record_data_value(initializers[0].data, "stored_field_writes")
+    receiver = _record_data_value(initializers[0].data, "receiver_parameter")
+    write_id = witnesses[0] if isinstance(witnesses, tuple) and witnesses else None
+    write_entries = writes if isinstance(writes, tuple) else ()
+    linked_writes = [
+        item
+        for item in write_entries
+        if isinstance(item, RecordData)
+        and _record_data_value(item, "field") == field
+        and _record_data_value(item, "parameter") == parameter
+        and _record_data_value(item, "evidence_id") == write_id
+        and isinstance(witnesses, tuple)
+        and len(witnesses) == 2
+        and _record_data_value(item, "annotation_evidence_id") == witnesses[1]
+        and _record_data_value(item, "receiver") == receiver
+    ]
+    parameters = _record_data_value(initializers[0].data, "parameters")
+    parameter_entries = parameters if isinstance(parameters, tuple) else ()
+    typed_parameters = [
+        item
+        for item in parameter_entries
+        if isinstance(item, RecordData)
+        and _record_data_value(item, "name") == parameter
+        and isinstance(_record_data_value(item, "annotation"), str)
+    ]
+    if isinstance(target, str):
+        path_matches, path_evidence = _stored_method_path(target, binding.target, declarations)
+    else:
+        path_matches, path_evidence = False, ()
+    annotation_target = (
+        _annotation_class_origin(initializers[0], typed_parameters[0], facts, declarations)
+        if len(typed_parameters) == 1
+        else None
+    )
+    if not path_matches or annotation_target != target:
+        return None
+    if len(stored_types) != 1 or stored_types[0].kind != "class":
+        return None
+    if (
+        _record_data_value(stored_types[0].data, "source_binding_unique") is not True
+        or _record_data_value(stored_types[0].data, "source_member_binding_static") is not True
+    ):
+        return None
+    return owners, initializers, linked_writes, typed_parameters, stored_types, path_evidence
+
+
+def _constructed_receiver_proof(
+    facts: SourceFacts,
+    record: Record,
+    proof: RecordData,
+    declarations: Mapping[str, list[Record]],
+    evidence: Mapping[str, Evidence],
+) -> None:
+    target = proof.get("target")
+    constructor_id = proof.get("constructor_evidence_id")
+    assignment_id = proof.get("assignment_evidence_id")
+    assignment_name = proof.get("assignment_name")
+    targets = declarations.get(target, []) if isinstance(target, str) else []
+    calls, assignments = _constructed_receiver_links(
+        facts, target, constructor_id, assignment_id, assignment_name
+    )
+    call_evidence = evidence.get(record.evidence_ids[0]) if record.evidence_ids else None
+    assignment_evidence = evidence.get(assignment_id) if isinstance(assignment_id, str) else None
+    if (
+        len(targets) != 1
+        or targets[0].kind != "class"
+        or _record_data_value(targets[0].data, "default_instance_result") is not True
+        or not isinstance(constructor_id, str)
+        or len(calls) != 1
+        or not _constructed_assignment_is_earlier(
+            assignment_id,
+            assignment_name,
+            assignments,
+            record,
+            call_evidence,
+            assignment_evidence,
+        )
+    ):
+        raise ValueError("constructed receiver needs a linked earlier allocation witness")
+
+
+def _constructed_receiver_links(
+    facts: SourceFacts,
+    target: JsonValue,
+    constructor_id: JsonValue,
+    assignment_id: JsonValue,
+    assignment_name: JsonValue,
+) -> tuple[list[Record], list[tuple[Record, RecordData]]]:
+    target_name = target if isinstance(target, str) else ""
+    constructor = constructor_id if isinstance(constructor_id, str) else ""
+    assignment = assignment_id if isinstance(assignment_id, str) else ""
+    calls: list[Record] = []
+    assignments: list[tuple[Record, RecordData]] = []
+    for section in facts.sections:
+        if section.name is not SourceSectionName.CALLS:
+            continue
+        for candidate in section.records:
+            result = _record_data_value(candidate.data, "result_bindings")
+            items = (
+                tuple(item for item in result if isinstance(item, RecordData))
+                if isinstance(result, tuple)
                 else ()
             )
+            if constructor in candidate.evidence_ids and _ends_with(candidate.kind, "_call"):
+                targets = _record_data_value(candidate.data, "targets")
+                if isinstance(targets, tuple) and target_name in targets:
+                    calls.append(candidate)
+            if constructor not in candidate.evidence_ids:
+                continue
+            for item in items:
+                references = _record_data_value(item, "evidence_ids")
+                if (
+                    _record_data_value(item, "name") == assignment_name
+                    and _record_data_value(item, "target_kind") == "name"
+                    and isinstance(references, tuple)
+                    and assignment in references
+                ):
+                    assignments.append((candidate, item))
+    return calls, assignments
 
-        def has_assignment_evidence(item: RecordData) -> bool:
-            value = item.get("evidence_ids")
-            return isinstance(value, tuple) and assignment_id in value
 
-        def has_target(candidate: Record) -> bool:
-            value = candidate.data.get("targets")
-            return isinstance(value, tuple) and target_name in value
+def _constructed_assignment_is_earlier(
+    assignment_id: JsonValue,
+    assignment_name: JsonValue,
+    assignments: list[tuple[Record, RecordData]],
+    record: Record,
+    call_evidence: Evidence | None,
+    assignment_evidence: Evidence | None,
+) -> bool:
+    if assignment_id is None:
+        return assignment_name is None
+    return (
+        isinstance(assignment_id, str)
+        and isinstance(assignment_name, str)
+        and len(assignments) == 1
+        and _record_data_value(assignments[0][0].data, "source_scope")
+        == _record_data_value(record.data, "source_scope")
+        and call_evidence is not None
+        and assignment_evidence is not None
+        and assignment_evidence.line < call_evidence.line
+    )
 
-        constructor_calls = [
-            candidate
-            for section in facts.sections
-            if section.name is SourceSectionName.CALLS
-            for candidate in section.records
-            if constructor_id in candidate.evidence_ids
-            and candidate.kind.endswith("_call")
-            and has_target(candidate)
-        ]
-        assignment_name = proof.get("assignment_name")
-        linked_assignments = [
-            (candidate, item)
-            for section in facts.sections
-            if section.name is SourceSectionName.CALLS
-            for candidate in section.records
-            if constructor_id in candidate.evidence_ids
-            for item in result_bindings(candidate)
-            if item.get("name") == assignment_name
-            and item.get("target_kind") == "name"
-            and has_assignment_evidence(item)
-        ]
-        call_evidence = evidence.get(record.evidence_ids[0]) if record.evidence_ids else None
-        assignment_evidence = evidence.get(assignment_id) if assignment_id else None
-        if (
-            len(targets) != 1
-            or targets[0].kind != "class"
-            or targets[0].data.get("default_instance_result") is not True
-            or not isinstance(constructors, str)
-            or len(constructor_calls) != 1
-            or assignment is not None
-            and (
-                not isinstance(assignment_name, str)
-                or len(linked_assignments) != 1
-                or linked_assignments[0][0].data.get("source_scope")
-                != record.data.get("source_scope")
-                or call_evidence is None
-                or assignment_evidence is None
-                or assignment_evidence.line >= call_evidence.line
-            )
-            or assignment is None
-            and assignment_name is not None
-            or assignment is not None
-            and (
-                not assignment_id
-                or assignment_evidence is None
-                or assignment_evidence.file not in facts.coverage.selected_files
-            )
-        ):
-            raise ValueError("constructed receiver needs a linked earlier allocation witness")
-    elif binding.origin is CallBindingOrigin.CONSTRUCTOR:
-        if proof.get("kind") == "provider_member":
-            return
-        target = proof.get("target")
-        constructor_evidence = proof.get("constructor_evidence_id")
-        targets = declarations.get(target, []) if isinstance(target, str) else []
-        if (
-            len(targets) != 1
-            or targets[0].kind != "class"
-            or targets[0].data.get("default_instance_result") is not True
-            or not isinstance(constructor_evidence, str)
-            or constructor_evidence not in record.evidence_ids
-        ):
-            raise ValueError("constructor needs its default-instance declaration and call witness")
+
+def _constructor_origin_proof(
+    record: Record,
+    proof: RecordData,
+    declarations: Mapping[str, list[Record]],
+) -> None:
+    if proof.get("kind") == "provider_member":
+        return
+    target = proof.get("target")
+    constructor_evidence = proof.get("constructor_evidence_id")
+    targets = declarations.get(target, []) if isinstance(target, str) else []
+    if (
+        len(targets) != 1
+        or targets[0].kind != "class"
+        or _record_data_value(targets[0].data, "default_instance_result") is not True
+        or not isinstance(constructor_evidence, str)
+        or constructor_evidence not in record.evidence_ids
+    ):
+        raise ValueError("constructor needs its default-instance declaration and call witness")
+
+
+def _record_data_value(data: RecordData, key: str) -> JsonValue:
+    for name, value in data.entries:
+        if name == key:
+            return value
+    return None
+
+
+def _starts_with(value: str, prefix: str) -> bool:
+    length = len(prefix)
+    return len(value) >= length and value[:length] == prefix
+
+
+def _ends_with(value: str, suffix: str) -> bool:
+    length = len(suffix)
+    return len(value) >= length and value[len(value) - length :] == suffix
 
 
 def _source_record(record: Record, section: SourceSectionName) -> None:
@@ -1436,212 +1920,9 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
         raise ValueError("reference declaration identities must be nonempty")
     required = _REQUIRED[section]
     if section is SourceSectionName.CONSTRUCTS and record.kind == "numeric_operand":
-        required = (
-            "owner",
-            "module",
-            "operation",
-            "form",
-            "line",
-            "column",
-            "end_line",
-            "end_column",
-            "subject",
-            "proof",
-            "value",
-            "derivation",
-        )
-        data = record.data
-        span_names = ("line", "column", "end_line", "end_column")
-        span = tuple(data.get(name) for name in span_names)
-        value = data.get("value")
-        derivation = data.get("derivation")
-        if (
-            fields != set(required)
-            or data.get("operation") != "modulo"
-            or data.get("form") not in {"binary", "augmented"}
-            or data.get("proof") not in {"known", "unknown"}
-            or not record.evidence_ids
-            or not isinstance(data.get("owner"), str)
-            or not data.get("owner")
-            or not isinstance(data.get("module"), str)
-            or not data.get("module")
-            or data.get("subject") is not None
-            and (not isinstance(data.get("subject"), str) or not data.get("subject"))
-            or not all(isinstance(item, int) and not isinstance(item, bool) for item in span)
-            or not isinstance(span[0], int)
-            or not isinstance(span[1], int)
-            or not isinstance(span[2], int)
-            or not isinstance(span[3], int)
-            or span[0] < 1
-            or span[1] < 0
-            or span[2] < span[0]
-            or span[3] < 0
-            or span[2] == span[0]
-            and span[3] <= span[1]
-            or data.get("proof") == "known"
-            and (
-                not isinstance(value, int)
-                or isinstance(value, bool)
-                or value < -MAX_STATIC_INTEGER
-                or value > MAX_STATIC_INTEGER
-            )
-            or data.get("proof") == "unknown"
-            and value is not None
-            or not isinstance(derivation, tuple)
-        ):
-            raise ValueError("invalid numeric operand source proof")
-        for item in derivation:
-            if not isinstance(item, RecordData):
-                raise ValueError("invalid numeric operand alias proof")
-            origin_fields = {key for key, _ in item.entries}
-            origin_value = item.get("value")
-            origin_span = tuple(item.get(name) for name in span_names)
-            if (
-                origin_fields
-                != {
-                    "name",
-                    "value",
-                    "expression",
-                    "evidence_id",
-                    "line",
-                    "column",
-                    "end_line",
-                    "end_column",
-                }
-                or not isinstance(item.get("name"), str)
-                or not item.get("name")
-                or not isinstance(origin_value, int)
-                or isinstance(origin_value, bool)
-                or origin_value < -MAX_STATIC_INTEGER
-                or origin_value > MAX_STATIC_INTEGER
-                or not isinstance(item.get("expression"), str)
-                or not item.get("expression")
-                or not isinstance(item.get("evidence_id"), str)
-                or item.get("evidence_id") not in record.evidence_ids
-                or not all(
-                    isinstance(field, int) and not isinstance(field, bool) for field in origin_span
-                )
-                or not isinstance(origin_span[0], int)
-                or not isinstance(origin_span[1], int)
-                or not isinstance(origin_span[2], int)
-                or not isinstance(origin_span[3], int)
-                or origin_span[0] < 1
-                or origin_span[1] < 0
-                or origin_span[2] < origin_span[0]
-                or origin_span[3] < 0
-            ):
-                raise ValueError("invalid numeric operand alias proof")
-        if data.get("proof") == "unknown" and derivation:
-            raise ValueError("invalid numeric operand source proof")
+        required = _numeric_operand_record(record, fields)
     if not set(required).issubset(fields):
         raise ValueError(f"{section} source payload is missing required fields")
-    if record.kind == "construct_selector":
-        selector_required = {
-            "owner",
-            "construct",
-            "selector_role",
-            "receiver_type",
-            "member",
-            "literal",
-            "status",
-            "operation",
-            "receiver_binding",
-            "receiver_parameter",
-        }
-        if section is not SourceSectionName.CONSTRUCTS or fields != selector_required:
-            raise ValueError("construct selector facts need the closed selector payload")
-        if record.data.get("construct") != "selector":
-            raise ValueError("construct selector facts need selector construct identity")
-        if record.data.get("selector_role") not in {
-            "read",
-            "write",
-            "call",
-            "reflect",
-            "constructor",
-            "type_probe",
-            "equality",
-            "membership",
-            "match",
-            "startswith",
-            "endswith",
-        }:
-            raise ValueError("construct selector role is unsupported")
-        if record.data.get("status") not in {"decided", "unknown"}:
-            raise ValueError("construct selector status is unsupported")
-        if record.data.get("operation") not in {
-            "read",
-            "write",
-            "call",
-            "probe",
-            "compare",
-            "construct",
-        }:
-            raise ValueError("construct selector operation is unsupported")
-        role = record.data.get("selector_role")
-        operation = record.data.get("operation")
-        if not isinstance(role, str) or not isinstance(operation, str):
-            raise ValueError("construct selector role and operation must be strings")
-        expected_operation = {
-            "read": "read",
-            "write": "write",
-            "call": "call",
-            "reflect": "probe",
-            "constructor": "construct",
-            "type_probe": "probe",
-            "equality": "compare",
-            "membership": "compare",
-            "match": "compare",
-            "startswith": "compare",
-            "endswith": "compare",
-        }[role]
-        if operation != expected_operation:
-            raise ValueError("construct selector role and operation disagree")
-        member_roles = {
-            "read",
-            "write",
-            "call",
-            "reflect",
-            "equality",
-            "membership",
-            "match",
-            "startswith",
-            "endswith",
-        }
-        if role in member_roles and record.data.get("member") is None:
-            if record.data.get("status") != "unknown":
-                raise ValueError("known construct selector needs a member")
-        elif role not in member_roles and record.data.get("member") is not None:
-            raise ValueError("construct selector role cannot carry a member")
-        if role not in {"equality", "membership", "match", "startswith", "endswith"} and (
-            record.data.get("literal") is not None
-        ):
-            raise ValueError("construct selector role cannot carry a literal")
-        if record.data.get("status") == "decided" and record.data.get("receiver_type") is None:
-            raise ValueError("decided construct selector needs a receiver type")
-        receiver_binding = call_binding(record.data.get("receiver_binding"))
-        receiver_type = record.data.get("receiver_type")
-        receiver_parameter = record.data.get("receiver_parameter")
-        if receiver_binding is not None and (
-            receiver_binding.target != receiver_type
-            or receiver_parameter is not None
-            and receiver_binding.origin is not CallBindingOrigin.DECLARED_RECEIVER
-        ):
-            raise ValueError("construct selector receiver binding disagrees with its receiver")
-        if receiver_parameter is not None and (
-            not isinstance(receiver_parameter, str)
-            or not receiver_parameter.isidentifier()
-            or receiver_binding is None
-            or receiver_binding.origin is not CallBindingOrigin.DECLARED_RECEIVER
-        ):
-            raise ValueError("declared selector receiver needs its parameter identity")
-        if receiver_type is not None and receiver_binding is None:
-            raise ValueError("known construct selector needs a linked receiver binding")
-        if (
-            role in {"equality", "membership", "match", "startswith", "endswith"}
-            and record.data.get("status") == "decided"
-            and record.data.get("literal") is None
-        ):
-            raise ValueError("decided comparison selector needs a literal")
     if record.data.get("member_inventories") is not None:
         if section != SourceSectionName.SYMBOLS or record.kind != "class":
             raise ValueError("member inventory needs its class owner")
@@ -1937,28 +2218,26 @@ def validate_source_facts(facts: SourceFacts) -> None:
         raise ValueError("provider bindings require Python source facts")
     candidate_ids = _unique((item.id for item in facts.candidate_evidence), "candidate evidence id")
     base_by_id = {item.id: item for item in facts.evidence}
+    module_files = {item.module: item.rel_path for item in facts.files}
     input_by_path = {item.path: item for item in facts.inputs}
     for binding in facts.provider_bindings:
         _unique(binding.supporting_evidence_ids, "provider alias support")
         evidence = base_by_id.get(binding.evidence_id)
         qualified_name: str = binding.qualified_name
         parts = qualified_name.rpartition(".")
-        native_member = qualified_name in NATIVE_CALL_TARGETS and qualified_name.count(".") > 1
-        module: str = (
-            qualified_name
+        module: str = qualified_name if binding.kind is ProviderBindingKind.MODULE else parts[0]
+        name: str = parts[2]
+        source_module = _provider_source_module(evidence.file) if evidence is not None else None
+        source_matches = (
+            source_module == qualified_name
             if binding.kind is ProviderBindingKind.MODULE
-            else qualified_name.split(".", 1)[0]
-            if native_member
-            else parts[0]
+            else qualified_name.startswith(source_module + ".")
+            if binding.kind is not ProviderBindingKind.ALIAS and source_module is not None
+            else module == source_module
         )
-        name: str = qualified_name.split(".", 1)[1] if native_member else parts[2]
-        stem = ".archkeel-providers/" + module.replace(".", "/")
         if (
             binding.kind is ProviderBindingKind.ALIAS
-            and (
-                binding.target is None
-                or not all(part.isidentifier() for part in binding.target.split("."))
-            )
+            and (binding.target is None or not _qualified_identifier(binding.target))
             or binding.kind is not ProviderBindingKind.ALIAS
             and (binding.target is not None or binding.supporting_evidence_ids)
         ):
@@ -1973,11 +2252,12 @@ def validate_source_facts(facts: SourceFacts) -> None:
             ):
                 raise ValueError("provider alias support needs its resolution source")
         if (
-            not all(part.isidentifier() for part in module.split("."))
-            or not all(part.isidentifier() for part in name.split("."))
+            not _qualified_identifier(module)
+            or not _qualified_identifier(name)
             or module in {item.module for item in facts.files}
             or evidence is None
-            or evidence.file not in {stem + ".py", stem + "/__init__.py"}
+            or source_module is None
+            or not source_matches
             or evidence.file not in input_by_path
             or input_by_path[evidence.file].role is not _ResolutionRole.RESOLUTION
         ):
@@ -2012,6 +2292,9 @@ def validate_source_facts(facts: SourceFacts) -> None:
     record_ids = _unique((record.id for record in records), "source record id")
     if file_ids & record_ids:
         raise ValueError("file and record ids collide")
+    for record in records:
+        if not set(record.evidence_ids).issubset(evidence_ids):
+            raise ValueError("dangling source evidence reference")
     for section in facts.sections:
         for record in section.records:
             _source_record(record, section.name)
@@ -2059,6 +2342,13 @@ def validate_source_facts(facts: SourceFacts) -> None:
                         declaration.end_line,
                     ) != (line, column, end_line):
                         raise ValueError("numeric alias derivation disagrees with its evidence")
+                numeric_module = record.data.get("module")
+                expected_file = (
+                    module_files.get(numeric_module) if isinstance(numeric_module, str) else None
+                )
+                if expected_file is None:
+                    raise ValueError("numeric operand needs its source module")
+                _validate_numeric_operand_witness(record, base_by_id, expected_file)
             construct = record.data.get("construct")
             if (
                 construct is not None
@@ -2071,8 +2361,6 @@ def validate_source_facts(facts: SourceFacts) -> None:
                 raise ValueError("source construct disagrees with declared capabilities")
     fact_ids = record_ids | file_ids
     for record in records:
-        if not set(record.evidence_ids).issubset(evidence_ids):
-            raise ValueError("dangling source evidence reference")
         if not set(record.fact_ids).issubset(fact_ids):
             raise ValueError("dangling source fact reference")
     declarations: dict[str, list[Record]] = {}
@@ -2084,6 +2372,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
             if symbol.kind in {"class", "function", "method"} and isinstance(symbol_name, str):
                 symbol_declarations: list[Record] = declarations.setdefault(symbol_name, [])
                 symbol_declarations.append(symbol)
+    typed_evidence = {item.id: item for item in facts.evidence}
     for section in facts.sections:
         if section.name is not SourceSectionName.CALLS:
             continue
@@ -2129,9 +2418,6 @@ def validate_source_facts(facts: SourceFacts) -> None:
                 or not set(record.evidence_ids) <= set(call_proof.evidence_ids)
             ):
                 raise ValueError("call binding evidence disagrees with its call")
-            if call_proof is not None:
-                _native_call_witness(facts, call_proof)
-                _call_origin_proof(facts, record, call_proof, declarations, base_by_id)
             targets = record.data.get("targets")
             if call_proof is not None and (
                 not isinstance(targets, tuple)
@@ -2144,6 +2430,8 @@ def validate_source_facts(facts: SourceFacts) -> None:
                 )
             ):
                 raise ValueError("call binding disagrees with its target declaration")
+            if call_proof is not None:
+                _call_origin_proof(facts, record, call_proof, declarations, typed_evidence)
     for section in facts.sections:
         if section.name is not SourceSectionName.CONSTRUCTS:
             continue
@@ -2156,7 +2444,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
                     call_binding(record.data.get("receiver_binding")),
                     receiver_parameter if isinstance(receiver_parameter, str) else None,
                     declarations,
-                    base_by_id,
+                    typed_evidence,
                 )
     record_by_id = {record.id: record for record in records}
     effects = [record for record in records if record.kind == "script_namespace_effect"]

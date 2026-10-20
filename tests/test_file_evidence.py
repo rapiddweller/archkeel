@@ -26,7 +26,7 @@ from archkeel.check.report import run_report
 from archkeel.check.run import inspect_observation
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model
-from archkeel.ir.model import Evidence, Observation, Record, stable_id
+from archkeel.ir.model import SCHEMA_VERSION, Evidence, Observation, Record, stable_id
 from archkeel.ir.trace import trace_valid_violations
 from fixtures.architecture_demo import CATALOG
 
@@ -164,7 +164,7 @@ def test_an_empty_dart_library_is_the_same_root_layout_violation(
 
 def _ir_schema_errors(observation: dict[str, object]) -> list[str]:
     """What the published IR schemas reject in one decoded observation, as test_schema_drift."""
-    profile = json.loads((SCHEMA / "architecture-ir-python-decoded-2.1.schema.json").read_bytes())
+    profile = {"$ref": f"urn:archkeel:architecture-ir:python-decoded:{SCHEMA_VERSION}"}
     schemas = [json.loads(path.read_bytes()) for path in SCHEMA.glob("*.json")]
     registry = Registry().with_resources(
         (schema["$id"], Resource.from_contents(schema)) for schema in schemas

@@ -24,6 +24,7 @@ from archkeel.ir.codec import (
     parse_contract,
     parse_observation,
 )
+from archkeel.ir.model import SCHEMA_VERSION
 from archkeel.ir.profiles import PROFILES
 from archkeel.ir.widening import Amendment
 
@@ -380,7 +381,9 @@ def test_amendment_schema_and_parser_reject_malformed_digests(field: str, digest
 
 def test_ir_schemas_accept_the_parsed_self_observation(self_artifact_bytes: bytes) -> None:
     common = _schema("architecture-ir-common.schema.json")
-    profile = _schema("architecture-ir-python-decoded-2.1.schema.json")
+    profile = _schema(
+        f"architecture-ir-python-decoded-{SCHEMA_VERSION.removesuffix('.0')}.schema.json"
+    )
     Draft202012Validator.check_schema(common)
     Draft202012Validator.check_schema(profile)
     registry = Registry().with_resources(

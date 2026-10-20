@@ -1,3 +1,6 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
 """A versioned native rule evaluates bounded modulo operand proofs."""
 
 import json
@@ -155,6 +158,109 @@ def _rule_rows(tmp_path):
     return result.observation, rule_assessments(
         result.observation,
         undecided_by_rule=unknown_positions_by_rule(result.observation),
+    )
+
+
+def test_numeric_source_participates_in_reference_validation_and_rename(tmp_path):
+    from archkeel.ir.model import module_references
+    from archkeel.ir.renames import renamed_contract
+
+    _write_probe(tmp_path)
+    contract = parse_contract(json.loads((tmp_path / "contract.json").read_bytes()))
+    reference = next(
+        item for item in module_references(contract) if item.pointer == "/rules/0/source"
+    )
+    assert reference.value == "sample.core" and reference.held
+    changed = renamed_contract(contract, {"sample.core": "sample.engine"})
+    assert json.loads(contract_bytes(changed))["rules"][0]["source"] == "sample.engine"
+
+
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize("exact", [False, True])
+def test_mounted_numeric_receipt_replays_only_parent_physical_domain(tmp_path, columnar, exact):
+    from test_exact_module_ownership import _observe_tree
+
+    _write_probe(tmp_path, source="sample", mounted=True)
+    contract = json.loads((tmp_path / "contract.json").read_bytes())
+    if exact:
+        contract["components"][0]["packages"] = []
+        contract["components"][0]["exact_modules"] = ["sample.core"]
+        child = json.loads((tmp_path / "inside.json").read_bytes())
+        child["components"][0]["packages"] = []
+        child["components"][0]["exact_modules"] = ["sample.core"]
+        (tmp_path / "inside.json").write_text(json.dumps(child))
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/core.py": "def choose(job_nonce): return job_nonce % 4\n",
+            "sample/cli.py": "def choose(job_nonce): return job_nonce % 1\n",
+        },
+        contract,
+    )
+    assert not result.diagnostics and result.observation is not None
+    model = result.observation
+    rows = rule_assessments(model, undecided_by_rule=unknown_positions_by_rule(model))
+    assert len(rows) == 1 and rows[0].status == "PASS"
+    receipt = next(
+        item for item in model.records("scope_observations") if item.data.get("operation_binding")
+    )
+    assert receipt.subjects == ("sample.core",)
+    saved = tmp_path / "mounted-positive.json"
+    saved.write_bytes(
+        canonical_report_bytes(model)
+        if columnar
+        else json.dumps(observation_payload(model)).encode()
+    )
+    replay = run_saved_report(saved)
+    assert not replay.diagnostics and replay.rule_assessments == rows
+
+
+def test_numeric_component_package_selector_evaluates_every_owned_package(tmp_path):
+    from test_exact_module_ownership import _observe_tree
+
+    _write_probe(tmp_path)
+    contract = json.loads((tmp_path / "contract.json").read_bytes())
+    contract["components"][0]["packages"] = ["sample.core", "sample.extra"]
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/core.py": "def choose(job_nonce): return job_nonce % 4\n",
+            "sample/extra.py": "def choose(job_nonce): return job_nonce % 1\n",
+        },
+        contract,
+    )
+    assert not result.diagnostics and result.observation is not None
+    model = result.observation
+    rows = rule_assessments(model, undecided_by_rule=unknown_positions_by_rule(model))
+    assert len(rows) == 1 and rows[0].status == "FAIL" and rows[0].evaluation_proven
+    assert len(trace_valid_violations(model)) == 1
+    for content in (
+        canonical_report_bytes(model),
+        json.dumps(observation_payload(model)).encode(),
+    ):
+        saved = tmp_path / "multiple-packages.json"
+        saved.write_bytes(content)
+        replay = run_saved_report(saved)
+        assert not replay.diagnostics and replay.rule_assessments == rows
+
+
+def test_numeric_rule_subjects_use_expanded_component_package_domain(tmp_path):
+    from test_exact_module_ownership import _observe_tree
+
+    _write_probe(tmp_path)
+    contract = json.loads((tmp_path / "contract.json").read_bytes())
+    contract["components"][0]["packages"] = ["sample.core", "sample.extra"]
+    result = _observe_tree(
+        tmp_path,
+        {"sample/extra.py": "def unrelated(value): return value\n"},
+        contract,
+    )
+    assert not result.diagnostics and result.observation is not None
+    assert not any(
+        row.kind == "rule-without-subjects" and "RULE" in row.rule_ids
+        for row in result.observation.records("unknowns")
     )
 
 
@@ -367,6 +473,84 @@ def test_empty_selected_source_never_passes(tmp_path):
     assert rows[0].status == "UNKNOWN"
 
 
+@pytest.mark.parametrize("signal", ["declaration", "receipt"])
+def test_legacy_observation_version_rejects_numeric_vocabulary_without_operations(tmp_path, signal):
+    _write_probe(tmp_path)
+    (tmp_path / "sample/core.py").write_text("")
+    model, _ = _rule_rows(tmp_path)
+    sections = tuple(
+        replace(section, records=())
+        if section.name == "constructs"
+        else replace(
+            section,
+            records=tuple(
+                record
+                for record in section.records
+                if not (
+                    signal == "declaration"
+                    and section.name == "scope_observations"
+                    and record.data.get("numeric_scope_proof") is not None
+                )
+            ),
+        )
+        for section in model.sections
+    )
+    if signal == "receipt":
+        sections = tuple(
+            replace(section, records=()) if section.name == "declarations" else section
+            for section in sections
+        )
+    downgraded = replace(model, schema_version="2.1.0", sections=sections)
+    with pytest.raises(ValueError, match="numeric_operand.*2.2.0"):
+        observation_payload(downgraded)
+    raw = observation_payload(model)
+    raw["schema_version"] = "2.1.0"
+    raw["constructs"] = []
+    if signal == "declaration":
+        raw["scope_observations"] = [
+            item for item in raw["scope_observations"] if "numeric_scope_proof" not in item["data"]
+        ]
+    else:
+        raw["declarations"] = []
+    with pytest.raises(ValueError, match="numeric_operand.*2.2.0"):
+        parse_observation(raw)
+
+
+@pytest.mark.parametrize("signal", ["declaration", "receipt"])
+def test_legacy_decoded_schemas_reject_numeric_vocabulary_without_operations(tmp_path, signal):
+    _write_probe(tmp_path)
+    (tmp_path / "sample/core.py").write_text("")
+    model, _ = _rule_rows(tmp_path)
+    payload = observation_payload(model)
+    payload["constructs"] = []
+    if signal == "declaration":
+        payload["scope_observations"] = [
+            item
+            for item in payload["scope_observations"]
+            if "numeric_scope_proof" not in item["data"]
+        ]
+    else:
+        payload["declarations"] = []
+
+    schemas = Path(__file__).parents[1] / "schema"
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema))
+        for schema in (json.loads(path.read_bytes()) for path in schemas.glob("*.json"))
+        if "$id" in schema
+    )
+    for version, identifiers in (
+        ("1.3.0", ("decoded:2.0.0", "python-decoded:2.0.0")),
+        ("2.0.0", ("decoded:2.0.0", "python-decoded:2.0.0")),
+        ("2.1.0", ("decoded:2.1.0", "python-decoded:2.1.0")),
+    ):
+        payload["schema_version"] = version
+        for identifier in identifiers:
+            validator = Draft202012Validator(
+                {"$ref": f"urn:archkeel:architecture-ir:{identifier}"}, registry=registry
+            )
+            assert not validator.is_valid(payload), (signal, version, identifier)
+
+
 def test_missing_selected_source_is_diagnosed_as_incomplete(tmp_path):
     _write_probe(tmp_path)
     result = _observe(tmp_path)
@@ -503,6 +687,7 @@ def test_saved_numeric_receipt_rejects_changed_operand_proof(tmp_path):
         "contract_digest",
         "scope",
         "schema_relabel",
+        "ownership",
     ):
         sections = []
         for section in observation.sections:
@@ -533,6 +718,8 @@ def test_saved_numeric_receipt_rejects_changed_operand_proof(tmp_path):
                             for key, value in entries
                         ]
                     record = replace(record, data=RecordData(tuple(entries)))
+                elif mutation == "ownership" and record.kind == "component_responsibility":
+                    record = replace(record, title="changed-owner")
                 elif section.name == "scope_observations" and record.kind == "rule_evaluation":
                     entries = tuple(
                         (key, 0 if mutation == "threshold" and key == "threshold" else value)

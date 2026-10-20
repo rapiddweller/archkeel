@@ -751,9 +751,7 @@ def _certify_numeric_operand_scopes(
     constructs = tuple(
         parse_record(item) for item in scan.constructs if item["kind"] == "numeric_operand"
     )
-    rule_declarations = tuple(
-        parse_record(item) for item in declarations if item["kind"] == "bounded_numeric_operand"
-    )
+    rule_declarations = tuple(parse_record(item) for item in declarations)
     failures = tuple(parse_record(item) for item in scan.coverage["failures"])
     evidence = tuple(parse_evidence(item) for item in scan.evidence)
     inventory_binding = numeric_operand_inventory_binding_id(

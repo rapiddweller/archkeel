@@ -20,7 +20,7 @@ limited to import-bound `random.random`, `random.Random` methods,
 constructors, dynamic attributes, custom allocation, descriptors, ambiguous
 inheritance, decorated functions/methods, and mutated or revoked bindings remain
 UNKNOWN. It proves the declared static boundary, not runtime conformance. See
-[AD-244](architecture/decisions/ad-244-bounded-call-identity.md).
+[AD-252](architecture/decisions/ad-252-bounded-call-identity.md).
 This rule requires a source/contract/inventory/call-bound receipt for its exact
 claim and observation version; legacy saved observations cannot certify it.
 Re-observe pre-release artifacts with inventory-only proofs. These consistency
@@ -29,6 +29,10 @@ bindings do not authenticate artifacts. Other language profiles do not support i
 `bounded_numeric_operand` is Python syntax evidence for `%` and `%=` only. It
 selects written Name/Attribute terminal identifiers and proves bounded exact
 integer/Boolean literals, unary signs, powers and unique preceding aliases.
+Known operations and aliases require replayable single-line source excerpts of
+at most 16,384 characters; `if`, `elif`, `while`, `for`, `with`, function and
+class headers are supported. Multiline or
+otherwise incomplete evidence remains UNKNOWN.
 Unsupported expressions, unstable or shadowed bindings, oversized values, and
 empty or missing selected scopes remain UNKNOWN. It does not infer runtime types,
 operator overloads, execution reachability, entropy or collision freedom. See

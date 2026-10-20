@@ -52,7 +52,7 @@ is allowed. Unproven calls withhold PASS, including empty candidate lists. Missi
 sources or target declarations remain UNKNOWN. Mutations, ambiguous providers and
 unbound saved receipts cannot certify it. This is a declared static boundary, not
 runtime type conformance. See [AD-241](architecture/decisions/ad-241-call-ownership-policy.md)
-and [AD-244](architecture/decisions/ad-244-bounded-call-identity.md).
+and [AD-252](architecture/decisions/ad-252-bounded-call-identity.md).
 
 `bounded_numeric_operand` selects an owned `source`, `form` (`binary`,
 `augmented` or `both`), case-sensitive `terminal_suffix`, and nonnegative

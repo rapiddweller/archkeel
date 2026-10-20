@@ -645,7 +645,7 @@ def _provider_bindings(
     )
     imported_modules = {item["data"]["target_module"] for item in imports}
     wanted.update(
-        target for target in NATIVE_CALL_TARGETS if target.partition(".")[0] in imported_modules
+        target for target in NATIVE_CALL_TARGETS if _first_part(target, ".") in imported_modules
     )
     decorators = {
         resolve_static_name(module, node.decorator_list[0])
@@ -662,82 +662,157 @@ def _provider_bindings(
     for module in providers:
         runtime_parent = _provider_parents_static(module.module, by_module)
         stdlib_root = module.module in sys.stdlib_module_names and "." not in module.module
-        if (
-            not runtime_parent
-            and not _provider_parents_static(module.module, by_module, source_identity=True)
-            and not stdlib_root
-        ):
+        if not _provider_module_is_relevant(module, runtime_parent, stdlib_root, by_module):
             continue
-        if (
-            (runtime_parent or stdlib_root)
-            and module.module in wanted
-            and _provider_identity_static(module, registry_identity=False)
-        ):
+        if _provider_module_binding(module, runtime_parent, stdlib_root, wanted):
             evidence_id = file_evidence(evidence, module.rel_path, module.lines)
             bindings.append(ProviderBinding(module.module, ProviderBindingKind.MODULE, evidence_id))
-        for node in module.tree.body:
-            for name, kind in _provider_declarations(node):
-                qualified = f"{module.module}.{name}"
-                if (
-                    module.scope_bound_names.count(name) != 1
-                    or name in module.global_names
-                    or qualified not in wanted
-                    or not _provider_identity_static(
-                        module, registry_identity=kind is not ProviderBindingKind.DECLARATION
-                    )
-                ):
-                    continue
-                if not runtime_parent:
-                    if qualified in direct_wanted and not stdlib_root:
-                        continue
-                    if not stdlib_root:
-                        kind = ProviderBindingKind.DECLARATION
-                evidence_id = add_evidence(evidence, module, node)
-                bindings.append(ProviderBinding(qualified, kind, evidence_id))
-            if isinstance(node, ast.ClassDef):
-                class_methods = {
-                    method.name
-                    for method in node.body
-                    if isinstance(method, ast.FunctionDef | ast.AsyncFunctionDef)
-                }
-                for method in node.body:
-                    if not isinstance(method, ast.FunctionDef | ast.AsyncFunctionDef):
-                        continue
-                    qualified = f"{module.module}.{node.name}.{method.name}"
-                    if (
-                        qualified in wanted
-                        and not method.decorator_list
-                        and node.name not in module.global_names
-                        and module.scope_bound_names.count(node.name) == 1
-                        and class_header_static(node)
-                        and _provider_identity_static(module, registry_identity=False)
-                    ):
-                        bindings.append(
-                            ProviderBinding(
-                                qualified,
-                                ProviderBindingKind.FUNCTION,
-                                add_evidence(evidence, module, method),
-                            )
-                        )
-                for native_target in wanted & NATIVE_CALL_TARGETS:
-                    prefix = f"{module.module}.{node.name}."
-                    member = (
-                        native_target[len(prefix) :] if native_target.startswith(prefix) else ""
-                    )
-                    if (
-                        member
-                        and member not in class_methods
-                        and class_header_static(node)
-                        and _provider_identity_static(module, registry_identity=False)
-                    ):
-                        bindings.append(
-                            ProviderBinding(
-                                native_target,
-                                ProviderBindingKind.FUNCTION,
-                                add_evidence(evidence, module, node),
-                            )
-                        )
+        bindings.extend(
+            _provider_member_bindings(
+                module, runtime_parent, stdlib_root, wanted, direct_wanted, evidence
+            )
+        )
     return tuple(sorted(bindings, key=lambda item: item.qualified_name))
+
+
+def _provider_module_is_relevant(
+    module: ParsedModule,
+    runtime_parent: bool,
+    stdlib_root: bool,
+    by_module: dict[str, ParsedModule],
+) -> bool:
+    return (
+        runtime_parent
+        or stdlib_root
+        or _provider_parents_static(module.module, by_module, source_identity=True)
+    )
+
+
+def _provider_module_binding(
+    module: ParsedModule,
+    runtime_parent: bool,
+    stdlib_root: bool,
+    wanted: set[str],
+) -> bool:
+    return (
+        (runtime_parent or stdlib_root)
+        and module.module in wanted
+        and _provider_identity_static(module, registry_identity=False)
+    )
+
+
+def _provider_member_bindings(
+    module: ParsedModule,
+    runtime_parent: bool,
+    stdlib_root: bool,
+    wanted: set[str],
+    direct_wanted: set[str],
+    evidence: dict[str, RawEvidence],
+) -> list[ProviderBinding]:
+    bindings: list[ProviderBinding] = []
+    for node in module.tree.body:
+        for name, kind in _provider_declarations(node):
+            qualified = f"{module.module}.{name}"
+            if not _provider_declaration_selected(module, name, qualified, kind, wanted):
+                continue
+            if not runtime_parent:
+                if qualified in direct_wanted and not stdlib_root:
+                    continue
+                if not stdlib_root:
+                    kind = ProviderBindingKind.DECLARATION
+            bindings.append(ProviderBinding(qualified, kind, add_evidence(evidence, module, node)))
+        if isinstance(node, ast.ClassDef):
+            bindings.extend(_provider_class_member_bindings(module, node, wanted, evidence))
+    return bindings
+
+
+def _provider_declaration_selected(
+    module: ParsedModule,
+    name: str,
+    qualified: str,
+    kind: ProviderBindingKind,
+    wanted: set[str],
+) -> bool:
+    return (
+        module.scope_bound_names.count(name) == 1
+        and name not in module.global_names
+        and qualified in wanted
+        and _provider_identity_static(
+            module, registry_identity=kind is not ProviderBindingKind.DECLARATION
+        )
+    )
+
+
+def _provider_class_member_bindings(
+    module: ParsedModule,
+    node: ast.ClassDef,
+    wanted: set[str],
+    evidence: dict[str, RawEvidence],
+) -> list[ProviderBinding]:
+    methods = {
+        method.name
+        for method in node.body
+        if isinstance(method, ast.FunctionDef | ast.AsyncFunctionDef)
+    }
+    bindings = _provider_class_method_bindings(module, node, wanted, evidence)
+    bindings.extend(_provider_native_class_members(module, node, methods, wanted, evidence))
+    return bindings
+
+
+def _provider_class_method_bindings(
+    module: ParsedModule,
+    node: ast.ClassDef,
+    wanted: set[str],
+    evidence: dict[str, RawEvidence],
+) -> list[ProviderBinding]:
+    bindings: list[ProviderBinding] = []
+    for method in node.body:
+        if not isinstance(method, ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        qualified = f"{module.module}.{node.name}.{method.name}"
+        if (
+            qualified in wanted
+            and not method.decorator_list
+            and node.name not in module.global_names
+            and module.scope_bound_names.count(node.name) == 1
+            and class_header_static(node)
+            and _provider_identity_static(module, registry_identity=False)
+        ):
+            bindings.append(
+                ProviderBinding(
+                    qualified,
+                    ProviderBindingKind.FUNCTION,
+                    add_evidence(evidence, module, method),
+                )
+            )
+    return bindings
+
+
+def _provider_native_class_members(
+    module: ParsedModule,
+    node: ast.ClassDef,
+    methods: set[str],
+    wanted: set[str],
+    evidence: dict[str, RawEvidence],
+) -> list[ProviderBinding]:
+    bindings: list[ProviderBinding] = []
+    for native_target in wanted & NATIVE_CALL_TARGETS:
+        prefix = f"{module.module}.{node.name}."
+        member = native_target[len(prefix) :] if _starts_with(native_target, prefix) else ""
+        if (
+            member
+            and member not in methods
+            and class_header_static(node)
+            and _provider_identity_static(module, registry_identity=False)
+        ):
+            bindings.append(
+                ProviderBinding(
+                    native_target,
+                    ProviderBindingKind.FUNCTION,
+                    add_evidence(evidence, module, node),
+                )
+            )
+    return bindings
 
 
 def _provider_aliases(
@@ -981,3 +1056,15 @@ def _import_targets(
         else:
             targets.append(UnresolvedTarget(import_id, module, "module source not found"))
     return tuple(targets)
+
+
+def _first_part(value: str, separator: str) -> str:
+    for index in range(len(value)):
+        if value[index] == separator:
+            return value[:index]
+    return value
+
+
+def _starts_with(value: str, prefix: str) -> bool:
+    length = len(prefix)
+    return len(value) >= length and value[:length] == prefix

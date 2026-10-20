@@ -55,6 +55,7 @@ from .model import (
     dependency_owners,
     in_scope,
     module_in_ownership,
+    package_owners,
     stable_id,
 )
 from .model import (
@@ -765,6 +766,108 @@ def _ownership_blocker_reason(observation: Observation, rule_id: str) -> str | N
     return " ".join(reasons) if reasons else None
 
 
+def _numeric_scope_proven(observation: Observation, receipt: Record) -> bool:
+    proof = receipt.data.get("numeric_scope_proof")
+    coverage = observation.coverage
+    selected_files = proof.get("selected_files") if isinstance(proof, RecordData) else None
+    module_ids = proof.get("module_ids") if isinstance(proof, RecordData) else None
+    operation_ids = proof.get("operation_ids") if isinstance(proof, RecordData) else None
+    modules_records = observation.records("modules") or ()
+    numeric_records = tuple(
+        item for item in observation.records("constructs") or () if item.kind == "numeric_operand"
+    )
+    evidence = observation.evidence
+    inventory_binding = numeric_operand_inventory_binding_id(
+        observation.sections, coverage.failures, evidence
+    )
+    return (
+        isinstance(proof, RecordData)
+        and {key for key, _ in proof.entries}
+        == {
+            "source_digest",
+            "source_scope",
+            "contract_digest",
+            "observation_schema_version",
+            "scope",
+            "selected_files",
+            "module_ids",
+            "operation_ids",
+            "binding_id",
+        }
+        and proof.get("source_digest") == observation.source.source_digest
+        and proof.get("source_scope") == observation.source.scope
+        and proof.get("contract_digest") == observation.contract.digest
+        and proof.get("observation_schema_version") == observation.schema_version
+        and proof.get("scope") == receipt.data.get("scope")
+        and isinstance(selected_files, tuple)
+        and bool(selected_files)
+        and all(isinstance(path, str) for path in selected_files)
+        and len(set(selected_files)) == len(selected_files)
+        and coverage.files_discovered
+        == coverage.files_read
+        == coverage.files_parsed
+        == len(selected_files)
+        and set(selected_files) == {item.data.get("file") for item in modules_records}
+        and isinstance(module_ids, tuple)
+        and module_ids == tuple(sorted(item.id for item in modules_records))
+        and isinstance(operation_ids, tuple)
+        and operation_ids == tuple(sorted(item.id for item in numeric_records))
+        and proof.get("binding_id")
+        == rule_evaluation_binding_id(inventory_binding, receipt, observation.schema_version)
+    )
+
+
+def _numeric_receipt_complete(
+    observation: Observation, declaration: Record, receipt: Record | None
+) -> bool:
+    if receipt is None:
+        return False
+    threshold = declaration.data.get("minimum_value")
+    suffix = declaration.data.get("terminal_suffix")
+    form = declaration.data.get("form")
+    if (
+        not isinstance(threshold, int)
+        or isinstance(threshold, bool)
+        or not isinstance(suffix, str)
+        or not isinstance(form, str)
+    ):
+        return False
+    selected = set(receipt.subjects)
+    expected_modules = _source_rule_modules(observation, declaration)
+    operations = tuple(
+        item
+        for item in observation.records("constructs") or ()
+        if item.kind == "numeric_operand"
+        and item.data.get("module") in selected
+        and isinstance(subject := item.data.get("subject"), str)
+        and subject[len(subject) - len(suffix) :] == suffix
+        and form in {"both", item.data.get("form")}
+    )
+    binding = stable_id(
+        "NUMERIC-OPERAND",
+        declaration.id,
+        json.dumps(
+            sorted((item.id, _thaw_data(item.data)) for item in operations),
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
+    )
+    return (
+        receipt.rule_ids == (declaration.id,)
+        and receipt.data.get("assessment_complete") is True
+        and receipt.data.get("threshold") == threshold
+        and receipt.data.get("terminal_suffix") == suffix
+        and receipt.data.get("form") == form
+        and bool(selected)
+        and selected == expected_modules
+        and observation.coverage.status == Verdict.PASS
+        and not observation.coverage.failures
+        and set(receipt.fact_ids) == {item.id for item in operations}
+        and receipt.data.get("operation_binding") == binding
+        and _numeric_scope_proven(observation, receipt)
+    )
+
+
 def _rule_receipt_complete(
     observation: Observation, declaration: Record, receipt: Record | None
 ) -> bool:
@@ -777,110 +880,12 @@ def _rule_receipt_complete(
             and _call_owner_receipt_complete(observation, receipt)
         )
     if declaration.kind == "bounded_numeric_operand":
-        if receipt is None:
-            return False
-        threshold = declaration.data.get("minimum_value")
-        suffix = declaration.data.get("terminal_suffix")
-        form = declaration.data.get("form")
-        if (
-            not isinstance(threshold, int)
-            or isinstance(threshold, bool)
-            or not isinstance(suffix, str)
-            or not isinstance(form, str)
-        ):
-            return False
-        modules = {
-            item.data.get("qualified_name")
-            for item in observation.records("modules") or ()
-            if isinstance(item.data.get("qualified_name"), str)
-        }
-        selected = set(receipt.subjects)
-        expected_modules = {
-            module
-            for module in modules
-            if in_scope(str(module), str(declaration.data.get("source")))
-        }
-        operations = tuple(
-            item
-            for item in observation.records("constructs") or ()
-            if item.kind == "numeric_operand"
-            and item.data.get("module") in selected
-            and isinstance(subject := item.data.get("subject"), str)
-            and subject[len(subject) - len(suffix) :] == suffix
-            and form in {"both", item.data.get("form")}
-        )
-        binding = stable_id(
-            "NUMERIC-OPERAND",
-            declaration.id,
-            json.dumps(
-                sorted((item.id, _thaw_data(item.data)) for item in operations),
-                sort_keys=True,
-                separators=(",", ":"),
-            ),
-        )
-        proof = receipt.data.get("numeric_scope_proof")
-        coverage = observation.coverage
-        selected_files = proof.get("selected_files") if isinstance(proof, RecordData) else None
-        module_ids = proof.get("module_ids") if isinstance(proof, RecordData) else None
-        operation_ids = proof.get("operation_ids") if isinstance(proof, RecordData) else None
-        modules_records = observation.records("modules") or ()
-        numeric_records = tuple(
-            item
-            for item in observation.records("constructs") or ()
-            if item.kind == "numeric_operand"
-        )
-        evidence = observation.evidence
-        inventory_binding = numeric_operand_inventory_binding_id(
-            observation.sections, coverage.failures, evidence
-        )
+        return _numeric_receipt_complete(observation, declaration, receipt)
+    if declaration.kind == "protocol_declarations":
         return (
-            receipt.rule_ids == (declaration.id,)
-            and receipt.data.get("assessment_complete") is True
-            and receipt.data.get("threshold") == threshold
-            and receipt.data.get("terminal_suffix") == suffix
-            and receipt.data.get("form") == form
-            and bool(selected)
-            and selected == expected_modules
-            and all(
-                in_scope(str(module), str(declaration.data.get("source"))) for module in selected
-            )
-            and observation.coverage.status == Verdict.PASS
-            and not observation.coverage.failures
-            and set(receipt.fact_ids) == {item.id for item in operations}
-            and receipt.data.get("operation_binding") == binding
-            and isinstance(proof, RecordData)
-            and {key for key, _ in proof.entries}
-            == {
-                "source_digest",
-                "source_scope",
-                "contract_digest",
-                "observation_schema_version",
-                "scope",
-                "selected_files",
-                "module_ids",
-                "operation_ids",
-                "binding_id",
-            }
-            and proof.get("source_digest") == observation.source.source_digest
-            and proof.get("source_scope") == observation.source.scope
-            and proof.get("contract_digest") == observation.contract.digest
-            and proof.get("observation_schema_version") == observation.schema_version
-            and proof.get("scope") == receipt.data.get("scope")
-            and isinstance(selected_files, tuple)
-            and bool(selected_files)
-            and all(isinstance(path, str) for path in selected_files)
-            and len(set(selected_files)) == len(selected_files)
-            and coverage.files_discovered
-            == coverage.files_read
-            == coverage.files_parsed
-            == len(selected_files)
-            and set(selected_files) == {item.data.get("file") for item in modules_records}
-            and isinstance(module_ids, tuple)
-            and module_ids == tuple(sorted(item.id for item in modules_records))
-            and isinstance(operation_ids, tuple)
-            and operation_ids == tuple(sorted(item.id for item in numeric_records))
-            and proof.get("binding_id")
-            == rule_evaluation_binding_id(inventory_binding, receipt, observation.schema_version)
+            receipt is not None
+            and receipt.rule_ids == (declaration.id,)
+            and _protocol_declaration_receipt_complete(observation, receipt)
         )
     if declaration.kind == "protocol_declarations":
         return (
@@ -902,6 +907,56 @@ def _declared_scope_ownership(record: Record) -> ComponentOwnership:
             else ()
         ),
     )
+
+
+def _source_rule_modules(observation: Observation, declaration: Record) -> frozenset[str]:
+    """Rebuild a source selector inside every enclosing physical ownership boundary."""
+    source = declaration.data.get("source")
+    if not isinstance(source, str):
+        return frozenset()
+    parent_id = declaration.data.get("parent_id")
+    components = tuple(
+        item for item in observation.records("declarations") or () if item.kind in _COMPONENT_KINDS
+    )
+    siblings = tuple(
+        _declared_scope_ownership(item)
+        for item in components
+        if item.data.get("parent_id") == parent_id
+    )
+    owners = package_owners((label, packages) for label, packages, _ in siblings)
+    owner = owners.get(source)
+    packages, exact = next(
+        ((packages, exact) for label, packages, exact in siblings if label == owner),
+        ((source,), ()),
+    )
+    names = frozenset(
+        name
+        for item in observation.records("modules") or ()
+        if isinstance(name := item.data.get("qualified_name"), str)
+        and module_in_ownership(name, packages, exact)
+    )
+    visited: set[str] = set()
+    while parent_id is not None:
+        if not isinstance(parent_id, str) or parent_id in visited:
+            return frozenset()
+        visited.add(parent_id)
+        parents = tuple(
+            item
+            for item in components
+            if (
+                f"{ancestor}:{item.title}"
+                if isinstance(ancestor := item.data.get("parent_id"), str)
+                else item.title
+            )
+            == parent_id
+        )
+        if len(parents) != 1:
+            return frozenset()
+        parent = parents[0]
+        _, packages, exact = _declared_scope_ownership(parent)
+        names = frozenset(name for name in names if module_in_ownership(name, packages, exact))
+        parent_id = parent.data.get("parent_id")
+    return names
 
 
 def _dependency_receipt_ownership(
@@ -993,7 +1048,7 @@ def numeric_operand_inventory_binding_id(
         or section.name == "constructs"
         and record.kind == "numeric_operand"
         or section.name == "declarations"
-        and record.kind == "bounded_numeric_operand"
+        and (record.kind == "bounded_numeric_operand" or record.kind in _COMPONENT_KINDS)
     ]
     bound.extend(failures)
     return stable_id(
@@ -1275,17 +1330,6 @@ def rule_assessments(
         undecided = undecided_by_rule.get(identifier, 0)
         violation_count = violations[identifier]
         receipt = receipts.get(identifier)
-        if declaration.kind == "bounded_numeric_operand":
-            receipt = next(
-                (
-                    item
-                    for item in observation.records("scope_observations") or ()
-                    if item.kind == "rule_evaluation"
-                    and item.rule_ids == (identifier,)
-                    and isinstance(item.data.get("operation_binding"), str)
-                ),
-                None,
-            )
         receipt_complete = _rule_receipt_complete(observation, declaration, receipt)
         scope_complete = _rule_scope_complete(observation, declaration, receipt, complete)
         evaluation_proven = scope_complete and receipt_complete

@@ -5,8 +5,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from collections.abc import Set as AbstractSet
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from types import MappingProxyType
@@ -47,9 +46,11 @@ from archkeel.ir.model import (
     EvidenceClass,
     GraphTopologyLevel,
     InterfaceBoundaryRule,
+    ModuleExports,
     in_scope,
     module_in_ownership,
     stable_id,
+    stated_exports,
 )
 from archkeel.ir.profiles import Profile, profile_for
 from archkeel.ir.type_shapes import TypeShapeIndex
@@ -223,7 +224,7 @@ def _analysis_limits(
 def api_surface_limits(
     declarations: ContractDeclarations,
     symbols: Sequence[RawRecord],
-    module_all_exports: Mapping[str, AbstractSet[str]],
+    module_all_exports: ModuleExports,
     reason: str,
 ) -> list[RawRecord]:
     """UNKNOWN records for a `public_api` name only `__all__` or a scanned symbol could settle.
@@ -244,7 +245,7 @@ def api_surface_limits(
         module, colon, name = entry.partition(":")
         if not colon or module not in module_all_exports:
             continue
-        if module_all_exports[module] or (module, name) in top_level:
+        if module_all_exports[module] is not None or (module, name) in top_level:
             continue
         limits.append(
             classified(
@@ -280,7 +281,7 @@ def _mount_facade_signature_types(
     mount: InsideContractMount,
     scoped: ArchitectureContract,
     source_modules: frozenset[str],
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     uncertain_reexport_origins: dict[str, frozenset[str]],
     owner_levels: Sequence[ArchitectureContract],
     *,
@@ -322,7 +323,7 @@ def _inside_rule_results(
     blank_modules: frozenset[str],
     module_cycles: Sequence[RawRecord],
     profile: Profile,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     uncertain_reexport_origins: dict[str, frozenset[str]],
     scanned_modules: set[str],
     stable_bindings_by_module: dict[str, frozenset[str]],
@@ -560,7 +561,7 @@ def _evaluate_inside_contract(
     module_cycles: Sequence[RawRecord],
     profile: Profile,
     symbols_measured: bool,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     uncertain_reexport_origins: dict[str, frozenset[str]],
     scanned_modules: set[str],
     stable_bindings_by_module: dict[str, frozenset[str]],
@@ -578,6 +579,7 @@ def _evaluate_inside_contract(
         target_module_names={module["data"]["qualified_name"] for module in modules},
         symbols=symbols,
         imports=imports,
+        observed_modules=modules,
         contract=scoped,
         exports_by_module=exports_by_module,
         uncertain_reexport_origins=uncertain_reexport_origins,
@@ -782,7 +784,10 @@ def evaluate_source(
     evidence = {entry.id: raw_evidence(entry) for entry in facts.evidence}
     module_names = {module.module for module in parsed}
     module_evidence = {module.module: module.evidence_id for module in parsed}
-    module_all_exports = {module.module: module.all_exports for module in parsed}
+    module_all_exports = {
+        module.module: stated_exports(tuple(sorted(module.all_exports)), module.all_literal)
+        for module in parsed
+    }
     uncertain_reexport_origins = {
         binding: frozenset(origins) for binding, origins in facts.uncertain_reexports
     }
@@ -893,6 +898,7 @@ def evaluate_source(
         module_names,
         symbols=symbols,
         imports=imports,
+        observed_modules=module_facts,
         contract=contract,
         exports_by_module=facade_exports,
         uncertain_reexport_origins=uncertain_reexport_origins,

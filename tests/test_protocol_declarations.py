@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
 from test_analyzer import _observe
 from test_exact_module_ownership import _component, _observe_tree
 
@@ -65,6 +66,115 @@ def test_protocol_declaration_rule_has_typed_round_trip() -> None:
     assert rule.protocol == "sample.core.Reader"
     assert [selector.role for selector in rule.selectors] == ["parameter", "member"]
     assert parse_contract(json.loads(contract_bytes(contract))) == contract
+
+
+@pytest.mark.parametrize("annotation,status", [("Reader", "UNKNOWN"), ("Concrete", "FAIL")])
+def test_each_selector_requires_its_own_matches(
+    tmp_path: Path, annotation: str, status: str
+) -> None:
+    from archkeel.ir.decisions import unknown_positions_by_rule
+
+    (tmp_path / "contract.json").write_text(json.dumps(_contract()))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "from typing import Protocol\n"
+        "class Reader(Protocol):\n    def read(self) -> bytes: ...\n"
+        "class Concrete: pass\n"
+        f"def consume(client: {annotation}): return None\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    rows = rule_assessments(
+        result.observation, undecided_by_rule=unknown_positions_by_rule(result.observation)
+    )
+    [row] = [item for item in rows if item.id == "APP-READER-DECLARATIONS"]
+    assert row.status.value == status
+    assert row.undecided > 0
+    assert not row.evaluation_proven
+    for columnar in (False, True):
+        saved = tmp_path / "saved.json"
+        payload = observation_payload(result.observation)
+        saved.write_text(json.dumps(encode_canonical_model(payload) if columnar else payload))
+        assert run_saved_report(saved).rule_assessments == rows
+
+
+@pytest.mark.parametrize("prefix", ["*", "**"])
+@pytest.mark.parametrize("annotation,status", [("Reader", "PASS"), ("Concrete", "FAIL")])
+def test_variadic_parameters_match_their_source_identifier(
+    tmp_path: Path, prefix: str, annotation: str, status: str
+) -> None:
+    raw = _contract()
+    raw["rules"][0]["selectors"] = [raw["rules"][0]["selectors"][0]]
+    (tmp_path / "contract.json").write_text(json.dumps(raw))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "from typing import Protocol\n"
+        "class Reader(Protocol):\n    def read(self) -> bytes: ...\n"
+        "class Concrete: pass\n"
+        f"def consume({prefix}client: {annotation}): return None\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    [row] = [
+        item
+        for item in rule_assessments(result.observation, undecided_by_rule={})
+        if item.id == "APP-READER-DECLARATIONS"
+    ]
+    assert row.status.value == status
+
+
+@pytest.mark.parametrize("field_type", ["Payload", "MissingPayload"])
+@pytest.mark.parametrize("annotation", ["Reader", "Port"])
+def test_protocol_identity_does_not_descend_into_facade_fields(
+    tmp_path: Path, field_type: str, annotation: str
+) -> None:
+    from archkeel.ir.decisions import unknown_positions_by_rule
+
+    raw = _contract()
+    raw["components"][0]["public"] = ["sample.core:Reader", "sample.core:Payload"]
+    raw["rules"][0]["selectors"] = [raw["rules"][0]["selectors"][0]]
+    (tmp_path / "contract.json").write_text(json.dumps(raw))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "from typing import Protocol, TypeAlias\n"
+        "class Payload: pass\n"
+        f"class Reader(Protocol):\n    payload: {field_type}\n"
+        "Port: TypeAlias = Reader\n"
+        f"def consume(client: {annotation}): return None\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    rows = rule_assessments(
+        result.observation, undecided_by_rule=unknown_positions_by_rule(result.observation)
+    )
+    [row] = [item for item in rows if item.id == "APP-READER-DECLARATIONS"]
+    assert row.status.value == "PASS"
+    for columnar in (False, True):
+        saved = tmp_path / "saved.json"
+        payload = observation_payload(result.observation)
+        saved.write_text(json.dumps(encode_canonical_model(payload) if columnar else payload))
+        assert run_saved_report(saved).rule_assessments == rows
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("name", "not-a-name"),
+        ("name", "client\n"),
+        ("source", "sample..core"),
+        ("source", "sample.core\n"),
+        ("protocol", "sample.Reader-1"),
+        ("protocol", "sample.Reader\n"),
+    ],
+)
+def test_protocol_schema_rejects_non_identifier_selectors(field: str, value: str) -> None:
+    raw = _contract()
+    target = raw["rules"][0]["selectors"][0] if field == "name" else raw["rules"][0]
+    target[field] = value
+    with pytest.raises(ValueError):
+        parse_contract(raw)
+    schema = json.loads((ROOT / "schema/architecture-contract-3.9.schema.json").read_bytes())
+    assert list(Draft202012Validator(schema).iter_errors(raw))
 
 
 def test_selected_public_positions_require_the_canonical_protocol(tmp_path: Path) -> None:
@@ -300,6 +410,55 @@ def test_older_contract_versions_reject_protocol_declaration_rule() -> None:
     assert not list(Draft202012Validator(current_schema).iter_errors(_contract()))
 
 
+@pytest.mark.parametrize("section_name", ["declarations", "scope_observations", "violations"])
+@pytest.mark.parametrize("boundary", ["read", "write", "schema", "python_schema"])
+def test_legacy_reports_reject_all_protocol_vocabulary(
+    tmp_path: Path, section_name: str, boundary: str
+) -> None:
+    raw = _contract()
+    raw["rules"][0]["selectors"] = [raw["rules"][0]["selectors"][0]]
+    (tmp_path / "contract.json").write_text(json.dumps(raw))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "from typing import Protocol\n"
+        "class Reader(Protocol):\n    def read(self) -> bytes: ...\n"
+        "def consume(client: object): return None\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None
+    sections = tuple(
+        section if section.name == section_name else replace(section, records=())
+        for section in result.observation.sections
+    )
+    observation = replace(result.observation, sections=sections)
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema))
+        for path in (ROOT / "schema").glob("*.json")
+        if (schema := json.loads(path.read_bytes()))
+    )
+    for version in ("2.0.0", "2.1.0", "2.2.0"):
+        if boundary in {"schema", "python_schema"}:
+            profile = "python-decoded" if boundary == "python_schema" else "decoded"
+            payload = observation_payload(observation)
+            current = Draft202012Validator(
+                {"$ref": f"urn:archkeel:architecture-ir:{profile}:2.3.0"}, registry=registry
+            )
+            assert not list(current.iter_errors(payload))
+            payload["schema_version"] = version
+            legacy = Draft202012Validator(
+                {"$ref": f"urn:archkeel:architecture-ir:{profile}:{version}"}, registry=registry
+            )
+            assert list(legacy.iter_errors(payload)), (version, section_name)
+            continue
+        with pytest.raises(ValueError, match="observation schema 2.3.0"):
+            if boundary == "write":
+                observation_payload(replace(observation, schema_version=version))
+            else:
+                payload = observation_payload(observation)
+                payload["schema_version"] = version
+                parse_observation(payload)
+
+
 @pytest.mark.parametrize("columnar", [False, True])
 def test_valid_parameter_and_member_declarations_are_proven_on_saved_replay(
     tmp_path: Path, columnar: bool
@@ -461,10 +620,13 @@ def test_stale_protocol_scope_proofs_cannot_prove_pass(tmp_path: Path, tamper: s
             for section in sections
         )
         observation = replace(result.observation, sections=sections)
-    else:
-        observation = replace(result.observation, schema_version="2.0.0")
     saved = tmp_path / "stale.json"
-    saved.write_bytes(canonical_report_bytes(observation))
+    if tamper == "schema":
+        payload = observation_payload(result.observation)
+        payload["schema_version"] = "2.0.0"
+        saved.write_text(json.dumps(encode_canonical_model(payload)))
+    else:
+        saved.write_bytes(canonical_report_bytes(observation))
     replay = run_saved_report(saved)
     if tamper == "schema":
         assert replay.exit_code == 2
@@ -538,3 +700,18 @@ def test_protocol_proof_transplanted_from_another_source_cannot_prove_pass(tmp_p
     [row] = [item for item in replay.rule_assessments or () if item.id == "APP-READER-DECLARATIONS"]
     assert row.status.value == "UNKNOWN"
     assert row.evaluation_proven is False
+
+
+def test_protocol_reference_inventory_preserves_full_symbol_on_rename():
+    from archkeel.ir.model import module_references
+    from archkeel.ir.renames import renamed_contract
+
+    contract = parse_contract(_contract())
+    reference = next(
+        item for item in module_references(contract) if item.pointer == "/rules/0/protocol"
+    )
+    assert reference.value == "sample.core.Reader" and reference.held
+    changed = renamed_contract(contract, {"sample.core": "sample.engine"})
+    rule = json.loads(contract_bytes(changed))["rules"][0]
+    assert rule["source"] == "sample.engine"
+    assert rule["protocol"] == "sample.engine.Reader"
