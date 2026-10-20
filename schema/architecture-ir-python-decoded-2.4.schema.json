@@ -306,7 +306,36 @@
                               "end_column": {
                                 "type": "integer",
                                 "minimum": 0
+                              },
+                              "scope_evidence_id": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "scope_owner": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "scope_symbol_id": {
+                                "type": "string",
+                                "minLength": 1
                               }
+                            }
+                          }
+                        },
+                        "binding_scopes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "scope_owner",
+                              "scope_evidence_id",
+                              "scope_symbol_id"
+                            ],
+                            "additionalProperties": false,
+                            "properties": {
+                              "scope_owner": { "type": "string", "minLength": 1 },
+                              "scope_evidence_id": { "type": "string", "minLength": 1 },
+                              "scope_symbol_id": { "type": "string", "minLength": 1 }
                             }
                           }
                         }

@@ -297,7 +297,7 @@
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/typing_signals"
     },
     "constructs": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/constructs"
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.4.0#/properties/constructs"
     },
     "contexts": {
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/contexts"
