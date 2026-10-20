@@ -427,7 +427,7 @@ def _observe_sample(root: Path):
     )
 
 
-@pytest.mark.parametrize("schema_version", ["2.1.0", "2.2.0", "2.3.0", "2.4.0"])
+@pytest.mark.parametrize("schema_version", ["2.1.0", "2.2.0", "2.3.0", "2.4.0", "2.5.0"])
 def test_delta_ratchets_retain_supported_observation_history(schema_version: str) -> None:
     baseline = _model(git_head="1" * 40)
     head = _model(git_head="2" * 40)
