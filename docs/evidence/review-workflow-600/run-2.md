@@ -39,3 +39,9 @@ oversized components. The reviewer inferred `pricing` for one of the two.
 
 Run 2 delivered Markdown only and statically checked the generated pages' `href`s; the
 browser navigation smoke test is run 1's.
+
+## Correction
+
+The architect corrected the S4 expectation after this run (see `expected-findings.md`):
+the rule under test is a reasoned decision without a split by count. Under it, S4 matches
+in both runs. The grading above stays as it was recorded against revision 2.

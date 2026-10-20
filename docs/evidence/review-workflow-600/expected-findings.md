@@ -43,13 +43,15 @@ cites the named evidence. Wording may differ. The contract is green
   backends. Acceptable side note: the `BACKEND` attribute of a loaded module is untyped
   until it meets the `Backend` annotation.
 
-## S4 Cohesive larger package: `orders.pricing`
+## S4 Larger package over the review threshold: `orders.pricing`
 
-- Decision: **keep**.
-- Evidence: ten direct modules exceed the review threshold of seven, but each holds one
-  distinct pricing rule (clearance, bulk, coupon, VAT, small-order surcharge, shipping,
-  currency) behind the `PriceStep` protocol, plus the line model, catalog and the ordered
-  pipeline.
-- Not expected: splitting by count, merging distinct rules into one module, `misc`/`utils`,
-  or re-export barrels. Acceptable: a note that discount steps could form a subpackage if
-  they grow.
+- Decision: a **reasoned** keep or consolidate, never a split by count.
+- Evidence: ten direct modules exceed the threshold of seven, so the package is reviewed;
+  the decision rests on cohesion and module size, not on the count.
+- Not expected: splitting into subpackages because of the count, `misc`/`utils`, or
+  re-export barrels.
+
+Correction after run 2 (architect decision): revision 2 expected "keep the file layout".
+That conflated a cohesive package with its current files. The skill rule under test is
+"more than seven children triggers a review, not a split"; consolidating one-method
+modules of 8–13 lines is a valid reasoned decision under it.
