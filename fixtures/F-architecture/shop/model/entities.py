@@ -6,17 +6,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import StrEnum
 from typing import TypedDict
 
-__all__ = ["Order", "Line", "Money", "OrderPayload", "LinePayload", "OptionKey"]
-
-
-class OptionKey(StrEnum):
-    """Named options accepted by a store read operation."""
-
-    PAGE_SIZE = "page_size"
-    RETIRED = "retired"
+__all__ = ["Order", "Line", "Money", "OrderPayload", "LinePayload"]
 
 
 class LinePayload(TypedDict):

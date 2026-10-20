@@ -17,7 +17,9 @@ _CATALOG_ARGUMENT = Variant(
     files={
         "shop/app/orders.py": _APP_ORDERS.replace(
             "def read_catalog_option() -> str:\n    return read_option(OptionKey.PAGE_SIZE)",
-            'def read_catalog_option() -> str:\n    return read_option("unlisted-option")',
+            "def read_catalog_option() -> str:\n"
+            "    read_option(OptionKey.PAGE_SIZE)\n"
+            '    return read_option("unlisted-option")',
         )
     },
     expected_violations=("APP-OPTION-KEY",),
@@ -31,7 +33,8 @@ _CATALOG_USE = Variant(
     summary="The application stops reading the declared PAGE_SIZE catalog member.",
     files={
         "shop/app/orders.py": _APP_ORDERS.replace(
-            "read_option(OptionKey.PAGE_SIZE)", "read_option(OptionKey.RETIRED)"
+            "read_option(OptionKey.PAGE_SIZE)",
+            "read_option(OptionKey.RETIRED)",
         )
     },
     expected_violations=("APP-OPTION-KEY-USED",),

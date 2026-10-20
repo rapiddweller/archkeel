@@ -16,8 +16,3 @@ def lookup_order(root: Path, order_id: str) -> Path:
 
 def find_order(root: Path, order_id: str) -> Path:
     return lookup_order(root, order_id)
-
-
-def read_option(key: str) -> str:
-    """Return the selected option key for the architecture demo."""
-    return key

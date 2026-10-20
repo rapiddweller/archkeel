@@ -41,8 +41,7 @@
       "public": [
         "shop.store.repository:OrderRepository",
         "shop.store.sqlite:vacuum",
-        "shop.store.sqlite:Connection",
-        "shop.store.lookup:read_option"
+        "shop.store.sqlite:Connection"
       ],
       "responsibilities": [
         "Persist orders as JSON files."
@@ -772,9 +771,9 @@
       "id": "APP-OPTION-KEY",
       "kind": "catalog_argument",
       "source": "shop.app.orders.read_catalog_option",
-      "target": "shop.store.lookup.read_option",
+      "target": "shop.app.catalog.read_option",
       "parameter": "key",
-      "catalog": "shop.model.entities.OptionKey",
+      "catalog": "shop.app.catalog.OptionKey",
       "rationale": "Store option reads use declared keys.",
       "provenance": [
         "docs/architecture/shop.md"
@@ -785,8 +784,8 @@
     {
       "id": "APP-OPTION-KEY-USED",
       "kind": "catalog_use",
-      "source": "shop.app.orders.summarize",
-      "catalog": "shop.model.entities.OptionKey",
+      "source": "shop.app.orders.read_catalog_option",
+      "catalog": "shop.app.catalog.OptionKey",
       "member": "PAGE_SIZE",
       "rationale": "The page-size option stays in use by the application.",
       "provenance": [
