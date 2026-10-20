@@ -747,7 +747,16 @@ def _certify_call_owner_scopes(
             **proof,
             "result_digest": rule_result_digest(
                 (
-                    Section(name, tuple(parse_record(item) for item in records))
+                    Section(
+                        name,
+                        tuple(
+                            parse_record(item)
+                            for item in records
+                            if item["evidence_class"]
+                            in {EvidenceClass.VIOLATION, EvidenceClass.UNKNOWN}
+                            and rule_id in item["rule_ids"]
+                        ),
+                    )
                     for name, records in result_sections
                 ),
                 rule_id,
