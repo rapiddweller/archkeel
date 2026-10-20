@@ -422,6 +422,18 @@ def test_receiver_annotation_is_bound_to_exact_lexical_scope():
     }
 
 
+def test_type_and_exception_headers_are_not_member_read_selectors():
+    source = (
+        "import builtins\n"
+        "class Connection:\n    backend: builtins.Exception\n"
+        "def route(value: builtins.Exception) -> builtins.Exception:\n"
+        "    try:\n        pass\n"
+        "    except builtins.Exception:\n        pass\n"
+    )
+    facts = collect_constructs([_parsed_module(source, module="sample.core")], {})
+    assert not any(row["kind"] == "construct_selector" for row in facts)
+
+
 @pytest.mark.parametrize("mounted", [False, True], ids=["root", "mounted"])
 def test_native_free_parameter_capture_keeps_its_exact_lexical_owner(tmp_path: Path, mounted: bool):
     root = tmp_path / "repo"

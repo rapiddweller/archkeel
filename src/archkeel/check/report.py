@@ -1018,7 +1018,6 @@ def _saved_selector_stored(
         or target_declaration.kind != "class"
         or target_declaration.data.get("source_binding_unique") is not True
         or not set(owner.evidence_ids) <= set(ids)
-        or not set(target_declaration.evidence_ids) <= set(ids)
     ):
         raise ValueError("saved stored selector receiver needs its typed initializer link")
 
@@ -1047,6 +1046,10 @@ def _saved_selector_constructed(
         for item in selector.evidence_ids
         if item not in binding.evidence_ids and item in evidence
     ]
+    if isinstance(constructor_id, str) and constructor_id in selector.evidence_ids:
+        constructor_evidence = evidence.get(constructor_id)
+        if constructor_evidence is not None and constructor_evidence not in selector_evidence:
+            selector_evidence.append(constructor_evidence)
     target_declaration: Record | None = targets[0] if len(targets) == 1 else None
     assignment_call: Record | None = assignment_calls[0][0] if len(assignment_calls) == 1 else None
     if not _saved_selector_construction_is_linked(

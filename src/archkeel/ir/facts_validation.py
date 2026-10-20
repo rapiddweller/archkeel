@@ -357,6 +357,12 @@ def _selector_source_receiver(
     record: Record, binding: CallBinding, evidence: Mapping[str, Evidence]
 ) -> tuple[ast.expr, tuple[int, int, int, int]] | None:
     site_ids = set(record.evidence_ids) - set(binding.evidence_ids)
+    if binding.origin is CallBindingOrigin.CONSTRUCTED_RECEIVER and binding.proof is not None:
+        constructor_id = binding.proof.get("constructor_evidence_id")
+        if isinstance(constructor_id, str) and constructor_id in record.evidence_ids:
+            # Nested receiver and selector share a start column, so the source-evidence
+            # identity is the same. Keep that location eligible as the selector site.
+            site_ids.add(constructor_id)
     for identifier in site_ids:
         item = evidence.get(identifier)
         if item is None:
@@ -564,7 +570,7 @@ def selector_parameter_scope_matches(
         )
         for owner, item in zip(expected, chain, strict=True)
     ) and _selector_parameter_scope_site_matches(
-        record, binding, expected[-1], chain[-1], module_name, evidence
+        record, binding, expected[0], chain[0], module_name, evidence
     )
 
 
@@ -1077,6 +1083,13 @@ def _selector_constructed_receiver_proof(
         for item in record.evidence_ids
         if item not in binding.evidence_ids and item in evidence
     ]
+    if (
+        isinstance(constructor_id, str)
+        and constructor_id in record.evidence_ids
+        and (shared_site := evidence.get(constructor_id)) is not None
+        and shared_site not in selector_evidence
+    ):
+        selector_evidence.append(shared_site)
     linked_assignments = _selector_linked_assignments(
         facts, constructor_id, assignment_id, assignment_name
     )

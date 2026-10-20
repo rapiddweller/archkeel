@@ -263,6 +263,7 @@ class CallCollector(ast.NodeVisitor):
         self.escaped_bindings = {
             (binding.owner.node, reference.id)
             for reference in member_escape_sites
+            if not self._discarded_attribute_read(reference)
             if (binding := self.scopes.lookup(reference, reference.id)).owner is not None
         }
         self.constructed_escape_bindings = {
@@ -300,6 +301,19 @@ class CallCollector(ast.NodeVisitor):
             for target in self._native_expression_targets(reference)
         )
         self.scope_bindings: dict[ast.ClassDef | FunctionNode, frozenset[str]] = {}
+
+    def _discarded_attribute_read(self, reference: ast.Name) -> bool:
+        """A read-only attribute expression discarded as a statement exposes no receiver."""
+        current: ast.AST = reference
+        while current in self.parents:
+            parent = self.parents[current]
+            if isinstance(parent, ast.Attribute) and parent.value is current:
+                if not isinstance(parent.ctx, ast.Load):
+                    return False
+                current = parent
+                continue
+            return isinstance(parent, ast.Expr) and isinstance(current, ast.Attribute)
+        return False
 
     def _construction(
         self,
