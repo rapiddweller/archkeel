@@ -231,6 +231,71 @@ def test_python_catalog_literal_values_are_versioned_in_observation_schemas(tmp_
     assert not old.is_valid(historical)
 
 
+def test_python_decoded_2_9_schema_keeps_source_role_binding_proofs():
+    from test_result_schema import _validator
+
+    references = _validator("command-result-9.0.schema.json").evolve(
+        schema={
+            "$ref": ("urn:archkeel:architecture-ir:python-decoded:2.9.0#/properties/references")
+        }
+    )
+    record = {
+        "id": "REF-example",
+        "evidence_class": "FACT",
+        "area": "references",
+        "kind": "source_role",
+        "title": "Source definition role",
+        "subjects": [],
+        "evidence_ids": ["EVD-example"],
+        "rule_ids": [],
+        "fact_ids": [],
+        "provenance": [],
+        "data": {
+            "source_scope": "sample.consumer",
+            "source_module": "sample.consumer",
+            "expression": "cursor",
+            "status": "resolved",
+            "targets": [],
+            "use": "source_role",
+            "role": "definition",
+            "canonical_name": "sample.consumer.cursor",
+            "declaration_id": "DECL-example",
+            "declaration_role": "definition",
+            "declaration_evidence_ids": ["EVD-declaration"],
+            "declaration_status": "resolved",
+            "local_source_binding": True,
+            "column": 0,
+        },
+    }
+
+    assert references.is_valid([record])
+    unresolved_source_role = copy.deepcopy(record)
+    unresolved_source_role["data"]["status"] = "unresolved"
+    assert references.is_valid([unresolved_source_role])
+
+    unresolved_declaration = copy.deepcopy(record)
+    unresolved_declaration["data"]["declaration_status"] = "unresolved"
+    assert not references.is_valid([unresolved_declaration])
+
+    invalid_default = copy.deepcopy(record)
+    invalid_default["data"]["role"] = "parameter_default"
+    assert not references.is_valid([invalid_default])
+    invalid_default["data"]["parameter"] = "cursor"
+    invalid_default["data"]["expression_kind"] = "reference"
+    assert references.is_valid([invalid_default])
+
+    transferred_reference = copy.deepcopy(record)
+    transferred_reference["kind"] = "value_reference"
+    transferred_reference["data"].update(
+        {
+            "use": "value",
+            "reference_context": "value",
+            "transfer_kind": "dictionary_value",
+        }
+    )
+    assert not references.is_valid([transferred_reference])
+
+
 def test_mounted_catalog_receipt_uses_only_its_physical_source_domain(tmp_path):
     from archkeel.check.report import run_saved_report
     from archkeel.ir.codec import observation_payload
