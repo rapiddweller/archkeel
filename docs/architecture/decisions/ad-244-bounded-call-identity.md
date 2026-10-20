@@ -31,3 +31,6 @@ versions. This consistency binding does not authenticate a modified artifact
 or prove runtime dispatch.
 There is no general runtime type inference, dynamic dispatch, custom allocation,
 arbitrary descriptor, or arbitrary MRO support.
+
+[Digest-bound declaration amendment](ad-244-bounded-call-identity-amendment.json)
+records the new public proof field without raising any measurement budget.
