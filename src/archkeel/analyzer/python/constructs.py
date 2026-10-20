@@ -1378,9 +1378,7 @@ class ConstructCollector(ast.NodeVisitor):
             else self._receiver_type(selected)
         )
         member = selected.attr if isinstance(selected, ast.Attribute) else node.func.attr
-        if receiver_type is None and not (
-            isinstance(selected, ast.Attribute) and self._parameter_receiver(receiver_node)
-        ):
+        if receiver_type is None and not isinstance(selected, ast.Attribute):
             return
         literals = self.comparisons.string_values(node.args[0])
         if literals is not None:

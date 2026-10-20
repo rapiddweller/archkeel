@@ -30,6 +30,10 @@ from archkeel.ir.codec import (
     parse_observation,
 )
 from archkeel.ir.codec_contract import parse_contract
+from archkeel.ir.codec_observation import (
+    _ObservationVersion,
+    _validate_selector_and_argument_versions,
+)
 from archkeel.ir.decisions import (
     rule_assessments,
     rule_evaluation_binding_id,
@@ -40,6 +44,7 @@ from archkeel.ir.facts import (
     CallBinding,
     CallBindingOrigin,
     Evidence,
+    EvidenceClass,
     ForbiddenConstructKind,
     Record,
     RecordData,
@@ -51,7 +56,13 @@ from archkeel.ir.facts_codec import (
     selector_receiver_site_matches,
 )
 from archkeel.ir.facts_validation import _selector_evidence_excerpt
-from archkeel.ir.model import ConstructSelector, ConstructSelectorRole, ForbiddenConstructRule
+from archkeel.ir.model import (
+    ConstructSelector,
+    ConstructSelectorRole,
+    ForbiddenConstructRule,
+    Section,
+)
+from archkeel.ir.profiles import ObservedSection, profile_for
 from archkeel.ir.trace import trace_valid_violations
 
 
@@ -253,6 +264,73 @@ def test_ambiguous_string_predicate_does_not_disappear_beside_safe_literal():
     findings = _construct_violations(signals, [rule])
     assert not any(row["evidence_class"] == "VIOLATION" for row in findings)
     assert any(row["evidence_class"] == "UNKNOWN" for row in findings)
+
+
+def test_unproven_local_string_predicate_is_retained_as_unknown():
+    module = _parsed_module(
+        'def route():\n    connection = factory()\n    connection.backend.startswith("flat")\n',
+        module="sample.core",
+    )
+
+    signals = collect_constructs([module], {})
+    [selector] = [
+        row
+        for row in signals
+        if row["kind"] == "construct_selector" and row["data"]["selector_role"] == "startswith"
+    ]
+
+    assert selector["data"]["receiver_type"] is None
+    assert selector["data"]["member"] == "backend"
+    assert selector["data"]["status"] == "unknown"
+
+
+@pytest.mark.parametrize(
+    ("section_name", "kind", "entries"),
+    [
+        (ObservedSection.CONSTRUCTS, "construct_selector", ()),
+        (ObservedSection.UNKNOWNS, "construct_selector_unknown", ()),
+        (
+            "declarations",
+            "forbidden_construct",
+            (("selector", RecordData(())),),
+        ),
+        (
+            "scope_observations",
+            "rule_evaluation",
+            (("claim", "construct_selector"),),
+        ),
+        (
+            "scope_observations",
+            "rule_evaluation",
+            (("selector", RecordData(())),),
+        ),
+    ],
+)
+def test_selector_vocabulary_requires_its_introducing_observation_version(
+    section_name: str, kind: str, entries: tuple[tuple[str, object], ...]
+):
+    record = Record(
+        "RECORD-1",
+        EvidenceClass.FACT,
+        "type_architecture",
+        kind,
+        "selector fixture",
+        (),
+        (),
+        (),
+        (),
+        (),
+        RecordData(entries),
+    )
+    sections = (Section(section_name, (record,)),)
+
+    with pytest.raises(ValueError, match="selector facts require observation schema 2.6.0"):
+        _validate_selector_and_argument_versions(
+            _ObservationVersion.V2_5, sections, profile_for("archkeel-python-analyzer")
+        )
+    _validate_selector_and_argument_versions(
+        _ObservationVersion.V2_6, sections, profile_for("archkeel-python-analyzer")
+    )
 
 
 def test_collector_and_evaluator_select_member_and_literal_not_spellings():
@@ -848,6 +926,18 @@ def test_native_saved_report_keeps_fail_and_unknown_for_selected_scope(tmp_path:
     relabeled["schema_version"] = "2.5.0"
     with pytest.raises(ValueError, match="selector facts require observation schema 2.6.0"):
         parse_observation(relabeled)
+    stripped = copy.deepcopy(relabeled)
+    stripped["constructs"] = [
+        row for row in stripped["constructs"] if row["kind"] != "construct_selector"
+    ]
+    assert stripped["declarations"]
+    assert any(row["kind"] == "construct_selector_unknown" for row in stripped["unknowns"])
+    assert any(
+        row["kind"] == "rule_evaluation" and row["data"].get("claim") == "construct_selector"
+        for row in stripped["scope_observations"]
+    )
+    with pytest.raises(ValueError, match="selector facts require observation schema 2.6.0"):
+        parse_observation(stripped)
 
     ordinary = observation_payload(model)
     columnar = decode_canonical_model(json.loads(encoded))
