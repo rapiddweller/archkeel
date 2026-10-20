@@ -1640,15 +1640,14 @@ def _numeric_operation_expression(
 ) -> ast.BinOp | ast.AugAssign | None:
     data = record.data
     expected = tuple(data.get(name) for name in ("line", "column", "end_line", "end_column"))
-    matches: list[ast.BinOp | ast.AugAssign] = []
+    matches: dict[tuple[int, int, int, int], ast.BinOp | ast.AugAssign] = {}
+    seen_evidence: set[str] = set()
     for evidence_id in record.evidence_ids:
+        if evidence_id in seen_evidence:
+            continue
+        seen_evidence.add(evidence_id)
         evidence = evidence_by_id.get(evidence_id)
-        if (
-            evidence is None
-            or evidence.file != expected_file
-            or (evidence.line, evidence.column, evidence.end_line)
-            != (expected[0], expected[1], expected[2])
-        ):
+        if evidence is None or evidence.file != expected_file:
             continue
         parsed = _numeric_evidence_nodes(evidence)
         if parsed is None:
@@ -1656,21 +1655,25 @@ def _numeric_operation_expression(
         nodes, line_offset = parsed
         for root in nodes:
             for node in ast.walk(root):
-                if _numeric_node_span(node, evidence.line, line_offset) != expected:
+                span = _numeric_node_span(node, evidence.line, line_offset)
+                if span is None or span[:2] != (evidence.line, evidence.column):
                     continue
-                if (
-                    data.get("form") == "binary"
-                    and isinstance(node, ast.BinOp)
-                    and isinstance(node.op, ast.Mod)
-                ):
-                    matches.append(node)
-                elif (
-                    data.get("form") == "augmented"
-                    and isinstance(node, ast.AugAssign)
-                    and isinstance(node.op, ast.Mod)
-                ):
-                    matches.append(node)
-    return matches[0] if len(matches) == 1 else None
+                operation: ast.BinOp | ast.AugAssign
+                source_form: str
+                if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod):
+                    operation = node
+                    source_form = "binary"
+                elif isinstance(node, ast.AugAssign) and isinstance(node.op, ast.Mod):
+                    operation = node
+                    source_form = "augmented"
+                else:
+                    continue
+                if data.get("form") != source_form:
+                    raise ValueError("numeric operand form disagrees with its source expression")
+                if span != expected or span[2] != evidence.end_line:
+                    raise ValueError("numeric operand source span disagrees with its evidence")
+                matches[span] = operation
+    return next(iter(matches.values())) if len(matches) == 1 else None
 
 
 def _bounded_numeric_value(

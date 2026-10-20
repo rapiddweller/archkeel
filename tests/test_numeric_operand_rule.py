@@ -1136,3 +1136,57 @@ def test_saved_numeric_receipt_rejects_changed_operand_proof(tmp_path):
         saved.write_bytes(canonical_report_bytes(tampered))
         replay = run_saved_report(saved, only_architecture=True)
         assert replay.declared_rules == "UNKNOWN", (mutation, replay.rule_assessments)
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_saved_mixed_numeric_proof_rejects_forged_unknown_source_anchor(
+    tmp_path, mounted, columnar
+):
+    _write_probe(tmp_path, source="sample", minimum=4, mounted=mounted)
+    files = {
+        "sample/core.py": (
+            "def choose(job_nonce, divisor): return job_nonce % 4, job_nonce % divisor\n"
+        ),
+        "sample/cli.py": "def choose(job_nonce): return job_nonce % 4\n",
+    }
+    if mounted:
+        from test_exact_module_ownership import _observe_tree
+
+        result = _observe_tree(
+            tmp_path, files, json.loads((tmp_path / "contract.json").read_bytes())
+        )
+    else:
+        for relative, source in files.items():
+            path = tmp_path / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(source)
+        result = _observe(tmp_path)
+    assert result.observation is not None and not result.diagnostics
+    original_rows = rule_assessments(
+        result.observation,
+        undecided_by_rule=unknown_positions_by_rule(result.observation),
+    )
+    assert len(original_rows) == 1 and original_rows[0].status == "UNKNOWN"
+
+    records = []
+    for section in result.observation.sections:
+        updated = []
+        for record in section.records:
+            if section.name == "constructs" and record.kind == "numeric_operand":
+                data = dict(record.data.entries)
+                if data.get("proof") == "unknown":
+                    data["subject"] = "other_nonce"
+                    data["end_column"] = data["end_column"] + 1
+                    record = replace(record, data=RecordData(tuple(data.items())))
+            updated.append(record)
+        records.append(replace(section, records=tuple(updated)))
+    tampered = replace(result.observation, sections=tuple(records))
+    saved = tmp_path / "tampered-mixed-numeric.json"
+    saved.write_bytes(
+        canonical_report_bytes(tampered)
+        if columnar
+        else json.dumps(observation_payload(tampered)).encode()
+    )
+    replay = run_saved_report(saved)
+    assert replay.declared_rules == "UNKNOWN", replay.rule_assessments
