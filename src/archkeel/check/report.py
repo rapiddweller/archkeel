@@ -107,6 +107,8 @@ from .uml import (
 )
 from .uml_evaluation import evaluate_uml as evaluate_uml
 
+_CALL_RECORD_KINDS = ("resolved_call", "partially_resolved_call", "unresolved_call")
+
 VIOLATION_REMEDY = "Change the code or amend the contract with owner approval."
 
 
@@ -933,7 +935,7 @@ def _saved_selector_declared(
         or not isinstance(selector_owner_name, str)
         or not isinstance(parameter_owner_name, str)
         or selector_owner_name != parameter_owner_name
-        and not selector_owner_name.startswith(f"{parameter_owner_name}.")
+        and selector_owner_name[: len(parameter_owner_name) + 1] != f"{parameter_owner_name}."
         or len(candidates) != 1
         or target != binding.target
         or target_declaration is None
@@ -1169,7 +1171,7 @@ def _saved_constructor_target_is_witnessed(
     targets = constructor.data.get("targets")
     target_evidence = constructor.data.get("target_evidence_ids")
     return (
-        constructor.kind.endswith("_call")
+        constructor.kind in _CALL_RECORD_KINDS
         and isinstance(targets, tuple)
         and binding.target in targets
         and isinstance(target_evidence, tuple)

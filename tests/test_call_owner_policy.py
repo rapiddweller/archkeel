@@ -189,6 +189,126 @@ def test_constructed_receiver_owner_escape_is_unknown_and_replays(tmp_path):
 
 @pytest.mark.parametrize("mounted", [False, True])
 @pytest.mark.parametrize("columnar", [False, True])
+def test_constructed_receiver_call_may_mutate_instance_method(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\n"
+        "def run():\n"
+        "    value = Storage()\n"
+        "    value.prepare()\n"
+        "    value.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={
+            "sample/storage.py": "class Storage:\n"
+            "    def prepare(self): self.page = lambda: None\n"
+            "    def page(self): pass\n"
+        },
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "value.page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"method-mutation-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_constructed_nested_helper_mutation_revokes_method_identity(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\ndef run():\n"
+        "    value = Storage()\n    value.prepare()\n    value.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={
+            "sample/storage.py": "class Storage:\n"
+            "    def prepare(self):\n"
+            "        def change(): self.page = lambda: None\n"
+            "        change()\n"
+            "    def page(self): pass\n"
+        },
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "value.page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"nested-method-mutation-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+def test_constructed_receiver_unrelated_instance_write_keeps_method_static(tmp_path):
+    _, row = _observe(
+        tmp_path,
+        "from .storage import Storage\n"
+        "def run():\n"
+        "    value = Storage()\n"
+        "    value.audit()\n"
+        "    value.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        extra={
+            "sample/storage.py": "class Storage:\n"
+            "    def audit(self): self.count = 1\n"
+            "    def page(self): pass\n"
+        },
+    )
+    assert row.status == "FAIL" and row.evaluation_proven and row.count == 1
+
+
+@pytest.mark.parametrize(
+    "mutator",
+    [
+        "alias = self if flag else object(); alias.page = replacement",
+        "self.__dict__['page'] = replacement",
+    ],
+)
+def test_constructed_receiver_alias_and_dict_writes_revoke_member(tmp_path, mutator):
+    _, row = _observe(
+        tmp_path,
+        "from .storage import Storage\ndef run():\n    value = Storage()\n    value.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        extra={
+            "sample/storage.py": "class Storage:\n"
+            f"    def prepare(self, flag=False, replacement=None): {mutator}\n"
+            "    def page(self): pass\n"
+        },
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
 def test_multi_target_constructed_allocation_alias_mutation_is_unknown_and_replays(
     tmp_path, mounted, columnar
 ):

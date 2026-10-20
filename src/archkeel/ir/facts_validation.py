@@ -59,6 +59,7 @@ from .facts import (
 )
 from .facts import MemberKind as _MemberKind
 from .facts import ResolutionRole as _ResolutionRole
+from .source_proofs import class_instance_member_write_names
 from .state_facts import ArgumentPass, AttributeAccess
 from .type_shapes import TypeApplication, TypeShape
 
@@ -407,13 +408,13 @@ def _selector_node_span(
 def _selector_source_receiver(
     record: Record, binding: CallBinding, evidence: Mapping[str, Evidence]
 ) -> tuple[ast.expr, tuple[int, int, int, int]] | None:
-    site_ids = set(record.evidence_ids) - set(binding.evidence_ids)
+    site_ids: set[str] = set(record.evidence_ids) - set(binding.evidence_ids)
     if binding.origin is CallBindingOrigin.CONSTRUCTED_RECEIVER and binding.proof is not None:
         constructor_id = binding.proof.get("constructor_evidence_id")
         if isinstance(constructor_id, str) and constructor_id in record.evidence_ids:
             # Nested receiver and selector share a start column, so the source-evidence
             # identity is the same. Keep that location eligible as the selector site.
-            site_ids.add(constructor_id)
+            site_ids = site_ids | {constructor_id}
     for identifier in site_ids:
         item = evidence.get(identifier)
         if item is None:
@@ -563,8 +564,9 @@ def selector_receiver_site_matches(
             parameter_owner = selector_owner
         if not isinstance(selector_owner, str) or not isinstance(parameter_owner, str):
             return False
-        if selector_owner != parameter_owner and not selector_owner.startswith(
-            f"{parameter_owner}."
+        if (
+            selector_owner != parameter_owner
+            and selector_owner[: len(parameter_owner) + 1] != f"{parameter_owner}."
         ):
             return False
         if not selector_parameter_scope_matches(record, binding, declarations, evidence):
@@ -585,7 +587,7 @@ def selector_receiver_site_matches(
         )
         selector_owner_name: str = selector_owner
         return (
-            selector_owner_name.startswith(f"{owner}.")
+            selector_owner_name[: len(owner) + 1] == f"{owner}."
             and isinstance(expression, ast.Attribute)
             and expression.attr == proof.get("field")
             and isinstance(expression.value, ast.Name)
@@ -659,7 +661,12 @@ def _selector_parameter_scope_chain(
     parameter_owners = declarations.get(parameter_owner, [])
     if len(selector_owners) != 1 or len(parameter_owners) != 1:
         return None
-    module_name = selector_owners[0].data.get("module")
+    module_value: JsonValue = None
+    for key, value in selector_owners[0].data.entries:
+        if key == "module":
+            module_value = value
+            break
+    module_name = module_value
     if not isinstance(module_name, str):
         return None
     expected: list[Record] = []
@@ -1033,7 +1040,7 @@ def _selector_declared_receiver_proof(
         or not isinstance(owner_name, str)
         or not isinstance(parameter_owner, str)
         or owner_name != parameter_owner
-        and not owner_name.startswith(f"{parameter_owner}.")
+        and owner_name[: len(parameter_owner) + 1] != f"{parameter_owner}."
         or len(selected) != 1
         or annotation_target != binding.target
         or len(targets) != 1
@@ -3605,7 +3612,7 @@ def _constructed_receiver_proof(
         len(targets) != 1
         or targets[0].kind != "class"
         or _record_data_value(targets[0].data, "default_instance_result") is not True
-        or not _constructed_member_owners_static(target, binding, declarations)
+        or not _constructed_member_owners_static(target, binding, declarations, evidence)
         or not isinstance(constructor_id, str)
         or len(calls) != 1
         or not _constructed_assignment_is_earlier(
@@ -3627,6 +3634,7 @@ def _constructed_member_owners_static(
     target: JsonValue,
     binding: CallBinding,
     declarations: Mapping[str, list[Record]],
+    evidence: Mapping[str, Evidence],
 ) -> bool:
     if not isinstance(target, str):
         return False
@@ -3634,15 +3642,68 @@ def _constructed_member_owners_static(
     target_name: str = binding.target
     method_owner_name = target_name.rpartition(".")[0]
     method_owners = declarations.get(method_owner_name, [])
+    member = _last_segment(target_name)
     return (
         len(constructed) == 1
         and constructed[0].kind == "class"
         and _record_data_value(constructed[0].data, "source_member_owner_static") is True
+        and _constructed_member_write_stable(constructed[0], member, evidence)
         and not _class_has_dynamic_lookup(constructed[0])
         and len(method_owners) == 1
         and method_owners[0].kind == "class"
         and _record_data_value(method_owners[0].data, "source_member_owner_static") is True
+        and _constructed_member_write_stable(method_owners[0], member, evidence)
         and not _class_has_dynamic_lookup(method_owners[0])
+    )
+
+
+def _constructed_member_write_stable(
+    declaration: Record, member: str, evidence: Mapping[str, Evidence]
+) -> bool:
+    writes = _record_data_value(declaration.data, "instance_member_writes")
+    scope_id = _record_data_value(declaration.data, "instance_member_scope_evidence_id")
+    if not isinstance(writes, tuple):
+        return False
+    if not isinstance(scope_id, str) or scope_id not in declaration.evidence_ids:
+        return False
+    scope_evidence = evidence.get(scope_id)
+    class_name = _record_data_value(declaration.data, "qualified_name")
+    module_name = _record_data_value(declaration.data, "module")
+    if (
+        scope_evidence is None
+        or not isinstance(class_name, str)
+        or not isinstance(module_name, str)
+        or scope_id
+        != stable_id(
+            "EVD",
+            scope_evidence.file,
+            scope_evidence.line,
+            scope_evidence.end_line,
+            scope_evidence.column,
+            "member_write_scope",
+        )
+    ):
+        return False
+    owner = _numeric_scope_owner(scope_evidence, class_name, module_name)
+    if owner is None or not isinstance(owner[0], ast.ClassDef):
+        return False
+    source_writes = class_instance_member_write_names(owner[0])
+    class_evidence_ids = tuple(
+        evidence_id for evidence_id in declaration.evidence_ids if evidence_id != scope_id
+    )
+    declaration_evidence = (
+        evidence.get(class_evidence_ids[0]) if len(class_evidence_ids) == 1 else None
+    )
+    return (
+        declaration_evidence is not None
+        and scope_evidence.file == declaration_evidence.file
+        and scope_evidence.line == declaration_evidence.line
+        and scope_evidence.end_line == declaration_evidence.end_line
+        and scope_evidence.column == declaration_evidence.column
+        and len(declaration.evidence_ids) == 2
+        and source_writes == writes
+        and "*" not in writes
+        and member not in writes
     )
 
 
