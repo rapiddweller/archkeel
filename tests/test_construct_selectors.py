@@ -40,6 +40,7 @@ from archkeel.ir.facts import (
     CallBinding,
     CallBindingOrigin,
     Evidence,
+    ForbiddenConstructKind,
     Record,
     RecordData,
     call_binding,
@@ -107,6 +108,45 @@ def test_selected_scope_without_applicable_facts_is_unknown():
     assert len(findings) == 1
     assert findings[0]["evidence_class"] == "UNKNOWN"
     assert findings[0]["kind"] == "construct_selector_unknown"
+
+
+def test_dynamic_call_facts_for_one_source_site_produce_one_construct_finding():
+    rule = ForbiddenConstructRule(
+        "NO-DYNAMIC",
+        ArchitectureRuleKind.FORBIDDEN_CONSTRUCT,
+        "sample",
+        (ForbiddenConstructKind.GETATTR,),
+        "Avoid reflection.",
+        ("test",),
+        DecisionMaker.ARCHITECT,
+    )
+    signals = [
+        {
+            "id": item_id,
+            "evidence_class": "FACT",
+            "area": "type_architecture",
+            "kind": "getattr_call",
+            "title": "same source call",
+            "subjects": ["sample.core.route"],
+            "evidence_ids": [evidence_id],
+            "rule_ids": [],
+            "fact_ids": [item_id],
+            "provenance": [],
+            "data": {"owner": "sample.core.route", "construct": "getattr"},
+        }
+        for item_id, evidence_id in (
+            ("CONSTRUCT-1", "EVD-call-1"),
+            ("TYPE-1", "EVD-call-1"),
+            ("CONSTRUCT-2", "EVD-call-2"),
+        )
+    ]
+
+    findings = _construct_violations(signals, [rule])
+
+    assert len(findings) == 2
+    findings_by_evidence = {row["evidence_ids"][0]: row for row in findings}
+    assert set(findings_by_evidence) == {"EVD-call-1", "EVD-call-2"}
+    assert set(findings_by_evidence["EVD-call-1"]["fact_ids"]) == {"CONSTRUCT-1", "TYPE-1"}
 
 
 def test_bounded_selector_excerpt_supports_match_headers():
