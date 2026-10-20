@@ -1,0 +1,208 @@
+{
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "entry",
+      "label": "entry",
+      "role": "component",
+      "packages": [],
+      "public": [],
+      "responsibilities": [
+        "Validate an order request and hand it to checkout."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "checkout",
+          "through": [
+            "orders.checkout"
+          ],
+          "rationale": "Placing an order is checkout's operation.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "common",
+          "through": [
+            "orders.common.util:slugify"
+          ],
+          "rationale": "SKUs are normalised before checkout.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "checkout",
+          "through": [
+            "orders.checkout.rounding:round_cents"
+          ],
+          "rationale": "Quotes are shown in whole cents.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "pricing",
+          "through": [
+            "orders.pricing:price"
+          ],
+          "rationale": "A quote needs the gross price.",
+          "decided_by": "agent"
+        }
+      ],
+      "exact_modules": [
+        "orders",
+        "orders.api"
+      ]
+    },
+    {
+      "id": "checkout",
+      "label": "checkout",
+      "role": "component",
+      "packages": [
+        "orders.checkout"
+      ],
+      "public": [
+        "orders.checkout",
+        "orders.checkout.rounding:round_cents"
+      ],
+      "responsibilities": [
+        "Price one order line, persist its receipt and return it."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "pricing",
+          "through": [
+            "orders.pricing:price"
+          ],
+          "rationale": "A receipt needs the gross price.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "storage",
+          "through": [
+            "orders.storage"
+          ],
+          "rationale": "A placed order is persisted before it is returned.",
+          "decided_by": "agent"
+        }
+      ],
+      "inside": "contracts/checkout.json"
+    },
+    {
+      "id": "pricing",
+      "label": "pricing",
+      "role": "component",
+      "packages": [
+        "orders.pricing"
+      ],
+      "public": [
+        "orders.pricing:price"
+      ],
+      "responsibilities": [
+        "Compute the gross price of an order line from unit prices and the region's tax rule."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": []
+    },
+    {
+      "id": "storage",
+      "label": "storage",
+      "role": "component",
+      "packages": [
+        "orders.storage"
+      ],
+      "public": [
+        "orders.storage"
+      ],
+      "responsibilities": [
+        "Persist receipts through the backend that deployment configuration selects."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "inside": "contracts/storage.json"
+    },
+    {
+      "id": "common",
+      "label": "common",
+      "role": "component",
+      "packages": [
+        "orders.common"
+      ],
+      "public": [
+        "orders.common.util:slugify"
+      ],
+      "responsibilities": [
+        "Shared helpers used across the service."
+      ],
+      "forbidden_responsibilities": [],
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "requires": []
+    }
+  ],
+  "rules": [
+    {
+      "id": "ASSIGNMENT-COMPLETE",
+      "kind": "complete_assignment",
+      "source": "orders",
+      "rationale": "Every module under orders has exactly one owner, so a review can name who answers for it.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "COMPONENT-NO-CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Order placement flows one way: entry, checkout, then pricing and storage.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "INTERFACE-BOUNDARY",
+      "kind": "interface_boundary",
+      "rationale": "Callers use a component's declared API, never its internals.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent",
+      "include_type_checking": true
+    },
+    {
+      "id": "REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Every cross-component import is a declared, reasoned dependency.",
+      "provenance": [
+        "docs/target.md"
+      ],
+      "decided_by": "agent"
+    }
+  ],
+  "declarations": {
+    "public_api": [
+      "orders.api:place_order",
+      "orders.api:quote",
+      "orders.checkout.receipts:Receipt"
+    ],
+    "public_api_provenance": [
+      "docs/target.md"
+    ]
+  }
+}
