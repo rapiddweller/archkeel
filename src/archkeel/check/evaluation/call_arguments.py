@@ -79,6 +79,14 @@ def _signature_parameters(
     if bound_receiver:
         receiver = signature.get("receiver_parameter")
         if (
+            receiver is None
+            and parameters
+            and parameters[0].kind is inspect.Parameter.VAR_POSITIONAL
+        ):
+            # The implicit instance occupies this same variadic formal. Only the
+            # written actuals receive indexes, so retain it without adding an actual.
+            return parameters
+        if (
             not isinstance(receiver, str)
             or not parameters
             or parameters[0].name != receiver

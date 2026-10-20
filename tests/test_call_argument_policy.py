@@ -179,6 +179,41 @@ def test_absent_variadic_selector_does_not_certify_a_normalized_violation(
     assert row.status == "UNKNOWN" and not row.evaluation_proven
 
 
+@pytest.mark.parametrize("parameter", ["args", "*args"])
+@pytest.mark.parametrize(
+    "actual,expected",
+    [("'literal'", "FAIL"), ("value", "PASS"), ("", "PASS"), ("*values", "UNKNOWN")],
+)
+@pytest.mark.parametrize("mounted", [False, True])
+def test_variadic_only_bound_receiver_preserves_explicit_actuals(
+    tmp_path, parameter, actual, expected, mounted
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\n"
+        "def consume(value, values):\n"
+        f"    Storage().page({actual})\n",
+        storage="class Storage:\n    def page(*args): pass\n",
+        target="sample.storage.Storage.page",
+        parameter=parameter,
+        mounted=mounted,
+    )
+    assert row.status == expected and row.evaluation_proven == (expected != "UNKNOWN")
+    model = result.observation
+    for name, payload in (
+        ("ordinary", json.dumps(observation_payload(model)).encode()),
+        ("columnar", canonical_report_bytes(model)),
+    ):
+        saved = tmp_path / f"{name}.json"
+        saved.write_bytes(payload)
+        [replayed] = run_saved_report(saved).rule_assessments
+        assert replayed.status == expected
+        assert replayed.evaluation_proven == (expected != "UNKNOWN")
+
+
 @pytest.mark.parametrize(
     "formal,actual",
     [
