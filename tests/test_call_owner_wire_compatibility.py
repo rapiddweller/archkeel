@@ -58,8 +58,18 @@ def test_command_result_9_object_branches_admit_intended_observation_versions(br
         "properties"
     ]["observation"]
     observation_validator = _validator("command-result-9.0.schema.json").evolve(schema=schema)
-    accepted = minor in (set(range(1, 9)) if branch == 1 else {1, 5, 6, 7, 8})
-    assert observation_validator.is_valid(raw) is accepted
+    assert observation_validator.is_valid(raw)
+
+
+@pytest.mark.parametrize("branch", [1, 2])
+def test_command_result_9_object_branches_reject_unknown_observation_versions(branch):
+    raw = _model(git_head="a" * 40)
+    raw["schema_version"] = "2.99.0"
+    schema = _validator("command-result-9.0.schema.json").schema["anyOf"][branch][
+        "properties"
+    ]["observation"]
+    observation_validator = _validator("command-result-9.0.schema.json").evolve(schema=schema)
+    assert not observation_validator.is_valid(raw)
 
 
 @pytest.mark.parametrize("profile", ["decoded", "python-decoded"])
