@@ -427,6 +427,24 @@ def _observe_sample(root: Path):
     )
 
 
+@pytest.mark.parametrize("schema_version", ["2.1.0", "2.2.0", "2.3.0", "2.4.0"])
+def test_delta_ratchets_retain_supported_observation_history(schema_version: str) -> None:
+    baseline = _model(git_head="1" * 40)
+    head = _model(git_head="2" * 40)
+    baseline["schema_version"] = schema_version
+    head["schema_version"] = schema_version
+
+    delta = build_architecture_delta(
+        parse_observation(baseline),
+        parse_observation(head),
+        baseline_digest="c" * 64,
+        head_digest="d" * 64,
+        checker_digest=package_digest(),
+    )
+
+    assert delta.ratchets.status.value == "supported"
+
+
 def test_one_module_with_one_intra_component_import_is_one_semantic_change(
     tmp_path: Path,
 ) -> None:

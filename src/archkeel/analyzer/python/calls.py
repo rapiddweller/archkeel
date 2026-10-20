@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import ast
 import builtins
+import datetime as _datetime
 import hashlib
-import importlib
 import inspect
 import sys
 import sysconfig
@@ -499,7 +499,10 @@ class CallCollector(ast.NodeVisitor):
         current = node
         while current in self.parents and self.parents[current] is not function:
             current = self.parents[current]
-        return current in getattr(function, "body", ())
+        return (
+            isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and current in function.body
+        )
 
     def _field_mutated_outside_write(
         self, owner: ast.ClassDef, receiver: str, field: str, allowed: ast.AST
@@ -861,7 +864,7 @@ class CallCollector(ast.NodeVisitor):
         if target != "datetime.datetime.now" or sys.implementation.name != "cpython":
             return None
         try:
-            module = importlib.import_module("datetime")
+            module = _datetime
             owner = module.datetime
             descriptor = inspect.getattr_static(owner, "now")
             module_file = module.__file__
@@ -880,8 +883,8 @@ class CallCollector(ast.NodeVisitor):
             or owner.__qualname__ != "datetime"
             or descriptor_type.__name__ != "classmethod_descriptor"
             or descriptor_type.__module__ != "builtins"
-            or getattr(descriptor, "__objclass__", None) is not owner
-            or getattr(descriptor, "__name__", None) != "now"
+            or descriptor.__objclass__ is not owner
+            or descriptor.__name__ != "now"
         ):
             return None
         return {

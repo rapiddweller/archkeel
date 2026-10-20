@@ -8,6 +8,7 @@ from pathlib import PurePosixPath
 
 from .facts import (
     CALL_BINDINGS_FEATURE,
+    EXTENDED_CALL_BINDINGS_FEATURE,
     MAX_STATIC_INTEGER,
     NATIVE_CALL_TARGETS,
     SOURCE_RESOLUTION_GAP_KIND,
@@ -1487,6 +1488,20 @@ def validate_source_facts(facts: SourceFacts) -> None:
             ):
                 raise ValueError("complete call consideration needs explicit binding or null")
             call_proof = call_binding(record.data.get("call_binding"))
+            if (
+                call_proof is not None
+                and call_proof.origin
+                in {
+                    CallBindingOrigin.STORED_RECEIVER,
+                    CallBindingOrigin.CONSTRUCTED_RECEIVER,
+                    CallBindingOrigin.CONSTRUCTOR,
+                    CallBindingOrigin.NATIVE,
+                    CallBindingOrigin.NATIVE_RECEIVER,
+                }
+                and EXTENDED_CALL_BINDINGS_FEATURE
+                not in facts.capabilities.resolution_features
+            ):
+                raise ValueError("extended call binding needs its declared capability")
             if call_proof is not None and (
                 not set(call_proof.evidence_ids) <= evidence_ids
                 or not set(record.evidence_ids) <= set(call_proof.evidence_ids)
@@ -1498,8 +1513,10 @@ def validate_source_facts(facts: SourceFacts) -> None:
                 or call_proof.target not in targets
                 or call_proof.origin is CallBindingOrigin.DIRECT
                 and record.data.get("status") != SourceResolution.RESOLVED
-                or not set(_call_declaration(call_proof, declarations).evidence_ids)
-                & set(call_proof.evidence_ids)
+                or (
+                    (call_declaration := _call_declaration(call_proof, declarations)) is not None
+                    and not set(call_declaration.evidence_ids) <= set(call_proof.evidence_ids)
+                )
             ):
                 raise ValueError("call binding disagrees with its target declaration")
     record_by_id = {record.id: record for record in records}

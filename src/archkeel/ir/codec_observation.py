@@ -37,6 +37,7 @@ from archkeel.ir.model import (
     CLASSIFIED_SECTIONS,
     EVIDENCE_FIELDS,
     RECORD_FIELDS,
+    SCHEMA_VERSION,
     AnalyzerInfo,
     ContractInfo,
     Coverage,
@@ -68,7 +69,7 @@ class _ObservationVersion(StrEnum):
     V2_1 = "2.1.0"
     V2_2 = "2.2.0"
     V2_3 = "2.3.0"
-    V2_4 = "2.4.0"
+    V2_4 = SCHEMA_VERSION
 
 
 class _VersionedConstruct(StrEnum):
@@ -298,6 +299,7 @@ def parse_observation(raw: object) -> Observation:
                 _ObservationVersion.V2_1,
                 _ObservationVersion.V2_2,
                 _ObservationVersion.V2_3,
+                _ObservationVersion.V2_4,
             },
         )
         if item.get("runtime", _MISSING_VALUE) is not _MISSING_VALUE

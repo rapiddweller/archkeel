@@ -12613,6 +12613,25 @@
           "language": "python",
           "presence": "planned",
           "provenance": [
+            "docs/architecture/decisions/ad-244-bounded-call-identity.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-CALL-BINDING-proof",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.CallBinding.proof",
+          "parent_id": "IR-CALL-BINDING",
+          "responsibilities": [
+            "Carry typed evidence linking extended receiver origins to their canonical declarations."
+          ],
+          "annotation": "RecordData | None"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
             "docs/architecture/decisions/ad-241-call-ownership-policy.md"
           ],
           "visibility": {

@@ -48,8 +48,8 @@ def test_saved_observation_21_rejects_extended_call_identity(tmp_path):
         allowed=(),
     )
     payload = observation_payload(result.observation)
-    payload["schema_version"] = "2.1.0"
-    with pytest.raises(ValueError, match="cannot carry extended call bindings"):
+    payload["schema_version"] = "2.3.0"
+    with pytest.raises(ValueError, match="extended call bindings require observation schema 2.4.0"):
         parse_observation(payload)
 
 
@@ -731,8 +731,7 @@ def test_call_binding_response_roundtrip_and_schema(owner_facts):
             "    def page(self) -> None: ...\n",
         ),
         (
-            "from .storage import Store\ndef run():\n"
-            "    store = Store()\n    store.page()\n",
+            "from .storage import Store\ndef run():\n    store = Store()\n    store.page()\n",
             "sample.storage.Store.page",
             "class Store:\n    def page(self): pass\n",
         ),
@@ -888,9 +887,7 @@ def test_stored_receiver_cannot_be_retargeted_to_an_unrelated_method(tmp_path):
         r for r in symbols if r["data"].get("qualified_name") == "sample.other.Other.page"
     )
     initializer = next(
-        r
-        for r in symbols
-        if r["data"].get("qualified_name") == "sample.caller.Holder.__init__"
+        r for r in symbols if r["data"].get("qualified_name") == "sample.caller.Holder.__init__"
     )
     call["data"]["targets"] = ["sample.other.Other.page"]
     binding = call["data"]["call_binding"]
