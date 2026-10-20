@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, replace
 from enum import StrEnum
 from math import isfinite
-from typing import Any, TypeGuard, cast
+from typing import Any, TypeGuard
 
 from archkeel.ir.architecture_graph import ArchitectureRuleKind
 from archkeel.ir.codec_strings import intern_strings, observation_escaped, observation_profitable
@@ -194,7 +194,7 @@ _STRING_REFERENCE = re.compile(r"^\$\d+$")
 _ESCAPED_STRING_REFERENCE = re.compile(r"^\$\$+\d+$")
 
 
-_MISSING_VALUE = object()
+_MISSING_VALUE: RawJson = float("nan")
 
 
 _TOP_LEVEL = {
@@ -706,17 +706,22 @@ def encode_canonical_model(model: dict[str, RawJson]) -> dict[str, RawJson]:
     evidence_items = [_object(entry, "evidence[]") for entry in raw_evidence]
     evidence_rows = [[item[field] for field in EVIDENCE_FIELDS] for item in evidence_items]
 
-    # AD-2: rows mix RawJson with the _MISSING_VALUE sentinel; see rows_by_section.
-    interned, string_table = intern_strings(
+    # AD-2: missing cells use a private NaN sentinel until intern writes "$m".
+    interned_tree, string_table = intern_strings(
         {"sections": rows_by_section, "evidence": evidence_rows},
         profitable=observation_profitable,
-        missing_value=cast(RawJson, _MISSING_VALUE),
+        missing_value=_MISSING_VALUE,
         escape_reserved=observation_escaped,
     )
-    interned_object = cast(dict[str, RawJson], interned)
-    interned_sections = cast(dict[str, RawJson], interned_object["sections"])
+    if not isinstance(interned_tree, dict):
+        raise ValueError("interned observation must be an object")
+    interned = _raw_object(interned_tree)
+    interned_sections = interned.get("sections")
+    interned_evidence = interned.get("evidence")
+    if not isinstance(interned_sections, dict) or not isinstance(interned_evidence, list):
+        raise ValueError("interned observation sections and evidence must have valid shapes")
     encoded.update(interned_sections)
-    encoded["evidence"] = interned_object["evidence"]
+    encoded["evidence"] = interned_evidence
     encoding: dict[str, RawJson] = {
         "kind": _EncodingKind.COLUMNAR.value,
         "record_fields": list(RECORD_FIELDS),

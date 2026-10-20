@@ -452,3 +452,38 @@ def test_completed_exchange_stops_detached_stdio_worker(tmp_path: Path, exit_kin
                 # Windows may report an already-terminated PID as an invalid parameter.
                 if os.name != "nt" or error.winerror != 87:
                     raise
+
+
+def test_reference_context_cannot_reclassify_an_annotated_occurrence(tmp_path: Path) -> None:
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.protocol import PythonSettings
+
+    package = tmp_path / "sample"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    (package / "catalog.py").write_text("from enum import Enum\nclass Keys(Enum): PAGE_SIZE = 1\n")
+    (package / "caller.py").write_text(
+        "from .catalog import Keys\ndef run(arg: Keys.PAGE_SIZE): pass\n"
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    reference = next(
+        record
+        for section in payload["facts"]["sections"]
+        if section["name"] == "references"
+        for record in section["records"]
+        if record["kind"] == "attribute_reference"
+        and record["data"].get("expression") == "Keys.PAGE_SIZE"
+    )
+    assert reference["data"]["reference_context"] == "annotation"
+    reference["data"]["reference_context"] = "value"
+    reference["data"].pop("declaration_scope")
+    reference["data"].pop("declaration_definition_id")
+    with pytest.raises(ProtocolError, match="annotated source occurrence"):
+        decode_response(json.dumps(payload).encode())

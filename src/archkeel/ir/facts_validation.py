@@ -1975,6 +1975,60 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
     _payload(record.data)
 
 
+def _reference_annotation_excerpt(reference: Record, evidence: Evidence) -> bool:
+    """Recognize one bounded annotated occurrence in its captured source line."""
+    try:
+        tree = ast.parse(evidence.excerpt)
+    except SyntaxError:
+        return False
+    expression = reference.data.get("expression")
+    if not isinstance(expression, str):
+        return False
+    for annotation in _annotation_roots(tree):
+        for node in ast.walk(annotation):
+            if (
+                isinstance(node, ast.Name | ast.Attribute)
+                and node.col_offset == evidence.column
+                and ast.unparse(node) == expression
+            ):
+                return True
+    return False
+
+
+def _annotation_roots(tree: ast.Module) -> tuple[ast.expr, ...]:
+    roots: list[ast.expr] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.arg) and node.annotation is not None:
+            roots.append(node.annotation)
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.returns:
+            roots.append(node.returns)
+        elif isinstance(node, ast.AnnAssign):
+            roots.append(node.annotation)
+        elif type(node).__name__ == "TypeAlias":
+            value = getattr(node, "value", None)
+            if isinstance(value, ast.expr):
+                roots.append(value)
+    return tuple(roots)
+
+
+def _validate_reference_contexts(
+    records: Iterable[Record], evidence: Mapping[str, Evidence], profile: SourceProfile
+) -> None:
+    if profile is not SourceProfile.PYTHON:
+        return
+    for record in records:
+        if record.kind not in {"value_reference", "attribute_reference"}:
+            continue
+        if record.data.get("reference_context") != "value":
+            continue
+        if any(
+            _reference_annotation_excerpt(record, evidence[item])
+            for item in record.evidence_ids
+            if item in evidence
+        ):
+            raise ValueError("value reference contradicts its annotated source occurrence")
+
+
 def validate_source_role_vocabulary(record: Record, *, version: str = "source") -> None:
     """Validate the closed source-role wire vocabulary at source and saved-report boundaries."""
     required = {
@@ -2983,6 +3037,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
     for record in records:
         if not set(record.fact_ids).issubset(fact_ids):
             raise ValueError("dangling source fact reference")
+    _validate_reference_contexts(records, base_by_id, facts.profile)
     _validate_source_role_identities(records, base_by_id)
     declarations: dict[str, list[Record]] = {}
     for symbol_section in facts.sections:

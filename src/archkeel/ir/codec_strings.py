@@ -8,9 +8,12 @@ from __future__ import annotations
 import json
 import re
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
+from typing import TypeAlias
 
-from archkeel.ir.model import RawJson
+JsonTree: TypeAlias = (
+    str | int | float | bool | None | Sequence["JsonTree"] | Mapping[str, "JsonTree"]
+)
 
 _REFERENCE = re.compile(r"^\$\d+$")
 _ESCAPED_REFERENCE = re.compile(r"^\$\$+\d+$")
@@ -18,16 +21,16 @@ _MISSING = "$m"
 
 
 def intern_strings(
-    value: RawJson,
+    value: JsonTree,
     *,
     profitable: Callable[[str, int], bool],
-    missing_value: RawJson | None = None,
+    missing_value: JsonTree | None = None,
     escape_reserved: Callable[[str], bool] | None = None,
-) -> tuple[RawJson, list[str]]:
+) -> tuple[JsonTree, list[str]]:
     """Return a lossless JSON tree and its sorted string table."""
     counts: Counter[str] = Counter()
 
-    def count(item: RawJson) -> None:
+    def count(item: JsonTree) -> None:
         if item is missing_value and missing_value is not None:
             return
         if isinstance(item, str):
@@ -43,7 +46,7 @@ def intern_strings(
     table = sorted(text for text, occurrences in counts.items() if profitable(text, occurrences))
     indexes = {text: index for index, text in enumerate(table)}
 
-    def encode(item: RawJson) -> RawJson:
+    def encode(item: JsonTree) -> JsonTree:
         if item is missing_value and missing_value is not None:
             return _MISSING
         if isinstance(item, str):
@@ -61,11 +64,11 @@ def intern_strings(
 
 
 def expand_strings(
-    value: RawJson, table: list[str], *, missing_value: RawJson | None = None
-) -> RawJson:
+    value: JsonTree, table: list[str], *, missing_value: JsonTree | None = None
+) -> JsonTree:
     """Expand interned strings, rejecting malformed or out-of-range references."""
 
-    def decode(item: RawJson) -> RawJson:
+    def decode(item: JsonTree) -> JsonTree:
         if isinstance(item, str):
             if item == _MISSING:
                 return _MISSING if missing_value is None else missing_value

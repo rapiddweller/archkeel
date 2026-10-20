@@ -181,6 +181,11 @@ class _PathToken(StrEnum):
     SLASH = "/"
 
 
+class _SourceFactsWire(StrEnum):
+    COLUMNAR_V1 = "source-facts-columnar-v1"
+    STRING_REFERENCE = "$<index>"
+
+
 class ProtocolError(ValueError):
     """The collection message cannot substantiate the claims it carries."""
 
@@ -1034,14 +1039,19 @@ def _compact_source_facts(value: RawJson) -> dict[str, RawJson]:
     """Encode source facts as positional rows plus an exactly profitable string table."""
     facts = _record_object(value, "facts")
     sections = _array(facts["sections"], "sections")
-    data_fields = sorted(
-        {
-            key
-            for raw_section in sections
-            for raw_record in _array(_record_object(raw_section, "section")["records"], "records")
-            for key in _record_object(_record_object(raw_record, "record")["data"], "data")
-        }
-    )
+    data_fields: list[RawJson] = [
+        field
+        for field in sorted(
+            {
+                key
+                for raw_section in sections
+                for raw_record in _array(
+                    _record_object(raw_section, "section")["records"], "records"
+                )
+                for key in _record_object(_record_object(raw_record, "record")["data"], "data")
+            }
+        )
+    ]
     data_indexes = {field: index for index, field in enumerate(data_fields)}
     packed_sections: list[RawJson] = []
     for raw_section in sections:
@@ -1075,17 +1085,17 @@ def _compact_source_facts(value: RawJson) -> dict[str, RawJson]:
         "evidence": evidence_rows(facts["evidence"], "evidence"),
         "candidate_evidence": evidence_rows(facts["candidate_evidence"], "candidate evidence"),
     }
-    compact, table = intern_strings(packed, profitable=profitable_string)
-    if not isinstance(compact, dict):
-        raise ProtocolError("compact source facts must be an object")
+    compact_tree, table = intern_strings(packed, profitable=profitable_string)
+    compact = _record_object(compact_tree, "compact source facts")
     compact["encoding"] = {
-        "kind": "source-facts-columnar-v1",
+        "kind": _SourceFactsWire.COLUMNAR_V1.value,
         "record_fields": list(RECORD_FIELDS),
         "evidence_fields": list(EVIDENCE_FIELDS),
         "data_fields": data_fields,
-        "string_reference": "$<index>",
+        "string_reference": _SourceFactsWire.STRING_REFERENCE.value,
     }
-    compact["string_table"] = table
+    table_rows: list[RawJson] = [entry for entry in table]
+    compact["string_table"] = table_rows
     return compact
 
 
@@ -1098,11 +1108,11 @@ def _expand_source_facts(value: RawJson) -> dict[str, RawJson]:
         "source encoding",
     )
     if encoding != {
-        "kind": "source-facts-columnar-v1",
+        "kind": _SourceFactsWire.COLUMNAR_V1.value,
         "record_fields": list(RECORD_FIELDS),
         "evidence_fields": list(EVIDENCE_FIELDS),
         "data_fields": encoding.get("data_fields"),
-        "string_reference": "$<index>",
+        "string_reference": _SourceFactsWire.STRING_REFERENCE.value,
     }:
         raise ProtocolError("unsupported source facts columnar encoding")
     data_fields = tuple(
@@ -1160,9 +1170,9 @@ def _expand_source_facts(value: RawJson) -> dict[str, RawJson]:
     return expanded
 
 
-def _expand_evidence_rows(value: RawJson, label: str) -> list[dict[str, RawJson]]:
+def _expand_evidence_rows(value: RawJson, label: str) -> list[RawJson]:
     rows = _array(value, label)
-    output: list[dict[str, RawJson]] = []
+    output: list[RawJson] = []
     for raw_row in rows:
         row = _array(raw_row, f"{label} row")
         if len(row) != len(EVIDENCE_FIELDS):

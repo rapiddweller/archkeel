@@ -72,7 +72,8 @@
       "packages": [
         "archkeel.ir.facts_codec",
         "archkeel.ir.facts_validation",
-        "archkeel.ir.state_codec"
+        "archkeel.ir.state_codec",
+        "archkeel.ir.codec_strings"
       ],
       "responsibilities": [
         "Strictly decode, validate and encode source facts and process envelopes."
@@ -101,7 +102,12 @@
       "public": [
         "archkeel.ir.facts_codec",
         "archkeel.ir.facts_validation:validate_source_facts",
-        "archkeel.ir.facts_validation:validate_source_bindings"
+        "archkeel.ir.facts_validation:validate_source_bindings",
+        "archkeel.ir.codec_strings:intern_strings",
+        "archkeel.ir.codec_strings:expand_strings",
+        "archkeel.ir.codec_strings:profitable_string",
+        "archkeel.ir.codec_strings:observation_profitable",
+        "archkeel.ir.codec_strings:observation_escaped"
       ]
     },
     {
