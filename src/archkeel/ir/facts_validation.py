@@ -1149,7 +1149,7 @@ def _numeric_module_anonymous_binding(
     expected = tuple(
         operation.data.get(field) for field in ("line", "column", "end_line", "end_column")
     )
-    matches: list[tuple[ast.stmt, ast.AST]] = []
+    matches: dict[str, tuple[ast.stmt, ast.AST]] = {}
     for evidence_id in operation.evidence_ids:
         evidence = evidence_by_id.get(evidence_id)
         if evidence is None or evidence.file != expected_file:
@@ -1170,10 +1170,11 @@ def _numeric_module_anonymous_binding(
                         and isinstance(node.op, ast.Mod)
                     )
                 ):
-                    matches.append((root, node))
+                    proof = ast.dump(root, include_attributes=False)
+                    matches[proof] = (root, node)
     if len(matches) != 1:
         return True
-    root, operation_node = matches[0]
+    root, operation_node = next(iter(matches.values()))
     return _numeric_anonymous_scope_allows_module(root, operation_node, name) is False
 
 

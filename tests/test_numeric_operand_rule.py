@@ -276,6 +276,64 @@ def test_mounted_numeric_receipt_replays_only_parent_physical_domain(tmp_path, c
     assert not replay.diagnostics and replay.rule_assessments == rows
 
 
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize(
+    "source,expected_status,operation_count",
+    [
+        (
+            "WIDTH = 4; first = job_nonce % WIDTH; second = other_nonce % WIDTH\n",
+            "PASS",
+            2,
+        ),
+        ("WIDTH = 4; choose = lambda job_nonce: job_nonce % WIDTH\n", "UNKNOWN", 1),
+        (
+            "WIDTH = 4; values = [job_nonce % WIDTH for job_nonce in (1,)]\n",
+            "UNKNOWN",
+            1,
+        ),
+    ],
+    ids=["two-module-operations", "lambda-scope", "comprehension-scope"],
+)
+def test_same_line_module_alias_operations_replay_in_both_report_formats(
+    tmp_path, mounted, columnar, source, expected_status, operation_count
+):
+    if mounted:
+        from test_exact_module_ownership import _observe_tree
+
+        _write_probe(tmp_path, source="sample", mounted=True)
+        result = _observe_tree(
+            tmp_path,
+            {"sample/__init__.py": "", "sample/core.py": source},
+            json.loads((tmp_path / "contract.json").read_bytes()),
+        )
+    else:
+        _write_probe(tmp_path)
+        (tmp_path / "sample/core.py").write_text(source)
+        result = _observe(tmp_path)
+    assert not result.diagnostics and result.observation is not None
+    model = result.observation
+    rows = rule_assessments(model, undecided_by_rule=unknown_positions_by_rule(model))
+    assert len(rows) == 1 and rows[0].status == expected_status
+    if expected_status == "PASS":
+        assert rows[0].evaluation_proven
+    operations = [item for item in model.records("constructs") if item.kind == "numeric_operand"]
+    assert len(operations) == operation_count
+    if expected_status == "PASS":
+        assert len({item.data.get("column") for item in operations}) == operation_count
+        assert all(item.data.get("proof") == "known" for item in operations)
+    else:
+        assert all(item.data.get("proof") == "unknown" for item in operations)
+    saved = tmp_path / "same-line-alias.json"
+    saved.write_bytes(
+        canonical_report_bytes(model)
+        if columnar
+        else json.dumps(observation_payload(model)).encode()
+    )
+    replay = run_saved_report(saved)
+    assert not replay.diagnostics and replay.rule_assessments == rows
+
+
 def test_numeric_component_package_selector_evaluates_every_owned_package(tmp_path):
     from test_exact_module_ownership import _observe_tree
 
