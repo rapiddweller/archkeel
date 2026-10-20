@@ -8,8 +8,8 @@ from pathlib import PurePosixPath
 
 from .facts import (
     CALL_BINDINGS_FEATURE,
-    MAX_STATIC_INTEGER,
     EXTENDED_CALL_BINDINGS_FEATURE,
+    MAX_STATIC_INTEGER,
     NATIVE_CALL_TARGETS,
     SOURCE_RESOLUTION_GAP_KIND,
     BuiltinTarget,
@@ -1432,8 +1432,8 @@ def validate_source_facts(facts: SourceFacts) -> None:
                 or call_proof.origin is CallBindingOrigin.DIRECT
                 and record.data.get("status") != SourceResolution.RESOLVED
                 or (
-                    (declaration := _call_declaration(call_proof, declarations)) is not None
-                    and not set(declaration.evidence_ids) <= set(call_proof.evidence_ids)
+                    (call_declaration := _call_declaration(call_proof, declarations)) is not None
+                    and not set(call_declaration.evidence_ids) <= set(call_proof.evidence_ids)
                 )
             ):
                 raise ValueError("call binding disagrees with its target declaration")

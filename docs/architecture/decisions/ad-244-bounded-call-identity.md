@@ -24,9 +24,10 @@ runtime implementation/version. This admits only the observed CPython descriptor
 and does not import project modules. Other external APIs remain UNKNOWN until
 they have an explicit provider-source or native witness.
 
-Only `direct` and `declared_receiver` origins are valid in observation 2.1.
-Extended origins require the declared `extended_call_bindings` capability and
-observation 2.2. Saved readers reject those origins under 2.1. This consistency
-binding does not authenticate a modified artifact or prove runtime dispatch.
+Only `direct` and `declared_receiver` origins are valid in observations 2.1,
+2.2, and 2.3. Extended origins require the declared `extended_call_bindings`
+capability and observation 2.4. Saved readers reject those origins under older
+versions. This consistency binding does not authenticate a modified artifact
+or prove runtime dispatch.
 There is no general runtime type inference, dynamic dispatch, custom allocation,
 arbitrary descriptor, or arbitrary MRO support.

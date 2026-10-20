@@ -26,6 +26,7 @@ from archkeel.ir.codec_wire import (
     canonical_json_bytes,
 )
 from archkeel.ir.facts import (
+    CallBindingOrigin,
     RuntimeRequirementState,
     SourceProfile,
     parse_runtime_requirement_state,
@@ -226,30 +227,30 @@ def parse_observation(raw: object) -> Observation:
         for record in section.records
     ):
         raise ValueError("numeric_operand constructs require observation schema 2.2.0")
-    if schema_version in {
-        _ObservationVersion.V2_1,
-        _ObservationVersion.V2_2,
-        _ObservationVersion.V2_3,
-    }:
-        python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
-        for section in sections:
-            if section.name == ObservedSection.CALLS:
-                for call in section.records:
-                    if python_calls and not _has_field(
-                        (key for key, _ in call.data.entries), "call_binding"
-                    ):
-                        raise ValueError("Python 2.1.0 calls require explicit call_binding or null")
-                    binding = _call_binding(call.data.get("call_binding"))
-                    if (
-                        schema_version in {
-                            _ObservationVersion.V2_1,
-                            _ObservationVersion.V2_2,
-                            _ObservationVersion.V2_3,
-                        }
-                        and binding is not None
-                        and binding.origin.value not in {"direct", "declared_receiver"}
-                    ):
-                        raise ValueError("extended call bindings require observation schema 2.4.0")
+    python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
+    for section in sections:
+        if section.name == ObservedSection.CALLS:
+            for call in section.records:
+                if (
+                    python_calls
+                    and schema_version
+                    in {
+                        _ObservationVersion.V2_1,
+                        _ObservationVersion.V2_2,
+                        _ObservationVersion.V2_3,
+                        _ObservationVersion.V2_4,
+                    }
+                    and not _has_field((key for key, _ in call.data.entries), "call_binding")
+                ):
+                    raise ValueError("Python 2.1.0 calls require explicit call_binding or null")
+                binding = _call_binding(call.data.get("call_binding"))
+                if (
+                    schema_version is not _ObservationVersion.V2_4
+                    and binding is not None
+                    and binding.origin
+                    not in {CallBindingOrigin.DIRECT, CallBindingOrigin.DECLARED_RECEIVER}
+                ):
+                    raise ValueError("extended call bindings require observation schema 2.4.0")
     if schema_version not in {
         _ObservationVersion.V2_3,
         _ObservationVersion.V2_4,

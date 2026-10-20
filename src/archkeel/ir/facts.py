@@ -214,6 +214,25 @@ class CallBindingOrigin(StrEnum):
     NATIVE_RECEIVER = "native_receiver"
 
 
+class _CallBindingProofKind(StrEnum):
+    STORED_FIELD = "stored_field"
+    CONSTRUCTION = "construction"
+    CONSTRUCTOR = "constructor"
+    PROVIDER_MEMBER = "provider_member"
+    NATIVE_DESCRIPTOR = "native_descriptor"
+
+
+_DATETIME_DESCRIPTOR_IDENTITY = {
+    "target": "datetime.datetime.now",
+    "runtime_name": "python",
+    "runtime_implementation": "cpython",
+    "descriptor_owner_module": "datetime",
+    "descriptor_owner_qualname": "datetime",
+    "descriptor_member": "now",
+    "descriptor_kind": "classmethod_descriptor",
+}
+
+
 CALL_BINDINGS_FEATURE = "canonical_call_bindings"
 EXTENDED_CALL_BINDINGS_FEATURE = "extended_call_bindings"
 NATIVE_CALL_TARGETS = frozenset(
@@ -284,10 +303,10 @@ def call_binding(value: JsonValue) -> CallBinding | None:
     ):
         raise ValueError("extended call binding needs a typed origin proof")
     if proof is not None:
-        proof_kind = proof.get("kind")
+        proof_kind_raw = proof.get("kind")
         proof_fields = {key for key, _ in proof.entries}
         required_fields = {
-            "stored_field": {
+            _CallBindingProofKind.STORED_FIELD: {
                 "kind",
                 "owner",
                 "field",
@@ -295,14 +314,14 @@ def call_binding(value: JsonValue) -> CallBinding | None:
                 "target",
                 "witness_evidence_ids",
             },
-            "construction": {
+            _CallBindingProofKind.CONSTRUCTION: {
                 "kind",
                 "target",
                 "constructor_evidence_id",
                 "assignment_evidence_id",
                 "assignment_name",
             },
-            "constructor": {
+            _CallBindingProofKind.CONSTRUCTOR: {
                 "kind",
                 "target",
                 "constructor_evidence_id",
@@ -310,14 +329,14 @@ def call_binding(value: JsonValue) -> CallBinding | None:
                 "runtime_name",
                 "runtime_version",
             },
-            "provider_member": {
+            _CallBindingProofKind.PROVIDER_MEMBER: {
                 "kind",
                 "target",
                 "provider_evidence_id",
                 "runtime_name",
                 "runtime_version",
             },
-            "native_descriptor": {
+            _CallBindingProofKind.NATIVE_DESCRIPTOR: {
                 "kind",
                 "target",
                 "runtime_name",
@@ -331,34 +350,50 @@ def call_binding(value: JsonValue) -> CallBinding | None:
                 "witness_evidence_ids",
             },
         }
-        if not isinstance(proof_kind, str) or proof_fields != required_fields.get(proof_kind):
+        if not isinstance(proof_kind_raw, str):
+            raise ValueError("invalid call binding proof kind")
+        try:
+            proof_kind = _CallBindingProofKind(proof_kind_raw)
+        except ValueError as error:
+            raise ValueError("invalid call binding proof kind") from error
+        if proof_fields != required_fields.get(proof_kind):
             raise ValueError("invalid call binding proof fields")
         if (
-            proof_kind in {"constructor", "provider_member", "native_descriptor"}
+            proof_kind
+            in {
+                _CallBindingProofKind.CONSTRUCTOR,
+                _CallBindingProofKind.PROVIDER_MEMBER,
+                _CallBindingProofKind.NATIVE_DESCRIPTOR,
+            }
             and proof.get("target") != target
         ):
             raise ValueError("call binding proof disagrees with its canonical target")
-        if proof_kind == "stored_field" and parsed_origin is not CallBindingOrigin.STORED_RECEIVER:
+        if (
+            proof_kind is _CallBindingProofKind.STORED_FIELD
+            and parsed_origin is not CallBindingOrigin.STORED_RECEIVER
+        ):
             raise ValueError("stored-field proof needs a stored receiver origin")
         if (
-            proof_kind == "construction"
+            proof_kind is _CallBindingProofKind.CONSTRUCTION
             and parsed_origin is not CallBindingOrigin.CONSTRUCTED_RECEIVER
         ):
             raise ValueError("construction proof needs a constructed receiver origin")
-        if proof_kind == "constructor" and parsed_origin is not CallBindingOrigin.CONSTRUCTOR:
+        if (
+            proof_kind is _CallBindingProofKind.CONSTRUCTOR
+            and parsed_origin is not CallBindingOrigin.CONSTRUCTOR
+        ):
             raise ValueError("constructor proof needs a constructor origin")
-        if proof_kind == "native_descriptor" and parsed_origin is not CallBindingOrigin.NATIVE:
+        if (
+            proof_kind is _CallBindingProofKind.NATIVE_DESCRIPTOR
+            and parsed_origin is not CallBindingOrigin.NATIVE
+        ):
             raise ValueError("native descriptor proof needs an unbound native origin")
-        if proof_kind == "native_descriptor":
+        if proof_kind is _CallBindingProofKind.NATIVE_DESCRIPTOR:
             source_digest = proof.get("stdlib_source_digest")
             if (
-                target != "datetime.datetime.now"
-                or proof.get("runtime_name") != "python"
-                or proof.get("runtime_implementation") != "cpython"
-                or proof.get("descriptor_owner_module") != "datetime"
-                or proof.get("descriptor_owner_qualname") != "datetime"
-                or proof.get("descriptor_member") != "now"
-                or proof.get("descriptor_kind") != "classmethod_descriptor"
+                any(
+                    proof.get(key) != value for key, value in _DATETIME_DESCRIPTOR_IDENTITY.items()
+                )
                 or not isinstance(source_digest, str)
                 or len(source_digest) != 64
                 or any(character not in "0123456789abcdef" for character in source_digest)
@@ -366,7 +401,7 @@ def call_binding(value: JsonValue) -> CallBinding | None:
                 raise ValueError(
                     "native descriptor proof disagrees with the admitted runtime identity"
                 )
-        if proof_kind == "provider_member" and parsed_origin not in {
+        if proof_kind is _CallBindingProofKind.PROVIDER_MEMBER and parsed_origin not in {
             CallBindingOrigin.NATIVE,
             CallBindingOrigin.NATIVE_RECEIVER,
             CallBindingOrigin.CONSTRUCTOR,
