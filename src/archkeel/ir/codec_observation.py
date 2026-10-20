@@ -13,7 +13,6 @@ from math import isfinite
 from typing import Any, TypeGuard
 
 from archkeel.ir.architecture_graph import ArchitectureRuleKind
-from archkeel.ir.codec_strings import intern_strings, observation_escaped, observation_profitable
 from archkeel.ir.codec_wire import (
     _count,
     _exact,
@@ -57,6 +56,8 @@ from archkeel.ir.profiles import (
     profile_for,
 )
 
+from .facts_codec import StringTablePolicy as StringTablePolicy
+from .facts_codec import intern_strings as intern_strings
 from .facts_codec import parse_evidence as parse_evidence
 from .facts_codec import parse_record as parse_record
 from .facts_codec import record_payload as _record_payload
@@ -92,10 +93,22 @@ class _ObservationRecordKind(StrEnum):
     VALUE_REFERENCE = "value_reference"
 
 
+_OBSERVATION_VERSION_ORDER = {
+    _ObservationVersion.V1_2: 0,
+    _ObservationVersion.V1_3: 1,
+    _ObservationVersion.V2: 2,
+    _ObservationVersion.V2_1: 3,
+    _ObservationVersion.V2_2: 4,
+    _ObservationVersion.V2_3: 5,
+    _ObservationVersion.V2_4: 6,
+    _ObservationVersion.V2_5: 7,
+    _ObservationVersion.V2_6: 8,
+    _ObservationVersion.V2_7: 9,
+}
+
+
 def _before_version(version: _ObservationVersion, floor: _ObservationVersion) -> bool:
-    return tuple(int(part) for part in version.value.split(".")) < tuple(
-        int(part) for part in floor.value.split(".")
-    )
+    return _OBSERVATION_VERSION_ORDER[version] < _OBSERVATION_VERSION_ORDER[floor]
 
 
 class _VersionedConstruct(StrEnum):
@@ -752,9 +765,8 @@ def encode_canonical_model(model: dict[str, RawJson]) -> dict[str, RawJson]:
     # AD-2: missing cells use a private NaN sentinel until intern writes "$m".
     interned_tree, string_table = intern_strings(
         {"sections": rows_by_section, "evidence": evidence_rows},
-        profitable=observation_profitable,
+        policy=StringTablePolicy.OBSERVATION,
         missing_value=_MISSING_VALUE,
-        escape_reserved=observation_escaped,
     )
     if not isinstance(interned_tree, dict):
         raise ValueError("interned observation must be an object")

@@ -9,7 +9,7 @@ import pytest
 
 
 def test_string_interner_uses_positive_json_savings_and_is_lossless() -> None:
-    from archkeel.ir.codec_strings import expand_strings, intern_strings, profitable_string
+    from archkeel.ir.codec_strings import StringTablePolicy, expand_strings, intern_strings
 
     value = {
         "names": [
@@ -21,7 +21,7 @@ def test_string_interner_uses_positive_json_savings_and_is_lossless() -> None:
             "$$reference",
         ]
     }
-    encoded, table = intern_strings(value, profitable=profitable_string)
+    encoded, table = intern_strings(value, policy=StringTablePolicy.SOURCE_FACTS)
     assert "qualified.identifier.long" in table
     assert expand_strings(encoded, table) == value
 

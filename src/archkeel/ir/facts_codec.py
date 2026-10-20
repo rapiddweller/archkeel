@@ -13,7 +13,15 @@ from enum import StrEnum
 from math import isfinite
 from pathlib import PurePosixPath, PureWindowsPath
 
-from .codec_strings import expand_strings, intern_strings, profitable_string
+from .codec_strings import (
+    StringTablePolicy as StringTablePolicy,
+)
+from .codec_strings import (
+    expand_strings,
+)
+from .codec_strings import (
+    intern_strings as intern_strings,
+)
 from .facts import (
     EVIDENCE_FIELDS,
     RECORD_FIELDS,
@@ -1085,7 +1093,7 @@ def _compact_source_facts(value: RawJson) -> dict[str, RawJson]:
                     facts["candidate_evidence"], "candidate evidence"
                 ),
             },
-            profitable=profitable_string,
+            policy=StringTablePolicy.SOURCE_FACTS,
         )
     except ValueError as error:
         raise ProtocolError(str(error)) from error

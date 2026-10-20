@@ -930,13 +930,14 @@ def _selector_receipt_complete(
     selected_records = (*modules, *symbols)
     if not selected_records or set(receipt.subjects) != set(source_names):
         return False
-    selectors = tuple(
-        item
-        for item in observation.records("constructs") or ()
-        if item.kind == "construct_selector"
-        and isinstance((owner := item.data.get("owner")), str)
-        and any(owner == module or owner.startswith(f"{module}.") for module in source_names)
-    )
+    selectors: list[Record] = []
+    for item in observation.records("constructs") or ():
+        owner_value = item.data.get("owner")
+        if item.kind != "construct_selector" or not isinstance(owner_value, str):
+            continue
+        owner: str = owner_value
+        if any(owner == module or owner.startswith(f"{module}.") for module in source_names):
+            selectors.append(item)
     expected_inventory_ids = tuple(sorted(item.id for item in selectors))
     expected_fact_ids = {item.id for item in selected_records} | set(expected_inventory_ids)
     all_modules = observation.records("modules") or ()

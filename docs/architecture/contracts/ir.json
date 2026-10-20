@@ -102,6 +102,8 @@
       ],
       "public": [
         "archkeel.ir.facts_codec",
+        "archkeel.ir.codec_strings:StringTablePolicy",
+        "archkeel.ir.codec_strings:intern_strings",
         "archkeel.ir.facts_validation:validate_source_facts",
         "archkeel.ir.facts_validation:validate_source_bindings",
         "archkeel.ir.facts_codec:source_reference_context",
