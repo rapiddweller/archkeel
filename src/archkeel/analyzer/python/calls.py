@@ -1090,6 +1090,8 @@ class CallCollector(ast.NodeVisitor):
     def _call_binding(
         self, node: ast.Call, status: SourceResolution, targets: list[str], evidence_id: str
     ) -> RecordData | None:
+        if node.func.end_lineno != node.func.lineno:
+            return None
         native = self._native_call(node)
         if native is not None:
             target, origin, witness, proof = native

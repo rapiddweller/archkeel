@@ -912,6 +912,75 @@ def test_stored_property_receiver_stays_unknown_and_replays(tmp_path, mounted, c
     assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
 
 
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize(
+    "caller,extra,expression,target,expected",
+    [
+        (
+            "from .storage import Storage\ndef run(): Storage(\n    ).page()\n",
+            {"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+            "Storage().page",
+            "sample.storage.Storage.page",
+            "UNKNOWN",
+        ),
+        (
+            "from .storage import Storage\nclass Holder:\n"
+            "    def __init__(self, client: Storage): self.client = self.backup = client\n"
+            "    def run(self): self.client.page()\n",
+            {"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+            "self.client.page",
+            "sample.storage.Storage.page",
+            "FAIL",
+        ),
+        (
+            "from .storage import Child\ndef run(): Child().page()\n",
+            {
+                "sample/storage.py": "def replacement(self): pass\n"
+                "class Base:\n    def page(self): pass\n"
+                "class Child(Base):\n    page = replacement\n"
+            },
+            "Child().page",
+            "sample.storage.Base.page",
+            "UNKNOWN",
+        ),
+    ],
+    ids=["multiline-constructor", "chained-stored-write", "inherited-class-attribute"],
+)
+def test_call_owner_multiline_chain_and_inherited_shadow_replay(
+    tmp_path, caller, extra, expression, target, expected, mounted, columnar
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        caller,
+        target=target,
+        allowed=(),
+        mounted=mounted,
+        extra=extra,
+    )
+    assert row.status == expected
+    assert row.evaluation_proven is (expected != "UNKNOWN")
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == expression
+    )
+    assert (call.data.get("call_binding") is not None) is (expected != "UNKNOWN")
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"call-owner-proof-boundary-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == expected
+    assert replayed.evaluation_proven is (expected != "UNKNOWN")
+
+
 @pytest.mark.parametrize(
     "caller",
     [

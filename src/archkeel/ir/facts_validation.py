@@ -368,24 +368,24 @@ def _stored_write_matches_source(item: Evidence, receiver: str, field: str, para
 def _stored_assignment_matches(
     assignment: ast.Assign | ast.AnnAssign, receiver: str, field: str, parameter: str
 ) -> bool:
-    target: ast.expr
     value: ast.expr | None
     if isinstance(assignment, ast.Assign):
-        if len(assignment.targets) != 1:
-            return False
-        target = assignment.targets[0]
+        targets = tuple(assignment.targets)
         value = assignment.value
     else:
-        target = assignment.target
+        targets = (assignment.target,)
         value = assignment.value
     return (
-        isinstance(target, ast.Attribute)
-        and isinstance(target.ctx, ast.Store)
-        and isinstance(target.value, ast.Name)
-        and target.value.id == receiver
-        and target.attr == field
-        and isinstance(value, ast.Name)
+        isinstance(value, ast.Name)
         and value.id == parameter
+        and any(
+            isinstance(target, ast.Attribute)
+            and isinstance(target.ctx, ast.Store)
+            and isinstance(target.value, ast.Name)
+            and target.value.id == receiver
+            and target.attr == field
+            for target in targets
+        )
     )
 
 
