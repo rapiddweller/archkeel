@@ -1126,8 +1126,9 @@ def _rule_references(
     if isinstance(rule, BoundaryTypesRule):
         references += _boundary_allowance_references(index, rule.allowed_positions)
     if isinstance(rule, ProtocolDeclarationsRule):
-        target_module = rule.protocol.rpartition(".")[0]
-        references.append(ModuleReference(f"/rules/{index}/protocol", target_module, True))
+        protocol: str = rule.protocol
+        target_module = protocol.rpartition(".")[0]
+        references += [ModuleReference(f"/rules/{index}/protocol", target_module, True)]
     if isinstance(rule, ForbiddenConstructRule):
         references += [
             ModuleReference(

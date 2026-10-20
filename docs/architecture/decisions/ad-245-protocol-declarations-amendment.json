@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "26ffcd551f4af8b9cacce4801cec54a3e9b619029be2e1f51cf36ee276d1d780",
+  "after_digest": "d4f0788fd9efb1b6c454740a7340d522f49b141249cfa0af101cc14012f0a2c8",
+  "before_baseline_digest": "26ffcd551f4af8b9cacce4801cec54a3e9b619029be2e1f51cf36ee276d1d780",
+  "before_digest": "74f29882abdc4c3da80a85c588ac45a7386920bafdef067e9c3eba69617feeaf",
+  "decided_by": "Codex for issue #616",
+  "rationale": "Introduce ownership for the new canonical Protocol declaration evaluator and its required typed analysis calls.",
+  "schema_version": "2.0.0"
+}
