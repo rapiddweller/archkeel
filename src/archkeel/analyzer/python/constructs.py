@@ -1357,7 +1357,13 @@ class ConstructCollector(ast.NodeVisitor):
                 )
             else:
                 self._selector_record(
-                    node, "reflect", receiver, None, status="unknown", operation="probe"
+                    node,
+                    "reflect",
+                    receiver,
+                    None,
+                    status="unknown",
+                    operation="probe",
+                    receiver_node=node.args[0],
                 )
         elif node.keywords:
             self._selector_record(node, "reflect", None, None, status="unknown", operation="probe")
@@ -1454,7 +1460,7 @@ class ConstructCollector(ast.NodeVisitor):
                 if isinstance(parent, ast.Call) and parent.func is node
                 else ("write" if isinstance(node.ctx, ast.Store) else "read")
             )
-            if not (isinstance(parent, ast.Compare) and node in [parent.left, *parent.comparators]):
+            if not self._has_role_specific_attribute_operand(node, parent):
                 self._selector_record(
                     node,
                     operation,
@@ -1465,6 +1471,22 @@ class ConstructCollector(ast.NodeVisitor):
                     receiver_node=node.value,
                 )
         self.generic_visit(node)
+
+    def _has_role_specific_attribute_operand(
+        self, node: ast.Attribute, parent: ast.AST | None
+    ) -> bool:
+        if isinstance(parent, ast.Compare) and node in [parent.left, *parent.comparators]:
+            return True
+        if isinstance(parent, ast.Match) and parent.subject is node:
+            return True
+        if isinstance(parent, ast.Attribute) and parent.value is node:
+            call = self.parents.get(parent)
+            return (
+                isinstance(call, ast.Call)
+                and call.func is parent
+                and _string_predicate(call) is not None
+            )
+        return False
 
     def visit_Compare(self, node: ast.Compare) -> None:
         form = _comparison_form(self.comparisons, node)

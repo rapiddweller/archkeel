@@ -835,6 +835,7 @@ def test_selected_membership_match_predicates_aliases_and_roles():
         "def route(conn: Connection, label: Label):\n"
         "    conn.backend in BACKENDS\n"
         '    conn.backend in ("flat", "wide")\n'
+        "    conn.backend\n"
         "    match conn.backend:\n"
         '        case "flat": pass\n'
         "    conn.backend.startswith(FLAT)\n"
@@ -856,6 +857,26 @@ def test_selected_membership_match_predicates_aliases_and_roles():
     assert ("endswith", "flat") in pairs
     assert ("write", None) in pairs
     assert ("call", None) in pairs
+    reads = [
+        row
+        for row in selectors
+        if row["selector_role"] == "read"
+        and row["receiver_type"] == "sample.core.Connection"
+        and row["member"] == "backend"
+    ]
+    assert len(reads) == 1
+    read_rule = ForbiddenConstructRule(
+        "READ",
+        ArchitectureRuleKind.FORBIDDEN_CONSTRUCT,
+        "sample.core",
+        (),
+        "ordinary backend reads stay observable",
+        ("test",),
+        DecisionMaker.ARCHITECT,
+        selector=ConstructSelector("sample.core.Connection", "backend", ConstructSelectorRole.READ),
+    )
+    read_findings = _construct_violations(facts, [read_rule])
+    assert len([row for row in read_findings if row["evidence_class"] == "VIOLATION"]) == 1
     # A shadowed builtin and unsupported keyword-only spellings are not asserted to be valid
     # reflection calls; the keyword call remains scoped unresolved evidence.
     reflects = [row for row in selectors if row["selector_role"] == "reflect"]
@@ -996,11 +1017,12 @@ def test_native_saved_report_keeps_fail_and_unknown_for_selected_scope(tmp_path:
     (root / "sample/core.py").write_text(
         "class Connection:\n    backend: str\n"
         "class Label:\n    backend: str\n"
-        "def route(conn: Connection, label: Label, unclear):\n"
+        "def route(conn: Connection, label: Label, unclear, key):\n"
         '    conn.backend == "flat"\n'
         '    "flat" == conn.backend\n'
         '    label.backend == "flat"\n'
         '    unclear.backend == "flat"\n'
+        "    getattr(conn, key)\n"
     )
     (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
     contract = {
@@ -1055,6 +1077,15 @@ def test_native_saved_report_keeps_fail_and_unknown_for_selected_scope(tmp_path:
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     assert model.schema_version == "2.6.0"
     assert any(row.kind == "construct_selector" for row in model.records("constructs"))
+    reflection = [
+        row
+        for row in model.records("constructs")
+        if row.kind == "construct_selector" and row.data.get("selector_role") == "reflect"
+    ]
+    assert len(reflection) == 1
+    assert reflection[0].data.get("status") == "unknown"
+    assert reflection[0].data.get("receiver_type") == "sample.core.Connection"
+    assert reflection[0].data.get("receiver_binding").get("origin") == "declared_receiver"
     assert len(trace_valid_violations(model)) == 3
     selected = [
         row
@@ -1479,6 +1510,130 @@ def _selector_scope_fixture(root: Path, *, mounted: bool, source: str = "sample"
     )
     assert result.observation is not None, result.diagnostics
     return result.observation
+
+
+def _selector_read_role_fixture(root: Path, *, mounted: bool):
+    (root / "sample").mkdir(parents=True)
+    (root / "sample/__init__.py").write_text("")
+    (root / "sample/core.py").write_text(
+        "class Connection:\n    backend: str\n"
+        "def route(conn: Connection, key):\n"
+        "    conn.backend\n"
+        "    match conn.backend:\n        case 'flat': pass\n"
+        "    conn.backend.startswith('flat')\n"
+        "    getattr(conn, key)\n"
+    )
+    (root / "docs/architecture").mkdir(parents=True)
+    (root / "docs/architecture/sample.md").write_text("Fixture provenance.\n")
+    (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    rule = {
+        "id": "READ",
+        "kind": "forbidden_construct",
+        "source": "sample",
+        "constructs": ["string_literal_compare"],
+        "selector": {
+            "receiver": "sample.core.Connection",
+            "member": "backend",
+            "role": "read",
+        },
+        "rationale": "Only ordinary reads are forbidden.",
+        "provenance": ["docs/architecture/sample.md"],
+        "decided_by": "architect",
+    }
+    provenance = ["docs/architecture/sample.md"]
+    if mounted:
+        (root / "inside.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "3.11.0",
+                    "components": [
+                        {
+                            "id": "COMP-child",
+                            "label": "child",
+                            "role": "component",
+                            "packages": ["sample"],
+                            "responsibilities": ["Own child."],
+                            "forbidden_responsibilities": [],
+                            "provenance": provenance,
+                        }
+                    ],
+                    "rules": [rule],
+                }
+            )
+        )
+        contract = {
+            "schema_version": "3.11.0",
+            "components": [
+                {
+                    "id": "COMP-parent",
+                    "label": "parent",
+                    "role": "component",
+                    "packages": ["sample"],
+                    "responsibilities": ["Own parent."],
+                    "forbidden_responsibilities": [],
+                    "provenance": provenance,
+                    "inside": "inside.json",
+                }
+            ],
+            "rules": [],
+        }
+    else:
+        contract = {"schema_version": "3.11.0", "components": [], "rules": [rule]}
+    (root / "contract.json").write_text(json.dumps(contract))
+    result = observe(
+        root,
+        roots=("sample",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=root,
+    )
+    assert result.observation is not None, result.diagnostics
+    return result.observation
+
+
+@pytest.mark.parametrize("mounted", [False, True], ids=["root", "mounted"])
+def test_read_role_excludes_match_and_predicate_operands_live_and_saved(
+    tmp_path: Path, mounted: bool
+):
+    model = _selector_read_role_fixture(tmp_path / "repo", mounted=mounted)
+    reads = [
+        row
+        for row in model.records("constructs")
+        if row.kind == "construct_selector"
+        and row.data.get("selector_role") == "read"
+        and row.data.get("member") == "backend"
+    ]
+    assert len(reads) == 1
+    reflects = [
+        row
+        for row in model.records("constructs")
+        if row.kind == "construct_selector" and row.data.get("selector_role") == "reflect"
+    ]
+    assert len(reflects) == 1
+    assert reflects[0].data.get("status") == "unknown"
+    assert reflects[0].data.get("receiver_type") == "sample.core.Connection"
+    assert reflects[0].data.get("receiver_binding").get("origin") == "declared_receiver"
+    assert (
+        next(
+            row for row in rule_assessments(model, undecided_by_rule={}) if row.id.endswith("READ")
+        ).status
+        == "FAIL"
+    )
+    ordinary = observation_payload(model)
+    columnar = decode_canonical_model(
+        json.loads(canonical_json_bytes(encode_canonical_model(ordinary)))
+    )
+    payloads = (ordinary, columnar)
+    for index, payload in enumerate(payloads):
+        path = tmp_path / f"read-role-{mounted}-{index}.json"
+        path.write_bytes(canonical_json_bytes(payload))
+        replay = run_saved_report(path)
+        assert replay.rule_assessments is not None, replay.diagnostics
+        [assessment] = [row for row in replay.rule_assessments if row.id.endswith("READ")]
+        assert assessment.status == "FAIL"
+        assert not replay.diagnostics
 
 
 @pytest.mark.parametrize(
