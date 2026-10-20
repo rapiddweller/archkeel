@@ -45,7 +45,7 @@
       "id": "COMP-STORE-REPOSITORY",
       "label": "repository",
       "role": "component",
-      "packages": ["shop.store.repository"],
+      "packages": ["shop.store.repository", "shop.store.lookup"],
       "responsibilities": ["The order-facing persistence API the rest of the shop is written against."],
       "forbidden_responsibilities": ["Formatting a document itself, and reaching the filesystem without the backend."],
       "provenance": ["docs/architecture/shop.md"],
