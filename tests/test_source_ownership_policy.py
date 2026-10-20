@@ -121,6 +121,18 @@ def test_source_ownership_requires_contract_3_12():
                 {"mode": "retired", "symbols": ["sample.old"], "roles": ["definition"]}, "3.11.0"
             )
         )
+    from dataclasses import replace
+
+    from archkeel.ir.codec import contract_bytes
+    from archkeel.ir.contract_version import ContractVersion
+
+    current = parse_contract(
+        _contract({"mode": "retired", "symbols": ["sample.old"], "roles": ["definition"]})
+    )
+    with pytest.raises(
+        ValueError, match="source_ownership requires contract schema_version 3.12.0"
+    ):
+        contract_bytes(replace(current, schema_version=ContractVersion.V3_11))
 
 
 def _component(label, packages, *, inside=None):

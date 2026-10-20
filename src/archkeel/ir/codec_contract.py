@@ -451,6 +451,10 @@ def _validate_encoding_version(contract: ArchitectureContract) -> None:
         for rule in contract.rules
     ):
         raise ValueError("construct selectors require contract schema_version 3.11.0")
+    if not supports_feature(contract.schema_version, ContractFeature.SOURCE_OWNERSHIP) and any(
+        isinstance(rule, SourceOwnershipRule) for rule in contract.rules
+    ):
+        raise ValueError("source_ownership requires contract schema_version 3.12.0")
     if not supports_feature(contract.schema_version, ContractFeature.MODULE_OBJECT_GRANTS) and any(
         isinstance(rule, InterfaceBoundaryRule) and rule.module_object_grants is not None
         for rule in contract.rules
