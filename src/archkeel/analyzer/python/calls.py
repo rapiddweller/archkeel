@@ -83,6 +83,16 @@ def _partition_first(value: str, separator: str) -> tuple[str, str, str]:
     return value, "", ""
 
 
+def _qualified_identifier(value: str) -> bool:
+    start = 0
+    for index in range(len(value)):
+        if value[index] == ".":
+            if not python_identifier(value[start:index]):
+                return False
+            start = index + 1
+    return python_identifier(value[start:])
+
+
 def _bind_receiver(
     receivers: dict[str, ReceiverType | None], name: str, candidate: ReceiverType | None
 ) -> None:
@@ -541,7 +551,7 @@ class CallCollector(ast.NodeVisitor):
                 or _mapping_value(data, "origin_binding_unique") is not True
                 or _mapping_value(data, "reexport_candidate") is True
                 or not isinstance(origin, str)
-                or not all(python_identifier(part) for part in origin.split("."))
+                or not _qualified_identifier(origin)
             ):
                 return None
             target = origin + (f".{suffix}" if separator else "")
