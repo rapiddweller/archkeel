@@ -38,7 +38,7 @@ def test_the_inside_of_check_carries_its_sub_components_and_their_edges(
     assert [(edge.source, edge.target, edge.import_sites) for edge in level.edges] == [
         ("observation", "declarations", 6),
         ("observation", "evaluation", 5),
-        ("observation", "inputs", 9),
+        ("observation", "inputs", 10),
         ("regression", "inputs", 2),
         ("workflows", "evaluation", 2),
         ("workflows", "inputs", 33),
