@@ -1356,8 +1356,9 @@ def _canonical_type_identity_verdict(
     imports: BindingIndex,
     classes: BindingIndex,
     type_shapes: TypeShapeIndex,
+    _aliases_seen: frozenset[tuple[str, str]] = frozenset(),
 ) -> _Position:
-    """Drop only statically proven single-name aliases from a type identity result."""
+    """Resolve proven single-name aliases without inspecting a type's fields."""
     identity = _boundary_type_verdict(
         annotation,
         module,
@@ -1365,26 +1366,45 @@ def _canonical_type_identity_verdict(
         exports,
         imports,
         classes,
+        enter_collections=False,
         enter_fields=False,
         type_shapes=type_shapes,
     )
     if identity.undecidable is not None:
         return identity
-    aliases: set[tuple[str, str]] = set()
+    targets: set[tuple[str, str]] = set()
+    expanded_alias = False
     for origin in identity.resolved:
         symbol = classes.get(origin)
         if not isinstance(symbol, dict) or symbol.get("record_kind") != "type_alias":
+            targets.add(origin)
             continue
         alias = symbol.get("alias")
         shape = type_shapes.get(alias) if isinstance(alias, str) else None
-        if not _alias_binding_static(symbol, member_surface=False) or not isinstance(
-            shape, (TypeName, TypeMember)
+        if (
+            origin in _aliases_seen
+            or not isinstance(alias, str)
+            or not _alias_binding_static(symbol, member_surface=False)
+            or not isinstance(shape, (TypeName, TypeMember))
         ):
             return _Position(undecidable=_Cause.OTHER)
-        aliases.add(origin)
-    if not aliases:
+        expanded = _canonical_type_identity_verdict(
+            alias,
+            origin[0],
+            contract,
+            exports,
+            imports,
+            classes.module_bindings if classes.module_bindings is not None else classes,
+            type_shapes,
+            _aliases_seen | {origin},
+        )
+        expanded = _imported_alias_verdict(expanded, module, annotation, imports)
+        if expanded.undecidable is not None:
+            return expanded
+        targets.update(expanded.resolved)
+        expanded_alias = True
+    if not expanded_alias:
         return identity
-    targets = set(identity.resolved) - aliases
     if len(targets) != 1:
         return _Position(undecidable=_Cause.OTHER)
     resolved = tuple(sorted(targets))

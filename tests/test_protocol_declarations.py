@@ -123,6 +123,39 @@ def test_variadic_parameters_match_their_source_identifier(
     assert row.status.value == status
 
 
+@pytest.mark.parametrize("field_type", ["Payload", "MissingPayload"])
+@pytest.mark.parametrize("annotation", ["Reader", "Port"])
+def test_protocol_identity_does_not_descend_into_facade_fields(
+    tmp_path: Path, field_type: str, annotation: str
+) -> None:
+    from archkeel.ir.decisions import unknown_positions_by_rule
+
+    raw = _contract()
+    raw["components"][0]["public"] = ["sample.core:Reader", "sample.core:Payload"]
+    raw["rules"][0]["selectors"] = [raw["rules"][0]["selectors"][0]]
+    (tmp_path / "contract.json").write_text(json.dumps(raw))
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "from typing import Protocol, TypeAlias\n"
+        "class Payload: pass\n"
+        f"class Reader(Protocol):\n    payload: {field_type}\n"
+        "Port: TypeAlias = Reader\n"
+        f"def consume(client: {annotation}): return None\n"
+    )
+    result = _observe(tmp_path)
+    assert result.observation is not None, result.diagnostics
+    rows = rule_assessments(
+        result.observation, undecided_by_rule=unknown_positions_by_rule(result.observation)
+    )
+    [row] = [item for item in rows if item.id == "APP-READER-DECLARATIONS"]
+    assert row.status.value == "PASS"
+    for columnar in (False, True):
+        saved = tmp_path / "saved.json"
+        payload = observation_payload(result.observation)
+        saved.write_text(json.dumps(encode_canonical_model(payload) if columnar else payload))
+        assert run_saved_report(saved).rule_assessments == rows
+
+
 @pytest.mark.parametrize(
     "field,value",
     [
