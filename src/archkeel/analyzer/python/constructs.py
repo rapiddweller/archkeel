@@ -35,40 +35,107 @@ from .source import (
 def _numeric_evidence_excerpt_supported(excerpt: str) -> bool:
     if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
         return False
+    if _numeric_elif_start(excerpt) is not None:
+        return _numeric_elif_excerpt_supported(excerpt)
     try:
         ast.parse(excerpt)
         return True
     except (IndentationError, SyntaxError, ValueError, RecursionError):
-        try:
-            wrapper = ast.parse(f"if True:\n{excerpt}\n")
-        except (IndentationError, SyntaxError, ValueError, RecursionError):
-            wrapper = None
-        if wrapper is not None and len(wrapper.body) == 1 and isinstance(wrapper.body[0], ast.If):
-            return True
         indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
-        unit = "\t" if "\t" in indentation else "    "
-        suite = f"{excerpt}\n{indentation}{unit}pass"
-        try:
-            parsed = ast.parse(suite)
-        except (IndentationError, SyntaxError, ValueError, RecursionError):
-            try:
-                wrapper = ast.parse(f"if True:\n{suite}\n")
-            except (IndentationError, SyntaxError, ValueError, RecursionError):
-                return False
-            return (
-                len(wrapper.body) == 1
-                and isinstance(wrapper.body[0], ast.If)
-                and len(wrapper.body[0].body) == 1
-                and isinstance(wrapper.body[0].body[0], ast.If | ast.While)
-                and len(wrapper.body[0].body[0].body) == 1
-                and isinstance(wrapper.body[0].body[0].body[0], ast.Pass)
-            )
+        parsed = _numeric_indented_excerpt(excerpt, indentation, synthetic_body=False)
+        if parsed is not None:
+            return True
+        parsed = _numeric_indented_excerpt(excerpt, indentation, synthetic_body=True)
         return (
-            len(parsed.body) == 1
-            and isinstance(parsed.body[0], ast.If | ast.While)
-            and len(parsed.body[0].body) == 1
-            and isinstance(parsed.body[0].body[0], ast.Pass)
+            parsed is not None
+            and len(parsed[0]) == 1
+            and _numeric_header_has_synthetic_body(parsed[0][0])
         )
+
+
+def _numeric_elif_start(excerpt: str) -> int | None:
+    for index, character in enumerate(excerpt):
+        if character not in " \t":
+            if excerpt[index : index + 4] != "elif":
+                return None
+            if index + 4 < len(excerpt) and excerpt[index + 4] not in " \t(":
+                return None
+            return index
+    return None
+
+
+def _numeric_indented_excerpt(
+    excerpt: str, indentation: str, *, synthetic_body: bool
+) -> tuple[tuple[ast.stmt, ...], int] | None:
+    unit = "\t" if "\t" in indentation else "    "
+    if len(indentation) % len(unit):
+        return None
+    depth = len(indentation) // len(unit)
+    wrappers = "".join(f"{unit * level}if True:\n" for level in range(depth))
+    suffix = f"\n{indentation}{unit}pass" if synthetic_body else ""
+    try:
+        parsed = ast.parse(wrappers + excerpt + suffix)
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    roots = tuple(parsed.body)
+    for _ in range(depth):
+        if len(roots) != 1 or not isinstance(roots[0], ast.If):
+            return None
+        roots = tuple(roots[0].body)
+    return roots, depth
+
+
+def _numeric_header_has_synthetic_body(node: ast.stmt) -> bool:
+    header_types = (
+        ast.If,
+        ast.While,
+        ast.For,
+        ast.AsyncFor,
+        ast.With,
+        ast.AsyncWith,
+        ast.FunctionDef,
+        ast.AsyncFunctionDef,
+        ast.ClassDef,
+    )
+    return (
+        isinstance(node, header_types)
+        and len(node.body) == 1
+        and isinstance(node.body[0], ast.Pass)
+    )
+
+
+def _numeric_elif_excerpt_supported(excerpt: str) -> bool:
+    indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+    unit = "\t" if "\t" in indentation else "    "
+    if not indentation or len(indentation) % len(unit):
+        return False
+    depth = len(indentation) // len(unit)
+    wrappers = "".join(f"{unit * level}if True:\n" for level in range(depth))
+    source = (
+        f"{wrappers}{indentation}if True:\n{indentation}{unit}pass\n"
+        f"{excerpt}\n{indentation}{unit}pass"
+    )
+    try:
+        parsed = ast.parse(source)
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return False
+    if len(parsed.body) != 1 or not isinstance(parsed.body[0], ast.If):
+        return False
+    roots = tuple(parsed.body)
+    for _ in range(depth):
+        if len(roots) != 1 or not isinstance(roots[0], ast.If):
+            return False
+        roots = tuple(roots[0].body)
+    if len(roots) != 1 or not isinstance(roots[0], ast.If):
+        return False
+    preceding = roots[0]
+    return (
+        len(preceding.body) == 1
+        and isinstance(preceding.body[0], ast.Pass)
+        and len(preceding.orelse) == 1
+        and isinstance(preceding.orelse[0], ast.If)
+        and _numeric_header_has_synthetic_body(preceding.orelse[0])
+    )
 
 
 class _StringPredicate(Enum):

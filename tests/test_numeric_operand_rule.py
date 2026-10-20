@@ -516,6 +516,41 @@ def test_legacy_observation_version_rejects_numeric_vocabulary_without_operation
         parse_observation(raw)
 
 
+@pytest.mark.parametrize("signal", ["declaration", "receipt"])
+def test_legacy_decoded_schemas_reject_numeric_vocabulary_without_operations(tmp_path, signal):
+    _write_probe(tmp_path)
+    (tmp_path / "sample/core.py").write_text("")
+    model, _ = _rule_rows(tmp_path)
+    payload = observation_payload(model)
+    payload["constructs"] = []
+    if signal == "declaration":
+        payload["scope_observations"] = [
+            item
+            for item in payload["scope_observations"]
+            if "numeric_scope_proof" not in item["data"]
+        ]
+    else:
+        payload["declarations"] = []
+
+    schemas = Path(__file__).parents[1] / "schema"
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema))
+        for schema in (json.loads(path.read_bytes()) for path in schemas.glob("*.json"))
+        if "$id" in schema
+    )
+    for version, identifiers in (
+        ("1.3.0", ("decoded:2.0.0", "python-decoded:2.0.0")),
+        ("2.0.0", ("decoded:2.0.0", "python-decoded:2.0.0")),
+        ("2.1.0", ("decoded:2.1.0", "python-decoded:2.1.0")),
+    ):
+        payload["schema_version"] = version
+        for identifier in identifiers:
+            validator = Draft202012Validator(
+                {"$ref": f"urn:archkeel:architecture-ir:{identifier}"}, registry=registry
+            )
+            assert not validator.is_valid(payload), (signal, version, identifier)
+
+
 def test_missing_selected_source_is_diagnosed_as_incomplete(tmp_path):
     _write_probe(tmp_path)
     result = _observe(tmp_path)

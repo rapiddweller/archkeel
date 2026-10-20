@@ -12,6 +12,7 @@ from archkeel.ir.facts_codec import RawData, RawRecord, classified
 from archkeel.ir.model import (
     ArchitectureContract,
     EvidenceClass,
+    ModuleExports,
     ProtocolDeclarationRole,
     ProtocolDeclarationsRule,
     ProtocolDeclarationVisibility,
@@ -46,6 +47,13 @@ def _attribute_visibility(attribute: RawData) -> str | None:
     return None
 
 
+def _parameter_name(parameter: RawData) -> str | None:
+    if not isinstance(parameter, dict):
+        return None
+    name = parameter.get("name")
+    return str.lstrip(name, "*") if isinstance(name, str) else None
+
+
 def _selected_positions(
     rule: ProtocolDeclarationsRule,
     symbols: Sequence[RawRecord],
@@ -73,7 +81,10 @@ def _selected_positions(
                     continue
                 parameters = data.get("parameters", ())
                 for parameter in parameters if isinstance(parameters, (tuple, list)) else ():
-                    if not isinstance(parameter, dict) or parameter.get("name") != selector.name:
+                    if (
+                        not isinstance(parameter, dict)
+                        or _parameter_name(parameter) != selector.name
+                    ):
                         continue
                     position = f"parameter.{selector.name}"
                     annotation = parameter.get("annotation")
@@ -113,7 +124,7 @@ def _identity_verdict(
     module: str,
     target: tuple[str, str],
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     type_shapes: TypeShapeIndex,
@@ -221,7 +232,7 @@ def _protocol_findings(
     symbols: Sequence[RawRecord],
     target: tuple[str, str],
     contract: ArchitectureContract,
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     imports_by_binding: BindingIndex,
     classes_by_location: BindingIndex,
     type_shapes: TypeShapeIndex,
@@ -290,6 +301,18 @@ def _protocol_scope_limit(
     )
 
 
+def _unmatched_selectors(
+    rule: ProtocolDeclarationsRule,
+    selected: Sequence[tuple[RawRecord, str, str | None, tuple[str, ...]]],
+) -> tuple[str, ...]:
+    positions = {item[1] for item in selected}
+    return tuple(
+        position
+        for selector in rule.selectors
+        if (position := f"{selector.role.value}.{selector.name}") not in positions
+    )
+
+
 def protocol_declaration_results(
     *,
     symbols: Sequence[RawRecord],
@@ -329,13 +352,14 @@ def protocol_declaration_results(
             and parse_symbol_class_kind(target_record.get("class_kind")) is SymbolClassKind.PROTOCOL
         )
         selected = _selected_positions(rule, symbols, source_modules)
+        unmatched = _unmatched_selectors(rule, selected)
         selected_modules = [
             module
             for module in modules
             if in_scope(module["data"]["qualified_name"], rule.source)
             and (source_modules is None or module["data"]["qualified_name"] in source_modules)
         ]
-        if selected and target_valid:
+        if not unmatched and target_valid:
             receipts.append(
                 _rule_evaluation_receipt(
                     rule,
@@ -345,9 +369,10 @@ def protocol_declaration_results(
                     data={"protocol": rule.protocol},
                 )
             )
-        if not selected or not target_valid:
-            reason = "empty_scope" if not selected else "protocol_missing_or_ambiguous"
+        if unmatched or not target_valid:
+            reason = "empty_scope" if unmatched else "protocol_missing_or_ambiguous"
             unknowns.append(_protocol_scope_limit(rule, selected_modules, reason))
+        if not selected or not target_valid:
             continue
         target = (target_module, target_name)
         failed, undecided = _protocol_findings(

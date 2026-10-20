@@ -24,6 +24,7 @@ from .model import (
     Observation,
     Record,
     RecordData,
+    module_exports,
     module_in_ownership,
 )
 from .source_records import source_name_visibility as _source_name_visibility
@@ -270,15 +271,6 @@ def _public_symbol_names(observation: Observation) -> dict[str, frozenset[str]]:
     return {module: frozenset(values) for module, values in names.items()}
 
 
-def _literal_exports(observation: Observation) -> dict[str, frozenset[str]]:
-    return {
-        module: frozenset(value for value in exports if isinstance(value, str))
-        for record in observation.records("modules") or ()
-        if isinstance((module := record.data.get("qualified_name")), str)
-        and isinstance((exports := record.data.get("all_exports")), tuple)
-    }
-
-
 def _literal_all_modules(observation: Observation) -> frozenset[str]:
     """Modules whose `__all__` the analyzer proved to be bound once to a literal (AD-99)."""
     return frozenset(
@@ -312,7 +304,7 @@ def _declared_facades(
     observation: Observation,
 ) -> tuple[tuple[FacadeMetric, ...], dict[tuple[str, str], frozenset[str]]]:
     declarations = _facade_declarations(observation)
-    all_exports = _literal_exports(observation)
+    all_exports = module_exports(observation)
     literal = _literal_all_modules(observation)
     symbols = _public_symbol_names(observation)
     reexports = _reexports(observation)
@@ -321,8 +313,8 @@ def _declared_facades(
     for (component, module), declared in sorted(declarations.items()):
         if declared is not None:
             names = declared
-        elif all_exports.get(module):
-            names = all_exports.get(module, frozenset())
+        elif (stated := all_exports.get(module)) is not None:
+            names = stated
         else:
             names = symbols.get(module, frozenset()) | reexports.get(module, frozenset())
         names = frozenset(
@@ -343,8 +335,7 @@ def _declared_facades(
                 tuple(sorted(facade_reexports)),
                 tuple(sorted(local)),
                 (),
-                # `interface_boundary` reads an empty `__all__` as none, so it lists nothing.
-                declared is not None or (module in literal and bool(all_exports.get(module))),
+                declared is not None or module in literal,
             )
         )
 

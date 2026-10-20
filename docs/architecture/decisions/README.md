@@ -251,6 +251,7 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-241 | [Call ownership policy](ad-241-call-ownership-policy.md) |
 | AD-242 | [Explicit browser module ports](ad-242-explicit-browser-module-ports.md) |
 | AD-243 | [Contract-owned source maintenance](ad-243-contract-owned-source-maintenance.md) |
+| AD-244 | [Empty literal `__all__`](ad-244-an-empty-literal-all-states-an-empty-surface.md) |
 | AD-245 | [Canonical Protocol declarations](ad-245-canonical-protocol-declarations.md) |
 | AD-246 | [Bounded numeric operand proofs](ad-246-bounded-numeric-operand.md) |
 | AD-252 | [Bounded call identity](ad-252-bounded-call-identity.md) |

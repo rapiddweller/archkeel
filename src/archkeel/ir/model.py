@@ -242,11 +242,36 @@ class ContractComponent:
             builtins.object.__setattr__(self, "decided_by", DecisionMaker(self.decided_by))
 
 
+ModuleExports: TypeAlias = dict[str, frozenset[str] | None]
+
+
+def stated_exports(all_exports: JsonValue, all_literal: JsonValue) -> frozenset[str] | None:
+    """A module's stated export surface, or None when it states none (AD-244).
+
+    The analyzer records `all_exports` empty both without `__all__` and for `__all__ = []`;
+    only `all_literal` proves the second, which states an empty surface.
+    """
+    names = (
+        frozenset(name for name in all_exports if isinstance(name, str))
+        if isinstance(all_exports, tuple)
+        else frozenset()
+    )
+    return names if names or all_literal is True else None
+
+
+def module_exports(observation: Observation) -> ModuleExports:
+    return {
+        module: stated_exports(record.data.get("all_exports"), record.data.get("all_literal"))
+        for record in observation.records("modules") or ()
+        if isinstance((module := record.data.get("qualified_name")), str)
+    }
+
+
 def facade_covers(
     module: str,
     name: str,
     component: ContractComponent,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
 ) -> bool:
     """Answer facade coverage from the component contract and observed module exports."""
     public = component.public
@@ -255,7 +280,8 @@ def facade_covers(
     if f"{module}:{name}" in public:
         return True
     exports = exports_by_module.get(module)
-    return module in public and (not exports or name in exports)
+    # A star import binds exactly the stated surface, which a module entry exposes.
+    return module in public and (exports is None or name == "*" or name in exports)
 
 
 def interface_covers_import(
@@ -263,7 +289,7 @@ def interface_covers_import(
     symbol: str | None,
     reexport_chain: Iterable[str],
     component: ContractComponent,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
 ) -> bool:
     """Match a concrete import route against a declared interface."""
     if component.public is None:
