@@ -184,6 +184,11 @@ def stable_id(prefix: str, *parts: object) -> str:
     return f"{prefix}-{hashlib.sha256(payload).hexdigest()[:16]}"
 
 
+def python_identifier(value: str) -> bool:
+    """Return whether a string is one complete Python identifier."""
+    return value.isidentifier()
+
+
 @dataclass(frozen=True, slots=True)
 class RecordData:
     """Immutable, profile-owned JSON payload; the common schema leaves its keys open."""
@@ -1183,7 +1188,7 @@ def contextmanager_signature(value: JsonValue) -> ContextManagerSignature:
         or not isinstance(factory, str)
         or not isinstance(wrapper, str)
         or any(
-            len(parts := name.split(".")) < 2 or not all(part.isidentifier() for part in parts)
+            len(parts := name.split(".")) < 2 or not all(python_identifier(part) for part in parts)
             for name in (factory, wrapper)
         )
         or not isinstance(payload, str)
