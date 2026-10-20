@@ -806,7 +806,7 @@ def _rule_receipt_complete(
             if item.kind == "numeric_operand"
             and item.data.get("module") in selected
             and isinstance(subject := item.data.get("subject"), str)
-            and subject.endswith(suffix)
+            and subject[len(subject) - len(suffix) :] == suffix
             and form in {"both", item.data.get("form")}
         )
         binding = stable_id(

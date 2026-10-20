@@ -10,7 +10,7 @@ from collections import Counter
 from collections.abc import Sequence
 from enum import Enum
 
-from archkeel.ir.facts import EvidenceClass, SourceNameVisibility, stable_id
+from archkeel.ir.facts import MAX_STATIC_INTEGER, EvidenceClass, SourceNameVisibility, stable_id
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 from archkeel.ir.source_records import source_name_visibility as _source_name_visibility
@@ -44,7 +44,6 @@ def _string_predicate(node: ast.Call) -> _StringPredicate | None:
 _BROAD_NAMES = frozenset({"Exception", "BaseException"})
 _REFLECTION_CALLS = {"setattr": "setattr_call", "delattr": "delattr_call", "vars": "vars_call"}
 _INTEGER_DEPTH = 12
-_INTEGER_BITS = 4096
 # A stub carrying one of these declares a shape; emptiness is its interface, not a gap (AD-29).
 _STUB_DECORATORS = frozenset(
     {
@@ -497,10 +496,10 @@ class ConstructCollector(ast.NodeVisitor):
             return None, []
         if isinstance(node, ast.Constant) and type(node.value) is int:
             value = node.value
-            return (value, []) if abs(value).bit_length() <= _INTEGER_BITS else (None, [])
+            return (value, []) if -MAX_STATIC_INTEGER <= value <= MAX_STATIC_INTEGER else (None, [])
         if isinstance(node, ast.Constant) and type(node.value) is bool:
             value = int(node.value)
-            return (value, []) if abs(value).bit_length() <= _INTEGER_BITS else (None, [])
+            return (value, []) if -MAX_STATIC_INTEGER <= value <= MAX_STATIC_INTEGER else (None, [])
         if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
             value, derivation = self._integer(node.operand, use, depth + 1, seen)
             if value is None:
@@ -511,10 +510,15 @@ class ConstructCollector(ast.NodeVisitor):
             exponent, right = self._integer(node.right, use, depth + 1, seen)
             if base is None or exponent is None or exponent < 0 or exponent > 256:
                 return None, []
-            if abs(base).bit_length() * exponent > _INTEGER_BITS:
-                return None, []
-            result = pow(base, exponent)
-            return (result, left + right) if result.bit_length() <= _INTEGER_BITS else (None, [])
+            magnitude = -base if base < 0 else base
+            result = 1
+            for _ in range(exponent):
+                if magnitude and result > MAX_STATIC_INTEGER // magnitude:
+                    return None, []
+                result *= magnitude
+            if base < 0 and exponent % 2:
+                result = -result
+            return result, left + right
         if isinstance(node, ast.Name):
             name = node.id
             if name in seen:
@@ -560,9 +564,11 @@ class ConstructCollector(ast.NodeVisitor):
                 return None, []
             evidence_id = add_evidence(self.evidence, self.module, assignment)
             line, _, column = location(assignment)
-            end_line = getattr(assignment, "end_lineno", line)
-            end_column = getattr(assignment, "end_col_offset", column)
-            origin = {
+            end_line: int = assignment.end_lineno if assignment.end_lineno is not None else line
+            end_column: int = (
+                assignment.end_col_offset if assignment.end_col_offset is not None else column
+            )
+            origin: dict[str, str | int] = {
                 "name": name,
                 "value": value,
                 "expression": ast.unparse(assignment.value),
@@ -592,8 +598,8 @@ class ConstructCollector(ast.NodeVisitor):
         value, derivation = self._integer(right, node)
         start = (node.lineno, node.col_offset)
         end = (
-            getattr(node, "end_lineno", node.lineno),
-            getattr(node, "end_col_offset", node.col_offset),
+            node.end_lineno if node.end_lineno is not None else node.lineno,
+            node.end_col_offset if node.end_col_offset is not None else node.col_offset,
         )
         evidence_id = add_evidence(self.evidence, self.module, node)
         evidence_ids = [evidence_id]

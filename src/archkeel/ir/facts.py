@@ -16,6 +16,8 @@ from typing import Literal, TypeAlias
 from .state_facts import StateFacts
 from .type_shapes import TypeShape
 
+MAX_STATIC_INTEGER = (1 << 4096) - 1
+
 
 class Language(StrEnum):
     PYTHON = "python"

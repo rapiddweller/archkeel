@@ -40,6 +40,7 @@ from archkeel.ir.model import (
     ContractInfo,
     Coverage,
     Observation,
+    Record,
     RuntimeInfo,
     Section,
     SourceInfo,
@@ -65,6 +66,10 @@ class _ObservationVersion(StrEnum):
     V2 = "2.0.0"
     V2_1 = "2.1.0"
     V2_2 = SCHEMA_VERSION
+
+
+def _uses_numeric_operand_fields(record: Record) -> bool:
+    return _has_field((key for key, _ in record.data.entries), "derivation")
 
 
 class _EncodingKind(StrEnum):
@@ -198,7 +203,7 @@ def parse_observation(raw: object) -> Observation:
         if isinstance(section_items := item[name], list)
     )
     if schema_version is not _ObservationVersion.V2_2 and any(
-        record.kind == "numeric_operand"
+        _uses_numeric_operand_fields(record)
         for section in sections
         if section.name == ObservedSection.CONSTRUCTS
         for record in section.records
@@ -427,7 +432,7 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
         }
     )
     if _observation_version(observation.schema_version) is not _ObservationVersion.V2_2 and any(
-        record.kind == "numeric_operand"
+        _uses_numeric_operand_fields(record)
         for section in observation.sections
         if section.name == ObservedSection.CONSTRUCTS
         for record in section.records

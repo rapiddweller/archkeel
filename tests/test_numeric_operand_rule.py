@@ -10,6 +10,7 @@ from referencing import Registry, Resource
 from test_analyzer import _component, _observe
 from test_architecture_demo import _prepare_repo
 
+from archkeel.check.evaluation.rules import profile_failures
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report, run_saved_report
 from archkeel.cli.observe import observe
@@ -23,6 +24,7 @@ from archkeel.ir.codec import (
 from archkeel.ir.codec_observation import observation_payload
 from archkeel.ir.decisions import rule_assessments, unknown_positions_by_rule
 from archkeel.ir.facts import RecordData
+from archkeel.ir.profiles import DART, TYPESCRIPT
 from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
@@ -34,6 +36,29 @@ RULE = {
     "terminal_suffix": "nonce",
     "minimum_value": 4_294_967_296,
 }
+
+
+@pytest.mark.parametrize("profile", [DART, TYPESCRIPT])
+def test_non_python_profiles_reject_python_numeric_operand_rule(profile):
+    contract = parse_contract(
+        {
+            "schema_version": "3.8.0",
+            "components": [_component("core")],
+            "rules": [
+                {
+                    "id": "RULE",
+                    "rationale": "Probe.",
+                    "provenance": ["docs/architecture/sample.md"],
+                    "decided_by": "architect",
+                    **RULE,
+                }
+            ],
+        }
+    )
+    failures = profile_failures(contract, profile, ())
+    assert len(failures) == 1
+    assert failures[0]["rule_ids"] == ["RULE"]
+    assert "bounded_numeric_operand" in failures[0]["title"]
 
 
 def test_numeric_rule_keeps_known_violation_and_unknown_operand(tmp_path):

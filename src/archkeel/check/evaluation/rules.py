@@ -1657,8 +1657,8 @@ def _numeric_operand_violations(
             continue
         for item in signals:
             data = item["data"]
-            owner, subject, form = data.get("owner"), data.get("subject"), data.get("form")
-            module = data.get("module")
+            owner, subject, form = data["owner"], data["subject"], data["form"]
+            module = data["module"]
             if (
                 item["kind"] != "numeric_operand"
                 or not isinstance(owner, str)
@@ -1667,14 +1667,14 @@ def _numeric_operand_violations(
                 or source_modules is not None
                 and module not in source_modules
                 or not isinstance(subject, str)
-                or not subject.endswith(rule.terminal_suffix)
+                or subject[len(subject) - len(rule.terminal_suffix) :] != rule.terminal_suffix
                 or rule.form.value not in {"both", form}
             ):
                 continue
             if (
-                data.get("proof") == "known"
-                and isinstance(data.get("value"), int)
-                and not isinstance(data.get("value"), bool)
+                data["proof"] == "known"
+                and isinstance(data["value"], int)
+                and not isinstance(data["value"], bool)
             ):
                 if data["value"] >= rule.minimum_value:
                     continue
@@ -2200,11 +2200,11 @@ def rule_evaluation_facts(
                 item
                 for item in constructs
                 if item["kind"] == "numeric_operand"
-                and item["data"].get("module")
+                and item["data"]["module"]
                 in {module["data"]["qualified_name"] for module in selected}
-                and isinstance(item["data"].get("subject"), str)
-                and item["data"]["subject"].endswith(rule.terminal_suffix)
-                and rule.form.value in {"both", item["data"].get("form")}
+                and isinstance(subject := item["data"]["subject"], str)
+                and subject[len(subject) - len(rule.terminal_suffix) :] == rule.terminal_suffix
+                and rule.form.value in {"both", item["data"]["form"]}
             )
             if selected:
                 facts.append(

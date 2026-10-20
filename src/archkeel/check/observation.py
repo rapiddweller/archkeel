@@ -779,14 +779,16 @@ def _certify_numeric_operand_scopes(
     )
     for receipt in receipts:
         receipt["data"]["assessment_complete"] = (
-            receipt["data"].get("assessment_complete") is True and physically_complete
+            "assessment_complete" in receipt["data"]
+            and receipt["data"]["assessment_complete"] is True
+            and physically_complete
         )
         proof = {
             "source_digest": facts.source.source_digest,
             "source_scope": list(facts.source.scope),
             "contract_digest": contract_digest,
             "observation_schema_version": SCHEMA_VERSION,
-            "scope": receipt["data"].get("scope"),
+            "scope": receipt["data"]["scope"] if "scope" in receipt["data"] else None,
             "selected_files": list(selected_files),
             "module_ids": sorted(item.id for item in modules),
             "operation_ids": sorted(item.id for item in constructs),

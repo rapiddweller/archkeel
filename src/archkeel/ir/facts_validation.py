@@ -8,6 +8,7 @@ from pathlib import PurePosixPath
 
 from .facts import (
     CALL_BINDINGS_FEATURE,
+    MAX_STATIC_INTEGER,
     SOURCE_RESOLUTION_GAP_KIND,
     BuiltinTarget,
     CallBinding,
@@ -518,7 +519,8 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
             and (
                 not isinstance(value, int)
                 or isinstance(value, bool)
-                or abs(value).bit_length() > 4096
+                or value < -MAX_STATIC_INTEGER
+                or value > MAX_STATIC_INTEGER
             )
             or data.get("proof") == "unknown"
             and value is not None
@@ -547,7 +549,8 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
                 or not item.get("name")
                 or not isinstance(origin_value, int)
                 or isinstance(origin_value, bool)
-                or abs(origin_value).bit_length() > 4096
+                or origin_value < -MAX_STATIC_INTEGER
+                or origin_value > MAX_STATIC_INTEGER
                 or not isinstance(item.get("expression"), str)
                 or not item.get("expression")
                 or not isinstance(item.get("evidence_id"), str)
