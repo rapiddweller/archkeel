@@ -291,6 +291,63 @@ def _qualified_identifier(value: str) -> bool:
     return python_identifier(value[start:])
 
 
+def _last_segment(value: str) -> str:
+    start = 0
+    for index, character in enumerate(value):
+        if character == ".":
+            start = index + 1
+    return value[start:]
+
+
+def _evidence_column_index(evidence: Evidence) -> int | None:
+    offset = 0
+    for index, character in enumerate(evidence.excerpt):
+        if offset == evidence.column:
+            return index
+        codepoint = ord(character)
+        offset += (
+            1 if codepoint < 0x80 else 2 if codepoint < 0x800 else 3 if codepoint < 0x10000 else 4
+        )
+        if offset > evidence.column:
+            return None
+    return len(evidence.excerpt) if offset == evidence.column else None
+
+
+def _call_expression_matches_source(
+    record: Record, expression: str, evidence: Mapping[str, Evidence]
+) -> bool:
+    if record.data.get("expression") != expression:
+        return False
+    for evidence_id in record.evidence_ids:
+        item = evidence.get(evidence_id)
+        if item is None or record.id != stable_id(
+            "CALL", item.file, item.line, item.column, expression
+        ):
+            continue
+        start = _evidence_column_index(item)
+        if start is None or not _starts_with(item.excerpt[start:], expression):
+            continue
+        end = start + len(expression)
+        while end < len(item.excerpt) and item.excerpt[end] in " \t":
+            end += 1
+        if end < len(item.excerpt) and item.excerpt[end] == "(":
+            return True
+    return False
+
+
+def _stored_write_matches_source(item: Evidence, receiver: str, field: str, parameter: str) -> bool:
+    start = _evidence_column_index(item)
+    expected = f"{receiver}.{field}"
+    if start is None or not _starts_with(item.excerpt[start:], expected):
+        return False
+    position = start + len(expected)
+    if position < len(item.excerpt) and item.excerpt[position] not in " \t:=":
+        return False
+    return (
+        "=" in item.excerpt[position:] and python_identifier(field) and python_identifier(parameter)
+    )
+
+
 def _signature_terminal(name: str, bindings: dict[str, ProviderBinding]) -> ProviderBinding | None:
     seen: set[str] = set()
     while name not in seen:
@@ -627,10 +684,8 @@ def _parse_indented_numeric_excerpt(
     excerpt: str, indentation: str, *, synthetic_body: bool
 ) -> tuple[tuple[ast.stmt, ...], int] | None:
     unit = "\t" if "\t" in indentation else "    "
-    if len(indentation) % len(unit):
-        return None
-    depth = len(indentation) // len(unit)
-    wrappers = "".join(f"{unit * level}if True:\n" for level in range(depth))
+    depth = 1 if indentation else 0
+    wrappers = "if True:\n" if indentation else ""
     suffix = f"\n{indentation}{unit}pass" if synthetic_body else ""
     try:
         parsed = ast.parse(wrappers + excerpt + suffix)
@@ -666,24 +721,12 @@ def _numeric_header_has_synthetic_body(node: ast.stmt) -> bool:
 def _parse_numeric_elif_excerpt(excerpt: str) -> tuple[tuple[ast.stmt, ...], int] | None:
     indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
     unit = "\t" if "\t" in indentation else "    "
-    if not indentation or len(indentation) % len(unit):
-        return None
-    depth = len(indentation) // len(unit)
-    wrappers = "".join(f"{unit * level}if True:\n" for level in range(depth))
-    source = (
-        f"{wrappers}{indentation}if True:\n{indentation}{unit}pass\n"
-        f"{excerpt}\n{indentation}{unit}pass"
-    )
-    try:
-        parsed = ast.parse(source)
-    except (IndentationError, SyntaxError, ValueError, RecursionError):
-        return None
-    if len(parsed.body) == 1 and isinstance(parsed.body[0], ast.If):
-        roots = tuple(parsed.body)
-        for _ in range(depth):
-            if len(roots) != 1 or not isinstance(roots[0], ast.If):
-                return None
-            roots = tuple(roots[0].body)
+    source = f"{indentation}if True:\n{indentation}{unit}pass\n{excerpt}"
+    for synthetic_body in (False, True):
+        parsed = _parse_indented_numeric_excerpt(source, indentation, synthetic_body=synthetic_body)
+        if parsed is None:
+            continue
+        roots, depth = parsed
         if len(roots) != 1 or not isinstance(roots[0], ast.If):
             return None
         preceding = roots[0]
@@ -692,8 +735,8 @@ def _parse_numeric_elif_excerpt(excerpt: str) -> tuple[tuple[ast.stmt, ...], int
         if len(preceding.orelse) != 1 or not isinstance(preceding.orelse[0], ast.If):
             return None
         alternate = preceding.orelse[0]
-        if _numeric_header_has_synthetic_body(alternate):
-            return tuple(parsed.body), depth + 2
+        if not synthetic_body or _numeric_header_has_synthetic_body(alternate):
+            return roots, depth + 2
     return None
 
 
@@ -1113,7 +1156,12 @@ def _numeric_operand_record(record: Record, fields: set[str]) -> tuple[str, ...]
     return required
 
 
-def _native_call_witness(facts: SourceFacts, binding: CallBinding) -> None:
+def _native_call_witness(
+    facts: SourceFacts,
+    record: Record,
+    binding: CallBinding,
+    evidence: Mapping[str, Evidence],
+) -> None:
     """Require a canonical import and captured provider/runtime witness for native calls."""
     if (
         binding.origin
@@ -1125,7 +1173,7 @@ def _native_call_witness(facts: SourceFacts, binding: CallBinding) -> None:
         or binding.target not in NATIVE_CALL_TARGETS
     ):
         return
-    evidence = set(binding.evidence_ids)
+    evidence_ids = set(binding.evidence_ids)
     proof = binding.proof
     if proof is None:
         raise ValueError("native call needs its typed witness")
@@ -1136,23 +1184,44 @@ def _native_call_witness(facts: SourceFacts, binding: CallBinding) -> None:
         or proof.get("runtime_version") != facts.runtime.version
     ):
         raise ValueError("native witness runtime identity disagrees with the source snapshot")
+    expression = record.data.get("expression")
+    if not isinstance(expression, str) or not _call_expression_matches_source(
+        record, expression, evidence
+    ):
+        raise ValueError("native call expression disagrees with its source evidence")
+    if binding.origin is CallBindingOrigin.NATIVE_RECEIVER:
+        _native_receiver_witness(facts, record, binding, evidence)
+        provider = next(
+            (item for item in facts.provider_bindings if item.qualified_name == binding.target),
+            None,
+        )
+        provider_reference = proof.get("provider_evidence_id")
+        if (
+            provider is None
+            or provider.evidence_id not in evidence_ids
+            or provider_reference != provider.evidence_id
+        ):
+            raise ValueError("native receiver needs its exact captured provider member declaration")
+        return
     imported_targets: set[str] = set()
+    root, suffix = _expression_root(expression)
     for section in facts.sections:
         if section.name is not SourceSectionName.IMPORTS:
             continue
         for imported in section.records:
-            if not evidence.intersection(imported.evidence_ids):
+            if (
+                not evidence_ids.intersection(imported.evidence_ids)
+                or imported.data.get("source_module") != record.data.get("source_module")
+                or imported.data.get("source_binding_unique") is not True
+                or imported.data.get("binding") != root
+            ):
                 continue
             module = imported.data.get("target_module")
             symbol = imported.data.get("symbol")
             if isinstance(module, str):
-                imported_targets.add(module + (f".{symbol}" if isinstance(symbol, str) else ""))
-    if not any(
-        binding.target == target
-        or _starts_with(binding.target, target + ".")
-        or _starts_with(target, binding.target + ".")
-        for target in imported_targets
-    ):
+                imported_target = module + (f".{symbol}" if isinstance(symbol, str) else "")
+                imported_targets.add(imported_target + suffix)
+    if binding.target not in imported_targets:
         raise ValueError("native call needs its matching stable import evidence")
     if _starts_with(binding.target, "random.") or _starts_with(binding.target, "secrets."):
         provider = next(
@@ -1162,7 +1231,7 @@ def _native_call_witness(facts: SourceFacts, binding: CallBinding) -> None:
         provider_reference = proof.get("provider_evidence_id")
         if (
             provider is None
-            or provider.evidence_id not in evidence
+            or provider.evidence_id not in evidence_ids
             or provider_reference != provider.evidence_id
         ):
             raise ValueError("native call needs its exact captured provider member declaration")
@@ -1187,6 +1256,72 @@ def _native_call_witness(facts: SourceFacts, binding: CallBinding) -> None:
             or source_inputs[0].digest != module_digest
         ):
             raise ValueError("datetime native call needs its observed stdlib descriptor witness")
+
+
+def _expression_root(expression: str) -> tuple[str, str]:
+    for index, character in enumerate(expression):
+        if character == ".":
+            return expression[:index], expression[index:]
+    return expression, ""
+
+
+def _native_receiver_witness(
+    facts: SourceFacts,
+    record: Record,
+    binding: CallBinding,
+    evidence: Mapping[str, Evidence],
+) -> None:
+    target_method = _last_segment(binding.target)
+    expression = record.data.get("expression")
+    if not isinstance(expression, str) or _last_segment(expression) != target_method:
+        raise ValueError("native receiver method disagrees with its written callee")
+    receiver, _ = _expression_root(expression)
+    witnesses = set(binding.evidence_ids)
+    for section in facts.sections:
+        if section.name is not SourceSectionName.CALLS:
+            continue
+        for constructor in section.records:
+            constructor_binding = call_binding(constructor.data.get("call_binding"))
+            constructor_expression = constructor.data.get("expression")
+            if (
+                constructor_binding is None
+                or constructor_binding.origin is not CallBindingOrigin.CONSTRUCTOR
+                or constructor_binding.target != "random.Random"
+                or not witnesses.intersection(constructor.evidence_ids)
+                or not isinstance(constructor_expression, str)
+                or not _call_expression_matches_source(
+                    constructor, constructor_expression, evidence
+                )
+                or constructor.data.get("source_scope") != record.data.get("source_scope")
+            ):
+                continue
+            result_bindings = constructor.data.get("result_bindings")
+            if not isinstance(result_bindings, tuple):
+                continue
+            for result in result_bindings:
+                if not isinstance(result, RecordData) or result.get("target_kind") != "name":
+                    continue
+                assignment_name = result.get("name")
+                references = result.get("evidence_ids")
+                if (
+                    assignment_name == receiver
+                    and isinstance(references, tuple)
+                    and witnesses.intersection(item for item in references if isinstance(item, str))
+                    and any(
+                        item in evidence and evidence[item].line < _record_line(record, evidence)
+                        for item in references
+                        if isinstance(item, str)
+                    )
+                ):
+                    return
+            if expression == f"{constructor_expression}().{target_method}":
+                return
+    raise ValueError("native receiver needs its exact captured Random construction")
+
+
+def _record_line(record: Record, evidence: Mapping[str, Evidence]) -> int:
+    lines = [evidence[item].line for item in record.evidence_ids if item in evidence]
+    return min(lines) if lines else 0
 
 
 def _stored_method_path(
@@ -1269,11 +1404,17 @@ def _call_origin_proof(
         return
     _validate_call_proof_runtime(facts, proof)
     if binding.origin is CallBindingOrigin.STORED_RECEIVER:
-        _stored_receiver_proof(facts, binding, proof, declarations, evidence)
+        _stored_receiver_proof(facts, record, binding, proof, declarations, evidence)
     elif binding.origin is CallBindingOrigin.CONSTRUCTED_RECEIVER:
-        _constructed_receiver_proof(facts, record, proof, declarations, evidence)
+        _constructed_receiver_proof(facts, record, binding, proof, declarations, evidence)
     elif binding.origin is CallBindingOrigin.CONSTRUCTOR:
         _constructor_origin_proof(record, proof, declarations)
+    if binding.origin in {
+        CallBindingOrigin.NATIVE,
+        CallBindingOrigin.NATIVE_RECEIVER,
+        CallBindingOrigin.CONSTRUCTOR,
+    }:
+        _native_call_witness(facts, record, binding, evidence)
 
 
 def _validate_call_proof_runtime(facts: SourceFacts, proof: RecordData) -> None:
@@ -1286,6 +1427,7 @@ def _validate_call_proof_runtime(facts: SourceFacts, proof: RecordData) -> None:
 
 def _stored_receiver_proof(
     facts: SourceFacts,
+    record: Record,
     binding: CallBinding,
     proof: RecordData,
     declarations: Mapping[str, list[Record]],
@@ -1337,6 +1479,17 @@ def _stored_receiver_proof(
         raise ValueError("stored receiver needs one canonical method declaration")
     if len(owners) != 1 or len(initializers) != 1:
         raise ValueError("stored receiver needs one canonical owner and initializer")
+    receiver = _record_data_value(initializers[0].data, "receiver_parameter")
+    write_id = _record_data_value(typed_writes[0], "evidence_id")
+    write_evidence = evidence.get(write_id) if isinstance(write_id, str) else None
+    expression = f"{receiver}.{field}.{_last_segment(binding.target)}"
+    if (
+        not isinstance(receiver, str)
+        or write_evidence is None
+        or not _stored_write_matches_source(write_evidence, receiver, field, parameter)
+        or not _call_expression_matches_source(record, expression, evidence)
+    ):
+        raise ValueError("stored receiver proof disagrees with its source expressions")
 
 
 def _stored_receiver_links(
@@ -1421,6 +1574,7 @@ def _stored_receiver_links(
 def _constructed_receiver_proof(
     facts: SourceFacts,
     record: Record,
+    binding: CallBinding,
     proof: RecordData,
     declarations: Mapping[str, list[Record]],
     evidence: Mapping[str, Evidence],
@@ -1449,8 +1603,37 @@ def _constructed_receiver_proof(
             call_evidence,
             assignment_evidence,
         )
+        or not _constructed_call_matches_source(
+            record, binding, target, assignment_name, calls, declarations, evidence
+        )
     ):
         raise ValueError("constructed receiver needs a linked earlier allocation witness")
+
+
+def _constructed_call_matches_source(
+    record: Record,
+    binding: CallBinding,
+    target: JsonValue,
+    assignment_name: JsonValue,
+    constructors: list[Record],
+    declarations: Mapping[str, list[Record]],
+    evidence: Mapping[str, Evidence],
+) -> bool:
+    if not isinstance(target, str):
+        return False
+    if isinstance(assignment_name, str):
+        expression = f"{assignment_name}.{_last_segment(binding.target)}"
+    elif assignment_name is None and len(constructors) == 1:
+        constructor_expression = constructors[0].data.get("expression")
+        if not isinstance(constructor_expression, str):
+            return False
+        expression = f"{constructor_expression}().{_last_segment(binding.target)}"
+    else:
+        return False
+    if not _call_expression_matches_source(record, expression, evidence):
+        return False
+    path_matches, path_evidence = _stored_method_path(target, binding.target, declarations)
+    return path_matches and set(path_evidence) <= set(binding.evidence_ids)
 
 
 def _constructed_receiver_links(
