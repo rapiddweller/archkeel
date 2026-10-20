@@ -42,9 +42,11 @@ operator overloads, execution reachability, entropy or collision freedom. See
 declaration and observed callable signature. Only explicit actuals with
 complete, valid bindings are considered; spreads, duplicates, missing
 signatures and unproven calls leave the scope UNKNOWN. Omitted defaults are not
-actuals. The first slice recognizes written string constants, including empty
-and adjacent literals; f-strings, concatenations and named expressions remain
-unclaimed. It does not check actual type compatibility. Argument facts require
+actuals. Calls without canonical binding carry `call_arguments: null`; that is
+distinct from a proven call with an empty argument list. The first slice
+recognizes written string constants, including empty and adjacent literals;
+f-strings, concatenations and named expressions remain unclaimed. It does not
+check actual type compatibility. Argument facts require
 observation 2.5 and contract 3.10; older readers reject the new evidence.
 
 An explicitly certified `complete_requires` scope can PASS with unrelated source
