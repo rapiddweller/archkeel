@@ -241,6 +241,13 @@ class CallCollector(ast.NodeVisitor):
             if isinstance(reference, ast.Name)
             for target in self._native_expression_targets(reference)
         }
+        self.escaped_native_targets.update(
+            target
+            for reference in member_escape_references(
+                module, module.all_nodes, member_surface=True, owner_exposure_only=True
+            )
+            for target in self._native_expression_targets(reference)
+        )
         self.scope_bindings: dict[ast.ClassDef | FunctionNode, frozenset[str]] = {}
 
     def _construction(
@@ -881,8 +888,6 @@ class CallCollector(ast.NodeVisitor):
                 targets = tuple(item for item in node.targets if isinstance(item, ast.expr))
             if self._native_targets_mutated(node, targets, target):
                 return True
-            if self._native_provider_stored(node, target):
-                return True
             for mutation in targets:
                 if not isinstance(mutation, ast.Subscript):
                     continue
@@ -903,29 +908,6 @@ class CallCollector(ast.NodeVisitor):
                                 return True
                         elif target == owner or _starts_with(target, f"{owner}."):
                             return True
-        return False
-
-    def _native_provider_stored(self, node: ast.AST, target: str) -> bool:
-        value: ast.expr | None = None
-        destinations: tuple[ast.expr, ...] = ()
-        if isinstance(node, ast.Assign):
-            value = node.value
-            destinations = tuple(item for item in node.targets if isinstance(item, ast.expr))
-        elif isinstance(node, ast.AnnAssign):
-            value = node.value
-            destinations = (node.target,)
-        if value is None or isinstance(value, ast.Call):
-            return False
-        stored = any(not isinstance(destination, ast.Name) for destination in destinations)
-        stored = stored or not isinstance(value, (ast.Name, ast.Attribute))
-        if not stored:
-            return False
-        for reference in ast.walk(value):
-            if not isinstance(reference, ast.Name):
-                continue
-            for origin in self._native_expression_targets(reference):
-                if target == origin or _starts_with(target, f"{origin}."):
-                    return True
         return False
 
     def _is_builtin_native_mutator(self, node: ast.Call) -> bool:
