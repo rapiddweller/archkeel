@@ -1351,7 +1351,7 @@ def _special_rule_references(index: int, rule: ArchitectureRule) -> list[ModuleR
             [("source", (rule.source,), True), ("target", (rule.target,), False)],
         )
     if isinstance(rule, ForbiddenEffectUnderConditionRule):
-        references = _references(
+        references: list[ModuleReference] = _references(
             f"/rules/{index}",
             [("source", (rule.source,), True), ("target", (rule.target,), False)],
         )

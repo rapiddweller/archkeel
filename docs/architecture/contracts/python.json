@@ -235,6 +235,10 @@
         "responsibility": "Collect calls source facts."
       },
       {
+        "path": "src/archkeel/analyzer/python/guard_paths.py",
+        "responsibility": "Expose the shared bounded path grammar to the call collector."
+      },
+      {
         "path": "src/archkeel/analyzer/python/constructs.py",
         "responsibility": "Collect constructs source facts."
       },

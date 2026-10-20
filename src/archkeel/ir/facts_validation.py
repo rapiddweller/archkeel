@@ -6,7 +6,7 @@
 import ast
 import re
 import sys
-from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import PurePosixPath
@@ -392,14 +392,15 @@ def _selector_evidence_excerpt(
                 return None
             if wrapper.body and isinstance(wrapper.body[0], ast.If):
                 return tuple(wrapper.body[0].body), 1, len(f"True {prefix}") - len(prefix)
-    if role != "match" and excerpt.rstrip().endswith(("(", "[", "{")):
+    stripped: str = excerpt.rstrip()
+    if role != "match" and stripped.endswith(("(", "[", "{")):
         for closing in range(1, 9):
             rewritten = f"{excerpt}False{')' * closing}"
             parsed = _parse_numeric_evidence_excerpt(rewritten)
             if parsed is not None:
                 roots, line_offset = parsed
                 return roots, line_offset, 0
-    if role != "match" or not excerpt.rstrip().endswith(":"):
+    if role != "match" or not stripped.endswith(":"):
         return None
     body = " " * (indentation + 4) + "case _: pass"
     try:
@@ -409,6 +410,15 @@ def _selector_evidence_excerpt(
     if not wrapper.body or not isinstance(wrapper.body[0], ast.If):
         return None
     return tuple(wrapper.body[0].body), 1, 0
+
+
+def _selector_node_span(
+    node: ast.AST, source_line: int, line_offset: int, column_shift: int
+) -> tuple[int, int, int, int] | None:
+    span = _numeric_node_span(node, source_line, line_offset)
+    if span is None:
+        return None
+    return span[0], span[1] - column_shift, span[2], span[3] - column_shift
 
 
 def _selector_source_receiver(
@@ -424,36 +434,23 @@ def _selector_source_receiver(
             continue
         roots, offset, column_offset = parsed
         nodes = [node for root in roots for node in ast.walk(root)]
-        source_line = item.line
-
-        def source_span(
-            node: ast.AST,
-            source_line: int = source_line,
-            line_offset: int = offset,
-            column_shift: int = column_offset,
-        ) -> tuple[int, int, int, int] | None:
-            span = _numeric_node_span(node, source_line, line_offset)
-            if span is None:
-                return None
-            return span[0], span[1] - column_shift, span[2], span[3] - column_shift
-
-        span_for_node: Callable[[ast.AST], tuple[int, int, int, int] | None] = source_span
-
         anchored = [
             (node, span)
             for node in nodes
-            if (span := span_for_node(node)) is not None
+            if (span := _selector_node_span(node, item.line, offset, column_offset)) is not None
             and span[0] == item.line
             and span[1] == item.column
         ]
-        selected = _selector_source_candidate(record, binding, item, anchored, span_for_node)
+        selected = _selector_source_candidate(
+            record, binding, item, anchored, offset, column_offset
+        )
         if selected is not None:
             span = next(
                 (span for node, span in anchored if node is selected or selected in ast.walk(node)),
                 None,
             )
             if span is not None:
-                selected_span = span_for_node(selected)
+                selected_span = _selector_node_span(selected, item.line, offset, column_offset)
                 return selected, selected_span or span
     return None
 
@@ -463,7 +460,8 @@ def _selector_source_candidate(
     binding: CallBinding,
     item: Evidence,
     anchored: list[tuple[ast.AST, tuple[int, int, int, int]]],
-    source_span: Callable[[ast.AST], tuple[int, int, int, int] | None],
+    line_offset: int,
+    column_shift: int,
 ) -> ast.expr | None:
     role, member = record.data.get("selector_role"), record.data.get("member")
     if role == "match":
@@ -505,7 +503,7 @@ def _selector_source_candidate(
             or isinstance(node.value, ast.Name)
             and node.value.id == record.data.get("receiver_parameter")
         )
-        and (span := source_span(node)) is not None
+        and (span := _selector_node_span(node, item.line, line_offset, column_shift)) is not None
         and span[:2] == (item.line, item.column)
     }
     attribute = next(iter(candidates.values())) if len(candidates) == 1 else None
@@ -575,18 +573,18 @@ def selector_receiver_site_matches(
     if binding.origin is CallBindingOrigin.STORED_RECEIVER and proof is not None:
         owner = proof.get("owner")
         selector_owner = record.data.get("owner")
-        initializers = declarations.get(f"{owner}.__init__", []) if isinstance(owner, str) else []
+        if not isinstance(owner, str) or not isinstance(selector_owner, str):
+            return False
+        initializers = declarations.get(f"{owner}.__init__", [])
         initializer_data: RecordData | None = (
             initializers[0].data if len(initializers) == 1 else None
         )
         receiver = (
             initializer_data.get("receiver_parameter") if initializer_data is not None else None
         )
-        selector_owner_name = selector_owner if isinstance(selector_owner, str) else None
+        selector_owner_name: str = selector_owner
         return (
-            isinstance(owner, str)
-            and selector_owner_name is not None
-            and selector_owner_name.startswith(f"{owner}.")
+            selector_owner_name.startswith(f"{owner}.")
             and isinstance(expression, ast.Attribute)
             and expression.attr == proof.get("field")
             and isinstance(expression.value, ast.Name)
@@ -627,12 +625,13 @@ def _direct_selector_receiver_matches(
         else None
     )
     owner = record.data.get("owner")
-    owner_name = owner if isinstance(owner, str) else None
+    if not isinstance(owner, str):
+        return False
+    owner_name: str = owner
     for target in source_classes:
         written = ast.unparse(target)
         if (
             isinstance(module, str)
-            and owner_name is not None
             and (owner_name == module or owner_name.startswith(module + "."))
             and binding.target == f"{module}.{written}"
         ):
@@ -655,12 +654,13 @@ def _imported_selector_target_matches(
         root = root.value
     if not isinstance(root, ast.Name) or not isinstance(owner, str):
         return False
+    owner_name: str = owner
     matching_imports = [
         item
         for item in imports
         if item.data.get("binding") == root.id
         and isinstance((source_module := item.data.get("source_module")), str)
-        and (owner == source_module or owner.startswith(f"{source_module}."))
+        and (owner_name == source_module or owner_name.startswith(f"{source_module}."))
         and item.data.get("symbols_known") is True
         and set(item.evidence_ids) <= set(binding.evidence_ids)
     ]
@@ -756,10 +756,12 @@ def _selector_direct_receiver_proof(
     # The source-site proof binds local expressions to declarations and imported aliases to
     # typed import rows. Imported declarations live in another source module, so their evidence
     # cannot be copied into this selector record without breaking source-file ownership.
+    target_data: RecordData | None = targets[0].data if len(targets) == 1 else None
     local_class = (
         len(targets) == 1
         and targets[0].kind == "class"
-        and targets[0].data.get("source_binding_unique") is True
+        and target_data is not None
+        and target_data.get("source_binding_unique") is True
     )
     imported_class = any(
         item.data.get("symbols_known") is True
@@ -927,21 +929,24 @@ def _selector_constructed_receiver_proof(
     linked_assignments = _selector_linked_assignments(
         facts, constructor_id, assignment_id, assignment_name
     )
+    target_data: RecordData | None = targets[0].data if len(targets) == 1 else None
+    linked_call: Record | None = linked_assignments[0][0] if len(linked_assignments) == 1 else None
     assignment_evidence = evidence.get(assignment_id) if isinstance(assignment_id, str) else None
     if (
         proof.get("kind") != "construction"
         or proof.get("target") != binding.target
         or len(targets) != 1
         or targets[0].kind != "class"
-        or targets[0].data.get("default_instance_result") is not True
+        or target_data is None
+        or target_data.get("default_instance_result") is not True
         or not isinstance(constructor_id, str)
         or len(target_calls) != 1
         or not selector_evidence
         or assignment_id is not None
         and (
             not isinstance(assignment_name, str)
-            or len(linked_assignments) != 1
-            or linked_assignments[0][0].data.get("source_scope") != record.data.get("owner")
+            or linked_call is None
+            or linked_call.data.get("source_scope") != record.data.get("owner")
             or assignment_evidence is None
             or assignment_evidence.line >= max(item.line for item in selector_evidence)
             or not isinstance(assignment_id, str)
@@ -2030,7 +2035,7 @@ def _numeric_module_anonymous_binding(
     expected = tuple(
         operation.data.get(field) for field in ("line", "column", "end_line", "end_column")
     )
-    matches: list[tuple[ast.stmt, ast.AST]] = []
+    matches: dict[str, tuple[ast.stmt, ast.AST]] = {}
     for evidence_id in operation.evidence_ids:
         evidence = evidence_by_id.get(evidence_id)
         if evidence is None or evidence.file != expected_file:
@@ -2051,10 +2056,11 @@ def _numeric_module_anonymous_binding(
                         and isinstance(node.op, ast.Mod)
                     )
                 ):
-                    matches.append((root, node))
+                    proof = ast.dump(root, include_attributes=False)
+                    matches[proof] = (root, node)
     if len(matches) != 1:
         return True
-    root, operation_node = matches[0]
+    root, operation_node = next(iter(matches.values()))
     return _numeric_anonymous_scope_allows_module(root, operation_node, name) is False
 
 
@@ -2495,15 +2501,14 @@ def _numeric_operation_expression(
 ) -> ast.BinOp | ast.AugAssign | None:
     data = record.data
     expected = tuple(data.get(name) for name in ("line", "column", "end_line", "end_column"))
-    matches: list[ast.BinOp | ast.AugAssign] = []
+    matches: dict[tuple[int, int, int, int], ast.BinOp | ast.AugAssign] = {}
+    seen_evidence: set[str] = set()
     for evidence_id in record.evidence_ids:
+        if evidence_id in seen_evidence:
+            continue
+        seen_evidence.add(evidence_id)
         evidence = evidence_by_id.get(evidence_id)
-        if (
-            evidence is None
-            or evidence.file != expected_file
-            or (evidence.line, evidence.column, evidence.end_line)
-            != (expected[0], expected[1], expected[2])
-        ):
+        if evidence is None or evidence.file != expected_file:
             continue
         parsed = _numeric_evidence_nodes(evidence)
         if parsed is None:
@@ -2511,21 +2516,25 @@ def _numeric_operation_expression(
         nodes, line_offset = parsed
         for root in nodes:
             for node in ast.walk(root):
-                if _numeric_node_span(node, evidence.line, line_offset) != expected:
+                span = _numeric_node_span(node, evidence.line, line_offset)
+                if span is None or span[:2] != (evidence.line, evidence.column):
                     continue
-                if (
-                    data.get("form") == "binary"
-                    and isinstance(node, ast.BinOp)
-                    and isinstance(node.op, ast.Mod)
-                ):
-                    matches.append(node)
-                elif (
-                    data.get("form") == "augmented"
-                    and isinstance(node, ast.AugAssign)
-                    and isinstance(node.op, ast.Mod)
-                ):
-                    matches.append(node)
-    return matches[0] if len(matches) == 1 else None
+                operation: ast.BinOp | ast.AugAssign
+                source_form: str
+                if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod):
+                    operation = node
+                    source_form = "binary"
+                elif isinstance(node, ast.AugAssign) and isinstance(node.op, ast.Mod):
+                    operation = node
+                    source_form = "augmented"
+                else:
+                    continue
+                if data.get("form") != source_form:
+                    raise ValueError("numeric operand form disagrees with its source expression")
+                if span != expected or span[2] != evidence.end_line:
+                    raise ValueError("numeric operand source span disagrees with its evidence")
+                matches[span] = operation
+    return next(iter(matches.values())) if len(matches) == 1 else None
 
 
 def _bounded_numeric_value(
@@ -3602,8 +3611,10 @@ def _source_helper_target_matches_call(
         or not _call_expression_matches_source(record, expression, evidence)
     ):
         return False
-    target_module, _, target_name = target.rpartition(".")
-    expression_name = expression.rpartition(".")[-1]
+    target_name_text: str = target
+    expression_text: str = expression
+    target_module, _, target_name = target_name_text.rpartition(".")
+    expression_name = expression_text.rpartition(".")[-1]
     if target_module == source_module:
         return target_name == expression_name
     for imported in imports:
@@ -3764,8 +3775,9 @@ def _guard_context(
 ) -> tuple[ast.FunctionDef | ast.AsyncFunctionDef, int] | None:
     if not item.excerpt or len(item.excerpt) > MAX_NUMERIC_EVIDENCE_CHARS:
         return None
-    indentation = item.excerpt[: len(item.excerpt) - len(item.excerpt.lstrip(" \t"))]
-    column_offset = len(indentation.encode("utf-8"))
+    excerpt: str = item.excerpt
+    indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+    column_offset = len(indentation)
     try:
         roots = ast.parse(dedent(item.excerpt)).body
     except (IndentationError, SyntaxError, ValueError, RecursionError):
@@ -3840,7 +3852,11 @@ def _guard_context_proves_path(
         call_evidence.line - context_evidence.line + 1,
         call_evidence.column - column_offset,
     )
-    for path in _guarded_paths_by_site(function, name, receiver).get(local_call, ()):
+    paths_by_site: dict[tuple[int, int], tuple[GuardedCallPath, ...]] = _guarded_paths_by_site(
+        function, name, receiver
+    )
+    paths = paths_by_site[local_call] if local_call in paths_by_site else ()
+    for path in paths:
         if (
             (context_evidence.line + path.line - 1, column_offset + path.column)
             == (call_evidence.line, call_evidence.column)
@@ -3878,7 +3894,7 @@ def _guard_context_binds_call(
             )
             for item in function_contexts
         )
-        or scope.rpartition(".")[2] != function.name
+        or _qualified_name_parts(scope)[2] != function.name
         or not isinstance(expression, str)
         or context_evidence.file != call_evidence.file
     ):
@@ -3925,7 +3941,8 @@ def _guard_condition_owner_binds_context(
     if expected_owner is None or owner != expected_owner:
         return False
     if kind == "member":
-        member_evidence = dict(context_fact[7]).get(name)
+        member_evidence_by_name: dict[str, tuple[str, ...]] = dict(context_fact[7])
+        member_evidence = member_evidence_by_name.get(name)
         return member_evidence is not None and set(condition_evidence_ids) == set(member_evidence)
     return _guard_parameter_evidence_matches(
         name,
@@ -3971,7 +3988,8 @@ def _guard_parameter_evidence_matches(
 
 @lru_cache(maxsize=256)
 def _guard_context_source_lines(context: Evidence) -> tuple[str, ...]:
-    return tuple(context.excerpt.splitlines())
+    excerpt: str = context.excerpt
+    return tuple(excerpt.splitlines())
 
 
 @lru_cache(maxsize=256)
@@ -4004,8 +4022,16 @@ def _guarded_paths_by_site(
 ) -> dict[tuple[int, int], tuple[GuardedCallPath, ...]]:
     paths: dict[tuple[int, int], list[GuardedCallPath]] = {}
     for path in guarded_call_paths(function, name, receiver_name=receiver):
-        paths.setdefault((path.line, path.column), []).append(path)
+        site = (path.line, path.column)
+        site_paths: list[GuardedCallPath] = paths.setdefault(site, [])
+        site_paths.append(path)
     return {site: tuple(items) for site, items in paths.items()}
+
+
+def _qualified_name_parts(value: str) -> tuple[str, str, str]:
+    """Split one statically proven qualified scope at its final separator."""
+    owner, separator, name = value.rpartition(".")
+    return owner, separator, name
 
 
 def _guard_evidence_matches_context(
@@ -4703,7 +4729,7 @@ def _validate_source_role(
 
 def _source_role_witness(
     role: Record, evidence: Mapping[str, Evidence]
-) -> tuple[str | None, str, str, object, Evidence]:
+) -> tuple[str | None, str, str, JsonValue, Evidence]:
     role_name = role.data.get("role")
     canonical = role.data.get("canonical_name")
     declaration_id = role.data.get("declaration_id")
@@ -4736,7 +4762,7 @@ def _validate_definition_source_role(
     role: Record,
     canonical: str,
     declaration_id: str,
-    source_scope: object,
+    source_scope: JsonValue,
     witness: Evidence,
     symbols: Mapping[str, list[Record]],
     member_anchors: Mapping[tuple[str, str], list[RecordData]],
@@ -4774,43 +4800,43 @@ def _validate_definition_source_role(
 
 
 def _validate_definition_source_span(role: Record, canonical: str, witness: Evidence) -> None:
-    encoded: bytes = witness.excerpt.encode("utf-8")
+    excerpt: str = witness.excerpt
+    encoded: bytes = excerpt.encode("utf-8")
     start, end = role.data.get("column"), role.data.get("end_column")
-    span: str = (
-        encoded[start:end].decode("utf-8", errors="ignore")
+    span_bytes: bytes = (
+        encoded[start:end]
         if isinstance(start, int) and isinstance(end, int) and end <= len(encoded)
-        else ""
+        else b""
     )
-    suffix: str = (
-        encoded[start:].decode("utf-8", errors="ignore")
-        if isinstance(start, int) and start <= len(encoded)
-        else ""
+    suffix_bytes: bytes = (
+        encoded[start:] if isinstance(start, int) and start <= len(encoded) else b""
     )
+    span: str = span_bytes.decode("utf-8", errors="ignore")
+    suffix: str = suffix_bytes.decode("utf-8", errors="ignore")
+    stripped_suffix: str = suffix.lstrip()
     expected = canonical.rpartition(".")[2]
     declaration: re.Match[str] | None = (
         re.match(r"\s*(?:async\s+)?(?:def|class)\s+([A-Za-z_]\w*)", suffix)
-        if suffix.lstrip().startswith(("def ", "async def ", "class "))
+        if stripped_suffix.startswith(("def ", "async def ", "class "))
         else None
     )
     stripped_span: str = span.strip()
-    observed: str | None = (
-        stripped_span
-        if stripped_span == expected
-        else declaration.group(1)
-        if declaration
-        else None
-    )
-    if observed is not None:
-        observed_name: str = observed.rsplit(".", 1)[-1].strip()
-        if observed_name != expected:
-            raise ValueError("definition role name disagrees with its source span")
+    if stripped_span == expected:
+        return
+    if declaration is None:
+        return
+    matched: re.Match[str] = declaration
+    observed: str = matched.group(1)
+    observed_tail: str = observed.rsplit(".", 1)[-1]
+    if observed_tail.strip() != expected:
+        raise ValueError("definition role name disagrees with its source span")
 
 
 def _validate_parameter_source_role(
     role: Record,
     canonical: str,
     declaration_id: str,
-    source_scope: object,
+    source_scope: JsonValue,
     witness: Evidence,
     anchors: Mapping[tuple[str, str], list[Record]],
     records: tuple[Record, ...],
@@ -4862,7 +4888,7 @@ def _validate_owned_source_role(
     role_name: str | None,
     canonical: str,
     declaration_id: str,
-    source_scope: object,
+    source_scope: JsonValue,
     witness: Evidence,
     anchors: Mapping[tuple[str, str], list[Record]],
     member_anchors: Mapping[tuple[str, str], list[RecordData]],
@@ -4988,7 +5014,7 @@ def _valid_unanchored_source_role(
     return True
 
 
-def _as_tuple(value: object) -> tuple[object, ...]:
+def _as_tuple(value: JsonValue) -> tuple[JsonValue, ...]:
     return value if isinstance(value, tuple) else ()
 
 
@@ -5070,8 +5096,8 @@ def _validate_local_definition_reference(
 
 def _local_declaration_owner_witnessed(
     reference: Record,
-    owner: object,
-    owner_id: object,
+    owner: JsonValue,
+    owner_id: JsonValue,
     owner_matches: list[Record],
     witness: Evidence,
     evidence: Mapping[str, Evidence],
@@ -5079,16 +5105,14 @@ def _local_declaration_owner_witnessed(
     if len(owner_matches) == 1 and owner_matches[0].kind == "class":
         scope = reference.data.get("source_scope")
         use = evidence[reference.evidence_ids[0]]
-        return (
-            isinstance(owner, str)
-            and isinstance(scope, str)
-            and (scope == owner or scope.startswith(owner + ".<"))
-            and any(
-                evidence[identity].file == witness.file == use.file
-                and evidence[identity].line <= witness.line <= evidence[identity].end_line
-                and evidence[identity].line <= use.line <= evidence[identity].end_line
-                for identity in owner_matches[0].evidence_ids
-            )
+        if not isinstance(owner, str) or not isinstance(scope, str):
+            return False
+        source_scope: str = scope
+        return (source_scope == owner or source_scope.startswith(owner + ".<")) and any(
+            evidence[identity].file == witness.file == use.file
+            and evidence[identity].line <= witness.line <= evidence[identity].end_line
+            and evidence[identity].line <= use.line <= evidence[identity].end_line
+            for identity in owner_matches[0].evidence_ids
         )
     if len(owner_matches) == 1:
         return any(
@@ -5106,14 +5130,15 @@ def _local_definition_witness_matches(
     reference: Record,
     witness: Evidence,
     use: Evidence,
-    owner: object,
+    owner: JsonValue,
     owner_witnessed: bool,
 ) -> bool:
     name: str = target.rpartition(".")[2]
-    encoded: bytes = witness.excerpt.encode("utf-8")
+    excerpt: str = witness.excerpt
+    encoded: bytes = excerpt.encode("utf-8")
     suffix_bytes: bytes = encoded[witness.column :]
     suffix: str = suffix_bytes.decode("utf-8", errors="ignore")
-    declaration_scope = target.rpartition(".")[0]
+    declaration_scope: str = target.rpartition(".")[0]
     nested = isinstance(owner, str) and declaration_scope.startswith(owner + ".<")
     return (
         declaration_id == stable_id("DECL", witness.file, target)

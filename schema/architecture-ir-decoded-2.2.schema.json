@@ -271,8 +271,7 @@
             ]
           }
         }
-      ],
-      "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/constructs"
+      ]
     },
     "contexts": {
       "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/contexts"
@@ -311,13 +310,6 @@
   "additionalProperties": false,
   "allOf": [
     {
-      "else": {
-        "properties": {
-          "bindings": {
-            "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/bindings"
-          }
-        }
-      },
       "if": {
         "properties": {
           "analyzer": {
@@ -337,6 +329,7 @@
                 "type": "null"
               },
               {
+                "type": "array",
                 "items": {
                   "oneOf": [
                     {
@@ -346,10 +339,16 @@
                       "$ref": "#/$defs/directExportBinding"
                     }
                   ]
-                },
-                "type": "array"
+                }
               }
             ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "bindings": {
+            "$ref": "urn:archkeel:architecture-ir:decoded:2.0.0#/properties/bindings"
           }
         }
       }
@@ -420,23 +419,6 @@
             }
           }
         },
-        "unknowns": {
-          "items": {
-            "not": {
-              "properties": {
-                "kind": {
-                  "enum": [
-                    "protocol_declaration",
-                    "protocol_declaration_limit"
-                  ]
-                }
-              },
-              "required": [
-                "kind"
-              ]
-            }
-          }
-        },
         "violations": {
           "items": {
             "not": {
@@ -453,25 +435,22 @@
               ]
             }
           }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "analyzer": {
-            "properties": {
-              "name": {
-                "const": "archkeel-python-analyzer"
-              }
+        },
+        "unknowns": {
+          "items": {
+            "not": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "protocol_declaration",
+                    "protocol_declaration_limit"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
             }
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "calls": {
-            "$ref": "urn:archkeel:architecture-ir:python-decoded:2.2.0#/properties/calls"
           }
         }
       }
@@ -530,16 +509,6 @@
       ]
     }
   },
-  "title": {
-    "anyOf": [
-      "ArchitectureIR 2.1.0, decoded observation profiles",
-      "ArchitectureIR 2.2.0, decoded observation profiles"
-    ]
-  },
-  "$comment": {
-    "anyOf": [
-      "AD-241. Versioned call ownership evidence. Reuse unchanged historical constraints without widening published resources. Register all bundled schemas by $id for offline validation.",
-      "AD-249. Source ownership roles and bound evaluation receipts. Reuse historical constraints without widening published resources. Register all bundled schemas by $id for offline validation."
-    ]
-  }
+  "title": "ArchitectureIR 2.1.0, decoded observation profiles",
+  "$comment": "AD-241. Versioned call ownership evidence. Reuse unchanged historical constraints without widening published resources. Register all bundled schemas by $id for offline validation."
 }

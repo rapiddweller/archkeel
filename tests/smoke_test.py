@@ -54,6 +54,8 @@ def main() -> None:
         "architecture-contract-3.14.schema.json",
         "architecture-ir-decoded-2.9.schema.json",
         "architecture-ir-python-decoded-2.9.schema.json",
+        "source-facts-4.0.schema.json",
+        "source-facts.schema.json",
     ):
         assert json.loads(schemas.joinpath(name).read_text(encoding="utf-8"))["$id"]
     with TemporaryDirectory(prefix="archkeel-smoke-") as temporary:

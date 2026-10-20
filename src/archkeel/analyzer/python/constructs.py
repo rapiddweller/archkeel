@@ -949,7 +949,8 @@ class ConstructCollector(ast.NodeVisitor):
     def _receiver_type(self, node: ast.expr) -> str | None:
         if not isinstance(node, ast.Name) or not self.receiver_types:
             return None
-        return self.receiver_types[-1].get(node.id)
+        receiver_types: dict[str, str | None] = self.receiver_types[-1]
+        return receiver_types.get(node.id)
 
     def _parameter_receiver(self, node: ast.expr) -> bool:
         return isinstance(node, ast.Name) and any(
@@ -1208,25 +1209,42 @@ class ConstructCollector(ast.NodeVisitor):
         if not isinstance(root, ast.Name):
             return []
         if role == "type_probe":
-            direct_targets = {
-                f"{item['data'].get('target_module')}.{item['data'].get('symbol')}"
-                for item in self.imports
-                if item["data"].get("source_module") == self.module.module
-                and item["data"].get("binding") == root.id
-                and isinstance(item["data"].get("target_module"), str)
-                and isinstance(item["data"].get("symbol"), str)
-            }
+            direct_targets = self._direct_selector_import_targets(root.id)
             if target not in direct_targets:
                 return []
-        matches = [
-            item
-            for item in self.imports
-            if item["data"].get("source_module") == self.module.module
-            and item["data"].get("binding") == root.id
-            and isinstance(item["data"].get("origin_definition"), str)
-            and target == ".".join([item["data"]["origin_definition"], *reversed(suffix)])
-        ]
+        matches = self._selector_import_matches(root.id, target, suffix)
         return list(matches[0]["evidence_ids"]) if len(matches) == 1 else []
+
+    def _direct_selector_import_targets(self, binding: str) -> set[str]:
+        targets: set[str] = set()
+        for item in self.imports:
+            data: RecordData = item["data"]
+            target_module = data.get("target_module")
+            symbol = data.get("symbol")
+            if (
+                data.get("source_module") == self.module.module
+                and data.get("binding") == binding
+                and isinstance(target_module, str)
+                and isinstance(symbol, str)
+            ):
+                targets.add(f"{target_module}.{symbol}")
+        return targets
+
+    def _selector_import_matches(
+        self, binding: str, target: str, suffix: list[str]
+    ) -> list[RawRecord]:
+        matches: list[RawRecord] = []
+        for item in self.imports:
+            data: RecordData = item["data"]
+            origin = data.get("origin_definition")
+            if (
+                data.get("source_module") == self.module.module
+                and data.get("binding") == binding
+                and isinstance(origin, str)
+                and target == ".".join([origin, *reversed(suffix)])
+            ):
+                matches.append(item)
+        return matches
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self._visit_definition_header(node)
