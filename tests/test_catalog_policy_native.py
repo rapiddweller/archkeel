@@ -548,6 +548,29 @@ def test_known_catalog_read_passes_with_an_unrelated_unknown_reference_context(t
     assert rows[0].status == "PASS"
 
 
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.xfail(strict=True, reason="requires #617 reference_context producer integration")
+def test_catalog_use_positive_saved_receipt_replays(tmp_path, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import encode_canonical_model, observation_payload
+
+    result, rows = _run(
+        tmp_path,
+        caller="from .catalog import OptionKey\ndef consume():\n    print(OptionKey.PAGE_SIZE)\n",
+        rules=[_use()],
+    )
+    assert rows[0].status == "PASS" and rows[0].evaluation_proven
+
+    assert result.observation is not None
+    payload = observation_payload(result.observation)
+    saved = tmp_path / "catalog-use-positive.json"
+    saved.write_text(json.dumps(encode_canonical_model(payload) if columnar else payload))
+    replay = run_saved_report(saved)
+    replayed = next(row for row in replay.rule_assessments if row.id.endswith("CATALOG-0"))
+
+    assert replayed.status == "PASS" and replayed.evaluation_proven
+
+
 def test_incomplete_context_keeps_a_known_missing_use_failure_in_another_scope(tmp_path):
     caller = (
         "from .catalog import OptionKey\n"
