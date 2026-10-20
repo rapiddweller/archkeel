@@ -11,7 +11,7 @@ from collections import defaultdict
 from collections.abc import Iterator, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from pathlib import PurePosixPath
-from typing import Final, TypeAlias, assert_never, cast
+from typing import Final, TypeAlias, assert_never
 from typing import Literal as _Literal
 
 from archkeel.ir.architecture_graph import AssessmentStatus as _Verdict
@@ -1762,7 +1762,7 @@ def _reference_ownership_candidates(
 ) -> tuple[_SourceOwnershipCandidate, ...]:
     candidates: list[_SourceOwnershipCandidate] = []
     for item in references:
-        data = cast(Mapping[str, object], dict(item["data"].items()))
+        data: Mapping[str, object] = item["data"]
         targets = _string_targets(data.get("targets"))
         if item["kind"] == "source_role":
             candidates.append(_source_role_candidate(item, data, targets))

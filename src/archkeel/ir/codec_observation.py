@@ -29,6 +29,7 @@ from archkeel.ir.facts import (
     CallBindingOrigin,
     RuntimeRequirementState,
     SourceProfile,
+    SourceReferenceContext,
     parse_runtime_requirement_state,
     source_dirty,
 )
@@ -76,6 +77,21 @@ class _ObservationVersion(StrEnum):
     V2_5 = "2.5.0"
     V2_6 = "2.6.0"
     V2_7 = "2.7.0"
+
+
+class _ObservationSection(StrEnum):
+    DECLARATIONS = "declarations"
+    REFERENCES = "references"
+    SCOPE_OBSERVATIONS = "scope_observations"
+
+
+class _ObservationRecordKind(StrEnum):
+    ATTRIBUTE_REFERENCE = "attribute_reference"
+    CONSTRUCT_SELECTOR = "construct_selector"
+    RULE_EVALUATION = "rule_evaluation"
+    SOURCE_OWNERSHIP = "source_ownership"
+    SOURCE_ROLE = "source_role"
+    VALUE_REFERENCE = "value_reference"
 
 
 def _before_version(version: _ObservationVersion, floor: _ObservationVersion) -> bool:
@@ -410,13 +426,13 @@ def _validate_observation_record_versions(
     if _before_version(version, _ObservationVersion.V2_7):
         for section_name, kind, message in (
             (
-                "references",
-                "source_role",
+                _ObservationSection.REFERENCES,
+                _ObservationRecordKind.SOURCE_ROLE,
                 "source_role records require observation schema_version 2.7.0",
             ),
             (
-                "declarations",
-                "source_ownership",
+                _ObservationSection.DECLARATIONS,
+                _ObservationRecordKind.SOURCE_OWNERSHIP,
                 "source_ownership requires observation schema_version 2.7.0",
             ),
         ):
@@ -430,7 +446,7 @@ def _validate_observation_record_versions(
         if any(
             _has_field((key for key, _ in record.data.entries), "reference_context")
             for section in sections
-            if section.name == "references"
+            if section.name == _ObservationSection.REFERENCES
             for record in section.records
         ):
             raise ValueError("reference_context requires observation schema_version 2.7.0")
@@ -595,29 +611,38 @@ def _validate_profile_sections(model: Mapping[str, RawJson], profile: Profile) -
 
 
 def _validate_source_ownership_vocabulary(sections: tuple[Section, ...]) -> None:
-    references = next((section.records for section in sections if section.name == "references"), ())
+    references = next(
+        (section.records for section in sections if section.name == _ObservationSection.REFERENCES),
+        (),
+    )
     for record in references:
-        if record.kind in {"value_reference", "attribute_reference"} and record.data.get(
-            "reference_context"
-        ) not in {"value", "annotation", "unknown"}:
+        if record.kind in {
+            _ObservationRecordKind.VALUE_REFERENCE,
+            _ObservationRecordKind.ATTRIBUTE_REFERENCE,
+        } and record.data.get("reference_context") not in {
+            SourceReferenceContext.VALUE,
+            SourceReferenceContext.ANNOTATION,
+            SourceReferenceContext.UNKNOWN,
+        }:
             raise ValueError("2.7.0 reference needs a typed source context")
-        if record.kind != "source_role":
+        if record.kind != _ObservationRecordKind.SOURCE_ROLE:
             continue
         validate_source_role_vocabulary(record, version="2.7.0")
     rules = {
         record.id
         for section in sections
-        if section.name == "declarations"
+        if section.name == _ObservationSection.DECLARATIONS
         for record in section.records
-        if record.kind == "source_ownership"
+        if record.kind == _ObservationRecordKind.SOURCE_OWNERSHIP
     }
     if rules:
         receipts = [
             record
             for section in sections
-            if section.name == "scope_observations"
+            if section.name == _ObservationSection.SCOPE_OBSERVATIONS
             for record in section.records
-            if record.kind == "rule_evaluation" and bool(set(record.rule_ids) & rules)
+            if record.kind == _ObservationRecordKind.RULE_EVALUATION
+            and bool(set(record.rule_ids) & rules)
         ]
         if any(record.data.get("source_ownership_scope_proof") is None for record in receipts):
             raise ValueError("2.7.0 source_ownership rules require bound evaluation receipts")
@@ -833,7 +858,7 @@ def _validate_selector_schema_floor(model: dict[str, RawJson]) -> None:
         return
     constructs = model.get("constructs")
     if isinstance(constructs, list) and any(
-        isinstance(record, dict) and record.get("kind") == "construct_selector"
+        isinstance(record, dict) and record.get("kind") == _ObservationRecordKind.CONSTRUCT_SELECTOR
         for record in constructs
     ):
         raise ValueError("construct selector facts require observation schema 2.6.0")
