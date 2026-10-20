@@ -72,6 +72,21 @@ def test_historical_python_schemas_reference_the_matching_call_binding_schema(
     ]
 
 
+@pytest.mark.parametrize("version", [f"2.{minor}.0" for minor in range(1, 8)])
+@pytest.mark.parametrize("versioned", [False, True])
+def test_command_result_observation_branches_preserve_historical_formats(version, versioned):
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema))
+        for schema in (_schema(path.name) for path in SCHEMA_FILES)
+    )
+    branch = _schema("command-result-9.0.schema.json")["anyOf"][2 if versioned else 1]
+    validator = Draft202012Validator(branch["properties"]["observation"], registry=registry)
+    observation = _model(git_head="a" * 40, schema_version=version)
+    validator.validate(observation)
+    observation["schema_version"] = "2.99.0"
+    assert not validator.is_valid(observation)
+
+
 @pytest.fixture(scope="module")
 def typescript_export_binding(tmp_path_factory):
     from test_typescript_collect import _facts
