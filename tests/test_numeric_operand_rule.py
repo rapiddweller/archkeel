@@ -246,6 +246,24 @@ def test_numeric_component_package_selector_evaluates_every_owned_package(tmp_pa
         assert not replay.diagnostics and replay.rule_assessments == rows
 
 
+def test_numeric_rule_subjects_use_expanded_component_package_domain(tmp_path):
+    from test_exact_module_ownership import _observe_tree
+
+    _write_probe(tmp_path)
+    contract = json.loads((tmp_path / "contract.json").read_bytes())
+    contract["components"][0]["packages"] = ["sample.core", "sample.extra"]
+    result = _observe_tree(
+        tmp_path,
+        {"sample/extra.py": "def unrelated(value): return value\n"},
+        contract,
+    )
+    assert not result.diagnostics and result.observation is not None
+    assert not any(
+        row.kind == "rule-without-subjects" and "RULE" in row.rule_ids
+        for row in result.observation.records("unknowns")
+    )
+
+
 @pytest.mark.parametrize(
     "other",
     [
@@ -453,6 +471,49 @@ def test_empty_selected_source_never_passes(tmp_path):
     (tmp_path / "sample/core.py").write_text("")
     _, rows = _rule_rows(tmp_path)
     assert rows[0].status == "UNKNOWN"
+
+
+@pytest.mark.parametrize("signal", ["declaration", "receipt"])
+def test_legacy_observation_version_rejects_numeric_vocabulary_without_operations(tmp_path, signal):
+    _write_probe(tmp_path)
+    (tmp_path / "sample/core.py").write_text("")
+    model, _ = _rule_rows(tmp_path)
+    sections = tuple(
+        replace(section, records=())
+        if section.name == "constructs"
+        else replace(
+            section,
+            records=tuple(
+                record
+                for record in section.records
+                if not (
+                    signal == "declaration"
+                    and section.name == "scope_observations"
+                    and record.data.get("numeric_scope_proof") is not None
+                )
+            ),
+        )
+        for section in model.sections
+    )
+    if signal == "receipt":
+        sections = tuple(
+            replace(section, records=()) if section.name == "declarations" else section
+            for section in sections
+        )
+    downgraded = replace(model, schema_version="2.1.0", sections=sections)
+    with pytest.raises(ValueError, match="numeric_operand.*2.2.0"):
+        observation_payload(downgraded)
+    raw = observation_payload(model)
+    raw["schema_version"] = "2.1.0"
+    raw["constructs"] = []
+    if signal == "declaration":
+        raw["scope_observations"] = [
+            item for item in raw["scope_observations"] if "numeric_scope_proof" not in item["data"]
+        ]
+    else:
+        raw["declarations"] = []
+    with pytest.raises(ValueError, match="numeric_operand.*2.2.0"):
+        parse_observation(raw)
 
 
 def test_missing_selected_source_is_diagnosed_as_incomplete(tmp_path):

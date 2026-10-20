@@ -10,7 +10,13 @@ from collections import Counter
 from collections.abc import Sequence
 from enum import Enum
 
-from archkeel.ir.facts import MAX_STATIC_INTEGER, EvidenceClass, SourceNameVisibility, stable_id
+from archkeel.ir.facts import (
+    MAX_NUMERIC_EVIDENCE_CHARS,
+    MAX_STATIC_INTEGER,
+    EvidenceClass,
+    SourceNameVisibility,
+    stable_id,
+)
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 from archkeel.ir.source_records import source_name_visibility as _source_name_visibility
@@ -24,6 +30,45 @@ from .source import (
     location,
     stable_direct_module_bindings,
 )
+
+
+def _numeric_evidence_excerpt_supported(excerpt: str) -> bool:
+    if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
+        return False
+    try:
+        ast.parse(excerpt)
+        return True
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        try:
+            wrapper = ast.parse(f"if True:\n{excerpt}\n")
+        except (IndentationError, SyntaxError, ValueError, RecursionError):
+            wrapper = None
+        if wrapper is not None and len(wrapper.body) == 1 and isinstance(wrapper.body[0], ast.If):
+            return True
+        indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+        unit = "\t" if "\t" in indentation else "    "
+        suite = f"{excerpt}\n{indentation}{unit}pass"
+        try:
+            parsed = ast.parse(suite)
+        except (IndentationError, SyntaxError, ValueError, RecursionError):
+            try:
+                wrapper = ast.parse(f"if True:\n{suite}\n")
+            except (IndentationError, SyntaxError, ValueError, RecursionError):
+                return False
+            return (
+                len(wrapper.body) == 1
+                and isinstance(wrapper.body[0], ast.If)
+                and len(wrapper.body[0].body) == 1
+                and isinstance(wrapper.body[0].body[0], ast.If | ast.While)
+                and len(wrapper.body[0].body[0].body) == 1
+                and isinstance(wrapper.body[0].body[0].body[0], ast.Pass)
+            )
+        return (
+            len(parsed.body) == 1
+            and isinstance(parsed.body[0], ast.If | ast.While)
+            and len(parsed.body[0].body) == 1
+            and isinstance(parsed.body[0].body[0], ast.Pass)
+        )
 
 
 class _StringPredicate(Enum):
@@ -599,6 +644,20 @@ class ConstructCollector(ast.NodeVisitor):
     ) -> None:
         subject = self._terminal_name(left)
         value, derivation = self._integer(right, node)
+        evidence_lines = [node.lineno, *(item["line"] for item in derivation)]
+        if value is not None and (
+            node.end_lineno != node.lineno
+            or any(item["line"] != item["end_line"] for item in derivation)
+            or any(
+                not isinstance(line, int)
+                or line < 1
+                or line > len(self.module.lines)
+                or len(self.module.lines[line - 1]) > MAX_NUMERIC_EVIDENCE_CHARS
+                or not _numeric_evidence_excerpt_supported(self.module.lines[line - 1])
+                for line in evidence_lines
+            )
+        ):
+            value, derivation = None, []
         start = (node.lineno, node.col_offset)
         end = (
             node.end_lineno if node.end_lineno is not None else node.lineno,

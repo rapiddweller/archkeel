@@ -3,11 +3,14 @@
 # SPDX-License-Identifier: MIT
 """Cross-reference and source-payload invariants of the collection protocol."""
 
+import ast
 from collections.abc import Collection, Iterable, Mapping
+from functools import lru_cache
 from pathlib import PurePosixPath
 
 from .facts import (
     CALL_BINDINGS_FEATURE,
+    MAX_NUMERIC_EVIDENCE_CHARS,
     MAX_STATIC_INTEGER,
     SOURCE_RESOLUTION_GAP_KIND,
     BuiltinTarget,
@@ -494,6 +497,242 @@ def _numeric_operand_alias(item: RecordData, evidence_ids: tuple[str, ...]) -> N
         raise ValueError("invalid numeric operand alias proof")
 
 
+@lru_cache(maxsize=256)
+def _parse_numeric_evidence_excerpt(
+    excerpt: str,
+) -> tuple[tuple[ast.stmt, ...], int] | None:
+    if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
+        return None
+    try:
+        return tuple(ast.parse(excerpt).body), 0
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        try:
+            wrapper = ast.parse(f"if True:\n{excerpt}\n")
+        except (IndentationError, SyntaxError, ValueError, RecursionError):
+            wrapper = None
+        if wrapper is not None and len(wrapper.body) == 1 and isinstance(wrapper.body[0], ast.If):
+            return tuple(wrapper.body[0].body), 1
+        indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+        unit = "\t" if "\t" in indentation else "    "
+        suite = f"{excerpt}\n{indentation}{unit}pass"
+        try:
+            parsed = ast.parse(suite)
+        except (IndentationError, SyntaxError, ValueError, RecursionError):
+            try:
+                wrapper = ast.parse(f"if True:\n{suite}\n")
+            except (IndentationError, SyntaxError, ValueError, RecursionError):
+                return None
+            if (
+                len(wrapper.body) == 1
+                and isinstance(wrapper.body[0], ast.If)
+                and len(wrapper.body[0].body) == 1
+                and isinstance(wrapper.body[0].body[0], ast.If | ast.While)
+                and len(wrapper.body[0].body[0].body) == 1
+                and isinstance(wrapper.body[0].body[0].body[0], ast.Pass)
+            ):
+                return tuple(wrapper.body[0].body), 1
+            return None
+        if (
+            len(parsed.body) == 1
+            and isinstance(parsed.body[0], ast.If | ast.While)
+            and len(parsed.body[0].body) == 1
+            and isinstance(parsed.body[0].body[0], ast.Pass)
+        ):
+            return tuple(parsed.body), 0
+        return None
+
+
+def _numeric_evidence_nodes(evidence: Evidence) -> tuple[tuple[ast.stmt, ...], int] | None:
+    return _parse_numeric_evidence_excerpt(evidence.excerpt)
+
+
+def _numeric_node_span(
+    node: ast.AST, source_line: int, line_offset: int
+) -> tuple[int, int, int, int] | None:
+    if not isinstance(node, ast.stmt | ast.expr):
+        return None
+    if node.end_lineno is None or node.end_col_offset is None:
+        return None
+    return (
+        node.lineno - line_offset + source_line - 1,
+        node.col_offset,
+        node.end_lineno - line_offset + source_line - 1,
+        node.end_col_offset,
+    )
+
+
+def _numeric_assignment_expression(
+    origin: RecordData, evidence_by_id: Mapping[str, Evidence], expected_file: str
+) -> ast.expr | None:
+    evidence_id = origin.get("evidence_id")
+    if not isinstance(evidence_id, str):
+        return None
+    evidence = evidence_by_id.get(evidence_id)
+    if evidence is None or evidence.file != expected_file:
+        return None
+    parsed = _numeric_evidence_nodes(evidence)
+    if parsed is None:
+        return None
+    nodes, line_offset = parsed
+    expected = tuple(origin.get(name) for name in ("line", "column", "end_line", "end_column"))
+    matches: list[ast.expr] = []
+    for root in nodes:
+        for node in ast.walk(root):
+            if _numeric_node_span(node, evidence.line, line_offset) != expected:
+                continue
+            value: ast.expr | None = None
+            targets: tuple[ast.expr, ...] = ()
+            if isinstance(node, ast.Assign):
+                value, targets = node.value, tuple(node.targets)
+            elif isinstance(node, ast.AnnAssign):
+                value, targets = node.value, (node.target,)
+            if value is not None and any(
+                isinstance(target, ast.Name) and target.id == origin.get("name")
+                for target in targets
+            ):
+                matches.append(value)
+    if len(matches) != 1:
+        return None
+    try:
+        expression = ast.unparse(matches[0])
+    except (RecursionError, ValueError):
+        return None
+    if expression != origin.get("expression"):
+        return None
+    return matches[0]
+
+
+def _numeric_operation_expression(
+    record: Record, evidence_by_id: Mapping[str, Evidence], expected_file: str
+) -> ast.BinOp | ast.AugAssign | None:
+    data = record.data
+    expected = tuple(data.get(name) for name in ("line", "column", "end_line", "end_column"))
+    matches: list[ast.BinOp | ast.AugAssign] = []
+    for evidence_id in record.evidence_ids:
+        evidence = evidence_by_id.get(evidence_id)
+        if (
+            evidence is None
+            or evidence.file != expected_file
+            or (evidence.line, evidence.column, evidence.end_line)
+            != (expected[0], expected[1], expected[2])
+        ):
+            continue
+        parsed = _numeric_evidence_nodes(evidence)
+        if parsed is None:
+            continue
+        nodes, line_offset = parsed
+        for root in nodes:
+            for node in ast.walk(root):
+                if _numeric_node_span(node, evidence.line, line_offset) != expected:
+                    continue
+                if (
+                    data.get("form") == "binary"
+                    and isinstance(node, ast.BinOp)
+                    and isinstance(node.op, ast.Mod)
+                ):
+                    matches.append(node)
+                elif (
+                    data.get("form") == "augmented"
+                    and isinstance(node, ast.AugAssign)
+                    and isinstance(node.op, ast.Mod)
+                ):
+                    matches.append(node)
+    return matches[0] if len(matches) == 1 else None
+
+
+def _bounded_numeric_value(
+    node: ast.expr,
+    aliases: Mapping[str, ast.expr],
+    seen: frozenset[str] = frozenset(),
+    depth: int = 0,
+) -> int | None:
+    if depth > 12:
+        return None
+    if isinstance(node, ast.Constant):
+        if type(node.value) is int:
+            constant_value = node.value
+            return (
+                constant_value
+                if -MAX_STATIC_INTEGER <= constant_value <= MAX_STATIC_INTEGER
+                else None
+            )
+        if type(node.value) is bool:
+            return int(node.value)
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+        unary_value = _bounded_numeric_value(node.operand, aliases, seen, depth + 1)
+        if unary_value is None:
+            return None
+        return unary_value if isinstance(node.op, ast.UAdd) else -unary_value
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Pow):
+        base = _bounded_numeric_value(node.left, aliases, seen, depth + 1)
+        exponent = _bounded_numeric_value(node.right, aliases, seen, depth + 1)
+        if base is None or exponent is None or exponent < 0 or exponent > 256:
+            return None
+        magnitude = -base if base < 0 else base
+        result = 1
+        for _ in range(exponent):
+            if magnitude and result > MAX_STATIC_INTEGER // magnitude:
+                return None
+            result *= magnitude
+        return -result if base < 0 and exponent % 2 else result
+    if isinstance(node, ast.Name) and node.id in aliases and node.id not in seen:
+        return _bounded_numeric_value(aliases[node.id], aliases, seen | {node.id}, depth + 1)
+    return None
+
+
+def _validate_numeric_operand_witness(
+    record: Record,
+    evidence_by_id: Mapping[str, Evidence],
+    expected_file: str,
+) -> None:
+    data = record.data
+    expression = _numeric_operation_expression(record, evidence_by_id, expected_file)
+    if expression is None:
+        if data.get("proof") == "known":
+            raise ValueError("known numeric operand lacks a complete source witness")
+        return
+    left = expression.left if isinstance(expression, ast.BinOp) else expression.target
+    subject = (
+        left.id
+        if isinstance(left, ast.Name)
+        else left.attr
+        if isinstance(left, ast.Attribute)
+        else None
+    )
+    if data.get("subject") != subject:
+        raise ValueError("numeric operand subject disagrees with its source expression")
+    if data.get("proof") != "known":
+        return
+    operand = expression.right if isinstance(expression, ast.BinOp) else expression.value
+    derivation = data.get("derivation")
+    if not isinstance(derivation, tuple):
+        raise ValueError("invalid numeric operand derivation")
+    aliases: dict[str, ast.expr] = {}
+    origins: dict[str, RecordData] = {}
+    for origin in derivation:
+        if not isinstance(origin, RecordData):
+            raise ValueError("invalid numeric operand derivation")
+        name = origin.get("name")
+        if not isinstance(name, str):
+            raise ValueError("numeric operand alias name is invalid")
+        alias_expression = _numeric_assignment_expression(origin, evidence_by_id, expected_file)
+        if alias_expression is None:
+            raise ValueError("numeric alias lacks a complete source witness")
+        if name in origins:
+            if origins[name] != origin:
+                raise ValueError("numeric operand alias has conflicting source origins")
+            continue
+        aliases[name] = alias_expression
+        origins[name] = origin
+    for name, origin in origins.items():
+        value = _bounded_numeric_value(aliases[name], aliases, frozenset({name}))
+        if value is None or value != origin.get("value"):
+            raise ValueError("numeric alias value disagrees with its expression")
+    value = _bounded_numeric_value(operand, aliases)
+    if value is None or value != data.get("value"):
+        raise ValueError("numeric operand value disagrees with its expression")
+
+
 def _numeric_operand_record(record: Record, fields: set[str]) -> tuple[str, ...]:
     required = (
         "owner",
@@ -871,6 +1110,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
         raise ValueError("provider bindings require Python source facts")
     candidate_ids = _unique((item.id for item in facts.candidate_evidence), "candidate evidence id")
     base_by_id = {item.id: item for item in facts.evidence}
+    module_files = {item.module: item.rel_path for item in facts.files}
     input_by_path = {item.path: item for item in facts.inputs}
     for binding in facts.provider_bindings:
         _unique(binding.supporting_evidence_ids, "provider alias support")
@@ -989,6 +1229,13 @@ def validate_source_facts(facts: SourceFacts) -> None:
                         declaration.end_line,
                     ) != (line, column, end_line):
                         raise ValueError("numeric alias derivation disagrees with its evidence")
+                numeric_module = record.data.get("module")
+                expected_file = (
+                    module_files.get(numeric_module) if isinstance(numeric_module, str) else None
+                )
+                if expected_file is None:
+                    raise ValueError("numeric operand needs its source module")
+                _validate_numeric_operand_witness(record, base_by_id, expected_file)
             construct = record.data.get("construct")
             if construct is not None and not any(
                 entry.name == construct and entry.status != ConstructSupport.UNSUPPORTED

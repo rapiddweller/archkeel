@@ -11,6 +11,12 @@ source evidence and span. Ambiguous, late, reassigned, deleted or unsupported
 bindings remain UNKNOWN. Depth, exponent and result-bit limits guard evaluation
 before expensive powers; oversized direct literals are also UNKNOWN.
 
+Known operation and alias proofs must fit their existing single-line source
+excerpts (at most 16,384 characters). Exact AST spans, expressions, subjects and
+values are checked again at the source-facts boundary. Incomplete `if`/`while`
+headers can supply their condition expression; other incomplete or multiline
+excerpts remain UNKNOWN.
+
 Operation receipts bind the selected source modules, rule selector and threshold,
 and observed operation/value derivations. Saved reports reject altered rule or
 fact content and unsupported historical proofs. Historical contract versions
