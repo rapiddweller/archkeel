@@ -95,3 +95,7 @@ class Order:
     def from_dict(cls, payload: OrderPayload) -> Order:
         lines = tuple(Line.from_dict(item) for item in payload["lines"])
         return cls(order_id=payload["order_id"], lines=lines)
+
+
+def _nonce_bucket(job_nonce: int, width: int = 8) -> int:
+    return job_nonce % 8

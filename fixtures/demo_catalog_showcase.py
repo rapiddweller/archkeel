@@ -193,6 +193,16 @@ _TOUR_STORE_SQLITE = HEADER + (
     "        if candidate.stat().st_size == 0:\n"
     "            candidate.unlink()\n"
 )
+_TOUR_ORDER_LOOKUP = HEADER + (
+    '"""Resolve an order path for the showcase example."""\n\n'
+    "from __future__ import annotations\n\n"
+    "from pathlib import Path\n\n"
+    "from shop.store.backend.paths import order_path\n\n\n"
+    "def lookup_order(root: Path, order_id: str) -> Path:\n"
+    "    return order_path(root, order_id)\n\n\n"
+    "def find_order(root: Path, order_id: str) -> Path:\n"
+    '    return lookup_order(root, "tour-order")\n'
+)
 _TOUR = Variant(
     id="tour",
     section="showcase",
@@ -211,9 +221,11 @@ _TOUR = Variant(
     "one itself), a dataclass declared outside shop.model.entities, and a bare-object "
     "parameter on place_order itself, the one function app.orders declares public (AD-63: "
     "only a declared facade function is inspected, so touch_store's own bare-object "
-    "parameter, never declared, no longer fires here). Real "
-    "run: 21 rule ids and 22 violations, since CONSTRUCT-NO-DYNAMIC answers both the eval "
-    "and the getattr; at validate time the same 22 rule.violated diagnostics plus 2 "
+    "parameter, never declared, no longer fires here), a modulo operand below its "
+    "declared width, a concrete reader member in place of its required protocol, and a literal "
+    "order ID at a store path lookup. "
+    "CONSTRUCT-NO-DYNAMIC answers both the eval and the getattr; "
+    "validate reports the rule.violated diagnostics plus 2 "
     "closed_world.observed_forbidden pairs (model->render, render->store) and 1 graph.drift, "
     "since the marked component graph never declared either edge.",
     files={
@@ -222,16 +234,22 @@ _TOUR = Variant(
         "shop/render/text.py": _TOUR_RENDER_TEXT,
         "shop/app/orders.py": _TOUR_APP_ORDERS,
         "shop/app/analytics.py": ANALYTICS_MODULE_WITH_UNDECLARED_PACKAGE,
-        "shop/store/repository.py": REPOSITORY_WITH_MONEY_IMPORT,
+        "shop/store/repository.py": REPOSITORY_WITH_MONEY_IMPORT.replace(
+            "reader: RepositoryReader", "reader: OrderRepository"
+        ),
+        "shop/store/lookup.py": _TOUR_ORDER_LOOKUP,
         "shop/store/sqlite.py": _TOUR_STORE_SQLITE,
         "shop/store/architecture-contract.json": STORE_INSIDE_WITH_REPOSITORY_PEER_GRANT,
         "shop/cli/main.py": MAIN_WITH_UNDERSCORE_IMPORT,
-        "shop/model/entities.py": _TOUR_MODEL_ENTITIES,
+        "shop/model/entities.py": _TOUR_MODEL_ENTITIES
+        + "\n\ndef _nonce_bucket(job_nonce: int, width: int = 8) -> int:\n"
+        + "    return job_nonce % 3\n",
         "shop/model/promotions.py": _TOUR_MODEL_PROMOTIONS,
         "shop/app/maintenance.py": _TOUR_APP_MAINTENANCE,
         "shop/extra.py": SHOP_EXTRA,
     },
     expected_violations=(
+        "APP-NO-LITERAL-ORDER-ID",
         "APP-TYPES-NOT-DICT",
         "ASSIGNMENT-COMPLETE",
         "CALL-DESCRIBE-NO-MAINTENANCE",
@@ -250,15 +268,20 @@ _TOUR = Variant(
         "EXTERNAL-JSON-STORE",
         "INTERFACE-BOUNDARY",
         "LAYERS-MODEL",
+        "MODEL-NONCE-WIDTH",
         "MODEL-TYPES-IN-ENTITIES",
         "ROOT-LAYOUT",
         "STORE-PEERS-ISOLATED",
+        "STORE-READER-DECLARATION",
         "store:STORE-REQUIRES-COMPLETE",
     ),
     expected_codes=(
         "closed_world.observed_forbidden",
         "closed_world.observed_forbidden",
         "graph.drift",
+        "rule.violated",
+        "rule.violated",
+        "rule.violated",
         "rule.violated",
         "rule.violated",
         "rule.violated",
