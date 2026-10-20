@@ -277,6 +277,7 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
             "forbidden_effect_under_condition",
             "catalog_argument",
             "catalog_use",
+            "source_ownership",
         }
     ]
     app = next(item for item in raw["components"] if item["id"] == "COMP-APP")
@@ -578,7 +579,7 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
             "role": "equality",
             "literal": "flat",
         }
-    if version == "3.12.0":
+    if version in {"3.12.0", "3.13.0", "3.14.0"}:
         raw["rules"].append(
             {
                 "id": "SOURCE-OWNERSHIP",

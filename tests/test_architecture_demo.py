@@ -1354,6 +1354,23 @@ def test_clean_variant_has_no_violations_but_store_scope_is_unknown(tmp_path: Pa
     } == {"store:STORE-REQUIRES-COMPLETE"}
 
 
+@pytest.mark.parametrize(
+    ("variant_id", "expected_status"),
+    (("clean", "PASS"), ("class-a-source-ownership-escaped-read", "FAIL")),
+)
+def test_source_ownership_demo_assesses_its_own_rule(
+    tmp_path: Path, variant_id: str, expected_status: str
+) -> None:
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files))
+    result, _ = run_report(root, config=CONFIG, analyzer=observe)
+
+    [assessment] = [
+        item for item in result.rule_assessments or () if item.id == "MODEL-NONCE-OWNER"
+    ]
+    assert assessment.status == expected_status
+
+
 def test_dart_clean_variant_has_no_violations_but_unknown_cycle_scope(tmp_path: Path) -> None:
     """AD-97: the Dart sample's conditional, deferred and part directives add no finding.
 

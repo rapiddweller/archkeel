@@ -4554,7 +4554,7 @@ def _validate_source_role_identities(
         _validate_source_role(
             role, all_records, anchors, symbols, member_anchors, imports, evidence
         )
-    _validate_local_source_references(all_records, anchors, evidence, symbols)
+    _validate_local_source_references(all_records, anchors, evidence, symbols, member_anchors)
     _validate_unique_local_declaration_anchors(all_records)
 
 
@@ -4944,13 +4944,14 @@ def _validate_local_source_references(
     anchors: Mapping[tuple[str, str], list[Record]],
     evidence: Mapping[str, Evidence],
     symbols: Mapping[str, list[Record]],
+    member_anchors: Mapping[tuple[str, str], list[RecordData]],
 ) -> None:
     for reference in records:
         if reference.kind not in {"value_reference", "attribute_reference"}:
             continue
         if reference.data.get("local_source_binding") is not True:
             continue
-        _validate_local_source_reference(reference, anchors, evidence, symbols)
+        _validate_local_source_reference(reference, anchors, evidence, symbols, member_anchors)
 
 
 def _validate_local_source_reference(
@@ -4958,6 +4959,7 @@ def _validate_local_source_reference(
     anchors: Mapping[tuple[str, str], list[Record]],
     evidence: Mapping[str, Evidence],
     symbols: Mapping[str, list[Record]],
+    member_anchors: Mapping[tuple[str, str], list[RecordData]],
 ) -> None:
     targets = reference.data.get("targets")
     declaration_id = reference.data.get("declaration_id")
@@ -4977,7 +4979,11 @@ def _validate_local_source_reference(
         )
         if _only_anchor(anchors, targets[0], declaration_id) is not reference:
             raise ValueError("local definition duplicates an existing declaration anchor")
-    elif len(anchors.get((targets[0], declaration_id), ())) != 1:
+    elif (
+        len(anchors.get((targets[0], declaration_id), ()))
+        + len(member_anchors.get((targets[0], declaration_id), ()))
+        != 1
+    ):
         raise ValueError("local reference has no unique witnessed declaration anchor")
 
 
@@ -4998,7 +5004,7 @@ def _validate_local_definition_reference(
     owner_matches = [
         item
         for item in owner_records
-        if item.id == owner_id and item.kind in {"function", "method"}
+        if item.id == owner_id and item.kind in {"class", "function", "method"}
     ]
     owner_witnessed = _local_declaration_owner_witnessed(
         reference, owner, owner_id, owner_matches, witness, evidence
@@ -5017,6 +5023,17 @@ def _local_declaration_owner_witnessed(
     witness: Evidence,
     evidence: Mapping[str, Evidence],
 ) -> bool:
+    if len(owner_matches) == 1 and owner_matches[0].kind == "class":
+        scope = reference.data.get("source_scope")
+        return (
+            isinstance(owner, str)
+            and isinstance(scope, str)
+            and scope.startswith(owner + ".<")
+            and any(
+                evidence[identity].file == witness.file
+                for identity in owner_matches[0].evidence_ids
+            )
+        )
     if len(owner_matches) == 1:
         return any(
             evidence[identity].file == witness.file

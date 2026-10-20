@@ -278,7 +278,8 @@ rules and UML comparison are shown separately.
 Create a report with several deliberate violations:
 
 The default tour also shows `forbidden_call_argument`: a literal order ID at the store lookup,
-`catalog_argument`: an undeclared store option, `catalog_use`: an unused declared key, and
+`catalog_argument`: an undeclared store option, `catalog_use`: an unused declared key,
+`source_ownership`: a model-owned helper read from the app layer, and
 `forbidden_effect_under_condition`: `secrets.token_hex` on a seeded run.
 
 The clean shop sample returns a fixed token for seeded runs and calls `secrets.token_hex` only

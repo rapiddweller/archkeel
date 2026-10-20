@@ -88,6 +88,12 @@
           },
           {
             "$ref": "#/$defs/protocolDeclarations"
+          },
+          {
+            "$ref": "#/$defs/sourceOwnership"
+          },
+          {
+            "$ref": "#/$defs/forbiddenEffectUnderCondition"
           }
         ]
       }
@@ -2393,6 +2399,114 @@
             "architect",
             "agent"
           ]
+        }
+      }
+    },
+    "sourceOwnership": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "mode",
+        "roles",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "const": "source_ownership"
+        },
+        "source": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "mode": {
+          "enum": [
+            "retired",
+            "confined"
+          ]
+        },
+        "roles": {
+          "type": "array",
+          "uniqueItems": true,
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "definition",
+              "read",
+              "write",
+              "delete",
+              "value_transfer",
+              "parameter_default",
+              "fallback"
+            ]
+          }
+        },
+        "symbols": {
+          "$ref": "#/$defs/strings"
+        },
+        "parameters": {
+          "$ref": "#/$defs/strings"
+        },
+        "owner": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "value_owner": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        }
+      }
+    },
+    "forbiddenEffectUnderCondition": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "target",
+        "condition",
+        "rationale",
+        "provenance",
+        "decided_by"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "source": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "kind": {
+          "const": "forbidden_effect_under_condition"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "decided_by": {
+          "$ref": "#/$defs/decidedBy"
+        },
+        "target": {
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "condition": {
+          "$ref": "#/$defs/conditionSelector"
         }
       }
     }

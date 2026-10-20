@@ -14,7 +14,7 @@ from fixtures.demo_catalog_dependencies import (
     STORE_INSIDE_WITH_REPOSITORY_PEER_GRANT,
 )
 from fixtures.demo_catalog_interfaces import MAIN_WITH_UNDERSCORE_IMPORT
-from fixtures.demo_catalog_support import HEADER, Variant
+from fixtures.demo_catalog_support import FIXTURE_DIR, HEADER, Variant
 from fixtures.demo_catalog_types import ROGUE_DATACLASS_MODULE
 
 _TOUR_RENDER_TEXT = HEADER + (
@@ -40,6 +40,7 @@ _TOUR_APP_ORDERS = HEADER + (
     "from pathlib import Path\n"
     "from typing import TYPE_CHECKING\n\n"
     "from shop.model.entities import Line, Money, OptionKey, Order\n"
+    "from shop.model import entities\n"
     "from shop.store import OrderRepository\n"
     "from shop.store.backend.files import write_payload\n"
     "from shop.store.lookup import read_option\n"
@@ -64,6 +65,8 @@ _TOUR_APP_ORDERS = HEADER + (
     "    return OrderRepository(store_dir).load(order_id).total()\n\n\n"
     "def read_catalog_option() -> str:\n"
     '    return read_option("unlisted-option")\n\n\n'
+    "def external_nonce_bucket(job_nonce: int) -> int:\n"
+    "    return entities._nonce_bucket(job_nonce)\n\n\n"
     "def describe_connection(connection: Connection) -> str:\n"
     '    """Type-only use of the maintenance connection; never imported at runtime here."""\n'
     "    run_maintenance(connection)\n"
@@ -303,6 +306,7 @@ _TOUR = Variant(
         "EXTERNAL-JSON-STORE",
         "INTERFACE-BOUNDARY",
         "LAYERS-MODEL",
+        "MODEL-NONCE-OWNER",
         "MODEL-NONCE-WIDTH",
         "MODEL-TYPES-IN-ENTITIES",
         "ROOT-LAYOUT",
@@ -314,6 +318,7 @@ _TOUR = Variant(
         "closed_world.observed_forbidden",
         "closed_world.observed_forbidden",
         "graph.drift",
+        "rule.violated",
         "rule.violated",
         "rule.violated",
         "rule.violated",
@@ -354,4 +359,25 @@ _CLEAN = Variant(
     expected_codes=(),
 )
 
-VARIANTS: tuple[Variant, ...] = (_TOUR, _SEEDED_EFFECT, _CLEAN)
+_SOURCE_OWNERSHIP_ESCAPE = Variant(
+    id="class-a-source-ownership-escaped-read",
+    section="class_a",
+    item="source_ownership:confined read",
+    summary="A model-owned nonce helper is read from the app layer.",
+    files={
+        "shop/app/orders.py": (FIXTURE_DIR / "shop/app/orders.py").read_text()
+        + "\nfrom shop.model import entities\n\n"
+        "def external_nonce_bucket(job_nonce: int) -> int:\n"
+        "    return entities._nonce_bucket(job_nonce)\n"
+    },
+    expected_violations=("MODEL-NONCE-OWNER",),
+    expected_codes=("rule.violated",),
+    expected_declared_rules="FAIL",
+)
+
+VARIANTS: tuple[Variant, ...] = (
+    _TOUR,
+    _SEEDED_EFFECT,
+    _CLEAN,
+    _SOURCE_OWNERSHIP_ESCAPE,
+)
