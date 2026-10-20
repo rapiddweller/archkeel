@@ -7,13 +7,14 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from archkeel.ir.facts import SymbolClassKind, parse_symbol_class_kind
+from archkeel.ir.facts import RecordData, SymbolClassKind, parse_symbol_class_kind
 from archkeel.ir.facts_codec import RawData, RawRecord, classified
 from archkeel.ir.model import (
     ArchitectureContract,
     EvidenceClass,
     ModuleExports,
     ProtocolDeclarationRole,
+    ProtocolDeclarationSelector,
     ProtocolDeclarationsRule,
     ProtocolDeclarationVisibility,
     in_scope,
@@ -67,7 +68,7 @@ def _position_binding_uncertain(data: RawData, position: str) -> bool:
 
 
 def _declaration_binding_proven(symbol: RawRecord) -> bool:
-    data = symbol["data"]
+    data: RawData = symbol["data"]
     if symbol["kind"] == "method":
         return (
             data.get("source_final_method_binding") is True
@@ -81,6 +82,259 @@ def _declaration_binding_proven(symbol: RawRecord) -> bool:
     return data.get("source_binding_unique") is True
 
 
+def _classes_named(symbols: Sequence[RawRecord], name: str | None) -> list[RawRecord]:
+    result: list[RawRecord] = []
+    for symbol in symbols:
+        data: RawData = symbol["data"]
+        if symbol["kind"] == "class" and data.get("qualified_name") == name:
+            result.append(symbol)
+    return result
+
+
+def _member_methods(symbols: Sequence[RawRecord], owner_id: str, name: str) -> list[RawRecord]:
+    result: list[RawRecord] = []
+    for symbol in symbols:
+        data: RawData = symbol["data"]
+        if (
+            symbol["kind"] == "method"
+            and data.get("lexical_parent_id") == owner_id
+            and data.get("name") == name
+        ):
+            result.append(symbol)
+    return result
+
+
+def _class_binding_proven(symbol: RawRecord, symbols: Sequence[RawRecord]) -> bool:
+    pending = [symbol]
+    visited: set[str] = set()
+    while pending:
+        current = pending.pop()
+        data: RawData = current["data"]
+        name = data.get("qualified_name")
+        bases = data.get("bases", ())
+        declarations = data.get("base_declarations", ())
+        if current["kind"] != "class" or not isinstance(name, str):
+            return False
+        if name in visited:
+            continue
+        if (
+            data.get("class_header_static") is not True
+            or not _nested_class_binding_proven(current, symbols)
+            or not isinstance(bases, (tuple, list))
+            or not isinstance(declarations, (tuple, list))
+            or len(bases) != len(declarations)
+            or any(
+                not isinstance(item, dict | RecordData) or item.get("status") != "resolved"
+                for item in declarations
+            )
+        ):
+            return False
+        visited.add(name)
+        for declaration in declarations:
+            targets = declaration.get("targets", ())
+            if not isinstance(targets, (tuple, list)):
+                return False
+            for target in targets:
+                if not isinstance(target, str):
+                    return False
+                owners = _classes_named(symbols, target)
+                if owners:
+                    if len(owners) != 1:
+                        return False
+                    pending.append(owners[0])
+    return True
+
+
+def _nested_class_binding_proven(symbol: RawRecord, symbols: Sequence[RawRecord]) -> bool:
+    data: RawData = symbol["data"]
+    if data.get("source_binding_unique") is True:
+        return True
+    name = data.get("name")
+    parent = data.get("parent")
+    owners = _classes_named(symbols, parent)
+    if not isinstance(name, str) or len(owners) != 1:
+        return False
+    owner_data: RawData = owners[0]["data"]
+    members = owner_data.get("class_members", ())
+    return (
+        owner_data.get("source_member_binding_static") is True
+        and owner_data.get("class_body_control_flow") is not True
+        and isinstance(members, (tuple, list))
+        and name in members
+        and _class_binding_proven(owners[0], symbols)
+    )
+
+
+def _decorated_method_binding_proven(symbol: RawRecord, owner: RawRecord) -> bool:
+    data: RawData = symbol["data"]
+    decorators = data.get("decorators", ())
+    owner_data: RawData = owner["data"]
+    inventories = owner_data.get("member_inventories", ())
+    attributes = owner_data.get("attribute_declarations", ())
+    inventory = next(
+        (
+            item
+            for item in (inventories if isinstance(inventories, (tuple, list)) else ())
+            if isinstance(item, dict | RecordData) and item.get("kind") == "method"
+        ),
+        None,
+    )
+    definitions = (
+        inventory.get("definition_ids", ()) if isinstance(inventory, dict | RecordData) else ()
+    )
+    return (
+        data.get("signature_decorators_proven") is True
+        and isinstance(decorators, (tuple, list))
+        and bool(decorators)
+        and all(isinstance(item, str) for item in decorators)
+        and isinstance(inventory, dict | RecordData)
+        and inventory.get("status") == "complete"
+        and isinstance(definitions, (tuple, list))
+        and symbol["id"] in definitions
+        and isinstance(attributes, (tuple, list))
+        and not any(
+            isinstance(item, dict | RecordData) and item.get("name") == data.get("name")
+            for item in attributes
+        )
+    )
+
+
+def _nested_method_binding_proven(
+    symbol: RawRecord, owner: RawRecord, symbols: Sequence[RawRecord]
+) -> bool:
+    data: RawData = symbol["data"]
+    name = data.get("name")
+    owner_data: RawData = owner["data"]
+    inventory = next(
+        (
+            item
+            for item in owner_data.get("member_inventories", ())
+            if isinstance(item, dict | RecordData) and item.get("kind") == "method"
+        ),
+        None,
+    )
+    definitions = (
+        inventory.get("definition_ids", ()) if isinstance(inventory, dict | RecordData) else ()
+    )
+    attributes = owner_data.get("attribute_declarations", ())
+    attribute_conflict = isinstance(attributes, (tuple, list)) and any(
+        isinstance(item, dict | RecordData) and item.get("name") == name for item in attributes
+    )
+    return (
+        isinstance(name, str)
+        and data.get("signature_decorators_proven") is True
+        and isinstance(inventory, dict | RecordData)
+        and inventory.get("status") == "complete"
+        and isinstance(definitions, (tuple, list))
+        and definitions.count(symbol["id"]) == 1
+        and len(_member_methods(symbols, owner["id"], name)) == 1
+        and name in owner_data.get("class_members", ())
+        and not attribute_conflict
+        and owner_data.get("class_body_control_flow") is not True
+        and _class_binding_proven(owner, symbols)
+    )
+
+
+def _public_declaration(symbol: RawRecord, symbols: Sequence[RawRecord]) -> bool:
+    if not _public(symbol):
+        return False
+    data: RawData = symbol["data"]
+    parent = data.get("parent") if symbol["kind"] == "method" else None
+    while isinstance(parent, str):
+        owners = _classes_named(symbols, parent)
+        if len(owners) != 1 or not _public(owners[0]):
+            return False
+        owner_data: RawData = owners[0]["data"]
+        parent = owner_data.get("parent")
+    return True
+
+
+def _attribute_inventory_complete(symbol: RawRecord) -> bool:
+    data: RawData = symbol["data"]
+    inventories = data.get("member_inventories", ())
+    return isinstance(inventories, (tuple, list)) and any(
+        isinstance(item, dict | RecordData)
+        and item.get("kind") == "attribute"
+        and item.get("status") == "complete"
+        for item in inventories
+    )
+
+
+def _select_parameter(
+    selected: dict[tuple[str, str], _SelectedPosition],
+    symbol: RawRecord,
+    selector: ProtocolDeclarationSelector,
+    symbols: Sequence[RawRecord],
+) -> None:
+    if symbol["kind"] not in {"function", "method"}:
+        return
+    if selector.visibility is ProtocolDeclarationVisibility.PUBLIC and not _public_declaration(
+        symbol, symbols
+    ):
+        return
+    data: RawData = symbol["data"]
+    parameters = data.get("parameters", ())
+    for parameter in parameters if isinstance(parameters, (tuple, list)) else ():
+        if not isinstance(parameter, dict) or _parameter_name(parameter) != selector.name:
+            continue
+        position = f"parameter.{selector.name}"
+        annotation = parameter.get("annotation")
+        selected.setdefault(
+            (symbol["id"], position),
+            (
+                symbol,
+                position,
+                annotation if isinstance(annotation, str) else None,
+                tuple(symbol["evidence_ids"]),
+                False,
+            ),
+        )
+
+
+def _select_member(
+    selected: dict[tuple[str, str], _SelectedPosition],
+    symbol: RawRecord,
+    selector: ProtocolDeclarationSelector,
+    symbols: Sequence[RawRecord],
+) -> None:
+    if symbol["kind"] != "class":
+        return
+    data: RawData = symbol["data"]
+    attributes = data.get("attribute_declarations", ())
+    for attribute in attributes if isinstance(attributes, (tuple, list)) else ():
+        if not isinstance(attribute, dict) or attribute.get("name") != selector.name:
+            continue
+        if (
+            selector.visibility is ProtocolDeclarationVisibility.PUBLIC
+            and _attribute_visibility(attribute) != "public"
+        ):
+            continue
+        position = f"member.{selector.name}"
+        annotation = attribute.get("annotation")
+        evidence = attribute.get("evidence_ids", ())
+        evidence_ids = tuple(evidence) if isinstance(evidence, (tuple, list)) else ()
+        key = (symbol["id"], position)
+        previous = selected.get(key)
+        overridden = bool(_member_methods(symbols, symbol["id"], selector.name))
+        uncertain = not _attribute_inventory_complete(symbol) or overridden
+        if previous is None:
+            selected[key] = (
+                symbol,
+                position,
+                annotation if isinstance(annotation, str) else None,
+                evidence_ids,
+                uncertain,
+            )
+        else:
+            selected[key] = (
+                symbol,
+                position,
+                None,
+                tuple(dict.fromkeys((*previous[3], *evidence_ids))),
+                True,
+            )
+
+
 def _selected_positions(
     rule: ProtocolDeclarationsRule,
     symbols: Sequence[RawRecord],
@@ -88,7 +342,7 @@ def _selected_positions(
 ) -> list[_SelectedPosition]:
     selected: dict[tuple[str, str], _SelectedPosition] = {}
     for symbol in symbols:
-        data = symbol["data"]
+        data: RawData = symbol["data"]
         module = data.get("module")
         qualified_name = data.get("qualified_name")
         if (
@@ -101,53 +355,9 @@ def _selected_positions(
             continue
         for selector in rule.selectors:
             if selector.role is ProtocolDeclarationRole.PARAMETER:
-                if symbol["kind"] not in {"function", "method"}:
-                    continue
-                if selector.visibility is ProtocolDeclarationVisibility.PUBLIC and not _public(
-                    symbol
-                ):
-                    continue
-                parameters = data.get("parameters", ())
-                for parameter in parameters if isinstance(parameters, (tuple, list)) else ():
-                    if (
-                        not isinstance(parameter, dict)
-                        or _parameter_name(parameter) != selector.name
-                    ):
-                        continue
-                    position = f"parameter.{selector.name}"
-                    annotation = parameter.get("annotation")
-                    annotation = annotation if isinstance(annotation, str) else None
-                    selected.setdefault(
-                        (symbol["id"], position),
-                        (symbol, position, annotation, tuple(symbol["evidence_ids"]), False),
-                    )
-            elif selector.role is ProtocolDeclarationRole.MEMBER and symbol["kind"] == "class":
-                attributes = data.get("attribute_declarations", ())
-                for attribute in attributes if isinstance(attributes, (tuple, list)) else ():
-                    if not isinstance(attribute, dict) or attribute.get("name") != selector.name:
-                        continue
-                    if (
-                        selector.visibility is ProtocolDeclarationVisibility.PUBLIC
-                        and _attribute_visibility(attribute) != "public"
-                    ):
-                        continue
-                    position = f"member.{selector.name}"
-                    annotation = attribute.get("annotation")
-                    annotation = annotation if isinstance(annotation, str) else None
-                    evidence = attribute.get("evidence_ids", ())
-                    key = (symbol["id"], position)
-                    evidence_ids = tuple(evidence) if isinstance(evidence, (tuple, list)) else ()
-                    previous = selected.get(key)
-                    if previous is None:
-                        selected[key] = (symbol, position, annotation, evidence_ids, False)
-                    else:
-                        selected[key] = (
-                            symbol,
-                            position,
-                            None,
-                            tuple(dict.fromkeys((*previous[3], *evidence_ids))),
-                            True,
-                        )
+                _select_parameter(selected, symbol, selector, symbols)
+            elif selector.role is ProtocolDeclarationRole.MEMBER:
+                _select_member(selected, symbol, selector, symbols)
     return list(selected.values())
 
 
@@ -258,6 +468,58 @@ def _protocol_position_finding(
     )
 
 
+def _position_status(
+    selector: ProtocolDeclarationSelector,
+    symbol: RawRecord,
+    position: str,
+    annotation: str | None,
+    ambiguous: bool,
+    symbols: Sequence[RawRecord],
+    target: tuple[str, str],
+    contract: ArchitectureContract,
+    exports: ModuleExports,
+    imports_by_binding: BindingIndex,
+    classes_by_location: BindingIndex,
+    type_shapes: TypeShapeIndex,
+) -> tuple[str, str]:
+    data: RawData = symbol["data"]
+    binding_is_unique = _declaration_binding_proven(symbol)
+    owner_name = data.get("parent") if symbol["kind"] == "method" else None
+    class_owners = _classes_named(symbols, owner_name)
+    if symbol["kind"] == "method" and len(class_owners) == 1:
+        owner = class_owners[0]
+        binding_is_unique |= _decorated_method_binding_proven(symbol, owner) or (
+            _nested_method_binding_proven(symbol, owner, symbols)
+        )
+    if symbol["kind"] == "method":
+        class_header_is_static = len(class_owners) == 1 and _class_binding_proven(
+            class_owners[0], symbols
+        )
+    elif symbol["kind"] == "class":
+        class_header_is_static = _class_binding_proven(symbol, symbols)
+    else:
+        class_header_is_static = True
+    if not binding_is_unique or not class_header_is_static:
+        return "UNKNOWN", "declaration_binding_ambiguous"
+    if ambiguous:
+        return "UNKNOWN", "member_binding_ambiguous"
+    if annotation is None:
+        return "FAIL", "missing_annotation"
+    if _position_binding_uncertain(data, position):
+        return "UNKNOWN", "annotation_binding_uncertain"
+    return _identity_verdict(
+        annotation,
+        data["module"],
+        target,
+        contract,
+        exports,
+        imports_by_binding,
+        classes_by_location,
+        type_shapes,
+        selector.optional,
+    )
+
+
 def _protocol_findings(
     rule: ProtocolDeclarationsRule,
     selected: Sequence[_SelectedPosition],
@@ -278,31 +540,20 @@ def _protocol_findings(
             for selector in rule.selectors
             if position == f"{selector.role.value}.{selector.name}"
         )
-        data = symbol["data"]
-        binding_is_unique = _declaration_binding_proven(symbol)
-        class_header_is_static = (
-            symbol["kind"] != "class" or data.get("class_header_static") is True
+        status, reason = _position_status(
+            selector,
+            symbol,
+            position,
+            annotation,
+            ambiguous,
+            symbols,
+            target,
+            contract,
+            exports,
+            imports_by_binding,
+            classes_by_location,
+            type_shapes,
         )
-        if ambiguous:
-            status, reason = "UNKNOWN", "member_binding_ambiguous"
-        elif not binding_is_unique or not class_header_is_static:
-            status, reason = "UNKNOWN", "declaration_binding_ambiguous"
-        elif annotation is None:
-            status, reason = "FAIL", "missing_annotation"
-        elif _position_binding_uncertain(data, position):
-            status, reason = "UNKNOWN", "annotation_binding_uncertain"
-        else:
-            status, reason = _identity_verdict(
-                annotation,
-                symbol["data"]["module"],
-                target,
-                contract,
-                exports,
-                imports_by_binding,
-                classes_by_location,
-                type_shapes,
-                selector.optional,
-            )
         facts = [symbol["id"]]
         target_fact = next(
             (
