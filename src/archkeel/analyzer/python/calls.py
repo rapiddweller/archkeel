@@ -888,6 +888,11 @@ class CallCollector(ast.NodeVisitor):
             )
         return None
 
+    @staticmethod
+    def _member_is_static(declaration: RawRecord, member: str) -> bool:
+        writes = _mapping_value(declaration["data"], "instance_member_writes")
+        return isinstance(writes, list) and "*" not in writes and member not in writes
+
     def _constructor_type(self, call: ast.Call) -> tuple[str, list[str]] | None:
         status, targets, _, _ = resolve_name(call.func, index=self.index, scopes=self.scopes)
         if status is not SourceResolution.RESOLVED or len(targets) != 1:
@@ -1514,6 +1519,8 @@ class CallCollector(ast.NodeVisitor):
             or _mapping_value(constructed_declaration["data"], "source_member_owner_static")
             is not True
             or _mapping_value(owner_declaration["data"], "source_member_owner_static") is not True
+            or not self._member_is_static(constructed_declaration, node.func.attr)
+            or not self._member_is_static(owner_declaration, node.func.attr)
         ):
             return None
         return self._receiver_binding_record(
