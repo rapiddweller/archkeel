@@ -391,6 +391,8 @@ def _class_symbol_data(
         "source_binding_unique": node in module.tree.body
         and node.name in stable_direct_module_bindings(module),
         "source_member_binding_static": node.name not in member_escapes,
+        "source_member_owner_static": module.owner_exposed_bindings is not None
+        and node.name not in module.owner_exposed_bindings,
         "class_header_static": class_header_static(node),
         "class_members": _class_member_names(node),
         "class_body_control_flow": any(

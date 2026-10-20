@@ -66,8 +66,13 @@ REPOSITORY_WITH_MONEY_IMPORT = HEADER + (
     "from __future__ import annotations\n\n"
     "import json\n"
     "from pathlib import Path\n\n"
-    "from shop.model.entities import Money, Order\n\n\n"
+    "from typing import Protocol\n\n"
+    "from shop.model.entities import Money, Order\n"
+    "from shop.store.backend.paths import order_path\n\n\n"
+    "class RepositoryReader(Protocol):\n"
+    "    def load(self, order_id: str) -> Order: ...\n\n\n"
     "class OrderRepository:\n"
+    "    reader: RepositoryReader\n\n"
     "    def __init__(self, root: Path) -> None:\n"
     "        self._root = root\n\n"
     "    def save(self, order: Order) -> None:\n"
@@ -78,7 +83,7 @@ REPOSITORY_WITH_MONEY_IMPORT = HEADER + (
     '        """Demonstrates the forbidden Money import for the architecture demo."""\n'
     "        return self.load(order_id).total()\n\n"
     "    def _path(self, order_id: str) -> Path:\n"
-    '        return self._root / f"{order_id}.json"\n'
+    "        return order_path(self._root, order_id)\n"
 )
 _FORBIDDEN_DEPENDENCY_TARGET_SYMBOL = Variant(
     id="class-a-forbidden-dependency-target-symbol",
@@ -1171,7 +1176,104 @@ _CALL_OWNER_UNKNOWN = Variant(
     expected_declared_rules="UNKNOWN",
 )
 
+_PROTOCOL_READER_ALLOWED = Variant(
+    id="class-a-protocol-declarations-allowed",
+    section="class_a",
+    item="protocol_declarations:allowed",
+    summary="The repository reader member names the canonical RepositoryReader protocol.",
+    files={},
+    expected_violations=(),
+    expected_codes=(),
+)
+_PROTOCOL_READER_FORBIDDEN = Variant(
+    id="class-a-protocol-declarations-forbidden",
+    section="class_a",
+    item="protocol_declarations:forbidden",
+    summary="A concrete repository class cannot replace the declared reader protocol.",
+    files={
+        "shop/store/repository.py": (FIXTURE_DIR / "shop/store/repository.py")
+        .read_text()
+        .replace("reader: RepositoryReader", "reader: OrderRepository")
+    },
+    expected_violations=("STORE-READER-DECLARATION",),
+    expected_codes=("rule.violated",),
+)
+_PROTOCOL_READER_UNKNOWN = Variant(
+    id="class-a-protocol-declarations-unknown",
+    section="class_a",
+    item="protocol_declarations:unknown",
+    summary="An unannotated reader member withholds protocol proof instead of passing.",
+    files={
+        "shop/store/repository.py": (FIXTURE_DIR / "shop/store/repository.py")
+        .read_text()
+        .replace("reader: RepositoryReader", "reader: MissingReader")
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("protocol_declaration_limit", "shop.store.repository.OrderRepository"),),
+    expected_declared_rules="UNKNOWN",
+)
+
+_CALL_ARGUMENT_RULE = {
+    "id": "APP-NO-LITERAL-ORDER-ID",
+    "kind": "forbidden_call_argument",
+    "source": "shop.store.lookup",
+    "target": "shop.store.lookup.lookup_order",
+    "parameter": "order_id",
+    "rationale": "Order lookup IDs come from the caller and are never embedded at call sites.",
+    "provenance": ["docs/architecture/shop.md"],
+    "decided_by": "architect",
+}
+_CALL_ARGUMENT_FAIL = Variant(
+    id="class-a-forbidden-call-argument-fail",
+    section="class_a",
+    item="forbidden_call_argument:fail",
+    summary="A literal order ID is rejected at the canonical repository lookup parameter.",
+    files={
+        "shop/store/lookup.py": (FIXTURE_DIR / "shop/store/lookup.py")
+        .read_text()
+        .replace("lookup_order(root, order_id)", 'lookup_order(root, "literal-id")')
+    },
+    expected_violations=("APP-NO-LITERAL-ORDER-ID",),
+    expected_codes=("rule.violated",),
+    expected_declared_rules="FAIL",
+)
+_CALL_ARGUMENT_PASS = Variant(
+    id="class-a-forbidden-call-argument-pass",
+    section="class_a",
+    item="forbidden_call_argument:pass",
+    summary="A caller-supplied ID is passed through to the canonical repository lookup.",
+    files={
+        "shop/store/lookup.py": (FIXTURE_DIR / "shop/store/lookup.py")
+        .read_text()
+        .replace("lookup_order(root, order_id)", "lookup_order(root, order_id=order_id)"),
+    },
+    expected_violations=(),
+    expected_codes=(),
+)
+_CALL_ARGUMENT_UNKNOWN = Variant(
+    id="class-a-forbidden-call-argument-unknown",
+    section="class_a",
+    item="forbidden_call_argument:unknown",
+    summary="An expanded argument cannot be bound to the selected repository parameter.",
+    files={
+        "shop/store/lookup.py": (FIXTURE_DIR / "shop/store/lookup.py")
+        .read_text()
+        .replace("lookup_order(root, order_id)", "lookup_order(root, *order_ids)"),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("call_argument_limit", "shop.store.lookup.lookup_order"),),
+    expected_declared_rules="UNKNOWN",
+)
+
 VARIANTS: tuple[Variant, ...] = (
+    _CALL_ARGUMENT_FAIL,
+    _CALL_ARGUMENT_PASS,
+    _CALL_ARGUMENT_UNKNOWN,
+    _PROTOCOL_READER_ALLOWED,
+    _PROTOCOL_READER_FORBIDDEN,
+    _PROTOCOL_READER_UNKNOWN,
     _CALL_OWNER_FORBIDDEN,
     _CALL_OWNER_DISJOINT,
     _CALL_OWNER_UNKNOWN,

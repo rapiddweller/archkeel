@@ -1203,6 +1203,10 @@ def rule_subject_failures(
             )
             source_subjects = source_subjects | set(numeric_modules)
             scopes = {"source": numeric_modules}
+        if isinstance(rule, ForbiddenCallArgumentRule):
+            source_subjects = source_subjects | _call_argument_subject_symbols(
+                symbols, source_modules
+            )
         target_subjects: AbstractSet[str] = (target_module_names or module_names) | planned_subjects
         if isinstance(rule, ForbiddenConstructRule):
             owner_modules = (
@@ -1235,6 +1239,17 @@ def rule_subject_failures(
                 _missing_rule_subject_failure(rule, scopes, matches, facade_scoped)
             )
     return rule_failures
+
+
+def _call_argument_subject_symbols(
+    symbols: Sequence[RawRecord], source_modules: frozenset[str] | None
+) -> set[str]:
+    return {
+        item["data"]["qualified_name"]
+        for item in symbols
+        if item["kind"] in {"class", "function", "method"}
+        and (source_modules is None or item["data"]["module"] in source_modules)
+    }
 
 
 def _missing_rule_subject_failure(
@@ -1981,6 +1996,14 @@ def rule_violations(
     cycle_namespace_complete, cycle_graph_components = _cycle_scan_coverage(
         contract, modules, profile, cycle_scan_roots, cycle_namespace
     )
+    receipt_scope_complete = scope_receipts_complete(
+        contract,
+        modules,
+        profile,
+        source_roots,
+        source_exact_modules,
+        receipt_scan_roots if receipt_scan_roots is not None else cycle_scan_roots,
+    )
     result = _collect_rule_violations(
         imports=imports,
         typing_signals=typing_signals,
@@ -2001,14 +2024,7 @@ def rule_violations(
         allowance_facts=allowance_facts,
         assessment_facts=assessment_facts,
         assessment_parent=assessment_parent,
-        receipt_scope_complete=scope_receipts_complete(
-            contract,
-            modules,
-            profile,
-            source_roots,
-            source_exact_modules,
-            receipt_scan_roots if receipt_scan_roots is not None else cycle_scan_roots,
-        ),
+        receipt_scope_complete=receipt_scope_complete,
         cycle_scope_complete=(
             len(cycle_graph_components) == len(contract.components) and bool(contract.components)
         ),
@@ -2025,6 +2041,7 @@ def rule_violations(
         type_shapes=type_shapes,
         profile=profile,
         scope=assessment_parent or "root",
+        receipt_scope_complete=receipt_scope_complete,
     )
     result.extend(protocol_violations)
     if assessment_facts is not None:
@@ -2183,6 +2200,59 @@ def _selector_receipt_scope(
         if _modules_for_rule_source(candidate, modules, contract):
             return candidate
     return ".".join(parts[:-1]) if len(parts) > 1 else source
+
+
+def source_domains_complete(
+    *,
+    modules: Sequence[RawRecord],
+    profile: Profile,
+    package_scopes: Sequence[str],
+    exact_module_scopes: Sequence[str],
+    scan_roots: tuple[str, ...],
+) -> bool:
+    """Prove that selected package and exact-module domains were fully scanned."""
+    return (
+        not package_scopes or _scan_covers_packages(package_scopes, modules, profile, scan_roots)
+    ) and _scan_covers_exact_modules(exact_module_scopes, modules, scan_roots)
+
+
+def source_selector_domains(
+    source: str,
+    modules: Sequence[RawRecord],
+    *,
+    package_scopes: Sequence[str] = (),
+    exact_module_scopes: Sequence[str] = (),
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Resolve a source prefix to its physical module domain and intersect its mount."""
+    module_names = tuple(
+        item["data"]["qualified_name"]
+        for item in modules
+        if isinstance(item["data"].get("qualified_name"), str)
+    )
+    module_prefixes = [name for name in module_names if in_scope(source, name)]
+    selector = max(module_prefixes, key=lambda name: len(name.split(".")), default=source)
+    packages: set[str] = set()
+    exact_selected = (selector,) if selector != source else ()
+    if exact_selected:
+        if package_scopes and not any(in_scope(selector, package) for package in package_scopes):
+            exact_selected = ()
+    elif package_scopes:
+        for package in package_scopes:
+            if in_scope(package, selector):
+                packages.add(package)
+            elif in_scope(selector, package):
+                packages.add(selector)
+    elif not exact_module_scopes:
+        packages.add(selector)
+    exact_modules = tuple(
+        dict.fromkeys(
+            (
+                *exact_selected,
+                *(module for module in exact_module_scopes if in_scope(module, selector)),
+            )
+        )
+    )
+    return tuple(sorted(packages)), exact_modules
 
 
 def _scan_covers_ownership(

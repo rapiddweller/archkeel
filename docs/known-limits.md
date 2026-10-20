@@ -14,12 +14,15 @@ imports are statements. An empty violation list is insufficient.
 
 Python `call_owner` supports stable plain top-level functions, plain parameter
 annotations, one typed parameter copied to a stable `self` field, proven default
-construction, and uniquely inherited method origins. Its native witnesses are
+construction, and uniquely inherited method origins for an otherwise admitted
+receiver. Inheriting a default constructor alone remains UNKNOWN. Its native witnesses are
 limited to import-bound `random.random`, `random.Random` methods,
 `datetime.datetime.now`, and `secrets.token_hex`. Other external targets,
 constructors, dynamic attributes, custom allocation, descriptors, ambiguous
 inheritance, decorated functions/methods, and mutated or revoked bindings remain
-UNKNOWN. It proves the declared static boundary, not runtime conformance. See
+UNKNOWN. Dynamic `setattr` or `delattr` with an unresolved member name revokes
+native identities under the affected provider. It proves the declared static
+boundary, not runtime conformance. See
 [AD-252](architecture/decisions/ad-252-bounded-call-identity.md).
 This rule requires a source/contract/inventory/call-bound receipt for its exact
 claim and observation version; legacy saved observations cannot certify it.

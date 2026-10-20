@@ -7,7 +7,7 @@ import json
 from dataclasses import replace
 
 import pytest
-from test_analyzer import _parsed_module
+from test_analyzer import _component, _observe, _parsed_module
 
 from archkeel.analyzer.python.constructs import collect_constructs
 
@@ -323,6 +323,129 @@ def test_numeric_module_alias_scope_chain_round_trips_native_facts(
     assert len(operations) == expected_count
     assert [record.data.get("proof") for record in operations] == ["known"] * expected_count
     assert [record.data.get("value") for record in operations] == [4] * expected_count
+
+
+@pytest.mark.parametrize(
+    ("source", "expected_owner", "expected_value"),
+    [
+        (
+            "WIDTH = 4\ndef choose(value=job_nonce % WIDTH): return value\n",
+            "sample.core",
+            4,
+        ),
+        (
+            "WIDTH = 4\n@decorate(job_nonce % WIDTH)\ndef choose(): return None\n",
+            "sample.core",
+            4,
+        ),
+        (
+            "WIDTH = 4\n@decorate(job_nonce % WIDTH)\nclass Holder: pass\n",
+            "sample.core",
+            4,
+        ),
+        (
+            "def outer(job_nonce):\n"
+            "    WIDTH = 8\n"
+            "    @decorate(job_nonce % WIDTH)\n"
+            "    def inner(): return None\n",
+            "sample.core.outer",
+            8,
+        ),
+        (
+            "def outer(job_nonce):\n"
+            "    WIDTH = 8\n"
+            "    def inner(value=job_nonce % WIDTH): return value\n"
+            "    return inner()\n",
+            "sample.core.outer",
+            8,
+        ),
+        (
+            "def outer(job_nonce):\n    WIDTH = 8\n    class Inner(job_nonce % WIDTH): pass\n",
+            "sample.core.outer",
+            8,
+        ),
+        (
+            "class Holder:\n"
+            "    WIDTH = 16\n"
+            "    def choose(self, value=job_nonce % WIDTH): return value\n",
+            "sample.core.Holder",
+            16,
+        ),
+    ],
+)
+def test_numeric_definition_headers_use_their_enclosing_lexical_scope(
+    tmp_path, source, expected_owner, expected_value
+):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes
+    from archkeel.ir.codec_observation import observation_payload
+    from archkeel.ir.decisions import rule_assessments, unknown_positions_by_rule
+    from archkeel.ir.facts_validation import validate_source_facts
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(source)
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    validate_source_facts(facts)
+    operations = [
+        record
+        for section in facts.sections
+        for record in section.records
+        if record.kind == "numeric_operand"
+    ]
+    assert len(operations) == 1
+    assert operations[0].data.get("proof") == "known"
+    assert operations[0].data.get("value") == expected_value
+    assert operations[0].data.get("owner") == expected_owner
+
+    (tmp_path / "contract.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "3.8.0",
+                "components": [_component("core")],
+                "rules": [
+                    {
+                        "id": "WIDTH",
+                        "kind": "bounded_numeric_operand",
+                        "rationale": "Probe lexical ownership in evaluated headers.",
+                        "provenance": ["docs/architecture/sample.md"],
+                        "decided_by": "architect",
+                        "source": "sample.core",
+                        "form": "both",
+                        "terminal_suffix": "nonce",
+                        "minimum_value": 4,
+                    }
+                ],
+            }
+        )
+    )
+    observed = _observe(tmp_path)
+    assert observed.observation is not None and not observed.diagnostics
+    assessments = rule_assessments(
+        observed.observation,
+        undecided_by_rule=unknown_positions_by_rule(observed.observation),
+    )
+    assert len(assessments) == 1 and assessments[0].status.value == "PASS"
+    for columnar in (False, True):
+        saved = tmp_path / "saved.json"
+        saved.write_bytes(
+            canonical_report_bytes(observed.observation)
+            if columnar
+            else json.dumps(observation_payload(observed.observation)).encode()
+        )
+        assert run_saved_report(saved).rule_assessments == assessments
 
 
 def test_numeric_module_alias_cannot_drop_an_enclosing_shadow_scope(tmp_path):

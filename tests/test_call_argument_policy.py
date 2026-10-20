@@ -522,3 +522,63 @@ def test_argument_rule_is_admitted_only_by_contract_3_10_schema():
     assert current.is_valid(payload)
     payload["schema_version"] = "3.9.0"
     assert not historical.is_valid(payload)
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize(
+    ("receiver_setup", "receiver"),
+    [
+        ("", "Storage().page"),
+        ("store = Storage()\n    ", "store.page"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("actual", "expected"),
+    [("'literal'", "FAIL"), ("spec", "PASS"), ("*queries", "UNKNOWN")],
+)
+def test_constructed_receiver_arguments_bind_and_replay(
+    tmp_path, mounted, columnar, receiver_setup, receiver, actual, expected
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import encode_canonical_model
+
+    caller = (
+        "from .storage import Storage\n"
+        "def consume(spec, queries):\n"
+        f"    {receiver_setup}{receiver}({actual})\n"
+    )
+    result, row = _observe(
+        tmp_path,
+        caller,
+        storage="class Storage:\n    def page(self, query): pass\n",
+        mounted=mounted,
+        target="sample.storage.Storage.page",
+    )
+
+    assert row.status.value == expected
+    report = observation_payload(result.observation)
+    saved = tmp_path / "constructed-receiver.json"
+    saved.write_text(json.dumps(encode_canonical_model(report) if columnar else report))
+    [replayed] = run_saved_report(saved).rule_assessments
+    assert replayed.status.value == expected
+    assert replayed.evaluation_proven == (expected != "UNKNOWN")
+    if expected != "UNKNOWN":
+        assert replayed == row
+
+
+def test_constructed_receiver_does_not_prove_a_mutated_method(tmp_path):
+    _, row = _observe(
+        tmp_path,
+        "from .storage import Storage\ndef consume():\n    Storage().page('literal')\n",
+        storage=(
+            "class Storage:\n    def page(self, query): pass\n"
+            "def replacement(self, query): pass\n"
+            "def mutate(cls):\n    cls.page = replacement\n"
+            "mutate(Storage)\n"
+        ),
+        target="sample.storage.Storage.page",
+    )
+
+    assert row.status.value == "UNKNOWN"
+    assert not row.evaluation_proven
