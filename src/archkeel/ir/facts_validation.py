@@ -855,8 +855,9 @@ def _numeric_function_binds_locally(
             if node.name == name:
                 return True
         if isinstance(node, ast.alias):
+            alias_name: str = node.name
             if node.asname == name or (
-                node.asname is None and (node.name == name or node.name.startswith(name + "."))
+                node.asname is None and (alias_name == name or alias_name.startswith(name + "."))
             ):
                 return True
         if isinstance(node, ast.ExceptHandler) and node.name == name:
