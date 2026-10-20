@@ -66,6 +66,16 @@ def _position_binding_uncertain(data: RawData, position: str) -> bool:
     return role == "member" and data.get("class_body_control_flow") is True
 
 
+def _declaration_binding_proven(symbol: RawRecord) -> bool:
+    data = symbol["data"]
+    if symbol["kind"] == "method":
+        return (
+            data.get("source_final_method_binding") is True
+            and data.get("signature_decorators_proven") is True
+        )
+    return data.get("source_binding_unique") is True
+
+
 def _selected_positions(
     rule: ProtocolDeclarationsRule,
     symbols: Sequence[RawRecord],
@@ -264,7 +274,7 @@ def _protocol_findings(
             if position == f"{selector.role.value}.{selector.name}"
         )
         data = symbol["data"]
-        binding_is_unique = data.get("source_binding_unique") is True
+        binding_is_unique = _declaration_binding_proven(symbol)
         class_header_is_static = (
             symbol["kind"] != "class" or data.get("class_header_static") is True
         )
