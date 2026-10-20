@@ -404,10 +404,10 @@ def test_native_html_audit_keeps_agent_decisions_in_the_recorded_packet(
     )
     result, architecture = run_report(root, config=CONFIG, analyzer=observe)
     assert architecture is not None
-    # 41 rules (AD-11, issue #47), 8 declared public lists and the inside's 3 requires entries
+    # 44 rules (AD-11, issue #47), 8 declared public lists and the inside's 3 requires entries
     # (AD-50).
-    assert result.agent_decisions == (1, 52)
-    assert "1 of 52 decisions made by the agent" in report_summary(result).sentence
+    assert result.agent_decisions == (1, 55)
+    assert "1 of 55 decisions made by the agent" in report_summary(result).sentence
 
     stripped = replace(result, agent_decisions=None)
     page = render_architecture_html(
@@ -415,7 +415,7 @@ def test_native_html_audit_keeps_agent_decisions_in_the_recorded_packet(
     ).decode()
 
     observation = parse_observation(decode_canonical_model(json.loads(architecture)))
-    assert agent_decisions(observation) == (1, 52)
+    assert agent_decisions(observation) == (1, 55)
     decision = next(
         item
         for item in observation.records("declarations") or ()
