@@ -70,7 +70,9 @@ parameter. Python collector facts preserve positional, keyword and spread
 actuals with evidence; Core binds explicit actuals to the observed signature
 without applying defaults. Only written string constants at the selected
 formal violate the rule. An invalid bind, spread, missing signature or
-unproven target/receiver leaves the scope UNKNOWN. See
+unproven target/receiver leaves the scope UNKNOWN. Calls without canonical
+binding carry null argument facts; a proven call with no actuals carries an
+empty list. See
 [AD-247](architecture/decisions/ad-247-written-call-arguments-bind-to-observed-formals.md).
 
 ### Ownership and dependency decisions

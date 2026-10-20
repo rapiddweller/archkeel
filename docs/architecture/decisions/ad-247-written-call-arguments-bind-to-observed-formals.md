@@ -19,6 +19,9 @@ source inventory, including signatures, argument kinds, literal values and
 argument evidence. A saved receipt cannot certify changed arguments or a
 different formal selector. Existing historical observation formats remain
 readable, while argument facts require observation 2.5 and contract 3.10.
+Calls without canonical call binding carry explicit null argument facts; a
+proven zero-argument call carries an empty list. This keeps unproven calls
+UNKNOWN without duplicating syntax and evidence that no argument policy can use.
 
 This is a written-literal policy, not a value-type checker, expression
 evaluator, SQL parser or policy on omitted defaults. Language profiles without

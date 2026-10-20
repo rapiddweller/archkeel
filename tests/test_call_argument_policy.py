@@ -288,6 +288,66 @@ def test_call_argument_evidence_requires_the_new_observation_version(tmp_path):
     assert not historical_schema.is_valid(raw)
 
 
+def test_bound_call_with_no_written_actuals_keeps_an_empty_tuple(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .storage import page\ndef consume(spec):\n    page()\n",
+        storage="def page(query: str = 'default') -> None: pass\n",
+    )
+
+    assert row.status == "PASS" and row.evaluation_proven
+    raw = observation_payload(result.observation)
+    [call] = [item for item in raw["calls"] if item["data"]["expression"] == "page"]
+    assert call["data"]["call_binding"] is not None
+    assert call["data"]["call_arguments"] == []
+
+
+@pytest.mark.parametrize("columnar", [False, True])
+def test_unbound_call_has_null_arguments_and_cannot_certify_policy(tmp_path, columnar):
+    from test_result_schema import _validator
+
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import encode_canonical_model
+
+    result, row = _observe(
+        tmp_path,
+        'def consume(spec):\n    unknown("literal")\n',
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    raw = observation_payload(result.observation)
+    [call] = [item for item in raw["calls"] if item["data"]["expression"] == "unknown"]
+    assert call["data"]["call_binding"] is None
+    assert call["data"]["call_arguments"] is None
+
+    validator = _validator("command-result-9.0.schema.json")
+    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.5.0"})
+    assert current_schema.is_valid(raw)
+
+    inconsistent = json.loads(json.dumps(raw))
+    inconsistent_call = next(
+        item for item in inconsistent["calls"] if item["data"]["expression"] == "unknown"
+    )
+    inconsistent_call["data"]["call_arguments"] = []
+    assert not current_schema.is_valid(inconsistent)
+    with pytest.raises(ValueError, match="canonical call binding"):
+        parse_observation(inconsistent)
+
+    saved = tmp_path / ("unbound-columnar.json" if columnar else "unbound.json")
+    saved_payload = encode_canonical_model(raw) if columnar else raw
+    saved.write_text(json.dumps(saved_payload))
+    replay = run_saved_report(saved)
+    [assessment] = replay.rule_assessments
+    assert assessment.status == "UNKNOWN" and not assessment.evaluation_proven
+
+    from archkeel.ir.codec import decode_canonical_model
+
+    decoded = parse_observation(decode_canonical_model(saved_payload))
+    [decoded_call] = [
+        item for item in decoded.records("calls") if item.data.get("expression") == "unknown"
+    ]
+    assert decoded_call.data.get("call_arguments") is None
+
+
 @pytest.mark.parametrize(
     ("caller", "source", "storage", "target"),
     [
