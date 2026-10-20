@@ -1129,6 +1129,7 @@ def rule_subject_failures(
     target_module_names: set[str] | None = None,
     symbols: Sequence[RawRecord] = (),
     imports: Sequence[RawRecord] = (),
+    observed_modules: Sequence[RawRecord] = (),
     contract: ArchitectureContract | None = None,
     exports_by_module: dict[str, frozenset[str]] | None = None,
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
@@ -1156,6 +1157,14 @@ def rule_subject_failures(
         ):
             scopes = {"source": scopes["source"]}
         source_subjects: AbstractSet[str] = module_names | planned_subjects
+        if isinstance(rule, BoundedNumericOperandRule) and contract is not None:
+            numeric_modules = tuple(
+                item["data"]["qualified_name"]
+                for item in _modules_for_rule_source(rule.source, observed_modules, contract)
+                if source_modules is None or item["data"]["qualified_name"] in source_modules
+            )
+            source_subjects = source_subjects | set(numeric_modules)
+            scopes = {"source": numeric_modules}
         target_subjects: AbstractSet[str] = (target_module_names or module_names) | planned_subjects
         if isinstance(rule, ForbiddenConstructRule):
             owner_modules = (

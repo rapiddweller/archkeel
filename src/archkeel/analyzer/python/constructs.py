@@ -10,7 +10,13 @@ from collections import Counter
 from collections.abc import Sequence
 from enum import Enum
 
-from archkeel.ir.facts import MAX_STATIC_INTEGER, EvidenceClass, SourceNameVisibility, stable_id
+from archkeel.ir.facts import (
+    MAX_NUMERIC_EVIDENCE_CHARS,
+    MAX_STATIC_INTEGER,
+    EvidenceClass,
+    SourceNameVisibility,
+    stable_id,
+)
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 from archkeel.ir.source_records import source_name_visibility as _source_name_visibility
@@ -599,6 +605,19 @@ class ConstructCollector(ast.NodeVisitor):
     ) -> None:
         subject = self._terminal_name(left)
         value, derivation = self._integer(right, node)
+        evidence_lines = [node.lineno, *(item["line"] for item in derivation)]
+        if value is not None and (
+            node.end_lineno != node.lineno
+            or any(item["line"] != item["end_line"] for item in derivation)
+            or any(
+                not isinstance(line, int)
+                or line < 1
+                or line > len(self.module.lines)
+                or len(self.module.lines[line - 1]) > MAX_NUMERIC_EVIDENCE_CHARS
+                for line in evidence_lines
+            )
+        ):
+            value, derivation = None, []
         start = (node.lineno, node.col_offset)
         end = (
             node.end_lineno if node.end_lineno is not None else node.lineno,

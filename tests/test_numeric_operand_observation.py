@@ -73,6 +73,239 @@ def test_dangling_numeric_evidence_is_a_protocol_error(tmp_path, link):
         decode_response(json.dumps(payload).encode())
 
 
+@pytest.mark.parametrize("mutation", ["literal", "value", "end_column"])
+def test_numeric_alias_claims_must_match_their_source_witnesses(tmp_path, mutation):
+    from dataclasses import replace
+
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import (
+        ProtocolError,
+        decode_response,
+        encode_response,
+        parse_record,
+    )
+    from archkeel.ir.facts_validation import validate_source_facts
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    (tmp_path / "sample").mkdir()
+    source = (
+        "def choose(job_nonce): return job_nonce % 4\n"
+        if mutation == "literal"
+        else "WIDTH = 4\ndef choose(job_nonce): return job_nonce % WIDTH\n"
+    )
+    (tmp_path / "sample/core.py").write_text(source)
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    operation = next(
+        record
+        for section in payload["facts"]["sections"]
+        for record in section["records"]
+        if record["kind"] == "numeric_operand"
+    )
+    if mutation == "literal":
+        operation["data"]["value"] = 2**32
+    elif mutation == "value":
+        operation["data"]["value"] = 2**32
+        operation["data"]["derivation"][0]["value"] = 2**32
+    else:
+        operation["data"]["derivation"][0]["end_column"] += 100
+
+    malformed = replace(
+        facts,
+        sections=tuple(
+            replace(
+                section,
+                records=tuple(
+                    parse_record(operation) if record.id == operation["id"] else record
+                    for record in section.records
+                ),
+            )
+            for section in facts.sections
+        ),
+    )
+    with pytest.raises(ValueError):
+        validate_source_facts(malformed)
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_same_line_indented_and_semicolon_aliases_validate(tmp_path):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "WIDTH = 4; OTHER = 8\n"
+        "def choose(job_nonce):\n"
+        "    first = job_nonce % WIDTH; second = job_nonce % OTHER\n"
+        "    return first, second\n"
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    response = decode_response(encode_response(CollectionResponse(facts)))
+    operations = [
+        row
+        for section in response.facts.sections
+        for row in section.records
+        if row.kind == "numeric_operand"
+    ]
+    assert [row.data.get("value") for row in operations] == [4, 8]
+
+
+def test_repeated_alias_origin_is_valid_when_expression_reuses_name(tmp_path):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "WIDTH = 2\ndef choose(job_nonce): return job_nonce % (WIDTH ** WIDTH)\n"
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    response = decode_response(encode_response(CollectionResponse(facts)))
+    operation = next(
+        row
+        for section in response.facts.sections
+        for row in section.records
+        if row.kind == "numeric_operand"
+    )
+    assert operation.data.get("value") == 4
+
+
+@pytest.mark.parametrize("form", ["binary", "augmented"])
+def test_numeric_operation_subject_must_match_left_terminal_name(tmp_path, form):
+    from dataclasses import replace
+
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
+    from archkeel.ir.facts_validation import validate_source_facts
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    source = (
+        "def choose(job_nonce): return job_nonce % 4\n"
+        if form == "binary"
+        else "def choose(job_nonce):\n    job_nonce %= 4\n"
+    )
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(source)
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    raw = next(
+        record
+        for section in payload["facts"]["sections"]
+        for record in section["records"]
+        if record["kind"] == "numeric_operand"
+    )
+    raw["data"]["subject"] = "some_other_name"
+    from archkeel.ir.facts_codec import parse_record
+
+    malformed = replace(
+        facts,
+        sections=tuple(
+            replace(
+                section,
+                records=tuple(
+                    parse_record(raw) if record.id == raw["id"] else record
+                    for record in section.records
+                ),
+            )
+            for section in facts.sections
+        ),
+    )
+    with pytest.raises(ValueError, match="numeric operand"):
+        validate_source_facts(malformed)
+    with pytest.raises(ProtocolError, match="numeric operand"):
+        decode_response(json.dumps(payload).encode())
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "WIDTH = (\n    4\n)\ndef choose(job_nonce): return job_nonce % WIDTH\n",
+        "def choose(job_nonce):\n    return job_nonce % (\n        4\n    )\n",
+    ],
+)
+def test_multiline_numeric_witnesses_remain_unknown(tmp_path, source):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(source)
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    response = decode_response(encode_response(CollectionResponse(facts)))
+    operations = [
+        row
+        for section in response.facts.sections
+        for row in section.records
+        if row.kind == "numeric_operand"
+    ]
+    assert len(operations) == 1
+    assert operations[0].data.get("proof") == "unknown"
+    assert operations[0].data.get("value") is None
+    assert operations[0].data.get("derivation") == ()
+
+
 def test_modulo_operations_have_distinct_full_spans_and_constant_proofs():
     source = """SMALL = 16
 WIDE = 2**64
