@@ -269,6 +269,48 @@ def test_native_selector_annotation_uses_proven_reexport_origin(tmp_path):
     assert binding.get("target") == "sample.pkg.types.Store"
 
 
+def test_selector_proof_index_is_shared_across_multiple_source_modules(tmp_path, monkeypatch):
+    payload = _payload(
+        tmp_path,
+        "from .storage import Store as Selected\ndef run(value: Selected): value.page()\n",
+        native=True,
+        extra={
+            "sample/caller_two.py": "from .other_types import OtherStore as Selected\n"
+            "def run(value: Selected): value.page()\n",
+            "sample/other_types.py": "class OtherStore:\n    def page(self): pass\n",
+        },
+    )
+    from archkeel.ir import facts_validation
+
+    original = facts_validation._source_proof_index
+    calls = 0
+
+    def count_builds(files, records):
+        nonlocal calls
+        calls += 1
+        return original(files, records)
+
+    monkeypatch.setattr(facts_validation, "_source_proof_index", count_builds)
+    facts = decode_response(json.dumps(payload).encode()).facts
+    selectors = [
+        record
+        for section in facts.sections
+        if section.name.value == "constructs"
+        for record in section.records
+        if record.kind == "construct_selector"
+    ]
+    bindings = {
+        record.data.get("owner"): record.data.get("receiver_binding").get("target")
+        for record in selectors
+        if record.data.get("receiver_binding") is not None
+    }
+    assert calls == 1
+    assert bindings == {
+        "sample.caller.run": "sample.storage.Store",
+        "sample.caller_two.run": "sample.other_types.OtherStore",
+    }
+
+
 def test_ambiguous_reexport_annotation_does_not_prove_selector_receiver(tmp_path):
     payload = _payload(
         tmp_path,

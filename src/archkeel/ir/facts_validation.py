@@ -7,6 +7,7 @@ import ast
 import re
 import sys
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import PurePosixPath
 
@@ -29,6 +30,7 @@ from .facts import (
     Evidence,
     EvidenceClass,
     ExternalPackageTarget,
+    FileFact,
     JsonValue,
     LocalTarget,
     MethodKind,
@@ -218,19 +220,46 @@ def _payload(value: RecordData) -> None:
             raise ValueError(f"source payload {key} must be a string array")
 
 
+@dataclass(frozen=True, slots=True)
+class _SourceProofIndex:
+    files_by_module: Mapping[str, tuple[FileFact, ...]]
+    imports_by_binding: Mapping[tuple[str, str], tuple[Record, ...]]
+    imports: tuple[Record, ...]
+
+
+def _source_proof_index(files: Sequence[FileFact], records: Sequence[Record]) -> _SourceProofIndex:
+    files_by_module: dict[str, list[FileFact]] = {}
+    imports_by_binding: dict[tuple[str, str], list[Record]] = {}
+    imports: list[Record] = []
+    for item in files:
+        files_by_module.setdefault(item.module, []).append(item)
+    for record in records:
+        if record.kind != "import":
+            continue
+        imports.append(record)
+        module, binding = record.data.get("source_module"), record.data.get("binding")
+        if isinstance(module, str) and isinstance(binding, str):
+            imports_by_binding.setdefault((module, binding), []).append(record)
+    return _SourceProofIndex(
+        {name: tuple(items) for name, items in files_by_module.items()},
+        {key: tuple(items) for key, items in imports_by_binding.items()},
+        tuple(imports),
+    )
+
+
 def _signature_origin(
-    data: RecordData, spelling: str, records: list[Record], facts: SourceFacts
+    data: RecordData, spelling: str, proof_index: _SourceProofIndex
 ) -> str | None:
     root, _, suffix = spelling.partition(".")
     module = data.get("module")
-    files = [file for file in facts.files if file.module == module]
+    files = proof_index.files_by_module.get(module, ()) if isinstance(module, str) else ()
+    imported_rows = (
+        proof_index.imports_by_binding.get((module, root), ()) if isinstance(module, str) else ()
+    )
     matches = [
         record
-        for record in records
-        if record.kind == "import"
-        and record.data.get("source_module") == module
-        and record.data.get("binding") == root
-        and record.data.get("module_level_import") is True
+        for record in imported_rows
+        if record.data.get("module_level_import") is True
         and record.data.get("under_type_checking") is False
     ]
     if len(files) != 1 or root not in files[0].stable_bindings or len(matches) != 1:
@@ -259,13 +288,16 @@ def _annotation_class_origin(
     parameter: RecordData,
     facts: SourceFacts,
     declarations: Mapping[str, list[Record]],
+    proof_index: _SourceProofIndex | None = None,
 ) -> str | None:
     annotation = parameter.get("annotation")
     module = initializer.data.get("module")
     if not isinstance(annotation, str) or not annotation or not isinstance(module, str):
         return None
-    records = [record for section in facts.sections for record in section.records]
-    imported = _signature_origin(initializer.data, annotation, records, facts)
+    if proof_index is None:
+        records = [record for section in facts.sections for record in section.records]
+        proof_index = _source_proof_index(facts.files, records)
+    imported = _signature_origin(initializer.data, annotation, proof_index)
     candidates = (imported,) if imported is not None else (f"{module}.{annotation}",)
     matches = [
         target
@@ -626,6 +658,7 @@ def _selector_receiver_proof(
     receiver_parameter: str | None,
     declarations: Mapping[str, list[Record]],
     evidence: Mapping[str, Evidence],
+    proof_index: _SourceProofIndex,
 ) -> None:
     receiver_type = record.data.get("receiver_type")
     if binding is None:
@@ -649,34 +682,23 @@ def _selector_receiver_proof(
         receiver_parameter,
         declarations,
         evidence,
-        tuple(
-            item
-            for section in facts.sections
-            if section.name is SourceSectionName.IMPORTS
-            for item in section.records
-        ),
+        proof_index.imports,
     ):
         raise ValueError("selector receiver proof does not match its source expression")
     targets = declarations.get(binding.target, [])
     if binding.origin is CallBindingOrigin.DIRECT:
-        imports = tuple(
-            item
-            for section in facts.sections
-            if section.name is SourceSectionName.IMPORTS
-            for item in section.records
-        )
-        _selector_direct_receiver_proof(binding, receiver_parameter, targets, imports)
+        _selector_direct_receiver_proof(binding, receiver_parameter, targets, proof_index.imports)
         return
     if binding.origin is CallBindingOrigin.DECLARED_RECEIVER:
         _selector_declared_receiver_proof(
-            facts, record, binding, receiver_parameter, declarations, targets
+            facts, record, binding, receiver_parameter, declarations, targets, proof_index
         )
         return
     proof = binding.proof
     if proof is None:
         raise ValueError("extended selector receiver needs its typed origin proof")
     if binding.origin is CallBindingOrigin.STORED_RECEIVER:
-        _selector_stored_receiver_proof(facts, binding, declarations, targets)
+        _selector_stored_receiver_proof(facts, binding, declarations, targets, proof_index)
         return
     if binding.origin is CallBindingOrigin.CONSTRUCTED_RECEIVER:
         _selector_constructed_receiver_proof(facts, record, binding, proof, targets, evidence)
@@ -716,6 +738,7 @@ def _selector_declared_receiver_proof(
     receiver_parameter: str | None,
     declarations: Mapping[str, list[Record]],
     targets: list[Record],
+    proof_index: _SourceProofIndex,
 ) -> None:
     owner_name = record.data.get("owner")
     owners = declarations.get(owner_name, []) if isinstance(owner_name, str) else []
@@ -730,7 +753,7 @@ def _selector_declared_receiver_proof(
         else []
     )
     annotation_target = (
-        _annotation_class_origin(owners[0], selected[0], facts, declarations)
+        _annotation_class_origin(owners[0], selected[0], facts, declarations, proof_index)
         if len(owners) == 1 and len(selected) == 1
         else None
     )
@@ -753,6 +776,7 @@ def _selector_stored_receiver_proof(
     binding: CallBinding,
     declarations: Mapping[str, list[Record]],
     targets: list[Record],
+    proof_index: _SourceProofIndex,
 ) -> None:
     proof = binding.proof
     if proof is None:
@@ -794,7 +818,7 @@ def _selector_stored_receiver_proof(
         else []
     )
     annotation_target = (
-        _annotation_class_origin(initializers[0], typed[0], facts, declarations)
+        _annotation_class_origin(initializers[0], typed[0], facts, declarations, proof_index)
         if len(initializers) == 1 and len(typed) == 1
         else None
     )
@@ -1071,6 +1095,7 @@ def _contextmanager_signatures(
     records: list[Record],
     evidence: dict[str, Evidence],
     inputs: Mapping[str, ResolutionInput],
+    proof_index: _SourceProofIndex,
 ) -> None:
     bindings = {binding.qualified_name: binding for binding in facts.provider_bindings}
     for record in records:
@@ -1094,8 +1119,8 @@ def _contextmanager_signatures(
         ):
             raise ValueError("contextmanager signature source/runtime identity mismatch")
         source = _signature_shapes(data, signature, dict(facts.type_shapes))
-        decorated = _signature_origin(data, decorators[0], records, facts)
-        iterator = _signature_origin(data, source.head.text, records, facts)
+        decorated = _signature_origin(data, decorators[0], proof_index)
+        iterator = _signature_origin(data, source.head.text, proof_index)
         factory = _signature_terminal(decorated, bindings) if decorated is not None else None
         payload = _signature_terminal(iterator, bindings) if iterator is not None else None
         wrapper = bindings.get(signature.effective_return.wrapper)
@@ -2517,6 +2542,7 @@ def _call_origin_proof(
     binding: CallBinding,
     declarations: Mapping[str, list[Record]],
     evidence: Mapping[str, Evidence],
+    proof_index: _SourceProofIndex,
 ) -> None:
     proof = binding.proof
     if proof is None:
@@ -2531,7 +2557,7 @@ def _call_origin_proof(
         return
     _validate_call_proof_runtime(facts, proof)
     if binding.origin is CallBindingOrigin.STORED_RECEIVER:
-        _stored_receiver_proof(facts, record, binding, proof, declarations, evidence)
+        _stored_receiver_proof(facts, record, binding, proof, declarations, evidence, proof_index)
     elif binding.origin is CallBindingOrigin.CONSTRUCTED_RECEIVER:
         _constructed_receiver_proof(facts, record, binding, proof, declarations, evidence)
     elif binding.origin is CallBindingOrigin.CONSTRUCTOR:
@@ -2559,6 +2585,7 @@ def _stored_receiver_proof(
     proof: RecordData,
     declarations: Mapping[str, list[Record]],
     evidence: Mapping[str, Evidence],
+    proof_index: _SourceProofIndex,
 ) -> None:
     owner_name, field, parameter, target = (
         proof.get("owner"),
@@ -2576,6 +2603,7 @@ def _stored_receiver_proof(
         parameter,
         target,
         witnesses,
+        proof_index,
     )
     if linked is None:
         raise ValueError("stored receiver needs a linked initializer and annotation witness")
@@ -2628,6 +2656,7 @@ def _stored_receiver_links(
     parameter: JsonValue,
     target: JsonValue,
     witnesses: JsonValue,
+    proof_index: _SourceProofIndex,
 ) -> (
     tuple[
         list[Record],
@@ -2682,7 +2711,9 @@ def _stored_receiver_links(
     else:
         path_matches, path_evidence = False, ()
     annotation_target = (
-        _annotation_class_origin(initializers[0], typed_parameters[0], facts, declarations)
+        _annotation_class_origin(
+            initializers[0], typed_parameters[0], facts, declarations, proof_index
+        )
         if len(typed_parameters) == 1
         else None
     )
@@ -3961,6 +3992,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
     if names != declared:
         raise ValueError("source sections disagree with declared capabilities")
     records = [record for section in facts.sections for record in section.records]
+    proof_index = _source_proof_index(facts.files, records)
     declarations_by_id = {
         record.id: record
         for section in facts.sections
@@ -4137,7 +4169,9 @@ def validate_source_facts(facts: SourceFacts) -> None:
             ):
                 raise ValueError("call binding disagrees with its target declaration")
             if call_proof is not None:
-                _call_origin_proof(facts, record, call_proof, declarations, typed_evidence)
+                _call_origin_proof(
+                    facts, record, call_proof, declarations, typed_evidence, proof_index
+                )
     for section in facts.sections:
         if section.name is not SourceSectionName.CONSTRUCTS:
             continue
@@ -4151,6 +4185,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
                     receiver_parameter if isinstance(receiver_parameter, str) else None,
                     declarations,
                     typed_evidence,
+                    proof_index,
                 )
     record_by_id = {record.id: record for record in records}
     effects = [record for record in records if record.kind == "script_namespace_effect"]
@@ -4176,7 +4211,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
         allow_script_effects=script_effects,
     )
     _property_bindings(records, base_by_id)
-    _contextmanager_signatures(facts, records, base_by_id, input_by_path)
+    _contextmanager_signatures(facts, records, base_by_id, input_by_path, proof_index)
     _member_inventory_bindings(records)
     for gap in facts.coverage.gaps:
         _source_record(gap, SourceSectionName.UNKNOWNS)
