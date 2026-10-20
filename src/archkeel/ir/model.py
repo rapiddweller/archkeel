@@ -1141,6 +1141,19 @@ def _module_object_grant_references(
     ]
 
 
+def _catalog_references(
+    index: int, rule: CatalogArgumentRule | CatalogUseRule
+) -> list[ModuleReference]:
+    named = [
+        ("source", (rule.source,), True),
+        ("catalog", (rule.catalog,), True),
+        ("overlays", rule.overlays, True),
+    ]
+    if isinstance(rule, CatalogArgumentRule):
+        named.insert(1, ("target", (rule.target,), True))
+    return _references(f"/rules/{index}", named)
+
+
 def _rule_references(
     index: int, rule: ArchitectureRule, external: frozenset[str]
 ) -> list[ModuleReference]:
@@ -1152,25 +1165,8 @@ def _rule_references(
             f"/rules/{index}",
             [("source", (rule.source,), True), ("target", (rule.target,), False)],
         )
-    if isinstance(rule, CatalogArgumentRule):
-        return _references(
-            f"/rules/{index}",
-            [
-                ("source", (rule.source,), True),
-                ("target", (rule.target,), True),
-                ("catalog", (rule.catalog,), True),
-                ("overlays", rule.overlays, True),
-            ],
-        )
-    if isinstance(rule, CatalogUseRule):
-        return _references(
-            f"/rules/{index}",
-            [
-                ("source", (rule.source,), True),
-                ("catalog", (rule.catalog,), True),
-                ("overlays", rule.overlays, True),
-            ],
-        )
+    if isinstance(rule, CatalogArgumentRule | CatalogUseRule):
+        return _catalog_references(index, rule)
     named: list[tuple[str, tuple[str, ...], bool]] = []
     if isinstance(
         rule,

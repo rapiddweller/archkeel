@@ -1882,7 +1882,6 @@ def _protected_member_references(
             for decorator in method.decorator_list
             for item in ast.walk(decorator)
         }
-    if member_surface:
         protected |= _type_reference_nodes(
             module,
             [base for node in nodes if isinstance(node, ast.ClassDef) for base in node.bases],
@@ -1899,7 +1898,6 @@ def _protected_member_references(
     }
     if owner_exposure_only:
         protected |= _protected_class_owner_references(module, unsafe_providers)
-    if owner_exposure_only:
         protected |= _type_reference_nodes(
             module,
             [
