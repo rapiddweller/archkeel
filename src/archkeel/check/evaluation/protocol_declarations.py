@@ -82,6 +82,28 @@ def _declaration_binding_proven(symbol: RawRecord) -> bool:
     return data.get("source_binding_unique") is True
 
 
+def _classes_named(symbols: Sequence[RawRecord], name: str | None) -> list[RawRecord]:
+    result: list[RawRecord] = []
+    for symbol in symbols:
+        data: RawData = symbol["data"]
+        if symbol["kind"] == "class" and data.get("qualified_name") == name:
+            result.append(symbol)
+    return result
+
+
+def _member_methods(symbols: Sequence[RawRecord], owner_id: str, name: str) -> list[RawRecord]:
+    result: list[RawRecord] = []
+    for symbol in symbols:
+        data: RawData = symbol["data"]
+        if (
+            symbol["kind"] == "method"
+            and data.get("lexical_parent_id") == owner_id
+            and data.get("name") == name
+        ):
+            result.append(symbol)
+    return result
+
+
 def _class_binding_proven(symbol: RawRecord, symbols: Sequence[RawRecord]) -> bool:
     pending = [symbol]
     visited: set[str] = set()
@@ -115,11 +137,7 @@ def _class_binding_proven(symbol: RawRecord, symbols: Sequence[RawRecord]) -> bo
             for target in targets:
                 if not isinstance(target, str):
                     return False
-                owners = [
-                    item
-                    for item in symbols
-                    if item["kind"] == "class" and item["data"].get("qualified_name") == target
-                ]
+                owners = _classes_named(symbols, target)
                 if owners:
                     if len(owners) != 1:
                         return False
@@ -133,11 +151,7 @@ def _nested_class_binding_proven(symbol: RawRecord, symbols: Sequence[RawRecord]
         return True
     name = data.get("name")
     parent = data.get("parent")
-    owners = [
-        item
-        for item in symbols
-        if item["kind"] == "class" and item["data"].get("qualified_name") == parent
-    ]
+    owners = _classes_named(symbols, parent)
     if not isinstance(name, str) or len(owners) != 1:
         return False
     owner_data = owners[0]["data"]
@@ -154,8 +168,9 @@ def _nested_class_binding_proven(symbol: RawRecord, symbols: Sequence[RawRecord]
 def _decorated_method_binding_proven(symbol: RawRecord, owner: RawRecord) -> bool:
     data = symbol["data"]
     decorators = data.get("decorators", ())
-    inventories = owner["data"].get("member_inventories", ())
-    attributes = owner["data"].get("attribute_declarations", ())
+    owner_data = owner["data"]
+    inventories = owner_data.get("member_inventories", ())
+    attributes = owner_data.get("attribute_declarations", ())
     inventory = next(
         (
             item
@@ -189,10 +204,11 @@ def _nested_method_binding_proven(
 ) -> bool:
     data = symbol["data"]
     name = data.get("name")
+    owner_data = owner["data"]
     inventory = next(
         (
             item
-            for item in owner["data"].get("member_inventories", ())
+            for item in owner_data.get("member_inventories", ())
             if isinstance(item, dict | RecordData) and item.get("kind") == "method"
         ),
         None,
@@ -200,24 +216,21 @@ def _nested_method_binding_proven(
     definitions = (
         inventory.get("definition_ids", ()) if isinstance(inventory, dict | RecordData) else ()
     )
-    attributes = owner["data"].get("attribute_declarations", ())
+    attributes = owner_data.get("attribute_declarations", ())
+    attribute_conflict = isinstance(attributes, (tuple, list)) and any(
+        isinstance(item, dict | RecordData) and item.get("name") == name for item in attributes
+    )
     return (
         isinstance(name, str)
         and data.get("signature_decorators_proven") is True
+        and isinstance(inventory, dict | RecordData)
+        and inventory.get("status") == "complete"
         and isinstance(definitions, (tuple, list))
         and definitions.count(symbol["id"]) == 1
-        and sum(
-            item["kind"] == "method"
-            and item["data"].get("lexical_parent_id") == owner["id"]
-            and item["data"].get("name") == name
-            for item in symbols
-        )
-        == 1
-        and name in owner["data"].get("class_members", ())
-        and not any(
-            isinstance(item, dict | RecordData) and item.get("name") == name for item in attributes
-        )
-        and owner["data"].get("class_body_control_flow") is not True
+        and len(_member_methods(symbols, owner["id"], name)) == 1
+        and name in owner_data.get("class_members", ())
+        and not attribute_conflict
+        and owner_data.get("class_body_control_flow") is not True
         and _class_binding_proven(owner, symbols)
     )
 
@@ -225,21 +238,20 @@ def _nested_method_binding_proven(
 def _public_declaration(symbol: RawRecord, symbols: Sequence[RawRecord]) -> bool:
     if not _public(symbol):
         return False
-    parent = symbol["data"].get("parent") if symbol["kind"] == "method" else None
+    data = symbol["data"]
+    parent = data.get("parent") if symbol["kind"] == "method" else None
     while isinstance(parent, str):
-        owners = [
-            item
-            for item in symbols
-            if item["kind"] == "class" and item["data"].get("qualified_name") == parent
-        ]
+        owners = _classes_named(symbols, parent)
         if len(owners) != 1 or not _public(owners[0]):
             return False
-        parent = owners[0]["data"].get("parent")
+        owner_data = owners[0]["data"]
+        parent = owner_data.get("parent")
     return True
 
 
 def _attribute_inventory_complete(symbol: RawRecord) -> bool:
-    inventories = symbol["data"].get("member_inventories", ())
+    data = symbol["data"]
+    inventories = data.get("member_inventories", ())
     return isinstance(inventories, (tuple, list)) and any(
         isinstance(item, dict | RecordData)
         and item.get("kind") == "attribute"
@@ -260,7 +272,8 @@ def _select_parameter(
         symbol, symbols
     ):
         return
-    parameters = symbol["data"].get("parameters", ())
+    data = symbol["data"]
+    parameters = data.get("parameters", ())
     for parameter in parameters if isinstance(parameters, (tuple, list)) else ():
         if not isinstance(parameter, dict) or _parameter_name(parameter) != selector.name:
             continue
@@ -302,12 +315,7 @@ def _select_member(
         evidence_ids = tuple(evidence) if isinstance(evidence, (tuple, list)) else ()
         key = (symbol["id"], position)
         previous = selected.get(key)
-        overridden = any(
-            item["kind"] == "method"
-            and item["data"].get("lexical_parent_id") == symbol["id"]
-            and item["data"].get("name") == selector.name
-            for item in symbols
-        )
+        overridden = bool(_member_methods(symbols, symbol["id"], selector.name))
         uncertain = not _attribute_inventory_complete(symbol) or overridden
         if previous is None:
             selected[key] = (
@@ -477,11 +485,7 @@ def _position_status(
     data = symbol["data"]
     binding_is_unique = _declaration_binding_proven(symbol)
     owner_name = data.get("parent") if symbol["kind"] == "method" else None
-    class_owners = [
-        item
-        for item in symbols
-        if item["kind"] == "class" and item["data"].get("qualified_name") == owner_name
-    ]
+    class_owners = _classes_named(symbols, owner_name)
     if symbol["kind"] == "method" and len(class_owners) == 1:
         owner = class_owners[0]
         binding_is_unique |= _decorated_method_binding_proven(symbol, owner) or (

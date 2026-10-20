@@ -601,12 +601,16 @@ _METHOD_VISIBILITY_CASES = {
     "alias_abstract_parameter": "PASS",
     "opaque_method_parameter": "UNKNOWN",
     "rebound_method_parameter": "UNKNOWN",
+    "deleted_method_parameter": "UNKNOWN",
+    "imported_method_parameter": "UNKNOWN",
+    "nested_deleted_method_parameter": "UNKNOWN",
+    "nested_imported_method_parameter": "UNKNOWN",
 }
 _PUBLIC_CLASS_CASES = {
-    "private_parameter": "UNKNOWN",
+    "private_parameter": "PASS",
     "private_nested_parameter": "UNKNOWN",
     "hidden_inner_parameter": "UNKNOWN",
-    "public_nested_parameter": "PASS",
+    "public_nested_parameter": "UNKNOWN",
 }
 _PUBLIC_PARAMETER_CASES = {
     "private_parameter",
@@ -632,11 +636,28 @@ _METHOD_VISIBILITY_SOURCE = (
     "class ReboundMethod:\n"
     "    @staticmethod\n    def consume(rebound_method_parameter: Reader): pass\n"
     "    consume = opaque(consume)\n"
+    "class DeletedMethod:\n"
+    "    @staticmethod\n"
+    "    def consume(deleted_method_parameter: Reader): pass\n"
+    "    del consume\n"
+    "class ImportedMethod:\n"
+    "    @staticmethod\n"
+    "    def consume(imported_method_parameter: Reader): pass\n"
+    "    from .ports import replacement as consume\n"
+    "class NestedDeleteOwner:\n"
+    "    class Nested:\n"
+    "        def consume(self, nested_deleted_method_parameter: Reader): pass\n"
+    "        del consume\n"
+    "class NestedImportOwner:\n"
+    "    class Nested:\n"
+    "        def consume(self, nested_imported_method_parameter: Reader): pass\n"
+    "        from .ports import replacement as consume\n"
 )
 _PUBLIC_CLASS_SOURCE = (
     "from typing import Protocol\n"
     "class Reader(Protocol): ...\n"
     "class Concrete: ...\n"
+    "def public_control(private_parameter: Reader): pass\n"
     "class _Internal:\n    def consume(self, private_parameter: Concrete): pass\n"
     "class _Outer:\n"
     "    class PublicInner:\n"
@@ -660,7 +681,7 @@ def test_decorated_methods_and_private_class_visibility(
     files = {
         "sample/__init__.py": "",
         "sample/core.py": _METHOD_VISIBILITY_SOURCE,
-        "sample/ports.py": "",
+        "sample/ports.py": "def replacement(*args): pass\n",
     }
     if mounted:
         files["inside.json"] = json.dumps(
@@ -724,6 +745,46 @@ def test_public_parameter_selectors_follow_all_enclosing_class_visibility(
     }
     payload = observation_payload(result.observation)
     saved = tmp_path / "public-class-visibility.json"
+    saved.write_bytes(canonical_report_bytes(payload) if columnar else json.dumps(payload).encode())
+    replay = run_saved_report(saved)
+    assert not replay.diagnostics
+    assert replay.rule_assessments == assessments
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_private_parameter_selector_still_includes_private_class_declarations(
+    tmp_path: Path, mounted: bool, columnar: bool
+) -> None:
+    rules = _protocol_binding_rules({"private_parameter": "FAIL"})
+    rules[0]["selectors"] = [
+        {"role": "parameter", "name": "private_parameter", "visibility": "all"}
+    ]
+    raw = _contract()
+    raw["rules"] = rules
+    files = {
+        "sample/__init__.py": "",
+        "sample/core.py": _PUBLIC_CLASS_SOURCE,
+        "sample/ports.py": "",
+    }
+    if mounted:
+        files["inside.json"] = json.dumps(
+            {
+                "schema_version": "3.9.0",
+                "components": [_component("all", ["sample"])],
+                "rules": rules,
+            }
+        )
+        raw["components"] = [_component("outer", ["sample"], inside="inside.json")]
+        raw["rules"] = []
+    result = _observe_tree(tmp_path, files, raw)
+    assert not result.diagnostics and result.observation is not None
+    assessments = rule_assessments(
+        result.observation, undecided_by_rule=unknown_positions_by_rule(result.observation)
+    )
+    assert [row.status.value for row in assessments] == ["FAIL"]
+    payload = observation_payload(result.observation)
+    saved = tmp_path / "private-selector.json"
     saved.write_bytes(canonical_report_bytes(payload) if columnar else json.dumps(payload).encode())
     replay = run_saved_report(saved)
     assert not replay.diagnostics
