@@ -469,6 +469,329 @@ def test_function_parameters_require_proven_decorator_binding(
     assert replay.rule_assessments == assessments
 
 
+def _protocol_binding_cases() -> dict[str, str]:
+    return {
+        "trusted_parameter": "PASS",
+        "decorated_parameter": "UNKNOWN",
+        "based_parameter": "UNKNOWN",
+        "decorated_base_parameter": "UNKNOWN",
+        "metaclass_parameter": "UNKNOWN",
+        "rebound_parameter": "UNKNOWN",
+        "conditional_parameter": "UNKNOWN",
+        "missing_parameter": "FAIL",
+        "concrete_parameter": "FAIL",
+        "trusted_member": "PASS",
+        "default_member": "PASS",
+        "method_member": "UNKNOWN",
+        "import_member": "UNKNOWN",
+        "deleted_member": "UNKNOWN",
+        "reassigned_member": "UNKNOWN",
+        "missing_member": "FAIL",
+        "concrete_member": "FAIL",
+    }
+
+
+def _protocol_binding_rules(cases: dict[str, str]) -> list[dict[str, object]]:
+    return [
+        {
+            "id": f"APP-{name.upper()}-DECLARATIONS",
+            "kind": "protocol_declarations",
+            "source": "sample.core",
+            "protocol": "sample.core.Reader",
+            "selectors": [
+                {
+                    "role": "member" if name.endswith("member") else "parameter",
+                    "name": name,
+                    "visibility": "public" if name in _PUBLIC_PARAMETER_CASES else "all",
+                }
+            ],
+            "rationale": "Selected positions use the canonical Reader port.",
+            "provenance": ["docs/architecture/sample.md"],
+            "decided_by": "architect",
+        }
+        for name in cases
+    ]
+
+
+_PROTOCOL_BINDING_SOURCE = (
+    "from typing import Protocol\n"
+    "class Reader(Protocol): ...\n"
+    "class Concrete: ...\n"
+    "def factory(): return object\n"
+    "def opaque(function): return function\n"
+    "class Trusted:\n"
+    "    def receive(self, trusted_parameter: Reader, missing_parameter, "
+    "concrete_parameter: Concrete): pass\n"
+    "@opaque\nclass Decorated:\n"
+    "    def receive(self, decorated_parameter: Reader): pass\n"
+    "class Based(factory()):\n"
+    "    def receive(self, based_parameter: Reader): pass\n"
+    "@opaque\nclass OpaqueBase: pass\n"
+    "class DecoratedBaseChild(OpaqueBase):\n"
+    "    def receive(self, decorated_base_parameter: Reader): pass\n"
+    "class Metaclassed(metaclass=factory()):\n"
+    "    def receive(self, metaclass_parameter: Reader): pass\n"
+    "class Rebound:\n"
+    "    def receive(self, rebound_parameter: Reader): pass\n"
+    "Rebound = factory()\n"
+    "if FEATURE:\n    class Conditional:\n"
+    "        def receive(self, conditional_parameter: Reader): pass\n"
+    "class TrustedMember:\n    trusted_member: Reader\n"
+    "class DefaultMember:\n    default_member: Reader = None\n"
+    "class MethodMember:\n"
+    "    method_member: Reader\n    def method_member(self): pass\n"
+    "class ImportMember:\n"
+    "    from .ports import Reader as import_member\n    import_member: Reader\n"
+    "class DeletedMember:\n"
+    "    deleted_member: Reader\n    del deleted_member\n"
+    "class ReassignedMember:\n"
+    "    reassigned_member: Reader\n    reassigned_member = Reader()\n"
+    "class MissingMember:\n    missing_member = None\n"
+    "class ConcreteMember:\n    concrete_member: Concrete\n"
+)
+
+_PUBLIC_PARAMETER_CASES: set[str] = set()
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_protocol_positions_require_static_class_and_member_bindings(
+    tmp_path: Path, mounted: bool, columnar: bool
+) -> None:
+    cases = _protocol_binding_cases()
+    rules = _protocol_binding_rules(cases)
+    raw = _contract()
+    raw["rules"] = rules
+    files = {
+        "sample/__init__.py": "",
+        "sample/core.py": _PROTOCOL_BINDING_SOURCE,
+        "sample/ports.py": "",
+    }
+    if mounted:
+        files["inside.json"] = json.dumps(
+            {
+                "schema_version": "3.9.0",
+                "components": [_component("all", ["sample"])],
+                "rules": rules,
+            }
+        )
+        raw["components"] = [_component("outer", ["sample"], inside="inside.json")]
+        raw["rules"] = []
+    result = _observe_tree(tmp_path, files, raw)
+    assert not result.diagnostics and result.observation is not None
+    assessments = rule_assessments(
+        result.observation, undecided_by_rule=unknown_positions_by_rule(result.observation)
+    )
+    observed = {row.id.rsplit(":", 1)[-1]: row.status.value for row in assessments}
+    assert observed == {
+        f"APP-{name.upper()}-DECLARATIONS": status for name, status in cases.items()
+    }
+    payload = observation_payload(result.observation)
+    saved = tmp_path / "class-bindings.json"
+    saved.write_bytes(canonical_report_bytes(payload) if columnar else json.dumps(payload).encode())
+    replay = run_saved_report(saved)
+    assert not replay.diagnostics
+    assert replay.rule_assessments == assessments
+
+
+_METHOD_VISIBILITY_CASES = {
+    "static_parameter": "PASS",
+    "class_parameter": "PASS",
+    "abstract_parameter": "PASS",
+    "alias_static_parameter": "PASS",
+    "alias_abstract_parameter": "PASS",
+    "opaque_method_parameter": "UNKNOWN",
+    "rebound_method_parameter": "UNKNOWN",
+    "deleted_method_parameter": "UNKNOWN",
+    "imported_method_parameter": "UNKNOWN",
+    "nested_deleted_method_parameter": "UNKNOWN",
+    "nested_imported_method_parameter": "UNKNOWN",
+}
+_PUBLIC_CLASS_CASES = {
+    "private_parameter": "PASS",
+    "private_nested_parameter": "UNKNOWN",
+    "hidden_inner_parameter": "UNKNOWN",
+    "public_nested_parameter": "UNKNOWN",
+}
+_PUBLIC_PARAMETER_CASES = {
+    "private_parameter",
+    "private_nested_parameter",
+    "hidden_inner_parameter",
+    "public_nested_parameter",
+}
+_METHOD_VISIBILITY_SOURCE = (
+    "from abc import abstractmethod\n"
+    "from abc import abstractmethod as abstract\n"
+    "from builtins import staticmethod as stable\n"
+    "from typing import Protocol\n"
+    "class Reader(Protocol): ...\n"
+    "class Concrete: ...\n"
+    "def opaque(function): return function\n"
+    "class StaticMethods:\n"
+    "    @staticmethod\n    def consume(static_parameter: Reader): pass\n"
+    "    @classmethod\n    def classed(cls, class_parameter: Reader): pass\n"
+    "    @abstractmethod\n    def abstracted(self, abstract_parameter: Reader): pass\n"
+    "    @stable\n    def aliased_static(self, alias_static_parameter: Reader): pass\n"
+    "    @abstract\n    def aliased_abstract(self, alias_abstract_parameter: Reader): pass\n"
+    "    @opaque\n    def opaque(self, opaque_method_parameter: Reader): pass\n"
+    "class ReboundMethod:\n"
+    "    @staticmethod\n    def consume(rebound_method_parameter: Reader): pass\n"
+    "    consume = opaque(consume)\n"
+    "class DeletedMethod:\n"
+    "    @staticmethod\n"
+    "    def consume(deleted_method_parameter: Reader): pass\n"
+    "    del consume\n"
+    "class ImportedMethod:\n"
+    "    @staticmethod\n"
+    "    def consume(imported_method_parameter: Reader): pass\n"
+    "    from .ports import replacement as consume\n"
+    "class NestedDeleteOwner:\n"
+    "    class Nested:\n"
+    "        def consume(self, nested_deleted_method_parameter: Reader): pass\n"
+    "        del consume\n"
+    "class NestedImportOwner:\n"
+    "    class Nested:\n"
+    "        def consume(self, nested_imported_method_parameter: Reader): pass\n"
+    "        from .ports import replacement as consume\n"
+)
+_PUBLIC_CLASS_SOURCE = (
+    "from typing import Protocol\n"
+    "class Reader(Protocol): ...\n"
+    "class Concrete: ...\n"
+    "def public_control(private_parameter: Reader): pass\n"
+    "class _Internal:\n    def consume(self, private_parameter: Concrete): pass\n"
+    "class _Outer:\n"
+    "    class PublicInner:\n"
+    "        def consume(self, private_nested_parameter: Concrete): pass\n"
+    "class Outer:\n"
+    "    class _Inner:\n"
+    "        def consume(self, hidden_inner_parameter: Concrete): pass\n"
+    "    class Inner:\n"
+    "        def consume(self, public_nested_parameter: Reader): pass\n"
+)
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_decorated_methods_and_private_class_visibility(
+    tmp_path: Path, mounted: bool, columnar: bool
+) -> None:
+    rules = _protocol_binding_rules(_METHOD_VISIBILITY_CASES)
+    raw = _contract()
+    raw["rules"] = rules
+    files = {
+        "sample/__init__.py": "",
+        "sample/core.py": _METHOD_VISIBILITY_SOURCE,
+        "sample/ports.py": "def replacement(*args): pass\n",
+    }
+    if mounted:
+        files["inside.json"] = json.dumps(
+            {
+                "schema_version": "3.9.0",
+                "components": [_component("all", ["sample"])],
+                "rules": rules,
+            }
+        )
+        raw["components"] = [_component("outer", ["sample"], inside="inside.json")]
+        raw["rules"] = []
+    result = _observe_tree(tmp_path, files, raw)
+    assert not result.diagnostics and result.observation is not None
+    assessments = rule_assessments(
+        result.observation, undecided_by_rule=unknown_positions_by_rule(result.observation)
+    )
+    observed = {row.id.rsplit(":", 1)[-1]: row.status.value for row in assessments}
+    assert observed == {
+        f"APP-{name.upper()}-DECLARATIONS": status
+        for name, status in _METHOD_VISIBILITY_CASES.items()
+    }
+    payload = observation_payload(result.observation)
+    saved = tmp_path / "method-visibility.json"
+    saved.write_bytes(canonical_report_bytes(payload) if columnar else json.dumps(payload).encode())
+    replay = run_saved_report(saved)
+    assert not replay.diagnostics
+    assert replay.rule_assessments == assessments
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_public_parameter_selectors_follow_all_enclosing_class_visibility(
+    tmp_path: Path, mounted: bool, columnar: bool
+) -> None:
+    rules = _protocol_binding_rules(_PUBLIC_CLASS_CASES)
+    raw = _contract()
+    raw["rules"] = rules
+    files = {
+        "sample/__init__.py": "",
+        "sample/core.py": _PUBLIC_CLASS_SOURCE,
+        "sample/ports.py": "",
+    }
+    if mounted:
+        files["inside.json"] = json.dumps(
+            {
+                "schema_version": "3.9.0",
+                "components": [_component("all", ["sample"])],
+                "rules": rules,
+            }
+        )
+        raw["components"] = [_component("outer", ["sample"], inside="inside.json")]
+        raw["rules"] = []
+    result = _observe_tree(tmp_path, files, raw)
+    assert not result.diagnostics and result.observation is not None
+    assessments = rule_assessments(
+        result.observation, undecided_by_rule=unknown_positions_by_rule(result.observation)
+    )
+    observed = {row.id.rsplit(":", 1)[-1]: row.status.value for row in assessments}
+    assert observed == {
+        f"APP-{name.upper()}-DECLARATIONS": status for name, status in _PUBLIC_CLASS_CASES.items()
+    }
+    payload = observation_payload(result.observation)
+    saved = tmp_path / "public-class-visibility.json"
+    saved.write_bytes(canonical_report_bytes(payload) if columnar else json.dumps(payload).encode())
+    replay = run_saved_report(saved)
+    assert not replay.diagnostics
+    assert replay.rule_assessments == assessments
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_private_parameter_selector_still_includes_private_class_declarations(
+    tmp_path: Path, mounted: bool, columnar: bool
+) -> None:
+    rules = _protocol_binding_rules({"private_parameter": "FAIL"})
+    rules[0]["selectors"] = [
+        {"role": "parameter", "name": "private_parameter", "visibility": "all"}
+    ]
+    raw = _contract()
+    raw["rules"] = rules
+    files = {
+        "sample/__init__.py": "",
+        "sample/core.py": _PUBLIC_CLASS_SOURCE,
+        "sample/ports.py": "",
+    }
+    if mounted:
+        files["inside.json"] = json.dumps(
+            {
+                "schema_version": "3.9.0",
+                "components": [_component("all", ["sample"])],
+                "rules": rules,
+            }
+        )
+        raw["components"] = [_component("outer", ["sample"], inside="inside.json")]
+        raw["rules"] = []
+    result = _observe_tree(tmp_path, files, raw)
+    assert not result.diagnostics and result.observation is not None
+    assessments = rule_assessments(
+        result.observation, undecided_by_rule=unknown_positions_by_rule(result.observation)
+    )
+    assert [row.status.value for row in assessments] == ["FAIL"]
+    payload = observation_payload(result.observation)
+    saved = tmp_path / "private-selector.json"
+    saved.write_bytes(canonical_report_bytes(payload) if columnar else json.dumps(payload).encode())
+    replay = run_saved_report(saved)
+    assert not replay.diagnostics
+    assert replay.rule_assessments == assessments
+
+
 def test_function_declaration_binding_requires_signature_decorator_proof() -> None:
     from archkeel.check.evaluation.protocol_declarations import _declaration_binding_proven
 
