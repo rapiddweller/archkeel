@@ -11530,6 +11530,27 @@
                 "annotation": "SourceSectionName",
                 "kind": "positional",
                 "default_known": true
+              },
+              {
+                "name": "evidence",
+                "annotation": "Mapping[str, Evidence] | None",
+                "kind": "positional",
+                "default_known": true,
+                "default": "None"
+              },
+              {
+                "name": "imports",
+                "annotation": "tuple[Record, ...]",
+                "kind": "positional",
+                "default_known": true,
+                "default": "()"
+              },
+              {
+                "name": "function_contexts",
+                "annotation": "frozenset[GuardFunctionContext]",
+                "kind": "positional",
+                "default_known": true,
+                "default": "frozenset()"
               }
             ],
             "returns": "None"
