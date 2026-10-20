@@ -13,6 +13,7 @@ from archkeel.cli.observe import observe
 from archkeel.ir.codec import observation_payload
 from archkeel.ir.codec_observation import parse_observation
 from archkeel.ir.decisions import rule_assessments
+from archkeel.ir.model import SCHEMA_VERSION
 
 _PROVENANCE = ["docs/architecture/sample.md"]
 
@@ -338,8 +339,8 @@ def test_call_argument_evidence_requires_the_new_observation_version(tmp_path):
         "from .storage import page\ndef consume(spec):\n    page(spec)\n",
     )
     raw = observation_payload(result.observation)
-    assert raw["schema_version"] == "2.5.0"
-    assert parse_observation(raw).schema_version == "2.5.0"
+    assert raw["schema_version"] == SCHEMA_VERSION
+    assert parse_observation(raw).schema_version == SCHEMA_VERSION
 
     old = json.loads(json.dumps(raw))
     old["schema_version"] = "2.1.0"
@@ -354,7 +355,9 @@ def test_call_argument_evidence_requires_the_new_observation_version(tmp_path):
     from test_result_schema import _validator
 
     validator = _validator("command-result-9.0.schema.json")
-    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.5.0"})
+    current_schema = validator.evolve(
+        schema={"$ref": f"urn:archkeel:architecture-ir:decoded:{SCHEMA_VERSION}"}
+    )
     historical_schema = validator.evolve(
         schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"}
     )
@@ -394,7 +397,9 @@ def test_unbound_call_has_null_arguments_and_cannot_certify_policy(tmp_path, col
     assert call["data"]["call_arguments"] is None
 
     validator = _validator("command-result-9.0.schema.json")
-    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.5.0"})
+    current_schema = validator.evolve(
+        schema={"$ref": f"urn:archkeel:architecture-ir:decoded:{SCHEMA_VERSION}"}
+    )
     assert current_schema.is_valid(raw)
 
     inconsistent = json.loads(json.dumps(raw))

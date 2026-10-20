@@ -55,6 +55,7 @@ from archkeel.ir.facts import (
     call_binding,
 )
 from archkeel.ir.facts_validation import (
+    _qualified_identifier,
     _selector_receiver_site_matches,
     validate_source_bindings,
 )
@@ -784,17 +785,10 @@ def _saved_annotation_target(
         and _saved_top_level_import(record, root, evidence)
     ]
     if len(imported) == 1:
-        target_module = imported[0].data.get("target_module")
-        imported_symbol = imported[0].data.get("symbol")
-        if not isinstance(target_module, str):
+        origin = _saved_import_origin(imported[0])
+        if origin is None:
             return None
-        candidates = (
-            ".".join(
-                part
-                for part in (target_module, imported_symbol, suffix)
-                if isinstance(part, str) and part
-            ),
-        )
+        candidates = (".".join(part for part in (origin, suffix) if part),)
     elif imported:
         return None
     else:
@@ -808,6 +802,28 @@ def _saved_annotation_target(
         and declarations[target][0].data.get("source_binding_unique") is True
     ]
     return matches[0] if len(matches) == 1 else None
+
+
+def _saved_import_origin(record: Record) -> str | None:
+    data = record.data
+    origin = data.get("origin_definition")
+    chain = data.get("reexport_chain")
+    candidates = data.get("reexport_candidates")
+    if (
+        isinstance(origin, str)
+        and _qualified_identifier(origin)
+        and isinstance(chain, tuple)
+        and chain
+        and chain[-1] == origin
+        and len(set(chain)) == len(chain)
+        and all(isinstance(item, str) and _qualified_identifier(item) for item in chain)
+        and data.get("source_binding_unique") is True
+        and data.get("symbols_known") is True
+        and data.get("reexport_candidate") is not True
+        and candidates in (None, ())
+    ):
+        return origin
+    return None
 
 
 def _saved_top_level_import(record: Record, binding: str, evidence: dict[str, Evidence]) -> bool:
@@ -858,7 +874,7 @@ def _saved_selector_direct(
     imported_class = any(
         item.data.get("symbols_known") is True
         and item.data.get("source_binding_unique") is True
-        and f"{item.data.get('target_module')}.{item.data.get('symbol')}" == binding.target
+        and _saved_import_origin(item) == binding.target
         and set(item.evidence_ids) <= set(binding.evidence_ids)
         for item in imports
     )

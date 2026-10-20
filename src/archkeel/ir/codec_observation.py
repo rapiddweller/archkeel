@@ -370,7 +370,7 @@ def parse_observation(raw: object) -> Observation:
                     if _has_field((key for key, _ in call.data.entries), "call_arguments"):
                         _call_arguments(arguments)
                     binding = _call_binding(call.data.get("call_binding"))
-                    if (arguments is None) != (binding is None):
+                    if arguments is not None and binding is None:
                         raise ValueError("call arguments require the canonical call binding")
     elif _before_version(schema_version, _ObservationVersion.V2_5):
         for section in sections:

@@ -153,7 +153,10 @@
                     ]
                   },
                   "call_arguments": {
-                    "type": "array",
+                    "type": [
+                      "array",
+                      "null"
+                    ],
                     "items": {
                       "type": "object",
                       "required": [
@@ -259,7 +262,31 @@
                       ]
                     }
                   }
-                }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "call_arguments": {
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "call_arguments"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "call_binding": {
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "call_binding"
+                      ]
+                    }
+                  }
+                ]
               }
             }
           }
