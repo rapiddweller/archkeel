@@ -68,10 +68,8 @@ def _numeric_indented_excerpt(
     excerpt: str, indentation: str, *, synthetic_body: bool
 ) -> tuple[tuple[ast.stmt, ...], int] | None:
     unit = "\t" if "\t" in indentation else "    "
-    if len(indentation) % len(unit):
-        return None
-    depth = len(indentation) // len(unit)
-    wrappers = "".join(f"{unit * level}if True:\n" for level in range(depth))
+    depth = 1 if indentation else 0
+    wrappers = "if True:\n" if indentation else ""
     suffix = f"\n{indentation}{unit}pass" if synthetic_body else ""
     try:
         parsed = ast.parse(wrappers + excerpt + suffix)
@@ -107,35 +105,23 @@ def _numeric_header_has_synthetic_body(node: ast.stmt) -> bool:
 def _numeric_elif_excerpt_supported(excerpt: str) -> bool:
     indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
     unit = "\t" if "\t" in indentation else "    "
-    if not indentation or len(indentation) % len(unit):
-        return False
-    depth = len(indentation) // len(unit)
-    wrappers = "".join(f"{unit * level}if True:\n" for level in range(depth))
-    source = (
-        f"{wrappers}{indentation}if True:\n{indentation}{unit}pass\n"
-        f"{excerpt}\n{indentation}{unit}pass"
-    )
-    try:
-        parsed = ast.parse(source)
-    except (IndentationError, SyntaxError, ValueError, RecursionError):
-        return False
-    if len(parsed.body) != 1 or not isinstance(parsed.body[0], ast.If):
-        return False
-    roots = tuple(parsed.body)
-    for _ in range(depth):
+    source = f"{indentation}if True:\n{indentation}{unit}pass\n{excerpt}"
+    for synthetic_body in (False, True):
+        parsed = _numeric_indented_excerpt(source, indentation, synthetic_body=synthetic_body)
+        if parsed is None:
+            continue
+        roots, _depth = parsed
         if len(roots) != 1 or not isinstance(roots[0], ast.If):
             return False
-        roots = tuple(roots[0].body)
-    if len(roots) != 1 or not isinstance(roots[0], ast.If):
-        return False
-    preceding = roots[0]
-    return (
-        len(preceding.body) == 1
-        and isinstance(preceding.body[0], ast.Pass)
-        and len(preceding.orelse) == 1
-        and isinstance(preceding.orelse[0], ast.If)
-        and _numeric_header_has_synthetic_body(preceding.orelse[0])
-    )
+        preceding = roots[0]
+        if len(preceding.body) != 1 or not isinstance(preceding.body[0], ast.Pass):
+            return False
+        if len(preceding.orelse) != 1 or not isinstance(preceding.orelse[0], ast.If):
+            return False
+        alternate = preceding.orelse[0]
+        if not synthetic_body or _numeric_header_has_synthetic_body(alternate):
+            return True
+    return False
 
 
 class _StringPredicate(Enum):
