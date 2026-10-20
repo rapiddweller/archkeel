@@ -1,4 +1,4 @@
-# AD-244: Call identity admits bounded receiver and native proofs
+# AD-252: Call identity admits bounded receiver and native proofs
 
 Extend AD-241's `CallBinding` with typed origins for a uniquely stored annotated
 field, a stable default construction, its constructor call, and selected native
@@ -32,5 +32,5 @@ or prove runtime dispatch.
 There is no general runtime type inference, dynamic dispatch, custom allocation,
 arbitrary descriptor, or arbitrary MRO support.
 
-[Digest-bound declaration amendment](ad-244-bounded-call-identity-amendment.json)
+[Digest-bound declaration amendment](ad-252-bounded-call-identity-amendment.json)
 records the new public proof field without raising any measurement budget.

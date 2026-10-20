@@ -20,7 +20,7 @@ limited to import-bound `random.random`, `random.Random` methods,
 constructors, dynamic attributes, custom allocation, descriptors, ambiguous
 inheritance, decorated functions/methods, and mutated or revoked bindings remain
 UNKNOWN. It proves the declared static boundary, not runtime conformance. See
-[AD-244](architecture/decisions/ad-244-bounded-call-identity.md).
+[AD-252](architecture/decisions/ad-252-bounded-call-identity.md).
 This rule requires a source/contract/inventory/call-bound receipt for its exact
 claim and observation version; legacy saved observations cannot certify it.
 Re-observe pre-release artifacts with inventory-only proofs. These consistency

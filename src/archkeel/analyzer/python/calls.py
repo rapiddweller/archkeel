@@ -1194,11 +1194,11 @@ class CallCollector(ast.NodeVisitor):
             return None
         if (
             owner["kind"] != "class"
-            or owner["data"].get("source_binding_unique") is not True
-            or owner["data"].get("source_member_binding_static") is not True
+            or _mapping_value(owner["data"], "source_binding_unique") is not True
+            or _mapping_value(owner["data"], "source_member_binding_static") is not True
             or member["kind"] != "method"
-            or member["data"].get("parent") != owners[0]
-            or member["data"].get("decorators")
+            or _mapping_value(member["data"], "parent") != owners[0]
+            or _mapping_value(member["data"], "decorators")
             or target not in targets
         ):
             return None

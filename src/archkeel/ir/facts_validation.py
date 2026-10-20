@@ -252,17 +252,23 @@ def _annotation_class_origin(
 
 def _provider_source_module(path: str) -> str | None:
     prefix = ".archkeel-providers/"
-    if not path.startswith(prefix):
+    if not _starts_with(path, prefix):
         return None
     relative = path[len(prefix) :]
-    if relative.endswith("/__init__.py"):
+    if _ends_with(relative, "/__init__.py"):
         relative = relative[: -len("/__init__.py")]
-    elif relative.endswith(".py"):
+    elif _ends_with(relative, ".py"):
         relative = relative[:-3]
     else:
         return None
-    module = relative.replace("/", ".")
-    return module if all(part.isidentifier() for part in module.split(".")) else None
+    parts = str.split(relative, "/")
+    if not all(str.isidentifier(part) for part in parts):
+        return None
+    return ".".join(parts)
+
+
+def _qualified_identifier(value: str) -> bool:
+    return bool(value) and all(str.isidentifier(part) for part in str.split(value, "."))
 
 
 def _signature_terminal(name: str, bindings: dict[str, ProviderBinding]) -> ProviderBinding | None:
@@ -1076,7 +1082,7 @@ def _stored_receiver_proof(
         )
     ):
         raise ValueError("stored receiver needs selected initializer witnesses")
-    if not field.isidentifier() or not parameter.isidentifier():
+    if not _qualified_identifier(field) or not _qualified_identifier(parameter):
         raise ValueError("stored receiver field and parameter must be identifiers")
     if len(typed_writes) != 1 or len(typed_parameters) != 1 or len(stored_types) != 1:
         raise ValueError("stored receiver needs unique typed field and parameter declarations")
@@ -1636,10 +1642,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
         )
         if (
             binding.kind is ProviderBindingKind.ALIAS
-            and (
-                binding.target is None
-                or not all(part.isidentifier() for part in binding.target.split("."))
-            )
+            and (binding.target is None or not _qualified_identifier(binding.target))
             or binding.kind is not ProviderBindingKind.ALIAS
             and (binding.target is not None or binding.supporting_evidence_ids)
         ):
@@ -1654,8 +1657,8 @@ def validate_source_facts(facts: SourceFacts) -> None:
             ):
                 raise ValueError("provider alias support needs its resolution source")
         if (
-            not all(part.isidentifier() for part in module.split("."))
-            or not name.isidentifier()
+            not _qualified_identifier(module)
+            or not _qualified_identifier(name)
             or module in {item.module for item in facts.files}
             or evidence is None
             or source_module is None
