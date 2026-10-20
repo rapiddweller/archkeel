@@ -1678,41 +1678,21 @@ class CallCollector(ast.NodeVisitor):
             )
         return actuals, evidence_ids
 
-    def visit_Call(self, node: ast.Call) -> None:
-        scope = self.scopes.by_node[node]
-        receivers = _call_receivers(self, node)
-        expression = annotation_text(node.func) or "<unparseable>"
-        status, targets, reason, candidate_count = resolve_name(
-            node.func,
-            index=self.index,
-            scopes=self.scopes,
-            receiver_types=receivers,
-        )
-        evidence_id = add_evidence(self.evidence, self.module, node)
-        item_id = call_id(self.module, node, expression)
-        binding = self._call_binding(node, status, targets, evidence_id)
-        if binding is not None:
-            canonical_target = binding["target"]
-            targets = [canonical_target] if isinstance(canonical_target, str) else targets
-            candidate_count = len(targets)
-            status = SourceResolution.RESOLVED
-            reason = "source-proven call identity"
-        target_evidence_ids = sorted(
-            {
-                evidence_id
-                for target in targets
-                for evidence_id in self.symbol_evidence.get(target, [])
-            }
-        )
-        guarded_effect = self._guarded_effect(
-            node,
-            scope,
-            evidence_id,
-            item_id,
-            binding,
-            resolution_status=status,
-            resolved_targets=targets,
-        )
+    def _append_call_fact(
+        self,
+        node: ast.Call,
+        scope: Scope,
+        expression: str,
+        status: SourceResolution,
+        targets: list[str],
+        reason: str,
+        candidate_count: int,
+        evidence_id: str,
+        item_id: str,
+        binding: RecordData | None,
+        target_evidence_ids: list[str],
+        guarded_effect: Sequence[RecordData],
+    ) -> None:
         source_line = self.module.lines[node.lineno - 1]
         self.items.append(
             classified(
@@ -1757,6 +1737,55 @@ class CallCollector(ast.NodeVisitor):
                     **({"guarded_effect": list(guarded_effect)} if guarded_effect else {}),
                 },
             )
+        )
+
+    def visit_Call(self, node: ast.Call) -> None:
+        scope = self.scopes.by_node[node]
+        expression = annotation_text(node.func) or "<unparseable>"
+        status, targets, reason, candidate_count = resolve_name(
+            node.func,
+            index=self.index,
+            scopes=self.scopes,
+            receiver_types=_call_receivers(self, node),
+        )
+        evidence_id = add_evidence(self.evidence, self.module, node)
+        item_id = call_id(self.module, node, expression)
+        binding = self._call_binding(node, status, targets, evidence_id)
+        if binding is not None:
+            canonical_target = binding["target"]
+            targets = [canonical_target] if isinstance(canonical_target, str) else targets
+            candidate_count = len(targets)
+            status = SourceResolution.RESOLVED
+            reason = "source-proven call identity"
+        target_evidence_ids = sorted(
+            {
+                evidence_id
+                for target in targets
+                for evidence_id in self.symbol_evidence.get(target, [])
+            }
+        )
+        guarded_effect = self._guarded_effect(
+            node,
+            scope,
+            evidence_id,
+            item_id,
+            binding,
+            resolution_status=status,
+            resolved_targets=targets,
+        )
+        self._append_call_fact(
+            node,
+            scope,
+            expression,
+            status,
+            targets,
+            reason,
+            candidate_count,
+            evidence_id,
+            item_id,
+            binding,
+            target_evidence_ids,
+            guarded_effect,
         )
         self.generic_visit(node)
 
