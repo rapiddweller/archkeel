@@ -285,10 +285,10 @@ def test_selector_proof_index_is_shared_across_multiple_source_modules(tmp_path,
     original = facts_validation._source_proof_index
     calls = 0
 
-    def count_builds(files, records):
+    def count_builds(files, records, selector_imports):
         nonlocal calls
         calls += 1
-        return original(files, records)
+        return original(files, records, selector_imports)
 
     monkeypatch.setattr(facts_validation, "_source_proof_index", count_builds)
     facts = decode_response(json.dumps(payload).encode()).facts

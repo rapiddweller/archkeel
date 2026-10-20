@@ -224,26 +224,28 @@ def _payload(value: RecordData) -> None:
 class _SourceProofIndex:
     files_by_module: Mapping[str, tuple[FileFact, ...]]
     imports_by_binding: Mapping[tuple[str, str], tuple[Record, ...]]
-    imports: tuple[Record, ...]
+    selector_imports: tuple[Record, ...]
 
 
-def _source_proof_index(files: Sequence[FileFact], records: Sequence[Record]) -> _SourceProofIndex:
+def _source_proof_index(
+    files: Sequence[FileFact],
+    records: Sequence[Record],
+    selector_imports: Sequence[Record],
+) -> _SourceProofIndex:
     files_by_module: dict[str, list[FileFact]] = {}
     imports_by_binding: dict[tuple[str, str], list[Record]] = {}
-    imports: list[Record] = []
     for item in files:
         files_by_module.setdefault(item.module, []).append(item)
     for record in records:
         if record.kind != "import":
             continue
-        imports.append(record)
         module, binding = record.data.get("source_module"), record.data.get("binding")
         if isinstance(module, str) and isinstance(binding, str):
             imports_by_binding.setdefault((module, binding), []).append(record)
     return _SourceProofIndex(
         {name: tuple(items) for name, items in files_by_module.items()},
         {key: tuple(items) for key, items in imports_by_binding.items()},
-        tuple(imports),
+        tuple(selector_imports),
     )
 
 
@@ -296,7 +298,13 @@ def _annotation_class_origin(
         return None
     if proof_index is None:
         records = [record for section in facts.sections for record in section.records]
-        proof_index = _source_proof_index(facts.files, records)
+        selector_imports = tuple(
+            item
+            for section in facts.sections
+            if section.name is SourceSectionName.IMPORTS
+            for item in section.records
+        )
+        proof_index = _source_proof_index(facts.files, records, selector_imports)
     imported = _signature_origin(initializer.data, annotation, proof_index)
     candidates = (imported,) if imported is not None else (f"{module}.{annotation}",)
     matches = [
@@ -682,12 +690,14 @@ def _selector_receiver_proof(
         receiver_parameter,
         declarations,
         evidence,
-        proof_index.imports,
+        proof_index.selector_imports,
     ):
         raise ValueError("selector receiver proof does not match its source expression")
     targets = declarations.get(binding.target, [])
     if binding.origin is CallBindingOrigin.DIRECT:
-        _selector_direct_receiver_proof(binding, receiver_parameter, targets, proof_index.imports)
+        _selector_direct_receiver_proof(
+            binding, receiver_parameter, targets, proof_index.selector_imports
+        )
         return
     if binding.origin is CallBindingOrigin.DECLARED_RECEIVER:
         _selector_declared_receiver_proof(
@@ -3992,7 +4002,13 @@ def validate_source_facts(facts: SourceFacts) -> None:
     if names != declared:
         raise ValueError("source sections disagree with declared capabilities")
     records = [record for section in facts.sections for record in section.records]
-    proof_index = _source_proof_index(facts.files, records)
+    selector_imports = tuple(
+        item
+        for section in facts.sections
+        if section.name is SourceSectionName.IMPORTS
+        for item in section.records
+    )
+    proof_index = _source_proof_index(facts.files, records, selector_imports)
     declarations_by_id = {
         record.id: record
         for section in facts.sections
