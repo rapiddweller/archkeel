@@ -2224,13 +2224,14 @@ def source_selector_domains(
     exact_module_scopes: Sequence[str] = (),
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """Resolve a source prefix to its physical module domain and intersect its mount."""
-    module_names = tuple(
-        item["data"]["qualified_name"]
-        for item in modules
-        if isinstance(item["data"].get("qualified_name"), str)
-    )
+    module_names: list[str] = []
+    for item in modules:
+        data: dict[str, object] = item["data"]
+        name = data.get("qualified_name")
+        if isinstance(name, str):
+            module_names.append(name)
     module_prefixes = [name for name in module_names if in_scope(source, name)]
-    selector = max(module_prefixes, key=lambda name: len(name.split(".")), default=source)
+    selector = max(module_prefixes, key=len, default=source)
     packages: set[str] = set()
     exact_selected = (selector,) if selector != source else ()
     if exact_selected:
