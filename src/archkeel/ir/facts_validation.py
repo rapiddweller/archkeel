@@ -331,15 +331,48 @@ def _call_expression_matches_source(
 
 
 def _stored_write_matches_source(item: Evidence, receiver: str, field: str, parameter: str) -> bool:
-    start = _evidence_column_index(item)
-    expected = f"{receiver}.{field}"
-    if start is None or not _starts_with(item.excerpt[start:], expected):
+    parsed = _numeric_evidence_nodes(item)
+    if parsed is None:
         return False
-    position = start + len(expected)
-    if position < len(item.excerpt) and item.excerpt[position] not in " \t:=":
-        return False
+    statements, line_offset = parsed
+    for statement in statements:
+        for candidate in ast.walk(statement):
+            if not isinstance(candidate, ast.Assign | ast.AnnAssign):
+                continue
+            span = _numeric_node_span(candidate, item.line, line_offset)
+            if (
+                span is None
+                or span[0] != item.line
+                or span[1] != item.column
+                or span[2] != item.end_line
+            ):
+                continue
+            if _stored_assignment_matches(candidate, receiver, field, parameter):
+                return True
+    return False
+
+
+def _stored_assignment_matches(
+    assignment: ast.Assign | ast.AnnAssign, receiver: str, field: str, parameter: str
+) -> bool:
+    target: ast.expr
+    value: ast.expr | None
+    if isinstance(assignment, ast.Assign):
+        if len(assignment.targets) != 1:
+            return False
+        target = assignment.targets[0]
+        value = assignment.value
+    else:
+        target = assignment.target
+        value = assignment.value
     return (
-        "=" in item.excerpt[position:] and python_identifier(field) and python_identifier(parameter)
+        isinstance(target, ast.Attribute)
+        and isinstance(target.ctx, ast.Store)
+        and isinstance(target.value, ast.Name)
+        and target.value.id == receiver
+        and target.attr == field
+        and isinstance(value, ast.Name)
+        and value.id == parameter
     )
 
 

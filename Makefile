@@ -70,7 +70,7 @@ pr-test: browser-runtime-install
 		tests/test_report_agent_json.py \
 		tests/test_native_violation_filter.py \
 		tests/test_scoped_dependency_proof.py \
-		tests/test_call_owner_policy.py tests/test_call_owner_wire_compatibility.py tests/test_call_scope_receipt_identity.py \
+		tests/test_call_owner_policy.py tests/test_call_owner_source_facts.py tests/test_call_owner_wire_compatibility.py tests/test_call_scope_receipt_identity.py \
 		tests/test_numeric_operand_rule.py tests/test_numeric_operand_observation.py tests/test_protocol_declarations.py \
 		tests/test_typescript_namespace_identities.py \
 		tests/test_result_schema.py \

@@ -86,6 +86,49 @@ def test_stored_receiver_field_and_call_expression_cannot_be_retargeted(tmp_path
         decode_response(json.dumps(payload).encode())
 
 
+def test_stored_receiver_rhs_must_match_its_typed_parameter(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "from .storage import Store\nfrom .other import Other\nclass Holder:\n"
+        "    def __init__(self, client: Store, other: Other): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        other="class Other:\n    def page(self): pass\n",
+    )
+    initializer = next(
+        item
+        for item in _records(payload, "symbols")
+        if item["data"].get("qualified_name") == "sample.caller.Holder.__init__"
+    )
+    other = next(
+        item
+        for item in _records(payload, "symbols")
+        if item["data"].get("qualified_name") == "sample.other.Other"
+    )
+    method = next(
+        item
+        for item in _records(payload, "symbols")
+        if item["data"].get("qualified_name") == "sample.other.Other.page"
+    )
+    call = next(
+        item
+        for item in _records(payload, "calls")
+        if item["data"]["expression"] == "self.client.page"
+    )
+    initializer["data"]["stored_field_writes"][0]["parameter"] = "other"
+    initializer["data"]["stored_field_writes"][0]["annotation_target"] = "sample.other.Other"
+    binding = call["data"]["call_binding"]
+    binding["target"] = "sample.other.Other.page"
+    binding["proof"]["parameter"] = "other"
+    binding["proof"]["target"] = "sample.other.Other"
+    binding["evidence_ids"] = sorted(
+        set(binding["evidence_ids"] + other["evidence_ids"] + method["evidence_ids"])
+    )
+    call["data"]["targets"] = [binding["target"]]
+    call["data"]["target_evidence_ids"] = method["evidence_ids"]
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
+
+
 def test_constructed_receiver_cannot_use_another_real_allocation(tmp_path):
     payload = _payload(
         tmp_path,
