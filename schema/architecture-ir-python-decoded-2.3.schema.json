@@ -162,7 +162,163 @@
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/typing_signals"
     },
     "constructs": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/constructs"
+      "allOf": [
+        {
+          "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/constructs"
+        },
+        {
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "numeric_operand"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "evidence_class": {
+                      "const": "FACT"
+                    },
+                    "area": {
+                      "const": "constructs"
+                    },
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "owner",
+                        "module",
+                        "operation",
+                        "form",
+                        "line",
+                        "column",
+                        "end_line",
+                        "end_column",
+                        "subject",
+                        "proof",
+                        "value",
+                        "derivation"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "owner": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "module": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "operation": {
+                          "const": "modulo"
+                        },
+                        "form": {
+                          "enum": [
+                            "binary",
+                            "augmented"
+                          ]
+                        },
+                        "line": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "column": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "end_line": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "end_column": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "subject": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "proof": {
+                          "enum": [
+                            "known",
+                            "unknown"
+                          ]
+                        },
+                        "value": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "derivation": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "name",
+                              "value",
+                              "expression",
+                              "evidence_id",
+                              "line",
+                              "column",
+                              "end_line",
+                              "end_column"
+                            ],
+                            "additionalProperties": false,
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "value": {
+                                "type": "integer"
+                              },
+                              "expression": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "evidence_id": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "line": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "column": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "end_line": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "end_column": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
     },
     "contexts": {
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/contexts"
@@ -197,6 +353,6 @@
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/allOf/0"
     }
   ],
-  "title": "Python ArchitectureIR 2.3.0, decoded observation profile",
+  "title": "Python ArchitectureIR 2.1.0, decoded observation profile",
   "$comment": "AD-241. Versioned call ownership evidence. Reuse unchanged historical constraints without widening published resources. Register all bundled schemas by $id for offline validation."
 }
