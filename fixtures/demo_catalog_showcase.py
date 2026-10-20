@@ -211,9 +211,9 @@ _TOUR = Variant(
     "one itself), a dataclass declared outside shop.model.entities, and a bare-object "
     "parameter on place_order itself, the one function app.orders declares public (AD-63: "
     "only a declared facade function is inspected, so touch_store's own bare-object "
-    "parameter, never declared, no longer fires here). Real "
-    "run: 21 rule ids and 22 violations, since CONSTRUCT-NO-DYNAMIC answers both the eval "
-    "and the getattr; at validate time the same 22 rule.violated diagnostics plus 2 "
+    "parameter, never declared, no longer fires here), and a modulo operand below its "
+    "declared width. CONSTRUCT-NO-DYNAMIC answers both the eval and the getattr; "
+    "validate reports the rule.violated diagnostics plus 2 "
     "closed_world.observed_forbidden pairs (model->render, render->store) and 1 graph.drift, "
     "since the marked component graph never declared either edge.",
     files={
@@ -226,7 +226,9 @@ _TOUR = Variant(
         "shop/store/sqlite.py": _TOUR_STORE_SQLITE,
         "shop/store/architecture-contract.json": STORE_INSIDE_WITH_REPOSITORY_PEER_GRANT,
         "shop/cli/main.py": MAIN_WITH_UNDERSCORE_IMPORT,
-        "shop/model/entities.py": _TOUR_MODEL_ENTITIES,
+        "shop/model/entities.py": _TOUR_MODEL_ENTITIES
+        + "\n\ndef _nonce_bucket(job_nonce: int, width: int = 8) -> int:\n"
+        + "    return job_nonce % 3\n",
         "shop/model/promotions.py": _TOUR_MODEL_PROMOTIONS,
         "shop/app/maintenance.py": _TOUR_APP_MAINTENANCE,
         "shop/extra.py": SHOP_EXTRA,
@@ -250,6 +252,7 @@ _TOUR = Variant(
         "EXTERNAL-JSON-STORE",
         "INTERFACE-BOUNDARY",
         "LAYERS-MODEL",
+        "MODEL-NONCE-WIDTH",
         "MODEL-TYPES-IN-ENTITIES",
         "ROOT-LAYOUT",
         "STORE-PEERS-ISOLATED",
@@ -259,6 +262,7 @@ _TOUR = Variant(
         "closed_world.observed_forbidden",
         "closed_world.observed_forbidden",
         "graph.drift",
+        "rule.violated",
         "rule.violated",
         "rule.violated",
         "rule.violated",
