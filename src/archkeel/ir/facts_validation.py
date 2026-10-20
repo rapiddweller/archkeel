@@ -4,7 +4,7 @@
 """Cross-reference and source-payload invariants of the collection protocol."""
 
 import ast
-from collections.abc import Collection, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from functools import lru_cache
 from pathlib import PurePosixPath
 
@@ -374,51 +374,7 @@ def _selector_source_receiver(
             and span[0] == item.line
             and span[1] == item.column
         ]
-        role, member = record.data.get("selector_role"), record.data.get("member")
-        selected: ast.expr | None = None
-        if role == "match":
-            selected = next(
-                (
-                    node.subject.value
-                    for node, _ in anchored
-                    if isinstance(node, ast.Match) and isinstance(node.subject, ast.Attribute)
-                ),
-                None,
-            )
-        elif role == "reflect":
-            selected = next(
-                (node.args[0] for node, _ in anchored if isinstance(node, ast.Call) and node.args),
-                None,
-            )
-        elif role in {"startswith", "endswith"}:
-            selected = next(
-                (
-                    node.func.value.value
-                    if isinstance(node.func, ast.Attribute)
-                    and isinstance(node.func.value, ast.Attribute)
-                    else node.func.value
-                    for node, _ in anchored
-                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
-                ),
-                None,
-            )
-        elif role in {"read", "write", "call", "equality", "membership"}:
-            candidates = {
-                id(node): node
-                for root, _ in anchored
-                for node in ast.walk(root)
-                if isinstance(node, ast.Attribute)
-                and node.attr == member
-                and (
-                    binding.origin is not CallBindingOrigin.DECLARED_RECEIVER
-                    or isinstance(node.value, ast.Name)
-                    and node.value.id == record.data.get("receiver_parameter")
-                )
-                and (span := source_span(node)) is not None
-                and span[:2] == (item.line, item.column)
-            }
-            attribute = next(iter(candidates.values())) if len(candidates) == 1 else None
-            selected = attribute.value if attribute is not None else None
+        selected = _selector_source_candidate(record, binding, item, anchored, source_span)
         if selected is not None:
             span = next(
                 (span for node, span in anchored if node is selected or selected in ast.walk(node)),
@@ -428,6 +384,60 @@ def _selector_source_receiver(
                 selected_span = source_span(selected)
                 return selected, selected_span or span
     return None
+
+
+def _selector_source_candidate(
+    record: Record,
+    binding: CallBinding,
+    item: Evidence,
+    anchored: list[tuple[ast.AST, tuple[int, int, int, int]]],
+    source_span: Callable[[ast.AST], tuple[int, int, int, int] | None],
+) -> ast.expr | None:
+    role, member = record.data.get("selector_role"), record.data.get("member")
+    if role == "match":
+        return next(
+            (
+                node.subject.value
+                for node, _ in anchored
+                if isinstance(node, ast.Match) and isinstance(node.subject, ast.Attribute)
+            ),
+            None,
+        )
+    if role == "reflect":
+        return next(
+            (node.args[0] for node, _ in anchored if isinstance(node, ast.Call) and node.args),
+            None,
+        )
+    if role in {"startswith", "endswith"}:
+        return next(
+            (
+                node.func.value.value
+                if isinstance(node.func, ast.Attribute)
+                and isinstance(node.func.value, ast.Attribute)
+                else node.func.value
+                for node, _ in anchored
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            ),
+            None,
+        )
+    if role not in {"read", "write", "call", "equality", "membership"}:
+        return None
+    candidates = {
+        id(node): node
+        for root, _ in anchored
+        for node in ast.walk(root)
+        if isinstance(node, ast.Attribute)
+        and node.attr == member
+        and (
+            binding.origin is not CallBindingOrigin.DECLARED_RECEIVER
+            or isinstance(node.value, ast.Name)
+            and node.value.id == record.data.get("receiver_parameter")
+        )
+        and (span := source_span(node)) is not None
+        and span[:2] == (item.line, item.column)
+    }
+    attribute = next(iter(candidates.values())) if len(candidates) == 1 else None
+    return attribute.value if attribute is not None else None
 
 
 def _selector_source_classes(
@@ -471,56 +481,7 @@ def selector_receiver_site_matches(
     imports: Sequence[Record] = (),
 ) -> bool:
     if binding.origin is CallBindingOrigin.DIRECT:
-        source_classes = _selector_source_classes(record, binding, evidence)
-        declarations_for_target = declarations.get(binding.target, [])
-        module = (
-            declarations_for_target[0].data.get("module")
-            if len(declarations_for_target) == 1 and declarations_for_target[0].kind == "class"
-            else None
-        )
-        owner = record.data.get("owner")
-        for target in source_classes:
-            written = ast.unparse(target)
-            if (
-                isinstance(module, str)
-                and isinstance(owner, str)
-                and (owner == module or owner.startswith(module + "."))
-                and binding.target == f"{module}.{written}"
-            ):
-                return True
-            root = target
-            suffix: list[str] = []
-            while isinstance(root, ast.Attribute):
-                suffix.append(root.attr)
-                root = root.value
-            if not isinstance(root, ast.Name) or not isinstance(owner, str):
-                continue
-            matching_imports = [
-                item
-                for item in imports
-                if item.data.get("binding") == root.id
-                and isinstance(item.data.get("source_module"), str)
-                and owner.startswith(f"{item.data.get('source_module')}.")
-                and item.data.get("symbols_known") is True
-                and set(item.evidence_ids) <= set(binding.evidence_ids)
-            ]
-            if len(matching_imports) != 1:
-                continue
-            imported = matching_imports[0]
-            target_module, symbol = (
-                imported.data.get("target_module"),
-                imported.data.get("symbol"),
-            )
-            canonical = (
-                f"{target_module}.{symbol}"
-                if isinstance(target_module, str) and isinstance(symbol, str)
-                else target_module
-            )
-            if isinstance(canonical, str) and binding.target == ".".join(
-                [canonical, *reversed(suffix)]
-            ):
-                return True
-        return False
+        return _direct_selector_receiver_matches(record, binding, declarations, evidence, imports)
     source_site = _selector_source_receiver(record, binding, evidence)
     expression = source_site[0] if source_site is not None else None
     if binding.origin is CallBindingOrigin.DECLARED_RECEIVER:
@@ -557,6 +518,69 @@ def selector_receiver_site_matches(
             and expression_span[:2] == (constructor.line, constructor.column)
         )
     return expression is not None
+
+
+def _direct_selector_receiver_matches(
+    record: Record,
+    binding: CallBinding,
+    declarations: Mapping[str, list[Record]],
+    evidence: Mapping[str, Evidence],
+    imports: Sequence[Record],
+) -> bool:
+    source_classes = _selector_source_classes(record, binding, evidence)
+    declarations_for_target = declarations.get(binding.target, [])
+    module = (
+        declarations_for_target[0].data.get("module")
+        if len(declarations_for_target) == 1 and declarations_for_target[0].kind == "class"
+        else None
+    )
+    owner = record.data.get("owner")
+    for target in source_classes:
+        written = ast.unparse(target)
+        if (
+            isinstance(module, str)
+            and isinstance(owner, str)
+            and (owner == module or owner.startswith(module + "."))
+            and binding.target == f"{module}.{written}"
+        ):
+            return True
+        if _imported_selector_target_matches(target, binding, imports, owner):
+            return True
+    return False
+
+
+def _imported_selector_target_matches(
+    target: ast.expr,
+    binding: CallBinding,
+    imports: Sequence[Record],
+    owner: JsonValue,
+) -> bool:
+    suffix: list[str] = []
+    root = target
+    while isinstance(root, ast.Attribute):
+        suffix.append(root.attr)
+        root = root.value
+    if not isinstance(root, ast.Name) or not isinstance(owner, str):
+        return False
+    matching_imports = [
+        item
+        for item in imports
+        if item.data.get("binding") == root.id
+        and isinstance(item.data.get("source_module"), str)
+        and owner.startswith(f"{item.data.get('source_module')}.")
+        and item.data.get("symbols_known") is True
+        and set(item.evidence_ids) <= set(binding.evidence_ids)
+    ]
+    if len(matching_imports) != 1:
+        return False
+    imported = matching_imports[0]
+    target_module, symbol = imported.data.get("target_module"), imported.data.get("symbol")
+    canonical = (
+        f"{target_module}.{symbol}"
+        if isinstance(target_module, str) and isinstance(symbol, str)
+        else target_module
+    )
+    return isinstance(canonical, str) and binding.target == ".".join([canonical, *reversed(suffix)])
 
 
 def _selector_receiver_proof(

@@ -316,6 +316,38 @@ def _validate_versioned_records(
                 raise ValueError("call_arguments require observation schema 2.5.0")
 
 
+def _validate_selector_and_argument_versions(
+    schema_version: _ObservationVersion, sections: tuple[Section, ...], profile: Profile
+) -> None:
+    has_selectors = any(
+        record.kind == _ConstructSelectorFactKind.SELECTOR
+        for section in sections
+        if section.name == ObservedSection.CONSTRUCTS
+        for record in section.records
+    )
+    if has_selectors and schema_version is not _ObservationVersion.V2_6:
+        raise ValueError("construct selector facts require observation schema 2.6.0")
+    python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
+    for section in sections:
+        if section.name != ObservedSection.CALLS:
+            continue
+        for call in section.records:
+            has_arguments = _has_field((key for key, _ in call.data.entries), "call_arguments")
+            if schema_version in {_ObservationVersion.V2_5, _ObservationVersion.V2_6}:
+                if python_calls and not has_arguments:
+                    raise ValueError(
+                        f"Python {schema_version.value} calls require explicit call_arguments"
+                    )
+                arguments = (
+                    _call_arguments(call.data.get("call_arguments")) if has_arguments else None
+                )
+                binding = _call_binding(call.data.get("call_binding"))
+                if arguments is not None and binding is None:
+                    raise ValueError("call arguments require the canonical call binding")
+            elif has_arguments:
+                raise ValueError("call_arguments require observation schema 2.5.0")
+
+
 def parse_observation(raw: object) -> Observation:
     item = _object(raw, "observation")
     optional = {"python_version", "runtime", "producer"}
@@ -347,38 +379,7 @@ def parse_observation(raw: object) -> Observation:
     )
     _validate_versioned_records(schema_version, sections, profile)
 
-    has_selectors = any(
-        record.kind == _ConstructSelectorFactKind.SELECTOR
-        for section in sections
-        if section.name == ObservedSection.CONSTRUCTS
-        for record in section.records
-    )
-    if has_selectors and schema_version is not _ObservationVersion.V2_6:
-        raise ValueError("construct selector facts require observation schema 2.6.0")
-    if not _before_version(schema_version, _ObservationVersion.V2_5):
-        python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
-        for section in sections:
-            if section.name == ObservedSection.CALLS:
-                for call in section.records:
-                    if python_calls and not _has_field(
-                        (key for key, _ in call.data.entries), "call_arguments"
-                    ):
-                        raise ValueError(
-                            f"Python {schema_version.value} calls require explicit call_arguments"
-                        )
-                    arguments = call.data.get("call_arguments")
-                    if _has_field((key for key, _ in call.data.entries), "call_arguments"):
-                        _call_arguments(arguments)
-                    binding = _call_binding(call.data.get("call_binding"))
-                    if arguments is not None and binding is None:
-                        raise ValueError("call arguments require the canonical call binding")
-    elif _before_version(schema_version, _ObservationVersion.V2_5):
-        for section in sections:
-            if section.name == ObservedSection.CALLS and any(
-                _has_field((key for key, _ in call.data.entries), "call_arguments")
-                for call in section.records
-            ):
-                raise ValueError("call_arguments require observation schema 2.5.0")
+    _validate_selector_and_argument_versions(schema_version, sections, profile)
     return Observation(
         schema_version=schema_version,
         analyzer=AnalyzerInfo(

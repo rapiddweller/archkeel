@@ -1273,23 +1273,26 @@ def _unsupported_module_object_grants(
     ]
 
 
-def profile_failures(
-    contract: ArchitectureContract,
-    profile: Profile,
-    constructs: tuple[ConstructCapability, ...],
-) -> list[RawRecord]:
-    """One coverage failure per contract item the scanning profile cannot decide (AD-97).
-
-    A rule the profile never evaluates would otherwise read as a clean pass; a declaration or
-    budget it cannot observe would read as empty. Both gate the run with exit 2 instead.
-    """
-    declarations = contract.declarations or ContractDeclarations()
+def _profile_capability_state(
+    declarations: ContractDeclarations, constructs: tuple[ConstructCapability, ...]
+) -> tuple[set[ForbiddenConstructKind], dict[DeclarationField, bool]]:
     supported = {entry.name for entry in constructs if entry.status != ConstructSupport.UNSUPPORTED}
     declared: dict[DeclarationField, bool] = {
         "context_roots": bool(declarations.context_roots),
         "facade_budgets": bool(declarations.facade_budgets),
         "coupling_budgets": bool(declarations.coupling_budgets),
     }
+    return supported, declared
+
+
+def profile_failures(
+    contract: ArchitectureContract,
+    profile: Profile,
+    constructs: tuple[ConstructCapability, ...],
+) -> list[RawRecord]:
+    """Report rules or declarations that this scanning profile cannot decide (AD-97)."""
+    declarations = contract.declarations or ContractDeclarations()
+    supported, declared = _profile_capability_state(declarations, constructs)
     items = _unsupported_module_object_grants(contract, profile) + [
         *(
             (rule.id, [rule.id], f"rule kind {rule.kind}")
@@ -2141,16 +2144,19 @@ def scope_receipts_complete(
     source_exact_modules: tuple[str, ...],
     scan_roots: tuple[str, ...],
 ) -> bool:
-    """Prove receipt scopes cover declared packages and exact modules in this scan."""
-    selector_packages = tuple(
-        _selector_receipt_scope(rule.source, modules, contract)
-        for rule in contract.rules
-        if isinstance(rule, ForbiddenConstructRule) and rule.selector is not None
-    )
+    """Prove receipt scopes cover declared, selector, and protocol sources."""
+    receipt_source_scopes: list[str] = []
+    for rule in contract.rules:
+        if isinstance(rule, ProtocolDeclarationsRule) and _modules_for_rule_source(
+            rule.source, modules, contract
+        ):
+            receipt_source_scopes.append(rule.source)
+        elif isinstance(rule, ForbiddenConstructRule) and rule.selector is not None:
+            receipt_source_scopes.append(_selector_receipt_scope(rule.source, modules, contract))
     package_scopes = (
         *source_roots,
         *(package for component in contract.components for package in component.packages),
-        *selector_packages,
+        *receipt_source_scopes,
     )
     exact_scopes = (
         *source_exact_modules,
@@ -2319,86 +2325,123 @@ def rule_evaluation_facts(
         for item in modules
         if source_modules is None or item["data"]["qualified_name"] in source_modules
     )
-    facts: list[RawRecord] = []
-    for rule in contract.rules:
-        if rule.kind in profile.unsupported_rules or isinstance(rule, _SeparateReceiptRule):
-            continue
-        if isinstance(rule, LayerOrderRule):
-            facts.extend(_layer_order_evaluation_facts(contract, rule, scope))
-            continue
-        subjects: Sequence[str] | None = None
-        if isinstance(rule, ExternalDependencyScopeRule):
-            # allowed_sources is an exception list, not the rule's observed scope.
-            selected = observed
-        elif isinstance(rule, CompleteRequiresRule | InterfaceBoundaryRule):
-            selected = (
-                observed
-                if _inside_rule_scope_is_complete(
-                    contract, observed, profile, blank_modules, receipt_scope_complete
-                )
-                else ()
-            )
-            if not selected and receipt_scope_complete:
-                facts.extend(
-                    _inside_ownership_blockers(
-                        rule, scope, contract, observed, profile, blank_modules
-                    )
-                )
-        elif isinstance(rule, ForbiddenDependencyRule):
-            selected = _forbidden_rule_modules(rule, observed, contract)
-        elif isinstance(rule, SiblingIsolationRule):
-            selected = tuple(
-                item
-                for item in observed
-                if any(in_scope(item["data"]["qualified_name"], member) for member in rule.members)
-            )
-        elif isinstance(rule, RootLayoutRule):
-            selected = tuple(
-                item for item in observed if in_scope(item["data"]["qualified_name"], rule.root)
-            )
-        elif isinstance(rule, ForbiddenConstructRule):
-            selected, subjects = _construct_rule_domain(rule.source, observed, contract, symbols)
-            if rule.selector is not None and selected and receipt_scope_complete:
-                selected_names = frozenset(item["data"]["qualified_name"] for item in selected)
-                inventory = _selector_inventory(constructs, selected_names)
-                facts.append(
-                    _rule_evaluation_receipt(
-                        rule,
-                        scope,
-                        [*selected, *inventory],
-                        subjects=subjects or [item["data"]["qualified_name"] for item in selected],
-                        data={
-                            "claim": "construct_selector",
-                            "selector": {
-                                "receiver": rule.selector.receiver,
-                                "member": rule.selector.member,
-                                "role": rule.selector.role.value,
-                                "literal": rule.selector.literal,
-                            },
-                            "source_modules": sorted(selected_names),
-                            "inventory_fact_ids": sorted(item["id"] for item in inventory),
-                        },
-                    )
-                )
-        elif isinstance(
+    return [
+        fact
+        for rule in contract.rules
+        for fact in _rule_evaluation_facts_for_rule(
             rule,
-            BoundedNumericOperandRule
-            | CompleteAssignmentRule
-            | CompleteExternalScopeRule
-            | SymbolPlacementRule,
-        ):
-            selected = _modules_for_rule_source(rule.source, observed, contract)
-        else:
-            assert_never(rule)
-        if selected and not (
-            isinstance(rule, ForbiddenConstructRule) and rule.selector is not None
-        ):
-            facts.append(
-                _numeric_rule_receipt(rule, scope, selected, constructs)
-                if isinstance(rule, BoundedNumericOperandRule)
-                else _rule_evaluation_receipt(rule, scope, selected, subjects=subjects)
+            contract,
+            profile,
+            scope,
+            observed,
+            blank_modules,
+            receipt_scope_complete,
+            symbols,
+            constructs,
+        )
+    ]
+
+
+def _rule_evaluation_facts_for_rule(
+    rule: ArchitectureRule,
+    contract: ArchitectureContract,
+    profile: Profile,
+    scope: str,
+    observed: Sequence[RawRecord],
+    blank_modules: frozenset[str],
+    receipt_scope_complete: bool,
+    symbols: Sequence[RawRecord],
+    constructs: Sequence[RawRecord],
+) -> list[RawRecord]:
+    if rule.kind in profile.unsupported_rules or isinstance(rule, _SeparateReceiptRule):
+        return []
+    if isinstance(rule, LayerOrderRule):
+        return _layer_order_evaluation_facts(contract, rule, scope)
+    subjects: Sequence[str] | None = None
+    facts: list[RawRecord] = []
+    if isinstance(rule, ExternalDependencyScopeRule):
+        # allowed_sources is an exception list, not the rule's observed scope.
+        selected = observed
+    elif isinstance(rule, CompleteRequiresRule | InterfaceBoundaryRule):
+        complete = _inside_rule_scope_is_complete(
+            contract, observed, profile, blank_modules, receipt_scope_complete
+        )
+        selected = observed if complete else ()
+        if not selected and receipt_scope_complete:
+            facts.extend(
+                _inside_ownership_blockers(rule, scope, contract, observed, profile, blank_modules)
             )
+    elif isinstance(rule, ForbiddenDependencyRule):
+        selected = _forbidden_rule_modules(rule, observed, contract)
+    elif isinstance(rule, SiblingIsolationRule):
+        selected = tuple(
+            item
+            for item in observed
+            if any(in_scope(item["data"]["qualified_name"], member) for member in rule.members)
+        )
+    elif isinstance(rule, RootLayoutRule):
+        selected = tuple(
+            item for item in observed if in_scope(item["data"]["qualified_name"], rule.root)
+        )
+    elif isinstance(rule, ForbiddenConstructRule):
+        selected, subjects = _construct_rule_domain(rule.source, observed, contract, symbols)
+        if rule.selector is not None and selected and receipt_scope_complete:
+            facts.append(
+                _selector_rule_receipt(
+                    rule,
+                    rule.selector,
+                    scope,
+                    selected,
+                    subjects,
+                    constructs,
+                )
+            )
+    elif isinstance(
+        rule,
+        BoundedNumericOperandRule
+        | CompleteAssignmentRule
+        | CompleteExternalScopeRule
+        | SymbolPlacementRule,
+    ):
+        selected = _modules_for_rule_source(rule.source, observed, contract)
+    else:
+        assert_never(rule)
+    if selected and not (isinstance(rule, ForbiddenConstructRule) and rule.selector is not None):
+        facts.append(
+            _numeric_rule_receipt(rule, scope, selected, constructs)
+            if isinstance(rule, BoundedNumericOperandRule)
+            else _rule_evaluation_receipt(rule, scope, selected, subjects=subjects)
+        )
     return facts
+
+
+def _selector_rule_receipt(
+    rule: ForbiddenConstructRule,
+    selector: ConstructSelector,
+    scope: str,
+    selected: Sequence[RawRecord],
+    subjects: Sequence[str] | None,
+    constructs: Sequence[RawRecord],
+) -> RawRecord:
+    selected_names = frozenset(item["data"]["qualified_name"] for item in selected)
+    inventory = _selector_inventory(constructs, selected_names)
+    return _rule_evaluation_receipt(
+        rule,
+        scope,
+        [*selected, *inventory],
+        subjects=subjects or [item["data"]["qualified_name"] for item in selected],
+        data={
+            "claim": "construct_selector",
+            "selector": {
+                "receiver": selector.receiver,
+                "member": selector.member,
+                "role": selector.role.value,
+                "literal": selector.literal,
+            },
+            "source_modules": sorted(selected_names),
+            "inventory_fact_ids": sorted(item["id"] for item in inventory),
+        },
+    )
 
 
 def _inside_ownership_blockers(
