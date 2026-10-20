@@ -17,7 +17,11 @@ from archkeel.ir.model import ContractDeclarations
 from archkeel.ir.trace import trace_valid_violations
 
 
-def _violations(tmp_path: Path, all_line: str) -> set[tuple[object, object]]:
+def _violations(
+    tmp_path: Path,
+    all_line: str,
+    use: str = "from sample.core import sub\nfrom sample.core import helper\n",
+) -> set[tuple[object, object]]:
     _write_project(
         tmp_path,
         components=[
@@ -30,7 +34,7 @@ def _violations(tmp_path: Path, all_line: str) -> set[tuple[object, object]]:
             "sample/core/__init__.py": all_line + "def helper(): pass\nother = 1\n",
             "sample/core/sub.py": "def run(): pass\n",
             "sample/client/__init__.py": "",
-            "sample/client/use.py": "from sample.core import sub\nfrom sample.core import helper\n",
+            "sample/client/use.py": use,
         },
     )
     result = _observe(tmp_path)
@@ -51,6 +55,13 @@ def test_module_facade_exposes_only_its_stated_surface(tmp_path, all_line, helpe
     assert (("sample.core", "helper") not in violations) is helper_exposed
     # A submodule import targets the submodule, never the package's own names.
     assert ("sample.core.sub", None) in violations
+
+
+@pytest.mark.parametrize(
+    "all_line", ["", "__all__ = []\n", "__all__ = ['other']\n"], ids=["no-all", "empty", "other"]
+)
+def test_star_import_binds_exactly_the_stated_surface(tmp_path, all_line):
+    assert _violations(tmp_path, all_line, "from sample.core import *\n") == set()
 
 
 def _module(all_exports: list[str], all_literal: bool) -> dict[str, object]:

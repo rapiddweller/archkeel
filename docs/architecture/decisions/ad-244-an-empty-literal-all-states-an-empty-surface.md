@@ -16,6 +16,7 @@ exposed every public name, and a promised name went unchecked. Both failed open.
 Facade budgets (AD-88) and the interface profile (AD-99) had kept an empty `__all__` open
 only to match that reading; they now count a facade of no names as well.
 Submodule imports are unaffected: they target the submodule, not the package's names.
+A star import binds exactly the stated surface, so a module entry covers it for any `__all__`.
 Compatibility shims still require a non-empty `__all__` (AD-87).
 
 [Facade controls](../../../tests/test_empty_literal_all.py)

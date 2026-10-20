@@ -277,7 +277,8 @@ def facade_covers(
     if f"{module}:{name}" in public:
         return True
     exports = exports_by_module.get(module)
-    return module in public and (exports is None or name in exports)
+    # A star import binds exactly the stated surface, which a module entry exposes.
+    return module in public and (exports is None or name == "*" or name in exports)
 
 
 def interface_covers_import(
