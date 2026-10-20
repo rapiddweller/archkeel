@@ -12,7 +12,7 @@
 | Item | Expected | Run 2 | Result |
 |---|---|---|---|
 | Trace, coverage, finding format, tool vs. judgment | required | all present; 6/6 packages reviewed | match |
-| Claim names | named or located | used `report --only architecture`; named `chunked`, `now_iso` and the fan-in types | match: the skill line from run 1 works |
+| Claim names | named or located | used `report --only architecture`; named `chunked`, `now_iso` and the fan-in types; could not name the two oversized components | partial: four of five claim kinds; the fifth is not listed by the tool (#631) |
 | S1 `common.util` | simplify | delete unused helpers and the `common` component; move SKU normalisation to its owner | match |
 | S2 `round_cents` | simplify | `quote` moves into checkout with the one quantity check; entry→pricing and the public export go | match |
 | S3 discovery | keep | keeps the boundary and the lazy import for the optional `boto3` extra; refines internals (typed constructor, resolve once, protocol out of `__init__`) | match in substance |
