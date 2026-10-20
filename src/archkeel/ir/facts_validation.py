@@ -1212,8 +1212,21 @@ def _native_call_witness(
         ):
             raise ValueError("native receiver needs its exact captured provider member declaration")
         return
-    imported_targets: set[str] = set()
     root, suffix = _expression_root(expression)
+    imported_targets = _native_imported_targets(facts, record, evidence_ids, root, suffix)
+    if binding.target not in imported_targets:
+        raise ValueError("native call needs its matching stable import evidence")
+    _native_provider_witness(facts, binding, proof, evidence_ids)
+
+
+def _native_imported_targets(
+    facts: SourceFacts,
+    record: Record,
+    evidence_ids: set[str],
+    root: str,
+    suffix: str,
+) -> set[str]:
+    targets: set[str] = set()
     for section in facts.sections:
         if section.name is not SourceSectionName.IMPORTS:
             continue
@@ -1229,9 +1242,16 @@ def _native_call_witness(
             symbol = imported.data.get("symbol")
             if isinstance(module, str):
                 imported_target = module + (f".{symbol}" if isinstance(symbol, str) else "")
-                imported_targets.add(imported_target + suffix)
-    if binding.target not in imported_targets:
-        raise ValueError("native call needs its matching stable import evidence")
+                targets.add(imported_target + suffix)
+    return targets
+
+
+def _native_provider_witness(
+    facts: SourceFacts,
+    binding: CallBinding,
+    proof: RecordData,
+    evidence_ids: set[str],
+) -> None:
     if _starts_with(binding.target, "random.") or _starts_with(binding.target, "secrets."):
         provider = next(
             (item for item in facts.provider_bindings if item.qualified_name == binding.target),

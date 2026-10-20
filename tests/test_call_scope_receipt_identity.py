@@ -11,6 +11,8 @@ from test_exact_module_ownership import _component, _observe_tree, _rule
 
 from archkeel.check.report import run_saved_report
 from archkeel.ir.codec import canonical_report_bytes, observation_payload
+from archkeel.ir.codec_observation import parse_observation
+from archkeel.ir.decisions import dependency_binding_id, rule_evaluation_binding_id
 from archkeel.ir.model import SCHEMA_VERSION
 
 
@@ -95,6 +97,22 @@ def test_saved_reader_rejects_receipt_from_another_observation_version(tmp_path,
     before = _read(tmp_path, raw, columnar)["KNOWN"]
     assert before.status == "PASS" and before.evaluation_proven
     assert raw["schema_version"] == SCHEMA_VERSION
-    raw["schema_version"] = "2.5.0"
+    observation = parse_observation(raw)
+    receipt_id = _receipt(raw)["id"]
+    receipt = next(
+        item for item in observation.records("scope_observations") or () if item.id == receipt_id
+    )
+    inventory_binding = dependency_binding_id(
+        observation.sections,
+        observation.coverage.failures,
+        observation.evidence,
+        include_calls=True,
+    )
+    serialized_receipt = next(
+        item for item in raw["scope_observations"] if item["id"] == receipt_id
+    )
+    serialized_receipt["data"]["call_scope_proof"]["binding_id"] = rule_evaluation_binding_id(
+        inventory_binding, receipt, "2.4.0"
+    )
     after = _read(tmp_path, raw, columnar)["KNOWN"]
     assert after.status == "UNKNOWN" and not after.evaluation_proven
