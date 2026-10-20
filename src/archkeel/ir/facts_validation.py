@@ -4293,6 +4293,7 @@ def _validate_parameter_default_owner(
     if (
         status == SourceResolution.RESOLVED
         or targets != ()
+        or not isinstance(expression, str)
         or not _same_expression(expression, default)
     ):
         raise ValueError("unbounded parameter default must remain unsupported")
@@ -4317,20 +4318,22 @@ def _parameter_default_value(declaration: Record, parameter_name: str) -> str:
 
 def _validate_parameter_default_span(role: Record, default: str, witness: Evidence) -> None:
     start, end = role.data.get("column"), role.data.get("end_column")
-    excerpt: bytes = witness.excerpt.encode("utf-8")
+    excerpt: str = witness.excerpt
+    encoded: bytes = excerpt.encode("utf-8")
     if (
         not isinstance(start, int)
         or not isinstance(end, int)
-        or not 0 <= start < end <= len(excerpt)
+        or not 0 <= start < end <= len(encoded)
     ):
         raise ValueError("parameter default source witness has an invalid span")
-    span = excerpt[start:end].decode("utf-8", errors="ignore")
+    span_bytes: bytes = encoded[start:end]
+    span: str = span_bytes.decode("utf-8", errors="ignore")
     if not _same_expression(span, default):
         raise ValueError("parameter default source witness disagrees with its callable default")
     kind = role.data.get("expression_kind")
     if kind == "reference":
         expression = role.data.get("expression")
-        if not _same_expression(expression, default):
+        if not isinstance(expression, str) or not _same_expression(expression, default):
             raise ValueError("parameter default expression disagrees with its callable default")
     elif kind == "literal":
         constant = role.data.get("constant")
@@ -4347,9 +4350,7 @@ def _validate_parameter_default_span(role: Record, default: str, witness: Eviden
         raise ValueError("parameter default expression kind is invalid")
 
 
-def _same_expression(first: object, second: object) -> bool:
-    if not isinstance(first, str) or not isinstance(second, str):
-        return False
+def _same_expression(first: str, second: str) -> bool:
     try:
         left = ast.parse(first, mode="eval").body
         right = ast.parse(second, mode="eval").body

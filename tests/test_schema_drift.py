@@ -204,6 +204,78 @@ def test_reference_annotation_ownership_schema(details, accepted):
     assert Draft202012Validator(data).is_valid(reference) == accepted
 
 
+def test_local_definition_reference_schema_accepts_only_typed_ownership_fields():
+    data = _schema("architecture-ir-python-decoded-2.7.schema.json")["properties"]["references"][
+        "items"
+    ]["allOf"][1]["properties"]["data"]
+    reference = {
+        "source_scope": "sample.consumer",
+        "source_module": "sample.consumer",
+        "expression": "local_name",
+        "status": "resolved",
+        "targets": ["sample.consumer.local_name"],
+        "use": "value",
+        "local_source_binding": True,
+        "declaration_role": "definition",
+        "declaration_evidence_ids": ["EVD-123"],
+        "declaration_status": "resolved",
+    }
+    validator = Draft202012Validator(data)
+    assert validator.is_valid(reference)
+    for field, value in (
+        ("local_source_binding", "true"),
+        ("declaration_role", "use"),
+        ("declaration_evidence_ids", [""]),
+        ("declaration_status", "unknown"),
+    ):
+        malformed = deepcopy(reference)
+        malformed[field] = value
+        assert not validator.is_valid(malformed)
+
+
+def test_source_role_schema_accepts_unresolved_transfers_only_for_roles():
+    profile = _schema("architecture-ir-python-decoded-2.7.schema.json")
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema))
+        for schema in (_schema(path.name) for path in SCHEMA_FILES)
+    )
+    validator = Draft202012Validator(
+        profile["properties"]["references"]["items"], registry=registry
+    )
+    record = {
+        "id": "REF-123",
+        "evidence_class": "FACT",
+        "area": "references",
+        "kind": "source_role",
+        "title": "Source role",
+        "subjects": [],
+        "evidence_ids": ["EVD-123"],
+        "rule_ids": [],
+        "fact_ids": [],
+        "provenance": [],
+        "data": {
+            "source_scope": "sample.module",
+            "source_module": "sample.module",
+            "expression": "sample.module.value",
+            "status": "unresolved",
+            "targets": [],
+            "use": "source_role",
+            "role": "write",
+            "canonical_name": "sample.module.value",
+            "declaration_id": "DECL-123",
+            "line": 1,
+            "column": 0,
+            "end_line": 1,
+            "end_column": 1,
+            "transfer_kind": "dictionary_value",
+        },
+    }
+    assert validator.is_valid(record)
+    record["kind"] = "value_reference"
+    record["data"]["use"] = "value"
+    assert not validator.is_valid(record)
+
+
 def test_config_schema_accepts_the_parsed_repository_config() -> None:
     payload = (ROOT / "archkeel.toml").read_bytes()
     schema = _schema("archkeel.schema.json")
