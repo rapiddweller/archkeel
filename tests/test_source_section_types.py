@@ -207,8 +207,8 @@ def test_actual_section_coverage_raw_control_mutation_fails_unchanged_policy(tmp
         (
             "PROFILE-SECTIONS-source-record",
             "ir/facts_validation.py",
-            "def _source_record(record: Record, section: SourceSectionName)",
-            "def _source_record(record: Record, section: str)",
+            "def _source_record(\n    record: Record,\n    section: SourceSectionName,",
+            "def _source_record(\n    record: Record,\n    section: str,",
         ),
         (
             "PROFILE-SECTIONS-base-declarations",
