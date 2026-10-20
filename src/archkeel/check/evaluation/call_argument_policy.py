@@ -468,6 +468,7 @@ def _catalog_ambiguous_imports(
     imports: Sequence[RawRecord],
     subjects: Sequence[RawRecord],
 ) -> list[RawRecord]:
+    catalog_origins = {rule.catalog, *rule.overlays}
     selected_modules = {
         module
         for record in subjects
@@ -484,7 +485,7 @@ def _catalog_ambiguous_imports(
         record
         for record in imports
         if (data := parse_record(record).data).get("source_module") in selected_modules
-        and data.get("origin_definition") == rule.catalog
+        and data.get("origin_definition") in catalog_origins
         and data.get("source_binding_unique") is False
     ]
 
@@ -712,7 +713,7 @@ def _catalog_target_supports(
         proof = binding.proof if binding is not None else None
         proof_target = proof.get("target") if proof is not None else None
         if binding is not None and binding.target == target and isinstance(proof_target, str):
-            names.add(proof_target)
+            names |= {proof_target}
     return [symbol for symbol in symbols if symbol["data"]["qualified_name"] in names]
 
 
@@ -1041,7 +1042,7 @@ def _catalog_call_argument_uses(
             references,
             reference_data,
         )
-        used.update(call_uses)
+        used |= call_uses
         if uncertain_call:
             uncertain.append(call)
     return used, tuple({record["id"]: record for record in uncertain}.values())
@@ -1084,7 +1085,7 @@ def _catalog_use_call_entries(
             selected_entries=selected_entries,
             require_unique_value=True,
         )
-        used.update(found)
+        used |= found
         if ambiguous or (actual.value_kind is CallArgumentValueKind.OTHER and not found):
             uncertain = True
     return used, uncertain
@@ -1109,7 +1110,7 @@ def _catalog_actual_entries(
         for reference in references
         if set(actual.evidence_ids) == set(reference["evidence_ids"])
         and _record_text(reference_data[reference["id"]], "reference_context") == "value"
-        and entry_owners.intersection(_record_strings(reference_data[reference["id"]], "targets"))
+        and entry_owners & set(_record_strings(reference_data[reference["id"]], "targets"))
     ]
     if member_refs:
         identities: set[str] = set()
@@ -1118,10 +1119,10 @@ def _catalog_actual_entries(
             data = reference_data[item["id"]]
             expression = _record_text(data, "expression") or ""
             targets = set(_record_strings(data, "targets"))
-            for owner in entry_owners.intersection(targets):
-                target_owners.add(owner)
-                identities.add(f"{owner}.{last_name(expression)}")
-        selected = identities.intersection(entries)
+            for owner in entry_owners & targets:
+                target_owners |= {owner}
+                identities |= {f"{owner}.{last_name(expression)}"}
+        selected = identities & entries.keys()
         exact_owner = len(target_owners) == 1 and all(
             set(_record_strings(reference_data[item["id"]], "targets")) == target_owners
             for item in member_refs
@@ -1131,12 +1132,10 @@ def _catalog_actual_entries(
         return selected, False
     if actual.value_kind is not CallArgumentValueKind.STRING_LITERAL:
         return set(), True
-    matches = {
-        identity for identity, (_, literal, _) in entries.items() if literal == actual.value
-    }
+    matches = {identity for identity, (_, literal, _) in entries.items() if literal == actual.value}
     if require_unique_value and len(matches) > 1:
         return set(), True
-    selected = matches.intersection(selected_entries if selected_entries is not None else entries)
+    selected = matches & (selected_entries if selected_entries is not None else entries).keys()
     scoped_entries = selected_entries if selected_entries is not None else entries
     has_unknown_selected_value = any(literal is None for _, literal, _ in scoped_entries.values())
     return selected, require_unique_value and has_unknown_selected_value

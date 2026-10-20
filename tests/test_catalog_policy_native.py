@@ -457,6 +457,39 @@ def test_declared_overlay_enum_member_counts_as_selected_catalog_use(tmp_path):
     assert rows[0].status == "PASS"
 
 
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize("mounted", [False, True])
+def test_ambiguous_overlay_import_keeps_catalog_use_unknown(tmp_path, columnar, mounted):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import encode_canonical_model, observation_payload
+
+    rule = _use(member="NEW")
+    rule["overlays"] = ["sample.catalog.ExtraKey"]
+    result, rows = _run(
+        tmp_path,
+        mounted=mounted,
+        caller=(
+            "from .catalog import OptionKey\n"
+            "from .catalog import ExtraKey as Keys\n"
+            "from .other import ExtraKey as Keys\n"
+            "def consume():\n"
+            "    print(OptionKey.PAGE_SIZE)\n"
+            "    print(Keys.NEW)\n"
+        ),
+        rules=[rule],
+        extra_files={"sample/other.py": "class ExtraKey: NEW = 'new'\n"},
+    )
+
+    assert rows[0].status == "UNKNOWN"
+    assert not rows[0].evaluation_proven
+    payload = observation_payload(result.observation)
+    saved = tmp_path / f"ambiguous-overlay-{columnar}.json"
+    saved.write_text(json.dumps(encode_canonical_model(payload) if columnar else payload))
+    replay = run_saved_report(saved)
+    replayed = next(row for row in replay.rule_assessments if row.id.endswith("CATALOG-0"))
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
 def test_duplicate_literal_across_catalog_owners_does_not_prove_selected_use(tmp_path):
     rule = _read_option_use(member="PAGE_SIZE")
     rule["overlays"] = ["sample.catalog.OtherKey"]
@@ -468,10 +501,7 @@ def test_duplicate_literal_across_catalog_owners_does_not_prove_selected_use(tmp
             '    read_option("page_size")\n'
         ),
         rules=[rule],
-        catalog_suffix=(
-            "class OtherKey(StrEnum):\n"
-            "    NEW = 'page_size'\n"
-        ),
+        catalog_suffix=("class OtherKey(StrEnum):\n    NEW = 'page_size'\n"),
     )
     assert rows[0].status == "UNKNOWN"
     assert not rows[0].evaluation_proven
@@ -514,9 +544,7 @@ def test_unknown_selected_entry_value_does_not_prove_nonuse(tmp_path):
     _, rows = _run(
         tmp_path,
         caller=(
-            "def read_option(key: str) -> None: pass\n"
-            "def consume():\n"
-            '    read_option("other")\n'
+            'def read_option(key: str) -> None: pass\ndef consume():\n    read_option("other")\n'
         ),
         rules=[{**_read_option_use(member="RETIRED"), "catalog": "sample.catalog.PartialKey"}],
         catalog_suffix=(
