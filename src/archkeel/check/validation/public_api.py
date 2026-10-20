@@ -21,12 +21,14 @@ from archkeel.ir.model import (
     InterfaceBoundaryRule,
     InterfaceBudgetResult,
     JsonValue,
+    ModuleExports,
     Observation,
     Record,
     RecordData,
     component_owns_module,
     facade_covers,
     in_scope,
+    module_exports,
     text_value,
 )
 from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
@@ -41,22 +43,6 @@ def _scanned_modules(observation: Observation) -> frozenset[str]:
         for record in observation.records("modules") or ()
         if isinstance((module_name := record.data.get("qualified_name")), str)
     )
-
-
-def _literal_exports(observation: Observation) -> dict[str, frozenset[str]]:
-    """Each scanned module's literal `__all__`, absent for a module that declares none.
-
-    A module without `__all__` is not in the mapping at all, which is what lets a reader tell
-    "this module states its surface and the name is not in it" from "this module states no
-    surface", the distinction `symbols` alone cannot make for a constant or type alias.
-    """
-    return {
-        module_name: frozenset(export for export in exports if isinstance(export, str))
-        for record in observation.records("modules") or ()
-        if isinstance((module_name := record.data.get("qualified_name")), str)
-        and isinstance((exports := record.data.get("all_exports")), tuple)
-        and exports
-    }
 
 
 def _entry_module(entry: str) -> str:
@@ -246,7 +232,7 @@ def _facade_covers_import(
     module: str,
     symbol: str | None,
     component: ContractComponent,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
 ) -> bool:
     """Match the concrete module or symbol imported through a declared facade."""
     if symbol is None:
@@ -301,7 +287,7 @@ def _imports_by_target(
     observation: Observation,
     source_modules: frozenset[str] | None = None,
     published_parent_components: dict[str, tuple[ContractComponent, ...]] | None = None,
-    exports_by_module: dict[str, frozenset[str]] | None = None,
+    exports_by_module: ModuleExports | None = None,
 ) -> dict[str, list[RecordData]]:
     imports_by_target: dict[str, list[RecordData]] = {}
     for record in observation.records("imports") or ():
@@ -494,7 +480,7 @@ def _public_api_entry_diagnostics(
     index: int,
     entry: str,
     modules: frozenset[str],
-    exports: dict[str, frozenset[str]],
+    exports: ModuleExports,
     exposed_types: dict[str, tuple[str, ...]],
     declared_api: frozenset[str],
 ) -> list[Diagnostic]:
@@ -557,7 +543,7 @@ def public_api_diagnostics(
     """
     declarations = contract.declarations or ContractDeclarations()
     modules = _scanned_modules(observation)
-    exports = _literal_exports(observation)
+    exports = module_exports(observation)
     exposed_types = _published_api_types(observation)
     declared_api = frozenset(declarations.public_api)
     return tuple(

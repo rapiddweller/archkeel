@@ -46,6 +46,7 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
     LayerOrderRule,
+    ModuleExports,
     NoComponentCyclesRule,
     RootLayoutRule,
     SiblingIsolationRule,
@@ -717,7 +718,7 @@ def _module_cycle_violations(
 
 
 def _interface_allows(
-    data: RecordData, target: ContractComponent, exports_by_module: dict[str, frozenset[str]]
+    data: RecordData, target: ContractComponent, exports_by_module: ModuleExports
 ) -> bool:
     """Decide whether one cross-component import reaches the target's declared interface."""
     if target.public is None:
@@ -730,7 +731,7 @@ def _interface_allows(
 def _interface_verdict(
     data: RecordData,
     target: ContractComponent,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     exporting: frozenset[str],
 ) -> _Verdict:
     """Decide one cross-component import against the target's declared interface.
@@ -767,7 +768,7 @@ _InterfaceVerdict: TypeAlias = tuple[
 def _interface_verdicts(
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     forbidden_rejected_ids: frozenset[str],
     source_modules: frozenset[str] | None = None,
     *,
@@ -817,7 +818,7 @@ def _interface_verdicts(
 def _interface_violations(
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     forbidden_rejected_ids: frozenset[str],
     source_modules: frozenset[str] | None = None,
     *,
@@ -897,7 +898,7 @@ def _undecided_records(
 def symbol_limits(
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     source_modules: frozenset[str] | None = None,
     *,
     dependency_symbols: bool = True,
@@ -989,7 +990,7 @@ def _boundary_type_subject_modules(
     symbols: Sequence[RawRecord],
     imports: Sequence[RawRecord],
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     uncertain_reexport_origins: UncertainReexportOrigins,
     scanned_modules: set[str],
     stable_bindings_by_module: dict[str, frozenset[str]],
@@ -1127,7 +1128,7 @@ def rule_subject_failures(
     symbols: Sequence[RawRecord] = (),
     imports: Sequence[RawRecord] = (),
     contract: ArchitectureContract | None = None,
-    exports_by_module: dict[str, frozenset[str]] | None = None,
+    exports_by_module: ModuleExports | None = None,
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
     stable_bindings_by_module: dict[str, frozenset[str]] | None = None,
     sdk_libraries: frozenset[str] = frozenset(),
@@ -1696,7 +1697,7 @@ def _collect_rule_violations(
     blank_modules: frozenset[str],
     module_cycles: Sequence[RawRecord],
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     profile: Profile,
     source_modules: frozenset[str] | None,
     module_facts: Sequence[RawRecord],
@@ -1786,7 +1787,7 @@ def rule_violations(
     blank_modules: frozenset[str],
     module_cycles: Sequence[RawRecord],
     contract: ArchitectureContract,
-    exports_by_module: dict[str, frozenset[str]],
+    exports_by_module: ModuleExports,
     profile: Profile,
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
     source_modules: frozenset[str] | None = None,

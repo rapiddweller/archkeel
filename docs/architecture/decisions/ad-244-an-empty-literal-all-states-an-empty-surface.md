@@ -13,6 +13,8 @@ exposed every public name, and a promised name went unchecked. Both failed open.
 `archkeel.ir.model:stated_exports` owns this decision: it returns a module's stated names, or
 `None` when it states none. Every module-to-exports map is built from it, and readers test
 `is None`, never truthiness.
+Facade budgets (AD-88) and the interface profile (AD-99) had kept an empty `__all__` open
+only to match that reading; they now count a facade of no names as well.
 Submodule imports are unaffected: they target the submodule, not the package's names.
 Compatibility shims still require a non-empty `__all__` (AD-87).
 
