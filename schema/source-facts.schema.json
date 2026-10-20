@@ -2123,6 +2123,10 @@
           "type": "string",
           "minLength": 1
         },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
         "witness_evidence_ids": {
           "type": "array",
           "minItems": 2,
@@ -2141,7 +2145,8 @@
         "kind",
         "target",
         "constructor_evidence_id",
-        "assignment_evidence_id"
+        "assignment_evidence_id",
+        "assignment_name"
       ],
       "additionalProperties": false,
       "properties": {
@@ -2157,6 +2162,12 @@
           "minLength": 1
         },
         "assignment_evidence_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "assignment_name": {
           "type": [
             "string",
             "null"

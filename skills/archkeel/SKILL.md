@@ -282,11 +282,17 @@ inputs against the installed release, including aliases and dynamic forms. A sou
 checkout or Draft PR is not proof that the installed release supports them.
 
 Use `call_owner` only where its installed observer proves the complete selected
-call scope. Its initial plain-function/annotated-parameter support does not prove
-external, constructed or stored receivers, arguments or guards. Check the rule
-receipt and supported forms before retiring any method-name scanner. New observations
-use wire 2.2; older readers must reject them rather than omit the new rule.
-The new reader continues to accept historical1.2/1.3/2.0 observations.
+call scope. Observation 2.4 adds bounded proofs for stored typed receivers,
+stable default constructions, and selected native targets (`random`,
+`secrets.token_hex`, and CPython `datetime.datetime.now`). Inheritance is followed
+only through a unique recorded base path. Dynamic dispatch, custom allocation,
+unsupported mutation, and native APIs without an admitted provider witness remain
+UNKNOWN. The datetime witness inspects the isolated collector runtime’s stdlib
+descriptor and source digest; it does not import project modules. Arguments and
+guards are not proved by this change. Check the rule receipt and supported forms
+before retiring any method-name scanner. Older readers must reject observation
+2.4 rather than omit the added proof vocabulary; current readers continue to
+accept historical observations.
 
 Contract 3.8 `bounded_numeric_operand` checks selected Python `%` and `%=` sites
 by written terminal identifier suffix. Only bounded integer/Boolean literals,
