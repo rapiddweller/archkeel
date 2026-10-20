@@ -551,6 +551,18 @@ def selector_receiver_site_matches(
     source_site = _selector_source_receiver(record, binding, evidence)
     expression = source_site[0] if source_site is not None else None
     if binding.origin is CallBindingOrigin.DECLARED_RECEIVER:
+        selector_owner = record.data.get("owner")
+        parameter_owner = record.data.get("receiver_parameter_owner")
+        if not isinstance(parameter_owner, str):
+            parameter_owner = selector_owner
+        if not isinstance(selector_owner, str) or not isinstance(parameter_owner, str):
+            return False
+        if selector_owner != parameter_owner and not selector_owner.startswith(
+            f"{parameter_owner}."
+        ):
+            return False
+        if not selector_parameter_scope_matches(record, binding, declarations, evidence):
+            return False
         return isinstance(expression, ast.Name) and expression.id == receiver_parameter
     proof = binding.proof
     if binding.origin is CallBindingOrigin.STORED_RECEIVER and proof is not None:
@@ -588,6 +600,223 @@ def selector_receiver_site_matches(
             and expression_span[:2] == (constructor.line, constructor.column)
         )
     return expression is not None
+
+
+def selector_parameter_scope_matches(
+    record: Record,
+    binding: CallBinding,
+    declarations: Mapping[str, list[Record]],
+    evidence: Mapping[str, Evidence],
+) -> bool:
+    parsed = _selector_parameter_scope_chain(record, declarations)
+    if parsed is None:
+        return False
+    expected, chain, module_name = parsed
+    parameter_owner = expected[-1]
+    parameter_name = record.data.get("receiver_parameter")
+    if not isinstance(parameter_name, str):
+        return False
+    return all(
+        _selector_scope_evidence_matches(
+            owner,
+            item,
+            module_name,
+            parameter_owner,
+            parameter_name,
+            binding,
+            evidence,
+        )
+        for owner, item in zip(expected, chain, strict=True)
+    ) and _selector_parameter_scope_site_matches(
+        record, binding, expected[-1], chain[-1], module_name, evidence
+    )
+
+
+def _selector_parameter_scope_chain(
+    record: Record, declarations: Mapping[str, list[Record]]
+) -> tuple[list[Record], list[RecordData], str] | None:
+    selector_owner = record.data.get("owner")
+    parameter_owner = record.data.get("receiver_parameter_owner")
+    parameter_name = record.data.get("receiver_parameter")
+    raw_chain = record.data.get("receiver_parameter_scopes")
+    if (
+        not isinstance(selector_owner, str)
+        or not isinstance(parameter_owner, str)
+        or not isinstance(parameter_name, str)
+        or not isinstance(raw_chain, tuple)
+        or not raw_chain
+        or any(not isinstance(item, RecordData) for item in raw_chain)
+    ):
+        return None
+    chain = [item for item in raw_chain if isinstance(item, RecordData)]
+    selector_owners = declarations.get(selector_owner, [])
+    parameter_owners = declarations.get(parameter_owner, [])
+    if len(selector_owners) != 1 or len(parameter_owners) != 1:
+        return None
+    module_name = selector_owners[0].data.get("module")
+    if not isinstance(module_name, str):
+        return None
+    expected: list[Record] = []
+    current: Record | None = selector_owners[0]
+    while current is not None:
+        expected.append(current)
+        if current.id == parameter_owners[0].id:
+            break
+        current, valid = _selector_lexical_parent(current, declarations, module_name)
+        if not valid:
+            return None
+    if (
+        not expected
+        or expected[-1].id != parameter_owners[0].id
+        or len(expected) != len(chain)
+        or any(
+            item.get("scope_owner") != owner.data.get("qualified_name")
+            for item, owner in zip(chain, expected, strict=True)
+        )
+    ):
+        return None
+    return expected, chain, module_name
+
+
+def _selector_lexical_parent(
+    owner: Record, declarations: Mapping[str, list[Record]], module_name: str
+) -> tuple[Record | None, bool]:
+    qualified_name = owner.data.get("qualified_name")
+    name = owner.data.get("name")
+    parent_name = owner.data.get("parent")
+    parent_id = owner.data.get("lexical_parent_id")
+    if not isinstance(qualified_name, str) or not isinstance(name, str):
+        return None, False
+    if parent_name is None:
+        return None, qualified_name == module_name + "." + name and parent_id is None
+    if (
+        not isinstance(parent_name, str)
+        or qualified_name != parent_name + "." + name
+        or not isinstance(parent_id, str)
+    ):
+        return None, False
+    candidates = declarations.get(parent_name, [])
+    parent = candidates[0] if len(candidates) == 1 else None
+    if parent is None or parent.id != parent_id:
+        return None, False
+    return parent, True
+
+
+def _selector_scope_evidence_matches(
+    owner: Record,
+    item: RecordData,
+    module_name: str,
+    parameter_owner: Record,
+    parameter_name: str,
+    binding: CallBinding,
+    evidence: Mapping[str, Evidence],
+) -> bool:
+    scope_owner = item.get("scope_owner")
+    evidence_id = item.get("scope_evidence_id")
+    symbol_id = item.get("scope_symbol_id")
+    scope_evidence = evidence.get(evidence_id) if isinstance(evidence_id, str) else None
+    if (
+        not isinstance(scope_owner, str)
+        or not isinstance(evidence_id, str)
+        or not isinstance(symbol_id, str)
+        or evidence_id not in binding.evidence_ids
+        or scope_evidence is None
+        or symbol_id != owner.id
+        or not _numeric_owner_evidence_matches(owner, scope_evidence, evidence)
+    ):
+        return False
+    parsed = _numeric_scope_owner(scope_evidence, scope_owner, module_name)
+    if parsed is None:
+        return False
+    scope_node, _ = parsed
+    if isinstance(scope_node, ast.ClassDef):
+        return not _numeric_other_binding(scope_node, parameter_name) and not any(
+            isinstance(node, ast.Name)
+            and node.id == parameter_name
+            and isinstance(node.ctx, ast.Store | ast.Del)
+            for node in _numeric_lexical_scope_nodes(scope_node)
+        )
+    if not isinstance(scope_node, ast.FunctionDef | ast.AsyncFunctionDef):
+        return False
+    if owner.id == parameter_owner.id:
+        return _selector_parameter_is_unique(scope_node, parameter_name)
+    return not _numeric_function_binds_locally(scope_node, parameter_name)
+
+
+def _selector_parameter_scope_site_matches(
+    record: Record,
+    binding: CallBinding,
+    parameter_owner: Record,
+    scope_item: RecordData,
+    module_name: str,
+    evidence: Mapping[str, Evidence],
+) -> bool:
+    source_site = _selector_source_receiver(record, binding, evidence)
+    evidence_id = scope_item.get("scope_evidence_id")
+    scope_evidence = evidence.get(evidence_id) if isinstance(evidence_id, str) else None
+    scope_owner = scope_item.get("scope_owner")
+    if source_site is None or scope_evidence is None or not isinstance(scope_owner, str):
+        return False
+    parsed = _numeric_scope_owner(scope_evidence, scope_owner, module_name)
+    if parsed is None:
+        return False
+    scope_node, line_offset = parsed
+    receiver, span = source_site
+    if not isinstance(receiver, ast.Name):
+        return False
+    candidates = [
+        node
+        for node in ast.walk(scope_node)
+        if isinstance(node, ast.Name)
+        and node.id == receiver.id
+        and _numeric_node_span(node, scope_evidence.line, line_offset) == span
+    ]
+    if len(candidates) != 1:
+        return False
+    parents = {
+        child: parent for parent in ast.walk(scope_node) for child in ast.iter_child_nodes(parent)
+    }
+    node: ast.AST | None = candidates[0]
+    while node is not None and node is not scope_node:
+        if isinstance(node, ast.Lambda) and any(
+            argument.arg == receiver.id
+            for argument in (
+                *node.args.posonlyargs,
+                *node.args.args,
+                *([node.args.vararg] if node.args.vararg is not None else []),
+                *node.args.kwonlyargs,
+                *([node.args.kwarg] if node.args.kwarg is not None else []),
+            )
+        ):
+            return False
+        if isinstance(node, ast.Lambda) and any(
+            isinstance(item, ast.Name)
+            and item.id == receiver.id
+            and isinstance(item.ctx, ast.Store | ast.Del)
+            for item in ast.walk(node.body)
+        ):
+            return False
+        if isinstance(node, ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp) and any(
+            isinstance(target, ast.Name) and target.id == receiver.id
+            for generator in node.generators
+            for target in ast.walk(generator.target)
+        ):
+            return False
+        node = parents.get(node)
+    return node is scope_node and parameter_owner.data.get("qualified_name") is not None
+
+
+def _selector_parameter_is_unique(scope: ast.FunctionDef | ast.AsyncFunctionDef, name: str) -> bool:
+    arguments = (
+        *scope.args.posonlyargs,
+        *scope.args.args,
+        *([scope.args.vararg] if scope.args.vararg is not None else []),
+        *scope.args.kwonlyargs,
+        *([scope.args.kwarg] if scope.args.kwarg is not None else []),
+    )
+    return sum(argument.arg == name for argument in arguments) == 1 and not (
+        _numeric_function_binds_locally(scope, name, include_parameters=False)
+    )
 
 
 def _direct_selector_receiver_matches(
@@ -767,7 +996,11 @@ def _selector_declared_receiver_proof(
     proof_index: _SourceProofIndex,
 ) -> None:
     owner_name = record.data.get("owner")
-    owners = declarations.get(owner_name, []) if isinstance(owner_name, str) else []
+    parameter_owner = record.data.get("receiver_parameter_owner")
+    if not isinstance(parameter_owner, str):
+        parameter_owner = owner_name
+    owners = declarations.get(parameter_owner, []) if isinstance(parameter_owner, str) else []
+    selector_owners = declarations.get(owner_name, []) if isinstance(owner_name, str) else []
     owner_data: RecordData | None = owners[0].data if len(owners) == 1 else None
     parameters = owner_data.get("parameters") if owner_data is not None else None
     selected = (
@@ -788,7 +1021,13 @@ def _selector_declared_receiver_proof(
     if (
         len(owners) != 1
         or owners[0].kind not in {"function", "method"}
+        or len(selector_owners) != 1
+        or selector_owners[0].kind not in {"function", "method"}
         or receiver_parameter is None
+        or not isinstance(owner_name, str)
+        or not isinstance(parameter_owner, str)
+        or owner_name != parameter_owner
+        and not owner_name.startswith(f"{parameter_owner}.")
         or len(selected) != 1
         or annotation_target != binding.target
         or len(targets) != 1
@@ -796,6 +1035,7 @@ def _selector_declared_receiver_proof(
         or target_data is None
         or target_data.get("source_binding_unique") is not True
         or not set(owners[0].evidence_ids) <= set(binding.evidence_ids)
+        or not set(selector_owners[0].evidence_ids) <= set(binding.evidence_ids)
     ):
         raise ValueError("declared selector receiver needs its exact typed parameter proof")
 
@@ -1700,9 +1940,12 @@ def _numeric_enclosing_function(
 
 
 def _numeric_function_binds_locally(
-    function: ast.FunctionDef | ast.AsyncFunctionDef, name: str
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    name: str,
+    *,
+    include_parameters: bool = True,
 ) -> bool:
-    if any(
+    if include_parameters and any(
         argument.arg == name
         for argument in (
             *function.args.posonlyargs,
@@ -1714,6 +1957,8 @@ def _numeric_function_binds_locally(
     ):
         return True
     for node in _numeric_lexical_scope_nodes(function):
+        if isinstance(node, ast.Global | ast.Nonlocal) and name in node.names:
+            return True
         if (
             isinstance(node, ast.Name)
             and node.id == name
@@ -3233,6 +3478,14 @@ def _stored_receiver_proof(
         raise ValueError("stored receiver proof disagrees with its source expressions")
 
 
+def _class_has_dynamic_lookup(declaration: Record) -> bool:
+    members = _record_data_value(declaration.data, "class_members")
+    return _record_data_value(declaration.data, "class_body_control_flow") is True or (
+        isinstance(members, tuple | list)
+        and any(name in members for name in ("__getattribute__", "__getattr__", "__setattr__"))
+    )
+
+
 def _stored_receiver_links(
     facts: SourceFacts,
     binding: CallBinding,
@@ -3264,6 +3517,7 @@ def _stored_receiver_links(
     if (
         _record_data_value(owners[0].data, "source_binding_unique") is not True
         or _record_data_value(owners[0].data, "source_member_binding_static") is not True
+        or _class_has_dynamic_lookup(owners[0])
         or initializers[0].kind != "method"
     ):
         return None
@@ -3310,6 +3564,7 @@ def _stored_receiver_links(
     if (
         _record_data_value(stored_types[0].data, "source_binding_unique") is not True
         or _record_data_value(stored_types[0].data, "source_member_binding_static") is not True
+        or _class_has_dynamic_lookup(stored_types[0])
     ):
         return None
     return owners, initializers, linked_writes, typed_parameters, stored_types, path_evidence
@@ -3370,9 +3625,11 @@ def _constructed_member_owners_static(
         len(constructed) == 1
         and constructed[0].kind == "class"
         and _record_data_value(constructed[0].data, "source_member_owner_static") is True
+        and not _class_has_dynamic_lookup(constructed[0])
         and len(method_owners) == 1
         and method_owners[0].kind == "class"
         and _record_data_value(method_owners[0].data, "source_member_owner_static") is True
+        and not _class_has_dynamic_lookup(method_owners[0])
     )
 
 

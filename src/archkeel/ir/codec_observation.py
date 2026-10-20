@@ -26,6 +26,7 @@ from archkeel.ir.codec_wire import (
 )
 from archkeel.ir.facts import (
     CallBindingOrigin,
+    JsonValue,
     RuntimeRequirementState,
     SourceProfile,
     SourceReferenceContext,
@@ -42,6 +43,7 @@ from archkeel.ir.model import (
     ContractInfo,
     Coverage,
     Observation,
+    RecordData,
     RuntimeInfo,
     Section,
     SourceInfo,
@@ -188,6 +190,8 @@ class _ConstructSelectorFactKind(StrEnum):
 class _SelectorRecordField(StrEnum):
     CLAIM = "claim"
     DECLARATION = "selector"
+    RECEIVER_PARAMETER_OWNER = "receiver_parameter_owner"
+    RECEIVER_PARAMETER_SCOPES = "receiver_parameter_scopes"
 
 
 class _SelectorRecordKind(StrEnum):
@@ -349,6 +353,50 @@ def _validate_selector_and_argument_versions(
         schema_version, _ObservationVersion.V2_6
     ):
         raise ValueError("construct selector facts require observation schema 2.6.0")
+    for section in sections:
+        for record in section.records:
+            fields = {key for key, _ in record.data.entries}
+            has_parameter_owner = _SelectorRecordField.RECEIVER_PARAMETER_OWNER in fields
+            has_scope_chain = _SelectorRecordField.RECEIVER_PARAMETER_SCOPES in fields
+            if not has_parameter_owner and not has_scope_chain:
+                continue
+            binding = _call_binding(record.data.get("receiver_binding"))
+            owner = record.data.get(_SelectorRecordField.RECEIVER_PARAMETER_OWNER)
+            scope_chain = record.data.get("receiver_parameter_scopes")
+            scope_chain_is_tuple = isinstance(scope_chain, tuple)
+            scope_items: tuple[JsonValue, ...] = (
+                scope_chain if isinstance(scope_chain, tuple) else ()
+            )
+            scope_owners = (
+                [item.get("scope_owner") for item in scope_items if isinstance(item, RecordData)]
+                if scope_chain_is_tuple
+                else []
+            )
+            if (
+                section.name != ObservedSection.CONSTRUCTS
+                or record.kind != _ConstructSelectorFactKind.SELECTOR
+                or not isinstance(owner, str)
+                or not owner
+                or not has_scope_chain
+                or not scope_chain_is_tuple
+                or not scope_owners
+                or any(not isinstance(name, str) or not name for name in scope_owners)
+                or scope_owners[0] != record.data.get("owner")
+                or scope_owners[-1] != owner
+                or any(
+                    not isinstance(item, RecordData)
+                    or {key for key, _ in item.entries}
+                    != {"scope_owner", "scope_evidence_id", "scope_symbol_id"}
+                    or any(
+                        not isinstance(item.get(key), str) or not item.get(key)
+                        for key in ("scope_owner", "scope_evidence_id", "scope_symbol_id")
+                    )
+                    for item in scope_items
+                )
+                or binding is None
+                or binding.origin is not CallBindingOrigin.DECLARED_RECEIVER
+            ):
+                raise ValueError("selector parameter owner requires a declared receiver fact")
     python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
     for section in sections:
         if section.name != ObservedSection.CALLS:
@@ -380,6 +428,11 @@ def _has_selector_vocabulary(sections: tuple[Section, ...]) -> bool:
             if section.name == ObservedSection.CONSTRUCTS and (
                 record.kind == _ConstructSelectorFactKind.SELECTOR
             ):
+                return True
+            if {
+                _SelectorRecordField.RECEIVER_PARAMETER_OWNER,
+                _SelectorRecordField.RECEIVER_PARAMETER_SCOPES,
+            }.intersection(key for key, _ in record.data.entries):
                 return True
             if section.name == ObservedSection.UNKNOWNS and (
                 record.kind == _ConstructSelectorFactKind.UNKNOWN
