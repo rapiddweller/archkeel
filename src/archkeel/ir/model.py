@@ -474,6 +474,9 @@ class BoundedNumericOperandRule(ArchitectureRuleGrammar):
     form: NumericOperandForm
     terminal_suffix: str
     minimum_value: int
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
 
 
 @dataclass(frozen=True, slots=True)
@@ -782,7 +785,6 @@ class ProtocolDeclarationsRule(ArchitectureRuleGrammar):
 ArchitectureRule: TypeAlias = (
     CallOwnerRule
     | BoundedNumericOperandRule
-
     | ForbiddenCallArgumentRule
     | ForbiddenDependencyRule
     | AllowedDependencyRule

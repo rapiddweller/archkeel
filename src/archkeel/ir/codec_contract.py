@@ -1431,7 +1431,6 @@ def _parse_bounded_numeric_operand(raw: RawJson, label: str) -> BoundedNumericOp
         form,
         suffix,
         minimum,
-
         _nonempty(item["rationale"], f"{label}.rationale"),
         provenance,
         _decided_by(item["decided_by"], f"{label}.decided_by"),

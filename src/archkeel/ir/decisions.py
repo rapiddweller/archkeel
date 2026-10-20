@@ -962,7 +962,8 @@ def dependency_binding_id(
                 "inside_component_responsibility",
                 "complete_requires",
             }
-            or include_calls and record.kind in {"call_owner", "forbidden_call_argument"}
+            or include_calls
+            and record.kind in {"call_owner", "forbidden_call_argument"}
             or record.kind == "protocol_declarations"
         )
     ]

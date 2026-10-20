@@ -462,9 +462,7 @@ def call_binding(value: JsonValue) -> CallBinding | None:
         if proof_kind is _CallBindingProofKind.NATIVE_DESCRIPTOR:
             source_digest = proof.get("stdlib_source_digest")
             if (
-                any(
-                    proof.get(key) != value for key, value in _DATETIME_DESCRIPTOR_IDENTITY.items()
-                )
+                any(proof.get(key) != value for key, value in _DATETIME_DESCRIPTOR_IDENTITY.items())
                 or not isinstance(source_digest, str)
                 or len(source_digest) != 64
                 or any(character not in "0123456789abcdef" for character in source_digest)

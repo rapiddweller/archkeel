@@ -766,7 +766,6 @@ def test_the_maximal_contract_fills_every_field() -> None:
             "3.7.0",
             "3.8.0",
             "3.9.0",
-
             "3.10.0",
         )
     ]

@@ -73,6 +73,11 @@ class _ObservationVersion(StrEnum):
     V2_5 = "2.5.0"
 
 
+def _before_version(version: _ObservationVersion, floor: _ObservationVersion) -> bool:
+    versions = tuple(_ObservationVersion)
+    return versions.index(version) < versions.index(floor)
+
+
 class _VersionedConstruct(StrEnum):
     NUMERIC_OPERAND = "numeric_operand"
 
@@ -81,7 +86,6 @@ def _uses_numeric_operand_fields(record: Record) -> bool:
     return record.kind == _VersionedConstruct.NUMERIC_OPERAND or _has_field(
         (key for key, _ in record.data.entries), "derivation"
     )
-
 
 
 class _EncodingKind(StrEnum):
@@ -218,12 +222,7 @@ def parse_observation(raw: object) -> Observation:
         for name in CLASSIFIED_SECTIONS
         if isinstance(section_items := item[name], list)
     )
-    if schema_version not in {
-        _ObservationVersion.V2_2,
-        _ObservationVersion.V2_3,
-        _ObservationVersion.V2_4,
-        _ObservationVersion.V2_5,
-    } and any(
+    if _before_version(schema_version, _ObservationVersion.V2_2) and any(
         _uses_numeric_operand_fields(record)
         for section in sections
         if section.name == ObservedSection.CONSTRUCTS
@@ -236,33 +235,19 @@ def parse_observation(raw: object) -> Observation:
             for call in section.records:
                 if (
                     python_calls
-                    and schema_version
-                    in {
-                        _ObservationVersion.V2_1,
-                        _ObservationVersion.V2_2,
-                        _ObservationVersion.V2_3,
-                        _ObservationVersion.V2_4,
-                        _ObservationVersion.V2_5,
-                    }
+                    and not _before_version(schema_version, _ObservationVersion.V2_1)
                     and not _has_field((key for key, _ in call.data.entries), "call_binding")
                 ):
                     raise ValueError("Python 2.1.0 calls require explicit call_binding or null")
                 binding = _call_binding(call.data.get("call_binding"))
                 if (
-                    schema_version not in {
-                        _ObservationVersion.V2_4,
-                        _ObservationVersion.V2_5,
-                    }
+                    _before_version(schema_version, _ObservationVersion.V2_4)
                     and binding is not None
                     and binding.origin
                     not in {CallBindingOrigin.DIRECT, CallBindingOrigin.DECLARED_RECEIVER}
                 ):
                     raise ValueError("extended call bindings require observation schema 2.4.0")
-    if schema_version not in {
-        _ObservationVersion.V2_3,
-        _ObservationVersion.V2_4,
-        _ObservationVersion.V2_5,
-    } and any(
+    if _before_version(schema_version, _ObservationVersion.V2_3) and any(
         record.kind == ArchitectureRuleKind.PROTOCOL_DECLARATIONS
         for section in sections
         if section.name == _ObservationSection.DECLARATIONS
@@ -270,7 +255,7 @@ def parse_observation(raw: object) -> Observation:
     ):
         raise ValueError("protocol_declarations require observation schema 2.3.0")
 
-    if schema_version is _ObservationVersion.V2_5:
+    if not _before_version(schema_version, _ObservationVersion.V2_5):
         python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
         for section in sections:
             if section.name == ObservedSection.CALLS:
@@ -285,7 +270,7 @@ def parse_observation(raw: object) -> Observation:
                     binding = _call_binding(call.data.get("call_binding"))
                     if (arguments is None) != (binding is None):
                         raise ValueError("call arguments require the canonical call binding")
-    else:
+    elif _before_version(schema_version, _ObservationVersion.V2_5):
         for section in sections:
             if section.name == ObservedSection.CALLS and any(
                 _has_field((key for key, _ in call.data.entries), "call_arguments")
@@ -481,6 +466,7 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
             _ObservationVersion.V2_2,
             _ObservationVersion.V2_3,
             _ObservationVersion.V2_4,
+            _ObservationVersion.V2_5,
         }
         and observation.runtime is not None
         and observation.runtime.requirement_state != RuntimeRequirementState.DECLARED
@@ -517,17 +503,37 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
             for section in observation.sections
         }
     )
-    if _observation_version(observation.schema_version) not in {
-        _ObservationVersion.V2_2,
-        _ObservationVersion.V2_3,
-        _ObservationVersion.V2_4,
-    } and any(
+    schema_version = _observation_version(observation.schema_version)
+    if _before_version(schema_version, _ObservationVersion.V2_2) and any(
         _uses_numeric_operand_fields(record)
         for section in observation.sections
         if section.name == ObservedSection.CONSTRUCTS
         for record in section.records
     ):
         raise ValueError("numeric_operand constructs require observation schema 2.2.0")
+    if _before_version(schema_version, _ObservationVersion.V2_3) and any(
+        record.kind == ArchitectureRuleKind.PROTOCOL_DECLARATIONS
+        for section in observation.sections
+        if section.name == _ObservationSection.DECLARATIONS
+        for record in section.records
+    ):
+        raise ValueError("protocol_declarations require observation schema 2.3.0")
+    for section in observation.sections:
+        if section.name != ObservedSection.CALLS:
+            continue
+        for call in section.records:
+            binding = _call_binding(call.data.get("call_binding"))
+            if (
+                _before_version(schema_version, _ObservationVersion.V2_4)
+                and binding is not None
+                and binding.origin
+                not in {CallBindingOrigin.DIRECT, CallBindingOrigin.DECLARED_RECEIVER}
+            ):
+                raise ValueError("extended call bindings require observation schema 2.4.0")
+            if _before_version(schema_version, _ObservationVersion.V2_5) and _has_field(
+                (key for key, _ in call.data.entries), "call_arguments"
+            ):
+                raise ValueError("call_arguments require observation schema 2.5.0")
     _validate_profile_sections(result, profile)
     return result
 

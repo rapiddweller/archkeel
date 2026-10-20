@@ -22,6 +22,8 @@ def with_rule(kind: str, **fields: object) -> str:
     value = contract()
     if kind == "call_owner":
         value["schema_version"] = "3.7.0"
+    elif kind == "forbidden_call_argument":
+        value["schema_version"] = "3.10.0"
     value["rules"].append(
         {
             "id": "PROBE",
@@ -70,6 +72,11 @@ def example(
 
 UNSUPPORTED_RULES = {
     "call_owner": {"source": "shop", "target": "shop.src.main_x2e_ts.main"},
+    "forbidden_call_argument": {
+        "source": "shop",
+        "target": "shop.src.main_x2e_ts.main",
+        "parameter": "query",
+    },
     "forbidden_construct": {"source": "shop", "constructs": ["eval"]},
     "symbol_placement": {
         "source": "shop",
