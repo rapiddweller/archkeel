@@ -947,6 +947,30 @@ def test_stored_property_receiver_stays_unknown_and_replays(tmp_path, mounted, c
             "UNKNOWN",
         ),
         (
+            "from .storage import Child\ndef run(): Child().page()\n",
+            {
+                "sample/storage.py": "class Base:\n    def page(self): pass\n"
+                "class Child(Base):\n"
+                "    def __init__(self): pass\n"
+                "    page = None\n"
+            },
+            "Child().page",
+            "sample.storage.Base.page",
+            "UNKNOWN",
+        ),
+        (
+            "from .storage import Child\ndef run(): Child().page()\n",
+            {
+                "sample/storage.py": "class Base:\n    def page(self): pass\n"
+                "class Child(Base):\n"
+                "    def __init__(self): pass\n"
+                "    page = 1\n"
+            },
+            "Child().page",
+            "sample.storage.Base.page",
+            "UNKNOWN",
+        ),
+        (
             "from .storage import Child\ndef run(client: Child): client.page()\n",
             {
                 "sample/storage.py": "def replacement(self): pass\n"
@@ -962,6 +986,8 @@ def test_stored_property_receiver_stays_unknown_and_replays(tmp_path, mounted, c
         "multiline-constructor",
         "chained-stored-write",
         "inherited-class-attribute",
+        "inherited-class-attribute-none",
+        "inherited-class-attribute-literal",
         "declared-inherited-class-attribute",
     ],
 )
