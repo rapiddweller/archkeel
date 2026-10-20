@@ -1038,9 +1038,12 @@ def _numeric_operation_scope_chain_matches(
         return False
     if operation_owner == module_name:
         return not chain
-    if not chain or not isinstance(chain[0], RecordData):
+    if not chain:
         return False
-    owner_id = chain[0].get("scope_symbol_id")
+    first_scope = chain[0]
+    if not isinstance(first_scope, RecordData):
+        return False
+    owner_id = first_scope.get("scope_symbol_id")
     owner = declarations_by_id.get(owner_id) if isinstance(owner_id, str) else None
     if owner is None or owner.data.get("qualified_name") != operation_owner:
         return False
