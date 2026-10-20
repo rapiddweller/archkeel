@@ -188,13 +188,15 @@ class _GuardPathWalker:
         value: bool | None,
         path_nodes: tuple[ast.AST, ...],
         unknown_reason: str | None = None,
-    ) -> list[tuple[bool | None, str | None]]:
-        active: list[tuple[bool | None, str | None]] = [(value, unknown_reason)]
+    ) -> list[tuple[bool | None, str | None, tuple[ast.AST, ...]]]:
+        active: list[tuple[bool | None, str | None, tuple[ast.AST, ...]]] = [
+            (value, unknown_reason, path_nodes)
+        ]
         for statement in statements:
-            next_active: list[tuple[bool | None, str | None]] = []
-            for current, current_reason in active:
+            next_active: list[tuple[bool | None, str | None, tuple[ast.AST, ...]]] = []
+            for current, current_reason, current_nodes in active:
                 next_active.extend(
-                    self._statement_paths(statement, current, current_reason, path_nodes)
+                    self._statement_paths(statement, current, current_reason, current_nodes)
                 )
             active = next_active
             if not active:
@@ -207,12 +209,12 @@ class _GuardPathWalker:
         current: bool | None,
         reason: str | None,
         path_nodes: tuple[ast.AST, ...],
-    ) -> list[tuple[bool | None, str | None]]:
+    ) -> list[tuple[bool | None, str | None, tuple[ast.AST, ...]]]:
         if isinstance(statement, ast.If):
             return self._if_paths(statement, current, reason, path_nodes)
         if isinstance(statement, (ast.While, ast.For, ast.AsyncFor, ast.Try, ast.TryStar)):
             self._unsupported_flow(statement, path_nodes)
-            return [(None, "unsupported_control_flow")]
+            return [(None, "unsupported_control_flow", path_nodes)]
         if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             return []
         return self._ordinary_paths(statement, current, reason, path_nodes)
@@ -223,7 +225,7 @@ class _GuardPathWalker:
         current: bool | None,
         current_reason: str | None,
         path_nodes: tuple[ast.AST, ...],
-    ) -> list[tuple[bool | None, str | None]]:
+    ) -> list[tuple[bool | None, str | None, tuple[ast.AST, ...]]]:
         guard = _guard_value(statement.test, self.condition_name, self.receiver_name)
         test_reason = (
             "condition_mutation"
@@ -263,7 +265,7 @@ class _GuardPathWalker:
         current: bool | None,
         current_reason: str | None,
         path_nodes: tuple[ast.AST, ...],
-    ) -> list[tuple[bool | None, str | None]]:
+    ) -> list[tuple[bool | None, str | None, tuple[ast.AST, ...]]]:
         reason = (
             "condition_mutation"
             if self.writes_name(statement)
@@ -288,7 +290,7 @@ class _GuardPathWalker:
         if self.receiver_name is not None and self.has_calls(statement):
             reason = "opaque_call_mutation"
         next_value = None if reason in {"condition_mutation", "opaque_call_mutation"} else current
-        return [(next_value, reason)]
+        return [(next_value, reason, path_nodes)]
 
 
 def guarded_call_paths(

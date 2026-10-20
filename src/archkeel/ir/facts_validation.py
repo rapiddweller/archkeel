@@ -1420,7 +1420,11 @@ def _source_guard_boolean_members(record: Record, section: SourceSectionName) ->
             raise ValueError("guard Boolean member evidence_ids must be unique and nonempty")
 
 
-def _source_guarded_effect(record: Record, section: SourceSectionName) -> None:
+def _source_guarded_effect(
+    record: Record,
+    section: SourceSectionName,
+    evidence: Mapping[str, Evidence],
+) -> None:
     if section is not SourceSectionName.CALLS:
         raise ValueError("guarded effect evidence needs its call owner")
     raw_guarded = record.data.get("guarded_effect")
@@ -1429,6 +1433,15 @@ def _source_guarded_effect(record: Record, section: SourceSectionName) -> None:
     binding = call_binding(record.data.get("call_binding"))
     for raw_item in raw_guarded:
         proof = guarded_effect(raw_item)
+        if proof.condition_value is not None and not _guard_path_matches_condition(
+            record,
+            proof.condition.name,
+            proof.condition.kind.value,
+            proof.condition_value,
+            proof.path_evidence_ids,
+            evidence,
+        ):
+            raise ValueError("guarded-effect condition value disagrees with its source path")
         if proof.complete and (
             binding is None or proof.effect_binding_evidence_ids != binding.evidence_ids
         ):
@@ -1440,7 +1453,141 @@ def _source_guarded_effect(record: Record, section: SourceSectionName) -> None:
             raise ValueError("guarded-effect helper identity disagrees with its call binding")
 
 
-def _source_record(record: Record, section: SourceSectionName) -> None:
+def _guard_path_matches_condition(
+    record: Record,
+    name: str,
+    kind: str,
+    expected_value: bool,
+    path_evidence_ids: tuple[str, ...],
+    evidence: Mapping[str, Evidence],
+) -> bool:
+    call_source = next(
+        (evidence[identifier].file for identifier in record.evidence_ids if identifier in evidence),
+        None,
+    )
+    call_evidence = next(
+        (evidence[identifier] for identifier in record.evidence_ids if identifier in evidence),
+        None,
+    )
+    call_node = _source_call_node(record, call_evidence)
+    for identifier in path_evidence_ids:
+        item = evidence.get(identifier)
+        if item is None or item.file != call_source:
+            continue
+        parsed = _parse_numeric_evidence_excerpt(item.excerpt)
+        if parsed is None:
+            continue
+        roots, line_offset = parsed
+        for root in roots:
+            for node in ast.walk(root):
+                if not isinstance(node, ast.If | ast.IfExp):
+                    continue
+                if _numeric_node_span(node.test, item.line, line_offset)[:2] != (
+                    item.line,
+                    item.column,
+                ):
+                    continue
+                guard_value = _guard_test_value(node.test, name, kind)
+                if (
+                    call_evidence is not None
+                    and call_evidence.line == item.line
+                    and call_evidence.excerpt == item.excerpt
+                ):
+                    call_node = _source_call_node_in_tree(record, call_evidence, root, line_offset)
+                value = _source_guard_branch_value(
+                    node, item, guard_value, call_evidence, call_node
+                )
+                if value is expected_value:
+                    return True
+    return False
+
+
+def _source_call_node_in_tree(
+    record: Record, item: Evidence | None, root: ast.AST, line_offset: int
+) -> ast.Call | None:
+    expression = record.data.get("expression")
+    if item is None or not isinstance(expression, str):
+        return None
+    for node in ast.walk(root):
+        if (
+            isinstance(node, ast.Call)
+            and _numeric_node_span(node, item.line, line_offset)[:2]
+            == (item.line, item.column)
+            and ast.unparse(node.func) == expression
+        ):
+            return node
+    return None
+
+
+def _source_call_node(record: Record, item: Evidence | None) -> ast.Call | None:
+    if item is None:
+        return None
+    parsed = _parse_numeric_evidence_excerpt(item.excerpt)
+    if parsed is None:
+        return None
+    roots, line_offset = parsed
+    expression = record.data.get("expression")
+    if not isinstance(expression, str):
+        return None
+    for root in roots:
+        for node in ast.walk(root):
+            if (
+                isinstance(node, ast.Call)
+                and _numeric_node_span(node, item.line, line_offset)[:2]
+                == (item.line, item.column)
+                and ast.unparse(node.func) == expression
+            ):
+                return node
+    return None
+
+
+def _source_guard_branch_value(
+    guard: ast.If | ast.IfExp,
+    guard_evidence: Evidence,
+    guard_value: bool | None,
+    call_evidence: Evidence | None,
+    call_node: ast.Call | None,
+) -> bool | None:
+    if guard_value is None or call_evidence is None:
+        return None
+    if call_evidence.line == guard_evidence.line and call_evidence.excerpt == guard_evidence.excerpt:
+        body = guard.body if isinstance(guard, ast.If) else (guard.body,)
+        alternate = guard.orelse if isinstance(guard, ast.If) else (guard.orelse,)
+        if call_node is not None and any(
+            child is call_node for statement in body for child in ast.walk(statement)
+        ):
+            return guard_value
+        if call_node is not None and any(
+            child is call_node for statement in alternate for child in ast.walk(statement)
+        ):
+            return not guard_value
+        return None
+    guard_indent = len(guard_evidence.excerpt) - len(guard_evidence.excerpt.lstrip(" \t"))
+    call_indent = len(call_evidence.excerpt) - len(call_evidence.excerpt.lstrip(" \t"))
+    return guard_value if call_indent > guard_indent else not guard_value
+
+
+def _guard_test_value(expression: ast.expr, name: str, kind: str) -> bool | None:
+    candidate = expression
+    negated = False
+    if isinstance(candidate, ast.UnaryOp) and isinstance(candidate.op, ast.Not):
+        candidate = candidate.operand
+        negated = True
+    matches = (
+        isinstance(candidate, ast.Name) and candidate.id == name
+        if kind == "parameter"
+        else isinstance(candidate, ast.Attribute)
+        and candidate.attr == name
+        and isinstance(candidate.value, ast.Name)
+    )
+    return not negated if matches else None
+
+
+def _source_record(
+    record: Record,
+    section: SourceSectionName,
+    evidence: Mapping[str, Evidence] | None = None,
+) -> None:
     if record.evidence_class not in (EvidenceClass.FACT, EvidenceClass.UNKNOWN):
         raise ValueError("source records cannot carry governance decisions")
     if section == SourceSectionName.UNKNOWNS and record.evidence_class != EvidenceClass.UNKNOWN:
@@ -1483,7 +1630,7 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
             raise ValueError("call arguments need their call owner")
         call_arguments(record.data.get("call_arguments"))
     if "guarded_effect" in fields:
-        _source_guarded_effect(record, section)
+        _source_guarded_effect(record, section, evidence or {})
     _payload(record.data)
 
 
@@ -1841,7 +1988,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
             raise ValueError("dangling source evidence reference")
     for section in facts.sections:
         for record in section.records:
-            _source_record(record, section.name)
+            _source_record(record, section.name, base_by_id)
             if section.name is SourceSectionName.CONSTRUCTS and record.kind == "numeric_operand":
                 operation_span = (
                     record.data.get("line"),
