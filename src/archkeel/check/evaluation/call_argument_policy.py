@@ -227,6 +227,7 @@ def catalog_results(
     *,
     scope: str,
     calls: Sequence[RawRecord],
+    imports: Sequence[RawRecord],
     modules: Sequence[RawRecord],
     symbols: Sequence[RawRecord],
     references: Sequence[RawRecord],
@@ -250,6 +251,7 @@ def catalog_results(
             scope,
             source_records,
             calls,
+            imports,
             symbols,
             references,
             complete,
@@ -271,6 +273,7 @@ def _catalog_rule_result(
     scope: str,
     source_records: Sequence[RawRecord],
     calls: Sequence[RawRecord],
+    imports: Sequence[RawRecord],
     symbols: Sequence[RawRecord],
     references: Sequence[RawRecord],
     complete: bool,
@@ -284,7 +287,8 @@ def _catalog_rule_result(
     subjects, selected_calls, selected_refs, ref_data = _catalog_scope_records(
         rule, source_records, calls, references, source_modules, blank_modules
     )
-    supporting = [*subjects, *owners, *selected_refs]
+    ambiguous_imports = _catalog_ambiguous_imports(rule, imports, subjects)
+    supporting = [*subjects, *owners, *selected_refs, *ambiguous_imports]
     violations, limits = _catalog_rule_checks(
         rule,
         scope,
@@ -300,6 +304,7 @@ def _catalog_rule_result(
         complete,
         bindings_measured,
         arguments_measured,
+        not ambiguous_imports,
         references_measured,
     )
     receipt = (
@@ -323,6 +328,7 @@ def _catalog_rule_checks(
     complete: bool,
     bindings_measured: bool,
     arguments_measured: bool,
+    import_context_complete: bool,
     references_measured: bool,
 ) -> tuple[list[RawRecord], list[RawRecord]]:
     violations: list[RawRecord] = []
@@ -363,6 +369,7 @@ def _catalog_rule_checks(
         reference_data,
         references_measured,
         complete,
+        import_context_complete,
         violations,
         limits,
     )
@@ -413,6 +420,7 @@ def _catalog_use_policy(
     reference_data: dict[str, RecordData],
     references_measured: bool,
     complete: bool,
+    import_context_complete: bool,
     violations: list[RawRecord],
     limits: list[RawRecord],
 ) -> tuple[list[RawRecord], list[RawRecord]]:
@@ -425,13 +433,39 @@ def _catalog_use_policy(
         supporting,
         references,
         reference_data,
-        context_complete,
+        context_complete and import_context_complete,
         references_measured,
         complete,
     )
     violations.extend(use_violations)
     limits.extend(use_limits)
     return violations, limits
+
+
+def _catalog_ambiguous_imports(
+    rule: CatalogArgumentRule | CatalogUseRule,
+    imports: Sequence[RawRecord],
+    subjects: Sequence[RawRecord],
+) -> list[RawRecord]:
+    selected_modules = {
+        module
+        for record in subjects
+        if (
+            module := _record_text(parse_record(record).data, "module")
+            or (
+                _record_text(parse_record(record).data, "qualified_name")
+                if record["kind"] == "module"
+                else None
+            )
+        )
+    }
+    return [
+        record
+        for record in imports
+        if (data := parse_record(record).data).get("source_module") in selected_modules
+        and data.get("origin_definition") == rule.catalog
+        and data.get("source_binding_unique") is False
+    ]
 
 
 def _catalog_source_records(

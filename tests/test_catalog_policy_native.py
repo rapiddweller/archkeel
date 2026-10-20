@@ -36,7 +36,14 @@ def _raw(*rules):
     }
 
 
-def _run(tmp_path: Path, *, caller: str, rules, catalog_suffix: str = ""):
+def _run(
+    tmp_path: Path,
+    *,
+    caller: str,
+    rules,
+    catalog_suffix: str = "",
+    extra_files: dict[str, str] | None = None,
+):
     config = (
         "from enum import StrEnum\n"
         "class OptionKey(StrEnum):\n"
@@ -56,6 +63,7 @@ def _run(tmp_path: Path, *, caller: str, rules, catalog_suffix: str = ""):
         "sample/__init__.py": "",
         "sample/catalog.py": config,
         "sample/consumer.py": caller,
+        **(extra_files or {}),
     }
     for relative, content in files.items():
         path = tmp_path / relative
@@ -613,6 +621,38 @@ def test_incomplete_context_keeps_a_known_missing_use_failure_in_another_scope(t
 
     statuses = {row.id.rsplit(":", 1)[-1]: row.status for row in rows}
     assert statuses == {"CATALOG-0": "PASS", "CATALOG-1": "FAIL"}
+
+
+def test_ambiguous_catalog_import_cannot_prove_missing_use(tmp_path):
+    _, rows = _run(
+        tmp_path,
+        caller=(
+            "from .catalog import OptionKey\n"
+            "from .other import OptionKey\n"
+            "def consume(): print(OptionKey.PAGE_SIZE)\n"
+        ),
+        rules=[_use()],
+        extra_files={"sample/other.py": "class OptionKey: PAGE_SIZE = 'page_size'\n"},
+    )
+
+    assert rows[0].status == "UNKNOWN"
+    assert not rows[0].evaluation_proven
+
+
+def test_ambiguous_import_outside_selected_source_does_not_poison_catalog_use(tmp_path):
+    _, rows = _run(
+        tmp_path,
+        caller=("from .catalog import OptionKey\ndef consume(): print(OptionKey.PAGE_SIZE)\n"),
+        rules=[_use(source="sample.consumer.consume")],
+        extra_files={
+            "sample/other.py": "class OptionKey: PAGE_SIZE = 'page_size'\n",
+            "sample/unrelated.py": (
+                "from .catalog import OptionKey\nfrom .other import OptionKey\n"
+            ),
+        },
+    )
+
+    assert rows[0].status == "PASS" and rows[0].evaluation_proven
 
 
 @pytest.mark.parametrize("columnar", [False, True])
