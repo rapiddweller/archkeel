@@ -527,6 +527,8 @@ def build_architecture_delta(
             "2.3.0",
             "2.4.0",
             "2.5.0",
+            "2.6.0",
+            "2.7.0",
             SCHEMA_VERSION,
         }
         and bool(baseline.source.scope)

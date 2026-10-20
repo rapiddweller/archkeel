@@ -674,6 +674,26 @@
                     "type": "string",
                     "minLength": 1
                   },
+                  "expression_kind": {
+                    "enum": [
+                      "literal",
+                      "reference",
+                      "unsupported"
+                    ]
+                  },
+                  "constant": {
+                    "type": [
+                      "string",
+                      "number",
+                      "integer",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "parameter": {
+                    "type": "string",
+                    "minLength": 1
+                  },
                   "canonical_name": {
                     "type": "string",
                     "minLength": 1
@@ -733,6 +753,42 @@
                 "data": {
                   "required": [
                     "reference_context"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "source_role"
+                },
+                "data": {
+                  "properties": {
+                    "role": {
+                      "enum": [
+                        "parameter_default",
+                        "fallback"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "role"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "data"
+              ]
+            },
+            "then": {
+              "properties": {
+                "data": {
+                  "required": [
+                    "parameter",
+                    "expression_kind"
                   ]
                 }
               }

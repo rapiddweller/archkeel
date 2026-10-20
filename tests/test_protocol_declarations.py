@@ -563,7 +563,7 @@ def test_valid_parameter_and_member_declarations_are_proven_on_saved_replay(
     [replayed] = [
         item
         for item in (run_saved_report(saved).rule_assessments or ())
-        if item.id == "APP-READER-DECLARATIONS"
+        if item.kind == "protocol_declarations"
     ]
     assert replayed == row
 
@@ -608,7 +608,103 @@ def test_rebound_member_declarations_cannot_replay_a_stale_protocol_pass(
     [replayed] = [
         item
         for item in (run_saved_report(saved).rule_assessments or ())
-        if item.id == "APP-READER-DECLARATIONS"
+        if item.kind == "protocol_declarations"
+    ]
+    assert replayed == row
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize(
+    ("role", "body", "expected"),
+    [
+        (
+            "parameter",
+            "class Holder:\n    Reader = Concrete\n    def consume(self, client: Reader): pass\n",
+            "UNKNOWN",
+        ),
+        (
+            "member",
+            "class Holder:\n    Reader = Concrete\n    reader: Reader\n",
+            "UNKNOWN",
+        ),
+        (
+            "member",
+            "class Holder:\n    reader: Reader\n    if ENABLED:\n        reader = Concrete()\n",
+            "UNKNOWN",
+        ),
+        ("parameter", "def consume(client: Reader): pass\n", "PASS"),
+        ("member", "class Holder:\n    reader: Reader\n", "PASS"),
+    ],
+)
+def test_uncertain_class_annotation_bindings_are_not_proven_on_saved_replay(
+    tmp_path: Path,
+    mounted: bool,
+    columnar: bool,
+    role: str,
+    body: str,
+    expected: str,
+) -> None:
+    selector_name = "client" if role == "parameter" else "reader"
+    rule = {
+        "id": "APP-READER-DECLARATIONS",
+        "kind": "protocol_declarations",
+        "source": "sample.core",
+        "protocol": "sample.core.Reader",
+        "selectors": [{"role": role, "name": selector_name, "visibility": "all"}],
+        "rationale": "Selected declarations use the Reader port.",
+        "provenance": ["docs/architecture/sample.md"],
+        "decided_by": "architect",
+    }
+    source = (
+        f"from typing import Protocol\nclass Reader(Protocol): ...\nclass Concrete: ...\n{body}"
+    )
+    files = {
+        "sample/__init__.py": "",
+        "sample/core/__init__.py": source,
+        "sample/other/__init__.py": "value = 1\n",
+    }
+    if mounted:
+        files["inside.json"] = json.dumps(
+            {
+                "schema_version": "3.9.0",
+                "components": [
+                    _component("core", ["sample.core"]),
+                    _component("other", ["sample.other"]),
+                ],
+                "rules": [rule],
+            }
+        )
+        root_contract = {
+            "schema_version": "3.9.0",
+            "components": [_component("all", ["sample"], inside="inside.json")],
+            "rules": [],
+        }
+    else:
+        root_contract = {
+            "schema_version": "3.9.0",
+            "components": [
+                _component("core", ["sample.core"]),
+                _component("other", ["sample.other"]),
+            ],
+            "rules": [rule],
+        }
+
+    result = _observe_tree(tmp_path, files, root_contract)
+    assert result.observation is not None
+    rows = rule_assessments(
+        result.observation,
+        undecided_by_rule=unknown_positions_by_rule(result.observation),
+    )
+    [row] = [item for item in rows if item.kind == "protocol_declarations"]
+    assert row.status.value == expected
+    payload = observation_payload(result.observation)
+    saved = tmp_path / "class-binding.json"
+    saved.write_text(json.dumps(encode_canonical_model(payload) if columnar else payload))
+    [replayed] = [
+        item
+        for item in (run_saved_report(saved).rule_assessments or ())
+        if item.kind == "protocol_declarations"
     ]
     assert replayed == row
 

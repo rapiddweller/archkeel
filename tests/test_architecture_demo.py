@@ -491,9 +491,7 @@ def test_guarded_effect_demo_assessments_are_real(
     )
     assert architecture is not None
     row = next(
-        item
-        for item in report.rule_assessments or ()
-        if item.id == "EFFECT-NO-TOKEN-WHEN-SEEDED"
+        item for item in report.rule_assessments or () if item.id == "EFFECT-NO-TOKEN-WHEN-SEEDED"
     )
     assert row.status.value == expected
 
