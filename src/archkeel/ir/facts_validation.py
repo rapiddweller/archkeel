@@ -46,6 +46,7 @@ from .facts import (
     parse_method_kind,
     parse_source_resolution,
     property_binding,
+    python_identifier,
     stable_id,
 )
 from .facts import MemberKind as _MemberKind
@@ -263,14 +264,28 @@ def _provider_source_module(path: str) -> str | None:
         relative = relative[:-3]
     else:
         return None
-    parts = str.split(relative, "/")
-    if not all(str.isidentifier(part) for part in parts):
+    parts: list[str] = []
+    start = 0
+    for index, character in enumerate(relative):
+        if character == "/":
+            parts.append(relative[start:index])
+            start = index + 1
+    parts.append(relative[start:])
+    if not all(python_identifier(part) for part in parts):
         return None
     return ".".join(parts)
 
 
 def _qualified_identifier(value: str) -> bool:
-    return bool(value) and all(str.isidentifier(part) for part in str.split(value, "."))
+    if not value:
+        return False
+    start = 0
+    for index, character in enumerate(value):
+        if character == ".":
+            if not python_identifier(value[start:index]):
+                return False
+            start = index + 1
+    return python_identifier(value[start:])
 
 
 def _signature_terminal(name: str, bindings: dict[str, ProviderBinding]) -> ProviderBinding | None:

@@ -51,7 +51,9 @@ def _parameter_name(parameter: RawData) -> str | None:
     if not isinstance(parameter, dict):
         return None
     name = parameter.get("name")
-    return str.lstrip(name, "*") if isinstance(name, str) else None
+    if not isinstance(name, str):
+        return None
+    return name[2:] if name[:2] == "**" else name[1:] if name[:1] == "*" else name
 
 
 def _selected_positions(
