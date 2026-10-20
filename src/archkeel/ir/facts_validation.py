@@ -90,6 +90,17 @@ _REQUIRED = {
     SourceSectionName.CONSTRUCTS: ("owner", "construct"),
     SourceSectionName.UNKNOWNS: (),
 }
+
+GuardFunctionContext = tuple[
+    str,
+    str,
+    str,
+    int,
+    int,
+    int,
+    str | None,
+    tuple[tuple[str, tuple[str, ...]], ...],
+]
 _STRING_FIELDS = frozenset(
     {
         "source_module",
@@ -2325,7 +2336,7 @@ def _source_guarded_effect(
     section: SourceSectionName,
     evidence: Mapping[str, Evidence],
     imports: tuple[Record, ...],
-    function_contexts: frozenset[tuple[str, str, str, int, int, int]] = frozenset(),
+    function_contexts: frozenset[GuardFunctionContext] = frozenset(),
 ) -> None:
     if section is not SourceSectionName.CALLS:
         raise ValueError("guarded effect evidence needs its call owner")
@@ -2339,6 +2350,8 @@ def _source_guarded_effect(
             record,
             proof.condition.name,
             proof.condition.kind.value,
+            proof.condition.owner,
+            proof.condition_evidence_ids,
             proof.condition_value,
             proof.path_evidence_ids,
             evidence,
@@ -2500,10 +2513,12 @@ def _guard_path_matches_condition(
     record: Record,
     name: str,
     kind: str,
+    owner: str,
+    condition_evidence_ids: tuple[str, ...],
     expected_value: bool,
     path_evidence_ids: tuple[str, ...],
     evidence: Mapping[str, Evidence],
-    function_contexts: frozenset[tuple[str, str, str, int, int, int]],
+    function_contexts: frozenset[GuardFunctionContext],
 ) -> bool:
     call_evidence = next(
         (evidence[identifier] for identifier in record.evidence_ids if identifier in evidence),
@@ -2524,6 +2539,8 @@ def _guard_path_matches_condition(
             record,
             name,
             kind,
+            owner,
+            condition_evidence_ids,
             expected_value,
             path_evidence_ids,
             call_evidence,
@@ -2563,6 +2580,8 @@ def _guard_context_proves_path(
     record: Record,
     name: str,
     kind: str,
+    owner: str,
+    condition_evidence_ids: tuple[str, ...],
     expected_value: bool,
     path_evidence_ids: tuple[str, ...],
     call_evidence: Evidence,
@@ -2570,7 +2589,7 @@ def _guard_context_proves_path(
     function: ast.FunctionDef | ast.AsyncFunctionDef,
     column_offset: int,
     evidence: Mapping[str, Evidence],
-    function_contexts: frozenset[tuple[str, str, str, int, int, int]],
+    function_contexts: frozenset[GuardFunctionContext],
 ) -> bool:
     if not _guard_context_binds_call(
         record,
@@ -2578,6 +2597,19 @@ def _guard_context_proves_path(
         context_evidence,
         function,
         column_offset,
+        function_contexts,
+    ):
+        return False
+    if not _guard_condition_owner_binds_context(
+        record,
+        name,
+        kind,
+        owner,
+        condition_evidence_ids,
+        context_evidence,
+        function,
+        column_offset,
+        evidence,
         function_contexts,
     ):
         return False
@@ -2622,7 +2654,7 @@ def _guard_context_binds_call(
     context_evidence: Evidence,
     function: ast.FunctionDef | ast.AsyncFunctionDef,
     column_offset: int,
-    function_contexts: frozenset[tuple[str, str, str, int, int, int]],
+    function_contexts: frozenset[GuardFunctionContext],
 ) -> bool:
     scope = record.data.get("source_scope")
     module = record.data.get("source_module")
@@ -2630,15 +2662,18 @@ def _guard_context_binds_call(
     if (
         not isinstance(scope, str)
         or not isinstance(module, str)
-        or (
-            scope,
-            module,
-            context_evidence.file,
-            context_evidence.line,
-            context_evidence.end_line,
-            context_evidence.column,
+        or not any(
+            item[:6]
+            == (
+                scope,
+                module,
+                context_evidence.file,
+                context_evidence.line,
+                context_evidence.end_line,
+                context_evidence.column,
+            )
+            for item in function_contexts
         )
-        not in function_contexts
         or scope.rpartition(".")[2] != function.name
         or not isinstance(expression, str)
         or context_evidence.file != call_evidence.file
@@ -2656,6 +2691,78 @@ def _guard_context_binds_call(
         )
         in _guard_context_call_sites(function)
     )
+
+
+def _guard_condition_owner_binds_context(
+    record: Record,
+    name: str,
+    kind: str,
+    owner: str,
+    condition_evidence_ids: tuple[str, ...],
+    context: Evidence,
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    column_offset: int,
+    evidence: Mapping[str, Evidence],
+    function_contexts: frozenset[GuardFunctionContext],
+) -> bool:
+    scope = record.data.get("source_scope")
+    module = record.data.get("source_module")
+    if not isinstance(scope, str) or not isinstance(module, str):
+        return False
+    matching = [
+        item
+        for item in function_contexts
+        if item[:6] == (scope, module, context.file, context.line, context.end_line, context.column)
+    ]
+    if len(matching) != 1:
+        return False
+    context_fact = matching[0]
+    expected_owner = scope if kind == "parameter" else context_fact[6]
+    if expected_owner is None or owner != expected_owner:
+        return False
+    if kind == "member":
+        member_evidence = dict(context_fact[7]).get(name)
+        return member_evidence is not None and set(condition_evidence_ids) == set(member_evidence)
+    return _guard_parameter_evidence_matches(
+        name,
+        condition_evidence_ids,
+        function,
+        context,
+        column_offset,
+        evidence,
+    )
+
+
+def _guard_parameter_evidence_matches(
+    name: str,
+    condition_evidence_ids: tuple[str, ...],
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    context: Evidence,
+    column_offset: int,
+    evidence: Mapping[str, Evidence],
+) -> bool:
+    arguments = (
+        *function.args.posonlyargs,
+        *function.args.args,
+        *function.args.kwonlyargs,
+    )
+    matching = [argument for argument in arguments if argument.arg == name]
+    if len(matching) != 1:
+        return False
+    argument = matching[0]
+    expected_location = (
+        context.line + argument.lineno - 1,
+        context.line + (argument.end_lineno or argument.lineno) - 1,
+        column_offset + argument.col_offset,
+    )
+    matching_ids = {
+        identifier
+        for identifier in condition_evidence_ids
+        if (item := evidence.get(identifier)) is not None
+        and item.file == context.file
+        and (item.line, item.end_line, item.column) == expected_location
+    }
+    return len(matching_ids) == 1 and set(condition_evidence_ids) == matching_ids
 
 
 @lru_cache(maxsize=256)
@@ -2744,8 +2851,14 @@ def _numeric_binding_scopes(value: JsonValue, evidence_ids: tuple[str, ...]) -> 
 
 def _guard_function_contexts(
     symbols: tuple[Record, ...], evidence: Mapping[str, Evidence]
-) -> frozenset[tuple[str, str, str, int, int, int]]:
-    contexts: set[tuple[str, str, str, int, int, int]] = set()
+) -> frozenset[GuardFunctionContext]:
+    contexts: set[GuardFunctionContext] = set()
+    members_by_class = {
+        qualified: _guard_member_evidence(symbol.data.get("guard_boolean_members"))
+        for symbol in symbols
+        if symbol.kind == "class"
+        and isinstance((qualified := symbol.data.get("qualified_name")), str)
+    }
     for symbol in symbols:
         qualified = symbol.data.get("qualified_name")
         module = symbol.data.get("module")
@@ -2755,11 +2868,43 @@ def _guard_function_contexts(
             or not isinstance(module, str)
         ):
             continue
+        parent = symbol.data.get("parent")
+        if parent is not None and not isinstance(parent, str):
+            continue
         for identifier in symbol.evidence_ids:
             item = evidence.get(identifier)
             if item is not None:
-                contexts.add((qualified, module, item.file, item.line, item.end_line, item.column))
+                contexts.add(
+                    (
+                        qualified,
+                        module,
+                        item.file,
+                        item.line,
+                        item.end_line,
+                        item.column,
+                        parent,
+                        members_by_class.get(parent, ()) if isinstance(parent, str) else (),
+                    )
+                )
     return frozenset(contexts)
+
+
+def _guard_member_evidence(value: JsonValue) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    if not isinstance(value, tuple):
+        return ()
+    result = []
+    for item in value:
+        if not isinstance(item, RecordData):
+            continue
+        name, identifiers = item.get("name"), item.get("evidence_ids")
+        if isinstance(name, str) and isinstance(identifiers, tuple) and all(
+            isinstance(identifier, str) for identifier in identifiers
+        ):
+            valid_ids = tuple(
+                identifier for identifier in identifiers if isinstance(identifier, str)
+            )
+            result.append((name, valid_ids))
+    return tuple(sorted(result))
 
 
 def _source_record(
@@ -2767,7 +2912,7 @@ def _source_record(
     section: SourceSectionName,
     evidence: Mapping[str, Evidence] | None = None,
     imports: tuple[Record, ...] = (),
-    function_contexts: frozenset[tuple[str, str, str, int, int, int]] = frozenset(),
+    function_contexts: frozenset[GuardFunctionContext] = frozenset(),
 ) -> None:
     if record.evidence_class not in (EvidenceClass.FACT, EvidenceClass.UNKNOWN):
         raise ValueError("source records cannot carry governance decisions")

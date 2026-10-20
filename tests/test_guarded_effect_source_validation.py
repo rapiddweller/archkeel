@@ -143,6 +143,71 @@ def test_source_facts_bind_guard_context_to_exact_lexical_function(tmp_path):
         decode_response(json.dumps(payload).encode())
 
 
+def test_source_facts_bind_parameter_condition_to_exact_function_owner(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "def _effect(): pass\n"
+        "def generate(seeded: bool):\n"
+        "    if seeded:\n"
+        "        _effect()\n"
+        "def wrapper():\n"
+        "    def generate(seeded: bool):\n"
+        "        pass\n",
+    )
+    proof = _call(payload, "_effect")["data"]["guarded_effect"][0]
+    proof["condition"]["owner"] = "sample.core.wrapper.generate"
+
+    with pytest.raises(
+        ValueError, match="guarded-effect condition value disagrees with its source path"
+    ):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_source_facts_bind_parameter_condition_to_its_declaration_evidence(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "def _effect(): pass\n"
+        "def generate(seeded: bool, other: bool):\n"
+        "    if seeded:\n"
+        "        _effect()\n",
+    )
+    proof = _call(payload, "_effect")["data"]["guarded_effect"][0]
+    evidence = next(
+        item
+        for item in payload["facts"]["evidence"]
+        if item["file"] == "sample/core.py" and item["line"] == 2 and item["column"] == 27
+    )
+    proof["condition_evidence_ids"] = [evidence["id"]]
+
+    with pytest.raises(
+        ValueError, match="guarded-effect condition value disagrees with its source path"
+    ):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_source_facts_bind_member_condition_to_canonical_class_owner(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "def _effect(): pass\n"
+        "class Runner:\n"
+        "    seeded: bool\n"
+        "    def generate(self):\n"
+        "        if self.seeded:\n"
+        "            _effect()\n"
+        "class Wrapper:\n"
+        "    seeded: bool\n"
+        "    def generate(self):\n"
+        "        pass\n",
+    )
+    proof = _call(payload, "_effect")["data"]["guarded_effect"][0]
+    proof["condition"]["owner"] = "sample.core.Wrapper"
+
+    with pytest.raises(
+        ValueError, match="guarded-effect condition value disagrees with its source path"
+    ):
+        decode_response(json.dumps(payload).encode())
+
+
 def test_oversized_guard_context_is_scoped_to_unknown(tmp_path):
     large_literal = "x" * 16_385
     payload = _payload(
