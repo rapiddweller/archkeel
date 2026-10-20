@@ -350,6 +350,68 @@ def test_unresolved_local_receivers_remain_in_selector_inventory(
     assert any(row["evidence_class"] == "UNKNOWN" for row in findings)
 
 
+def test_receiver_annotation_is_bound_to_exact_lexical_scope():
+    source = (
+        "class Connection:\n    password: str\n"
+        "def route(conn: Connection, others, other):\n"
+        "    direct = conn.password\n"
+        "    captured = [conn.password for item in others]\n"
+        "    shadowed = [conn.password for conn in others]\n"
+        "    free_lambda = (lambda item: conn.password)(other)\n"
+        "    shadowed_lambda = (lambda conn: conn.password)(other)\n"
+        "def loop_route(conn: Connection, others):\n"
+        "    for conn in others:\n        looped = conn.password\n"
+        "def except_route(conn: Connection):\n"
+        "    try:\n        raise ValueError\n"
+        "    except ValueError as conn:\n        caught = conn.password\n"
+        "def nested_route(conn: Connection):\n"
+        "    direct = conn.password\n"
+        "    def shadowed(conn):\n        return conn.password\n"
+        "    def captured():\n        return conn.password\n"
+        "def reassigned_route(conn: Connection):\n"
+        "    conn = factory()\n"
+        "    reassigned = conn.password\n"
+        "def match_route(conn: Connection, candidate):\n"
+        "    match candidate:\n        case conn:\n            matched = conn.password\n"
+    )
+    evidence = {}
+    signals = collect_constructs([_parsed_module(source, module="sample.core")], evidence)
+    selectors = [
+        row
+        for row in signals
+        if row["kind"] == "construct_selector" and row["data"]["member"] == "password"
+    ]
+    selectors_by_line = {evidence[row["evidence_ids"][0]]["line"]: row for row in selectors}
+    assert {line: row["data"]["status"] for line, row in selectors_by_line.items()} == {
+        4: "decided",
+        5: "decided",
+        6: "unknown",
+        7: "decided",
+        8: "unknown",
+        11: "unknown",
+        16: "unknown",
+        18: "decided",
+        20: "unknown",
+        22: "decided",
+        25: "unknown",
+        29: "unknown",
+    }
+    assert {line: row["data"]["receiver_type"] for line, row in selectors_by_line.items()} == {
+        4: "sample.core.Connection",
+        5: "sample.core.Connection",
+        6: None,
+        7: "sample.core.Connection",
+        8: None,
+        11: None,
+        16: None,
+        18: "sample.core.Connection",
+        20: None,
+        22: "sample.core.Connection",
+        25: None,
+        29: None,
+    }
+
+
 def test_unproven_local_string_predicate_is_retained_as_unknown():
     module = _parsed_module(
         'def route():\n    connection = factory()\n    connection.backend.startswith("flat")\n',

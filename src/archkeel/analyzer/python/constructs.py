@@ -677,7 +677,7 @@ class ConstructCollector(ast.NodeVisitor):
             child: parent for parent in module.all_nodes for child in ast.iter_child_nodes(parent)
         }
         self.receiver_types: list[dict[str, str | None]] = []
-        self.parameter_receivers: list[set[str]] = []
+        self.receiver_scope_names: list[str] = []
         self.parameter_annotations: list[dict[str, tuple[str, ast.expr]]] = []
         self.local_classes: set[str] = set()
         self.local_members: set[str] = set()
@@ -947,15 +947,17 @@ class ConstructCollector(ast.NodeVisitor):
     def _receiver_type(self, node: ast.expr) -> str | None:
         if not isinstance(node, ast.Name):
             return None
-        for scope in reversed(self.receiver_types):
-            if node.id in scope:
+        binding = self.scopes.lookup(node, node.id)
+        if binding.owner is None or binding.uncertain:
+            return None
+        for index in reversed(range(len(self.receiver_types))):
+            scope = self.receiver_types[index]
+            if (
+                node.id in scope
+                and self.receiver_scope_names[index] == binding.owner.qualified_name
+            ):
                 return scope[node.id]
         return None
-
-    def _parameter_receiver(self, node: ast.expr) -> bool:
-        return isinstance(node, ast.Name) and any(
-            node.id in parameters for parameters in reversed(self.parameter_receivers)
-        )
 
     def _receiver_binding(
         self, expression: ast.expr | None, use: ast.AST
@@ -963,14 +965,17 @@ class ConstructCollector(ast.NodeVisitor):
         if expression is None:
             return None, None, None, []
         if isinstance(expression, ast.Name):
-            annotation_frame: dict[str, tuple[str, ast.expr]] | None = (
-                self.parameter_annotations[-1] if self.parameter_annotations else None
-            )
-            declared = (
-                annotation_frame[expression.id]
-                if annotation_frame is not None and expression.id in annotation_frame
-                else None
-            )
+            binding = self.scopes.lookup(expression, expression.id)
+            declared = None
+            if binding.owner is not None and not binding.uncertain:
+                for index in reversed(range(len(self.parameter_annotations))):
+                    frame = self.parameter_annotations[index]
+                    if (
+                        expression.id in frame
+                        and self.receiver_scope_names[index] == binding.owner.qualified_name
+                    ):
+                        declared = frame[expression.id]
+                        break
             if declared is not None:
                 target, annotation = declared
                 annotation_evidence = add_evidence(self.evidence, self.module, annotation)
@@ -1246,7 +1251,8 @@ class ConstructCollector(ast.NodeVisitor):
 
     def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         self._visit_definition_header(node)
-        self.scope_stack.append(f"{self.scope_stack[-1]}.{node.name}")
+        qualified = f"{self.scope_stack[-1]}.{node.name}"
+        self.scope_stack.append(qualified)
         arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
         receivers = {
             argument.arg: (
@@ -1277,7 +1283,9 @@ class ConstructCollector(ast.NodeVisitor):
                         and isinstance(part.ctx, ast.Store)
                         and part.id in receivers
                     ):
-                        receivers[part.id] = None
+                        binding = self.scopes.lookup(part, part.id)
+                        if binding.owner is not None and binding.owner.qualified_name == qualified:
+                            receivers[part.id] = None
             if isinstance(statement, ast.ExceptHandler) and statement.name in receivers:
                 receivers[statement.name] = None
         parameter_annotations = {
@@ -1292,7 +1300,7 @@ class ConstructCollector(ast.NodeVisitor):
             and receivers.get(argument.arg) == annotation_target
         }
         self.receiver_types.append(receivers)
-        self.parameter_receivers.append({argument.arg for argument in arguments})
+        self.receiver_scope_names.append(qualified)
         self.parameter_annotations.append(parameter_annotations)
         form = self._placeholder_form(node)
         if form is not None:
@@ -1301,8 +1309,8 @@ class ConstructCollector(ast.NodeVisitor):
             )
         for statement in node.body:
             self.visit(statement)
-        self.parameter_receivers.pop()
         self.parameter_annotations.pop()
+        self.receiver_scope_names.pop()
         self.receiver_types.pop()
         self.scope_stack.pop()
 
