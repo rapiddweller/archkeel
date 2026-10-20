@@ -876,6 +876,7 @@ def _numeric_local_alias_assignment(
     declarations_by_id: Mapping[str, Record],
     expected_file: str,
     module_name: str,
+    check_operation_binding: bool,
 ) -> ast.expr | None:
     evidence_id = origin.get("scope_evidence_id")
     owner_name = origin.get("scope_owner")
@@ -904,9 +905,57 @@ def _numeric_local_alias_assignment(
     if (
         use is None
         or _numeric_anonymous_scope_allows_module(owner, use, str(origin.get("name"))) is False
+        or check_operation_binding
+        and _numeric_nested_scope_binds(owner, use, str(origin.get("name")))
     ):
         return None
     return _numeric_unique_local_assignment(owner, origin, scope_evidence, line_offset, use)
+
+
+def _numeric_nested_scope_binds(owner: ast.AST, use: ast.AST, name: str) -> bool:
+    parents = {
+        child: parent for parent in ast.walk(owner) for child in ast.iter_child_nodes(parent)
+    }
+    node = use
+    nested_function = False
+    while node is not owner:
+        parent = parents.get(node)
+        if parent is None:
+            return True
+        if isinstance(parent, ast.FunctionDef | ast.AsyncFunctionDef):
+            if parent is not owner and node in parent.body:
+                nested_function = True
+                if _numeric_other_binding(parent, name) or _numeric_function_binds_locally(
+                    parent, name
+                ):
+                    return True
+        if isinstance(parent, ast.Lambda) and node is parent.body:
+            nested_function = True
+        if (
+            isinstance(parent, ast.ListComp | ast.SetComp | ast.GeneratorExp | ast.DictComp)
+            and parent.generators
+            and not _numeric_is_within(use, parent.generators[0].iter, parents)
+        ):
+            nested_function = True
+        if (
+            isinstance(parent, ast.ClassDef)
+            and parent is not owner
+            and not nested_function
+            and node in parent.body
+            and _numeric_class_binds_locally(parent, name)
+        ):
+            return True
+        node = parent
+    return False
+
+
+def _numeric_class_binds_locally(scope: ast.ClassDef, name: str) -> bool:
+    if _numeric_other_binding(scope, name):
+        return True
+    return any(
+        isinstance(node, ast.Name) and node.id == name and isinstance(node.ctx, ast.Store | ast.Del)
+        for node in _numeric_lexical_scope_nodes(scope)
+    )
 
 
 def _numeric_module_alias_supported(
@@ -917,6 +966,7 @@ def _numeric_module_alias_supported(
     evidence_by_id: Mapping[str, Evidence],
     expected_file: str,
     module_name: str,
+    check_operation_binding: bool,
 ) -> bool:
     name = origin.get("name")
     evidence_id = origin.get("evidence_id")
@@ -930,7 +980,8 @@ def _numeric_module_alias_supported(
         declaration.kind not in {"static_constant", "dynamic_binding"}
         or evidence_id not in declaration.evidence_ids
         or declaration.data.get("source_binding_unique") is not True
-        or not _numeric_module_use_chain_supported(
+        or check_operation_binding
+        and not _numeric_module_use_chain_supported(
             operation,
             name,
             declarations_by_id,
@@ -956,38 +1007,13 @@ def _numeric_module_use_chain_supported(
     expected_file: str,
     module_name: str,
 ) -> bool:
+    if not _numeric_operation_scope_chain_matches(operation, declarations_by_id, module_name):
+        return False
     chain = operation.data.get("binding_scopes")
-    operation_owner = operation.data.get("owner")
-    if not isinstance(chain, tuple) or not isinstance(operation_owner, str):
+    if not isinstance(chain, tuple):
         return False
-    if operation_owner == module_name:
-        return not chain and not _numeric_module_anonymous_binding(
-            operation, name, evidence_by_id, expected_file
-        )
     if not chain:
-        return False
-    first_scope = chain[0]
-    if not isinstance(first_scope, RecordData):
-        return False
-    owner_id: JsonValue = first_scope.get("scope_symbol_id")
-    owner = declarations_by_id.get(owner_id) if isinstance(owner_id, str) else None
-    if owner is None or owner.data.get("qualified_name") != operation_owner:
-        return False
-    expected_ids: list[str] = []
-    while owner.kind in {"function", "method", "class"}:
-        expected_ids.append(owner.id)
-        parent, valid = _numeric_lexical_parent(owner, declarations_by_id, module_name)
-        if not valid:
-            return False
-        if parent is None:
-            break
-        owner = parent
-    if (
-        any(not isinstance(item, RecordData) for item in chain)
-        or [item.get("scope_symbol_id") for item in chain if isinstance(item, RecordData)]
-        != expected_ids
-    ):
-        return False
+        return not _numeric_module_anonymous_binding(operation, name, evidence_by_id, expected_file)
     for item in chain:
         if not isinstance(item, RecordData):
             return False
@@ -1001,6 +1027,37 @@ def _numeric_module_use_chain_supported(
         ):
             return False
     return True
+
+
+def _numeric_operation_scope_chain_matches(
+    operation: Record, declarations_by_id: Mapping[str, Record], module_name: str
+) -> bool:
+    chain = operation.data.get("binding_scopes")
+    operation_owner = operation.data.get("owner")
+    if not isinstance(chain, tuple) or not isinstance(operation_owner, str):
+        return False
+    if operation_owner == module_name:
+        return not chain
+    if not chain or not isinstance(chain[0], RecordData):
+        return False
+    owner_id = chain[0].get("scope_symbol_id")
+    owner = declarations_by_id.get(owner_id) if isinstance(owner_id, str) else None
+    if owner is None or owner.data.get("qualified_name") != operation_owner:
+        return False
+    expected_ids: list[str] = []
+    while owner.kind in {"function", "method", "class"}:
+        expected_ids.append(owner.id)
+        parent, valid = _numeric_lexical_parent(owner, declarations_by_id, module_name)
+        if not valid:
+            return False
+        if parent is None:
+            break
+        owner = parent
+    return (
+        all(isinstance(item, RecordData) for item in chain)
+        and [item.get("scope_symbol_id") for item in chain if isinstance(item, RecordData)]
+        == expected_ids
+    )
 
 
 def _numeric_lexical_parent(
@@ -1487,11 +1544,39 @@ def _validate_numeric_operand_witness(
     if data.get("proof") != "known":
         return
     operand = expression.right if isinstance(expression, ast.BinOp) else expression.value
+    _validate_known_numeric_operand(
+        record,
+        operand,
+        evidence_by_id,
+        declarations_by_id,
+        declarations_by_name,
+        expected_file,
+    )
+
+
+def _validate_known_numeric_operand(
+    record: Record,
+    operand: ast.expr,
+    evidence_by_id: Mapping[str, Evidence],
+    declarations_by_id: Mapping[str, Record],
+    declarations_by_name: Mapping[str, tuple[Record, ...]],
+    expected_file: str,
+) -> None:
+    data = record.data
     derivation = data.get("derivation")
     if not isinstance(derivation, tuple):
         raise ValueError("invalid numeric operand derivation")
+    if derivation and not _numeric_operation_scope_chain_matches(
+        record, declarations_by_id, str(data.get("module"))
+    ):
+        raise ValueError("numeric operand lexical scope chain is incomplete")
     aliases: dict[str, ast.expr] = {}
     origins: dict[str, RecordData] = {}
+    operation_aliases = {
+        node.id
+        for node in ast.walk(operand)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+    }
     for origin in derivation:
         if not isinstance(origin, RecordData):
             raise ValueError("invalid numeric operand derivation")
@@ -1506,6 +1591,7 @@ def _validate_numeric_operand_witness(
                 declarations_by_id,
                 expected_file,
                 str(data.get("module")),
+                name in operation_aliases,
             )
         else:
             alias_expression = _numeric_assignment_expression(origin, evidence_by_id, expected_file)
@@ -1517,6 +1603,7 @@ def _validate_numeric_operand_witness(
                 evidence_by_id,
                 expected_file,
                 str(data.get("module")),
+                name in operation_aliases,
             ):
                 raise ValueError("numeric module alias lacks a unique preceding declaration")
         if alias_expression is None:
@@ -1527,6 +1614,16 @@ def _validate_numeric_operand_witness(
             continue
         aliases[name] = alias_expression
         origins[name] = origin
+    if not _numeric_alias_dependencies_precede_use(
+        aliases,
+        origins,
+        record,
+        evidence_by_id,
+        declarations_by_id,
+        expected_file,
+        str(data.get("module")),
+    ):
+        raise ValueError("numeric alias dependency does not precede its source use")
     for name, origin in origins.items():
         value = _bounded_numeric_value(aliases[name], aliases, frozenset({name}))
         if value is None or value != origin.get("value"):
@@ -1534,6 +1631,128 @@ def _validate_numeric_operand_witness(
     value = _bounded_numeric_value(operand, aliases)
     if value is None or value != data.get("value"):
         raise ValueError("numeric operand value disagrees with its expression")
+
+
+def _numeric_alias_dependencies_precede_use(
+    aliases: Mapping[str, ast.expr],
+    origins: Mapping[str, RecordData],
+    operation: Record,
+    evidence_by_id: Mapping[str, Evidence],
+    declarations_by_id: Mapping[str, Record],
+    expected_file: str,
+    module_name: str,
+) -> bool:
+    positions: dict[str, tuple[int, int]] = {}
+    for name, origin in origins.items():
+        line = origin.get("line")
+        column = origin.get("column")
+        if (
+            not isinstance(line, int)
+            or isinstance(line, bool)
+            or not isinstance(column, int)
+            or isinstance(column, bool)
+        ):
+            return False
+        positions[name] = (line, column)
+    for name, expression in aliases.items():
+        for node in ast.walk(expression):
+            if (
+                isinstance(node, ast.Name)
+                and isinstance(node.ctx, ast.Load)
+                and node.id in positions
+                and positions[node.id] >= positions[name]
+            ):
+                return False
+            if (
+                isinstance(node, ast.Name)
+                and isinstance(node.ctx, ast.Load)
+                and node.id in origins
+                and not _numeric_alias_dependency_binding_supported(
+                    origins[name],
+                    origins[node.id],
+                    node.id,
+                    operation,
+                    evidence_by_id,
+                    declarations_by_id,
+                    expected_file,
+                    module_name,
+                )
+            ):
+                return False
+    return True
+
+
+def _numeric_alias_dependency_binding_supported(
+    dependent: RecordData,
+    dependency: RecordData,
+    name: str,
+    operation: Record,
+    evidence_by_id: Mapping[str, Evidence],
+    declarations_by_id: Mapping[str, Record],
+    expected_file: str,
+    module_name: str,
+) -> bool:
+    dependent_scope = dependent.get("scope_symbol_id")
+    dependency_scope = dependency.get("scope_symbol_id")
+    if dependent_scope is None:
+        return dependency_scope is None
+    chain = operation.data.get("binding_scopes")
+    if not isinstance(dependent_scope, str) or not isinstance(chain, tuple):
+        return False
+    start = next(
+        (
+            index
+            for index, item in enumerate(chain)
+            if isinstance(item, RecordData) and item.get("scope_symbol_id") == dependent_scope
+        ),
+        None,
+    )
+    if start is None:
+        return False
+    nested_function = False
+    nested_class = False
+    for item in chain[start:]:
+        if not isinstance(item, RecordData):
+            return False
+        symbol_id = item.get("scope_symbol_id")
+        if symbol_id == dependency_scope:
+            target = declarations_by_id.get(symbol_id) if isinstance(symbol_id, str) else None
+            return target is not None and not (
+                target.kind == "class" and (nested_function or nested_class)
+            )
+        if not isinstance(symbol_id, str):
+            return False
+        symbol = declarations_by_id.get(symbol_id)
+        evidence_id = item.get("scope_evidence_id")
+        owner_name = item.get("scope_owner")
+        scope_evidence = evidence_by_id.get(evidence_id) if isinstance(evidence_id, str) else None
+        if (
+            symbol is None
+            or not isinstance(owner_name, str)
+            or symbol.data.get("qualified_name") != owner_name
+            or scope_evidence is None
+            or scope_evidence.file != expected_file
+            or not _numeric_owner_evidence_matches(symbol, scope_evidence, evidence_by_id)
+        ):
+            return False
+        owner_result = _numeric_scope_owner(scope_evidence, owner_name, module_name)
+        if owner_result is None:
+            return False
+        owner, _ = owner_result
+        if isinstance(owner, ast.FunctionDef | ast.AsyncFunctionDef):
+            if _numeric_other_binding(owner, name) or _numeric_function_binds_locally(owner, name):
+                return False
+            nested_function = True
+        elif (
+            isinstance(owner, ast.ClassDef)
+            and not nested_function
+            and not nested_class
+            and _numeric_class_binds_locally(owner, name)
+        ):
+            return False
+        if isinstance(owner, ast.ClassDef):
+            nested_class = True
+    return dependency_scope is None
 
 
 def _numeric_operand_record(record: Record, fields: set[str]) -> tuple[str, ...]:
