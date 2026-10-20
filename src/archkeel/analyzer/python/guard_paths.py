@@ -175,6 +175,9 @@ def guarded_call_paths(
             for child in ast.walk(node)
         )
 
+    def has_calls(node: ast.AST) -> bool:
+        return any(isinstance(child, ast.Call) for child in ast.walk(node))
+
     def block(
         statements: list[ast.stmt],
         value: bool | None,
@@ -190,6 +193,8 @@ def guarded_call_paths(
                     test_reason = (
                         "condition_mutation"
                         if writes_name(statement.test)
+                        else "opaque_call_mutation"
+                        if receiver_name is not None and has_calls(statement.test)
                         else "unsupported_condition"
                         if guard is None and reads_name(statement.test)
                         else current_reason
@@ -233,22 +238,37 @@ def guarded_call_paths(
                     continue
                 if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                     continue
+                statement_reason = (
+                    "condition_mutation"
+                    if writes_name(statement)
+                    else "opaque_call_mutation"
+                    if receiver_name is not None
+                    and sum(isinstance(child, ast.Call) for child in ast.walk(statement)) > 1
+                    else current_reason
+                )
                 expression(
                     statement.exc
                     if isinstance(statement, ast.Raise) and statement.exc
                     else statement,
-                    None if writes_name(statement) else current,
+                    None
+                    if statement_reason in {"condition_mutation", "opaque_call_mutation"}
+                    else current,
                     path_nodes,
-                    "condition_mutation" if writes_name(statement) else current_reason,
+                    statement_reason,
                     raised_exception_constructor=isinstance(statement, ast.Raise)
                     and isinstance(statement.exc, ast.Call),
                 )
                 if isinstance(statement, ast.Return | ast.Raise):
                     continue
+                invalidated = receiver_name is not None and has_calls(statement)
+                if invalidated:
+                    statement_reason = "opaque_call_mutation"
                 next_active.append(
                     (
-                        None if writes_name(statement) else current,
-                        "condition_mutation" if writes_name(statement) else current_reason,
+                        None
+                        if statement_reason in {"condition_mutation", "opaque_call_mutation"}
+                        else current,
+                        statement_reason,
                     )
                 )
             active = next_active

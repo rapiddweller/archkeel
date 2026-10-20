@@ -380,7 +380,10 @@
                     }
                   },
                   "call_arguments": {
-                    "type": "array",
+                    "type": [
+                      "array",
+                      "null"
+                    ],
                     "items": {
                       "type": "object",
                       "required": [
@@ -486,6 +489,53 @@
                       ]
                     }
                   }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "data": {
+                  "properties": {
+                    "call_binding": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "call_binding"
+                  ]
+                }
+              },
+              "required": [
+                "data"
+              ]
+            },
+            "then": {
+              "properties": {
+                "data": {
+                  "properties": {
+                    "call_arguments": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "call_arguments"
+                  ]
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "data": {
+                  "properties": {
+                    "call_arguments": {
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "call_arguments"
+                  ]
                 }
               }
             }

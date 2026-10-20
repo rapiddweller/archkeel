@@ -317,7 +317,8 @@ def _symbol_data(
     }
     if isinstance(node, ast.ClassDef):
         data.update(_class_symbol_data(module, node, evidence, member_escapes))
-        data["guard_boolean_members"] = _guard_boolean_member_declarations(node, module, evidence)
+        if guard_members := _guard_boolean_member_declarations(node, module, evidence):
+            data["guard_boolean_members"] = guard_members
         if data["source_binding_unique"] is True and (
             properties := property_bindings(module, node)
         ):

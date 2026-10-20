@@ -335,12 +335,12 @@ def parse_observation(raw: object) -> Observation:
     _validate_versioned_records(schema_version, sections, profile)
     if schema_version is not _ObservationVersion.V2_8:
         for section in sections:
-            if section.name is ObservedSection.CALLS and any(
+            if section.name == ObservedSection.CALLS and any(
                 _has_field((key for key, _ in call.data.entries), "guarded_effect")
                 for call in section.records
             ):
                 raise ValueError("guarded-effect evidence requires observation 2.8.0")
-            if section.name is ObservedSection.SYMBOLS and any(
+            if section.name == ObservedSection.SYMBOLS and any(
                 _has_field((key for key, _ in symbol.data.entries), "guard_boolean_members")
                 for symbol in section.records
             ):

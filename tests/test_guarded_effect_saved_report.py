@@ -89,3 +89,66 @@ def generate(seeded: bool):
     tampered = {row.id: row for row in run_saved_report(path).rule_assessments}
     assert tampered["ROOT"].status == ("FAIL" if expected == "FAIL" else "UNKNOWN")
     assert not tampered["ROOT"].evaluation_proven
+
+
+@pytest.mark.parametrize("columnar", [False, True])
+def test_saved_report_keeps_member_guard_unknown_after_opaque_call(tmp_path, columnar):
+    contract = {
+        "schema_version": "3.13.0",
+        "components": [_component("all", ["sample"])],
+        "rules": [
+            _rule(
+                "forbidden_effect_under_condition",
+                id="MEMBER_MUTATION",
+                source="sample.core",
+                target="sample.core._effect",
+                condition={"kind": "member", "owner": "sample.core.Generator", "name": "seeded"},
+            )
+        ],
+    }
+    files = {
+        "pyproject.toml": '[project]\nrequires-python = ">=3.11"\n',
+        "docs/architecture/sample.md": "Decision.\n",
+        "contract.json": json.dumps(contract),
+        "sample/__init__.py": "",
+        "sample/core.py": """def _effect():
+    return None
+
+class Generator:
+    def __init__(self):
+        self.seeded: bool = False
+
+    def reset(self):
+        self.seeded = True
+
+    def generate(self):
+        if not self.seeded:
+            self.reset()
+            _effect()
+""",
+    }
+    for relative, content in files.items():
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+    result = observe(
+        tmp_path,
+        roots=("sample",),
+        namespace="sample",
+        contract="contract.json",
+        git_head="a" * 40,
+        dirty=False,
+        contract_root=tmp_path,
+    )
+    assert result.observation is not None, result.coverage
+    [assessment] = rule_assessments(result.observation, undecided_by_rule={})
+    assert assessment.status == "UNKNOWN"
+    assert not assessment.evaluation_proven
+
+    raw = observation_payload(result.observation)
+    path = tmp_path / "saved.json"
+    path.write_bytes(canonical_report_bytes(raw) if columnar else json.dumps(raw).encode("utf-8"))
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.id == assessment.id
+    assert replayed.status == "UNKNOWN"
+    assert not replayed.evaluation_proven

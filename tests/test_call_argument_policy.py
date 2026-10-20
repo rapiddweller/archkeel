@@ -323,7 +323,7 @@ def test_unbound_call_has_null_arguments_and_cannot_certify_policy(tmp_path, col
     assert call["data"]["call_arguments"] is None
 
     validator = _validator("command-result-9.0.schema.json")
-    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.5.0"})
+    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.8.0"})
     assert current_schema.is_valid(raw)
 
     inconsistent = json.loads(json.dumps(raw))

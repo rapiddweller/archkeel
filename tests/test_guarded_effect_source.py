@@ -232,6 +232,51 @@ class Generator:
     assert not assessment.evaluation_proven
 
 
+def test_opaque_method_call_invalidates_a_member_guard(tmp_path):
+    contract = {
+        "schema_version": "3.13.0",
+        "components": [_component("all", ["sample"])],
+        "rules": [
+            _rule(
+                "forbidden_effect_under_condition",
+                source="sample.core",
+                target="sample.core._effect",
+                condition={
+                    "kind": "member",
+                    "owner": "sample.core.Generator",
+                    "name": "seeded",
+                },
+            )
+        ],
+    }
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/core.py": """def _effect():
+    return None
+
+class Generator:
+    def __init__(self):
+        self.seeded: bool = False
+
+    def reset(self):
+        self.seeded = True
+
+    def generate(self):
+        if not self.seeded:
+            self.reset()
+            _effect()
+""",
+        },
+        contract,
+    )
+    assert result.observation is not None
+    [assessment] = rule_assessments(result.observation, undecided_by_rule={})
+    assert assessment.status == "UNKNOWN"
+    assert not assessment.evaluation_proven
+
+
 def test_effect_deferred_to_a_nested_callable_remains_unknown(tmp_path):
     contract = {
         "schema_version": "3.13.0",

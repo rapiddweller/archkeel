@@ -88,7 +88,7 @@ def test_guarded_effect_facts_require_observation_2_8():
         parse_observation(raw)
 
     raw["schema_version"] = "2.8.0"
-    raw["calls"][0]["data"]["call_arguments"] = []
+    raw["calls"][0]["data"]["call_arguments"] = None
     assert len(parse_observation(raw).records("calls")) == 1
 
 
@@ -110,7 +110,7 @@ def test_python_decoded_2_8_schema_admits_only_typed_guard_proofs():
                 "reason": "",
                 "target_evidence_ids": [],
                 "call_binding": None,
-                "call_arguments": [],
+                "call_arguments": None,
                 "guarded_effect": [
                     {
                         "condition": {"kind": "parameter", "owner": "sample.run", "name": "seeded"},
