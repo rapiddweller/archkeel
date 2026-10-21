@@ -33,6 +33,7 @@ def _payload(
     other: str = "",
     native: bool = False,
     extra: dict[str, str] | None = None,
+    protocol_version: ProtocolVersion = ProtocolVersion.V4,
 ) -> dict:
     files = {
         "sample/__init__.py": "",
@@ -47,7 +48,7 @@ def _payload(
         path.write_text(source)
     snapshot = SnapshotInput(str(tmp_path), "a" * 40, False)
     scope = SourceScope(("sample",), "sample")
-    request = CollectionRequest(snapshot, scope, PythonSettings(), ProtocolVersion.V4)
+    request = CollectionRequest(snapshot, scope, PythonSettings(), protocol_version)
     sources = ()
     if native:
         survey_request = CollectionRequest(
@@ -59,10 +60,10 @@ def _payload(
         survey = collect(survey_request)
         sources = provider_sources(survey_request, survey)
         request = CollectionRequest(
-            snapshot, scope, PythonSettings(provider_sources=sources), ProtocolVersion.V4
+            snapshot, scope, PythonSettings(provider_sources=sources), protocol_version
         )
     facts = collect(request)
-    response = CollectionResponse(facts, ProtocolVersion.V4)
+    response = CollectionResponse(facts, protocol_version)
     return json.loads(encode_response(response))
 
 
@@ -299,6 +300,7 @@ def test_native_selector_annotation_uses_proven_reexport_origin(tmp_path):
             "sample/pkg/__init__.py": "from .types import Store\n",
             "sample/pkg/types.py": "class Store:\n    def page(self): pass\n",
         },
+        protocol_version=ProtocolVersion.V5,
     )
     facts = decode_response(json.dumps(payload).encode()).facts
     selectors = [
@@ -478,6 +480,8 @@ def test_native_nested_function_cannot_reuse_outer_parameter_binding(tmp_path):
     assert selector.data.get("status") == "unknown"
     assert selector.data.get("receiver_type") is None
     assert selector.data.get("receiver_binding") is None
+    assert "receiver_parameter_owner" not in dict(selector.data.entries)
+    assert "receiver_parameter_scopes" not in dict(selector.data.entries)
 
 
 def test_native_module_level_local_constructor_has_a_source_binding(tmp_path):
@@ -505,6 +509,7 @@ def test_native_nested_attribute_chain_keeps_exact_declared_receiver(tmp_path):
         tmp_path,
         "class Store:\n    parent: Store\ndef run(store: Store): return store.parent.parent\n",
         native=True,
+        protocol_version=ProtocolVersion.V5,
     )
     facts = decode_response(json.dumps(payload).encode()).facts
     selectors = [
@@ -514,7 +519,7 @@ def test_native_nested_attribute_chain_keeps_exact_declared_receiver(tmp_path):
         for record in section.records
         if record.kind == "construct_selector"
     ]
-    [selector] = selectors
+    selector = next(item for item in selectors if item.data.get("receiver_parameter") == "store")
     assert selector.data.get("selector_role") == "read"
     assert selector.data.get("member") == "parent"
     assert selector.data.get("receiver_type") == "sample.caller.Store"

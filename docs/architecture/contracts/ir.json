@@ -73,6 +73,7 @@
       "packages": [
         "archkeel.ir.facts_codec",
         "archkeel.ir.facts_validation",
+        "archkeel.ir.source_proofs",
         "archkeel.ir.state_codec",
         "archkeel.ir.codec_strings"
       ],
@@ -107,7 +108,8 @@
         "archkeel.ir.codec_strings:intern_strings",
         "archkeel.ir.facts_validation:validate_source_facts",
         "archkeel.ir.facts_validation:validate_source_bindings",
-        "archkeel.ir.facts_codec:source_reference_context"
+        "archkeel.ir.facts_codec:source_reference_context",
+        "archkeel.ir.source_proofs:class_instance_member_write_names"
       ]
     },
     {

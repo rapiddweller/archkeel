@@ -8,7 +8,7 @@ from __future__ import annotations
 import ast
 
 
-def instance_member_write_nodes(
+def _instance_member_write_nodes(
     node: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> tuple[str, ...]:
     """Find bounded writes or escapes of a method receiver."""
@@ -80,7 +80,7 @@ def class_instance_member_write_names(node: ast.ClassDef) -> tuple[str, ...]:
         member
         for child in node.body
         if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef)
-        for member in instance_member_write_nodes(child)
+        for member in _instance_member_write_nodes(child)
     }
     return tuple(sorted(names))
 
