@@ -19,6 +19,7 @@ from archkeel.ir.facts import (
 from archkeel.ir.facts_validation import (
     _selector_direct_receiver_proof,
     _selector_receiver_proof,
+    _source_proof_index,
 )
 
 
@@ -105,6 +106,7 @@ def test_selector_receiver_validation_looks_up_only_its_proof_evidence():
         None,
         {"sample.Connection": [class_declaration]},
         evidence,
+        _source_proof_index((), (), ()),
     )
 
     assert "CLASS-EVD" in evidence.lookups
