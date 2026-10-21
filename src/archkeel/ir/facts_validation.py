@@ -2063,6 +2063,8 @@ def _numeric_nested_scope_binds(owner: ast.AST, use: ast.AST, name: str) -> bool
         parent = parents.get(node)
         if parent is None:
             return True
+        if sys.version_info >= (3, 12) and isinstance(parent, ast.TypeAlias) and parent.type_params:
+            return True
         if isinstance(parent, ast.FunctionDef | ast.AsyncFunctionDef):
             if parent is not owner and node in parent.body:
                 nested_function = True
@@ -2265,7 +2267,7 @@ def _numeric_module_use_scope(
     operation_node = _numeric_operation_in_owner(
         owner, operation, scope_evidence, line_offset, owner_name
     )
-    if operation_node is None:
+    if operation_node is None or _numeric_nested_scope_binds(owner, operation_node, name):
         return False
     anonymous_scope = _numeric_anonymous_scope_allows_module(owner, operation_node, name)
     if anonymous_scope is False:
@@ -4117,13 +4119,19 @@ def _validate_reference_contexts(
             continue
         if record.data.get("reference_context") == SourceReferenceContext.UNKNOWN:
             continue
-        if record.data.get("reference_context") != SourceReferenceContext.VALUE:
-            continue
         contexts = [
             _reference_annotation_excerpt(record, evidence[item])
             for item in record.evidence_ids
             if item in evidence
         ]
+        if record.data.get("reference_context") == SourceReferenceContext.ANNOTATION:
+            if False in contexts:
+                raise ValueError("annotation reference contradicts its source occurrence")
+            if True not in contexts:
+                raise ValueError("annotation reference lacks a complete bounded source occurrence")
+            continue
+        if record.data.get("reference_context") != SourceReferenceContext.VALUE:
+            continue
         if True in contexts:
             raise ValueError("value reference contradicts its annotated source occurrence")
         if False not in contexts:
@@ -5257,19 +5265,15 @@ def validate_source_facts(facts: SourceFacts) -> None:
         if not set(record.evidence_ids).issubset(evidence_ids):
             raise ValueError("dangling source evidence reference")
     type_alias_ranges: dict[str, list[tuple[int, int]]] = {}
-    for declaration in declarations_by_id.values():
-        if declaration.kind != "dynamic_binding":
-            continue
-        for type_alias_evidence_id in declaration.evidence_ids:
-            evidence = base_by_id[type_alias_evidence_id]
-            evidence_excerpt: str = evidence.excerpt
-            excerpt: str = evidence_excerpt.lstrip()
-            starts_type_alias: bool = excerpt.startswith("type ")
-            bracket = excerpt.find("[")
-            assignment = excerpt.find("=")
-            if starts_type_alias and bracket >= 0 and (assignment < 0 or bracket < assignment):
-                ranges: list[tuple[int, int]] = type_alias_ranges.setdefault(evidence.file, [])
-                ranges.append((evidence.line, evidence.end_line))
+    for evidence in base_by_id.values():
+        evidence_excerpt: str = evidence.excerpt
+        excerpt: str = evidence_excerpt.lstrip()
+        starts_type_alias: bool = excerpt.startswith("type ")
+        bracket = excerpt.find("[")
+        assignment = excerpt.find("=")
+        if starts_type_alias and bracket >= 0 and (assignment < 0 or bracket < assignment):
+            alias_ranges: list[tuple[int, int]] = type_alias_ranges.setdefault(evidence.file, [])
+            alias_ranges.append((evidence.line, evidence.end_line))
     type_alias_index: dict[str, tuple[tuple[int, ...], tuple[int, ...]]] = {}
     for file, file_ranges in type_alias_ranges.items():
         starts: list[int] = []

@@ -63,6 +63,7 @@ from .facts_codec import intern_strings as intern_strings
 from .facts_codec import parse_evidence as parse_evidence
 from .facts_codec import parse_record as parse_record
 from .facts_codec import record_payload as _record_payload
+from .facts_codec import validate_reference_contexts as _validate_reference_contexts
 from .facts_codec import validate_source_role_identities as _validate_source_role_identities
 from .facts_codec import validate_source_role_vocabulary as validate_source_role_vocabulary
 
@@ -575,11 +576,12 @@ def _validate_observation_record_versions(
     if not _before_version(version, _ObservationVersion.V2_7):
         if not isinstance(evidence, list):
             raise ValueError("observation evidence must be an array")
+        records = tuple(record for section in sections for record in section.records)
+        evidence_records = tuple(parse_evidence(value, "evidence[]") for value in evidence)
+        evidence_by_id = {item.id: item for item in evidence_records}
         _validate_source_ownership_vocabulary(sections)
-        _validate_source_role_identities(
-            (record for section in sections for record in section.records),
-            {item.id: item for item in (parse_evidence(value, "evidence[]") for value in evidence)},
-        )
+        _validate_reference_contexts(records, evidence_by_id, SourceProfile(profile.analyzer))
+        _validate_source_role_identities(records, evidence_by_id)
 
 
 def _parse_analyzer(raw: RawJson, label: str) -> AnalyzerInfo:
