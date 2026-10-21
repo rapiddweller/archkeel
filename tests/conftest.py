@@ -61,7 +61,8 @@ def _load_self_run(directory: Path) -> SelfRun:
             capture_output=True,
             text=True,
         )
-        assert run.returncode == 0, (run.stdout, run.stderr)
+        # A string message is shown whole; a tuple is cut before the diagnostics.
+        assert run.returncode == 0, f"{run.stdout}\n{run.stderr}"
         assert output.with_name("architecture.report.html").is_file()
         observed = _parse_self_run(output.read_bytes(), run.stdout)
         # Workers may reuse only a validated run; interrupted writes leave no completion marker.
