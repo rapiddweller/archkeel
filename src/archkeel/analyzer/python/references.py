@@ -548,11 +548,14 @@ class ReferenceCollector(ast.NodeVisitor):
             )
             if status == SourceResolution.RESOLVED and len(targets) == 1:
                 target = targets[0]
+                declaration_id = self._binding_declaration_id(target)
+                if not self._has_canonical_declaration(target, declaration_id):
+                    status = SourceResolution.PARTIALLY_RESOLVED
                 self._source_role(
                     node,
                     "value_transfer",
                     target,
-                    self._binding_declaration_id(target),
+                    declaration_id,
                     status=status,
                     transfer_kind="dictionary_value",
                 )
