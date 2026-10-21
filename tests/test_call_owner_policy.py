@@ -309,6 +309,81 @@ def test_constructed_receiver_alias_and_dict_writes_revoke_member(tmp_path, muta
 
 @pytest.mark.parametrize("mounted", [False, True])
 @pytest.mark.parametrize("columnar", [False, True])
+def test_tuple_alias_write_revokes_constructed_receiver_and_replays(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\n"
+        "def replacement(self): pass\n"
+        "def run():\n    x = Storage()\n    x.prepare()\n    x.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={
+            "sample/storage.py": "class Storage:\n"
+            "    def prepare(self): alias = (self,)[0]; alias.page = replacement\n"
+            "    def page(self): pass\n"
+        },
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "x.page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    path = tmp_path / "tuple-alias-report.json"
+    path.write_bytes(
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_tuple_alias_write_invalidates_stored_receiver_and_replays(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\nfrom .other import Other\n"
+        "class Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def mutate(self): alias = (self,)[0]; alias.client = Other()\n"
+        "    def run(self): self.client.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={
+            "sample/storage.py": "class Storage:\n    def page(self): pass\n",
+            "sample/other.py": "class Other: pass\n",
+        },
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    path = tmp_path / "stored-tuple-alias-report.json"
+    path.write_bytes(
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
 def test_multi_target_constructed_allocation_alias_mutation_is_unknown_and_replays(
     tmp_path, mounted, columnar
 ):
