@@ -82,6 +82,40 @@ def test_generic_type_alias_type_parameter_bounds_stay_unknown(tmp_path):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type aliases require Python 3.12")
+def test_dangling_type_alias_evidence_is_a_validation_error(tmp_path):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_validation import validate_source_facts
+    from archkeel.ir.protocol import CollectionRequest, PythonSettings, SnapshotInput, SourceScope
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text("type Alias[T] = job_nonce % 4\n")
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    malformed = replace(
+        facts,
+        sections=tuple(
+            replace(
+                section,
+                records=tuple(
+                    replace(record, evidence_ids=("absent-evidence",))
+                    if record.kind == "dynamic_binding"
+                    else record
+                    for record in section.records
+                ),
+            )
+            for section in facts.sections
+        ),
+    )
+    with pytest.raises(ValueError, match="dangling source evidence reference"):
+        validate_source_facts(malformed)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type aliases require Python 3.12")
 @pytest.mark.parametrize(
     ("source", "error", "remove_type_alias_evidence"),
     [

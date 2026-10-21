@@ -2321,6 +2321,12 @@ def validate_source_facts(facts: SourceFacts) -> None:
     declarations_by_name = {
         name: tuple(declarations) for name, declarations in declaration_groups.items()
     }
+    record_ids = _unique((record.id for record in records), "source record id")
+    if file_ids & record_ids:
+        raise ValueError("file and record ids collide")
+    for record in records:
+        if not set(record.evidence_ids).issubset(evidence_ids):
+            raise ValueError("dangling source evidence reference")
     type_alias_ranges: dict[str, list[tuple[int, int]]] = {}
     for declaration in declarations_by_id.values():
         if declaration.kind != "dynamic_binding":
@@ -2342,12 +2348,6 @@ def validate_source_facts(facts: SourceFacts) -> None:
             maximum = max(maximum, end)
             max_ends.append(maximum)
         type_alias_index[file] = (tuple(starts), tuple(max_ends))
-    record_ids = _unique((record.id for record in records), "source record id")
-    if file_ids & record_ids:
-        raise ValueError("file and record ids collide")
-    for record in records:
-        if not set(record.evidence_ids).issubset(evidence_ids):
-            raise ValueError("dangling source evidence reference")
     for section in facts.sections:
         for record in section.records:
             _source_record(record, section.name)
