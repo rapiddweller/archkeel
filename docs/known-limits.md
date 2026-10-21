@@ -46,6 +46,20 @@ intervals, including defaults, remain UNKNOWN because their header scopes are no
 replayed independently. Literal operands remain provable; decorators stay in their
 outer scope.
 
+`forbidden_call_argument` requires a unique, statically proven target
+declaration and observed callable signature. Only explicit actuals with
+complete, valid bindings are considered; spreads, duplicates, missing
+signatures and unproven calls leave the scope UNKNOWN. Omitted defaults are not
+actuals. Calls without canonical binding carry `call_arguments: null`; a
+canonical call whose complete actual inventory cannot be tied to a bounded
+source excerpt also keeps its binding but carries null arguments and remains
+UNKNOWN for argument rules. Both cases differ from a proven call with an empty
+argument list. The first slice
+recognizes written string constants, including empty and adjacent literals;
+f-strings, concatenations and named expressions remain unclaimed. It does not
+check actual type compatibility. Argument facts require
+observation 2.5 and contract 3.10; older readers reject the new evidence.
+
 An explicitly certified `complete_requires` scope can PASS with unrelated source
 resolution gaps. Arbitrary imports still block their own scopes and ancestors;
 signature gaps do not prove or disprove imports. Legacy or unbound gaps remain

@@ -26,6 +26,7 @@ from archkeel.analyzer.runtime import (
     python_requirement,
 )
 from archkeel.ir.facts import (
+    CALL_ARGUMENTS_FEATURE,
     CALL_BINDINGS_FEATURE,
     EXTENDED_CALL_BINDINGS_FEATURE,
     NATIVE_CALL_TARGETS,
@@ -489,7 +490,11 @@ def collect(request: CollectionRequest) -> SourceFacts:
         ),
         Capabilities(
             _SECTION_NAMES,
-            resolution_features=(CALL_BINDINGS_FEATURE, EXTENDED_CALL_BINDINGS_FEATURE),
+            resolution_features=(
+                CALL_BINDINGS_FEATURE,
+                EXTENDED_CALL_BINDINGS_FEATURE,
+                CALL_ARGUMENTS_FEATURE,
+            ),
             constructs=tuple(
                 ConstructCapability(kind, ConstructSupport.DECIDED)
                 for kind in ForbiddenConstructKind

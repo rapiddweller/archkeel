@@ -33,6 +33,8 @@ global coverage and cycle closure stay incomplete. See
 | Restrict a statically bound function/method to selected callers | `call_owner` (3.7) |
 | Bound selected binary/augmented modulo operands | `bounded_numeric_operand` (3.8) |
 
+| Reject a written string literal at one bound call parameter | `forbidden_call_argument` (3.10) |
+
 Python static imports and proven literal `importlib.import_module` / `__import__`
 calls feed the same dependency rules. An unknown loader binding or target withholds
 only applicable dependency receipts; known violations remain FAIL. Nonempty or
@@ -62,6 +64,16 @@ FAIL; unsupported or unstable RHS values remain UNKNOWN. An empty, missing or
 incomplete selected source cannot certify PASS. See
 [AD-246](architecture/decisions/ad-246-bounded-numeric-operand.md) for proof
 limits and receipt behavior.
+
+`forbidden_call_argument` names a source scope, canonical target and formal
+parameter. Python collector facts preserve positional, keyword and spread
+actuals with evidence; Core binds explicit actuals to the observed signature
+without applying defaults. Only written string constants at the selected
+formal violate the rule. An invalid bind, spread, missing signature or
+unproven target/receiver leaves the scope UNKNOWN. Calls without canonical
+binding carry null argument facts; a proven call with no actuals carries an
+empty list. See
+[AD-247](architecture/decisions/ad-247-written-call-arguments-bind-to-observed-formals.md).
 
 ### Ownership and dependency decisions
 

@@ -1,6 +1,6 @@
 {
-  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.9.schema.json",
-  "schema_version": "3.9.0",
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.10.schema.json",
+  "schema_version": "3.10.0",
   "components": [
     {
       "id": "COMP-MODEL",
@@ -531,6 +531,16 @@
         }
       ],
       "rationale": "The repository's reader member is typed to its canonical protocol.",
+      "provenance": ["docs/architecture/shop.md"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "APP-NO-LITERAL-ORDER-ID",
+      "kind": "forbidden_call_argument",
+      "source": "shop.store.lookup",
+      "target": "shop.store.lookup.lookup_order",
+      "parameter": "order_id",
+      "rationale": "Order lookup IDs come from the caller and are never embedded at call sites.",
       "provenance": ["docs/architecture/shop.md"],
       "decided_by": "architect"
     },

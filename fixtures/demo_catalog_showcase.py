@@ -193,6 +193,16 @@ _TOUR_STORE_SQLITE = HEADER + (
     "        if candidate.stat().st_size == 0:\n"
     "            candidate.unlink()\n"
 )
+_TOUR_ORDER_LOOKUP = HEADER + (
+    '"""Resolve an order path for the showcase example."""\n\n'
+    "from __future__ import annotations\n\n"
+    "from pathlib import Path\n\n"
+    "from shop.store.backend.paths import order_path\n\n\n"
+    "def lookup_order(root: Path, order_id: str) -> Path:\n"
+    "    return order_path(root, order_id)\n\n\n"
+    "def find_order(root: Path, order_id: str) -> Path:\n"
+    '    return lookup_order(root, "tour-order")\n'
+)
 _TOUR = Variant(
     id="tour",
     section="showcase",
@@ -212,7 +222,8 @@ _TOUR = Variant(
     "parameter on place_order itself, the one function app.orders declares public (AD-63: "
     "only a declared facade function is inspected, so touch_store's own bare-object "
     "parameter, never declared, no longer fires here), a modulo operand below its "
-    "declared width, and a concrete reader member in place of its required protocol. "
+    "declared width, a concrete reader member in place of its required protocol, and a literal "
+    "order ID at a store path lookup. "
     "CONSTRUCT-NO-DYNAMIC answers both the eval and the getattr; "
     "validate reports the rule.violated diagnostics plus 2 "
     "closed_world.observed_forbidden pairs (model->render, render->store) and 1 graph.drift, "
@@ -226,6 +237,7 @@ _TOUR = Variant(
         "shop/store/repository.py": REPOSITORY_WITH_MONEY_IMPORT.replace(
             "reader: RepositoryReader", "reader: OrderRepository"
         ),
+        "shop/store/lookup.py": _TOUR_ORDER_LOOKUP,
         "shop/store/sqlite.py": _TOUR_STORE_SQLITE,
         "shop/store/architecture-contract.json": STORE_INSIDE_WITH_REPOSITORY_PEER_GRANT,
         "shop/cli/main.py": MAIN_WITH_UNDERSCORE_IMPORT,
@@ -237,6 +249,7 @@ _TOUR = Variant(
         "shop/extra.py": SHOP_EXTRA,
     },
     expected_violations=(
+        "APP-NO-LITERAL-ORDER-ID",
         "APP-TYPES-NOT-DICT",
         "ASSIGNMENT-COMPLETE",
         "CALL-DESCRIBE-NO-MAINTENANCE",
@@ -266,6 +279,7 @@ _TOUR = Variant(
         "closed_world.observed_forbidden",
         "closed_world.observed_forbidden",
         "graph.drift",
+        "rule.violated",
         "rule.violated",
         "rule.violated",
         "rule.violated",

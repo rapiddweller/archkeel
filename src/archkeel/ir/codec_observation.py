@@ -32,12 +32,12 @@ from archkeel.ir.facts import (
     parse_runtime_requirement_state,
     source_dirty,
 )
+from archkeel.ir.facts import call_arguments as _call_arguments
 from archkeel.ir.facts import call_binding as _call_binding
 from archkeel.ir.model import (
     CLASSIFIED_SECTIONS,
     EVIDENCE_FIELDS,
     RECORD_FIELDS,
-    SCHEMA_VERSION,
     AnalyzerInfo,
     ContractInfo,
     Coverage,
@@ -68,7 +68,8 @@ class _ObservationVersion(StrEnum):
     V2_1 = "2.1.0"
     V2_2 = "2.2.0"
     V2_3 = "2.3.0"
-    V2_4 = SCHEMA_VERSION
+    V2_4 = "2.4.0"
+    V2_5 = "2.5.0"
 
 
 class _VersionedConstruct(StrEnum):
@@ -251,6 +252,7 @@ def _validate_versioned_records(
         _ObservationVersion.V2_2,
         _ObservationVersion.V2_3,
         _ObservationVersion.V2_4,
+        _ObservationVersion.V2_5,
     }:
         python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
         for section in sections:
@@ -259,10 +261,10 @@ def _validate_versioned_records(
                     if python_calls and not _has_field(
                         (key for key, _ in call.data.entries), "call_binding"
                     ):
-                        raise ValueError("Python 2.1.0 calls require explicit call_binding or null")
+                        raise ValueError("Python calls require explicit call_binding or null")
                     binding = _call_binding(call.data.get("call_binding"))
                     if (
-                        schema_version is not _ObservationVersion.V2_4
+                        schema_version not in {_ObservationVersion.V2_4, _ObservationVersion.V2_5}
                         and binding is not None
                         and binding.origin
                         not in {CallBindingOrigin.DIRECT, CallBindingOrigin.DECLARED_RECEIVER}
@@ -276,6 +278,23 @@ def _validate_versioned_records(
         _ObservationVersion.V2_2,
     } and any(_uses_protocol_declaration_fields(section) for section in sections):
         raise ValueError("protocol_declarations require observation schema 2.3.0")
+    python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
+    for section in sections:
+        if section.name != ObservedSection.CALLS:
+            continue
+        for call in section.records:
+            has_arguments = _has_field((key for key, _ in call.data.entries), "call_arguments")
+            if schema_version is _ObservationVersion.V2_5:
+                if python_calls and not has_arguments:
+                    raise ValueError("Python 2.5.0 calls require explicit call_arguments")
+                arguments = (
+                    _call_arguments(call.data.get("call_arguments")) if has_arguments else None
+                )
+                binding = _call_binding(call.data.get("call_binding"))
+                if arguments is not None and binding is None:
+                    raise ValueError("call arguments require the canonical call binding")
+            elif has_arguments:
+                raise ValueError("call_arguments require observation schema 2.5.0")
 
 
 def parse_observation(raw: object) -> Observation:
@@ -308,6 +327,7 @@ def parse_observation(raw: object) -> Observation:
         if isinstance(section_items := item[name], list)
     )
     _validate_versioned_records(schema_version, sections, profile)
+
     return Observation(
         schema_version=schema_version,
         analyzer=AnalyzerInfo(
@@ -337,6 +357,7 @@ def parse_observation(raw: object) -> Observation:
                 _ObservationVersion.V2_2,
                 _ObservationVersion.V2_3,
                 _ObservationVersion.V2_4,
+                _ObservationVersion.V2_5,
             },
         )
         if item.get("runtime", _MISSING_VALUE) is not _MISSING_VALUE
@@ -496,6 +517,7 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
             _ObservationVersion.V2_2,
             _ObservationVersion.V2_3,
             _ObservationVersion.V2_4,
+            _ObservationVersion.V2_5,
         }
         and observation.runtime is not None
         and observation.runtime.requirement_state != RuntimeRequirementState.DECLARED

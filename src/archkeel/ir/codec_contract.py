@@ -66,6 +66,7 @@ from archkeel.ir.model import (
     DependencyTargetKind,
     ExternalDependencyScopeRule,
     FacadeBudget,
+    ForbiddenCallArgumentRule,
     ForbiddenConstructKind,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
@@ -281,6 +282,11 @@ def parse_contract(raw: object) -> ArchitectureContract:
     ):
         raise ValueError("protocol_declarations requires contract schema_version 3.9.0")
     if (
+        not supports_feature(version, ContractFeature.FORBIDDEN_CALL_ARGUMENT)
+        and ArchitectureRuleKind.FORBIDDEN_CALL_ARGUMENT in kinds
+    ):
+        raise ValueError("forbidden_call_argument requires contract schema_version 3.10.0")
+    if (
         not supports_feature(version, ContractFeature.LAYERS)
         and ArchitectureRuleKind.LAYER_ORDER in kinds
     ):
@@ -422,6 +428,10 @@ def _validate_encoding_version(contract: ArchitectureContract) -> None:
         isinstance(rule, ProtocolDeclarationsRule) for rule in contract.rules
     ):
         raise ValueError("protocol_declarations requires contract schema_version 3.9.0")
+    if not supports_feature(
+        contract.schema_version, ContractFeature.FORBIDDEN_CALL_ARGUMENT
+    ) and any(isinstance(rule, ForbiddenCallArgumentRule) for rule in contract.rules):
+        raise ValueError("forbidden_call_argument requires contract schema_version 3.10.0")
     if not supports_feature(contract.schema_version, ContractFeature.MODULE_OBJECT_GRANTS) and any(
         isinstance(rule, InterfaceBoundaryRule) and rule.module_object_grants is not None
         for rule in contract.rules
@@ -462,6 +472,10 @@ def _validate_encoding_version(contract: ArchitectureContract) -> None:
         raise ValueError(
             "native_mapping and literal-arm object values require contract schema_version 3.3.0"
         )
+    if not supports_feature(
+        contract.schema_version, ContractFeature.FORBIDDEN_CALL_ARGUMENT
+    ) and any(isinstance(rule, ForbiddenCallArgumentRule) for rule in contract.rules):
+        raise ValueError("forbidden_call_argument requires contract schema_version 3.10.0")
     if not supports_feature(contract.schema_version, ContractFeature.MODULE_SELECTORS) and any(
         isinstance(rule, ForbiddenDependencyRule)
         and (
@@ -1426,9 +1440,29 @@ def _parse_bounded_numeric_operand(raw: RawJson, label: str) -> BoundedNumericOp
     )
 
 
+def _parse_forbidden_call_argument(raw: RawJson, label: str) -> ForbiddenCallArgumentRule:
+    item, item_id, provenance = _contract_record(
+        raw,
+        {"kind", "source", "target", "parameter", "rationale", "decided_by"},
+        set(),
+        label,
+    )
+    return ForbiddenCallArgumentRule(
+        item_id,
+        ArchitectureRuleKind.FORBIDDEN_CALL_ARGUMENT,
+        _nonempty(item["source"], f"{label}.source"),
+        _nonempty(item["target"], f"{label}.target"),
+        _nonempty(item["parameter"], f"{label}.parameter"),
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
+    )
+
+
 _RULE_PARSERS: Final[dict[ArchitectureRuleKind, Callable[[RawJson, str], ArchitectureRule]]] = {
     ArchitectureRuleKind.BOUNDED_NUMERIC_OPERAND: _parse_bounded_numeric_operand,
     ArchitectureRuleKind.CALL_OWNER: _parse_call_owner,
+    ArchitectureRuleKind.FORBIDDEN_CALL_ARGUMENT: _parse_forbidden_call_argument,
     ArchitectureRuleKind.FORBIDDEN_DEPENDENCY: _parse_forbidden_dependency,
     ArchitectureRuleKind.ALLOWED_DEPENDENCY: _parse_allowed_dependency,
     ArchitectureRuleKind.FORBIDDEN_CONSTRUCT: _parse_forbidden_construct,

@@ -43,6 +43,7 @@ from archkeel.ir.model import (
     DependencyTargetKind,
     EvidenceClass,
     ExternalDependencyScopeRule,
+    ForbiddenCallArgumentRule,
     ForbiddenConstructKind,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
@@ -949,6 +950,8 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
     """Name the module selectors whose absence would make a rule vacuous."""
     if isinstance(rule, CallOwnerRule):
         return {}
+    if isinstance(rule, ForbiddenCallArgumentRule):
+        return {"source": (rule.source,)}
     if isinstance(rule, ForbiddenDependencyRule | AllowedDependencyRule):
         return {"source": (rule.source,), "target": (rule.target,)}
     if isinstance(rule, ExternalDependencyScopeRule):
@@ -1180,6 +1183,10 @@ def rule_subject_failures(
             )
             source_subjects = source_subjects | set(numeric_modules)
             scopes = {"source": numeric_modules}
+        if isinstance(rule, ForbiddenCallArgumentRule):
+            source_subjects = source_subjects | _call_argument_subject_symbols(
+                symbols, source_modules
+            )
         target_subjects: AbstractSet[str] = (target_module_names or module_names) | planned_subjects
         if isinstance(rule, ForbiddenConstructRule):
             owner_modules = (
@@ -1212,6 +1219,17 @@ def rule_subject_failures(
                 _missing_rule_subject_failure(rule, scopes, matches, facade_scoped)
             )
     return rule_failures
+
+
+def _call_argument_subject_symbols(
+    symbols: Sequence[RawRecord], source_modules: frozenset[str] | None
+) -> set[str]:
+    return {
+        item["data"]["qualified_name"]
+        for item in symbols
+        if item["kind"] in {"class", "function", "method"}
+        and (source_modules is None or item["data"]["module"] in source_modules)
+    }
 
 
 def _missing_rule_subject_failure(
@@ -2298,6 +2316,7 @@ _SeparateReceiptRule: TypeAlias = (
     | NoComponentCyclesRule
     | CallOwnerRule
     | ProtocolDeclarationsRule
+    | ForbiddenCallArgumentRule
 )
 
 

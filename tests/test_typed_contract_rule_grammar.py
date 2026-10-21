@@ -32,6 +32,10 @@ RULES = {
         {"source": "sample", "form": "both", "terminal_suffix": "nonce", "minimum_value": 4},
     ),
     "call_owner": ("CallOwnerRule", {"source": "sample", "target": "sample.store.page"}),
+    "forbidden_call_argument": (
+        "ForbiddenCallArgumentRule",
+        {"source": "sample", "target": "sample.store.page", "parameter": "query"},
+    ),
     "forbidden_dependency": (
         "ForbiddenDependencyRule",
         {"source": "sample.core", "target": "json", "include_type_checking": True},
@@ -60,7 +64,7 @@ RULES = {
 
 def _raw():
     raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
-    raw["schema_version"] = "3.9.0"
+    raw["schema_version"] = "3.10.0"
     raw["rules"] = []
     return raw
 
@@ -69,6 +73,11 @@ def _raw():
 def test_every_rule_variant_decodes_the_shared_kind_and_attribution(kind):
     name, fields = RULES[kind]
     raw = _raw()
+    raw["schema_version"] = {
+        "call_owner": "3.7.0",
+        "bounded_numeric_operand": "3.8.0",
+        "protocol_declarations": "3.9.0",
+    }.get(kind, "3.10.0")
     raw["rules"] = [
         {
             "id": "rule",

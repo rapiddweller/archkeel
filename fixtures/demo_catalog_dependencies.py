@@ -67,7 +67,8 @@ REPOSITORY_WITH_MONEY_IMPORT = HEADER + (
     "import json\n"
     "from pathlib import Path\n\n"
     "from typing import Protocol\n\n"
-    "from shop.model.entities import Money, Order\n\n\n"
+    "from shop.model.entities import Money, Order\n"
+    "from shop.store.backend.paths import order_path\n\n\n"
     "class RepositoryReader(Protocol):\n"
     "    def load(self, order_id: str) -> Order: ...\n\n\n"
     "class OrderRepository:\n"
@@ -82,7 +83,7 @@ REPOSITORY_WITH_MONEY_IMPORT = HEADER + (
     '        """Demonstrates the forbidden Money import for the architecture demo."""\n'
     "        return self.load(order_id).total()\n\n"
     "    def _path(self, order_id: str) -> Path:\n"
-    '        return self._root / f"{order_id}.json"\n'
+    "        return order_path(self._root, order_id)\n"
 )
 _FORBIDDEN_DEPENDENCY_TARGET_SYMBOL = Variant(
     id="class-a-forbidden-dependency-target-symbol",
@@ -1213,7 +1214,63 @@ _PROTOCOL_READER_UNKNOWN = Variant(
     expected_declared_rules="UNKNOWN",
 )
 
+_CALL_ARGUMENT_RULE = {
+    "id": "APP-NO-LITERAL-ORDER-ID",
+    "kind": "forbidden_call_argument",
+    "source": "shop.store.lookup",
+    "target": "shop.store.lookup.lookup_order",
+    "parameter": "order_id",
+    "rationale": "Order lookup IDs come from the caller and are never embedded at call sites.",
+    "provenance": ["docs/architecture/shop.md"],
+    "decided_by": "architect",
+}
+_CALL_ARGUMENT_FAIL = Variant(
+    id="class-a-forbidden-call-argument-fail",
+    section="class_a",
+    item="forbidden_call_argument:fail",
+    summary="A literal order ID is rejected at the canonical repository lookup parameter.",
+    files={
+        "shop/store/lookup.py": (FIXTURE_DIR / "shop/store/lookup.py")
+        .read_text()
+        .replace("lookup_order(root, order_id)", 'lookup_order(root, "literal-id")')
+    },
+    expected_violations=("APP-NO-LITERAL-ORDER-ID",),
+    expected_codes=("rule.violated",),
+    expected_declared_rules="FAIL",
+)
+_CALL_ARGUMENT_PASS = Variant(
+    id="class-a-forbidden-call-argument-pass",
+    section="class_a",
+    item="forbidden_call_argument:pass",
+    summary="A caller-supplied ID is passed through to the canonical repository lookup.",
+    files={
+        "shop/store/lookup.py": (FIXTURE_DIR / "shop/store/lookup.py")
+        .read_text()
+        .replace("lookup_order(root, order_id)", "lookup_order(root, order_id=order_id)"),
+    },
+    expected_violations=(),
+    expected_codes=(),
+)
+_CALL_ARGUMENT_UNKNOWN = Variant(
+    id="class-a-forbidden-call-argument-unknown",
+    section="class_a",
+    item="forbidden_call_argument:unknown",
+    summary="An expanded argument cannot be bound to the selected repository parameter.",
+    files={
+        "shop/store/lookup.py": (FIXTURE_DIR / "shop/store/lookup.py")
+        .read_text()
+        .replace("lookup_order(root, order_id)", "lookup_order(root, *order_ids)"),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("call_argument_limit", "shop.store.lookup.lookup_order"),),
+    expected_declared_rules="UNKNOWN",
+)
+
 VARIANTS: tuple[Variant, ...] = (
+    _CALL_ARGUMENT_FAIL,
+    _CALL_ARGUMENT_PASS,
+    _CALL_ARGUMENT_UNKNOWN,
     _PROTOCOL_READER_ALLOWED,
     _PROTOCOL_READER_FORBIDDEN,
     _PROTOCOL_READER_UNKNOWN,

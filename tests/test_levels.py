@@ -29,7 +29,7 @@ def test_the_inside_of_check_carries_its_sub_components_and_their_edges(
     level = levels["check"]
     assert [(item.label, len(item.modules)) for item in level.components] == [
         ("declarations", 1),
-        ("evaluation", 12),
+        ("evaluation", 14),
         ("inputs", 7),
         ("observation", 3),
         ("regression", 3),

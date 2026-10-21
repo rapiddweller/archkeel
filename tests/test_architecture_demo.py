@@ -405,6 +405,7 @@ def test_recursive_wide_report_includes_catalog_isolated_module_and_package_root
         "shop.store.backend.tasks.source",
         "shop.store.backend.tasks.target",
         "shop.store.codec",
+        "shop.store.lookup",
         "shop.store.repository",
         "shop.store.sqlite",
     }
@@ -443,6 +444,31 @@ def test_class_a_covers_every_rule_kind() -> None:
     kinds = {get_args(get_type_hints(rule)["kind"])[0] for rule in get_args(ArchitectureRule)}
     assert kinds <= items
     assert {"bounded_numeric_operand", "protocol_declarations"} <= items
+
+
+@pytest.mark.parametrize(
+    ("variant_id", "expected"),
+    [
+        ("class-a-forbidden-call-argument-fail", "FAIL"),
+        ("class-a-forbidden-call-argument-pass", "PASS"),
+        ("class-a-forbidden-call-argument-unknown", "UNKNOWN"),
+    ],
+)
+def test_forbidden_call_argument_variants_have_real_assessments(
+    tmp_path: Path,
+    variant_id: str,
+    expected: str,
+) -> None:
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    report, architecture = run_report(
+        root, config=load_config(root, variant.config), analyzer=observe
+    )
+    assert architecture is not None
+    row = next(
+        item for item in report.rule_assessments or () if item.id == "APP-NO-LITERAL-ORDER-ID"
+    )
+    assert row.status.value == expected
 
 
 # allowed_dependency records a permission, never a violation: the analyzer never evaluates it

@@ -13,6 +13,7 @@ from typing import Any, TypeAlias
 
 from archkeel.ir.codec import InsideContractMount
 from archkeel.ir.facts import (
+    CALL_ARGUMENTS_FEATURE,
     CALL_BINDINGS_FEATURE,
     SOURCE_RESOLUTION_GAP_KIND,
     BuiltinTarget,
@@ -44,6 +45,7 @@ from archkeel.ir.model import (
     ContractComponent,
     ContractDeclarations,
     EvidenceClass,
+    ForbiddenCallArgumentRule,
     GraphTopologyLevel,
     InterfaceBoundaryRule,
     ModuleExports,
@@ -55,6 +57,7 @@ from archkeel.ir.model import (
 from archkeel.ir.profiles import Profile, profile_for
 from archkeel.ir.type_shapes import TypeShapeIndex
 
+from .call_argument_policy import call_argument_results
 from .call_owners import call_owner_results
 from .imports import strip_internal_reexport_facts
 from .protocol_declarations import protocol_declaration_results
@@ -313,6 +316,7 @@ def _inside_rule_results(
     calls: Sequence[RawRecord],
     calls_complete: bool,
     bindings_measured: bool,
+    arguments_measured: bool,
     root_contract: ArchitectureContract | None = None,
     imports: Sequence[RawRecord],
     source_unknowns: Sequence[RawRecord],
@@ -419,6 +423,25 @@ def _inside_rule_results(
         violations.extend(call_violations)
         unknowns.extend(call_limits)
         assessments.extend(call_receipts)
+        argument_violations, argument_limits, argument_receipts = _call_argument_rule_results(
+            scoped,
+            scope=mount.parent_id,
+            calls=calls,
+            modules=modules,
+            symbols=symbols,
+            calls_complete=calls_complete,
+            bindings_measured=bindings_measured,
+            arguments_measured=arguments_measured,
+            blank_modules=blank_modules,
+            profile=profile,
+            scan_roots=call_scan_roots,
+            source_modules=source_modules,
+            package_scopes=parent.packages,
+            exact_module_scopes=parent.exact_modules or (),
+        )
+        violations.extend(argument_violations)
+        unknowns.extend(argument_limits)
+        assessments.extend(argument_receipts)
     return _sort_inside_rule_results(
         violations, unknowns, failures, assessments, allowances, symbols
     )
@@ -487,6 +510,61 @@ def _call_owner_rule_results(
             symbols=symbols,
             complete=complete,
             bindings_measured=bindings_measured,
+            blank_modules=blank_modules,
+            source_modules=source_modules,
+        )
+        violations.extend(result[0])
+        limits.extend(result[1])
+        receipts.extend(result[2])
+    return violations, limits, receipts
+
+
+def _call_argument_rule_results(
+    contract: ArchitectureContract,
+    *,
+    scope: str,
+    calls: Sequence[RawRecord],
+    modules: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    calls_complete: bool,
+    bindings_measured: bool,
+    arguments_measured: bool,
+    blank_modules: frozenset[str],
+    profile: Profile,
+    scan_roots: tuple[str, ...],
+    source_modules: frozenset[str] | None = None,
+    package_scopes: Sequence[str] = (),
+    exact_module_scopes: Sequence[str] = (),
+) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord]]:
+    violations: list[RawRecord] = []
+    limits: list[RawRecord] = []
+    receipts: list[RawRecord] = []
+    for rule in contract.rules:
+        if not isinstance(rule, ForbiddenCallArgumentRule):
+            continue
+        packages, exact_modules = source_selector_domains(
+            rule.source,
+            modules,
+            package_scopes=package_scopes,
+            exact_module_scopes=exact_module_scopes,
+        )
+        complete = calls_complete and source_domains_complete(
+            modules=modules,
+            profile=profile,
+            package_scopes=packages,
+            exact_module_scopes=exact_modules,
+            scan_roots=scan_roots,
+        )
+        selected_contract = replace(contract, components=(), rules=(rule,))
+        result = call_argument_results(
+            selected_contract,
+            scope=scope,
+            calls=calls,
+            modules=modules,
+            symbols=symbols,
+            complete=complete,
+            bindings_measured=bindings_measured,
+            arguments_measured=arguments_measured,
             blank_modules=blank_modules,
             source_modules=source_modules,
         )
@@ -991,6 +1069,7 @@ def evaluate_source(
     )
     calls_complete = _source_inventory_complete(facts)
     bindings_measured = CALL_BINDINGS_FEATURE in facts.capabilities.resolution_features
+    arguments_measured = CALL_ARGUMENTS_FEATURE in facts.capabilities.resolution_features
     (
         inside_violations,
         inside_unknowns,
@@ -1006,6 +1085,7 @@ def evaluate_source(
         calls=calls,
         calls_complete=calls_complete,
         bindings_measured=bindings_measured,
+        arguments_measured=arguments_measured,
         root_contract=contract,
         imports=imports,
         source_unknowns=source_unknowns,
@@ -1146,6 +1226,22 @@ def evaluate_source(
     violations += call_violations
     unknowns += call_limits
     scope_observations += call_receipts
+    argument_violations, argument_limits, argument_receipts = _call_argument_rule_results(
+        contract,
+        scope="root",
+        calls=calls,
+        modules=module_facts,
+        symbols=symbols,
+        calls_complete=calls_complete,
+        bindings_measured=bindings_measured,
+        arguments_measured=arguments_measured,
+        blank_modules=blank_modules,
+        profile=profile,
+        scan_roots=roots,
+    )
+    violations += argument_violations
+    unknowns += argument_limits
+    scope_observations += argument_receipts
 
     incomplete_dependencies = {
         rule_id

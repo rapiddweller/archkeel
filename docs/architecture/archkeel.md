@@ -98,6 +98,9 @@ facts while preserving constructor signatures; ordinary parameters remain parame
 ([AD-230](decisions/ad-230-typescript-parameter-properties.md)).
 TypeScript UML identity matching separates type and value namespaces while retaining
 definition-site ambiguity within each ([AD-233](decisions/ad-233-typescript-namespace-identities.md)).
+Written string actuals are bound to proven Python call formals before argument policies
+evaluate them; omitted defaults and unsupported bindings remain outside that proof
+([AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md)).
 Proposed contract extensions are tracked in [#356](https://github.com/rapiddweller/archkeel/issues/356).
 
 Protocol declaration selectors use the complete observed scope, closed declaration roles,
@@ -117,3 +120,5 @@ and canonical type identity; their exact and optional-union semantics are record
 | [AD-242](decisions/ad-242-explicit-browser-module-ports.md) | Check named browser module ports and publish one verified offline bundle. |
 | [AD-254](decisions/ad-254-canonical-protocol-declarations.md) | Require exact canonical Protocol identities at selected API positions. |
 | [AD-246](decisions/ad-246-bounded-numeric-operand.md) | Bind selected modulo bounds to bounded source-derived integer proofs. |
+
+| [AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md) | Bind explicitly written actuals to proven formals before applying argument policies. |

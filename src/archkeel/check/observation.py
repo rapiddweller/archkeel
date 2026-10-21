@@ -705,7 +705,9 @@ def _dependency_binding_id(
 def _certify_call_owner_scopes(
     scan: ScanResult, facts: SourceFacts, contract_digest: str, declarations: list[RawRecord]
 ) -> None:
-    rules = {r["id"] for r in declarations if r["kind"] == "call_owner"}
+    rules = {
+        r["id"] for r in declarations if r["kind"] in {"call_owner", "forbidden_call_argument"}
+    }
     receipts = [
         r
         for r in scan.scope_observations
