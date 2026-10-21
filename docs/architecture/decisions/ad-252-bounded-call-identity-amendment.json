@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "927d1a4f4aba9d73b8e5e561969ad4fb553857f0054752dedefaee94780f0b2c",
+  "after_digest": "548737443d25f26269a942ea02ca1a3b58ff4b22c2f87274b9908b3a12920024",
+  "before_baseline_digest": "26ffcd551f4af8b9cacce4801cec54a3e9b619029be2e1f51cf36ee276d1d780",
+  "before_digest": "d4f0788fd9efb1b6c454740a7340d522f49b141249cfa0af101cc14012f0a2c8",
+  "decided_by": "architecture maintainers",
+  "rationale": "Bind the deliberate public CallBinding.proof declaration required by AD-252 to the exact prior contract and baseline; no budgets, permissions, or debt allowances change.",
+  "schema_version": "2.0.0"
+}

@@ -37,7 +37,26 @@ def test_saved_call_policy_requires_a_reader_with_the_new_wire_version(tmp_path,
     assert replayed == row
 
 
-def test_stored_receiver_candidates_cannot_certify_call_ownership(tmp_path):
+def test_saved_observation_21_rejects_extended_call_identity(tmp_path):
+    from archkeel.ir.codec import observation_payload, parse_observation
+
+    result, _ = _observe(
+        tmp_path,
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        allowed=(),
+    )
+    payload = observation_payload(result.observation)
+    payload["schema_version"] = "2.3.0"
+    with pytest.raises(ValueError, match="extended call bindings require observation schema 2.4.0"):
+        parse_observation(payload)
+
+
+def test_stored_receiver_assessment_survives_saved_report_replay(tmp_path):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes
+
     result, row = _observe(
         tmp_path,
         "from .storage import Storage\nclass Holder:\n"
@@ -45,15 +64,1547 @@ def test_stored_receiver_candidates_cannot_certify_call_ownership(tmp_path):
         "    def run(self): self.client.page()\n",
         allowed=(),
     )
+    path = tmp_path / "architecture.json"
+    path.write_bytes(canonical_report_bytes(result.observation))
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed == row
+
+
+@pytest.mark.parametrize("allowed,expected", [((), "FAIL"), (("sample.caller",), "PASS")])
+def test_constructed_receiver_owner_is_proven_and_replays(tmp_path, allowed, expected):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\ndef run(): Storage().page()\n",
+        allowed=allowed,
+        extra={"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+    )
+    assert row.status == expected and row.evaluation_proven
+    assert row.count == (1 if expected == "FAIL" else 0)
+    path = tmp_path / "constructed-report.json"
+    path.write_bytes(canonical_report_bytes(result.observation))
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed == row
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_ordinary_member_read_does_not_escape_constructed_receiver(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\ndef run():\n"
+        "    built = Storage()\n    built.backend == 'flat'\n    built.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+    )
+    [call] = [
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "built.page"
+    ]
+    assert call.data.get("call_binding").get("target") == "sample.storage.Storage.page"
+    assert row.status == "FAIL" and row.evaluation_proven
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"ordinary-member-read-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed == row
+
+
+def test_bare_constructed_receiver_comparison_remains_unknown(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\ndef run():\n"
+        "    built = Storage()\n    built == object()\n    built.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        extra={"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "built.page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+def test_stored_receiver_member_comparison_keeps_public_owner_unknown(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def route(self):\n"
+        "        self.client.backend == 'flat'\n        self.client.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        extra={"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+    )
     call = next(
         record
         for record in result.observation.records("calls")
         if record.data.get("expression") == "self.client.page"
     )
-    assert call.data.get("status") == "partially_resolved"
-    assert call.data.get("targets") == ("sample.storage.Storage.page",)
     assert call.data.get("call_binding") is None
     assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+def test_constructed_receiver_owner_escape_is_unknown_and_replays(tmp_path):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\n"
+        "def replacement(self): pass\n"
+        "def mutate(cls): cls.page = replacement\n"
+        "mutate(Storage)\n"
+        "def run(): Storage().page()\n",
+        allowed=(),
+        extra={"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "Storage().page"
+    )
+    assert call.data.get("call_binding") is None
+    path = tmp_path / "escaped-constructed-report.json"
+    path.write_bytes(canonical_report_bytes(result.observation))
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_constructed_receiver_call_may_mutate_instance_method(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\n"
+        "def run():\n"
+        "    value = Storage()\n"
+        "    value.prepare()\n"
+        "    value.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={
+            "sample/storage.py": "class Storage:\n"
+            "    def prepare(self): self.page = lambda: None\n"
+            "    def page(self): pass\n"
+        },
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "value.page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"method-mutation-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_constructed_nested_helper_mutation_revokes_method_identity(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\ndef run():\n"
+        "    value = Storage()\n    value.prepare()\n    value.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={
+            "sample/storage.py": "class Storage:\n"
+            "    def prepare(self):\n"
+            "        def change(): self.page = lambda: None\n"
+            "        change()\n"
+            "    def page(self): pass\n"
+        },
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "value.page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"nested-method-mutation-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+def test_constructed_receiver_unrelated_instance_write_keeps_method_static(tmp_path):
+    _, row = _observe(
+        tmp_path,
+        "from .storage import Storage\n"
+        "def run():\n"
+        "    value = Storage()\n"
+        "    value.audit()\n"
+        "    value.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        extra={
+            "sample/storage.py": "class Storage:\n"
+            "    def audit(self): self.count = 1\n"
+            "    def page(self): pass\n"
+        },
+    )
+    assert row.status == "FAIL" and row.evaluation_proven and row.count == 1
+
+
+@pytest.mark.parametrize(
+    "mutator",
+    [
+        "alias = self if flag else object(); alias.page = replacement",
+        "self.__dict__['page'] = replacement",
+    ],
+)
+def test_constructed_receiver_alias_and_dict_writes_revoke_member(tmp_path, mutator):
+    _, row = _observe(
+        tmp_path,
+        "from .storage import Storage\ndef run():\n    value = Storage()\n    value.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        extra={
+            "sample/storage.py": "class Storage:\n"
+            f"    def prepare(self, flag=False, replacement=None): {mutator}\n"
+            "    def page(self): pass\n"
+        },
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_tuple_alias_write_revokes_constructed_receiver_and_replays(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\n"
+        "def replacement(self): pass\n"
+        "def run():\n    x = Storage()\n    x.prepare()\n    x.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={
+            "sample/storage.py": "class Storage:\n"
+            "    def prepare(self): alias = (self,)[0]; alias.page = replacement\n"
+            "    def page(self): pass\n"
+        },
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "x.page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    path = tmp_path / "tuple-alias-report.json"
+    path.write_bytes(
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_tuple_alias_write_invalidates_stored_receiver_and_replays(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\nfrom .other import Other\n"
+        "class Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def mutate(self): alias = (self,)[0]; alias.client = Other()\n"
+        "    def run(self): self.client.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={
+            "sample/storage.py": "class Storage:\n    def page(self): pass\n",
+            "sample/other.py": "class Other: pass\n",
+        },
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    path = tmp_path / "stored-tuple-alias-report.json"
+    path.write_bytes(
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_multi_target_constructed_allocation_alias_mutation_is_unknown_and_replays(
+    tmp_path, mounted, columnar
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\n"
+        "def replacement(self): pass\n"
+        "def run():\n    x = alias = Storage()\n"
+        "    alias.page = replacement\n    x.page()\n",
+        allowed=(),
+        mounted=mounted,
+        extra={"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "x.page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"multi-target-constructed-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize(
+    "setup,escaped_receiver",
+    [
+        ("", "x"),
+        ("alias = x\n", "alias"),
+        ("box = [x]\n", "box[0]"),
+        ("holder = Holder()\nholder.value = x\n", "holder.value"),
+    ],
+    ids=["direct-argument", "alias-argument", "container-argument", "attribute-storage"],
+)
+def test_constructed_receiver_escape_to_helper_is_unknown_and_replays(
+    tmp_path, mounted, columnar, setup, escaped_receiver
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    caller = (
+        "from .storage import Storage\n"
+        "class Holder: pass\n"
+        "def mutate(value): value.page = lambda: None\n"
+        "def run():\n    x = Storage()\n"
+        + "".join(f"    {line}\n" for line in setup.splitlines())
+        + f"    mutate({escaped_receiver})\n    x.page()\n"
+    )
+    result, row = _observe(
+        tmp_path,
+        caller,
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "x.page"
+    )
+    assert call.data.get("call_binding") is None
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"escaped-constructed-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+def test_constructed_receiver_with_unproven_inherited_constructor_is_unknown(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\ndef run(): Storage().page()\n",
+        target="sample.storage.Base.page",
+        allowed=(),
+        extra={
+            "sample/storage.py": "class Base:\n def page(self): pass\nclass Storage(Base): pass\n"
+        },
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "Storage().page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+def test_stored_typed_receiver_is_proven_beyond_candidate_resolution(tmp_path, mounted):
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        allowed=(),
+        mounted=mounted,
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    )
+    assert call.data.get("targets") == ("sample.storage.Storage.page",)
+    assert call.data.get("call_binding").get("target") == "sample.storage.Storage.page"
+    assert row.status == "FAIL" and row.count == 1
+
+
+@pytest.mark.parametrize(
+    "allowed,expected",
+    [((), "FAIL"), (("sample.caller",), "PASS")],
+)
+def test_stored_receiver_through_static_reexport_has_canonical_policy_result(
+    tmp_path, allowed, expected
+):
+    result, row = _observe(
+        tmp_path,
+        "from .pkg import Vault as Selected\nclass Holder:\n"
+        "    def __init__(self, client: Selected): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        allowed=allowed,
+        target="sample.pkg.types.Vault.page",
+        extra={
+            "sample/pkg/__init__.py": "from .types import Vault\n",
+            "sample/pkg/types.py": "class Vault:\n    def page(self): pass\n",
+        },
+    )
+    [call] = [
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    ]
+    assert call.data.get("call_binding").get("target") == "sample.pkg.types.Vault.page"
+    assert row.status == expected and row.evaluation_proven
+    assert row.count == (1 if expected == "FAIL" else 0)
+
+
+@pytest.mark.parametrize(
+    "allowed,expected",
+    [((), "FAIL"), (("sample.caller",), "PASS")],
+)
+def test_declared_receiver_through_static_reexport_replays_canonical_policy(
+    tmp_path, allowed, expected
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes
+
+    result, row = _observe(
+        tmp_path,
+        "from .pkg import Vault as Selected\ndef run(client: Selected): client.page()\n",
+        allowed=allowed,
+        target="sample.pkg.types.Vault.page",
+        extra={
+            "sample/pkg/__init__.py": "from .types import Vault\n",
+            "sample/pkg/types.py": "class Vault:\n    def page(self): pass\n",
+        },
+    )
+    [call] = [
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "client.page"
+    ]
+    assert call.data.get("call_binding").get("target") == "sample.pkg.types.Vault.page"
+    assert row.status == expected and row.evaluation_proven
+    assert row.count == (1 if expected == "FAIL" else 0)
+    saved = tmp_path / "reexport-report.json"
+    saved.write_bytes(canonical_report_bytes(result.observation))
+    [replayed] = run_saved_report(saved).rule_assessments
+    assert replayed == row
+
+
+def test_ambiguous_reexported_stored_receiver_stays_unknown(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .pkg import Vault\nfrom .other import Vault\nclass Holder:\n"
+        "    def __init__(self, client: Vault): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        allowed=(),
+        target="sample.pkg.types.Vault.page",
+        extra={
+            "sample/pkg/__init__.py": "from .types import Vault\n",
+            "sample/pkg/types.py": "class Vault:\n    def page(self): pass\n",
+            "sample/other.py": "class Vault:\n    def page(self): pass\n",
+        },
+    )
+    [call] = [
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    ]
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+def test_unicode_python_identifier_stored_receiver_is_proven(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, café: Storage): self.café = café\n"
+        "    def run(self): self.café.page()\n",
+        allowed=(),
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.café.page"
+    )
+    assert call.data.get("call_binding").get("target") == "sample.storage.Storage.page"
+    assert row.status == "FAIL" and row.count == 1
+
+
+@pytest.mark.parametrize(
+    "caller",
+    [
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, client: Storage, flag: bool):\n"
+        "        if flag: self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self):\n        client = object(); self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def run(self):\n        self = object(); self.client.page()\n",
+    ],
+)
+def test_stored_receiver_mutations_and_shadowing_stay_unknown(tmp_path, caller):
+    result, row = _observe(tmp_path, caller, allowed=())
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN"
+
+
+def test_mixed_known_violation_and_unknown_receiver_keeps_failure_visible(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def run(self): self.client.page()\n"
+        "def uncertain(client): client.page()\n",
+        allowed=(),
+    )
+    assert row.status == "FAIL" and row.count == 1 and not row.evaluation_proven
+    assert any(item.kind == "call_owner" for item in result.observation.records("violations"))
+    assert any(item.kind == "call_owner_limit" for item in result.observation.records("unknowns"))
+
+
+@pytest.mark.parametrize(
+    "caller,expression",
+    [
+        ("from .storage import Store\ndef run(): Store().page()\n", "Store().page"),
+        (
+            "from .storage import Store\ndef run():\n    store = Store()\n    store.page()\n",
+            "store.page",
+        ),
+    ],
+)
+def test_proven_default_construction_binds_method_identity(tmp_path, caller, expression):
+    result, row = _observe(
+        tmp_path,
+        caller,
+        target="sample.storage.Store.page",
+        allowed=(),
+        extra={"sample/storage.py": "class Store:\n    def page(self): pass\n"},
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == expression
+    )
+    assert call.data.get("call_binding").get("target") == "sample.storage.Store.page"
+    assert row.status == "FAIL" and row.count == 1
+
+
+@pytest.mark.parametrize(
+    "caller,provider",
+    [
+        (
+            "from .storage import Store\ndef run():\n    store = Store()\n"
+            "    store = unknown_factory()\n    store.page()\n",
+            "class Store:\n    def page(self): pass\n",
+        ),
+        (
+            "from .storage import Store\ndef run(): Store().page()\n",
+            "class Store:\n    def __new__(cls): return object.__new__(cls)\n"
+            "    def page(self): pass\n",
+        ),
+    ],
+)
+def test_conflicting_or_custom_allocation_remains_unknown(tmp_path, caller, provider):
+    result, row = _observe(
+        tmp_path,
+        caller,
+        target="sample.storage.Store.page",
+        allowed=(),
+        extra={"sample/storage.py": provider},
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") in {"Store().page", "store.page"}
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+@pytest.mark.parametrize(
+    "mutations",
+    [
+        "self.client = Other()",
+        "del self.client",
+        "def __getattribute__(self, name): return super().__getattribute__(name)",
+    ],
+)
+def test_changed_or_dynamic_stored_receiver_remains_unknown(tmp_path, mutations):
+    init_body = "self.client = client"
+    run_body = ""
+    if mutations.startswith("del ") or mutations.startswith("self.client ="):
+        run_body = f"\n    def mutate(self): {mutations}"
+    else:
+        init_body += "\n    " + mutations
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\nclass Holder:\n"
+        f"    def __init__(self, client: Storage): {init_body}\n"
+        "    def run(self): self.client.page()"
+        f"{run_body}\n",
+        allowed=(),
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+@pytest.mark.parametrize(
+    "caller,target,expression",
+    [
+        ("import random\ndef run(): random.random()\n", "random.random", "random.random"),
+        (
+            "import random as rng\ndef run(): rng.Random().random()\n",
+            "random.Random.random",
+            "rng.Random().random",
+        ),
+        (
+            "from datetime import datetime as clock\ndef run(): clock.now()\n",
+            "datetime.datetime.now",
+            "clock.now",
+        ),
+        (
+            "from secrets import token_hex as token\ndef run(): token()\n",
+            "secrets.token_hex",
+            "token",
+        ),
+    ],
+)
+def test_selected_stdlib_calls_use_import_bound_runtime_identity(
+    tmp_path, caller, target, expression
+):
+    result, row = _observe(tmp_path, caller, target=target, allowed=())
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == expression
+    )
+    binding = call.data.get("call_binding")
+    assert binding is not None and binding.get("target") == target
+    assert len(binding.get("evidence_ids")) >= 2
+    assert row.status == "FAIL" and row.count == 1
+
+
+def test_observed_native_target_can_prove_allowed_owner_rule(tmp_path):
+    _result, row = _observe(
+        tmp_path,
+        "import random\ndef run(): random.random()\n",
+        target="random.random",
+        allowed=("sample.caller.run",),
+    )
+    assert row.status == "PASS" and row.evaluation_proven
+
+
+def test_unobserved_native_target_stays_unknown(tmp_path):
+    _result, row = _observe(
+        tmp_path,
+        "def run(): pass\n",
+        target="random.random",
+        allowed=("sample.caller.run",),
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+def test_shadowed_stdlib_spelling_does_not_get_native_call_identity(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "class Other:\n    def random(self): pass\ndef run(random: Other): random.random()\n",
+        target="random.random",
+        allowed=(),
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "random.random"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+def test_native_provider_reassignment_revokes_identity(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "import random as rng\ndef run():\n    rng = unknown_factory()\n    rng.random()\n",
+        target="random.random",
+        allowed=(),
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "rng.random"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+def test_native_member_mutation_revokes_identity(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "import random\ndef run():\n    random.random = unknown\n    random.random()\n",
+        target="random.random",
+        allowed=(),
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "random.random"
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+@pytest.mark.parametrize("hook", ["__getattr__", "__getattribute__"])
+@pytest.mark.parametrize("hook_shape", ["method", "class_attribute", "conditional_method"])
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_constructed_dynamic_attribute_hook_withholds_method_identity(
+    tmp_path, hook, hook_shape, mounted, columnar
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    hook_source = (
+        f"    def {hook}(self, name): return lambda: None\n"
+        if hook_shape == "method"
+        else (
+            f"    {hook} = lambda self, name: None\n"
+            if hook_shape == "class_attribute"
+            else f"    if flag:\n        def {hook}(self, name): return lambda: None\n"
+        )
+    )
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\ndef run():\n    built = Storage()\n    built.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={
+            "sample/storage.py": "class Storage:\n" + hook_source + "    def page(self): pass\n"
+        },
+    )
+    [call] = [
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "built.page"
+    ]
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"dynamic-hook-{hook}-{hook_shape}-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == row.status == "UNKNOWN"
+    assert not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_native_mutation_in_another_module_revokes_import_identity(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "import random\ndef run(): random.random()\n",
+        target="random.random",
+        allowed=(),
+        mounted=mounted,
+        extra={
+            "sample/mutation.py": "import random\n"
+            "def replacement(): return 0\nrandom.random = replacement\n"
+        },
+    )
+    [call] = [
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "random.random"
+    ]
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"cross-module-native-mutation-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == row.status == "UNKNOWN"
+    assert not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        'import sys\nsys.modules["random"].random = replacement',
+        'from sys import modules as loaded\nloaded["random"].random = replacement',
+        'import sys as system\ntable = system.modules\ntable["random"].random = replacement',
+        'import sys\nrng = sys.modules["random"]\nrng.random = replacement',
+        'import sys\ntable, = sys.modules,\ntable["random"].random = replacement',
+        'import sys\nrng, = sys.modules["random"],\nrng.random = replacement',
+    ],
+    ids=[
+        "sys-modules",
+        "imported-modules",
+        "aliased-modules",
+        "module-object",
+        "unpacked-table",
+        "unpacked-module",
+    ],
+)
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_sys_modules_member_mutation_revokes_native_identity(tmp_path, mutation, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "import random\ndef replacement(): return 0\n"
+        + mutation
+        + "\ndef run(): random.random()\n",
+        target="random.random",
+        allowed=(),
+        mounted=mounted,
+    )
+    [call] = [
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "random.random"
+    ]
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"sys-modules-mutation-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == row.status == "UNKNOWN"
+    assert not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize(
+    "target,allowed,expected,expression",
+    [
+        ("random.random", (), "UNKNOWN", "random.random"),
+        ("secrets.token_hex", ("sample.caller.run",), "PASS", "secrets.token_hex"),
+    ],
+)
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_unresolved_sys_modules_key_revokes_only_matching_native_member(
+    tmp_path, target, allowed, expected, expression, mounted, columnar
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "import random\nimport secrets\nimport sys\n"
+        "def replacement(): return 0\n"
+        "name = 'random'\nsys.modules[name].random = replacement\n"
+        "def run():\n    random.random()\n    secrets.token_hex()\n",
+        target=target,
+        allowed=allowed,
+        mounted=mounted,
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == expression
+    )
+    expected_proven = expected != "UNKNOWN"
+    assert row.status == expected and row.evaluation_proven is expected_proven
+    assert (call.data.get("call_binding") is not None) is expected_proven
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"unresolved-sys-modules-key-{target}-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == expected and replayed.evaluation_proven is expected_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_native_provider_escape_to_mutating_helper_revokes_identity(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "import random\n"
+        "def replacement(): return 0\n"
+        "def mutate(provider): provider.random = replacement\n"
+        "def run():\n    mutate(random)\n    random.random()\n",
+        target="random.random",
+        allowed=(),
+        mounted=mounted,
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "random.random"
+    )
+    assert call.data.get("call_binding") is None
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"escaped-native-provider-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize(
+    "setup,mutation",
+    [
+        ("alias = random\n", "mutate(alias)"),
+        ("alias = random\nif flag: alias = other\n", "mutate(alias)"),
+        ("", "mutate([random])"),
+        ("", "mutate(provider=random)"),
+    ],
+    ids=["alias", "conditional-alias", "container", "keyword"],
+)
+def test_native_provider_escape_tracks_aliases_and_argument_shapes(
+    tmp_path, mounted, columnar, setup, mutation
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    mutate = (
+        "def mutate(provider): provider.random = replacement\n"
+        if "provider=" not in mutation
+        else "def mutate(*, provider): provider.random = replacement\n"
+    )
+    result, row = _observe(
+        tmp_path,
+        "import random\nother = object()\n"
+        "def replacement(): return 0\n"
+        + setup
+        + mutate
+        + f"{mutation}\n"
+        + "def run(): random.random()\n",
+        target="random.random",
+        allowed=(),
+        mounted=mounted,
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "random.random"
+    )
+    assert call.data.get("call_binding") is None
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"escaped-provider-shape-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_shadowed_setattr_is_not_treated_as_the_builtin(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "import random\ndef replacement(): return 0\n"
+        "def setattr(provider, *args): provider.random = replacement\n"
+        "setattr(random, 'unrelated', 0)\n"
+        "def run(): random.random()\n",
+        target="random.random",
+        allowed=(),
+        mounted=mounted,
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "random.random"
+    )
+    assert call.data.get("call_binding") is None
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"shadowed-setattr-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize(
+    "shadow",
+    [
+        "def run(setattr):\n    setattr(random, 'unrelated', 0)\n    random.random()\n",
+        "def run():\n    setattr = injected\n    setattr(random, 'unrelated', 0)\n"
+        "    random.random()\n",
+    ],
+    ids=["parameter", "local"],
+)
+def test_native_mutator_name_must_be_an_unbound_builtin(tmp_path, mounted, columnar, shadow):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "import random\n" + shadow,
+        target="random.random",
+        allowed=(),
+        mounted=mounted,
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "random.random"
+    )
+    assert call.data.get("call_binding") is None
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"shadowed-native-mutator-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_stored_receiver_escape_to_mutating_helper_revokes_identity(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage, Other\n"
+        "def mutate(holder): holder.client = Other()\n"
+        "class Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def run(self):\n        mutate(self)\n        self.client.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={
+            "sample/storage.py": "class Storage:\n def page(self): pass\n"
+            "class Other:\n def page(self): pass\n"
+        },
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    )
+    assert call.data.get("call_binding") is None
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"escaped-stored-receiver-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize(
+    "caller,expression,extra",
+    [
+        (
+            "from .storage import Storage\n"
+            "def replacement(self): pass\n"
+            "def run():\n store=Storage()\n store.page=replacement\n store.page()\n",
+            "store.page",
+            {"sample/storage.py": "class Storage:\n def page(self): pass\n"},
+        ),
+        (
+            "from .storage import Storage, Other\n"
+            "storage=Storage()\n"
+            "class Holder:\n"
+            " def __init__(self, client: Storage): self.client=client\n"
+            " def run(self): self.client.page()\n"
+            "holder=Holder(storage)\nholder.client=Other()\nholder.run()\n",
+            "self.client.page",
+            {
+                "sample/storage.py": (
+                    "class Storage:\n def page(self): pass\nclass Other:\n def page(self): pass\n"
+                )
+            },
+        ),
+        (
+            "from .storage import Storage\n"
+            "class Holder:\n"
+            " def __init__(self, client: Storage): self.client=client\n"
+            " def run(self): self.client.page()\n"
+            "storage=Storage()\nholder=Holder(storage)\n"
+            "def run(): holder.run()\n",
+            "self.client.page",
+            {
+                "sample/storage.py": (
+                    "class Storage:\n def page(self): pass\nclass Other:\n def page(self): pass\n"
+                ),
+                "sample/mutator.py": (
+                    "from .caller import holder\nfrom .storage import Other\n"
+                    "holder.client=Other()\n"
+                ),
+            },
+        ),
+    ],
+    ids=["constructed-instance-write", "external-stored-field-write", "cross-module-field-write"],
+)
+@pytest.mark.parametrize("columnar", [False, True])
+def test_receiver_member_mutation_is_unknown_in_native_and_saved_reports(
+    tmp_path, caller, expression, extra, columnar
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        caller,
+        target="sample.storage.Storage.page",
+        allowed=(),
+        extra=extra,
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == expression
+    )
+    assert call.data.get("call_binding") is None
+    path = tmp_path / "mutated-receiver-report.json"
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("operation", ["setattr", "delattr"])
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_dynamic_stored_member_mutation_revokes_field_proof(tmp_path, operation, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    setter = (
+        "def run(self, name, value):\n"
+        "        setattr(self, name, value)\n"
+        "        self.client.page()\n"
+        if operation == "setattr"
+        else "def run(self, name):\n        delattr(self, name)\n        self.client.page()\n"
+    )
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage, Other\n"
+        "class Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        + "    "
+        + setter
+        + "storage = Storage()\nother = Other()\nholder = Holder(storage)\n"
+        + ("holder.run(name, other)\n" if operation == "setattr" else "holder.run(name)\n"),
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={
+            "sample/storage.py": "class Storage:\n    def page(self): pass\n"
+            "class Other:\n    def page(self): pass\n"
+        },
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    )
+    assert call.data.get("call_binding") is None
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"dynamic-stored-mutation-{operation}-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize(
+    "alias,mutation,allowed,expected",
+    [
+        ("alias = random\n", "alias.random = replacement", (), "UNKNOWN"),
+        ("alias = random\nalias2 = alias\n", "alias2.random = replacement", (), "UNKNOWN"),
+        ("alias = random\n", "setattr(alias, name, replacement)", (), "UNKNOWN"),
+        ("alias = random\n", "delattr(alias, name)", (), "UNKNOWN"),
+        ("box = [random]\n", "box[0].random = replacement", (), "UNKNOWN"),
+        ("box, = [random]\n", "box.random = replacement", (), "UNKNOWN"),
+        (
+            "class Holder: pass\nholder = Holder()\n",
+            "holder.provider = random\nholder.provider.random = replacement",
+            (),
+            "UNKNOWN",
+        ),
+        ("box = []\n", "box += [random]\nbox[0].random = replacement", (), "UNKNOWN"),
+        (
+            "def expose(): return random\n",
+            "expose().random = replacement",
+            (),
+            "UNKNOWN",
+        ),
+        ("", "if flag:\n    alias = random\nalias.random = replacement", (), "UNKNOWN"),
+        (
+            "alias = random\n",
+            "if flag:\n    alias = replacement\nalias.random = replacement",
+            (),
+            "UNKNOWN",
+        ),
+    ],
+    ids=[
+        "alias-member",
+        "alias-chain",
+        "alias-dynamic-setattr",
+        "alias-dynamic-delattr",
+        "provider-stored-in-container",
+        "provider-unpacked-from-container",
+        "provider-stored-on-object",
+        "provider-stored-with-augassign",
+        "provider-returned-and-mutated",
+        "conditional-alias",
+        "conditional-rebind",
+    ],
+)
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_native_module_alias_mutation_revokes_only_matching_target(
+    tmp_path, alias, mutation, allowed, expected, mounted, columnar
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "import random\n"
+        "def replacement(): return 0\n" + alias + mutation + "\n" + "def run(): random.random()\n",
+        target="random.random",
+        allowed=allowed,
+        mounted=mounted,
+    )
+    proven = expected != "UNKNOWN"
+    assert row.status == expected and row.evaluation_proven is proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "random.random"
+    )
+    assert (call.data.get("call_binding") is not None) is proven
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"native-alias-mutation-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == expected and replayed.evaluation_proven is proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_native_alias_mutation_preserves_unrelated_provider_identity(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "import random\nimport secrets\n"
+        "def replacement(): return 0\n"
+        "alias = random\nalias.random = replacement\n"
+        "def run(): secrets.token_hex()\n",
+        target="secrets.token_hex",
+        allowed=("sample.caller.run",),
+        mounted=mounted,
+    )
+    assert row.status == "PASS" and row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "secrets.token_hex"
+    )
+    assert call.data.get("call_binding").get("target") == "secrets.token_hex"
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"unrelated-native-provider-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "PASS" and replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("columnar", [False, True])
+def test_unmutated_holder_stored_receiver_remains_proven_on_replay(tmp_path, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\n"
+        "class Holder:\n"
+        " def __init__(self, client: Storage): self.client=client\n"
+        " def run(self): self.client.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+    )
+    assert row.status == "FAIL" and row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    )
+    assert call.data.get("call_binding").get("target") == "sample.storage.Storage.page"
+    path = tmp_path / "unmutated-holder-report.json"
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == row.status
+    assert replayed.evaluation_proven == row.evaluation_proven
+
+
+@pytest.mark.parametrize("operation", ["setattr", "delattr"])
+@pytest.mark.parametrize(
+    "name_expression,expected",
+    [("'random'", "UNKNOWN"), ("name", "UNKNOWN"), ("'shuffle'", "PASS")],
+    ids=["matching-static-name", "unresolved-name", "unrelated-static-name"],
+)
+@pytest.mark.parametrize("columnar", [False, True])
+def test_dynamic_native_mutation_is_bounded_and_replays(
+    tmp_path, operation, name_expression, expected, columnar
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    mutation = (
+        f"{operation}(random, {name_expression}, replacement)\n"
+        if operation == "setattr"
+        else f"{operation}(random, {name_expression})\n"
+    )
+    name_binding = "name = choose_name()\n" if name_expression == "name" else ""
+    result, row = _observe(
+        tmp_path,
+        "import random\n"
+        + name_binding
+        + "def choose_name(): return 'random'\n"
+        + "def replacement(): return 0\n"
+        + "def mutate():\n    "
+        + mutation
+        + "mutate()\n"
+        + "def run(): random.random()\n",
+        target="random.random",
+        allowed=("sample.caller.run", "sample.caller.mutate"),
+        source="sample.caller.run",
+    )
+    proven = expected == "PASS"
+    assert row.status == expected and row.evaluation_proven is proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "random.random"
+    )
+    if proven:
+        assert call.data.get("call_binding").get("target") == "random.random"
+    else:
+        assert call.data.get("call_binding") is None
+    path = tmp_path / "native-mutation-report.json"
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == row.status
+    assert replayed.evaluation_proven == row.evaluation_proven
+
+
+@pytest.mark.parametrize(
+    "caller",
+    [
+        "from datetime import datetime as clock\n"
+        "def run():\n    clock.now = unknown\n    clock.now()\n",
+        "import sys\nimport datetime\n"
+        "sys.modules['datetime'] = unknown\ndef run(): datetime.datetime.now()\n",
+        "import datetime\ndatetime.datetime = unknown\ndef run(): datetime.datetime.now()\n",
+        "import sys\nmodules = sys.modules\nimport datetime\n"
+        "modules['datetime'] = unknown\ndef run(): datetime.datetime.now()\n",
+        "class datetime:\n    class datetime:\n        def now(self): pass\n"
+        "def run(): datetime.datetime.now()\n",
+    ],
+)
+def test_datetime_shadow_or_revocation_stays_unknown(tmp_path, caller):
+    result, row = _observe(
+        tmp_path,
+        caller,
+        target="datetime.datetime.now",
+        allowed=(),
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression").endswith("now")
+    )
+    assert call.data.get("call_binding") is None
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+def test_inherited_stored_receiver_resolves_only_its_unique_base_method(tmp_path):
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Store\nclass Holder:\n"
+        "    def __init__(self, client: Store): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        target="sample.storage.Base.page",
+        allowed=(),
+        extra={
+            "sample/storage.py": "class Base:\n    def page(self): pass\nclass Store(Base): pass\n"
+        },
+    )
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    )
+    assert call.data.get("call_binding").get("target") == "sample.storage.Base.page"
+    assert row.status == "FAIL" and row.count == 1
 
 
 def _observe(
@@ -136,6 +1687,261 @@ def test_native_receiver_owner(tmp_path, caller, allowed, expected, mounted):
     if expected == "FAIL":
         [violation] = result.observation.records("violations")
         assert violation.evidence_ids and violation.fact_ids and violation.rule_ids
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize(
+    "caller,expected,expression",
+    [
+        (
+            "import random\ndef run():\n    rng = random.Random()\n    rng.random()\n",
+            "FAIL",
+            "rng.random",
+        ),
+        (
+            "import random\ndef replacement(self): pass\ndef run():\n"
+            "    rng = alias = random.Random()\n    alias.random = replacement\n"
+            "    rng.random()\n",
+            "UNKNOWN",
+            "rng.random",
+        ),
+        (
+            "import random\ndef replacement(self): pass\ndef run():\n"
+            "    rng = random.Random()\n    alias = rng\n"
+            "    alias.random = replacement\n    rng.random()\n",
+            "UNKNOWN",
+            "rng.random",
+        ),
+        (
+            "import random\ndef run(): rng = random.Random(); rng.random()\n",
+            "FAIL",
+            "rng.random",
+        ),
+        (
+            "import random\ndef replacement(self): pass\ndef run():\n"
+            "    rng = random.Random()\n    rng.random = replacement\n    rng.random()\n",
+            "UNKNOWN",
+            "rng.random",
+        ),
+        (
+            "import random\ndef run():\n    rng = random.Random()\n"
+            "    del rng.random\n    rng.random()\n",
+            "UNKNOWN",
+            "rng.random",
+        ),
+        (
+            "import random\ndef run():\n    rng = random.Random()\n"
+            "    delattr(rng, 'random')\n    rng.random()\n",
+            "UNKNOWN",
+            "rng.random",
+        ),
+        (
+            "import random\ndef consume(value): pass\ndef run():\n"
+            "    rng = random.Random()\n    consume(rng)\n    rng.random()\n",
+            "UNKNOWN",
+            "rng.random",
+        ),
+        (
+            "import random\ndef run():\n    rng.random()\n    rng = random.Random()\n",
+            "UNKNOWN",
+            "rng.random",
+        ),
+    ],
+    ids=[
+        "unmutated-instance",
+        "chained-alias-mutation",
+        "assigned-alias-mutation",
+        "same-line-allocation-and-call",
+        "mutated-instance",
+        "deleted-instance-method",
+        "delattr-instance-method",
+        "escaped-instance",
+        "assignment-after-call",
+    ],
+)
+def test_native_random_receiver_mutation_and_order_replay(
+    tmp_path, caller, expected, expression, mounted, columnar
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        caller,
+        target="random.Random.random",
+        allowed=(),
+        mounted=mounted,
+    )
+    assert row.status == expected and row.evaluation_proven is (expected != "UNKNOWN")
+    [call] = [
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == expression
+    ]
+    if expected == "UNKNOWN":
+        assert call.data.get("call_binding") is None
+    else:
+        assert call.data.get("call_binding", {}).get("target") == "random.Random.random"
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"random-receiver-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == expected
+    assert replayed.evaluation_proven is (expected != "UNKNOWN")
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_stored_property_receiver_stays_unknown_and_replays(tmp_path, mounted, columnar):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        mounted=mounted,
+        extra={
+            "sample/storage.py": "class Storage:\n    @property\n    def page(self): return 1\n"
+        },
+    )
+    assert row.status == "UNKNOWN" and not row.evaluation_proven
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == "self.client.page"
+    )
+    assert call.data.get("call_binding") is None
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"stored-property-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize(
+    "caller,extra,expression,target,expected",
+    [
+        (
+            "from .storage import Storage\ndef run(): Storage(\n    ).page()\n",
+            {"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+            "Storage().page",
+            "sample.storage.Storage.page",
+            "UNKNOWN",
+        ),
+        (
+            "from .storage import Storage\nclass Holder:\n"
+            "    def __init__(self, client: Storage): self.client = self.backup = client\n"
+            "    def run(self): self.client.page()\n",
+            {"sample/storage.py": "class Storage:\n    def page(self): pass\n"},
+            "self.client.page",
+            "sample.storage.Storage.page",
+            "FAIL",
+        ),
+        (
+            "from .storage import Child\ndef run(): Child().page()\n",
+            {
+                "sample/storage.py": "def replacement(self): pass\n"
+                "class Base:\n    def page(self): pass\n"
+                "class Child(Base):\n"
+                "    def __init__(self): pass\n"
+                "    page = replacement\n"
+            },
+            "Child().page",
+            "sample.storage.Base.page",
+            "UNKNOWN",
+        ),
+        (
+            "from .storage import Child\ndef run(): Child().page()\n",
+            {
+                "sample/storage.py": "class Base:\n    def page(self): pass\n"
+                "class Child(Base):\n"
+                "    def __init__(self): pass\n"
+                "    page = None\n"
+            },
+            "Child().page",
+            "sample.storage.Base.page",
+            "UNKNOWN",
+        ),
+        (
+            "from .storage import Child\ndef run(): Child().page()\n",
+            {
+                "sample/storage.py": "class Base:\n    def page(self): pass\n"
+                "class Child(Base):\n"
+                "    def __init__(self): pass\n"
+                "    page = 1\n"
+            },
+            "Child().page",
+            "sample.storage.Base.page",
+            "UNKNOWN",
+        ),
+        (
+            "from .storage import Child\ndef run(client: Child): client.page()\n",
+            {
+                "sample/storage.py": "def replacement(self): pass\n"
+                "class Base:\n    def page(self): pass\n"
+                "class Child(Base):\n    page = replacement\n"
+            },
+            "client.page",
+            "sample.storage.Base.page",
+            "UNKNOWN",
+        ),
+    ],
+    ids=[
+        "multiline-constructor",
+        "chained-stored-write",
+        "inherited-class-attribute",
+        "inherited-class-attribute-none",
+        "inherited-class-attribute-literal",
+        "declared-inherited-class-attribute",
+    ],
+)
+def test_call_owner_multiline_chain_and_inherited_shadow_replay(
+    tmp_path, caller, extra, expression, target, expected, mounted, columnar
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+
+    result, row = _observe(
+        tmp_path,
+        caller,
+        target=target,
+        allowed=(),
+        mounted=mounted,
+        extra=extra,
+    )
+    assert row.status == expected
+    assert row.evaluation_proven is (expected != "UNKNOWN")
+    call = next(
+        record
+        for record in result.observation.records("calls")
+        if record.data.get("expression") == expression
+    )
+    assert (call.data.get("call_binding") is not None) is (expected != "UNKNOWN")
+    saved = (
+        canonical_report_bytes(result.observation)
+        if columnar
+        else json.dumps(observation_payload(result.observation)).encode()
+    )
+    path = tmp_path / f"call-owner-proof-boundary-{mounted}-{columnar}.json"
+    path.write_bytes(saved)
+    [replayed] = run_saved_report(path).rule_assessments
+    assert replayed.status == expected
+    assert replayed.evaluation_proven is (expected != "UNKNOWN")
 
 
 @pytest.mark.parametrize(
@@ -371,7 +2177,12 @@ def test_uncalled_target_requires_its_binding_proof(tmp_path, provider, target, 
 @pytest.fixture
 def owner_facts(tmp_path):
     from archkeel.analyzer.python.collect import collect
-    from archkeel.ir.protocol import CollectionRequest, PythonSettings, SnapshotInput, SourceScope
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
 
     _observe(
         tmp_path, "from .storage import Storage\ndef run(client: Storage):\n    client.page()\n"
@@ -415,7 +2226,65 @@ def test_call_binding_response_roundtrip_and_schema(owner_facts):
 
 
 @pytest.mark.parametrize(
-    "change", ["missing", "origin", "target", "call-evidence", "dangling", "extra"]
+    "caller,target,provider",
+    [
+        (
+            "from .storage import Storage\nclass Holder:\n"
+            "    def __init__(self, client: Storage): self.client = client\n"
+            "    def run(self): self.client.page()\n",
+            "sample.storage.Storage.page",
+            "from typing import Protocol\nclass Storage(Protocol):\n"
+            "    def page(self) -> None: ...\n",
+        ),
+        (
+            "from .storage import Store\ndef run():\n    store = Store()\n    store.page()\n",
+            "sample.storage.Store.page",
+            "class Store:\n    def page(self): pass\n",
+        ),
+        (
+            "import random\ndef run():\n    random.random()\n",
+            "random.random",
+            "class Store:\n    def page(self): pass\n",
+        ),
+    ],
+)
+def test_extended_call_proofs_validate_against_published_source_schema(
+    tmp_path, caller, target, provider
+):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    _observe(
+        tmp_path,
+        caller,
+        target=target,
+        allowed=(),
+        extra={"sample/storage.py": provider},
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    encoded = encode_response(CollectionResponse(facts))
+    assert encode_response(decode_response(encoded)) == encoded
+    response = json.loads(encoded)
+    schema = json.loads((ROOT / "schema/source-facts.schema.json").read_bytes())
+    assert not list(Draft202012Validator(schema).iter_errors(response))
+
+
+@pytest.mark.parametrize(
+    "change",
+    ["missing", "origin", "extended-origin", "target", "call-evidence", "dangling", "extra"],
 )
 def test_forged_or_omitted_binding_proof_is_rejected(owner_facts, change):
     from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
@@ -429,6 +2298,8 @@ def test_forged_or_omitted_binding_proof_is_rejected(owner_facts, change):
         del data["call_binding"]
     elif change == "origin":
         binding["origin"] = "runtime_guess"
+    elif change == "extended-origin":
+        binding["origin"] = "stored_receiver"
     elif change == "target":
         binding["target"] = "sample.storage.settle"
     elif change == "call-evidence":
@@ -439,6 +2310,139 @@ def test_forged_or_omitted_binding_proof_is_rejected(owner_facts, change):
         binding["evidence_ids"].append("missing-evidence")
     else:
         binding["allowed"] = True
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
+
+
+@pytest.mark.parametrize("change", ["field", "parameter", "write_evidence", "annotation_evidence"])
+def test_forged_stored_receiver_links_are_rejected(tmp_path, change):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    _observe(
+        tmp_path,
+        "from .storage import Storage\nclass Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    calls = next(s["records"] for s in payload["facts"]["sections"] if s["name"] == "calls")
+    call = next(r for r in calls if r["data"]["expression"] == "self.client.page")
+    proof = call["data"]["call_binding"]["proof"]
+    if change in {"field", "parameter"}:
+        proof[change] = "other"
+    else:
+        unrelated = next(
+            item.id for item in facts.evidence if item.id not in proof["witness_evidence_ids"]
+        )
+        proof["witness_evidence_ids"][0 if change == "write_evidence" else 1] = unrelated
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_stored_receiver_cannot_be_retargeted_to_an_unrelated_method(tmp_path):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    _observe(
+        tmp_path,
+        "from .storage import Storage\nfrom .other import Other\nclass Holder:\n"
+        "    def __init__(self, client: Storage): self.client = client\n"
+        "    def run(self): self.client.page()\n",
+        target="sample.storage.Storage.page",
+        allowed=(),
+        extra={
+            "sample/other.py": "class Other:\n    def page(self): pass\n",
+        },
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    sections = payload["facts"]["sections"]
+    calls = next(s["records"] for s in sections if s["name"] == "calls")
+    symbols = next(s["records"] for s in sections if s["name"] == "symbols")
+    call = next(r for r in calls if r["data"]["expression"] == "self.client.page")
+    other = next(r for r in symbols if r["data"].get("qualified_name") == "sample.other.Other")
+    other_method = next(
+        r for r in symbols if r["data"].get("qualified_name") == "sample.other.Other.page"
+    )
+    initializer = next(
+        r for r in symbols if r["data"].get("qualified_name") == "sample.caller.Holder.__init__"
+    )
+    call["data"]["targets"] = ["sample.other.Other.page"]
+    binding = call["data"]["call_binding"]
+    binding["target"] = "sample.other.Other.page"
+    binding["proof"]["target"] = "sample.other.Other"
+    binding["evidence_ids"] = sorted(
+        set(binding["evidence_ids"] + other["evidence_ids"] + other_method["evidence_ids"])
+    )
+    stored_write = next(
+        item for item in initializer["data"]["stored_field_writes"] if item["field"] == "client"
+    )
+    stored_write["annotation_target"] = "sample.other.Other"
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
+
+
+@pytest.mark.parametrize("change", ["assignment_name", "assignment_evidence"])
+def test_forged_construction_assignment_link_is_rejected(tmp_path, change):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        CollectionResponse,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    _observe(
+        tmp_path,
+        "from .storage import Store\ndef run():\n    store = Store()\n    store.page()\n",
+        target="sample.storage.Store.page",
+        extra={"sample/storage.py": "class Store:\n    def page(self): pass\n"},
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    calls = next(s["records"] for s in payload["facts"]["sections"] if s["name"] == "calls")
+    call = next(r for r in calls if r["data"]["expression"] == "store.page")
+    proof = call["data"]["call_binding"]["proof"]
+    if change == "assignment_name":
+        proof[change] = "other"
+    else:
+        proof[change] = call["evidence_ids"][0]
     with pytest.raises(ProtocolError):
         decode_response(json.dumps(payload).encode())
 
@@ -535,6 +2539,32 @@ def test_saved_owner_receipt_is_bound_to_calls_and_evidence(tmp_path, change):
     stale = parse_observation(changed)
     [row] = [r for r in rule_assessments(stale, undecided_by_rule={}) if r.kind == "call_owner"]
     assert row.status == "UNKNOWN" and not row.evaluation_proven
+
+
+@pytest.mark.parametrize("change", ["relocate", "delete", "change"])
+def test_saved_owner_receipt_binds_rule_result_section_and_contents(tmp_path, change):
+    from archkeel.ir.codec import observation_payload, parse_observation
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\ndef run(c: Storage):\n    c.page()\n",
+        allowed=(),
+    )
+    assert row.status == "FAIL" and row.evaluation_proven
+    payload = observation_payload(result.observation)
+    [violation] = payload["violations"]
+    if change == "relocate":
+        payload["violations"].clear()
+        payload["scope_observations"].append(violation)
+    elif change == "delete":
+        payload["violations"].clear()
+    else:
+        violation["title"] = "changed finding"
+    saved = parse_observation(payload)
+    [replayed] = [
+        item for item in rule_assessments(saved, undecided_by_rule={}) if item.kind == "call_owner"
+    ]
+    assert replayed.status != "PASS" and not replayed.evaluation_proven
 
 
 @pytest.mark.parametrize(

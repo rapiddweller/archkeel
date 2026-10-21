@@ -23,6 +23,7 @@ from archkeel.ir.codec import (
     parse_observation,
 )
 from archkeel.ir.decisions import rule_assessments, unknown_positions_by_rule
+from archkeel.ir.model import SCHEMA_VERSION
 from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
@@ -1356,7 +1357,8 @@ def test_legacy_reports_reject_all_protocol_vocabulary(
             profile = "python-decoded" if boundary == "python_schema" else "decoded"
             payload = observation_payload(observation)
             current = Draft202012Validator(
-                {"$ref": f"urn:archkeel:architecture-ir:{profile}:2.3.0"}, registry=registry
+                {"$ref": f"urn:archkeel:architecture-ir:{profile}:{SCHEMA_VERSION}"},
+                registry=registry,
             )
             assert not list(current.iter_errors(payload))
             payload["schema_version"] = version

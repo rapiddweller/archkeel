@@ -12,11 +12,18 @@ receipts keep their rows and aggregate verdict UNKNOWN. Only Python initializers
 with no AST statements may be unowned without breaking this proof; docstrings and
 imports are statements. An empty violation list is insufficient.
 
-Python `call_owner` initially supports stable plain top-level functions (including
-direct import aliases) and plain parameter annotations of scanned class methods.
-External targets, constructors, stored receiver members, inherited surfaces,
-decorated functions/methods, reexports and ambiguous/mutated bindings remain
-UNKNOWN. It proves the declared static boundary, not runtime conformance.
+Python `call_owner` supports stable plain top-level functions, plain parameter
+annotations, one typed parameter copied to a stable `self` field, proven default
+construction, and uniquely inherited method origins for an otherwise admitted
+receiver. Inheriting a default constructor alone remains UNKNOWN. Its native witnesses are
+limited to import-bound `random.random`, `random.Random` methods,
+`datetime.datetime.now`, and `secrets.token_hex`. Other external targets,
+constructors, dynamic attributes, custom allocation, descriptors, ambiguous
+inheritance, decorated functions/methods, and mutated or revoked bindings remain
+UNKNOWN. Dynamic `setattr` or `delattr` with an unresolved member name revokes
+native identities under the affected provider. It proves the declared static
+boundary, not runtime conformance. See
+[AD-252](architecture/decisions/ad-252-bounded-call-identity.md).
 This rule requires a source/contract/inventory/call-bound receipt for its exact
 claim and observation version; legacy saved observations cannot certify it.
 Re-observe pre-release artifacts with inventory-only proofs. These consistency

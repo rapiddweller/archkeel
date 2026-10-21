@@ -184,6 +184,11 @@ def stable_id(prefix: str, *parts: object) -> str:
     return f"{prefix}-{hashlib.sha256(payload).hexdigest()[:16]}"
 
 
+def python_identifier(value: str) -> bool:
+    """Return whether a string is one complete Python identifier."""
+    return value.isidentifier()
+
+
 @dataclass(frozen=True, slots=True)
 class RecordData:
     """Immutable, profile-owned JSON payload; the common schema leaves its keys open."""
@@ -208,9 +213,99 @@ RawJson: TypeAlias = str | int | float | bool | None | list["RawJson"] | dict[st
 class CallBindingOrigin(StrEnum):
     DIRECT = "direct"
     DECLARED_RECEIVER = "declared_receiver"
+    STORED_RECEIVER = "stored_receiver"
+    CONSTRUCTED_RECEIVER = "constructed_receiver"
+    CONSTRUCTOR = "constructor"
+    NATIVE = "native"
+    NATIVE_RECEIVER = "native_receiver"
+
+
+class _CallBindingProofKind(StrEnum):
+    STORED_FIELD = "stored_field"
+    CONSTRUCTION = "construction"
+    CONSTRUCTOR = "constructor"
+    PROVIDER_MEMBER = "provider_member"
+    NATIVE_DESCRIPTOR = "native_descriptor"
+
+
+_DATETIME_DESCRIPTOR_IDENTITY = {
+    "target": "datetime.datetime.now",
+    "runtime_name": "python",
+    "runtime_implementation": "cpython",
+    "descriptor_owner_module": "datetime",
+    "descriptor_owner_qualname": "datetime",
+    "descriptor_member": "now",
+    "descriptor_kind": "classmethod_descriptor",
+}
+_CALL_BINDING_PROOF_FIELDS = {
+    _CallBindingProofKind.STORED_FIELD: {
+        "kind",
+        "owner",
+        "field",
+        "parameter",
+        "target",
+        "witness_evidence_ids",
+    },
+    _CallBindingProofKind.CONSTRUCTION: {
+        "kind",
+        "target",
+        "constructor_evidence_id",
+        "assignment_evidence_id",
+        "assignment_name",
+    },
+    _CallBindingProofKind.CONSTRUCTOR: {
+        "kind",
+        "target",
+        "constructor_evidence_id",
+        "provider_evidence_id",
+        "runtime_name",
+        "runtime_version",
+    },
+    _CallBindingProofKind.PROVIDER_MEMBER: {
+        "kind",
+        "target",
+        "provider_evidence_id",
+        "runtime_name",
+        "runtime_version",
+    },
+    _CallBindingProofKind.NATIVE_DESCRIPTOR: {
+        "kind",
+        "target",
+        "runtime_name",
+        "runtime_version",
+        "runtime_implementation",
+        "descriptor_owner_module",
+        "descriptor_owner_qualname",
+        "descriptor_member",
+        "descriptor_kind",
+        "stdlib_source_digest",
+        "witness_evidence_ids",
+    },
+}
 
 
 CALL_BINDINGS_FEATURE = "canonical_call_bindings"
+EXTENDED_CALL_BINDINGS_FEATURE = "extended_call_bindings"
+NATIVE_CALL_TARGETS = frozenset(
+    {
+        "random.Random",
+        "random.random",
+        "random.Random.random",
+        "random.Random.randrange",
+        "random.Random.randint",
+        "random.Random.choice",
+        "random.Random.choices",
+        "random.Random.sample",
+        "random.Random.shuffle",
+        "random.Random.uniform",
+        "random.Random.getrandbits",
+        "random.Random.seed",
+        "random.Random.getstate",
+        "random.Random.setstate",
+        "datetime.datetime.now",
+        "secrets.token_hex",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,16 +313,19 @@ class CallBinding:
     origin: CallBindingOrigin
     target: str
     evidence_ids: tuple[str, ...]
+    proof: RecordData | None = None
 
 
 def call_binding(value: JsonValue) -> CallBinding | None:
     if value is None:
         return None
-    if not isinstance(value, RecordData) or {key for key, _ in value.entries} != {
-        "origin",
-        "target",
-        "evidence_ids",
-    }:
+    if not isinstance(value, RecordData):
+        raise ValueError("invalid call binding fields")
+    fields = {key for key, _ in value.entries}
+    if fields not in (
+        {"origin", "target", "evidence_ids"},
+        {"origin", "target", "evidence_ids", "proof"},
+    ):
         raise ValueError("invalid call binding fields")
     origin, target, evidence = value.get("origin"), value.get("target"), value.get("evidence_ids")
     if (
@@ -239,9 +337,130 @@ def call_binding(value: JsonValue) -> CallBinding | None:
         or any(not isinstance(item, str) or not item for item in evidence)
     ):
         raise ValueError("invalid call binding values")
+    proof = value.get("proof")
+    if proof is not None and not isinstance(proof, RecordData):
+        raise ValueError("invalid call binding proof")
+    parsed_origin = CallBindingOrigin(origin)
+    if (
+        parsed_origin
+        in {
+            CallBindingOrigin.STORED_RECEIVER,
+            CallBindingOrigin.CONSTRUCTED_RECEIVER,
+            CallBindingOrigin.CONSTRUCTOR,
+            CallBindingOrigin.NATIVE,
+            CallBindingOrigin.NATIVE_RECEIVER,
+        }
+        and proof is None
+    ):
+        raise ValueError("extended call binding needs a typed origin proof")
+    if proof is not None:
+        _validate_call_binding_proof(proof, parsed_origin, target, evidence)
     return CallBinding(
-        CallBindingOrigin(origin), target, tuple(item for item in evidence if isinstance(item, str))
+        parsed_origin,
+        target,
+        tuple(item for item in evidence if isinstance(item, str)),
+        proof,
     )
+
+
+def _validate_call_binding_proof(
+    proof: RecordData, origin: CallBindingOrigin, target: str, evidence: tuple[JsonValue, ...]
+) -> None:
+    _call_binding_proof_kind(proof, origin, target)
+    _validate_call_binding_proof_values(proof)
+    witness_ids = proof.get("witness_evidence_ids")
+    references = {
+        proof.get(key)
+        for key in ("constructor_evidence_id", "provider_evidence_id", "assignment_evidence_id")
+        if isinstance(proof.get(key), str)
+    }
+    if isinstance(witness_ids, tuple):
+        references.update(item for item in witness_ids if isinstance(item, str))
+    if not references <= set(evidence):
+        raise ValueError("call binding proof references evidence outside its binding")
+
+
+def _call_binding_proof_kind(
+    proof: RecordData, origin: CallBindingOrigin, target: str
+) -> _CallBindingProofKind:
+    proof_kind_raw = proof.get("kind")
+    if not isinstance(proof_kind_raw, str):
+        raise ValueError("invalid call binding proof kind")
+    try:
+        proof_kind = _CallBindingProofKind(proof_kind_raw)
+    except ValueError as error:
+        raise ValueError("invalid call binding proof kind") from error
+    if {key for key, _ in proof.entries} != _CALL_BINDING_PROOF_FIELDS.get(proof_kind):
+        raise ValueError("invalid call binding proof fields")
+    if (
+        proof_kind
+        in {
+            _CallBindingProofKind.CONSTRUCTOR,
+            _CallBindingProofKind.PROVIDER_MEMBER,
+            _CallBindingProofKind.NATIVE_DESCRIPTOR,
+        }
+        and proof.get("target") != target
+    ):
+        raise ValueError("call binding proof disagrees with its canonical target")
+    expected_origins = {
+        _CallBindingProofKind.STORED_FIELD: CallBindingOrigin.STORED_RECEIVER,
+        _CallBindingProofKind.CONSTRUCTION: CallBindingOrigin.CONSTRUCTED_RECEIVER,
+        _CallBindingProofKind.CONSTRUCTOR: CallBindingOrigin.CONSTRUCTOR,
+        _CallBindingProofKind.NATIVE_DESCRIPTOR: CallBindingOrigin.NATIVE,
+    }
+    if proof_kind in expected_origins and origin is not expected_origins[proof_kind]:
+        raise ValueError("call binding proof kind disagrees with its origin")
+    if proof_kind is _CallBindingProofKind.NATIVE_DESCRIPTOR and not (
+        _valid_datetime_descriptor_proof(proof)
+    ):
+        raise ValueError("native descriptor proof disagrees with the admitted runtime identity")
+    if proof_kind is _CallBindingProofKind.PROVIDER_MEMBER and origin not in {
+        CallBindingOrigin.NATIVE,
+        CallBindingOrigin.NATIVE_RECEIVER,
+        CallBindingOrigin.CONSTRUCTOR,
+    }:
+        raise ValueError("provider member proof needs a native call origin")
+    return proof_kind
+
+
+def _valid_datetime_descriptor_proof(proof: RecordData) -> bool:
+    source_digest = proof.get("stdlib_source_digest")
+    return (
+        not any(proof.get(key) != value for key, value in _DATETIME_DESCRIPTOR_IDENTITY.items())
+        and isinstance(source_digest, str)
+        and len(source_digest) == 64
+        and not any(character not in "0123456789abcdef" for character in source_digest)
+    )
+
+
+def _validate_call_binding_proof_values(proof: RecordData) -> None:
+    for key in ("constructor_evidence_id", "provider_evidence_id", "assignment_evidence_id"):
+        item = proof.get(key)
+        if item is not None and (not isinstance(item, str) or not item):
+            raise ValueError("invalid call binding proof evidence reference")
+    for key in (
+        "runtime_name",
+        "runtime_version",
+        "runtime_implementation",
+        "descriptor_owner_module",
+        "descriptor_owner_qualname",
+        "descriptor_member",
+        "descriptor_kind",
+        "stdlib_source_digest",
+        "owner",
+        "field",
+        "parameter",
+    ):
+        item = proof.get(key)
+        if item is not None and (not isinstance(item, str) or not item):
+            raise ValueError("invalid call binding proof identity")
+    witness_ids = proof.get("witness_evidence_ids")
+    if witness_ids is not None and (
+        not isinstance(witness_ids, tuple)
+        or not witness_ids
+        or any(not isinstance(item, str) or not item for item in witness_ids)
+    ):
+        raise ValueError("invalid call binding proof witness references")
 
 
 class PropertyOperation(Enum):
@@ -688,7 +907,7 @@ def contextmanager_signature(value: JsonValue) -> ContextManagerSignature:
         or not isinstance(factory, str)
         or not isinstance(wrapper, str)
         or any(
-            len(parts := name.split(".")) < 2 or not all(part.isidentifier() for part in parts)
+            len(parts := name.split(".")) < 2 or not all(python_identifier(part) for part in parts)
             for name in (factory, wrapper)
         )
         or not isinstance(payload, str)

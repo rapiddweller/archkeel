@@ -720,9 +720,47 @@ def _certify_call_owner_scopes(
         "selected_files": list(facts.coverage.selected_files),
     }
     inventory_binding_id = _dependency_binding_id(scan, declarations, include_calls=True)
+    result_sections = (
+        ("declarations", declarations),
+        ("scope_observations", scan.scope_observations),
+        ("packages", scan.packages),
+        ("modules", scan.modules),
+        ("symbols", scan.symbols),
+        ("imports", scan.imports),
+        ("dependency_edges", scan.dependency_edges),
+        ("transitive_paths", scan.transitive_paths),
+        ("path_observations", scan.path_observations),
+        ("cycles", scan.cycles),
+        ("calls", scan.calls),
+        ("references", scan.references),
+        ("bindings", scan.bindings),
+        ("typing_signals", scan.typing_signals),
+        ("constructs", scan.constructs),
+        ("contexts", scan.contexts),
+        ("context_evidence", scan.context_evidence),
+        ("violations", scan.violations),
+        ("unknowns", scan.unknowns),
+    )
     for receipt in receipts:
+        rule_id = receipt["rule_ids"][0]
         receipt["data"]["call_scope_proof"] = {
             **proof,
+            "result_digest": rule_result_digest(
+                (
+                    Section(
+                        name,
+                        tuple(
+                            parse_record(item)
+                            for item in records
+                            if item["evidence_class"]
+                            in {EvidenceClass.VIOLATION, EvidenceClass.UNKNOWN}
+                            and rule_id in item["rule_ids"]
+                        ),
+                    )
+                    for name, records in result_sections
+                ),
+                rule_id,
+            ),
             "binding_id": rule_evaluation_binding_id(
                 inventory_binding_id, parse_record(receipt), SCHEMA_VERSION
             ),

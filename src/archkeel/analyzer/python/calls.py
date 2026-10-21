@@ -7,9 +7,25 @@ from __future__ import annotations
 
 import ast
 import builtins
-from collections.abc import Sequence
+import datetime as _datetime
+import hashlib
+import inspect
+import sys
+import sysconfig
+from collections.abc import Iterator, Mapping, Sequence
+from pathlib import Path
+from typing import TypeVar
 
-from archkeel.ir.facts import CallBindingOrigin, EvidenceClass, SourceResolution, stable_id
+from archkeel.ir.facts import (
+    NATIVE_CALL_TARGETS,
+    CallBindingOrigin,
+    EvidenceClass,
+    ProviderBinding,
+    RuntimeInfo,
+    SourceResolution,
+    python_identifier,
+    stable_id,
+)
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 
@@ -27,7 +43,7 @@ from .resolve import (
     iterated_call_result_type,
     resolve_name,
 )
-from .scopes import LexicalScopes
+from .scopes import LexicalScopes, Scope
 from .source import (
     FunctionNode,
     ParsedModule,
@@ -44,6 +60,37 @@ from .source import (
 )
 
 _BUILTINS = frozenset(dir(builtins))
+_ValueT = TypeVar("_ValueT")
+
+
+def _mapping_value(
+    mapping: Mapping[str, _ValueT], key: str, default: _ValueT | None = None
+) -> _ValueT | None:
+    if key not in mapping:
+        return default
+    return mapping[key]
+
+
+def _starts_with(value: str, prefix: str) -> bool:
+    length = len(prefix)
+    return len(value) >= length and value[:length] == prefix
+
+
+def _partition_first(value: str, separator: str) -> tuple[str, str, str]:
+    for index in range(len(value)):
+        if value[index] == separator:
+            return value[:index], separator, value[index + 1 :]
+    return value, "", ""
+
+
+def _qualified_identifier(value: str) -> bool:
+    start = 0
+    for index in range(len(value)):
+        if value[index] == ".":
+            if not python_identifier(value[start:index]):
+                return False
+            start = index + 1
+    return python_identifier(value[start:])
 
 
 def _bind_receiver(
@@ -148,17 +195,58 @@ def _local_receiver_types(node: FunctionNode, scopes: LexicalScopes) -> dict[str
     return {name: value for name, value in receivers.items() if value is not None}
 
 
+def _unpacked_values(target: ast.expr, value: ast.expr) -> list[tuple[ast.Name, ast.expr]]:
+    if isinstance(target, ast.Name):
+        return [(target, value)]
+    if isinstance(target, ast.Tuple | ast.List) and isinstance(value, ast.Tuple | ast.List):
+        if len(target.elts) == len(value.elts):
+            return [
+                pair
+                for target_item, value_item in zip(target.elts, value.elts, strict=True)
+                for pair in _unpacked_values(target_item, value_item)
+            ]
+    return []
+
+
+def _unpacked_value(site: ast.Name, target: ast.expr, value: ast.expr) -> ast.expr | None:
+    return next(
+        (source for name, source in _unpacked_values(target, value) if name is site),
+        None,
+    )
+
+
+def _assignment_name_values(statement: ast.Assign) -> list[tuple[ast.Name, ast.expr]]:
+    if statement.value is None:
+        return []
+    return [
+        pair for target in statement.targets for pair in _unpacked_values(target, statement.value)
+    ]
+
+
 class CallCollector(ast.NodeVisitor):
     def __init__(
         self,
         module: ParsedModule,
         index: SymbolIndex,
         evidence: dict[str, RawEvidence],
+        provider_bindings: Sequence[ProviderBinding] = (),
+        runtime: RuntimeInfo | None = None,
+        imports: Sequence[RawRecord] = (),
     ) -> None:
         self.module = module
+        self.sys_modules_aliases = self._collect_sys_modules_aliases()
         self.index = index
         self.symbol_evidence = index.evidence
         self.evidence = evidence
+        self.provider_bindings = {item.qualified_name: item for item in provider_bindings}
+        self.runtime = runtime
+        self.imports = tuple(
+            item
+            for item in imports
+            if _mapping_value(item["data"], "source_module") == module.module
+        )
+        self.native_mutation_collectors: Sequence[CallCollector] = (self,)
+        self.native_revocation_cache: dict[str, bool] = {}
         self.items: list[RawRecord] = []
         self.scopes = LexicalScopes.for_module(module)
         self.receivers = {
@@ -168,13 +256,50 @@ class CallCollector(ast.NodeVisitor):
         }
         self.parents = self.scopes.parents
         self.stable_bindings = stable_direct_module_bindings(module)
+        member_escape_sites = tuple(
+            member_escape_references(
+                module, module.all_nodes, member_surface=True, owner_exposure_only=True
+            )
+        )
         self.escaped_bindings = {
             (binding.owner.node, reference.id)
+            for reference in member_escape_sites
+            if (binding := self.scopes.lookup(reference, reference.id)).owner is not None
+        }
+        self.constructed_escape_bindings = {
+            (binding.owner.node, reference.id)
+            for reference in member_escape_sites
+            if self._receiver_escape_reference(reference)
+            if (binding := self.scopes.lookup(reference, reference.id)).owner is not None
+        }
+        self.escaped_native_targets = {
+            target
+            for call in module.all_nodes
+            if isinstance(call, ast.Call) and not self._is_builtin_native_mutator(call)
+            for argument in [*call.args, *(item.value for item in call.keywords)]
+            for reference in ast.walk(argument)
+            if isinstance(reference, ast.Name)
+            for target in self._native_expression_targets(reference)
+        }
+        builtin_mutator_receivers = {
+            call.args[0]
+            for call in module.all_nodes
+            if (
+                isinstance(call, ast.Call)
+                and self._is_builtin_native_mutator(call)
+                and call.args
+                and isinstance(call.args[0], ast.Name)
+                and self._native_expression_targets(call.args[0])
+            )
+        }
+        self.escaped_native_targets.update(
+            target
             for reference in member_escape_references(
                 module, module.all_nodes, member_surface=True, owner_exposure_only=True
             )
-            if (binding := self.scopes.lookup(reference, reference.id)).owner is not None
-        }
+            if reference not in builtin_mutator_receivers
+            for target in self._native_expression_targets(reference)
+        )
         self.scope_bindings: dict[ast.ClassDef | FunctionNode, frozenset[str]] = {}
 
     def _construction(
@@ -307,50 +432,1151 @@ class CallCollector(ast.NodeVisitor):
         )
         return ReceiverType(element, ReceiverOrigin.DOCUMENTED) if element is not None else None
 
+    def _enclosing_class(self, node: ast.AST) -> ast.ClassDef | None:
+        current = node
+        while current in self.parents:
+            current = self.parents[current]
+            if isinstance(current, ast.ClassDef):
+                return current
+        return None
+
+    def _stored_type(self, node: ast.Attribute) -> tuple[str, list[str], dict[str, object]] | None:
+        """Prove a field copied once from one typed initializer parameter."""
+        context = self._stored_initializer_context(node)
+        if context is None:
+            return None
+        owner, initializer, receiver_name, reassigned = context
+        write_parameter = self._stored_write_parameter(node, owner, initializer, reassigned)
+        if write_parameter is None:
+            return None
+        write, parameter = write_parameter
+        return self._stored_field_identity(node, owner, receiver_name, write, parameter)
+
+    def _stored_initializer_context(
+        self, node: ast.Attribute
+    ) -> tuple[ast.ClassDef, ast.FunctionDef | ast.AsyncFunctionDef, str, set[str]] | None:
+        if not isinstance(node.value, ast.Name):
+            return None
+        owner = self._enclosing_class(node)
+        if owner is None:
+            return None
+        constructors = [
+            child
+            for child in owner.body
+            if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef)
+            and child.name == "__init__"
+        ]
+        if len(constructors) != 1 or constructors[0].decorator_list:
+            return None
+        initializer = constructors[0]
+        if control_flow_contexts(initializer, self.parents):
+            return None
+        parameters = [*initializer.args.posonlyargs, *initializer.args.args]
+        if not parameters or parameters[0].arg != node.value.id:
+            return None
+        # The receiver and copied parameter must keep their entry values throughout __init__.
+        receiver_name = parameters[0].arg
+        reassigned: set[str] = set()
+        for child in ast.walk(initializer):
+            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store):
+                reassigned.add(child.id)
+            elif isinstance(child, ast.ExceptHandler) and child.name:
+                reassigned.add(child.name)
+        if receiver_name in reassigned or node.value.id != receiver_name:
+            return None
+        return owner, initializer, receiver_name, reassigned
+
+    def _stored_write_parameter(
+        self,
+        node: ast.Attribute,
+        owner: ast.ClassDef,
+        initializer: ast.FunctionDef | ast.AsyncFunctionDef,
+        reassigned: set[str],
+    ) -> tuple[ast.Assign | ast.AnnAssign, ast.arg] | None:
+        receiver = node.value
+        if not isinstance(receiver, ast.Name):
+            return None
+        writes: list[ast.Assign | ast.AnnAssign] = []
+        for statement in ast.walk(owner):
+            if isinstance(statement, ast.Assign | ast.AnnAssign):
+                targets = (
+                    statement.targets if isinstance(statement, ast.Assign) else [statement.target]
+                )
+                if any(
+                    isinstance(target, ast.Attribute)
+                    and isinstance(target.value, ast.Name)
+                    and target.value.id == receiver.id
+                    and target.attr == node.attr
+                    for target in targets
+                ):
+                    writes.append(statement)
+            elif isinstance(statement, ast.Delete) and any(
+                isinstance(target, ast.Attribute)
+                and isinstance(target.value, ast.Name)
+                and target.value.id == receiver.id
+                and target.attr == node.attr
+                for target in statement.targets
+            ):
+                return None
+        if len(writes) != 1:
+            return None
+        write = writes[0]
+        if control_flow_contexts(write, self.parents) or not self._in_direct_function_body(
+            write, initializer
+        ):
+            return None
+        value = write.value
+        if not isinstance(value, ast.Name) or value.id == receiver.id:
+            return None
+        parameters = [*initializer.args.posonlyargs, *initializer.args.args]
+        matching = [argument for argument in parameters[1:] if argument.arg == value.id]
+        if len(matching) != 1:
+            return None
+        [parameter] = matching
+        if parameter.arg in reassigned:
+            return None
+        return write, parameter
+
+    def _stored_field_identity(
+        self,
+        node: ast.Attribute,
+        owner: ast.ClassDef,
+        receiver_name: str,
+        write: ast.Assign | ast.AnnAssign,
+        parameter: ast.arg,
+    ) -> tuple[str, list[str], dict[str, object]] | None:
+        if not isinstance(parameter.annotation, ast.Name | ast.Attribute):
+            return None
+        annotation = self._annotation_identity(parameter.annotation)
+        if annotation is None:
+            return None
+        type_name, import_evidence = annotation
+        class_name = f"{self.scopes.by_node[owner].qualified_name}.{owner.name}"
+        declarations = self._stored_field_declarations(node, owner, class_name, type_name)
+        if declarations is None:
+            return None
+        declaration, owner_declaration = declarations
+        # Attribute writes through any receiver spelling, augmented writes, deletes, and
+        # reflective mutation make this intentionally small proof inapplicable.
+        if self._field_mutated_outside_write(owner, receiver_name, node.attr, write):
+            return None
+        current_method = self._stored_call_method(node)
+        if current_method is None:
+            return None
+        write_evidence = add_evidence(self.evidence, self.module, write)
+        annotation_evidence = add_evidence(self.evidence, self.module, parameter.annotation)
+        initializer_declaration = self.index.binding_declarations.get(f"{class_name}.__init__")
+        if initializer_declaration is not None:
+            typed_writes = _mapping_value(
+                initializer_declaration["data"], "stored_field_writes", []
+            )
+            if not isinstance(typed_writes, list):
+                return None
+            for typed_write in typed_writes:
+                if (
+                    typed_write.get("evidence_id") == write_evidence
+                    and typed_write.get("annotation_evidence_id") == annotation_evidence
+                    and typed_write.get("field") == node.attr
+                    and typed_write.get("parameter") == parameter.arg
+                ):
+                    typed_write["annotation_target"] = type_name
+        evidence = [
+            *declaration["evidence_ids"],
+            *owner_declaration["evidence_ids"],
+            write_evidence,
+            annotation_evidence,
+            *import_evidence,
+        ]
+        return (
+            type_name,
+            evidence,
+            {
+                "kind": "stored_field",
+                "owner": class_name,
+                "field": node.attr,
+                "parameter": parameter.arg,
+                "target": type_name,
+                "witness_evidence_ids": [write_evidence, annotation_evidence],
+            },
+        )
+
+    def _annotation_identity(self, annotation: ast.expr) -> tuple[str, list[str]] | None:
+        spelling = dotted_expression(annotation)
+        if spelling is None:
+            return None
+        root, separator, suffix = _partition_first(spelling, ".")
+        imported = [row for row in self.imports if _mapping_value(row["data"], "binding") == root]
+        if imported:
+            if len(imported) != 1 or root not in self.stable_bindings:
+                return None
+            data = imported[0]["data"]
+            origin = _mapping_value(data, "origin_definition")
+            if (
+                _mapping_value(data, "module_level_import") is not True
+                or _mapping_value(data, "under_type_checking") is not False
+                or _mapping_value(data, "source_binding_unique") is not True
+                or _mapping_value(data, "symbols_known") is not True
+                or _mapping_value(data, "origin_binding_unique") is not True
+                or _mapping_value(data, "reexport_candidate") is True
+                or not isinstance(origin, str)
+                or not _qualified_identifier(origin)
+            ):
+                return None
+            target = origin + (f".{suffix}" if separator else "")
+            return target, imported[0]["evidence_ids"]
+        status, targets, _, _ = resolve_name(annotation, index=self.index, scopes=self.scopes)
+        if status is SourceResolution.RESOLVED and len(targets) == 1:
+            return targets[0], []
+        return None
+
+    def _stored_field_declarations(
+        self, node: ast.Attribute, owner: ast.ClassDef, class_name: str, target: str
+    ) -> tuple[RawRecord, RawRecord] | None:
+        declaration = self.index.binding_declarations.get(class_name)
+        if (
+            declaration is None
+            or declaration["kind"] != "class"
+            or _mapping_value(declaration["data"], "source_binding_unique") is not True
+            or _mapping_value(declaration["data"], "source_member_binding_static") is not True
+            or _mapping_value(declaration["data"], "class_header_static") is not True
+            or _mapping_value(declaration["data"], "class_body_control_flow") is True
+            or any(
+                hook in (_mapping_value(declaration["data"], "class_members") or [])
+                for hook in ("__getattribute__", "__getattr__", "__setattr__")
+            )
+            or any(
+                isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef)
+                and child.name in {"__getattribute__", "__getattr__", "__setattr__", node.attr}
+                for child in owner.body
+            )
+        ):
+            return None
+        owner_declaration = self.index.binding_declarations.get(target)
+        if (
+            owner_declaration is None
+            or owner_declaration["kind"] != "class"
+            or _mapping_value(owner_declaration["data"], "source_binding_unique") is not True
+            or _mapping_value(owner_declaration["data"], "source_member_binding_static") is not True
+            or _mapping_value(owner_declaration["data"], "class_body_control_flow") is True
+            or any(
+                hook in (_mapping_value(owner_declaration["data"], "class_members") or [])
+                for hook in ("__getattribute__", "__getattr__", "__setattr__")
+            )
+        ):
+            return None
+
+        return declaration, owner_declaration
+
+    def _stored_call_method(
+        self, node: ast.Attribute
+    ) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+        receiver = node.value
+        if not isinstance(receiver, ast.Name):
+            return None
+        current_method = next(
+            (
+                ancestor
+                for ancestor in self._ancestors(node)
+                if isinstance(ancestor, ast.FunctionDef | ast.AsyncFunctionDef)
+            ),
+            None,
+        )
+        if current_method is None or current_method.decorator_list:
+            return None
+        method_args = [*current_method.args.posonlyargs, *current_method.args.args]
+        if not method_args or method_args[0].arg != receiver.id:
+            return None
+        if any(
+            isinstance(child, ast.Name)
+            and child.id == receiver.id
+            and isinstance(child.ctx, ast.Store)
+            for child in ast.walk(current_method)
+        ):
+            return None
+        binding = self.scopes.lookup(receiver, receiver.id)
+        if binding.owner is None or self._receiver_escaped(binding.owner, receiver.id):
+            return None
+        return current_method
+
+    def _ancestors(self, node: ast.AST) -> Iterator[ast.AST]:
+        current = node
+        while current in self.parents:
+            current = self.parents[current]
+            yield current
+
+    def _receiver_escaped(self, owner: Scope, name: str, *, constructed: bool = False) -> bool:
+        escape_bindings = self.constructed_escape_bindings if constructed else self.escaped_bindings
+        aliases = {name}
+        while True:
+            if any((owner.node, alias) in escape_bindings for alias in aliases):
+                return True
+            expanded: set[str] = set(aliases)
+            bindings: dict[str, list[ast.AST]] = owner.bindings
+            for alias, sites in bindings.items():
+                for site in sites:
+                    if not isinstance(site, ast.Name) or not isinstance(site.ctx, ast.Store):
+                        continue
+                    assignment = self.parents.get(site)
+                    value = (
+                        assignment.value
+                        if isinstance(assignment, ast.Assign | ast.AnnAssign)
+                        else None
+                    )
+                    if isinstance(value, ast.Name) and value.id in aliases:
+                        source = self.scopes.lookup(value, value.id)
+                        if source.owner is owner:
+                            expanded.add(alias)
+            if expanded == aliases:
+                return False
+            aliases = expanded
+
+    def _receiver_escape_reference(self, reference: ast.Name) -> bool:
+        current: ast.AST = reference
+        while current in self.parents:
+            parent = self.parents[current]
+            if isinstance(parent, ast.Call):
+                if current in parent.args or any(
+                    keyword.value is current for keyword in parent.keywords
+                ):
+                    return True
+                return False
+            if isinstance(parent, ast.Attribute):
+                if isinstance(parent.ctx, ast.Store | ast.Del):
+                    return True
+                current = parent
+                continue
+            if (
+                isinstance(parent, ast.Compare)
+                and isinstance(current, ast.Attribute)
+                and current
+                in (
+                    parent.left,
+                    *parent.comparators,
+                )
+            ):
+                return False
+            if isinstance(parent, ast.Assign | ast.AnnAssign):
+                value = parent.value
+                targets = parent.targets if isinstance(parent, ast.Assign) else (parent.target,)
+                if (
+                    value is current
+                    and isinstance(value, ast.Name)
+                    and all(isinstance(target, ast.Name) for target in targets)
+                ):
+                    return False
+                return True
+            if isinstance(
+                parent, ast.AugAssign | ast.NamedExpr | ast.Return | ast.Yield | ast.YieldFrom
+            ):
+                return True
+            if isinstance(
+                parent, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Lambda
+            ):
+                return True
+            current = parent
+        return True
+
+    def _in_direct_function_body(self, node: ast.AST, function: ast.AST) -> bool:
+        current = node
+        while current in self.parents and self.parents[current] is not function:
+            current = self.parents[current]
+        return (
+            isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and current in function.body
+        )
+
+    def _field_mutated_outside_write(
+        self, owner: ast.ClassDef, receiver: str, field: str, allowed: ast.AST
+    ) -> bool:
+        allowed_nodes = set(ast.walk(allowed))
+        aliases = {receiver}
+        for child in ast.walk(owner):
+            if isinstance(child, ast.Assign):
+                value_names = {
+                    node.id for node in ast.walk(child.value) if isinstance(node, ast.Name)
+                }
+                if value_names & aliases:
+                    aliases.update(
+                        target.id for target in child.targets if isinstance(target, ast.Name)
+                    )
+            elif isinstance(child, ast.AnnAssign) and child.value is not None:
+                value_names = {
+                    node.id for node in ast.walk(child.value) if isinstance(node, ast.Name)
+                }
+                if value_names & aliases and isinstance(child.target, ast.Name):
+                    aliases.add(child.target.id)
+        for child in ast.walk(owner):
+            if child in allowed_nodes:
+                continue
+            if isinstance(child, ast.Attribute) and child.attr == field:
+                root: ast.expr = child
+                while isinstance(root, ast.Attribute):
+                    root = root.value
+                if isinstance(root, ast.Name) and root.id in aliases:
+                    if isinstance(child.ctx, (ast.Store, ast.Del)):
+                        return True
+            if (
+                isinstance(child, ast.Call)
+                and isinstance(child.func, ast.Name)
+                and child.func.id in {"setattr", "delattr"}
+            ):
+                if (
+                    len(child.args) >= 2
+                    and isinstance(child.args[0], ast.Name)
+                    and child.args[0].id in aliases
+                ):
+                    member = child.args[1]
+                    if not isinstance(member, ast.Constant) or member.value == field:
+                        return True
+        return False
+
+    def _constructed_type(
+        self, expression: ast.expr, call_site: ast.Call
+    ) -> tuple[str, list[str], dict[str, object]] | None:
+        if isinstance(expression, ast.Name):
+            binding = self.scopes.lookup(expression, expression.id)
+            if (
+                binding.uncertain
+                or binding.owner is None
+                or self._receiver_escaped(binding.owner, expression.id, constructed=True)
+            ):
+                return None
+            sites = binding.owner.bindings.get(expression.id, ())
+            if len(sites) != 1 or not isinstance(sites[0], ast.Name):
+                return None
+            parent = self.parents.get(sites[0])
+            if not isinstance(parent, ast.Assign | ast.AnnAssign):
+                return None
+            if (
+                control_flow_contexts(parent, self.parents)
+                or not self._in_direct_function_body(parent, binding.owner.node)
+                or parent.lineno >= call_site.lineno
+                or isinstance(parent, ast.Assign)
+                and len(parent.targets) != 1
+            ):
+                return None
+            value = parent.value
+            if not isinstance(value, ast.Call):
+                return None
+            construction = self._constructor_type(value)
+            if construction is None:
+                return None
+            type_name, evidence = construction
+            constructor_evidence = add_evidence(self.evidence, self.module, value)
+            assignment_evidence = add_evidence(self.evidence, self.module, sites[0])
+            assignment_name = expression.id
+            return (
+                type_name,
+                [*evidence, constructor_evidence, assignment_evidence],
+                {
+                    "kind": "construction",
+                    "target": type_name,
+                    "constructor_evidence_id": constructor_evidence,
+                    "assignment_evidence_id": assignment_evidence,
+                    "assignment_name": assignment_name,
+                },
+            )
+        if isinstance(expression, ast.Call):
+            construction = self._constructor_type(expression)
+            if construction is None:
+                return None
+            type_name, evidence = construction
+            constructor_evidence = add_evidence(self.evidence, self.module, expression)
+            return (
+                type_name,
+                [*evidence, constructor_evidence],
+                {
+                    "kind": "construction",
+                    "target": type_name,
+                    "constructor_evidence_id": constructor_evidence,
+                    "assignment_evidence_id": None,
+                    "assignment_name": None,
+                },
+            )
+        return None
+
+    @staticmethod
+    def _member_is_static(declaration: RawRecord, member: str) -> bool:
+        writes = _mapping_value(declaration["data"], "instance_member_writes")
+        return isinstance(writes, list) and "*" not in writes and member not in writes
+
+    def _constructor_type(self, call: ast.Call) -> tuple[str, list[str]] | None:
+        status, targets, _, _ = resolve_name(call.func, index=self.index, scopes=self.scopes)
+        if status is not SourceResolution.RESOLVED or len(targets) != 1:
+            return None
+        type_name = targets[0]
+        declaration = self.index.binding_declarations.get(type_name)
+        if (
+            declaration is None
+            or declaration["kind"] != "class"
+            or not self.index.constructor_results.get(type_name)
+            or _mapping_value(declaration["data"], "source_binding_unique") is not True
+            or _mapping_value(declaration["data"], "class_header_static") is not True
+            or _mapping_value(declaration["data"], "default_instance_result") is not True
+        ):
+            return None
+        root = call.func
+        while isinstance(root, ast.Attribute):
+            root = root.value
+        if isinstance(root, ast.Name):
+            binding = self.scopes.lookup(root, root.id)
+            if binding.uncertain or binding.owner is None:
+                return None
+            if binding.owner is self.scopes.root and root.id not in self.stable_bindings:
+                return None
+            if (
+                binding.kind in {BindingKind.MODULE, BindingKind.SYMBOL}
+                and len(binding.targets) != 1
+            ):
+                return None
+        provider = self.provider_bindings.get(type_name)
+        return type_name, [
+            *declaration["evidence_ids"],
+            *([provider.evidence_id] if provider is not None else []),
+            add_evidence(self.evidence, self.module, call.func),
+        ]
+
+    def _method_declaration(
+        self, owner: str, method: str
+    ) -> tuple[str, RawRecord, list[str]] | None:
+        seen: set[str] = set()
+        current = owner
+        inherited_evidence: list[str] = []
+        while current not in seen:
+            seen.add(current)
+            owner_declaration = self.index.binding_declarations.get(current)
+            class_members = (
+                _mapping_value(owner_declaration["data"], "class_members")
+                if owner_declaration is not None
+                else None
+            )
+            if (
+                owner_declaration is not None
+                and _mapping_value(owner_declaration["data"], "class_body_control_flow") is True
+            ):
+                return None
+            if any(
+                f"{current}.{hook}" in self.index.binding_declarations
+                or isinstance(class_members, list)
+                and hook in class_members
+                for hook in ("__getattr__", "__getattribute__")
+            ):
+                return None
+            target = f"{current}.{method}"
+            declaration = self.index.binding_declarations.get(target)
+            if declaration is not None:
+                if (
+                    declaration["kind"] != "method"
+                    or _mapping_value(declaration["data"], "parent") != current
+                    or bool(_mapping_value(declaration["data"], "decorators"))
+                ):
+                    return None
+                return target, declaration, inherited_evidence
+            if (
+                owner_declaration is None
+                or _mapping_value(owner_declaration["data"], "class_header_static") is not True
+            ):
+                return None
+            bases = _mapping_value(owner_declaration["data"], "base_declarations")
+            if not isinstance(bases, list) or len(bases) != 1 or not isinstance(bases[0], dict):
+                return None
+            base = bases[0]
+            targets = base.get("targets")
+            evidence = base.get("evidence_ids")
+            if (
+                base.get("status") != SourceResolution.RESOLVED
+                or not isinstance(targets, list)
+                or len(targets) != 1
+                or not isinstance(targets[0], str)
+                or not isinstance(evidence, list)
+            ):
+                return None
+            current = targets[0]
+            inherited_evidence.extend((*owner_declaration["evidence_ids"], *evidence))
+        return None
+
+    def _native_import_target(self, node: ast.expr) -> tuple[str, list[str]] | None:
+        dotted = dotted_expression(node)
+        if dotted is None:
+            return None
+        root, separator, suffix = _partition_first(dotted, ".")
+        binding = self.scopes.lookup(node, root)
+        if (
+            binding.kind not in {BindingKind.MODULE, BindingKind.SYMBOL}
+            or binding.uncertain
+            or len(binding.targets) != 1
+            or binding.owner is None
+            or binding.owner is self.scopes.root
+            and root not in self.stable_bindings
+            or binding.targets[0] in self.escaped_native_targets
+        ):
+            return None
+        sites = binding.owner.bindings.get(root, ())
+        if len(sites) != 1 or not isinstance(sites[0], ast.Import | ast.ImportFrom):
+            return None
+        target = binding.targets[0] + (f".{suffix}" if separator else "")
+        if target not in NATIVE_CALL_TARGETS or self._native_target_revoked(target):
+            return None
+        return target, [add_evidence(self.evidence, self.module, sites[0])]
+
+    def _native_target_revoked(self, target: str) -> bool:
+        if target in self.native_revocation_cache:
+            return self.native_revocation_cache[target]
+        revoked = any(
+            collector._native_target_revoked_in_module(target)
+            for collector in self.native_mutation_collectors
+        )
+        self.native_revocation_cache[target] = revoked
+        return revoked
+
+    def _collect_sys_modules_aliases(self) -> frozenset[str]:
+        aliases = {"sys.modules"}
+        changed = True
+        while changed:
+            changed = False
+            for statement in self.module.all_nodes:
+                if isinstance(statement, ast.Import):
+                    alias = next(
+                        (
+                            item.asname or item.name
+                            for item in statement.names
+                            if item.name == "sys"
+                        ),
+                        None,
+                    )
+                    if alias is not None and f"{alias}.modules" not in aliases:
+                        aliases.add(f"{alias}.modules")
+                        changed = True
+                elif isinstance(statement, ast.ImportFrom) and statement.module == "sys":
+                    alias = next(
+                        (
+                            item.asname or item.name
+                            for item in statement.names
+                            if item.name == "modules"
+                        ),
+                        None,
+                    )
+                    if alias is not None and alias not in aliases:
+                        aliases.add(alias)
+                        changed = True
+                elif isinstance(statement, ast.Assign):
+                    for site, value in _assignment_name_values(statement):
+                        source = dotted_expression(value)
+                        if source in aliases and site.id not in aliases:
+                            aliases.add(site.id)
+                            changed = True
+        return frozenset(aliases)
+
+    def _assignment_value(self, site: ast.Name, assignment: ast.AST | None) -> ast.expr | None:
+        if isinstance(assignment, ast.AnnAssign):
+            return assignment.value if assignment.target is site else None
+        if not isinstance(assignment, ast.Assign) or assignment.value is None:
+            return None
+        if len(assignment.targets) > 1:
+            return assignment.value if site in assignment.targets else None
+        return _unpacked_value(site, assignment.targets[0], assignment.value)
+
+    def _native_target_revoked_in_module(self, target: str) -> bool:
+        for node in ast.walk(self.module.tree):
+            targets: tuple[ast.expr, ...] = ()
+            if isinstance(node, ast.Assign):
+                targets = tuple(item for item in node.targets if isinstance(item, ast.expr))
+            elif isinstance(node, ast.AnnAssign | ast.AugAssign):
+                targets = (node.target,)
+            elif isinstance(node, ast.Delete):
+                targets = tuple(item for item in node.targets if isinstance(item, ast.expr))
+            if self._native_targets_mutated(node, targets, target):
+                return True
+            for mutation in targets:
+                candidate = mutation
+                if isinstance(candidate, ast.Attribute):
+                    module_name = _partition_first(target, ".")[0]
+                    changed_member = f"{module_name}.{candidate.attr}"
+                    if changed_member == target or _starts_with(target, f"{changed_member}."):
+                        if not isinstance(candidate.value, ast.Subscript):
+                            continue
+                        candidate = candidate.value
+                    else:
+                        continue
+                if isinstance(candidate, ast.Subscript):
+                    table = dotted_expression(candidate.value)
+                    module = _partition_first(target, ".")[0]
+                    if table in self.sys_modules_aliases and (
+                        not isinstance(candidate.slice, ast.Constant)
+                        or candidate.slice.value == module
+                    ):
+                        return True
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                if node.func.id in {"setattr", "delattr"} and len(node.args) >= 2:
+                    member = node.args[1]
+                    for owner in self._native_expression_targets(node.args[0]):
+                        if isinstance(member, ast.Constant) and isinstance(member.value, str):
+                            if f"{owner}.{member.value}" == target:
+                                return True
+                        elif target == owner or _starts_with(target, f"{owner}."):
+                            return True
+        return False
+
+    def _is_builtin_native_mutator(self, node: ast.Call) -> bool:
+        if not isinstance(node.func, ast.Name) or node.func.id not in {"setattr", "delattr"}:
+            return False
+        binding = self.scopes.lookup(node.func, node.func.id)
+        return binding.kind is BindingKind.UNBOUND and not binding.uncertain
+
+    def _native_expression_targets(
+        self, expression: ast.expr, seen: frozenset[str] = frozenset()
+    ) -> set[str]:
+        value = dotted_expression(expression)
+        if value is None:
+            return set()
+        root, separator, suffix = _partition_first(value, ".")
+        binding = self.scopes.lookup(expression, root)
+        if binding.kind in {BindingKind.MODULE, BindingKind.SYMBOL} and len(binding.targets) == 1:
+            origins = {binding.targets[0]}
+        elif binding.owner is not None and root not in seen:
+            origins = self._native_alias_targets(root, binding.owner, seen | {root})
+        else:
+            return set()
+        return {origin + (f".{suffix}" if separator else "") for origin in origins}
+
+    def _native_alias_targets(self, name: str, owner: Scope, seen: frozenset[str]) -> set[str]:
+        bindings: dict[str, list[ast.AST]] = owner.bindings
+        sites = bindings.get(name, ())
+        origins: set[str] = set()
+        for site in sites:
+            if not isinstance(site, ast.Name):
+                continue
+            parent = self.parents.get(site)
+            while isinstance(parent, ast.Tuple | ast.List | ast.Starred):
+                parent = self.parents.get(parent)
+            value = self._assignment_value(site, parent)
+            if value is None:
+                continue
+            if isinstance(value, ast.Subscript) and isinstance(value.slice, ast.Constant):
+                table = dotted_expression(value.value)
+                module = value.slice.value
+                if table in self.sys_modules_aliases and isinstance(module, str):
+                    module_name: str = module
+                    if module_name.isidentifier():
+                        origins = origins | {module_name}
+            origins = origins | self._native_expression_targets(value, seen)
+        return origins
+
+    def _native_targets_mutated(
+        self,
+        node: ast.AST,
+        targets: tuple[ast.expr, ...],
+        target: str,
+    ) -> bool:
+        for item in targets:
+            if isinstance(item, ast.Name):
+                binding = self.scopes.lookup(item, item.id)
+                sites = binding.owner.bindings.get(item.id, ()) if binding.owner else ()
+                if not any(
+                    isinstance(self.parents.get(site), ast.Import | ast.ImportFrom)
+                    for site in sites
+                ):
+                    continue
+            changed_targets = self._native_expression_targets(item)
+            if isinstance(item, ast.Name) and isinstance(node, ast.Assign | ast.AnnAssign):
+                value = node.value
+                if value is not None and changed_targets & self._native_expression_targets(value):
+                    continue
+            for changed_target in changed_targets:
+                if target == changed_target or _starts_with(target, f"{changed_target}."):
+                    return True
+        return False
+
+    def _native_call(
+        self, node: ast.Call
+    ) -> tuple[str, CallBindingOrigin, list[str], dict[str, object]] | None:
+        direct = self._native_import_target(node.func)
+        if direct is not None:
+            return self._native_import_call(direct)
+        return self._native_random_receiver_call(node)
+
+    def _native_import_call(
+        self, direct: tuple[str, list[str]]
+    ) -> tuple[str, CallBindingOrigin, list[str], dict[str, object]] | None:
+        target, evidence = direct
+        provider = self.provider_bindings.get(target)
+        if provider is not None:
+            evidence = [*evidence, provider.evidence_id]
+        origin = (
+            CallBindingOrigin.CONSTRUCTOR
+            if target == "random.Random"
+            else CallBindingOrigin.NATIVE_RECEIVER
+            if _starts_with(target, "random.Random.")
+            else CallBindingOrigin.NATIVE
+        )
+        if provider is not None:
+            proof: dict[str, object] = {
+                "kind": "provider_member",
+                "target": target,
+                "provider_evidence_id": provider.evidence_id,
+                "runtime_name": self.runtime.name if self.runtime is not None else "python",
+                "runtime_version": self.runtime.version if self.runtime is not None else "unknown",
+            }
+        elif self.runtime is not None:
+            if target != "datetime.datetime.now":
+                return None
+            descriptor_proof = self._datetime_descriptor_proof(target)
+            if descriptor_proof is None:
+                return None
+            proof = {
+                "kind": "native_descriptor",
+                "target": target,
+                "runtime_name": self.runtime.name,
+                "runtime_version": self.runtime.version,
+                **descriptor_proof,
+                "witness_evidence_ids": evidence,
+            }
+        else:
+            return None
+        return target, origin, evidence, proof
+
+    def _native_random_receiver_call(
+        self, node: ast.Call
+    ) -> tuple[str, CallBindingOrigin, list[str], dict[str, object]] | None:
+        if not isinstance(node.func, ast.Attribute):
+            return None
+        receiver = node.func.value
+        constructor: ast.Call | None = receiver if isinstance(receiver, ast.Call) else None
+        assignment_site: ast.Name | None = None
+        assignment_evidence: str | None = None
+        if isinstance(receiver, ast.Name):
+            binding = self.scopes.lookup(receiver, receiver.id)
+            if (
+                binding.uncertain
+                or binding.owner is None
+                or self._receiver_escaped(binding.owner, receiver.id)
+            ):
+                return None
+            sites = binding.owner.bindings.get(receiver.id, ())
+            if len(sites) != 1 or not isinstance(sites[0], ast.Name):
+                return None
+            assignment = self.parents.get(sites[0])
+            if (
+                not isinstance(assignment, ast.Assign | ast.AnnAssign)
+                or assignment.value is None
+                or isinstance(assignment, ast.Assign)
+                and len(assignment.targets) != 1
+            ):
+                return None
+            if (assignment.lineno, assignment.col_offset) >= (node.lineno, node.col_offset):
+                return None
+            constructor = assignment.value if isinstance(assignment.value, ast.Call) else None
+            assignment_site = sites[0]
+        if constructor is None:
+            return None
+        type_identity = self._native_import_target(constructor.func)
+        if type_identity is None or type_identity[0] != "random.Random":
+            return None
+        if isinstance(receiver, ast.Name):
+            if self._native_instance_member_changed(receiver.id, node):
+                return None
+            if assignment_site is not None:
+                assignment_evidence = add_evidence(self.evidence, self.module, assignment_site)
+        target = f"{type_identity[0]}.{node.func.attr}"
+        if target not in NATIVE_CALL_TARGETS or self._native_target_revoked(target):
+            return None
+        provider = self.provider_bindings.get(target)
+        if provider is None:
+            return None
+        constructor_evidence = add_evidence(self.evidence, self.module, constructor)
+        return (
+            target,
+            CallBindingOrigin.NATIVE_RECEIVER,
+            [
+                *type_identity[1],
+                provider.evidence_id,
+                constructor_evidence,
+                *([assignment_evidence] if assignment_evidence is not None else []),
+            ],
+            {
+                "kind": "provider_member",
+                "target": target,
+                "provider_evidence_id": provider.evidence_id,
+                "runtime_name": self.runtime.name if self.runtime is not None else "python",
+                "runtime_version": self.runtime.version if self.runtime is not None else "unknown",
+            },
+        )
+
+    def _native_instance_member_changed(self, name: str, call: ast.Call) -> bool:
+        call_position = (call.lineno, call.col_offset)
+        owner = self.scopes.lookup(call, name).owner
+        for node in ast.walk(self.module.tree):
+            targets: tuple[ast.expr, ...] = ()
+            if isinstance(node, ast.Assign):
+                targets = tuple(item for item in node.targets if isinstance(item, ast.expr))
+            elif isinstance(node, ast.AnnAssign | ast.AugAssign):
+                targets = (node.target,)
+            elif isinstance(node, ast.Delete):
+                targets = tuple(item for item in node.targets if isinstance(item, ast.expr))
+            if any(
+                isinstance(target, ast.Attribute)
+                and isinstance(target.value, ast.Name)
+                and target.value.id == name
+                and self.scopes.lookup(target.value, name).owner is owner
+                for target in targets
+            ):
+                return True
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                if node.func.id in {"setattr", "delattr"} and len(node.args) >= 2:
+                    receiver_owner, member = node.args[:2]
+                    if (
+                        isinstance(receiver_owner, ast.Name)
+                        and receiver_owner.id == name
+                        and self.scopes.lookup(receiver_owner, name).owner
+                        is self.scopes.lookup(call, name).owner
+                        and isinstance(member, ast.Constant)
+                        and isinstance(member.value, str)
+                    ):
+                        return True
+            if (
+                isinstance(node, ast.Name)
+                and node.id == name
+                and isinstance(node.ctx, ast.Store | ast.Del)
+                and self.scopes.lookup(node, name).owner is owner
+                and (node.lineno, node.col_offset) > call_position
+            ):
+                return True
+        return False
+
+    def _datetime_descriptor_proof(self, target: str) -> dict[str, object] | None:
+        if target != "datetime.datetime.now" or sys.implementation.name != "cpython":
+            return None
+        try:
+            module = _datetime
+            owner = module.datetime
+            descriptor = inspect.getattr_static(owner, "now")
+            module_file = module.__file__
+            if not isinstance(module_file, str):
+                return None
+            source_path = Path(module_file).resolve()
+            stdlib = Path(sysconfig.get_paths()["stdlib"]).resolve()
+            source_path.relative_to(stdlib)
+            source_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
+        except (AttributeError, ImportError, KeyError, OSError, ValueError):
+            return None
+        descriptor_type = type(descriptor)
+        if (
+            module.__name__ != "datetime"
+            or owner.__module__ != "datetime"
+            or owner.__qualname__ != "datetime"
+            or descriptor_type.__name__ != "classmethod_descriptor"
+            or descriptor_type.__module__ != "builtins"
+            or descriptor.__objclass__ is not owner
+            or descriptor.__name__ != "now"
+        ):
+            return None
+        return {
+            "runtime_implementation": sys.implementation.name,
+            "descriptor_owner_module": owner.__module__,
+            "descriptor_owner_qualname": owner.__qualname__,
+            "descriptor_member": descriptor.__name__,
+            "descriptor_kind": descriptor_type.__name__,
+            "stdlib_source_digest": source_digest,
+        }
+
     def _call_binding(
         self, node: ast.Call, status: SourceResolution, targets: list[str], evidence_id: str
     ) -> RecordData | None:
+        if node.func.end_lineno != node.func.lineno:
+            return None
+        native = self._native_call(node)
+        if native is not None:
+            target, origin, witness, proof = native
+            return {
+                "origin": origin,
+                "target": target,
+                "evidence_ids": sorted({evidence_id, *witness}),
+                "proof": proof,
+            }
+        direct = self._direct_call_binding(node, status, targets, evidence_id)
+        if direct is not None:
+            return direct
+        constructor = self._constructor_call_binding(node, evidence_id)
+        if constructor is not None:
+            return constructor
+        return self._receiver_call_binding(node, targets, evidence_id)
+
+    def _direct_call_binding(
+        self, node: ast.Call, status: SourceResolution, targets: list[str], evidence_id: str
+    ) -> RecordData | None:
         if (
-            isinstance(node.func, ast.Name)
-            and status is SourceResolution.RESOLVED
-            and len(targets) == 1
+            not isinstance(node.func, ast.Name)
+            or status is not SourceResolution.RESOLVED
+            or len(targets) != 1
         ):
-            declaration = self.index.binding_declarations.get(targets[0])
-            if declaration is None:
-                return None
-            declaration_data: dict[str, object] = declaration["data"]
-            if (
-                declaration["kind"] != "function"
-                or declaration_data.get("source_binding_unique") is not True
-                or declaration_data.get("source_binding_static") is not True
-                or declaration_data.get("decorators")
-            ):
-                return None
-            binding = self.scopes.lookup(node.func, node.func.id)
-            if (
-                not binding.uncertain
-                and binding.owner is not None
-                and (
-                    binding.owner is not self.scopes.root
-                    or binding.kind is BindingKind.UNBOUND
-                    or node.func.id in self.stable_bindings
-                )
-            ):
-                return {
-                    "origin": CallBindingOrigin.DIRECT,
-                    "target": targets[0],
-                    "evidence_ids": sorted(
-                        {evidence_id, *self.symbol_evidence.get(targets[0], ())}
-                    ),
-                }
-        if not isinstance(node.func, ast.Attribute) or not isinstance(node.func.value, ast.Name):
+            return None
+        declaration = self.index.binding_declarations.get(targets[0])
+        if declaration is None:
+            return None
+        data: dict[str, object] = declaration["data"]
+        if (
+            declaration["kind"] != "function"
+            or data.get("source_binding_unique") is not True
+            or data.get("source_binding_static") is not True
+            or data.get("decorators")
+        ):
+            return None
+        binding = self.scopes.lookup(node.func, node.func.id)
+        if (
+            binding.uncertain
+            or binding.owner is None
+            or (
+                binding.owner is self.scopes.root
+                and binding.kind is not BindingKind.UNBOUND
+                and node.func.id not in self.stable_bindings
+            )
+        ):
+            return None
+        return {
+            "origin": CallBindingOrigin.DIRECT,
+            "target": targets[0],
+            "evidence_ids": sorted({evidence_id, *self.symbol_evidence.get(targets[0], ())}),
+        }
+
+    def _constructor_call_binding(self, node: ast.Call, evidence_id: str) -> RecordData | None:
+        if not isinstance(node.func, ast.Name | ast.Attribute):
+            return None
+        constructed = self._constructor_type(node)
+        if constructed is None:
+            return None
+        target, evidence = constructed
+        provider = self.provider_bindings.get(target)
+        return {
+            "origin": CallBindingOrigin.CONSTRUCTOR,
+            "target": target,
+            "evidence_ids": sorted({evidence_id, *evidence}),
+            "proof": {
+                "kind": "constructor",
+                "target": target,
+                "constructor_evidence_id": add_evidence(self.evidence, self.module, node),
+                "provider_evidence_id": provider.evidence_id if provider is not None else None,
+                "runtime_name": self.runtime.name if self.runtime is not None else "python",
+                "runtime_version": self.runtime.version if self.runtime is not None else "unknown",
+            },
+        }
+
+    def _receiver_call_binding(
+        self, node: ast.Call, targets: list[str], evidence_id: str
+    ) -> RecordData | None:
+        if not isinstance(node.func, ast.Attribute):
             return None
         receiver = node.func.value
+        if isinstance(receiver, ast.Attribute):
+            stored = self._stored_receiver_call(node, receiver, targets, evidence_id)
+            if stored is not None:
+                return stored
+        constructed = self._constructed_receiver_call(node, receiver, evidence_id)
+        if constructed is not None:
+            return constructed
+        return self._declared_receiver_call(node, receiver, targets, evidence_id)
+
+    def _stored_receiver_call(
+        self, node: ast.Call, receiver: ast.Attribute, targets: list[str], evidence_id: str
+    ) -> RecordData | None:
+        stored = self._stored_type(receiver)
+        if stored is None:
+            return None
+        if not isinstance(node.func, ast.Attribute):
+            return None
+        owner, evidence, proof = stored
+        method = self._method_declaration(owner, node.func.attr)
+        if method is None:
+            return None
+        target, declaration, inherited = method
+        parent = _mapping_value(declaration["data"], "parent", "")
+        owner_declaration = self.index.binding_declarations.get(
+            parent if isinstance(parent, str) else ""
+        )
+        if target not in targets or owner_declaration is None:
+            return None
+        return self._receiver_binding_record(
+            CallBindingOrigin.STORED_RECEIVER,
+            target,
+            evidence_id,
+            [
+                *evidence,
+                *inherited,
+                *declaration["evidence_ids"],
+                *owner_declaration["evidence_ids"],
+            ],
+            proof,
+        )
+
+    def _constructed_receiver_call(
+        self, node: ast.Call, receiver: ast.expr, evidence_id: str
+    ) -> RecordData | None:
+        if not isinstance(node.func, ast.Attribute):
+            return None
+        constructed = self._constructed_type(receiver, node)
+        if constructed is None:
+            return None
+        owner, evidence, proof = constructed
+        method = self._method_declaration(owner, node.func.attr)
+        if method is None:
+            return None
+        target, declaration, inherited = method
+        parent = _mapping_value(declaration["data"], "parent", "")
+        owner_declaration = self.index.binding_declarations.get(
+            parent if isinstance(parent, str) else ""
+        )
+        constructed_declaration = self.index.binding_declarations.get(owner)
+        if (
+            owner_declaration is None
+            or constructed_declaration is None
+            or _mapping_value(constructed_declaration["data"], "source_member_owner_static")
+            is not True
+            or _mapping_value(owner_declaration["data"], "source_member_owner_static") is not True
+            or not self._member_is_static(constructed_declaration, node.func.attr)
+            or not self._member_is_static(owner_declaration, node.func.attr)
+        ):
+            return None
+        return self._receiver_binding_record(
+            CallBindingOrigin.CONSTRUCTED_RECEIVER,
+            target,
+            evidence_id,
+            [
+                *evidence,
+                *inherited,
+                *declaration["evidence_ids"],
+                *owner_declaration["evidence_ids"],
+            ],
+            proof,
+        )
+
+    @staticmethod
+    def _receiver_binding_record(
+        origin: CallBindingOrigin,
+        target: str,
+        evidence_id: str,
+        witnesses: list[str],
+        proof: dict[str, object] | None,
+    ) -> RecordData:
+        record: RecordData = {
+            "origin": origin,
+            "target": target,
+            "evidence_ids": sorted({evidence_id, *witnesses}),
+        }
+        if proof is not None:
+            record["proof"] = proof
+        return record
+
+    def _declared_receiver_call(
+        self, node: ast.Call, receiver: ast.expr, targets: list[str], evidence_id: str
+    ) -> RecordData | None:
+        if not isinstance(node.func, ast.Attribute):
+            return None
+        if not isinstance(receiver, ast.Name):
+            return None
         binding = self.scopes.lookup(receiver, receiver.id)
         if (
             binding.owner is None
             or binding.uncertain
-            or (binding.owner.node, receiver.id) in self.escaped_bindings
+            or self._receiver_escaped(binding.owner, receiver.id)
         ):
             return None
         sites = binding.owner.bindings.get(receiver.id, ())
@@ -359,34 +1585,38 @@ class CallCollector(ast.NodeVisitor):
         annotation = sites[0].annotation
         if not isinstance(annotation, ast.Name | ast.Attribute):
             return None
-        verdict, owners, _, _ = resolve_name(annotation, index=self.index, scopes=self.scopes)
-        if verdict is not SourceResolution.RESOLVED or len(owners) != 1:
+        identity = self._annotation_identity(annotation)
+        if identity is None:
             return None
-        target = f"{owners[0]}.{node.func.attr}"
-        owner = self.index.binding_declarations.get(owners[0])
+        owner_name, import_evidence = identity
+        target = f"{owner_name}.{node.func.attr}"
+        owner = self.index.binding_declarations.get(owner_name)
         member = self.index.binding_declarations.get(target)
         if owner is None or member is None:
             return None
-        owner_data: dict[str, object] = owner["data"]
-        member_data: dict[str, object] = member["data"]
         if (
             owner["kind"] != "class"
-            or owner_data.get("source_binding_unique") is not True
-            or owner_data.get("source_member_binding_static") is not True
+            or _mapping_value(owner["data"], "source_binding_unique") is not True
+            or _mapping_value(owner["data"], "source_member_binding_static") is not True
             or member["kind"] != "method"
-            or member_data.get("parent") != owners[0]
-            or member_data.get("decorators")
+            or _mapping_value(member["data"], "parent") != owner_name
+            or _mapping_value(member["data"], "decorators")
             or target not in targets
         ):
             return None
         annotation_evidence = add_evidence(self.evidence, self.module, annotation)
-        return {
-            "origin": CallBindingOrigin.DECLARED_RECEIVER,
-            "target": target,
-            "evidence_ids": sorted(
-                {evidence_id, annotation_evidence, *owner["evidence_ids"], *member["evidence_ids"]}
-            ),
-        }
+        return self._receiver_binding_record(
+            CallBindingOrigin.DECLARED_RECEIVER,
+            target,
+            evidence_id,
+            [
+                annotation_evidence,
+                *import_evidence,
+                *owner["evidence_ids"],
+                *member["evidence_ids"],
+            ],
+            None,
+        )
 
     def visit_Call(self, node: ast.Call) -> None:
         scope = self.scopes.by_node[node]
@@ -402,6 +1632,21 @@ class CallCollector(ast.NodeVisitor):
             scopes=self.scopes,
             receiver_types=receivers,
         )
+        evidence_id = add_evidence(self.evidence, self.module, node)
+        item_id = call_id(self.module, node, expression)
+        binding = self._call_binding(node, status, targets, evidence_id)
+        if binding is not None and "proof" in binding and node.func.col_offset > node.col_offset:
+            binding = None
+            status = SourceResolution.UNRESOLVED
+            targets = []
+            candidate_count = 0
+            reason = "Parenthesized callee source evidence is unsupported"
+        if binding is not None:
+            canonical_target = binding["target"]
+            targets = [canonical_target] if isinstance(canonical_target, str) else targets
+            candidate_count = len(targets)
+            status = SourceResolution.RESOLVED
+            reason = "source-proven call identity"
         target_evidence_ids = sorted(
             {
                 evidence_id
@@ -409,8 +1654,6 @@ class CallCollector(ast.NodeVisitor):
                 for evidence_id in self.symbol_evidence.get(target, [])
             }
         )
-        evidence_id = add_evidence(self.evidence, self.module, node)
-        item_id = call_id(self.module, node, expression)
         self.items.append(
             classified(
                 item_id=item_id,
@@ -437,7 +1680,7 @@ class CallCollector(ast.NodeVisitor):
                     "construction": self._construction(
                         node, expression, status, targets, candidate_count > len(targets)
                     ),
-                    "call_binding": self._call_binding(node, status, targets, evidence_id),
+                    "call_binding": binding,
                 },
             )
         )
@@ -448,12 +1691,22 @@ def collect_calls(
     parsed: Sequence[ParsedModule],
     index: SymbolIndex,
     evidence: dict[str, RawEvidence],
+    provider_bindings: Sequence[ProviderBinding] = (),
+    runtime: RuntimeInfo | None = None,
+    imports: Sequence[RawRecord] = (),
 ) -> list[RawRecord]:
     """Run the call collector over every module and sort the records by id."""
     calls: list[RawRecord] = []
-    for module in parsed:
-        call_collector = CallCollector(module, index, evidence)
-        call_collector.visit(module.tree)
+    collectors = [
+        CallCollector(module, index, evidence, provider_bindings, runtime, imports)
+        for module in parsed
+    ]
+    revocation_cache: dict[str, bool] = {}
+    for call_collector in collectors:
+        call_collector.native_mutation_collectors = tuple(collectors)
+        call_collector.native_revocation_cache = revocation_cache
+    for call_collector in collectors:
+        call_collector.visit(call_collector.module.tree)
         calls.extend(call_collector.items)
     calls.sort(key=lambda item: item["id"])
     return calls

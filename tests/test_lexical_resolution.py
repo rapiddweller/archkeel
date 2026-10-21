@@ -195,7 +195,11 @@ def test_provider_parent_helper_is_referenced_from_both_actual_call_sites(tmp_pa
     (package / "core.py").write_text(
         _source_members(
             "src/archkeel/analyzer/python/collect.py",
-            {"_provider_bindings", "_provider_parents_static"},
+            {
+                "_provider_bindings",
+                "_provider_module_is_relevant",
+                "_provider_parents_static",
+            },
         )
     )
     result = _observe(tmp_path)
@@ -211,11 +215,14 @@ def test_provider_parent_helper_is_referenced_from_both_actual_call_sites(tmp_pa
     assert {
         (item.data.get("source_scope"), item.data.get("status"), item.data.get("targets"))
         for item in calls
-    } == {("sample.core._provider_bindings", "resolved", (target,))}
+    } == {
+        ("sample.core._provider_bindings", "resolved", (target,)),
+        ("sample.core._provider_module_is_relevant", "resolved", (target,)),
+    }
     evidence = {item.id: item for item in observation.evidence}
     assert {evidence[item.evidence_ids[0]].excerpt.strip() for item in calls} == {
         "runtime_parent = _provider_parents_static(module.module, by_module)",
-        "if not runtime_parent and not _provider_parents_static(",
+        "or _provider_parents_static(module.module, by_module, source_identity=True)",
     }
     assert target not in {item.name for item in unreferenced_symbols(observation).candidates}
 

@@ -1096,7 +1096,7 @@ def rule_result_digest(sections: _Iterable[Section], rule_id: str) -> str:
                 if rule_id in record.rule_ids
                 and record.evidence_class in {EvidenceClass.VIOLATION, EvidenceClass.UNKNOWN}
             ),
-            key=lambda item: (item[0], item[1].id),
+            key=lambda item: (item[0], item[1].id, repr(item[1])),
         )
     )
     return stable_id("RULE-RESULT", rule_id, repr(selected))
@@ -1237,6 +1237,9 @@ def _call_owner_receipt_complete(observation: Observation, receipt: Record | Non
     return (
         coverage.status == Verdict.PASS
         and not coverage.failures
+        and bool(receipt.rule_ids)
+        and proof.get("result_digest")
+        == rule_result_digest(observation.sections, receipt.rule_ids[0])
         and isinstance(selected, tuple)
         and bool(selected)
         and coverage.files_discovered

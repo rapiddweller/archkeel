@@ -70,7 +70,8 @@ pr-test: browser-runtime-install
 		tests/test_report_agent_json.py \
 		tests/test_native_violation_filter.py \
 		tests/test_scoped_dependency_proof.py \
-		tests/test_call_owner_policy.py tests/test_call_owner_wire_compatibility.py tests/test_call_scope_receipt_identity.py \
+		tests/test_call_owner_policy.py tests/test_call_owner_source_facts.py tests/test_call_owner_wire_compatibility.py tests/test_call_owner_scan_completeness.py tests/test_call_scope_receipt_identity.py \
+		tests/test_call_owner_native_proof_regressions.py \
 		tests/test_numeric_operand_rule.py tests/test_numeric_operand_observation.py tests/test_protocol_declarations.py \
 		tests/test_protocol_conditional_identity.py \
 		tests/test_typescript_namespace_identities.py \
@@ -104,6 +105,7 @@ pr-report-test:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q \
 		--junitxml=test-artifacts/pytest/pr-report.xml \
 		tests/test_report_renderer_units.py tests/test_graph_scene_protocol.py tests/test_atlas_deviation_boundary.py \
+		tests/test_flow_inspector_pagination.py \
 		tests/test_explorer_report.py \
 		tests/test_report_interactions.py::test_native_card_drag_reroutes_all_hits_and_keeps_architecture_unchanged \
 		tests/test_uml_rendering.py::test_standard_uml_ignores_stale_layout_and_retries_rejected_layout \

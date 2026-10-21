@@ -72,6 +72,7 @@
       "packages": [
         "archkeel.ir.facts_codec",
         "archkeel.ir.facts_validation",
+        "archkeel.ir.source_proofs",
         "archkeel.ir.state_codec"
       ],
       "responsibilities": [
@@ -101,7 +102,8 @@
       "public": [
         "archkeel.ir.facts_codec",
         "archkeel.ir.facts_validation:validate_source_facts",
-        "archkeel.ir.facts_validation:validate_source_bindings"
+        "archkeel.ir.facts_validation:validate_source_bindings",
+        "archkeel.ir.source_proofs:class_instance_member_write_names"
       ]
     },
     {
@@ -12608,6 +12610,25 @@
             "Bind the restriction to its recorded decision."
           ],
           "annotation": "tuple[str, ...]"
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/decisions/ad-252-bounded-call-identity.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "IR-CALL-BINDING-proof",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.facts.CallBinding.proof",
+          "parent_id": "IR-CALL-BINDING",
+          "responsibilities": [
+            "Carry typed evidence linking extended receiver origins to their canonical declarations."
+          ],
+          "annotation": "RecordData | None"
         },
         {
           "language": "python",

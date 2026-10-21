@@ -71,6 +71,64 @@ def test_call_preparation_reuses_structure_and_only_scans_constructor_scopes(
     assert all(bool(item["data"]["construction"]) is constructor for item in collector.items)
 
 
+def test_sys_modules_aliases_are_scanned_once_per_collector_and_not_reused(
+    monkeypatch,
+):
+    original = calls.CallCollector._collect_sys_modules_aliases
+    scans = []
+
+    def count_scans(collector):
+        scans.append(collector.module.source)
+        return original(collector)
+
+    monkeypatch.setattr(calls.CallCollector, "_collect_sys_modules_aliases", count_scans)
+    index = build_symbol_index([])
+    first = calls.CallCollector(
+        _parsed_module(
+            "import sys as system\ntable = system.modules\nmodules = table\n",
+            module="sample.same",
+        ),
+        index,
+        {},
+    )
+    second = calls.CallCollector(
+        _parsed_module("from sys import modules as loaded\n", module="sample.same"),
+        index,
+        {},
+    )
+
+    assert len(scans) == 2
+    assert first.sys_modules_aliases == frozenset(
+        {"sys.modules", "system.modules", "table", "modules"}
+    )
+    assert second.sys_modules_aliases == frozenset({"sys.modules", "loaded"})
+
+
+def test_non_random_named_receiver_skips_random_instance_mutation_scan(monkeypatch):
+    module = _parsed_module(
+        "class Widget:\n    def random(self): pass\n"
+        "def run():\n    widget = Widget()\n    widget.random()\n"
+    )
+    collector = calls.CallCollector(module, build_symbol_index([]), {})
+    mutation_scans = []
+    original_scan = collector._native_instance_member_changed
+
+    def count_scans(name, call):
+        mutation_scans.append((name, call))
+        return original_scan(name, call)
+
+    monkeypatch.setattr(collector, "_native_instance_member_changed", count_scans)
+    [call] = [
+        node
+        for node in module.all_nodes
+        if isinstance(node, ast.Call) and ast.unparse(node.func) == "widget.random"
+    ]
+
+    assert collector._native_random_receiver_call(call) is None
+    assert mutation_scans == []
+    assert collector.evidence == {}
+
+
 def test_plain_constructor_retains_binding_call_creation_and_instance_evidence(tmp_path):
     observation = _observation(
         tmp_path, "class Service: pass\ndef build():\n value: Service = Service()\n return value\n"

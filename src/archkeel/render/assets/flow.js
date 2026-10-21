@@ -1003,6 +1003,7 @@ export let flow;
   }
 
   const boundaryPermissionGroups = new Map();
+  const inspectorListGroups = new Map();
   let boundaryAuditMarkup = "";
 
   function boundaryPermissionMarkup(scope = null, related = new Set(), edge = false) {
@@ -1172,12 +1173,39 @@ export let flow;
   }, true);
   inspectorContent.addEventListener("click", (event) => {
     const more = event.target.closest("[data-boundary-more]");
-    if (!more) return;
-    const group = more.closest("[data-boundary-group]");
-    fillBoundaryPermissionGroup(group, Number(group.dataset.boundaryLimit) + 20);
+    if (more) {
+      const group = more.closest("[data-boundary-group]");
+      fillBoundaryPermissionGroup(group, Number(group.dataset.boundaryLimit) + 20);
+      return;
+    }
+    const listAction = event.target.closest(
+      "[data-inspector-list-more], [data-inspector-list-all]"
+    );
+    const key = listAction?.dataset.inspectorListMore ?? listAction?.dataset.inspectorListAll;
+    const state = key && inspectorListGroups.get(key);
+    if (!state || state.rendered >= state.rows.length) return;
+    const list = inspectorContent.querySelector(`[data-inspector-list="${key}"]`);
+    const start = state.rendered;
+    state.rendered = listAction.hasAttribute("data-inspector-list-all")
+      ? state.rows.length : Math.min(state.rendered + 20, state.rows.length);
+    list.insertAdjacentHTML(
+      "beforeend",
+      state.rows.slice(start, state.rendered).map(state.render).join("")
+    );
+    if (state.rendered === state.rows.length) {
+      for (const button of inspectorContent.querySelectorAll(
+        `[data-inspector-list-more="${key}"], [data-inspector-list-all="${key}"]`
+      )) {
+        button.disabled = true;
+        button.textContent = `All ${state.rows.length} ${state.label} shown`;
+      }
+      return;
+    }
+    listAction.textContent = `Show next ${Math.min(20, state.rows.length - state.rendered)} of ${state.rows.length} ${state.label} · ${state.rows.length - state.rendered} remaining`;
   });
 
   function architectureInspector(context, scene) {
+    inspectorListGroups.clear();
     const { graph } = context;
     const node = umlSelection?.type === "node"
       ? scene.nodes.find((item) => item.id === umlSelection.id) : null;
@@ -1263,6 +1291,18 @@ export let flow;
       : entity?.kind === "module" ? `${entity.language === "python" ? "Python" : entity.language} module`
       : entity?.kind === "interface" && entity.language === "python" ? "Interface / Protocol" : entity?.kind;
 
+    const pagedInspectorList = (label, rows, render) => {
+      if (!rows.length) return "";
+      const key = String(inspectorListGroups.size);
+      const shown = Math.min(20, rows.length);
+      inspectorListGroups.set(key, { rows, render, rendered: shown, label });
+      const controls = rows.length > shown ? `<button type="button" class="flow-fit"
+        data-inspector-list-more="${key}">Show next ${Math.min(20, rows.length - shown)} of ${rows.length} ${esc(label)} · ${rows.length - shown} remaining</button>
+        <button type="button" class="flow-fit" data-inspector-list-all="${key}">Show all ${rows.length} ${esc(label)}</button>` : "";
+      return `<h3>${esc(label)} · ${rows.length}</h3>
+        <ul class="plain" data-inspector-list="${key}">${rows.slice(0, shown).map(render).join("")}</ul>${controls}`;
+    };
+
     inspectorContent.innerHTML = `<div class="kicker">${context.comparison ? "Core comparison" : entityGraph.origin === "observed" ? entity?.kind === "component" ? "Declared navigation boundary · observed source" : "Observed" : "Independent Target"} UML</div>
       <h2>${esc(entity ? REPORT_SCENE.label(entity, entityGraph) : (edge?.relationshipKind === "requires" ? "Allowed component import" : edge?.relationshipKind) || "Architecture scope")}</h2>
       ${entity ? `<p class="flow-qualified-name"><code>${entity.qualified_name.split(".").map(esc).join(".<wbr>")}</code></p>` : ""}
@@ -1308,12 +1348,12 @@ export let flow;
         `<li><span>${esc(child.kind)}</span> · <code>${esc(REPORT_SCENE.member(child))}</code>${REPORT_SCENE.hasInterior(child, entityGraph, viewMode) ? ` <button type="button" data-uml-detail="${esc(child.id)}">Open</button>` : ""}</li>`).join("")}</ul>` : ""}
       ${assessments.length ? `<h3>Target checks</h3>${problems.length ? `<ul class="plain">${assessmentDetails(problems)}</ul>` : ""}${matches.length ? `<details><summary>${matches.length} matched assessments</summary><ul class="plain">${assessmentDetails(matches)}</ul></details>` : ""}`
         : context.comparison && entityGraph.origin === "observed" ? "<h3>Target checks</h3><p>No recorded check for this observed scope.</p>" : ""}
-      ${sites.length ? `<h3>Relationship sites</h3><ul class="plain">${siteEntries.map(({ site, sourceGraph }) =>
-        `<li><code>${esc(site.kind)}</code> · ${esc(site.resolution === "not_applicable" ? "declared" : site.resolution)}<p><code>${esc(siteNames.get(sourceGraph).get(site.source_id))} → ${esc(siteNames.get(sourceGraph).get(site.target_id) || (site.candidate_ids.length ? "candidates" : "unresolved"))}</code></p>${site.kind === "requires" ? `<p>Allowed component import. This does not require an import or call.</p><p>${site.through.length ? `Through: <code>${site.through.map(esc).join(", ")}</code>` : "Published interface not narrowed"}${site.decided_by ? ` · Decided by: ${esc(site.decided_by)}` : ""}</p>` : ""}${site.expression ? `<code>${esc(site.expression)}</code>` : ""}${site.reason ? `<p>${esc(site.reason)}</p>` : ""}</li>`).join("")}</ul>` : ""}
+      ${sites.length ? pagedInspectorList("Relationship sites", siteEntries, ({ site, sourceGraph }) =>
+        `<li><code>${esc(site.kind)}</code> · ${esc(site.resolution === "not_applicable" ? "declared" : site.resolution)}<p><code>${esc(siteNames.get(sourceGraph).get(site.source_id))} → ${esc(siteNames.get(sourceGraph).get(site.target_id) || (site.candidate_ids.length ? "candidates" : "unresolved"))}</code></p>${site.kind === "requires" ? `<p>Allowed component import. This does not require an import or call.</p><p>${site.through.length ? `Through: <code>${site.through.map(esc).join(", ")}</code>` : "Published interface not narrowed"}${site.decided_by ? ` · Decided by: ${esc(site.decided_by)}` : ""}</p>` : ""}${site.expression ? `<code>${esc(site.expression)}</code>` : ""}${site.reason ? `<p>${esc(site.reason)}</p>` : ""}</li>`) : ""}
       ${coverage.length ? `<h3>Coverage</h3><ul class="plain">${coverage.map((item) =>
         `<li>${esc([...item.entity_kinds, ...item.relationship_kinds].join(", "))}: ${esc(item.status)}${item.reason ? ` · ${esc(item.reason)}` : ""}</li>`).join("")}</ul>` : ""}
-      ${proof.length ? `<h3>Source sites</h3><ul class="plain">${proof.map((item) =>
-        `<li><code>${esc(item.file)}:${item.line}:${item.column}</code><pre>${esc(item.excerpt)}</pre></li>`).join("")}</ul>` : ""}
+      ${proof.length ? pagedInspectorList("Source sites", proof, (item) =>
+        `<li><code>${esc(item.file)}:${item.line}:${item.column}</code><pre>${esc(item.excerpt)}</pre></li>`) : ""}
       ${[...(entity?.provenance || []), ...sites.flatMap((item) => item.provenance)].length ? `<h3>Provenance</h3><ul class="plain">${[...new Set([...(entity?.provenance || []), ...sites.flatMap((item) => item.provenance)])].map((item) => `<li>${esc(item)}</li>`).join("")}</ul>` : ""}
       ${!entity && !edge ? "<p>Select a visible element or connection for its recorded details.</p>" : ""}`;
     if (viewMode !== "target" && (viewMode === "diff" || umlSelection)) {
