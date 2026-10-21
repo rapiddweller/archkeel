@@ -2219,8 +2219,21 @@ def collect_calls_with_resolvers(
     """Collect calls and retain their per-module resolver for construct evidence."""
     calls: list[RawRecord] = []
     resolvers: list[CallCollector] = []
+    imports_by_module: dict[object, list[RawRecord]] = {}
+    for item in imports:
+        module_imports: list[RawRecord] = imports_by_module.setdefault(
+            _mapping_value(item["data"], "source_module"), []
+        )
+        module_imports.append(item)
     collectors = [
-        CallCollector(module, index, evidence, provider_bindings, runtime, imports)
+        CallCollector(
+            module,
+            index,
+            evidence,
+            provider_bindings,
+            runtime,
+            imports_by_module.get(module.module, ()),
+        )
         for module in parsed
     ]
     revocation_cache: dict[str, bool] = {}

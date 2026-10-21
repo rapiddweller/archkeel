@@ -5141,9 +5141,30 @@ def _validate_source_role_identities(
     all_records = tuple(records)
     roles = tuple(record for record in all_records if record.kind == "source_role")
     anchors, symbols, member_anchors, imports = _source_role_indexes(all_records, roles)
+    references: dict[tuple[JsonValue, JsonValue], list[Record]] = {}
+    for record in all_records:
+        if (
+            record.kind in {"value_reference", "attribute_reference"}
+            and len(record.evidence_ids) == 1
+        ):
+            key = (record.data.get("source_module"), record.data.get("source_scope"))
+            scope_references: list[Record] = references.setdefault(key, [])
+            scope_references.append(record)
+    unique_anchor_names: dict[str, list[str]] = {}
+    for (name, identity), matches in anchors.items():
+        if len(matches) == 1:
+            identity_names: list[str] = unique_anchor_names.setdefault(identity, [])
+            identity_names.append(name)
     for role in roles:
         _validate_source_role(
-            role, all_records, anchors, symbols, member_anchors, imports, evidence
+            role,
+            references,
+            anchors,
+            unique_anchor_names,
+            symbols,
+            member_anchors,
+            imports,
+            evidence,
         )
     _validate_local_source_references(all_records, anchors, evidence, symbols, member_anchors)
     _validate_unique_local_declaration_anchors(all_records)
@@ -5230,8 +5251,9 @@ def _source_role_indexes(
 
 def _validate_source_role(
     role: Record,
-    all_records: tuple[Record, ...],
+    references: Mapping[tuple[JsonValue, JsonValue], list[Record]],
     anchors: Mapping[tuple[str, str], list[Record]],
+    unique_anchor_names: Mapping[str, list[str]],
     symbols: Mapping[str, list[Record]],
     member_anchors: Mapping[tuple[str, str], list[RecordData]],
     imports: Mapping[tuple[str, str], list[Record]],
@@ -5253,7 +5275,15 @@ def _validate_source_role(
         )
     elif role_name in {"parameter_default", "fallback"}:
         _validate_parameter_source_role(
-            role, canonical, declaration_id, source_scope, witness, anchors, all_records, evidence
+            role,
+            canonical,
+            declaration_id,
+            source_scope,
+            witness,
+            anchors,
+            unique_anchor_names,
+            references,
+            evidence,
         )
     else:
         _validate_owned_source_role(
@@ -5266,7 +5296,7 @@ def _validate_source_role(
             anchors,
             member_anchors,
             imports,
-            all_records,
+            references,
             evidence,
         )
 
@@ -5383,7 +5413,8 @@ def _validate_parameter_source_role(
     source_scope: JsonValue,
     witness: Evidence,
     anchors: Mapping[tuple[str, str], list[Record]],
-    records: tuple[Record, ...],
+    unique_anchor_names: Mapping[str, list[str]],
+    references: Mapping[tuple[JsonValue, JsonValue], list[Record]],
     evidence: Mapping[str, Evidence],
 ) -> None:
     parameter = role.data.get("parameter")
@@ -5392,10 +5423,8 @@ def _validate_parameter_source_role(
     parameter_name: str = parameter
     owners = [
         name
-        for (name, identity), matches in anchors.items()
-        if identity == declaration_id
-        and len(matches) == 1
-        and parameter_name.startswith(name + ".")
+        for name in unique_anchor_names.get(declaration_id, ())
+        if parameter_name.startswith(name + ".")
     ]
     if len(owners) != 1:
         raise ValueError("parameter role needs its unique function declaration anchor")
@@ -5430,7 +5459,7 @@ def _validate_parameter_source_role(
     elif kind == "reference":
         if not targets and status != SourceResolution.RESOLVED:
             return
-        matches = _matching_role_references(role, records, witness, evidence)
+        matches = _matching_role_references(role, references, witness, evidence)
         if len(matches) != 1 or not targets or status != SourceResolution.RESOLVED:
             raise ValueError("source role target lacks matching reference evidence")
     else:
@@ -5552,7 +5581,7 @@ def _validate_owned_source_role(
     anchors: Mapping[tuple[str, str], list[Record]],
     member_anchors: Mapping[tuple[str, str], list[RecordData]],
     imports: Mapping[tuple[str, str], list[Record]],
-    records: tuple[Record, ...],
+    references: Mapping[tuple[JsonValue, JsonValue], list[Record]],
     evidence: Mapping[str, Evidence],
 ) -> None:
     anchored = (
@@ -5573,9 +5602,9 @@ def _validate_owned_source_role(
     imported = isinstance(source_module, str) and any(
         _import_binds_source(item, excerpt) for item in imports.get((source_module, canonical), ())
     )
+    parts = canonical.split(".")
     anchored_prefix = any(
-        canonical.startswith(prefix + ".") and identity == declaration_id
-        for prefix, identity in member_anchors
+        (".".join(parts[:end]), declaration_id) in member_anchors for end in range(1, len(parts))
     )
     chained = (
         role.data.get("status") == SourceResolution.PARTIALLY_RESOLVED
@@ -5586,7 +5615,7 @@ def _validate_owned_source_role(
         role_name in {"value_transfer", "read"}
         and role.data.get("status") == SourceResolution.PARTIALLY_RESOLVED
         and role.data.get("targets") == ()
-        and bool(_matching_role_references(role, records, witness, evidence))
+        and bool(_matching_role_references(role, references, witness, evidence))
     )
     unresolved = (
         role_name in {"value_transfer", "read", "write", "delete"}
@@ -5627,10 +5656,14 @@ def _import_binds_source(item: Record, excerpt: str) -> bool:
 
 
 def _matching_role_references(
-    role: Record, records: tuple[Record, ...], witness: Evidence, evidence: Mapping[str, Evidence]
+    role: Record,
+    references: Mapping[tuple[JsonValue, JsonValue], list[Record]],
+    witness: Evidence,
+    evidence: Mapping[str, Evidence],
 ) -> list[Record]:
     matches = []
-    for candidate in records:
+    scope = (role.data.get("source_module"), role.data.get("source_scope"))
+    for candidate in references.get(scope, ()):
         if (
             candidate.kind not in {"value_reference", "attribute_reference"}
             or len(candidate.evidence_ids) != 1

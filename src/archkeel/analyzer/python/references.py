@@ -531,8 +531,10 @@ class ReferenceCollector(ast.NodeVisitor):
                 and scope.parent is not None
                 and isinstance(scope.parent.node, ast.ClassDef)
                 and name not in self.attribute_definitions
-                # The class body already defines it; a second definition breaks the anchor.
-                and node.attr not in scope.parent.bindings
+                # A class-body assignment already defines it; a second definition breaks the anchor.
+                and not any(
+                    isinstance(site, ast.Name) for site in scope.parent.bindings.get(node.attr, ())
+                )
             ):
                 role = "definition"
                 self.attribute_definitions.add(name)

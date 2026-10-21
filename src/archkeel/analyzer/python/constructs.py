@@ -676,7 +676,15 @@ class ConstructCollector(ast.NodeVisitor):
         self.comparisons = comparisons
         self.symbol_index = symbol_index
         self.call_collector = call_collector
-        self.imports = imports
+        # Selector lookups scanned every import per call; group this module's by binding once.
+        self.imports_by_binding: dict[object, list[RawRecord]] = {}
+        for item in imports:
+            data: RecordData = item["data"]
+            if data.get("source_module") == module.module:
+                binding_imports: list[RawRecord] = self.imports_by_binding.setdefault(
+                    data.get("binding"), []
+                )
+                binding_imports.append(item)
         self.include_parameter_owner_proof = include_parameter_owner_proof
         self.inherits_stack: list[bool] = []
         self.type_alias_evidence_ids: list[str] = []
@@ -1388,7 +1396,7 @@ class ConstructCollector(ast.NodeVisitor):
 
     def _direct_selector_import_targets(self, binding: str) -> set[str]:
         targets: set[str] = set()
-        for item in self.imports:
+        for item in self.imports_by_binding.get(binding, ()):
             data: RecordData = item["data"]
             target_module = data.get("target_module")
             symbol = data.get("symbol")
@@ -1405,7 +1413,7 @@ class ConstructCollector(ast.NodeVisitor):
         self, binding: str, target: str, suffix: list[str]
     ) -> list[RawRecord]:
         matches: list[RawRecord] = []
-        for item in self.imports:
+        for item in self.imports_by_binding.get(binding, ()):
             data: RecordData = item["data"]
             origin = data.get("origin_definition")
             if (
@@ -1911,6 +1919,13 @@ def collect_constructs(
                 known_classes.add(origin)
     items: list[RawRecord] = []
     resolvers = receiver_resolvers or (None,) * len(parsed)
+    imports_by_module: dict[object, list[RawRecord]] = {}
+    for item in imports:
+        item_data: RecordData = item["data"]
+        module_imports: list[RawRecord] = imports_by_module.setdefault(
+            item_data.get("source_module"), []
+        )
+        module_imports.append(item)
     for module, context, call_collector in zip(parsed, contexts, resolvers, strict=True):
         context.scalar_names = scalar_names
         context.enum_member_names = enum_member_names
@@ -1922,7 +1937,7 @@ def collect_constructs(
             context,
             symbol_index,
             call_collector,
-            imports,
+            imports_by_module.get(module.module, ()),
             include_parameter_owner_proof,
         )
         collector.local_classes = known_classes
