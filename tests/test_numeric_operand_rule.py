@@ -3,7 +3,9 @@
 # SPDX-License-Identifier: MIT
 """A versioned native rule evaluates bounded modulo operand proofs."""
 
+import ast
 import json
+import sys
 from dataclasses import replace
 from pathlib import Path
 
@@ -803,6 +805,90 @@ def test_anonymous_scopes_in_class_bodies_keep_lexical_alias_resolution(
         )
         replay = run_saved_report(saved)
         assert not replay.diagnostics and replay.rule_assessments == rows
+
+
+@pytest.mark.parametrize(
+    ("expression", "scope_type"),
+    [
+        ("[job_nonce % WIDTH for job_nonce in (1,)]", ast.ListComp),
+        ("{job_nonce % WIDTH for job_nonce in (1,)}", ast.SetComp),
+        ("{job_nonce % WIDTH: 1 for job_nonce in (1,)}", ast.DictComp),
+        ("(job_nonce % WIDTH for job_nonce in (1,))", ast.GeneratorExp),
+    ],
+)
+def test_class_comprehension_scope_keeps_module_free_names_and_local_targets(
+    expression, scope_type
+):
+    from archkeel.analyzer.python.scopes import LexicalScopes
+
+    source = f"WIDTH = 4\nclass Holder:\n    WIDTH = 8\n    values = {expression}\n"
+    from test_analyzer import _parsed_module
+
+    module = _parsed_module(source, "sample.core", rel_path="sample/core.py")
+    scopes = LexicalScopes.for_module(module)
+    width = next(
+        node
+        for node in ast.walk(module.tree)
+        if isinstance(node, ast.Name) and node.id == "WIDTH" and isinstance(node.ctx, ast.Load)
+    )
+    job_nonce_read = next(
+        node
+        for node in ast.walk(module.tree)
+        if isinstance(node, ast.Name) and node.id == "job_nonce" and isinstance(node.ctx, ast.Load)
+    )
+    comprehension = scopes.by_node[width]
+
+    assert isinstance(comprehension.node, scope_type)
+    assert comprehension.inlined is (
+        sys.version_info >= (3, 12) and scope_type is not ast.GeneratorExp
+    )
+    assert (comprehension.table is None) is comprehension.inlined
+    assert scopes.lookup(width, "WIDTH").owner is scopes.root
+    assert scopes.lookup(job_nonce_read, "job_nonce").owner is comprehension
+
+
+def test_inlined_comprehensions_preserve_function_global_nonlocal_and_nested_targets():
+    from archkeel.analyzer.python.scopes import LexicalScopes
+
+    source = (
+        "WIDTH = 4\n"
+        "def outer():\n"
+        "    WIDTH = 8\n"
+        "    def global_case(job_nonce):\n"
+        "        global WIDTH\n"
+        "        return [job_nonce % WIDTH for job_nonce in (1,)]\n"
+        "    def nonlocal_case(job_nonce):\n"
+        "        nonlocal WIDTH\n"
+        "        return [job_nonce % WIDTH for job_nonce in (1,)]\n"
+        "    def nested_target(job_nonce):\n"
+        "        return [[job_nonce % WIDTH for WIDTH in (1,)] for _ in (1,)]\n"
+    )
+    from test_analyzer import _parsed_module
+
+    module = _parsed_module(source, "sample.core", rel_path="sample/core.py")
+    scopes = LexicalScopes.for_module(module)
+    width_reads = [
+        node
+        for node in ast.walk(module.tree)
+        if isinstance(node, ast.Name) and node.id == "WIDTH" and isinstance(node.ctx, ast.Load)
+    ]
+
+    def function_scope(node):
+        scope = scopes.by_node[node]
+        while scope is not None and not isinstance(
+            scope.node, ast.FunctionDef | ast.AsyncFunctionDef
+        ):
+            scope = scope.parent
+        return scope
+
+    by_function = {
+        function_scope(node).qualified_name: scopes.lookup(node, "WIDTH").owner
+        for node in width_reads
+    }
+
+    assert by_function["sample.core.outer.global_case"] is scopes.root
+    assert by_function["sample.core.outer.nonlocal_case"].node.name == "outer"
+    assert isinstance(by_function["sample.core.outer.nested_target"].node, ast.ListComp)
 
 
 @pytest.mark.parametrize(
