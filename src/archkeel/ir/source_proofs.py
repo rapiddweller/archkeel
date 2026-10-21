@@ -94,6 +94,8 @@ def _receiver_escapes_in_value(node: ast.AST, aliases: set[str]) -> bool:
         return node.id in aliases
     if isinstance(node, ast.Tuple | ast.List | ast.Set):
         return any(_receiver_escapes_in_value(item, aliases) for item in node.elts)
+    if isinstance(node, ast.Subscript):
+        return _contains_alias(node.value, aliases)
     if isinstance(node, ast.Dict):
         return any(
             item is not None and _receiver_escapes_in_value(item, aliases)
