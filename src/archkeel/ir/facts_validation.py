@@ -4,6 +4,7 @@
 """Cross-reference and source-payload invariants of the collection protocol."""
 
 import ast
+from bisect import bisect_right
 from collections.abc import Collection, Iterable, Mapping
 from functools import lru_cache
 from pathlib import PurePosixPath
@@ -1486,7 +1487,10 @@ def _numeric_operation_expression(
 
 
 def _numeric_type_alias_parameters(
-    record: Record, evidence_by_id: Mapping[str, Evidence], expected_file: str
+    record: Record,
+    evidence_by_id: Mapping[str, Evidence],
+    expected_file: str,
+    type_alias_index: Mapping[str, tuple[tuple[int, ...], tuple[int, ...]]],
 ) -> tuple[frozenset[str], bool]:
     """Return TypeAlias parameters attached to this operation's source witnesses."""
     type_alias = getattr(ast, "TypeAlias", None)
@@ -1514,7 +1518,9 @@ def _numeric_type_alias_parameters(
         operation_end_column,
     )
     parameter_names: set[str] = set()
-    incomplete_scope = False
+    starts, max_ends = type_alias_index.get(expected_file, ((), ()))
+    preceding = bisect_right(starts, operation_line) - 1
+    incomplete_scope = preceding >= 0 and max_ends[preceding] >= operation_line
     for evidence_id in record.evidence_ids:
         evidence = evidence_by_id.get(evidence_id)
         if evidence is None or evidence.file != expected_file:
@@ -1595,6 +1601,7 @@ def _validate_numeric_operand_witness(
     declarations_by_id: Mapping[str, Record],
     declarations_by_name: Mapping[str, tuple[Record, ...]],
     expected_file: str,
+    type_alias_index: Mapping[str, tuple[tuple[int, ...], tuple[int, ...]]],
 ) -> None:
     data = record.data
     expression = _numeric_operation_expression(record, evidence_by_id, expected_file)
@@ -1616,7 +1623,7 @@ def _validate_numeric_operand_witness(
         return
     operand = expression.right if isinstance(expression, ast.BinOp) else expression.value
     type_parameters, generic_scope = _numeric_type_alias_parameters(
-        record, evidence_by_id, expected_file
+        record, evidence_by_id, expected_file, type_alias_index
     )
     operand_names = {
         node.id
@@ -2314,6 +2321,27 @@ def validate_source_facts(facts: SourceFacts) -> None:
     declarations_by_name = {
         name: tuple(declarations) for name, declarations in declaration_groups.items()
     }
+    type_alias_ranges: dict[str, list[tuple[int, int]]] = {}
+    for declaration in declarations_by_id.values():
+        if declaration.kind != "dynamic_binding":
+            continue
+        for type_alias_evidence_id in declaration.evidence_ids:
+            evidence = base_by_id[type_alias_evidence_id]
+            excerpt = evidence.excerpt.lstrip()
+            if excerpt.startswith("type ") and "[" in excerpt:
+                type_alias_ranges.setdefault(evidence.file, []).append(
+                    (evidence.line, evidence.end_line)
+                )
+    type_alias_index: dict[str, tuple[tuple[int, ...], tuple[int, ...]]] = {}
+    for file, ranges in type_alias_ranges.items():
+        starts: list[int] = []
+        max_ends: list[int] = []
+        maximum = 0
+        for start, end in sorted(ranges):
+            starts.append(start)
+            maximum = max(maximum, end)
+            max_ends.append(maximum)
+        type_alias_index[file] = (tuple(starts), tuple(max_ends))
     record_ids = _unique((record.id for record in records), "source record id")
     if file_ids & record_ids:
         raise ValueError("file and record ids collide")
@@ -2379,6 +2407,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
                     declarations_by_id,
                     declarations_by_name,
                     expected_file,
+                    type_alias_index,
                 )
             construct = record.data.get("construct")
             if construct is not None and not any(

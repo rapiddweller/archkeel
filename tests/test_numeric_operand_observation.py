@@ -83,27 +83,33 @@ def test_generic_type_alias_type_parameter_bounds_stay_unknown(tmp_path):
 
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type aliases require Python 3.12")
 @pytest.mark.parametrize(
-    ("source", "error"),
+    ("source", "error", "remove_type_alias_evidence"),
     [
         (
             "WIDTH = 4\ntype Alias[WIDTH] = job_nonce % WIDTH\n",
             "type parameter",
+            True,
         ),
         (
             "WIDTH = 4\ntype Alias[\n    WIDTH\n] = job_nonce % WIDTH\n",
             "complete source witness",
+            False,
         ),
         (
             "WIDTH = 4\ntype Alias[WIDTH] = (\n    job_nonce % WIDTH\n)\n",
             "type parameter",
+            True,
         ),
         (
             "WIDTH = 4\ntype Alias[WIDTH, T: job_nonce % WIDTH] = T\n",
             "type parameter",
+            False,
         ),
     ],
 )
-def test_saved_facts_reject_forged_known_type_parameter_alias(tmp_path, source, error):
+def test_saved_facts_reject_forged_known_type_parameter_alias(
+    tmp_path, source, error, remove_type_alias_evidence
+):
     from archkeel.analyzer.python.collect import collect
     from archkeel.ir.facts_codec import (
         CollectionResponse,
@@ -147,6 +153,13 @@ def test_saved_facts_reject_forged_known_type_parameter_alias(tmp_path, source, 
         }
     ]
     operation["evidence_ids"].append(evidence["id"])
+    if remove_type_alias_evidence:
+        alias_evidence = next(
+            item
+            for item in payload["facts"]["evidence"]
+            if item.get("excerpt", "").startswith("type Alias[")
+        )
+        operation["evidence_ids"].remove(alias_evidence["id"])
     with pytest.raises(ProtocolError, match=error):
         decode_response(json.dumps(payload).encode())
 
