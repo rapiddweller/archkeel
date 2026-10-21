@@ -836,6 +836,16 @@ class ConstructCollector(ast.NodeVisitor):
             if not type_alias_evidence["line"] <= use_line <= type_alias_evidence["end_line"]:
                 continue
             type_alias_excerpt: str = type_alias_evidence["excerpt"]
+            type_alias_header: str = type_alias_excerpt.lstrip(" \t")
+            type_parameter_start: int = type_alias_header.find("[")
+            assignment_start: int = type_alias_header.find("=")
+            generic_alias: bool = (
+                type_alias_header.startswith("type ")
+                and type_parameter_start >= 0
+                and (assignment_start < 0 or type_parameter_start < assignment_start)
+            )
+            if not generic_alias:
+                continue
             if not _numeric_evidence_excerpt_supported(type_alias_excerpt):
                 return None
         chain: list[dict[str, str]] = []
@@ -1581,8 +1591,6 @@ class ConstructCollector(ast.NodeVisitor):
             else self._receiver_type(selected)
         )
         member = selected.attr if isinstance(selected, ast.Attribute) else node.func.attr
-        if receiver_type is None and not isinstance(selected, ast.Attribute):
-            return
         literals = self.comparisons.string_values(node.args[0])
         if literals is not None:
             for literal in dict.fromkeys(literals):
