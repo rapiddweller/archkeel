@@ -117,32 +117,42 @@ def test_dangling_type_alias_evidence_is_a_validation_error(tmp_path):
 
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type aliases require Python 3.12")
 @pytest.mark.parametrize(
-    ("source", "error", "remove_type_alias_evidence"),
+    ("source", "error", "remove_type_alias_evidence", "reader_version"),
     [
         (
             "WIDTH = 4\ntype Alias[WIDTH] = job_nonce % WIDTH\n",
             "type parameter",
             True,
+            None,
         ),
         (
             "WIDTH = 4\ntype Alias[\n    WIDTH\n] = job_nonce % WIDTH\n",
             "complete source witness",
             False,
+            None,
         ),
         (
             "WIDTH = 4\ntype Alias[WIDTH] = (\n    job_nonce % WIDTH\n)\n",
             "type parameter",
             True,
+            None,
         ),
         (
             "WIDTH = 4\ntype Alias[WIDTH, T: job_nonce % WIDTH] = T\n",
             "type parameter",
             False,
+            None,
+        ),
+        (
+            "WIDTH = 4\ntype Alias[WIDTH] = (\n    job_nonce % WIDTH\n)\n",
+            "type parameter",
+            True,
+            (3, 11),
         ),
     ],
 )
 def test_saved_facts_reject_forged_known_type_parameter_alias(
-    tmp_path, source, error, remove_type_alias_evidence
+    tmp_path, monkeypatch, source, error, remove_type_alias_evidence, reader_version
 ):
     from archkeel.analyzer.python.collect import collect
     from archkeel.ir.facts_codec import (
@@ -194,6 +204,12 @@ def test_saved_facts_reject_forged_known_type_parameter_alias(
             if item.get("excerpt", "").startswith("type Alias[")
         )
         operation["evidence_ids"].remove(alias_evidence["id"])
+    if reader_version is not None:
+        from types import SimpleNamespace
+
+        from archkeel.ir import facts_validation
+
+        monkeypatch.setattr(facts_validation, "sys", SimpleNamespace(version_info=reader_version))
     with pytest.raises(ProtocolError, match=error):
         decode_response(json.dumps(payload).encode())
 
