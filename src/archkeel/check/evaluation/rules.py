@@ -35,6 +35,8 @@ from archkeel.ir.model import (
     BoundaryTypesRule,
     BoundedNumericOperandRule,
     CallOwnerRule,
+    CatalogArgumentRule,
+    CatalogUseRule,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
@@ -49,12 +51,14 @@ from archkeel.ir.model import (
     ForbiddenConstructKind,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
+    ForbiddenEffectUnderConditionRule,
     InterfaceBoundaryRule,
     LayerOrderRule,
     ModuleExports,
     NoComponentCyclesRule,
     ProtocolDeclarationsRule,
     RootLayoutRule,
+    SelectorMatch,
     SiblingIsolationRule,
     SourceOwnershipRule,
     SymbolPlacementRule,
@@ -998,6 +1002,8 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
         return {}
     if isinstance(rule, ForbiddenCallArgumentRule):
         return {"source": (rule.source,)}
+    if isinstance(rule, CatalogArgumentRule | CatalogUseRule | ForbiddenEffectUnderConditionRule):
+        return {"source": (rule.source,)}
     if isinstance(rule, ForbiddenDependencyRule | AllowedDependencyRule):
         return {"source": (rule.source,), "target": (rule.target,)}
     if isinstance(rule, ExternalDependencyScopeRule):
@@ -1218,32 +1224,17 @@ def rule_subject_failures(
     for rule in rules:
         if isinstance(rule, LayerOrderRule) and contract is not None:
             rule_failures.extend(_layer_metadata_failures(contract, rule))
-        scopes = rule_scopes(rule)
-        if isinstance(rule, ForbiddenDependencyRule) and (
-            rule.target in sdk_libraries
-            or rule.target_kind is DependencyTargetKind.IMPORT_NAMESPACE
-        ):
-            scopes = {"source": scopes["source"]}
-        source_subjects: AbstractSet[str] = module_names | planned_subjects
-        if isinstance(rule, BoundedNumericOperandRule) and contract is not None:
-            numeric_modules = _numeric_rule_subject_modules(
-                rule, observed_modules, contract, source_modules
-            )
-            source_subjects = source_subjects | set(numeric_modules)
-            scopes = {"source": numeric_modules}
-        if isinstance(rule, ForbiddenCallArgumentRule):
-            source_subjects = source_subjects | _call_argument_subject_symbols(
-                symbols, source_modules
-            )
+        scopes, source_subjects = _rule_source_subjects(
+            rule,
+            module_names,
+            planned_subjects,
+            observed_modules,
+            contract,
+            symbols,
+            sdk_libraries,
+            source_modules,
+        )
         target_subjects: AbstractSet[str] = (target_module_names or module_names) | planned_subjects
-        if isinstance(rule, ForbiddenConstructRule):
-            owner_modules = (
-                module_names if source_modules is None else module_names & source_modules
-            )
-            source_subjects = source_subjects | {
-                item["data"]["qualified_name"]
-                for item in _construct_subject_symbols(rule.source, symbols, owner_modules)
-            }
         facade_scoped = False
         if isinstance(rule, BoundaryTypesRule) and contract is not None:
             source_subjects = _boundary_type_subject_modules(
@@ -1267,6 +1258,66 @@ def rule_subject_failures(
                 _missing_rule_subject_failure(rule, scopes, matches, facade_scoped)
             )
     return rule_failures
+
+
+def _rule_source_subjects(
+    rule: ArchitectureRule,
+    module_names: set[str],
+    planned_subjects: AbstractSet[str],
+    observed_modules: Sequence[RawRecord],
+    contract: ArchitectureContract | None,
+    symbols: Sequence[RawRecord],
+    sdk_libraries: frozenset[str],
+    source_modules: frozenset[str] | None,
+) -> tuple[dict[str, tuple[str, ...]], AbstractSet[str]]:
+    scopes = rule_scopes(rule)
+    if isinstance(rule, ForbiddenDependencyRule) and (
+        rule.target in sdk_libraries or rule.target_kind is DependencyTargetKind.IMPORT_NAMESPACE
+    ):
+        scopes = {"source": scopes["source"]}
+    source_subjects: AbstractSet[str] = module_names | planned_subjects
+    if isinstance(rule, BoundedNumericOperandRule) and contract is not None:
+        numeric_modules = _numeric_rule_subject_modules(
+            rule, observed_modules, contract, source_modules
+        )
+        source_subjects = source_subjects | set(numeric_modules)
+        scopes = {"source": numeric_modules}
+    if isinstance(rule, ForbiddenCallArgumentRule):
+        source_subjects = source_subjects | _call_argument_subject_symbols(symbols, source_modules)
+    if isinstance(rule, ForbiddenConstructRule):
+        owner_modules = module_names if source_modules is None else module_names & source_modules
+        source_subjects = source_subjects | {
+            item["data"]["qualified_name"]
+            for item in _construct_subject_symbols(rule.source, symbols, owner_modules)
+        }
+    source_subjects = source_subjects | _source_policy_symbol_subjects(
+        rule, symbols, source_modules
+    )
+    return scopes, source_subjects
+
+
+def _source_policy_symbol_subjects(
+    rule: ArchitectureRule,
+    symbols: Sequence[RawRecord],
+    source_modules: frozenset[str] | None,
+) -> set[str]:
+    if not isinstance(rule, ForbiddenCallArgumentRule | CatalogArgumentRule | CatalogUseRule):
+        return set()
+    match = (
+        rule.source_match
+        if isinstance(rule, CatalogArgumentRule | CatalogUseRule)
+        else SelectorMatch.PREFIX
+    )
+    return {
+        item["data"]["qualified_name"]
+        for item in symbols
+        if (source_modules is None or item["data"]["module"] in source_modules)
+        and (
+            item["data"]["qualified_name"] == rule.source
+            if match is SelectorMatch.EXACT
+            else in_scope(item["data"]["qualified_name"], rule.source)
+        )
+    }
 
 
 def _call_argument_subject_symbols(
@@ -2531,6 +2582,61 @@ def _scan_covers_packages(
     )
 
 
+def source_domains_complete(
+    *,
+    modules: Sequence[RawRecord],
+    profile: Profile,
+    package_scopes: Sequence[str],
+    exact_module_scopes: Sequence[str],
+    scan_roots: tuple[str, ...],
+) -> bool:
+    """Prove that selected package and exact-module domains were fully scanned."""
+    return (
+        not package_scopes or _scan_covers_packages(package_scopes, modules, profile, scan_roots)
+    ) and _scan_covers_exact_modules(exact_module_scopes, modules, scan_roots)
+
+
+def source_selector_domains(
+    source: str,
+    modules: Sequence[RawRecord],
+    *,
+    package_scopes: Sequence[str] = (),
+    exact_module_scopes: Sequence[str] = (),
+    match: SelectorMatch = SelectorMatch.PREFIX,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Resolve a source prefix to its physical module domain and intersect its mount."""
+    module_names: list[str] = []
+    for item in modules:
+        data: dict[str, object] = item["data"]
+        name = data.get("qualified_name")
+        if isinstance(name, str):
+            module_names.append(name)
+    module_prefixes = [name for name in module_names if in_scope(source, name)]
+    selector = max(module_prefixes, key=len, default=source)
+    packages: set[str] = set()
+    exact_selected = (selector,) if selector != source or match is SelectorMatch.EXACT else ()
+    if exact_selected:
+        if package_scopes and not any(in_scope(selector, package) for package in package_scopes):
+            exact_selected = ()
+    elif package_scopes:
+        for package in package_scopes:
+            if in_scope(package, selector):
+                packages.add(package)
+            elif in_scope(selector, package):
+                packages.add(selector)
+    elif not exact_module_scopes:
+        packages.add(selector)
+    exact_modules = tuple(
+        dict.fromkeys(
+            (
+                *exact_selected,
+                *(module for module in exact_module_scopes if in_scope(module, selector)),
+            )
+        )
+    )
+    return tuple(sorted(packages)), exact_modules
+
+
 def scope_receipts_complete(
     contract: ArchitectureContract,
     modules: Sequence[RawRecord],
@@ -2539,7 +2645,7 @@ def scope_receipts_complete(
     source_exact_modules: tuple[str, ...],
     scan_roots: tuple[str, ...],
 ) -> bool:
-    """Prove receipt scopes cover declared, selector, and protocol sources."""
+    """Prove receipt scopes cover declared and selector source domains."""
     receipt_source_scopes: list[str] = []
     for rule in contract.rules:
         if isinstance(rule, ProtocolDeclarationsRule) and _modules_for_rule_source(
@@ -2547,6 +2653,15 @@ def scope_receipts_complete(
         ):
             receipt_source_scopes.append(rule.source)
         elif isinstance(rule, ForbiddenConstructRule) and rule.selector is not None:
+            receipt_source_scopes.append(_selector_receipt_scope(rule.source, modules, contract))
+        elif isinstance(
+            rule,
+            SourceOwnershipRule
+            | ForbiddenCallArgumentRule
+            | CatalogArgumentRule
+            | CatalogUseRule
+            | ForbiddenEffectUnderConditionRule,
+        ):
             receipt_source_scopes.append(_selector_receipt_scope(rule.source, modules, contract))
     package_scopes = (
         *source_roots,
@@ -2578,60 +2693,6 @@ def _selector_receipt_scope(
         if _modules_for_rule_source(candidate, modules, contract):
             return candidate
     return ".".join(parts[:-1]) if len(parts) > 1 else source
-
-
-def source_domains_complete(
-    *,
-    modules: Sequence[RawRecord],
-    profile: Profile,
-    package_scopes: Sequence[str],
-    exact_module_scopes: Sequence[str],
-    scan_roots: tuple[str, ...],
-) -> bool:
-    """Prove that selected package and exact-module domains were fully scanned."""
-    return (
-        not package_scopes or _scan_covers_packages(package_scopes, modules, profile, scan_roots)
-    ) and _scan_covers_exact_modules(exact_module_scopes, modules, scan_roots)
-
-
-def source_selector_domains(
-    source: str,
-    modules: Sequence[RawRecord],
-    *,
-    package_scopes: Sequence[str] = (),
-    exact_module_scopes: Sequence[str] = (),
-) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """Resolve a source prefix to its physical module domain and intersect its mount."""
-    module_names: list[str] = []
-    for item in modules:
-        data: dict[str, object] = item["data"]
-        name = data.get("qualified_name")
-        if isinstance(name, str):
-            module_names.append(name)
-    module_prefixes = [name for name in module_names if in_scope(source, name)]
-    selector = max(module_prefixes, key=len, default=source)
-    packages: set[str] = set()
-    exact_selected = (selector,) if selector != source else ()
-    if exact_selected:
-        if package_scopes and not any(in_scope(selector, package) for package in package_scopes):
-            exact_selected = ()
-    elif package_scopes:
-        for package in package_scopes:
-            if in_scope(package, selector):
-                packages.add(package)
-            elif in_scope(selector, package):
-                packages.add(selector)
-    elif not exact_module_scopes:
-        packages.add(selector)
-    exact_modules = tuple(
-        dict.fromkeys(
-            (
-                *exact_selected,
-                *(module for module in exact_module_scopes if in_scope(module, selector)),
-            )
-        )
-    )
-    return tuple(sorted(packages)), exact_modules
 
 
 def _scan_covers_ownership(
@@ -2742,6 +2803,16 @@ def _construct_rule_domain(
     return selected, [item["data"]["qualified_name"] for item in selected]
 
 
+def _observed_rule_modules(
+    modules: Sequence[RawRecord], source_modules: frozenset[str] | None
+) -> tuple[RawRecord, ...]:
+    return tuple(
+        item
+        for item in modules
+        if source_modules is None or item["data"]["qualified_name"] in source_modules
+    )
+
+
 _SeparateReceiptRule: TypeAlias = (
     AllowedDependencyRule
     | BoundaryTypesRule
@@ -2749,6 +2820,9 @@ _SeparateReceiptRule: TypeAlias = (
     | CallOwnerRule
     | ProtocolDeclarationsRule
     | ForbiddenCallArgumentRule
+    | CatalogArgumentRule
+    | CatalogUseRule
+    | ForbiddenEffectUnderConditionRule
 )
 
 
@@ -2765,11 +2839,7 @@ def rule_evaluation_facts(
     constructs: Sequence[RawRecord] = (),
 ) -> list[RawRecord]:
     """Issue completion receipts and explanatory blockers for one observed scope."""
-    observed = tuple(
-        item
-        for item in modules
-        if source_modules is None or item["data"]["qualified_name"] in source_modules
-    )
+    observed = _observed_rule_modules(modules, source_modules)
     return [
         fact
         for rule in contract.rules
@@ -2798,7 +2868,9 @@ def _rule_evaluation_facts_for_rule(
     symbols: Sequence[RawRecord],
     constructs: Sequence[RawRecord],
 ) -> list[RawRecord]:
-    if rule.kind in profile.unsupported_rules or isinstance(rule, _SeparateReceiptRule):
+    if rule.kind in profile.unsupported_rules or isinstance(
+        rule, _SeparateReceiptRule | ForbiddenEffectUnderConditionRule
+    ):
         return []
     if isinstance(rule, LayerOrderRule):
         return _layer_order_evaluation_facts(contract, rule, scope)

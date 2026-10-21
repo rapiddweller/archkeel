@@ -1,0 +1,423 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""Reject guarded-effect claims that disagree with their captured source."""
+
+import json
+
+import pytest
+
+from archkeel.analyzer.python.collect import collect
+from archkeel.ir.facts_codec import CollectionResponse, decode_response, encode_response
+from archkeel.ir.protocol import (
+    CollectionRequest,
+    ProtocolVersion,
+    PythonSettings,
+    SnapshotInput,
+    SourceScope,
+)
+
+
+def _payload(tmp_path, source: str | dict[str, str]) -> dict:
+    package = tmp_path / "sample"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    sources = {"sample/core.py": source} if isinstance(source, str) else source
+    for path, text in sources.items():
+        destination = tmp_path / path
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(text)
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+            ProtocolVersion.V4,
+        )
+    )
+    return json.loads(encode_response(CollectionResponse(facts, ProtocolVersion.V4)))
+
+
+def _call(payload: dict, expression: str) -> dict:
+    calls = next(
+        section["records"] for section in payload["facts"]["sections"] if section["name"] == "calls"
+    )
+    return next(row for row in calls if row["data"].get("expression") == expression)
+
+
+def test_source_facts_reject_guard_truth_retargeted_from_path_evidence(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "def _effect(): pass\ndef generate(seeded: bool):\n    if seeded:\n        _effect()\n",
+    )
+    _call(payload, "_effect")["data"]["guarded_effect"][0]["condition_value"] = False
+
+    with pytest.raises(
+        ValueError, match="guarded-effect condition value disagrees with its source path"
+    ):
+        decode_response(json.dumps(payload).encode())
+
+
+@pytest.mark.parametrize(
+    ("body", "expected_values"),
+    [
+        (
+            "if seeded:\n        pass\n    else:\n        pass\n    _effect()",
+            {True, False},
+        ),
+        ("if seeded:\n        return\n    _effect()", {False}),
+        ("if seeded:\n        raise ValueError()\n    _effect()", {False}),
+        ("if seeded:\n        pass\n    else:\n        _effect()", {False}),
+        (
+            "if seeded:\n        if not seeded:\n            _effect()\n    else:\n        pass",
+            None,
+        ),
+    ],
+)
+def test_source_facts_replay_full_function_guard_paths(tmp_path, body, expected_values):
+    payload = _payload(
+        tmp_path,
+        f"def _effect(): pass\ndef generate(seeded: bool):\n    {body}\n",
+    )
+    call = _call(payload, "_effect")
+    proofs = call["data"].get("guarded_effect", [])
+    if expected_values is None:
+        assert proofs == []
+    else:
+        assert {item["condition_value"] for item in proofs} == expected_values
+    decode_response(json.dumps(payload).encode())
+
+
+def test_source_facts_reject_polarity_not_reachable_at_call_site(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "def _effect(): pass\n"
+        "def generate(seeded: bool):\n"
+        "    if seeded:\n"
+        "        return\n"
+        "    _effect()\n",
+    )
+    _call(payload, "_effect")["data"]["guarded_effect"][0]["condition_value"] = True
+
+    with pytest.raises(
+        ValueError, match="guarded-effect condition value disagrees with its source path"
+    ):
+        decode_response(json.dumps(payload).encode())
+
+
+@pytest.mark.parametrize(
+    "body",
+    ["if seeded:\n        pass\n    else:\n        _effect()"],
+)
+def test_source_facts_reject_tampered_else_and_nested_guard_polarity(tmp_path, body):
+    payload = _payload(
+        tmp_path,
+        f"def _effect(): pass\ndef generate(seeded: bool):\n    {body}\n",
+    )
+    _call(payload, "_effect")["data"]["guarded_effect"][0]["condition_value"] = True
+
+    with pytest.raises(
+        ValueError, match="guarded-effect condition value disagrees with its source path"
+    ):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_source_facts_bind_guard_context_to_exact_lexical_function(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "def _effect(): pass\n"
+        "def generate(seeded: bool):\n"
+        "    if seeded:\n"
+        "        _effect()\n"
+        "def wrapper():\n"
+        "    def generate(seeded: bool):\n"
+        "        if seeded:\n"
+        "            pass\n",
+    )
+    _call(payload, "_effect")["data"]["source_scope"] = "sample.core.wrapper.generate"
+
+    with pytest.raises(
+        ValueError, match="guarded-effect condition value disagrees with its source path"
+    ):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_source_facts_bind_parameter_condition_to_exact_function_owner(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "def _effect(): pass\n"
+        "def generate(seeded: bool):\n"
+        "    if seeded:\n"
+        "        _effect()\n"
+        "def wrapper():\n"
+        "    def generate(seeded: bool):\n"
+        "        pass\n",
+    )
+    proof = _call(payload, "_effect")["data"]["guarded_effect"][0]
+    proof["condition"]["owner"] = "sample.core.wrapper.generate"
+
+    with pytest.raises(
+        ValueError, match="guarded-effect condition value disagrees with its source path"
+    ):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_source_facts_bind_parameter_condition_to_its_declaration_evidence(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "def _effect(): pass\n"
+        "def generate(seeded: bool, other: bool):\n"
+        "    if seeded:\n"
+        "        _effect()\n",
+    )
+    proof = _call(payload, "_effect")["data"]["guarded_effect"][0]
+    evidence = next(
+        item
+        for item in payload["facts"]["evidence"]
+        if item["file"] == "sample/core.py" and item["line"] == 2 and item["column"] == 27
+    )
+    proof["condition_evidence_ids"] = [evidence["id"]]
+
+    with pytest.raises(
+        ValueError, match="guarded-effect condition value disagrees with its source path"
+    ):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_source_facts_bind_member_condition_to_canonical_class_owner(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "def _effect(): pass\n"
+        "class Runner:\n"
+        "    seeded: bool\n"
+        "    def generate(self):\n"
+        "        if self.seeded:\n"
+        "            _effect()\n"
+        "class Wrapper:\n"
+        "    seeded: bool\n"
+        "    def generate(self):\n"
+        "        pass\n",
+    )
+    proof = _call(payload, "_effect")["data"]["guarded_effect"][0]
+    proof["condition"]["owner"] = "sample.core.Wrapper"
+
+    with pytest.raises(
+        ValueError, match="guarded-effect condition value disagrees with its source path"
+    ):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_oversized_guard_context_is_scoped_to_unknown(tmp_path):
+    large_literal = "x" * 16_385
+    payload = _payload(
+        tmp_path,
+        "def _effect(): pass\n"
+        "def generate(seeded: bool):\n"
+        "    if seeded:\n"
+        "        _effect()\n"
+        f"    value = '{large_literal}'\n",
+    )
+    proof = _call(payload, "_effect")["data"]["guarded_effect"][0]
+
+    assert proof["condition_value"] is None
+    assert proof["complete"] is False
+    assert proof["unknown_reason"] == "control_flow_context_too_large"
+    decode_response(json.dumps(payload).encode())
+
+
+def test_source_facts_reject_helper_actual_retargeted_from_its_source(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "def _effect(): pass\n"
+        "def _helper(flag: bool):\n    if flag:\n        _effect()\n"
+        "def generate(seeded: bool, other: bool):\n"
+        "    if seeded:\n        _helper(seeded)\n",
+    )
+    helper = _call(payload, "_helper")["data"]["guarded_effect"][0]["helper_bindings"][0]
+    helper["arguments"][0]["condition"]["name"] = "other"
+
+    with pytest.raises(
+        ValueError, match="guarded-effect helper argument disagrees with its source"
+    ):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_source_facts_reject_helper_callee_retargeted_to_a_sibling(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "def _effect(): pass\n"
+        "def _helper(flag: bool):\n    if flag:\n        _effect()\n"
+        "def _other(flag: bool): pass\n"
+        "def generate(seeded: bool):\n    if seeded:\n        _helper(seeded)\n",
+    )
+    call = _call(payload, "_helper")
+    sibling = next(
+        row
+        for section in payload["facts"]["sections"]
+        if section["name"] == "symbols"
+        for row in section["records"]
+        if row["data"].get("qualified_name") == "sample.core._other"
+    )
+    binding = call["data"]["call_binding"]
+    binding["target"] = "sample.core._other"
+    binding["evidence_ids"] = sorted(set(binding["evidence_ids"] + sibling["evidence_ids"]))
+    call["data"]["targets"] = ["sample.core._other"]
+    for proof in call["data"]["guarded_effect"]:
+        proof["effect_binding_evidence_ids"] = binding["evidence_ids"]
+        for helper in proof["helper_bindings"]:
+            helper["target"] = "sample.core._other"
+            helper["evidence_ids"] = sorted(set(helper["evidence_ids"] + sibling["evidence_ids"]))
+
+    with pytest.raises(
+        ValueError, match="guarded-effect helper target disagrees with its written callee"
+    ):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_source_facts_bind_imported_helper_to_its_written_import(tmp_path):
+    payload = _payload(
+        tmp_path,
+        {
+            "sample/core.py": "def _helper(flag: bool):\n    if flag:\n        pass\n",
+            "sample/other.py": "def _helper(flag: bool):\n    pass\n",
+            "sample/client.py": (
+                "from sample.core import _helper as _h\n"
+                "def generate(seeded: bool):\n    if seeded:\n        _h(seeded)\n"
+            ),
+        },
+    )
+    call = _call(payload, "_h")
+    assert call["data"]["call_binding"]["target"] == "sample.core._helper"
+    binding = call["data"]["guarded_effect"][0]["helper_bindings"][0]
+    assert binding["target"] == "sample.core._helper"
+
+
+def test_source_facts_reject_imported_helper_retargeted_to_sibling_module(tmp_path):
+    payload = _payload(
+        tmp_path,
+        {
+            "sample/core.py": "def _helper(flag: bool):\n    if flag:\n        pass\n",
+            "sample/other.py": "def _helper(flag: bool):\n    pass\n",
+            "sample/client.py": (
+                "from sample.core import _helper as _h\n"
+                "def generate(seeded: bool):\n    if seeded:\n        _h(seeded)\n"
+            ),
+        },
+    )
+    call = _call(payload, "_h")
+    sibling = next(
+        row
+        for section in payload["facts"]["sections"]
+        if section["name"] == "symbols"
+        for row in section["records"]
+        if row["data"].get("qualified_name") == "sample.other._helper"
+    )
+    binding = call["data"]["call_binding"]
+    binding["target"] = "sample.other._helper"
+    binding["evidence_ids"] = sorted(set(binding["evidence_ids"] + sibling["evidence_ids"]))
+    call["data"]["targets"] = ["sample.other._helper"]
+    for proof in call["data"]["guarded_effect"]:
+        proof["effect_binding_evidence_ids"] = binding["evidence_ids"]
+        for helper in proof["helper_bindings"]:
+            helper["target"] = "sample.other._helper"
+            helper["evidence_ids"] = sorted(set(helper["evidence_ids"] + sibling["evidence_ids"]))
+
+    with pytest.raises(
+        ValueError, match="guarded-effect helper target disagrees with its written callee"
+    ):
+        decode_response(json.dumps(payload).encode())
+
+
+def _helper_actual_payload(tmp_path, caller: str) -> dict:
+    return _payload(
+        tmp_path,
+        "def _effect(): pass\n"
+        "def _helper(flag: bool):\n    if flag:\n        _effect()\n"
+        f"def generate(runtime_parent: bool, stdlib_root: bool):\n{caller}",
+    )
+
+
+def test_continued_helper_call_keeps_unverifiable_actual_unknown(tmp_path):
+    payload = _helper_actual_payload(
+        tmp_path,
+        "    return (\n"
+        "        runtime_parent\n"
+        "        or stdlib_root\n"
+        "        or _helper(True)\n"
+        "    )\n",
+    )
+    call = _call(payload, "_helper")
+    helper_argument = call["data"]["guarded_effect"][0]["helper_bindings"][0]["arguments"][0]
+
+    assert call["data"]["call_arguments"] is None
+    assert helper_argument["token_kind"] == "unknown"
+    assert helper_argument["token_value"] is None
+    decode_response(json.dumps(payload).encode())
+
+
+def test_continued_helper_call_actual_cannot_be_tampered_into_a_literal(tmp_path):
+    payload = _helper_actual_payload(
+        tmp_path,
+        "    return (\n"
+        "        runtime_parent\n"
+        "        or stdlib_root\n"
+        "        or _helper(True)\n"
+        "    )\n",
+    )
+    helper_argument = _call(payload, "_helper")["data"]["guarded_effect"][0]["helper_bindings"][0][
+        "arguments"
+    ][0]
+    helper_argument["token_kind"] = "boolean_literal"
+    helper_argument["token_value"] = True
+
+    with pytest.raises(ValueError, match="helper argument disagrees with its source"):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_supported_helper_literal_stays_source_bound(tmp_path):
+    payload = _helper_actual_payload(
+        tmp_path,
+        "    if runtime_parent:\n        return _helper(True)\n    return False\n",
+    )
+    helper_argument = _call(payload, "_helper")["data"]["guarded_effect"][0]["helper_bindings"][0][
+        "arguments"
+    ][0]
+
+    assert helper_argument["token_kind"] == "boolean_literal"
+    assert helper_argument["token_value"] is True
+    decode_response(json.dumps(payload).encode())
+
+
+def test_source_facts_reject_false_path_forged_as_unconditional_and_retargeted(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "def _effect(): pass\n"
+        "def generate(seeded: bool, other: bool):\n"
+        "    if not seeded:\n"
+        "        _effect()\n",
+    )
+    proof = _call(payload, "_effect")["data"]["guarded_effect"][0]
+    assert proof["condition_value"] is False
+    evidence = next(
+        item
+        for item in payload["facts"]["evidence"]
+        if item["excerpt"] == "def generate(seeded: bool, other: bool):"
+        and item["column"] == "def generate(seeded: bool, ".__len__()
+    )
+    proof["condition"]["name"] = "other"
+    proof["condition_value"] = None
+    proof["condition_evidence_ids"] = [evidence["id"]]
+
+    with pytest.raises(ValueError, match="condition value disagrees with its source path"):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_source_facts_reject_false_path_forged_as_unconditional(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "def _effect(): pass\ndef generate(seeded: bool):\n    if not seeded:\n        _effect()\n",
+    )
+    _call(payload, "_effect")["data"]["guarded_effect"][0]["condition_value"] = None
+
+    with pytest.raises(ValueError, match="condition value disagrees with its source path"):
+        decode_response(json.dumps(payload).encode())

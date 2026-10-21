@@ -36,6 +36,43 @@ def _schema(name: str) -> dict:
     return json.loads((ROOT / "schema" / name).read_bytes())
 
 
+def test_catalog_rules_are_only_admitted_by_contract_3_14_schema():
+    raw = {
+        "schema_version": "3.14.0",
+        "components": [],
+        "rules": [
+            {
+                "id": "CATALOG-ARGUMENT",
+                "kind": "catalog_argument",
+                "source": "sample.consumer",
+                "target": "sample.catalog.read_option",
+                "parameter": "key",
+                "catalog": "sample.catalog.OptionKey",
+                "overlays": ["sample.consumer.ExtraKey"],
+                "source_match": "exact",
+                "rationale": "Use declared catalog entries.",
+                "provenance": ["docs/architecture/catalog.md"],
+                "decided_by": "architect",
+            }
+        ],
+    }
+    latest = Draft202012Validator(_schema("architecture-contract-3.14.schema.json"))
+    assert latest.is_valid(raw)
+    assert parse_contract(raw).rules[0].kind.value == "catalog_argument"
+
+    legacy = deepcopy(raw)
+    legacy["schema_version"] = "3.10.0"
+    assert not Draft202012Validator(_schema("architecture-contract-3.10.schema.json")).is_valid(
+        legacy
+    )
+    with pytest.raises(ValueError, match="3.14.0"):
+        parse_contract(legacy)
+
+    historical = _schema("architecture-contract.schema.json")
+    assert historical["$id"] == "urn:archkeel:architecture-contract:2.3.0"
+    assert "3.14.0" not in historical["properties"]["schema_version"]["enum"]
+
+
 def _call_binding_refs(value: object) -> list[str]:
     if isinstance(value, dict):
         refs = [
@@ -266,10 +303,11 @@ def test_reference_annotation_ownership_schema(details, accepted):
     assert Draft202012Validator(data).is_valid(reference) == accepted
 
 
-def test_local_definition_reference_schema_accepts_only_typed_ownership_fields():
-    data = _schema("architecture-ir-python-decoded-2.7.schema.json")["properties"]["references"][
-        "items"
-    ]["allOf"][1]["properties"]["data"]
+@pytest.mark.parametrize("version", ["2.7", "2.8"])
+def test_local_definition_reference_schema_accepts_only_typed_ownership_fields(version):
+    data = _schema(f"architecture-ir-python-decoded-{version}.schema.json")["properties"][
+        "references"
+    ]["items"]["allOf"][1]["properties"]["data"]
     reference = {
         "source_scope": "sample.consumer",
         "source_module": "sample.consumer",
@@ -295,8 +333,9 @@ def test_local_definition_reference_schema_accepts_only_typed_ownership_fields()
         assert not validator.is_valid(malformed)
 
 
-def test_source_role_schema_accepts_unresolved_transfers_only_for_roles():
-    profile = _schema("architecture-ir-python-decoded-2.7.schema.json")
+@pytest.mark.parametrize("version", ["2.7", "2.8"])
+def test_source_role_schema_accepts_unresolved_transfers_only_for_roles(version):
+    profile = _schema(f"architecture-ir-python-decoded-{version}.schema.json")
     registry = Registry().with_resources(
         (schema["$id"], Resource.from_contents(schema))
         for schema in (_schema(path.name) for path in SCHEMA_FILES)
