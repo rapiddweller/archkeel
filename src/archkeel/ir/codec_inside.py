@@ -25,35 +25,43 @@ from archkeel.ir.model import InsideContractTree as InsideContractTree
 from archkeel.ir.target_graph import scoped_target
 
 
+def contract_provenance_locations(
+    contract: ArchitectureContract,
+) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """Every place a contract cites provenance, as (JSON pointer, paths) (#629)."""
+    declarations = contract.declarations or ContractDeclarations()
+    uml = declarations.uml
+    groups = (
+        ("/components", contract.components),
+        ("/rules", contract.rules),
+        ("/declarations/capabilities", declarations.capabilities),
+        ("/declarations/review_scopes", declarations.review_scopes),
+        ("/declarations/public_commands", declarations.public_commands),
+        ("/declarations/paths", declarations.paths),
+        ("/declarations/spot_owners", declarations.spot_owners),
+        ("/declarations/measurement_budgets", declarations.measurement_budgets),
+        ("/declarations/facade_budgets", declarations.facade_budgets or ()),
+        ("/declarations/coupling_budgets", declarations.coupling_budgets or ()),
+        ("/declarations/uml/entities", uml.entities if uml else ()),
+        ("/declarations/uml/relationships", uml.relationships if uml else ()),
+        ("/declarations/uml/scopes", uml.scopes if uml else ()),
+    )
+    return (
+        *(
+            (f"{prefix}/{index}/provenance", tuple(record.provenance))
+            for prefix, records in groups
+            for index, record in enumerate(records)
+        ),
+        ("/declarations/public_api_provenance", tuple(declarations.public_api_provenance)),
+        ("/declarations/context_roots_provenance", tuple(declarations.context_roots_provenance)),
+    )
+
+
 def contract_provenance_paths(contract: ArchitectureContract) -> tuple[str, ...]:
     """Return every repository path cited as contract provenance."""
-    declarations = contract.declarations or ContractDeclarations()
-    paths: set[str] = {
-        *declarations.public_api_provenance,
-        *declarations.context_roots_provenance,
-    }
-    for records in (
-        contract.components,
-        contract.rules,
-        declarations.capabilities,
-        declarations.review_scopes,
-        declarations.public_commands,
-        declarations.paths,
-        declarations.spot_owners,
-        declarations.measurement_budgets,
-        declarations.facade_budgets or (),
-        declarations.coupling_budgets or (),
-    ):
-        for record in records:
-            paths.update(record.provenance)
-    if declarations.uml is not None:
-        for entity in declarations.uml.entities:
-            paths.update(entity.provenance)
-        for edge in declarations.uml.relationships:
-            paths.update(edge.provenance)
-        for scope in declarations.uml.scopes:
-            paths.update(scope.provenance)
-    return tuple(sorted(paths))
+    return tuple(
+        sorted({path for _, paths in contract_provenance_locations(contract) for path in paths})
+    )
 
 
 def _scoped_inside_contract(parent_id: str, contract: ArchitectureContract) -> ArchitectureContract:

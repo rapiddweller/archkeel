@@ -61,17 +61,24 @@ def _inside_pointers(contract: ArchitectureContract, observation: Observation) -
     return pointers
 
 
+def _reviewed_contracts(
+    contract: ArchitectureContract, inside_tree: InsideContractTree | None
+) -> list[tuple[ArchitectureContract, str | None]]:
+    """The root and every mounted contract, each decided the way the top level is (#630)."""
+    contracts: list[tuple[ArchitectureContract, str | None]] = [(contract, None)]
+    if inside_tree is not None:
+        contracts.extend((mount.contract, mount.path) for mount in inside_tree.mounts)
+    return contracts
+
+
 def _responsibility_diagnostics(
     contract: ArchitectureContract,
     inside_tree: InsideContractTree | None,
     contract_path: str | None,
 ) -> list[Diagnostic]:
     """Flag architect-decided components with no substantive responsibility entry."""
-    contracts: list[tuple[ArchitectureContract, str | None]] = [(contract, None)]
-    if inside_tree is not None:
-        contracts.extend((mount.contract, mount.path) for mount in inside_tree.mounts)
     diagnostics = []
-    for reviewed_contract, path in contracts:
+    for reviewed_contract, path in _reviewed_contracts(contract, inside_tree):
         for index, component in enumerate(reviewed_contract.components):
             if component.decided_by != "architect":
                 continue
@@ -120,7 +127,11 @@ def observation_diagnostics(
         *interface_diagnostics(contract, observation, resolved_public_entries),
         *public_api_diagnostics(contract, observation),
         *compatibility_diagnostics(contract, observation),
-        *rationale_diagnostics(contract),
+        *(
+            diagnostic
+            for reviewed, path in _reviewed_contracts(contract, inside_tree)
+            for diagnostic in rationale_diagnostics(reviewed, path or contract_path)
+        ),
         *graph_diagnostics(contract, observation, documents),
     ]
     reported = (observation.records("violations") or ()) if report_violations else ()

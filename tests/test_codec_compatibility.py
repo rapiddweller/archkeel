@@ -35,7 +35,12 @@ OWNERS = {
         "parse_required_component",
         "_rule_payload",
     ),
-    "inside": ("contract_provenance_paths", "load_inside_contract_tree", "declaration_paths"),
+    "inside": (
+        "contract_provenance_locations",
+        "contract_provenance_paths",
+        "load_inside_contract_tree",
+        "declaration_paths",
+    ),
     "observation": (
         "parse_observation",
         "observation_payload",

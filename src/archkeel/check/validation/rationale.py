@@ -21,7 +21,9 @@ _REPEATED_REQUIRES = re.compile(
 _PLACEHOLDER_RATIONALE = re.compile(r"(?:todo|tbd|placeholder)(?:\b|:)", re.IGNORECASE)
 
 
-def rationale_diagnostics(contract: ArchitectureContract) -> tuple[Diagnostic, ...]:
+def rationale_diagnostics(
+    contract: ArchitectureContract, contract_path: str | None = None
+) -> tuple[Diagnostic, ...]:
     """Reject placeholder rationales and rationales that only repeat the rule."""
     diagnostics = []
     for index, rule in enumerate(contract.rules):
@@ -42,6 +44,7 @@ def rationale_diagnostics(contract: ArchitectureContract) -> tuple[Diagnostic, .
                 rule.id,
                 claim,
                 "Explain the architectural reason for this dependency boundary.",
+                contract_path=contract_path,
             )
         )
     for index, component in enumerate(contract.components):
@@ -63,6 +66,7 @@ def rationale_diagnostics(contract: ArchitectureContract) -> tuple[Diagnostic, .
                     f"{component.label} -> {entry.component}",
                     claim,
                     "Explain the architectural reason for this dependency boundary.",
+                    contract_path=contract_path,
                 )
             )
     return tuple(diagnostics)

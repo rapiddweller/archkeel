@@ -32,6 +32,7 @@ from archkeel.ir.codec_governance import (
     parse_validation_baseline,
 )
 from archkeel.ir.codec_inside import (
+    contract_provenance_locations,
     contract_provenance_paths,
     declaration_paths,
     load_inside_contract_tree,
@@ -85,6 +86,7 @@ __all__ = (
     "canonical_report_bytes",
     "contract_bytes",
     "contract_digest",
+    "contract_provenance_locations",
     "contract_provenance_paths",
     "declaration_paths",
     "decode_canonical_model",

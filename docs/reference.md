@@ -165,6 +165,8 @@ carry its contract path and `/components/<index>/responsibilities` pointer.
 Otherwise valid architect contracts containing only these markers now exit 2
 instead of 0. Agent drafts and components without explicit architect attribution
 remain accepted; rule verdicts and rationale validation are unchanged.
+Rule and `requires` rationale checks (`rationale.placeholder`, `rationale.repeated`) also
+apply to root and mounted contracts; a mounted diagnostic carries its contract path.
 
 JSON null means unavailable/inapplicable; an empty list means measured empty.
 Pin CLI and [command schema](../schema/command-result-10.0.schema.json) together.

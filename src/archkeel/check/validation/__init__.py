@@ -172,7 +172,6 @@ from .rationale import rationale_diagnostics as rationale_diagnostics
 from .references import _entry_ownership_diagnostics as _entry_ownership_diagnostics
 from .references import _inside_contract_tree as _inside_contract_tree
 from .references import _namespace_references as _namespace_references
-from .references import _provenance as _provenance
 from .references import _public_diagnostics as _public_diagnostics
 from .references import reference_diagnostics as reference_diagnostics
 from .references import repository_file as repository_file
