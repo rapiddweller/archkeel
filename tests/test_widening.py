@@ -26,15 +26,23 @@ from archkeel.ir.model import (
     BoundaryTypeAllowance,
     BoundaryTypesRule,
     BoundedNumericOperandRule,
+    CatalogArgumentRule,
+    CatalogUseRule,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
     ComponentRole,
+    ConditionSelector,
+    ConditionSelectorKind,
+    ConstructSelector,
+    ConstructSelectorRole,
     ContractComponent,
     DecisionMaker,
     ExternalDependencyScopeRule,
+    ForbiddenCallArgumentRule,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
+    ForbiddenEffectUnderConditionRule,
     InterfaceBoundaryRule,
     NoComponentCyclesRule,
     ProtocolDeclarationSelector,
@@ -42,6 +50,9 @@ from archkeel.ir.model import (
     RequiredComponent,
     RootLayoutRule,
     SiblingIsolationRule,
+    SourceOwnershipMode,
+    SourceOwnershipRole,
+    SourceOwnershipRule,
     SymbolPlacementRule,
 )
 from archkeel.ir.widening import (
@@ -49,6 +60,8 @@ from archkeel.ir.widening import (
     _RESTRICTION_RULE_KINDS,
     Amendment,
     baseline_widenings,
+    contract_narrowing_changes,
+    contract_widening_changes,
     contract_widenings,
     verify_amendment,
 )
@@ -74,6 +87,34 @@ def _allowed_dependency(**overrides: object) -> AllowedDependencyRule:
 def _forbidden_construct(**overrides: object) -> ForbiddenConstructRule:
     base = ForbiddenConstructRule(
         "R", "forbidden_construct", "pkg.a", ("eval",), "because", _PROVENANCE, "architect"
+    )
+    return replace(base, **overrides)
+
+
+def _forbidden_call_argument(**overrides: object) -> ForbiddenCallArgumentRule:
+    base = ForbiddenCallArgumentRule(
+        "R",
+        "forbidden_call_argument",
+        "pkg.a",
+        "pkg.b",
+        "value",
+        "because",
+        _PROVENANCE,
+        "architect",
+    )
+    return replace(base, **overrides)
+
+
+def _forbidden_effect_under_condition(**overrides: object) -> ForbiddenEffectUnderConditionRule:
+    base = ForbiddenEffectUnderConditionRule(
+        "R",
+        "forbidden_effect_under_condition",
+        "pkg.a",
+        "pkg.effect",
+        ConditionSelector(ConditionSelectorKind.PARAMETER, "pkg.a.run", "seeded"),
+        "because",
+        _PROVENANCE,
+        "architect",
     )
     return replace(base, **overrides)
 
@@ -174,6 +215,50 @@ def _protocol_declarations(**overrides: object) -> ProtocolDeclarationsRule:
     return replace(base, **overrides)
 
 
+def _catalog_argument(**overrides: object) -> CatalogArgumentRule:
+    base = CatalogArgumentRule(
+        "R",
+        "catalog_argument",
+        "pkg.consumer",
+        "pkg.read_option",
+        "key",
+        "pkg.catalog.OptionKey",
+        (),
+        "because",
+        _PROVENANCE,
+        "architect",
+    )
+    return replace(base, **overrides)
+
+
+def _catalog_use(**overrides: object) -> CatalogUseRule:
+    base = CatalogUseRule(
+        "R",
+        "catalog_use",
+        "pkg.consumer",
+        "pkg.catalog.OptionKey",
+        (),
+        "because",
+        _PROVENANCE,
+        "architect",
+    )
+    return replace(base, **overrides)
+
+
+def _source_ownership(**overrides: object) -> SourceOwnershipRule:
+    base = SourceOwnershipRule(
+        "R",
+        "source_ownership",
+        "pkg.api",
+        SourceOwnershipMode.CONFINED,
+        (SourceOwnershipRole.DEFINITION,),
+        "because",
+        _PROVENANCE,
+        "architect",
+    )
+    return replace(base, **overrides)
+
+
 def _component(**overrides: object) -> ContractComponent:
     base = ContractComponent("C", "comp", ComponentRole.COMPONENT, ("pkg",), (), (), _PROVENANCE)
     return replace(base, **overrides)
@@ -255,6 +340,21 @@ _RULE_CASES: tuple[tuple[str, ArchitectureRule | None, ArchitectureRule | None, 
     ("allowed_dependency removed", _allowed_dependency(), None, False),
     ("forbidden_construct added", None, _forbidden_construct(), False),
     ("forbidden_construct removed", _forbidden_construct(), None, True),
+    ("forbidden_effect_under_condition added", None, _forbidden_effect_under_condition(), False),
+    (
+        "forbidden_effect_under_condition removed",
+        _forbidden_effect_under_condition(),
+        None,
+        True,
+    ),
+    (
+        "forbidden_effect_under_condition condition changed",
+        _forbidden_effect_under_condition(),
+        _forbidden_effect_under_condition(
+            condition=ConditionSelector(ConditionSelectorKind.MEMBER, "pkg.a", "seeded")
+        ),
+        True,
+    ),
     (
         "forbidden_construct.constructs lost an entry",
         _forbidden_construct(constructs=("eval", "exec")),
@@ -399,6 +499,14 @@ _RULE_CASES: tuple[tuple[str, ArchitectureRule | None, ArchitectureRule | None, 
         ),
         True,
     ),
+    ("catalog_argument added", None, _catalog_argument(), False),
+    ("catalog_argument removed", _catalog_argument(), None, True),
+    ("catalog_use added", None, _catalog_use(), False),
+    ("catalog_use removed", _catalog_use(), None, True),
+    ("forbidden_call_argument added", None, _forbidden_call_argument(), False),
+    ("forbidden_call_argument removed", _forbidden_call_argument(), None, True),
+    ("source_ownership added", None, _source_ownership(), False),
+    ("source_ownership removed", _source_ownership(), None, True),
 )
 
 
@@ -435,6 +543,38 @@ def test_every_typed_rule_kind_has_one_widening_classification() -> None:
     """The typed ArchitectureRule union is the source of truth for this partition."""
     assert _PERMISSION_RULE_KINDS.isdisjoint(_RESTRICTION_RULE_KINDS)
     assert _PERMISSION_RULE_KINDS | _RESTRICTION_RULE_KINDS == RULE_KINDS
+
+
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        (_catalog_argument(), _catalog_argument(catalog="pkg.other.OptionKey")),
+        (_catalog_argument(), _catalog_argument(overlays=("pkg.custom.Keys",))),
+        (_catalog_argument(), _catalog_argument(source_match="exact")),
+        (_catalog_use(), _catalog_use(catalog="pkg.other.OptionKey")),
+        (_catalog_use(), _catalog_use(member="PAGE_SIZE")),
+        (_catalog_use(), _catalog_use(source_match="exact")),
+    ],
+    ids=[
+        "argument-catalog",
+        "argument-overlay",
+        "argument-scope",
+        "use-catalog",
+        "use-member",
+        "use-scope",
+    ],
+)
+def test_catalog_selector_changes_fail_closed_in_both_directions(before, after) -> None:
+    assert _rule_diff(before, after)
+    assert _rule_diff(after, before)
+
+
+def test_source_ownership_field_changes_fail_closed() -> None:
+    findings = _rule_diff(
+        _source_ownership(),
+        _source_ownership(roles=(SourceOwnershipRole.DEFINITION, SourceOwnershipRole.READ)),
+    )
+    assert any("roles changed" in finding for finding in findings)
 
 
 # --- Table-driven: one row per component-field widening/narrowing this module enumerates. ---
@@ -636,6 +776,24 @@ def test_narrowing_never_needs_an_amendment() -> None:
     before = _forbidden_construct(constructs=("eval",))
     after = _forbidden_construct(constructs=("eval", "exec"))
     assert contract_widenings(_contract(rules=(before,)), _contract(rules=(after,))) == ()
+
+
+def test_construct_selector_changes_are_named_as_widenings():
+    before = _forbidden_construct(
+        selector=ConstructSelector(
+            "pkg.Connection", "backend", ConstructSelectorRole.EQUALITY, "flat"
+        )
+    )
+    after = _forbidden_construct(
+        selector=ConstructSelector("pkg.Label", "backend", ConstructSelectorRole.EQUALITY, "flat")
+    )
+    assert any("selector changed" in item for item in _rule_diff(before, after))
+    after = _forbidden_construct(
+        selector=ConstructSelector(
+            "pkg.Connection", "backend", ConstructSelectorRole.EQUALITY, "cloud"
+        )
+    )
+    assert any("selector changed" in item for item in _rule_diff(before, after))
 
 
 def test_an_unenumerated_difference_is_treated_as_widening() -> None:
@@ -1159,6 +1317,54 @@ def test_requires_entry_widens_only_outside_the_old_permission(
     assert bool(findings) == widens, (label, findings)
 
 
+_NARROWING_CASES = (
+    (
+        "requires entry removed",
+        _contract((_requires(("other", ("pkg.a",), _AGENT)),)),
+        _contract((_requires(),)),
+        "requires",
+    ),
+    (
+        "requires entry contained",
+        _contract((_requires(("other", ("pkg.a",), _AGENT)),)),
+        _contract((_requires(("other", ("pkg.a:Sym",), _AGENT)),)),
+        "requires",
+    ),
+    (
+        "public entry removed",
+        _contract((_component(public=("pkg:A", "pkg:B")),)),
+        _contract((_component(public=("pkg:A",)),)),
+        "public",
+    ),
+    ("restriction rule added", _contract(), _contract(rules=(_complete_requires(),)), "presence"),
+    (
+        "permission rule removed",
+        _contract(rules=(_allowed_dependency(),)),
+        _contract(),
+        "presence",
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    "label,before,after,field", _NARROWING_CASES, ids=[case[0] for case in _NARROWING_CASES]
+)
+def test_narrowings_are_reported_without_widening(
+    label: str, before: ArchitectureContract, after: ArchitectureContract, field: str
+) -> None:
+    # AD-255: a reviewer sees what a contract no longer allows; only widenings need amendment.
+    narrowings = contract_narrowing_changes(before, after)
+    assert [item.field for item in narrowings] == [field], (label, narrowings)
+    assert contract_widening_changes(before, after) == (), label
+
+
+def test_a_widening_is_not_reported_as_a_narrowing() -> None:
+    before = _contract((_requires(("other", ("pkg.a:Sym",), _AGENT)),))
+    after = _contract((_requires(("other", ("pkg.a",), _AGENT)),))
+    assert contract_narrowing_changes(before, after) == ()
+    assert contract_widening_changes(before, after) != ()
+
+
 @pytest.mark.parametrize(
     ("component_author", "entry_author", "widens"),
     [(_AGENT, _AGENT, False), (_ARCHITECT, _AGENT, True)],
@@ -1171,3 +1377,13 @@ def test_requires_containment_compares_effective_authors(
     before = replace(_requires(("other", ("pkg.a",), None)), decided_by=component_author)
     after = replace(_requires(("other", ("pkg.a:Sym",), entry_author)), decided_by=component_author)
     assert bool(_component_diff(before, after)) == widens
+
+
+def test_a_redundant_contained_entry_beside_its_broad_entry_is_no_narrowing() -> None:
+    # Review (#640): keeping pkg.a and adding pkg.a:Sym removes nothing.
+    before = _contract((_requires(("other", ("pkg.a",), _AGENT)),))
+    after = _contract(
+        (_requires(("other", ("pkg.a",), _AGENT), ("other", ("pkg.a:Sym",), _AGENT)),)
+    )
+    assert contract_narrowing_changes(before, after) == ()
+    assert contract_widening_changes(before, after) == ()

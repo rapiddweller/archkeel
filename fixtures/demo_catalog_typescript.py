@@ -20,8 +20,18 @@ def contract() -> dict:
 
 def with_rule(kind: str, **fields: object) -> str:
     value = contract()
-    if kind in {"call_owner", "bounded_numeric_operand", "protocol_declarations"}:
+    if kind == "forbidden_construct" and "selector" in fields:
+        value["schema_version"] = "3.11.0"
+    elif kind == "call_owner":
+        value["schema_version"] = "3.7.0"
+    elif kind == "bounded_numeric_operand":
+        value["schema_version"] = "3.8.0"
+    elif kind == "protocol_declarations":
         value["schema_version"] = "3.9.0"
+    elif kind == "forbidden_call_argument":
+        value["schema_version"] = "3.10.0"
+    elif kind == "source_ownership":
+        value["schema_version"] = "3.8.0"
     value["rules"].append(
         {
             "id": "PROBE",
@@ -83,13 +93,33 @@ UNSUPPORTED_RULES = {
         "minimum_value": 4,
     },
     "call_owner": {"source": "shop", "target": "shop.src.main_x2e_ts.main"},
-    "forbidden_construct": {"source": "shop", "constructs": ["eval"]},
+    "forbidden_call_argument": {
+        "source": "shop",
+        "target": "shop.src.main_x2e_ts.main",
+        "parameter": "query",
+    },
+    "forbidden_construct": {
+        "source": "shop",
+        "constructs": ["string_literal_compare"],
+        "selector": {
+            "receiver": "shop.src.domain.Connection",
+            "member": "backend",
+            "role": "equality",
+            "literal": "flat",
+        },
+    },
     "symbol_placement": {
         "source": "shop",
         "class_kinds": ["class"],
         "allowed_sources": ["shop.src.domain"],
     },
     "boundary_types": {"source": "shop"},
+    "source_ownership": {
+        "source": "shop",
+        "mode": "retired",
+        "symbols": ["shop.src.old"],
+        "roles": ["read"],
+    },
 }
 
 UNMEASURED = (

@@ -25,6 +25,8 @@ from archkeel.ir.model import (
     BoundaryTypesRule,
     BoundedNumericOperandRule,
     CallOwnerRule,
+    CatalogArgumentRule,
+    CatalogUseRule,
     CompatibilityLifetime,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
@@ -35,8 +37,10 @@ from archkeel.ir.model import (
     DependencyTargetKind,
     EvidenceClass,
     ExternalDependencyScopeRule,
+    ForbiddenCallArgumentRule,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
+    ForbiddenEffectUnderConditionRule,
     InterfaceBoundaryRule,
     LayerOrderRule,
     NoComponentCyclesRule,
@@ -44,6 +48,7 @@ from archkeel.ir.model import (
     RootLayoutRule,
     SelectorMatch,
     SiblingIsolationRule,
+    SourceOwnershipRule,
     SymbolPlacementRule,
     public_api_id,
     stable_id,
@@ -84,6 +89,64 @@ def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
             "target": rule.target,
             "allowed_sources": sorted(rule.allowed_sources),
             "exact_sources": sorted(rule.exact_sources),
+            "rationale": rule.rationale,
+        }
+    elif isinstance(rule, ForbiddenCallArgumentRule):
+        area, title, subjects = (
+            "calls",
+            f"{rule.target}.{rule.parameter} cannot receive a written string literal",
+            [rule.source, rule.target],
+        )
+        data = {
+            "source": rule.source,
+            "target": rule.target,
+            "parameter": rule.parameter,
+            "rationale": rule.rationale,
+        }
+    elif isinstance(rule, CatalogArgumentRule):
+        area, title, subjects = (
+            "calls",
+            f"{rule.target}.{rule.parameter} names a declared catalog entry",
+            [rule.source, rule.target, rule.catalog],
+        )
+        data = {
+            "source": rule.source,
+            "target": rule.target,
+            "parameter": rule.parameter,
+            "catalog": rule.catalog,
+            "overlays": list(rule.overlays),
+            "source_match": rule.source_match,
+            "rationale": rule.rationale,
+        }
+    elif isinstance(rule, CatalogUseRule):
+        area, title, subjects = (
+            "references",
+            f"Catalog entries from {rule.catalog} have source reads",
+            [rule.source, rule.catalog],
+        )
+        data = {
+            "source": rule.source,
+            "catalog": rule.catalog,
+            "overlays": list(rule.overlays),
+            "source_match": rule.source_match,
+            "rationale": rule.rationale,
+            **({"member": rule.member} if rule.member is not None else {}),
+            **({"target": rule.target, "parameter": rule.parameter} if rule.target else {}),
+        }
+    elif isinstance(rule, ForbiddenEffectUnderConditionRule):
+        area, title, subjects = (
+            "calls",
+            f"Forbid {rule.target} while {rule.condition.owner}.{rule.condition.name} is true",
+            [rule.source, rule.target, rule.condition.owner],
+        )
+        data = {
+            "source": rule.source,
+            "target": rule.target,
+            "condition": {
+                "kind": rule.condition.kind,
+                "owner": rule.condition.owner,
+                "name": rule.condition.name,
+            },
             "rationale": rule.rationale,
         }
     elif isinstance(rule, ForbiddenDependencyRule):
@@ -134,6 +197,18 @@ def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
             "source": rule.source,
             "constructs": constructs,
             "allowed_sources": sorted(rule.allowed_sources),
+            **(
+                {
+                    "selector": {
+                        "receiver": rule.selector.receiver,
+                        "member": rule.selector.member,
+                        "role": rule.selector.role.value,
+                        "literal": rule.selector.literal,
+                    }
+                }
+                if rule.selector is not None
+                else {}
+            ),
             **({"exact_sources": sorted(rule.exact_sources)} if rule.exact_sources else {}),
             **(
                 {
@@ -194,6 +269,22 @@ def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
         data = {
             "root": rule.root,
             "allowed_children": sorted(rule.allowed_children),
+            "rationale": rule.rationale,
+        }
+    elif isinstance(rule, SourceOwnershipRule):
+        area, title, subjects = (
+            "source_architecture",
+            f"Source roles for {rule.source} follow declared ownership",
+            [rule.source, *rule.symbols, *rule.parameters],
+        )
+        data = {
+            "source": rule.source,
+            "mode": rule.mode.value,
+            "roles": list(rule.roles),
+            "symbols": list(rule.symbols),
+            "parameters": list(rule.parameters),
+            **({"owner": rule.owner} if rule.owner else {}),
+            **({"value_owner": rule.value_owner} if rule.value_owner else {}),
             "rationale": rule.rationale,
         }
     elif isinstance(rule, CompleteExternalScopeRule):

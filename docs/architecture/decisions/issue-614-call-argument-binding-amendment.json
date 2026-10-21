@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "927d1a4f4aba9d73b8e5e561969ad4fb553857f0054752dedefaee94780f0b2c",
+  "after_digest": "16a2fc913933ed8d55ed4417279cf908fed5b0d57f8bfb36c4d0f0d18c22a73b",
+  "before_baseline_digest": "927d1a4f4aba9d73b8e5e561969ad4fb553857f0054752dedefaee94780f0b2c",
+  "before_digest": "548737443d25f26269a942ea02ca1a3b58ff4b22c2f87274b9908b3a12920024",
+  "decided_by": "architect",
+  "rationale": "Bind forbidden literal argument findings to canonical observed signatures without defaults or expression evaluation, preserving every existing budget ceiling.",
+  "schema_version": "2.0.0"
+}

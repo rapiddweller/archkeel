@@ -51,6 +51,8 @@ from .facts import (
 from .facts import (
     AnalyzerInfo as AnalyzerInfo,
 )
+from .facts import ConditionSelector as ConditionSelector
+from .facts import ConditionSelectorKind as ConditionSelectorKind
 from .facts import (
     Evidence as Evidence,
 )
@@ -105,7 +107,7 @@ def public_api_id(selector: str) -> str:
     return f"API-{hashlib.sha256(selector.encode()).hexdigest()[:16]}"
 
 
-SCHEMA_VERSION = "2.4.0"
+SCHEMA_VERSION = "2.9.0"
 DELTA_SCHEMA_VERSION = "2.0.0"
 
 
@@ -510,6 +512,61 @@ class BoundedNumericOperandRule(ArchitectureRuleGrammar):
 
 
 @dataclass(frozen=True, slots=True)
+class ForbiddenCallArgumentRule(ArchitectureRuleGrammar):
+    id: str
+    kind: Literal[ArchitectureRuleKind.FORBIDDEN_CALL_ARGUMENT]
+    source: str
+    target: str
+    parameter: str
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+
+
+@dataclass(frozen=True, slots=True)
+class CatalogArgumentRule(ArchitectureRuleGrammar):
+    id: str
+    kind: Literal[ArchitectureRuleKind.CATALOG_ARGUMENT]
+    source: str
+    target: str
+    parameter: str
+    catalog: str
+    overlays: tuple[str, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+    source_match: SelectorMatch = SelectorMatch.PREFIX
+
+
+@dataclass(frozen=True, slots=True)
+class CatalogUseRule(ArchitectureRuleGrammar):
+    id: str
+    kind: Literal[ArchitectureRuleKind.CATALOG_USE]
+    source: str
+    catalog: str
+    overlays: tuple[str, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+    member: str | None = None
+    source_match: SelectorMatch = SelectorMatch.PREFIX
+    target: str | None = None
+    parameter: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ForbiddenEffectUnderConditionRule(ArchitectureRuleGrammar):
+    id: str
+    kind: Literal[ArchitectureRuleKind.FORBIDDEN_EFFECT_UNDER_CONDITION]
+    source: str
+    target: str
+    condition: ConditionSelector
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+
+
+@dataclass(frozen=True, slots=True)
 class ForbiddenDependencyRule(ArchitectureRuleGrammar):
     id: str
     kind: Literal[ArchitectureRuleKind.FORBIDDEN_DEPENDENCY]
@@ -568,6 +625,63 @@ class TypeIgnoreAllowance:
     tag: str
 
 
+class ConstructSelectorRole(StrEnum):
+    READ = "read"
+    WRITE = "write"
+    CALL = "call"
+    REFLECT = "reflect"
+    CONSTRUCTOR = "constructor"
+    TYPE_PROBE = "type_probe"
+    EQUALITY = "equality"
+    MEMBERSHIP = "membership"
+    MATCH = "match"
+    STARTSWITH = "startswith"
+    ENDSWITH = "endswith"
+
+
+@dataclass(frozen=True, slots=True)
+class ConstructSelector:
+    """One nominal receiver/member selection with an optional literal operand."""
+
+    receiver: str
+    member: str | None
+    role: ConstructSelectorRole
+    literal: str | None = None
+
+
+class SourceOwnershipMode(StrEnum):
+    RETIRED = "retired"
+    CONFINED = "confined"
+
+
+class SourceOwnershipRole(StrEnum):
+    DEFINITION = "definition"
+    READ = "read"
+    WRITE = "write"
+    DELETE = "delete"
+    VALUE_TRANSFER = "value_transfer"
+    PARAMETER_DEFAULT = "parameter_default"
+    FALLBACK = "fallback"
+
+
+@dataclass(frozen=True, slots=True)
+class SourceOwnershipRule(ArchitectureRuleGrammar):
+    """A source-bound name, callable transfer, default, or fallback ownership constraint."""
+
+    id: str
+    kind: Literal[ArchitectureRuleKind.SOURCE_OWNERSHIP]
+    source: str
+    mode: SourceOwnershipMode
+    roles: tuple[SourceOwnershipRole, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+    symbols: tuple[str, ...] = ()
+    parameters: tuple[str, ...] = ()
+    owner: str | None = None
+    value_owner: str | None = None
+
+
 @dataclass(frozen=True, slots=True)
 class ForbiddenConstructRule(ArchitectureRuleGrammar):
     """`allowed_sources` match an owner scope by prefix, `exact_sources` only the scope named."""
@@ -582,6 +696,7 @@ class ForbiddenConstructRule(ArchitectureRuleGrammar):
     allowed_sources: tuple[str, ...] = ()
     exact_sources: tuple[str, ...] = ()
     allowed_type_ignores: tuple[TypeIgnoreAllowance, ...] = ()
+    selector: ConstructSelector | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -803,9 +918,14 @@ class ProtocolDeclarationsRule(ArchitectureRuleGrammar):
 ArchitectureRule: TypeAlias = (
     CallOwnerRule
     | BoundedNumericOperandRule
+    | ForbiddenCallArgumentRule
+    | CatalogArgumentRule
+    | CatalogUseRule
+    | ForbiddenEffectUnderConditionRule
     | ForbiddenDependencyRule
     | AllowedDependencyRule
     | ForbiddenConstructRule
+    | SourceOwnershipRule
     | ExternalDependencyScopeRule
     | CompleteAssignmentRule
     | RootLayoutRule
@@ -1038,7 +1158,9 @@ def _references(
 
 
 # The fields that hold one name rather than a list of them.
-_SCALAR_FIELDS: Final = frozenset({"source", "target", "root", "namespace", "command", "owner"})
+_SCALAR_FIELDS: Final = frozenset(
+    {"source", "target", "catalog", "root", "namespace", "command", "owner"}
+)
 
 
 def _boundary_allowance_references(
@@ -1099,12 +1221,43 @@ def _module_object_grant_references(
     ]
 
 
+def _catalog_references(
+    index: int, rule: CatalogArgumentRule | CatalogUseRule
+) -> list[ModuleReference]:
+    named = [
+        ("source", (rule.source,), True),
+        ("catalog", (rule.catalog,), True),
+        ("overlays", rule.overlays, True),
+    ]
+    if isinstance(rule, CatalogArgumentRule):
+        named.insert(1, ("target", (rule.target,), True))
+    elif rule.target is not None:
+        named.insert(1, ("target", (rule.target,), True))
+    return _references(f"/rules/{index}", named)
+
+
 def _rule_references(
     index: int, rule: ArchitectureRule, external: frozenset[str]
 ) -> list[ModuleReference]:
     """One rule's fields that name a module, a module prefix or a qualified symbol."""
     if isinstance(rule, CallOwnerRule):
         return _call_owner_references(index, rule)
+    if isinstance(rule, ForbiddenCallArgumentRule):
+        return _references(
+            f"/rules/{index}",
+            [("source", (rule.source,), True), ("target", (rule.target,), False)],
+        )
+    if isinstance(rule, CatalogArgumentRule | CatalogUseRule):
+        return _catalog_references(index, rule)
+    return _generic_rule_references(index, rule, external)
+
+
+def _generic_rule_references(
+    index: int, rule: ArchitectureRule, external: frozenset[str]
+) -> list[ModuleReference]:
+    special = _special_rule_references(index, rule)
+    if special is not None:
+        return special
     named: list[tuple[str, tuple[str, ...], bool]] = []
     if isinstance(
         rule,
@@ -1112,6 +1265,7 @@ def _rule_references(
         | AllowedDependencyRule
         | ForbiddenConstructRule
         | BoundedNumericOperandRule
+        | SourceOwnershipRule
         | CompleteAssignmentRule
         | CompleteExternalScopeRule
         | SymbolPlacementRule
@@ -1140,6 +1294,8 @@ def _rule_references(
         named += [("allowed_sources", rule.allowed_sources, True)]
     if isinstance(rule, ExternalDependencyScopeRule | SymbolPlacementRule | BoundaryTypesRule):
         named += [("exact_sources", rule.exact_sources, True)]
+    if isinstance(rule, SourceOwnershipRule):
+        return _source_ownership_references(index, rule, named)
     if isinstance(rule, ForbiddenConstructRule):
         named += [
             ("allowed_sources", rule.allowed_sources, False),
@@ -1169,6 +1325,43 @@ def _rule_references(
             for item, allowance in enumerate(rule.allowed_type_ignores)
         ]
     return references
+
+
+def _source_ownership_references(
+    index: int, rule: SourceOwnershipRule, named: list[tuple[str, tuple[str, ...], bool]]
+) -> list[ModuleReference]:
+    if rule.owner is not None:
+        named.append(("owner", (rule.owner,), True))
+    references = _references(f"/rules/{index}", named)
+    for field, values in (("symbols", rule.symbols), ("parameters", rule.parameters)):
+        references.extend(
+            ModuleReference(f"/rules/{index}/{field}/{position}", value, False)
+            for position, value in enumerate(values)
+        )
+    if rule.value_owner is not None:
+        value_owner: str = rule.value_owner
+        references.append(ModuleReference(f"/rules/{index}/value_owner", value_owner, False))
+    return references
+
+
+def _special_rule_references(index: int, rule: ArchitectureRule) -> list[ModuleReference] | None:
+    if isinstance(rule, CallOwnerRule):
+        return _call_owner_references(index, rule)
+    if isinstance(rule, ForbiddenCallArgumentRule):
+        return _references(
+            f"/rules/{index}",
+            [("source", (rule.source,), True), ("target", (rule.target,), False)],
+        )
+    if isinstance(rule, ForbiddenEffectUnderConditionRule):
+        references: list[ModuleReference] = _references(
+            f"/rules/{index}",
+            [("source", (rule.source,), True), ("target", (rule.target,), False)],
+        )
+        references.append(
+            ModuleReference(f"/rules/{index}/condition/owner", rule.condition.owner, False)
+        )
+        return references
+    return None
 
 
 def module_references(
@@ -1283,6 +1476,21 @@ class WideningFinding:
     code: Literal["ir.widening"]
     subject: str
     field: str
+
+
+class ContractChangeDirection(StrEnum):
+    WIDENED = "widened"
+    NARROWED = "narrowed"
+
+
+@dataclass(frozen=True, slots=True)
+class ContractChange:
+    """One semantic contract change since `--against`, amended or not (AD-255)."""
+
+    direction: ContractChangeDirection
+    subject: str
+    field: str
+    message: str
 
 
 class UmlEligibility(StrEnum):
@@ -1661,6 +1869,8 @@ class RunResult:
     failures: tuple[str, ...] = ()
     # Present as null without --against; otherwise only unamended/rejected changes.
     widenings: tuple[WideningFinding, ...] | None = None
+    # AD-255: every contract change with its direction; null without --against.
+    contract_changes: tuple[ContractChange, ...] | None = None
     amendment_status: AmendmentStatus | None = None
     # AD-77: baseline drift is reported as deterministic fingerprint counts.
     baseline_new: int | None = None

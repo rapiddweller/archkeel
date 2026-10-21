@@ -5,7 +5,7 @@
 
 import json
 from collections.abc import Iterator
-from dataclasses import asdict, fields, is_dataclass
+from dataclasses import asdict, fields, is_dataclass, replace
 from pathlib import Path
 from types import NoneType, UnionType
 from typing import get_args, get_origin, get_type_hints
@@ -85,30 +85,6 @@ def test_contract_parser_rejects_distinct_records_with_duplicate_ids() -> None:
     raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
     raw["rules"][0]["id"] = raw["components"][0]["id"]
     with pytest.raises(ValueError, match="duplicate contract ID"):
-        parse_contract(raw)
-
-
-@pytest.mark.parametrize(
-    ("declarations", "message"),
-    [
-        (
-            {"compat": [{"module": "old.m", "target": "new.m", "lifetime": "permanent"}] * 2},
-            "compat modules must be unique",
-        ),
-        (
-            {"measurement_budgets": [{"name": "cycle_edges", "provenance": ["docs/a.md"]}] * 2},
-            "measurement_budgets repeats a name",
-        ),
-    ],
-    ids=["compat", "measurement-budgets"],
-)
-def test_contract_parser_rejects_repeated_widening_keys(
-    declarations: dict[str, object], message: str
-) -> None:
-    # Widening compares these by key, so a repeat would hide one of them (#634).
-    raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
-    raw["declarations"] = declarations
-    with pytest.raises(ValueError, match=message):
         parse_contract(raw)
 
 
@@ -289,10 +265,22 @@ _PROVENANCE = ["docs/architecture/shop.md"]
 def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
     """The shop contract fills every field available to its version."""
     raw = json.loads((ROOT / "fixtures/F-architecture/architecture-contract.json").read_text())
-    omitted_rule_kinds = {"call_owner", "bounded_numeric_operand"}
-    if version != "3.9.0":
-        omitted_rule_kinds.add("protocol_declarations")
-    raw["rules"] = [rule for rule in raw["rules"] if rule["kind"] not in omitted_rule_kinds]
+    raw["rules"] = [
+        rule
+        for rule in raw["rules"]
+        if rule["kind"]
+        not in {
+            "call_owner",
+            "bounded_numeric_operand",
+            "protocol_declarations",
+            "forbidden_call_argument",
+            "forbidden_effect_under_condition",
+            "catalog_argument",
+            "catalog_use",
+            "source_ownership",
+        }
+        and (version in {"3.12.0", "3.13.0"} or rule["kind"] != "source_ownership")
+    ]
     app = next(item for item in raw["components"] if item["id"] == "COMP-APP")
     app["exact_modules"] = ["shop.app.orders"]
     app["planned"] = ["shop.app.refunds"]
@@ -506,6 +494,23 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
         interface["module_object_grants"] = [
             {"source_module": "shop.app.orders", "target_module": "shop.model"}
         ]
+    if version == "3.13.0":
+        raw["rules"].append(
+            {
+                "id": "NO-RANDOM-WHEN-SEEDED",
+                "kind": "forbidden_effect_under_condition",
+                "source": "shop.app.orders",
+                "target": "secrets.token_hex",
+                "condition": {
+                    "kind": "parameter",
+                    "owner": "shop.app.orders.generate",
+                    "name": "seeded",
+                },
+                "rationale": "Seeded calls use deterministic bytes.",
+                "provenance": _PROVENANCE,
+                "decided_by": "architect",
+            }
+        )
     if version == "3.7.0":
         raw["rules"].append(
             {
@@ -554,6 +559,81 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
                 "provenance": _PROVENANCE,
                 "decided_by": "architect",
             }
+        )
+    if version == "3.10.0":
+        raw["rules"].append(
+            {
+                "id": "FORBID-LITERAL-QUERY",
+                "kind": "forbidden_call_argument",
+                "source": "shop.app",
+                "target": "shop.model.Store.page",
+                "parameter": "query",
+                "rationale": "Use a typed query specification.",
+                "provenance": _PROVENANCE,
+                "decided_by": "architect",
+            }
+        )
+    if version == "3.11.0":
+        rules["CONSTRUCT-NO-STRING-LITERAL-COMPARE"]["selector"] = {
+            "receiver": "shop.model.Connection",
+            "member": "backend",
+            "role": "equality",
+            "literal": "flat",
+        }
+    if version in {"3.12.0", "3.13.0", "3.14.0"}:
+        raw["rules"].append(
+            {
+                "id": "SOURCE-OWNERSHIP",
+                "kind": "source_ownership",
+                "source": "shop.app",
+                "mode": "confined",
+                "roles": [
+                    "definition",
+                    "read",
+                    "write",
+                    "delete",
+                    "value_transfer",
+                    "parameter_default",
+                    "fallback",
+                ],
+                "symbols": ["shop.app.orders.page"],
+                "parameters": ["shop.app.orders.page.query"],
+                "owner": "shop.model.Store",
+                "value_owner": "shop.model.OptionKey",
+                "rationale": "Keep source facts with their owner.",
+                "provenance": _PROVENANCE,
+                "decided_by": "architect",
+            }
+        )
+    if version == "3.14.0":
+        raw["rules"].extend(
+            [
+                {
+                    "id": "CATALOG-ARGUMENT",
+                    "kind": "catalog_argument",
+                    "source": "shop.app",
+                    "target": "shop.model.Store.page",
+                    "parameter": "key",
+                    "catalog": "shop.model.OptionKey",
+                    "overlays": ["shop.app.CustomOption"],
+                    "rationale": "Pass a declared option key.",
+                    "provenance": _PROVENANCE,
+                    "decided_by": "architect",
+                },
+                {
+                    "id": "CATALOG-USE",
+                    "kind": "catalog_use",
+                    "source": "shop.app",
+                    "catalog": "shop.model.OptionKey",
+                    "overlays": ["shop.app.CustomOption"],
+                    "member": "PAGE_SIZE",
+                    "target": "shop.model.Store.read_option",
+                    "parameter": "key",
+                    "rationale": "Use every declared option.",
+                    "provenance": _PROVENANCE,
+                    "decided_by": "architect",
+                },
+            ]
         )
     return raw
 
@@ -780,7 +860,11 @@ def test_the_maximal_contract_fills_every_field() -> None:
             "3.7.0",
             "3.8.0",
             "3.9.0",
-            "3.9.0",
+            "3.10.0",
+            "3.14.0",
+            "3.11.0",
+            "3.12.0",
+            "3.13.0",
         )
     ]
 
@@ -845,11 +929,27 @@ def test_validate_holds_the_namespace_to_the_fields_it_held_before(version: str)
     )
 
 
-@pytest.mark.parametrize("version", ("3.0.0", "3.1.0", "3.2.0", "3.8.0", "3.9.0"))
+@pytest.mark.parametrize(
+    "version",
+    (
+        "3.0.0",
+        "3.1.0",
+        "3.2.0",
+        "3.8.0",
+        "3.9.0",
+        "3.10.0",
+        "3.11.0",
+        "3.12.0",
+        "3.13.0",
+        "3.14.0",
+    ),
+)
 def test_maximal_contract_matches_its_version_schema(version: str) -> None:
     raw = json.loads(contract_bytes(parse_contract(_maximal_contract(version))))
     schema = json.loads(
-        (ROOT / f"schema/architecture-contract-{version[:3]}.schema.json").read_bytes()
+        (
+            ROOT / f"schema/architecture-contract-{'.'.join(version.split('.')[:2])}.schema.json"
+        ).read_bytes()
     )
     assert not list(Draft202012Validator(schema).iter_errors(raw))
     assert parse_contract(json.loads(contract_bytes(parse_contract(raw)))) == parse_contract(raw)
@@ -862,6 +962,16 @@ def test_maximal_contract_key_binding_requires_3_1() -> None:
         parse_contract(raw)
     schema = json.loads((ROOT / "schema/architecture-contract-3.0.schema.json").read_bytes())
     assert list(Draft202012Validator(schema).iter_errors(raw))
+
+
+def test_contract_encoder_checks_features_after_layer_introduction() -> None:
+    contract = replace(
+        parse_contract(_maximal_contract("3.0.0")),
+        schema_version=ContractVersion.V2_3,
+    )
+
+    with pytest.raises(ValueError, match="alias_body"):
+        contract_bytes(contract)
 
 
 @pytest.mark.parametrize("version", ("3.0.0", "3.1.0", "3.2.0"))

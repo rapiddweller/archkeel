@@ -15,7 +15,7 @@
         "archkeel.ir.source_records"
       ],
       "responsibilities": [
-        "Own language-neutral source facts, evidence identities, state and type values."
+        "Own language-neutral source facts, evidence identities, state, type values and typed IR vocabularies."
       ],
       "forbidden_responsibilities": [
         "Language ASTs, protocol envelopes, I/O and architecture verdicts.",
@@ -32,7 +32,8 @@
         "archkeel.ir.type_shapes",
         "archkeel.ir.reexports",
         "archkeel.ir.source_records",
-        "archkeel.ir.identity:module_identity"
+        "archkeel.ir.identity:module_identity",
+        "archkeel.ir.facts:ReservedString"
       ]
     },
     {
@@ -70,13 +71,17 @@
       "label": "facts-codec",
       "role": "component",
       "packages": [
+        "archkeel.ir.guard_paths",
         "archkeel.ir.facts_codec",
         "archkeel.ir.facts_validation",
         "archkeel.ir.source_proofs",
-        "archkeel.ir.state_codec"
+        "archkeel.ir.state_codec",
+        "archkeel.ir.codec_strings"
       ],
       "responsibilities": [
-        "Strictly decode, validate and encode source facts and process envelopes."
+        "Strictly decode, validate and encode source facts and process envelopes.",
+        "Own the bounded source path grammar shared by collection and guarded-effect replay.",
+        "Intern lossless JSON strings for source and observation wire encodings."
       ],
       "forbidden_responsibilities": [
         "Policy and I/O.",
@@ -101,8 +106,13 @@
       ],
       "public": [
         "archkeel.ir.facts_codec",
+        "archkeel.ir.guard_paths:GuardedCallPath",
+        "archkeel.ir.guard_paths:guarded_call_paths",
+        "archkeel.ir.codec_strings:StringTablePolicy",
+        "archkeel.ir.codec_strings:intern_strings",
         "archkeel.ir.facts_validation:validate_source_facts",
         "archkeel.ir.facts_validation:validate_source_bindings",
+        "archkeel.ir.facts_codec:source_reference_context",
         "archkeel.ir.source_proofs:class_instance_member_write_names"
       ]
     },
@@ -560,6 +570,14 @@
       {
         "path": "src/archkeel/ir/facts_codec.py",
         "responsibility": "Pure validation and serialization of the process boundary."
+      },
+      {
+        "path": "src/archkeel/ir/guard_paths.py",
+        "responsibility": "Define the bounded source path grammar shared by collection and replay."
+      },
+      {
+        "path": "src/archkeel/ir/codec_strings.py",
+        "responsibility": "Intern lossless JSON strings for source and observation wire encodings."
       },
       {
         "path": "src/archkeel/ir/graph.py",
@@ -8811,6 +8829,20 @@
           "language": "python",
           "presence": "planned",
           "provenance": [
+            "docs/architecture/decisions/ad-250-bounded-guarded-effect-ownership.md"
+          ],
+          "id": "GUARDED-CALL-PATH-GRAMMAR",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.guard_paths",
+          "parent_id": "TARGET-FACTS-CODEC",
+          "responsibilities": [
+            "Define the bounded source path grammar shared by collection and guarded-effect replay."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
             "docs/architecture/typed-python-properties.md"
           ],
           "visibility": {
@@ -11500,6 +11532,27 @@
                 "annotation": "SourceSectionName",
                 "kind": "positional",
                 "default_known": true
+              },
+              {
+                "name": "evidence",
+                "annotation": "Mapping[str, Evidence] | None",
+                "kind": "positional",
+                "default_known": true,
+                "default": "None"
+              },
+              {
+                "name": "imports",
+                "annotation": "tuple[Record, ...]",
+                "kind": "positional",
+                "default_known": true,
+                "default": "()"
+              },
+              {
+                "name": "function_contexts",
+                "annotation": "frozenset[GuardFunctionContext]",
+                "kind": "positional",
+                "default_known": true,
+                "default": "frozenset()"
               }
             ],
             "returns": "None"

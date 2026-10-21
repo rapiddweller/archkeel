@@ -28,6 +28,26 @@ def main() -> None:
     )
     assert result_schema["$id"] == "urn:archkeel:command-result:6.0.0"
     assert "expectation_fulfilled" in result_schema["required"]
+    source_facts_5 = json.loads(
+        schemas.joinpath("source-facts-5.0.schema.json").read_text(encoding="utf-8")
+    )
+    assert source_facts_5["$id"] == "https://archkeel.dev/schema/source-facts/5.0.0"
+    python_2_7 = json.loads(
+        schemas.joinpath("architecture-ir-python-decoded-2.7.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert python_2_7["$id"] == "urn:archkeel:architecture-ir:python-decoded:2.7.0"
+    assert python_2_7["properties"]["calls"]["items"]["allOf"][1]["properties"]["data"][
+        "properties"
+    ]["call_binding"]["oneOf"][1]["$ref"] == (
+        "https://archkeel.dev/schema/source-facts/5.0.0#/$defs/CallBinding"
+    )
+    assert source_facts_5["$defs"]["CallBinding"]["required"] == [
+        "origin",
+        "target",
+        "evidence_ids",
+    ]
     for name in (
         "architecture-ir-common.schema.json",
         "architecture-ir-python-decoded.schema.json",
@@ -38,6 +58,7 @@ def main() -> None:
         "command-result-7.0.schema.json",
         "command-result-8.0.schema.json",
         "command-result-9.0.schema.json",
+        "command-result-10.0.schema.json",
         "architecture-ir-decoded-2.1.schema.json",
         "architecture-ir-python-decoded-2.1.schema.json",
         "architecture-ir-decoded-2.2.schema.json",
@@ -46,6 +67,17 @@ def main() -> None:
         "architecture-ir-python-decoded-2.3.schema.json",
         "architecture-ir-decoded-2.4.schema.json",
         "architecture-ir-python-decoded-2.4.schema.json",
+        "architecture-ir-decoded-2.5.schema.json",
+        "architecture-ir-python-decoded-2.5.schema.json",
+        "architecture-contract-3.8.schema.json",
+        "architecture-ir-decoded-2.8.schema.json",
+        "architecture-ir-python-decoded-2.8.schema.json",
+        "architecture-contract-3.14.schema.json",
+        "architecture-ir-decoded-2.9.schema.json",
+        "architecture-ir-python-decoded-2.9.schema.json",
+        "source-facts-4.0.schema.json",
+        "source-facts-5.0.schema.json",
+        "source-facts.schema.json",
     ):
         assert json.loads(schemas.joinpath(name).read_text(encoding="utf-8"))["$id"]
     with TemporaryDirectory(prefix="archkeel-smoke-") as temporary:
@@ -193,6 +225,117 @@ def typescript() -> None:
         assert report["producer"]["name"] == "archkeel-typescript-imports", report["producer"]
 
 
+def call_arguments() -> None:
+    """Installed distributions bind arguments and replay both observation encodings."""
+    from archkeel.ir.codec import decode_canonical_model, parse_observation
+
+    with TemporaryDirectory(prefix="archkeel-smoke-args-") as temporary:
+        root = Path(temporary)
+        output = root / "architecture.json"
+        _argument_fixture(root)
+        run = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "archkeel.cli",
+                "report",
+                "--root",
+                str(root),
+                "--output",
+                str(output),
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        assert run.returncode == 0, (run.stdout, run.stderr)
+        observation = parse_observation(
+            decode_canonical_model(json.loads(output.read_text(encoding="utf-8")))
+        )
+        _assert_argument_replay(root, observation)
+
+
+def _argument_fixture(root: Path) -> None:
+    (root / "sample").mkdir()
+    (root / "sample/__init__.py").write_text("")
+    (root / "sample/store.py").write_text(
+        "class Store:\n    def page(self, query: str, label: str = '') -> None: pass\n"
+    )
+    (root / "sample/caller.py").write_text(
+        "from .store import Store\n"
+        "def consume(store: Store, spec: str, queries: list[str]) -> None:\n"
+        "    store.page('positional')\n"
+        "    store.page(query='keyword')\n"
+        "    store.page(query=spec, label='unselected')\n"
+        "    store.page(*queries)\n"
+    )
+    provenance = root / "docs/architecture/contract.md"
+    provenance.parent.mkdir(parents=True)
+    provenance.write_text("Call argument policy.\n")
+    contract = {
+        "schema_version": "3.10.0",
+        "components": [],
+        "rules": [
+            {
+                "id": "FORBID-QUERY-LITERAL",
+                "kind": "forbidden_call_argument",
+                "source": "sample.caller",
+                "target": "sample.store.Store.page",
+                "parameter": "query",
+                "rationale": "Query text must come from the selected typed argument.",
+                "provenance": ["docs/architecture/contract.md"],
+                "decided_by": "architect",
+            }
+        ],
+    }
+    (root / "contract.json").write_text(json.dumps(contract))
+    (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    (root / "archkeel.toml").write_text(
+        '[scan]\nroots = ["sample"]\nnamespace = "sample"\ncontract = "contract.json"\n'
+    )
+    for args in (
+        ("init", "-q"),
+        ("config", "user.email", "smoke@example.invalid"),
+        ("config", "user.name", "Archkeel smoke test"),
+        ("add", "."),
+        ("commit", "-qm", "argument fixture"),
+    ):
+        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+
+
+def _assert_argument_replay(root: Path, observation) -> None:
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import encode_canonical_model
+    from archkeel.ir.codec_observation import observation_payload
+    from archkeel.ir.facts import call_binding
+
+    calls = [
+        call
+        for call in observation.records("calls")
+        if call.data.get("source_scope") == "sample.caller.consume"
+    ]
+    assert len(calls) == 4, calls
+    bindings = [call_binding(call.data.get("call_binding")) for call in calls]
+    assert all(binding is not None for binding in bindings), bindings
+    assert all(binding.target == "sample.store.Store.page" for binding in bindings if binding)
+    assert all(
+        binding.origin.value in {"declared_receiver", "stored_receiver"}
+        for binding in bindings
+        if binding
+    ), bindings
+    raw = observation_payload(observation)
+    saved_reports = {
+        "ordinary": raw,
+        "columnar": encode_canonical_model(raw),
+    }
+    for name, payload in saved_reports.items():
+        saved = root / f"{name}.json"
+        saved.write_text(json.dumps(payload))
+        replay = run_saved_report(saved)
+        [assessment] = replay.rule_assessments
+        assert assessment.status == "FAIL" and assessment.undecided > 0, assessment
+
+
 def dart() -> None:
     """Exercise installed Dart analysis with no usable Dart executable."""
     with TemporaryDirectory(prefix="archkeel-smoke-dart-") as temporary:
@@ -252,5 +395,6 @@ def dart() -> None:
 
 if __name__ == "__main__":
     main()
+    call_arguments()
     typescript()
     dart()

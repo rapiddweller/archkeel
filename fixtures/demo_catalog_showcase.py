@@ -14,7 +14,7 @@ from fixtures.demo_catalog_dependencies import (
     STORE_INSIDE_WITH_REPOSITORY_PEER_GRANT,
 )
 from fixtures.demo_catalog_interfaces import MAIN_WITH_UNDERSCORE_IMPORT
-from fixtures.demo_catalog_support import HEADER, Variant
+from fixtures.demo_catalog_support import FIXTURE_DIR, HEADER, Variant
 from fixtures.demo_catalog_types import ROGUE_DATACLASS_MODULE
 
 _TOUR_RENDER_TEXT = HEADER + (
@@ -39,7 +39,9 @@ _TOUR_APP_ORDERS = HEADER + (
     "import json\n"
     "from pathlib import Path\n"
     "from typing import TYPE_CHECKING\n\n"
+    "from shop.app.catalog import OptionKey, read_option\n"
     "from shop.model.entities import Line, Money, Order\n"
+    "from shop.model import entities\n"
     "from shop.store import OrderRepository\n"
     "from shop.store.backend.files import write_payload\n"
     "from shop.store.sqlite import vacuum\n"
@@ -60,6 +62,11 @@ _TOUR_APP_ORDERS = HEADER + (
     "    return order\n\n\n"
     "def summarize(store_dir: Path, order_id: str) -> Money:\n"
     "    return OrderRepository(store_dir).load(order_id).total()\n\n\n"
+    "def read_catalog_option() -> str:\n"
+    "    read_option(OptionKey.RETIRED)\n"
+    '    return read_option("unlisted-option")\n\n\n'
+    "def external_nonce_bucket(job_nonce: int) -> int:\n"
+    "    return entities._nonce_bucket(job_nonce)\n\n\n"
     "def describe_connection(connection: Connection) -> str:\n"
     '    """Type-only use of the maintenance connection; never imported at runtime here."""\n'
     "    run_maintenance(connection)\n"
@@ -193,6 +200,34 @@ _TOUR_STORE_SQLITE = HEADER + (
     "        if candidate.stat().st_size == 0:\n"
     "            candidate.unlink()\n"
 )
+_TOUR_ORDER_LOOKUP = HEADER + (
+    '"""Resolve an order path for the showcase example."""\n\n'
+    "from __future__ import annotations\n\n"
+    "from pathlib import Path\n\n"
+    "from shop.store.backend.paths import order_path\n\n\n"
+    "def lookup_order(root: Path, order_id: str) -> Path:\n"
+    "    return order_path(root, order_id)\n\n\n"
+    "def find_order(root: Path, order_id: str) -> Path:\n"
+    '    return lookup_order(root, "tour-order")\n'
+    "\n"
+)
+_TOUR_TOKENS = HEADER + (
+    '"""Generate tokens with a forbidden seeded-path effect for the tour."""\n\n'
+    "import secrets\n\n\n"
+    "def token_for_run(seeded: bool) -> str:\n"
+    "    if seeded:\n"
+    "        return secrets.token_hex(8)\n"
+    '    return "fixed-token"\n'
+)
+_SEEDED_EFFECT = Variant(
+    id="class-a-forbidden-effect-under-condition",
+    section="class_a",
+    item="forbidden_effect_under_condition",
+    summary="A seeded token call reaches the canonical secrets.token_hex effect.",
+    files={"shop/app/tokens.py": _TOUR_TOKENS},
+    expected_violations=("EFFECT-NO-TOKEN-WHEN-SEEDED",),
+    expected_codes=("rule.violated",),
+)
 _TOUR = Variant(
     id="tour",
     section="showcase",
@@ -203,6 +238,7 @@ _TOUR = Variant(
     "app->store.backend reach one package level deeper, an app->json scope violation, an "
     "app->shop_analytics reach no rule names at all, a cli->render underscore reach, a "
     "three-member model/render/store cycle that also violates DEP-MODEL-NO-RENDER, an "
+    "effect policy violation for secrets.token_hex under the seeded parameter, an "
     "assert, an eval and a getattr, an Any parameter in shop.model's audit probe, a "
     "broad except outside the one exactly exempted function, an "
     "unassigned module, a store.sqlite->store.repository peer reach (the inside contract "
@@ -212,7 +248,8 @@ _TOUR = Variant(
     "parameter on place_order itself, the one function app.orders declares public (AD-63: "
     "only a declared facade function is inspected, so touch_store's own bare-object "
     "parameter, never declared, no longer fires here), a modulo operand below its "
-    "declared width, and a concrete reader member in place of its required protocol. "
+    "declared width, a concrete reader member in place of its required protocol, a literal "
+    "order ID at a store path lookup, an undeclared catalog key, and an unused PAGE_SIZE entry. "
     "CONSTRUCT-NO-DYNAMIC answers both the eval and the getattr; "
     "validate reports the rule.violated diagnostics plus 2 "
     "closed_world.observed_forbidden pairs (model->render, render->store) and 1 graph.drift, "
@@ -226,6 +263,8 @@ _TOUR = Variant(
         "shop/store/repository.py": REPOSITORY_WITH_MONEY_IMPORT.replace(
             "reader: RepositoryReader", "reader: OrderRepository"
         ),
+        "shop/store/lookup.py": _TOUR_ORDER_LOOKUP,
+        "shop/app/tokens.py": _TOUR_TOKENS,
         "shop/store/sqlite.py": _TOUR_STORE_SQLITE,
         "shop/store/architecture-contract.json": STORE_INSIDE_WITH_REPOSITORY_PEER_GRANT,
         "shop/cli/main.py": MAIN_WITH_UNDERSCORE_IMPORT,
@@ -237,6 +276,9 @@ _TOUR = Variant(
         "shop/extra.py": SHOP_EXTRA,
     },
     expected_violations=(
+        "APP-NO-LITERAL-ORDER-ID",
+        "APP-OPTION-KEY",
+        "APP-OPTION-KEY-USED",
         "APP-TYPES-NOT-DICT",
         "ASSIGNMENT-COMPLETE",
         "CALL-DESCRIBE-NO-MAINTENANCE",
@@ -251,10 +293,12 @@ _TOUR = Variant(
         "DEP-MODEL-NO-RENDER",
         "DEP-RENDER-NO-STORE",
         "DEP-STORE-NO-MONEY",
+        "EFFECT-NO-TOKEN-WHEN-SEEDED",
         "EXTERNAL-COMPLETE",
         "EXTERNAL-JSON-STORE",
         "INTERFACE-BOUNDARY",
         "LAYERS-MODEL",
+        "MODEL-NONCE-OWNER",
         "MODEL-NONCE-WIDTH",
         "MODEL-TYPES-IN-ENTITIES",
         "ROOT-LAYOUT",
@@ -266,6 +310,11 @@ _TOUR = Variant(
         "closed_world.observed_forbidden",
         "closed_world.observed_forbidden",
         "graph.drift",
+        "rule.violated",
+        "rule.violated",
+        "rule.violated",
+        "rule.violated",
+        "rule.violated",
         "rule.violated",
         "rule.violated",
         "rule.violated",
@@ -302,4 +351,25 @@ _CLEAN = Variant(
     expected_codes=(),
 )
 
-VARIANTS: tuple[Variant, ...] = (_TOUR, _CLEAN)
+_SOURCE_OWNERSHIP_ESCAPE = Variant(
+    id="class-a-source-ownership-escaped-read",
+    section="class_a",
+    item="source_ownership:confined read",
+    summary="A model-owned nonce helper is read from the app layer.",
+    files={
+        "shop/app/orders.py": (FIXTURE_DIR / "shop/app/orders.py").read_text()
+        + "\nfrom shop.model import entities\n\n"
+        "def external_nonce_bucket(job_nonce: int) -> int:\n"
+        "    return entities._nonce_bucket(job_nonce)\n"
+    },
+    expected_violations=("MODEL-NONCE-OWNER",),
+    expected_codes=("rule.violated",),
+    expected_declared_rules="FAIL",
+)
+
+VARIANTS: tuple[Variant, ...] = (
+    _TOUR,
+    _SEEDED_EFFECT,
+    _CLEAN,
+    _SOURCE_OWNERSHIP_ESCAPE,
+)

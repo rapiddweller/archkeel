@@ -306,6 +306,34 @@ or collision freedom. Empty/missing selected scope is UNKNOWN. See
 [AD-246](../../docs/architecture/decisions/ad-246-bounded-numeric-operand.md)
 and [rule limits](../../docs/known-limits.md).
 
+call scope. Use `forbidden_call_argument` to select one written-literal policy
+for a canonical target's formal parameter. It binds explicit source actuals to
+the observed signature; spreads, invalid bindings, missing signatures and
+unproven targets leave UNKNOWN. Calls without canonical binding carry null
+argument facts; a proven call with no actuals carries an empty list. It does not check runtime type compatibility
+or apply omitted defaults. Check the rule receipt and supported forms before
+retiring any method-name scanner. Argument facts require observation 2.5 and
+contract 3.10; older readers must reject that evidence. The current reader
+continues to accept historical observation formats.
+
+Use `catalog_argument` to compare a bound operation argument against canonical Python enum string values, and `catalog_use` to require a real selected member read. The contract names declaration owners, never copied values or `used` flags. Comments, docs, definitions and annotation-only links are not reads; `TYPE_CHECKING` reads count syntactically. Missing or partial scope remains UNKNOWN. These rules require contract 3.14 and observation 2.9; older saved artifacts remain readable but cannot certify them. See AD-251 for limits.
+Use `forbidden_construct.selector` when a policy must select one nominal
+receiver/member and access or comparison role. Contract 3.11 and observation
+2.6 enable the Python slice: annotated direct member reads, positional literal
+reflection names, selected local constructors and type probes, literal equality
+in either direction, membership, `match`, and `startswith`/`endswith`.
+Dynamic names, unannotated or ambiguous receivers and missing selected subjects
+remain UNKNOWN. Other language profiles do not claim selector support. See
+[AD-248](../docs/architecture/decisions/ad-248-construct-selectors.md) and
+the [rule grammar](../docs/rules.md#forbidden-construct).
+`forbidden_effect_under_condition` is a static ownership rule. It can prove a declared
+Boolean parameter/member through truth, negation, `if`/`else`, ternary and early
+`return`/`raise`, plus one unique private helper with signature-bound actuals. A known
+unconditional effect is reachable while the condition is true. Reassignment, named
+expressions, short-circuiting, loops, `try`/`finally`, reflection and helper chains or
+recursion remain UNKNOWN. Inspect the rule receipt and path evidence before relying on
+PASS; see [AD-250](../../docs/architecture/decisions/ad-250-bounded-guarded-effect-ownership.md).
+
 ## Daily loop
 
 Validation reports `responsibility.missing` only for components explicitly marked
@@ -424,7 +452,9 @@ For each edit, record affected scopes/declarations, focused/full input bytes, lo
 files/sites, and before/after ownership, API and permissions. Edit size is maintenance evidence,
 not an architecture verdict or a pass threshold. Run `validate --against <accepted-ref>` and
 use the existing bound amendment for approved widening; never regenerate intent from imports.
-Native widening diagnostics are conservative checks, not a complete readable semantic diff.
+Its `contract_changes` list each change as widened or narrowed; only widenings need the
+amendment, and a tightened `requires` entry narrows. Narrowings cover `requires`, `public` and
+rule presence only; anything else is not enumerated.
 
 The [checkout fixture](https://github.com/rapiddweller/archkeel/tree/main/fixtures/H-uml-dart)
 has `ordering -> domain -> orders/pricing` boundaries. Try these changes independently:

@@ -996,6 +996,7 @@ _VALIDATION_PARSE_ERROR = Variant(
 _SHOP_PY_FILES = (
     "shop/app/maintenance.py",
     "shop/app/orders.py",
+    "shop/app/tokens.py",
     "shop/cli/main.py",
     "shop/model/entities.py",
     "shop/render/text.py",
@@ -1004,6 +1005,7 @@ _SHOP_PY_FILES = (
     "shop/store/backend/files.py",
     "shop/store/backend/paths.py",
     "shop/store/codec.py",
+    "shop/store/lookup.py",
     "shop/store/repository.py",
     "shop/store/sqlite.py",
 )

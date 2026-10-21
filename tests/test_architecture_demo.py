@@ -387,6 +387,7 @@ def test_recursive_wide_report_includes_catalog_isolated_module_and_package_root
     expected = {
         "shop.app.maintenance",
         "shop.app.orders",
+        "shop.app.tokens",
         "shop.cli.main",
         "shop.model.entities",
         "shop.render.text",
@@ -405,6 +406,7 @@ def test_recursive_wide_report_includes_catalog_isolated_module_and_package_root
         "shop.store.backend.tasks.source",
         "shop.store.backend.tasks.target",
         "shop.store.codec",
+        "shop.store.lookup",
         "shop.store.repository",
         "shop.store.sqlite",
     }
@@ -443,6 +445,80 @@ def test_class_a_covers_every_rule_kind() -> None:
     kinds = {get_args(get_type_hints(rule)["kind"])[0] for rule in get_args(ArchitectureRule)}
     assert kinds <= items
     assert {"bounded_numeric_operand", "protocol_declarations"} <= items
+
+
+@pytest.mark.parametrize(
+    ("variant_id", "expected"),
+    [
+        ("class-a-forbidden-call-argument-fail", "FAIL"),
+        ("class-a-forbidden-call-argument-pass", "PASS"),
+        ("class-a-forbidden-call-argument-unknown", "UNKNOWN"),
+    ],
+)
+def test_forbidden_call_argument_variants_have_real_assessments(
+    tmp_path: Path,
+    variant_id: str,
+    expected: str,
+) -> None:
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    report, architecture = run_report(
+        root, config=load_config(root, variant.config), analyzer=observe
+    )
+    assert architecture is not None
+    row = next(
+        item for item in report.rule_assessments or () if item.id == "APP-NO-LITERAL-ORDER-ID"
+    )
+    assert row.status.value == expected
+
+
+@pytest.mark.parametrize(
+    ("variant_id", "expected"),
+    [
+        ("clean", "PASS"),
+        ("class-a-forbidden-effect-under-condition", "FAIL"),
+        ("tour", "FAIL"),
+    ],
+)
+def test_guarded_effect_demo_assessments_are_real(
+    tmp_path: Path,
+    variant_id: str,
+    expected: str,
+) -> None:
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    report, architecture = run_report(
+        root, config=load_config(root, variant.config), analyzer=observe
+    )
+    assert architecture is not None
+    row = next(
+        item for item in report.rule_assessments or () if item.id == "EFFECT-NO-TOKEN-WHEN-SEEDED"
+    )
+    assert row.status.value == expected
+
+
+@pytest.mark.parametrize(
+    ("variant_id", "rule_id", "expected"),
+    [
+        ("clean", "APP-OPTION-KEY", "PASS"),
+        ("clean", "APP-OPTION-KEY-USED", "PASS"),
+        ("class-a-catalog-argument", "APP-OPTION-KEY", "FAIL"),
+        ("class-a-catalog-use", "APP-OPTION-KEY-USED", "FAIL"),
+        ("tour", "APP-OPTION-KEY", "FAIL"),
+        ("tour", "APP-OPTION-KEY-USED", "FAIL"),
+    ],
+)
+def test_catalog_demo_assessments_are_real(
+    tmp_path: Path, variant_id: str, rule_id: str, expected: str
+) -> None:
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    report, architecture = run_report(
+        root, config=load_config(root, variant.config), analyzer=observe
+    )
+    assert architecture is not None
+    row = next(item for item in report.rule_assessments or () if item.id == rule_id)
+    assert row.status.value == expected
 
 
 # allowed_dependency records a permission, never a violation: the analyzer never evaluates it
@@ -1277,6 +1353,23 @@ def test_clean_variant_has_no_violations_but_store_scope_is_unknown(tmp_path: Pa
     assert {
         item.id for item in report_result.rule_assessments or () if item.status == "UNKNOWN"
     } == {"store:STORE-REQUIRES-COMPLETE"}
+
+
+@pytest.mark.parametrize(
+    ("variant_id", "expected_status"),
+    (("clean", "PASS"), ("class-a-source-ownership-escaped-read", "FAIL")),
+)
+def test_source_ownership_demo_assesses_its_own_rule(
+    tmp_path: Path, variant_id: str, expected_status: str
+) -> None:
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files))
+    result, _ = run_report(root, config=CONFIG, analyzer=observe)
+
+    [assessment] = [
+        item for item in result.rule_assessments or () if item.id == "MODEL-NONCE-OWNER"
+    ]
+    assert assessment.status == expected_status
 
 
 def test_dart_clean_variant_has_no_violations_but_unknown_cycle_scope(tmp_path: Path) -> None:

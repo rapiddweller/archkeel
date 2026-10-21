@@ -26,8 +26,10 @@ from archkeel.analyzer.runtime import (
     python_requirement,
 )
 from archkeel.ir.facts import (
+    CALL_ARGUMENTS_FEATURE,
     CALL_BINDINGS_FEATURE,
     EXTENDED_CALL_BINDINGS_FEATURE,
+    GUARDED_EFFECTS_FEATURE,
     NATIVE_CALL_TARGETS,
     BuiltinTarget,
     Capabilities,
@@ -70,7 +72,7 @@ from .callable_signatures import (
     contextmanager_dependency_bindings,
     contextmanager_signatures,
 )
-from .calls import collect_calls
+from .calls import collect_calls_with_resolvers
 from .constructs import collect_constructs
 from .imports import (
     collect_dynamic_imports,
@@ -163,10 +165,10 @@ class PythonProviderCollector:
             replace(
                 request,
                 resolver=PythonSettings(provider_sources=providers),
-                protocol_version=ProtocolVersion.V4,
+                protocol_version=ProtocolVersion.V6,
             )
             if providers
-            else request
+            else replace(request, protocol_version=ProtocolVersion.V6)
         )
         remaining_collector: ProcessCollector = replace(self.collector, timeout_seconds=remaining)
         enriched = remaining_collector.collect(final_request)
@@ -439,11 +441,13 @@ def collect(request: CollectionRequest) -> SourceFacts:
         unsafe_creation_providers=unsafe_creation_providers,
         unsafe_source_header_providers=explicit_factory_unsafe_providers(imports, modules),
     )
-    if request.protocol_version is ProtocolVersion.V4:
+    if request.protocol_version in {ProtocolVersion.V4, ProtocolVersion.V5, ProtocolVersion.V6}:
         contextmanager_signatures(modules, providers, symbols, provider_bindings, evidence)
     type_shapes = collect_type_shapes(symbol_type_expressions(symbols))
     symbol_index = build_symbol_index(symbols)
-    calls = collect_calls(modules, symbol_index, evidence, provider_bindings, runtime, imports)
+    calls, call_resolvers = collect_calls_with_resolvers(
+        modules, symbol_index, evidence, provider_bindings, runtime, imports
+    )
     dynamic_imports, dynamic_limits = collect_dynamic_imports(
         modules, calls, imports, evidence, namespace=request.scope.namespace
     )
@@ -451,7 +455,15 @@ def collect(request: CollectionRequest) -> SourceFacts:
     references = collect_references(modules, symbol_index, evidence)
     bindings = collect_bindings(modules, evidence)
     typing_signals = collect_typing_signals(modules, calls, symbols, imports, evidence)
-    constructs = collect_constructs(modules, evidence, imports=imports)
+    constructs = collect_constructs(
+        modules,
+        evidence,
+        imports=imports,
+        symbol_index=symbol_index,
+        receiver_resolvers=call_resolvers,
+        include_parameter_owner_proof=request.protocol_version
+        in {ProtocolVersion.V5, ProtocolVersion.V6},
+    )
     typed_symbols = tuple(parse_record(symbol) for symbol in symbols)
     state, state_evidence = collect_state(modules, typed_symbols, symbol_nodes, symbol_owners)
     source_unknowns, private_evidence = collect_private_attributes(modules)
@@ -489,7 +501,12 @@ def collect(request: CollectionRequest) -> SourceFacts:
         ),
         Capabilities(
             _SECTION_NAMES,
-            resolution_features=(CALL_BINDINGS_FEATURE, EXTENDED_CALL_BINDINGS_FEATURE),
+            resolution_features=(
+                CALL_BINDINGS_FEATURE,
+                EXTENDED_CALL_BINDINGS_FEATURE,
+                CALL_ARGUMENTS_FEATURE,
+                GUARDED_EFFECTS_FEATURE,
+            ),
             constructs=tuple(
                 ConstructCapability(kind, ConstructSupport.DECIDED)
                 for kind in ForbiddenConstructKind

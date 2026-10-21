@@ -246,7 +246,7 @@ def test_demo_owns_the_namespace_facade_without_expanding_package_permissions(
     )
     repository = next(item for item in inner.components if item.label == "repository")
     assert repository.exact_modules == ("shop.store",)
-    assert repository.packages == ("shop.store.repository",)
+    assert repository.packages == ("shop.store.repository", "shop.store.lookup")
     assert [entry.component for entry in repository.requires or ()] == ["backend", "codec"]
 
 

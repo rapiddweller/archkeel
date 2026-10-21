@@ -13,7 +13,9 @@ from typing import Any, TypeAlias
 
 from archkeel.ir.codec import InsideContractMount
 from archkeel.ir.facts import (
+    CALL_ARGUMENTS_FEATURE,
     CALL_BINDINGS_FEATURE,
+    GUARDED_EFFECTS_FEATURE,
     SOURCE_RESOLUTION_GAP_KIND,
     BuiltinTarget,
     ConstructCapability,
@@ -41,12 +43,17 @@ from archkeel.ir.facts_validation import validate_source_facts
 from archkeel.ir.model import (
     ArchitectureContract,
     CallOwnerRule,
+    CatalogArgumentRule,
+    CatalogUseRule,
     ContractComponent,
     ContractDeclarations,
     EvidenceClass,
+    ForbiddenCallArgumentRule,
+    ForbiddenEffectUnderConditionRule,
     GraphTopologyLevel,
     InterfaceBoundaryRule,
     ModuleExports,
+    SelectorMatch,
     in_scope,
     module_in_ownership,
     stable_id,
@@ -55,7 +62,9 @@ from archkeel.ir.model import (
 from archkeel.ir.profiles import Profile, profile_for
 from archkeel.ir.type_shapes import TypeShapeIndex
 
+from .call_argument_policy import call_argument_results, catalog_results
 from .call_owners import call_owner_results
+from .guarded_effects import guarded_effect_results
 from .imports import strip_internal_reexport_facts
 from .protocol_declarations import protocol_declaration_results
 from .rule_support import dynamic_dependency_limits
@@ -69,6 +78,7 @@ from .rules import (
     rule_violations,
     scope_receipts_complete,
     source_domains_complete,
+    source_ownership_unknowns,
     source_selector_domains,
     symbol_limits,
 )
@@ -311,8 +321,12 @@ def _inside_rule_results(
     construct_capabilities: tuple[ConstructCapability, ...],
     symbols_measured: bool,
     calls: Sequence[RawRecord],
+    references: Sequence[RawRecord],
     calls_complete: bool,
     bindings_measured: bool,
+    arguments_measured: bool,
+    references_measured: bool,
+    guarded_paths_measured: bool,
     root_contract: ArchitectureContract | None = None,
     imports: Sequence[RawRecord],
     source_unknowns: Sequence[RawRecord],
@@ -368,6 +382,7 @@ def _inside_rule_results(
             packages=packages,
             modules=modules,
             symbols=symbols,
+            references=references,
             blank_modules=blank_modules,
             module_cycles=module_cycles,
             profile=profile,
@@ -419,6 +434,46 @@ def _inside_rule_results(
         violations.extend(call_violations)
         unknowns.extend(call_limits)
         assessments.extend(call_receipts)
+        argument_violations, argument_limits, argument_receipts = _call_argument_rule_results(
+            scoped,
+            scope=mount.parent_id,
+            calls=calls,
+            imports=imports,
+            modules=modules,
+            symbols=symbols,
+            references=references,
+            calls_complete=calls_complete,
+            bindings_measured=bindings_measured,
+            arguments_measured=arguments_measured,
+            references_measured=references_measured,
+            blank_modules=blank_modules,
+            profile=profile,
+            scan_roots=call_scan_roots,
+            source_modules=source_modules,
+            package_scopes=parent.packages,
+            exact_module_scopes=parent.exact_modules or (),
+        )
+        violations.extend(argument_violations)
+        unknowns.extend(argument_limits)
+        assessments.extend(argument_receipts)
+        effect_violations, effect_limits, effect_receipts = _guarded_effect_rule_results(
+            scoped,
+            scope=mount.parent_id,
+            calls=calls,
+            modules=modules,
+            symbols=symbols,
+            calls_complete=calls_complete,
+            bindings_measured=bindings_measured,
+            paths_measured=guarded_paths_measured,
+            profile=profile,
+            scan_roots=call_scan_roots,
+            source_modules=source_modules,
+            package_scopes=parent.packages,
+            exact_module_scopes=parent.exact_modules or (),
+        )
+        violations.extend(effect_violations)
+        unknowns.extend(effect_limits)
+        assessments.extend(effect_receipts)
     return _sort_inside_rule_results(
         violations, unknowns, failures, assessments, allowances, symbols
     )
@@ -488,6 +543,140 @@ def _call_owner_rule_results(
             complete=complete,
             bindings_measured=bindings_measured,
             blank_modules=blank_modules,
+            source_modules=source_modules,
+        )
+        violations.extend(result[0])
+        limits.extend(result[1])
+        receipts.extend(result[2])
+    return violations, limits, receipts
+
+
+def _call_argument_rule_results(
+    contract: ArchitectureContract,
+    *,
+    scope: str,
+    calls: Sequence[RawRecord],
+    imports: Sequence[RawRecord],
+    modules: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    references: Sequence[RawRecord],
+    calls_complete: bool,
+    bindings_measured: bool,
+    arguments_measured: bool,
+    references_measured: bool,
+    blank_modules: frozenset[str],
+    profile: Profile,
+    scan_roots: tuple[str, ...],
+    source_modules: frozenset[str] | None = None,
+    package_scopes: Sequence[str] = (),
+    exact_module_scopes: Sequence[str] = (),
+) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord]]:
+    violations: list[RawRecord] = []
+    limits: list[RawRecord] = []
+    receipts: list[RawRecord] = []
+    for rule in contract.rules:
+        if not isinstance(rule, ForbiddenCallArgumentRule | CatalogArgumentRule | CatalogUseRule):
+            continue
+        match = (
+            rule.source_match
+            if isinstance(rule, (CatalogArgumentRule, CatalogUseRule))
+            else SelectorMatch.PREFIX
+        )
+        packages, exact_modules = source_selector_domains(
+            rule.source,
+            modules,
+            package_scopes=package_scopes,
+            exact_module_scopes=exact_module_scopes,
+            match=match,
+        )
+        complete = calls_complete and source_domains_complete(
+            modules=modules,
+            profile=profile,
+            package_scopes=packages,
+            exact_module_scopes=exact_modules,
+            scan_roots=scan_roots,
+        )
+        selected_contract = replace(contract, components=(), rules=(rule,))
+        if isinstance(rule, ForbiddenCallArgumentRule):
+            result = call_argument_results(
+                selected_contract,
+                scope=scope,
+                calls=calls,
+                modules=modules,
+                symbols=symbols,
+                complete=complete,
+                bindings_measured=bindings_measured,
+                arguments_measured=arguments_measured,
+                blank_modules=blank_modules,
+                source_modules=source_modules,
+            )
+        else:
+            result = catalog_results(
+                selected_contract,
+                scope=scope,
+                calls=calls,
+                imports=imports,
+                modules=modules,
+                symbols=symbols,
+                references=references,
+                complete=complete,
+                bindings_measured=bindings_measured,
+                arguments_measured=arguments_measured,
+                references_measured=references_measured,
+                blank_modules=blank_modules,
+                source_modules=source_modules,
+            )
+        violations.extend(result[0])
+        limits.extend(result[1])
+        receipts.extend(result[2])
+    return violations, limits, receipts
+
+
+def _guarded_effect_rule_results(
+    contract: ArchitectureContract,
+    *,
+    scope: str,
+    calls: Sequence[RawRecord],
+    modules: Sequence[RawRecord],
+    symbols: Sequence[RawRecord],
+    calls_complete: bool,
+    bindings_measured: bool,
+    paths_measured: bool,
+    profile: Profile,
+    scan_roots: tuple[str, ...],
+    source_modules: frozenset[str] | None = None,
+    package_scopes: Sequence[str] = (),
+    exact_module_scopes: Sequence[str] = (),
+) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord]]:
+    violations: list[RawRecord] = []
+    limits: list[RawRecord] = []
+    receipts: list[RawRecord] = []
+    for rule in contract.rules:
+        if not isinstance(rule, ForbiddenEffectUnderConditionRule):
+            continue
+        packages, exact_modules = source_selector_domains(
+            rule.source,
+            modules,
+            package_scopes=package_scopes,
+            exact_module_scopes=exact_module_scopes,
+        )
+        complete = calls_complete and source_domains_complete(
+            modules=modules,
+            profile=profile,
+            package_scopes=packages,
+            exact_module_scopes=exact_modules,
+            scan_roots=scan_roots,
+        )
+        selected_contract = replace(contract, components=(), rules=(rule,))
+        result = guarded_effect_results(
+            selected_contract,
+            scope=scope,
+            calls=calls,
+            modules=modules,
+            symbols=symbols,
+            complete=complete,
+            bindings_measured=bindings_measured,
+            paths_measured=paths_measured,
             source_modules=source_modules,
         )
         violations.extend(result[0])
@@ -601,6 +790,7 @@ def _evaluate_inside_contract(
     packages: Sequence[RawRecord],
     modules: Sequence[RawRecord],
     symbols: Sequence[RawRecord],
+    references: Sequence[RawRecord],
     blank_modules: frozenset[str],
     module_cycles: Sequence[RawRecord],
     profile: Profile,
@@ -640,6 +830,7 @@ def _evaluate_inside_contract(
         packages=packages,
         modules=modules,
         symbols=symbols,
+        references=references,
         blank_modules=blank_modules,
         module_cycles=module_cycles,
         contract=scoped,
@@ -657,6 +848,9 @@ def _evaluate_inside_contract(
         receipt_scan_roots=receipt_scan_roots,
         type_shapes=type_shapes,
     )
+    selector_unknowns = [
+        item for item in allowance_facts if item["kind"] == "construct_selector_unknown"
+    ]
     unknowns: list[RawRecord] = (
         boundary_type_limits(
             symbols,
@@ -705,7 +899,14 @@ def _evaluate_inside_contract(
         ),
     )
     unknowns.extend(protocol_unknowns)
-    return violations, unknowns, failures, allowance_facts
+    unknowns.extend(selector_unknowns)
+    unknowns.extend(source_ownership_unknowns(references, symbols, scoped.rules, source_modules))
+    return (
+        violations,
+        unknowns,
+        failures,
+        [item for item in allowance_facts if item["kind"] != "construct_selector_unknown"],
+    )
 
 
 def _unproven_binding_view(item: RawRecord) -> RawRecord:
@@ -975,6 +1176,7 @@ def evaluate_source(
         packages=package_facts,
         modules=module_facts,
         symbols=symbols,
+        references=references,
         blank_modules=blank_modules,
         # AD-98: a module-level cycle rule judges the SCCs this report measures, not a copy.
         module_cycles=module_cycles,
@@ -991,6 +1193,8 @@ def evaluate_source(
     )
     calls_complete = _source_inventory_complete(facts)
     bindings_measured = CALL_BINDINGS_FEATURE in facts.capabilities.resolution_features
+    arguments_measured = CALL_ARGUMENTS_FEATURE in facts.capabilities.resolution_features
+    guarded_paths_measured = GUARDED_EFFECTS_FEATURE in facts.capabilities.resolution_features
     (
         inside_violations,
         inside_unknowns,
@@ -1004,8 +1208,12 @@ def evaluate_source(
         construct_capabilities=facts.capabilities.constructs,
         symbols_measured=symbols_measured,
         calls=calls,
+        references=references,
         calls_complete=calls_complete,
         bindings_measured=bindings_measured,
+        arguments_measured=arguments_measured,
+        references_measured=SourceSectionName.REFERENCES in facts.capabilities.sections,
+        guarded_paths_measured=guarded_paths_measured,
         root_contract=contract,
         imports=imports,
         source_unknowns=source_unknowns,
@@ -1059,6 +1267,11 @@ def evaluate_source(
         ],
         key=lambda item: item["id"],
     )
+    selector_unknowns = [
+        item
+        for item in (*boundary_allowances, *inside_allowances)
+        if item["kind"] == "construct_selector_unknown"
+    ]
     numeric_operand_unknowns = [
         item
         for item in (*boundary_allowances, *inside_allowances)
@@ -1067,14 +1280,23 @@ def evaluate_source(
     typing_signals = sorted(
         [
             *typing_signals,
-            *(item for item in boundary_allowances if item["kind"] != "numeric_operand_unknown"),
-            *(item for item in inside_allowances if item["kind"] != "numeric_operand_unknown"),
+            *(
+                item
+                for item in boundary_allowances
+                if item["kind"] not in {"numeric_operand_unknown", "construct_selector_unknown"}
+            ),
+            *(
+                item
+                for item in inside_allowances
+                if item["kind"] not in {"numeric_operand_unknown", "construct_selector_unknown"}
+            ),
         ],
         key=lambda item: item["id"],
     )
 
     unknowns = [
         *(_analysis_limits(calls, declarations, namespace) if is_python else []),
+        *source_ownership_unknowns(references, symbols, contract.rules, None),
         *source_unknowns,
         *dynamic_dependency_limits(contract, source_unknowns),
         *symbol_limits(
@@ -1126,6 +1348,7 @@ def evaluate_source(
             "name.",
         ),
         *inside_unknowns,
+        *selector_unknowns,
         *numeric_operand_unknowns,
         *failures,
         *rule_failures,
@@ -1146,6 +1369,40 @@ def evaluate_source(
     violations += call_violations
     unknowns += call_limits
     scope_observations += call_receipts
+    argument_violations, argument_limits, argument_receipts = _call_argument_rule_results(
+        contract,
+        scope="root",
+        calls=calls,
+        imports=imports,
+        modules=module_facts,
+        symbols=symbols,
+        references=references,
+        calls_complete=calls_complete,
+        bindings_measured=bindings_measured,
+        arguments_measured=arguments_measured,
+        references_measured=SourceSectionName.REFERENCES in facts.capabilities.sections,
+        blank_modules=blank_modules,
+        profile=profile,
+        scan_roots=roots,
+    )
+    violations += argument_violations
+    unknowns += argument_limits
+    scope_observations += argument_receipts
+    effect_violations, effect_limits, effect_receipts = _guarded_effect_rule_results(
+        contract,
+        scope="root",
+        calls=calls,
+        modules=module_facts,
+        symbols=symbols,
+        calls_complete=calls_complete,
+        bindings_measured=bindings_measured,
+        paths_measured=guarded_paths_measured,
+        profile=profile,
+        scan_roots=roots,
+    )
+    violations += effect_violations
+    unknowns += effect_limits
+    scope_observations += effect_receipts
 
     incomplete_dependencies = {
         rule_id

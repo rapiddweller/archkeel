@@ -46,6 +46,37 @@ intervals, including defaults, remain UNKNOWN because their header scopes are no
 replayed independently. Literal operands remain provable; decorators stay in their
 outer scope.
 
+`forbidden_call_argument` requires a unique, statically proven target
+declaration and observed callable signature. Only explicit actuals with
+complete, valid bindings are considered; spreads, duplicates, missing
+signatures and unproven calls leave the scope UNKNOWN. Omitted defaults are not
+actuals. Calls without canonical binding carry `call_arguments: null`; a
+canonical call whose complete actual inventory cannot be tied to a bounded
+source excerpt also keeps its binding but carries null arguments and remains
+UNKNOWN for argument rules. Both cases differ from a proven call with an empty
+argument list. The first slice
+recognizes written string constants, including empty and adjacent literals;
+f-strings, concatenations and named expressions remain unclaimed. It does not
+check actual type compatibility. Argument facts require
+observation 2.5 and contract 3.10; older readers reject the new evidence.
+`forbidden_effect_under_condition` proves only declared Boolean parameters or members,
+truth/negation, `if`/`else`, ternary expressions, and early `return`/`raise` domination.
+It follows at most one unique private helper whose actuals bind to its observed signature.
+Reassignment, named expressions, short-circuit Boolean operators, loops, exception/finally
+paths, reflection, ambiguous identities, helper chains and recursion remain UNKNOWN. A
+known forbidden effect remains FAIL beside unrelated UNKNOWN paths. These receipts bind
+the source, contract, selected inventory, effect and exact rule claim; they are consistency
+bindings, not artifact authentication ([AD-250](architecture/decisions/ad-250-bounded-guarded-effect-ownership.md)).
+
+`catalog_argument` and `catalog_use` currently consume unique scanned Python enum declarations with literal string member values and the existing call/reference facts. `catalog_use` can count a string actual only when its optional target and parameter identify a proven read operation; unrelated same-text calls do not count. Non-literal enum values, dynamic projections, non-Python catalogs and ambiguous or incomplete source scopes remain UNKNOWN. Overlay selectors identify enum declaration owners. This is syntactic source use, not runtime reachability. The argument member-reference case depends on #613 call identity and #617 canonical read roles in the final stack.
+`forbidden_construct.selector` adds nominal Python selections for member reads,
+reflection probes, constructors, type probes, equality, membership, `match`,
+`startswith` and `endswith`. The current receiver proof begins with direct unique
+annotations on scanned classes. Dynamic reflection names, unannotated or
+ambiguous receivers and scopes with no selected subject remain UNKNOWN. Other
+language profiles do not support this slice. Selector facts require observation
+2.6 and contract 3.11; older readers reject the new evidence.
+
 An explicitly certified `complete_requires` scope can PASS with unrelated source
 resolution gaps. Arbitrary imports still block their own scopes and ancestors;
 signature gaps do not prove or disprove imports. Legacy or unbound gaps remain

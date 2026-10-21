@@ -249,10 +249,18 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-239 | [Codec format owners](ad-239-codec-format-owners.md) |
 | AD-240 | [Literal dynamic dependencies](ad-240-literal-dynamic-dependencies.md) |
 | AD-241 | [Call ownership policy](ad-241-call-ownership-policy.md) |
+| AD-247 | [Written call arguments bind to observed formals](ad-247-written-call-arguments-bind-to-observed-formals.md) |
+| AD-248 | [Construct selectors stay nominal and closed](ad-248-construct-selectors.md) |
 | AD-242 | [Explicit browser module ports](ad-242-explicit-browser-module-ports.md) |
 | AD-243 | [Contract-owned source maintenance](ad-243-contract-owned-source-maintenance.md) |
 | AD-244 | [Empty literal `__all__`](ad-244-an-empty-literal-all-states-an-empty-surface.md) |
 | AD-245 | [Contained `requires` entries](ad-245-a-contained-requires-entry-narrows.md) |
 | AD-246 | [Bounded numeric operand proofs](ad-246-bounded-numeric-operand.md) |
 | AD-252 | [Bounded call identity](ad-252-bounded-call-identity.md) |
+| AD-251 | [Catalog arguments and source usage](ad-251-catalog-arguments-and-source-usage.md) |
+| AD-253 | [SourceFacts V6 pools object keys and repeated values](ad-253-source-facts-columnar-key-and-value-pooling.md) |
+| AD-249 | [Source ownership names one declaration](ad-249-source-ownership-defaults.md) |
+| AD-250 | [Bounded guarded effect ownership](ad-250-bounded-guarded-effect-ownership.md) |
 | AD-254 | [Canonical Protocol declarations](ad-254-canonical-protocol-declarations.md) |
+| AD-255 | [Narrowings in `--against`](ad-255-against-reports-narrowings.md) |
+| AD-256 | [Guarded eager declaration expressions](ad-256-guarded-eager-declaration-expressions.md) |

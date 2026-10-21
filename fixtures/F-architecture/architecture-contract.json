@@ -1,6 +1,6 @@
 {
-  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.9.schema.json",
-  "schema_version": "3.9.0",
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.14.schema.json",
+  "schema_version": "3.14.0",
   "components": [
     {
       "id": "COMP-MODEL",
@@ -9,12 +9,22 @@
       "requires": [],
       "capability_id": "CAP-SHOP",
       "role": "component",
-      "packages": ["shop.model"],
+      "packages": [
+        "shop.model"
+      ],
       "namespace": "shop.model",
-      "public": ["shop.model.entities"],
-      "responsibilities": ["Order and Line value types, and Money arithmetic."],
-      "forbidden_responsibilities": ["Persistence, use cases, presentation or command-line orchestration."],
-      "provenance": ["docs/architecture/shop.md"],
+      "public": [
+        "shop.model.entities"
+      ],
+      "responsibilities": [
+        "Order and Line value types, and Money arithmetic."
+      ],
+      "forbidden_responsibilities": [
+        "Persistence, use cases, presentation or command-line orchestration."
+      ],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -23,7 +33,9 @@
       "layer": "Adapters",
       "capability_id": "CAP-SHOP",
       "role": "component",
-      "packages": ["shop.store"],
+      "packages": [
+        "shop.store"
+      ],
       "namespace": "shop.store",
       "inside": "shop/store/architecture-contract.json",
       "public": [
@@ -31,9 +43,15 @@
         "shop.store.sqlite:vacuum",
         "shop.store.sqlite:Connection"
       ],
-      "responsibilities": ["Persist orders as JSON files."],
-      "forbidden_responsibilities": ["Order use cases and presentation."],
-      "provenance": ["docs/architecture/shop.md"],
+      "responsibilities": [
+        "Persist orders as JSON files."
+      ],
+      "forbidden_responsibilities": [
+        "Order use cases and presentation."
+      ],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -42,12 +60,22 @@
       "layer": "Adapters",
       "capability_id": "CAP-SHOP",
       "role": "component",
-      "packages": ["shop.app"],
+      "packages": [
+        "shop.app"
+      ],
       "namespace": "shop.app",
-      "public": ["shop.app.orders:place_order"],
-      "responsibilities": ["Use cases: place and summarise orders."],
-      "forbidden_responsibilities": ["Persistence details and presentation."],
-      "provenance": ["docs/architecture/shop.md"],
+      "public": [
+        "shop.app.orders:place_order"
+      ],
+      "responsibilities": [
+        "Use cases: place and summarise orders."
+      ],
+      "forbidden_responsibilities": [
+        "Persistence details and presentation."
+      ],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -56,12 +84,22 @@
       "layer": "Edge",
       "capability_id": "CAP-SHOP",
       "role": "component",
-      "packages": ["shop.render"],
+      "packages": [
+        "shop.render"
+      ],
       "namespace": "shop.render",
-      "public": ["shop.render.text"],
-      "responsibilities": ["Text projection of an order."],
-      "forbidden_responsibilities": ["Order use cases and persistence."],
-      "provenance": ["docs/architecture/shop.md"],
+      "public": [
+        "shop.render.text"
+      ],
+      "responsibilities": [
+        "Text projection of an order."
+      ],
+      "forbidden_responsibilities": [
+        "Order use cases and persistence."
+      ],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -70,11 +108,19 @@
       "layer": "Edge",
       "capability_id": "CAP-SHOP",
       "role": "component",
-      "packages": ["shop.cli"],
+      "packages": [
+        "shop.cli"
+      ],
       "namespace": "shop.cli",
-      "responsibilities": ["Argument parsing, composition and the single broad error boundary."],
-      "forbidden_responsibilities": ["Domain logic, persistence and presentation formatting."],
-      "provenance": ["docs/architecture/shop.md"],
+      "responsibilities": [
+        "Argument parsing, composition and the single broad error boundary."
+      ],
+      "forbidden_responsibilities": [
+        "Domain logic, persistence and presentation formatting."
+      ],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     }
   ],
@@ -85,7 +131,9 @@
         "name": "SHOP",
         "label": "Shop sample ordering",
         "review_order": 1,
-        "provenance": ["docs/architecture/shop.md"]
+        "provenance": [
+          "docs/architecture/shop.md"
+        ]
       }
     ],
     "review_scopes": [
@@ -93,8 +141,12 @@
         "id": "SCOPE-SHOP-ORDERS",
         "label": "Order placement review",
         "parent_id": "CAP-SHOP",
-        "subjects": ["shop.app.orders"],
-        "provenance": ["docs/architecture/shop.md"]
+        "subjects": [
+          "shop.app.orders"
+        ],
+        "provenance": [
+          "docs/architecture/shop.md"
+        ]
       }
     ],
     "public_api": [
@@ -103,24 +155,39 @@
       "shop.model.entities:Line",
       "shop.model.entities:Money"
     ],
-    "public_api_provenance": ["docs/architecture/shop.md"],
+    "public_api_provenance": [
+      "docs/architecture/shop.md"
+    ],
     "public_commands": [
       {
         "id": "CMD-SHOP-PLACE-ORDER",
         "command": "shop.cli.main:main",
         "description": "Parse order arguments, place the order and print it as text.",
-        "provenance": ["docs/architecture/shop.md"]
+        "provenance": [
+          "docs/architecture/shop.md"
+        ]
       }
     ],
-    "context_roots": ["shop"],
-    "context_roots_provenance": ["docs/architecture/shop.md"],
+    "context_roots": [
+      "shop"
+    ],
+    "context_roots_provenance": [
+      "docs/architecture/shop.md"
+    ],
     "paths": [
       {
         "id": "PATH-SHOP-PLACE-ORDER",
         "label": "Place an order",
         "kind": "write",
-        "steps": ["shop.cli.main", "shop.app.orders", "shop.store", "shop.model.entities"],
-        "provenance": ["docs/architecture/shop.md"]
+        "steps": [
+          "shop.cli.main",
+          "shop.app.orders",
+          "shop.store",
+          "shop.model.entities"
+        ],
+        "provenance": [
+          "docs/architecture/shop.md"
+        ]
       }
     ],
     "spot_owners": [
@@ -129,7 +196,9 @@
         "label": "Order value types",
         "owner": "shop.model",
         "responsibility": "Order, Line and Money stay the single source of truth for order arithmetic.",
-        "provenance": ["docs/architecture/shop.md"]
+        "provenance": [
+          "docs/architecture/shop.md"
+        ]
       }
     ],
     "compat": []
@@ -142,7 +211,25 @@
       "target": "shop.app.maintenance.run_maintenance",
       "allowed_sources": [],
       "rationale": "Describing a connection must not run store maintenance.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "EFFECT-NO-TOKEN-WHEN-SEEDED",
+      "kind": "forbidden_effect_under_condition",
+      "source": "shop.app.tokens",
+      "target": "secrets.token_hex",
+      "condition": {
+        "kind": "parameter",
+        "owner": "shop.app.tokens.token_for_run",
+        "name": "seeded"
+      },
+      "rationale": "Seeded runs must return a fixed token and avoid nondeterministic effects.",
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -152,7 +239,9 @@
       "target": "shop.store",
       "include_type_checking": true,
       "rationale": "Order and Line value types stay independent of any persistence mechanism.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -162,7 +251,9 @@
       "target": "shop.app",
       "include_type_checking": true,
       "rationale": "Value types remain reusable without depending on the use cases that construct them.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -172,7 +263,9 @@
       "target": "shop.render",
       "include_type_checking": true,
       "rationale": "Value types remain independent of how orders are projected as text.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -182,7 +275,9 @@
       "target": "shop.cli",
       "include_type_checking": true,
       "rationale": "Value types remain independent of command-line composition.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -192,7 +287,9 @@
       "target": "shop.app",
       "include_type_checking": true,
       "rationale": "Persistence stays a leaf dependency and never calls back into use cases.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -202,7 +299,9 @@
       "target": "shop.render",
       "include_type_checking": true,
       "rationale": "Persistence remains independent of how orders are displayed.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -212,7 +311,9 @@
       "target": "shop.cli",
       "include_type_checking": true,
       "rationale": "Persistence stays callable without command-line orchestration.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -222,7 +323,9 @@
       "target": "shop.render",
       "include_type_checking": true,
       "rationale": "Use cases return typed values; only the composition root decides how to project them.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -232,7 +335,9 @@
       "target": "shop.cli",
       "include_type_checking": true,
       "rationale": "Use cases remain callable without command-line orchestration.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -242,7 +347,9 @@
       "target": "shop.store",
       "include_type_checking": true,
       "rationale": "Text projection consumes typed values without touching persistence.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -252,7 +359,9 @@
       "target": "shop.app",
       "include_type_checking": true,
       "rationale": "Text projection stays a pure view over values, not a caller of use cases.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -262,7 +371,9 @@
       "target": "shop.cli",
       "include_type_checking": true,
       "rationale": "Text projection remains reusable without command-line composition.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -272,7 +383,9 @@
       "target": "shop.model",
       "include_type_checking": true,
       "rationale": "The composition root reaches domain values only through the use cases it calls.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -282,7 +395,9 @@
       "target": "shop.store",
       "include_type_checking": true,
       "rationale": "The composition root reaches persistence only through the use cases it calls.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -291,9 +406,13 @@
       "source": "shop.app",
       "target": "shop.store.sqlite",
       "include_type_checking": false,
-      "allowed_sources": ["shop.app.maintenance"],
+      "allowed_sources": [
+        "shop.app.maintenance"
+      ],
       "rationale": "Only the maintenance use case may run store housekeeping; ordinary order use cases stay on the repository.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -303,7 +422,9 @@
       "target": "shop.store.backend",
       "include_type_checking": true,
       "rationale": "The file layout behind the repository is the store's own business; use cases reach persistence through OrderRepository, never through its backend.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -314,7 +435,9 @@
       "target_symbol": "Money",
       "include_type_checking": true,
       "rationale": "Persistence serialises whole orders and must not compute or interpret money amounts itself.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -323,7 +446,9 @@
       "source": "shop.store",
       "target": "shop.model",
       "rationale": "Persistence serialises the domain values it is given.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -332,7 +457,9 @@
       "source": "shop.app",
       "target": "shop.model",
       "rationale": "Use cases construct orders from domain values.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -341,7 +468,9 @@
       "source": "shop.app",
       "target": "shop.store",
       "rationale": "Use cases persist and load orders through the repository.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -350,7 +479,9 @@
       "source": "shop.render",
       "target": "shop.model",
       "rationale": "Text projection reads the values it renders.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -359,7 +490,9 @@
       "source": "shop.cli",
       "target": "shop.app",
       "rationale": "The composition root invokes the order use cases.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -368,62 +501,100 @@
       "source": "shop.cli",
       "target": "shop.render",
       "rationale": "The composition root prints the rendered order.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "CONSTRUCT-NO-DYNAMIC",
       "kind": "forbidden_construct",
       "source": "shop",
-      "constructs": ["getattr", "hasattr", "cast", "eval", "exec", "dynamic_import", "type_ignore", "setattr", "delattr", "vars", "dunder_dict"],
+      "constructs": [
+        "getattr",
+        "hasattr",
+        "cast",
+        "eval",
+        "exec",
+        "dynamic_import",
+        "type_ignore",
+        "setattr",
+        "delattr",
+        "vars",
+        "dunder_dict"
+      ],
       "rationale": "Static architecture evidence remains explicit and mechanically traceable.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "CONSTRUCT-NO-ANY",
       "kind": "forbidden_construct",
       "source": "shop",
-      "constructs": ["any_annotation"],
+      "constructs": [
+        "any_annotation"
+      ],
       "rationale": "A value that crosses a module boundary carries a type the reader can follow; Any hides exactly what the boundary exists to state.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "CONSTRUCT-NO-PLACEHOLDER",
       "kind": "forbidden_construct",
       "source": "shop",
-      "constructs": ["placeholder_body"],
+      "constructs": [
+        "placeholder_body"
+      ],
       "rationale": "A function whose body is pass, ellipsis or a lone NotImplementedError reports capability it does not have, and its callers are written against that promise.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "CONSTRUCT-NO-STRING-LITERAL-COMPARE",
       "kind": "forbidden_construct",
       "source": "shop",
-      "constructs": ["string_literal_compare"],
+      "constructs": [
+        "string_literal_compare"
+      ],
       "rationale": "A closed vocabulary is an enum or Literal the type checker follows; a value compared with a string literal is a vocabulary nobody declared.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "CONSTRUCT-NO-ASSERT",
       "kind": "forbidden_construct",
       "source": "shop",
-      "constructs": ["assert"],
+      "constructs": [
+        "assert"
+      ],
       "rationale": "Invariants are checked where values are built, because assert statements vanish under python -O.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "CONSTRUCT-NO-BROAD-EXCEPT",
       "kind": "forbidden_construct",
       "source": "shop",
-      "constructs": ["broad_except"],
-      "exact_sources": ["shop.cli.main.main"],
+      "constructs": [
+        "broad_except"
+      ],
+      "exact_sources": [
+        "shop.cli.main.main"
+      ],
       "rationale": "Failures stay typed and visible; only the CLI error boundary, main's own body, turns any failure into an exit code.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -431,16 +602,22 @@
       "kind": "complete_external_scope",
       "source": "shop",
       "rationale": "A dependency no rule names is a dependency nobody chose, and a package that does not exist looks exactly the same from inside the code.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "EXTERNAL-JSON-STORE",
       "kind": "external_dependency_scope",
       "dependency": "json",
-      "allowed_sources": ["shop.store"],
+      "allowed_sources": [
+        "shop.store"
+      ],
       "rationale": "Only the store component chooses the JSON file format; other components stay format-agnostic.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -448,7 +625,9 @@
       "kind": "complete_assignment",
       "source": "shop",
       "rationale": "A module without one owning component escapes every boundary rule.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -463,39 +642,56 @@
         "shop.store"
       ],
       "rationale": "The shop root exposes only its declared top-level components.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "COMPONENT-NO-CYCLES",
       "kind": "no_component_cycles",
       "rationale": "Components stay layered so each one can be reviewed and replaced in dependency order.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "INTERFACE-BOUNDARY",
       "kind": "interface_boundary",
       "rationale": "Components communicate only through declared interfaces, so reaching into another component's internals requires a visible contract change.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "STORE-PEERS-ISOLATED",
       "kind": "sibling_isolation",
-      "members": ["shop.store.repository", "shop.store.sqlite"],
+      "members": [
+        "shop.store.repository",
+        "shop.store.sqlite"
+      ],
       "rationale": "Persistence and maintenance are peers behind the store's entry point, so neither reaches into the other.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
       "id": "MODEL-TYPES-IN-ENTITIES",
       "kind": "symbol_placement",
       "source": "shop.model",
-      "class_kinds": ["dataclass"],
-      "exact_sources": ["shop.model.entities"],
+      "class_kinds": [
+        "dataclass"
+      ],
+      "exact_sources": [
+        "shop.model.entities"
+      ],
       "rationale": "Every order, line and money type shop.model owns lives in one module, not scattered across the package.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -503,7 +699,9 @@
       "kind": "boundary_types",
       "source": "shop.app",
       "rationale": "shop.app's functions take and return typed models, never a bare dict standing in for one.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -514,7 +712,28 @@
       "terminal_suffix": "nonce",
       "minimum_value": 8,
       "rationale": "The sample's bucket operation retains its declared operand floor.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "MODEL-NONCE-OWNER",
+      "kind": "source_ownership",
+      "source": "shop",
+      "mode": "confined",
+      "symbols": [
+        "shop.model.entities._nonce_bucket"
+      ],
+      "owner": "shop.model.entities",
+      "roles": [
+        "definition",
+        "read"
+      ],
+      "rationale": "Keep the nonce bucket helper owned by the model module.",
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     },
     {
@@ -531,16 +750,67 @@
         }
       ],
       "rationale": "The repository's reader member is typed to its canonical protocol.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
+    },
+    {
+      "id": "APP-NO-LITERAL-ORDER-ID",
+      "kind": "forbidden_call_argument",
+      "source": "shop.store.lookup",
+      "target": "shop.store.lookup.lookup_order",
+      "parameter": "order_id",
+      "rationale": "Order lookup IDs come from the caller and are never embedded at call sites.",
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "APP-OPTION-KEY",
+      "kind": "catalog_argument",
+      "source": "shop.app.orders.read_catalog_option",
+      "target": "shop.app.catalog.read_option",
+      "parameter": "key",
+      "catalog": "shop.app.catalog.OptionKey",
+      "rationale": "Store option reads use declared keys.",
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
+      "decided_by": "architect",
+      "source_match": "exact"
+    },
+    {
+      "id": "APP-OPTION-KEY-USED",
+      "kind": "catalog_use",
+      "source": "shop.app.orders.read_catalog_option",
+      "target": "shop.app.catalog.read_option",
+      "parameter": "key",
+      "catalog": "shop.app.catalog.OptionKey",
+      "member": "PAGE_SIZE",
+      "rationale": "The page-size option stays in use by the application.",
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
+      "decided_by": "architect",
+      "source_match": "exact"
     },
     {
       "id": "LAYERS-MODEL",
       "kind": "layer_order",
-      "layers": ["Core", "Adapters", "Edge"],
-      "components": ["model"],
+      "layers": [
+        "Core",
+        "Adapters",
+        "Edge"
+      ],
+      "components": [
+        "model"
+      ],
       "rationale": "The model declares no permission to require an outer layer; imports remain under the existing dependency rules.",
-      "provenance": ["docs/architecture/shop.md"],
+      "provenance": [
+        "docs/architecture/shop.md"
+      ],
       "decided_by": "architect"
     }
   ]

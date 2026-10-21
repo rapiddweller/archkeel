@@ -75,9 +75,9 @@ def test_the_report_names_one_component_larger_than_its_level(steps: tuple[Step,
 
 
 def test_nested_draft_is_separate_from_architect_decision(steps: tuple[Step, ...]) -> None:
-    assert steps[4].outcome == "4 sub-components, 12 pairs, 3 observed"
-    assert "all 12 open pairs remain in the total" in steps[4].detail[1]
-    assert "backend, codec, repository, sqlite" in steps[4].detail[0]
+    assert steps[4].outcome == "5 sub-components, 20 pairs, 4 observed"
+    assert "all 20 open pairs remain in the total" in steps[4].detail[1]
+    assert "backend, codec, lookup, repository, sqlite" in steps[4].detail[0]
     assert "api" not in steps[4].detail[0]
     assert "--force" in steps[4].command
     assert steps[5].actor == "architect"
@@ -109,7 +109,7 @@ def test_nested_draft_is_separate_from_architect_decision(steps: tuple[Step, ...
 
 
 def test_a_crossing_inside_the_level_is_caught_and_named_for_it(steps: tuple[Step, ...]) -> None:
-    assert steps[6].outcome == "FAIL, 3 violations: store:STORE-REQUIRES-COMPLETE"
+    assert steps[6].outcome == "FAIL, 4 violations: store:STORE-REQUIRES-COMPLETE"
 
 
 def test_every_step_names_a_real_archkeel_command(steps: tuple[Step, ...]) -> None:

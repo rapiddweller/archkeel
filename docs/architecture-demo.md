@@ -3,7 +3,7 @@
 ## Full-project journeys
 
 The [published gallery](https://rapiddweller.github.io/archkeel/demos/) groups each pinned
-application with its baseline and three source-only variants. Observation, coverage, declared
+application with its baseline and four source-only variants. Observation, coverage, declared
 rules and UML comparison are shown separately.
 
 - **Compass booking** — [flutter/samples@5541c59ab8e9d7e74c1a35ef22bd43a487fc596c](https://github.com/flutter/samples/tree/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c), 111 Dart files, 89 libraries, 22 parts. Authentication through search, results, activities and booking, backed by repositories and local/remote services. Target: Feature ownership, nested booking components, and closed class/member APIs. Evidence limit: Thirty typed source-resolution gaps leave coverage incomplete; they are not confirmed syntax errors.
@@ -11,6 +11,15 @@ rules and UML comparison are shown separately.
 - **Nest RealWorld** — [mikro-orm/nestjs-realworld-example-app@a6818d84b6a019cf2df4ef391dc87cea7d02c6a9](https://github.com/mikro-orm/nestjs-realworld-example-app/tree/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9), 41 prepared TypeScript build inputs, including two README-prescribed config copies. Account/authentication, article and comment publishing, profile/follow, tags, composition and persistence. Target: Seven root responsibilities, nested feature components, and 266 Target entities with closed principal member scopes. Evidence limit: A computed dynamic import leaves source coverage incomplete; a known complete-requires FAIL remains visible in its forbidden-edge variant.
 
 Create a report with several deliberate violations:
+
+The default tour also shows `forbidden_call_argument`: a literal order ID at the store lookup,
+`catalog_argument`: an undeclared store option, `catalog_use`: an unused declared key,
+`source_ownership`: a model-owned helper read from the app layer, and
+`forbidden_effect_under_condition`: `secrets.token_hex` on a seeded run.
+
+The clean shop sample returns a fixed token for seeded runs and calls `secrets.token_hex` only
+for unseeded runs. `class-a-forbidden-effect-under-condition` and the default tour move the effect
+under the declared `seeded` condition and produce `EFFECT-NO-TOKEN-WHEN-SEEDED`.
 
 ```sh
 make demo-architecture VARIANT=tour OUTPUT=build/demo.json
@@ -56,6 +65,7 @@ complete, authenticated dependency or direct-member scope; global coverage stays
 | `python-realworld-forbidden-edge` | Route imports SQL directly; rule FAIL. |
 | `python-realworld-signature-fail` | `Article.tags` changes to `List[int]`; UML FAIL. |
 | `python-realworld-dynamic-unknown` | `getattr` login call; UNKNOWN. |
+| `class-a-forbidden-effect-under-condition` | `secrets.token_hex` on the seeded branch; FAIL. |
 | `nest-realworld-forbidden-edge` | Shared validation imports `Article`; `REQUIRES-COMPLETE` FAIL. |
 | `nest-realworld-signature-fail` | `ArticleService.findFeed` return type changes; UML FAIL. |
 | `nest-realworld-dynamic-unknown` | Type assertion makes the `User` creates relation UNKNOWN. |

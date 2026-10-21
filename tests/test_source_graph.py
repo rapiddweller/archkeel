@@ -165,7 +165,10 @@ def test_cross_module_calls_and_references_keep_each_site_and_kind(observation) 
         entities[edge.source_id].qualified_name == "sample.app.work" for edge in helper_sites
     )
     expected = {
-        record.id for section in ("calls", "references") for record in observation.records(section)
+        record.id
+        for section in ("calls", "references")
+        for record in observation.records(section)
+        if record.kind != "source_role"
     }
     projected = {edge.id for edge in graph.relationships if edge.kind in {"calls", "references"}}
     assert projected == expected
@@ -587,10 +590,27 @@ def test_header_defaults_keep_evaluation_ownership(tmp_path: Path) -> None:
         "class Payload: pass\ndef work(value: Payload = Payload) -> Payload: return Payload\n",
     )
     references = observation.records("references")
-    headers = [item for item in references if item.data.get("source_scope") == "sample.app"]
+    headers = [
+        item
+        for item in references
+        if item.data.get("source_scope") == "sample.app" and item.kind != "source_role"
+    ]
     assert len(headers) == 3
     assert sum(item.data.get("declaration_scope") == "sample.app.work" for item in headers) == 2
-    default = next(item for item in headers if item.data.get("declaration_scope") is None)
+    assert (
+        sum(
+            item.data.get("reference_context") == "value"
+            and item.data.get("declaration_scope") == "sample.app.work"
+            for item in headers
+        )
+        == 0
+    )
+    default = next(
+        item
+        for item in headers
+        if item.data.get("reference_context") == "value"
+        and item.data.get("declaration_scope") is None
+    )
     graph = _graph(observation)
     entity_names = {entity.id: entity.qualified_name for entity in graph.entities}
     assert (

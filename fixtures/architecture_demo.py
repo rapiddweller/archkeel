@@ -31,6 +31,7 @@ from fixtures.demo_catalog_compatibility import VARIANTS as _COMPATIBILITY_VARIA
 from fixtures.demo_catalog_constructs import VARIANTS as _CONSTRUCT_VARIANTS
 from fixtures.demo_catalog_dart import VARIANTS as _DART_VARIANTS
 from fixtures.demo_catalog_dependencies import VARIANTS as _DEPENDENCY_VARIANTS
+from fixtures.demo_catalog_entries import VARIANTS as _CATALOG_ENTRY_VARIANTS
 from fixtures.demo_catalog_evidence import VARIANTS as _EVIDENCE_VARIANTS
 from fixtures.demo_catalog_exact_ownership import VARIANTS as _EXACT_OWNERSHIP_VARIANTS
 from fixtures.demo_catalog_flutter import FLUTTER_FIXTURE_DIR
@@ -50,6 +51,7 @@ from fixtures.demo_catalog_widening import VARIANTS as _WIDENING_VARIANTS
 CATALOG: tuple[Variant, ...] = (
     *_SHOWCASE_VARIANTS,
     *_COMPATIBILITY_VARIANTS,
+    *_CATALOG_ENTRY_VARIANTS,
     *_CONSTRUCT_VARIANTS,
     *_DEPENDENCY_VARIANTS,
     *_INTERFACE_VARIANTS,
@@ -268,12 +270,21 @@ def markdown() -> str:
 ## Full-project journeys
 
 The [published gallery](https://rapiddweller.github.io/archkeel/demos/) groups each pinned
-application with its baseline and three source-only variants. Observation, coverage, declared
+application with its baseline and four source-only variants. Observation, coverage, declared
 rules and UML comparison are shown separately.
 
 {project_overview}
 
 Create a report with several deliberate violations:
+
+The default tour also shows `forbidden_call_argument`: a literal order ID at the store lookup,
+`catalog_argument`: an undeclared store option, `catalog_use`: an unused declared key,
+`source_ownership`: a model-owned helper read from the app layer, and
+`forbidden_effect_under_condition`: `secrets.token_hex` on a seeded run.
+
+The clean shop sample returns a fixed token for seeded runs and calls `secrets.token_hex` only
+for unseeded runs. `class-a-forbidden-effect-under-condition` and the default tour move the effect
+under the declared `seeded` condition and produce `EFFECT-NO-TOKEN-WHEN-SEEDED`.
 
 ```sh
 make demo-architecture VARIANT=tour OUTPUT=build/demo.json
@@ -319,6 +330,7 @@ complete, authenticated dependency or direct-member scope; global coverage stays
 | `python-realworld-forbidden-edge` | Route imports SQL directly; rule FAIL. |
 | `python-realworld-signature-fail` | `Article.tags` changes to `List[int]`; UML FAIL. |
 | `python-realworld-dynamic-unknown` | `getattr` login call; UNKNOWN. |
+| `class-a-forbidden-effect-under-condition` | `secrets.token_hex` on the seeded branch; FAIL. |
 | `nest-realworld-forbidden-edge` | Shared validation imports `Article`; `REQUIRES-COMPLETE` FAIL. |
 | `nest-realworld-signature-fail` | `ArticleService.findFeed` return type changes; UML FAIL. |
 | `nest-realworld-dynamic-unknown` | Type assertion makes the `User` creates relation UNKNOWN. |

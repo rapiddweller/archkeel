@@ -33,6 +33,12 @@ global coverage and cycle closure stay incomplete. See
 | Restrict a statically bound function/method to selected callers | `call_owner` (3.7) |
 | Bound selected binary/augmented modulo operands | `bounded_numeric_operand` (3.8) |
 
+| Reject a written string literal at one bound call parameter | `forbidden_call_argument` (3.10) |
+| Require selected call arguments to name canonical enum catalog entries | `catalog_argument` (3.14) |
+| Require catalog members to have a genuine source read in scope | `catalog_use` (3.14) |
+| Retire a source name or confine its definition, use, transfer, default or fallback to a canonical owner | `source_ownership` (3.12) |
+| Forbid a canonical effect while a declared Boolean condition is true | `forbidden_effect_under_condition` (3.13) |
+
 Python static imports and proven literal `importlib.import_module` / `__import__`
 calls feed the same dependency rules. An unknown loader binding or target withholds
 only applicable dependency receipts; known violations remain FAIL. Nonempty or
@@ -62,6 +68,33 @@ FAIL; unsupported or unstable RHS values remain UNKNOWN. An empty, missing or
 incomplete selected source cannot certify PASS. See
 [AD-246](architecture/decisions/ad-246-bounded-numeric-operand.md) for proof
 limits and receipt behavior.
+
+`forbidden_call_argument` names a source scope, canonical target and formal
+parameter. Python collector facts preserve positional, keyword and spread
+actuals with evidence; Core binds explicit actuals to the observed signature
+without applying defaults. Only written string constants at the selected
+formal violate the rule. An invalid bind, spread, missing signature or
+unproven target/receiver leaves the scope UNKNOWN. Calls without canonical
+binding carry null argument facts; a proven call with no actuals carries an
+empty list. See
+[AD-247](architecture/decisions/ad-247-written-call-arguments-bind-to-observed-formals.md).
+`forbidden_effect_under_condition` selects a Boolean parameter or declared Boolean member,
+canonical effect target, and source scope. It proves truth/negation, `if`/`else`, ternary,
+and early `return`/`raise` paths; it may follow one unique private helper with bound actuals.
+Unconditional effects are reachable while the condition is true. Stale or unsupported flow,
+missing declarations, helper chains and recursion remain UNKNOWN. See
+[AD-250](architecture/decisions/ad-250-bounded-guarded-effect-ownership.md).
+
+`catalog_argument` selects a source scope, canonical operation, formal parameter and enum owner. It accepts exact string values declared by that enum and canonical enum member expressions; overlays name separate enum owners. Wrong string literals FAIL. Dynamic arguments, unresolved calls, or ambiguous catalog owners remain UNKNOWN. `catalog_use` requires each enum entry (or a named member) to have a real value/attribute read in its selected scope. Optional paired `target` and `parameter` fields also count a matching string actual only when it is bound to the selected, proven read operation. A same-text argument to another call does not count; dynamic selected actuals keep absence UNKNOWN. Comments, docstrings, definitions and annotation-only references do not count. `TYPE_CHECKING` reads count syntactically. Prefix scope matching remains the default; `source_match: "exact"` selects one module or scope. Catalog rules are Python-only and require observation 2.9 and contract 3.14. See [AD-251](architecture/decisions/ad-251-catalog-arguments-and-source-usage.md).
+`source_ownership` is Python-only. `retired` selects `symbols` with the `definition`,
+`read`, `write` and/or `delete` roles. `confined` selects `symbols` with an `owner`, or
+formal `parameters` with a `value_owner`; choose the corresponding role subset, including
+`value_transfer`, `parameter_default` and `fallback` only where evidence supports it.
+Resolved references must match a unique admitted reference at the same source location.
+Literal defaults/fallbacks carry no reference target; unsupported expressions remain
+UNKNOWN. Dictionary callable transfers are bounded to direct names and zero-argument
+lambda calls. Missing, ambiguous, mutated or unlinked source evidence cannot certify a
+rule. See [AD-249](architecture/decisions/ad-249-source-ownership-defaults.md).
 
 ### Ownership and dependency decisions
 
@@ -238,6 +271,15 @@ cite those symbols and do not extend the rule to the containing module. Incomple
 source coverage still prevents PASS. Aliases/shadowing are limits. Exact type-ignore
 allowances bind scope, line, AST statement and tag; moving or changing them needs
 review.
+
+Contract 3.11 adds an optional closed `selector` record with `receiver`, `role`,
+`member` and, for value comparisons, `literal`. Supported roles are `read`,
+`write`, `call`, `reflect`, `constructor`, `type_probe`, `equality`,
+`membership`, `match`, `startswith` and `endswith`. It selects one nominal
+receiver/member role; it does not turn arbitrary predicates into policy. The
+Python observer's selector facts require observation 2.6. Dynamic names and
+unproven receiver/member identity yield UNKNOWN, and older readers reject facts
+relabelled to an earlier version. See [AD-248](architecture/decisions/ad-248-construct-selectors.md).
 
 The native TypeScript/JavaScript collector provides PARTIAL evidence for written
 string equality/inequality and `switch` case literals, including plain templates

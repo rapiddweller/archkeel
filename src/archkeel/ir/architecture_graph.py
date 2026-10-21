@@ -162,9 +162,14 @@ class DecisionMaker(StrEnum):
 
 class ArchitectureRuleKind(StrEnum):
     CALL_OWNER = "call_owner"
+    FORBIDDEN_CALL_ARGUMENT = "forbidden_call_argument"
+    CATALOG_ARGUMENT = "catalog_argument"
+    CATALOG_USE = "catalog_use"
+    FORBIDDEN_EFFECT_UNDER_CONDITION = "forbidden_effect_under_condition"
     FORBIDDEN_DEPENDENCY = "forbidden_dependency"
     ALLOWED_DEPENDENCY = "allowed_dependency"
     FORBIDDEN_CONSTRUCT = "forbidden_construct"
+    SOURCE_OWNERSHIP = "source_ownership"
     EXTERNAL_DEPENDENCY_SCOPE = "external_dependency_scope"
     COMPLETE_ASSIGNMENT = "complete_assignment"
     ROOT_LAYOUT = "root_layout"

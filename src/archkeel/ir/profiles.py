@@ -104,6 +104,10 @@ DART: Final = Profile(
             "call_owner",
             "bounded_numeric_operand",
             "protocol_declarations",
+            "forbidden_call_argument",
+            "catalog_argument",
+            "catalog_use",
+            "source_ownership",
         }
     ),
     # AD-99: Dart has no `__all__` and its public names are UNKNOWN, so no facade count exists.
@@ -161,6 +165,10 @@ TYPESCRIPT: Final = Profile(
             "call_owner",
             "bounded_numeric_operand",
             "protocol_declarations",
+            "forbidden_call_argument",
+            "catalog_argument",
+            "catalog_use",
+            "source_ownership",
         }
     ),
     unsupported_declarations=frozenset({"context_roots", "facade_budgets", "coupling_budgets"}),

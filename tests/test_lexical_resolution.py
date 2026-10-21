@@ -420,5 +420,6 @@ def test_class_values_do_not_borrow_globals_but_method_reads_use_globals():
         for item in references
         if item["data"]["expression"] == "VALUE"
     } == {
+        "sample.core.Owner": ["sample.core.Owner.VALUE"],
         "sample.core.Owner.use": ["sample.core.VALUE"],
     }

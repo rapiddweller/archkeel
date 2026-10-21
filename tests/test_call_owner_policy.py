@@ -2516,6 +2516,7 @@ def test_saved_owner_receipt_is_bound_to_calls_and_evidence(tmp_path, change):
     changed = copy.deepcopy(payload)
     if change == "binding":
         changed["calls"][0]["data"]["call_binding"] = None
+        changed["calls"][0]["data"]["call_arguments"] = None
     elif change == "calls":
         changed["calls"] = []
     elif change == "evidence":

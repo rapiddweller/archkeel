@@ -33,6 +33,7 @@ def _payload(
     other: str = "",
     native: bool = False,
     extra: dict[str, str] | None = None,
+    protocol_version: ProtocolVersion = ProtocolVersion.V4,
 ) -> dict:
     files = {
         "sample/__init__.py": "",
@@ -47,7 +48,7 @@ def _payload(
         path.write_text(source)
     snapshot = SnapshotInput(str(tmp_path), "a" * 40, False)
     scope = SourceScope(("sample",), "sample")
-    request = CollectionRequest(snapshot, scope, PythonSettings(), ProtocolVersion.V4)
+    request = CollectionRequest(snapshot, scope, PythonSettings(), protocol_version)
     sources = ()
     if native:
         survey_request = CollectionRequest(
@@ -59,15 +60,32 @@ def _payload(
         survey = collect(survey_request)
         sources = provider_sources(survey_request, survey)
         request = CollectionRequest(
-            snapshot, scope, PythonSettings(provider_sources=sources), ProtocolVersion.V4
+            snapshot, scope, PythonSettings(provider_sources=sources), protocol_version
         )
     facts = collect(request)
-    response = CollectionResponse(facts, ProtocolVersion.V4)
+    response = CollectionResponse(facts, protocol_version)
     return json.loads(encode_response(response))
 
 
 def _records(payload: dict, name: str) -> list[dict]:
     return next(item["records"] for item in payload["facts"]["sections"] if item["name"] == name)
+
+
+@pytest.mark.parametrize("changed_default", ["(WIDTH := 6)", "(OTHER := 5)"])
+def test_walrus_default_witness_rejects_changed_callable_default(tmp_path, changed_default):
+    payload = _payload(
+        tmp_path,
+        "def outer():\n    WIDTH = 4\n    def sibling(value=(WIDTH := 5)): return value\n",
+    )
+    sibling = next(
+        record
+        for record in _records(payload, "symbols")
+        if record["data"].get("qualified_name") == "sample.caller.outer.sibling"
+    )
+    sibling["data"]["parameters"][0]["default"] = changed_default
+
+    with pytest.raises(ProtocolError, match="parameter default source witness"):
+        decode_response(json.dumps(payload).encode())
 
 
 def test_stored_receiver_field_and_call_expression_cannot_be_retargeted(tmp_path):
@@ -288,6 +306,242 @@ def test_constructed_receiver_cannot_use_another_real_allocation(tmp_path):
     )
     with pytest.raises(ProtocolError):
         decode_response(json.dumps(payload).encode())
+
+
+def test_native_selector_annotation_uses_proven_reexport_origin(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "from .pkg import Store as Selected\ndef run(store: Selected): store.page()\n",
+        native=True,
+        extra={
+            "sample/pkg/__init__.py": "from .types import Store\n",
+            "sample/pkg/types.py": "class Store:\n    def page(self): pass\n",
+        },
+        protocol_version=ProtocolVersion.V5,
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    selectors = [
+        record
+        for section in facts.sections
+        if section.name.value == "constructs"
+        for record in section.records
+        if record.kind == "construct_selector"
+    ]
+    [selector] = selectors
+    binding = selector.data.get("receiver_binding")
+    assert binding is not None
+    assert binding.get("origin") == "declared_receiver"
+    assert binding.get("target") == "sample.pkg.types.Store"
+
+
+def test_selector_proof_index_is_shared_across_multiple_source_modules(tmp_path, monkeypatch):
+    payload = _payload(
+        tmp_path,
+        "from .storage import Store as Selected\ndef run(value: Selected): value.page()\n",
+        native=True,
+        extra={
+            "sample/caller_two.py": "from .other_types import OtherStore as Selected\n"
+            "def run(value: Selected): value.page()\n",
+            "sample/other_types.py": "class OtherStore:\n    def page(self): pass\n",
+        },
+        protocol_version=ProtocolVersion.V5,
+    )
+    from archkeel.ir import facts_validation
+
+    original = facts_validation._source_proof_index
+    calls = 0
+
+    def count_builds(files, records, selector_imports):
+        nonlocal calls
+        calls += 1
+        return original(files, records, selector_imports)
+
+    monkeypatch.setattr(facts_validation, "_source_proof_index", count_builds)
+    facts = decode_response(json.dumps(payload).encode()).facts
+    selectors = [
+        record
+        for section in facts.sections
+        if section.name.value == "constructs"
+        for record in section.records
+        if record.kind == "construct_selector"
+    ]
+    bindings = {
+        record.data.get("owner"): record.data.get("receiver_binding").get("target")
+        for record in selectors
+        if record.data.get("receiver_binding") is not None
+    }
+    assert calls == 1
+    assert bindings == {
+        "sample.caller.run": "sample.storage.Store",
+        "sample.caller_two.run": "sample.other_types.OtherStore",
+    }
+
+
+def test_ambiguous_reexport_annotation_does_not_prove_selector_receiver(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "from .pkg import Store\nfrom .other import Store\ndef run(store: Store): store.page()\n",
+        native=True,
+        extra={
+            "sample/pkg/__init__.py": "from .types import Store\n",
+            "sample/pkg/types.py": "class Store:\n    def page(self): pass\n",
+            "sample/other.py": "class Store:\n    def page(self): pass\n",
+        },
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    selectors = [
+        record
+        for section in facts.sections
+        if section.name.value == "constructs"
+        for record in section.records
+        if record.kind == "construct_selector"
+    ]
+    assert all(
+        record.data.get("receiver_binding") is None
+        or record.data.get("receiver_binding").get("target") != "sample.pkg.types.Store"
+        for record in selectors
+    )
+
+
+def test_native_imported_type_probe_has_import_evidence(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "from .types import Store as Selected\n"
+        "def run(value): return isinstance(value, Selected)\n",
+        native=True,
+        extra={
+            "sample/types.py": "class Store: pass\n",
+        },
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    selectors = [
+        record
+        for section in facts.sections
+        if section.name.value == "constructs"
+        for record in section.records
+        if record.kind == "construct_selector"
+    ]
+    [selector] = selectors
+    binding = selector.data.get("receiver_binding")
+    assert binding is not None
+    assert binding.get("target") == "sample.types.Store"
+    assert binding.get("evidence_ids")
+
+
+def test_native_reexported_type_probe_stays_unknown_without_an_origin_route(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "from .pkg import Store as Selected\ndef run(value): return isinstance(value, Selected)\n",
+        native=True,
+        extra={
+            "sample/pkg/__init__.py": "from .types import Store\n",
+            "sample/pkg/types.py": "class Store: pass\n",
+        },
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    selectors = [
+        record
+        for section in facts.sections
+        if section.name.value == "constructs"
+        for record in section.records
+        if record.kind == "construct_selector"
+    ]
+    [selector] = selectors
+    assert selector.data.get("status") == "unknown"
+    assert selector.data.get("receiver_type") is None
+    assert selector.data.get("receiver_binding") is None
+
+
+def test_native_multiline_type_probe_stays_unknown_without_operation_excerpt(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "from .storage import Store\n"
+        "def run(value):\n"
+        "    return isinstance(\n"
+        "        value, Store\n"
+        "    )\n",
+        native=True,
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    selectors = [
+        record
+        for section in facts.sections
+        if section.name.value == "constructs"
+        for record in section.records
+        if record.kind == "construct_selector"
+    ]
+    [selector] = selectors
+    assert selector.data.get("selector_role") == "type_probe"
+    assert selector.data.get("status") == "unknown"
+    assert selector.data.get("receiver_type") is None
+    assert selector.data.get("receiver_binding") is None
+
+
+def test_native_nested_function_cannot_reuse_outer_parameter_binding(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "from .storage import Store\n"
+        "def outer(store: Store):\n"
+        "    def inner(): return store.page()\n",
+        native=True,
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    selectors = [
+        record
+        for section in facts.sections
+        if section.name.value == "constructs"
+        for record in section.records
+        if record.kind == "construct_selector"
+    ]
+    [selector] = selectors
+    assert selector.data.get("owner") == "sample.caller.outer.inner"
+    assert selector.data.get("status") == "unknown"
+    assert selector.data.get("receiver_type") is None
+    assert selector.data.get("receiver_binding") is None
+    assert "receiver_parameter_owner" not in dict(selector.data.entries)
+    assert "receiver_parameter_scopes" not in dict(selector.data.entries)
+
+
+def test_native_module_level_local_constructor_has_a_source_binding(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "class Store: pass\nSELECTED = Store()\n",
+        native=True,
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    selectors = [
+        record
+        for section in facts.sections
+        if section.name.value == "constructs"
+        for record in section.records
+        if record.kind == "construct_selector"
+    ]
+    [selector] = selectors
+    assert selector.data.get("owner") == "sample.caller"
+    assert selector.data.get("receiver_type") == "sample.caller.Store"
+    assert selector.data.get("receiver_binding") is not None
+
+
+def test_native_nested_attribute_chain_keeps_exact_declared_receiver(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "class Store:\n    parent: Store\ndef run(store: Store): return store.parent.parent\n",
+        native=True,
+        protocol_version=ProtocolVersion.V5,
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    selectors = [
+        record
+        for section in facts.sections
+        if section.name.value == "constructs"
+        for record in section.records
+        if record.kind == "construct_selector"
+    ]
+    selector = next(item for item in selectors if item.data.get("receiver_parameter") == "store")
+    assert selector.data.get("selector_role") == "read"
+    assert selector.data.get("member") == "parent"
+    assert selector.data.get("receiver_type") == "sample.caller.Store"
+    assert selector.data.get("receiver_parameter") == "store"
 
 
 @pytest.mark.parametrize(

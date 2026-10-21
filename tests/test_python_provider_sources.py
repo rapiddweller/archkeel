@@ -88,6 +88,27 @@ def _native_facts(request):
     return facts
 
 
+def test_source_facts_reject_a_value_occurrence_claimed_as_an_annotation(tmp_path):
+    source = tmp_path / "src/sample"
+    source.mkdir(parents=True, exist_ok=True)
+    (source / "defaults.py").write_text("VALUE = 1\n")
+    (source / "consumer.py").write_text("from .defaults import VALUE\nx = VALUE\n")
+    request = _request(tmp_path)
+    facts = collect(request)
+    wire = json.loads(encode_response(CollectionResponse(facts, request.protocol_version)))
+    [reference] = [
+        item
+        for section in wire["facts"]["sections"]
+        if section["name"] == "references"
+        for item in section["records"]
+        if item["kind"] == "value_reference" and item["data"].get("expression") == "VALUE"
+    ]
+    reference["data"]["reference_context"] = "annotation"
+
+    with pytest.raises(ValueError, match="annotation reference contradicts its source occurrence"):
+        decode_response(json.dumps(wire).encode())
+
+
 def _captured_sources(request):
     initial = replace(
         request,
@@ -171,7 +192,7 @@ def test_provider_pass_errors_are_returned_unchanged(tmp_path, monkeypatch, phas
     monkeypatch.setattr(ProcessCollector, "collect_response", bounded)
     result = PythonProviderCollector(ProcessCollector(("native-python",))).collect(request)
     assert result is expected
-    assert calls == [ProtocolVersion.V4, ProtocolVersion.V4][: 1 if phase == "initial" else 2]
+    assert calls == [ProtocolVersion.V4, ProtocolVersion.V6][: 1 if phase == "initial" else 2]
 
 
 def test_no_provider_sources_still_require_a_final_full_collection(tmp_path, monkeypatch):
@@ -198,7 +219,7 @@ def test_no_provider_sources_still_require_a_final_full_collection(tmp_path, mon
             resolver=PythonSettings(phase=PythonCollectionPhase.PROVIDERS),
             protocol_version=ProtocolVersion.V4,
         ),
-        request,
+        replace(request, protocol_version=ProtocolVersion.V6),
     ]
 
 
@@ -234,7 +255,7 @@ def test_provider_passes_share_one_deadline_and_preserve_process_limits(tmp_path
     assert final_request == replace(
         request,
         resolver=PythonSettings(provider_sources=(provider,)),
-        protocol_version=ProtocolVersion.V4,
+        protocol_version=ProtocolVersion.V6,
     )
 
 
@@ -356,7 +377,7 @@ def test_default_provider_port_runs_both_native_phases_for_actual_contextlib(
     assert not isinstance(facts, CollectionError), facts
     assert calls == [
         (ProtocolVersion.V4, PythonCollectionPhase.PROVIDERS, request.scope),
-        (ProtocolVersion.V4, PythonCollectionPhase.COLLECT, request.scope),
+        (ProtocolVersion.V6, PythonCollectionPhase.COLLECT, request.scope),
     ]
     expected = {"contextlib.contextmanager"}
     if sibling:
@@ -425,7 +446,7 @@ def test_import_survey_retains_file_inputs_and_coverage_without_deeper_analysis(
         "_provider_bindings",
         "resolve_reexports",
         "collect_symbols",
-        "collect_calls",
+        "collect_calls_with_resolvers",
         "collect_references",
         "collect_bindings",
         "collect_typing_signals",
@@ -2348,29 +2369,31 @@ def test_captured_provider_buffers_cannot_leak_into_legacy_envelopes(tmp_path, v
         encode_response(CollectionResponse(facts, version, (provider,)))
 
 
-def test_captured_provider_response_roundtrips_against_the_published_schema(tmp_path):
+@pytest.mark.parametrize("version", [ProtocolVersion.V4, ProtocolVersion.V6])
+def test_captured_provider_response_roundtrips_against_the_published_schema(tmp_path, version):
     from jsonschema import Draft202012Validator
 
     _, provider, initial, _ = _provider_passes(tmp_path)
-    response = CollectionResponse(initial, ProtocolVersion.V4, (provider,))
+    response = CollectionResponse(initial, version, (provider,))
     payload = encode_response(response)
     schema = json.loads((Path(__file__).parents[1] / "schema/source-facts.schema.json").read_text())
     validator = Draft202012Validator(schema)
     validator.validate(json.loads(payload))
     assert decode_response(payload) == response
     assert encode_response(decode_response(payload)) == payload
-    for version in (ProtocolVersion.V1, ProtocolVersion.V2, ProtocolVersion.V3):
+    for legacy_version in (ProtocolVersion.V1, ProtocolVersion.V2, ProtocolVersion.V3):
         legacy = json.loads(payload)
-        legacy["protocol_version"] = version
+        legacy["protocol_version"] = legacy_version
         assert not validator.is_valid(legacy)
 
 
-def test_full_python_facts_cannot_claim_provider_capture_buffers(tmp_path):
+@pytest.mark.parametrize("version", [ProtocolVersion.V4, ProtocolVersion.V6])
+def test_full_python_facts_cannot_claim_provider_capture_buffers(tmp_path, version):
     request, provider, _, _ = _provider_passes(tmp_path)
     with pytest.raises(
         ProtocolError, match="captured provider sources require a Python import survey"
     ):
-        encode_response(CollectionResponse(_native_facts(request), ProtocolVersion.V4, (provider,)))
+        encode_response(CollectionResponse(_native_facts(request), version, (provider,)))
 
 
 @pytest.mark.parametrize(

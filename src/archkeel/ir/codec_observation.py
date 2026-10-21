@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import re
-from collections import Counter
 from collections.abc import Mapping
 from dataclasses import asdict, replace
 from enum import StrEnum
@@ -27,11 +26,14 @@ from archkeel.ir.codec_wire import (
 )
 from archkeel.ir.facts import (
     CallBindingOrigin,
+    JsonValue,
     RuntimeRequirementState,
     SourceProfile,
+    SourceReferenceContext,
     parse_runtime_requirement_state,
     source_dirty,
 )
+from archkeel.ir.facts import call_arguments as _call_arguments
 from archkeel.ir.facts import call_binding as _call_binding
 from archkeel.ir.model import (
     CLASSIFIED_SECTIONS,
@@ -42,6 +44,7 @@ from archkeel.ir.model import (
     ContractInfo,
     Coverage,
     Observation,
+    RecordData,
     RuntimeInfo,
     Section,
     SourceInfo,
@@ -56,9 +59,14 @@ from archkeel.ir.profiles import (
     profile_for,
 )
 
+from .facts_codec import StringTablePolicy as StringTablePolicy
+from .facts_codec import intern_strings as intern_strings
 from .facts_codec import parse_evidence as parse_evidence
 from .facts_codec import parse_record as parse_record
 from .facts_codec import record_payload as _record_payload
+from .facts_codec import validate_reference_contexts as _validate_reference_contexts
+from .facts_codec import validate_source_role_identities as _validate_source_role_identities
+from .facts_codec import validate_source_role_vocabulary as validate_source_role_vocabulary
 
 
 class _ObservationVersion(StrEnum):
@@ -68,7 +76,67 @@ class _ObservationVersion(StrEnum):
     V2_1 = "2.1.0"
     V2_2 = "2.2.0"
     V2_3 = "2.3.0"
-    V2_4 = SCHEMA_VERSION
+    V2_4 = "2.4.0"
+    V2_5 = "2.5.0"
+    V2_6 = "2.6.0"
+    V2_7 = "2.7.0"
+    V2_8 = "2.8.0"
+    V2_9 = SCHEMA_VERSION
+
+
+_VERSION_NUMBERS = {
+    _ObservationVersion.V1_2: (1, 2),
+    _ObservationVersion.V1_3: (1, 3),
+    _ObservationVersion.V2: (2, 0),
+    _ObservationVersion.V2_1: (2, 1),
+    _ObservationVersion.V2_2: (2, 2),
+    _ObservationVersion.V2_3: (2, 3),
+    _ObservationVersion.V2_4: (2, 4),
+    _ObservationVersion.V2_5: (2, 5),
+    _ObservationVersion.V2_6: (2, 6),
+    _ObservationVersion.V2_7: (2, 7),
+    _ObservationVersion.V2_8: (2, 8),
+    _ObservationVersion.V2_9: (2, 9),
+}
+
+
+def _version_at_least(version: _ObservationVersion, minimum: tuple[int, int]) -> bool:
+    return _VERSION_NUMBERS[version] >= minimum
+
+
+class _ObservationSection(StrEnum):
+    DECLARATIONS = "declarations"
+    REFERENCES = "references"
+    SCOPE_OBSERVATIONS = "scope_observations"
+
+
+class _ObservationRecordKind(StrEnum):
+    ATTRIBUTE_REFERENCE = "attribute_reference"
+    CONSTRUCT_SELECTOR = "construct_selector"
+    RULE_EVALUATION = "rule_evaluation"
+    SOURCE_OWNERSHIP = "source_ownership"
+    SOURCE_ROLE = "source_role"
+    VALUE_REFERENCE = "value_reference"
+
+
+_OBSERVATION_VERSION_ORDER = {
+    _ObservationVersion.V1_2: 0,
+    _ObservationVersion.V1_3: 1,
+    _ObservationVersion.V2: 2,
+    _ObservationVersion.V2_1: 3,
+    _ObservationVersion.V2_2: 4,
+    _ObservationVersion.V2_3: 5,
+    _ObservationVersion.V2_4: 6,
+    _ObservationVersion.V2_5: 7,
+    _ObservationVersion.V2_6: 8,
+    _ObservationVersion.V2_7: 9,
+    _ObservationVersion.V2_8: 10,
+    _ObservationVersion.V2_9: 11,
+}
+
+
+def _before_version(version: _ObservationVersion, floor: _ObservationVersion) -> bool:
+    return _OBSERVATION_VERSION_ORDER[version] < _OBSERVATION_VERSION_ORDER[floor]
 
 
 class _VersionedConstruct(StrEnum):
@@ -118,6 +186,21 @@ def _requires_numeric_version(version: _ObservationVersion) -> bool:
     }
 
 
+def _uses_catalog_literal_fields(sections: tuple[Section, ...]) -> bool:
+    return any(
+        section.name == ObservedSection.SYMBOLS
+        and any(
+            isinstance(attributes := record.data.get("attribute_declarations"), tuple)
+            and any(
+                isinstance(attribute, RecordData) and attribute.get("literal_value") is not None
+                for attribute in attributes
+            )
+            for record in section.records
+        )
+        for section in sections
+    )
+
+
 class _EncodingKind(StrEnum):
     COLUMNAR = "architecture-ir-columnar-v1"
 
@@ -138,6 +221,22 @@ def _uses_protocol_declaration_fields(section: Section) -> bool:
         or _has_field((key for key, _ in record.data.entries), "protocol_scope_proof")
         for record in section.records
     )
+
+
+class _ConstructSelectorFactKind(StrEnum):
+    SELECTOR = "construct_selector"
+    UNKNOWN = "construct_selector_unknown"
+
+
+class _SelectorRecordField(StrEnum):
+    CLAIM = "claim"
+    DECLARATION = "selector"
+    RECEIVER_PARAMETER_OWNER = "receiver_parameter_owner"
+    RECEIVER_PARAMETER_SCOPES = "receiver_parameter_scopes"
+
+
+class _SelectorRecordKind(StrEnum):
+    RULE_EVALUATION = "rule_evaluation"
 
 
 class _StringSentinel(StrEnum):
@@ -178,7 +277,7 @@ _STRING_REFERENCE = re.compile(r"^\$\d+$")
 _ESCAPED_STRING_REFERENCE = re.compile(r"^\$\$+\d+$")
 
 
-_MISSING_VALUE = object()
+_MISSING_VALUE: RawJson = float("nan")
 
 
 _TOP_LEVEL = {
@@ -246,12 +345,7 @@ def _validate_versioned_records(
         raise ValueError(
             "numeric_operand constructs require 2.2.0; declarations and receipts do too"
         )
-    if schema_version in {
-        _ObservationVersion.V2_1,
-        _ObservationVersion.V2_2,
-        _ObservationVersion.V2_3,
-        _ObservationVersion.V2_4,
-    }:
+    if not _before_version(schema_version, _ObservationVersion.V2_1):
         python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
         for section in sections:
             if section.name == ObservedSection.CALLS:
@@ -259,10 +353,10 @@ def _validate_versioned_records(
                     if python_calls and not _has_field(
                         (key for key, _ in call.data.entries), "call_binding"
                     ):
-                        raise ValueError("Python 2.1.0 calls require explicit call_binding or null")
+                        raise ValueError("Python calls require explicit call_binding or null")
                     binding = _call_binding(call.data.get("call_binding"))
                     if (
-                        schema_version is not _ObservationVersion.V2_4
+                        _before_version(schema_version, _ObservationVersion.V2_4)
                         and binding is not None
                         and binding.origin
                         not in {CallBindingOrigin.DIRECT, CallBindingOrigin.DECLARED_RECEIVER}
@@ -276,6 +370,114 @@ def _validate_versioned_records(
         _ObservationVersion.V2_2,
     } and any(_uses_protocol_declaration_fields(section) for section in sections):
         raise ValueError("protocol_declarations require observation schema 2.3.0")
+    _validate_selector_and_argument_versions(schema_version, sections, profile)
+
+
+def _validate_selector_and_argument_versions(
+    schema_version: _ObservationVersion, sections: tuple[Section, ...], profile: Profile
+) -> None:
+    if _has_selector_vocabulary(sections) and _before_version(
+        schema_version, _ObservationVersion.V2_6
+    ):
+        raise ValueError("construct selector facts require observation schema 2.6.0")
+    for section in sections:
+        for record in section.records:
+            fields = {key for key, _ in record.data.entries}
+            has_parameter_owner = _SelectorRecordField.RECEIVER_PARAMETER_OWNER in fields
+            has_scope_chain = _SelectorRecordField.RECEIVER_PARAMETER_SCOPES in fields
+            if not has_parameter_owner and not has_scope_chain:
+                continue
+            binding = _call_binding(record.data.get("receiver_binding"))
+            owner = record.data.get(_SelectorRecordField.RECEIVER_PARAMETER_OWNER)
+            scope_chain = record.data.get("receiver_parameter_scopes")
+            scope_chain_is_tuple = isinstance(scope_chain, tuple)
+            scope_items: tuple[JsonValue, ...] = (
+                scope_chain if isinstance(scope_chain, tuple) else ()
+            )
+            scope_owners = (
+                [item.get("scope_owner") for item in scope_items if isinstance(item, RecordData)]
+                if scope_chain_is_tuple
+                else []
+            )
+            if (
+                section.name != ObservedSection.CONSTRUCTS
+                or record.kind != _ConstructSelectorFactKind.SELECTOR
+                or not isinstance(owner, str)
+                or not owner
+                or not has_scope_chain
+                or not scope_chain_is_tuple
+                or not scope_owners
+                or any(not isinstance(name, str) or not name for name in scope_owners)
+                or scope_owners[0] != record.data.get("owner")
+                or scope_owners[-1] != owner
+                or any(
+                    not isinstance(item, RecordData)
+                    or {key for key, _ in item.entries}
+                    != {"scope_owner", "scope_evidence_id", "scope_symbol_id"}
+                    or any(
+                        not isinstance(item.get(key), str) or not item.get(key)
+                        for key in ("scope_owner", "scope_evidence_id", "scope_symbol_id")
+                    )
+                    for item in scope_items
+                )
+                or binding is None
+                or binding.origin is not CallBindingOrigin.DECLARED_RECEIVER
+            ):
+                raise ValueError("selector parameter owner requires a declared receiver fact")
+    python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
+    for section in sections:
+        if section.name != ObservedSection.CALLS:
+            continue
+        for call in section.records:
+            has_arguments = _has_field((key for key, _ in call.data.entries), "call_arguments")
+            if _version_at_least(schema_version, (2, 5)):
+                if python_calls and not has_arguments:
+                    raise ValueError(
+                        f"Python {schema_version.value} calls require explicit call_arguments"
+                    )
+                arguments = (
+                    _call_arguments(call.data.get("call_arguments")) if has_arguments else None
+                )
+                binding = _call_binding(call.data.get("call_binding"))
+                if arguments is not None and binding is None:
+                    raise ValueError("call arguments require the canonical call binding")
+            elif has_arguments:
+                raise ValueError("call_arguments require observation schema 2.5.0")
+    if schema_version is not _ObservationVersion.V2_9 and _uses_catalog_literal_fields(sections):
+        raise ValueError("catalog literal values require observation schema 2.9.0")
+
+
+def _has_selector_vocabulary(sections: tuple[Section, ...]) -> bool:
+    for section in sections:
+        for record in section.records:
+            if section.name == ObservedSection.CONSTRUCTS and (
+                record.kind == _ConstructSelectorFactKind.SELECTOR
+            ):
+                return True
+            if {
+                _SelectorRecordField.RECEIVER_PARAMETER_OWNER,
+                _SelectorRecordField.RECEIVER_PARAMETER_SCOPES,
+            } & {key for key, _ in record.data.entries}:
+                return True
+            if section.name == ObservedSection.UNKNOWNS and (
+                record.kind == _ConstructSelectorFactKind.UNKNOWN
+            ):
+                return True
+            if section.name == _VersionedSection.DECLARATIONS and (
+                record.kind == ArchitectureRuleKind.FORBIDDEN_CONSTRUCT
+                and record.data.get(_SelectorRecordField.DECLARATION) is not None
+            ):
+                return True
+            if section.name == _VersionedSection.SCOPE_OBSERVATIONS and (
+                record.kind == _SelectorRecordKind.RULE_EVALUATION
+                and (
+                    record.data.get(_SelectorRecordField.CLAIM)
+                    == _ConstructSelectorFactKind.SELECTOR
+                    or record.data.get(_SelectorRecordField.DECLARATION) is not None
+                )
+            ):
+                return True
+    return False
 
 
 def parse_observation(raw: object) -> Observation:
@@ -308,6 +510,9 @@ def parse_observation(raw: object) -> Observation:
         if isinstance(section_items := item[name], list)
     )
     _validate_versioned_records(schema_version, sections, profile)
+    _validate_observation_record_versions(sections, schema_version, profile, evidence_raw)
+    _validate_selector_schema_floor(item)
+    _validate_guarded_effect_schema_floor(sections, schema_version)
     return Observation(
         schema_version=schema_version,
         analyzer=AnalyzerInfo(
@@ -330,14 +535,7 @@ def parse_observation(raw: object) -> Observation:
         else None,
         runtime=_parse_runtime(
             item["runtime"],
-            allow_requirement_state=schema_version
-            in {
-                _ObservationVersion.V2,
-                _ObservationVersion.V2_1,
-                _ObservationVersion.V2_2,
-                _ObservationVersion.V2_3,
-                _ObservationVersion.V2_4,
-            },
+            allow_requirement_state=_version_at_least(schema_version, (2, 0)),
         )
         if item.get("runtime", _MISSING_VALUE) is not _MISSING_VALUE
         else None,
@@ -345,6 +543,60 @@ def parse_observation(raw: object) -> Observation:
         if item.get("producer", _MISSING_VALUE) is not _MISSING_VALUE
         else None,
     )
+
+
+def _validate_observation_record_versions(
+    sections: tuple[Section, ...],
+    version: _ObservationVersion,
+    profile: Profile,
+    evidence: RawJson,
+) -> None:
+    if _before_version(version, _ObservationVersion.V2_7):
+        for section_name, kind, message in (
+            (
+                _ObservationSection.REFERENCES,
+                _ObservationRecordKind.SOURCE_ROLE,
+                "source_role records require observation schema_version 2.7.0",
+            ),
+            (
+                _ObservationSection.DECLARATIONS,
+                _ObservationRecordKind.SOURCE_OWNERSHIP,
+                "source_ownership requires observation schema_version 2.7.0",
+            ),
+        ):
+            if any(
+                record.kind == kind
+                for section in sections
+                if section.name == section_name
+                for record in section.records
+            ):
+                raise ValueError(message)
+        if any(
+            _has_field((key for key, _ in record.data.entries), "reference_context")
+            for section in sections
+            if section.name == _ObservationSection.REFERENCES
+            for record in section.records
+        ):
+            raise ValueError("reference_context requires observation schema_version 2.7.0")
+    if version in {_ObservationVersion.V2_1, _ObservationVersion.V2_2}:
+        python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
+        for section in sections:
+            if section.name == ObservedSection.CALLS:
+                for call in section.records:
+                    if python_calls and not _has_field(
+                        (key for key, _ in call.data.entries), "call_binding"
+                    ):
+                        raise ValueError("Python 2.1.0 calls require explicit call_binding or null")
+                    _call_binding(call.data.get("call_binding"))
+    if not _before_version(version, _ObservationVersion.V2_7):
+        if not isinstance(evidence, list):
+            raise ValueError("observation evidence must be an array")
+        records = tuple(record for section in sections for record in section.records)
+        evidence_records = tuple(parse_evidence(value, "evidence[]") for value in evidence)
+        evidence_by_id = {item.id: item for item in evidence_records}
+        _validate_source_ownership_vocabulary(sections)
+        _validate_reference_contexts(records, evidence_by_id, SourceProfile(profile.analyzer))
+        _validate_source_role_identities(records, evidence_by_id)
 
 
 def _parse_analyzer(raw: RawJson, label: str) -> AnalyzerInfo:
@@ -487,7 +739,50 @@ def _validate_profile_sections(model: Mapping[str, RawJson], profile: Profile) -
             raise ValueError(f"{section} must be an array for analyzer {profile.analyzer}")
 
 
+def _validate_source_ownership_vocabulary(sections: tuple[Section, ...]) -> None:
+    references = next(
+        (section.records for section in sections if section.name == _ObservationSection.REFERENCES),
+        (),
+    )
+    for record in references:
+        if record.kind in {
+            _ObservationRecordKind.VALUE_REFERENCE,
+            _ObservationRecordKind.ATTRIBUTE_REFERENCE,
+        } and record.data.get("reference_context") not in {
+            SourceReferenceContext.VALUE,
+            SourceReferenceContext.ANNOTATION,
+            SourceReferenceContext.UNKNOWN,
+        }:
+            raise ValueError("2.7.0 reference needs a typed source context")
+        if record.kind != _ObservationRecordKind.SOURCE_ROLE:
+            continue
+        validate_source_role_vocabulary(record, version="2.7.0")
+    rules = {
+        record.id
+        for section in sections
+        if section.name == _ObservationSection.DECLARATIONS
+        for record in section.records
+        if record.kind == _ObservationRecordKind.SOURCE_OWNERSHIP
+    }
+    if rules:
+        receipts = [
+            record
+            for section in sections
+            if section.name == _ObservationSection.SCOPE_OBSERVATIONS
+            for record in section.records
+            if record.kind == _ObservationRecordKind.RULE_EVALUATION
+            and bool(set(record.rule_ids) & rules)
+        ]
+        if any(record.data.get("source_ownership_scope_proof") is None for record in receipts):
+            raise ValueError("2.7.0 source_ownership rules require bound evaluation receipts")
+
+
 def observation_payload(observation: Observation) -> dict[str, RawJson]:
+    _validate_guarded_effect_version(observation)
+    if _has_selector_vocabulary(observation.sections) and _before_version(
+        _observation_version(observation.schema_version), _ObservationVersion.V2_6
+    ):
+        raise ValueError("construct selector facts require observation schema 2.6.0")
     if (
         _observation_version(observation.schema_version)
         not in {
@@ -496,6 +791,11 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
             _ObservationVersion.V2_2,
             _ObservationVersion.V2_3,
             _ObservationVersion.V2_4,
+            _ObservationVersion.V2_5,
+            _ObservationVersion.V2_6,
+            _ObservationVersion.V2_7,
+            _ObservationVersion.V2_8,
+            _ObservationVersion.V2_9,
         }
         and observation.runtime is not None
         and observation.runtime.requirement_state != RuntimeRequirementState.DECLARED
@@ -539,6 +839,41 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
     return result
 
 
+def _validate_guarded_effect_version(observation: Observation) -> None:
+    version = _observation_version(observation.schema_version)
+    if _version_at_least(version, (2, 8)):
+        return
+    for section in observation.sections:
+        if section.name == ObservedSection.CALLS and any(
+            _has_field((key for key, _ in call.data.entries), "guarded_effect")
+            for call in section.records
+        ):
+            raise ValueError("guarded-effect evidence requires observation 2.8.0")
+        if section.name == ObservedSection.SYMBOLS and any(
+            _has_field((key for key, _ in symbol.data.entries), "guard_boolean_members")
+            for symbol in section.records
+        ):
+            raise ValueError("guard Boolean members require observation 2.8.0")
+
+
+def _validate_guarded_effect_schema_floor(
+    sections: tuple[Section, ...], version: _ObservationVersion
+) -> None:
+    if not _before_version(version, _ObservationVersion.V2_8):
+        return
+    for section in sections:
+        if section.name == ObservedSection.CALLS and any(
+            _has_field((key for key, _ in call.data.entries), "guarded_effect")
+            for call in section.records
+        ):
+            raise ValueError("guarded-effect evidence requires observation 2.8.0")
+        if section.name == ObservedSection.SYMBOLS and any(
+            _has_field((key for key, _ in symbol.data.entries), "guard_boolean_members")
+            for symbol in section.records
+        ):
+            raise ValueError("guard Boolean members require observation 2.8.0")
+
+
 def _field_selected(name: str, excluded: set[str]) -> bool:
     """Apply an open JSON field grammar; field names do not select protocol states."""
     return name not in excluded
@@ -577,51 +912,21 @@ def encode_canonical_model(model: dict[str, RawJson]) -> dict[str, RawJson]:
     evidence_items = [_object(entry, "evidence[]") for entry in raw_evidence]
     evidence_rows = [[item[field] for field in EVIDENCE_FIELDS] for item in evidence_items]
 
-    counts: Counter[str] = Counter()
-
-    def count_strings(value: object) -> None:
-        if isinstance(value, str):
-            counts[value] += 1
-        elif isinstance(value, list):
-            for entry in value:
-                count_strings(entry)
-        elif isinstance(value, dict):
-            for entry in value.values():
-                count_strings(entry)
-
-    count_strings(rows_by_section)
-    count_strings(evidence_rows)
-    string_table = sorted(
-        value
-        for value, count in counts.items()
-        # Literal $$m would otherwise collide with historical $$$m escaping.
-        if value == _StringSentinel.ESCAPED_MISSING
-        or (count >= 2 and len(value) >= 8 and (count - 1) * len(value) - count * 8 > 100)
+    # AD-2: missing cells use a private NaN sentinel until intern writes "$m".
+    interned_tree, string_table = intern_strings(
+        {"sections": rows_by_section, "evidence": evidence_rows},
+        policy=StringTablePolicy.OBSERVATION,
+        missing_value=_MISSING_VALUE,
     )
-    string_indexes = {value: index for index, value in enumerate(string_table)}
-
-    # AD-2: rows mix RawJson with the _MISSING_VALUE sentinel; see rows_by_section.
-    def intern(value: Any) -> Any:
-        if value is _MISSING_VALUE:
-            return "$m"
-        if isinstance(value, str):
-            if value in string_indexes:
-                return f"${string_indexes[value]}"
-            if (
-                _string_sentinel(value) is not None
-                or _STRING_REFERENCE.fullmatch(value)
-                or _ESCAPED_STRING_REFERENCE.fullmatch(value)
-            ):
-                return f"${value}"
-            return value
-        if isinstance(value, list):
-            return [intern(entry) for entry in value]
-        if isinstance(value, dict):
-            return {key: intern(entry) for key, entry in value.items()}
-        return value
-
-    encoded.update({section: intern(rows) for section, rows in rows_by_section.items()})
-    encoded["evidence"] = intern(evidence_rows)
+    if not isinstance(interned_tree, dict):
+        raise ValueError("interned observation must be an object")
+    interned = _raw_object(interned_tree)
+    interned_sections = interned.get("sections")
+    interned_evidence = interned.get("evidence")
+    if not isinstance(interned_sections, dict) or not isinstance(interned_evidence, list):
+        raise ValueError("interned observation sections and evidence must have valid shapes")
+    encoded.update(interned_sections)
+    encoded["evidence"] = interned_evidence
     encoding: dict[str, RawJson] = {
         "kind": _EncodingKind.COLUMNAR.value,
         "record_fields": list(RECORD_FIELDS),
@@ -639,7 +944,9 @@ def decode_canonical_model(encoded: dict[str, RawJson]) -> dict[str, RawJson]:
     """Inflate the canonical columnar report into the in-memory ArchitectureIR."""
     encoding = encoded.get("encoding")
     if not _is_columnar(encoding):
-        _validate_profile_sections(encoded, _observation_profile(encoded))
+        profile = _observation_profile(encoded)
+        _validate_profile_sections(encoded, profile)
+        _validate_selector_schema_floor(encoded)
         return encoded
     profile = _observation_profile(encoded)
     _validate_profile_sections(encoded, profile)
@@ -699,7 +1006,19 @@ def decode_canonical_model(encoded: dict[str, RawJson]) -> dict[str, RawJson]:
     model["evidence"] = [
         dict(zip(evidence_fields, expand(row), strict=True)) for row in encoded_evidence
     ]
+    _validate_selector_schema_floor(model)
     return model
+
+
+def _validate_selector_schema_floor(model: dict[str, RawJson]) -> None:
+    if not _before_version(_observation_version(model["schema_version"]), _ObservationVersion.V2_6):
+        return
+    constructs = model.get("constructs")
+    if isinstance(constructs, list) and any(
+        isinstance(record, dict) and record.get("kind") == _ObservationRecordKind.CONSTRUCT_SELECTOR
+        for record in constructs
+    ):
+        raise ValueError("construct selector facts require observation schema 2.6.0")
 
 
 def canonical_report_bytes(model: Observation | dict[str, RawJson]) -> bytes:

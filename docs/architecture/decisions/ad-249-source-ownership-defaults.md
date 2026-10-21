@@ -1,0 +1,16 @@
+# AD-249: Source ownership names one declaration, not a copied value
+
+`source_ownership` is one bounded contract rule over the existing Python symbol and reference facts. A `retired` rule names symbols and only definition/read/write/delete roles; every resolved selected occurrence is a violation. A `confined` rule names an owner module, selected symbols and/or selected `function.parameter` identities, and explicit roles. Symbol definitions and value transfers must resolve to that owner. A selected parameter's default or explicit fallback must use the canonical `value_owner` declaration rather than duplicate its literal.
+
+The only transferable values are a resolved direct callable name used as a dictionary value, or a direct zero-argument lambda whose body calls that callable. Calls remain governed by `call_owner`. A default is a scalar literal or direct reference. A fallback is the two-operand `parameter or value` form where `value` is a scalar literal or direct reference. Canonical value comparison reads a unique source declaration; it never imports or executes project code.
+
+Definitions, reads, writes, deletes, value transfers, defaults, and fallback expressions are separate source roles. Comments and strings are not references. Shadowing, mutation, duplicate definitions, dynamic/unsupported expressions, descriptors, ambiguous aliases, and incomplete source leave the affected decision UNKNOWN. There is no arbitrary value-flow, semantic-equivalence, runtime-liveness, or general CFG claim.
+
+The typed reference context, source-role facts, and source-ownership rule enter the saved-observation and contract wires at observation schema 2.7.0 and contract schema 3.12.0. Native collection uses SourceFacts protocol 5, whose lossless columnar envelope expands into the same validated facts before evaluation. Earlier observation and contract schemas continue to reject these additions.
+
+Receipts bind the rule, selected facts, canonical owner/value declaration, source and contract digests, scope and wire version. Mounted rules see only their selected physical source domain; partial or empty domains cannot prove absence. Existing product normalization, RNG, and worker-invariance tests remain independent.
+
+Source-fact collection protocol 5.0.0 carries the same validated fact set as 4.0.0 in a lossless columnar encoding. Record fields, sparse record-data pairs, evidence rows, candidate-evidence rows, and a profitable UTF-8 string table are expanded before the normal source-fact validator runs. The encoding preserves candidate evidence and UNKNOWN records, has a strict format marker, and is rejected by 1.0.0–4.0.0 readers. It keeps the collector's existing 64 MiB stdout bound; it does not change evidence selection or semantics.
+The shared `archkeel.ir.codec_strings` helper owns pure lossless string interning and expansion for source and observation IR encodings. Observation encoding keeps its existing profitability threshold and reserved-marker behavior, so saved report bytes remain stable.
+
+This uses lexical origins and source-bound syntax already collected by Archkeel. A second scanner, copied default inventory, or executing imported code would create drift or unsafe evidence. Native source-to-saved-report, mutation, mixed FAIL/UNKNOWN, mount, and replay tests are the proof boundary.

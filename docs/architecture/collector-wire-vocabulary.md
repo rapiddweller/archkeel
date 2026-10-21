@@ -36,6 +36,19 @@ original return, runtime and supported provider roles. Tags become owned enums;
 wire spellings and original signature fields remain unchanged. Earlier protocols
 reject this metadata. Unsupported source transformations remain UNKNOWN.
 
+V5 keeps the V4 collection envelope and facts, but encodes source records and evidence
+as canonical positional rows with a sorted data-field table and lossless repeated-string
+references. V1–V4 retain their original wire formats.
+
+V6 wraps the same bare V1 positional rows in a `source-facts-columnar-v2` envelope. It
+interns JSON object keys in a sorted unique `key_table` and string values in a sorted unique
+`string_table`; canonical decimal object keys index the former and `$<index>` value
+references index the latter. The decoder checks canonical tables and references, expands
+both pools and the V1 rows, then applies the unchanged strict SourceFacts validator. V6
+requests retain the V4/V5 provider-source and phase fields, and V6 responses retain the
+ordinary provider-sources field. V1–V5 wire behavior is unchanged. See
+[AD-253](decisions/ad-253-source-facts-columnar-key-and-value-pooling.md).
+
 This migration covers the named collector/codec modules. It does not assert that every historical string-controlled branch in the repository has been migrated.
 
 SourceProfile and SourceSectionName are nominal enums decoded at ingress, with exactly the former three profile IDs and eight section names. ObservedSection remains a compatibility name for the shared section identity owner. Its old six-value Literal annotation imposed no runtime validation; only this internal annotation now names the full canonical vocabulary. Registered profile subsets and mandatory imports/unknowns validation remain unchanged and have decoder controls.

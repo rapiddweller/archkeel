@@ -31,10 +31,33 @@
         },
         "observation": {
           "anyOf": [
-            {"$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"},
-            {"$ref": "urn:archkeel:architecture-ir:decoded:2.2.0"},
-            {"$ref": "urn:archkeel:architecture-ir:decoded:2.3.0"},
-            {"$ref": "urn:archkeel:architecture-ir:decoded:2.4.0"}
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.2.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.3.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.4.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.5.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.6.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.7.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.8.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.9.0"
+            }
           ]
         },
         "python_version": {
@@ -185,10 +208,33 @@
         },
         "observation": {
           "anyOf": [
-            {"$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"},
-            {"$ref": "urn:archkeel:architecture-ir:decoded:2.2.0"},
-            {"$ref": "urn:archkeel:architecture-ir:decoded:2.3.0"},
-            {"$ref": "urn:archkeel:architecture-ir:decoded:2.4.0"}
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.2.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.3.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.4.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.5.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.6.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.7.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.8.0"
+            },
+            {
+              "$ref": "urn:archkeel:architecture-ir:decoded:2.9.0"
+            }
           ]
         },
         "python_version": {
@@ -300,6 +346,144 @@
           "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/anyOf/1"
         }
       ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "command": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/command"
+        },
+        "exit_code": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/exit_code"
+        },
+        "observation_complete": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/observation_complete"
+        },
+        "declared_rules": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/declared_rules"
+        },
+        "expectation_fulfilled": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/expectation_fulfilled"
+        },
+        "diagnostics": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/diagnostics"
+        },
+        "coverage": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/coverage"
+        },
+        "observation": {
+          "$ref": "urn:archkeel:architecture-ir:decoded:2.8.0"
+        },
+        "python_version": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/python_version"
+        },
+        "measurements": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/measurements"
+        },
+        "artifact": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/artifact"
+        },
+        "git_predicate": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/git_predicate"
+        },
+        "host_order": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/host_order"
+        },
+        "host_source": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/host_source"
+        },
+        "failures": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/failures"
+        },
+        "widenings": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/widenings"
+        },
+        "amendment_status": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/amendment_status"
+        },
+        "baseline_new": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/baseline_new"
+        },
+        "baseline_resolved": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/baseline_resolved"
+        },
+        "delta": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/delta"
+        },
+        "provenance": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/provenance"
+        },
+        "open_decisions": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/open_decisions"
+        },
+        "open_decision_count": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/open_decision_count"
+        },
+        "open_decisions_complete": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/open_decisions_complete"
+        },
+        "agent_decisions": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/agent_decisions"
+        },
+        "claims": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/claims"
+        },
+        "violations_by_rule": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/violations_by_rule"
+        },
+        "violations_by_component_pair": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/violations_by_component_pair"
+        },
+        "draft_sizes": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/draft_sizes"
+        },
+        "report_filter": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/report_filter"
+        },
+        "filtered_violations": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/filtered_violations"
+        },
+        "unresolved_call_changes": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/unresolved_call_changes"
+        },
+        "unresolved_call_note": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/unresolved_call_note"
+        },
+        "filtered_calls": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/filtered_calls"
+        },
+        "architecture_projection": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/architecture_projection"
+        },
+        "rule_assessments": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/rule_assessments"
+        },
+        "baseline_path": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/baseline_path"
+        },
+        "baseline_comparisons": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/baseline_comparisons"
+        },
+        "interface_budgets": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/interface_budgets"
+        },
+        "scan_roots": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/scan_roots"
+        },
+        "renames": {
+          "$ref": "urn:archkeel:command-result:6.0.0#/properties/renames"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "urn:archkeel:command-result:6.0.0#/else"
+        }
+      ],
+      "not": {
+        "required": [
+          "schema_version"
+        ]
+      }
     }
   ],
   "title": "Archkeel command JSON results",

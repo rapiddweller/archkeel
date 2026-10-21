@@ -1106,13 +1106,17 @@ def test_saved_numeric_receipt_rejects_changed_operand_proof(tmp_path):
         for schema in (json.loads(path.read_bytes()) for path in schemas.glob("*.json"))
         if "$id" in schema
     )
-    current_validator = Draft202012Validator(
-        {"$ref": f"urn:archkeel:architecture-ir:python-decoded:{SCHEMA_VERSION}"},
-        registry=registry,
-    )
-    assert current_validator.is_valid(payload), [
-        (error.json_path, error.message) for error in current_validator.iter_errors(payload)
-    ]
+    unknown_field = json.loads(json.dumps(payload))
+    unknown_field["constructs"][0]["data"]["unsupported_numeric_proof"] = True
+    for profile in ("python-decoded", "decoded"):
+        current_validator = Draft202012Validator(
+            {"$ref": f"urn:archkeel:architecture-ir:{profile}:{SCHEMA_VERSION}"},
+            registry=registry,
+        )
+        assert current_validator.is_valid(payload), [
+            (error.json_path, error.message) for error in current_validator.iter_errors(payload)
+        ]
+        assert not current_validator.is_valid(unknown_field)
     assert not Draft202012Validator(
         {"$ref": "urn:archkeel:architecture-ir:python-decoded:2.1.0"}, registry=registry
     ).is_valid(payload)

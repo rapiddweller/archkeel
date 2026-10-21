@@ -19,6 +19,7 @@ from archkeel.check.validation import (
 )
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import load_inside_contract_tree, observation_payload, parse_contract
+from archkeel.ir.model import ContractChangeDirection
 from archkeel.ir.trace import trace_valid_violations
 
 
@@ -427,6 +428,10 @@ def test_against_compares_deep_module_and_uml_declarations(tmp_path: Path, chang
     assert result.exit_code == 1
     assert [(row.subject, row.field) for row in result.widenings] == [
         ("inside 'ordering:domain'.contract.declarations", "declarations")
+    ]
+    # #640 review: the change list carries every change the gate reports.
+    assert [(row.direction, row.subject) for row in result.contract_changes or ()] == [
+        (ContractChangeDirection.WIDENED, "inside 'ordering:domain'.contract.declarations")
     ]
 
 

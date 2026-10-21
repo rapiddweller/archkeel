@@ -88,6 +88,7 @@
         "archkeel.analyzer.python.bindings",
         "archkeel.analyzer.python.calls",
         "archkeel.analyzer.python.constructs",
+        "archkeel.analyzer.python.guard_paths",
         "archkeel.analyzer.python.imports",
         "archkeel.analyzer.python.private_attributes",
         "archkeel.analyzer.python.references",
@@ -97,7 +98,8 @@
         "archkeel.analyzer.python.typing_signals"
       ],
       "responsibilities": [
-        "Emit specialized Python call, binding, state and type facts from shared source evidence."
+        "Emit specialized Python call, binding, state and type facts from shared source evidence.",
+        "The call collector owns typed guarded-effect path and one-hop helper-binding facts; it does not evaluate policy."
       ],
       "forbidden_responsibilities": [
         "Importing peer collectors, importing Core policy, or evaluating architecture rules.",
@@ -231,6 +233,10 @@
       {
         "path": "src/archkeel/analyzer/python/calls.py",
         "responsibility": "Collect calls source facts."
+      },
+      {
+        "path": "src/archkeel/analyzer/python/guard_paths.py",
+        "responsibility": "Expose the shared bounded path grammar to the call collector."
       },
       {
         "path": "src/archkeel/analyzer/python/constructs.py",
@@ -909,7 +915,8 @@
           "qualified_name": "archkeel.analyzer.python.constructs.collect_constructs",
           "parent_id": "PYTHON-PREDICATE-MODULE",
           "responsibilities": [
-            "Collect written construct facts using scanned literal providers and canonical import origins without runtime namespace claims."
+            "Collect written construct facts using scanned literal providers and canonical import origins without runtime namespace claims.",
+            "Keep legacy V3/V4 wire shapes by disabling receiver-owner proof fields; V5 retains them."
           ],
           "signature": {
             "parameters": [
@@ -930,6 +937,27 @@
                 "annotation": "Sequence[RawRecord]",
                 "kind": "keyword_only",
                 "default": "()",
+                "default_known": true
+              },
+              {
+                "name": "symbol_index",
+                "annotation": "SymbolIndex | None",
+                "kind": "keyword_only",
+                "default": "None",
+                "default_known": true
+              },
+              {
+                "name": "receiver_resolvers",
+                "annotation": "Sequence[SelectorReceiverResolver]",
+                "kind": "keyword_only",
+                "default": "()",
+                "default_known": true
+              },
+              {
+                "name": "include_parameter_owner_proof",
+                "annotation": "bool",
+                "kind": "keyword_only",
+                "default": "True",
                 "default_known": true
               }
             ],

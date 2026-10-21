@@ -29,10 +29,146 @@ from archkeel.ir.profiles import PROFILES
 from archkeel.ir.widening import Amendment
 
 ROOT = Path(__file__).parents[1]
+SCHEMA_FILES = tuple(sorted((ROOT / "schema").glob("*.schema.json")))
 
 
 def _schema(name: str) -> dict:
     return json.loads((ROOT / "schema" / name).read_bytes())
+
+
+def test_catalog_rules_are_only_admitted_by_contract_3_14_schema():
+    raw = {
+        "schema_version": "3.14.0",
+        "components": [],
+        "rules": [
+            {
+                "id": "CATALOG-ARGUMENT",
+                "kind": "catalog_argument",
+                "source": "sample.consumer",
+                "target": "sample.catalog.read_option",
+                "parameter": "key",
+                "catalog": "sample.catalog.OptionKey",
+                "overlays": ["sample.consumer.ExtraKey"],
+                "source_match": "exact",
+                "rationale": "Use declared catalog entries.",
+                "provenance": ["docs/architecture/catalog.md"],
+                "decided_by": "architect",
+            }
+        ],
+    }
+    latest = Draft202012Validator(_schema("architecture-contract-3.14.schema.json"))
+    assert latest.is_valid(raw)
+    assert parse_contract(raw).rules[0].kind.value == "catalog_argument"
+
+    legacy = deepcopy(raw)
+    legacy["schema_version"] = "3.10.0"
+    assert not Draft202012Validator(_schema("architecture-contract-3.10.schema.json")).is_valid(
+        legacy
+    )
+    with pytest.raises(ValueError, match="3.14.0"):
+        parse_contract(legacy)
+
+    historical = _schema("architecture-contract.schema.json")
+    assert historical["$id"] == "urn:archkeel:architecture-contract:2.3.0"
+    assert "3.14.0" not in historical["properties"]["schema_version"]["enum"]
+
+
+def _call_binding_refs(value: object) -> list[str]:
+    if isinstance(value, dict):
+        refs = [
+            reference
+            for key, reference in value.items()
+            if key == "$ref"
+            and isinstance(reference, str)
+            and reference.endswith("#/$defs/CallBinding")
+        ]
+        nested = []
+        for child in value.values():
+            nested.extend(_call_binding_refs(child))
+        return refs + nested
+    if isinstance(value, list):
+        return [reference for child in value for reference in _call_binding_refs(child)]
+    return []
+
+
+def _external_schema_refs(value: object) -> list[str]:
+    if isinstance(value, dict):
+        refs = [
+            reference
+            for key, reference in value.items()
+            if key == "$ref" and isinstance(reference, str) and not reference.startswith("#")
+        ]
+        return refs + [
+            reference for child in value.values() for reference in _external_schema_refs(child)
+        ]
+    if isinstance(value, list):
+        return [reference for child in value for reference in _external_schema_refs(child)]
+    return []
+
+
+@pytest.mark.parametrize("schema_path", SCHEMA_FILES, ids=lambda path: path.name)
+def test_bundled_schemas_are_valid_draft_2020_12_schemas(schema_path: Path) -> None:
+    Draft202012Validator.check_schema(json.loads(schema_path.read_bytes()))
+
+
+@pytest.mark.parametrize(
+    ("version", "source_facts_version"),
+    [(f"2.{minor}", "4.0.0") for minor in range(1, 7)] + [("2.7", "5.0.0")],
+)
+def test_historical_python_schemas_reference_the_matching_call_binding_schema(
+    version: str, source_facts_version: str
+) -> None:
+    schema = _schema(f"architecture-ir-python-decoded-{version}.schema.json")
+    assert _call_binding_refs(schema) == [
+        f"https://archkeel.dev/schema/source-facts/{source_facts_version}#/$defs/CallBinding"
+    ]
+
+
+def test_frozen_source_facts_5_resource_resolves_legacy_call_binding_reference() -> None:
+    frozen = _schema("source-facts-5.0.schema.json")
+    assert frozen["$id"] == "https://archkeel.dev/schema/source-facts/5.0.0"
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema))
+        for schema in (_schema(path.name) for path in SCHEMA_FILES)
+    )
+    Draft202012Validator(
+        {"$ref": f"{frozen['$id']}#/$defs/CallBinding"}, registry=registry
+    ).validate({"origin": "direct", "target": "sample.call", "evidence_ids": ["EVD-1"]})
+
+
+def test_frozen_decoded_27_profiles_close_with_v5_source_facts_resource() -> None:
+    resource_names = (
+        "architecture-ir-decoded-2.7.schema.json",
+        "architecture-ir-decoded.schema.json",
+        "architecture-ir-python-decoded-2.7.schema.json",
+        "architecture-ir-common.schema.json",
+        "architecture-ir-python-decoded.schema.json",
+        "architecture-ir-python-decoded-2.4.schema.json",
+        "source-facts-4.0.schema.json",
+        "source-facts-5.0.schema.json",
+    )
+    resources = [_schema(name) for name in resource_names]
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema)) for schema in resources
+    )
+    for schema in resources:
+        for reference in _external_schema_refs(schema):
+            registry.resolver(base_uri=schema["$id"]).lookup(reference)
+
+
+@pytest.mark.parametrize("version", [f"2.{minor}.0" for minor in range(1, 8)])
+@pytest.mark.parametrize("versioned", [False, True])
+def test_command_result_observation_branches_preserve_historical_formats(version, versioned):
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema))
+        for schema in (_schema(path.name) for path in SCHEMA_FILES)
+    )
+    branch = _schema("command-result-9.0.schema.json")["anyOf"][2 if versioned else 1]
+    validator = Draft202012Validator(branch["properties"]["observation"], registry=registry)
+    observation = _model(git_head="a" * 40, schema_version=version)
+    validator.validate(observation)
+    observation["schema_version"] = "2.99.0"
+    assert not validator.is_valid(observation)
 
 
 @pytest.fixture(scope="module")
@@ -165,6 +301,80 @@ def test_reference_annotation_ownership_schema(details, accepted):
         **details,
     }
     assert Draft202012Validator(data).is_valid(reference) == accepted
+
+
+@pytest.mark.parametrize("version", ["2.7", "2.8"])
+def test_local_definition_reference_schema_accepts_only_typed_ownership_fields(version):
+    data = _schema(f"architecture-ir-python-decoded-{version}.schema.json")["properties"][
+        "references"
+    ]["items"]["allOf"][1]["properties"]["data"]
+    reference = {
+        "source_scope": "sample.consumer",
+        "source_module": "sample.consumer",
+        "expression": "local_name",
+        "status": "resolved",
+        "targets": ["sample.consumer.local_name"],
+        "use": "value",
+        "local_source_binding": True,
+        "declaration_role": "definition",
+        "declaration_evidence_ids": ["EVD-123"],
+        "declaration_status": "resolved",
+    }
+    validator = Draft202012Validator(data)
+    assert validator.is_valid(reference)
+    for field, value in (
+        ("local_source_binding", "true"),
+        ("declaration_role", "use"),
+        ("declaration_evidence_ids", [""]),
+        ("declaration_status", "unknown"),
+    ):
+        malformed = deepcopy(reference)
+        malformed[field] = value
+        assert not validator.is_valid(malformed)
+
+
+@pytest.mark.parametrize("version", ["2.7", "2.8"])
+def test_source_role_schema_accepts_unresolved_transfers_only_for_roles(version):
+    profile = _schema(f"architecture-ir-python-decoded-{version}.schema.json")
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema))
+        for schema in (_schema(path.name) for path in SCHEMA_FILES)
+    )
+    validator = Draft202012Validator(
+        profile["properties"]["references"]["items"], registry=registry
+    )
+    record = {
+        "id": "REF-123",
+        "evidence_class": "FACT",
+        "area": "references",
+        "kind": "source_role",
+        "title": "Source role",
+        "subjects": [],
+        "evidence_ids": ["EVD-123"],
+        "rule_ids": [],
+        "fact_ids": [],
+        "provenance": [],
+        "data": {
+            "source_scope": "sample.module",
+            "source_module": "sample.module",
+            "expression": "sample.module.value",
+            "status": "unresolved",
+            "targets": [],
+            "use": "source_role",
+            "role": "write",
+            "canonical_name": "sample.module.value",
+            "declaration_id": "DECL-123",
+            "line": 1,
+            "column": 0,
+            "end_line": 1,
+            "end_column": 1,
+            "transfer_kind": "dictionary_value",
+        },
+    }
+    assert validator.is_valid(record)
+    record["kind"] = "value_reference"
+    record["data"]["use"] = "value"
+    assert not validator.is_valid(record)
 
 
 def test_config_schema_accepts_the_parsed_repository_config() -> None:

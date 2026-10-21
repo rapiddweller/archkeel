@@ -85,8 +85,14 @@ def test_actual_predicate_enum_and_decoder_satisfy_independent_native_target(tmp
     ("old", "new"),
     [
         ("class _StringPredicate(Enum):", "class _StringPredicate:"),
-        ("imports: Sequence[RawRecord] = (),", "imports: Sequence[str] = (),"),
-        (") -> list[RawRecord]:", ") -> list[str]:"),
+        (
+            "    *,\n    imports: Sequence[RawRecord] = (),",
+            "    *,\n    imports: Sequence[str] = (),",
+        ),
+        (
+            "    include_parameter_owner_proof: bool = True,\n) -> list[RawRecord]:",
+            "    include_parameter_owner_proof: bool = True,\n) -> list[str]:",
+        ),
         ("-> _StringPredicate | None:", "-> str | None:"),
         (
             "def _predicate_matches(literals: _LiteralComparisons, node: ast.expr) -> bool:",
@@ -108,7 +114,7 @@ def test_actual_predicate_enum_and_decoder_satisfy_independent_native_target(tmp
 )
 def test_actual_decoder_type_widening_fails_fixed_native_target(tmp_path, old, new):
     source = (ROOT / SOURCE).read_text()
-    assert old in source
+    assert source.count(old) == 1
     root, config = _repository(tmp_path, source.replace(old, new, 1))
     intent = (root / "contract.json").read_bytes()
     model = _model(root, config)

@@ -32,7 +32,12 @@ def progress(message: str) -> Iterator[None]:
 """
 
 
-def _native_case(tmp_path: Path, source: str = _PROGRESS, providers=None):
+def _native_case(
+    tmp_path: Path,
+    source: str = _PROGRESS,
+    providers=None,
+    final_version: ProtocolVersion = ProtocolVersion.V4,
+):
     package = tmp_path / "sample"
     package.mkdir(exist_ok=True)
     (package / "__init__.py").write_text("")
@@ -45,7 +50,11 @@ def _native_case(tmp_path: Path, source: str = _PROGRESS, providers=None):
     )
     discovered = collect(request)
     captured = provider_sources(request, discovered) if providers is None else providers
-    final = replace(request, resolver=PythonSettings(provider_sources=tuple(captured)))
+    final = replace(
+        request,
+        resolver=PythonSettings(provider_sources=tuple(captured)),
+        protocol_version=final_version,
+    )
     return _native_facts(final), tuple(captured)
 
 
@@ -60,8 +69,9 @@ def _signature(facts):
     return symbol, contextmanager_signature(value) if value is not None else None
 
 
-def test_actual_native_contextmanager_keeps_original_signature(tmp_path):
-    facts, _ = _native_case(tmp_path)
+@pytest.mark.parametrize("version", [ProtocolVersion.V4, ProtocolVersion.V5])
+def test_actual_native_contextmanager_keeps_original_signature(tmp_path, version):
+    facts, _ = _native_case(tmp_path, final_version=version)
     symbol, signature = _signature(facts)
     assert isinstance(signature, ContextManagerSignature)
     assert symbol.data.get("returns") == "Iterator[None]"
@@ -72,10 +82,7 @@ def test_actual_native_contextmanager_keeps_original_signature(tmp_path):
     assert signature.partial.implementation == "cpython"
     assert signature.partial.version == facts.runtime.version
     assert dict(facts.type_shapes)["None"]
-    assert (
-        facts
-        == decode_response(encode_response(CollectionResponse(facts, ProtocolVersion.V4))).facts
-    )
+    assert facts == decode_response(encode_response(CollectionResponse(facts, version))).facts
 
 
 @pytest.mark.parametrize(
