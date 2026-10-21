@@ -127,6 +127,7 @@ def test_dangling_type_alias_evidence_is_a_validation_error(tmp_path):
         ("WIDTH = 4\ntype Alias[\n    T\n] = job_nonce % WIDTH\n", "unknown"),
         ("WIDTH = 4\ntype Alias[T] = (\n    job_nonce % WIDTH\n)\n", "unknown"),
         ("WIDTH = 4\ntype Alias[T] = (\n    job_nonce % 4\n)\n", "known"),
+        ("WIDTH = 4\ntype Alias = (\n    job_nonce % WIDTH\n)\n", "known"),
     ],
 )
 def test_multiline_type_alias_witnesses_only_prove_replayable_names(
@@ -297,42 +298,86 @@ def test_saved_facts_reject_forged_generic_header_proofs(tmp_path, source):
 
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type aliases require Python 3.12")
 @pytest.mark.parametrize(
-    ("source", "error", "remove_type_alias_evidence", "reader_version"),
+    (
+        "source",
+        "error",
+        "remove_type_alias_evidence",
+        "remove_alias_evidence_row",
+        "reader_version",
+        "copy_scope_witnesses",
+    ),
     [
         (
             "WIDTH = 4\ntype Alias[WIDTH] = job_nonce % WIDTH\n",
             "type parameter",
             True,
+            False,
             None,
+            False,
         ),
         (
             "WIDTH = 4\ntype Alias[\n    WIDTH\n] = job_nonce % WIDTH\n",
             "complete source witness",
             False,
+            False,
             None,
+            False,
         ),
         (
             "WIDTH = 4\ntype Alias[WIDTH] = (\n    job_nonce % WIDTH\n)\n",
             "type parameter",
             True,
+            False,
             None,
+            False,
         ),
         (
             "WIDTH = 4\ntype Alias[WIDTH, T: job_nonce % WIDTH] = T\n",
             "type parameter",
             False,
+            False,
             None,
+            False,
         ),
         (
             "WIDTH = 4\ntype Alias[WIDTH] = (\n    job_nonce % WIDTH\n)\n",
             "type parameter",
             True,
+            False,
             (3, 11),
+            False,
+        ),
+        (
+            "WIDTH = 4\ndef ordinary(job_nonce):\n"
+            "    type Alias[WIDTH] = (\n        job_nonce % WIDTH\n    )\n"
+            "    return job_nonce % WIDTH\n",
+            "numeric module alias",
+            True,
+            True,
+            None,
+            True,
+        ),
+        (
+            "WIDTH = 4\nclass Ordinary:\n"
+            "    type Alias[WIDTH] = (\n        job_nonce % WIDTH\n    )\n"
+            "    value = job_nonce % WIDTH\n",
+            "numeric module alias",
+            True,
+            True,
+            None,
+            True,
         ),
     ],
 )
 def test_saved_facts_reject_forged_known_type_parameter_alias(
-    tmp_path, monkeypatch, source, error, remove_type_alias_evidence, reader_version
+    tmp_path,
+    monkeypatch,
+    source,
+    error,
+    remove_type_alias_evidence,
+    remove_alias_evidence_row,
+    reader_version,
+    copy_scope_witnesses,
 ):
     from archkeel.analyzer.python.collect import collect
     from archkeel.ir.facts_codec import (
@@ -360,7 +405,17 @@ def test_saved_facts_reject_forged_known_type_parameter_alias(
         record
         for section in payload["facts"]["sections"]
         for record in section["records"]
-        if record["kind"] == "numeric_operand"
+        if record["kind"] == "numeric_operand" and record["data"]["proof"] == "unknown"
+    )
+    known_operation = (
+        next(
+            record
+            for section in payload["facts"]["sections"]
+            for record in section["records"]
+            if record["kind"] == "numeric_operand" and record["data"]["proof"] == "known"
+        )
+        if copy_scope_witnesses
+        else None
     )
     operation["data"]["proof"] = "known"
     operation["data"]["value"] = 4
@@ -381,9 +436,27 @@ def test_saved_facts_reject_forged_known_type_parameter_alias(
         alias_evidence = next(
             item
             for item in payload["facts"]["evidence"]
-            if item.get("excerpt", "").startswith("type Alias[")
+            if item.get("excerpt", "").lstrip().startswith("type Alias[")
         )
         operation["evidence_ids"].remove(alias_evidence["id"])
+        if remove_alias_evidence_row:
+            alias_evidence_id = alias_evidence["id"]
+            payload["facts"]["evidence"] = [
+                item for item in payload["facts"]["evidence"] if item["id"] != alias_evidence_id
+            ]
+            for section in payload["facts"]["sections"]:
+                for source_record in section["records"]:
+                    source_record["evidence_ids"] = [
+                        evidence_id
+                        for evidence_id in source_record["evidence_ids"]
+                        if evidence_id != alias_evidence_id
+                    ]
+    if known_operation is not None:
+        operation["data"]["binding_scopes"] = known_operation["data"]["binding_scopes"]
+        for scope in known_operation["data"]["binding_scopes"]:
+            scope_evidence_id = scope["scope_evidence_id"]
+            if scope_evidence_id not in operation["evidence_ids"]:
+                operation["evidence_ids"].append(scope_evidence_id)
     if reader_version is not None:
         from types import SimpleNamespace
 
