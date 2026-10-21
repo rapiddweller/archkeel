@@ -72,6 +72,18 @@ def test_historical_python_schemas_reference_the_matching_call_binding_schema(
     ]
 
 
+def test_frozen_source_facts_5_resource_resolves_legacy_call_binding_reference() -> None:
+    frozen = _schema("source-facts-5.0.schema.json")
+    assert frozen["$id"] == "https://archkeel.dev/schema/source-facts/5.0.0"
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema))
+        for schema in (_schema(path.name) for path in SCHEMA_FILES)
+    )
+    Draft202012Validator(
+        {"$ref": f"{frozen['$id']}#/$defs/CallBinding"}, registry=registry
+    ).validate({"origin": "direct", "target": "sample.call", "evidence_ids": ["EVD-1"]})
+
+
 @pytest.mark.parametrize("version", [f"2.{minor}.0" for minor in range(1, 8)])
 @pytest.mark.parametrize("versioned", [False, True])
 def test_command_result_observation_branches_preserve_historical_formats(version, versioned):
