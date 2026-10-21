@@ -2457,6 +2457,43 @@ def _numeric_evidence_nodes(evidence: Evidence) -> tuple[tuple[ast.stmt, ...], i
     return _parse_numeric_evidence_excerpt(evidence.excerpt)
 
 
+def _numeric_generic_header_index(
+    declarations: Mapping[str, Record], evidence_by_id: Mapping[str, Evidence]
+) -> dict[str, tuple[tuple[int, ...], tuple[int, ...]]]:
+    """Bound named proofs in generic definition intervals; literals remain replayable."""
+    ranges_by_file: dict[str, list[tuple[int, int]]] = {}
+    for declaration in declarations.values():
+        if declaration.kind not in {"function", "method", "class"}:
+            continue
+        for evidence_id in declaration.evidence_ids:
+            evidence = evidence_by_id[evidence_id]
+            evidence_excerpt: str = evidence.excerpt
+            excerpt: str = evidence_excerpt.lstrip()
+            is_definition = excerpt.startswith(("def ", "async def ", "class "))
+            bracket = excerpt.find("[")
+            opening = excerpt.find("(")
+            colon = excerpt.find(":")
+            if (
+                is_definition
+                and bracket >= 0
+                and (opening < 0 or bracket < opening)
+                and (colon < 0 or bracket < colon)
+            ):
+                generic_ranges: list[tuple[int, int]] = ranges_by_file.setdefault(evidence.file, [])
+                generic_ranges.append((evidence.line, evidence.end_line))
+    result: dict[str, tuple[tuple[int, ...], tuple[int, ...]]] = {}
+    for file, file_ranges in ranges_by_file.items():
+        starts: list[int] = []
+        max_ends: list[int] = []
+        maximum = 0
+        for start, end in sorted(file_ranges):
+            starts.append(start)
+            maximum = max(maximum, end)
+            max_ends.append(maximum)
+        result[file] = (tuple(starts), tuple(max_ends))
+    return result
+
+
 def _numeric_node_span(
     node: ast.AST, source_line: int, line_offset: int
 ) -> tuple[int, int, int, int] | None:
@@ -2725,6 +2762,7 @@ def _numeric_type_alias_parameters(
     evidence_by_id: Mapping[str, Evidence],
     expected_file: str,
     type_alias_index: Mapping[str, tuple[tuple[int, ...], tuple[int, ...]]],
+    generic_header_index: Mapping[str, tuple[tuple[int, ...], tuple[int, ...]]],
 ) -> tuple[frozenset[str], bool]:
     """Return TypeAlias parameters attached to this operation's source witnesses."""
     operation_line = record.data.get("line")
@@ -2749,6 +2787,10 @@ def _numeric_type_alias_parameters(
         operation_end_column,
     )
     parameter_names: set[str] = set()
+    starts, max_ends = generic_header_index.get(expected_file, ((), ()))
+    preceding = bisect_right(starts, operation_line) - 1
+    if preceding >= 0 and max_ends[preceding] >= operation_line:
+        return frozenset(), True
     starts, max_ends = type_alias_index.get(expected_file, ((), ()))
     preceding = bisect_right(starts, operation_line) - 1
     incomplete_scope = preceding >= 0 and max_ends[preceding] >= operation_line
@@ -2761,7 +2803,9 @@ def _numeric_type_alias_parameters(
         evidence_excerpt: str = evidence.excerpt
         excerpt: str = evidence_excerpt.lstrip()
         starts_type_alias: bool = excerpt.startswith("type ")
-        if not (starts_type_alias and "[" in excerpt):
+        bracket = excerpt.find("[")
+        assignment = excerpt.find("=")
+        if not (starts_type_alias and bracket >= 0 and (assignment < 0 or bracket < assignment)):
             continue
         parsed = _numeric_evidence_nodes(evidence)
         if parsed is None:
@@ -2833,6 +2877,7 @@ def _validate_numeric_operand_witness(
     declarations_by_name: Mapping[str, tuple[Record, ...]],
     expected_file: str,
     type_alias_index: Mapping[str, tuple[tuple[int, ...], tuple[int, ...]]],
+    generic_header_index: Mapping[str, tuple[tuple[int, ...], tuple[int, ...]]],
 ) -> None:
     data = record.data
     expression = _numeric_operation_expression(record, evidence_by_id, expected_file)
@@ -2854,7 +2899,11 @@ def _validate_numeric_operand_witness(
         return
     operand = expression.right if isinstance(expression, ast.BinOp) else expression.value
     type_parameters, generic_scope = _numeric_type_alias_parameters(
-        record, evidence_by_id, expected_file, type_alias_index
+        record,
+        evidence_by_id,
+        expected_file,
+        type_alias_index,
+        generic_header_index,
     )
     operand_names = {
         node.id
@@ -4271,19 +4320,22 @@ def validate_source_facts(facts: SourceFacts) -> None:
             evidence_excerpt: str = evidence.excerpt
             excerpt: str = evidence_excerpt.lstrip()
             starts_type_alias: bool = excerpt.startswith("type ")
-            if starts_type_alias and "[" in excerpt:
+            bracket = excerpt.find("[")
+            assignment = excerpt.find("=")
+            if starts_type_alias and bracket >= 0 and (assignment < 0 or bracket < assignment):
                 ranges: list[tuple[int, int]] = type_alias_ranges.setdefault(evidence.file, [])
                 ranges.append((evidence.line, evidence.end_line))
     type_alias_index: dict[str, tuple[tuple[int, ...], tuple[int, ...]]] = {}
-    for file, ranges in type_alias_ranges.items():
+    for file, file_ranges in type_alias_ranges.items():
         starts: list[int] = []
         max_ends: list[int] = []
         maximum = 0
-        for start, end in sorted(ranges):
+        for start, end in sorted(file_ranges):
             starts.append(start)
             maximum = max(maximum, end)
             max_ends.append(maximum)
         type_alias_index[file] = (tuple(starts), tuple(max_ends))
+    generic_header_index = _numeric_generic_header_index(declarations_by_id, base_by_id)
     for section in facts.sections:
         for record in section.records:
             _source_record(record, section.name)
@@ -4344,6 +4396,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
                     declarations_by_name,
                     expected_file,
                     type_alias_index,
+                    generic_header_index,
                 )
             construct = record.data.get("construct")
             if (
