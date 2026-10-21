@@ -923,6 +923,50 @@ def test_imported_direct_selector_alias_is_canonical_and_coupled():
     )
 
 
+def test_saved_direct_selector_accepts_a_proven_reexport_origin():
+    from archkeel.check.report import _saved_selector_direct
+
+    origin = _parsed_module(
+        "class Connection: pass\n", module="sample.origin", rel_path="sample/origin.py"
+    )
+    facade = _parsed_module(
+        "from sample.origin import Connection\n",
+        module="sample.facade",
+        rel_path="sample/facade.py",
+    )
+    client = _parsed_module(
+        "from sample.facade import Connection as Conn\ndef build():\n    Conn()\n",
+        module="sample.client",
+        rel_path="sample/client.py",
+    )
+    modules = [origin, facade, client]
+    evidence = {}
+    imports = collect_imports(
+        modules, {module.module for module in modules}, evidence, namespace="sample"
+    )
+    resolve_reexports(imports, {module.module: module.all_exports for module in modules}, modules)
+    symbols, _, _ = collect_symbols(modules, evidence)
+    rows = collect_constructs(
+        modules, evidence, imports=imports, symbol_index=build_symbol_index(symbols)
+    )
+    selector = next(row for row in rows if row["kind"] == "construct_selector")
+    record = parse_record(selector)
+    binding = call_binding(record.data.get("receiver_binding"))
+    assert binding is not None and binding.target == "sample.origin.Connection"
+    target = parse_record(
+        next(row for row in symbols if row["data"]["qualified_name"] == binding.target)
+    )
+    proven_imports = tuple(parse_record(row) for row in imports)
+    assert any(
+        item.data.get("target_module") == "sample.facade"
+        and item.data.get("origin_definition") == binding.target
+        for item in proven_imports
+    )
+    _saved_selector_direct(binding, None, [target], proven_imports)
+    with pytest.raises(ValueError, match="saved selector class receiver"):
+        _saved_selector_direct(binding, None, [target], ())
+
+
 def test_inline_constructed_receiver_uses_absolute_source_position():
     module = _parsed_module(
         'class Connection: pass\ndef route():\n    prefix = 1; Connection().backend == "flat"\n',

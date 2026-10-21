@@ -880,7 +880,10 @@ def _saved_selector_direct(
     imported_class = any(
         item.data.get("symbols_known") is True
         and item.data.get("source_binding_unique") is True
-        and f"{item.data.get('target_module')}.{item.data.get('symbol')}" == binding.target
+        and (
+            f"{item.data.get('target_module')}.{item.data.get('symbol')}" == binding.target
+            or _saved_import_origin(item) == binding.target
+        )
         and set(item.evidence_ids) <= set(binding.evidence_ids)
         for item in imports
     )
