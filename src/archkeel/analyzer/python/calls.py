@@ -234,6 +234,7 @@ class CallCollector(ast.NodeVisitor):
         imports: Sequence[RawRecord] = (),
     ) -> None:
         self.module = module
+        self.sys_modules_aliases = self._collect_sys_modules_aliases()
         self.index = index
         self.symbol_evidence = index.evidence
         self.evidence = evidence
@@ -1036,12 +1037,12 @@ class CallCollector(ast.NodeVisitor):
         self.native_revocation_cache[target] = revoked
         return revoked
 
-    def _sys_modules_aliases(self) -> set[str]:
+    def _collect_sys_modules_aliases(self) -> frozenset[str]:
         aliases = {"sys.modules"}
         changed = True
         while changed:
             changed = False
-            for statement in ast.walk(self.module.tree):
+            for statement in self.module.all_nodes:
                 if isinstance(statement, ast.Import):
                     alias = next(
                         (
@@ -1072,7 +1073,7 @@ class CallCollector(ast.NodeVisitor):
                         if source in aliases and site.id not in aliases:
                             aliases.add(site.id)
                             changed = True
-        return aliases
+        return frozenset(aliases)
 
     def _assignment_value(self, site: ast.Name, assignment: ast.AST | None) -> ast.expr | None:
         if isinstance(assignment, ast.AnnAssign):
@@ -1084,7 +1085,6 @@ class CallCollector(ast.NodeVisitor):
         return _unpacked_value(site, assignment.targets[0], assignment.value)
 
     def _native_target_revoked_in_module(self, target: str) -> bool:
-        sys_modules_aliases = self._sys_modules_aliases()
         for node in ast.walk(self.module.tree):
             targets: tuple[ast.expr, ...] = ()
             if isinstance(node, ast.Assign):
@@ -1109,7 +1109,7 @@ class CallCollector(ast.NodeVisitor):
                 if isinstance(candidate, ast.Subscript):
                     table = dotted_expression(candidate.value)
                     module = _partition_first(target, ".")[0]
-                    if table in sys_modules_aliases and (
+                    if table in self.sys_modules_aliases and (
                         not isinstance(candidate.slice, ast.Constant)
                         or candidate.slice.value == module
                     ):
@@ -1163,7 +1163,7 @@ class CallCollector(ast.NodeVisitor):
             if isinstance(value, ast.Subscript) and isinstance(value.slice, ast.Constant):
                 table = dotted_expression(value.value)
                 module = value.slice.value
-                if table in self._sys_modules_aliases() and isinstance(module, str):
+                if table in self.sys_modules_aliases and isinstance(module, str):
                     module_name: str = module
                     if module_name.isidentifier():
                         origins = origins | {module_name}
