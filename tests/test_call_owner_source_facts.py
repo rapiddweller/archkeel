@@ -71,6 +71,25 @@ def _records(payload: dict, name: str) -> list[dict]:
     return next(item["records"] for item in payload["facts"]["sections"] if item["name"] == name)
 
 
+@pytest.mark.parametrize("changed_default", ["(WIDTH := 6)", "(OTHER := 5)"])
+def test_walrus_default_witness_rejects_changed_callable_default(tmp_path, changed_default):
+    payload = _payload(
+        tmp_path,
+        "def outer():\n"
+        "    WIDTH = 4\n"
+        "    def sibling(value=(WIDTH := 5)): return value\n",
+    )
+    sibling = next(
+        record
+        for record in _records(payload, "symbols")
+        if record["data"].get("qualified_name") == "sample.caller.outer.sibling"
+    )
+    sibling["data"]["parameters"][0]["default"] = changed_default
+
+    with pytest.raises(ProtocolError, match="parameter default source witness"):
+        decode_response(json.dumps(payload).encode())
+
+
 def test_stored_receiver_field_and_call_expression_cannot_be_retargeted(tmp_path):
     payload = _payload(
         tmp_path,
@@ -327,6 +346,7 @@ def test_selector_proof_index_is_shared_across_multiple_source_modules(tmp_path,
             "def run(value: Selected): value.page()\n",
             "sample/other_types.py": "class OtherStore:\n    def page(self): pass\n",
         },
+        protocol_version=ProtocolVersion.V5,
     )
     from archkeel.ir import facts_validation
 
