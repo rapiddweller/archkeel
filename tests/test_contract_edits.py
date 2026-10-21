@@ -138,3 +138,35 @@ def test_contract_changes_are_absent_without_against(tmp_path: Path, edit) -> No
     edit(root)
     result, _ = run_validate(root, CONFIG, observe)
     assert result.contract_changes is None
+
+
+_STORAGE_IMPORTS = {
+    "direct": "from orders.storage.repository import save as _probe\n",
+    "aliased": "import orders.storage.repository as _probe\n",
+    "relative": "from ..storage.repository import save as _probe\n",
+    "type-only": (
+        "from typing import TYPE_CHECKING\n"
+        "if TYPE_CHECKING:\n    from orders.storage.repository import save as _probe\n"
+    ),
+    "dynamic": 'import importlib\n_probe = importlib.import_module("orders.storage.repository")\n',
+}
+
+
+@pytest.mark.parametrize("form", sorted(_STORAGE_IMPORTS))
+def test_a_tightened_dependency_still_rejects_every_import_form(tmp_path: Path, form: str) -> None:
+    # #601: tightening must keep enforcement; each form bypasses orders.storage:save.
+    root = _prepare_repo(tmp_path, {}, fixture=FIXTURE)
+    _tighten_checkout_to_save(root)
+    service = root / "orders/checkout/service.py"
+    service.write_text(_STORAGE_IMPORTS[form] + service.read_text())
+    result, _ = run_validate(root, CONFIG, observe)
+    assert any(
+        "checkout imports storage" in (item.unknown_claim or "") for item in result.diagnostics
+    ), (form, result.diagnostics)
+
+
+def test_a_tightened_dependency_keeps_its_permitted_reexport(tmp_path: Path) -> None:
+    root = _prepare_repo(tmp_path, {}, fixture=FIXTURE)
+    _tighten_checkout_to_save(root)
+    result, _ = run_validate(root, CONFIG, observe)
+    assert (result.exit_code, result.diagnostics) == (0, ())
