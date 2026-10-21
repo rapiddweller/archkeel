@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "7b6b764267442ff3ed27649040762873a2efad27637a8241e94da7778667276e",
+  "after_digest": "dff0334171b2997aa8f91c12d0c5a70daa3927559466d437e532f7ed6a6d799e",
+  "before_baseline_digest": "7b6b764267442ff3ed27649040762873a2efad27637a8241e94da7778667276e",
+  "before_digest": "994dcde790b4ec3227b5293a89f6018598eccfcf643ca220b7eaa3d86197801f",
+  "decided_by": "Alexander Kell (architect), AD-257",
+  "rationale": "Own the AD-257 mapping from declared rules to the fact families the collector gathers in one ir module, and the collector, codec and validation seams it gates.",
+  "schema_version": "2.0.0"
+}
