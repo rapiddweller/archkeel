@@ -108,17 +108,42 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--shard", type=_shard, help="run every N-th collected test from I: I/N")
 
 
+_SELF_FIXTURES = frozenset({"self_run", "self_observation", "self_artifact_bytes"})
+# ponytail: measured on CI (Oct 2026), the self report is about half of one shard's run time;
+# recalibrate from the shard durations when that changes.
+_SELF_REPORT_SHARE = 0.5
+
+
+def _shard_assignments(items: list[pytest.Item], total: int) -> list[int]:
+    """Keep self-report tests in shard 0 so the report is built once, then balance the rest."""
+    uses_self = [
+        isinstance(item, pytest.Function) and not _SELF_FIXTURES.isdisjoint(item.fixturenames)
+        for item in items
+    ]
+    loads = [0.0] * total
+    if any(uses_self):
+        loads[0] = sum(uses_self) + len(items) / total * _SELF_REPORT_SHARE
+    assignments: list[int] = []
+    for in_self_group in uses_self:
+        # Round-robin by test, not by file: one slow file must not pin a whole shard.
+        shard = 0 if in_self_group else min(range(total), key=loads.__getitem__)
+        if not in_self_group:
+            loads[shard] += 1
+        assignments.append(shard)
+    return assignments
+
+
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     shard = config.getoption("shard")
     if shard is None:
         return
     index, total = shard
-    # Round-robin by test, not by file: one slow file must not pin a whole shard.
-    kept = items[index::total]
+    assignments = _shard_assignments(items, total)
+    kept = [item for item, assigned in zip(items, assignments, strict=True) if assigned == index]
     if not kept:
         raise pytest.UsageError(f"--shard={index}/{total} selects no tests")
     config.hook.pytest_deselected(
-        items=[item for number, item in enumerate(items) if number % total != index]
+        items=[item for item, assigned in zip(items, assignments, strict=True) if assigned != index]
     )
     items[:] = kept
