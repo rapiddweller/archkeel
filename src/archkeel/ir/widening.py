@@ -97,6 +97,7 @@ _RESTRICTION_RULE_KINDS: Final = frozenset(
         "bounded_numeric_operand",
         "protocol_declarations",
         "forbidden_call_argument",
+        "forbidden_effect_under_condition",
         "forbidden_dependency",
         "forbidden_construct",
         "external_dependency_scope",
@@ -110,6 +111,8 @@ _RESTRICTION_RULE_KINDS: Final = frozenset(
         "sibling_isolation",
         "symbol_placement",
         "boundary_types",
+        "catalog_argument",
+        "catalog_use",
         "source_ownership",
     }
 )

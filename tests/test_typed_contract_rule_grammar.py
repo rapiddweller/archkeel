@@ -22,6 +22,37 @@ RULES = {
         "ForbiddenCallArgumentRule",
         {"source": "sample", "target": "sample.store.page", "parameter": "query"},
     ),
+    "catalog_argument": (
+        "CatalogArgumentRule",
+        {
+            "source": "sample",
+            "target": "sample.store.read",
+            "parameter": "key",
+            "catalog": "sample.options.OptionKey",
+            "overlays": ["sample.options.ExtraKey"],
+            "source_match": "exact",
+        },
+    ),
+    "catalog_use": (
+        "CatalogUseRule",
+        {
+            "source": "sample",
+            "catalog": "sample.options.OptionKey",
+            "overlays": ["sample.options.ExtraKey"],
+            "member": "PAGE_SIZE",
+            "source_match": "exact",
+            "target": "sample.options.read_option",
+            "parameter": "key",
+        },
+    ),
+    "forbidden_effect_under_condition": (
+        "ForbiddenEffectUnderConditionRule",
+        {
+            "source": "sample",
+            "target": "sample.random_bytes",
+            "condition": {"kind": "parameter", "owner": "sample.generate", "name": "seeded"},
+        },
+    ),
     "forbidden_dependency": (
         "ForbiddenDependencyRule",
         {"source": "sample.core", "target": "json", "include_type_checking": True},
@@ -74,6 +105,9 @@ RULES = {
 }
 RULE_SCHEMA_VERSIONS = {
     "forbidden_construct": "3.11.0",
+    "catalog_argument": "3.14.0",
+    "catalog_use": "3.14.0",
+    "forbidden_effect_under_condition": "3.13.0",
     "forbidden_call_argument": "3.10.0",
     "protocol_declarations": "3.9.0",
     "bounded_numeric_operand": "3.8.0",
@@ -83,7 +117,7 @@ RULE_SCHEMA_VERSIONS = {
 
 def _raw():
     raw = json.loads((ROOT / "tests/contracts/valid/minimal.json").read_bytes())
-    raw["schema_version"] = "3.10.0"
+    raw["schema_version"] = "3.13.0"
     raw["rules"] = []
     return raw
 

@@ -36,6 +36,43 @@ def _schema(name: str) -> dict:
     return json.loads((ROOT / "schema" / name).read_bytes())
 
 
+def test_catalog_rules_are_only_admitted_by_contract_3_14_schema():
+    raw = {
+        "schema_version": "3.14.0",
+        "components": [],
+        "rules": [
+            {
+                "id": "CATALOG-ARGUMENT",
+                "kind": "catalog_argument",
+                "source": "sample.consumer",
+                "target": "sample.catalog.read_option",
+                "parameter": "key",
+                "catalog": "sample.catalog.OptionKey",
+                "overlays": ["sample.consumer.ExtraKey"],
+                "source_match": "exact",
+                "rationale": "Use declared catalog entries.",
+                "provenance": ["docs/architecture/catalog.md"],
+                "decided_by": "architect",
+            }
+        ],
+    }
+    latest = Draft202012Validator(_schema("architecture-contract-3.14.schema.json"))
+    assert latest.is_valid(raw)
+    assert parse_contract(raw).rules[0].kind.value == "catalog_argument"
+
+    legacy = deepcopy(raw)
+    legacy["schema_version"] = "3.10.0"
+    assert not Draft202012Validator(_schema("architecture-contract-3.10.schema.json")).is_valid(
+        legacy
+    )
+    with pytest.raises(ValueError, match="3.14.0"):
+        parse_contract(legacy)
+
+    historical = _schema("architecture-contract.schema.json")
+    assert historical["$id"] == "urn:archkeel:architecture-contract:2.3.0"
+    assert "3.14.0" not in historical["properties"]["schema_version"]["enum"]
+
+
 def _call_binding_refs(value: object) -> list[str]:
     if isinstance(value, dict):
         refs = [
@@ -51,6 +88,21 @@ def _call_binding_refs(value: object) -> list[str]:
         return refs + nested
     if isinstance(value, list):
         return [reference for child in value for reference in _call_binding_refs(child)]
+    return []
+
+
+def _external_schema_refs(value: object) -> list[str]:
+    if isinstance(value, dict):
+        refs = [
+            reference
+            for key, reference in value.items()
+            if key == "$ref" and isinstance(reference, str) and not reference.startswith("#")
+        ]
+        return refs + [
+            reference for child in value.values() for reference in _external_schema_refs(child)
+        ]
+    if isinstance(value, list):
+        return [reference for child in value for reference in _external_schema_refs(child)]
     return []
 
 
@@ -70,6 +122,38 @@ def test_historical_python_schemas_reference_the_matching_call_binding_schema(
     assert _call_binding_refs(schema) == [
         f"https://archkeel.dev/schema/source-facts/{source_facts_version}#/$defs/CallBinding"
     ]
+
+
+def test_frozen_source_facts_5_resource_resolves_legacy_call_binding_reference() -> None:
+    frozen = _schema("source-facts-5.0.schema.json")
+    assert frozen["$id"] == "https://archkeel.dev/schema/source-facts/5.0.0"
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema))
+        for schema in (_schema(path.name) for path in SCHEMA_FILES)
+    )
+    Draft202012Validator(
+        {"$ref": f"{frozen['$id']}#/$defs/CallBinding"}, registry=registry
+    ).validate({"origin": "direct", "target": "sample.call", "evidence_ids": ["EVD-1"]})
+
+
+def test_frozen_decoded_27_profiles_close_with_v5_source_facts_resource() -> None:
+    resource_names = (
+        "architecture-ir-decoded-2.7.schema.json",
+        "architecture-ir-decoded.schema.json",
+        "architecture-ir-python-decoded-2.7.schema.json",
+        "architecture-ir-common.schema.json",
+        "architecture-ir-python-decoded.schema.json",
+        "architecture-ir-python-decoded-2.4.schema.json",
+        "source-facts-4.0.schema.json",
+        "source-facts-5.0.schema.json",
+    )
+    resources = [_schema(name) for name in resource_names]
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema)) for schema in resources
+    )
+    for schema in resources:
+        for reference in _external_schema_refs(schema):
+            registry.resolver(base_uri=schema["$id"]).lookup(reference)
 
 
 @pytest.mark.parametrize("version", [f"2.{minor}.0" for minor in range(1, 8)])
@@ -219,10 +303,11 @@ def test_reference_annotation_ownership_schema(details, accepted):
     assert Draft202012Validator(data).is_valid(reference) == accepted
 
 
-def test_local_definition_reference_schema_accepts_only_typed_ownership_fields():
-    data = _schema("architecture-ir-python-decoded-2.7.schema.json")["properties"]["references"][
-        "items"
-    ]["allOf"][1]["properties"]["data"]
+@pytest.mark.parametrize("version", ["2.7", "2.8"])
+def test_local_definition_reference_schema_accepts_only_typed_ownership_fields(version):
+    data = _schema(f"architecture-ir-python-decoded-{version}.schema.json")["properties"][
+        "references"
+    ]["items"]["allOf"][1]["properties"]["data"]
     reference = {
         "source_scope": "sample.consumer",
         "source_module": "sample.consumer",
@@ -248,8 +333,9 @@ def test_local_definition_reference_schema_accepts_only_typed_ownership_fields()
         assert not validator.is_valid(malformed)
 
 
-def test_source_role_schema_accepts_unresolved_transfers_only_for_roles():
-    profile = _schema("architecture-ir-python-decoded-2.7.schema.json")
+@pytest.mark.parametrize("version", ["2.7", "2.8"])
+def test_source_role_schema_accepts_unresolved_transfers_only_for_roles(version):
+    profile = _schema(f"architecture-ir-python-decoded-{version}.schema.json")
     registry = Registry().with_resources(
         (schema["$id"], Resource.from_contents(schema))
         for schema in (_schema(path.name) for path in SCHEMA_FILES)

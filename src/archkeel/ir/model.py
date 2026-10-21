@@ -51,6 +51,8 @@ from .facts import (
 from .facts import (
     AnalyzerInfo as AnalyzerInfo,
 )
+from .facts import ConditionSelector as ConditionSelector
+from .facts import ConditionSelectorKind as ConditionSelectorKind
 from .facts import (
     Evidence as Evidence,
 )
@@ -105,7 +107,7 @@ def public_api_id(selector: str) -> str:
     return f"API-{hashlib.sha256(selector.encode()).hexdigest()[:16]}"
 
 
-SCHEMA_VERSION = "2.7.0"
+SCHEMA_VERSION = "2.9.0"
 DELTA_SCHEMA_VERSION = "2.0.0"
 
 
@@ -522,6 +524,49 @@ class ForbiddenCallArgumentRule(ArchitectureRuleGrammar):
 
 
 @dataclass(frozen=True, slots=True)
+class CatalogArgumentRule(ArchitectureRuleGrammar):
+    id: str
+    kind: Literal[ArchitectureRuleKind.CATALOG_ARGUMENT]
+    source: str
+    target: str
+    parameter: str
+    catalog: str
+    overlays: tuple[str, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+    source_match: SelectorMatch = SelectorMatch.PREFIX
+
+
+@dataclass(frozen=True, slots=True)
+class CatalogUseRule(ArchitectureRuleGrammar):
+    id: str
+    kind: Literal[ArchitectureRuleKind.CATALOG_USE]
+    source: str
+    catalog: str
+    overlays: tuple[str, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+    member: str | None = None
+    source_match: SelectorMatch = SelectorMatch.PREFIX
+    target: str | None = None
+    parameter: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ForbiddenEffectUnderConditionRule(ArchitectureRuleGrammar):
+    id: str
+    kind: Literal[ArchitectureRuleKind.FORBIDDEN_EFFECT_UNDER_CONDITION]
+    source: str
+    target: str
+    condition: ConditionSelector
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+
+
+@dataclass(frozen=True, slots=True)
 class ForbiddenDependencyRule(ArchitectureRuleGrammar):
     id: str
     kind: Literal[ArchitectureRuleKind.FORBIDDEN_DEPENDENCY]
@@ -874,6 +919,9 @@ ArchitectureRule: TypeAlias = (
     CallOwnerRule
     | BoundedNumericOperandRule
     | ForbiddenCallArgumentRule
+    | CatalogArgumentRule
+    | CatalogUseRule
+    | ForbiddenEffectUnderConditionRule
     | ForbiddenDependencyRule
     | AllowedDependencyRule
     | ForbiddenConstructRule
@@ -1110,7 +1158,9 @@ def _references(
 
 
 # The fields that hold one name rather than a list of them.
-_SCALAR_FIELDS: Final = frozenset({"source", "target", "root", "namespace", "command", "owner"})
+_SCALAR_FIELDS: Final = frozenset(
+    {"source", "target", "catalog", "root", "namespace", "command", "owner"}
+)
 
 
 def _boundary_allowance_references(
@@ -1171,6 +1221,21 @@ def _module_object_grant_references(
     ]
 
 
+def _catalog_references(
+    index: int, rule: CatalogArgumentRule | CatalogUseRule
+) -> list[ModuleReference]:
+    named = [
+        ("source", (rule.source,), True),
+        ("catalog", (rule.catalog,), True),
+        ("overlays", rule.overlays, True),
+    ]
+    if isinstance(rule, CatalogArgumentRule):
+        named.insert(1, ("target", (rule.target,), True))
+    elif rule.target is not None:
+        named.insert(1, ("target", (rule.target,), True))
+    return _references(f"/rules/{index}", named)
+
+
 def _rule_references(
     index: int, rule: ArchitectureRule, external: frozenset[str]
 ) -> list[ModuleReference]:
@@ -1182,6 +1247,17 @@ def _rule_references(
             f"/rules/{index}",
             [("source", (rule.source,), True), ("target", (rule.target,), False)],
         )
+    if isinstance(rule, CatalogArgumentRule | CatalogUseRule):
+        return _catalog_references(index, rule)
+    return _generic_rule_references(index, rule, external)
+
+
+def _generic_rule_references(
+    index: int, rule: ArchitectureRule, external: frozenset[str]
+) -> list[ModuleReference]:
+    special = _special_rule_references(index, rule)
+    if special is not None:
+        return special
     named: list[tuple[str, tuple[str, ...], bool]] = []
     if isinstance(
         rule,
@@ -1266,6 +1342,26 @@ def _source_ownership_references(
         value_owner: str = rule.value_owner
         references.append(ModuleReference(f"/rules/{index}/value_owner", value_owner, False))
     return references
+
+
+def _special_rule_references(index: int, rule: ArchitectureRule) -> list[ModuleReference] | None:
+    if isinstance(rule, CallOwnerRule):
+        return _call_owner_references(index, rule)
+    if isinstance(rule, ForbiddenCallArgumentRule):
+        return _references(
+            f"/rules/{index}",
+            [("source", (rule.source,), True), ("target", (rule.target,), False)],
+        )
+    if isinstance(rule, ForbiddenEffectUnderConditionRule):
+        references: list[ModuleReference] = _references(
+            f"/rules/{index}",
+            [("source", (rule.source,), True), ("target", (rule.target,), False)],
+        )
+        references.append(
+            ModuleReference(f"/rules/{index}/condition/owner", rule.condition.owner, False)
+        )
+        return references
+    return None
 
 
 def module_references(

@@ -495,8 +495,9 @@ _INSIDE_COMPLETE_REQUIRES = Variant(
     id="class-a-complete-requires-inside",
     section="class_a",
     item="complete_requires:inside",
-    summary="store's inside contract drops repository's requires entry for backend, leaving the "
-    "three imports of order_path, read_document and write_document uncovered. The rule fires "
+    summary="store's inside contract drops repository's requires entry for backend, leaving its "
+    "four imports of order_path, read_document and write_document uncovered across lookup and "
+    "repository. The rule fires "
     "inside the level and reports under store:STORE-REQUIRES-COMPLETE, the id the inside's own "
     "rule is recorded as (AD-36).",
     files={
@@ -516,8 +517,9 @@ _INSIDE_COMPLETE_REQUIRES = Variant(
         "store:STORE-REQUIRES-COMPLETE",
         "store:STORE-REQUIRES-COMPLETE",
         "store:STORE-REQUIRES-COMPLETE",
+        "store:STORE-REQUIRES-COMPLETE",
     ),
-    expected_codes=("rule.violated", "rule.violated", "rule.violated"),
+    expected_codes=("rule.violated", "rule.violated", "rule.violated", "rule.violated"),
 )
 _INSIDE_FORBIDDEN_CONSTRUCT = {
     "id": "STORE-NO-EVAL",

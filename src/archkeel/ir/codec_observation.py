@@ -39,6 +39,7 @@ from archkeel.ir.model import (
     CLASSIFIED_SECTIONS,
     EVIDENCE_FIELDS,
     RECORD_FIELDS,
+    SCHEMA_VERSION,
     AnalyzerInfo,
     ContractInfo,
     Coverage,
@@ -79,6 +80,28 @@ class _ObservationVersion(StrEnum):
     V2_5 = "2.5.0"
     V2_6 = "2.6.0"
     V2_7 = "2.7.0"
+    V2_8 = "2.8.0"
+    V2_9 = SCHEMA_VERSION
+
+
+_VERSION_NUMBERS = {
+    _ObservationVersion.V1_2: (1, 2),
+    _ObservationVersion.V1_3: (1, 3),
+    _ObservationVersion.V2: (2, 0),
+    _ObservationVersion.V2_1: (2, 1),
+    _ObservationVersion.V2_2: (2, 2),
+    _ObservationVersion.V2_3: (2, 3),
+    _ObservationVersion.V2_4: (2, 4),
+    _ObservationVersion.V2_5: (2, 5),
+    _ObservationVersion.V2_6: (2, 6),
+    _ObservationVersion.V2_7: (2, 7),
+    _ObservationVersion.V2_8: (2, 8),
+    _ObservationVersion.V2_9: (2, 9),
+}
+
+
+def _version_at_least(version: _ObservationVersion, minimum: tuple[int, int]) -> bool:
+    return _VERSION_NUMBERS[version] >= minimum
 
 
 class _ObservationSection(StrEnum):
@@ -107,6 +130,8 @@ _OBSERVATION_VERSION_ORDER = {
     _ObservationVersion.V2_5: 7,
     _ObservationVersion.V2_6: 8,
     _ObservationVersion.V2_7: 9,
+    _ObservationVersion.V2_8: 10,
+    _ObservationVersion.V2_9: 11,
 }
 
 
@@ -159,6 +184,21 @@ def _requires_numeric_version(version: _ObservationVersion) -> bool:
         _ObservationVersion.V2,
         _ObservationVersion.V2_1,
     }
+
+
+def _uses_catalog_literal_fields(sections: tuple[Section, ...]) -> bool:
+    return any(
+        section.name == ObservedSection.SYMBOLS
+        and any(
+            isinstance(attributes := record.data.get("attribute_declarations"), tuple)
+            and any(
+                isinstance(attribute, RecordData) and attribute.get("literal_value") is not None
+                for attribute in attributes
+            )
+            for record in section.records
+        )
+        for section in sections
+    )
 
 
 class _EncodingKind(StrEnum):
@@ -305,15 +345,7 @@ def _validate_versioned_records(
         raise ValueError(
             "numeric_operand constructs require 2.2.0; declarations and receipts do too"
         )
-    if schema_version in {
-        _ObservationVersion.V2_1,
-        _ObservationVersion.V2_2,
-        _ObservationVersion.V2_3,
-        _ObservationVersion.V2_4,
-        _ObservationVersion.V2_5,
-        _ObservationVersion.V2_6,
-        _ObservationVersion.V2_7,
-    }:
+    if not _before_version(schema_version, _ObservationVersion.V2_1):
         python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
         for section in sections:
             if section.name == ObservedSection.CALLS:
@@ -324,13 +356,7 @@ def _validate_versioned_records(
                         raise ValueError("Python calls require explicit call_binding or null")
                     binding = _call_binding(call.data.get("call_binding"))
                     if (
-                        schema_version
-                        not in {
-                            _ObservationVersion.V2_4,
-                            _ObservationVersion.V2_5,
-                            _ObservationVersion.V2_6,
-                            _ObservationVersion.V2_7,
-                        }
+                        _before_version(schema_version, _ObservationVersion.V2_4)
                         and binding is not None
                         and binding.origin
                         not in {CallBindingOrigin.DIRECT, CallBindingOrigin.DECLARED_RECEIVER}
@@ -404,11 +430,7 @@ def _validate_selector_and_argument_versions(
             continue
         for call in section.records:
             has_arguments = _has_field((key for key, _ in call.data.entries), "call_arguments")
-            if schema_version in {
-                _ObservationVersion.V2_5,
-                _ObservationVersion.V2_6,
-                _ObservationVersion.V2_7,
-            }:
+            if _version_at_least(schema_version, (2, 5)):
                 if python_calls and not has_arguments:
                     raise ValueError(
                         f"Python {schema_version.value} calls require explicit call_arguments"
@@ -421,6 +443,8 @@ def _validate_selector_and_argument_versions(
                     raise ValueError("call arguments require the canonical call binding")
             elif has_arguments:
                 raise ValueError("call_arguments require observation schema 2.5.0")
+    if schema_version is not _ObservationVersion.V2_9 and _uses_catalog_literal_fields(sections):
+        raise ValueError("catalog literal values require observation schema 2.9.0")
 
 
 def _has_selector_vocabulary(sections: tuple[Section, ...]) -> bool:
@@ -488,6 +512,7 @@ def parse_observation(raw: object) -> Observation:
     _validate_versioned_records(schema_version, sections, profile)
     _validate_observation_record_versions(sections, schema_version, profile, evidence_raw)
     _validate_selector_schema_floor(item)
+    _validate_guarded_effect_schema_floor(sections, schema_version)
     return Observation(
         schema_version=schema_version,
         analyzer=AnalyzerInfo(
@@ -510,17 +535,7 @@ def parse_observation(raw: object) -> Observation:
         else None,
         runtime=_parse_runtime(
             item["runtime"],
-            allow_requirement_state=schema_version
-            in {
-                _ObservationVersion.V2,
-                _ObservationVersion.V2_1,
-                _ObservationVersion.V2_2,
-                _ObservationVersion.V2_3,
-                _ObservationVersion.V2_4,
-                _ObservationVersion.V2_5,
-                _ObservationVersion.V2_6,
-                _ObservationVersion.V2_7,
-            },
+            allow_requirement_state=_version_at_least(schema_version, (2, 0)),
         )
         if item.get("runtime", _MISSING_VALUE) is not _MISSING_VALUE
         else None,
@@ -763,6 +778,7 @@ def _validate_source_ownership_vocabulary(sections: tuple[Section, ...]) -> None
 
 
 def observation_payload(observation: Observation) -> dict[str, RawJson]:
+    _validate_guarded_effect_version(observation)
     if _has_selector_vocabulary(observation.sections) and _before_version(
         _observation_version(observation.schema_version), _ObservationVersion.V2_6
     ):
@@ -778,6 +794,8 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
             _ObservationVersion.V2_5,
             _ObservationVersion.V2_6,
             _ObservationVersion.V2_7,
+            _ObservationVersion.V2_8,
+            _ObservationVersion.V2_9,
         }
         and observation.runtime is not None
         and observation.runtime.requirement_state != RuntimeRequirementState.DECLARED
@@ -819,6 +837,41 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
     )
     _validate_profile_sections(result, profile)
     return result
+
+
+def _validate_guarded_effect_version(observation: Observation) -> None:
+    version = _observation_version(observation.schema_version)
+    if _version_at_least(version, (2, 8)):
+        return
+    for section in observation.sections:
+        if section.name == ObservedSection.CALLS and any(
+            _has_field((key for key, _ in call.data.entries), "guarded_effect")
+            for call in section.records
+        ):
+            raise ValueError("guarded-effect evidence requires observation 2.8.0")
+        if section.name == ObservedSection.SYMBOLS and any(
+            _has_field((key for key, _ in symbol.data.entries), "guard_boolean_members")
+            for symbol in section.records
+        ):
+            raise ValueError("guard Boolean members require observation 2.8.0")
+
+
+def _validate_guarded_effect_schema_floor(
+    sections: tuple[Section, ...], version: _ObservationVersion
+) -> None:
+    if not _before_version(version, _ObservationVersion.V2_8):
+        return
+    for section in sections:
+        if section.name == ObservedSection.CALLS and any(
+            _has_field((key for key, _ in call.data.entries), "guarded_effect")
+            for call in section.records
+        ):
+            raise ValueError("guarded-effect evidence requires observation 2.8.0")
+        if section.name == ObservedSection.SYMBOLS and any(
+            _has_field((key for key, _ in symbol.data.entries), "guard_boolean_members")
+            for symbol in section.records
+        ):
+            raise ValueError("guard Boolean members require observation 2.8.0")
 
 
 def _field_selected(name: str, excluded: set[str]) -> bool:
@@ -958,10 +1011,7 @@ def decode_canonical_model(encoded: dict[str, RawJson]) -> dict[str, RawJson]:
 
 
 def _validate_selector_schema_floor(model: dict[str, RawJson]) -> None:
-    if _observation_version(model["schema_version"]) in {
-        _ObservationVersion.V2_6,
-        _ObservationVersion.V2_7,
-    }:
+    if not _before_version(_observation_version(model["schema_version"]), _ObservationVersion.V2_6):
         return
     constructs = model.get("constructs")
     if isinstance(constructs, list) and any(

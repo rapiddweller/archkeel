@@ -151,7 +151,8 @@
         "archkeel.check.uml_evaluation"
       ],
       "responsibilities": [
-        "Apply declared rules and exact allowances, producing PASS, FAIL or UNKNOWN with evidence."
+        "Apply declared rules and exact allowances, producing PASS, FAIL or UNKNOWN with evidence.",
+        "The guarded-effect evaluator owns condition-path and bounded helper substitution policy over admitted source facts."
       ],
       "forbidden_responsibilities": [
         "Source parsing, process execution and baseline persistence.",

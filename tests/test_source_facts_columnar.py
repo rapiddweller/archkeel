@@ -230,3 +230,151 @@ def test_v5_schema_checks_row_and_pair_widths() -> None:
     malformed_candidate_evidence["facts"]["candidate_evidence"][0][1] = 7
     with pytest.raises(ValidationError):
         validator.validate(malformed_candidate_evidence)
+
+
+def test_v5_response_bytes_remain_unchanged() -> None:
+    import hashlib
+    from dataclasses import replace
+
+    from test_collection_protocol import _response
+
+    from archkeel.ir.facts_codec import decode_response, encode_response
+    from archkeel.ir.protocol import CollectionResponse, ProtocolVersion
+
+    facts = decode_response(json.dumps(_response()).encode()).facts
+    facts = replace(facts, candidate_evidence=facts.evidence)
+    encoded = encode_response(CollectionResponse(facts, ProtocolVersion.V5))
+    assert hashlib.sha256(encoded).hexdigest() == (
+        "f802f8088b283ddcaed695a0d73aebe7496311e453c113a406bfaafd5ee11931"
+    )
+
+
+def test_v6_response_roundtrips_through_ordinary_source_validation() -> None:
+    from dataclasses import replace
+    from pathlib import Path
+
+    from jsonschema import Draft202012Validator
+    from test_collection_protocol import _response
+
+    from archkeel.ir.facts_codec import decode_response, encode_response
+    from archkeel.ir.protocol import CollectionResponse, ProtocolVersion
+
+    facts = decode_response(json.dumps(_response()).encode()).facts
+    facts = replace(facts, adapter=replace(facts.adapter, name="$0"))
+    response = CollectionResponse(facts, ProtocolVersion.V6)
+    encoded = encode_response(response)
+    envelope = json.loads(encoded)
+    assert envelope["protocol_version"] == "6.0.0"
+    assert envelope["facts"]["encoding"]["kind"] == "source-facts-columnar-v2"
+    assert decode_response(encoded) == response
+    schema = json.loads(
+        (Path(__file__).parents[1] / "schema/source-facts.schema.json").read_bytes()
+    )
+    Draft202012Validator(schema).validate(envelope)
+
+
+def test_v6_key_and_value_pool_preserves_reserved_literals_and_empty_objects() -> None:
+    from pathlib import Path
+
+    from jsonschema import Draft202012Validator
+
+    from archkeel.ir.facts_codec import _decode_source_fact_v6_tree, _encode_source_fact_v6_tree
+
+    value = {
+        "": "\0repeated\0",
+        "\0key": "\0repeated\0",
+        "metadata": {"literal": "$0", "escaped": "$$m", "0": "$m", "$m": {"0": "$$m"}},
+        "empty": {},
+    }
+    encoded, keys, values = _encode_source_fact_v6_tree(value)
+    assert _decode_source_fact_v6_tree(encoded, keys, values) == value
+    schema = json.loads(
+        (Path(__file__).parents[1] / "schema/source-facts.schema.json").read_bytes()
+    )
+    v6_schema = {
+        "$defs": schema["$defs"],
+        "$ref": "#/$defs/SourceFactsColumnarV2",
+    }
+    Draft202012Validator(v6_schema).validate(
+        {
+            "encoding": {
+                "kind": "source-facts-columnar-v2",
+                "key_reference": "<index>",
+                "string_reference": "$<index>",
+            },
+            "facts": encoded,
+            "key_table": keys,
+            "string_table": values,
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    [
+        (lambda keys: keys.reverse(), "key pool must be sorted and unique"),
+        (lambda keys: keys.append(keys[0]), "key pool must be sorted and unique"),
+        (lambda keys: keys.clear(), "key reference is out of range"),
+    ],
+)
+def test_v6_key_pool_rejects_noncanonical_tables(mutate, message: str) -> None:
+    from archkeel.ir.facts_codec import (
+        ProtocolError,
+        _decode_source_fact_v6_tree,
+        _encode_source_fact_v6_tree,
+    )
+
+    encoded, keys, values = _encode_source_fact_v6_tree({"a": {"b": "value"}})
+    mutate(keys)
+    with pytest.raises(ProtocolError, match=message):
+        _decode_source_fact_v6_tree(encoded, keys, values)
+
+
+@pytest.mark.parametrize("pool", ["keys", "values"])
+def test_v6_rejects_unused_pool_entries(pool: str) -> None:
+    from archkeel.ir.facts_codec import (
+        ProtocolError,
+        _decode_source_fact_v6_tree,
+        _encode_source_fact_v6_tree,
+    )
+
+    encoded, keys, values = _encode_source_fact_v6_tree({"used-key": "used-value"})
+    if pool == "keys":
+        keys = sorted([*keys, "unused-key"])
+    else:
+        values = sorted([*values, "unused-value"])
+    message = "key pool has unused entries" if pool == "keys" else "tables are not canonical"
+    with pytest.raises(ProtocolError, match=message):
+        _decode_source_fact_v6_tree(encoded, keys, values)
+
+
+def test_v6_key_pool_rejects_noncanonical_and_out_of_range_indices() -> None:
+    from archkeel.ir.facts_codec import ProtocolError, _decode_source_fact_v6_tree
+
+    with pytest.raises(ProtocolError, match="key reference is not canonical"):
+        _decode_source_fact_v6_tree({"00": "x"}, ["key"], [])
+    with pytest.raises(ProtocolError, match="key reference is out of range"):
+        _decode_source_fact_v6_tree({"1": "x"}, ["key"], [])
+
+
+def test_v6_key_pool_tampering_reaches_ordinary_source_validation() -> None:
+    from archkeel.ir.facts_codec import ProtocolError, _compact_source_facts_v6, decode_response
+
+    raw = json.loads(json.dumps(__import__("test_collection_protocol")._response()))
+    raw["protocol_version"] = "6.0.0"
+    raw["provider_sources"] = []
+    raw["facts"]["provider_bindings"] = []
+    raw["facts"]["runtime"]["requirement_state"] = "declared"
+    raw["facts"]["sections"][0]["records"][0]["evidence_ids"] = ["E-missing"]
+    raw["facts"] = _compact_source_facts_v6(raw["facts"])
+    with pytest.raises(ProtocolError, match="dangling source evidence reference"):
+        decode_response(json.dumps(raw).encode())
+
+
+def test_v6_rejects_unsorted_and_duplicate_value_tables() -> None:
+    from archkeel.ir.facts_codec import ProtocolError, _decode_source_fact_v6_tree
+
+    with pytest.raises(ProtocolError, match="key pool must be sorted and unique"):
+        _decode_source_fact_v6_tree({"0": "x"}, ["z", "a"], [])
+    with pytest.raises(ProtocolError, match="string table must be sorted and unique"):
+        _decode_source_fact_v6_tree({}, [], ["z", "a"])

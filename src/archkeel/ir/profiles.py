@@ -105,6 +105,8 @@ DART: Final = Profile(
             "bounded_numeric_operand",
             "protocol_declarations",
             "forbidden_call_argument",
+            "catalog_argument",
+            "catalog_use",
             "source_ownership",
         }
     ),
@@ -164,6 +166,8 @@ TYPESCRIPT: Final = Profile(
             "bounded_numeric_operand",
             "protocol_declarations",
             "forbidden_call_argument",
+            "catalog_argument",
+            "catalog_use",
             "source_ownership",
         }
     ),

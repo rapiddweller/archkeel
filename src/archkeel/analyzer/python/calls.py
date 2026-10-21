@@ -17,9 +17,11 @@ from pathlib import Path
 from typing import TypeVar
 
 from archkeel.ir.facts import (
+    MAX_NUMERIC_EVIDENCE_CHARS,
     NATIVE_CALL_TARGETS,
     CallBindingOrigin,
     EvidenceClass,
+    GuardHelperTokenKind,
     ProviderBinding,
     RuntimeInfo,
     SourceResolution,
@@ -30,6 +32,7 @@ from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, call_excerpt_matches, classified
 
 from .binding_types import BindingKind
+from .guard_paths import GuardedCallPath, guarded_call_paths
 from .receiver_types import (
     ReceiverOrigin,
     ReceiverType,
@@ -81,6 +84,99 @@ def _partition_first(value: str, separator: str) -> tuple[str, str, str]:
         if value[index] == separator:
             return value[:index], separator, value[index + 1 :]
     return value, "", ""
+
+
+def _call_receivers(collector: CallCollector, node: ast.Call) -> dict[str, ReceiverType]:
+    names = {child.id for child in ast.walk(node.func) if isinstance(child, ast.Name)}
+    return {
+        name: receiver
+        for name in names
+        if (receiver := collector._receiver(node.func, name)) is not None
+    }
+
+
+GuardedPathCandidate = tuple[str, str, str, ast.AST, tuple[GuardedCallPath, ...]]
+_BUILTIN_EXCEPTION_TARGETS = frozenset(
+    {
+        "builtins.ArithmeticError",
+        "builtins.AssertionError",
+        "builtins.AttributeError",
+        "builtins.BaseException",
+        "builtins.BaseExceptionGroup",
+        "builtins.BlockingIOError",
+        "builtins.BrokenPipeError",
+        "builtins.BufferError",
+        "builtins.BytesWarning",
+        "builtins.ChildProcessError",
+        "builtins.ConnectionAbortedError",
+        "builtins.ConnectionError",
+        "builtins.ConnectionRefusedError",
+        "builtins.ConnectionResetError",
+        "builtins.DeprecationWarning",
+        "builtins.EOFError",
+        "builtins.EncodingWarning",
+        "builtins.Exception",
+        "builtins.ExceptionGroup",
+        "builtins.FileExistsError",
+        "builtins.FileNotFoundError",
+        "builtins.FloatingPointError",
+        "builtins.FutureWarning",
+        "builtins.GeneratorExit",
+        "builtins.ImportError",
+        "builtins.ImportWarning",
+        "builtins.IndentationError",
+        "builtins.IndexError",
+        "builtins.InterruptedError",
+        "builtins.IsADirectoryError",
+        "builtins.KeyError",
+        "builtins.KeyboardInterrupt",
+        "builtins.LookupError",
+        "builtins.MemoryError",
+        "builtins.ModuleNotFoundError",
+        "builtins.NameError",
+        "builtins.NotADirectoryError",
+        "builtins.NotImplementedError",
+        "builtins.OSError",
+        "builtins.OverflowError",
+        "builtins.PendingDeprecationWarning",
+        "builtins.PermissionError",
+        "builtins.ProcessLookupError",
+        "builtins.RecursionError",
+        "builtins.ReferenceError",
+        "builtins.ResourceWarning",
+        "builtins.RuntimeError",
+        "builtins.RuntimeWarning",
+        "builtins.StopAsyncIteration",
+        "builtins.StopIteration",
+        "builtins.SyntaxError",
+        "builtins.SyntaxWarning",
+        "builtins.SystemError",
+        "builtins.SystemExit",
+        "builtins.TabError",
+        "builtins.TimeoutError",
+        "builtins.TypeError",
+        "builtins.UnboundLocalError",
+        "builtins.UnicodeDecodeError",
+        "builtins.UnicodeEncodeError",
+        "builtins.UnicodeError",
+        "builtins.UnicodeTranslateError",
+        "builtins.UnicodeWarning",
+        "builtins.UserWarning",
+        "builtins.ValueError",
+        "builtins.Warning",
+        "builtins.ZeroDivisionError",
+    }
+)
+
+
+def _same_condition(expression: ast.expr, name: str, receiver: str | None) -> bool:
+    return (isinstance(expression, ast.Name) and expression.id == name) or (
+        receiver is not None
+        and isinstance(expression, ast.Attribute)
+        and expression.attr == name
+        and isinstance(expression.value, ast.Name)
+        and expression.value.id == receiver
+    )
 
 
 def _qualified_identifier(value: str) -> bool:
@@ -295,13 +391,88 @@ class CallCollector(ast.NodeVisitor):
         }
         self.escaped_native_targets.update(
             target
-            for reference in member_escape_references(
-                module, module.all_nodes, member_surface=True, owner_exposure_only=True
-            )
+            for reference in member_escape_sites
             if reference not in builtin_mutator_receivers
             for target in self._native_expression_targets(reference)
         )
         self.scope_bindings: dict[ast.ClassDef | FunctionNode, frozenset[str]] = {}
+        self.guarded_paths: dict[
+            tuple[FunctionNode, str], dict[tuple[int, int], tuple[GuardedCallPath, ...]]
+        ] = {}
+        self.guarded_paths, self.member_paths = self._guarded_path_facts()
+
+    def _guarded_path_facts(
+        self,
+    ) -> tuple[
+        dict[tuple[FunctionNode, str], dict[tuple[int, int], tuple[GuardedCallPath, ...]]],
+        dict[
+            tuple[FunctionNode, str],
+            tuple[ast.ClassDef, ast.AST, dict[tuple[int, int], tuple[GuardedCallPath, ...]]],
+        ],
+    ]:
+        member_paths: dict[
+            tuple[FunctionNode, str],
+            tuple[ast.ClassDef, ast.AST, dict[tuple[int, int], tuple[GuardedCallPath, ...]]],
+        ] = {}
+        guarded_paths: dict[
+            tuple[FunctionNode, str], dict[tuple[int, int], tuple[GuardedCallPath, ...]]
+        ] = {}
+        for function in self.module.all_nodes:
+            if not isinstance(function, ast.FunctionDef | ast.AsyncFunctionDef):
+                continue
+            for argument in (
+                *function.args.posonlyargs,
+                *function.args.args,
+                *function.args.kwonlyargs,
+            ):
+                if annotation_text(argument.annotation) != "bool":
+                    continue
+                by_location: dict[tuple[int, int], list[GuardedCallPath]] = {}
+                for path in guarded_call_paths(function, argument.arg):
+                    key = (path.line, path.column)
+                    by_location[key] = [*by_location.get(key, ()), path]
+                guarded_paths[(function, argument.arg)] = {
+                    location: tuple(paths) for location, paths in by_location.items()
+                }
+            parent = self.parents.get(function)
+            if not isinstance(parent, ast.ClassDef) or function.decorator_list:
+                continue
+            receiver = next(iter((*function.args.posonlyargs, *function.args.args)), None)
+            if receiver is None:
+                continue
+            declarations: dict[str, list[ast.AST]] = {}
+            for statement in parent.body:
+                if (
+                    isinstance(statement, ast.AnnAssign)
+                    and isinstance(statement.target, ast.Name)
+                    and annotation_text(statement.annotation) == "bool"
+                ):
+                    name = statement.target.id
+                    declarations[name] = [*declarations.get(name, ()), statement]
+                if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef):
+                    for child in ast.walk(statement):
+                        if (
+                            isinstance(child, ast.AnnAssign)
+                            and isinstance(child.target, ast.Attribute)
+                            and isinstance(child.target.value, ast.Name)
+                            and child.target.value.id == receiver.arg
+                            and annotation_text(child.annotation) == "bool"
+                        ):
+                            name = child.target.attr
+                            declarations[name] = [*declarations.get(name, ()), child]
+            for name, sites in declarations.items():
+                if len(sites) != 1:
+                    continue
+                member_by_location: dict[tuple[int, int], list[GuardedCallPath]] = {}
+                for path in guarded_call_paths(function, name, receiver_name=receiver.arg):
+                    key = (path.line, path.column)
+                    member_by_location[key] = [*member_by_location.get(key, ()), path]
+                member_paths[(function, name)] = (
+                    parent,
+                    sites[0],
+                    {location: tuple(paths) for location, paths in member_by_location.items()},
+                )
+        return guarded_paths, member_paths
 
     def _discarded_attribute_read(self, reference: ast.Name) -> bool:
         """A read-only attribute expression discarded as a statement exposes no receiver."""
@@ -1683,42 +1854,255 @@ class CallCollector(ast.NodeVisitor):
             )
         return arguments
 
-    def visit_Call(self, node: ast.Call) -> None:
-        scope = self.scopes.by_node[node]
-        receivers = {
-            name: receiver
-            for name in {child.id for child in ast.walk(node.func) if isinstance(child, ast.Name)}
-            if (receiver := self._receiver(node.func, name)) is not None
+    def _guarded_effect(
+        self,
+        node: ast.Call,
+        scope: Scope,
+        call_evidence_id: str,
+        item_id: str,
+        binding: RecordData | None,
+        *,
+        resolution_status: SourceResolution,
+        resolved_targets: list[str],
+    ) -> tuple[RecordData, ...]:
+        owner = scope.node
+        if not isinstance(owner, ast.FunctionDef | ast.AsyncFunctionDef):
+            return ()
+        candidates = self._guarded_candidates(node, owner, scope)
+        facts: list[RecordData] = []
+        context_evidence_id = self._guard_context_evidence(owner)
+        helper_bindings = self._helper_bindings(node, binding, item_id, candidates)
+        raise_constructor_target = None
+        if resolution_status is SourceResolution.RESOLVED and len(resolved_targets) == 1:
+            target = resolved_targets[0]
+            if target in _BUILTIN_EXCEPTION_TARGETS:
+                raise_constructor_target = target
+        for candidate in candidates:
+            for path in candidate[4]:
+                facts.append(
+                    self._guarded_path_fact(
+                        candidate,
+                        path,
+                        call_evidence_id,
+                        context_evidence_id,
+                        binding,
+                        helper_bindings,
+                        raise_constructor_target,
+                    )
+                )
+        return tuple(facts)
+
+    def _guard_context_evidence(self, owner: ast.FunctionDef | ast.AsyncFunctionDef) -> str | None:
+        line, end_line, column = location(owner)
+        excerpt = "\n".join(self.module.lines[line - 1 : end_line]).rstrip()
+        if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS:
+            return None
+        evidence_id = stable_id(
+            "EVD", "guard_context", self.module.rel_path, line, end_line, column
+        )
+        self.evidence[evidence_id] = {
+            "id": evidence_id,
+            "file": self.module.rel_path,
+            "line": line,
+            "end_line": end_line,
+            "column": column,
+            "excerpt": excerpt,
         }
-        expression = annotation_text(node.func) or "<unparseable>"
-        status, targets, reason, candidate_count = resolve_name(
-            node.func,
-            index=self.index,
-            scopes=self.scopes,
-            receiver_types=receivers,
+        return evidence_id
+
+    def _guarded_candidates(
+        self, node: ast.Call, owner: FunctionNode, scope: Scope
+    ) -> list[GuardedPathCandidate]:
+        candidates: list[GuardedPathCandidate] = []
+        for argument in (*owner.args.posonlyargs, *owner.args.args, *owner.args.kwonlyargs):
+            by_location = self.guarded_paths.get((owner, argument.arg))
+            paths = (
+                by_location.get((node.lineno, node.col_offset), ())
+                if by_location is not None
+                else ()
+            )
+            if paths:
+                candidates.append(
+                    ("parameter", scope.qualified_name, argument.arg, argument, paths)
+                )
+        for (function, name), (
+            class_node,
+            declaration,
+            paths_by_location,
+        ) in self.member_paths.items():
+            if function is not owner:
+                continue
+            paths = paths_by_location.get((node.lineno, node.col_offset), ())
+            if paths:
+                class_scope = scope.parent
+                if class_scope is None or class_scope.node is not class_node:
+                    continue
+                candidates.append(("member", class_scope.qualified_name, name, declaration, paths))
+        return candidates
+
+    def _guarded_path_fact(
+        self,
+        candidate: GuardedPathCandidate,
+        path: GuardedCallPath,
+        call_evidence_id: str,
+        context_evidence_id: str | None,
+        binding: RecordData | None,
+        helper_bindings: list[RecordData],
+        raise_constructor_target: str | None,
+    ) -> RecordData:
+        kind, declaration_owner, name, declaration, _paths = candidate
+        condition_evidence = add_evidence(self.evidence, self.module, declaration)
+        path_evidence = tuple(
+            sorted(
+                {
+                    add_evidence(self.evidence, self.module, path_node)
+                    for path_node in path.path_nodes
+                }
+                | ({context_evidence_id} if context_evidence_id is not None else set())
+            )
+        ) or (call_evidence_id,)
+        binding_ids = binding.get("evidence_ids") if binding is not None else None
+        effect_ids = binding_ids if isinstance(binding_ids, list) else []
+        complete = (
+            path.unknown_reason is None and bool(effect_ids) and context_evidence_id is not None
         )
-        evidence_id = add_evidence(self.evidence, self.module, node)
-        item_id = call_id(self.module, node, expression)
-        binding = self._call_binding(node, status, targets, evidence_id)
-        if binding is not None and "proof" in binding and node.func.col_offset > node.col_offset:
-            binding = None
-            status = SourceResolution.UNRESOLVED
-            targets = []
-            candidate_count = 0
-            reason = "Parenthesized callee source evidence is unsupported"
-        if binding is not None:
-            canonical_target = binding["target"]
-            targets = [canonical_target] if isinstance(canonical_target, str) else targets
-            candidate_count = len(targets)
-            status = SourceResolution.RESOLVED
-            reason = "source-proven call identity"
-        target_evidence_ids = sorted(
-            {
-                evidence_id
-                for target in targets
-                for evidence_id in self.symbol_evidence.get(target, [])
-            }
+        unknown_reason = (
+            None
+            if complete
+            else path.unknown_reason
+            if path.unknown_reason is not None
+            else "control_flow_context_too_large"
+            if context_evidence_id is None
+            else f"raise_constructor_builtin:{raise_constructor_target}"
+            if path.raised_exception_constructor and raise_constructor_target is not None
+            else "canonical_call_binding_missing"
         )
+        return {
+            "condition": {"kind": kind, "owner": declaration_owner, "name": name},
+            "condition_value": path.condition_value if context_evidence_id is not None else None,
+            "condition_evidence_ids": [condition_evidence],
+            "path_evidence_ids": list(path_evidence),
+            "effect_binding_evidence_ids": list(effect_ids),
+            "complete": complete,
+            "unknown_reason": unknown_reason,
+            "helper_bindings": helper_bindings,
+        }
+
+    def _helper_bindings(
+        self,
+        node: ast.Call,
+        binding: RecordData | None,
+        item_id: str,
+        candidates: list[GuardedPathCandidate],
+    ) -> list[RecordData]:
+        if binding is None or binding.get("origin") is not CallBindingOrigin.DIRECT:
+            return []
+        target = binding.get("target")
+        declaration = (
+            self.index.binding_declarations.get(target) if isinstance(target, str) else None
+        )
+        if declaration is None or declaration["kind"] != "function":
+            return []
+        target_data = declaration["data"]
+        visibility = target_data.get("visibility_detail")
+        if (
+            target_data.get("source_binding_unique") is not True
+            or target_data.get("source_binding_static") is not True
+            or target_data.get("decorators")
+            or not isinstance(visibility, dict)
+            or visibility.get("kind") != "private"
+        ):
+            return []
+
+        result: list[RecordData] = []
+        for candidate in candidates:
+            actuals, evidence_ids = self._helper_actuals(node, binding, candidate)
+            result.append(
+                {
+                    "target": target,
+                    "call_id": item_id,
+                    "arguments": actuals,
+                    "evidence_ids": sorted(evidence_ids),
+                }
+            )
+        return result
+
+    def _helper_actuals(
+        self,
+        node: ast.Call,
+        binding: RecordData,
+        candidate: GuardedPathCandidate,
+    ) -> tuple[list[RecordData], set[str]]:
+        kind, owner, name, _, _ = candidate
+        actual_nodes: list[ast.expr] = [
+            argument.value if isinstance(argument, ast.Starred) else argument
+            for argument in node.args
+        ]
+        actual_nodes.extend(argument.value for argument in node.keywords)
+        actual_evidence = (*node.args, *node.keywords)
+        actuals_supported = (
+            self._call_arguments(node, annotation_text(node.func) or "<unparseable>", binding)
+            is not None
+        )
+        actuals: list[RecordData] = []
+        evidence_ids = set(binding["evidence_ids"])
+        for index, expression in enumerate(actual_nodes):
+            evidence_id = add_evidence(self.evidence, self.module, actual_evidence[index])
+            evidence_ids.add(evidence_id)
+            token_kind = GuardHelperTokenKind.UNKNOWN
+            token_value = None
+            condition = None
+            member_receiver = None
+            if kind == "member":
+                function = self.scopes.by_node[node].node
+                if isinstance(function, ast.FunctionDef | ast.AsyncFunctionDef):
+                    parameters = (*function.args.posonlyargs, *function.args.args)
+                    member_receiver = parameters[0].arg if parameters else None
+            candidate_matches = _same_condition(expression, name, member_receiver)
+            if (
+                actuals_supported
+                and isinstance(expression, ast.Constant)
+                and isinstance(expression.value, bool)
+            ):
+                token_kind = GuardHelperTokenKind.BOOLEAN_LITERAL
+                token_value = expression.value
+            elif actuals_supported and candidate_matches:
+                token_kind = GuardHelperTokenKind.CONDITION
+                condition = {"kind": kind, "owner": owner, "name": name}
+            elif (
+                actuals_supported
+                and isinstance(expression, ast.UnaryOp)
+                and isinstance(expression.op, ast.Not)
+                and _same_condition(expression.operand, name, member_receiver)
+            ):
+                token_kind = GuardHelperTokenKind.NOT_CONDITION
+                condition = {"kind": kind, "owner": owner, "name": name}
+            actuals.append(
+                {
+                    "argument_index": index,
+                    "token_kind": token_kind,
+                    "token_value": token_value,
+                    "condition": condition,
+                    "evidence_ids": [evidence_id],
+                }
+            )
+        return actuals, evidence_ids
+
+    def _append_call_fact(
+        self,
+        node: ast.Call,
+        scope: Scope,
+        expression: str,
+        status: SourceResolution,
+        targets: list[str],
+        reason: str,
+        candidate_count: int,
+        evidence_id: str,
+        item_id: str,
+        binding: RecordData | None,
+        target_evidence_ids: list[str],
+        guarded_effect: Sequence[RecordData],
+    ) -> None:
         self.items.append(
             classified(
                 item_id=item_id,
@@ -1747,8 +2131,64 @@ class CallCollector(ast.NodeVisitor):
                         node, expression, status, targets, candidate_count > len(targets)
                     ),
                     "call_binding": binding,
+                    **({"guarded_effect": list(guarded_effect)} if guarded_effect else {}),
                 },
             )
+        )
+
+    def visit_Call(self, node: ast.Call) -> None:
+        scope = self.scopes.by_node[node]
+        expression = annotation_text(node.func) or "<unparseable>"
+        status, targets, reason, candidate_count = resolve_name(
+            node.func,
+            index=self.index,
+            scopes=self.scopes,
+            receiver_types=_call_receivers(self, node),
+        )
+        evidence_id = add_evidence(self.evidence, self.module, node)
+        item_id = call_id(self.module, node, expression)
+        binding = self._call_binding(node, status, targets, evidence_id)
+        if binding is not None and "proof" in binding and node.func.col_offset > node.col_offset:
+            binding = None
+            status = SourceResolution.UNRESOLVED
+            targets = []
+            candidate_count = 0
+            reason = "Parenthesized callee source evidence is unsupported"
+        if binding is not None:
+            canonical_target = binding["target"]
+            targets = [canonical_target] if isinstance(canonical_target, str) else targets
+            candidate_count = len(targets)
+            status = SourceResolution.RESOLVED
+            reason = "source-proven call identity"
+        target_evidence_ids = sorted(
+            {
+                evidence_id
+                for target in targets
+                for evidence_id in self.symbol_evidence.get(target, [])
+            }
+        )
+        guarded_effect = self._guarded_effect(
+            node,
+            scope,
+            evidence_id,
+            item_id,
+            binding,
+            resolution_status=status,
+            resolved_targets=targets,
+        )
+        self._append_call_fact(
+            node,
+            scope,
+            expression,
+            status,
+            targets,
+            reason,
+            candidate_count,
+            evidence_id,
+            item_id,
+            binding,
+            target_evidence_ids,
+            guarded_effect,
         )
         self.generic_visit(node)
 

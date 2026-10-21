@@ -29,6 +29,7 @@ from .source import (
     annotation_text,
     call_id,
     class_creation_static,
+    class_header_static,
     class_namespace_static,
     explicit_provider_escapes,
     exposes_dynamic_namespace,
@@ -56,6 +57,9 @@ from .source import (
 _MemberProofKey: TypeAlias = tuple[
     str, bool, bool, frozenset[str] | None, frozenset[str], frozenset[str]
 ]
+_EnumOwnerKey: TypeAlias = tuple[str, str]
+_EnumMemberKey: TypeAlias = tuple[str, str, str]
+_EnumMutationIndex: TypeAlias = tuple[tuple[ParsedModule, ast.expr], ...]
 
 
 def _is_type_checking_test(node: ast.AST) -> bool:
@@ -484,6 +488,19 @@ def _converge_member_escapes(
     escaped_bindings: dict[str, frozenset[str]],
     candidates: dict[str, dict[ast.expr, frozenset[tuple[str, str]]]],
 ) -> tuple[dict[str, frozenset[str]], frozenset[str]]:
+    enum_member_proofs: dict[_EnumMemberKey, bool] = {}
+    enum_owner_values: dict[_EnumOwnerKey, frozenset[str] | None] = {}
+    enum_mutation_proofs: dict[_EnumOwnerKey, bool] = {}
+    mutated_enum_owners = _enum_mutation_index(modules)
+    for module in modules.values():
+        module._non_escaping_enum_values = _non_escaping_enum_value_reads(
+            modules,
+            module,
+            enum_member_proofs,
+            enum_owner_values,
+            enum_mutation_proofs,
+            mutated_enum_owners,
+        )
     exposed_bindings, transferred_bindings = _initial_member_exposures(modules)
     proofs: dict[_MemberProofKey, frozenset[str]] = {}
     namespace_bindings = {
@@ -542,6 +559,203 @@ def _converge_member_escapes(
             exposed_bindings[name] | transferred_bindings[name]
         )
     return escaped_bindings, frozenset(unsafe_providers)
+
+
+def _non_escaping_enum_value_reads(
+    modules: Mapping[str, ParsedModule],
+    consumer: ParsedModule,
+    member_proofs: dict[_EnumMemberKey, bool],
+    owner_values: dict[_EnumOwnerKey, frozenset[str] | None],
+    mutation_proofs: dict[_EnumOwnerKey, bool],
+    mutation_index: _EnumMutationIndex,
+) -> frozenset[ast.Attribute]:
+    """Keep exact, unchanged source enum string values from exposing their owner."""
+    result: set[ast.Attribute] = set()
+    scopes = LexicalScopes.for_module(consumer)
+    for call in (node for node in consumer.all_nodes if isinstance(node, ast.Call)):
+        for argument in (*call.args, *(keyword.value for keyword in call.keywords)):
+            for node in ast.walk(argument):
+                if not isinstance(node, ast.Attribute) or not isinstance(node.value, ast.Name):
+                    continue
+                root = node.value
+                alias = consumer.aliases.get(root.id)
+                binding = scopes.lookup(root, root.id)
+                if (
+                    alias is None
+                    or alias.kind is not ImportKind.SYMBOL
+                    or binding.owner is not scopes.root
+                    or binding.uncertain
+                    or root.id not in stable_direct_module_bindings(consumer)
+                ):
+                    continue
+                owner_separator = len(alias.target) - 1
+                while owner_separator >= 0 and alias.target[owner_separator] != ".":
+                    owner_separator -= 1
+                if owner_separator <= 0:
+                    continue
+                owner_module = alias.target[:owner_separator]
+                owner_name = alias.target[owner_separator + 1 :]
+                provider = modules.get(owner_module)
+                owner = (
+                    next(
+                        (
+                            declaration
+                            for declaration in provider.tree.body
+                            if isinstance(declaration, ast.ClassDef)
+                            and declaration.name == owner_name
+                        ),
+                        None,
+                    )
+                    if provider is not None
+                    else None
+                )
+                if (
+                    provider is None
+                    or owner is None
+                    or not _static_string_enum(
+                        provider,
+                        owner,
+                        node.attr,
+                        member_proofs,
+                        owner_values,
+                        mutation_proofs,
+                        mutation_index,
+                    )
+                ):
+                    continue
+                result.add(node)
+    return frozenset(result)
+
+
+def _static_string_enum(
+    provider: ParsedModule,
+    owner: ast.ClassDef,
+    member: str,
+    member_proofs: dict[_EnumMemberKey, bool],
+    owner_values: dict[_EnumOwnerKey, frozenset[str] | None],
+    mutation_proofs: dict[_EnumOwnerKey, bool],
+    mutation_index: _EnumMutationIndex,
+) -> bool:
+    owner_key = (provider.module, owner.name)
+    member_key = (*owner_key, member)
+    if member_key in member_proofs:
+        return member_proofs[member_key]
+    if owner_key not in owner_values:
+        owner_values[owner_key] = _static_string_enum_values(
+            provider, owner, mutation_proofs, mutation_index
+        )
+    values = owner_values[owner_key]
+    result = values is not None and member in values
+    member_proofs[member_key] = result
+    return result
+
+
+def _static_string_enum_values(
+    provider: ParsedModule,
+    owner: ast.ClassDef,
+    mutation_proofs: dict[_EnumOwnerKey, bool],
+    mutation_index: _EnumMutationIndex,
+) -> frozenset[str] | None:
+    if (
+        owner.name not in stable_direct_module_bindings(provider)
+        or owner.name not in unique_direct_module_bindings(provider)
+        or not class_header_static(owner)
+        or len(owner.bases) != 1
+    ):
+        return None
+    base = owner.bases[0]
+    base_name = resolve_static_name(provider, base)
+    if base_name not in {"enum.Enum", "enum.StrEnum"} or not _canonical_enum_base(
+        provider, base, base_name
+    ):
+        return None
+    if _enum_owner_is_mutated(provider, owner, mutation_proofs, mutation_index):
+        return None
+    values: set[str] = set()
+    for index, child in enumerate(owner.body):
+        if (
+            index == 0
+            and isinstance(child, ast.Expr)
+            and isinstance(child.value, ast.Constant)
+            and isinstance(child.value.value, str)
+        ):
+            continue
+        target: ast.expr
+        value: ast.expr | None
+        if isinstance(child, ast.Assign) and len(child.targets) == 1:
+            target, value = child.targets[0], child.value
+        elif isinstance(child, ast.AnnAssign):
+            target, value = child.target, child.value
+        else:
+            return None
+        if (
+            not isinstance(target, ast.Name)
+            or not isinstance(value, ast.Constant)
+            or not isinstance(value.value, str)
+        ):
+            return None
+        values.add(target.id)
+    return frozenset(values) if values else None
+
+
+def _canonical_enum_base(module: ParsedModule, base: ast.expr, expected: str) -> bool:
+    parts: list[str] = []
+    root = base
+    while isinstance(root, ast.Attribute):
+        parts.insert(0, root.attr)
+        root = root.value
+    if not isinstance(root, ast.Name) or root.id not in stable_direct_module_bindings(module):
+        return False
+    alias = module.aliases.get(root.id)
+    if alias is None:
+        return False
+    resolved = ".".join((alias.target, *parts))
+    return resolved == expected
+
+
+def _enum_mutation_index(
+    modules: Mapping[str, ParsedModule],
+) -> _EnumMutationIndex:
+    """Index only AST nodes that might mutate an enum owner."""
+    candidates: list[tuple[ParsedModule, ast.expr]] = []
+    for module_name in modules:
+        module = modules[module_name]
+        for node in module.all_nodes:
+            target: ast.expr | None = None
+            if isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Store | ast.Del):
+                target = node.value
+            elif (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id in {"setattr", "delattr"}
+                and node.args
+            ):
+                target = node.args[0]
+            if target is None:
+                continue
+            candidates.append((module, target))
+    return tuple(candidates)
+
+
+def _enum_owner_is_mutated(
+    provider: ParsedModule,
+    owner: ast.ClassDef,
+    proofs: dict[_EnumOwnerKey, bool],
+    mutation_index: _EnumMutationIndex,
+) -> bool:
+    key = (provider.module, owner.name)
+    if key not in proofs:
+        qualified = f"{provider.module}.{owner.name}"
+        proofs[key] = any(
+            (
+                f"{module.module}.{target.id}"
+                if module is provider and isinstance(target, ast.Name)
+                else resolve_static_name(module, target)
+            )
+            == qualified
+            for module, target in mutation_index
+        )
+    return proofs[key]
 
 
 def _type_reference_candidates(

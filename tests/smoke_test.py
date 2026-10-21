@@ -28,6 +28,26 @@ def main() -> None:
     )
     assert result_schema["$id"] == "urn:archkeel:command-result:6.0.0"
     assert "expectation_fulfilled" in result_schema["required"]
+    source_facts_5 = json.loads(
+        schemas.joinpath("source-facts-5.0.schema.json").read_text(encoding="utf-8")
+    )
+    assert source_facts_5["$id"] == "https://archkeel.dev/schema/source-facts/5.0.0"
+    python_2_7 = json.loads(
+        schemas.joinpath("architecture-ir-python-decoded-2.7.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert python_2_7["$id"] == "urn:archkeel:architecture-ir:python-decoded:2.7.0"
+    assert python_2_7["properties"]["calls"]["items"]["allOf"][1]["properties"]["data"][
+        "properties"
+    ]["call_binding"]["oneOf"][1]["$ref"] == (
+        "https://archkeel.dev/schema/source-facts/5.0.0#/$defs/CallBinding"
+    )
+    assert source_facts_5["$defs"]["CallBinding"]["required"] == [
+        "origin",
+        "target",
+        "evidence_ids",
+    ]
     for name in (
         "architecture-ir-common.schema.json",
         "architecture-ir-python-decoded.schema.json",
@@ -49,7 +69,13 @@ def main() -> None:
         "architecture-ir-decoded-2.5.schema.json",
         "architecture-ir-python-decoded-2.5.schema.json",
         "architecture-contract-3.8.schema.json",
+        "architecture-ir-decoded-2.8.schema.json",
+        "architecture-ir-python-decoded-2.8.schema.json",
+        "architecture-contract-3.14.schema.json",
+        "architecture-ir-decoded-2.9.schema.json",
+        "architecture-ir-python-decoded-2.9.schema.json",
         "source-facts-4.0.schema.json",
+        "source-facts-5.0.schema.json",
         "source-facts.schema.json",
     ):
         assert json.loads(schemas.joinpath(name).read_text(encoding="utf-8"))["$id"]

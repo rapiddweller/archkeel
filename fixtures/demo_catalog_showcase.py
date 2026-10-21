@@ -39,6 +39,7 @@ _TOUR_APP_ORDERS = HEADER + (
     "import json\n"
     "from pathlib import Path\n"
     "from typing import TYPE_CHECKING\n\n"
+    "from shop.app.catalog import OptionKey, read_option\n"
     "from shop.model.entities import Line, Money, Order\n"
     "from shop.model import entities\n"
     "from shop.store import OrderRepository\n"
@@ -61,6 +62,11 @@ _TOUR_APP_ORDERS = HEADER + (
     "    return order\n\n\n"
     "def summarize(store_dir: Path, order_id: str) -> Money:\n"
     "    return OrderRepository(store_dir).load(order_id).total()\n\n\n"
+    "def read_catalog_option() -> str:\n"
+    "    read_option(OptionKey.RETIRED)\n"
+    '    return read_option("unlisted-option")\n\n\n'
+    "def external_nonce_bucket(job_nonce: int) -> int:\n"
+    "    return entities._nonce_bucket(job_nonce)\n\n\n"
     "def describe_connection(connection: Connection) -> str:\n"
     '    """Type-only use of the maintenance connection; never imported at runtime here."""\n'
     "    run_maintenance(connection)\n"
@@ -71,8 +77,6 @@ _TOUR_APP_ORDERS = HEADER + (
     "    for entry in order.lines:\n"
     "        running = running + entry.total()\n"
     "    return running\n\n\n"
-    "def external_nonce_bucket(job_nonce: int) -> int:\n"
-    "    return entities._nonce_bucket(job_nonce)\n\n\n"
     "def touch_store(connection: object, retries: int) -> str:\n"
     '    """A stray runtime reach into the store internals, for the showcase tour."""\n'
     "    attempts = 0\n"
@@ -205,6 +209,24 @@ _TOUR_ORDER_LOOKUP = HEADER + (
     "    return order_path(root, order_id)\n\n\n"
     "def find_order(root: Path, order_id: str) -> Path:\n"
     '    return lookup_order(root, "tour-order")\n'
+    "\n"
+)
+_TOUR_TOKENS = HEADER + (
+    '"""Generate tokens with a forbidden seeded-path effect for the tour."""\n\n'
+    "import secrets\n\n\n"
+    "def token_for_run(seeded: bool) -> str:\n"
+    "    if seeded:\n"
+    "        return secrets.token_hex(8)\n"
+    '    return "fixed-token"\n'
+)
+_SEEDED_EFFECT = Variant(
+    id="class-a-forbidden-effect-under-condition",
+    section="class_a",
+    item="forbidden_effect_under_condition",
+    summary="A seeded token call reaches the canonical secrets.token_hex effect.",
+    files={"shop/app/tokens.py": _TOUR_TOKENS},
+    expected_violations=("EFFECT-NO-TOKEN-WHEN-SEEDED",),
+    expected_codes=("rule.violated",),
 )
 _TOUR = Variant(
     id="tour",
@@ -216,6 +238,7 @@ _TOUR = Variant(
     "app->store.backend reach one package level deeper, an app->json scope violation, an "
     "app->shop_analytics reach no rule names at all, a cli->render underscore reach, a "
     "three-member model/render/store cycle that also violates DEP-MODEL-NO-RENDER, an "
+    "effect policy violation for secrets.token_hex under the seeded parameter, an "
     "assert, an eval and a getattr, an Any parameter in shop.model's audit probe, a "
     "broad except outside the one exactly exempted function, an "
     "unassigned module, a store.sqlite->store.repository peer reach (the inside contract "
@@ -226,7 +249,7 @@ _TOUR = Variant(
     "only a declared facade function is inspected, so touch_store's own bare-object "
     "parameter, never declared, no longer fires here), a modulo operand below its "
     "declared width, a concrete reader member in place of its required protocol, a literal "
-    "order ID at a store path lookup, and a nonce helper read outside its declared model owner. "
+    "order ID at a store path lookup, an undeclared catalog key, and an unused PAGE_SIZE entry. "
     "CONSTRUCT-NO-DYNAMIC answers both the eval and the getattr; "
     "validate reports the rule.violated diagnostics plus 2 "
     "closed_world.observed_forbidden pairs (model->render, render->store) and 1 graph.drift, "
@@ -241,6 +264,7 @@ _TOUR = Variant(
             "reader: RepositoryReader", "reader: OrderRepository"
         ),
         "shop/store/lookup.py": _TOUR_ORDER_LOOKUP,
+        "shop/app/tokens.py": _TOUR_TOKENS,
         "shop/store/sqlite.py": _TOUR_STORE_SQLITE,
         "shop/store/architecture-contract.json": STORE_INSIDE_WITH_REPOSITORY_PEER_GRANT,
         "shop/cli/main.py": MAIN_WITH_UNDERSCORE_IMPORT,
@@ -253,6 +277,8 @@ _TOUR = Variant(
     },
     expected_violations=(
         "APP-NO-LITERAL-ORDER-ID",
+        "APP-OPTION-KEY",
+        "APP-OPTION-KEY-USED",
         "APP-TYPES-NOT-DICT",
         "ASSIGNMENT-COMPLETE",
         "CALL-DESCRIBE-NO-MAINTENANCE",
@@ -267,6 +293,7 @@ _TOUR = Variant(
         "DEP-MODEL-NO-RENDER",
         "DEP-RENDER-NO-STORE",
         "DEP-STORE-NO-MONEY",
+        "EFFECT-NO-TOKEN-WHEN-SEEDED",
         "EXTERNAL-COMPLETE",
         "EXTERNAL-JSON-STORE",
         "INTERFACE-BOUNDARY",
@@ -309,13 +336,16 @@ _TOUR = Variant(
         "rule.violated",
         "rule.violated",
         "rule.violated",
+        "rule.violated",
+        "rule.violated",
+        "rule.violated",
     ),
 )
 _CLEAN = Variant(
     id="clean",
     section="clean",
     item="shop sample",
-    summary="The unmodified shop sample; its nonce helper stays within the declared model owner.",
+    summary="The unmodified shop sample; validate and report both report no findings.",
     files={},
     expected_violations=(),
     expected_codes=(),
@@ -337,4 +367,9 @@ _SOURCE_OWNERSHIP_ESCAPE = Variant(
     expected_declared_rules="FAIL",
 )
 
-VARIANTS: tuple[Variant, ...] = (_TOUR, _CLEAN, _SOURCE_OWNERSHIP_ESCAPE)
+VARIANTS: tuple[Variant, ...] = (
+    _TOUR,
+    _SEEDED_EFFECT,
+    _CLEAN,
+    _SOURCE_OWNERSHIP_ESCAPE,
+)

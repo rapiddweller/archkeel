@@ -29,6 +29,7 @@ from archkeel.ir.facts import (
     CALL_ARGUMENTS_FEATURE,
     CALL_BINDINGS_FEATURE,
     EXTENDED_CALL_BINDINGS_FEATURE,
+    GUARDED_EFFECTS_FEATURE,
     NATIVE_CALL_TARGETS,
     BuiltinTarget,
     Capabilities,
@@ -164,10 +165,10 @@ class PythonProviderCollector:
             replace(
                 request,
                 resolver=PythonSettings(provider_sources=providers),
-                protocol_version=ProtocolVersion.V5,
+                protocol_version=ProtocolVersion.V6,
             )
             if providers
-            else replace(request, protocol_version=ProtocolVersion.V5)
+            else replace(request, protocol_version=ProtocolVersion.V6)
         )
         remaining_collector: ProcessCollector = replace(self.collector, timeout_seconds=remaining)
         enriched = remaining_collector.collect(final_request)
@@ -440,7 +441,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         unsafe_creation_providers=unsafe_creation_providers,
         unsafe_source_header_providers=explicit_factory_unsafe_providers(imports, modules),
     )
-    if request.protocol_version in {ProtocolVersion.V4, ProtocolVersion.V5}:
+    if request.protocol_version in {ProtocolVersion.V4, ProtocolVersion.V5, ProtocolVersion.V6}:
         contextmanager_signatures(modules, providers, symbols, provider_bindings, evidence)
     type_shapes = collect_type_shapes(symbol_type_expressions(symbols))
     symbol_index = build_symbol_index(symbols)
@@ -460,7 +461,8 @@ def collect(request: CollectionRequest) -> SourceFacts:
         imports=imports,
         symbol_index=symbol_index,
         receiver_resolvers=call_resolvers,
-        include_parameter_owner_proof=request.protocol_version is ProtocolVersion.V5,
+        include_parameter_owner_proof=request.protocol_version
+        in {ProtocolVersion.V5, ProtocolVersion.V6},
     )
     typed_symbols = tuple(parse_record(symbol) for symbol in symbols)
     state, state_evidence = collect_state(modules, typed_symbols, symbol_nodes, symbol_owners)
@@ -503,6 +505,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
                 CALL_BINDINGS_FEATURE,
                 EXTENDED_CALL_BINDINGS_FEATURE,
                 CALL_ARGUMENTS_FEATURE,
+                GUARDED_EFFECTS_FEATURE,
             ),
             constructs=tuple(
                 ConstructCapability(kind, ConstructSupport.DECIDED)
