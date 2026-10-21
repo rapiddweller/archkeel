@@ -4698,8 +4698,8 @@ def _validate_parameter_default_span(role: Record, default: str, witness: Eviden
 
 def _same_expression(first: str, second: str) -> bool:
     try:
-        left = ast.parse(first, mode="eval").body
-        right = ast.parse(second, mode="eval").body
+        left = ast.parse(f"({first})", mode="eval").body
+        right = ast.parse(f"({second})", mode="eval").body
     except SyntaxError:
         return False
     return ast.dump(left, include_attributes=False) == ast.dump(right, include_attributes=False)
