@@ -261,21 +261,30 @@ class LexicalScopes(ast.NodeVisitor):
             self.visit(type_param)
         self.current = parent
 
-        matches = []
-        if parent.table is not None:
-            for child in parent.table.get_children():
-                if child.get_name() != alias_name or child.get_lineno() != line:
+        matches: list[symtable.SymbolTable] = []
+        parent_table: symtable.SymbolTable | None = parent.table
+        if parent_table is not None:
+            parent_children: list[symtable.SymbolTable] = parent_table.get_children()
+            for child in parent_children:
+                child_name: str = child.get_name()
+                child_line: int = child.get_lineno()
+                child_type: str = child.get_type()
+                if child_name != alias_name or child_line != line:
                     continue
-                if child.get_type() == "type alias":
+                if child_type == "type alias":
                     matches.append(child)
-                elif child.get_type() == "type parameter":
-                    matches.extend(
-                        nested
-                        for nested in child.get_children()
-                        if nested.get_name() == alias_name
-                        and nested.get_type() == "type alias"
-                        and nested.get_lineno() == line
-                    )
+                elif child_type == "type parameter":
+                    nested_children: list[symtable.SymbolTable] = child.get_children()
+                    for nested in nested_children:
+                        nested_name: str = nested.get_name()
+                        nested_type: str = nested.get_type()
+                        nested_line: int = nested.get_lineno()
+                        if (
+                            nested_name == alias_name
+                            and nested_type == "type alias"
+                            and nested_line == line
+                        ):
+                            matches.append(nested)
         # Class annotation scopes can see class locals. Until those semantics are
         # represented here, withholding all aliases inside a class is fail-closed.
         table = (
