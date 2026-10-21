@@ -26,6 +26,8 @@ class Scope:
     definition_id: str | None
     parent: Scope | None = None
     bindings: dict[str, list[ast.AST]] = field(default_factory=dict)
+    inlined: bool = False
+    local_names: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,7 +44,8 @@ class NameBinding:
 class LexicalScopes(ast.NodeVisitor):
     """Share compiler name ownership between call and reference resolution.
 
-    A missing or ambiguous compiler table cannot authorize a module fallback.
+    A missing or ambiguous compiler table cannot authorize a module fallback, except for
+    comprehensions positively identified as inlined by PEP 709.
     This index is transient; collectors still publish the existing Source IR records.
     """
 
@@ -82,6 +85,22 @@ class LexicalScopes(ast.NodeVisitor):
         super().visit(node)
 
     def _owner(self, scope: Scope, name: str) -> Scope | None:
+        if scope.inlined:
+            if name in scope.local_names:
+                return scope
+            parent = scope.parent
+            while parent is not None:
+                if parent.inlined:
+                    if name in parent.local_names:
+                        return parent
+                elif not isinstance(parent.node, ast.ClassDef):
+                    return self._owner(parent, name)
+                else:
+                    # PEP 709 inlines the comprehension body, whose free names still skip
+                    # class locals just as they did in the separate comprehension scope.
+                    pass
+                parent = parent.parent
+            return None
         if scope.table is None:
             return None
         try:
@@ -126,6 +145,7 @@ class LexicalScopes(ast.NodeVisitor):
                 if table.get_name() == name and table.get_lineno() == location(node)[0]
             ]
         )
+        has_compiler_children = bool(matches)
         if len(matches) > 1 and isinstance(
             node, ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp
         ):
@@ -148,8 +168,30 @@ class LexicalScopes(ast.NodeVisitor):
                     if isinstance(table, symtable.Function)
                     and set(table.get_locals()) - set(table.get_parameters()) == targets
                 ]
+        # Only a missing child table beneath a known compiler scope identifies PEP 709's
+        # inlined comprehensions. Ambiguous tables and generator expressions stay unknown.
+        inlined = (
+            sys.version_info >= (3, 12)
+            and isinstance(node, ast.ListComp | ast.SetComp | ast.DictComp)
+            and not has_compiler_children
+            and (parent.table is not None or parent.inlined)
+        )
+        local_names: frozenset[str] = frozenset()
+        if inlined and isinstance(node, ast.ListComp | ast.SetComp | ast.DictComp):
+            local_names = frozenset(
+                target.id
+                for generator in node.generators
+                for target in ast.walk(generator.target)
+                if isinstance(target, ast.Name) and isinstance(target.ctx, ast.Store)
+            )
         self.current = Scope(
-            node, matches[0] if len(matches) == 1 else None, qualified_name, identity, parent
+            node,
+            matches[0] if len(matches) == 1 else None,
+            qualified_name,
+            identity,
+            parent,
+            inlined=inlined,
+            local_names=local_names,
         )
         return parent
 
