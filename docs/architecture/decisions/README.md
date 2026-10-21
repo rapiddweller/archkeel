@@ -262,3 +262,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-249 | [Source ownership names one declaration](ad-249-source-ownership-defaults.md) |
 | AD-250 | [Bounded guarded effect ownership](ad-250-bounded-guarded-effect-ownership.md) |
 | AD-254 | [Canonical Protocol declarations](ad-254-canonical-protocol-declarations.md) |
+| AD-255 | [Guarded eager declaration expressions](ad-255-guarded-eager-declaration-expressions.md) |

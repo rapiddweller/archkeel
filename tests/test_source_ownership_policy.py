@@ -1258,6 +1258,38 @@ def test_dictionary_attribute_callable_transfer_is_tracked_and_replayed(tmp_path
     assert replayed.status.value == expected
 
 
+def test_dictionary_enum_member_without_declaration_anchor_is_partial_transfer(tmp_path):
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/types.py": (
+                "from enum import Enum\nclass Visibility(Enum):\n    PUBLIC = 'public'\n"
+            ),
+            "sample/consumer.py": (
+                "from .types import Visibility\nREGISTRY = {'public': Visibility.PUBLIC}\n"
+            ),
+        },
+        _contract(
+            {
+                "mode": "confined",
+                "owner": "sample.consumer",
+                "symbols": ["sample.types.Visibility.PUBLIC"],
+                "roles": ["value_transfer"],
+            }
+        ),
+    )
+    assert result.observation is not None, result.diagnostics
+    transfers = [
+        item
+        for item in result.observation.records("references")
+        if item.kind == "source_role" and item.data.get("role") == "value_transfer"
+    ]
+    [transfer] = transfers
+    assert transfer.data.get("canonical_name") == "sample.types.Visibility.PUBLIC"
+    assert transfer.data.get("status") == "partially_resolved"
+
+
 def test_mounted_dictionary_attribute_transfer_is_owned_by_its_nested_rule(tmp_path):
     import json
 

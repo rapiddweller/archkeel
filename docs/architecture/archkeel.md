@@ -122,6 +122,7 @@ and canonical type identity; their exact and optional-union semantics are record
 | [AD-238](decisions/ad-238-command-view-preparation.md) | Prepare compact command views in a focused governance module while retaining legacy imports and wire output. |
 | [AD-242](decisions/ad-242-explicit-browser-module-ports.md) | Check named browser module ports and publish one verified offline bundle. |
 | [AD-254](decisions/ad-254-canonical-protocol-declarations.md) | Require exact canonical Protocol identities at selected API positions. |
+| [AD-255](decisions/ad-255-guarded-eager-declaration-expressions.md) | Check eager nested declaration expressions while preserving UNKNOWN for class-body calls without replayable path evidence. |
 | [AD-246](decisions/ad-246-bounded-numeric-operand.md) | Bind selected modulo bounds to bounded source-derived integer proofs. |
 
 | [AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md) | Bind explicitly written actuals to proven formals before applying argument policies. |
