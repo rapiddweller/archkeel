@@ -51,6 +51,7 @@ ANALYZER_PUBLIC_IR = frozenset(
         "archkeel.ir.type_shapes",
         "archkeel.ir.reexports",
         "archkeel.ir.source_records",
+        "archkeel.ir.source_proofs:class_instance_member_write_names",
     }
 )
 ROOT = Path(__file__).parents[1]
