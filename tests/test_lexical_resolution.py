@@ -181,11 +181,9 @@ def test_deferred_calls_follow_available_compiler_scope(expression, inlined_comp
     _, _, calls, _ = _facts(source)
     [call] = [item["data"] for item in calls if item["data"]["expression"] == "helper"]
     if inlined_comprehension and sys.version_info >= (3, 12):
-        # Inlined scopes need a native ownership proof before calls can be resolved.
+        # PEP 709 removes the child table, but the inlined scope preserves its parent binding.
         caller = symtable.symtable(source, "sample.py", "exec").get_children()[0]
         assert caller.get_children() == []
-        assert call["status"] == "unresolved" and call["targets"] == []
-        return
     assert call["status"] == "resolved" and call["targets"] == ["sample.core.helper"]
 
 
@@ -422,5 +420,6 @@ def test_class_values_do_not_borrow_globals_but_method_reads_use_globals():
         for item in references
         if item["data"]["expression"] == "VALUE"
     } == {
+        "sample.core.Owner": ["sample.core.Owner.VALUE"],
         "sample.core.Owner.use": ["sample.core.VALUE"],
     }
