@@ -12,6 +12,9 @@ from importlib.resources import files
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
+
 
 def main() -> None:
     assets = files("archkeel.render").joinpath("assets")
@@ -28,6 +31,26 @@ def main() -> None:
     )
     assert result_schema["$id"] == "urn:archkeel:command-result:6.0.0"
     assert "expectation_fulfilled" in result_schema["required"]
+    source_facts_5 = json.loads(
+        schemas.joinpath("source-facts-5.0.schema.json").read_text(encoding="utf-8")
+    )
+    assert source_facts_5["$id"] == "https://archkeel.dev/schema/source-facts/5.0.0"
+    python_2_7 = json.loads(
+        schemas.joinpath("architecture-ir-python-decoded-2.7.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert python_2_7["$id"] == "urn:archkeel:architecture-ir:python-decoded:2.7.0"
+    resources = []
+    for schema_path in schemas.iterdir():
+        if schema_path.name.endswith(".schema.json"):
+            schema = json.loads(schema_path.read_text(encoding="utf-8"))
+            resources.append((schema["$id"], Resource.from_contents(schema)))
+    registry = Registry().with_resources(resources)
+    Draft202012Validator(
+        {"$ref": "https://archkeel.dev/schema/source-facts/5.0.0#/$defs/CallBinding"},
+        registry=registry,
+    ).validate({"origin": "direct", "target": "sample.call", "evidence_ids": ["EVD-1"]})
     for name in (
         "architecture-ir-common.schema.json",
         "architecture-ir-python-decoded.schema.json",
@@ -55,6 +78,7 @@ def main() -> None:
         "architecture-ir-decoded-2.9.schema.json",
         "architecture-ir-python-decoded-2.9.schema.json",
         "source-facts-4.0.schema.json",
+        "source-facts-5.0.schema.json",
         "source-facts.schema.json",
     ):
         assert json.loads(schemas.joinpath(name).read_text(encoding="utf-8"))["$id"]

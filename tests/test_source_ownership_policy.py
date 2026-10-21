@@ -65,6 +65,25 @@ def test_confined_default_rule_names_parameter_and_source_value_owner():
     assert rule.roles == ("parameter_default", "fallback")
 
 
+def test_value_owner_module_rename_preserves_the_qualified_constant_name():
+    from archkeel.ir.renames import renamed_contract
+
+    contract = parse_contract(
+        _contract(
+            {
+                "mode": "confined",
+                "value_owner": "sample.defaults.FALLBACK_REGION",
+                "parameters": ["sample.consumer.normalize.region"],
+                "roles": ["parameter_default"],
+            }
+        )
+    )
+
+    moved = renamed_contract(contract, {"sample.defaults": "sample.settings"})
+
+    assert moved.rules[0].value_owner == "sample.settings.FALLBACK_REGION"
+
+
 def test_confined_callable_transfer_requires_an_owner():
     contract = parse_contract(
         _contract(
@@ -235,6 +254,71 @@ def test_retired_definition_read_write_delete_roles_fail(tmp_path):
         and "sample.consumer.retired_cursor" in item.data.get("targets", ())
         for item in result.observation.records("references")
     )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "role"),
+    [("defaults.VALUE = 1", "write"), ("del defaults.VALUE", "delete")],
+)
+def test_resolved_attribute_mutation_keeps_its_canonical_source_owner(tmp_path, mutation, role):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import (
+        canonical_report_bytes,
+        encode_canonical_model,
+        observation_payload,
+    )
+    from archkeel.ir.decisions import rule_assessments, unknown_positions_by_rule
+
+    contract = _contract(
+        {
+            "mode": "retired",
+            "symbols": ["sample.defaults.VALUE"],
+            "roles": [role],
+        }
+    )
+    contract["components"] = [_component("all", ["sample"])]
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/defaults.py": "VALUE = 0\n",
+            "sample/consumer.py": (f"from sample import defaults\ndef mutate():\n    {mutation}\n"),
+        },
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+    [assessment] = [
+        item
+        for item in rule_assessments(
+            result.observation,
+            undecided_by_rule=unknown_positions_by_rule(result.observation),
+        )
+        if item.id == "ownership"
+    ]
+    assert assessment.status == "UNKNOWN"
+    role_record = next(
+        item
+        for item in result.observation.records("references")
+        if item.kind == "source_role" and item.data.get("role") == role
+    )
+    assert role_record.data.get("canonical_name") == "sample.defaults.VALUE"
+    assert any(
+        item.kind == "source_ownership_limit"
+        and item.data.get("canonical_name") == "sample.defaults.VALUE"
+        for item in result.observation.records("unknowns")
+    )
+    ordinary = observation_payload(result.observation)
+    saved = tmp_path / "attribute-mutation-columnar.json"
+    saved.write_bytes(canonical_report_bytes(ordinary))
+    [replayed] = [
+        item for item in run_saved_report(saved).rule_assessments if item.id == "ownership"
+    ]
+    assert replayed.status.value == "UNKNOWN"
+    saved.write_text(json.dumps(encode_canonical_model(ordinary)))
+    [replayed] = [
+        item for item in run_saved_report(saved).rule_assessments if item.id == "ownership"
+    ]
+    assert replayed.status.value == "UNKNOWN"
 
 
 def test_unread_local_definition_is_retained_as_unknown_candidate(tmp_path):

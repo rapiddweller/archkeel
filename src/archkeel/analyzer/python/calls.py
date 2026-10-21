@@ -976,13 +976,19 @@ class CallCollector(ast.NodeVisitor):
         allowed_nodes = set(ast.walk(allowed))
         aliases = {receiver}
         for child in ast.walk(owner):
-            if isinstance(child, ast.Assign) and isinstance(child.value, ast.Name):
-                if child.value.id in aliases:
+            if isinstance(child, ast.Assign):
+                value_names = {
+                    node.id for node in ast.walk(child.value) if isinstance(node, ast.Name)
+                }
+                if value_names & aliases:
                     aliases.update(
                         target.id for target in child.targets if isinstance(target, ast.Name)
                     )
-            elif isinstance(child, ast.AnnAssign) and isinstance(child.value, ast.Name):
-                if child.value.id in aliases and isinstance(child.target, ast.Name):
+            elif isinstance(child, ast.AnnAssign) and child.value is not None:
+                value_names = {
+                    node.id for node in ast.walk(child.value) if isinstance(node, ast.Name)
+                }
+                if value_names & aliases and isinstance(child.target, ast.Name):
                     aliases.add(child.target.id)
         for child in ast.walk(owner):
             if child in allowed_nodes:
@@ -2046,7 +2052,12 @@ class CallCollector(ast.NodeVisitor):
             token_kind = GuardHelperTokenKind.UNKNOWN
             token_value = None
             condition = None
-            member_receiver = "self" if kind == "member" else None
+            member_receiver = None
+            if kind == "member":
+                function = self.scopes.by_node[node].node
+                if isinstance(function, ast.FunctionDef | ast.AsyncFunctionDef):
+                    parameters = (*function.args.posonlyargs, *function.args.args)
+                    member_receiver = parameters[0].arg if parameters else None
             candidate_matches = _same_condition(expression, name, member_receiver)
             if (
                 actuals_supported

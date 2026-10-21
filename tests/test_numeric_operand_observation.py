@@ -4,12 +4,198 @@
 """Bounded modulo operands retain source identity and exact alias derivations."""
 
 import json
+import sys
 from dataclasses import replace
 
 import pytest
 from test_analyzer import _component, _observe, _parsed_module
 
 from archkeel.analyzer.python.constructs import collect_constructs
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type aliases require Python 3.12")
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (
+            "WIDTH = 4\ntype Alias[WIDTH] = job_nonce % WIDTH\n",
+            "unknown",
+        ),
+        (
+            "WIDTH = 4\ntype Alias = job_nonce % WIDTH\n",
+            "known",
+        ),
+        (
+            "WIDTH = 4\ndef outer():\n    WIDTH = 7\n    type Alias[T] = job_nonce % WIDTH\n",
+            "known",
+        ),
+        (
+            "WIDTH = 4\ntype Alias[T] = job_nonce % WIDTH\n",
+            "known",
+        ),
+        (
+            "WIDTH = 4\nclass Holder:\n    WIDTH = 8\n    type Alias[WIDTH] = job_nonce % WIDTH\n",
+            "unknown",
+        ),
+    ],
+)
+def test_generic_type_alias_respects_type_parameter_binding(source, expected):
+    operation = next(
+        row
+        for row in collect_constructs([_parsed_module(source)], {})
+        if row["kind"] == "numeric_operand"
+    )
+    assert operation["data"]["proof"] == expected
+
+
+@pytest.mark.skipif(sys.version_info >= (3, 12), reason="PEP 695 syntax is unsupported")
+def test_type_alias_syntax_is_unsupported_before_python_312():
+    with pytest.raises(SyntaxError):
+        _parsed_module("WIDTH = 4\ntype Alias[WIDTH] = job_nonce % WIDTH\n")
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type aliases require Python 3.12")
+def test_generic_type_alias_type_parameter_bounds_stay_unknown(tmp_path):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_validation import validate_source_facts
+    from archkeel.ir.protocol import CollectionRequest, PythonSettings, SnapshotInput, SourceScope
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "WIDTH = 4\ntype Alias[WIDTH, T: job_nonce % WIDTH] = T\n"
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    operation = next(
+        record
+        for section in facts.sections
+        for record in section.records
+        if record.kind == "numeric_operand"
+    )
+    assert operation.data.get("proof") == "unknown"
+    validate_source_facts(facts)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type aliases require Python 3.12")
+def test_dangling_type_alias_evidence_is_a_validation_error(tmp_path):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_validation import validate_source_facts
+    from archkeel.ir.protocol import CollectionRequest, PythonSettings, SnapshotInput, SourceScope
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text("type Alias[T] = job_nonce % 4\n")
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    malformed = replace(
+        facts,
+        sections=tuple(
+            replace(
+                section,
+                records=tuple(
+                    replace(record, evidence_ids=("absent-evidence",))
+                    if record.kind == "dynamic_binding"
+                    else record
+                    for record in section.records
+                ),
+            )
+            for section in facts.sections
+        ),
+    )
+    with pytest.raises(ValueError, match="dangling source evidence reference"):
+        validate_source_facts(malformed)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type aliases require Python 3.12")
+@pytest.mark.parametrize(
+    ("source", "error", "remove_type_alias_evidence"),
+    [
+        (
+            "WIDTH = 4\ntype Alias[WIDTH] = job_nonce % WIDTH\n",
+            "type parameter",
+            True,
+        ),
+        (
+            "WIDTH = 4\ntype Alias[\n    WIDTH\n] = job_nonce % WIDTH\n",
+            "complete source witness",
+            False,
+        ),
+        (
+            "WIDTH = 4\ntype Alias[WIDTH] = (\n    job_nonce % WIDTH\n)\n",
+            "type parameter",
+            True,
+        ),
+        (
+            "WIDTH = 4\ntype Alias[WIDTH, T: job_nonce % WIDTH] = T\n",
+            "type parameter",
+            False,
+        ),
+    ],
+)
+def test_saved_facts_reject_forged_known_type_parameter_alias(
+    tmp_path, source, error, remove_type_alias_evidence
+):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import (
+        CollectionResponse,
+        ProtocolError,
+        decode_response,
+        encode_response,
+    )
+    from archkeel.ir.protocol import CollectionRequest, PythonSettings, SnapshotInput, SourceScope
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(source)
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    evidence = next(
+        item for item in payload["facts"]["evidence"] if item.get("excerpt") == "WIDTH = 4"
+    )
+    operation = next(
+        record
+        for section in payload["facts"]["sections"]
+        for record in section["records"]
+        if record["kind"] == "numeric_operand"
+    )
+    operation["data"]["proof"] = "known"
+    operation["data"]["value"] = 4
+    operation["data"]["derivation"] = [
+        {
+            "name": "WIDTH",
+            "value": 4,
+            "expression": "4",
+            "evidence_id": evidence["id"],
+            "line": 1,
+            "column": 0,
+            "end_line": 1,
+            "end_column": 9,
+        }
+    ]
+    operation["evidence_ids"].append(evidence["id"])
+    if remove_type_alias_evidence:
+        alias_evidence = next(
+            item
+            for item in payload["facts"]["evidence"]
+            if item.get("excerpt", "").startswith("type Alias[")
+        )
+        operation["evidence_ids"].remove(alias_evidence["id"])
+    with pytest.raises(ProtocolError, match=error):
+        decode_response(json.dumps(payload).encode())
 
 
 @pytest.mark.parametrize("link", ["operation", "alias"])

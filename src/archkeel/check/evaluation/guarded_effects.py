@@ -339,8 +339,12 @@ def _helper_proof_effect(
             "The helper effect path is incomplete",
             [caller, context.helper, inner_call],
         )
-    substituted, limit = _helper_condition_value(
-        rule, scope, caller, caller_proof, context.helper, inner_call, token
+    substituted, limit = (
+        (None, None)
+        if proof.condition_value is None
+        else _helper_condition_value(
+            rule, scope, caller, caller_proof, context.helper, inner_call, token
+        )
     )
     if limit is not None:
         return None, limit
@@ -405,7 +409,7 @@ def _helper_condition_value(
 
 def _helper_path_violates(path_value: bool | None, substituted: bool | None) -> bool | None:
     if path_value is None:
-        return substituted is not False
+        return True
     if substituted is None:
         return None
     return substituted is path_value

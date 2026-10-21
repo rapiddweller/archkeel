@@ -2,6 +2,7 @@
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 
+import pytest
 from test_exact_module_ownership import _component, _observe_tree, _rule
 
 from archkeel.ir.decisions import rule_assessments
@@ -565,3 +566,169 @@ def test_missing_callee_identity_withholds_a_true_path_receipt(tmp_path):
     [assessment] = rule_assessments(result.observation, undecided_by_rule={})
     assert assessment.status == "UNKNOWN"
     assert not assessment.evaluation_proven
+
+
+def test_private_helper_unconditional_effect_is_reachable_with_false_actual(tmp_path):
+    contract = {
+        "schema_version": "3.13.0",
+        "components": [_component("all", ["sample"])],
+        "rules": [
+            _rule(
+                "forbidden_effect_under_condition",
+                source="sample.core",
+                target="sample.core._effect",
+                condition={"kind": "parameter", "owner": "sample.core.generate", "name": "seeded"},
+            )
+        ],
+    }
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/core.py": """def _effect(): pass
+
+def _helper(flag: bool):
+    _effect()
+
+def generate(seeded: bool):
+    if seeded:
+        _helper(False)
+""",
+        },
+        contract,
+    )
+
+    assert result.observation is not None, result.diagnostics
+    [assessment] = rule_assessments(result.observation, undecided_by_rule={})
+    assert assessment.status == "FAIL"
+    assert assessment.count == 1
+    assert assessment.evaluation_proven
+
+
+def test_nested_contradictory_guards_do_not_create_reachable_effect_paths(tmp_path):
+    contract = {
+        "schema_version": "3.13.0",
+        "components": [_component("all", ["sample"])],
+        "rules": [
+            _rule(
+                "forbidden_effect_under_condition",
+                source="sample.core",
+                target="sample.core._effect",
+                condition={"kind": "parameter", "owner": "sample.core.generate", "name": "seeded"},
+            )
+        ],
+    }
+    bodies = (
+        "if not seeded:\n        if seeded:\n            _effect()",
+        "return (_effect() if seeded else None) if not seeded else None",
+    )
+    for index, body in enumerate(bodies):
+        result = _observe_tree(
+            tmp_path / str(index),
+            {
+                "sample/__init__.py": "",
+                "sample/core.py": (
+                    f"def _effect(): pass\ndef generate(seeded: bool):\n    {body}\n"
+                ),
+            },
+            contract,
+        )
+        assert result.observation is not None, result.diagnostics
+        [assessment] = rule_assessments(result.observation, undecided_by_rule={})
+        assert assessment.status == "UNKNOWN"
+        assert assessment.count == 0
+        assert not assessment.evaluation_proven
+
+
+@pytest.mark.parametrize(
+    "nested_declaration",
+    ["    def local(): pass\n", "    class Local: pass\n"],
+    ids=["function", "class"],
+)
+def test_nested_declaration_does_not_terminate_the_outer_effect_path(tmp_path, nested_declaration):
+    contract = {
+        "schema_version": "3.13.0",
+        "components": [_component("all", ["sample"])],
+        "rules": [
+            _rule(
+                "forbidden_effect_under_condition",
+                source="sample.core",
+                target="sample.core._effect",
+                condition={"kind": "parameter", "owner": "sample.core.generate", "name": "seeded"},
+            )
+        ],
+    }
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/core.py": (
+                "def _effect(): pass\ndef generate(seeded: bool):\n"
+                f"{nested_declaration}    if seeded:\n        _effect()\n"
+            ),
+        },
+        contract,
+    )
+
+    assert result.observation is not None, result.diagnostics
+    [assessment] = rule_assessments(result.observation, undecided_by_rule={})
+    assert assessment.status == "FAIL"
+    assert assessment.count == 1
+    assert assessment.evaluation_proven
+
+
+def test_private_helper_substitutes_non_self_member_receiver(tmp_path):
+    contract = {
+        "schema_version": "3.13.0",
+        "components": [_component("all", ["sample"])],
+        "rules": [
+            _rule(
+                "forbidden_effect_under_condition",
+                source="sample.core",
+                target="sample.core._effect",
+                condition={"kind": "member", "owner": "sample.core.Generator", "name": "seeded"},
+            )
+        ],
+    }
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/core.py": """def _effect(): pass
+
+def _helper(flag: bool):
+    if flag:
+        _effect()
+
+class Generator:
+    def __init__(instance):
+        instance.seeded: bool = False
+
+    def generate(instance):
+        if instance.seeded:
+            _helper(instance.seeded)
+""",
+        },
+        contract,
+    )
+
+    assert result.observation is not None, result.diagnostics
+    [assessment] = rule_assessments(result.observation, undecided_by_rule={})
+    assert assessment.status == "FAIL"
+    assert assessment.count == 1
+    assert assessment.evaluation_proven
+    [call] = [
+        row
+        for row in result.observation.records("calls") or ()
+        if row.data.get("source_scope") == "sample.core.Generator.generate"
+    ]
+    [proof] = [guarded_effect(item) for item in call.data.get("guarded_effect", ())]
+    [helper] = proof.helper_bindings
+    [actual] = helper.arguments
+    assert actual.token_kind == "condition"
+    assert actual.condition is not None
+    assert (actual.condition.kind.value, actual.condition.owner, actual.condition.name) == (
+        "member",
+        "sample.core.Generator",
+        "seeded",
+    )

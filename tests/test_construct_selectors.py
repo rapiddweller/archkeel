@@ -923,6 +923,50 @@ def test_imported_direct_selector_alias_is_canonical_and_coupled():
     )
 
 
+def test_saved_direct_selector_accepts_a_proven_reexport_origin():
+    from archkeel.check.report import _saved_selector_direct
+
+    origin = _parsed_module(
+        "class Connection: pass\n", module="sample.origin", rel_path="sample/origin.py"
+    )
+    facade = _parsed_module(
+        "from sample.origin import Connection\n",
+        module="sample.facade",
+        rel_path="sample/facade.py",
+    )
+    client = _parsed_module(
+        "from sample.facade import Connection as Conn\ndef build():\n    Conn()\n",
+        module="sample.client",
+        rel_path="sample/client.py",
+    )
+    modules = [origin, facade, client]
+    evidence = {}
+    imports = collect_imports(
+        modules, {module.module for module in modules}, evidence, namespace="sample"
+    )
+    resolve_reexports(imports, {module.module: module.all_exports for module in modules}, modules)
+    symbols, _, _ = collect_symbols(modules, evidence)
+    rows = collect_constructs(
+        modules, evidence, imports=imports, symbol_index=build_symbol_index(symbols)
+    )
+    selector = next(row for row in rows if row["kind"] == "construct_selector")
+    record = parse_record(selector)
+    binding = call_binding(record.data.get("receiver_binding"))
+    assert binding is not None and binding.target == "sample.origin.Connection"
+    target = parse_record(
+        next(row for row in symbols if row["data"]["qualified_name"] == binding.target)
+    )
+    proven_imports = tuple(parse_record(row) for row in imports)
+    assert any(
+        item.data.get("target_module") == "sample.facade"
+        and item.data.get("origin_definition") == binding.target
+        for item in proven_imports
+    )
+    _saved_selector_direct(binding, None, [target], proven_imports)
+    with pytest.raises(ValueError, match="saved selector class receiver"):
+        _saved_selector_direct(binding, None, [target], ())
+
+
 def test_inline_constructed_receiver_uses_absolute_source_position():
     module = _parsed_module(
         'class Connection: pass\ndef route():\n    prefix = 1; Connection().backend == "flat"\n',
@@ -1793,6 +1837,127 @@ def _selector_read_role_fixture(root: Path, *, mounted: bool):
     )
     assert result.observation is not None, result.diagnostics
     return result.observation
+
+
+def _match_indentation_fixture(root: Path, *, mounted: bool, indent: str):
+    (root / "sample").mkdir(parents=True)
+    (root / "sample/__init__.py").write_text("")
+    (root / "sample/core.py").write_text(
+        "class Connection:\n    backend: str\n"
+        "def route(conn: Connection):\n"
+        f"{indent}if True:\n"
+        f"{indent * 2}match conn.backend:\n"
+        f"{indent * 3}case 'flat': pass\n"
+    )
+    (root / "docs/architecture").mkdir(parents=True)
+    (root / "docs/architecture/sample.md").write_text("Fixture provenance.\n")
+    (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    rule = {
+        "id": "MATCH",
+        "kind": "forbidden_construct",
+        "source": "sample",
+        "constructs": ["string_literal_compare"],
+        "selector": {
+            "receiver": "sample.core.Connection",
+            "member": "backend",
+            "role": "match",
+            "literal": "flat",
+        },
+        "rationale": "Keep the selected match receiver proven.",
+        "provenance": ["docs/architecture/sample.md"],
+        "decided_by": "architect",
+    }
+    provenance = ["docs/architecture/sample.md"]
+    if mounted:
+        (root / "inside.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "3.11.0",
+                    "components": [
+                        {
+                            "id": "COMP-child",
+                            "label": "child",
+                            "role": "component",
+                            "packages": ["sample"],
+                            "responsibilities": ["Own child."],
+                            "forbidden_responsibilities": [],
+                            "provenance": provenance,
+                        }
+                    ],
+                    "rules": [rule],
+                }
+            )
+        )
+        contract = {
+            "schema_version": "3.11.0",
+            "components": [
+                {
+                    "id": "COMP-parent",
+                    "label": "parent",
+                    "role": "component",
+                    "packages": ["sample"],
+                    "responsibilities": ["Own parent."],
+                    "forbidden_responsibilities": [],
+                    "provenance": provenance,
+                    "inside": "inside.json",
+                }
+            ],
+            "rules": [],
+        }
+    else:
+        contract = {"schema_version": "3.11.0", "components": [], "rules": [rule]}
+    (root / "contract.json").write_text(json.dumps(contract))
+    for command in (
+        ["git", "init", "-q", "-b", "main"],
+        ["git", "config", "user.email", "test@example.invalid"],
+        ["git", "config", "user.name", "Test"],
+        ["git", "add", "-A"],
+        ["git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "fixture"],
+    ):
+        subprocess.run(command, cwd=root, check=True, capture_output=True)
+    return run_report(
+        root,
+        config=ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
+        analyzer=observe,
+    )
+
+
+@pytest.mark.parametrize("mounted", [False, True], ids=["root", "mounted"])
+@pytest.mark.parametrize(
+    "indent",
+    ["\t", "    "],
+    ids=["tabs", "spaces"],
+)
+def test_nested_match_selector_excerpt_preserves_its_indentation(
+    tmp_path: Path, mounted: bool, indent: str
+):
+    result, encoded = _match_indentation_fixture(
+        tmp_path / f"repo-{mounted}-{len(indent)}", mounted=mounted, indent=indent
+    )
+    assert not result.diagnostics, result.diagnostics
+    assert encoded is not None
+    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    [selector] = [
+        row
+        for row in model.records("constructs")
+        if row.kind == "construct_selector" and row.data.get("selector_role") == "match"
+    ]
+    assert selector.data.get("status") == "decided"
+    assert selector.data.get("receiver_type") == "sample.core.Connection"
+    [assessment] = [row for row in result.rule_assessments if row.id.endswith("MATCH")]
+    assert assessment.status.value == "FAIL"
+
+    ordinary = observation_payload(model)
+    columnar = decode_canonical_model(
+        json.loads(canonical_json_bytes(encode_canonical_model(ordinary)))
+    )
+    for index, payload in enumerate((ordinary, columnar)):
+        path = tmp_path / f"match-indent-{mounted}-{len(indent)}-{index}.json"
+        path.write_bytes(canonical_json_bytes(payload))
+        replay = run_saved_report(path)
+        assert not replay.diagnostics, replay.diagnostics
+        [saved] = [row for row in replay.rule_assessments if row.id.endswith("MATCH")]
+        assert saved.status == assessment.status
 
 
 @pytest.mark.parametrize("mounted", [False, True], ids=["root", "mounted"])

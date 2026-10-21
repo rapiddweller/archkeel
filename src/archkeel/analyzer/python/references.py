@@ -495,12 +495,13 @@ class ReferenceCollector(ast.NodeVisitor):
                 status, targets, _, _ = resolve_name(
                     node, index=self.index, scopes=self.scopes, value_reference=True
                 )
-                status = SourceResolution.PARTIALLY_RESOLVED
                 name = (
                     targets[0]
                     if status == SourceResolution.RESOLVED and len(targets) == 1
                     else f"{scope.qualified_name}.{node.attr}"
                 )
+                if status == SourceResolution.RESOLVED:
+                    status = SourceResolution.PARTIALLY_RESOLVED
             role = "delete" if isinstance(node.ctx, ast.Del) else "write"
             if (
                 role == "write"

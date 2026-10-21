@@ -6,6 +6,7 @@
 import ast
 import re
 import sys
+from bisect import bisect_right
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
@@ -27,6 +28,7 @@ from .facts import (
     CallArgumentValueKind,
     CallBinding,
     CallBindingOrigin,
+    ConditionSelectorKind,
     ConstructSupport,
     ContextManagerSignature,
     Evidence,
@@ -381,7 +383,8 @@ def _selector_evidence_excerpt(
     if parsed is not None:
         roots, line_offset = parsed
         return roots, line_offset, 0
-    indentation = len(excerpt) - len(excerpt.lstrip(" "))
+    indentation = len(excerpt) - len(excerpt.lstrip(" \t"))
+    indentation_prefix = excerpt[:indentation]
     continuation: str = excerpt[indentation:]
     for operator in ("and", "or"):
         prefix = f"{operator} "
@@ -403,7 +406,7 @@ def _selector_evidence_excerpt(
                 return roots, line_offset, 0
     if role != "match" or not stripped.endswith(":"):
         return None
-    body = " " * (indentation + 4) + "case _: pass"
+    body = indentation_prefix + "    case _: pass"
     try:
         wrapper = ast.parse(f"if True:\n{excerpt}\n{body}\n")
     except (IndentationError, SyntaxError, ValueError, RecursionError):
@@ -2807,6 +2810,75 @@ def _numeric_operation_expression(
     return next(iter(matches.values())) if len(matches) == 1 else None
 
 
+def _numeric_type_alias_parameters(
+    record: Record,
+    evidence_by_id: Mapping[str, Evidence],
+    expected_file: str,
+    type_alias_index: Mapping[str, tuple[tuple[int, ...], tuple[int, ...]]],
+) -> tuple[frozenset[str], bool]:
+    """Return TypeAlias parameters attached to this operation's source witnesses."""
+    type_alias = getattr(ast, "TypeAlias", None)
+    if type_alias is None:
+        return frozenset(), False
+    operation_line = record.data.get("line")
+    operation_column = record.data.get("column")
+    operation_end_line = record.data.get("end_line")
+    operation_end_column = record.data.get("end_column")
+    if (
+        not isinstance(operation_line, int)
+        or isinstance(operation_line, bool)
+        or not isinstance(operation_column, int)
+        or isinstance(operation_column, bool)
+        or not isinstance(operation_end_line, int)
+        or isinstance(operation_end_line, bool)
+        or not isinstance(operation_end_column, int)
+        or isinstance(operation_end_column, bool)
+    ):
+        return frozenset(), False
+    operation_span = (
+        operation_line,
+        operation_column,
+        operation_end_line,
+        operation_end_column,
+    )
+    parameter_names: set[str] = set()
+    starts, max_ends = type_alias_index.get(expected_file, ((), ()))
+    preceding = bisect_right(starts, operation_line) - 1
+    incomplete_scope = preceding >= 0 and max_ends[preceding] >= operation_line
+    for evidence_id in record.evidence_ids:
+        evidence = evidence_by_id.get(evidence_id)
+        if evidence is None or evidence.file != expected_file:
+            continue
+        excerpt = evidence.excerpt.lstrip()
+        if not (excerpt.startswith("type ") and "[" in excerpt):
+            continue
+        parsed = _numeric_evidence_nodes(evidence)
+        if parsed is None:
+            # The collector attaches the TypeAlias evidence to its numeric sites. A
+            # multiline header excerpt may not include enough syntax to resolve names.
+            incomplete_scope = True
+            continue
+        roots, line_offset = parsed
+        for root in roots:
+            for candidate in ast.walk(root):
+                if not isinstance(candidate, type_alias):
+                    continue
+                names = {
+                    type_param.name
+                    for type_param in candidate.type_params
+                    if isinstance(getattr(type_param, "name", None), str)
+                }
+                if not names:
+                    continue
+                if any(
+                    _numeric_node_span(node, evidence.line, line_offset) == operation_span
+                    for subtree in (candidate.value, *candidate.type_params)
+                    for node in ast.walk(subtree)
+                ):
+                    parameter_names.update(names)
+    return frozenset(parameter_names), incomplete_scope
+
+
 def _bounded_numeric_value(
     node: ast.expr,
     aliases: Mapping[str, ast.expr],
@@ -2853,6 +2925,7 @@ def _validate_numeric_operand_witness(
     declarations_by_id: Mapping[str, Record],
     declarations_by_name: Mapping[str, tuple[Record, ...]],
     expected_file: str,
+    type_alias_index: Mapping[str, tuple[tuple[int, ...], tuple[int, ...]]],
 ) -> None:
     data = record.data
     expression = _numeric_operation_expression(record, evidence_by_id, expected_file)
@@ -2873,6 +2946,16 @@ def _validate_numeric_operand_witness(
     if data.get("proof") != "known":
         return
     operand = expression.right if isinstance(expression, ast.BinOp) else expression.value
+    type_parameters, generic_scope = _numeric_type_alias_parameters(
+        record, evidence_by_id, expected_file, type_alias_index
+    )
+    operand_names = {
+        node.id
+        for node in ast.walk(operand)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+    }
+    if (generic_scope and not type_parameters and operand_names) or operand_names & type_parameters:
+        raise ValueError("known numeric operand uses an unresolved type parameter")
     _validate_known_numeric_operand(
         record,
         operand,
@@ -3899,7 +3982,9 @@ def _source_guarded_effect(
     binding = call_binding(record.data.get("call_binding"))
     for raw_item in raw_guarded:
         proof = guarded_effect(raw_item)
-        if proof.condition_value is not None and not _guard_path_matches_condition(
+        if (
+            proof.condition_value is not None or proof.complete
+        ) and not _guard_path_matches_condition(
             record,
             proof.condition.name,
             proof.condition.kind.value,
@@ -3917,7 +4002,7 @@ def _source_guarded_effect(
             None,
         )
         if proof.helper_bindings and not _guarded_helper_arguments_match_source(
-            record, proof, arguments, call_evidence, evidence
+            record, proof, arguments, call_evidence, evidence, function_contexts
         ):
             raise ValueError("guarded-effect helper argument disagrees with its source")
         if proof.complete and (
@@ -3977,6 +4062,7 @@ def _guarded_helper_arguments_match_source(
     arguments: tuple[CallArgument, ...] | None,
     call_evidence: Evidence | None,
     evidence: Mapping[str, Evidence],
+    function_contexts: frozenset[GuardFunctionContext],
 ) -> bool:
     helpers = proof.helper_bindings
     if arguments is None:
@@ -3992,6 +4078,9 @@ def _guarded_helper_arguments_match_source(
     actuals = _source_call_actuals(record, call_evidence)
     if actuals is None:
         return False
+    receiver_name = _guarded_helper_condition_receiver(
+        record, proof, call_evidence, evidence, function_contexts
+    )
     for helper in helpers:
         if len(helper.arguments) != len(arguments):
             return False
@@ -4005,7 +4094,9 @@ def _guarded_helper_arguments_match_source(
                     actual.condition.kind is not proof.condition.kind
                     or actual.condition.owner != proof.condition.owner
                 )
-                or not _guarded_actual_matches_condition(actual, actuals[index])
+                or not _guarded_actual_matches_condition(
+                    actual, actuals[index], receiver_name=receiver_name
+                )
             ):
                 return False
     return True
@@ -4039,7 +4130,49 @@ def _source_node_starts_at(node: ast.AST, line: int, column: int, line_offset: i
     return span is not None and span[:2] == (line, column)
 
 
-def _guarded_actual_matches_condition(actual: GuardHelperArgument, expression: ast.expr) -> bool:
+def _guarded_helper_condition_receiver(
+    record: Record,
+    proof: GuardedEffectEvidence,
+    call_evidence: Evidence,
+    evidence: Mapping[str, Evidence],
+    function_contexts: frozenset[GuardFunctionContext],
+) -> str | None:
+    if proof.condition.kind is not ConditionSelectorKind.MEMBER:
+        return None
+    for identifier in proof.path_evidence_ids:
+        context_evidence = evidence.get(identifier)
+        if context_evidence is None or context_evidence.file != call_evidence.file:
+            continue
+        context = _guard_context(context_evidence)
+        if context is None:
+            continue
+        function, column_offset = context
+        if not _guard_context_binds_call(
+            record, call_evidence, context_evidence, function, column_offset, function_contexts
+        ) or not _guard_condition_owner_binds_context(
+            record,
+            proof.condition.name,
+            proof.condition.kind.value,
+            proof.condition.owner,
+            proof.condition_evidence_ids,
+            context_evidence,
+            function,
+            column_offset,
+            evidence,
+            function_contexts,
+        ):
+            continue
+        parameters = (*function.args.posonlyargs, *function.args.args)
+        return parameters[0].arg if parameters else None
+    return None
+
+
+def _guarded_actual_matches_condition(
+    actual: GuardHelperArgument,
+    expression: ast.expr,
+    *,
+    receiver_name: str | None = None,
+) -> bool:
     token_kind = actual.token_kind.value
     if token_kind == "unknown":
         return True
@@ -4053,14 +4186,16 @@ def _guarded_actual_matches_condition(actual: GuardHelperArgument, expression: a
     if isinstance(candidate, ast.UnaryOp) and isinstance(candidate.op, ast.Not):
         candidate = candidate.operand
         negated = True
-    matches = (
-        isinstance(candidate, ast.Name) and candidate.id == selector.name
-        if selector.kind.value == "parameter"
-        else isinstance(candidate, ast.Attribute)
-        and candidate.attr == selector.name
-        and isinstance(candidate.value, ast.Name)
-        and candidate.value.id == "self"
-    )
+    if selector.kind is ConditionSelectorKind.PARAMETER:
+        matches = isinstance(candidate, ast.Name) and candidate.id == selector.name
+    else:
+        matches = (
+            receiver_name is not None
+            and isinstance(candidate, ast.Attribute)
+            and candidate.attr == selector.name
+            and isinstance(candidate.value, ast.Name)
+            and candidate.value.id == receiver_name
+        )
     return matches and (token_kind == "not_condition") == negated
 
 
@@ -4070,7 +4205,7 @@ def _guard_path_matches_condition(
     kind: str,
     owner: str,
     condition_evidence_ids: tuple[str, ...],
-    expected_value: bool,
+    expected_value: bool | None,
     path_evidence_ids: tuple[str, ...],
     evidence: Mapping[str, Evidence],
     function_contexts: frozenset[GuardFunctionContext],
@@ -4138,7 +4273,7 @@ def _guard_context_proves_path(
     kind: str,
     owner: str,
     condition_evidence_ids: tuple[str, ...],
-    expected_value: bool,
+    expected_value: bool | None,
     path_evidence_ids: tuple[str, ...],
     call_evidence: Evidence,
     context_evidence: Evidence,
@@ -4201,6 +4336,7 @@ def _guard_context_proves_path(
             (context_evidence.line + path.line - 1, column_offset + path.column)
             == (call_evidence.line, call_evidence.column)
             and path.condition_value is expected_value
+            and path.unknown_reason is None
             and _replayed_path_guard_locations(path, context_evidence, column_offset)
             == guard_locations
         ):
@@ -5774,6 +5910,27 @@ def validate_source_facts(facts: SourceFacts) -> None:
         if imported_section.name is SourceSectionName.IMPORTS
         for item in imported_section.records
     )
+    type_alias_ranges: dict[str, list[tuple[int, int]]] = {}
+    for declaration in declarations_by_id.values():
+        if declaration.kind != "dynamic_binding":
+            continue
+        for type_alias_evidence_id in declaration.evidence_ids:
+            evidence = base_by_id[type_alias_evidence_id]
+            excerpt = evidence.excerpt.lstrip()
+            if excerpt.startswith("type ") and "[" in excerpt:
+                type_alias_ranges.setdefault(evidence.file, []).append(
+                    (evidence.line, evidence.end_line)
+                )
+    type_alias_index: dict[str, tuple[tuple[int, ...], tuple[int, ...]]] = {}
+    for file, ranges in type_alias_ranges.items():
+        starts: list[int] = []
+        max_ends: list[int] = []
+        maximum = 0
+        for start, end in sorted(ranges):
+            starts.append(start)
+            maximum = max(maximum, end)
+            max_ends.append(maximum)
+        type_alias_index[file] = (tuple(starts), tuple(max_ends))
     for section in facts.sections:
         for record in section.records:
             _source_record(
@@ -5839,6 +5996,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
                     declarations_by_id,
                     declarations_by_name,
                     expected_file,
+                    type_alias_index,
                 )
             construct = record.data.get("construct")
             if (

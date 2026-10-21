@@ -133,6 +133,23 @@ class _GuardPathWalker:
     def has_calls(node: ast.AST) -> bool:
         return any(isinstance(child, ast.Call) for child in ast.walk(node))
 
+    @staticmethod
+    def _branch_state(
+        current: bool | None,
+        reason: str | None,
+        guard: bool | None,
+        branch_value: bool | None,
+    ) -> tuple[bool | None, str | None] | None:
+        if guard is None:
+            return current, reason
+        if branch_value is None:
+            return current, reason
+        if reason is not None:
+            return None, reason
+        if current is not None and current is not branch_value:
+            return None
+        return branch_value, None
+
     def expression(
         self,
         node: ast.AST,
@@ -177,10 +194,14 @@ class _GuardPathWalker:
         )
         self.expression(node.test, value, path_nodes, reason)
         branch_nodes = (*path_nodes, node.test)
-        self.expression(node.body, guard if guard is not None else value, branch_nodes, reason)
-        self.expression(
-            node.orelse, not guard if guard is not None else value, branch_nodes, reason
+        body_state = self._branch_state(value, reason, guard, guard)
+        if body_state is not None:
+            self.expression(node.body, body_state[0], branch_nodes, body_state[1])
+        else_state = self._branch_state(
+            value, reason, guard, not guard if guard is not None else None
         )
+        if else_state is not None:
+            self.expression(node.orelse, else_state[0], branch_nodes, else_state[1])
 
     def block(
         self,
@@ -228,7 +249,7 @@ class _GuardPathWalker:
             self._unsupported_flow(statement, path_nodes)
             return [(None, "unsupported_control_flow", path_nodes)]
         if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            return []
+            return [(current, reason, path_nodes)]
         return self._ordinary_paths(statement, current, reason, path_nodes)
 
     def _if_paths(
@@ -254,15 +275,18 @@ class _GuardPathWalker:
             if guard is not None or test_reason is not current_reason
             else path_nodes
         )
-        if guard is None:
-            return [
-                *self.block(statement.body, current, branch_nodes, test_reason),
-                *self.block(statement.orelse, current, branch_nodes, test_reason),
-            ]
-        return [
-            *self.block(statement.body, guard, branch_nodes, test_reason),
-            *self.block(statement.orelse, not guard, branch_nodes, test_reason),
-        ]
+        body_state = self._branch_state(current, test_reason, guard, guard)
+        else_state = self._branch_state(
+            current, test_reason, guard, not guard if guard is not None else None
+        )
+        branches = []
+        if body_state is not None:
+            branches.extend(self.block(statement.body, body_state[0], branch_nodes, body_state[1]))
+        if else_state is not None:
+            branches.extend(
+                self.block(statement.orelse, else_state[0], branch_nodes, else_state[1])
+            )
+        return branches
 
     def _unsupported_flow(self, statement: ast.stmt, path_nodes: tuple[ast.AST, ...]) -> None:
         for child in ast.iter_child_nodes(statement):
