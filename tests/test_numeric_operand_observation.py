@@ -173,6 +173,11 @@ def test_multiline_type_alias_witnesses_only_prove_replayable_names(
             "    def choose[WIDTH](self, value: job_nonce % WIDTH): pass\n",
             "unknown",
         ),
+        (
+            "WIDTH = 4\nclass Plain: # [not a type parameter]\n"
+            "    def choose(job_nonce): return job_nonce % WIDTH\n",
+            "known",
+        ),
         ("WIDTH = 4\ndef choose[T: job_nonce % WIDTH](): pass\n", "unknown"),
         ("WIDTH = 4\ndef choose[T](x=job_nonce % WIDTH): pass\n", "unknown"),
         (
@@ -217,6 +222,7 @@ def test_generic_definition_headers_use_type_parameter_scope(tmp_path, source, e
         "WIDTH = 4\ndef choose[WIDTH](x: job_nonce % WIDTH): pass\n",
         "WIDTH = 4\ndef choose[WIDTH]() -> (\n    job_nonce % WIDTH\n): pass\n",
         "WIDTH = 4\nclass Base: pass\nclass Child[WIDTH](Base[job_nonce % WIDTH]): pass\n",
+        "WIDTH = 4\ndef outer[WIDTH]():\n    type Alias[T] = job_nonce % WIDTH\n",
     ],
 )
 def test_saved_facts_reject_forged_generic_header_proofs(tmp_path, source):
@@ -268,10 +274,14 @@ def test_saved_facts_reject_forged_generic_header_proofs(tmp_path, source):
         for item in payload["facts"]["evidence"]
         if item.get("file") == "sample/core.py"
         and item.get("line", 0) > 1
-        and item.get("excerpt", "").lstrip().startswith(("def choose[", "class Child["))
+        and item.get("excerpt", "")
+        .lstrip()
+        .startswith(("def choose[", "class Child[", "def outer["))
     )
-    if "\n    job_nonce % WIDTH\n" in source:
-        assert header_evidence["id"] not in operation["evidence_ids"]
+    if "\n    job_nonce % WIDTH\n" in source or "def outer[WIDTH]" in source:
+        if header_evidence["id"] in operation["evidence_ids"]:
+            operation["evidence_ids"].remove(header_evidence["id"])
+        operation["data"]["binding_scopes"] = []
     with pytest.raises(ProtocolError, match="unresolved type parameter"):
         decode_response(json.dumps(payload).encode())
 

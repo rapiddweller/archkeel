@@ -1393,25 +1393,33 @@ def _numeric_evidence_nodes(evidence: Evidence) -> tuple[tuple[ast.stmt, ...], i
 def _numeric_generic_header_index(
     declarations: Mapping[str, Record], evidence_by_id: Mapping[str, Evidence]
 ) -> dict[str, tuple[tuple[int, ...], tuple[int, ...]]]:
+    """Bound named proofs in generic definition intervals; literals remain replayable."""
     ranges_by_file: dict[str, list[tuple[int, int]]] = {}
     for declaration in declarations.values():
         if declaration.kind not in {"function", "method", "class"}:
             continue
         for evidence_id in declaration.evidence_ids:
             evidence = evidence_by_id[evidence_id]
-            excerpt: str = evidence.excerpt.lstrip()
+            evidence_excerpt: str = evidence.excerpt
+            excerpt: str = evidence_excerpt.lstrip()
             is_definition = excerpt.startswith(("def ", "async def ", "class "))
             bracket = excerpt.find("[")
             opening = excerpt.find("(")
-            if is_definition and bracket >= 0 and (opening < 0 or bracket < opening):
-                ranges: list[tuple[int, int]] = ranges_by_file.setdefault(evidence.file, [])
-                ranges.append((evidence.line, evidence.end_line))
+            colon = excerpt.find(":")
+            if (
+                is_definition
+                and bracket >= 0
+                and (opening < 0 or bracket < opening)
+                and (colon < 0 or bracket < colon)
+            ):
+                generic_ranges: list[tuple[int, int]] = ranges_by_file.setdefault(evidence.file, [])
+                generic_ranges.append((evidence.line, evidence.end_line))
     result: dict[str, tuple[tuple[int, ...], tuple[int, ...]]] = {}
-    for file, ranges in ranges_by_file.items():
+    for file, file_ranges in ranges_by_file.items():
         starts: list[int] = []
         max_ends: list[int] = []
         maximum = 0
-        for start, end in sorted(ranges):
+        for start, end in sorted(file_ranges):
             starts.append(start)
             maximum = max(maximum, end)
             max_ends.append(maximum)
@@ -1546,12 +1554,13 @@ def _numeric_type_alias_parameters(
         operation_end_column,
     )
     parameter_names: set[str] = set()
+    starts, max_ends = generic_header_index.get(expected_file, ((), ()))
+    preceding = bisect_right(starts, operation_line) - 1
+    if preceding >= 0 and max_ends[preceding] >= operation_line:
+        return frozenset(), True
     starts, max_ends = type_alias_index.get(expected_file, ((), ()))
     preceding = bisect_right(starts, operation_line) - 1
     incomplete_scope = preceding >= 0 and max_ends[preceding] >= operation_line
-    starts, max_ends = generic_header_index.get(expected_file, ((), ()))
-    preceding = bisect_right(starts, operation_line) - 1
-    incomplete_scope |= preceding >= 0 and max_ends[preceding] >= operation_line
     if sys.version_info < (3, 12):
         return frozenset(), incomplete_scope
     for evidence_id in record.evidence_ids:
