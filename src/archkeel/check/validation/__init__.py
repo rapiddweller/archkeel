@@ -55,6 +55,8 @@ from archkeel.ir.measurements import (
 from archkeel.ir.measurements import MeasurementBudgetName as _MeasurementBudgetName
 from archkeel.ir.model import (
     ArchitectureContract,
+    ContractChange,
+    ContractChangeDirection,
     ContractDeclarations,
     Diagnostic,
     InterfaceBudgetResult,
@@ -87,6 +89,7 @@ from archkeel.ir.renames import (
 from archkeel.ir.widening import (
     WideningChange,
     baseline_widening_changes,
+    contract_narrowing_changes,
     contract_widening_changes,
     measurement_budget_changes,
 )
@@ -899,6 +902,25 @@ def _inside_declaration_widenings(
     return tuple(findings)
 
 
+def _contract_changes(
+    ctx: _AgainstContext, contract: ArchitectureContract, rename: Renamed | None
+) -> tuple[ContractChange, ...]:
+    """AD-246: the comparison `_widening_failures` gates, with narrowings and directions."""
+    if ctx.contract is None or isinstance(ctx.contract, _Introduced):
+        return ()
+    before = rename.contract if rename is not None else ctx.contract
+    return (
+        *(
+            ContractChange(ContractChangeDirection.WIDENED, item.subject, item.field, item.message)
+            for item in contract_widening_changes(before, contract)
+        ),
+        *(
+            ContractChange(ContractChangeDirection.NARROWED, item.subject, item.field, item.message)
+            for item in contract_narrowing_changes(before, contract)
+        ),
+    )
+
+
 def _widening_failures(
     ctx: _AgainstContext,
     contract: ArchitectureContract,
@@ -1317,6 +1339,11 @@ def run_validate(
         exit_code=2 if result.exit_code == 2 else 1 if failures else 0,
         failures=failures,
         widenings=widening_findings if against is not None else None,
+        contract_changes=(
+            _contract_changes(against_ctx, comparison_contract, rename)
+            if against is not None
+            else None
+        ),
         amendment_status=amendment_status,
     )
     if against is not None:

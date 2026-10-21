@@ -17,8 +17,8 @@ from rich.table import Table
 from rich.text import Text
 
 from archkeel.ir.diagnostics import Diagnostic as Diagnostic
+from archkeel.ir.model import ContractChangeDirection, RunResult
 from archkeel.ir.model import RuleAssessmentStatus as _RuleAssessmentStatus
-from archkeel.ir.model import RunResult
 
 from .summary import Summary
 from .summary_badges import Badge, BadgeState, badge
@@ -66,6 +66,12 @@ def _diagnostic(item: Diagnostic) -> Panel:
         border_style=_COLORS[BadgeState.UNKNOWN],
         box=box.ROUNDED,
     )
+
+
+def _section(output: Console, title: str, lines: tuple[str, ...]) -> None:
+    output.print(Text(title, style="bold"))
+    for line in lines:
+        output.print(Text(f"  {line}"))
 
 
 def print_result(
@@ -125,9 +131,18 @@ def print_result(
             )
         output.print(regressions)
     if result.failures:
-        output.print(Text("Failures", style="bold"))
-        for line in (*(f"• {failure}" for failure in result.failures), *summary.call_sites):
-            output.print(Text(f"  {line}"))
+        _section(
+            output,
+            "Failures",
+            (*(f"• {failure}" for failure in result.failures), *summary.call_sites),
+        )
+    narrowed = tuple(
+        f"• {change.message}"
+        for change in result.contract_changes or ()
+        if change.direction is ContractChangeDirection.NARROWED
+    )
+    if narrowed:
+        _section(output, "Narrowed (no amendment needed)", narrowed)
     for diagnostic in result.diagnostics:
         output.print(_diagnostic(diagnostic))
     for path in artifacts:

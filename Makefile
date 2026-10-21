@@ -96,7 +96,7 @@ pr-test: browser-runtime-install
 		tests/test_target_navigation_graph.py \
 		tests/test_annotation_carriers.py \
 		tests/test_absent_import_namespace.py tests/test_dynamic_dependency_policy.py tests/test_string_comparison_observation.py tests/test_local_string_comparisons.py tests/test_string_predicate_observation.py tests/test_python_string_predicate_target.py tests/test_typed_host_events.py \
-		tests/test_empty_literal_all.py tests/test_review_workflow_fixture.py
+		tests/test_empty_literal_all.py tests/test_review_workflow_fixture.py tests/test_contract_edits.py
 
 pr-report-test:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q \

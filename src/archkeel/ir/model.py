@@ -1231,6 +1231,21 @@ class WideningFinding:
     field: str
 
 
+class ContractChangeDirection(StrEnum):
+    WIDENED = "widened"
+    NARROWED = "narrowed"
+
+
+@dataclass(frozen=True, slots=True)
+class ContractChange:
+    """One semantic contract change since `--against`, amended or not (AD-246)."""
+
+    direction: ContractChangeDirection
+    subject: str
+    field: str
+    message: str
+
+
 class UmlEligibility(StrEnum):
     BLOCKED = "blocked"
     VALIDATED_PARTIAL_SOURCE = "validated_partial_source"
@@ -1607,6 +1622,8 @@ class RunResult:
     failures: tuple[str, ...] = ()
     # Present as null without --against; otherwise only unamended/rejected changes.
     widenings: tuple[WideningFinding, ...] | None = None
+    # AD-246: every contract change with its direction; null without --against.
+    contract_changes: tuple[ContractChange, ...] | None = None
     amendment_status: AmendmentStatus | None = None
     # AD-77: baseline drift is reported as deterministic fingerprint counts.
     baseline_new: int | None = None

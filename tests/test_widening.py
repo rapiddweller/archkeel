@@ -46,6 +46,8 @@ from archkeel.ir.widening import (
     _RESTRICTION_RULE_KINDS,
     Amendment,
     baseline_widenings,
+    contract_narrowing_changes,
+    contract_widening_changes,
     contract_widenings,
     verify_amendment,
 )
@@ -1089,3 +1091,51 @@ def test_requires_entry_widens_only_outside_the_old_permission(
     # AD-245: an entry whose imports the same author already permitted to the same target narrows.
     findings = _component_diff(_requires(*before), _requires(*after))
     assert bool(findings) == widens, (label, findings)
+
+
+_NARROWING_CASES = (
+    (
+        "requires entry removed",
+        _contract((_requires(("other", ("pkg.a",), _AGENT)),)),
+        _contract((_requires(),)),
+        "requires",
+    ),
+    (
+        "requires entry contained",
+        _contract((_requires(("other", ("pkg.a",), _AGENT)),)),
+        _contract((_requires(("other", ("pkg.a:Sym",), _AGENT)),)),
+        "requires",
+    ),
+    (
+        "public entry removed",
+        _contract((_component(public=("pkg:A", "pkg:B")),)),
+        _contract((_component(public=("pkg:A",)),)),
+        "public",
+    ),
+    ("restriction rule added", _contract(), _contract(rules=(_complete_requires(),)), "presence"),
+    (
+        "permission rule removed",
+        _contract(rules=(_allowed_dependency(),)),
+        _contract(),
+        "presence",
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    "label,before,after,field", _NARROWING_CASES, ids=[case[0] for case in _NARROWING_CASES]
+)
+def test_narrowings_are_reported_without_widening(
+    label: str, before: ArchitectureContract, after: ArchitectureContract, field: str
+) -> None:
+    # AD-246: a reviewer sees what a contract no longer allows; only widenings need amendment.
+    narrowings = contract_narrowing_changes(before, after)
+    assert [item.field for item in narrowings] == [field], (label, narrowings)
+    assert contract_widening_changes(before, after) == (), label
+
+
+def test_a_widening_is_not_reported_as_a_narrowing() -> None:
+    before = _contract((_requires(("other", ("pkg.a:Sym",), _AGENT)),))
+    after = _contract((_requires(("other", ("pkg.a",), _AGENT)),))
+    assert contract_narrowing_changes(before, after) == ()
+    assert contract_widening_changes(before, after) != ()
