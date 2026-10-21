@@ -4317,7 +4317,7 @@ def _source_role_indexes(
     dict[tuple[str, str], list[Record]],
     dict[str, list[Record]],
     dict[tuple[str, str], list[RecordData]],
-    list[Record],
+    dict[tuple[str, str], list[Record]],
 ]:
     anchors: dict[tuple[str, str], list[Record]] = {}
     for role in roles:
@@ -4332,10 +4332,16 @@ def _source_role_indexes(
         definition_anchors.append(role)
     symbols: dict[str, list[Record]] = {}
     member_anchors: dict[tuple[str, str], list[RecordData]] = {}
-    imports: list[Record] = []
+    imports: dict[tuple[str, str], list[Record]] = {}
     for record in records:
         if record.kind == "import":
-            imports.append(record)
+            source_module = record.data.get("source_module")
+            origin_definition = record.data.get("origin_definition")
+            if isinstance(source_module, str) and isinstance(origin_definition, str):
+                origin_imports: list[Record] = imports.setdefault(
+                    (source_module, origin_definition), []
+                )
+                origin_imports.append(record)
         if record.data.get("qualified_name"):
             name = record.data.get("qualified_name")
             if isinstance(name, str):
@@ -4388,7 +4394,7 @@ def _validate_source_role(
     anchors: Mapping[tuple[str, str], list[Record]],
     symbols: Mapping[str, list[Record]],
     member_anchors: Mapping[tuple[str, str], list[RecordData]],
-    imports: list[Record],
+    imports: Mapping[tuple[str, str], list[Record]],
     evidence: Mapping[str, Evidence],
 ) -> None:
     role_name, canonical, declaration_id, source_scope, witness = _source_role_witness(
@@ -4565,7 +4571,13 @@ def _validate_parameter_source_role(
         raise ValueError("parameter role scope disagrees with its declaration owner")
     if role.data.get("role") == "parameter_default":
         _validate_parameter_default_owner(
-            role, parameter_name, declaration_id, owner_scope, witness, records, evidence
+            role,
+            parameter_name,
+            declaration_id,
+            owner_scope,
+            witness,
+            anchors,
+            evidence,
         )
     kind, targets, status = (
         role.data.get("expression_kind"),
@@ -4591,12 +4603,12 @@ def _validate_parameter_default_owner(
     declaration_id: str,
     owner_scope: str,
     witness: Evidence,
-    records: tuple[Record, ...],
+    anchors: Mapping[tuple[str, str], list[Record]],
     evidence: Mapping[str, Evidence],
 ) -> None:
     declarations = [
         record
-        for record in records
+        for record in anchors.get((owner_scope, declaration_id), ())
         if record.id == declaration_id
         and record.kind in {"function", "method"}
         and record.data.get("qualified_name") == owner_scope
@@ -4699,7 +4711,7 @@ def _validate_owned_source_role(
     witness: Evidence,
     anchors: Mapping[tuple[str, str], list[Record]],
     member_anchors: Mapping[tuple[str, str], list[RecordData]],
-    imports: list[Record],
+    imports: Mapping[tuple[str, str], list[Record]],
     records: tuple[Record, ...],
     evidence: Mapping[str, Evidence],
 ) -> None:
@@ -4717,11 +4729,9 @@ def _validate_owned_source_role(
                 raise ValueError("local source role disagrees with its lexical declaration scope")
         return
     excerpt = witness.excerpt
-    imported = any(
-        item.data.get("source_module") == role.data.get("source_module")
-        and item.data.get("origin_definition") == canonical
-        and _import_binds_source(item, excerpt)
-        for item in imports
+    source_module = role.data.get("source_module")
+    imported = isinstance(source_module, str) and any(
+        _import_binds_source(item, excerpt) for item in imports.get((source_module, canonical), ())
     )
     anchored_prefix = any(
         canonical.startswith(prefix + ".") and identity == declaration_id
