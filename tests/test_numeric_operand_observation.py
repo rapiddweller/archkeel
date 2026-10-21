@@ -94,6 +94,10 @@ def test_generic_type_alias_type_parameter_bounds_stay_unknown(tmp_path):
             "complete source witness",
         ),
         (
+            "WIDTH = 4\ntype Alias[WIDTH] = (\n    job_nonce % WIDTH\n)\n",
+            "type parameter",
+        ),
+        (
             "WIDTH = 4\ntype Alias[WIDTH, T: job_nonce % WIDTH] = T\n",
             "type parameter",
         ),

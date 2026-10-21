@@ -616,6 +616,7 @@ class ConstructCollector(ast.NodeVisitor):
         self.scope_stack: list[str] = [module.module]
         self.comparisons = comparisons
         self.inherits_stack: list[bool] = []
+        self.type_alias_evidence_ids: list[str] = []
         self.scopes = comparisons.scopes
 
     def _integer(
@@ -842,6 +843,7 @@ class ConstructCollector(ast.NodeVisitor):
             if isinstance(scope_evidence, str):
                 evidence_ids.append(scope_evidence)
         evidence_ids.extend(scope["scope_evidence_id"] for scope in binding_scopes or [])
+        evidence_ids.extend(self.type_alias_evidence_ids)
         owner = self.scope_stack[-1]
         self.items.append(
             classified(
@@ -871,6 +873,14 @@ class ConstructCollector(ast.NodeVisitor):
                 },
             )
         )
+
+    def visit_TypeAlias(self, node: ast.AST) -> None:
+        if sys.version_info >= (3, 12) and isinstance(node, ast.TypeAlias):
+            self.type_alias_evidence_ids.append(add_evidence(self.evidence, self.module, node))
+            self.generic_visit(node)
+            self.type_alias_evidence_ids.pop()
+            return
+        self.generic_visit(node)
 
     def visit_BinOp(self, node: ast.BinOp) -> None:
         if isinstance(node.op, ast.Mod):

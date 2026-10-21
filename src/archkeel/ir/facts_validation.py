@@ -1488,7 +1488,7 @@ def _numeric_operation_expression(
 def _numeric_type_alias_parameters(
     record: Record, evidence_by_id: Mapping[str, Evidence], expected_file: str
 ) -> tuple[frozenset[str], bool]:
-    """Return TypeAlias parameters that shadow numeric names, plus incomplete-scope state."""
+    """Return TypeAlias parameters attached to this operation's source witnesses."""
     type_alias = getattr(ast, "TypeAlias", None)
     if type_alias is None:
         return frozenset(), False
@@ -1514,33 +1514,25 @@ def _numeric_type_alias_parameters(
         operation_end_column,
     )
     parameter_names: set[str] = set()
-    generic_scope = False
-    seen: set[str] = set()
-    for evidence in evidence_by_id.values():
-        if (
-            evidence.id in seen
-            or evidence.file != expected_file
-            or evidence.line > operation_line
-            or evidence.end_line < operation_line
-        ):
+    incomplete_scope = False
+    for evidence_id in record.evidence_ids:
+        evidence = evidence_by_id.get(evidence_id)
+        if evidence is None or evidence.file != expected_file:
             continue
-        seen.add(evidence.id)
         excerpt = evidence.excerpt.lstrip()
         if not (excerpt.startswith("type ") and "[" in excerpt):
             continue
         parsed = _numeric_evidence_nodes(evidence)
         if parsed is None:
-            # A multiline header can be represented only by its opening line. It still
-            # identifies a generic alias, but cannot prove which names its scope binds.
-            generic_scope = True
+            # The collector attaches the TypeAlias evidence to its numeric sites. A
+            # multiline header excerpt may not include enough syntax to resolve names.
+            incomplete_scope = True
             continue
         roots, line_offset = parsed
-        found_header = False
         for root in roots:
             for candidate in ast.walk(root):
                 if not isinstance(candidate, type_alias):
                     continue
-                found_header = True
                 names = {
                     type_param.name
                     for type_param in candidate.type_params
@@ -1548,26 +1540,13 @@ def _numeric_type_alias_parameters(
                 }
                 if not names:
                     continue
-
-                def contains_operation(
-                    subtree: ast.AST,
-                    source_line: int = evidence.line,
-                    source_offset: int = line_offset,
-                ) -> bool:
-                    return any(
-                        _numeric_node_span(node, source_line, source_offset) == operation_span
-                        for node in ast.walk(subtree)
-                    )
-
-                if contains_operation(candidate.value):
-                    generic_scope = True
+                if any(
+                    _numeric_node_span(node, evidence.line, line_offset) == operation_span
+                    for subtree in (candidate.value, *candidate.type_params)
+                    for node in ast.walk(subtree)
+                ):
                     parameter_names.update(names)
-                elif any(contains_operation(type_param) for type_param in candidate.type_params):
-                    generic_scope = True
-                    parameter_names.update(names)
-        if not found_header:
-            generic_scope = True
-    return frozenset(parameter_names), generic_scope
+    return frozenset(parameter_names), incomplete_scope
 
 
 def _bounded_numeric_value(
