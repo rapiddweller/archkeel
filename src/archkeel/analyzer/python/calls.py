@@ -1236,6 +1236,7 @@ class CallCollector(ast.NodeVisitor):
             return None
         receiver = node.func.value
         constructor: ast.Call | None = receiver if isinstance(receiver, ast.Call) else None
+        assignment_site: ast.Name | None = None
         assignment_evidence: str | None = None
         if isinstance(receiver, ast.Name):
             binding = self.scopes.lookup(receiver, receiver.id)
@@ -1258,15 +1259,18 @@ class CallCollector(ast.NodeVisitor):
                 return None
             if (assignment.lineno, assignment.col_offset) >= (node.lineno, node.col_offset):
                 return None
-            if self._native_instance_member_changed(receiver.id, node):
-                return None
             constructor = assignment.value if isinstance(assignment.value, ast.Call) else None
-            assignment_evidence = add_evidence(self.evidence, self.module, sites[0])
+            assignment_site = sites[0]
         if constructor is None:
             return None
         type_identity = self._native_import_target(constructor.func)
         if type_identity is None or type_identity[0] != "random.Random":
             return None
+        if isinstance(receiver, ast.Name):
+            if self._native_instance_member_changed(receiver.id, node):
+                return None
+            if assignment_site is not None:
+                assignment_evidence = add_evidence(self.evidence, self.module, assignment_site)
         target = f"{type_identity[0]}.{node.func.attr}"
         if target not in NATIVE_CALL_TARGETS or self._native_target_revoked(target):
             return None
