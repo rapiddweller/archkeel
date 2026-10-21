@@ -181,11 +181,9 @@ def test_deferred_calls_follow_available_compiler_scope(expression, inlined_comp
     _, _, calls, _ = _facts(source)
     [call] = [item["data"] for item in calls if item["data"]["expression"] == "helper"]
     if inlined_comprehension and sys.version_info >= (3, 12):
-        # Inlined scopes need a native ownership proof before calls can be resolved.
+        # PEP 709 removes the child table, but the inlined scope preserves its parent binding.
         caller = symtable.symtable(source, "sample.py", "exec").get_children()[0]
         assert caller.get_children() == []
-        assert call["status"] == "unresolved" and call["targets"] == []
-        return
     assert call["status"] == "resolved" and call["targets"] == ["sample.core.helper"]
 
 
