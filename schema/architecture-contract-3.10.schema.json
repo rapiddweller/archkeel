@@ -2212,7 +2212,7 @@
         },
         "name": {
           "type": "string",
-          "pattern": "\\S"
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?![\\s\\S])"
         },
         "visibility": {
           "enum": [
@@ -2247,16 +2247,16 @@
         },
         "source": {
           "type": "string",
-          "pattern": "\\S"
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*(?![\\s\\S])"
         },
         "protocol": {
           "type": "string",
-          "pattern": "\\S"
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+(?![\\s\\S])"
         },
         "selectors": {
           "type": "array",
           "minItems": 1,
-          "uniqueItems": true,
+          "description": "Unique role/name pairs are enforced by the contract reader.",
           "items": {
             "$ref": "#/$defs/protocolDeclarationSelector"
           }
