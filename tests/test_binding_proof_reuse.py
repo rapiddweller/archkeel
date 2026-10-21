@@ -416,6 +416,59 @@ def test_overload_origin_proof_keeps_bound_once_inventories_unchanged() -> None:
     assert {m.module: unique_direct_module_bindings(m) for m in modules} == unique
 
 
+def test_enum_mutation_scan_is_reused_for_repeated_member_reads(monkeypatch) -> None:
+    from archkeel.analyzer.python import imports as import_module
+
+    original = import_module._enum_owner_is_mutated
+    calls = 0
+
+    def count_mutation_scans(owner_module, owner, proofs, mutation_index):
+        nonlocal calls
+        calls += 1
+        return original(owner_module, owner, proofs, mutation_index)
+
+    monkeypatch.setattr(import_module, "_enum_owner_is_mutated", count_mutation_scans)
+
+    def observe(mutation: str):
+        provider = _parsed_module(
+            "from enum import StrEnum\n"
+            "class OptionKey(StrEnum):\n"
+            "    READY = 'ready'\n"
+            "    DISABLED = 'disabled'\n",
+            "sample.options",
+            rel_path="sample/options.py",
+        )
+        consumer = _parsed_module(
+            "from .options import OptionKey\n"
+            + "".join("consume(OptionKey.READY)\n" for _ in range(100)),
+            "sample.api",
+            rel_path="sample/api.py",
+        )
+        mutator = _parsed_module(
+            "from .options import OptionKey\n" + mutation,
+            "sample.mutator",
+            rel_path="sample/mutator.py",
+        )
+        modules = [provider, consumer, mutator]
+        records = import_module.collect_imports(
+            modules, {module.module for module in modules}, {}, namespace="sample"
+        )
+        import_module.resolve_reexports(
+            records, {module.module: module.all_exports for module in modules}, modules
+        )
+        return consumer
+
+    assert len(observe("")._non_escaping_enum_values) == 100
+    for mutation in (
+        "OptionKey.READY = 'changed'\n",
+        "setattr(OptionKey, 'READY', 'changed')\n",
+        "del OptionKey.READY\n",
+        "delattr(OptionKey, 'READY')\n",
+    ):
+        assert not observe(mutation)._non_escaping_enum_values
+    assert calls == 5
+
+
 @pytest.mark.parametrize(
     "missing",
     [

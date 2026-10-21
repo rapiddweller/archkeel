@@ -107,7 +107,7 @@ def public_api_id(selector: str) -> str:
     return f"API-{hashlib.sha256(selector.encode()).hexdigest()[:16]}"
 
 
-SCHEMA_VERSION = "2.8.0"
+SCHEMA_VERSION = "2.9.0"
 DELTA_SCHEMA_VERSION = "2.0.0"
 
 
@@ -524,6 +524,37 @@ class ForbiddenCallArgumentRule(ArchitectureRuleGrammar):
 
 
 @dataclass(frozen=True, slots=True)
+class CatalogArgumentRule(ArchitectureRuleGrammar):
+    id: str
+    kind: Literal[ArchitectureRuleKind.CATALOG_ARGUMENT]
+    source: str
+    target: str
+    parameter: str
+    catalog: str
+    overlays: tuple[str, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+    source_match: SelectorMatch = SelectorMatch.PREFIX
+
+
+@dataclass(frozen=True, slots=True)
+class CatalogUseRule(ArchitectureRuleGrammar):
+    id: str
+    kind: Literal[ArchitectureRuleKind.CATALOG_USE]
+    source: str
+    catalog: str
+    overlays: tuple[str, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+    member: str | None = None
+    source_match: SelectorMatch = SelectorMatch.PREFIX
+    target: str | None = None
+    parameter: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ForbiddenEffectUnderConditionRule(ArchitectureRuleGrammar):
     id: str
     kind: Literal[ArchitectureRuleKind.FORBIDDEN_EFFECT_UNDER_CONDITION]
@@ -888,6 +919,8 @@ ArchitectureRule: TypeAlias = (
     CallOwnerRule
     | BoundedNumericOperandRule
     | ForbiddenCallArgumentRule
+    | CatalogArgumentRule
+    | CatalogUseRule
     | ForbiddenEffectUnderConditionRule
     | ForbiddenDependencyRule
     | AllowedDependencyRule
@@ -1125,7 +1158,9 @@ def _references(
 
 
 # The fields that hold one name rather than a list of them.
-_SCALAR_FIELDS: Final = frozenset({"source", "target", "root", "namespace", "command", "owner"})
+_SCALAR_FIELDS: Final = frozenset(
+    {"source", "target", "catalog", "root", "namespace", "command", "owner"}
+)
 
 
 def _boundary_allowance_references(
@@ -1186,10 +1221,40 @@ def _module_object_grant_references(
     ]
 
 
+def _catalog_references(
+    index: int, rule: CatalogArgumentRule | CatalogUseRule
+) -> list[ModuleReference]:
+    named = [
+        ("source", (rule.source,), True),
+        ("catalog", (rule.catalog,), True),
+        ("overlays", rule.overlays, True),
+    ]
+    if isinstance(rule, CatalogArgumentRule):
+        named.insert(1, ("target", (rule.target,), True))
+    elif rule.target is not None:
+        named.insert(1, ("target", (rule.target,), True))
+    return _references(f"/rules/{index}", named)
+
+
 def _rule_references(
     index: int, rule: ArchitectureRule, external: frozenset[str]
 ) -> list[ModuleReference]:
     """One rule's fields that name a module, a module prefix or a qualified symbol."""
+    if isinstance(rule, CallOwnerRule):
+        return _call_owner_references(index, rule)
+    if isinstance(rule, ForbiddenCallArgumentRule):
+        return _references(
+            f"/rules/{index}",
+            [("source", (rule.source,), True), ("target", (rule.target,), False)],
+        )
+    if isinstance(rule, CatalogArgumentRule | CatalogUseRule):
+        return _catalog_references(index, rule)
+    return _generic_rule_references(index, rule, external)
+
+
+def _generic_rule_references(
+    index: int, rule: ArchitectureRule, external: frozenset[str]
+) -> list[ModuleReference]:
     special = _special_rule_references(index, rule)
     if special is not None:
         return special
@@ -1262,6 +1327,23 @@ def _rule_references(
     return references
 
 
+def _source_ownership_references(
+    index: int, rule: SourceOwnershipRule, named: list[tuple[str, tuple[str, ...], bool]]
+) -> list[ModuleReference]:
+    if rule.owner is not None:
+        named.append(("owner", (rule.owner,), True))
+    references = _references(f"/rules/{index}", named)
+    for field, values in (("symbols", rule.symbols), ("parameters", rule.parameters)):
+        references.extend(
+            ModuleReference(f"/rules/{index}/{field}/{position}", value, False)
+            for position, value in enumerate(values)
+        )
+    if rule.value_owner is not None:
+        value_owner: str = rule.value_owner
+        references.append(ModuleReference(f"/rules/{index}/value_owner", value_owner, False))
+    return references
+
+
 def _special_rule_references(index: int, rule: ArchitectureRule) -> list[ModuleReference] | None:
     if isinstance(rule, CallOwnerRule):
         return _call_owner_references(index, rule)
@@ -1280,23 +1362,6 @@ def _special_rule_references(index: int, rule: ArchitectureRule) -> list[ModuleR
         )
         return references
     return None
-
-
-def _source_ownership_references(
-    index: int, rule: SourceOwnershipRule, named: list[tuple[str, tuple[str, ...], bool]]
-) -> list[ModuleReference]:
-    if rule.owner is not None:
-        named.append(("owner", (rule.owner,), True))
-    references = _references(f"/rules/{index}", named)
-    for field, values in (("symbols", rule.symbols), ("parameters", rule.parameters)):
-        references.extend(
-            ModuleReference(f"/rules/{index}/{field}/{position}", value, False)
-            for position, value in enumerate(values)
-        )
-    if rule.value_owner is not None:
-        value_owner: str = rule.value_owner
-        references.append(ModuleReference(f"/rules/{index}/value_owner", value_owner, False))
-    return references
 
 
 def module_references(

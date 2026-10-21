@@ -12,8 +12,10 @@ CONTRACT_SCHEMA_VERSION: Final = "2.1.0"
 class ContractFeature(StrEnum):
     CALL_OWNER = "call_owner"
     FORBIDDEN_CALL_ARGUMENT = "forbidden_call_argument"
-    GUARDED_EFFECT = "guarded_effect"
+    CATALOG_ARGUMENT = "catalog_argument"
+    CATALOG_USE = "catalog_use"
     CONSTRUCT_SELECTOR = "construct_selector"
+    GUARDED_EFFECT = "guarded_effect"
     UML = "uml"
     LAYERS = "layers"
     ALIAS_BODY = "alias_body"
@@ -46,6 +48,7 @@ class ContractVersion(StrEnum):
     V3_11 = "3.11.0"
     V3_12 = "3.12.0"
     V3_13 = "3.13.0"
+    V3_14 = "3.14.0"
 
 
 # Declaration order is the supported contract evolution order.
@@ -56,8 +59,10 @@ _FEATURE_START: dict[ContractFeature, ContractVersion] = {
     ContractFeature.CALL_OWNER: ContractVersion.V3_7,
     ContractFeature.BOUNDED_NUMERIC_OPERAND: ContractVersion.V3_8,
     ContractFeature.FORBIDDEN_CALL_ARGUMENT: ContractVersion.V3_10,
-    ContractFeature.GUARDED_EFFECT: ContractVersion.V3_13,
+    ContractFeature.CATALOG_ARGUMENT: ContractVersion.V3_14,
+    ContractFeature.CATALOG_USE: ContractVersion.V3_14,
     ContractFeature.CONSTRUCT_SELECTOR: ContractVersion.V3_11,
+    ContractFeature.GUARDED_EFFECT: ContractVersion.V3_13,
     ContractFeature.UML: ContractVersion.V2_2,
     ContractFeature.LAYERS: ContractVersion.V2_3,
     ContractFeature.ALIAS_BODY: ContractVersion.V3_0,

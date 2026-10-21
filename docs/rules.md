@@ -34,8 +34,10 @@ global coverage and cycle closure stay incomplete. See
 | Bound selected binary/augmented modulo operands | `bounded_numeric_operand` (3.8) |
 
 | Reject a written string literal at one bound call parameter | `forbidden_call_argument` (3.10) |
-| Forbid a canonical effect while a declared Boolean condition is true | `forbidden_effect_under_condition` (3.13) |
+| Require selected call arguments to name canonical enum catalog entries | `catalog_argument` (3.14) |
+| Require catalog members to have a genuine source read in scope | `catalog_use` (3.14) |
 | Retire a source name or confine its definition, use, transfer, default or fallback to a canonical owner | `source_ownership` (3.12) |
+| Forbid a canonical effect while a declared Boolean condition is true | `forbidden_effect_under_condition` (3.13) |
 
 Python static imports and proven literal `importlib.import_module` / `__import__`
 calls feed the same dependency rules. An unknown loader binding or target withholds
@@ -83,6 +85,7 @@ Unconditional effects are reachable while the condition is true. Stale or unsupp
 missing declarations, helper chains and recursion remain UNKNOWN. See
 [AD-250](architecture/decisions/ad-250-bounded-guarded-effect-ownership.md).
 
+`catalog_argument` selects a source scope, canonical operation, formal parameter and enum owner. It accepts exact string values declared by that enum and canonical enum member expressions; overlays name separate enum owners. Wrong string literals FAIL. Dynamic arguments, unresolved calls, or ambiguous catalog owners remain UNKNOWN. `catalog_use` requires each enum entry (or a named member) to have a real value/attribute read in its selected scope. Optional paired `target` and `parameter` fields also count a matching string actual only when it is bound to the selected, proven read operation. A same-text argument to another call does not count; dynamic selected actuals keep absence UNKNOWN. Comments, docstrings, definitions and annotation-only references do not count. `TYPE_CHECKING` reads count syntactically. Prefix scope matching remains the default; `source_match: "exact"` selects one module or scope. Catalog rules are Python-only and require observation 2.9 and contract 3.14. See [AD-251](architecture/decisions/ad-251-catalog-arguments-and-source-usage.md).
 `source_ownership` is Python-only. `retired` selects `symbols` with the `definition`,
 `read`, `write` and/or `delete` roles. `confined` selects `symbols` with an `owner`, or
 formal `parameters` with a `value_owner`; choose the corresponding role subset, including

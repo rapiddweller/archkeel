@@ -43,6 +43,8 @@ from archkeel.ir.facts_validation import validate_source_facts
 from archkeel.ir.model import (
     ArchitectureContract,
     CallOwnerRule,
+    CatalogArgumentRule,
+    CatalogUseRule,
     ContractComponent,
     ContractDeclarations,
     EvidenceClass,
@@ -51,6 +53,7 @@ from archkeel.ir.model import (
     GraphTopologyLevel,
     InterfaceBoundaryRule,
     ModuleExports,
+    SelectorMatch,
     in_scope,
     module_in_ownership,
     stable_id,
@@ -59,7 +62,7 @@ from archkeel.ir.model import (
 from archkeel.ir.profiles import Profile, profile_for
 from archkeel.ir.type_shapes import TypeShapeIndex
 
-from .call_argument_policy import call_argument_results
+from .call_argument_policy import call_argument_results, catalog_results
 from .call_owners import call_owner_results
 from .guarded_effects import guarded_effect_results
 from .imports import strip_internal_reexport_facts
@@ -318,9 +321,11 @@ def _inside_rule_results(
     construct_capabilities: tuple[ConstructCapability, ...],
     symbols_measured: bool,
     calls: Sequence[RawRecord],
+    references: Sequence[RawRecord],
     calls_complete: bool,
     bindings_measured: bool,
     arguments_measured: bool,
+    references_measured: bool,
     guarded_paths_measured: bool,
     root_contract: ArchitectureContract | None = None,
     imports: Sequence[RawRecord],
@@ -330,7 +335,6 @@ def _inside_rule_results(
     packages: Sequence[RawRecord],
     modules: Sequence[RawRecord],
     symbols: Sequence[RawRecord],
-    references: Sequence[RawRecord],
     blank_modules: frozenset[str],
     module_cycles: Sequence[RawRecord],
     profile: Profile,
@@ -434,11 +438,14 @@ def _inside_rule_results(
             scoped,
             scope=mount.parent_id,
             calls=calls,
+            imports=imports,
             modules=modules,
             symbols=symbols,
+            references=references,
             calls_complete=calls_complete,
             bindings_measured=bindings_measured,
             arguments_measured=arguments_measured,
+            references_measured=references_measured,
             blank_modules=blank_modules,
             profile=profile,
             scan_roots=call_scan_roots,
@@ -549,11 +556,14 @@ def _call_argument_rule_results(
     *,
     scope: str,
     calls: Sequence[RawRecord],
+    imports: Sequence[RawRecord],
     modules: Sequence[RawRecord],
     symbols: Sequence[RawRecord],
+    references: Sequence[RawRecord],
     calls_complete: bool,
     bindings_measured: bool,
     arguments_measured: bool,
+    references_measured: bool,
     blank_modules: frozenset[str],
     profile: Profile,
     scan_roots: tuple[str, ...],
@@ -565,13 +575,19 @@ def _call_argument_rule_results(
     limits: list[RawRecord] = []
     receipts: list[RawRecord] = []
     for rule in contract.rules:
-        if not isinstance(rule, ForbiddenCallArgumentRule):
+        if not isinstance(rule, ForbiddenCallArgumentRule | CatalogArgumentRule | CatalogUseRule):
             continue
+        match = (
+            rule.source_match
+            if isinstance(rule, (CatalogArgumentRule, CatalogUseRule))
+            else SelectorMatch.PREFIX
+        )
         packages, exact_modules = source_selector_domains(
             rule.source,
             modules,
             package_scopes=package_scopes,
             exact_module_scopes=exact_module_scopes,
+            match=match,
         )
         complete = calls_complete and source_domains_complete(
             modules=modules,
@@ -581,18 +597,35 @@ def _call_argument_rule_results(
             scan_roots=scan_roots,
         )
         selected_contract = replace(contract, components=(), rules=(rule,))
-        result = call_argument_results(
-            selected_contract,
-            scope=scope,
-            calls=calls,
-            modules=modules,
-            symbols=symbols,
-            complete=complete,
-            bindings_measured=bindings_measured,
-            arguments_measured=arguments_measured,
-            blank_modules=blank_modules,
-            source_modules=source_modules,
-        )
+        if isinstance(rule, ForbiddenCallArgumentRule):
+            result = call_argument_results(
+                selected_contract,
+                scope=scope,
+                calls=calls,
+                modules=modules,
+                symbols=symbols,
+                complete=complete,
+                bindings_measured=bindings_measured,
+                arguments_measured=arguments_measured,
+                blank_modules=blank_modules,
+                source_modules=source_modules,
+            )
+        else:
+            result = catalog_results(
+                selected_contract,
+                scope=scope,
+                calls=calls,
+                imports=imports,
+                modules=modules,
+                symbols=symbols,
+                references=references,
+                complete=complete,
+                bindings_measured=bindings_measured,
+                arguments_measured=arguments_measured,
+                references_measured=references_measured,
+                blank_modules=blank_modules,
+                source_modules=source_modules,
+            )
         violations.extend(result[0])
         limits.extend(result[1])
         receipts.extend(result[2])
@@ -1175,9 +1208,11 @@ def evaluate_source(
         construct_capabilities=facts.capabilities.constructs,
         symbols_measured=symbols_measured,
         calls=calls,
+        references=references,
         calls_complete=calls_complete,
         bindings_measured=bindings_measured,
         arguments_measured=arguments_measured,
+        references_measured=SourceSectionName.REFERENCES in facts.capabilities.sections,
         guarded_paths_measured=guarded_paths_measured,
         root_contract=contract,
         imports=imports,
@@ -1187,7 +1222,6 @@ def evaluate_source(
         packages=package_facts,
         modules=module_facts,
         symbols=symbols,
-        references=references,
         blank_modules=blank_modules,
         module_cycles=module_cycles,
         profile=profile,
@@ -1339,11 +1373,14 @@ def evaluate_source(
         contract,
         scope="root",
         calls=calls,
+        imports=imports,
         modules=module_facts,
         symbols=symbols,
+        references=references,
         calls_complete=calls_complete,
         bindings_measured=bindings_measured,
         arguments_measured=arguments_measured,
+        references_measured=SourceSectionName.REFERENCES in facts.capabilities.sections,
         blank_modules=blank_modules,
         profile=profile,
         scan_roots=roots,

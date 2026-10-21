@@ -1077,7 +1077,7 @@ def test_source_ownership_schemas_describe_current_contract_and_saved_observatio
     assert result.observation is not None, result.diagnostics
     observation = observation_payload(result.observation)
     Draft202012Validator(
-        json.loads((ROOT / "schema/architecture-ir-decoded-2.8.schema.json").read_bytes()),
+        json.loads((ROOT / "schema/architecture-ir-decoded-2.9.schema.json").read_bytes()),
         registry=registry,
     ).validate(observation)
     Draft202012Validator.check_schema(

@@ -39,6 +39,7 @@ _TOUR_APP_ORDERS = HEADER + (
     "import json\n"
     "from pathlib import Path\n"
     "from typing import TYPE_CHECKING\n\n"
+    "from shop.app.catalog import OptionKey, read_option\n"
     "from shop.model.entities import Line, Money, Order\n"
     "from shop.model import entities\n"
     "from shop.store import OrderRepository\n"
@@ -61,6 +62,11 @@ _TOUR_APP_ORDERS = HEADER + (
     "    return order\n\n\n"
     "def summarize(store_dir: Path, order_id: str) -> Money:\n"
     "    return OrderRepository(store_dir).load(order_id).total()\n\n\n"
+    "def read_catalog_option() -> str:\n"
+    "    read_option(OptionKey.RETIRED)\n"
+    '    return read_option("unlisted-option")\n\n\n'
+    "def external_nonce_bucket(job_nonce: int) -> int:\n"
+    "    return entities._nonce_bucket(job_nonce)\n\n\n"
     "def describe_connection(connection: Connection) -> str:\n"
     '    """Type-only use of the maintenance connection; never imported at runtime here."""\n'
     "    run_maintenance(connection)\n"
@@ -71,8 +77,6 @@ _TOUR_APP_ORDERS = HEADER + (
     "    for entry in order.lines:\n"
     "        running = running + entry.total()\n"
     "    return running\n\n\n"
-    "def external_nonce_bucket(job_nonce: int) -> int:\n"
-    "    return entities._nonce_bucket(job_nonce)\n\n\n"
     "def touch_store(connection: object, retries: int) -> str:\n"
     '    """A stray runtime reach into the store internals, for the showcase tour."""\n'
     "    attempts = 0\n"
@@ -205,6 +209,7 @@ _TOUR_ORDER_LOOKUP = HEADER + (
     "    return order_path(root, order_id)\n\n\n"
     "def find_order(root: Path, order_id: str) -> Path:\n"
     '    return lookup_order(root, "tour-order")\n'
+    "\n"
 )
 _TOUR_TOKENS = HEADER + (
     '"""Generate tokens with a forbidden seeded-path effect for the tour."""\n\n'
@@ -244,7 +249,7 @@ _TOUR = Variant(
     "only a declared facade function is inspected, so touch_store's own bare-object "
     "parameter, never declared, no longer fires here), a modulo operand below its "
     "declared width, a concrete reader member in place of its required protocol, a literal "
-    "order ID at a store path lookup, and a nonce helper read outside its declared model owner. "
+    "order ID at a store path lookup, an undeclared catalog key, and an unused PAGE_SIZE entry. "
     "CONSTRUCT-NO-DYNAMIC answers both the eval and the getattr; "
     "validate reports the rule.violated diagnostics plus 2 "
     "closed_world.observed_forbidden pairs (model->render, render->store) and 1 graph.drift, "
@@ -272,6 +277,8 @@ _TOUR = Variant(
     },
     expected_violations=(
         "APP-NO-LITERAL-ORDER-ID",
+        "APP-OPTION-KEY",
+        "APP-OPTION-KEY-USED",
         "APP-TYPES-NOT-DICT",
         "ASSIGNMENT-COMPLETE",
         "CALL-DESCRIBE-NO-MAINTENANCE",
@@ -330,13 +337,15 @@ _TOUR = Variant(
         "rule.violated",
         "rule.violated",
         "rule.violated",
+        "rule.violated",
+        "rule.violated",
     ),
 )
 _CLEAN = Variant(
     id="clean",
     section="clean",
     item="shop sample",
-    summary="The unmodified shop sample; its nonce helper stays within the declared model owner.",
+    summary="The unmodified shop sample; validate and report both report no findings.",
     files={},
     expected_violations=(),
     expected_codes=(),
@@ -358,4 +367,9 @@ _SOURCE_OWNERSHIP_ESCAPE = Variant(
     expected_declared_rules="FAIL",
 )
 
-VARIANTS: tuple[Variant, ...] = (_TOUR, _SEEDED_EFFECT, _CLEAN, _SOURCE_OWNERSHIP_ESCAPE)
+VARIANTS: tuple[Variant, ...] = (
+    _TOUR,
+    _SEEDED_EFFECT,
+    _CLEAN,
+    _SOURCE_OWNERSHIP_ESCAPE,
+)

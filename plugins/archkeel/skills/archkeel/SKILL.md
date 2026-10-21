@@ -299,7 +299,8 @@ by written terminal identifier suffix. Only bounded integer/Boolean literals,
 unary signs, powers and unique preceding aliases prove values. Review its source
 evidence: each operation and alias must fit a replayable single-line excerpt
 of at most 16,384 characters; single-line `if`, `elif`, `while`, `for`, `with`,
-function and class headers and inline suites are supported with Python indentation. Multiline
+function and class headers and inline suites are supported with Python indentation;
+`if`/`while` conditions are supported. Multiline
 or otherwise incomplete evidence remains UNKNOWN. Review the source
 receipt and UNKNOWNs; it does not establish runtime types, reachability, entropy
 or collision freedom. Empty/missing selected scope is UNKNOWN. See
@@ -316,13 +317,7 @@ retiring any method-name scanner. Argument facts require observation 2.5 and
 contract 3.10; older readers must reject that evidence. The current reader
 continues to accept historical observation formats.
 
-`forbidden_effect_under_condition` is a static ownership rule. It can prove a declared
-Boolean parameter/member through truth, negation, `if`/`else`, ternary and early
-`return`/`raise`, plus one unique private helper with signature-bound actuals. A known
-unconditional effect is reachable while the condition is true. Reassignment, named
-expressions, short-circuiting, loops, `try`/`finally`, reflection and helper chains or
-recursion remain UNKNOWN. Inspect the rule receipt and path evidence before relying on
-PASS; see [AD-250](../../docs/architecture/decisions/ad-250-bounded-guarded-effect-ownership.md).
+Use `catalog_argument` to compare a bound operation argument against canonical Python enum string values, and `catalog_use` to require a real selected member read. The contract names declaration owners, never copied values or `used` flags. Comments, docs, definitions and annotation-only links are not reads; `TYPE_CHECKING` reads count syntactically. Missing or partial scope remains UNKNOWN. These rules require contract 3.14 and observation 2.9; older saved artifacts remain readable but cannot certify them. See AD-251 for limits.
 Use `forbidden_construct.selector` when a policy must select one nominal
 receiver/member and access or comparison role. Contract 3.11 and observation
 2.6 enable the Python slice: annotated direct member reads, positional literal
@@ -342,6 +337,13 @@ UNKNOWN. This rule is available with contract 3.8 and observation wire 2.2; olde
 must reject those formats rather than silently ignore the rule or role facts. See
 [AD-249](https://github.com/rapiddweller/archkeel/blob/main/docs/architecture/decisions/ad-249-source-ownership-defaults.md)
 and the [rule catalog](https://github.com/rapiddweller/archkeel/blob/main/docs/rules.md).
+`forbidden_effect_under_condition` is a static ownership rule. It can prove a declared
+Boolean parameter/member through truth, negation, `if`/`else`, ternary and early
+`return`/`raise`, plus one unique private helper with signature-bound actuals. A known
+unconditional effect is reachable while the condition is true. Reassignment, named
+expressions, short-circuiting, loops, `try`/`finally`, reflection and helper chains or
+recursion remain UNKNOWN. Inspect the rule receipt and path evidence before relying on
+PASS; see [AD-250](../../docs/architecture/decisions/ad-250-bounded-guarded-effect-ownership.md).
 
 ## Daily loop
 

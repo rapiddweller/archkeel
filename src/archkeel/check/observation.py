@@ -715,7 +715,13 @@ def _certify_call_owner_scopes(
         r["id"]
         for r in declarations
         if r["kind"]
-        in {"call_owner", "forbidden_call_argument", "forbidden_effect_under_condition"}
+        in {
+            "call_owner",
+            "forbidden_call_argument",
+            "catalog_argument",
+            "catalog_use",
+            "forbidden_effect_under_condition",
+        }
     }
     receipts = [
         r

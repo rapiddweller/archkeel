@@ -26,6 +26,8 @@ from archkeel.ir.model import (
     BoundaryTypeAllowance,
     BoundaryTypesRule,
     BoundedNumericOperandRule,
+    CatalogArgumentRule,
+    CatalogUseRule,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
@@ -37,6 +39,7 @@ from archkeel.ir.model import (
     ContractComponent,
     DecisionMaker,
     ExternalDependencyScopeRule,
+    ForbiddenCallArgumentRule,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
     ForbiddenEffectUnderConditionRule,
@@ -82,6 +85,20 @@ def _allowed_dependency(**overrides: object) -> AllowedDependencyRule:
 def _forbidden_construct(**overrides: object) -> ForbiddenConstructRule:
     base = ForbiddenConstructRule(
         "R", "forbidden_construct", "pkg.a", ("eval",), "because", _PROVENANCE, "architect"
+    )
+    return replace(base, **overrides)
+
+
+def _forbidden_call_argument(**overrides: object) -> ForbiddenCallArgumentRule:
+    base = ForbiddenCallArgumentRule(
+        "R",
+        "forbidden_call_argument",
+        "pkg.a",
+        "pkg.b",
+        "value",
+        "because",
+        _PROVENANCE,
+        "architect",
     )
     return replace(base, **overrides)
 
@@ -189,6 +206,36 @@ def _protocol_declarations(**overrides: object) -> ProtocolDeclarationsRule:
         "pkg.a",
         "pkg.ports.Reader",
         (ProtocolDeclarationSelector("parameter", "client", "public"),),
+        "because",
+        _PROVENANCE,
+        "architect",
+    )
+    return replace(base, **overrides)
+
+
+def _catalog_argument(**overrides: object) -> CatalogArgumentRule:
+    base = CatalogArgumentRule(
+        "R",
+        "catalog_argument",
+        "pkg.consumer",
+        "pkg.read_option",
+        "key",
+        "pkg.catalog.OptionKey",
+        (),
+        "because",
+        _PROVENANCE,
+        "architect",
+    )
+    return replace(base, **overrides)
+
+
+def _catalog_use(**overrides: object) -> CatalogUseRule:
+    base = CatalogUseRule(
+        "R",
+        "catalog_use",
+        "pkg.consumer",
+        "pkg.catalog.OptionKey",
+        (),
         "because",
         _PROVENANCE,
         "architect",
@@ -450,6 +497,12 @@ _RULE_CASES: tuple[tuple[str, ArchitectureRule | None, ArchitectureRule | None, 
         ),
         True,
     ),
+    ("catalog_argument added", None, _catalog_argument(), False),
+    ("catalog_argument removed", _catalog_argument(), None, True),
+    ("catalog_use added", None, _catalog_use(), False),
+    ("catalog_use removed", _catalog_use(), None, True),
+    ("forbidden_call_argument added", None, _forbidden_call_argument(), False),
+    ("forbidden_call_argument removed", _forbidden_call_argument(), None, True),
     ("source_ownership added", None, _source_ownership(), False),
     ("source_ownership removed", _source_ownership(), None, True),
 )
@@ -488,6 +541,30 @@ def test_every_typed_rule_kind_has_one_widening_classification() -> None:
     """The typed ArchitectureRule union is the source of truth for this partition."""
     assert _PERMISSION_RULE_KINDS.isdisjoint(_RESTRICTION_RULE_KINDS)
     assert _PERMISSION_RULE_KINDS | _RESTRICTION_RULE_KINDS == RULE_KINDS
+
+
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        (_catalog_argument(), _catalog_argument(catalog="pkg.other.OptionKey")),
+        (_catalog_argument(), _catalog_argument(overlays=("pkg.custom.Keys",))),
+        (_catalog_argument(), _catalog_argument(source_match="exact")),
+        (_catalog_use(), _catalog_use(catalog="pkg.other.OptionKey")),
+        (_catalog_use(), _catalog_use(member="PAGE_SIZE")),
+        (_catalog_use(), _catalog_use(source_match="exact")),
+    ],
+    ids=[
+        "argument-catalog",
+        "argument-overlay",
+        "argument-scope",
+        "use-catalog",
+        "use-member",
+        "use-scope",
+    ],
+)
+def test_catalog_selector_changes_fail_closed_in_both_directions(before, after) -> None:
+    assert _rule_diff(before, after)
+    assert _rule_diff(after, before)
 
 
 def test_source_ownership_field_changes_fail_closed() -> None:

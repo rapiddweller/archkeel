@@ -111,6 +111,8 @@ _RESTRICTION_RULE_KINDS: Final = frozenset(
         "sibling_isolation",
         "symbol_placement",
         "boundary_types",
+        "catalog_argument",
+        "catalog_use",
         "source_ownership",
     }
 )

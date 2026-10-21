@@ -22,6 +22,29 @@ RULES = {
         "ForbiddenCallArgumentRule",
         {"source": "sample", "target": "sample.store.page", "parameter": "query"},
     ),
+    "catalog_argument": (
+        "CatalogArgumentRule",
+        {
+            "source": "sample",
+            "target": "sample.store.read",
+            "parameter": "key",
+            "catalog": "sample.options.OptionKey",
+            "overlays": ["sample.options.ExtraKey"],
+            "source_match": "exact",
+        },
+    ),
+    "catalog_use": (
+        "CatalogUseRule",
+        {
+            "source": "sample",
+            "catalog": "sample.options.OptionKey",
+            "overlays": ["sample.options.ExtraKey"],
+            "member": "PAGE_SIZE",
+            "source_match": "exact",
+            "target": "sample.options.read_option",
+            "parameter": "key",
+        },
+    ),
     "forbidden_effect_under_condition": (
         "ForbiddenEffectUnderConditionRule",
         {
@@ -82,11 +105,13 @@ RULES = {
 }
 RULE_SCHEMA_VERSIONS = {
     "forbidden_construct": "3.11.0",
+    "catalog_argument": "3.14.0",
+    "catalog_use": "3.14.0",
+    "forbidden_effect_under_condition": "3.13.0",
     "forbidden_call_argument": "3.10.0",
     "protocol_declarations": "3.9.0",
     "bounded_numeric_operand": "3.8.0",
     "source_ownership": "3.12.0",
-    "forbidden_effect_under_condition": "3.13.0",
 }
 
 

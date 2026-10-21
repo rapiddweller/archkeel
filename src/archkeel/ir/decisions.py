@@ -881,6 +881,8 @@ def _rule_receipt_complete(
     if declaration.kind in {
         "call_owner",
         "forbidden_call_argument",
+        "catalog_argument",
+        "catalog_use",
         "forbidden_effect_under_condition",
     }:
         return (
@@ -1198,6 +1200,7 @@ def dependency_binding_id(
         or section.name == "references"
         and (
             record.kind == "script_namespace_effect"
+            or include_calls
             or include_source_ownership
             and record.kind in {"source_role", "value_reference", "attribute_reference"}
         )
@@ -1216,6 +1219,8 @@ def dependency_binding_id(
             in {
                 "call_owner",
                 "forbidden_call_argument",
+                "catalog_argument",
+                "catalog_use",
                 "forbidden_effect_under_condition",
             }
             or record.kind == "protocol_declarations"

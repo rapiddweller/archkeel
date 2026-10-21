@@ -25,6 +25,8 @@ from archkeel.ir.model import (
     BoundaryTypesRule,
     BoundedNumericOperandRule,
     CallOwnerRule,
+    CatalogArgumentRule,
+    CatalogUseRule,
     CompatibilityLifetime,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
@@ -100,6 +102,36 @@ def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
             "target": rule.target,
             "parameter": rule.parameter,
             "rationale": rule.rationale,
+        }
+    elif isinstance(rule, CatalogArgumentRule):
+        area, title, subjects = (
+            "calls",
+            f"{rule.target}.{rule.parameter} names a declared catalog entry",
+            [rule.source, rule.target, rule.catalog],
+        )
+        data = {
+            "source": rule.source,
+            "target": rule.target,
+            "parameter": rule.parameter,
+            "catalog": rule.catalog,
+            "overlays": list(rule.overlays),
+            "source_match": rule.source_match,
+            "rationale": rule.rationale,
+        }
+    elif isinstance(rule, CatalogUseRule):
+        area, title, subjects = (
+            "references",
+            f"Catalog entries from {rule.catalog} have source reads",
+            [rule.source, rule.catalog],
+        )
+        data = {
+            "source": rule.source,
+            "catalog": rule.catalog,
+            "overlays": list(rule.overlays),
+            "source_match": rule.source_match,
+            "rationale": rule.rationale,
+            **({"member": rule.member} if rule.member is not None else {}),
+            **({"target": rule.target, "parameter": rule.parameter} if rule.target else {}),
         }
     elif isinstance(rule, ForbiddenEffectUnderConditionRule):
         area, title, subjects = (

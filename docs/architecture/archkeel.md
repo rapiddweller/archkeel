@@ -100,6 +100,7 @@ TypeScript UML identity matching separates type and value namespaces while retai
 definition-site ambiguity within each ([AD-233](decisions/ad-233-typescript-namespace-identities.md)).
 Written string actuals are bound to proven Python call formals before argument policies
 evaluate them; omitted defaults and unsupported bindings remain outside that proof
+([AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md)) and canonical catalog values and reads ([AD-251](decisions/ad-251-catalog-arguments-and-source-usage.md)).
 ([AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md)).
 Narrow construct policies select a nominal receiver, member and operation role;
 unproven subjects remain UNKNOWN ([AD-248](decisions/ad-248-construct-selectors.md)).
@@ -125,6 +126,7 @@ and canonical type identity; their exact and optional-union semantics are record
 | [AD-246](decisions/ad-246-bounded-numeric-operand.md) | Bind selected modulo bounds to bounded source-derived integer proofs. |
 
 | [AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md) | Bind explicitly written actuals to proven formals before applying argument policies. |
-| [AD-250](decisions/ad-250-bounded-guarded-effect-ownership.md) | Prove bounded Boolean paths and one call-site-specific private helper hop for canonical effects. |
+| [AD-251](decisions/ad-251-catalog-arguments-and-source-usage.md) | Check catalog membership and genuine source reads through canonical declarations. |
 | [AD-248](decisions/ad-248-construct-selectors.md) | Select one nominal receiver, member and construct role without global spelling bans. |
 | [AD-249](decisions/ad-249-source-ownership-defaults.md) | Constrain source definitions, value transfers, defaults, and fallbacks to canonical owners. |
+| [AD-250](decisions/ad-250-bounded-guarded-effect-ownership.md) | Prove bounded Boolean paths and one call-site-specific private helper hop for canonical effects. |

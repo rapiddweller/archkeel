@@ -342,6 +342,9 @@ class ParsedModule:
     _proven_constructor_returns: frozenset[ast.expr] = field(
         default_factory=frozenset, init=False, repr=False
     )
+    _non_escaping_enum_values: frozenset[ast.Attribute] = field(
+        default_factory=frozenset, init=False, repr=False
+    )
     all_nodes: tuple[ast.AST, ...] = field(init=False, repr=False)
     scope_nodes: tuple[ast.AST, ...] = field(init=False, repr=False)
     bound_names: tuple[str, ...] = field(init=False, repr=False)
@@ -1848,6 +1851,11 @@ def _protected_member_references(
     protected = _type_reference_nodes(module, type_expressions) if member_surface else set()
     if member_surface:
         protected |= {
+            root
+            for expression in module._non_escaping_enum_values
+            if isinstance((root := expression.value), ast.Name)
+        }
+        protected |= {
             expression.func
             for expression in module._proven_constructor_returns
             if isinstance(expression, ast.Call)
@@ -1873,7 +1881,6 @@ def _protected_member_references(
             for decorator in method.decorator_list
             for item in ast.walk(decorator)
         }
-    if member_surface:
         protected |= _type_reference_nodes(
             module,
             [base for node in nodes if isinstance(node, ast.ClassDef) for base in node.bases],
@@ -1890,7 +1897,6 @@ def _protected_member_references(
     }
     if owner_exposure_only:
         protected |= _protected_class_owner_references(module, unsafe_providers)
-    if owner_exposure_only:
         protected |= _type_reference_nodes(
             module,
             [
@@ -1956,6 +1962,8 @@ def member_escape_references(
                     continue
                 yield target
             elif isinstance(target, ast.Attribute):
+                if member_surface and target in module._non_escaping_enum_values:
+                    continue
                 pending.append(target.value)
             elif not isinstance(target, ast.Call):
                 pending.extend(ast.iter_child_nodes(target))
