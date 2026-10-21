@@ -2376,19 +2376,15 @@ def validate_source_facts(facts: SourceFacts) -> None:
         if not set(record.evidence_ids).issubset(evidence_ids):
             raise ValueError("dangling source evidence reference")
     type_alias_ranges: dict[str, list[tuple[int, int]]] = {}
-    for declaration in declarations_by_id.values():
-        if declaration.kind != "dynamic_binding":
-            continue
-        for type_alias_evidence_id in declaration.evidence_ids:
-            evidence = base_by_id[type_alias_evidence_id]
-            evidence_excerpt: str = evidence.excerpt
-            excerpt: str = evidence_excerpt.lstrip()
-            starts_type_alias: bool = excerpt.startswith("type ")
-            bracket = excerpt.find("[")
-            assignment = excerpt.find("=")
-            if starts_type_alias and bracket >= 0 and (assignment < 0 or bracket < assignment):
-                ranges: list[tuple[int, int]] = type_alias_ranges.setdefault(evidence.file, [])
-                ranges.append((evidence.line, evidence.end_line))
+    for evidence in base_by_id.values():
+        evidence_excerpt: str = evidence.excerpt
+        excerpt: str = evidence_excerpt.lstrip()
+        starts_type_alias: bool = excerpt.startswith("type ")
+        bracket = excerpt.find("[")
+        assignment = excerpt.find("=")
+        if starts_type_alias and bracket >= 0 and (assignment < 0 or bracket < assignment):
+            alias_ranges: list[tuple[int, int]] = type_alias_ranges.setdefault(evidence.file, [])
+            alias_ranges.append((evidence.line, evidence.end_line))
     type_alias_index: dict[str, tuple[tuple[int, ...], tuple[int, ...]]] = {}
     for file, file_ranges in type_alias_ranges.items():
         starts: list[int] = []
