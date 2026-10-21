@@ -2817,8 +2817,6 @@ def _numeric_type_alias_parameters(
     type_alias_index: Mapping[str, tuple[tuple[int, ...], tuple[int, ...]]],
 ) -> tuple[frozenset[str], bool]:
     """Return TypeAlias parameters attached to this operation's source witnesses."""
-    if sys.version_info < (3, 12):
-        return frozenset(), False
     operation_line = record.data.get("line")
     operation_column = record.data.get("column")
     operation_end_line = record.data.get("end_line")
@@ -2844,6 +2842,8 @@ def _numeric_type_alias_parameters(
     starts, max_ends = type_alias_index.get(expected_file, ((), ()))
     preceding = bisect_right(starts, operation_line) - 1
     incomplete_scope = preceding >= 0 and max_ends[preceding] >= operation_line
+    if sys.version_info < (3, 12):
+        return frozenset(), incomplete_scope
     for evidence_id in record.evidence_ids:
         evidence = evidence_by_id.get(evidence_id)
         if evidence is None or evidence.file != expected_file:
