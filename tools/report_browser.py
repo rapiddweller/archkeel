@@ -106,7 +106,7 @@ def _check_no_javascript(browser: Browser, report: Path, output: Path) -> None:
     try:
         page.goto(report.as_uri(), wait_until="load")
         assert page.locator(".atlas-heading").is_visible()
-        assert page.locator(".atlas-status").is_visible()
+        assert page.locator(".verdict-line").is_visible()
         page.locator(".atlas-source summary").click()
         assert page.get_by_role(
             "link", name="Complete architecture JSON and recorded evidence"
@@ -125,8 +125,9 @@ def _check_atlas(page: Page, architecture: Path) -> None:
     projection = architecture_projection(
         model, report, assessments, violation_remedy=VIOLATION_REMEDY
     )
-    assert str(model.source.git_head) in page.locator(".atlas-heading").inner_text()
+    assert str(model.source.git_head)[:7] in page.locator(".verdict-line").inner_text()
     audit_text = page.locator(".atlas-source").text_content() or ""
+    assert model.source.git_head in audit_text
     assert model.source.source_digest in audit_text
     assert model.contract.digest in audit_text
     assert data["source"] == {
@@ -1193,10 +1194,11 @@ def _capture_assets(browser: Browser, reports: dict[str, Path], output: Path) ->
         assert page.locator(".flow-nodes [data-uml-kind=component]").count()
         page.locator(".atlas-findings").evaluate("node => node.open = false")
         assert page.locator(".atlas-findings").is_visible()
-        assert page.locator(".atlas-verdict-grid .verdict-card").count() == 4
-        assert not page.locator(".atlas-status-key").count()
+        assert page.locator(".verdict-line").count() == 1
+        assert page.locator(".verdict-card, .atlas-status-key").count() == 0
         page.get_by_role("button", name="Health check", exact=True).click()
-        page.screenshot(path=str(output / "archkeel-report-preview.png"), full_page=True)
+        # AD-258: the preview is the first screen; a long findings list would break the size cap.
+        page.screenshot(path=str(output / "archkeel-report-preview.png"))
         page.locator("#flow").screenshot(path=str(output / "archkeel-component-flow.png"))
         page.locator('.flow-nodes [data-label="store"]').dblclick()
         _wait_for_layout(page)
@@ -1259,19 +1261,17 @@ def _check_report_verdicts(browser: Browser, reports: dict[str, Path], output: P
             page = browser.new_page(java_script_enabled=javascript)
             try:
                 page.goto(reports[name].as_uri(), wait_until="load")
-                for index, status in enumerate(("PASS", "FAIL", "UNKNOWN", "NOT CHECKED")):
-                    card = page.locator(".atlas-verdict-grid .verdict-card").nth(index)
-                    assert card.locator(".verdict-state").inner_text().endswith(status)
-                    if status == "NOT CHECKED":
-                        assert card.locator("h3").inner_text() == "Status definition"
-                    elif result["rule_assessments"] is None:
-                        assert card.locator("h3").inner_text() == "No recorded count"
-                    else:
-                        count = sum(item["status"] == status for item in result["rule_assessments"])
-                        assert (
-                            card.locator("h3").inner_text()
-                            == f"{count} rule{'s' if count != 1 else ''}"
-                        )
+                line = page.locator(".verdict-line").inner_text()
+                if result["rule_assessments"] is None:
+                    assert "rule counts not recorded" in line
+                else:
+                    counts = {
+                        status: sum(item["status"] == status for item in result["rule_assessments"])
+                        for status in ("PASS", "UNKNOWN")
+                    }
+                    assert f"{counts['PASS']} PASS · {counts['UNKNOWN']} UNKNOWN" in line
+                listed = page.locator(".findings-list > li").count()
+                assert listed == len(result.get("findings") or [])
                 for width in (1440, 375):
                     page.set_viewport_size({"width": width, "height": 1000})
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")

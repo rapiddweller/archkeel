@@ -107,7 +107,7 @@ def test_own_render_contract_enforces_output_direction(tmp_path, backward_import
             "def _flow_section(observation):\n    return ''\n"
             + _source_members(
                 "src/archkeel/render/html.py",
-                {"_atlas_rule_status_cards", "_structure_overview_body"},
+                {"_atlas_rule_counts", "_structure_overview_body"},
             )
         ),
         "docs/architecture/structure-level-types.md": (

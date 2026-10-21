@@ -263,14 +263,58 @@ h3 {
   border-radius: var(--ck-radius);
   background: var(--ck-surface);
 }
-.decision-banner[data-decision="pass"] {
+.decision-banner[data-decision="pass"],
+.verdict-line[data-decision="pass"] {
   --decision-color: var(--ck-pass);
 }
-.decision-banner[data-decision="fail"] {
+.decision-banner[data-decision="fail"],
+.verdict-line[data-decision="fail"] {
   --decision-color: var(--ck-fail);
 }
-.decision-banner[data-decision="unknown"] {
+.decision-banner[data-decision="unknown"],
+.verdict-line[data-decision="unknown"] {
   --decision-color: var(--ck-unknown);
+}
+.verdict-line {
+  margin: var(--ck-space-4) 0;
+  padding: var(--ck-space-3) var(--ck-space-4);
+  border: 1px solid var(--ck-border);
+  border-left: 4px solid var(--decision-color);
+  border-radius: var(--ck-radius);
+  background: var(--ck-surface);
+  color: var(--ck-muted);
+  overflow-wrap: anywhere;
+}
+.verdict-line strong {
+  color: var(--ck-text);
+}
+.findings-list {
+  margin: var(--ck-space-3) 0 var(--ck-space-6);
+  padding-left: var(--ck-space-6);
+}
+.findings-list > li {
+  margin: var(--ck-space-3) 0;
+  overflow-wrap: anywhere;
+}
+.findings-list p {
+  margin: var(--ck-space-1) 0 0;
+  color: var(--ck-muted);
+}
+.finding-size {
+  padding: 0 var(--ck-space-2);
+  border: 1px solid var(--ck-border);
+  border-radius: var(--ck-radius);
+  color: var(--ck-muted);
+  font-family: var(--ck-font-mono);
+  white-space: nowrap;
+}
+.finding-locations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ck-space-1) var(--ck-space-3);
+  margin: var(--ck-space-1) 0 0;
+  padding: 0;
+  list-style: none;
 }
 .decision-symbol {
   color: var(--decision-color);
@@ -291,9 +335,6 @@ h3 {
 }
 .verdict-grid-check {
   grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-.atlas-verdict-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .verdict-card {
   position: relative;
@@ -2143,10 +2184,6 @@ code {
   cursor:pointer;
   flex-shrink:0
 }
-.atlas-status {
-  color:var(--ck-muted);
-  margin:8px 0 12px
-}
 .flow[data-atlas] .flow-layout {
   display:grid;
   grid-template-columns:minmax(0,1fr);
@@ -2202,9 +2239,6 @@ code {
 .flow[data-atlas] .flow-toolbar {
   min-height: 0;
   gap: 8px;
-}
-.flow[data-atlas] .flow-how-to-read {
-  display:none
 }
 .atlas-summary {
   padding:4px 0;

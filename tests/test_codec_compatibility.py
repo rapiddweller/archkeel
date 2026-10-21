@@ -44,7 +44,12 @@ OWNERS = {
         "canonical_report_bytes",
     ),
     "delta": ("parse_delta", "delta_payload"),
-    "result": ("result_payload", "result_bytes", "_architecture_component_payload"),
+    "result": (
+        "result_payload",
+        "result_bytes",
+        "finding_payload",
+        "_architecture_component_payload",
+    ),
 }
 
 

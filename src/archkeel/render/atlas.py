@@ -15,12 +15,14 @@ from archkeel.ir.architecture_graph import OriginKind as _OriginKind
 from archkeel.ir.architecture_graph import RelationshipKind as _RelationshipKind
 from archkeel.ir.architecture_graph import RuleAssessmentStatus as _RuleAssessmentStatus
 from archkeel.ir.architecture_projection import ArchitectureProjection, PermissionStatus
-from archkeel.ir.codec import decode_json, value_bytes
+from archkeel.ir.codec import decode_json, finding_payload, value_bytes
 from archkeel.ir.decisions import rule_assessment_applies_to_component, rule_uncertainty_evidence
+from archkeel.ir.findings import evidence_locations
 from archkeel.ir.model import (
     Evidence,
     EvidenceClass,
     Observation,
+    RawJson,
     RecordData,
     RunResult,
     module_in_ownership,
@@ -259,15 +261,8 @@ def _finding_payload(
     evidence = {item.id: item for item in model.evidence}
     entries: list[dict[str, object]] = []
     for item in violations:
-        locations = sorted(
-            [
-                (evidence[identity].file, evidence[identity].line)
-                for identity in item.evidence_ids
-                if identity in evidence and evidence[identity].file is not None
-            ],
-            key=lambda location: (location[0] or "", location[1] or -1),
-        )
-        path, line = locations[0] if locations else (None, None)
+        locations = evidence_locations(evidence, item.evidence_ids)
+        path, line = (locations[0].path, locations[0].line) if locations else (None, None)
         entry: dict[str, object] = {
             "id": item.id,
             "rule_ids": item.rule_ids,
@@ -528,6 +523,10 @@ def _rule_assessments_payload(
     return rows
 
 
+def _ranked_findings_payload(result: RunResult) -> list[dict[str, RawJson]] | None:
+    return None if result.findings is None else [finding_payload(item) for item in result.findings]
+
+
 def atlas_payload(
     model: Observation,
     report: ArchitectureReport,
@@ -593,6 +592,7 @@ def atlas_payload(
         ),
         "levels": levels,
         "findings": findings,
+        "ranked_findings": _ranked_findings_payload(result),
         "balance": _system_balance(balances),
         "deviations": [item.to_wire() for item in deviations],
         "questions": questions,

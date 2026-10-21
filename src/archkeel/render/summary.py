@@ -19,6 +19,8 @@ from archkeel.ir.model import (
 from archkeel.ir.model import ComparisonStatus as _ComparisonStatus
 from archkeel.ir.model import (
     DraftedComponentSize,
+    Finding,
+    ReportLocation,
     RunResult,
 )
 from archkeel.ir.model import (
@@ -34,6 +36,8 @@ State: TypeAlias = BadgeState
 Comparison: TypeAlias = tuple[str, str, str, _MetricComparisonStatus]
 # AD-100: a rejected run names this many unresolved call sites; the JSON result names all.
 _CALL_SITES_SHOWN: Final = 5
+# AD-258: the terminal names this many findings; the JSON result and the HTML list all.
+_FINDINGS_SHOWN: Final = 5
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,7 +54,8 @@ class Summary:
     sentence: str
     verdicts: tuple[VerdictRow, ...]
     regressions: tuple[Comparison, ...]
-    # AD-35: the terminal's one claim line. The HTML shows the same claims as full tables.
+    # AD-258: the terminal's top findings of a report; AD-35: the one claim line of a validate,
+    # which ranks none. The HTML renders `result.findings` as its own list and shows no claims.
     claims: str = ""
     # AD-100: a heading, then one line per unresolved call site; empty without failures.
     call_sites: tuple[str, ...] = ()
@@ -173,8 +178,28 @@ def _report_filter_line(result: RunResult) -> str:
     return f"\n\nFiltered ({', '.join(facets)}): {shown} of {total} violation(s) shown."
 
 
+def location_text(location: ReportLocation) -> str:
+    """`file:line`; line 0 cites the file itself (AD-107), so only the file is named."""
+    return f"{location.path}:{location.line}" if location.line else location.path
+
+
+def _findings_lines(findings: tuple[Finding, ...]) -> str:
+    """The first findings of the one ranked list the HTML and JSON also carry (AD-258)."""
+    if not findings:
+        return "No ranked findings: no violation, dependency cycle or hub."
+    shown = findings[:_FINDINGS_SHOWN]
+    lines = [f"Findings, ranked ({len(shown)} of {len(findings)}):"]
+    for rank, item in enumerate(shown, 1):
+        where = f"  {location_text(item.locations[0])}" if item.locations else ""
+        lines.append(f"  {rank}. {item.title}{where}")
+    return "\n".join(lines)
+
+
 def _claims_line(result: RunResult) -> str:
-    """Name what each review claim found, never as a verdict (AD-26, AD-35); silent when absent."""
+    """Name the ranked findings, else what each review claim found, never as a verdict
+    (AD-26, AD-35, AD-258); silent when absent."""
+    if result.findings is not None:
+        return _findings_lines(result.findings)
     claims = result.claims
     if claims is None:
         return ""

@@ -1707,6 +1707,38 @@ class ReviewClaims:
     type_fanin: int | None
 
 
+class FindingKind(StrEnum):
+    """What a ranked finding is; the declaration order is the rank order (AD-258)."""
+
+    VIOLATION = "violation"
+    MODULE_CYCLE = "module_cycle"
+    PACKAGE_CYCLE = "package_cycle"
+    FAN_IN_HUB = "fan_in_hub"
+    FAN_OUT_HUB = "fan_out_hub"
+
+
+@dataclass(frozen=True, slots=True)
+class Finding:
+    """One ranked finding the report opens with; terminal, HTML and JSON all read this list.
+
+    Identity is `kind` plus `canonical_fingerprint(rules, subjects)` (AD-52, AD-106). `size` is
+    the kind's own measure: occurrences, internal import edges or the hub's fan count.
+    `change` and `before` stay None until a comparison fills them, so absence never reads
+    as "new" (AD-130).
+    """
+
+    kind: FindingKind
+    rules: tuple[str, ...]
+    subjects: tuple[str, ...]
+    size: int
+    title: str
+    sentence: str
+    locations: tuple[ReportLocation, ...]
+    component_ids: tuple[str, ...]
+    change: Literal["known", "new", "reduced", "resolved"] | None = None
+    before: int | None = None
+
+
 @dataclass(frozen=True, slots=True)
 class ViolationCounts:
     """How many violations each rule and each crossed component pair holds (AD-51).
@@ -1916,6 +1948,9 @@ class RunResult:
     # AD-105: each package prefix `validate --against` found renamed, old name first; empty when
     # the compared revision renamed nothing, None when the run compared no revision.
     renames: tuple[tuple[str, str], ...] | None = None
+    # AD-258: the ranked findings a report opens with, from `ir.findings.findings`; None where
+    # no report computed them, so an absent list never reads as "no findings".
+    findings: tuple[Finding, ...] | None = None
 
     def __post_init__(self) -> None:
         if self.amendment_status is not None:

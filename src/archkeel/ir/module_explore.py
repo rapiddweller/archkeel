@@ -6,7 +6,7 @@
 from collections import Counter, defaultdict
 from dataclasses import dataclass, replace
 from statistics import median
-from typing import Literal
+from typing import Final, Literal
 
 from .architecture_graph import (
     ArchitectureGraph,
@@ -41,6 +41,9 @@ from .model import (
 )
 from .report_graph import architecture_report
 from .structure import module_edges
+
+_HUB_FAN: Final = 10
+_HUBS_PER_LEVEL: Final = 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -596,6 +599,23 @@ def module_exploration(
     )
 
 
+def hub_modules(
+    level: ModuleExploreLevel, *, fan_in: bool
+) -> tuple[tuple[ModuleStatistic, int], ...]:
+    """The few modules of one level that many others import, or that import many (AD-258).
+
+    One rule for the fan-in hints and both kinds of hub finding. An unknown fan is not a small
+    one, so it never qualifies.
+    """
+    counted = [
+        (item, count)
+        for item in level.modules
+        if (count := item.fan_in if fan_in else item.fan_out) is not None and count >= _HUB_FAN
+    ]
+    counted.sort(key=lambda pair: (-pair[1], pair[0].name))
+    return tuple(counted[:_HUBS_PER_LEVEL])
+
+
 def _hint_candidates(
     level: ModuleExploreLevel,
     root: ModuleExploreLevel,
@@ -612,20 +632,16 @@ def _hint_candidates(
 
     if level.import_status == AssessmentStatus.PASS:
         hints.extend(_used_elsewhere_hints(level, root_modules, incoming, intents))
-        hubs = sorted(
-            (item for item in level.modules if item.fan_in is not None and item.fan_in >= 10),
-            key=lambda item: (-(item.fan_in or 0), item.name),
-        )[:3]
         hints.extend(
             _hint(
                 incoming,
                 "hub",
                 (item,),
                 (),
-                item.fan_in or 0,
+                count,
                 "Is this the intended shared kernel, or does it hold several responsibilities?",
             )
-            for item in hubs
+            for item, count in hub_modules(level, fan_in=True)
         )
     hints.extend(
         _hint(

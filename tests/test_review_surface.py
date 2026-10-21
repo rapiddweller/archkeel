@@ -17,7 +17,8 @@ from archkeel.render.html import render_check_html, render_html
 def test_explorer_follows_verdicts_and_preserves_finding_links(tmp_path: Path) -> None:
     _, observation, page = _report(tmp_path)
     body = page.split("</style>", 1)[1]
-    assert body.index('class="atlas-status"') < body.index('id="flow"')
+    assert body.index('class="verdict-line"') < body.index('class="findings-list"')
+    assert body.index('class="findings-list"') < body.index('id="flow"')
     assert body.index('id="flow"') < body.index('class="atlas-source"')
     audit = _linked_audit(page, tmp_path)
     assert audit == observation

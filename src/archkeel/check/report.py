@@ -59,6 +59,7 @@ from archkeel.ir.facts_codec import (
     selector_receiver_site_matches as _selector_receiver_site_matches,
 )
 from archkeel.ir.facts_validation import validate_source_bindings
+from archkeel.ir.findings import findings
 from archkeel.ir.model import (
     AssessmentStatus as _AssessmentStatus,
 )
@@ -67,6 +68,7 @@ from archkeel.ir.model import (
     CallRow,
     EvidenceClass,
     FilteredViolation,
+    Finding,
     Observation,
     ObservationResult,
     ReportFilter,
@@ -82,6 +84,7 @@ from archkeel.ir.model import (
 from archkeel.ir.model import (
     RuleAssessmentStatus as _RuleAssessmentStatus,
 )
+from archkeel.ir.module_explore import module_exploration
 from archkeel.ir.profiles import PROFILES
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.report_projection import architecture_projection
@@ -462,6 +465,20 @@ def _selected_finding_ids(
     return {identity for owner in projection.components for identity in owner.finding_ids}
 
 
+def _ranked_findings(
+    model: Observation,
+    report: ArchitectureReport,
+    complete: bool,
+    report_filter: ReportFilter | None,
+) -> tuple[Finding, ...] | None:
+    """AD-258: a partial observation ranks nothing, and filtered payloads carry no findings."""
+    if not complete or report_filter is not None:
+        return None
+    return findings(
+        model, module_exploration(model, report=report), violation_remedy=VIOLATION_REMEDY
+    )
+
+
 def _architecture_result(
     model: Observation,
     command_result: RunResult,
@@ -512,6 +529,7 @@ def _architecture_result(
             command_result,
             report_filter=report_filter,
             architecture_projection=projection,
+            findings=_ranked_findings(model, report, complete, report_filter),
             filtered_violations=None
             if not findings_available
             else tuple(item for item in selected_violations if item.record.id in finding_ids)
