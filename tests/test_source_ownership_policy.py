@@ -393,6 +393,16 @@ def test_dynamic_module_binding_is_a_real_definition_anchor(tmp_path):
 
 
 def test_annotation_references_are_typed_across_module_class_and_local_scopes(tmp_path):
+    import json
+
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import (
+        canonical_report_bytes,
+        encode_canonical_model,
+        observation_payload,
+        parse_observation,
+    )
+
     contract = _contract(
         {
             "mode": "retired",
@@ -415,6 +425,10 @@ def test_annotation_references_are_typed_across_module_class_and_local_scopes(tm
                 "        local: OptionKey.PAGE_SIZE\n"
                 "        return selected\n"
                 "value = OptionKey.PAGE_SIZE\n"
+                "def multiline(\n"
+                "    selected: OptionKey.PAGE_SIZE,\n"
+                ") -> OptionKey.PAGE_SIZE:\n"
+                "    return selected\n"
             ),
         },
         contract,
@@ -427,12 +441,74 @@ def test_annotation_references_are_typed_across_module_class_and_local_scopes(tm
         and item.data.get("expression") == "OptionKey.PAGE_SIZE"
     ]
     assert references
-    assert {item.data.get("reference_context") for item in references} == {"annotation", "value"}
+    assert {item.data.get("reference_context") for item in references} == {
+        "annotation",
+        "value",
+        "unknown",
+    }
     annotations = [
         item for item in references if item.data.get("reference_context") == "annotation"
     ]
     assert len(annotations) >= 5
     assert all(item.data.get("reference_context") == "annotation" for item in annotations)
+    ordinary = observation_payload(result.observation)
+    parse_observation(ordinary)
+    for index, payload in enumerate((ordinary, encode_canonical_model(ordinary))):
+        saved = tmp_path / f"annotation-replay-{index}.json"
+        if index == 0:
+            saved.write_bytes(canonical_report_bytes(payload))
+        else:
+            saved.write_text(json.dumps(payload))
+        assert not run_saved_report(saved).diagnostics
+
+
+def test_saved_value_reference_cannot_claim_annotation_context(tmp_path):
+    import copy
+
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import (
+        canonical_json_bytes,
+        encode_canonical_model,
+        observation_payload,
+        parse_observation,
+    )
+
+    contract = _contract(
+        {
+            "mode": "retired",
+            "symbols": ["sample.defaults.VALUE"],
+            "roles": ["read"],
+        }
+    )
+    contract["components"] = [_component("all", ["sample"])]
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/defaults.py": "VALUE = 1\n",
+            "sample/consumer.py": "from .defaults import VALUE\nx = VALUE\n",
+        },
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+    forged = copy.deepcopy(observation_payload(result.observation))
+    [reference] = [
+        item
+        for item in forged["references"]
+        if item["kind"] == "value_reference" and item["data"].get("expression") == "VALUE"
+    ]
+    reference["data"]["reference_context"] = "annotation"
+
+    with pytest.raises(ValueError, match="annotation reference contradicts its source occurrence"):
+        parse_observation(forged)
+    for index, payload in enumerate((forged, encode_canonical_model(forged))):
+        saved = tmp_path / f"forged-annotation-{index}.json"
+        saved.write_bytes(canonical_json_bytes(payload))
+        replay = run_saved_report(saved)
+        assert any(
+            "annotation reference contradicts its source occurrence" in item.unknown_claim
+            for item in replay.diagnostics
+        )
 
 
 def test_inline_parameter_default_and_fallback_duplicate_canonical_value(tmp_path):
@@ -1103,6 +1179,144 @@ def test_dictionary_callable_alias_and_lambda_transfer_are_detected(tmp_path):
     assert any(
         item.kind == "source_ownership_limit" for item in result.observation.records("unknowns")
     )
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [("handlers.run", "FAIL"), ("wrap(handlers.run)", "UNKNOWN")],
+    ids=["direct-attribute", "unsupported-wrapper"],
+)
+def test_dictionary_attribute_callable_transfer_is_tracked_and_replayed(tmp_path, value, expected):
+    import json
+
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import (
+        canonical_report_bytes,
+        encode_canonical_model,
+        observation_payload,
+    )
+    from archkeel.ir.decisions import rule_assessments, unknown_positions_by_rule
+
+    contract = _contract(
+        {
+            "mode": "confined",
+            "owner": "sample.storage",
+            "symbols": ["sample.handlers.run"],
+            "roles": ["value_transfer"],
+        }
+    )
+    contract["components"] = [_component("all", ["sample"])]
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/handlers.py": "def run(): return None\n",
+            "sample/storage.py": "",
+            "sample/consumer.py": f'from . import handlers\nREGISTRY = {{"run": {value}}}\n',
+        },
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+    [assessment] = [
+        item
+        for item in rule_assessments(
+            result.observation,
+            undecided_by_rule=unknown_positions_by_rule(result.observation),
+        )
+        if item.id == "ownership"
+    ]
+    assert assessment.status.value == expected
+    roles = [
+        item
+        for item in result.observation.records("references")
+        if item.kind == "source_role" and item.data.get("role") == "value_transfer"
+    ]
+    [target_role] = [
+        item for item in roles if item.data.get("canonical_name") == "sample.handlers.run"
+    ]
+    assert target_role.data.get("status") == (
+        "resolved" if expected == "FAIL" else "partially_resolved"
+    )
+    if expected == "UNKNOWN":
+        assert any(
+            item.kind == "source_ownership_limit"
+            and item.data.get("canonical_name") == "sample.handlers.run"
+            for item in result.observation.records("unknowns")
+        )
+    payload = observation_payload(result.observation)
+    ordinary = tmp_path / "attribute-transfer.json"
+    ordinary.write_bytes(canonical_report_bytes(payload))
+    [replayed] = [
+        item for item in run_saved_report(ordinary).rule_assessments if item.id == "ownership"
+    ]
+    assert replayed.status.value == expected
+    columnar = tmp_path / "attribute-transfer-columnar.json"
+    columnar.write_text(json.dumps(encode_canonical_model(payload)))
+    [replayed] = [
+        item for item in run_saved_report(columnar).rule_assessments if item.id == "ownership"
+    ]
+    assert replayed.status.value == expected
+
+
+def test_mounted_dictionary_attribute_transfer_is_owned_by_its_nested_rule(tmp_path):
+    import json
+
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes, observation_payload
+    from archkeel.ir.decisions import rule_assessments
+
+    contract = _contract({"mode": "retired", "symbols": ["sample.old"], "roles": ["read"]})
+    contract["rules"] = []
+    contract["components"] = [_component("core", ["sample.core"], inside="inside.json")]
+    inside = {
+        "schema_version": "3.12.0",
+        "components": [_component("consumer", ["sample.core.consumer"])],
+        "rules": [
+            _source_rule(
+                id="nested_transfer",
+                source="sample.core.consumer",
+                mode="confined",
+                owner="sample.core.storage",
+                symbols=["sample.core.handlers.run"],
+                roles=["value_transfer"],
+            )
+        ],
+    }
+    result = _observe_tree(
+        tmp_path,
+        {
+            "inside.json": json.dumps(inside),
+            "sample/__init__.py": "",
+            "sample/core/__init__.py": "",
+            "sample/core/handlers.py": "def run(): return None\n",
+            "sample/core/storage.py": "",
+            "sample/core/consumer/__init__.py": "",
+            "sample/core/consumer/registry.py": (
+                'from .. import handlers\nREGISTRY = {"run": handlers.run}\n'
+            ),
+        },
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+    [assessment] = [
+        item
+        for item in rule_assessments(result.observation, undecided_by_rule={})
+        if item.id.endswith("nested_transfer")
+    ]
+    assert assessment.status.value == "FAIL"
+    assert any(
+        item.kind == "source_ownership"
+        and item.data.get("canonical_name") == "sample.core.handlers.run"
+        for item in result.observation.records("violations")
+    )
+    saved = tmp_path / "mounted-transfer.json"
+    saved.write_bytes(canonical_report_bytes(observation_payload(result.observation)))
+    [replayed] = [
+        item
+        for item in run_saved_report(saved).rule_assessments
+        if item.id.endswith("nested_transfer")
+    ]
+    assert replayed.status == assessment.status
 
 
 def test_mounted_ownership_scope_does_not_leak_to_sibling_modules(tmp_path):

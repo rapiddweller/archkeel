@@ -88,6 +88,27 @@ def _native_facts(request):
     return facts
 
 
+def test_source_facts_reject_a_value_occurrence_claimed_as_an_annotation(tmp_path):
+    source = tmp_path / "src/sample"
+    source.mkdir(parents=True, exist_ok=True)
+    (source / "defaults.py").write_text("VALUE = 1\n")
+    (source / "consumer.py").write_text("from .defaults import VALUE\nx = VALUE\n")
+    request = _request(tmp_path)
+    facts = collect(request)
+    wire = json.loads(encode_response(CollectionResponse(facts, request.protocol_version)))
+    [reference] = [
+        item
+        for section in wire["facts"]["sections"]
+        if section["name"] == "references"
+        for item in section["records"]
+        if item["kind"] == "value_reference" and item["data"].get("expression") == "VALUE"
+    ]
+    reference["data"]["reference_context"] = "annotation"
+
+    with pytest.raises(ValueError, match="annotation reference contradicts its source occurrence"):
+        decode_response(json.dumps(wire).encode())
+
+
 def _captured_sources(request):
     initial = replace(
         request,

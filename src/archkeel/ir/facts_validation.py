@@ -4117,13 +4117,19 @@ def _validate_reference_contexts(
             continue
         if record.data.get("reference_context") == SourceReferenceContext.UNKNOWN:
             continue
-        if record.data.get("reference_context") != SourceReferenceContext.VALUE:
-            continue
         contexts = [
             _reference_annotation_excerpt(record, evidence[item])
             for item in record.evidence_ids
             if item in evidence
         ]
+        if record.data.get("reference_context") == SourceReferenceContext.ANNOTATION:
+            if False in contexts:
+                raise ValueError("annotation reference contradicts its source occurrence")
+            if True not in contexts:
+                raise ValueError("annotation reference lacks a complete bounded source occurrence")
+            continue
+        if record.data.get("reference_context") != SourceReferenceContext.VALUE:
+            continue
         if True in contexts:
             raise ValueError("value reference contradicts its annotated source occurrence")
         if False not in contexts:

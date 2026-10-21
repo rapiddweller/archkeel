@@ -65,6 +65,7 @@ from .facts import (
 )
 from .facts_validation import (
     _call_excerpt_matches,
+    _validate_reference_contexts,
     _validate_source_role_identities,
     validate_source_facts,
 )
@@ -126,6 +127,7 @@ from .type_shapes import (
 )
 
 validate_source_role_identities = _validate_source_role_identities
+validate_reference_contexts = _validate_reference_contexts
 
 
 def call_excerpt_matches(
