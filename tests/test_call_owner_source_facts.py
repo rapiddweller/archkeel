@@ -75,9 +75,7 @@ def _records(payload: dict, name: str) -> list[dict]:
 def test_walrus_default_witness_rejects_changed_callable_default(tmp_path, changed_default):
     payload = _payload(
         tmp_path,
-        "def outer():\n"
-        "    WIDTH = 4\n"
-        "    def sibling(value=(WIDTH := 5)): return value\n",
+        "def outer():\n    WIDTH = 4\n    def sibling(value=(WIDTH := 5)): return value\n",
     )
     sibling = next(
         record
