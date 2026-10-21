@@ -186,6 +186,15 @@ def test_multiline_type_alias_witnesses_only_prove_replayable_names(
         ),
         ("WIDTH = 4\ndef choose[T](x: job_nonce % 4): pass\n", "known"),
         (
+            "WIDTH = 4\ndef choose[T](job_nonce): return job_nonce % WIDTH\n",
+            "unknown",
+        ),
+        (
+            "WIDTH = 4\nclass Box[T]:\n    value = job_nonce % WIDTH\n",
+            "unknown",
+        ),
+        ("class Box[T]:\n    value = job_nonce % 4\n", "known"),
+        (
             "WIDTH = 4\n@decorate(job_nonce % WIDTH)\ndef choose[T](): pass\n",
             "known",
         ),
