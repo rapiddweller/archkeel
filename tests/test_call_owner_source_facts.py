@@ -291,184 +291,6 @@ def test_constructed_receiver_cannot_use_another_real_allocation(tmp_path):
         decode_response(json.dumps(payload).encode())
 
 
-@pytest.mark.parametrize(
-    "caller,extra",
-    [
-        (
-            "from .storage import Storage\ndef run(): Storage().page('x')\n",
-            {},
-        ),
-        (
-            "from .storage import Storage\ndef run():\n"
-            "    store = Storage()\n    store.page('x')\n",
-            {},
-        ),
-    ],
-    ids=["inline", "assigned"],
-)
-def test_constructed_receiver_keeps_identity_without_owner_escape(tmp_path, caller, extra):
-    payload = _payload(
-        tmp_path,
-        caller,
-        extra={
-            **extra,
-            "sample/storage.py": "class Storage:\n    def page(self, query): pass\n",
-        },
-    )
-    facts = decode_response(json.dumps(payload).encode()).facts
-    storage = next(
-        record
-        for section in facts.sections
-        for record in section.records
-        if record.data.get("qualified_name") == "sample.storage.Storage"
-    )
-    call = next(
-        record
-        for section in facts.sections
-        for record in section.records
-        if record.kind.endswith("_call")
-        and record.data.get("expression")
-        in {
-            "Storage().page",
-            "store.page",
-        }
-    )
-    binding = call.data.get("call_binding")
-    assert storage.data.get("source_member_owner_static") is True
-    assert isinstance(binding, RecordData)
-    assert binding.get("origin") == "constructed_receiver"
-    assert binding.get("target") == "sample.storage.Storage.page"
-
-
-def test_constructed_receiver_does_not_assume_inherited_default_constructor(tmp_path):
-    payload = _payload(
-        tmp_path,
-        "from .storage import Storage\ndef run(): Storage().page('x')\n",
-        extra={
-            "sample/storage.py": (
-                "class Base:\n    def page(self, query): pass\nclass Storage(Base): pass\n"
-            )
-        },
-    )
-    facts = decode_response(json.dumps(payload).encode()).facts
-    classes = {
-        record.data.get("qualified_name"): record
-        for section in facts.sections
-        for record in section.records
-        if record.kind == "class"
-    }
-    call = next(
-        record
-        for section in facts.sections
-        for record in section.records
-        if record.kind.endswith("_call") and record.data.get("expression") == "Storage().page"
-    )
-    binding = call.data.get("call_binding")
-    assert classes["sample.storage.Storage"].data.get("source_member_owner_static") is True
-    assert classes["sample.storage.Base"].data.get("source_member_owner_static") is True
-    assert classes["sample.storage.Storage"].data.get("default_instance_result") is False
-    assert binding is None
-
-
-@pytest.mark.parametrize("field_value", [False, None])
-def test_constructed_receiver_reader_requires_owner_identity_proof(tmp_path, field_value):
-    payload = _payload(
-        tmp_path,
-        "from .storage import Storage\ndef run(): Storage().page('x')\n",
-        extra={"sample/storage.py": "class Storage:\n    def page(self, query): pass\n"},
-    )
-    storage = next(
-        item
-        for item in _records(payload, "symbols")
-        if item["data"].get("qualified_name") == "sample.storage.Storage"
-    )
-    if field_value is None:
-        storage["data"].pop("source_member_owner_static", None)
-    else:
-        storage["data"]["source_member_owner_static"] = field_value
-    with pytest.raises(ProtocolError, match="constructed receiver"):
-        decode_response(json.dumps(payload).encode())
-
-
-@pytest.mark.parametrize(
-    "files,caller",
-    [
-        (
-            {
-                "sample/storage.py": (
-                    "class Storage:\n    def page(self, query): pass\n"
-                    "def replacement(self, query): pass\nStorage.page = replacement\n"
-                )
-            },
-            "from .storage import Storage\ndef run(): Storage().page('x')\n",
-        ),
-        (
-            {
-                "sample/storage.py": (
-                    "class Storage:\n    def page(self, query): pass\n"
-                    "def replacement(self, query): pass\n"
-                    "def mutate(cls): cls.page = replacement\n"
-                    "Alias = Storage\nmutate(Alias)\n"
-                )
-            },
-            "from .storage import Storage\ndef run(): Storage().page('x')\n",
-        ),
-        (
-            {
-                "sample/storage.py": "class Storage:\n    def page(self, query): pass\n",
-                "sample/api.py": "from .storage import Storage\n",
-                "sample/mutator.py": (
-                    "from .api import Storage\n"
-                    "def replacement(self, query): pass\n"
-                    "def mutate(cls): cls.page = replacement\nmutate(Storage)\n"
-                ),
-            },
-            "from .api import Storage\ndef run(): Storage().page('x')\n",
-        ),
-        (
-            {"sample/storage.py": "class Storage:\n    def page(self, query): pass\n"},
-            "from .storage import Storage\n"
-            "def replacement(self, query): pass\n"
-            "def run():\n    store = Storage()\n"
-            "    store.page = replacement\n    store.page('x')\n",
-        ),
-        (
-            {"sample/storage.py": "class Storage:\n    def page(self, query): pass\n"},
-            "from .storage import Storage\n"
-            "def replacement(self, query): pass\n"
-            "def mutate(instance): instance.page = replacement\n"
-            "def run():\n    store = Storage()\n    mutate(store)\n    store.page('x')\n",
-        ),
-    ],
-    ids=[
-        "direct-class-mutation",
-        "local-alias",
-        "reexport-mutation",
-        "instance-mutation",
-        "instance-forwarding",
-    ],
-)
-def test_constructed_receiver_loses_identity_after_member_escape(tmp_path, files, caller):
-    extra = {**files, "sample/caller.py": caller}
-    payload = _payload(tmp_path, caller, extra=extra)
-    facts = decode_response(json.dumps(payload).encode()).facts
-    storage = next(
-        record
-        for section in facts.sections
-        for record in section.records
-        if record.data.get("qualified_name") == "sample.storage.Storage"
-    )
-    call = next(
-        record
-        for section in facts.sections
-        for record in section.records
-        if record.kind.endswith("_call")
-        and record.data.get("expression") in {"Storage().page", "store.page"}
-    )
-    assert storage.data.get("source_member_owner_static") is False
-    assert call.data.get("call_binding") is None
-
-
 def test_native_selector_annotation_uses_proven_reexport_origin(tmp_path):
     payload = _payload(
         tmp_path,
@@ -703,6 +525,184 @@ def test_native_nested_attribute_chain_keeps_exact_declared_receiver(tmp_path):
     assert selector.data.get("member") == "parent"
     assert selector.data.get("receiver_type") == "sample.caller.Store"
     assert selector.data.get("receiver_parameter") == "store"
+
+
+@pytest.mark.parametrize(
+    "caller,extra",
+    [
+        (
+            "from .storage import Storage\ndef run(): Storage().page('x')\n",
+            {},
+        ),
+        (
+            "from .storage import Storage\ndef run():\n"
+            "    store = Storage()\n    store.page('x')\n",
+            {},
+        ),
+    ],
+    ids=["inline", "assigned"],
+)
+def test_constructed_receiver_keeps_identity_without_owner_escape(tmp_path, caller, extra):
+    payload = _payload(
+        tmp_path,
+        caller,
+        extra={
+            **extra,
+            "sample/storage.py": "class Storage:\n    def page(self, query): pass\n",
+        },
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    storage = next(
+        record
+        for section in facts.sections
+        for record in section.records
+        if record.data.get("qualified_name") == "sample.storage.Storage"
+    )
+    call = next(
+        record
+        for section in facts.sections
+        for record in section.records
+        if record.kind.endswith("_call")
+        and record.data.get("expression")
+        in {
+            "Storage().page",
+            "store.page",
+        }
+    )
+    binding = call.data.get("call_binding")
+    assert storage.data.get("source_member_owner_static") is True
+    assert isinstance(binding, RecordData)
+    assert binding.get("origin") == "constructed_receiver"
+    assert binding.get("target") == "sample.storage.Storage.page"
+
+
+def test_constructed_receiver_does_not_assume_inherited_default_constructor(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "from .storage import Storage\ndef run(): Storage().page('x')\n",
+        extra={
+            "sample/storage.py": (
+                "class Base:\n    def page(self, query): pass\nclass Storage(Base): pass\n"
+            )
+        },
+    )
+    facts = decode_response(json.dumps(payload).encode()).facts
+    classes = {
+        record.data.get("qualified_name"): record
+        for section in facts.sections
+        for record in section.records
+        if record.kind == "class"
+    }
+    call = next(
+        record
+        for section in facts.sections
+        for record in section.records
+        if record.kind.endswith("_call") and record.data.get("expression") == "Storage().page"
+    )
+    binding = call.data.get("call_binding")
+    assert classes["sample.storage.Storage"].data.get("source_member_owner_static") is True
+    assert classes["sample.storage.Base"].data.get("source_member_owner_static") is True
+    assert classes["sample.storage.Storage"].data.get("default_instance_result") is False
+    assert binding is None
+
+
+@pytest.mark.parametrize("field_value", [False, None])
+def test_constructed_receiver_reader_requires_owner_identity_proof(tmp_path, field_value):
+    payload = _payload(
+        tmp_path,
+        "from .storage import Storage\ndef run(): Storage().page('x')\n",
+        extra={"sample/storage.py": "class Storage:\n    def page(self, query): pass\n"},
+    )
+    storage = next(
+        item
+        for item in _records(payload, "symbols")
+        if item["data"].get("qualified_name") == "sample.storage.Storage"
+    )
+    if field_value is None:
+        storage["data"].pop("source_member_owner_static", None)
+    else:
+        storage["data"]["source_member_owner_static"] = field_value
+    with pytest.raises(ProtocolError, match="constructed receiver"):
+        decode_response(json.dumps(payload).encode())
+
+
+@pytest.mark.parametrize(
+    "files,caller",
+    [
+        (
+            {
+                "sample/storage.py": (
+                    "class Storage:\n    def page(self, query): pass\n"
+                    "def replacement(self, query): pass\nStorage.page = replacement\n"
+                )
+            },
+            "from .storage import Storage\ndef run(): Storage().page('x')\n",
+        ),
+        (
+            {
+                "sample/storage.py": (
+                    "class Storage:\n    def page(self, query): pass\n"
+                    "def replacement(self, query): pass\n"
+                    "def mutate(cls): cls.page = replacement\n"
+                    "Alias = Storage\nmutate(Alias)\n"
+                )
+            },
+            "from .storage import Storage\ndef run(): Storage().page('x')\n",
+        ),
+        (
+            {
+                "sample/storage.py": "class Storage:\n    def page(self, query): pass\n",
+                "sample/api.py": "from .storage import Storage\n",
+                "sample/mutator.py": (
+                    "from .api import Storage\n"
+                    "def replacement(self, query): pass\n"
+                    "def mutate(cls): cls.page = replacement\nmutate(Storage)\n"
+                ),
+            },
+            "from .api import Storage\ndef run(): Storage().page('x')\n",
+        ),
+        (
+            {"sample/storage.py": "class Storage:\n    def page(self, query): pass\n"},
+            "from .storage import Storage\n"
+            "def replacement(self, query): pass\n"
+            "def run():\n    store = Storage()\n"
+            "    store.page = replacement\n    store.page('x')\n",
+        ),
+        (
+            {"sample/storage.py": "class Storage:\n    def page(self, query): pass\n"},
+            "from .storage import Storage\n"
+            "def replacement(self, query): pass\n"
+            "def mutate(instance): instance.page = replacement\n"
+            "def run():\n    store = Storage()\n    mutate(store)\n    store.page('x')\n",
+        ),
+    ],
+    ids=[
+        "direct-class-mutation",
+        "local-alias",
+        "reexport-mutation",
+        "instance-mutation",
+        "instance-forwarding",
+    ],
+)
+def test_constructed_receiver_loses_identity_after_member_escape(tmp_path, files, caller):
+    extra = {**files, "sample/caller.py": caller}
+    payload = _payload(tmp_path, caller, extra=extra)
+    facts = decode_response(json.dumps(payload).encode()).facts
+    storage = next(
+        record
+        for section in facts.sections
+        for record in section.records
+        if record.data.get("qualified_name") == "sample.storage.Storage"
+    )
+    call = next(
+        record
+        for section in facts.sections
+        for record in section.records
+        if record.kind.endswith("_call")
+        and record.data.get("expression") in {"Storage().page", "store.page"}
+    )
+    assert storage.data.get("source_member_owner_static") is False
+    assert call.data.get("call_binding") is None
 
 
 def test_native_binding_cannot_use_another_imports_witness(tmp_path):

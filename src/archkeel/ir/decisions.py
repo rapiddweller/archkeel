@@ -1223,10 +1223,9 @@ def dependency_binding_id(
                 "catalog_use",
                 "forbidden_effect_under_condition",
             }
-            or record.kind in {"protocol_declarations", "bounded_numeric_operand"}
+            or record.kind == "protocol_declarations"
             or include_source_ownership
             and record.kind == "source_ownership"
-            or record.kind == "protocol_declarations"
         )
     ]
     bound.extend(failures)

@@ -197,6 +197,9 @@
           "calls": {
             "$ref": "urn:archkeel:architecture-ir:python-decoded:2.9.0#/properties/calls"
           },
+          "constructs": {
+            "$ref": "urn:archkeel:architecture-ir:python-decoded:2.9.0#/properties/constructs"
+          },
           "symbols": {
             "$ref": "urn:archkeel:architecture-ir:python-decoded:2.9.0#/properties/symbols"
           }
