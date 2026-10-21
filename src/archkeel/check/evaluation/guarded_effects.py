@@ -723,7 +723,7 @@ def _helper_proof_results(
     unresolved_helper_effect = False
     if not matched_helper:
         for row in selected:
-            row_data = parse_record(row).data
+            row_data: RecordData = parse_record(row).data
             inner_binding = call_binding(row_data.get("call_binding"))
             if (
                 row_data.get("source_scope") == binding.target
@@ -735,7 +735,7 @@ def _helper_proof_results(
     if unresolved_helper_effect:
         helper_symbol = call
         for symbol in scoped_symbols:
-            symbol_data = parse_record(symbol).data
+            symbol_data: RecordData = parse_record(symbol).data
             if symbol_data.get("qualified_name") == binding.target:
                 helper_symbol = symbol
                 break
