@@ -1608,7 +1608,21 @@ class CallCollector(ast.NodeVisitor):
             None,
         )
 
-    def _call_arguments(self, node: ast.Call) -> list[RecordData]:
+    def _call_arguments(
+        self, node: ast.Call, expression: str, binding: RecordData | None
+    ) -> list[RecordData] | None:
+        if (
+            binding is None
+            or node.end_lineno != node.lineno
+            or not call_excerpt_matches(
+                expression,
+                self.module.lines[node.lineno - 1],
+                node.lineno,
+                node.col_offset,
+                node.end_lineno,
+            )
+        ):
+            return None
         arguments: list[RecordData] = []
         for argument in node.args:
             value = argument.value if isinstance(argument, ast.Starred) else argument
@@ -1681,7 +1695,6 @@ class CallCollector(ast.NodeVisitor):
                 for evidence_id in self.symbol_evidence.get(target, [])
             }
         )
-        source_line = self.module.lines[node.lineno - 1]
         self.items.append(
             classified(
                 item_id=item_id,
@@ -1704,19 +1717,7 @@ class CallCollector(ast.NodeVisitor):
                     "candidates_truncated": candidate_count > len(targets),
                     "reason": reason,
                     "target_evidence_ids": target_evidence_ids,
-                    "call_arguments": (
-                        self._call_arguments(node)
-                        if binding is not None
-                        and node.end_lineno == node.lineno
-                        and call_excerpt_matches(
-                            expression,
-                            source_line,
-                            node.lineno,
-                            node.col_offset,
-                            node.end_lineno,
-                        )
-                        else None
-                    ),
+                    "call_arguments": self._call_arguments(node, expression, binding),
                     "result_bindings": self._result_bindings(node, item_id),
                     "construction": self._construction(
                         node, expression, status, targets, candidate_count > len(targets)
