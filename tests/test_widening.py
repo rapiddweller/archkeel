@@ -1139,3 +1139,17 @@ def test_a_widening_is_not_reported_as_a_narrowing() -> None:
     after = _contract((_requires(("other", ("pkg.a",), _AGENT)),))
     assert contract_narrowing_changes(before, after) == ()
     assert contract_widening_changes(before, after) != ()
+
+
+@pytest.mark.parametrize(
+    ("component_author", "entry_author", "widens"),
+    [(_AGENT, _AGENT, False), (_ARCHITECT, _AGENT, True)],
+    ids=["same effective author", "another effective author"],
+)
+def test_requires_containment_compares_effective_authors(
+    component_author: DecisionMaker, entry_author: DecisionMaker, widens: bool
+) -> None:
+    # An entry without decided_by inherits its component's author (AD-50).
+    before = replace(_requires(("other", ("pkg.a",), None)), decided_by=component_author)
+    after = replace(_requires(("other", ("pkg.a:Sym",), entry_author)), decided_by=component_author)
+    assert bool(_component_diff(before, after)) == widens

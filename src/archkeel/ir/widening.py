@@ -566,6 +566,14 @@ def _requires_widenings(
     return findings
 
 
+def _effective_requires(component: ContractComponent) -> tuple[RequiredComponent, ...]:
+    """Entries with the author they inherit from their component when they name none (AD-50)."""
+    return tuple(
+        replace(item, decided_by=item.decided_by or component.decided_by)
+        for item in component.requires or ()
+    )
+
+
 def _contained(entry: RequiredComponent, before: tuple[RequiredComponent, ...]) -> bool:
     """Whether `before` already let the same author import everything `entry` permits."""
     same = tuple(
@@ -622,7 +630,7 @@ def _component_widenings(
             WideningChange(subject, "planned", f"{subject}.planned lost {item!r}")
             for item in sorted(before_planned - after_planned - promoted)
         ],
-        *_requires_widenings(subject, before.requires or (), after.requires or ()),
+        *_requires_widenings(subject, _effective_requires(before), _effective_requires(after)),
         *_namespace_widenings(subject, before.namespace, after.namespace),
         *_generic_field_widenings(
             subject,
@@ -813,7 +821,9 @@ def contract_narrowing_changes(
             WideningChange(subject, "public", f"{subject}.public lost {entry!r}")
             for entry in sorted(frozenset(old.public or ()) - frozenset(component.public or ()))
         ]
-        findings += _requires_narrowings(subject, old.requires or (), component.requires or ())
+        findings += _requires_narrowings(
+            subject, _effective_requires(old), _effective_requires(component)
+        )
     before_rules = {rule.id: rule for rule in before.rules}
     after_rules = {rule.id: rule for rule in after.rules}
     findings += [
