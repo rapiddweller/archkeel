@@ -41,6 +41,11 @@ empty or missing selected scopes remain UNKNOWN. It does not infer runtime types
 operator overloads, execution reachability, entropy or collision freedom. See
 [AD-246](architecture/decisions/ad-246-bounded-numeric-operand.md).
 
+Named numeric operands inside Python 3.12 generic function and class definition
+intervals, including defaults, remain UNKNOWN because their header scopes are not
+replayed independently. Literal operands remain provable; decorators stay in their
+outer scope.
+
 `forbidden_call_argument` requires a unique, statically proven target
 declaration and observed callable signature. Only explicit actuals with
 complete, valid bindings are considered; spreads, duplicates, missing
