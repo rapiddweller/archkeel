@@ -4,6 +4,7 @@
 """Cross-reference and source-payload invariants of the collection protocol."""
 
 import ast
+from bisect import bisect_right
 from collections.abc import Collection, Iterable, Mapping
 from functools import lru_cache
 from pathlib import PurePosixPath
@@ -1485,6 +1486,75 @@ def _numeric_operation_expression(
     return next(iter(matches.values())) if len(matches) == 1 else None
 
 
+def _numeric_type_alias_parameters(
+    record: Record,
+    evidence_by_id: Mapping[str, Evidence],
+    expected_file: str,
+    type_alias_index: Mapping[str, tuple[tuple[int, ...], tuple[int, ...]]],
+) -> tuple[frozenset[str], bool]:
+    """Return TypeAlias parameters attached to this operation's source witnesses."""
+    type_alias = getattr(ast, "TypeAlias", None)
+    if type_alias is None:
+        return frozenset(), False
+    operation_line = record.data.get("line")
+    operation_column = record.data.get("column")
+    operation_end_line = record.data.get("end_line")
+    operation_end_column = record.data.get("end_column")
+    if (
+        not isinstance(operation_line, int)
+        or isinstance(operation_line, bool)
+        or not isinstance(operation_column, int)
+        or isinstance(operation_column, bool)
+        or not isinstance(operation_end_line, int)
+        or isinstance(operation_end_line, bool)
+        or not isinstance(operation_end_column, int)
+        or isinstance(operation_end_column, bool)
+    ):
+        return frozenset(), False
+    operation_span = (
+        operation_line,
+        operation_column,
+        operation_end_line,
+        operation_end_column,
+    )
+    parameter_names: set[str] = set()
+    starts, max_ends = type_alias_index.get(expected_file, ((), ()))
+    preceding = bisect_right(starts, operation_line) - 1
+    incomplete_scope = preceding >= 0 and max_ends[preceding] >= operation_line
+    for evidence_id in record.evidence_ids:
+        evidence = evidence_by_id.get(evidence_id)
+        if evidence is None or evidence.file != expected_file:
+            continue
+        excerpt = evidence.excerpt.lstrip()
+        if not (excerpt.startswith("type ") and "[" in excerpt):
+            continue
+        parsed = _numeric_evidence_nodes(evidence)
+        if parsed is None:
+            # The collector attaches the TypeAlias evidence to its numeric sites. A
+            # multiline header excerpt may not include enough syntax to resolve names.
+            incomplete_scope = True
+            continue
+        roots, line_offset = parsed
+        for root in roots:
+            for candidate in ast.walk(root):
+                if not isinstance(candidate, type_alias):
+                    continue
+                names = {
+                    type_param.name
+                    for type_param in candidate.type_params
+                    if isinstance(getattr(type_param, "name", None), str)
+                }
+                if not names:
+                    continue
+                if any(
+                    _numeric_node_span(node, evidence.line, line_offset) == operation_span
+                    for subtree in (candidate.value, *candidate.type_params)
+                    for node in ast.walk(subtree)
+                ):
+                    parameter_names.update(names)
+    return frozenset(parameter_names), incomplete_scope
+
+
 def _bounded_numeric_value(
     node: ast.expr,
     aliases: Mapping[str, ast.expr],
@@ -1531,6 +1601,7 @@ def _validate_numeric_operand_witness(
     declarations_by_id: Mapping[str, Record],
     declarations_by_name: Mapping[str, tuple[Record, ...]],
     expected_file: str,
+    type_alias_index: Mapping[str, tuple[tuple[int, ...], tuple[int, ...]]],
 ) -> None:
     data = record.data
     expression = _numeric_operation_expression(record, evidence_by_id, expected_file)
@@ -1551,6 +1622,16 @@ def _validate_numeric_operand_witness(
     if data.get("proof") != "known":
         return
     operand = expression.right if isinstance(expression, ast.BinOp) else expression.value
+    type_parameters, generic_scope = _numeric_type_alias_parameters(
+        record, evidence_by_id, expected_file, type_alias_index
+    )
+    operand_names = {
+        node.id
+        for node in ast.walk(operand)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+    }
+    if (generic_scope and not type_parameters and operand_names) or operand_names & type_parameters:
+        raise ValueError("known numeric operand uses an unresolved type parameter")
     _validate_known_numeric_operand(
         record,
         operand,
@@ -2246,6 +2327,27 @@ def validate_source_facts(facts: SourceFacts) -> None:
     for record in records:
         if not set(record.evidence_ids).issubset(evidence_ids):
             raise ValueError("dangling source evidence reference")
+    type_alias_ranges: dict[str, list[tuple[int, int]]] = {}
+    for declaration in declarations_by_id.values():
+        if declaration.kind != "dynamic_binding":
+            continue
+        for type_alias_evidence_id in declaration.evidence_ids:
+            evidence = base_by_id[type_alias_evidence_id]
+            excerpt = evidence.excerpt.lstrip()
+            if excerpt.startswith("type ") and "[" in excerpt:
+                type_alias_ranges.setdefault(evidence.file, []).append(
+                    (evidence.line, evidence.end_line)
+                )
+    type_alias_index: dict[str, tuple[tuple[int, ...], tuple[int, ...]]] = {}
+    for file, ranges in type_alias_ranges.items():
+        starts: list[int] = []
+        max_ends: list[int] = []
+        maximum = 0
+        for start, end in sorted(ranges):
+            starts.append(start)
+            maximum = max(maximum, end)
+            max_ends.append(maximum)
+        type_alias_index[file] = (tuple(starts), tuple(max_ends))
     for section in facts.sections:
         for record in section.records:
             _source_record(record, section.name)
@@ -2305,6 +2407,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
                     declarations_by_id,
                     declarations_by_name,
                     expected_file,
+                    type_alias_index,
                 )
             construct = record.data.get("construct")
             if construct is not None and not any(
