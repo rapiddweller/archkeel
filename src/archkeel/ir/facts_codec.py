@@ -1170,8 +1170,8 @@ def _encode_source_fact_v6_tree(value: RawJson) -> tuple[RawJson, list[str], lis
     def collect(item: RawJson) -> None:
         if isinstance(item, dict):
             keys.update(item)
-            for child in item.values():
-                collect(child)
+            for key in item:
+                collect(item[key])
         elif isinstance(item, list):
             for child in item:
                 collect(child)
