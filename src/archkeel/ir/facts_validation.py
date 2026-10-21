@@ -1485,6 +1485,91 @@ def _numeric_operation_expression(
     return next(iter(matches.values())) if len(matches) == 1 else None
 
 
+def _numeric_type_alias_parameters(
+    record: Record, evidence_by_id: Mapping[str, Evidence], expected_file: str
+) -> tuple[frozenset[str], bool]:
+    """Return TypeAlias parameters that shadow numeric names, plus incomplete-scope state."""
+    type_alias = getattr(ast, "TypeAlias", None)
+    if type_alias is None:
+        return frozenset(), False
+    operation_line = record.data.get("line")
+    operation_column = record.data.get("column")
+    operation_end_line = record.data.get("end_line")
+    operation_end_column = record.data.get("end_column")
+    if (
+        not isinstance(operation_line, int)
+        or isinstance(operation_line, bool)
+        or not isinstance(operation_column, int)
+        or isinstance(operation_column, bool)
+        or not isinstance(operation_end_line, int)
+        or isinstance(operation_end_line, bool)
+        or not isinstance(operation_end_column, int)
+        or isinstance(operation_end_column, bool)
+    ):
+        return frozenset(), False
+    operation_span = (
+        operation_line,
+        operation_column,
+        operation_end_line,
+        operation_end_column,
+    )
+    parameter_names: set[str] = set()
+    generic_scope = False
+    seen: set[str] = set()
+    for evidence in evidence_by_id.values():
+        if (
+            evidence.id in seen
+            or evidence.file != expected_file
+            or evidence.line > operation_line
+            or evidence.end_line < operation_line
+        ):
+            continue
+        seen.add(evidence.id)
+        excerpt = evidence.excerpt.lstrip()
+        if not (excerpt.startswith("type ") and "[" in excerpt):
+            continue
+        parsed = _numeric_evidence_nodes(evidence)
+        if parsed is None:
+            # A multiline header can be represented only by its opening line. It still
+            # identifies a generic alias, but cannot prove which names its scope binds.
+            generic_scope = True
+            continue
+        roots, line_offset = parsed
+        found_header = False
+        for root in roots:
+            for candidate in ast.walk(root):
+                if not isinstance(candidate, type_alias):
+                    continue
+                found_header = True
+                names = {
+                    type_param.name
+                    for type_param in candidate.type_params
+                    if isinstance(getattr(type_param, "name", None), str)
+                }
+                if not names:
+                    continue
+
+                def contains_operation(
+                    subtree: ast.AST,
+                    source_line: int = evidence.line,
+                    source_offset: int = line_offset,
+                ) -> bool:
+                    return any(
+                        _numeric_node_span(node, source_line, source_offset) == operation_span
+                        for node in ast.walk(subtree)
+                    )
+
+                if contains_operation(candidate.value):
+                    generic_scope = True
+                    parameter_names.update(names)
+                elif any(contains_operation(type_param) for type_param in candidate.type_params):
+                    generic_scope = True
+                    parameter_names.update(names)
+        if not found_header:
+            generic_scope = True
+    return frozenset(parameter_names), generic_scope
+
+
 def _bounded_numeric_value(
     node: ast.expr,
     aliases: Mapping[str, ast.expr],
@@ -1551,6 +1636,16 @@ def _validate_numeric_operand_witness(
     if data.get("proof") != "known":
         return
     operand = expression.right if isinstance(expression, ast.BinOp) else expression.value
+    type_parameters, generic_scope = _numeric_type_alias_parameters(
+        record, evidence_by_id, expected_file
+    )
+    operand_names = {
+        node.id
+        for node in ast.walk(operand)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+    }
+    if (generic_scope and not type_parameters and operand_names) or operand_names & type_parameters:
+        raise ValueError("known numeric operand uses an unresolved type parameter")
     _validate_known_numeric_operand(
         record,
         operand,

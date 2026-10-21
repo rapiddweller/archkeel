@@ -54,6 +54,99 @@ def test_type_alias_syntax_is_unsupported_before_python_312():
         _parsed_module("WIDTH = 4\ntype Alias[WIDTH] = job_nonce % WIDTH\n")
 
 
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type aliases require Python 3.12")
+def test_generic_type_alias_type_parameter_bounds_stay_unknown(tmp_path):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_validation import validate_source_facts
+    from archkeel.ir.protocol import CollectionRequest, PythonSettings, SnapshotInput, SourceScope
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(
+        "WIDTH = 4\ntype Alias[WIDTH, T: job_nonce % WIDTH] = T\n"
+    )
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    operation = next(
+        record
+        for section in facts.sections
+        for record in section.records
+        if record.kind == "numeric_operand"
+    )
+    assert operation.data.get("proof") == "unknown"
+    validate_source_facts(facts)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type aliases require Python 3.12")
+@pytest.mark.parametrize(
+    ("source", "error"),
+    [
+        (
+            "WIDTH = 4\ntype Alias[WIDTH] = job_nonce % WIDTH\n",
+            "type parameter",
+        ),
+        (
+            "WIDTH = 4\ntype Alias[\n    WIDTH\n] = job_nonce % WIDTH\n",
+            "complete source witness",
+        ),
+        (
+            "WIDTH = 4\ntype Alias[WIDTH, T: job_nonce % WIDTH] = T\n",
+            "type parameter",
+        ),
+    ],
+)
+def test_saved_facts_reject_forged_known_type_parameter_alias(tmp_path, source, error):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.facts_codec import (
+        CollectionResponse,
+        ProtocolError,
+        decode_response,
+        encode_response,
+    )
+    from archkeel.ir.protocol import CollectionRequest, PythonSettings, SnapshotInput, SourceScope
+
+    (tmp_path / "sample").mkdir()
+    (tmp_path / "sample/core.py").write_text(source)
+    facts = collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+    payload = json.loads(encode_response(CollectionResponse(facts)))
+    evidence = next(
+        item for item in payload["facts"]["evidence"] if item.get("excerpt") == "WIDTH = 4"
+    )
+    operation = next(
+        record
+        for section in payload["facts"]["sections"]
+        for record in section["records"]
+        if record["kind"] == "numeric_operand"
+    )
+    operation["data"]["proof"] = "known"
+    operation["data"]["value"] = 4
+    operation["data"]["derivation"] = [
+        {
+            "name": "WIDTH",
+            "value": 4,
+            "expression": "4",
+            "evidence_id": evidence["id"],
+            "line": 1,
+            "column": 0,
+            "end_line": 1,
+            "end_column": 9,
+        }
+    ]
+    operation["evidence_ids"].append(evidence["id"])
+    with pytest.raises(ProtocolError, match=error):
+        decode_response(json.dumps(payload).encode())
+
+
 @pytest.mark.parametrize("link", ["operation", "alias"])
 def test_dangling_numeric_evidence_is_a_protocol_error(tmp_path, link):
     from archkeel.analyzer.python.collect import collect
