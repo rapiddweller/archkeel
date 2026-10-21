@@ -4,6 +4,7 @@
 """Cross-reference and source-payload invariants of the collection protocol."""
 
 import ast
+import sys
 from bisect import bisect_right
 from collections.abc import Collection, Iterable, Mapping
 from functools import lru_cache
@@ -1493,8 +1494,7 @@ def _numeric_type_alias_parameters(
     type_alias_index: Mapping[str, tuple[tuple[int, ...], tuple[int, ...]]],
 ) -> tuple[frozenset[str], bool]:
     """Return TypeAlias parameters attached to this operation's source witnesses."""
-    type_alias = getattr(ast, "TypeAlias", None)
-    if type_alias is None:
+    if sys.version_info < (3, 12):
         return frozenset(), False
     operation_line = record.data.get("line")
     operation_column = record.data.get("column")
@@ -1537,13 +1537,9 @@ def _numeric_type_alias_parameters(
         roots, line_offset = parsed
         for root in roots:
             for candidate in ast.walk(root):
-                if not isinstance(candidate, type_alias):
+                if not isinstance(candidate, ast.TypeAlias):
                     continue
-                names = {
-                    type_param.name
-                    for type_param in candidate.type_params
-                    if isinstance(getattr(type_param, "name", None), str)
-                }
+                names = {type_param.name for type_param in candidate.type_params}
                 if not names:
                     continue
                 if any(
