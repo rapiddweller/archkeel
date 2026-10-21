@@ -993,21 +993,8 @@ _VALIDATION_PARSE_ERROR = Variant(
     expected_codes=(),
     expected_kinds=("parse_error",),
 )
-_SHOP_PY_FILES = (
-    "shop/app/maintenance.py",
-    "shop/app/orders.py",
-    "shop/app/tokens.py",
-    "shop/cli/main.py",
-    "shop/model/entities.py",
-    "shop/render/text.py",
-    "shop/store/__init__.py",
-    "shop/store/backend/__init__.py",
-    "shop/store/backend/files.py",
-    "shop/store/backend/paths.py",
-    "shop/store/codec.py",
-    "shop/store/lookup.py",
-    "shop/store/repository.py",
-    "shop/store/sqlite.py",
+_SHOP_PY_FILES = tuple(
+    sorted(path.relative_to(FIXTURE_DIR).as_posix() for path in FIXTURE_DIR.glob("shop/**/*.py"))
 )
 _VALIDATION_SCOPE_EMPTY = Variant(
     id="validation-scope-empty",

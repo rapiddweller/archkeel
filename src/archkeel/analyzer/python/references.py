@@ -372,6 +372,11 @@ class ReferenceCollector(ast.NodeVisitor):
         elif isinstance(node.ctx, ast.Del):
             name, declaration_id = self._declaration_name(node)
             _, _, status = self._canonical_name(node)
+            binding = self.scopes.lookup(node, node.id)
+            sites = binding.owner.bindings.get(node.id, ()) if binding.owner is not None else ()
+            # `del` of a name nothing binds deletes no declaration, so it has no anchor.
+            if all(isinstance(site, ast.Name) and isinstance(site.ctx, ast.Del) for site in sites):
+                status = SourceResolution.UNRESOLVED
             self._source_role(node, "delete", name, declaration_id, status=status)
         elif isinstance(node.ctx, ast.Store):
             name, declaration_id = self._declaration_name(node)

@@ -59,7 +59,8 @@ def test_owned_accessor_candidates_survive_the_issue_306_fixture(tmp_path: Path,
     ]
     assert report.measurements.scalars.unknown_positions == 7
     assert len({record.id for record in candidates}) == 6
-    assert all(len(record.fact_ids) == 2 and len(record.evidence_ids) == 2 for record in candidates)
+    # Two facts; the class fact also carries its member-write scope witness.
+    assert all(len(record.fact_ids) == 2 and len(record.evidence_ids) == 3 for record in candidates)
     assert (
         _candidates(
             parse_observation(

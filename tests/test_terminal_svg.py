@@ -13,7 +13,8 @@ from xml.etree import ElementTree
 import pytest
 from rich.text import Text
 
-from tools.terminal_svg import capture, capture_inside_violation
+from fixtures.architecture_demo import CATALOG
+from tools.terminal_svg import INSIDE_VARIANT, capture, capture_inside_violation
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
@@ -44,7 +45,8 @@ def test_capture_rejects_an_unexpected_exit_code() -> None:
 def test_inside_violation_capture_shows_all_findings_without_claiming_pass() -> None:
     output = capture_inside_violation()
 
-    assert output.count("rule.violated") == 3
+    variant = next(item for item in CATALOG if item.id == INSIDE_VARIANT)
+    assert output.count("rule.violated") == len(variant.expected_violations)
     terminal = " ".join(Text.from_ansi(output).plain.split())
     summary = terminal.split("Independent verdicts", 1)[0]
     assert "× FAIL" in summary

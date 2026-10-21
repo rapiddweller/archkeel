@@ -86,7 +86,7 @@ def export(output: Path) -> list[Path]:
 
 
 def capture_inside_violation() -> str:
-    """Capture the real CLI result for the catalog's three inside-rule violations."""
+    """Capture the real CLI result for the catalog's inside-rule violations."""
     variant = next((item for item in CATALOG if item.id == INSIDE_VARIANT), None)
     if variant is None:
         raise RuntimeError(f"missing architecture demo variant: {INSIDE_VARIANT}")
@@ -104,14 +104,14 @@ def capture_inside_violation() -> str:
             expected_exit_code=2,
             required_output=("× FAIL", "store:STORE-REQUIRES-COMPLETE", "rule.violated"),
         )
-        if output.count("rule.violated") != 3 or "NOT CHECKED" in output:
-            raise RuntimeError("inside-rule CLI output does not match its three-finding fixture")
+        expected = list(zip(variant.expected_codes, variant.expected_violations, strict=True))
+        if output.count("rule.violated") != len(expected) or "NOT CHECKED" in output:
+            raise RuntimeError("inside-rule CLI output does not match its catalogued findings")
         result = subprocess.run([*command, "--json"], capture_output=True, check=False, text=True)
         if result.returncode != 2:
             raise subprocess.CalledProcessError(result.returncode, command, result.stdout)
         report = json.loads(result.stdout)
         diagnostics = [(item["code"], item["subject"]) for item in report["diagnostics"]]
-        expected = [("rule.violated", "store:STORE-REQUIRES-COMPLETE")] * 3
         if (
             report["observation_complete"] != "PASS"
             or report["declared_rules"] != "FAIL"
