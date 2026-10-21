@@ -1190,9 +1190,9 @@ class CallCollector(ast.NodeVisitor):
             binding.kind not in {BindingKind.MODULE, BindingKind.SYMBOL}
             or binding.uncertain
             or len(binding.targets) != 1
-            or binding.owner is None
-            or binding.owner is self.scopes.root
-            and root not in self.stable_bindings
+            # Validation can only witness a stable module-level import, not a function-local one.
+            or binding.owner is not self.scopes.root
+            or root not in self.stable_bindings
             or binding.targets[0] in self.escaped_native_targets
         ):
             return None

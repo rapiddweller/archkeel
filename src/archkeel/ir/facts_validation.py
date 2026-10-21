@@ -484,8 +484,13 @@ def _selector_source_candidate(
             None,
         )
     if role == "reflect":
+        # `getattr(x, "m")(y)` starts both calls at one column; only the inner one reflects.
         return next(
-            (node.args[0] for node, _ in anchored if isinstance(node, ast.Call) and node.args),
+            (
+                node.args[0]
+                for node, _ in anchored
+                if isinstance(node, ast.Call) and node.args and not isinstance(node.func, ast.Call)
+            ),
             None,
         )
     if role in {"startswith", "endswith"}:
@@ -5169,12 +5174,10 @@ def _source_role_indexes(
     for record in records:
         if record.kind == "import":
             source_module = record.data.get("source_module")
-            origin_definition = record.data.get("origin_definition")
-            if isinstance(source_module, str) and isinstance(origin_definition, str):
-                origin_imports: list[Record] = imports.setdefault(
-                    (source_module, origin_definition), []
-                )
-                origin_imports.append(record)
+            if isinstance(source_module, str):
+                for identity in _import_identities(record.data):
+                    origin_imports: list[Record] = imports.setdefault((source_module, identity), [])
+                    origin_imports.append(record)
         if record.data.get("qualified_name"):
             name = record.data.get("qualified_name")
             if isinstance(name, str):
@@ -5600,6 +5603,22 @@ def _validate_owned_source_role(
         raise ValueError(
             f"source role {role_name} for {canonical} has no unique witnessed declaration anchor"
         )
+
+
+def _import_identities(data: RecordData) -> set[str]:
+    """Every name one import statement attests: its origin, re-export path and written target."""
+    target = data.get("target_module")
+    symbol = data.get("symbol")
+    written = (
+        (f"{target}.{symbol}" if isinstance(symbol, str) else target)
+        if isinstance(target, str)
+        else None
+    )
+    return {
+        name
+        for name in (data.get("origin_definition"), written, *_as_tuple(data.get("reexport_chain")))
+        if isinstance(name, str)
+    }
 
 
 def _import_binds_source(item: Record, excerpt: str) -> bool:

@@ -452,8 +452,9 @@ class ReferenceCollector(ast.NodeVisitor):
                     )
                     if status == SourceResolution.RESOLVED and len(targets) == 1:
                         target = targets[0]
+                        # The argument is the witnessed site; a multi-line call's head omits it.
                         self._source_role(
-                            value,
+                            child,
                             "value_transfer",
                             target,
                             self._binding_declaration_id(target),
@@ -530,6 +531,8 @@ class ReferenceCollector(ast.NodeVisitor):
                 and scope.parent is not None
                 and isinstance(scope.parent.node, ast.ClassDef)
                 and name not in self.attribute_definitions
+                # The class body already defines it; a second definition breaks the anchor.
+                and node.attr not in scope.parent.bindings
             ):
                 role = "definition"
                 self.attribute_definitions.add(name)
