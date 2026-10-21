@@ -339,8 +339,47 @@ def _helper_proof_effect(
             "The helper effect path is incomplete",
             [caller, context.helper, inner_call],
         )
+    return _helper_condition_path_effect(
+        rule,
+        scope,
+        caller,
+        caller_proof,
+        helper_fact,
+        context.helper,
+        inner_call,
+        proof,
+        binding_evidence_ids,
+        token,
+    )
+
+
+def _helper_condition_path_effect(
+    rule: ForbiddenEffectUnderConditionRule,
+    scope: str,
+    caller: RawRecord,
+    caller_proof: GuardedEffectEvidence,
+    helper_fact: GuardHelperBinding,
+    helper: RawRecord,
+    inner_call: RawRecord,
+    proof: GuardedEffectEvidence,
+    binding_evidence_ids: tuple[str, ...],
+    token: GuardHelperArgument,
+) -> tuple[RawRecord | None, RawRecord | None]:
+    if proof.condition_value is None:
+        return _helper_violation(
+            rule,
+            scope,
+            caller,
+            caller_proof,
+            helper_fact,
+            helper,
+            inner_call,
+            proof,
+            binding_evidence_ids,
+            token,
+        ), None
     substituted, limit = _helper_condition_value(
-        rule, scope, caller, caller_proof, context.helper, inner_call, token
+        rule, scope, caller, caller_proof, helper, inner_call, token
     )
     if limit is not None:
         return None, limit
@@ -350,7 +389,7 @@ def _helper_proof_effect(
             rule,
             scope,
             "The helper path polarity cannot be substituted",
-            [caller, context.helper, inner_call],
+            [caller, helper, inner_call],
         )
     if not violation:
         return None, None
@@ -360,7 +399,7 @@ def _helper_proof_effect(
         caller,
         caller_proof,
         helper_fact,
-        context.helper,
+        helper,
         inner_call,
         proof,
         binding_evidence_ids,
@@ -405,7 +444,7 @@ def _helper_condition_value(
 
 def _helper_path_violates(path_value: bool | None, substituted: bool | None) -> bool | None:
     if path_value is None:
-        return substituted is not False
+        return True
     if substituted is None:
         return None
     return substituted is path_value

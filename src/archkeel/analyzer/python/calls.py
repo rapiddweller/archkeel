@@ -2046,7 +2046,12 @@ class CallCollector(ast.NodeVisitor):
             token_kind = GuardHelperTokenKind.UNKNOWN
             token_value = None
             condition = None
-            member_receiver = "self" if kind == "member" else None
+            member_receiver = None
+            if kind == "member":
+                function = self.scopes.by_node[node].node
+                if isinstance(function, ast.FunctionDef | ast.AsyncFunctionDef):
+                    parameters = (*function.args.posonlyargs, *function.args.args)
+                    member_receiver = parameters[0].arg if parameters else None
             candidate_matches = _same_condition(expression, name, member_receiver)
             if (
                 actuals_supported

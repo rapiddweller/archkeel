@@ -27,6 +27,7 @@ from .facts import (
     CallArgumentValueKind,
     CallBinding,
     CallBindingOrigin,
+    ConditionSelectorKind,
     ConstructSupport,
     ContextManagerSignature,
     Evidence,
@@ -3899,7 +3900,9 @@ def _source_guarded_effect(
     binding = call_binding(record.data.get("call_binding"))
     for raw_item in raw_guarded:
         proof = guarded_effect(raw_item)
-        if proof.condition_value is not None and not _guard_path_matches_condition(
+        if (
+            proof.condition_value is not None or proof.complete
+        ) and not _guard_path_matches_condition(
             record,
             proof.condition.name,
             proof.condition.kind.value,
@@ -3917,7 +3920,7 @@ def _source_guarded_effect(
             None,
         )
         if proof.helper_bindings and not _guarded_helper_arguments_match_source(
-            record, proof, arguments, call_evidence, evidence
+            record, proof, arguments, call_evidence, evidence, function_contexts
         ):
             raise ValueError("guarded-effect helper argument disagrees with its source")
         if proof.complete and (
@@ -3977,6 +3980,7 @@ def _guarded_helper_arguments_match_source(
     arguments: tuple[CallArgument, ...] | None,
     call_evidence: Evidence | None,
     evidence: Mapping[str, Evidence],
+    function_contexts: frozenset[GuardFunctionContext],
 ) -> bool:
     helpers = proof.helper_bindings
     if arguments is None:
@@ -3992,6 +3996,9 @@ def _guarded_helper_arguments_match_source(
     actuals = _source_call_actuals(record, call_evidence)
     if actuals is None:
         return False
+    receiver_name = _guarded_helper_condition_receiver(
+        record, proof, call_evidence, evidence, function_contexts
+    )
     for helper in helpers:
         if len(helper.arguments) != len(arguments):
             return False
@@ -4005,7 +4012,9 @@ def _guarded_helper_arguments_match_source(
                     actual.condition.kind is not proof.condition.kind
                     or actual.condition.owner != proof.condition.owner
                 )
-                or not _guarded_actual_matches_condition(actual, actuals[index])
+                or not _guarded_actual_matches_condition(
+                    actual, actuals[index], receiver_name=receiver_name
+                )
             ):
                 return False
     return True
@@ -4039,7 +4048,49 @@ def _source_node_starts_at(node: ast.AST, line: int, column: int, line_offset: i
     return span is not None and span[:2] == (line, column)
 
 
-def _guarded_actual_matches_condition(actual: GuardHelperArgument, expression: ast.expr) -> bool:
+def _guarded_helper_condition_receiver(
+    record: Record,
+    proof: GuardedEffectEvidence,
+    call_evidence: Evidence,
+    evidence: Mapping[str, Evidence],
+    function_contexts: frozenset[GuardFunctionContext],
+) -> str | None:
+    if proof.condition.kind is not ConditionSelectorKind.MEMBER:
+        return None
+    for identifier in proof.path_evidence_ids:
+        context_evidence = evidence.get(identifier)
+        if context_evidence is None or context_evidence.file != call_evidence.file:
+            continue
+        context = _guard_context(context_evidence)
+        if context is None:
+            continue
+        function, column_offset = context
+        if not _guard_context_binds_call(
+            record, call_evidence, context_evidence, function, column_offset, function_contexts
+        ) or not _guard_condition_owner_binds_context(
+            record,
+            proof.condition.name,
+            proof.condition.kind.value,
+            proof.condition.owner,
+            proof.condition_evidence_ids,
+            context_evidence,
+            function,
+            column_offset,
+            evidence,
+            function_contexts,
+        ):
+            continue
+        parameters = (*function.args.posonlyargs, *function.args.args)
+        return parameters[0].arg if parameters else None
+    return None
+
+
+def _guarded_actual_matches_condition(
+    actual: GuardHelperArgument,
+    expression: ast.expr,
+    *,
+    receiver_name: str | None = None,
+) -> bool:
     token_kind = actual.token_kind.value
     if token_kind == "unknown":
         return True
@@ -4053,14 +4104,16 @@ def _guarded_actual_matches_condition(actual: GuardHelperArgument, expression: a
     if isinstance(candidate, ast.UnaryOp) and isinstance(candidate.op, ast.Not):
         candidate = candidate.operand
         negated = True
-    matches = (
-        isinstance(candidate, ast.Name) and candidate.id == selector.name
-        if selector.kind.value == "parameter"
-        else isinstance(candidate, ast.Attribute)
-        and candidate.attr == selector.name
-        and isinstance(candidate.value, ast.Name)
-        and candidate.value.id == "self"
-    )
+    if selector.kind is ConditionSelectorKind.PARAMETER:
+        matches = isinstance(candidate, ast.Name) and candidate.id == selector.name
+    else:
+        matches = (
+            receiver_name is not None
+            and isinstance(candidate, ast.Attribute)
+            and candidate.attr == selector.name
+            and isinstance(candidate.value, ast.Name)
+            and candidate.value.id == receiver_name
+        )
     return matches and (token_kind == "not_condition") == negated
 
 
@@ -4070,7 +4123,7 @@ def _guard_path_matches_condition(
     kind: str,
     owner: str,
     condition_evidence_ids: tuple[str, ...],
-    expected_value: bool,
+    expected_value: bool | None,
     path_evidence_ids: tuple[str, ...],
     evidence: Mapping[str, Evidence],
     function_contexts: frozenset[GuardFunctionContext],
@@ -4138,7 +4191,7 @@ def _guard_context_proves_path(
     kind: str,
     owner: str,
     condition_evidence_ids: tuple[str, ...],
-    expected_value: bool,
+    expected_value: bool | None,
     path_evidence_ids: tuple[str, ...],
     call_evidence: Evidence,
     context_evidence: Evidence,
@@ -4201,6 +4254,7 @@ def _guard_context_proves_path(
             (context_evidence.line + path.line - 1, column_offset + path.column)
             == (call_evidence.line, call_evidence.column)
             and path.condition_value is expected_value
+            and path.unknown_reason is None
             and _replayed_path_guard_locations(path, context_evidence, column_offset)
             == guard_locations
         ):

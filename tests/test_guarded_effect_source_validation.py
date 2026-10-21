@@ -70,7 +70,7 @@ def test_source_facts_reject_guard_truth_retargeted_from_path_evidence(tmp_path)
         ("if seeded:\n        pass\n    else:\n        _effect()", {False}),
         (
             "if seeded:\n        if not seeded:\n            _effect()\n    else:\n        pass",
-            {False},
+            None,
         ),
     ],
 )
@@ -80,9 +80,11 @@ def test_source_facts_replay_full_function_guard_paths(tmp_path, body, expected_
         f"def _effect(): pass\ndef generate(seeded: bool):\n    {body}\n",
     )
     call = _call(payload, "_effect")
-    values = {item["condition_value"] for item in call["data"]["guarded_effect"]}
-
-    assert values == expected_values
+    proofs = call["data"].get("guarded_effect", [])
+    if expected_values is None:
+        assert proofs == []
+    else:
+        assert {item["condition_value"] for item in proofs} == expected_values
     decode_response(json.dumps(payload).encode())
 
 
@@ -105,10 +107,7 @@ def test_source_facts_reject_polarity_not_reachable_at_call_site(tmp_path):
 
 @pytest.mark.parametrize(
     "body",
-    [
-        "if seeded:\n        pass\n    else:\n        _effect()",
-        "if seeded:\n        if not seeded:\n            _effect()\n    else:\n        pass",
-    ],
+    ["if seeded:\n        pass\n    else:\n        _effect()"],
 )
 def test_source_facts_reject_tampered_else_and_nested_guard_polarity(tmp_path, body):
     payload = _payload(
@@ -387,3 +386,38 @@ def test_supported_helper_literal_stays_source_bound(tmp_path):
     assert helper_argument["token_kind"] == "boolean_literal"
     assert helper_argument["token_value"] is True
     decode_response(json.dumps(payload).encode())
+
+
+def test_source_facts_reject_false_path_forged_as_unconditional_and_retargeted(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "def _effect(): pass\n"
+        "def generate(seeded: bool, other: bool):\n"
+        "    if not seeded:\n"
+        "        _effect()\n",
+    )
+    proof = _call(payload, "_effect")["data"]["guarded_effect"][0]
+    assert proof["condition_value"] is False
+    evidence = next(
+        item
+        for item in payload["facts"]["evidence"]
+        if item["excerpt"] == "def generate(seeded: bool, other: bool):"
+        and item["column"] == "def generate(seeded: bool, ".__len__()
+    )
+    proof["condition"]["name"] = "other"
+    proof["condition_value"] = None
+    proof["condition_evidence_ids"] = [evidence["id"]]
+
+    with pytest.raises(ValueError, match="condition value disagrees with its source path"):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_source_facts_reject_false_path_forged_as_unconditional(tmp_path):
+    payload = _payload(
+        tmp_path,
+        "def _effect(): pass\ndef generate(seeded: bool):\n    if not seeded:\n        _effect()\n",
+    )
+    _call(payload, "_effect")["data"]["guarded_effect"][0]["condition_value"] = None
+
+    with pytest.raises(ValueError, match="condition value disagrees with its source path"):
+        decode_response(json.dumps(payload).encode())
