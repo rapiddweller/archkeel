@@ -1153,3 +1153,13 @@ def test_requires_containment_compares_effective_authors(
     before = replace(_requires(("other", ("pkg.a",), None)), decided_by=component_author)
     after = replace(_requires(("other", ("pkg.a:Sym",), entry_author)), decided_by=component_author)
     assert bool(_component_diff(before, after)) == widens
+
+
+def test_a_redundant_contained_entry_beside_its_broad_entry_is_no_narrowing() -> None:
+    # Review (#640): keeping pkg.a and adding pkg.a:Sym removes nothing.
+    before = _contract((_requires(("other", ("pkg.a",), _AGENT)),))
+    after = _contract(
+        (_requires(("other", ("pkg.a",), _AGENT), ("other", ("pkg.a:Sym",), _AGENT)),)
+    )
+    assert contract_narrowing_changes(before, after) == ()
+    assert contract_widening_changes(before, after) == ()

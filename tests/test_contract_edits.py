@@ -170,3 +170,31 @@ def test_a_tightened_dependency_keeps_its_permitted_reexport(tmp_path: Path) -> 
     _tighten_checkout_to_save(root)
     result, _ = run_validate(root, CONFIG, observe)
     assert (result.exit_code, result.diagnostics) == (0, ())
+
+
+def _commit(root: Path, message: str) -> None:
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    subprocess.run(
+        ["git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", message], cwd=root, check=True
+    )
+
+
+def _gate_and_changes(
+    root: Path,
+) -> tuple[tuple[str, ...], set[tuple[ContractChangeDirection, str]]]:
+    result, _ = run_validate(root, CONFIG, observe, against="HEAD~1")
+    changes = {(change.direction, change.message) for change in result.contract_changes or ()}
+    return result.failures, changes
+
+
+def test_an_introduced_contract_is_a_widened_change(tmp_path: Path) -> None:
+    # Review (#640): the change list holds every change the gate reports.
+    root = _prepare_repo(tmp_path, {}, fixture=FIXTURE)
+    contract = (root / "architecture-contract.json").read_bytes()
+    (root / "architecture-contract.json").unlink()
+    _commit(root, "no contract")
+    (root / "architecture-contract.json").write_bytes(contract)
+    _commit(root, "contract")
+    failures, changes = _gate_and_changes(root)
+    assert failures and {message for _, message in changes} == set(failures)
+    assert {direction for direction, _ in changes} == {_WIDENED}

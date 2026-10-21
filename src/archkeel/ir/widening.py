@@ -789,7 +789,8 @@ def _requires_narrowings(
             and (item.component, item.through, item.decided_by) not in before_entries
             and _contained(item, before)
         ]
-        if contained:
+        # Only a removed permission narrows; a contained entry beside it is its replacement.
+        if removed and contained:
             findings.append(
                 WideningChange(
                     subject,
