@@ -50,6 +50,7 @@ from archkeel.ir.model import (
     LayerOrderRule,
     ModuleExports,
     NoComponentCyclesRule,
+    ProtocolDeclarationsRule,
     RootLayoutRule,
     SiblingIsolationRule,
     SymbolPlacementRule,
@@ -172,6 +173,7 @@ from .boundary_types import boundary_type_limits as boundary_type_limits
 from .boundary_types import facade_signature_types as facade_signature_types
 from .boundary_types import public_api_exposed_types as public_api_exposed_types
 from .boundary_types import resolve_named_type as resolve_named_type
+from .protocol_declarations import protocol_declaration_results
 from .rule_support import DeclaredFacade as DeclaredFacade
 from .rule_support import FacadeEntry as FacadeEntry
 from .rule_support import ReexportIndex as ReexportIndex
@@ -967,7 +969,8 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
         | BoundedNumericOperandRule
         | CompleteAssignmentRule
         | CompleteExternalScopeRule
-        | BoundaryTypesRule,
+        | BoundaryTypesRule
+        | ProtocolDeclarationsRule,
     ):
         return {"source": (rule.source,)}
     if isinstance(rule, RootLayoutRule):
@@ -1942,6 +1945,14 @@ def rule_violations(
     cycle_namespace_complete, cycle_graph_components = _cycle_scan_coverage(
         contract, modules, profile, cycle_scan_roots, cycle_namespace
     )
+    receipt_scope_complete = scope_receipts_complete(
+        contract,
+        modules,
+        profile,
+        source_roots,
+        source_exact_modules,
+        receipt_scan_roots if receipt_scan_roots is not None else cycle_scan_roots,
+    )
     result = _collect_rule_violations(
         imports=imports,
         typing_signals=typing_signals,
@@ -1962,45 +1973,28 @@ def rule_violations(
         allowance_facts=allowance_facts,
         assessment_facts=assessment_facts,
         assessment_parent=assessment_parent,
-        receipt_scope_complete=(
-            not (
-                package_scopes := (
-                    *source_roots,
-                    *(
-                        package
-                        for component in contract.components
-                        for package in component.packages
-                    ),
-                )
-            )
-            or _scan_covers_packages(
-                package_scopes,
-                modules,
-                profile,
-                receipt_scan_roots if receipt_scan_roots is not None else cycle_scan_roots,
-            )
-        )
-        and _scan_covers_exact_modules(
-            tuple(
-                module
-                for module in (
-                    *source_exact_modules,
-                    *(
-                        exact_module
-                        for component in contract.components
-                        for exact_module in component.exact_modules or ()
-                    ),
-                )
-            ),
-            modules,
-            receipt_scan_roots if receipt_scan_roots is not None else cycle_scan_roots,
-        ),
+        receipt_scope_complete=receipt_scope_complete,
         cycle_scope_complete=(
             len(cycle_graph_components) == len(contract.components) and bool(contract.components)
         ),
         cycle_graph_components=cycle_graph_components,
         cycle_namespace_complete=cycle_namespace_complete,
     )
+    protocol_violations, _, protocol_receipts = protocol_declaration_results(
+        symbols=symbols,
+        imports=imports,
+        modules=modules,
+        contract=contract,
+        source_modules=source_modules,
+        uncertain_reexport_origins=uncertain_reexport_origins,
+        type_shapes=type_shapes,
+        profile=profile,
+        scope=assessment_parent or "root",
+        receipt_scope_complete=receipt_scope_complete,
+    )
+    result.extend(protocol_violations)
+    if assessment_facts is not None:
+        assessment_facts.extend(protocol_receipts)
     numeric_unknowns = [item for item in result if item["kind"] == "numeric_operand_unknown"]
     violations = [item for item in result if item["kind"] != "numeric_operand_unknown"]
     return violations, [*allowance_facts, *numeric_unknowns]
@@ -2134,6 +2128,39 @@ def _scan_covers_exact_modules(
     )
 
 
+def scope_receipts_complete(
+    contract: ArchitectureContract,
+    modules: Sequence[RawRecord],
+    profile: Profile,
+    source_roots: tuple[str, ...],
+    source_exact_modules: tuple[str, ...],
+    scan_roots: tuple[str, ...],
+) -> bool:
+    """Prove receipts cover declared, exact, and protocol source domains."""
+    selector_sources: list[str] = []
+    for rule in contract.rules:
+        if not isinstance(rule, ProtocolDeclarationsRule):
+            continue
+        if _modules_for_rule_source(rule.source, modules, contract):
+            selector_sources.append(rule.source)
+    package_scopes = (
+        *source_roots,
+        *(package for component in contract.components for package in component.packages),
+        *selector_sources,
+    )
+    exact_scopes = (
+        *source_exact_modules,
+        *(
+            exact_module
+            for component in contract.components
+            for exact_module in component.exact_modules or ()
+        ),
+    )
+    return (
+        not package_scopes or _scan_covers_packages(package_scopes, modules, profile, scan_roots)
+    ) and _scan_covers_exact_modules(exact_scopes, modules, scan_roots)
+
+
 def _relative_path(value: str) -> PurePosixPath:
     path = PurePosixPath(value)
     return PurePosixPath(*(part for part in path.parts if part not in {".", ""}))
@@ -2211,6 +2238,15 @@ def _construct_rule_domain(
     return selected, [item["data"]["qualified_name"] for item in selected]
 
 
+_SeparateReceiptRule: TypeAlias = (
+    AllowedDependencyRule
+    | BoundaryTypesRule
+    | NoComponentCyclesRule
+    | CallOwnerRule
+    | ProtocolDeclarationsRule
+)
+
+
 def rule_evaluation_facts(
     contract: ArchitectureContract,
     *,
@@ -2235,9 +2271,7 @@ def rule_evaluation_facts(
     )
     facts: list[RawRecord] = []
     for rule in contract.rules:
-        if rule.kind in profile.unsupported_rules or isinstance(
-            rule, AllowedDependencyRule | BoundaryTypesRule | NoComponentCyclesRule | CallOwnerRule
-        ):
+        if rule.kind in profile.unsupported_rules or isinstance(rule, _SeparateReceiptRule):
             continue
         if isinstance(rule, LayerOrderRule):
             facts.extend(_layer_order_evaluation_facts(contract, rule, scope))

@@ -56,6 +56,7 @@ from archkeel.ir.type_shapes import TypeShapeIndex
 
 from .call_owners import call_owner_results
 from .imports import strip_internal_reexport_facts
+from .protocol_declarations import protocol_declaration_results
 from .rule_support import dynamic_dependency_limits
 from .rules import (
     boundary_type_limits,
@@ -65,6 +66,7 @@ from .rules import (
     profile_failures,
     rule_subject_failures,
     rule_violations,
+    scope_receipts_complete,
     symbol_limits,
 )
 from .state import evaluate_contexts
@@ -594,7 +596,7 @@ def _evaluate_inside_contract(
         receipt_scan_roots=receipt_scan_roots,
         type_shapes=type_shapes,
     )
-    unknowns = (
+    unknowns: list[RawRecord] = (
         boundary_type_limits(
             symbols,
             imports,
@@ -622,6 +624,26 @@ def _evaluate_inside_contract(
         )
     )
     unknowns.extend(construct_capability_limits(scoped, construct_capabilities, parent.label))
+    _, protocol_unknowns, _ = protocol_declaration_results(
+        symbols=symbols,
+        imports=imports,
+        modules=modules,
+        contract=scoped,
+        source_modules=source_modules,
+        uncertain_reexport_origins=uncertain_reexport_origins,
+        type_shapes=type_shapes,
+        profile=profile,
+        scope=parent.label,
+        receipt_scope_complete=scope_receipts_complete(
+            scoped,
+            modules,
+            profile,
+            parent.packages,
+            parent.exact_modules or (),
+            receipt_scan_roots,
+        ),
+    )
+    unknowns.extend(protocol_unknowns)
     return violations, unknowns, failures, allowance_facts
 
 
@@ -997,6 +1019,24 @@ def evaluate_source(
             imports, contract, facade_exports, dependency_symbols=profile.dependency_symbols
         ),
         *construct_capability_limits(contract, facts.capabilities.constructs, "root"),
+        *protocol_declaration_results(
+            symbols=symbols,
+            imports=imports,
+            modules=module_facts,
+            contract=contract,
+            source_modules=None,
+            uncertain_reexport_origins=uncertain_reexport_origins,
+            type_shapes=type_shapes,
+            profile=profile,
+            receipt_scope_complete=scope_receipts_complete(
+                contract,
+                module_facts,
+                profile,
+                (),
+                (),
+                roots if _source_inventory_complete(facts) else (),
+            ),
+        )[1],
         # AD-67: a boundary position the rule could not decide is reported, not silent. It
         # joins the two structural limits above and never `coverage.failures`, because it
         # says how much of a facade was decided, not that the scan was incomplete.

@@ -1167,7 +1167,8 @@ def _record_member_inventories(
                 | ast.ImportFrom
                 | ast.Global
                 | ast.Nonlocal
-                | ast.AugAssign,
+                | ast.AugAssign
+                | ast.Delete,
             )
             for child in node.body
         ) or any(

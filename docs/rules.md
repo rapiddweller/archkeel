@@ -137,6 +137,17 @@ not every helper. Types published by their actual owner, builtins, enums and
 Pydantic models qualify. Broad maps and native `object` need reviewed exact
 allowances. `allowed_positions` removes only its matching finding; other member
 findings and UNKNOWNs remain. Accepted opacity never proves type closure.
+Contract **3.9.0** adds `protocol_declarations` for API roles that must name a
+canonical scanned `Protocol`. Its `source` scopes all current and future declarations;
+each closed selector names a `parameter` or annotated class `member`, exact name,
+and `public` or `all` visibility. The `protocol` is a canonical dotted source symbol.
+Selectors require that exact Protocol; set `optional: true` only when exactly
+`Protocol | None` or `Optional[Protocol]` is allowed. Other union arms fail.
+Statically proven single-name `TypeAlias` chains resolve to their target; unsupported
+alias shapes, including union-valued aliases, are UNKNOWN. Missing annotations,
+`object` and `Any` fail; ambiguous or unresolved aliases are UNKNOWN. This checks
+declaration identity only; MyPy checks assignability and #356 owns structural
+conformance. See [AD-254](architecture/decisions/ad-254-canonical-protocol-declarations.md).
 Static re-exports of a proven stdlib overload group expose every declared signature,
 excluding the implementation signature. Incomplete groups, unproven decorators and
 uncertain routes remain UNKNOWN.

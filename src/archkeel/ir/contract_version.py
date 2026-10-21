@@ -21,6 +21,7 @@ class ContractFeature(StrEnum):
     IMPORT_NAMESPACES = "import_namespaces"
     MODULE_OBJECT_GRANTS = "module_object_grants"
     BOUNDED_NUMERIC_OPERAND = "bounded_numeric_operand"
+    PROTOCOL_DECLARATIONS = "protocol_declarations"
 
 
 class ContractVersion(StrEnum):
@@ -36,6 +37,7 @@ class ContractVersion(StrEnum):
     V3_6 = "3.6.0"
     V3_7 = "3.7.0"
     V3_8 = "3.8.0"
+    V3_9 = "3.9.0"
 
 
 # Declaration order is the supported contract evolution order.
@@ -54,6 +56,7 @@ _FEATURE_START: dict[ContractFeature, ContractVersion] = {
     ContractFeature.MODULE_SELECTORS: ContractVersion.V3_4,
     ContractFeature.IMPORT_NAMESPACES: ContractVersion.V3_5,
     ContractFeature.MODULE_OBJECT_GRANTS: ContractVersion.V3_6,
+    ContractFeature.PROTOCOL_DECLARATIONS: ContractVersion.V3_9,
 }
 
 

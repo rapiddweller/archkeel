@@ -20,8 +20,8 @@ def contract() -> dict:
 
 def with_rule(kind: str, **fields: object) -> str:
     value = contract()
-    if kind in {"call_owner", "bounded_numeric_operand"}:
-        value["schema_version"] = "3.8.0"
+    if kind in {"call_owner", "bounded_numeric_operand", "protocol_declarations"}:
+        value["schema_version"] = "3.9.0"
     value["rules"].append(
         {
             "id": "PROBE",
@@ -69,6 +69,13 @@ def example(
 
 
 UNSUPPORTED_RULES = {
+    "protocol_declarations": {
+        "source": "shop",
+        "protocol": "shop.Port",
+        "selectors": [
+            {"role": "parameter", "name": "port", "visibility": "all", "optional": False}
+        ],
+    },
     "bounded_numeric_operand": {
         "source": "shop",
         "form": "both",

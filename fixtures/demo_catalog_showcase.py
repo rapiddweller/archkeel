@@ -211,8 +211,9 @@ _TOUR = Variant(
     "one itself), a dataclass declared outside shop.model.entities, and a bare-object "
     "parameter on place_order itself, the one function app.orders declares public (AD-63: "
     "only a declared facade function is inspected, so touch_store's own bare-object "
-    "parameter, never declared, no longer fires here), and a modulo operand below its "
-    "declared width. CONSTRUCT-NO-DYNAMIC answers both the eval and the getattr; "
+    "parameter, never declared, no longer fires here), a modulo operand below its "
+    "declared width, and a concrete reader member in place of its required protocol. "
+    "CONSTRUCT-NO-DYNAMIC answers both the eval and the getattr; "
     "validate reports the rule.violated diagnostics plus 2 "
     "closed_world.observed_forbidden pairs (model->render, render->store) and 1 graph.drift, "
     "since the marked component graph never declared either edge.",
@@ -222,7 +223,9 @@ _TOUR = Variant(
         "shop/render/text.py": _TOUR_RENDER_TEXT,
         "shop/app/orders.py": _TOUR_APP_ORDERS,
         "shop/app/analytics.py": ANALYTICS_MODULE_WITH_UNDECLARED_PACKAGE,
-        "shop/store/repository.py": REPOSITORY_WITH_MONEY_IMPORT,
+        "shop/store/repository.py": REPOSITORY_WITH_MONEY_IMPORT.replace(
+            "reader: RepositoryReader", "reader: OrderRepository"
+        ),
         "shop/store/sqlite.py": _TOUR_STORE_SQLITE,
         "shop/store/architecture-contract.json": STORE_INSIDE_WITH_REPOSITORY_PEER_GRANT,
         "shop/cli/main.py": MAIN_WITH_UNDERSCORE_IMPORT,
@@ -256,12 +259,14 @@ _TOUR = Variant(
         "MODEL-TYPES-IN-ENTITIES",
         "ROOT-LAYOUT",
         "STORE-PEERS-ISOLATED",
+        "STORE-READER-DECLARATION",
         "store:STORE-REQUIRES-COMPLETE",
     ),
     expected_codes=(
         "closed_world.observed_forbidden",
         "closed_world.observed_forbidden",
         "graph.drift",
+        "rule.violated",
         "rule.violated",
         "rule.violated",
         "rule.violated",
