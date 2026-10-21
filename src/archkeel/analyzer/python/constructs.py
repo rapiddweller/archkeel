@@ -828,12 +828,24 @@ class ConstructCollector(ast.NodeVisitor):
 
     def _numeric_use_scope_chain(self, use: ast.AST) -> list[dict[str, str]] | None:
         scope = self.scopes.by_node.get(use)
+        use_line, _, _ = location(use)
+        if use_line in self.scopes.generic_header_numeric_lines:
+            return None
+        for type_alias_evidence_id in self.type_alias_evidence_ids:
+            type_alias_evidence: RawEvidence = self.evidence[type_alias_evidence_id]
+            if not type_alias_evidence["line"] <= use_line <= type_alias_evidence["end_line"]:
+                continue
+            type_alias_excerpt: str = type_alias_evidence["excerpt"]
+            if not _numeric_evidence_excerpt_supported(type_alias_excerpt):
+                return None
         chain: list[dict[str, str]] = []
         anonymous = False
         while scope is not None and scope is not self.scopes.root:
             if sys.version_info >= (3, 12) and isinstance(scope.node, ast.TypeAlias):
                 scope = scope.parent
                 continue
+            if scope.blocked_names and scope.table is None:
+                return None
             if not isinstance(scope.node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
                 if isinstance(
                     scope.node,
@@ -876,13 +888,12 @@ class ConstructCollector(ast.NodeVisitor):
     ) -> None:
         subject = self._terminal_name(left)
         value, derivation = self._integer(right, node)
+        numeric_name_operand = any(
+            isinstance(item, ast.Name) and isinstance(item.ctx, ast.Load)
+            for item in ast.walk(right)
+        )
         binding_scopes: list[dict[str, str]] | None = (
-            self._numeric_use_scope_chain(node)
-            if any(
-                isinstance(item, ast.Name) and isinstance(item.ctx, ast.Load)
-                for item in ast.walk(right)
-            )
-            else []
+            self._numeric_use_scope_chain(node) if numeric_name_operand else []
         )
         if binding_scopes is None:
             value, derivation = None, []
