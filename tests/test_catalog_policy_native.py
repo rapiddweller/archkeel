@@ -882,6 +882,90 @@ def test_mutated_enum_value_does_not_gain_enum_escape_exception(tmp_path):
     assert call.data.get("call_binding") is None
 
 
+@pytest.mark.parametrize("mounted", [False, True])
+def test_enum_member_passed_to_mutating_helper_keeps_catalog_argument_unknown(tmp_path, mounted):
+    rule = _argument()
+    rule["target"] = "sample.catalog.read_option"
+    _, rows = _run(
+        tmp_path,
+        caller=(
+            "from .catalog import OptionKey, read_option\n"
+            "from .mutator import mutate\n"
+            "def consume():\n"
+            "    mutate(OptionKey.PAGE_SIZE)\n"
+            "    read_option(OptionKey.PAGE_SIZE)\n"
+        ),
+        rules=[rule],
+        extra_files={
+            "sample/mutator.py": ("def mutate(member):\n    member._value_ = 'changed'\n")
+        },
+        mounted=mounted,
+    )
+
+    assert rows[0].status == "UNKNOWN"
+    assert not rows[0].evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+def test_selected_catalog_target_cannot_mutate_enum_member_proof(tmp_path, mounted):
+    _, rows = _run(
+        tmp_path,
+        caller=(
+            "from .catalog import OptionKey\n"
+            "def read_option(member):\n"
+            "    member._value_ = 'changed'\n"
+            "def consume():\n"
+            "    read_option(OptionKey.PAGE_SIZE)\n"
+            "    read_option(OptionKey.PAGE_SIZE)\n"
+        ),
+        rules=[{**_argument(), "parameter": "member"}],
+        mounted=mounted,
+    )
+
+    assert rows[0].status == "UNKNOWN"
+    assert not rows[0].evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+def test_selected_catalog_target_cannot_delete_enum_member_proof(tmp_path, mounted):
+    _, rows = _run(
+        tmp_path,
+        caller=(
+            "from .catalog import OptionKey\n"
+            "def read_option(member):\n"
+            "    del member._value_\n"
+            "def consume():\n"
+            "    read_option(OptionKey.PAGE_SIZE)\n"
+            "    read_option(OptionKey.PAGE_SIZE)\n"
+        ),
+        rules=[{**_argument(), "parameter": "member"}],
+        mounted=mounted,
+    )
+
+    assert rows[0].status == "UNKNOWN"
+    assert not rows[0].evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+def test_unresolved_call_does_not_escape_enum_member_mutation_check(tmp_path, mounted):
+    rule = _argument()
+    rule["target"] = "sample.catalog.read_option"
+    _, rows = _run(
+        tmp_path,
+        caller=(
+            "from .catalog import OptionKey, read_option\n"
+            "def consume():\n"
+            "    opaque(OptionKey.PAGE_SIZE)\n"
+            "    read_option(OptionKey.PAGE_SIZE)\n"
+        ),
+        rules=[rule],
+        mounted=mounted,
+    )
+
+    assert rows[0].status == "UNKNOWN"
+    assert not rows[0].evaluation_proven
+
+
 @pytest.mark.parametrize(
     "caller",
     [

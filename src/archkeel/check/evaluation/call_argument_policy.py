@@ -313,6 +313,8 @@ def _catalog_rule_result(
         ref_data,
         entries,
         owners,
+        calls,
+        references,
         subjects,
         supporting,
         ambiguous,
@@ -337,6 +339,8 @@ def _catalog_rule_checks(
     reference_data: dict[str, RecordData],
     entries: dict[str, _CatalogEntry],
     owners: Sequence[RawRecord],
+    all_calls: Sequence[RawRecord],
+    all_references: Sequence[RawRecord],
     subjects: Sequence[RawRecord],
     supporting: Sequence[RawRecord],
     ambiguous: bool,
@@ -368,6 +372,8 @@ def _catalog_rule_checks(
             entries,
             owners,
             supporting,
+            all_calls,
+            all_references,
             bindings_measured,
             arguments_measured,
             references_measured,
@@ -405,6 +411,8 @@ def _catalog_argument_policy(
     entries: dict[str, _CatalogEntry],
     owners: Sequence[RawRecord],
     supporting: Sequence[RawRecord],
+    all_calls: Sequence[RawRecord],
+    all_references: Sequence[RawRecord],
     bindings_measured: bool,
     arguments_measured: bool,
     references_measured: bool,
@@ -421,6 +429,8 @@ def _catalog_argument_policy(
         reference_data,
         entries,
         owners,
+        all_calls,
+        all_references,
         supporting,
         bindings_measured,
         arguments_measured,
@@ -652,6 +662,8 @@ def _catalog_argument_results(
     reference_data: dict[str, RecordData],
     entries: dict[str, _CatalogEntry],
     owners: Sequence[RawRecord],
+    all_calls: Sequence[RawRecord],
+    all_references: Sequence[RawRecord],
     supporting_facts: Sequence[RawRecord],
     bindings_measured: bool,
     arguments_measured: bool,
@@ -669,6 +681,11 @@ def _catalog_argument_results(
             )
         )
     targets = _catalog_targets(rule, symbols)
+    escape_limit = _catalog_unselected_enum_argument_limit(
+        rule, scope, calls, entries, references, reference_data, all_calls, all_references
+    )
+    if escape_limit is not None:
+        limits.append(escape_limit)
     signature = (
         parse_record(targets[0]).data
         if len(targets) == 1 and _target_binding_static(targets[0], symbols)
@@ -699,6 +716,61 @@ def _catalog_argument_results(
             )
         )
     return violations, limits
+
+
+def _catalog_unselected_enum_argument_limit(
+    rule: CatalogArgumentRule,
+    scope: str,
+    calls: Sequence[RawRecord],
+    entries: dict[str, _CatalogEntry],
+    references: Sequence[RawRecord],
+    reference_data: dict[str, RecordData],
+    all_calls: Sequence[RawRecord],
+    all_references: Sequence[RawRecord],
+) -> RawRecord | None:
+    entry_owners = {
+        owner_name
+        for owner, _, _ in entries.values()
+        if (owner_name := _record_text(parse_record(owner).data, "qualified_name")) is not None
+    }
+    for call in calls:
+        parsed = parse_record(call)
+        binding = call_binding(parsed.data.get("call_binding"))
+        actuals = call_arguments(parsed.data.get("call_arguments"))
+        if actuals is None:
+            continue
+        for actual in actuals:
+            if any(
+                set(actual.evidence_ids) == set(reference["evidence_ids"])
+                and _record_text(reference_data[reference["id"]], "reference_context") == "value"
+                and entry_owners & set(_record_strings(reference_data[reference["id"]], "targets"))
+                for reference in references
+            ):
+                if binding is not None and binding.target == rule.target:
+                    target_calls = [
+                        item
+                        for item in all_calls
+                        if _record_text(parse_record(item).data, "source_scope") == rule.target
+                    ]
+                    target_writes = [
+                        item
+                        for item in all_references
+                        if item["kind"] == "source_role"
+                        and _record_text(parse_record(item).data, "source_scope") == rule.target
+                        and _record_text(parse_record(item).data, "role") in {"write", "delete"}
+                    ]
+                    if not target_calls and not target_writes:
+                        continue
+                    reason = "Selected operation may mutate an enum member"
+                else:
+                    reason = "An enum member is passed to an unselected call"
+                return _catalog_limit(
+                    rule,
+                    scope,
+                    reason,
+                    [call],
+                )
+    return None
 
 
 def _catalog_targets(
