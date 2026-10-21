@@ -2348,29 +2348,31 @@ def test_captured_provider_buffers_cannot_leak_into_legacy_envelopes(tmp_path, v
         encode_response(CollectionResponse(facts, version, (provider,)))
 
 
-def test_captured_provider_response_roundtrips_against_the_published_schema(tmp_path):
+@pytest.mark.parametrize("version", [ProtocolVersion.V4, ProtocolVersion.V6])
+def test_captured_provider_response_roundtrips_against_the_published_schema(tmp_path, version):
     from jsonschema import Draft202012Validator
 
     _, provider, initial, _ = _provider_passes(tmp_path)
-    response = CollectionResponse(initial, ProtocolVersion.V4, (provider,))
+    response = CollectionResponse(initial, version, (provider,))
     payload = encode_response(response)
     schema = json.loads((Path(__file__).parents[1] / "schema/source-facts.schema.json").read_text())
     validator = Draft202012Validator(schema)
     validator.validate(json.loads(payload))
     assert decode_response(payload) == response
     assert encode_response(decode_response(payload)) == payload
-    for version in (ProtocolVersion.V1, ProtocolVersion.V2, ProtocolVersion.V3):
+    for legacy_version in (ProtocolVersion.V1, ProtocolVersion.V2, ProtocolVersion.V3):
         legacy = json.loads(payload)
-        legacy["protocol_version"] = version
+        legacy["protocol_version"] = legacy_version
         assert not validator.is_valid(legacy)
 
 
-def test_full_python_facts_cannot_claim_provider_capture_buffers(tmp_path):
+@pytest.mark.parametrize("version", [ProtocolVersion.V4, ProtocolVersion.V6])
+def test_full_python_facts_cannot_claim_provider_capture_buffers(tmp_path, version):
     request, provider, _, _ = _provider_passes(tmp_path)
     with pytest.raises(
         ProtocolError, match="captured provider sources require a Python import survey"
     ):
-        encode_response(CollectionResponse(_native_facts(request), ProtocolVersion.V4, (provider,)))
+        encode_response(CollectionResponse(_native_facts(request), version, (provider,)))
 
 
 @pytest.mark.parametrize(

@@ -330,6 +330,24 @@ def test_v6_key_pool_rejects_noncanonical_tables(mutate, message: str) -> None:
         _decode_source_fact_v6_tree(encoded, keys, values)
 
 
+@pytest.mark.parametrize("pool", ["keys", "values"])
+def test_v6_rejects_unused_pool_entries(pool: str) -> None:
+    from archkeel.ir.facts_codec import (
+        ProtocolError,
+        _decode_source_fact_v6_tree,
+        _encode_source_fact_v6_tree,
+    )
+
+    encoded, keys, values = _encode_source_fact_v6_tree({"used-key": "used-value"})
+    if pool == "keys":
+        keys = sorted([*keys, "unused-key"])
+    else:
+        values = sorted([*values, "unused-value"])
+    message = "key pool has unused entries" if pool == "keys" else "tables are not canonical"
+    with pytest.raises(ProtocolError, match=message):
+        _decode_source_fact_v6_tree(encoded, keys, values)
+
+
 def test_v6_key_pool_rejects_noncanonical_and_out_of_range_indices() -> None:
     from archkeel.ir.facts_codec import ProtocolError, _decode_source_fact_v6_tree
 

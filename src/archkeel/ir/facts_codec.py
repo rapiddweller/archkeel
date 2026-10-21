@@ -1209,6 +1209,7 @@ def _decode_source_fact_v6_tree(
         raise ProtocolError("V6 key pool must be sorted and unique")
     if tuple(sorted(set(values))) != values:
         raise ProtocolError("V6 string table must be sorted and unique")
+    used_indexes: set[int] = set()
 
     def decode_keys(item: RawJson) -> RawJson:
         if isinstance(item, dict):
@@ -1219,6 +1220,7 @@ def _decode_source_fact_v6_tree(
                 index = int(reference)
                 if index >= len(keys):
                     raise ProtocolError("V6 key reference is out of range")
+                used_indexes.add(index)
                 key = keys[index]
                 if key in decoded:
                     raise ProtocolError("V6 key reference creates a duplicate object key")
@@ -1228,12 +1230,17 @@ def _decode_source_fact_v6_tree(
             return [decode_keys(child) for child in item]
         return item
 
+    decoded_keys = decode_keys(value)
+    if used_indexes != set(range(len(keys))):
+        raise ProtocolError("V6 key pool has unused entries")
     try:
-        decoded_values = expand_strings(decode_keys(value), list(values))
+        decoded_values = expand_strings(decoded_keys, list(values))
+        canonical_values_tree, canonical_values = intern_strings(
+            decoded_values, policy=StringTablePolicy.SOURCE_FACTS
+        )
     except ValueError as error:
         raise ProtocolError(str(error)) from error
-    encoded, canonical_keys, canonical_values = _encode_source_fact_v6_tree(decoded_values)
-    if encoded != value or canonical_keys != list(keys) or canonical_values != list(values):
+    if canonical_values_tree != decoded_keys or canonical_values != list(values):
         raise ProtocolError("V6 key and string tables are not canonical")
     return decoded_values
 
@@ -1430,7 +1437,7 @@ def _expand_evidence_rows(value: RawJson, label: str) -> list[RawJson]:
     return output
 
 
-def _response(decoded: RawJson) -> CollectionResponse:
+def _response(decoded: RawJson, *, source_facts_expanded: bool = False) -> CollectionResponse:
     try:
         if not isinstance(decoded, dict):
             raise ProtocolError("response must be an object")
@@ -1448,7 +1455,7 @@ def _response(decoded: RawJson) -> CollectionResponse:
         raw_facts = raw["facts"]
         if version is ProtocolVersion.V5:
             raw_facts = _expand_source_facts(raw_facts)
-        elif version is ProtocolVersion.V6:
+        elif version is ProtocolVersion.V6 and not source_facts_expanded:
             raw_facts = _expand_source_facts_v6(raw_facts)
         facts = _source_facts(raw_facts, version)
         providers = _python_providers(raw.get("provider_sources", []))
@@ -1641,6 +1648,8 @@ def encode_response(response: CollectionResponse) -> bytes:
         ),
         "facts": _facts_payload(facts, version, runtime),
     }
+    if version is ProtocolVersion.V6:
+        _response(raw, source_facts_expanded=True)
     if version is ProtocolVersion.V5:
         raw["facts"] = _compact_source_facts(raw["facts"])
     elif version is ProtocolVersion.V6:
@@ -1649,7 +1658,8 @@ def encode_response(response: CollectionResponse) -> bytes:
         raw, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
     ).encode()
     _check_json_value(raw)
-    _response(raw)
+    if version is not ProtocolVersion.V6:
+        _response(raw)
     return payload
 
 
