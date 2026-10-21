@@ -104,6 +104,31 @@ def test_sys_modules_aliases_are_scanned_once_per_collector_and_not_reused(
     assert second.sys_modules_aliases == frozenset({"sys.modules", "loaded"})
 
 
+def test_non_random_named_receiver_skips_random_instance_mutation_scan(monkeypatch):
+    module = _parsed_module(
+        "class Widget:\n    def random(self): pass\n"
+        "def run():\n    widget = Widget()\n    widget.random()\n"
+    )
+    collector = calls.CallCollector(module, build_symbol_index([]), {})
+    mutation_scans = []
+    original_scan = collector._native_instance_member_changed
+
+    def count_scans(name, call):
+        mutation_scans.append((name, call))
+        return original_scan(name, call)
+
+    monkeypatch.setattr(collector, "_native_instance_member_changed", count_scans)
+    [call] = [
+        node
+        for node in module.all_nodes
+        if isinstance(node, ast.Call) and ast.unparse(node.func) == "widget.random"
+    ]
+
+    assert collector._native_random_receiver_call(call) is None
+    assert mutation_scans == []
+    assert collector.evidence == {}
+
+
 def test_plain_constructor_retains_binding_call_creation_and_instance_evidence(tmp_path):
     observation = _observation(
         tmp_path, "class Service: pass\ndef build():\n value: Service = Service()\n return value\n"
