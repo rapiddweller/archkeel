@@ -1760,6 +1760,127 @@ def _selector_read_role_fixture(root: Path, *, mounted: bool):
     return result.observation
 
 
+def _match_indentation_fixture(root: Path, *, mounted: bool, indent: str):
+    (root / "sample").mkdir(parents=True)
+    (root / "sample/__init__.py").write_text("")
+    (root / "sample/core.py").write_text(
+        "class Connection:\n    backend: str\n"
+        "def route(conn: Connection):\n"
+        f"{indent}if True:\n"
+        f"{indent * 2}match conn.backend:\n"
+        f"{indent * 3}case 'flat': pass\n"
+    )
+    (root / "docs/architecture").mkdir(parents=True)
+    (root / "docs/architecture/sample.md").write_text("Fixture provenance.\n")
+    (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    rule = {
+        "id": "MATCH",
+        "kind": "forbidden_construct",
+        "source": "sample",
+        "constructs": ["string_literal_compare"],
+        "selector": {
+            "receiver": "sample.core.Connection",
+            "member": "backend",
+            "role": "match",
+            "literal": "flat",
+        },
+        "rationale": "Keep the selected match receiver proven.",
+        "provenance": ["docs/architecture/sample.md"],
+        "decided_by": "architect",
+    }
+    provenance = ["docs/architecture/sample.md"]
+    if mounted:
+        (root / "inside.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": "3.11.0",
+                    "components": [
+                        {
+                            "id": "COMP-child",
+                            "label": "child",
+                            "role": "component",
+                            "packages": ["sample"],
+                            "responsibilities": ["Own child."],
+                            "forbidden_responsibilities": [],
+                            "provenance": provenance,
+                        }
+                    ],
+                    "rules": [rule],
+                }
+            )
+        )
+        contract = {
+            "schema_version": "3.11.0",
+            "components": [
+                {
+                    "id": "COMP-parent",
+                    "label": "parent",
+                    "role": "component",
+                    "packages": ["sample"],
+                    "responsibilities": ["Own parent."],
+                    "forbidden_responsibilities": [],
+                    "provenance": provenance,
+                    "inside": "inside.json",
+                }
+            ],
+            "rules": [],
+        }
+    else:
+        contract = {"schema_version": "3.11.0", "components": [], "rules": [rule]}
+    (root / "contract.json").write_text(json.dumps(contract))
+    for command in (
+        ["git", "init", "-q", "-b", "main"],
+        ["git", "config", "user.email", "test@example.invalid"],
+        ["git", "config", "user.name", "Test"],
+        ["git", "add", "-A"],
+        ["git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "fixture"],
+    ):
+        subprocess.run(command, cwd=root, check=True, capture_output=True)
+    return run_report(
+        root,
+        config=ScanConfig(("sample",), "sample", "contract.json", "0" * 64),
+        analyzer=observe,
+    )
+
+
+@pytest.mark.parametrize("mounted", [False, True], ids=["root", "mounted"])
+@pytest.mark.parametrize(
+    "indent",
+    ["\t", "    "],
+    ids=["tabs", "spaces"],
+)
+def test_nested_match_selector_excerpt_preserves_its_indentation(
+    tmp_path: Path, mounted: bool, indent: str
+):
+    result, encoded = _match_indentation_fixture(
+        tmp_path / f"repo-{mounted}-{len(indent)}", mounted=mounted, indent=indent
+    )
+    assert not result.diagnostics, result.diagnostics
+    assert encoded is not None
+    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    [selector] = [
+        row
+        for row in model.records("constructs")
+        if row.kind == "construct_selector" and row.data.get("selector_role") == "match"
+    ]
+    assert selector.data.get("status") == "decided"
+    assert selector.data.get("receiver_type") == "sample.core.Connection"
+    [assessment] = [row for row in result.rule_assessments if row.id.endswith("MATCH")]
+    assert assessment.status.value == "FAIL"
+
+    ordinary = observation_payload(model)
+    columnar = decode_canonical_model(
+        json.loads(canonical_json_bytes(encode_canonical_model(ordinary)))
+    )
+    for index, payload in enumerate((ordinary, columnar)):
+        path = tmp_path / f"match-indent-{mounted}-{len(indent)}-{index}.json"
+        path.write_bytes(canonical_json_bytes(payload))
+        replay = run_saved_report(path)
+        assert not replay.diagnostics, replay.diagnostics
+        [saved] = [row for row in replay.rule_assessments if row.id.endswith("MATCH")]
+        assert saved.status == assessment.status
+
+
 @pytest.mark.parametrize("mounted", [False, True], ids=["root", "mounted"])
 def test_read_role_excludes_match_and_predicate_operands_live_and_saved(
     tmp_path: Path, mounted: bool

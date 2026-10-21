@@ -313,7 +313,8 @@ def _selector_evidence_excerpt(
     if parsed is not None:
         roots, line_offset = parsed
         return roots, line_offset, 0
-    indentation = len(excerpt) - len(excerpt.lstrip(" "))
+    indentation = len(excerpt) - len(excerpt.lstrip(" \t"))
+    indentation_prefix = excerpt[:indentation]
     continuation: str = excerpt[indentation:]
     for operator in ("and", "or"):
         prefix = f"{operator} "
@@ -335,7 +336,7 @@ def _selector_evidence_excerpt(
                 return roots, line_offset, 0
     if role != "match" or not stripped.endswith(":"):
         return None
-    body = " " * (indentation + 4) + "case _: pass"
+    body = indentation_prefix + "    case _: pass"
     try:
         wrapper = ast.parse(f"if True:\n{excerpt}\n{body}\n")
     except (IndentationError, SyntaxError, ValueError, RecursionError):

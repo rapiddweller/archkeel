@@ -1314,10 +1314,9 @@ class ConstructCollector(ast.NodeVisitor):
             except (IndentationError, SyntaxError, ValueError, RecursionError):
                 trimmed: str = excerpt.rstrip()
                 if isinstance(node, ast.Match) and trimmed.endswith(":"):
-                    indentation: str = excerpt.lstrip(" ")
-                    indent = len(excerpt) - len(indentation)
+                    indentation: str = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
                     try:
-                        ast.parse(f"if True:\n{excerpt}\n{' ' * (indent + 4)}case _: pass\n")
+                        ast.parse(f"if True:\n{excerpt}\n{indentation}    case _: pass\n")
                         return True
                     except (IndentationError, SyntaxError, ValueError, RecursionError):
                         pass
