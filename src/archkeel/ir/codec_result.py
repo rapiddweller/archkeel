@@ -244,6 +244,9 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
     ):
         return _architecture_result_payload(result)
     payload = _raw_object(asdict(replace(result, architecture_projection=None)))
+    if result.contract_changes is None:
+        # AD-246: absent without --against, so every other result keeps its 9.0 shape.
+        del payload["contract_changes"]
     if result.report_filter is not None:
         payload["report_filter"] = _report_filter_payload(result.report_filter)
     if result.provenance is not None and result.provenance.initial_pr is None:

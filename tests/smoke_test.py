@@ -38,6 +38,7 @@ def main() -> None:
         "command-result-7.0.schema.json",
         "command-result-8.0.schema.json",
         "command-result-9.0.schema.json",
+        "command-result-10.0.schema.json",
         "architecture-ir-decoded-2.1.schema.json",
         "architecture-ir-python-decoded-2.1.schema.json",
     ):

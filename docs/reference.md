@@ -167,7 +167,7 @@ instead of 0. Agent drafts and components without explicit architect attribution
 remain accepted; rule verdicts and rationale validation are unchanged.
 
 JSON null means unavailable/inapplicable; an empty list means measured empty.
-Pin CLI and [command schema](../schema/command-result-9.0.schema.json) together.
+Pin CLI and [command schema](../schema/command-result-10.0.schema.json) together.
 Version 9 accepts ArchitectureIR 2.1 observations with strict call-binding shapes
 and retains supported version 6/7/8 results. Incomplete reports may preserve a
 traceable FAIL while

@@ -533,7 +533,6 @@ def test_python_result_json_changes_only_by_the_additive_fields(tmp_path: Path) 
         "baseline_resolved",
         "baseline_comparisons",
         "baseline_path",
-        "contract_changes",
         "claims",
         "command",
         "coverage",

@@ -10,7 +10,8 @@ in the old permission (AD-245), a removed `public` entry, an added restriction r
 removed permission rule. Other narrowing changes (budgets, rule fields, ownership) are not
 enumerated yet; their absence in `contract_changes` proves nothing.
 
-The field is optional and additive under AD-138. Baseline and measurement-budget changes
-stay in `widenings` and `failures` only.
+The field is present only with `--against`, so every other result keeps the 9.0 shape.
+`command-result-10.0` describes it; published schemas stay byte-exact (AD-138). Baseline
+and measurement-budget changes stay in `widenings` and `failures` only.
 
 [Narrowing controls](../../../tests/test_widening.py)

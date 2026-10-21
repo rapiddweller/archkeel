@@ -122,12 +122,12 @@ def legacy_validator() -> Draft202012Validator:
 
 @pytest.fixture(scope="module")
 def validator() -> Draft202012Validator:
-    return _validator("command-result-9.0.schema.json")
+    return _validator("command-result-10.0.schema.json")
 
 
 @pytest.fixture(scope="module")
 def current_validator() -> Draft202012Validator:
-    return _validator("command-result-9.0.schema.json")
+    return _validator("command-result-10.0.schema.json")
 
 
 def test_command_coverage_distinguishes_unmeasured_from_mixed_call_counts(legacy_validator) -> None:
@@ -594,8 +594,10 @@ def test_python_observation_sections_remain_required(validator, tmp_path: Path) 
             assert not schema.is_valid(malformed), section
 
 
-def test_result_properties_cover_the_writer(legacy_validator) -> None:
-    assert set(legacy_validator.schema["properties"]) == {field.name for field in fields(RunResult)}
+def test_result_properties_cover_the_writer(legacy_validator, current_validator) -> None:
+    # Published schemas stay byte-exact; the current version's strict branch names every field.
+    strict = current_validator.schema["anyOf"][2]
+    assert set(strict["properties"]) == {field.name for field in fields(RunResult)}
     diagnostic = legacy_validator.schema["$defs"]["diagnostic"]["properties"]
     assert set(diagnostic["kind"]["enum"]) == set(DiagnosticKind)
     assert set(diagnostic["code"]["enum"]) == set(DiagnosticCode)

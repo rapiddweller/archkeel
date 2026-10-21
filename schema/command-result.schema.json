@@ -26,7 +26,6 @@
     "host_source": {"anyOf": [{"enum": ["supplied_records", "gitlab_mr_versions", "github_initial_pr_head"]}, {"type": "null"}]},
     "failures": {"type": "array", "items": {"type": "string", "minLength": 1}},
     "widenings": {"anyOf": [{"type": "array", "items": {"$ref": "#/$defs/wideningFinding"}}, {"type": "null"}]},
-    "contract_changes": {"anyOf": [{"type": "array", "items": {"$ref": "#/$defs/contractChange"}}, {"type": "null"}]},
     "amendment_status": {"anyOf": [{"enum": ["valid", "stale"]}, {"type": "null"}]},
     "baseline_new": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
     "baseline_resolved": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
@@ -916,17 +915,6 @@
         "code": {"const": "ir.widening"},
         "subject": {"type": "string", "minLength": 1},
         "field": {"type": "string", "minLength": 1}
-      },
-      "additionalProperties": false
-    },
-    "contractChange": {
-      "type": "object",
-      "required": ["direction", "subject", "field", "message"],
-      "properties": {
-        "direction": {"enum": ["widened", "narrowed"]},
-        "subject": {"type": "string", "minLength": 1},
-        "field": {"type": "string", "minLength": 1},
-        "message": {"type": "string", "minLength": 1}
       },
       "additionalProperties": false
     },

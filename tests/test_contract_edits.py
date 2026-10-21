@@ -9,10 +9,12 @@ from pathlib import Path
 
 import pytest
 from test_architecture_demo import _prepare_repo
+from test_result_schema import current_validator as current_validator
 from test_review_workflow_fixture import CONFIG, FIXTURE
 
 from archkeel.check.validation import run_validate
 from archkeel.cli.observe import observe
+from archkeel.ir.codec import result_payload
 from archkeel.ir.model import ContractChangeDirection
 
 _WIDENED = ContractChangeDirection.WIDENED
@@ -198,3 +200,18 @@ def test_an_introduced_contract_is_a_widened_change(tmp_path: Path) -> None:
     failures, changes = _gate_and_changes(root)
     assert failures and {message for _, message in changes} == set(failures)
     assert {direction for direction, _ in changes} == {_WIDENED}
+
+
+def test_against_results_match_the_current_schema_and_others_keep_9_0(
+    tmp_path: Path, current_validator
+) -> None:
+    root = _prepare_repo(tmp_path, {}, fixture=FIXTURE)
+    _tighten_checkout_to_save(root)
+    _commit(root, "tighten")
+    against, _ = run_validate(root, CONFIG, observe, against="HEAD~1")
+    plain, _ = run_validate(root, CONFIG, observe)
+    with_changes, without = result_payload(against), result_payload(plain)
+    assert with_changes["contract_changes"]
+    assert "contract_changes" not in without
+    assert not list(current_validator.iter_errors(with_changes))
+    assert not list(current_validator.iter_errors(without))
