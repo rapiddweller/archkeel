@@ -215,3 +215,11 @@ def test_against_results_match_the_current_schema_and_others_keep_9_0(
     assert "contract_changes" not in without
     assert not list(current_validator.iter_errors(with_changes))
     assert not list(current_validator.iter_errors(without))
+    # Review (#640): only validate --against may carry the field, and never as null.
+    for misrouted in (
+        {**with_changes, "contract_changes": None},
+        {**without, "contract_changes": []},
+        {**with_changes, "widenings": None},
+        {**with_changes, "command": "report"},
+    ):
+        assert list(current_validator.iter_errors(misrouted)), misrouted.get("command")

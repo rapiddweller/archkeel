@@ -132,17 +132,10 @@
           "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/1/properties/renames"
         },
         "contract_changes": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/contractChange"
-              }
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/contractChange"
+          }
         }
       },
       "allOf": [
@@ -292,17 +285,10 @@
           "$ref": "urn:archkeel:command-result:9.0.0#/anyOf/2/properties/renames"
         },
         "contract_changes": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/contractChange"
-              }
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/contractChange"
+          }
         }
       },
       "additionalProperties": false,
@@ -316,6 +302,28 @@
       ]
     }
   ],
+  "dependentSchemas": {
+    "contract_changes": {
+      "required": [
+        "command",
+        "widenings"
+      ],
+      "properties": {
+        "command": {
+          "const": "validate"
+        },
+        "widenings": {
+          "type": "array"
+        },
+        "contract_changes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/contractChange"
+          }
+        }
+      }
+    }
+  },
   "$defs": {
     "contractChange": {
       "type": "object",
