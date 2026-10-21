@@ -53,6 +53,7 @@ ANALYZER_PUBLIC_IR = frozenset(
         "archkeel.ir.source_records",
         "archkeel.ir.guard_paths:GuardedCallPath",
         "archkeel.ir.guard_paths:guarded_call_paths",
+        "archkeel.ir.source_proofs:class_instance_member_write_names",
     }
 )
 ROOT = Path(__file__).parents[1]
