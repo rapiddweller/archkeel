@@ -261,3 +261,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-253 | [SourceFacts V6 pools object keys and repeated values](ad-253-source-facts-columnar-key-and-value-pooling.md) |
 | AD-249 | [Source ownership names one declaration](ad-249-source-ownership-defaults.md) |
 | AD-254 | [Canonical Protocol declarations](ad-254-canonical-protocol-declarations.md) |
+| AD-255 | [Guarded eager declaration expressions](ad-255-guarded-eager-declaration-expressions.md) |
