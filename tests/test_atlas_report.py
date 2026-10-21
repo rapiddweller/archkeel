@@ -2714,6 +2714,13 @@ ELK.prototype.layout = function(graph) {
         page.wait_for_selector('#flow[data-layout-state="skipped"]')
         assert page.evaluate("window.__moduleLayoutCalls") == 0
         assert "sample.m0" in page.locator(".flow-inspector").inner_text()
+        # Above the budget the selection still opens: no drawn node is needed (#622 follow-up).
+        open_selected = page.locator(".flow-open-selected")
+        assert open_selected.is_enabled()
+        with page.expect_navigation():
+            open_selected.click()
+        assert "architecture.detail.html" in page.url
+        assert f"module={first['id']}" in page.url
         page.goto(index.as_uri() + "?scope=core&content=modules&theme=light")
         page.wait_for_selector('#flow[data-layout-state="ready"]')
         assert page.locator(".flow-alternative").is_hidden()
@@ -2721,6 +2728,50 @@ ELK.prototype.layout = function(graph) {
         page.wait_for_selector('#flow[data-layout-state="skipped"]')
         _open_health_check(page)
         assert page.locator(".flow-matrix svg").count() == 1
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def test_over_budget_notice_counts_and_hints_match_the_level(tmp_path):
+    """#622 follow-up: one relationship is singular, and no component means no component hint."""
+    from archkeel.render.html import render_architecture_details
+
+    api = pytest.importorskip("playwright.sync_api")
+    extra_files = {f"sample/m{index}.py": "" for index in range(84)}
+    model = _sample(tmp_path, extra_files=extra_files)
+    html = _page(model)
+    match = re.search(r'<script id="flow-data" type="application/json">(.*?)</script>', html, re.S)
+    payload = json.loads(match.group(1))
+    level = next(item for item in payload["atlas"]["levels"] if item["parent_id"] is None)
+    level["component_ids"] = []
+    level["cells"] = level["cells"][:1]
+    assert len(level["cells"]) == 1
+    modules = len(level["modules"])
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    index = tmp_path / "architecture.report.html"
+    index.write_text(
+        html[: match.start(1)] + encoded.replace("<", "\\u003c") + html[match.end(1) :]
+    )
+    for name, content in render_architecture_details(
+        _result(model),
+        canonical_report_bytes(model),
+        repository="One target",
+        architecture_href="architecture.json",
+    ).items():
+        (tmp_path / name).write_bytes(content)
+    errors = []
+    playwright, browser, page = _browser_page(api, index.read_text(), errors=errors)
+    try:
+        page.goto(index.as_uri() + "?content=modules&theme=light")
+        page.wait_for_selector('#flow[data-layout-state="skipped"]', timeout=30000)
+        text = page.locator(".flow-alternative").text_content() or ""
+        assert " ".join(text.split()) == (
+            f"Diagram not drawn: {modules} modules and 1 relationship exceed the diagram budget "
+            "of 80 modules / 300 relationships. Search, or use Health check. "
+            "All facts remain in the module list and architecture.json."
+        )
         assert not errors
     finally:
         browser.close()
@@ -2787,8 +2838,9 @@ def test_target_over_budget_names_target_facts_and_keeps_authored_relationships(
         page.wait_for_selector('#flow[data-layout-state="skipped"]', timeout=30000)
         text = page.locator(".flow-alternative").text_content() or ""
         assert " ".join(text.split()) == (
-            f"Diagram not drawn: {modules} modules and {edges} relationships exceed the diagram "
-            "budget of 80 modules / 300 relationships. Open a component or search for a module. "
+            f"Diagram not drawn: {modules} modules and {edges} relationship"
+            f"{'' if edges == 1 else 's'} exceed the diagram budget of 80 modules / 300 "
+            "relationships. Open a component or search for a module. "
             "All declared facts remain in architecture.json."
         )
         page.goto(

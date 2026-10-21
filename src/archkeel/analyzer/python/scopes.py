@@ -28,6 +28,7 @@ class Scope:
     bindings: dict[str, list[ast.AST]] = field(default_factory=dict)
     inlined: bool = False
     local_names: frozenset[str] = frozenset()
+    blocked_names: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +86,8 @@ class LexicalScopes(ast.NodeVisitor):
         super().visit(node)
 
     def _owner(self, scope: Scope, name: str) -> Scope | None:
+        if name in scope.blocked_names:
+            return None
         if scope.inlined:
             if name in scope.local_names:
                 return scope
@@ -228,6 +231,70 @@ class LexicalScopes(ast.NodeVisitor):
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self._definition(node)
+
+    def visit_TypeAlias(self, node: ast.AST) -> None:
+        # Generic aliases have a compiler-created type-alias scope nested under their
+        # type-parameter scope. Its free names must not bind to same-named module values.
+        if sys.version_info < (3, 12) or not isinstance(node, ast.TypeAlias):
+            self.generic_visit(node)
+            return
+        self.visit(node.name)
+        if not node.type_params:
+            self.visit(node.value)
+            return
+
+        parent = self.current
+        alias_name = node.name.id
+        line, _, column = location(node)
+        type_parameter_names = frozenset(
+            type_param.name
+            for type_param in node.type_params
+            if isinstance(getattr(type_param, "name", None), str)
+        )
+        # Bounds and defaults also execute in the annotation scope. Without a compiler
+        # table for that scope, do not authorize outer aliases from their expressions.
+        self.current = Scope(
+            node,
+            None,
+            f"{parent.qualified_name}.<type-parameters:{alias_name}:{line}:{column}>",
+            None,
+            parent,
+            blocked_names=type_parameter_names,
+        )
+        for type_param in node.type_params:
+            self.visit(type_param)
+        self.current = parent
+
+        matches = []
+        if parent.table is not None:
+            for child in parent.table.get_children():
+                if child.get_name() != alias_name or child.get_lineno() != line:
+                    continue
+                if child.get_type() == "type alias":
+                    matches.append(child)
+                elif child.get_type() == "type parameter":
+                    matches.extend(
+                        nested
+                        for nested in child.get_children()
+                        if nested.get_name() == alias_name
+                        and nested.get_type() == "type alias"
+                        and nested.get_lineno() == line
+                    )
+        # Class annotation scopes can see class locals. Until those semantics are
+        # represented here, withholding all aliases inside a class is fail-closed.
+        table = (
+            matches[0] if len(matches) == 1 and not isinstance(parent.node, ast.ClassDef) else None
+        )
+        self.current = Scope(
+            node,
+            table,
+            f"{parent.qualified_name}.<type-alias:{alias_name}:{line}:{column}>",
+            None,
+            parent,
+            blocked_names=type_parameter_names,
+        )
+        self.visit(node.value)
+        self.current = parent
 
     def visit_Lambda(self, node: ast.Lambda) -> None:
         self.visit(node.args)
