@@ -18,6 +18,7 @@ class ProtocolVersion(StrEnum):
     V3 = PROTOCOL_VERSION
     V4 = "4.0.0"
     V5 = "5.0.0"
+    V6 = "6.0.0"
 
 
 @dataclass(frozen=True, slots=True)

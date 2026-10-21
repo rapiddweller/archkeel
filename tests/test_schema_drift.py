@@ -98,7 +98,7 @@ def test_bundled_schemas_are_valid_draft_2020_12_schemas(schema_path: Path) -> N
 
 @pytest.mark.parametrize(
     ("version", "source_facts_version"),
-    [(f"2.{minor}", "4.0.0") for minor in range(1, 7)] + [("2.7", "5.0.0")],
+    [(f"2.{minor}", "4.0.0") for minor in range(1, 7)] + [("2.7", "6.0.0")],
 )
 def test_historical_python_schemas_reference_the_matching_call_binding_schema(
     version: str, source_facts_version: str

@@ -391,9 +391,7 @@ class CallCollector(ast.NodeVisitor):
         }
         self.escaped_native_targets.update(
             target
-            for reference in member_escape_references(
-                module, module.all_nodes, member_surface=True, owner_exposure_only=True
-            )
+            for reference in member_escape_sites
             if reference not in builtin_mutator_receivers
             for target in self._native_expression_targets(reference)
         )
