@@ -17,20 +17,6 @@ from archkeel.ir.codec import contract_bytes, parse_contract
 
 ROOT = Path(__file__).parents[1]
 RULES = {
-    "protocol_declarations": (
-        "ProtocolDeclarationsRule",
-        {
-            "source": "sample",
-            "protocol": "sample.Port",
-            "selectors": [
-                {"role": "parameter", "name": "port", "visibility": "all", "optional": False}
-            ],
-        },
-    ),
-    "bounded_numeric_operand": (
-        "BoundedNumericOperandRule",
-        {"source": "sample", "form": "both", "terminal_suffix": "nonce", "minimum_value": 4},
-    ),
     "call_owner": ("CallOwnerRule", {"source": "sample", "target": "sample.store.page"}),
     "forbidden_call_argument": (
         "ForbiddenCallArgumentRule",
@@ -59,6 +45,29 @@ RULES = {
         {"source": "sample", "class_kinds": ["enum"], "allowed_sources": ["sample"]},
     ),
     "boundary_types": ("BoundaryTypesRule", {"source": "sample"}),
+    "protocol_declarations": (
+        "ProtocolDeclarationsRule",
+        {
+            "source": "sample",
+            "protocol": "sample.Reader",
+            "selectors": [{"role": "parameter", "name": "reader", "visibility": "public"}],
+        },
+    ),
+    "bounded_numeric_operand": (
+        "BoundedNumericOperandRule",
+        {
+            "source": "sample",
+            "form": "both",
+            "terminal_suffix": "nonce",
+            "minimum_value": 4_294_967_296,
+        },
+    ),
+}
+RULE_SCHEMA_VERSIONS = {
+    "forbidden_construct": "3.11.0",
+    "forbidden_call_argument": "3.10.0",
+    "protocol_declarations": "3.9.0",
+    "bounded_numeric_operand": "3.8.0",
 }
 
 
@@ -73,11 +82,7 @@ def _raw():
 def test_every_rule_variant_decodes_the_shared_kind_and_attribution(kind):
     name, fields = RULES[kind]
     raw = _raw()
-    raw["schema_version"] = {
-        "call_owner": "3.7.0",
-        "bounded_numeric_operand": "3.8.0",
-        "protocol_declarations": "3.9.0",
-    }.get(kind, "3.10.0")
+    raw["schema_version"] = RULE_SCHEMA_VERSIONS.get(kind, "3.7.0")
     raw["rules"] = [
         {
             "id": "rule",
@@ -98,6 +103,32 @@ def test_every_rule_variant_decodes_the_shared_kind_and_attribution(kind):
     assert parse_contract(json.loads(contract_bytes(contract))) == contract
     encoded = json.loads(contract_bytes(contract))["rules"][0]
     assert encoded["kind"] == kind and encoded["decided_by"] == "architect"
+
+
+def test_forbidden_construct_selector_is_part_of_the_same_closed_rule_variant():
+    raw = _raw()
+    raw["schema_version"] = "3.11.0"
+    raw["rules"] = [
+        {
+            "id": "SELECTOR",
+            "kind": "forbidden_construct",
+            "source": "sample",
+            "constructs": ["string_literal_compare"],
+            "selector": {
+                "receiver": "sample.Connection",
+                "member": "backend",
+                "role": "equality",
+                "literal": "flat",
+            },
+            "rationale": "Use the named backend port.",
+            "provenance": ["docs/architecture/sample.md"],
+            "decided_by": "architect",
+        }
+    ]
+    rule = parse_contract(raw).rules[0]
+    assert rule.selector is not None
+    assert rule.selector.receiver == "sample.Connection"
+    assert rule.selector.role.value == "equality"
 
 
 @pytest.mark.parametrize("value", ["permanent", "migration"])

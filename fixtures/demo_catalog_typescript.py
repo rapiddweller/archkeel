@@ -20,7 +20,9 @@ def contract() -> dict:
 
 def with_rule(kind: str, **fields: object) -> str:
     value = contract()
-    if kind == "call_owner":
+    if kind == "forbidden_construct" and "selector" in fields:
+        value["schema_version"] = "3.11.0"
+    elif kind == "call_owner":
         value["schema_version"] = "3.7.0"
     elif kind == "bounded_numeric_operand":
         value["schema_version"] = "3.8.0"
@@ -94,7 +96,16 @@ UNSUPPORTED_RULES = {
         "target": "shop.src.main_x2e_ts.main",
         "parameter": "query",
     },
-    "forbidden_construct": {"source": "shop", "constructs": ["eval"]},
+    "forbidden_construct": {
+        "source": "shop",
+        "constructs": ["string_literal_compare"],
+        "selector": {
+            "receiver": "shop.src.domain.Connection",
+            "member": "backend",
+            "role": "equality",
+            "literal": "flat",
+        },
+    },
     "symbol_placement": {
         "source": "shop",
         "class_kinds": ["class"],

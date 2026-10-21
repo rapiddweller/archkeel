@@ -6,7 +6,7 @@
 import ast
 import sys
 from bisect import bisect_right
-from collections.abc import Collection, Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from functools import lru_cache
 from pathlib import PurePosixPath
 
@@ -305,6 +305,871 @@ def _qualified_identifier(value: str) -> bool:
                 return False
             start = index + 1
     return python_identifier(value[start:])
+
+
+def _selector_evidence_excerpt(
+    item: Evidence, role: JsonValue
+) -> tuple[tuple[ast.stmt, ...], int, int] | None:
+    excerpt: str = item.excerpt
+    parsed = _parse_numeric_evidence_excerpt(excerpt)
+    if parsed is not None:
+        roots, line_offset = parsed
+        return roots, line_offset, 0
+    indentation = len(excerpt) - len(excerpt.lstrip(" \t"))
+    indentation_prefix = excerpt[:indentation]
+    continuation: str = excerpt[indentation:]
+    for operator in ("and", "or"):
+        prefix = f"{operator} "
+        if role != "match" and continuation.startswith(prefix):
+            rewritten = excerpt[:indentation] + f"True {prefix}" + continuation[len(prefix) :]
+            try:
+                wrapper = ast.parse(f"if True:\n{rewritten}\n")
+            except (IndentationError, SyntaxError, ValueError, RecursionError):
+                return None
+            if wrapper.body and isinstance(wrapper.body[0], ast.If):
+                return tuple(wrapper.body[0].body), 1, len(f"True {prefix}") - len(prefix)
+    stripped: str = excerpt.rstrip()
+    if role != "match" and stripped.endswith(("(", "[", "{")):
+        for closing in range(1, 9):
+            rewritten = f"{excerpt}False{')' * closing}"
+            parsed = _parse_numeric_evidence_excerpt(rewritten)
+            if parsed is not None:
+                roots, line_offset = parsed
+                return roots, line_offset, 0
+    if role != "match" or not stripped.endswith(":"):
+        return None
+    body = indentation_prefix + "    case _: pass"
+    try:
+        wrapper = ast.parse(f"if True:\n{excerpt}\n{body}\n")
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    if not wrapper.body or not isinstance(wrapper.body[0], ast.If):
+        return None
+    return tuple(wrapper.body[0].body), 1, 0
+
+
+def _selector_node_span(
+    node: ast.AST, source_line: int, line_offset: int, column_shift: int
+) -> tuple[int, int, int, int] | None:
+    span = _numeric_node_span(node, source_line, line_offset)
+    if span is None:
+        return None
+    return span[0], span[1] - column_shift, span[2], span[3] - column_shift
+
+
+def _selector_source_receiver(
+    record: Record, binding: CallBinding, evidence: Mapping[str, Evidence]
+) -> tuple[ast.expr, tuple[int, int, int, int]] | None:
+    site_ids: set[str] = set(record.evidence_ids) - set(binding.evidence_ids)
+    if binding.origin is CallBindingOrigin.CONSTRUCTED_RECEIVER and binding.proof is not None:
+        constructor_id = binding.proof.get("constructor_evidence_id")
+        if isinstance(constructor_id, str) and constructor_id in record.evidence_ids:
+            # Nested receiver and selector share a start column, so the source-evidence
+            # identity is the same. Keep that location eligible as the selector site.
+            site_ids = site_ids | {constructor_id}
+    for identifier in site_ids:
+        item = evidence.get(identifier)
+        if item is None:
+            continue
+        parsed = _selector_evidence_excerpt(item, record.data.get("selector_role"))
+        if parsed is None:
+            continue
+        roots, offset, column_offset = parsed
+        nodes = [node for root in roots for node in ast.walk(root)]
+        anchored = [
+            (node, span)
+            for node in nodes
+            if (span := _selector_node_span(node, item.line, offset, column_offset)) is not None
+            and span[0] == item.line
+            and span[1] == item.column
+        ]
+        selected = _selector_source_candidate(
+            record, binding, item, anchored, offset, column_offset
+        )
+        if selected is not None:
+            span = next(
+                (span for node, span in anchored if node is selected or selected in ast.walk(node)),
+                None,
+            )
+            if span is not None:
+                selected_span = _selector_node_span(selected, item.line, offset, column_offset)
+                return selected, selected_span or span
+    return None
+
+
+def _selector_source_candidate(
+    record: Record,
+    binding: CallBinding,
+    item: Evidence,
+    anchored: list[tuple[ast.AST, tuple[int, int, int, int]]],
+    line_offset: int,
+    column_shift: int,
+) -> ast.expr | None:
+    role, member = record.data.get("selector_role"), record.data.get("member")
+    if role == "match":
+        return next(
+            (
+                node.subject.value
+                for node, _ in anchored
+                if isinstance(node, ast.Match) and isinstance(node.subject, ast.Attribute)
+            ),
+            None,
+        )
+    if role == "reflect":
+        return next(
+            (node.args[0] for node, _ in anchored if isinstance(node, ast.Call) and node.args),
+            None,
+        )
+    if role in {"startswith", "endswith"}:
+        return next(
+            (
+                node.func.value.value
+                if isinstance(node.func, ast.Attribute)
+                and isinstance(node.func.value, ast.Attribute)
+                else node.func.value
+                for node, _ in anchored
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            ),
+            None,
+        )
+    if role not in {"read", "write", "call", "equality", "membership"}:
+        return None
+    candidates = {
+        id(node): node
+        for root, _ in anchored
+        for node in ast.walk(root)
+        if isinstance(node, ast.Attribute)
+        and node.attr == member
+        and (
+            binding.origin is not CallBindingOrigin.DECLARED_RECEIVER
+            or isinstance(node.value, ast.Name)
+            and node.value.id == record.data.get("receiver_parameter")
+        )
+        and (span := _selector_node_span(node, item.line, line_offset, column_shift)) is not None
+        and span[:2] == (item.line, item.column)
+    }
+    attribute = next(iter(candidates.values())) if len(candidates) == 1 else None
+    return attribute.value if attribute is not None else None
+
+
+def _selector_source_classes(
+    record: Record, binding: CallBinding, evidence: Mapping[str, Evidence]
+) -> tuple[ast.expr, ...]:
+    selected: list[ast.expr] = []
+    for identifier in set(record.evidence_ids) - set(binding.evidence_ids):
+        item = evidence.get(identifier)
+        parsed = (
+            _selector_evidence_excerpt(item, record.data.get("selector_role"))
+            if item is not None
+            else None
+        )
+        if item is None or parsed is None:
+            continue
+        roots, offset, column_offset = parsed
+        nodes = [node for root in roots for node in ast.walk(root)]
+        for node in nodes:
+            span = _numeric_node_span(node, item.line, offset)
+            if span is not None:
+                span = span[0], span[1] - column_offset, span[2], span[3] - column_offset
+            if span is None or span[:2] != (item.line, item.column):
+                continue
+            if record.data.get("selector_role") == "constructor" and isinstance(node, ast.Call):
+                selected.append(node.func)
+            if record.data.get("selector_role") == "type_probe" and any(
+                isinstance(call, ast.Call) and len(call.args) > 1 and call.args[1] is node
+                for call in nodes
+            ):
+                if isinstance(node, ast.expr):
+                    selected.append(node)
+    return tuple(selected)
+
+
+def selector_receiver_site_matches(
+    record: Record,
+    binding: CallBinding,
+    receiver_parameter: str | None,
+    declarations: Mapping[str, list[Record]],
+    evidence: Mapping[str, Evidence],
+    imports: Sequence[Record] = (),
+) -> bool:
+    if binding.origin is CallBindingOrigin.DIRECT:
+        return _direct_selector_receiver_matches(record, binding, declarations, evidence, imports)
+    source_site = _selector_source_receiver(record, binding, evidence)
+    expression = source_site[0] if source_site is not None else None
+    if binding.origin is CallBindingOrigin.DECLARED_RECEIVER:
+        selector_owner = record.data.get("owner")
+        parameter_owner = record.data.get("receiver_parameter_owner")
+        if not isinstance(parameter_owner, str):
+            parameter_owner = selector_owner
+        if not isinstance(selector_owner, str) or not isinstance(parameter_owner, str):
+            return False
+        if (
+            selector_owner != parameter_owner
+            and selector_owner[: len(parameter_owner) + 1] != f"{parameter_owner}."
+        ):
+            return False
+        if not selector_parameter_scope_matches(record, binding, declarations, evidence):
+            return False
+        return isinstance(expression, ast.Name) and expression.id == receiver_parameter
+    proof = binding.proof
+    if binding.origin is CallBindingOrigin.STORED_RECEIVER and proof is not None:
+        owner = proof.get("owner")
+        selector_owner = record.data.get("owner")
+        if not isinstance(owner, str) or not isinstance(selector_owner, str):
+            return False
+        initializers = declarations.get(f"{owner}.__init__", [])
+        initializer_data: RecordData | None = (
+            initializers[0].data if len(initializers) == 1 else None
+        )
+        receiver = (
+            initializer_data.get("receiver_parameter") if initializer_data is not None else None
+        )
+        selector_owner_name: str = selector_owner
+        return (
+            selector_owner_name[: len(owner) + 1] == f"{owner}."
+            and isinstance(expression, ast.Attribute)
+            and expression.attr == proof.get("field")
+            and isinstance(expression.value, ast.Name)
+            and isinstance(receiver, str)
+            and expression.value.id == receiver
+        )
+    if binding.origin is CallBindingOrigin.CONSTRUCTED_RECEIVER and proof is not None:
+        assignment_name = proof.get("assignment_name")
+        if isinstance(assignment_name, str):
+            return isinstance(expression, ast.Name) and expression.id == assignment_name
+        constructor_id = proof.get("constructor_evidence_id")
+        constructor = evidence.get(constructor_id) if isinstance(constructor_id, str) else None
+        expression_span = source_site[1] if source_site is not None else None
+        return (
+            isinstance(expression, ast.Call)
+            and constructor is not None
+            and expression_span is not None
+            and expression_span[:2] == (constructor.line, constructor.column)
+        )
+    return expression is not None
+
+
+def selector_parameter_scope_matches(
+    record: Record,
+    binding: CallBinding,
+    declarations: Mapping[str, list[Record]],
+    evidence: Mapping[str, Evidence],
+) -> bool:
+    parsed = _selector_parameter_scope_chain(record, declarations)
+    if parsed is None:
+        return False
+    expected, chain, module_name = parsed
+    parameter_owner = expected[-1]
+    parameter_name = record.data.get("receiver_parameter")
+    if not isinstance(parameter_name, str):
+        return False
+    return all(
+        _selector_scope_evidence_matches(
+            owner,
+            item,
+            module_name,
+            parameter_owner,
+            parameter_name,
+            binding,
+            evidence,
+        )
+        for owner, item in zip(expected, chain, strict=True)
+    ) and _selector_parameter_scope_site_matches(
+        record, binding, expected[0], chain[0], module_name, evidence
+    )
+
+
+def _selector_parameter_scope_chain(
+    record: Record, declarations: Mapping[str, list[Record]]
+) -> tuple[list[Record], list[RecordData], str] | None:
+    selector_owner = record.data.get("owner")
+    parameter_owner = record.data.get("receiver_parameter_owner")
+    parameter_name = record.data.get("receiver_parameter")
+    raw_chain = record.data.get("receiver_parameter_scopes")
+    if (
+        not isinstance(selector_owner, str)
+        or not isinstance(parameter_owner, str)
+        or not isinstance(parameter_name, str)
+        or not isinstance(raw_chain, tuple)
+        or not raw_chain
+        or any(not isinstance(item, RecordData) for item in raw_chain)
+    ):
+        return None
+    chain = [item for item in raw_chain if isinstance(item, RecordData)]
+    selector_owners = declarations.get(selector_owner, [])
+    parameter_owners = declarations.get(parameter_owner, [])
+    if len(selector_owners) != 1 or len(parameter_owners) != 1:
+        return None
+    module_value: JsonValue = None
+    for key, value in selector_owners[0].data.entries:
+        if key == "module":
+            module_value = value
+            break
+    module_name = module_value
+    if not isinstance(module_name, str):
+        return None
+    expected: list[Record] = []
+    current: Record | None = selector_owners[0]
+    while current is not None:
+        expected.append(current)
+        if current.id == parameter_owners[0].id:
+            break
+        current, valid = _selector_lexical_parent(current, declarations, module_name)
+        if not valid:
+            return None
+    if (
+        not expected
+        or expected[-1].id != parameter_owners[0].id
+        or len(expected) != len(chain)
+        or any(
+            item.get("scope_owner") != owner.data.get("qualified_name")
+            for item, owner in zip(chain, expected, strict=True)
+        )
+    ):
+        return None
+    return expected, chain, module_name
+
+
+def _selector_lexical_parent(
+    owner: Record, declarations: Mapping[str, list[Record]], module_name: str
+) -> tuple[Record | None, bool]:
+    qualified_name = owner.data.get("qualified_name")
+    name = owner.data.get("name")
+    parent_name = owner.data.get("parent")
+    parent_id = owner.data.get("lexical_parent_id")
+    if not isinstance(qualified_name, str) or not isinstance(name, str):
+        return None, False
+    if parent_name is None:
+        return None, qualified_name == module_name + "." + name and parent_id is None
+    if (
+        not isinstance(parent_name, str)
+        or qualified_name != parent_name + "." + name
+        or not isinstance(parent_id, str)
+    ):
+        return None, False
+    candidates = declarations.get(parent_name, [])
+    parent = candidates[0] if len(candidates) == 1 else None
+    if parent is None or parent.id != parent_id:
+        return None, False
+    return parent, True
+
+
+def _selector_scope_evidence_matches(
+    owner: Record,
+    item: RecordData,
+    module_name: str,
+    parameter_owner: Record,
+    parameter_name: str,
+    binding: CallBinding,
+    evidence: Mapping[str, Evidence],
+) -> bool:
+    scope_owner = item.get("scope_owner")
+    evidence_id = item.get("scope_evidence_id")
+    symbol_id = item.get("scope_symbol_id")
+    scope_evidence = evidence.get(evidence_id) if isinstance(evidence_id, str) else None
+    if (
+        not isinstance(scope_owner, str)
+        or not isinstance(evidence_id, str)
+        or not isinstance(symbol_id, str)
+        or evidence_id not in binding.evidence_ids
+        or scope_evidence is None
+        or symbol_id != owner.id
+        or not _numeric_owner_evidence_matches(owner, scope_evidence, evidence)
+    ):
+        return False
+    parsed = _numeric_scope_owner(scope_evidence, scope_owner, module_name)
+    if parsed is None:
+        return False
+    scope_node, _ = parsed
+    if isinstance(scope_node, ast.ClassDef):
+        return not _numeric_other_binding(scope_node, parameter_name) and not any(
+            isinstance(node, ast.Name)
+            and node.id == parameter_name
+            and isinstance(node.ctx, ast.Store | ast.Del)
+            for node in _numeric_lexical_scope_nodes(scope_node)
+        )
+    if not isinstance(scope_node, ast.FunctionDef | ast.AsyncFunctionDef):
+        return False
+    if owner.id == parameter_owner.id:
+        return _selector_parameter_is_unique(scope_node, parameter_name)
+    return not _numeric_function_binds_locally(scope_node, parameter_name)
+
+
+def _selector_parameter_scope_site_matches(
+    record: Record,
+    binding: CallBinding,
+    parameter_owner: Record,
+    scope_item: RecordData,
+    module_name: str,
+    evidence: Mapping[str, Evidence],
+) -> bool:
+    source_site = _selector_source_receiver(record, binding, evidence)
+    evidence_id = scope_item.get("scope_evidence_id")
+    scope_evidence = evidence.get(evidence_id) if isinstance(evidence_id, str) else None
+    scope_owner = scope_item.get("scope_owner")
+    if source_site is None or scope_evidence is None or not isinstance(scope_owner, str):
+        return False
+    parsed = _numeric_scope_owner(scope_evidence, scope_owner, module_name)
+    if parsed is None:
+        return False
+    scope_node, line_offset = parsed
+    receiver, span = source_site
+    if not isinstance(receiver, ast.Name):
+        return False
+    candidates = [
+        node
+        for node in ast.walk(scope_node)
+        if isinstance(node, ast.Name)
+        and node.id == receiver.id
+        and _numeric_node_span(node, scope_evidence.line, line_offset) == span
+    ]
+    if len(candidates) != 1:
+        return False
+    parents = {
+        child: parent for parent in ast.walk(scope_node) for child in ast.iter_child_nodes(parent)
+    }
+    node: ast.AST | None = candidates[0]
+    while node is not None and node is not scope_node:
+        if isinstance(node, ast.Lambda) and any(
+            argument.arg == receiver.id
+            for argument in (
+                *node.args.posonlyargs,
+                *node.args.args,
+                *([node.args.vararg] if node.args.vararg is not None else []),
+                *node.args.kwonlyargs,
+                *([node.args.kwarg] if node.args.kwarg is not None else []),
+            )
+        ):
+            return False
+        if isinstance(node, ast.Lambda) and any(
+            isinstance(item, ast.Name)
+            and item.id == receiver.id
+            and isinstance(item.ctx, ast.Store | ast.Del)
+            for item in ast.walk(node.body)
+        ):
+            return False
+        if isinstance(node, ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp) and any(
+            isinstance(target, ast.Name) and target.id == receiver.id
+            for generator in node.generators
+            for target in ast.walk(generator.target)
+        ):
+            return False
+        node = parents.get(node)
+    return node is scope_node and parameter_owner.data.get("qualified_name") is not None
+
+
+def _selector_parameter_is_unique(scope: ast.FunctionDef | ast.AsyncFunctionDef, name: str) -> bool:
+    arguments = (
+        *scope.args.posonlyargs,
+        *scope.args.args,
+        *([scope.args.vararg] if scope.args.vararg is not None else []),
+        *scope.args.kwonlyargs,
+        *([scope.args.kwarg] if scope.args.kwarg is not None else []),
+    )
+    return sum(argument.arg == name for argument in arguments) == 1 and not (
+        _numeric_function_binds_locally(scope, name, include_parameters=False)
+    )
+
+
+def _direct_selector_receiver_matches(
+    record: Record,
+    binding: CallBinding,
+    declarations: Mapping[str, list[Record]],
+    evidence: Mapping[str, Evidence],
+    imports: Sequence[Record],
+) -> bool:
+    source_classes = _selector_source_classes(record, binding, evidence)
+    declarations_for_target = declarations.get(binding.target, [])
+    target_data: RecordData | None = (
+        declarations_for_target[0].data if len(declarations_for_target) == 1 else None
+    )
+    module = (
+        target_data.get("module")
+        if target_data is not None and declarations_for_target[0].kind == "class"
+        else None
+    )
+    owner = record.data.get("owner")
+    if not isinstance(owner, str):
+        return False
+    owner_name: str = owner
+    for target in source_classes:
+        written = ast.unparse(target)
+        if (
+            isinstance(module, str)
+            and (owner_name == module or owner_name.startswith(module + "."))
+            and binding.target == f"{module}.{written}"
+        ):
+            return True
+        if _imported_selector_target_matches(target, binding, imports, owner_name):
+            return True
+    return False
+
+
+def _imported_selector_target_matches(
+    target: ast.expr,
+    binding: CallBinding,
+    imports: Sequence[Record],
+    owner: JsonValue,
+) -> bool:
+    suffix: list[str] = []
+    root = target
+    while isinstance(root, ast.Attribute):
+        suffix.append(root.attr)
+        root = root.value
+    if not isinstance(root, ast.Name) or not isinstance(owner, str):
+        return False
+    owner_name: str = owner
+    matching_imports = [
+        item
+        for item in imports
+        if item.data.get("binding") == root.id
+        and isinstance((source_module := item.data.get("source_module")), str)
+        and (owner_name == source_module or owner_name.startswith(f"{source_module}."))
+        and item.data.get("symbols_known") is True
+        and set(item.evidence_ids) <= set(binding.evidence_ids)
+    ]
+    if len(matching_imports) != 1:
+        return False
+    imported = matching_imports[0]
+    target_module, symbol = imported.data.get("target_module"), imported.data.get("symbol")
+    canonical = (
+        f"{target_module}.{symbol}"
+        if isinstance(target_module, str) and isinstance(symbol, str)
+        else target_module
+    )
+    return isinstance(canonical, str) and binding.target == ".".join([canonical, *reversed(suffix)])
+
+
+def _selector_receiver_proof(
+    facts: SourceFacts,
+    record: Record,
+    binding: CallBinding | None,
+    receiver_parameter: str | None,
+    declarations: Mapping[str, list[Record]],
+    evidence: Mapping[str, Evidence],
+) -> None:
+    receiver_type = record.data.get("receiver_type")
+    if binding is None:
+        if receiver_type is not None:
+            raise ValueError("known selector receiver needs its typed source binding")
+        return
+    proof_evidence_ids: tuple[str, ...] = binding.evidence_ids
+    if (
+        binding.target != receiver_type
+        or not set(binding.evidence_ids) <= set(record.evidence_ids)
+        or any(identifier not in evidence for identifier in proof_evidence_ids)
+    ):
+        raise ValueError("selector receiver binding evidence disagrees with its source fact")
+    if binding.origin in {
+        CallBindingOrigin.DIRECT,
+        CallBindingOrigin.DECLARED_RECEIVER,
+        CallBindingOrigin.STORED_RECEIVER,
+        CallBindingOrigin.CONSTRUCTED_RECEIVER,
+    } and not selector_receiver_site_matches(
+        record,
+        binding,
+        receiver_parameter,
+        declarations,
+        evidence,
+        tuple(
+            item
+            for section in facts.sections
+            if section.name is SourceSectionName.IMPORTS
+            for item in section.records
+        ),
+    ):
+        raise ValueError("selector receiver proof does not match its source expression")
+    targets = declarations.get(binding.target, [])
+    if binding.origin is CallBindingOrigin.DIRECT:
+        imports = tuple(
+            item
+            for section in facts.sections
+            if section.name is SourceSectionName.IMPORTS
+            for item in section.records
+        )
+        _selector_direct_receiver_proof(binding, receiver_parameter, targets, imports)
+        return
+    if binding.origin is CallBindingOrigin.DECLARED_RECEIVER:
+        _selector_declared_receiver_proof(
+            facts, record, binding, receiver_parameter, declarations, targets
+        )
+        return
+    proof = binding.proof
+    if proof is None:
+        raise ValueError("extended selector receiver needs its typed origin proof")
+    if binding.origin is CallBindingOrigin.STORED_RECEIVER:
+        _selector_stored_receiver_proof(facts, binding, declarations, targets)
+        return
+    if binding.origin is CallBindingOrigin.CONSTRUCTED_RECEIVER:
+        _selector_constructed_receiver_proof(facts, record, binding, proof, targets, evidence)
+        return
+    raise ValueError("selector receiver origin is unsupported")
+
+
+def _selector_direct_receiver_proof(
+    binding: CallBinding,
+    receiver_parameter: str | None,
+    targets: list[Record],
+    imports: Sequence[Record],
+) -> None:
+    # The source-site proof binds local expressions to declarations and imported aliases to
+    # typed import rows. Imported declarations live in another source module, so their evidence
+    # cannot be copied into this selector record without breaking source-file ownership.
+    target_data: RecordData | None = targets[0].data if len(targets) == 1 else None
+    local_class = (
+        len(targets) == 1
+        and targets[0].kind == "class"
+        and target_data is not None
+        and target_data.get("source_binding_unique") is True
+    )
+    if receiver_parameter is not None:
+        raise ValueError("selector class receiver needs its stable declaration")
+    if local_class:
+        return
+    imported_class = any(
+        item.data.get("symbols_known") is True
+        and item.data.get("source_binding_unique") is True
+        and f"{item.data.get('target_module')}.{item.data.get('symbol')}" == binding.target
+        and set(item.evidence_ids) <= set(binding.evidence_ids)
+        for item in imports
+    )
+    if not imported_class:
+        raise ValueError("selector class receiver needs its stable declaration")
+
+
+def _selector_declared_receiver_proof(
+    facts: SourceFacts,
+    record: Record,
+    binding: CallBinding,
+    receiver_parameter: str | None,
+    declarations: Mapping[str, list[Record]],
+    targets: list[Record],
+) -> None:
+    owner_name = record.data.get("owner")
+    parameter_owner = record.data.get("receiver_parameter_owner")
+    if not isinstance(parameter_owner, str):
+        parameter_owner = owner_name
+    owners = declarations.get(parameter_owner, []) if isinstance(parameter_owner, str) else []
+    selector_owners = declarations.get(owner_name, []) if isinstance(owner_name, str) else []
+    owner_data: RecordData | None = owners[0].data if len(owners) == 1 else None
+    parameters = owner_data.get("parameters") if owner_data is not None else None
+    selected = (
+        [
+            item
+            for item in parameters
+            if isinstance(item, RecordData) and item.get("name") == receiver_parameter
+        ]
+        if isinstance(parameters, tuple)
+        else []
+    )
+    annotation_target = (
+        _annotation_class_origin(owners[0], selected[0], facts, declarations)
+        if len(owners) == 1 and len(selected) == 1
+        else None
+    )
+    target_data: RecordData | None = targets[0].data if len(targets) == 1 else None
+    if (
+        len(owners) != 1
+        or owners[0].kind not in {"function", "method"}
+        or len(selector_owners) != 1
+        or selector_owners[0].kind not in {"function", "method"}
+        or receiver_parameter is None
+        or not isinstance(owner_name, str)
+        or not isinstance(parameter_owner, str)
+        or owner_name != parameter_owner
+        and owner_name[: len(parameter_owner) + 1] != f"{parameter_owner}."
+        or len(selected) != 1
+        or annotation_target != binding.target
+        or len(targets) != 1
+        or targets[0].kind != "class"
+        or target_data is None
+        or target_data.get("source_binding_unique") is not True
+        or not set(owners[0].evidence_ids) <= set(binding.evidence_ids)
+        or not set(selector_owners[0].evidence_ids) <= set(binding.evidence_ids)
+    ):
+        raise ValueError("declared selector receiver needs its exact typed parameter proof")
+
+
+def _selector_stored_receiver_proof(
+    facts: SourceFacts,
+    binding: CallBinding,
+    declarations: Mapping[str, list[Record]],
+    targets: list[Record],
+) -> None:
+    proof = binding.proof
+    if proof is None:
+        raise ValueError("stored selector receiver needs its typed origin proof")
+    owner_name, field = proof.get("owner"), proof.get("field")
+    parameter_name, witnesses = proof.get("parameter"), proof.get("witness_evidence_ids")
+    owners = declarations.get(owner_name, []) if isinstance(owner_name, str) else []
+    initializers = (
+        declarations.get(f"{owner_name}.__init__", []) if isinstance(owner_name, str) else []
+    )
+    initializer_data: RecordData | None = initializers[0].data if len(initializers) == 1 else None
+    writes = initializer_data.get("stored_field_writes") if initializer_data is not None else None
+    receiver_parameter: JsonValue = (
+        initializer_data.get("receiver_parameter") if initializer_data is not None else None
+    )
+    witness_ids = witnesses if isinstance(witnesses, tuple) else ()
+    linked = (
+        [
+            item
+            for item in writes
+            if isinstance(item, RecordData)
+            and item.get("field") == field
+            and item.get("parameter") == parameter_name
+            and item.get("evidence_id") == (witness_ids[0] if witness_ids else None)
+            and len(witness_ids) == 2
+            and item.get("annotation_evidence_id") == witness_ids[1]
+            and item.get("receiver") == receiver_parameter
+            and item.get("annotation_target") == binding.target
+        ]
+        if isinstance(writes, tuple)
+        else []
+    )
+    parameters = initializer_data.get("parameters") if initializer_data is not None else None
+    typed = (
+        [
+            item
+            for item in parameters
+            if isinstance(item, RecordData)
+            and item.get("name") == parameter_name
+            and isinstance(item.get("annotation"), str)
+        ]
+        if isinstance(parameters, tuple)
+        else []
+    )
+    annotation_target = (
+        _annotation_class_origin(initializers[0], typed[0], facts, declarations)
+        if len(initializers) == 1 and len(typed) == 1
+        else None
+    )
+    owner_data: RecordData | None = owners[0].data if len(owners) == 1 else None
+    target_data: RecordData | None = targets[0].data if len(targets) == 1 else None
+    if (
+        proof.get("kind") != "stored_field"
+        or proof.get("target") != binding.target
+        or len(owners) != 1
+        or owners[0].kind != "class"
+        or owner_data is None
+        or owner_data.get("source_binding_unique") is not True
+        or len(initializers) != 1
+        or len(linked) != 1
+        or len(typed) != 1
+        or annotation_target != binding.target
+        or not isinstance(witnesses, tuple)
+        or len(witnesses) != 2
+        or not set(witnesses) <= set(binding.evidence_ids)
+        or len(targets) != 1
+        or targets[0].kind != "class"
+        or target_data is None
+        or target_data.get("source_binding_unique") is not True
+        or not set(owners[0].evidence_ids) <= set(binding.evidence_ids)
+    ):
+        raise ValueError("stored selector receiver needs a linked initializer annotation")
+
+
+def _selector_constructed_receiver_proof(
+    facts: SourceFacts,
+    record: Record,
+    binding: CallBinding,
+    proof: RecordData,
+    targets: list[Record],
+    evidence: Mapping[str, Evidence],
+) -> None:
+    constructor_id = proof.get("constructor_evidence_id")
+    assignment_id, assignment_name = (
+        proof.get("assignment_evidence_id"),
+        proof.get("assignment_name"),
+    )
+    target_calls = [
+        candidate
+        for section in facts.sections
+        if section.name is SourceSectionName.CALLS
+        for candidate in section.records
+        if isinstance(constructor_id, str)
+        and constructor_id in candidate.evidence_ids
+        and _call_record_kind(candidate.kind)
+        and isinstance((candidate_targets := candidate.data.get("targets")), tuple)
+        and binding.target in candidate_targets
+    ]
+    selector_evidence = [
+        evidence[item]
+        for item in record.evidence_ids
+        if item not in binding.evidence_ids and item in evidence
+    ]
+    if (
+        isinstance(constructor_id, str)
+        and constructor_id in record.evidence_ids
+        and (shared_site := evidence.get(constructor_id)) is not None
+        and shared_site not in selector_evidence
+    ):
+        selector_evidence.append(shared_site)
+    linked_assignments = _selector_linked_assignments(
+        facts, constructor_id, assignment_id, assignment_name
+    )
+    target_data: RecordData | None = targets[0].data if len(targets) == 1 else None
+    linked_call: Record | None = linked_assignments[0][0] if len(linked_assignments) == 1 else None
+    assignment_evidence = evidence.get(assignment_id) if isinstance(assignment_id, str) else None
+    if (
+        proof.get("kind") != "construction"
+        or proof.get("target") != binding.target
+        or len(targets) != 1
+        or targets[0].kind != "class"
+        or target_data is None
+        or target_data.get("default_instance_result") is not True
+        or not isinstance(constructor_id, str)
+        or len(target_calls) != 1
+        or not selector_evidence
+        or assignment_id is not None
+        and (
+            not isinstance(assignment_name, str)
+            or linked_call is None
+            or linked_call.data.get("source_scope") != record.data.get("owner")
+            or assignment_evidence is None
+            or assignment_evidence.line >= max(item.line for item in selector_evidence)
+            or not isinstance(assignment_id, str)
+            or assignment_id not in binding.evidence_ids
+        )
+        or assignment_id is None
+        and assignment_name is not None
+    ):
+        raise ValueError("constructed selector receiver needs its linked allocation witness")
+
+
+def _selector_linked_assignments(
+    facts: SourceFacts,
+    constructor_id: JsonValue,
+    assignment_id: JsonValue,
+    assignment_name: JsonValue,
+) -> list[tuple[Record, RecordData]]:
+    linked: list[tuple[Record, RecordData]] = []
+    if not isinstance(constructor_id, str) or not isinstance(assignment_id, str):
+        return linked
+    for section in facts.sections:
+        if section.name is not SourceSectionName.CALLS:
+            continue
+        for candidate in section.records:
+            if constructor_id not in candidate.evidence_ids:
+                continue
+            bindings = candidate.data.get("result_bindings")
+            if not isinstance(bindings, tuple):
+                continue
+            for item in bindings:
+                ids = item.get("evidence_ids") if isinstance(item, RecordData) else None
+                if (
+                    isinstance(item, RecordData)
+                    and item.get("name") == assignment_name
+                    and item.get("target_kind") == "name"
+                    and isinstance(ids, tuple)
+                    and assignment_id in ids
+                ):
+                    linked.append((candidate, item))
+    return linked
+
+
+def _call_record_kind(kind: str) -> bool:
+    return kind.endswith("_call")
 
 
 def _last_segment(value: str) -> str:
@@ -1030,9 +1895,12 @@ def _numeric_enclosing_function(
 
 
 def _numeric_function_binds_locally(
-    function: ast.FunctionDef | ast.AsyncFunctionDef, name: str
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+    name: str,
+    *,
+    include_parameters: bool = True,
 ) -> bool:
-    if any(
+    if include_parameters and any(
         argument.arg == name
         for argument in (
             *function.args.posonlyargs,
@@ -1044,6 +1912,8 @@ def _numeric_function_binds_locally(
     ):
         return True
     for node in _numeric_lexical_scope_nodes(function):
+        if isinstance(node, ast.Global | ast.Nonlocal) and name in node.names:
+            return True
         if (
             isinstance(node, ast.Name)
             and node.id == name
@@ -3528,9 +4398,13 @@ def validate_source_facts(facts: SourceFacts) -> None:
                     generic_header_index,
                 )
             construct = record.data.get("construct")
-            if construct is not None and not any(
-                entry.name == construct and entry.status != ConstructSupport.UNSUPPORTED
-                for entry in facts.capabilities.constructs
+            if (
+                construct is not None
+                and record.kind != "construct_selector"
+                and not any(
+                    entry.name == construct and entry.status != ConstructSupport.UNSUPPORTED
+                    for entry in facts.capabilities.constructs
+                )
             ):
                 raise ValueError("source construct disagrees with declared capabilities")
     fact_ids = record_ids | file_ids
@@ -3617,6 +4491,20 @@ def validate_source_facts(facts: SourceFacts) -> None:
                 raise ValueError("call binding disagrees with its target declaration")
             if call_proof is not None:
                 _call_origin_proof(facts, record, call_proof, declarations, typed_evidence)
+    for section in facts.sections:
+        if section.name is not SourceSectionName.CONSTRUCTS:
+            continue
+        for record in section.records:
+            if record.kind == "construct_selector":
+                receiver_parameter = record.data.get("receiver_parameter")
+                _selector_receiver_proof(
+                    facts,
+                    record,
+                    call_binding(record.data.get("receiver_binding")),
+                    receiver_parameter if isinstance(receiver_parameter, str) else None,
+                    declarations,
+                    typed_evidence,
+                )
     record_by_id = {record.id: record for record in records}
     effects = [record for record in records if record.kind == "script_namespace_effect"]
     effect_gaps = [

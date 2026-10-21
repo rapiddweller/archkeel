@@ -264,6 +264,7 @@ class CallCollector(ast.NodeVisitor):
         self.escaped_bindings = {
             (binding.owner.node, reference.id)
             for reference in member_escape_sites
+            if not self._discarded_attribute_read(reference)
             if (binding := self.scopes.lookup(reference, reference.id)).owner is not None
         }
         self.constructed_escape_bindings = {
@@ -301,6 +302,19 @@ class CallCollector(ast.NodeVisitor):
             for target in self._native_expression_targets(reference)
         )
         self.scope_bindings: dict[ast.ClassDef | FunctionNode, frozenset[str]] = {}
+
+    def _discarded_attribute_read(self, reference: ast.Name) -> bool:
+        """A read-only attribute expression discarded as a statement exposes no receiver."""
+        current: ast.AST = reference
+        while current in self.parents:
+            parent = self.parents[current]
+            if isinstance(parent, ast.Attribute) and parent.value is current:
+                if not isinstance(parent.ctx, ast.Load):
+                    return False
+                current = parent
+                continue
+            return isinstance(parent, ast.Expr) and isinstance(current, ast.Attribute)
+        return False
 
     def _construction(
         self,
@@ -831,7 +845,7 @@ class CallCollector(ast.NodeVisitor):
         return False
 
     def _constructed_type(
-        self, expression: ast.expr, call_site: ast.Call
+        self, expression: ast.expr, call_site: ast.expr
     ) -> tuple[str, list[str], dict[str, object]] | None:
         if isinstance(expression, ast.Name):
             binding = self.scopes.lookup(expression, expression.id)
@@ -1748,7 +1762,23 @@ def collect_calls(
     imports: Sequence[RawRecord] = (),
 ) -> list[RawRecord]:
     """Run the call collector over every module and sort the records by id."""
+    calls, _ = collect_calls_with_resolvers(
+        parsed, index, evidence, provider_bindings, runtime, imports
+    )
+    return calls
+
+
+def collect_calls_with_resolvers(
+    parsed: Sequence[ParsedModule],
+    index: SymbolIndex,
+    evidence: dict[str, RawEvidence],
+    provider_bindings: Sequence[ProviderBinding] = (),
+    runtime: RuntimeInfo | None = None,
+    imports: Sequence[RawRecord] = (),
+) -> tuple[list[RawRecord], tuple[CallCollector, ...]]:
+    """Collect calls and retain their per-module resolver for construct evidence."""
     calls: list[RawRecord] = []
+    resolvers: list[CallCollector] = []
     collectors = [
         CallCollector(module, index, evidence, provider_bindings, runtime, imports)
         for module in parsed
@@ -1760,5 +1790,6 @@ def collect_calls(
     for call_collector in collectors:
         call_collector.visit(call_collector.module.tree)
         calls.extend(call_collector.items)
+        resolvers.append(call_collector)
     calls.sort(key=lambda item: item["id"])
-    return calls
+    return calls, tuple(resolvers)

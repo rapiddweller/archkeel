@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Build typed report results and canonical observation bytes."""
 
+import ast
 import subprocess
 from collections import Counter as _Counter
 from dataclasses import replace
@@ -44,7 +45,19 @@ from archkeel.ir.decisions import (
 from archkeel.ir.diagnostics import Diagnostic as Diagnostic
 from archkeel.ir.diagnostics import DiagnosticError as DiagnosticError
 from archkeel.ir.diagnostics import ReportLocation as ReportLocation
-from archkeel.ir.facts import SourceSectionName
+from archkeel.ir.facts import (
+    CallBinding,
+    CallBindingOrigin,
+    Evidence,
+    JsonValue,
+    Record,
+    RecordData,
+    SourceSectionName,
+    call_binding,
+)
+from archkeel.ir.facts_codec import (
+    selector_receiver_site_matches,
+)
 from archkeel.ir.facts_validation import validate_source_bindings
 from archkeel.ir.model import (
     AssessmentStatus as _AssessmentStatus,
@@ -93,6 +106,8 @@ from .uml import (
     validated_member_inventory_result as _validated_member_inventory_result,
 )
 from .uml_evaluation import evaluate_uml as evaluate_uml
+
+_CALL_RECORD_KINDS = ("resolved_call", "partially_resolved_call", "unresolved_call")
 
 VIOLATION_REMEDY = "Change the code or amend the contract with owner approval."
 
@@ -749,3 +764,481 @@ def _validate_saved_sources(model: Observation) -> None:
         selected_inputs={item.file for item in model.evidence},
         allow_part_evidence=model.analyzer.name == "archkeel-dart-analyzer",
     )
+    _validate_saved_selector_receivers(model)
+
+
+def _saved_annotation_target(
+    owner: Record,
+    spelling: str,
+    imports: tuple[Record, ...],
+    declarations: dict[str, list[Record]],
+    evidence: dict[str, Evidence],
+) -> str | None:
+    module = owner.data.get("module")
+    if not isinstance(module, str) or not spelling:
+        return None
+    root, _, suffix = spelling.partition(".")
+    imported = [
+        record
+        for record in imports
+        if record.data.get("source_module") == module
+        and record.data.get("binding") == root
+        and record.data.get("under_type_checking") is False
+        and _saved_top_level_import(record, root, evidence)
+    ]
+    if len(imported) == 1:
+        origin = _saved_import_origin(imported[0])
+        if origin is None:
+            return None
+        candidates = (".".join(part for part in (origin, suffix) if part),)
+    elif imported:
+        return None
+    else:
+        candidates = (f"{module}.{spelling}",)
+    matches: list[str] = []
+    for candidate in candidates:
+        candidate_declarations: list[Record] = declarations.get(candidate, [])
+        if len(candidate_declarations) != 1:
+            continue
+        declaration: Record = candidate_declarations[0]
+        if declaration.kind == "class" and declaration.data.get("source_binding_unique") is True:
+            matches.append(candidate)
+    return matches[0] if len(matches) == 1 else None
+
+
+def _saved_import_origin(record: Record) -> str | None:
+    data = record.data
+    origin = data.get("origin_definition")
+    chain = data.get("reexport_chain")
+    candidates = data.get("reexport_candidates")
+    if (
+        isinstance(origin, str)
+        and _saved_qualified_identifier(origin)
+        and isinstance(chain, tuple)
+        and chain
+        and chain[-1] == origin
+        and len(set(chain)) == len(chain)
+        and all(isinstance(item, str) and _saved_qualified_identifier(item) for item in chain)
+        and data.get("source_binding_unique") is True
+        and data.get("symbols_known") is True
+        and data.get("reexport_candidate") is not True
+        and candidates in (None, ())
+    ):
+        return origin
+    return None
+
+
+def _saved_qualified_identifier(value: str) -> bool:
+    return bool(value) and all(part.isidentifier() for part in value.split("."))
+
+
+def _saved_top_level_import(record: Record, binding: str, evidence: dict[str, Evidence]) -> bool:
+    if (
+        record.data.get("source_binding_unique") is not True
+        or record.data.get("symbols_known") is not True
+    ):
+        return False
+    symbol = record.data.get("symbol")
+    for identifier in record.evidence_ids:
+        item = evidence.get(identifier)
+        if item is None or item.column != 0:
+            continue
+        try:
+            statements = ast.parse(item.excerpt).body
+        except (IndentationError, SyntaxError, ValueError, RecursionError):
+            continue
+        if len(statements) != 1:
+            continue
+        statement = statements[0]
+        if isinstance(statement, ast.ImportFrom):
+            if isinstance(symbol, str) and any(
+                alias.name == symbol and (alias.asname or alias.name) == binding
+                for alias in statement.names
+            ):
+                return True
+        elif isinstance(statement, ast.Import) and symbol is None:
+            for alias in statement.names:
+                alias_name: str = alias.name
+                if (alias.asname or alias_name.partition(".")[0]) == binding:
+                    return True
+    return False
+
+
+def _saved_selector_direct(
+    binding: CallBinding,
+    parameter_name: JsonValue,
+    targets: list[Record],
+    imports: tuple[Record, ...],
+) -> None:
+    target: Record | None = targets[0] if len(targets) == 1 else None
+    local_class = (
+        target is not None
+        and target.kind == "class"
+        and target.data.get("source_binding_unique") is True
+        and set(binding.evidence_ids) <= set(target.evidence_ids)
+    )
+    imported_class = any(
+        item.data.get("symbols_known") is True
+        and item.data.get("source_binding_unique") is True
+        and _saved_import_origin(item) == binding.target
+        and set(item.evidence_ids) <= set(binding.evidence_ids)
+        for item in imports
+    )
+    if parameter_name is not None or not (local_class or imported_class):
+        raise ValueError("saved selector class receiver needs its stable declaration")
+
+
+def _saved_selector_declared(
+    selector: Record,
+    binding: CallBinding,
+    parameter_name: JsonValue,
+    declarations: dict[str, list[Record]],
+    targets: list[Record],
+    imports: tuple[Record, ...],
+    evidence: dict[str, Evidence],
+) -> None:
+    selector_owner_name = selector.data.get("owner")
+    parameter_owner_name = selector.data.get("receiver_parameter_owner")
+    if not isinstance(parameter_owner_name, str):
+        parameter_owner_name = selector_owner_name
+    owners = (
+        declarations.get(parameter_owner_name, []) if isinstance(parameter_owner_name, str) else []
+    )
+    selector_owners = (
+        declarations.get(selector_owner_name, []) if isinstance(selector_owner_name, str) else []
+    )
+    owner: Record | None = owners[0] if len(owners) == 1 else None
+    selector_owner: Record | None = selector_owners[0] if len(selector_owners) == 1 else None
+    target_declaration: Record | None = targets[0] if len(targets) == 1 else None
+    parameters = owner.data.get("parameters") if owner is not None else None
+    candidates = (
+        [
+            item
+            for item in parameters
+            if isinstance(item, RecordData) and item.get("name") == parameter_name
+        ]
+        if isinstance(parameters, tuple)
+        else []
+    )
+    parameter: RecordData | None = candidates[0] if len(candidates) == 1 else None
+    annotation = parameter.get("annotation") if parameter is not None else None
+    target = (
+        _saved_annotation_target(owner, annotation, imports, declarations, evidence)
+        if (owner is not None and isinstance(annotation, str))
+        else None
+    )
+    if (
+        owner is None
+        or owner.kind not in {"function", "method"}
+        or selector_owner is None
+        or selector_owner.kind not in {"function", "method"}
+        or not isinstance(selector_owner_name, str)
+        or not isinstance(parameter_owner_name, str)
+        or selector_owner_name != parameter_owner_name
+        and selector_owner_name[: len(parameter_owner_name) + 1] != f"{parameter_owner_name}."
+        or len(candidates) != 1
+        or target != binding.target
+        or target_declaration is None
+        or target_declaration.kind != "class"
+        or target_declaration.data.get("source_binding_unique") is not True
+        or not set(owner.evidence_ids) <= set(binding.evidence_ids)
+        or not set(selector_owner.evidence_ids) <= set(binding.evidence_ids)
+    ):
+        raise ValueError("saved selector receiver is not tied to its declared parameter type")
+
+
+def _saved_selector_stored(
+    binding: CallBinding,
+    declarations: dict[str, list[Record]],
+    targets: list[Record],
+    imports: tuple[Record, ...],
+    evidence: dict[str, Evidence],
+) -> None:
+    proof = binding.proof
+    if not isinstance(proof, RecordData):
+        raise ValueError("saved stored selector receiver needs its typed proof")
+    owner_name, field = proof.get("owner"), proof.get("field")
+    parameter, witnesses = proof.get("parameter"), proof.get("witness_evidence_ids")
+    owners = declarations.get(owner_name, []) if isinstance(owner_name, str) else []
+    initializers = (
+        declarations.get(f"{owner_name}.__init__", []) if isinstance(owner_name, str) else []
+    )
+    owner: Record | None = owners[0] if len(owners) == 1 else None
+    initializer: Record | None = initializers[0] if len(initializers) == 1 else None
+    target_declaration: Record | None = targets[0] if len(targets) == 1 else None
+    writes = initializer.data.get("stored_field_writes") if initializer is not None else None
+    witness_ids = witnesses if isinstance(witnesses, tuple) else ()
+    linked = (
+        [
+            item
+            for item in writes
+            if isinstance(item, RecordData)
+            and item.get("field") == field
+            and item.get("parameter") == parameter
+            and item.get("evidence_id") == (witness_ids[0] if witness_ids else None)
+            and len(witness_ids) == 2
+            and item.get("annotation_evidence_id") == witness_ids[1]
+            and item.get("annotation_target") == binding.target
+        ]
+        if isinstance(writes, tuple)
+        else []
+    )
+    parameters = initializer.data.get("parameters") if initializer is not None else None
+    typed = (
+        [
+            item
+            for item in parameters
+            if isinstance(item, RecordData)
+            and item.get("name") == parameter
+            and isinstance(item.get("annotation"), str)
+        ]
+        if isinstance(parameters, tuple)
+        else []
+    )
+    typed_parameter: RecordData | None = typed[0] if len(typed) == 1 else None
+    annotation = typed_parameter.get("annotation") if typed_parameter is not None else None
+    target = (
+        _saved_annotation_target(initializer, annotation, imports, declarations, evidence)
+        if (initializer is not None and isinstance(annotation, str))
+        else None
+    )
+    ids = binding.evidence_ids
+    if (
+        proof.get("kind") != "stored_field"
+        or proof.get("target") != binding.target
+        or owner is None
+        or owner.kind != "class"
+        or owner.data.get("source_binding_unique") is not True
+        or len(initializers) != 1
+        or len(linked) != 1
+        or len(typed) != 1
+        or target != binding.target
+        or not isinstance(witnesses, tuple)
+        or len(witnesses) != 2
+        or not set(witnesses) <= set(ids)
+        or target_declaration is None
+        or target_declaration.kind != "class"
+        or target_declaration.data.get("source_binding_unique") is not True
+        or not set(owner.evidence_ids) <= set(ids)
+    ):
+        raise ValueError("saved stored selector receiver needs its typed initializer link")
+
+
+def _saved_selector_constructed(
+    model: Observation,
+    selector: Record,
+    binding: CallBinding,
+    targets: list[Record],
+    evidence: dict[str, Evidence],
+) -> None:
+    proof = binding.proof
+    if not isinstance(proof, RecordData):
+        raise ValueError("saved constructed selector receiver needs its allocation proof")
+    constructor_id = proof.get("constructor_evidence_id")
+    assignment_id, assignment_name = (
+        proof.get("assignment_evidence_id"),
+        proof.get("assignment_name"),
+    )
+    constructor_calls, assignment_calls = _saved_selector_construction_calls(
+        model, constructor_id, binding.target, assignment_id, assignment_name
+    )
+    assignment_evidence = evidence.get(assignment_id) if isinstance(assignment_id, str) else None
+    selector_evidence = [
+        evidence[item]
+        for item in selector.evidence_ids
+        if item not in binding.evidence_ids and item in evidence
+    ]
+    if isinstance(constructor_id, str) and constructor_id in selector.evidence_ids:
+        constructor_evidence = evidence.get(constructor_id)
+        if constructor_evidence is not None and constructor_evidence not in selector_evidence:
+            selector_evidence.append(constructor_evidence)
+    target_declaration: Record | None = targets[0] if len(targets) == 1 else None
+    assignment_call: Record | None = assignment_calls[0][0] if len(assignment_calls) == 1 else None
+    if not _saved_selector_construction_is_linked(
+        proof,
+        binding,
+        selector,
+        assignment_id,
+        assignment_name,
+        constructor_calls,
+        assignment_evidence,
+        selector_evidence,
+        target_declaration,
+        assignment_call,
+    ):
+        raise ValueError("saved constructed selector receiver needs its allocation link")
+
+
+def _saved_selector_construction_calls(
+    model: Observation,
+    constructor_id: JsonValue,
+    target: str,
+    assignment_id: JsonValue,
+    assignment_name: JsonValue,
+) -> tuple[list[Record], list[tuple[Record, RecordData]]]:
+    calls = model.records("calls") or ()
+    constructor_calls: list[Record] = []
+    assignment_calls: list[tuple[Record, RecordData]] = []
+    if isinstance(constructor_id, str):
+        for candidate in calls:
+            if constructor_id not in candidate.evidence_ids:
+                continue
+            candidate_targets = candidate.data.get("targets")
+            candidate_kind: str = candidate.kind
+            if (
+                candidate_kind.endswith("_call")
+                and isinstance(candidate_targets, tuple)
+                and target in candidate_targets
+            ):
+                constructor_calls.append(candidate)
+            results = candidate.data.get("result_bindings")
+            if isinstance(results, tuple):
+                for item in results:
+                    evidence_ids = (
+                        item.get("evidence_ids") if isinstance(item, RecordData) else None
+                    )
+                    if (
+                        isinstance(assignment_id, str)
+                        and isinstance(item, RecordData)
+                        and item.get("name") == assignment_name
+                        and item.get("target_kind") == "name"
+                        and isinstance(evidence_ids, tuple)
+                        and assignment_id in evidence_ids
+                    ):
+                        assignment_calls.append((candidate, item))
+    return constructor_calls, assignment_calls
+
+
+def _saved_selector_construction_is_linked(
+    proof: RecordData,
+    binding: CallBinding,
+    selector: Record,
+    assignment_id: JsonValue,
+    assignment_name: JsonValue,
+    constructor_calls: list[Record],
+    assignment_evidence: Evidence | None,
+    selector_evidence: list[Evidence],
+    target_declaration: Record | None,
+    assignment_call: Record | None,
+) -> bool:
+    ids = binding.evidence_ids
+    constructor_id = proof.get("constructor_evidence_id")
+    if (
+        proof.get("kind") != "construction"
+        or proof.get("target") != binding.target
+        or target_declaration is None
+        or target_declaration.data.get("default_instance_result") is not True
+        or not isinstance(constructor_id, str)
+        or len(constructor_calls) != 1
+        or not selector_evidence
+        or assignment_id is not None
+        and (
+            not isinstance(assignment_name, str)
+            or assignment_call is None
+            or assignment_call.data.get("source_scope") != selector.data.get("owner")
+            or assignment_evidence is None
+            or assignment_evidence.line >= max(item.line for item in selector_evidence)
+            or assignment_id not in ids
+        )
+        or assignment_id is None
+        and assignment_name is not None
+        or not _saved_constructor_target_is_witnessed(
+            constructor_calls,
+            target_declaration,
+            binding,
+            assignment_id,
+            assignment_call,
+        )
+    ):
+        return False
+    return True
+
+
+def _saved_constructor_target_is_witnessed(
+    constructor_calls: list[Record],
+    target_declaration: Record,
+    binding: CallBinding,
+    assignment_id: JsonValue,
+    assignment_call: Record | None,
+) -> bool:
+    declaration_evidence = set(target_declaration.evidence_ids)
+    if declaration_evidence <= set(binding.evidence_ids):
+        return True
+    if len(constructor_calls) != 1:
+        return False
+    constructor = constructor_calls[0]
+    constructor_binding = call_binding(constructor.data.get("call_binding"))
+    targets = constructor.data.get("targets")
+    target_evidence = constructor.data.get("target_evidence_ids")
+    return (
+        constructor.kind in _CALL_RECORD_KINDS
+        and isinstance(targets, tuple)
+        and binding.target in targets
+        and isinstance(target_evidence, tuple)
+        and declaration_evidence <= set(target_evidence)
+        and constructor_binding is not None
+        and constructor_binding.origin is CallBindingOrigin.CONSTRUCTOR
+        and constructor_binding.target == binding.target
+        and declaration_evidence <= set(constructor_binding.evidence_ids)
+        and (
+            assignment_id is None
+            and assignment_call is None
+            or assignment_id is not None
+            and assignment_call is constructor
+        )
+    )
+
+
+def _validate_saved_selector_receivers(model: Observation) -> None:
+    symbols = model.records("symbols") or ()
+    imports = model.records("imports") or ()
+    evidence = {item.id: item for item in model.evidence}
+    declarations: dict[str, list[Record]] = {}
+    for symbol in symbols:
+        name = symbol.data.get("qualified_name")
+        if symbol.kind in {"class", "function", "method"} and isinstance(name, str):
+            named_declarations: list[Record] = declarations.setdefault(name, [])
+            named_declarations.append(symbol)
+    for selector in model.records("constructs") or ():
+        if selector.kind != "construct_selector":
+            continue
+        receiver = selector.data.get("receiver_type")
+        binding = call_binding(selector.data.get("receiver_binding"))
+        parameter = selector.data.get("receiver_parameter")
+        if receiver is None:
+            if binding is not None:
+                raise ValueError("unknown selector receiver cannot carry a typed binding")
+            continue
+        if binding is None or binding.target != receiver:
+            raise ValueError("saved selector receiver disagrees with its typed binding")
+        if not set(binding.evidence_ids) <= set(selector.evidence_ids) or not set(
+            binding.evidence_ids
+        ) <= set(evidence):
+            raise ValueError("saved selector receiver has dangling source evidence")
+        if binding.origin in {
+            CallBindingOrigin.DIRECT,
+            CallBindingOrigin.DECLARED_RECEIVER,
+            CallBindingOrigin.STORED_RECEIVER,
+            CallBindingOrigin.CONSTRUCTED_RECEIVER,
+        } and not selector_receiver_site_matches(
+            selector,
+            binding,
+            parameter if isinstance(parameter, str) else None,
+            declarations,
+            evidence,
+            model.records("imports") or (),
+        ):
+            raise ValueError("saved selector proof does not match its source expression")
+        targets = declarations.get(binding.target, [])
+        if binding.origin is CallBindingOrigin.DIRECT:
+            _saved_selector_direct(binding, parameter, targets, imports)
+        elif binding.origin is CallBindingOrigin.STORED_RECEIVER:
+            _saved_selector_stored(binding, declarations, targets, imports, evidence)
+        elif binding.origin is CallBindingOrigin.CONSTRUCTED_RECEIVER:
+            _saved_selector_constructed(model, selector, binding, targets, evidence)
+        elif binding.origin is CallBindingOrigin.DECLARED_RECEIVER:
+            _saved_selector_declared(
+                selector, binding, parameter, declarations, targets, imports, evidence
+            )
+        else:
+            raise ValueError("saved selector receiver origin is unsupported")

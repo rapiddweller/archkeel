@@ -30,6 +30,8 @@ from archkeel.ir.model import (
     CompleteExternalScopeRule,
     CompleteRequiresRule,
     ComponentRole,
+    ConstructSelector,
+    ConstructSelectorRole,
     ContractComponent,
     DecisionMaker,
     ExternalDependencyScopeRule,
@@ -636,6 +638,24 @@ def test_narrowing_never_needs_an_amendment() -> None:
     before = _forbidden_construct(constructs=("eval",))
     after = _forbidden_construct(constructs=("eval", "exec"))
     assert contract_widenings(_contract(rules=(before,)), _contract(rules=(after,))) == ()
+
+
+def test_construct_selector_changes_are_named_as_widenings():
+    before = _forbidden_construct(
+        selector=ConstructSelector(
+            "pkg.Connection", "backend", ConstructSelectorRole.EQUALITY, "flat"
+        )
+    )
+    after = _forbidden_construct(
+        selector=ConstructSelector("pkg.Label", "backend", ConstructSelectorRole.EQUALITY, "flat")
+    )
+    assert any("selector changed" in item for item in _rule_diff(before, after))
+    after = _forbidden_construct(
+        selector=ConstructSelector(
+            "pkg.Connection", "backend", ConstructSelectorRole.EQUALITY, "cloud"
+        )
+    )
+    assert any("selector changed" in item for item in _rule_diff(before, after))
 
 
 def test_an_unenumerated_difference_is_treated_as_widening() -> None:

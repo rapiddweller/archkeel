@@ -909,7 +909,8 @@
           "qualified_name": "archkeel.analyzer.python.constructs.collect_constructs",
           "parent_id": "PYTHON-PREDICATE-MODULE",
           "responsibilities": [
-            "Collect written construct facts using scanned literal providers and canonical import origins without runtime namespace claims."
+            "Collect written construct facts using scanned literal providers and canonical import origins without runtime namespace claims.",
+            "Keep legacy V3/V4 wire shapes by disabling receiver-owner proof fields; V5 retains them."
           ],
           "signature": {
             "parameters": [
@@ -930,6 +931,27 @@
                 "annotation": "Sequence[RawRecord]",
                 "kind": "keyword_only",
                 "default": "()",
+                "default_known": true
+              },
+              {
+                "name": "symbol_index",
+                "annotation": "SymbolIndex | None",
+                "kind": "keyword_only",
+                "default": "None",
+                "default_known": true
+              },
+              {
+                "name": "receiver_resolvers",
+                "annotation": "Sequence[SelectorReceiverResolver]",
+                "kind": "keyword_only",
+                "default": "()",
+                "default_known": true
+              },
+              {
+                "name": "include_parameter_owner_proof",
+                "annotation": "bool",
+                "kind": "keyword_only",
+                "default": "True",
                 "default_known": true
               }
             ],

@@ -735,6 +735,9 @@ def _evaluate_inside_contract(
         receipt_scan_roots=receipt_scan_roots,
         type_shapes=type_shapes,
     )
+    selector_unknowns = [
+        item for item in allowance_facts if item["kind"] == "construct_selector_unknown"
+    ]
     unknowns: list[RawRecord] = (
         boundary_type_limits(
             symbols,
@@ -783,7 +786,13 @@ def _evaluate_inside_contract(
         ),
     )
     unknowns.extend(protocol_unknowns)
-    return violations, unknowns, failures, allowance_facts
+    unknowns.extend(selector_unknowns)
+    return (
+        violations,
+        unknowns,
+        failures,
+        [item for item in allowance_facts if item["kind"] != "construct_selector_unknown"],
+    )
 
 
 def _unproven_binding_view(item: RawRecord) -> RawRecord:
@@ -1139,6 +1148,11 @@ def evaluate_source(
         ],
         key=lambda item: item["id"],
     )
+    selector_unknowns = [
+        item
+        for item in (*boundary_allowances, *inside_allowances)
+        if item["kind"] == "construct_selector_unknown"
+    ]
     numeric_operand_unknowns = [
         item
         for item in (*boundary_allowances, *inside_allowances)
@@ -1147,8 +1161,16 @@ def evaluate_source(
     typing_signals = sorted(
         [
             *typing_signals,
-            *(item for item in boundary_allowances if item["kind"] != "numeric_operand_unknown"),
-            *(item for item in inside_allowances if item["kind"] != "numeric_operand_unknown"),
+            *(
+                item
+                for item in boundary_allowances
+                if item["kind"] not in {"numeric_operand_unknown", "construct_selector_unknown"}
+            ),
+            *(
+                item
+                for item in inside_allowances
+                if item["kind"] not in {"numeric_operand_unknown", "construct_selector_unknown"}
+            ),
         ],
         key=lambda item: item["id"],
     )
@@ -1206,6 +1228,7 @@ def evaluate_source(
             "name.",
         ),
         *inside_unknowns,
+        *selector_unknowns,
         *numeric_operand_unknowns,
         *failures,
         *rule_failures,

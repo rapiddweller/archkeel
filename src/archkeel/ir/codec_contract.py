@@ -33,6 +33,7 @@ from archkeel.ir.codec_wire import (
 )
 from archkeel.ir.contract_version import CONTRACT_SCHEMA_VERSION as CONTRACT_SCHEMA_VERSION
 from archkeel.ir.contract_version import ContractFeature, ContractVersion, supports_feature
+from archkeel.ir.facts import python_identifier
 from archkeel.ir.facts_codec import record_payload
 from archkeel.ir.graph_codec import parse_target
 from archkeel.ir.model import (
@@ -50,6 +51,8 @@ from archkeel.ir.model import (
     CompleteExternalScopeRule,
     CompleteRequiresRule,
     ComponentRole,
+    ConstructSelector,
+    ConstructSelectorRole,
     ContractCapability,
     ContractCommand,
     ContractComponent,
@@ -286,6 +289,10 @@ def parse_contract(raw: object) -> ArchitectureContract:
         and ArchitectureRuleKind.FORBIDDEN_CALL_ARGUMENT in kinds
     ):
         raise ValueError("forbidden_call_argument requires contract schema_version 3.10.0")
+    if not supports_feature(version, ContractFeature.CONSTRUCT_SELECTOR) and any(
+        _has_field(_object(value, "rule"), "selector") for value in rules_raw
+    ):
+        raise ValueError("construct selectors require contract schema_version 3.11.0")
     if (
         not supports_feature(version, ContractFeature.LAYERS)
         and ArchitectureRuleKind.LAYER_ORDER in kinds
@@ -432,11 +439,20 @@ def _validate_encoding_version(contract: ArchitectureContract) -> None:
         contract.schema_version, ContractFeature.FORBIDDEN_CALL_ARGUMENT
     ) and any(isinstance(rule, ForbiddenCallArgumentRule) for rule in contract.rules):
         raise ValueError("forbidden_call_argument requires contract schema_version 3.10.0")
+    if not supports_feature(contract.schema_version, ContractFeature.CONSTRUCT_SELECTOR) and any(
+        isinstance(rule, ForbiddenConstructRule) and rule.selector is not None
+        for rule in contract.rules
+    ):
+        raise ValueError("construct selectors require contract schema_version 3.11.0")
     if not supports_feature(contract.schema_version, ContractFeature.MODULE_OBJECT_GRANTS) and any(
         isinstance(rule, InterfaceBoundaryRule) and rule.module_object_grants is not None
         for rule in contract.rules
     ):
         raise ValueError("module_object_grants require contract schema_version 3.6.0")
+    _validate_layer_feature_version(contract)
+
+
+def _validate_layer_feature_version(contract: ArchitectureContract) -> None:
     if not supports_feature(contract.schema_version, ContractFeature.LAYERS) and (
         any(component.layer is not None for component in contract.components)
         or any(isinstance(rule, LayerOrderRule) for rule in contract.rules)
@@ -900,7 +916,7 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
     item, item_id, provenance = _contract_record(
         raw,
         {"kind", "source", "constructs", "rationale", "decided_by"},
-        {"allowed_sources", "exact_sources", "allowed_type_ignores"},
+        {"allowed_sources", "exact_sources", "allowed_type_ignores", "selector"},
         label,
     )
     raw_constructs = _contract_strings(item["constructs"], f"{label}.constructs", required=True)
@@ -930,6 +946,7 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
         )
     if len(set(ignores)) != len(ignores):
         raise ValueError(f"{label}.allowed_type_ignores must contain unique entries")
+    selector = _parse_construct_selector(item, label)
     return ForbiddenConstructRule(
         item_id,
         ArchitectureRuleKind.FORBIDDEN_CONSTRUCT,
@@ -941,7 +958,57 @@ def _parse_forbidden_construct(raw: RawJson, label: str) -> ForbiddenConstructRu
         allowed,
         exact,
         tuple(ignores),
+        selector,
     )
+
+
+def _parse_construct_selector(item: dict[str, RawJson], label: str) -> ConstructSelector | None:
+    if not _has_field(item, "selector"):
+        return None
+    selected = _contract_fields(
+        _object(item["selector"], f"{label}.selector"),
+        {"receiver", "role"},
+        {"member", "literal"},
+        f"{label}.selector",
+    )
+    try:
+        role = ConstructSelectorRole(_nonempty(selected["role"], f"{label}.selector.role"))
+    except ValueError as exc:
+        raise ValueError(f"{label}.selector.role is unsupported") from exc
+    receiver = _nonempty(selected["receiver"], f"{label}.selector.receiver")
+    member_value = selected.get("member")
+    member = (
+        _nonempty(member_value, f"{label}.selector.member") if member_value is not None else None
+    )
+    literal = selected.get("literal")
+    if literal is not None and not isinstance(literal, str):
+        raise ValueError(f"{label}.selector.literal must be a string")
+    literal_roles = {
+        ConstructSelectorRole.EQUALITY,
+        ConstructSelectorRole.MEMBERSHIP,
+        ConstructSelectorRole.MATCH,
+        ConstructSelectorRole.STARTSWITH,
+        ConstructSelectorRole.ENDSWITH,
+    }
+    access_roles = {
+        ConstructSelectorRole.READ,
+        ConstructSelectorRole.WRITE,
+        ConstructSelectorRole.CALL,
+    }
+    if role in access_roles and literal is not None:
+        raise ValueError(f"{label}.selector.literal is not valid for access roles")
+    memberless_roles = {ConstructSelectorRole.CONSTRUCTOR, ConstructSelectorRole.TYPE_PROBE}
+    if (role in memberless_roles) == (member is not None):
+        raise ValueError(f"{label}.selector.member is required for member roles")
+    if (role in literal_roles) != (literal is not None):
+        raise ValueError(f"{label}.selector.literal is required only for operand roles")
+    receiver_text: str = receiver
+    receiver_parts: list[str] = receiver_text.split(".")
+    receiver_is_qualified_identifier: bool = all(python_identifier(part) for part in receiver_parts)
+    member_is_identifier: bool = member is None or python_identifier(member)
+    if not receiver_is_qualified_identifier or not member_is_identifier:
+        raise ValueError(f"{label}.selector receiver and member must be qualified identifiers")
+    return ConstructSelector(receiver, member, role, literal)
 
 
 def _parse_external_dependency_scope(raw: RawJson, label: str) -> ExternalDependencyScopeRule:

@@ -251,6 +251,15 @@ source coverage still prevents PASS. Aliases/shadowing are limits. Exact type-ig
 allowances bind scope, line, AST statement and tag; moving or changing them needs
 review.
 
+Contract 3.11 adds an optional closed `selector` record with `receiver`, `role`,
+`member` and, for value comparisons, `literal`. Supported roles are `read`,
+`write`, `call`, `reflect`, `constructor`, `type_probe`, `equality`,
+`membership`, `match`, `startswith` and `endswith`. It selects one nominal
+receiver/member role; it does not turn arbitrary predicates into policy. The
+Python observer's selector facts require observation 2.6. Dynamic names and
+unproven receiver/member identity yield UNKNOWN, and older readers reject facts
+relabelled to an earlier version. See [AD-248](architecture/decisions/ad-248-construct-selectors.md).
+
 The native TypeScript/JavaScript collector provides PARTIAL evidence for written
 string equality/inequality and `switch` case literals, including plain templates
 and simple parentheses. A witnessed occurrence can FAIL; an empty inventory

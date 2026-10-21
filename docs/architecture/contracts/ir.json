@@ -15,7 +15,7 @@
         "archkeel.ir.source_records"
       ],
       "responsibilities": [
-        "Own language-neutral source facts, evidence identities, state and type values."
+        "Own language-neutral source facts, evidence identities, state, type values and typed IR vocabularies."
       ],
       "forbidden_responsibilities": [
         "Language ASTs, protocol envelopes, I/O and architecture verdicts.",
@@ -32,7 +32,8 @@
         "archkeel.ir.type_shapes",
         "archkeel.ir.reexports",
         "archkeel.ir.source_records",
-        "archkeel.ir.identity:module_identity"
+        "archkeel.ir.identity:module_identity",
+        "archkeel.ir.facts:ReservedString"
       ]
     },
     {
@@ -73,10 +74,12 @@
         "archkeel.ir.facts_codec",
         "archkeel.ir.facts_validation",
         "archkeel.ir.source_proofs",
-        "archkeel.ir.state_codec"
+        "archkeel.ir.state_codec",
+        "archkeel.ir.codec_strings"
       ],
       "responsibilities": [
-        "Strictly decode, validate and encode source facts and process envelopes."
+        "Strictly decode, validate and encode source facts and process envelopes.",
+        "Intern lossless JSON strings for source and observation wire encodings."
       ],
       "forbidden_responsibilities": [
         "Policy and I/O.",
@@ -101,6 +104,8 @@
       ],
       "public": [
         "archkeel.ir.facts_codec",
+        "archkeel.ir.codec_strings:StringTablePolicy",
+        "archkeel.ir.codec_strings:intern_strings",
         "archkeel.ir.facts_validation:validate_source_facts",
         "archkeel.ir.facts_validation:validate_source_bindings",
         "archkeel.ir.source_proofs:class_instance_member_write_names"
@@ -560,6 +565,10 @@
       {
         "path": "src/archkeel/ir/facts_codec.py",
         "responsibility": "Pure validation and serialization of the process boundary."
+      },
+      {
+        "path": "src/archkeel/ir/codec_strings.py",
+        "responsibility": "Intern lossless JSON strings for source and observation wire encodings."
       },
       {
         "path": "src/archkeel/ir/graph.py",

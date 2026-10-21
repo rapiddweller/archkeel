@@ -590,6 +590,59 @@ def _update_contract_schema(path: Path) -> None:
         reference = {"$ref": "#/$defs/forbiddenCallArgument"}
         if reference not in choices:
             choices.append(reference)
+    if version is not None and supports_feature(version, ContractFeature.CONSTRUCT_SELECTOR):
+        schema["$defs"]["constructSelector"] = {
+            "type": "object",
+            "required": ["receiver", "role"],
+            "additionalProperties": False,
+            "properties": {
+                "receiver": {"$ref": "#/$defs/nonEmpty"},
+                "member": {"$ref": "#/$defs/nonEmpty"},
+                "role": {
+                    "enum": [
+                        "read",
+                        "write",
+                        "call",
+                        "reflect",
+                        "constructor",
+                        "type_probe",
+                        "equality",
+                        "membership",
+                        "match",
+                        "startswith",
+                        "endswith",
+                    ]
+                },
+                "literal": {"type": "string"},
+            },
+            "allOf": [
+                {
+                    "if": {"properties": {"role": {"enum": ["constructor", "type_probe"]}}},
+                    "then": {"not": {"required": ["member"]}},
+                    "else": {"required": ["member"]},
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "role": {
+                                "enum": [
+                                    "equality",
+                                    "membership",
+                                    "match",
+                                    "startswith",
+                                    "endswith",
+                                ]
+                            }
+                        }
+                    },
+                    "then": {"required": ["literal"]},
+                    "else": {"not": {"required": ["literal"]}},
+                },
+            ],
+        }
+        schema["$defs"]["forbiddenConstruct"]["properties"]["selector"] = {
+            "$ref": "#/$defs/constructSelector"
+        }
     schema["$defs"]["uml"] = target_schema()
     schema["$defs"]["declarations"]["properties"]["uml"] = {"$ref": "#/$defs/uml"}
     path.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8")

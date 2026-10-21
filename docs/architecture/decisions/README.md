@@ -250,6 +250,7 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-240 | [Literal dynamic dependencies](ad-240-literal-dynamic-dependencies.md) |
 | AD-241 | [Call ownership policy](ad-241-call-ownership-policy.md) |
 | AD-247 | [Written call arguments bind to observed formals](ad-247-written-call-arguments-bind-to-observed-formals.md) |
+| AD-248 | [Construct selectors stay nominal and closed](ad-248-construct-selectors.md) |
 | AD-242 | [Explicit browser module ports](ad-242-explicit-browser-module-ports.md) |
 | AD-243 | [Contract-owned source maintenance](ad-243-contract-owned-source-maintenance.md) |
 | AD-244 | [Empty literal `__all__`](ad-244-an-empty-literal-all-states-an-empty-surface.md) |

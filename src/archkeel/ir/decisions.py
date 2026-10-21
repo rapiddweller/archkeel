@@ -874,6 +874,8 @@ def _numeric_receipt_complete(
 def _rule_receipt_complete(
     observation: Observation, declaration: Record, receipt: Record | None
 ) -> bool:
+    if declaration.kind == "forbidden_construct" and declaration.data.get("selector") is not None:
+        return _selector_receipt_complete(observation, declaration, receipt)
     if declaration.kind == "no_component_cycles":
         return receipt is not None and receipt.data.get("cycle_scope_complete") is True
     if declaration.kind in {"call_owner", "forbidden_call_argument"}:
@@ -890,7 +892,193 @@ def _rule_receipt_complete(
             and receipt.rule_ids == (declaration.id,)
             and _protocol_declaration_receipt_complete(observation, receipt)
         )
+    if declaration.kind == "protocol_declarations":
+        return (
+            receipt is not None
+            and receipt.rule_ids == (declaration.id,)
+            and _protocol_declaration_receipt_complete(observation, receipt)
+        )
     return receipt is not None and receipt.data.get("assessment_complete", True) is True
+
+
+def _selector_receipt_complete(
+    observation: Observation, declaration: Record, receipt: Record | None
+) -> bool:
+    if receipt is None or receipt.rule_ids != (declaration.id,):
+        return False
+    proof = receipt.data.get("selector_scope_proof")
+    selector = declaration.data.get("selector")
+    claim = receipt.data.get("selector")
+    if not isinstance(proof, RecordData) or not isinstance(selector, RecordData):
+        return False
+    parts = _selector_receipt_claim_parts(proof, selector, claim, receipt)
+    if parts is None:
+        return False
+    source_names, expected_inventory, receipt_inventory, selected_paths = parts
+    if frozenset(source_names) != _selector_source_names(observation, declaration):
+        return False
+    modules = tuple(
+        item
+        for item in observation.records("modules") or ()
+        if item.data.get("qualified_name") in set(source_names)
+    )
+    symbols = tuple(
+        item
+        for item in observation.records("symbols") or ()
+        if item.data.get("qualified_name") in set(source_names)
+    )
+    selected_records = (*modules, *symbols)
+    if not selected_records or set(receipt.subjects) != set(source_names):
+        return False
+    selectors: list[Record] = []
+    for item in observation.records("constructs") or ():
+        owner_value = item.data.get("owner")
+        if item.kind != "construct_selector" or not isinstance(owner_value, str):
+            continue
+        owner: str = owner_value
+        if any(owner == module or owner.startswith(f"{module}.") for module in source_names):
+            selectors.append(item)
+    expected_inventory_ids = tuple(sorted(item.id for item in selectors))
+    expected_fact_ids = {item.id for item in selected_records} | set(expected_inventory_ids)
+    all_modules = observation.records("modules") or ()
+    module_files = {
+        item.data.get("file") for item in all_modules if isinstance(item.data.get("file"), str)
+    }
+    coverage = observation.coverage
+    return (
+        expected_inventory == expected_inventory_ids
+        and tuple(sorted(receipt_inventory)) == expected_inventory_ids
+        and set(receipt.fact_ids) == expected_fact_ids
+        and coverage.status == Verdict.PASS
+        and not coverage.failures
+        and bool(selected_paths)
+        and len(set(selected_paths)) == len(selected_paths)
+        and coverage.files_discovered
+        == coverage.files_read
+        == coverage.files_parsed
+        == len(selected_paths)
+        and set(selected_paths) == module_files
+        and proof.get("source_digest") == observation.source.source_digest
+        and proof.get("source_scope") == observation.source.scope
+        and proof.get("contract_digest") == observation.contract.digest
+        and proof.get("result_digest") == rule_result_digest(observation.sections, declaration.id)
+        and proof.get("binding_id")
+        == rule_evaluation_binding_id(
+            selector_inventory_binding_id(observation.sections, observation.evidence),
+            receipt,
+            observation.schema_version,
+        )
+    )
+
+
+def _selector_receipt_claim_parts(
+    proof: RecordData,
+    selector: RecordData,
+    claim: JsonValue,
+    receipt: Record,
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...], tuple[str, ...]] | None:
+    if (
+        {key for key, _ in proof.entries}
+        != {
+            "source_digest",
+            "source_scope",
+            "contract_digest",
+            "selected_files",
+            "source_modules",
+            "inventory_fact_ids",
+            "result_digest",
+            "binding_id",
+        }
+        or not isinstance(claim, RecordData)
+        or any(
+            claim.get(key) != selector.get(key) for key in ("receiver", "member", "role", "literal")
+        )
+    ):
+        return None
+    source_modules = proof.get("source_modules")
+    inventory_ids = proof.get("inventory_fact_ids")
+    receipt_inventory_ids = receipt.data.get("inventory_fact_ids")
+    selected_files = proof.get("selected_files")
+    if not (
+        isinstance(source_modules, tuple)
+        and isinstance(inventory_ids, tuple)
+        and isinstance(receipt_inventory_ids, tuple)
+        and isinstance(selected_files, tuple)
+    ):
+        return None
+    source_names = tuple(item for item in source_modules if isinstance(item, str))
+    expected_inventory = tuple(item for item in inventory_ids if isinstance(item, str))
+    receipt_inventory = tuple(item for item in receipt_inventory_ids if isinstance(item, str))
+    selected_paths = tuple(item for item in selected_files if isinstance(item, str))
+    if (
+        len(source_names) != len(source_modules)
+        or len(expected_inventory) != len(inventory_ids)
+        or len(receipt_inventory) != len(receipt_inventory_ids)
+        or len(selected_paths) != len(selected_files)
+        or source_names != tuple(sorted(set(source_names)))
+        or not source_names
+    ):
+        return None
+    return source_names, expected_inventory, receipt_inventory, selected_paths
+
+
+def _selector_source_names(observation: Observation, declaration: Record) -> frozenset[str]:
+    """Rebuild the exact module or symbol source domain selected by a construct rule."""
+    module_names = _source_rule_modules(observation, declaration)
+    if module_names:
+        return module_names
+    source = declaration.data.get("source")
+    if not isinstance(source, str):
+        return frozenset()
+    parent_modules = _parent_scope_modules(observation, declaration.data.get("parent_id"))
+    if not parent_modules:
+        return frozenset()
+    return frozenset(
+        qualified_name
+        for item in observation.records("symbols") or ()
+        if item.kind in {"class", "function", "method"}
+        and isinstance(module := item.data.get("module"), str)
+        and module in parent_modules
+        and isinstance(qualified_name := item.data.get("qualified_name"), str)
+        and in_scope(qualified_name, module)
+        and in_scope(qualified_name, source)
+    )
+
+
+def _parent_scope_modules(observation: Observation, parent_id: JsonValue) -> frozenset[str]:
+    """Return physical modules inside every enclosing component boundary."""
+    names = frozenset(
+        qualified_name
+        for item in observation.records("modules") or ()
+        if isinstance(qualified_name := item.data.get("qualified_name"), str)
+    )
+    if parent_id is None:
+        return names
+    components = tuple(
+        item for item in observation.records("declarations") or () if item.kind in _COMPONENT_KINDS
+    )
+    visited: set[str] = set()
+    while parent_id is not None:
+        if not isinstance(parent_id, str) or parent_id in visited:
+            return frozenset()
+        visited.add(parent_id)
+        parents = tuple(
+            item
+            for item in components
+            if (
+                f"{ancestor}:{item.title}"
+                if isinstance(ancestor := item.data.get("parent_id"), str)
+                else item.title
+            )
+            == parent_id
+        )
+        if len(parents) != 1:
+            return frozenset()
+        parent = parents[0]
+        _, packages, exact = _declared_scope_ownership(parent)
+        names = frozenset(name for name in names if module_in_ownership(name, packages, exact))
+        parent_id = parent.data.get("parent_id")
+    return names
 
 
 def _declared_scope_ownership(record: Record) -> ComponentOwnership:
@@ -1077,7 +1265,13 @@ def rule_evaluation_binding_id(
         tuple(
             (key, value)
             for key, value in sorted(receipt.data.entries)
-            if key not in {"call_scope_proof", "numeric_scope_proof", "protocol_scope_proof"}
+            if key
+            not in {
+                "call_scope_proof",
+                "numeric_scope_proof",
+                "protocol_scope_proof",
+                "selector_scope_proof",
+            }
         ),
     )
     return stable_id(
@@ -1100,6 +1294,32 @@ def rule_result_digest(sections: _Iterable[Section], rule_id: str) -> str:
         )
     )
     return stable_id("RULE-RESULT", rule_id, repr(selected))
+
+
+def selector_inventory_binding_id(
+    sections: _Iterable[Section], evidence: _Iterable[Evidence]
+) -> str:
+    """Bind selector declarations, physical modules, selector facts and their evidence."""
+    bound = [
+        (section.name, record)
+        for section in sections
+        for record in section.records
+        if section.name == "modules"
+        or section.name == "constructs"
+        and record.kind == "construct_selector"
+        or section.name == "declarations"
+        and record.kind == "forbidden_construct"
+        and record.data.get("selector") is not None
+    ]
+    return stable_id(
+        "SELECTOR-INVENTORY",
+        repr(
+            (
+                tuple(sorted(bound, key=lambda item: (item[0], item[1].id))),
+                tuple(sorted(evidence, key=lambda item: item.id)),
+            )
+        ),
+    )
 
 
 def _native_scope_runtime_valid(runtime: RuntimeInfo) -> bool:

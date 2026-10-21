@@ -13,6 +13,7 @@ from archkeel.cli.observe import observe
 from archkeel.ir.codec import observation_payload
 from archkeel.ir.codec_observation import parse_observation
 from archkeel.ir.decisions import rule_assessments
+from archkeel.ir.model import SCHEMA_VERSION
 
 _PROVENANCE = ["docs/architecture/sample.md"]
 
@@ -559,8 +560,8 @@ def test_call_argument_evidence_requires_the_new_observation_version(tmp_path):
         "from .storage import page\ndef consume(spec):\n    page(spec)\n",
     )
     raw = observation_payload(result.observation)
-    assert raw["schema_version"] == "2.5.0"
-    assert parse_observation(raw).schema_version == "2.5.0"
+    assert raw["schema_version"] == SCHEMA_VERSION
+    assert parse_observation(raw).schema_version == SCHEMA_VERSION
 
     old = json.loads(json.dumps(raw))
     old["schema_version"] = "2.1.0"
@@ -575,7 +576,9 @@ def test_call_argument_evidence_requires_the_new_observation_version(tmp_path):
     from test_result_schema import _validator
 
     validator = _validator("command-result-9.0.schema.json")
-    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.5.0"})
+    current_schema = validator.evolve(
+        schema={"$ref": f"urn:archkeel:architecture-ir:decoded:{SCHEMA_VERSION}"}
+    )
     historical_schema = validator.evolve(
         schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"}
     )
@@ -615,7 +618,9 @@ def test_unbound_call_has_null_arguments_and_cannot_certify_policy(tmp_path, col
     assert call["data"]["call_arguments"] is None
 
     validator = _validator("command-result-9.0.schema.json")
-    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.5.0"})
+    current_schema = validator.evolve(
+        schema={"$ref": f"urn:archkeel:architecture-ir:decoded:{SCHEMA_VERSION}"}
+    )
     assert current_schema.is_valid(raw)
 
     inconsistent = json.loads(json.dumps(raw))
@@ -749,6 +754,56 @@ def test_constructed_receiver_arguments_bind_and_replay(
     assert replayed.evaluation_proven == (expected != "UNKNOWN")
     if expected != "UNKNOWN":
         assert replayed == row
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize("tamper", ["removed", "swapped"])
+def test_saved_constructed_receiver_requires_constructor_target_witness(
+    tmp_path, mounted, columnar, tamper
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import encode_canonical_model
+
+    caller = (
+        "from .storage import Storage\n"
+        "def consume(spec, queries):\n"
+        "    store = Storage()\n"
+        "    store.page('literal')\n"
+    )
+    result, _ = _observe(
+        tmp_path,
+        caller,
+        storage="class Storage:\n    def page(self, query): pass\n",
+        mounted=mounted,
+        target="sample.storage.Storage.page",
+    )
+    report = observation_payload(result.observation)
+    declaration = next(
+        row
+        for row in report["symbols"]
+        if row["data"].get("qualified_name") == "sample.storage.Storage"
+    )
+    declaration_ids = set(declaration["evidence_ids"])
+    constructor = next(
+        row
+        for row in report["calls"]
+        if row["data"].get("expression") == "Storage"
+        and "sample.storage.Storage" in row["data"].get("targets", [])
+    )
+    unrelated_id = next(row["id"] for row in report["evidence"] if row["id"] not in declaration_ids)
+    target_ids = [] if tamper == "removed" else [unrelated_id]
+    constructor["data"]["target_evidence_ids"] = target_ids
+    call_binding = constructor["data"]["call_binding"]
+    binding_ids = set(call_binding["evidence_ids"]) - declaration_ids
+    call_binding["evidence_ids"] = sorted(binding_ids | set(target_ids))
+    saved = tmp_path / "tampered-constructed-receiver.json"
+    saved.write_text(json.dumps(encode_canonical_model(report) if columnar else report))
+
+    replay = run_saved_report(saved)
+
+    assert replay.diagnostics
+    assert replay.rule_assessments is None
 
 
 def test_constructed_receiver_does_not_prove_a_mutated_method(tmp_path):
