@@ -2034,7 +2034,10 @@ class CallCollector(ast.NodeVisitor):
         ]
         actual_nodes.extend(argument.value for argument in node.keywords)
         actual_evidence = (*node.args, *node.keywords)
-        actuals_supported = node.end_lineno == node.lineno
+        actuals_supported = (
+            self._call_arguments(node, annotation_text(node.func) or "<unparseable>", binding)
+            is not None
+        )
         actuals: list[RecordData] = []
         evidence_ids = set(binding["evidence_ids"])
         for index, expression in enumerate(actual_nodes):

@@ -327,3 +327,63 @@ def test_source_facts_reject_imported_helper_retargeted_to_sibling_module(tmp_pa
         ValueError, match="guarded-effect helper target disagrees with its written callee"
     ):
         decode_response(json.dumps(payload).encode())
+
+
+def _helper_actual_payload(tmp_path, caller: str) -> dict:
+    return _payload(
+        tmp_path,
+        "def _effect(): pass\n"
+        "def _helper(flag: bool):\n    if flag:\n        _effect()\n"
+        f"def generate(runtime_parent: bool, stdlib_root: bool):\n{caller}",
+    )
+
+
+def test_continued_helper_call_keeps_unverifiable_actual_unknown(tmp_path):
+    payload = _helper_actual_payload(
+        tmp_path,
+        "    return (\n"
+        "        runtime_parent\n"
+        "        or stdlib_root\n"
+        "        or _helper(True)\n"
+        "    )\n",
+    )
+    call = _call(payload, "_helper")
+    helper_argument = call["data"]["guarded_effect"][0]["helper_bindings"][0]["arguments"][0]
+
+    assert call["data"]["call_arguments"] is None
+    assert helper_argument["token_kind"] == "unknown"
+    assert helper_argument["token_value"] is None
+    decode_response(json.dumps(payload).encode())
+
+
+def test_continued_helper_call_actual_cannot_be_tampered_into_a_literal(tmp_path):
+    payload = _helper_actual_payload(
+        tmp_path,
+        "    return (\n"
+        "        runtime_parent\n"
+        "        or stdlib_root\n"
+        "        or _helper(True)\n"
+        "    )\n",
+    )
+    helper_argument = _call(payload, "_helper")["data"]["guarded_effect"][0]["helper_bindings"][0][
+        "arguments"
+    ][0]
+    helper_argument["token_kind"] = "boolean_literal"
+    helper_argument["token_value"] = True
+
+    with pytest.raises(ValueError, match="helper argument disagrees with its source"):
+        decode_response(json.dumps(payload).encode())
+
+
+def test_supported_helper_literal_stays_source_bound(tmp_path):
+    payload = _helper_actual_payload(
+        tmp_path,
+        "    if runtime_parent:\n        return _helper(True)\n    return False\n",
+    )
+    helper_argument = _call(payload, "_helper")["data"]["guarded_effect"][0]["helper_bindings"][0][
+        "arguments"
+    ][0]
+
+    assert helper_argument["token_kind"] == "boolean_literal"
+    assert helper_argument["token_value"] is True
+    decode_response(json.dumps(payload).encode())
