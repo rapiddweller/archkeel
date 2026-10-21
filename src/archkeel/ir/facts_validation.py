@@ -929,10 +929,11 @@ def _selector_receiver_proof(
         if receiver_type is not None:
             raise ValueError("known selector receiver needs its typed source binding")
         return
+    proof_evidence_ids: tuple[str, ...] = binding.evidence_ids
     if (
         binding.target != receiver_type
         or not set(binding.evidence_ids) <= set(record.evidence_ids)
-        or not set(binding.evidence_ids) <= set(evidence)
+        or any(identifier not in evidence for identifier in proof_evidence_ids)
     ):
         raise ValueError("selector receiver binding evidence disagrees with its source fact")
     if binding.origin in {
@@ -988,6 +989,10 @@ def _selector_direct_receiver_proof(
         and target_data is not None
         and target_data.get("source_binding_unique") is True
     )
+    if receiver_parameter is not None:
+        raise ValueError("selector class receiver needs its stable declaration")
+    if local_class:
+        return
     imported_class = any(
         item.data.get("symbols_known") is True
         and item.data.get("source_binding_unique") is True
@@ -995,7 +1000,7 @@ def _selector_direct_receiver_proof(
         and set(item.evidence_ids) <= set(binding.evidence_ids)
         for item in imports
     )
-    if receiver_parameter is not None or not (local_class or imported_class):
+    if not imported_class:
         raise ValueError("selector class receiver needs its stable declaration")
 
 

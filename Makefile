@@ -78,7 +78,7 @@ pr-test: browser-runtime-install
 		tests/test_protocol_conditional_identity.py \
 		tests/test_typescript_namespace_identities.py \
 		tests/test_result_schema.py \
-		tests/test_construct_selectors.py \
+		tests/test_construct_selectors.py tests/test_selector_validation_performance.py \
 		tests/test_dart_parse.py tests/test_dart_snapshot.py tests/test_dart_resolve.py \
 		tests/test_dart_typed_controls.py tests/test_dart_local_callable_shadowing.py \
 		tests/test_dart_sdk_free.py tests/test_dart_inner_collect.py tests/test_dart_target.py \
