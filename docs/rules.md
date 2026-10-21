@@ -82,7 +82,8 @@ empty list. See
 canonical effect target, and source scope. It proves truth/negation, `if`/`else`, ternary,
 and early `return`/`raise` paths; it may follow one unique private helper with bound actuals.
 Unconditional effects are reachable while the condition is true. Stale or unsupported flow,
-missing declarations, helper chains and recursion remain UNKNOWN. See
+missing declarations, helper chains and recursion remain UNKNOWN. The rule is Python-only;
+the TypeScript and Dart profiles refuse it. See
 [AD-250](architecture/decisions/ad-250-bounded-guarded-effect-ownership.md).
 
 `catalog_argument` selects a source scope, canonical operation, formal parameter and enum owner. It accepts exact string values declared by that enum and canonical enum member expressions; overlays name separate enum owners. Wrong string literals FAIL. Dynamic arguments, unresolved calls, or ambiguous catalog owners remain UNKNOWN. `catalog_use` requires each enum entry (or a named member) to have a real value/attribute read in its selected scope. Optional paired `target` and `parameter` fields also count a matching string actual only when it is bound to the selected, proven read operation. A same-text argument to another call does not count; dynamic selected actuals keep absence UNKNOWN. Comments, docstrings, definitions and annotation-only references do not count. `TYPE_CHECKING` reads count syntactically. Prefix scope matching remains the default; `source_match: "exact"` selects one module or scope. Catalog rules are Python-only and require observation 2.9 and contract 3.14. See [AD-251](architecture/decisions/ad-251-catalog-arguments-and-source-usage.md).

@@ -686,7 +686,6 @@ class ConstructCollector(ast.NodeVisitor):
         }
         self.receiver_types: list[dict[str, str | None]] = []
         self.receiver_scope_names: list[str] = []
-        self.parameter_receivers: list[set[str]] = []
         self.parameter_annotations: list[dict[str, tuple[str, ast.expr]]] = []
         self.local_classes: set[str] = set()
         self.local_members: set[str] = set()
@@ -1000,11 +999,6 @@ class ConstructCollector(ast.NodeVisitor):
             ):
                 return scope[node.id]
         return None
-
-    def _parameter_receiver(self, node: ast.expr) -> bool:
-        return isinstance(node, ast.Name) and any(
-            node.id in frame for frame in self.parameter_receivers
-        )
 
     def _receiver_binding(
         self, expression: ast.expr | None, use: ast.AST
@@ -1503,7 +1497,6 @@ class ConstructCollector(ast.NodeVisitor):
         }
         self.receiver_types.append(receivers)
         self.receiver_scope_names.append(qualified)
-        self.parameter_receivers.append({argument.arg for argument in arguments})
         self.parameter_annotations.append(parameter_annotations)
         form = self._placeholder_form(node)
         if form is not None:
@@ -1512,7 +1505,6 @@ class ConstructCollector(ast.NodeVisitor):
             )
         for statement in node.body:
             self.visit(statement)
-        self.parameter_receivers.pop()
         self.parameter_annotations.pop()
         self.receiver_scope_names.pop()
         self.receiver_types.pop()
@@ -1645,12 +1637,7 @@ class ConstructCollector(ast.NodeVisitor):
         receiver = self._receiver_type(node.value)
         unresolved_name = isinstance(node.value, ast.Name) and node.value.id not in {"self", "cls"}
         expression_receiver = isinstance(node.value, ast.Attribute | ast.Call)
-        if (
-            receiver is not None
-            or self._parameter_receiver(node.value)
-            or unresolved_name
-            or expression_receiver
-        ):
+        if receiver is not None or unresolved_name or expression_receiver:
             parent = self.parents.get(node)
             operation = (
                 "call"

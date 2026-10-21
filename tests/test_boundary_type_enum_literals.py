@@ -224,3 +224,24 @@ def test_literal_enum_member_is_reached_through_nested_pydantic_dto(tmp_path: Pa
         if item.data.get("qualified_name") == "sample.app.facade.run"
     ]
     assert "sample.app.types.AuthoringReferenceCategory" in run.data.get("facade_types", ())
+
+
+@pytest.mark.parametrize(
+    "rebinding",
+    [
+        "del Category\n",
+        "def drop():\n    global Category\n    del Category\n",
+        "def reset():\n    global Category\n    Category = Kind\n",
+        "for Category in ():\n    pass\n",
+    ],
+)
+def test_rebinding_a_type_alias_keeps_the_collection_valid(tmp_path: Path, rebinding: str) -> None:
+    # A type alias is a declaration anchor; its write and delete roles must not abort collection.
+    _write_app(
+        tmp_path,
+        {
+            "types": "from enum import Enum\nclass Kind(str, Enum):\n    A = 'a'\n",
+            "facade": "from sample.app.types import Kind\nCategory = Kind\n" + rebinding,
+        },
+    )
+    assert _observe(tmp_path).observation is not None

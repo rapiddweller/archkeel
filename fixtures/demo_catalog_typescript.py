@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from archkeel.ir.contract_version import ContractVersion
 from archkeel.ir.model import DiagnosticCode
 from fixtures.demo_catalog_support import Variant, contract_measurement_budgets
 
@@ -20,18 +21,9 @@ def contract() -> dict:
 
 def with_rule(kind: str, **fields: object) -> str:
     value = contract()
-    if kind == "forbidden_construct" and "selector" in fields:
-        value["schema_version"] = "3.11.0"
-    elif kind == "call_owner":
-        value["schema_version"] = "3.7.0"
-    elif kind == "bounded_numeric_operand":
-        value["schema_version"] = "3.8.0"
-    elif kind == "protocol_declarations":
-        value["schema_version"] = "3.9.0"
-    elif kind == "forbidden_call_argument":
-        value["schema_version"] = "3.10.0"
-    elif kind == "source_ownership":
-        value["schema_version"] = "3.8.0"
+    if kind in UNSUPPORTED_RULES:
+        # The newest contract admits every kind, so only the TypeScript profile can refuse it.
+        value["schema_version"] = tuple(ContractVersion)[-1]
     value["rules"].append(
         {
             "id": "PROBE",
@@ -97,6 +89,23 @@ UNSUPPORTED_RULES = {
         "source": "shop",
         "target": "shop.src.main_x2e_ts.main",
         "parameter": "query",
+    },
+    "catalog_argument": {
+        "source": "shop",
+        "target": "shop.src.main_x2e_ts.main",
+        "parameter": "query",
+        "catalog": "shop.src.domain.Kind",
+    },
+    "catalog_use": {
+        "source": "shop",
+        "target": "shop.src.main_x2e_ts.main",
+        "parameter": "query",
+        "catalog": "shop.src.domain.Kind",
+    },
+    "forbidden_effect_under_condition": {
+        "source": "shop",
+        "target": "shop.src.main_x2e_ts.main",
+        "condition": {"kind": "parameter", "owner": "shop.src.main_x2e_ts.main", "name": "seeded"},
     },
     "forbidden_construct": {
         "source": "shop",

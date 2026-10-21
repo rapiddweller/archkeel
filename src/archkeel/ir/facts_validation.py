@@ -5184,7 +5184,11 @@ def _source_role_indexes(
                     "class",
                     "function",
                     "method",
-                } or record.data.get("record_kind") in {"static_constant", "dynamic_binding"}:
+                } or record.data.get("record_kind") in {
+                    "static_constant",
+                    "dynamic_binding",
+                    "type_alias",
+                }:
                     symbol_anchors: list[Record] = anchors.setdefault((name, record.id), [])
                     symbol_anchors.append(record)
         if record.kind in {"class", "function", "method"}:

@@ -410,10 +410,10 @@ def test_agent_decisions_counts_one_flipped_rule_from_the_observation(tmp_path: 
     assert architecture is not None
     observation = parse_observation(decode_canonical_model(json.loads(architecture)))
 
-    # 44 rules above the level (AD-11, issue #47) plus the one store's inside declares
+    # 47 rules above the level (AD-11, issue #47) plus the one store's inside declares
     # (AD-36); 8 declared public lists and the inside's 3 requires entries are decisions too
     # (AD-50).
-    assert agent_decisions(observation) == (1, 56)
+    assert agent_decisions(observation) == (1, 59)
 
 
 def test_agent_decisions_counts_requires_entries_and_public_lists() -> None:
@@ -494,6 +494,8 @@ def test_violation_counts_group_the_report_by_rule_and_by_crossing_pair(tmp_path
     assert counts.by_rule == (
         ("CONSTRUCT-NO-DYNAMIC", 2),
         ("APP-NO-LITERAL-ORDER-ID", 1),
+        ("APP-OPTION-KEY", 1),
+        ("APP-OPTION-KEY-USED", 1),
         ("APP-TYPES-NOT-DICT", 1),
         ("ASSIGNMENT-COMPLETE", 1),
         ("CALL-DESCRIBE-NO-MAINTENANCE", 1),
