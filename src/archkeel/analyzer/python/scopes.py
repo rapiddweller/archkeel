@@ -246,11 +246,7 @@ class LexicalScopes(ast.NodeVisitor):
         parent = self.current
         alias_name = node.name.id
         line, _, column = location(node)
-        type_parameter_names = frozenset(
-            type_param.name
-            for type_param in node.type_params
-            if isinstance(getattr(type_param, "name", None), str)
-        )
+        type_parameter_names = frozenset(type_param.name for type_param in node.type_params)
         # Bounds and defaults also execute in the annotation scope. Without a compiler
         # table for that scope, do not authorize outer aliases from their expressions.
         self.current = Scope(
