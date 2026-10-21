@@ -162,7 +162,7 @@ Statically proven single-name `TypeAlias` chains resolve to their target; unsupp
 alias shapes, including union-valued aliases, are UNKNOWN. Missing annotations,
 `object` and `Any` fail; ambiguous or unresolved aliases are UNKNOWN. This checks
 declaration identity only; MyPy checks assignability and #356 owns structural
-conformance. See [AD-245](architecture/decisions/ad-245-canonical-protocol-declarations.md).
+conformance. See [AD-254](architecture/decisions/ad-254-canonical-protocol-declarations.md).
 Static re-exports of a proven stdlib overload group expose every declared signature,
 excluding the implementation signature. Incomplete groups, unproven decorators and
 uncertain routes remain UNKNOWN.
