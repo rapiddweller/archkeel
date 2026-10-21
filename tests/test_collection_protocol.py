@@ -448,7 +448,7 @@ def test_response_encoder_validates_without_reparsing_its_json(version):
     )
 
 
-@pytest.mark.parametrize("version", ["1.0.0", "2.0.0", "3.0.0", "4.0.0"])
+@pytest.mark.parametrize("version", ["1.0.0", "2.0.0", "3.0.0", "4.0.0", "5.0.0", "6.0.0"])
 def test_response_encoder_still_rejects_invalid_facts_without_json_reparse(version):
     from dataclasses import replace
     from unittest.mock import patch
