@@ -302,6 +302,7 @@ def test_saved_facts_reject_forged_generic_header_proofs(tmp_path, source):
         "source",
         "error",
         "remove_type_alias_evidence",
+        "remove_alias_evidence_row",
         "reader_version",
         "copy_scope_witnesses",
     ),
@@ -310,6 +311,7 @@ def test_saved_facts_reject_forged_generic_header_proofs(tmp_path, source):
             "WIDTH = 4\ntype Alias[WIDTH] = job_nonce % WIDTH\n",
             "type parameter",
             True,
+            False,
             None,
             False,
         ),
@@ -317,6 +319,7 @@ def test_saved_facts_reject_forged_generic_header_proofs(tmp_path, source):
             "WIDTH = 4\ntype Alias[\n    WIDTH\n] = job_nonce % WIDTH\n",
             "complete source witness",
             False,
+            False,
             None,
             False,
         ),
@@ -324,6 +327,7 @@ def test_saved_facts_reject_forged_generic_header_proofs(tmp_path, source):
             "WIDTH = 4\ntype Alias[WIDTH] = (\n    job_nonce % WIDTH\n)\n",
             "type parameter",
             True,
+            False,
             None,
             False,
         ),
@@ -331,6 +335,7 @@ def test_saved_facts_reject_forged_generic_header_proofs(tmp_path, source):
             "WIDTH = 4\ntype Alias[WIDTH, T: job_nonce % WIDTH] = T\n",
             "type parameter",
             False,
+            False,
             None,
             False,
         ),
@@ -338,6 +343,7 @@ def test_saved_facts_reject_forged_generic_header_proofs(tmp_path, source):
             "WIDTH = 4\ntype Alias[WIDTH] = (\n    job_nonce % WIDTH\n)\n",
             "type parameter",
             True,
+            False,
             (3, 11),
             False,
         ),
@@ -345,18 +351,20 @@ def test_saved_facts_reject_forged_generic_header_proofs(tmp_path, source):
             "WIDTH = 4\ndef ordinary(job_nonce):\n"
             "    type Alias[WIDTH] = (\n        job_nonce % WIDTH\n    )\n"
             "    return job_nonce % WIDTH\n",
-            "type parameter",
+            "numeric module alias",
             True,
-            (3, 11),
+            True,
+            None,
             True,
         ),
         (
             "WIDTH = 4\nclass Ordinary:\n"
             "    type Alias[WIDTH] = (\n        job_nonce % WIDTH\n    )\n"
             "    value = job_nonce % WIDTH\n",
-            "type parameter",
+            "numeric module alias",
             True,
-            (3, 11),
+            True,
+            None,
             True,
         ),
     ],
@@ -367,6 +375,7 @@ def test_saved_facts_reject_forged_known_type_parameter_alias(
     source,
     error,
     remove_type_alias_evidence,
+    remove_alias_evidence_row,
     reader_version,
     copy_scope_witnesses,
 ):
@@ -430,6 +439,18 @@ def test_saved_facts_reject_forged_known_type_parameter_alias(
             if item.get("excerpt", "").lstrip().startswith("type Alias[")
         )
         operation["evidence_ids"].remove(alias_evidence["id"])
+        if remove_alias_evidence_row:
+            alias_evidence_id = alias_evidence["id"]
+            payload["facts"]["evidence"] = [
+                item for item in payload["facts"]["evidence"] if item["id"] != alias_evidence_id
+            ]
+            for section in payload["facts"]["sections"]:
+                for source_record in section["records"]:
+                    source_record["evidence_ids"] = [
+                        evidence_id
+                        for evidence_id in source_record["evidence_ids"]
+                        if evidence_id != alias_evidence_id
+                    ]
     if known_operation is not None:
         operation["data"]["binding_scopes"] = known_operation["data"]["binding_scopes"]
         for scope in known_operation["data"]["binding_scopes"]:

@@ -924,6 +924,8 @@ def _numeric_nested_scope_binds(owner: ast.AST, use: ast.AST, name: str) -> bool
         parent = parents.get(node)
         if parent is None:
             return True
+        if sys.version_info >= (3, 12) and isinstance(parent, ast.TypeAlias) and parent.type_params:
+            return True
         if isinstance(parent, ast.FunctionDef | ast.AsyncFunctionDef):
             if parent is not owner and node in parent.body:
                 nested_function = True
@@ -1126,7 +1128,7 @@ def _numeric_module_use_scope(
     operation_node = _numeric_operation_in_owner(
         owner, operation, scope_evidence, line_offset, owner_name
     )
-    if operation_node is None:
+    if operation_node is None or _numeric_nested_scope_binds(owner, operation_node, name):
         return False
     anonymous_scope = _numeric_anonymous_scope_allows_module(owner, operation_node, name)
     if anonymous_scope is False:
