@@ -258,4 +258,5 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-246 | [Bounded numeric operand proofs](ad-246-bounded-numeric-operand.md) |
 | AD-252 | [Bounded call identity](ad-252-bounded-call-identity.md) |
 | AD-250 | [Bounded guarded effect ownership](ad-250-bounded-guarded-effect-ownership.md) |
+| AD-253 | [SourceFacts V6 pools object keys and repeated values](ad-253-source-facts-columnar-key-and-value-pooling.md) |
 | AD-249 | [Source ownership names one declaration](ad-249-source-ownership-defaults.md) |

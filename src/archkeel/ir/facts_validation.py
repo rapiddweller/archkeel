@@ -3592,12 +3592,10 @@ def _stored_receiver_links(
         path_matches, path_evidence = _stored_method_path(target, binding.target, declarations)
     else:
         path_matches, path_evidence = False, ()
-    annotation_target = (
-        _annotation_class_origin(
-            initializers[0], typed_parameters[0], facts, declarations, proof_index
-        )
-        if len(typed_parameters) == 1
-        else None
+    if len(typed_parameters) != 1:
+        return None
+    annotation_target = _annotation_class_origin(
+        initializers[0], typed_parameters[0], facts, declarations, proof_index
     )
     if not path_matches or annotation_target != target:
         return None

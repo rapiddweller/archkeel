@@ -419,7 +419,7 @@ def decode_request(payload: bytes) -> CollectionRequest:
 def _python_settings(raw: dict[str, RawJson], version: ProtocolVersion) -> PythonSettings:
     fields = (
         {"language", "provider_sources", "phase"}
-        if version in {ProtocolVersion.V4, ProtocolVersion.V5}
+        if version in {ProtocolVersion.V4, ProtocolVersion.V5, ProtocolVersion.V6}
         else {"language"}
     )
     _object(raw, fields, "resolver")
@@ -439,7 +439,7 @@ def encode_request(request: CollectionRequest) -> bytes:
     version = _version(request.protocol_version)
     resolver: dict[str, RawJson] = {"language": request.resolver.language}
     if isinstance(request.resolver, PythonSettings):
-        if version in {ProtocolVersion.V4, ProtocolVersion.V5}:
+        if version in {ProtocolVersion.V4, ProtocolVersion.V5, ProtocolVersion.V6}:
             resolver["phase"] = request.resolver.phase
             resolver["provider_sources"] = [
                 _python_provider_payload(entry) for entry in request.resolver.provider_sources
@@ -852,6 +852,7 @@ def _shape(value: RawJson, protocol_version: ProtocolVersion) -> TypeShape:
         ProtocolVersion.V3,
         ProtocolVersion.V4,
         ProtocolVersion.V5,
+        ProtocolVersion.V6,
     }:
         _object(value, {"kind", "text", "elements"}, "type list")
         return TypeList(
@@ -998,7 +999,13 @@ def _runtime_info(value: RawJson, protocol_version: ProtocolVersion) -> RuntimeI
     expected = (
         {"name", "version", "required", "requirement_state"}
         if protocol_version
-        in {ProtocolVersion.V2, ProtocolVersion.V3, ProtocolVersion.V4, ProtocolVersion.V5}
+        in {
+            ProtocolVersion.V2,
+            ProtocolVersion.V3,
+            ProtocolVersion.V4,
+            ProtocolVersion.V5,
+            ProtocolVersion.V6,
+        }
         else {"name", "version", "required"}
     )
     if not isinstance(value, dict) or set(value) != expected:
@@ -1012,28 +1019,26 @@ def _runtime_info(value: RawJson, protocol_version: ProtocolVersion) -> RuntimeI
 
 
 def _source_facts(value: RawJson, version: ProtocolVersion) -> SourceFacts:
-    item = _object(
-        value,
-        {
-            "profile",
-            "adapter",
-            "runtime",
-            "source",
-            "capabilities",
-            "inputs",
-            "files",
-            "imports",
-            "sections",
-            "coverage",
-            "evidence",
-            "uncertain_reexports",
-            "type_shapes",
-            "state",
-            "candidate_evidence",
-        }
-        | ({"provider_bindings"} if version in {ProtocolVersion.V4, ProtocolVersion.V5} else set()),
-        "facts",
-    )
+    required_fields: set[str] = {
+        "profile",
+        "adapter",
+        "runtime",
+        "source",
+        "capabilities",
+        "inputs",
+        "files",
+        "imports",
+        "sections",
+        "coverage",
+        "evidence",
+        "uncertain_reexports",
+        "type_shapes",
+        "state",
+        "candidate_evidence",
+    }
+    if version in {ProtocolVersion.V4, ProtocolVersion.V5, ProtocolVersion.V6}:
+        required_fields.add("provider_bindings")
+    item = _object(value, required_fields, "facts")
     adapter = _object(item["adapter"], {"name", "version", "code_digest"}, "adapter")
     uncertain: list[tuple[str, tuple[str, ...]]] = []
     for entry in _array(item["uncertain_reexports"], "uncertain reexports"):
@@ -1078,7 +1083,7 @@ def _source_facts(value: RawJson, version: ProtocolVersion) -> SourceFacts:
             for entry in _array(item.get("provider_bindings", []), "provider bindings")
         ),
     )
-    if version is not ProtocolVersion.V5 and any(
+    if version not in {ProtocolVersion.V5, ProtocolVersion.V6} and any(
         key in _SOURCE_FACTS_SELECTOR_OWNER_FIELDS
         for section in facts.sections
         for record in section.records
@@ -1092,21 +1097,18 @@ def _source_facts(value: RawJson, version: ProtocolVersion) -> SourceFacts:
 
 def _compact_source_facts(value: RawJson) -> dict[str, RawJson]:
     """Encode source records and evidence as positional rows with a lossless string table."""
-    facts = _compact_object(value, "facts")
-    sections = _array(facts["sections"], "sections")
-    packed_sections, data_fields = _pack_source_sections(sections)
+    bare = _source_facts_bare_rows(value)
+    sections = _array(bare["sections"], "sections")
+    record_rows: list[RawJson] = []
+    for raw_section in sections:
+        section = _compact_object(raw_section, "packed section")
+        record_rows.extend(_array(section["records"], "records"))
     try:
         compact_rows, table = intern_strings(
             {
-                "records": [
-                    row
-                    for packed_section in packed_sections
-                    for row in _array(packed_section["records"], "records")
-                ],
-                "evidence": _source_evidence_rows(facts["evidence"], "evidence"),
-                "candidate_evidence": _source_evidence_rows(
-                    facts["candidate_evidence"], "candidate evidence"
-                ),
+                "records": record_rows,
+                "evidence": _array(bare["evidence"], "evidence"),
+                "candidate_evidence": _array(bare["candidate_evidence"], "candidate evidence"),
             },
             policy=StringTablePolicy.SOURCE_FACTS,
         )
@@ -1116,36 +1118,160 @@ def _compact_source_facts(value: RawJson) -> dict[str, RawJson]:
     encoded_records = _array(rows["records"], "compact records")
     cursor = 0
     compact_sections: list[RawJson] = []
-    for packed_section in packed_sections:
-        record_count = len(_array(packed_section["records"], "records"))
+    for packed_section in sections:
+        section = _compact_object(packed_section, "packed section")
+        record_count = len(_array(section["records"], "records"))
         compact_sections.append(
             {
-                "name": packed_section["name"],
+                "name": section["name"],
                 "records": encoded_records[cursor : cursor + record_count],
             }
         )
         cursor += record_count
     compact: dict[str, RawJson] = {
-        **{key: item for key, item in facts.items() if key not in _SOURCE_FACTS_DETAIL_FIELDS},
+        **{key: item for key, item in bare.items() if key not in _SOURCE_FACTS_DETAIL_FIELDS},
         "sections": compact_sections,
         "evidence": rows["evidence"],
         "candidate_evidence": rows["candidate_evidence"],
     }
-    wire_data_fields: list[RawJson] = []
-    for field in data_fields:
-        wire_data_fields.append(field)
-    wire_string_table: list[RawJson] = []
-    for entry in table:
-        wire_string_table.append(entry)
-    compact["encoding"] = {
-        "kind": "source-facts-columnar-v1",
-        "record_fields": list(RECORD_FIELDS),
-        "evidence_fields": list(EVIDENCE_FIELDS),
-        "data_fields": wire_data_fields,
-        "string_reference": "$<index>",
-    }
+    compact["encoding"] = bare["encoding"]
+    wire_string_table: list[RawJson] = list(table)
     compact["string_table"] = wire_string_table
     return compact
+
+
+def _source_facts_bare_rows(value: RawJson) -> dict[str, RawJson]:
+    """Build the positional V1 row layout without interning any string values."""
+    facts = _compact_object(value, "facts")
+    packed_sections, data_fields = _pack_source_sections(_array(facts["sections"], "sections"))
+    wire_sections: list[RawJson] = list(packed_sections)
+    compact: dict[str, RawJson] = {
+        **{key: item for key, item in facts.items() if key not in _SOURCE_FACTS_DETAIL_FIELDS},
+        "sections": wire_sections,
+        "evidence": _source_evidence_rows(facts["evidence"], "evidence"),
+        "candidate_evidence": _source_evidence_rows(
+            facts["candidate_evidence"], "candidate evidence"
+        ),
+        "encoding": {
+            "kind": "source-facts-columnar-v1",
+            "record_fields": list(RECORD_FIELDS),
+            "evidence_fields": list(EVIDENCE_FIELDS),
+            "data_fields": list(data_fields),
+            "string_reference": "$<index>",
+        },
+    }
+    return compact
+
+
+def _encode_source_fact_v6_tree(value: RawJson) -> tuple[RawJson, list[str], list[str]]:
+    """Intern all JSON values and use a small sorted index pool for object keys."""
+    keys: set[str] = set()
+
+    def collect(item: RawJson) -> None:
+        if isinstance(item, dict):
+            keys.update(item)
+            for child in item.values():
+                collect(child)
+        elif isinstance(item, list):
+            for child in item:
+                collect(child)
+
+    collect(value)
+    key_table: list[str] = sorted(keys)
+    key_indexes: dict[str, int] = {key: index for index, key in enumerate(key_table)}
+    try:
+        value_tree, value_table = intern_strings(value, policy=StringTablePolicy.SOURCE_FACTS)
+    except ValueError as error:
+        raise ProtocolError(str(error)) from error
+
+    def encode_keys(item: RawJson) -> RawJson:
+        if isinstance(item, dict):
+            encoded: dict[str, RawJson] = {}
+            for key, child in item.items():
+                encoded[str(key_indexes[key])] = encode_keys(child)
+            return encoded
+        if isinstance(item, list):
+            return [encode_keys(child) for child in item]
+        return item
+
+    return encode_keys(value_tree), key_table, value_table
+
+
+def _decode_source_fact_v6_tree(
+    value: RawJson, key_table: list[RawJson], value_table: list[RawJson]
+) -> RawJson:
+    """Expand V6 key and value pools, rejecting noncanonical references and collisions."""
+    keys: tuple[str, ...] = tuple(_record_string(entry, "key_table[]") for entry in key_table)
+    values: tuple[str, ...] = tuple(
+        _record_string(entry, "string_table[]") for entry in value_table
+    )
+    if tuple(sorted(set(keys))) != keys:
+        raise ProtocolError("V6 key pool must be sorted and unique")
+    if tuple(sorted(set(values))) != values:
+        raise ProtocolError("V6 string table must be sorted and unique")
+
+    def decode_keys(item: RawJson) -> RawJson:
+        if isinstance(item, dict):
+            decoded: dict[str, RawJson] = {}
+            for reference, child in item.items():
+                if re.fullmatch(r"(?:0|[1-9][0-9]*)", reference) is None:
+                    raise ProtocolError("V6 key reference is not canonical")
+                index = int(reference)
+                if index >= len(keys):
+                    raise ProtocolError("V6 key reference is out of range")
+                key = keys[index]
+                if key in decoded:
+                    raise ProtocolError("V6 key reference creates a duplicate object key")
+                decoded[key] = decode_keys(child)
+            return decoded
+        if isinstance(item, list):
+            return [decode_keys(child) for child in item]
+        return item
+
+    try:
+        decoded_values = expand_strings(decode_keys(value), list(values))
+    except ValueError as error:
+        raise ProtocolError(str(error)) from error
+    encoded, canonical_keys, canonical_values = _encode_source_fact_v6_tree(decoded_values)
+    if encoded != value or canonical_keys != list(keys) or canonical_values != list(values):
+        raise ProtocolError("V6 key and string tables are not canonical")
+    return decoded_values
+
+
+def _compact_source_facts_v6(value: RawJson) -> dict[str, RawJson]:
+    """Wrap canonical V1 positional rows in the V6 global value/key pools."""
+    bare_rows = _source_facts_bare_rows(value)
+    tree, key_table, string_table = _encode_source_fact_v6_tree(bare_rows)
+    wire_key_table: list[RawJson] = list(key_table)
+    wire_string_table: list[RawJson] = list(string_table)
+    return {
+        "encoding": {
+            "kind": "source-facts-columnar-v2",
+            "key_reference": "<index>",
+            "string_reference": "$<index>",
+        },
+        "facts": tree,
+        "key_table": wire_key_table,
+        "string_table": wire_string_table,
+    }
+
+
+def _expand_source_facts_v6(value: RawJson) -> dict[str, RawJson]:
+    """Decode the V6 outer pools, then apply V1 row and ordinary facts validation."""
+    item = _object(value, {"encoding", "facts", "key_table", "string_table"}, "V6 facts")
+    encoding = _object(
+        item["encoding"], {"kind", "key_reference", "string_reference"}, "V6 source encoding"
+    )
+    if encoding != {
+        "kind": "source-facts-columnar-v2",
+        "key_reference": "<index>",
+        "string_reference": "$<index>",
+    }:
+        raise ProtocolError("unsupported V6 source facts encoding")
+    key_table = _array(item["key_table"], "key_table")
+    string_table = _array(item["string_table"], "string_table")
+    bare_v1 = _decode_source_fact_v6_tree(item["facts"], key_table, string_table)
+    return _expand_source_facts(bare_v1, strings_expanded=True)
 
 
 def _pack_source_sections(
@@ -1196,7 +1322,7 @@ def _compact_object(raw: RawJson, label: str) -> dict[str, RawJson]:
     return raw
 
 
-def _expand_source_facts(value: RawJson) -> dict[str, RawJson]:
+def _expand_source_facts(value: RawJson, *, strings_expanded: bool = False) -> dict[str, RawJson]:
     """Validate and expand V5 rows before ordinary source-fact validation."""
     item = _record_object(value, "compact source facts")
     encoding = _object(
@@ -1218,9 +1344,13 @@ def _expand_source_facts(value: RawJson) -> dict[str, RawJson]:
     )
     if tuple(sorted(set(data_fields))) != data_fields:
         raise ProtocolError("source encoding data fields must be sorted and unique")
-    table = tuple(
-        _record_string(entry, "string_table[]")
-        for entry in _array(item.get("string_table"), "string_table")
+    table = (
+        ()
+        if strings_expanded
+        else tuple(
+            _record_string(entry, "string_table[]")
+            for entry in _array(item.get("string_table"), "string_table")
+        )
     )
     if tuple(sorted(set(table))) != table:
         raise ProtocolError("source string table must be sorted and unique")
@@ -1237,14 +1367,12 @@ def _expand_source_facts(value: RawJson) -> dict[str, RawJson]:
         records = _array(section["records"], "compact records")
         record_rows.extend(records)
         section_shapes.append((name, len(records)))
-    expanded_rows = expand_strings(
-        {
-            "records": record_rows,
-            "evidence": _array(item.get("evidence"), "evidence"),
-            "candidate_evidence": _array(item.get("candidate_evidence"), "candidate evidence"),
-        },
-        list(table),
-    )
+    row_values: dict[str, RawJson] = {
+        "records": record_rows,
+        "evidence": _array(item.get("evidence"), "evidence"),
+        "candidate_evidence": _array(item.get("candidate_evidence"), "candidate evidence"),
+    }
+    expanded_rows = row_values if strings_expanded else expand_strings(row_values, list(table))
     expanded_row_object = _compact_object(expanded_rows, "expanded source rows")
     expanded_records = _array(expanded_row_object["records"], "expanded records")
     expanded_sections: list[RawJson] = []
@@ -1264,7 +1392,10 @@ def _expand_source_facts(value: RawJson) -> dict[str, RawJson]:
     expanded["candidate_evidence"] = _expand_evidence_rows(
         expanded_row_object["candidate_evidence"], "candidate evidence"
     )
-    if _compact_source_facts(expanded) != item:
+    canonical = (
+        _source_facts_bare_rows(expanded) if strings_expanded else _compact_source_facts(expanded)
+    )
+    if canonical != item:
         raise ProtocolError("source facts columnar encoding is not canonical")
     return expanded
 
@@ -1309,7 +1440,7 @@ def _response(decoded: RawJson) -> CollectionResponse:
             {"protocol_version", "facts"}
             | (
                 {"provider_sources"}
-                if version in {ProtocolVersion.V4, ProtocolVersion.V5}
+                if version in {ProtocolVersion.V4, ProtocolVersion.V5, ProtocolVersion.V6}
                 else set()
             ),
             "response",
@@ -1317,6 +1448,8 @@ def _response(decoded: RawJson) -> CollectionResponse:
         raw_facts = raw["facts"]
         if version is ProtocolVersion.V5:
             raw_facts = _expand_source_facts(raw_facts)
+        elif version is ProtocolVersion.V6:
+            raw_facts = _expand_source_facts_v6(raw_facts)
         facts = _source_facts(raw_facts, version)
         providers = _python_providers(raw.get("provider_sources", []))
         if providers and (
@@ -1389,14 +1522,20 @@ def _runtime_payload(runtime: RuntimeInfo, version: ProtocolVersion) -> dict[str
         **(
             {"requirement_state": runtime.requirement_state}
             if version
-            in {ProtocolVersion.V2, ProtocolVersion.V3, ProtocolVersion.V4, ProtocolVersion.V5}
+            in {
+                ProtocolVersion.V2,
+                ProtocolVersion.V3,
+                ProtocolVersion.V4,
+                ProtocolVersion.V5,
+                ProtocolVersion.V6,
+            }
             else {}
         ),
     }
 
 
 def _contextmanager_protocol(facts: SourceFacts, version: ProtocolVersion) -> None:
-    if version not in {ProtocolVersion.V4, ProtocolVersion.V5} and any(
+    if version not in {ProtocolVersion.V4, ProtocolVersion.V5, ProtocolVersion.V6} and any(
         record.data.get("contextmanager_signature") is not None
         for section in facts.sections
         for record in section.records
@@ -1414,7 +1553,7 @@ def _facts_payload(
                     _provider_binding_payload(entry) for entry in facts.provider_bindings
                 ]
             }
-            if version in {ProtocolVersion.V4, ProtocolVersion.V5}
+            if version in {ProtocolVersion.V4, ProtocolVersion.V5, ProtocolVersion.V6}
             else {}
         ),
         "state": thaw_data(state_data(facts.state)),
@@ -1476,9 +1615,17 @@ def encode_response(response: CollectionResponse) -> bytes:
     facts = response.facts
     version = _version(response.protocol_version)
     _contextmanager_protocol(facts, version)
-    if facts.provider_bindings and version not in {ProtocolVersion.V4, ProtocolVersion.V5}:
+    if facts.provider_bindings and version not in {
+        ProtocolVersion.V4,
+        ProtocolVersion.V5,
+        ProtocolVersion.V6,
+    }:
         raise ProtocolError("provider bindings require collection protocol 4.0.0")
-    if response.provider_sources and version not in {ProtocolVersion.V4, ProtocolVersion.V5}:
+    if response.provider_sources and version not in {
+        ProtocolVersion.V4,
+        ProtocolVersion.V5,
+        ProtocolVersion.V6,
+    }:
         raise ProtocolError("captured provider sources require collection protocol 4.0.0")
     runtime = _runtime_payload(facts.runtime, version)
     raw: dict[str, RawJson] = {
@@ -1489,13 +1636,15 @@ def encode_response(response: CollectionResponse) -> bytes:
                     _python_provider_payload(entry) for entry in response.provider_sources
                 ]
             }
-            if version in {ProtocolVersion.V4, ProtocolVersion.V5}
+            if version in {ProtocolVersion.V4, ProtocolVersion.V5, ProtocolVersion.V6}
             else {}
         ),
         "facts": _facts_payload(facts, version, runtime),
     }
     if version is ProtocolVersion.V5:
         raw["facts"] = _compact_source_facts(raw["facts"])
+    elif version is ProtocolVersion.V6:
+        raw["facts"] = _compact_source_facts_v6(raw["facts"])
     payload = json.dumps(
         raw, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
     ).encode()

@@ -38,8 +38,16 @@ reject this metadata. Unsupported source transformations remain UNKNOWN.
 
 V5 keeps the V4 collection envelope and facts, but encodes source records and evidence
 as canonical positional rows with a sorted data-field table and lossless repeated-string
-references. Decoding expands this transport representation before applying the same
-strict source-facts validator. V1–V4 retain their original wire formats.
+references. V1–V4 retain their original wire formats.
+
+V6 wraps the same bare V1 positional rows in a `source-facts-columnar-v2` envelope. It
+interns JSON object keys in a sorted unique `key_table` and string values in a sorted unique
+`string_table`; canonical decimal object keys index the former and `$<index>` value
+references index the latter. The decoder checks canonical tables and references, expands
+both pools and the V1 rows, then applies the unchanged strict SourceFacts validator. V6
+requests retain the V4/V5 provider-source and phase fields, and V6 responses retain the
+ordinary provider-sources field. V1–V5 wire behavior is unchanged. See
+[AD-253](decisions/ad-253-source-facts-columnar-key-and-value-pooling.md).
 
 This migration covers the named collector/codec modules. It does not assert that every historical string-controlled branch in the repository has been migrated.
 
