@@ -4,12 +4,54 @@
 """Bounded modulo operands retain source identity and exact alias derivations."""
 
 import json
+import sys
 from dataclasses import replace
 
 import pytest
 from test_analyzer import _component, _observe, _parsed_module
 
 from archkeel.analyzer.python.constructs import collect_constructs
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type aliases require Python 3.12")
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (
+            "WIDTH = 4\ntype Alias[WIDTH] = job_nonce % WIDTH\n",
+            "unknown",
+        ),
+        (
+            "WIDTH = 4\ntype Alias = job_nonce % WIDTH\n",
+            "known",
+        ),
+        (
+            "WIDTH = 4\ndef outer():\n    WIDTH = 7\n    type Alias[T] = job_nonce % WIDTH\n",
+            "known",
+        ),
+        (
+            "WIDTH = 4\ntype Alias[T] = job_nonce % WIDTH\n",
+            "known",
+        ),
+        (
+            "WIDTH = 4\nclass Holder:\n    WIDTH = 8\n    type Alias[WIDTH] = job_nonce % WIDTH\n",
+            "unknown",
+        ),
+    ],
+)
+def test_generic_type_alias_respects_type_parameter_binding(source, expected):
+    operation = next(
+        row
+        for row in collect_constructs([_parsed_module(source)], {})
+        if row["kind"] == "numeric_operand"
+    )
+    assert operation["data"]["proof"] == expected
+
+
+@pytest.mark.skipif(sys.version_info >= (3, 12), reason="PEP 695 syntax is unsupported")
+def test_type_alias_syntax_is_unsupported_before_python_312():
+    with pytest.raises(SyntaxError):
+        _parsed_module("WIDTH = 4\ntype Alias[WIDTH] = job_nonce % WIDTH\n")
 
 
 @pytest.mark.parametrize("link", ["operation", "alias"])

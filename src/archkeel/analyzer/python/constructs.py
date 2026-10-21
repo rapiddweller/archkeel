@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import ast
+import sys
 from collections import Counter
 from collections.abc import Sequence
 from enum import Enum
@@ -756,6 +757,9 @@ class ConstructCollector(ast.NodeVisitor):
         chain: list[dict[str, str]] = []
         anonymous = False
         while scope is not None and scope is not self.scopes.root:
+            if sys.version_info >= (3, 12) and isinstance(scope.node, ast.TypeAlias):
+                scope = scope.parent
+                continue
             if not isinstance(scope.node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
                 if isinstance(
                     scope.node,
