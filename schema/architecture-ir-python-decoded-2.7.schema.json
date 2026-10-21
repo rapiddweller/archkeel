@@ -148,7 +148,7 @@
                         "type": "null"
                       },
                       {
-                        "$ref": "https://archkeel.dev/schema/source-facts/5.0.0#/$defs/CallBinding"
+                        "$ref": "https://archkeel.dev/schema/source-facts/6.0.0#/$defs/CallBinding"
                       }
                     ]
                   },
