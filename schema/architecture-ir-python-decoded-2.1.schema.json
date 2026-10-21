@@ -162,7 +162,32 @@
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/typing_signals"
     },
     "constructs": {
-      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/constructs"
+      "allOf": [
+        {
+          "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/constructs"
+        },
+        {
+          "items": {
+            "allOf": [
+              {
+                "$ref": "urn:archkeel:architecture-ir:common:1.2.0#/$defs/record"
+              },
+              {
+                "not": {
+                  "properties": {
+                    "kind": {
+                      "const": "numeric_operand"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
     },
     "contexts": {
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/properties/contexts"
@@ -195,6 +220,79 @@
   "allOf": [
     {
       "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/allOf/0"
+    },
+    {
+      "properties": {
+        "declarations": {
+          "items": {
+            "not": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "protocol_declarations"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          }
+        },
+        "scope_observations": {
+          "items": {
+            "not": {
+              "properties": {
+                "data": {
+                  "required": [
+                    "protocol_scope_proof"
+                  ]
+                }
+              },
+              "required": [
+                "data"
+              ]
+            }
+          }
+        },
+        "violations": {
+          "items": {
+            "not": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "protocol_declaration",
+                    "protocol_declaration_limit"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          }
+        },
+        "unknowns": {
+          "items": {
+            "not": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "protocol_declaration",
+                    "protocol_declaration_limit"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "$ref": "urn:archkeel:architecture-ir:python-decoded:2.0.0#/$defs/legacyNoNumericVocabulary"
     }
   ],
   "title": "Python ArchitectureIR 2.1.0, decoded observation profile",

@@ -11,6 +11,7 @@ from test_exact_module_ownership import _component, _observe_tree, _rule
 
 from archkeel.check.report import run_saved_report
 from archkeel.ir.codec import canonical_report_bytes, observation_payload
+from archkeel.ir.model import SCHEMA_VERSION
 
 
 def _observation(root):
@@ -93,7 +94,7 @@ def test_saved_reader_rejects_receipt_from_another_observation_version(tmp_path,
     raw = _observation(tmp_path)
     before = _read(tmp_path, raw, columnar)["KNOWN"]
     assert before.status == "PASS" and before.evaluation_proven
-    assert raw["schema_version"] == "2.1.0"
+    assert raw["schema_version"] == SCHEMA_VERSION
     raw["schema_version"] = "2.0.0"
     after = _read(tmp_path, raw, columnar)["KNOWN"]
     assert after.status == "UNKNOWN" and not after.evaluation_proven

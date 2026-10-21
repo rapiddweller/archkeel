@@ -176,6 +176,24 @@ class ArchitectureRuleKind(StrEnum):
     SIBLING_ISOLATION = "sibling_isolation"
     SYMBOL_PLACEMENT = "symbol_placement"
     BOUNDARY_TYPES = "boundary_types"
+    BOUNDED_NUMERIC_OPERAND = "bounded_numeric_operand"
+    PROTOCOL_DECLARATIONS = "protocol_declarations"
+
+
+class NumericOperandForm(StrEnum):
+    BINARY = "binary"
+    AUGMENTED = "augmented"
+    BOTH = "both"
+
+
+class ProtocolDeclarationRole(StrEnum):
+    PARAMETER = "parameter"
+    MEMBER = "member"
+
+
+class ProtocolDeclarationVisibility(StrEnum):
+    PUBLIC = "public"
+    ALL = "all"
 
 
 class ArchitectureRuleGrammar:

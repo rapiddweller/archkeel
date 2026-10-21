@@ -10,12 +10,18 @@ from collections import Counter
 from collections.abc import Sequence
 from enum import Enum
 
-from archkeel.ir.facts import EvidenceClass, SourceNameVisibility, stable_id
+from archkeel.ir.facts import (
+    MAX_NUMERIC_EVIDENCE_CHARS,
+    MAX_STATIC_INTEGER,
+    EvidenceClass,
+    SourceNameVisibility,
+    stable_id,
+)
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified
 from archkeel.ir.source_records import source_name_visibility as _source_name_visibility
 
-from .scopes import BindingKind, LexicalScopes
+from .scopes import BindingKind, LexicalScopes, Scope
 from .source import (
     ParsedModule,
     add_evidence,
@@ -24,6 +30,130 @@ from .source import (
     location,
     stable_direct_module_bindings,
 )
+
+_NumericAlias = dict[str, str | int]
+
+
+def _numeric_evidence_excerpt_supported(excerpt: str) -> bool:
+    if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
+        return False
+    stripped: str = excerpt.lstrip(" \t")
+    if stripped.startswith("@"):
+        return _numeric_decorator_excerpt(excerpt) is not None
+    if _numeric_elif_start(excerpt) is not None:
+        return _numeric_elif_excerpt_supported(excerpt)
+    try:
+        ast.parse(excerpt)
+        return True
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+        parsed = _numeric_indented_excerpt(excerpt, indentation, synthetic_body=False)
+        if parsed is not None:
+            return True
+        parsed = _numeric_indented_excerpt(excerpt, indentation, synthetic_body=True)
+        return (
+            parsed is not None
+            and len(parsed[0]) == 1
+            and _numeric_header_has_synthetic_body(parsed[0][0])
+        )
+
+
+def _numeric_decorator_excerpt(excerpt: str) -> tuple[tuple[ast.stmt, ...], int] | None:
+    indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+    unit = "\t" if "\t" in indentation else "    "
+    prefix = "if True:\n" if indentation else ""
+    offset = 1 if indentation else 0
+    source = (
+        f"{prefix}{excerpt}\n"
+        f"{indentation}def __archkeel_numeric_witness__():\n"
+        f"{indentation}{unit}pass"
+    )
+    try:
+        parsed = ast.parse(source)
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    roots = tuple(parsed.body)
+    if indentation and (len(roots) != 1 or not isinstance(roots[0], ast.If)):
+        return None
+    body = tuple(roots[0].body) if indentation and isinstance(roots[0], ast.If) else roots
+    if (
+        len(body) != 1
+        or not isinstance(body[0], ast.FunctionDef)
+        or len(body[0].decorator_list) != 1
+    ):
+        return None
+    return roots, offset
+
+
+def _numeric_elif_start(excerpt: str) -> int | None:
+    for index, character in enumerate(excerpt):
+        if character not in " \t":
+            if excerpt[index : index + 4] != "elif":
+                return None
+            if index + 4 < len(excerpt) and excerpt[index + 4] not in " \t(":
+                return None
+            return index
+    return None
+
+
+def _numeric_indented_excerpt(
+    excerpt: str, indentation: str, *, synthetic_body: bool
+) -> tuple[tuple[ast.stmt, ...], int] | None:
+    unit = "\t" if "\t" in indentation else "    "
+    depth = 1 if indentation else 0
+    wrappers = "if True:\n" if indentation else ""
+    suffix = f"\n{indentation}{unit}pass" if synthetic_body else ""
+    try:
+        parsed = ast.parse(wrappers + excerpt + suffix)
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    roots = tuple(parsed.body)
+    for _ in range(depth):
+        if len(roots) != 1 or not isinstance(roots[0], ast.If):
+            return None
+        roots = tuple(roots[0].body)
+    return roots, depth
+
+
+def _numeric_header_has_synthetic_body(node: ast.stmt) -> bool:
+    header_types = (
+        ast.If,
+        ast.While,
+        ast.For,
+        ast.AsyncFor,
+        ast.With,
+        ast.AsyncWith,
+        ast.FunctionDef,
+        ast.AsyncFunctionDef,
+        ast.ClassDef,
+    )
+    return (
+        isinstance(node, header_types)
+        and len(node.body) == 1
+        and isinstance(node.body[0], ast.Pass)
+    )
+
+
+def _numeric_elif_excerpt_supported(excerpt: str) -> bool:
+    indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+    unit = "\t" if "\t" in indentation else "    "
+    source = f"{indentation}if True:\n{indentation}{unit}pass\n{excerpt}"
+    for synthetic_body in (False, True):
+        parsed = _numeric_indented_excerpt(source, indentation, synthetic_body=synthetic_body)
+        if parsed is None:
+            continue
+        roots, _depth = parsed
+        if len(roots) != 1 or not isinstance(roots[0], ast.If):
+            return False
+        preceding = roots[0]
+        if len(preceding.body) != 1 or not isinstance(preceding.body[0], ast.Pass):
+            return False
+        if len(preceding.orelse) != 1 or not isinstance(preceding.orelse[0], ast.If):
+            return False
+        alternate = preceding.orelse[0]
+        if not synthetic_body or _numeric_header_has_synthetic_body(alternate):
+            return True
+    return False
 
 
 class _StringPredicate(Enum):
@@ -43,6 +173,7 @@ def _string_predicate(node: ast.Call) -> _StringPredicate | None:
 
 _BROAD_NAMES = frozenset({"Exception", "BaseException"})
 _REFLECTION_CALLS = {"setattr": "setattr_call", "delattr": "delattr_call", "vars": "vars_call"}
+_INTEGER_DEPTH = 12
 # A stub carrying one of these declares a shape; emptiness is its interface, not a gap (AD-29).
 _STUB_DECORATORS = frozenset(
     {
@@ -484,14 +615,285 @@ class ConstructCollector(ast.NodeVisitor):
         self.scope_stack: list[str] = [module.module]
         self.comparisons = comparisons
         self.inherits_stack: list[bool] = []
+        self.scopes = comparisons.scopes
+
+    def _integer(
+        self, node: ast.expr, use: ast.AST, depth: int = 0, seen: frozenset[str] = frozenset()
+    ) -> tuple[int | None, list[_NumericAlias]]:
+        """Evaluate a small exact integer grammar, refusing expensive work before it runs."""
+        value: int | None
+        if depth > _INTEGER_DEPTH:
+            return None, []
+        if isinstance(node, ast.Constant) and type(node.value) is int:
+            value = node.value
+            return (value, []) if -MAX_STATIC_INTEGER <= value <= MAX_STATIC_INTEGER else (None, [])
+        if isinstance(node, ast.Constant) and type(node.value) is bool:
+            value = int(node.value)
+            return (value, []) if -MAX_STATIC_INTEGER <= value <= MAX_STATIC_INTEGER else (None, [])
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+            value, derivation = self._integer(node.operand, use, depth + 1, seen)
+            if value is None:
+                return None, derivation
+            return (value if isinstance(node.op, ast.UAdd) else -value), derivation
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Pow):
+            base, left = self._integer(node.left, use, depth + 1, seen)
+            exponent, right = self._integer(node.right, use, depth + 1, seen)
+            if base is None or exponent is None or exponent < 0 or exponent > 256:
+                return None, []
+            magnitude = -base if base < 0 else base
+            result = 1
+            for _ in range(exponent):
+                if magnitude and result > MAX_STATIC_INTEGER // magnitude:
+                    return None, []
+                result *= magnitude
+            if base < 0 and exponent % 2:
+                result = -result
+            return result, left + right
+        if isinstance(node, ast.Name):
+            return self._integer_alias(node, use, depth, seen)
+        return None, []
+
+    def _integer_alias(
+        self, node: ast.Name, use: ast.AST, depth: int, seen: frozenset[str]
+    ) -> tuple[int | None, list[_NumericAlias]]:
+        name = node.id
+        if name in seen:
+            return None, []
+        binding = self.scopes.lookup(node, name)
+        owner = binding.owner
+        assignment = None
+        scope_evidence_id: str | None = None
+        if owner is self.scopes.root:
+            matches = [
+                statement
+                for statement in self.module.tree.body
+                if isinstance(statement, ast.Assign | ast.AnnAssign)
+                and any(
+                    isinstance(target, ast.Name) and target.id == name
+                    for target in (
+                        statement.targets
+                        if isinstance(statement, ast.Assign)
+                        else [statement.target]
+                    )
+                )
+            ]
+            if name in stable_direct_module_bindings(self.module) and len(matches) == 1:
+                assignment = matches[0]
+        elif owner is not None:
+            sites = owner.bindings.get(name, [])
+            if len(sites) == 1:
+                candidate = self.scopes.parents.get(sites[0])
+                if (
+                    isinstance(candidate, (ast.Assign, ast.AnnAssign))
+                    and self.scopes.parents.get(candidate) is owner.node
+                ):
+                    assignment = candidate
+        if assignment is None or assignment.value is None:
+            return None, []
+        if owner is None:
+            return None, []
+        evidence_id = add_evidence(self.evidence, self.module, assignment)
+        use_line, _, use_column = location(use)
+        assignment_line, _, assignment_column = location(assignment)
+        if (assignment_line, assignment_column) >= (use_line, use_column):
+            return None, []
+        value, derivation = self._integer(assignment.value, assignment, depth + 1, seen | {name})
+        if value is None:
+            return None, []
+        if owner is not self.scopes.root:
+            scope_evidence_id = self._numeric_scope_evidence(owner)
+            if scope_evidence_id is None:
+                return None, []
+        line, _, column = location(assignment)
+        end_line: int = assignment.end_lineno if assignment.end_lineno is not None else line
+        end_column: int = (
+            assignment.end_col_offset if assignment.end_col_offset is not None else column
+        )
+        origin: _NumericAlias = {
+            "name": name,
+            "value": value,
+            "expression": ast.unparse(assignment.value),
+            "evidence_id": evidence_id,
+            "line": line,
+            "column": column,
+            "end_line": end_line,
+            "end_column": end_column,
+        }
+        if scope_evidence_id is not None:
+            origin["scope_evidence_id"] = scope_evidence_id
+            origin["scope_owner"] = owner.qualified_name
+            scope_line, _, scope_column = location(owner.node)
+            origin["scope_symbol_id"] = stable_id(
+                "SYM", owner.qualified_name, self.module.rel_path, scope_line, scope_column
+            )
+        return value, [origin, *derivation]
+
+    def _numeric_scope_evidence(self, owner: Scope) -> str | None:
+        node = owner.node
+        if not isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+            return None
+        line, end_line, column = location(node)
+        if end_line > len(self.module.lines) or line < 1:
+            return None
+        excerpt = "\n".join(self.module.lines[line - 1 : end_line])
+        if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS:
+            return None
+        evidence_id = stable_id(
+            "EVD", self.module.rel_path, line, end_line, column, "numeric_scope"
+        )
+        self.evidence[evidence_id] = {
+            "id": evidence_id,
+            "file": self.module.rel_path,
+            "line": line,
+            "end_line": end_line,
+            "column": column,
+            "excerpt": excerpt,
+        }
+        return evidence_id
+
+    def _numeric_use_scope_chain(self, use: ast.AST) -> list[dict[str, str]] | None:
+        scope = self.scopes.by_node.get(use)
+        chain: list[dict[str, str]] = []
+        anonymous = False
+        while scope is not None and scope is not self.scopes.root:
+            if not isinstance(scope.node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+                if isinstance(
+                    scope.node,
+                    ast.Lambda | ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp,
+                ):
+                    anonymous = True
+                    scope = scope.parent
+                    continue
+                return None
+            evidence_id = self._numeric_scope_evidence(scope)
+            if evidence_id is None:
+                return None
+            line, _, column = location(scope.node)
+            chain.append(
+                {
+                    "scope_owner": scope.qualified_name,
+                    "scope_evidence_id": evidence_id,
+                    "scope_symbol_id": stable_id(
+                        "SYM", scope.qualified_name, self.module.rel_path, line, column
+                    ),
+                }
+            )
+            scope = scope.parent
+        if anonymous and not chain:
+            return None
+        return chain
+
+    @staticmethod
+    def _terminal_name(node: ast.expr) -> str | None:
+        return (
+            node.id
+            if isinstance(node, ast.Name)
+            else node.attr
+            if isinstance(node, ast.Attribute)
+            else None
+        )
+
+    def _modulo(
+        self, node: ast.BinOp | ast.AugAssign, left: ast.expr, right: ast.expr, form: str
+    ) -> None:
+        subject = self._terminal_name(left)
+        value, derivation = self._integer(right, node)
+        binding_scopes: list[dict[str, str]] | None = (
+            self._numeric_use_scope_chain(node)
+            if any(
+                isinstance(item, ast.Name) and isinstance(item.ctx, ast.Load)
+                for item in ast.walk(right)
+            )
+            else []
+        )
+        if binding_scopes is None:
+            value, derivation = None, []
+        evidence_lines = [node.lineno, *(item["line"] for item in derivation)]
+        if value is not None and (
+            node.end_lineno != node.lineno
+            or any(item["line"] != item["end_line"] for item in derivation)
+            or any(
+                not isinstance(line, int)
+                or line < 1
+                or line > len(self.module.lines)
+                or len(self.module.lines[line - 1]) > MAX_NUMERIC_EVIDENCE_CHARS
+                or not _numeric_evidence_excerpt_supported(self.module.lines[line - 1])
+                for line in evidence_lines
+            )
+        ):
+            value, derivation = None, []
+        start = (node.lineno, node.col_offset)
+        end = (
+            node.end_lineno if node.end_lineno is not None else node.lineno,
+            node.end_col_offset if node.end_col_offset is not None else node.col_offset,
+        )
+        evidence_id = add_evidence(self.evidence, self.module, node)
+        evidence_ids = [evidence_id]
+        for item in derivation:
+            alias_evidence = item.get("evidence_id")
+            if not isinstance(alias_evidence, str):
+                raise AssertionError("numeric alias proof must retain its evidence id")
+            evidence_ids.append(alias_evidence)
+            scope_evidence = item.get("scope_evidence_id")
+            if isinstance(scope_evidence, str):
+                evidence_ids.append(scope_evidence)
+        evidence_ids.extend(scope["scope_evidence_id"] for scope in binding_scopes or [])
+        owner = self.scope_stack[-1]
+        self.items.append(
+            classified(
+                item_id=stable_id(
+                    "CONSTRUCT", self.module.rel_path, *start, *end, "numeric_operand"
+                ),
+                evidence_class=EvidenceClass.FACT,
+                area="constructs",
+                kind="numeric_operand",
+                title=f"{owner} uses modulo operand",
+                subjects=[owner],
+                evidence_ids=evidence_ids,
+                data={
+                    "owner": owner,
+                    "module": self.module.module,
+                    "operation": "modulo",
+                    "form": form,
+                    "line": start[0],
+                    "column": start[1],
+                    "end_line": end[0],
+                    "end_column": end[1],
+                    "subject": subject,
+                    "proof": "known" if value is not None else "unknown",
+                    "value": value,
+                    "derivation": derivation,
+                    "binding_scopes": binding_scopes or [],
+                },
+            )
+        )
+
+    def visit_BinOp(self, node: ast.BinOp) -> None:
+        if isinstance(node.op, ast.Mod):
+            self._modulo(node, node.left, node.right, "binary")
+        self.generic_visit(node)
+
+    def visit_AugAssign(self, node: ast.AugAssign) -> None:
+        if isinstance(node.op, ast.Mod):
+            self._modulo(node, node.target, node.value, "augmented")
+        self.generic_visit(node)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        self._visit_definition_header(node)
         qualified = f"{self.scope_stack[-1]}.{node.name}"
         self.scope_stack.append(qualified)
         self.inherits_stack.append(bool(node.bases))
-        self.generic_visit(node)
+        for statement in node.body:
+            self.visit(statement)
         self.inherits_stack.pop()
         self.scope_stack.pop()
+
+    def _visit_definition_header(
+        self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
+    ) -> None:
+        for child in ast.iter_child_nodes(node):
+            if child not in node.body:
+                self.visit(child)
 
     def _placeholder_form(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> str | None:
         """Name what the body holds instead of an implementation, or nothing when it is one."""
@@ -505,13 +907,15 @@ class ConstructCollector(ast.NodeVisitor):
         return "not_implemented" if _raises_not_implemented(node) else None
 
     def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        self._visit_definition_header(node)
         self.scope_stack.append(f"{self.scope_stack[-1]}.{node.name}")
         form = self._placeholder_form(node)
         if form is not None:
             self._record(
                 node, kind="placeholder_body", construct="placeholder_body", handled=None, form=form
             )
-        self.generic_visit(node)
+        for statement in node.body:
+            self.visit(statement)
         self.scope_stack.pop()
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:

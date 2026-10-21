@@ -908,7 +908,7 @@ def _contract_widening_findings(
     rename: Renamed | None,
     inside_tree: InsideContractTree | None,
 ) -> list[WideningChange]:
-    """The contract part of the `--against` comparison, shared by the gate and AD-246."""
+    """The contract part of the `--against` comparison, shared by the gate and AD-255."""
     if ctx.contract is None:
         return []
     if isinstance(ctx.contract, _Introduced):
@@ -934,7 +934,7 @@ def _contract_changes(
     rename: Renamed | None,
     inside_tree: InsideContractTree | None,
 ) -> tuple[ContractChange, ...]:
-    """AD-246: every contract change the gate compares, with narrowings and directions."""
+    """AD-255: every contract change the gate compares, with narrowings and directions."""
     narrowed = (
         ()
         if ctx.contract is None or isinstance(ctx.contract, _Introduced)

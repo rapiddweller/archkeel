@@ -68,9 +68,10 @@ def _model(
     unknowns: list[dict[str, Any]] | None = None,
     evidence: list[dict[str, Any]] | None = None,
     coverage_status: str = "PASS",
+    schema_version: str = "1.3.0",
 ) -> dict[str, Any]:
     raw = {
-        "schema_version": "1.3.0",
+        "schema_version": schema_version,
         "python_version": "3.11.12",
         "analyzer": {
             "name": "archkeel-python-analyzer",
@@ -177,6 +178,15 @@ def test_line_only_move_is_relocated_not_added_or_removed() -> None:
     assert dimension["relocated"] == [relocated["fingerprint"]]
     assert relocated["before"]["evidence"][0]["line"] == 10
     assert relocated["after"]["evidence"][0]["line"] == 30
+
+
+def test_observation_schema_2_2_remains_comparable_for_deltas() -> None:
+    baseline = _model(git_head="1" * 40, schema_version="2.2.0")
+    head = _model(git_head="2" * 40, schema_version="2.2.0")
+
+    delta = _delta(baseline, head)
+
+    assert delta["dimensions"]["coverage"]["status"] == "SUPPORTED"
 
 
 def test_multiset_comparison_preserves_duplicate_cardinality() -> None:

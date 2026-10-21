@@ -349,5 +349,5 @@
     }
   },
   "title": "Archkeel command JSON results",
-  "$comment": "AD-246. Contract changes with their direction under --against. Reuse 9.0 by reference without widening published resources."
+  "$comment": "AD-255. Contract changes with their direction under --against. Reuse 9.0 by reference without widening published resources."
 }

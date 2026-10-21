@@ -19,7 +19,13 @@ from referencing import Registry, Resource
 from archkeel.check.delta import SUPPORTED_DIMENSIONS, build_architecture_delta
 from archkeel.check.run import _incomplete
 from archkeel.ir.codec import delta_payload, observation_payload, result_payload
-from archkeel.ir.model import CLASSIFIED_SECTIONS, DiagnosticCode, DiagnosticKind, RunResult
+from archkeel.ir.model import (
+    CLASSIFIED_SECTIONS,
+    SCHEMA_VERSION,
+    DiagnosticCode,
+    DiagnosticKind,
+    RunResult,
+)
 from fixtures.architecture_demo import CATALOG, materialized_fixture
 from tests.test_dart_profile import _observe
 from tests.test_exact_module_ownership import _contract, _observe_tree
@@ -563,7 +569,9 @@ def test_incomplete_dart_check_preserves_profile_sections(validator, tmp_path: P
     assert result.exit_code == 2 and result.observation is not None
     payload = result_payload(_incomplete(result))
     assert not list(validator.iter_errors(payload))
-    python = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:python-decoded:2.1.0"})
+    python = validator.evolve(
+        schema={"$ref": f"urn:archkeel:architecture-ir:python-decoded:{SCHEMA_VERSION}"}
+    )
     assert not python.is_valid(payload["observation"])
     for section in ("symbols", "references", "bindings", "imports"):
         assert isinstance(payload["observation"][section], list), section
@@ -581,8 +589,10 @@ def test_python_observation_sections_remain_required(validator, tmp_path: Path) 
     assert result.exit_code == 0 and result.observation is not None
     observation = observation_payload(result.observation)
     schemas = (
-        validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"}),
-        validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:python-decoded:2.1.0"}),
+        validator.evolve(schema={"$ref": f"urn:archkeel:architecture-ir:decoded:{SCHEMA_VERSION}"}),
+        validator.evolve(
+            schema={"$ref": f"urn:archkeel:architecture-ir:python-decoded:{SCHEMA_VERSION}"}
+        ),
     )
     for schema in schemas:
         assert schema.is_valid(observation)

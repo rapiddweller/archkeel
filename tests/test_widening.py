@@ -25,6 +25,7 @@ from archkeel.ir.model import (
     ArchitectureRule,
     BoundaryTypeAllowance,
     BoundaryTypesRule,
+    BoundedNumericOperandRule,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
     CompleteRequiresRule,
@@ -36,6 +37,8 @@ from archkeel.ir.model import (
     ForbiddenDependencyRule,
     InterfaceBoundaryRule,
     NoComponentCyclesRule,
+    ProtocolDeclarationSelector,
+    ProtocolDeclarationsRule,
     RequiredComponent,
     RootLayoutRule,
     SiblingIsolationRule,
@@ -142,6 +145,34 @@ def _symbol_placement(**overrides: object) -> SymbolPlacementRule:
 
 def _boundary_types(**overrides: object) -> BoundaryTypesRule:
     base = BoundaryTypesRule("R", "boundary_types", "pkg", "because", _PROVENANCE, "architect")
+    return replace(base, **overrides)
+
+
+def _bounded_numeric_operand() -> BoundedNumericOperandRule:
+    return BoundedNumericOperandRule(
+        "R",
+        "bounded_numeric_operand",
+        "pkg.a",
+        "both",
+        "nonce",
+        16,
+        "because",
+        _PROVENANCE,
+        "architect",
+    )
+
+
+def _protocol_declarations(**overrides: object) -> ProtocolDeclarationsRule:
+    base = ProtocolDeclarationsRule(
+        "R",
+        "protocol_declarations",
+        "pkg.a",
+        "pkg.ports.Reader",
+        (ProtocolDeclarationSelector("parameter", "client", "public"),),
+        "because",
+        _PROVENANCE,
+        "architect",
+    )
     return replace(base, **overrides)
 
 
@@ -352,6 +383,24 @@ _RULE_CASES: tuple[tuple[str, ArchitectureRule | None, ArchitectureRule | None, 
     ("symbol_placement removed", _symbol_placement(), None, True),
     ("boundary_types added", None, _boundary_types(), False),
     ("boundary_types removed", _boundary_types(), None, True),
+    ("bounded_numeric_operand added", None, _bounded_numeric_operand(), False),
+    ("bounded_numeric_operand removed", _bounded_numeric_operand(), None, True),
+    ("protocol_declarations added", None, _protocol_declarations(), False),
+    ("protocol_declarations removed", _protocol_declarations(), None, True),
+    (
+        "protocol_declarations port changed",
+        _protocol_declarations(),
+        _protocol_declarations(protocol="pkg.ports.Writer"),
+        True,
+    ),
+    (
+        "protocol_declarations selector changed",
+        _protocol_declarations(),
+        _protocol_declarations(
+            selectors=(ProtocolDeclarationSelector("parameter", "client", "public", True),)
+        ),
+        True,
+    ),
 )
 
 
@@ -363,6 +412,25 @@ def test_rule_kind_widening_table(
 ) -> None:
     findings = _rule_diff(before, after)
     assert bool(findings) == widens, (label, findings)
+
+
+def test_bounded_numeric_threshold_direction() -> None:
+    before = replace(_bounded_numeric_operand(), minimum_value=16)
+    assert _rule_diff(before, replace(_bounded_numeric_operand(), minimum_value=32)) == ()
+    findings = _rule_diff(before, replace(_bounded_numeric_operand(), minimum_value=8))
+    assert len(findings) == 1
+    assert "minimum_value" in findings[0]
+
+
+@pytest.mark.parametrize(
+    "field,value", [("source", "pkg.b"), ("form", "binary"), ("terminal_suffix", "_id")]
+)
+def test_bounded_numeric_unclassified_fields_fail_closed(field: str, value: str) -> None:
+    findings = _rule_diff(
+        _bounded_numeric_operand(), replace(_bounded_numeric_operand(), **{field: value})
+    )
+    assert findings
+    assert any(field in finding for finding in findings)
 
 
 def test_every_typed_rule_kind_has_one_widening_classification() -> None:
@@ -1128,7 +1196,7 @@ _NARROWING_CASES = (
 def test_narrowings_are_reported_without_widening(
     label: str, before: ArchitectureContract, after: ArchitectureContract, field: str
 ) -> None:
-    # AD-246: a reviewer sees what a contract no longer allows; only widenings need amendment.
+    # AD-255: a reviewer sees what a contract no longer allows; only widenings need amendment.
     narrowings = contract_narrowing_changes(before, after)
     assert [item.field for item in narrowings] == [field], (label, narrowings)
     assert contract_widening_changes(before, after) == (), label

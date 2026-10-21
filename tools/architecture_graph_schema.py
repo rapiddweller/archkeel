@@ -419,6 +419,37 @@ def _update_contract_schema(path: Path) -> None:
         schema["$defs"]["forbiddenDependency"]["properties"]["target_kind"] = {
             "enum": ["module", "import_namespace"]
         }
+    if version is not None and supports_feature(version, ContractFeature.BOUNDED_NUMERIC_OPERAND):
+        schema["$defs"]["boundedNumericOperand"] = {
+            "type": "object",
+            "required": [
+                "id",
+                "kind",
+                "source",
+                "form",
+                "terminal_suffix",
+                "minimum_value",
+                "rationale",
+                "provenance",
+                "decided_by",
+            ],
+            "additionalProperties": False,
+            "properties": {
+                "id": {"$ref": "#/$defs/nonEmpty"},
+                "kind": {"const": "bounded_numeric_operand"},
+                "source": {"$ref": "#/$defs/nonEmpty"},
+                "form": {"enum": ["binary", "augmented", "both"]},
+                "terminal_suffix": {"$ref": "#/$defs/nonEmpty"},
+                "minimum_value": {"type": "integer", "minimum": 0},
+                "rationale": {"$ref": "#/$defs/nonEmpty"},
+                "provenance": {"$ref": "#/$defs/provenance"},
+                "decided_by": {"$ref": "#/$defs/decidedBy"},
+            },
+        }
+        numeric_rule = {"$ref": "#/$defs/boundedNumericOperand"}
+        choices = schema["properties"]["rules"]["items"]["oneOf"]
+        choices[:] = [choice for choice in choices if choice != numeric_rule]
+        choices.append(numeric_rule)
     if version is not None and supports_feature(version, ContractFeature.MODULE_OBJECT_GRANTS):
         schema["$defs"]["moduleObjectGrant"] = {
             "type": "object",
@@ -437,6 +468,66 @@ def _update_contract_schema(path: Path) -> None:
             "uniqueItems": True,
             "items": {"$ref": "#/$defs/moduleObjectGrant"},
         }
+    if version is not None and supports_feature(version, ContractFeature.PROTOCOL_DECLARATIONS):
+        non_empty = {"type": "string", "pattern": "\\S"}
+        identifier = {"type": "string", "pattern": r"^[A-Za-z_][A-Za-z0-9_]*(?![\s\S])"}
+        dotted_identifier = {
+            "type": "string",
+            "pattern": r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*(?![\s\S])",
+        }
+        module_symbol = {
+            "type": "string",
+            "pattern": r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+(?![\s\S])",
+        }
+        schema["$defs"]["protocolDeclarationSelector"] = {
+            "type": "object",
+            "required": ["role", "name", "visibility"],
+            "additionalProperties": False,
+            "properties": {
+                "role": {"enum": ["parameter", "member"]},
+                "name": identifier,
+                "visibility": {"enum": ["public", "all"]},
+                "optional": {"type": "boolean"},
+            },
+        }
+        schema["$defs"]["protocolDeclarations"] = {
+            "type": "object",
+            "required": [
+                "id",
+                "kind",
+                "source",
+                "protocol",
+                "selectors",
+                "rationale",
+                "provenance",
+                "decided_by",
+            ],
+            "additionalProperties": False,
+            "properties": {
+                "id": {"$ref": "#/$defs/nonEmpty"},
+                "kind": {"const": "protocol_declarations"},
+                "source": dotted_identifier,
+                "protocol": module_symbol,
+                "selectors": {
+                    "type": "array",
+                    "minItems": 1,
+                    "description": "Unique role/name pairs are enforced by the contract reader.",
+                    "items": {"$ref": "#/$defs/protocolDeclarationSelector"},
+                },
+                "rationale": {"$ref": "#/$defs/nonEmpty"},
+                "provenance": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": True,
+                    "items": non_empty,
+                },
+                "decided_by": {"enum": ["architect", "agent"]},
+            },
+        }
+        choices = schema["properties"]["rules"]["items"]["oneOf"]
+        reference = {"$ref": "#/$defs/protocolDeclarations"}
+        choices[:] = [choice for choice in choices if choice != reference]
+        choices.append(reference)
     schema["$defs"]["component"]["properties"]["layer"] = {
         "type": "string",
         "pattern": "\\S",

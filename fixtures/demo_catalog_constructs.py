@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from archkeel.ir.model import ForbiddenConstructKind
-from fixtures.demo_catalog_support import HEADER, Variant, contract_rule_field
+from fixtures.demo_catalog_support import FIXTURE_DIR, HEADER, Variant, contract_rule_field
 
 _CONSTRUCT_SOURCE: dict[ForbiddenConstructKind, str] = {
     ForbiddenConstructKind.GETATTR: HEADER
@@ -301,4 +301,30 @@ VARIANTS: tuple[Variant, ...] = (
     _BROAD_EXCEPT_PREFIX,
     _TYPE_IGNORE_EXACT,
     _TYPE_IGNORE_NEIGHBORS,
+    *(
+        Variant(
+            id=f"class-a-numeric-operand-{name}",
+            section="class_a",
+            item=f"bounded_numeric_operand:{name}",
+            summary=summary,
+            files={
+                "shop/model/entities.py": (FIXTURE_DIR / "shop/model/entities.py")
+                .read_text()
+                .replace("return job_nonce % 8", f"return job_nonce % {operand}")
+            },
+            expected_violations=("MODEL-NONCE-WIDTH",) if name == "forbidden" else (),
+            expected_codes=("rule.violated",) if name == "forbidden" else (),
+            expected_unknowns=(
+                (("numeric_operand_unknown", "shop.model.entities._nonce_bucket"),)
+                if name == "unknown"
+                else ()
+            ),
+            expected_declared_rules="UNKNOWN" if name == "unknown" else None,
+        )
+        for name, operand, summary in (
+            ("forbidden", "3", "A source-proven modulo operand is below the declared floor."),
+            ("allowed", "2**3", "A bounded constant power retains the declared modulo floor."),
+            ("unknown", "width", "A dynamic parameter cannot prove the modulo operand floor."),
+        )
+    ),
 )

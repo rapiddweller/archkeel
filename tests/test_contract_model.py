@@ -289,7 +289,10 @@ _PROVENANCE = ["docs/architecture/shop.md"]
 def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
     """The shop contract fills every field available to its version."""
     raw = json.loads((ROOT / "fixtures/F-architecture/architecture-contract.json").read_text())
-    raw["rules"] = [rule for rule in raw["rules"] if rule["kind"] != "call_owner"]
+    omitted_rule_kinds = {"call_owner", "bounded_numeric_operand"}
+    if version != "3.9.0":
+        omitted_rule_kinds.add("protocol_declarations")
+    raw["rules"] = [rule for rule in raw["rules"] if rule["kind"] not in omitted_rule_kinds]
     app = next(item for item in raw["components"] if item["id"] == "COMP-APP")
     app["exact_modules"] = ["shop.app.orders"]
     app["planned"] = ["shop.app.refunds"]
@@ -517,6 +520,41 @@ def _maximal_contract(version: str = "3.0.0") -> dict[str, object]:
                 "decided_by": "architect",
             }
         )
+    if version == "3.8.0":
+        raw["rules"].append(
+            {
+                "id": "NUMERIC-OPERAND",
+                "kind": "bounded_numeric_operand",
+                "source": "shop.app",
+                "form": "both",
+                "terminal_suffix": "nonce",
+                "minimum_value": 16,
+                "rationale": "Keep the modulo range large enough.",
+                "provenance": _PROVENANCE,
+                "decided_by": "architect",
+            }
+        )
+    if version == "3.9.0":
+        raw["rules"].append(
+            {
+                "id": "APP-READER-DECLARATIONS",
+                "kind": "protocol_declarations",
+                "source": "shop.app",
+                "protocol": "shop.model.Reader",
+                "selectors": [
+                    {"role": "parameter", "name": "client", "visibility": "public"},
+                    {
+                        "role": "member",
+                        "name": "reader",
+                        "visibility": "public",
+                        "optional": True,
+                    },
+                ],
+                "rationale": "Public consumer declarations use the Reader port.",
+                "provenance": _PROVENANCE,
+                "decided_by": "architect",
+            }
+        )
     return raw
 
 
@@ -731,7 +769,19 @@ def test_the_maximal_contract_fills_every_field() -> None:
     """The completeness test below only sees a field this contract fills."""
     documents = [
         json.loads(contract_bytes(parse_contract(_maximal_contract(version))))
-        for version in ("3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0", "3.5.0", "3.6.0", "3.7.0")
+        for version in (
+            "3.0.0",
+            "3.1.0",
+            "3.2.0",
+            "3.3.0",
+            "3.4.0",
+            "3.5.0",
+            "3.6.0",
+            "3.7.0",
+            "3.8.0",
+            "3.9.0",
+            "3.9.0",
+        )
     ]
 
     assert _unfilled(ArchitectureContract, documents, "contract") == []
@@ -795,7 +845,7 @@ def test_validate_holds_the_namespace_to_the_fields_it_held_before(version: str)
     )
 
 
-@pytest.mark.parametrize("version", ("3.0.0", "3.1.0", "3.2.0"))
+@pytest.mark.parametrize("version", ("3.0.0", "3.1.0", "3.2.0", "3.8.0", "3.9.0"))
 def test_maximal_contract_matches_its_version_schema(version: str) -> None:
     raw = json.loads(contract_bytes(parse_contract(_maximal_contract(version))))
     schema = json.loads(

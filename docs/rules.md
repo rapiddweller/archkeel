@@ -31,6 +31,7 @@ global coverage and cycle closure stay incomplete. See
 | Forbid selected syntactic constructs | `forbidden_construct` |
 | Declared requirements follow layer direction | `layer_order` |
 | Restrict a statically bound function/method to selected callers | `call_owner` (3.7) |
+| Bound selected binary/augmented modulo operands | `bounded_numeric_operand` (3.8) |
 
 Python static imports and proven literal `importlib.import_module` / `__import__`
 calls feed the same dependency rules. An unknown loader binding or target withholds
@@ -47,6 +48,17 @@ empty candidate lists. Missing sources or target declarations remain UNKNOWN.
 Mutations, ambiguous providers and unbound saved receipts cannot certify it.
 This is a declared static boundary, not runtime type conformance. See
 [AD-241](architecture/decisions/ad-241-call-ownership-policy.md).
+
+`bounded_numeric_operand` selects an owned `source`, `form` (`binary`,
+`augmented` or `both`), case-sensitive `terminal_suffix`, and nonnegative
+`minimum_value`. It observes `%` and `%=` operations whose written left operand
+is a Name or Attribute; the terminal identifier must end with the suffix. Exact
+integer/Boolean literals, unary signs, bounded powers and unique preceding local
+or module aliases can prove the RHS value. A known value below the threshold is
+FAIL; unsupported or unstable RHS values remain UNKNOWN. An empty, missing or
+incomplete selected source cannot certify PASS. See
+[AD-246](architecture/decisions/ad-246-bounded-numeric-operand.md) for proof
+limits and receipt behavior.
 
 ### Ownership and dependency decisions
 
@@ -125,6 +137,17 @@ not every helper. Types published by their actual owner, builtins, enums and
 Pydantic models qualify. Broad maps and native `object` need reviewed exact
 allowances. `allowed_positions` removes only its matching finding; other member
 findings and UNKNOWNs remain. Accepted opacity never proves type closure.
+Contract **3.9.0** adds `protocol_declarations` for API roles that must name a
+canonical scanned `Protocol`. Its `source` scopes all current and future declarations;
+each closed selector names a `parameter` or annotated class `member`, exact name,
+and `public` or `all` visibility. The `protocol` is a canonical dotted source symbol.
+Selectors require that exact Protocol; set `optional: true` only when exactly
+`Protocol | None` or `Optional[Protocol]` is allowed. Other union arms fail.
+Statically proven single-name `TypeAlias` chains resolve to their target; unsupported
+alias shapes, including union-valued aliases, are UNKNOWN. Missing annotations,
+`object` and `Any` fail; ambiguous or unresolved aliases are UNKNOWN. This checks
+declaration identity only; MyPy checks assignability and #356 owns structural
+conformance. See [AD-254](architecture/decisions/ad-254-canonical-protocol-declarations.md).
 Static re-exports of a proven stdlib overload group expose every declared signature,
 excluding the implementation signature. Incomplete groups, unproven decorators and
 uncertain routes remain UNKNOWN.

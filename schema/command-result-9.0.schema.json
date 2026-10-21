@@ -30,7 +30,11 @@
           "$ref": "urn:archkeel:command-result:6.0.0#/properties/coverage"
         },
         "observation": {
-          "$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"
+          "anyOf": [
+            {"$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"},
+            {"$ref": "urn:archkeel:architecture-ir:decoded:2.2.0"},
+            {"$ref": "urn:archkeel:architecture-ir:decoded:2.3.0"}
+          ]
         },
         "python_version": {
           "$ref": "urn:archkeel:command-result:6.0.0#/properties/python_version"
@@ -179,7 +183,11 @@
           "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/coverage"
         },
         "observation": {
-          "$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"
+          "anyOf": [
+            {"$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"},
+            {"$ref": "urn:archkeel:architecture-ir:decoded:2.2.0"},
+            {"$ref": "urn:archkeel:architecture-ir:decoded:2.3.0"}
+          ]
         },
         "python_version": {
           "$ref": "urn:archkeel:command-result:8.0.0#/anyOf/1/properties/python_version"

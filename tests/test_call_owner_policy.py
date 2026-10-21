@@ -13,6 +13,7 @@ from jsonschema import Draft202012Validator
 from test_exact_module_ownership import _component, _observe_tree, _rule
 
 from archkeel.ir.decisions import rule_assessments
+from archkeel.ir.model import SCHEMA_VERSION
 
 ROOT = Path(__file__).parents[1]
 
@@ -27,7 +28,7 @@ def test_saved_call_policy_requires_a_reader_with_the_new_wire_version(tmp_path,
         "from .storage import Storage\ndef run(c: Storage):\n    c.page()\n",
         allowed=allowed,
     )
-    assert result.observation.schema_version == "2.1.0"
+    assert result.observation.schema_version == SCHEMA_VERSION
     assert row.status == expected and row.evaluation_proven
     saved = tmp_path / "architecture.json"
     saved.write_bytes(canonical_report_bytes(result.observation))

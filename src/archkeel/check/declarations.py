@@ -23,6 +23,7 @@ from archkeel.ir.model import (
     ArchitectureContract,
     ArchitectureRule,
     BoundaryTypesRule,
+    BoundedNumericOperandRule,
     CallOwnerRule,
     CompatibilityLifetime,
     CompleteAssignmentRule,
@@ -39,6 +40,7 @@ from archkeel.ir.model import (
     InterfaceBoundaryRule,
     LayerOrderRule,
     NoComponentCyclesRule,
+    ProtocolDeclarationsRule,
     RootLayoutRule,
     SelectorMatch,
     SiblingIsolationRule,
@@ -148,6 +150,19 @@ def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
                 if rule.allowed_type_ignores
                 else {}
             ),
+            "rationale": rule.rationale,
+        }
+    elif isinstance(rule, BoundedNumericOperandRule):
+        area, title, subjects = (
+            "type_architecture",
+            f"Modulo operands ending in {rule.terminal_suffix} are at least {rule.minimum_value}",
+            [rule.source],
+        )
+        data = {
+            "source": rule.source,
+            "form": rule.form.value,
+            "terminal_suffix": rule.terminal_suffix,
+            "minimum_value": rule.minimum_value,
             "rationale": rule.rationale,
         }
     elif isinstance(rule, ExternalDependencyScopeRule):
@@ -327,6 +342,26 @@ def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
                 if rule.allowed_positions
                 else {}
             ),
+            "rationale": rule.rationale,
+        }
+    elif isinstance(rule, ProtocolDeclarationsRule):
+        area, title, subjects = (
+            "type_architecture",
+            f"Selected declarations below {rule.source} use canonical Protocol {rule.protocol}",
+            [rule.source, rule.protocol],
+        )
+        data = {
+            "source": rule.source,
+            "protocol": rule.protocol,
+            "selectors": [
+                {
+                    "role": item.role.value,
+                    "name": item.name,
+                    "visibility": item.visibility.value,
+                    **({"optional": True} if item.optional else {}),
+                }
+                for item in rule.selectors
+            ],
             "rationale": rule.rationale,
         }
     else:

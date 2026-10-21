@@ -34,6 +34,7 @@ from .model import (
     ArchitectureContract,
     ArchitectureRule,
     BoundaryTypesRule,
+    BoundedNumericOperandRule,
     CallOwnerRule,
     CompatibilityLifetime,
     CompleteAssignmentRule,
@@ -92,6 +93,8 @@ _PERMISSION_RULE_KINDS: Final = frozenset({"allowed_dependency"})
 _RESTRICTION_RULE_KINDS: Final = frozenset(
     {
         "call_owner",
+        "bounded_numeric_operand",
+        "protocol_declarations",
         "forbidden_dependency",
         "forbidden_construct",
         "external_dependency_scope",
@@ -451,6 +454,27 @@ def _no_component_cycles_widenings(
     ]
 
 
+def _bounded_numeric_operand_widenings(
+    subject: str, before: BoundedNumericOperandRule, after: BoundedNumericOperandRule
+) -> list[WideningChange]:
+    threshold = (
+        [
+            WideningChange(
+                subject,
+                "minimum_value",
+                f"{subject}.minimum_value decreased from {before.minimum_value} "
+                f"to {after.minimum_value}",
+            )
+        ]
+        if after.minimum_value < before.minimum_value
+        else []
+    )
+    return [
+        *threshold,
+        *_generic_field_widenings(subject, before, after, handled=frozenset({"minimum_value"})),
+    ]
+
+
 def _matched_rule_widenings(
     before: ArchitectureRule, after: ArchitectureRule
 ) -> list[WideningChange]:
@@ -506,6 +530,10 @@ def _matched_rule_widenings(
         after, CompleteExternalScopeRule
     ):
         return _generic_field_widenings(subject, before, after, handled=frozenset())
+    if isinstance(before, BoundedNumericOperandRule) and isinstance(
+        after, BoundedNumericOperandRule
+    ):
+        return _bounded_numeric_operand_widenings(subject, before, after)
     if isinstance(before, NoComponentCyclesRule) and isinstance(after, NoComponentCyclesRule):
         return _no_component_cycles_widenings(subject, before, after)
     # Fail closed: a rule type this dispatch does not recognise is never assumed safe.
@@ -810,7 +838,7 @@ def _requires_narrowings(
 def contract_narrowing_changes(
     before: ArchitectureContract, after: ArchitectureContract
 ) -> tuple[WideningChange, ...]:
-    """What `after` no longer allows that `before` did, for the kinds AD-246 enumerates."""
+    """What `after` no longer allows that `before` did, for the kinds AD-255 enumerates."""
     findings: list[WideningChange] = []
     before_components = {item.id: item for item in before.components}
     for component in after.components:

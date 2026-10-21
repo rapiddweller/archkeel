@@ -15,6 +15,7 @@ from typing import Final, Literal
 from archkeel.ir.architecture_graph import (
     ArchitectureRuleKind,
     DecisionMaker,
+    NumericOperandForm,
     _validate_module_target_path,
     validate_layout_rule,
     validate_module_target,
@@ -41,6 +42,7 @@ from archkeel.ir.model import (
     BoundaryAliasBody,
     BoundaryTypeAllowance,
     BoundaryTypesRule,
+    BoundedNumericOperandRule,
     CallOwnerRule,
     CompatibilityLifetime,
     CompatibilityShim,
@@ -71,6 +73,10 @@ from archkeel.ir.model import (
     LayerOrderRule,
     ModuleObjectGrant,
     NoComponentCyclesRule,
+    ProtocolDeclarationRole,
+    ProtocolDeclarationSelector,
+    ProtocolDeclarationsRule,
+    ProtocolDeclarationVisibility,
     Record,
     RequiredComponent,
     RootLayoutRule,
@@ -90,6 +96,7 @@ _PUBLIC_ENTRY = re.compile(
 
 
 _PACKAGE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$")
+_MODULE_SYMBOL = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+$")
 
 
 class ContractVersionError(ValueError):
@@ -259,10 +266,20 @@ def parse_contract(raw: object) -> ArchitectureContract:
     uml = parse_target(declarations["uml"]) if _has_field(declarations, "uml") else None
     kinds = tuple(_rule_kind(value, f"rules[{index}]") for index, value in enumerate(rules_raw))
     if (
+        not supports_feature(version, ContractFeature.BOUNDED_NUMERIC_OPERAND)
+        and ArchitectureRuleKind.BOUNDED_NUMERIC_OPERAND in kinds
+    ):
+        raise ValueError("bounded_numeric_operand requires contract schema_version 3.8.0")
+    if (
         not supports_feature(version, ContractFeature.CALL_OWNER)
         and ArchitectureRuleKind.CALL_OWNER in kinds
     ):
         raise ValueError("call_owner requires contract schema_version 3.7.0")
+    if (
+        not supports_feature(version, ContractFeature.PROTOCOL_DECLARATIONS)
+        and ArchitectureRuleKind.PROTOCOL_DECLARATIONS in kinds
+    ):
+        raise ValueError("protocol_declarations requires contract schema_version 3.9.0")
     if (
         not supports_feature(version, ContractFeature.LAYERS)
         and ArchitectureRuleKind.LAYER_ORDER in kinds
@@ -393,10 +410,18 @@ def parse_contract(raw: object) -> ArchitectureContract:
 
 
 def _validate_encoding_version(contract: ArchitectureContract) -> None:
+    if not supports_feature(
+        contract.schema_version, ContractFeature.BOUNDED_NUMERIC_OPERAND
+    ) and any(isinstance(rule, BoundedNumericOperandRule) for rule in contract.rules):
+        raise ValueError("bounded_numeric_operand requires contract schema_version 3.8.0")
     if not supports_feature(contract.schema_version, ContractFeature.CALL_OWNER) and any(
         isinstance(rule, CallOwnerRule) for rule in contract.rules
     ):
         raise ValueError("call_owner requires contract schema_version 3.7.0")
+    if not supports_feature(contract.schema_version, ContractFeature.PROTOCOL_DECLARATIONS) and any(
+        isinstance(rule, ProtocolDeclarationsRule) for rule in contract.rules
+    ):
+        raise ValueError("protocol_declarations requires contract schema_version 3.9.0")
     if not supports_feature(contract.schema_version, ContractFeature.MODULE_OBJECT_GRANTS) and any(
         isinstance(rule, InterfaceBoundaryRule) and rule.module_object_grants is not None
         for rule in contract.rules
@@ -1295,6 +1320,66 @@ def _parse_boundary_types(raw: RawJson, label: str) -> BoundaryTypesRule:
     )
 
 
+def _parse_protocol_declarations(raw: RawJson, label: str) -> ProtocolDeclarationsRule:
+    item, item_id, provenance = _contract_record(
+        raw,
+        {"kind", "source", "protocol", "selectors", "rationale", "decided_by"},
+        set(),
+        label,
+    )
+    source = _nonempty(item["source"], f"{label}.source")
+    protocol = _nonempty(item["protocol"], f"{label}.protocol")
+    if _PACKAGE_NAME.fullmatch(source) is None:
+        raise ValueError(f"{label}.source must be a dotted source identity")
+    if _MODULE_SYMBOL.fullmatch(protocol) is None:
+        raise ValueError(f"{label}.protocol must be a canonical module.symbol")
+    raw_selectors = item["selectors"]
+    if not isinstance(raw_selectors, list) or not raw_selectors:
+        raise ValueError(f"{label}.selectors must be a nonempty array")
+    selectors: list[ProtocolDeclarationSelector] = []
+    for index, value in enumerate(raw_selectors):
+        selector_label = f"{label}.selectors[{index}]"
+        selector = _contract_fields(
+            value,
+            {"role", "name", "visibility"},
+            {"optional"},
+            selector_label,
+        )
+        try:
+            role = ProtocolDeclarationRole(_nonempty(selector["role"], f"{selector_label}.role"))
+            visibility = ProtocolDeclarationVisibility(
+                _nonempty(selector["visibility"], f"{selector_label}.visibility")
+            )
+        except ValueError as error:
+            raise ValueError(f"{selector_label} has an unsupported role or visibility") from error
+        optional = selector.get("optional", False)
+        if not isinstance(optional, bool):
+            raise ValueError(f"{selector_label}.optional must be boolean")
+        name = _nonempty(selector["name"], f"{selector_label}.name")
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) is None:
+            raise ValueError(f"{selector_label}.name must be one exact source identifier")
+        selectors.append(
+            ProtocolDeclarationSelector(
+                role,
+                name,
+                visibility,
+                optional,
+            )
+        )
+    if len({(item.role, item.name) for item in selectors}) != len(selectors):
+        raise ValueError(f"{label}.selectors must not repeat a role and name")
+    return ProtocolDeclarationsRule(
+        item_id,
+        ArchitectureRuleKind.PROTOCOL_DECLARATIONS,
+        source,
+        protocol,
+        tuple(selectors),
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
+    )
+
+
 def _parse_call_owner(raw: RawJson, label: str) -> CallOwnerRule:
     item, item_id, provenance = _contract_record(
         raw,
@@ -1315,7 +1400,34 @@ def _parse_call_owner(raw: RawJson, label: str) -> CallOwnerRule:
     )
 
 
+def _parse_bounded_numeric_operand(raw: RawJson, label: str) -> BoundedNumericOperandRule:
+    item, item_id, provenance = _contract_record(
+        raw,
+        {"kind", "source", "form", "terminal_suffix", "minimum_value", "rationale", "decided_by"},
+        set(),
+        label,
+    )
+    try:
+        form = NumericOperandForm(_string(item["form"], f"{label}.form"))
+    except ValueError as error:
+        raise ValueError(f"{label}.form is invalid") from error
+    minimum = _count(item["minimum_value"], f"{label}.minimum_value")
+    suffix = _nonempty(item["terminal_suffix"], f"{label}.terminal_suffix")
+    return BoundedNumericOperandRule(
+        item_id,
+        ArchitectureRuleKind.BOUNDED_NUMERIC_OPERAND,
+        _nonempty(item["source"], f"{label}.source"),
+        form,
+        suffix,
+        minimum,
+        _nonempty(item["rationale"], f"{label}.rationale"),
+        provenance,
+        _decided_by(item["decided_by"], f"{label}.decided_by"),
+    )
+
+
 _RULE_PARSERS: Final[dict[ArchitectureRuleKind, Callable[[RawJson, str], ArchitectureRule]]] = {
+    ArchitectureRuleKind.BOUNDED_NUMERIC_OPERAND: _parse_bounded_numeric_operand,
     ArchitectureRuleKind.CALL_OWNER: _parse_call_owner,
     ArchitectureRuleKind.FORBIDDEN_DEPENDENCY: _parse_forbidden_dependency,
     ArchitectureRuleKind.ALLOWED_DEPENDENCY: _parse_allowed_dependency,
@@ -1331,6 +1443,7 @@ _RULE_PARSERS: Final[dict[ArchitectureRuleKind, Callable[[RawJson, str], Archite
     ArchitectureRuleKind.SIBLING_ISOLATION: _parse_sibling_isolation,
     ArchitectureRuleKind.SYMBOL_PLACEMENT: _parse_symbol_placement,
     ArchitectureRuleKind.BOUNDARY_TYPES: _parse_boundary_types,
+    ArchitectureRuleKind.PROTOCOL_DECLARATIONS: _parse_protocol_declarations,
 }
 
 

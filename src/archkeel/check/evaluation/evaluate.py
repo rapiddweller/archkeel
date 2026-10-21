@@ -56,6 +56,7 @@ from archkeel.ir.type_shapes import TypeShapeIndex
 
 from .call_owners import call_owner_results
 from .imports import strip_internal_reexport_facts
+from .protocol_declarations import protocol_declaration_results
 from .rule_support import dynamic_dependency_limits
 from .rules import (
     boundary_type_limits,
@@ -65,6 +66,7 @@ from .rules import (
     profile_failures,
     rule_subject_failures,
     rule_violations,
+    scope_receipts_complete,
     symbol_limits,
 )
 from .state import evaluate_contexts
@@ -560,6 +562,7 @@ def _evaluate_inside_contract(
         target_module_names={module["data"]["qualified_name"] for module in modules},
         symbols=symbols,
         imports=imports,
+        observed_modules=modules,
         contract=scoped,
         exports_by_module=exports_by_module,
         uncertain_reexport_origins=uncertain_reexport_origins,
@@ -593,7 +596,7 @@ def _evaluate_inside_contract(
         receipt_scan_roots=receipt_scan_roots,
         type_shapes=type_shapes,
     )
-    unknowns = (
+    unknowns: list[RawRecord] = (
         boundary_type_limits(
             symbols,
             imports,
@@ -621,6 +624,26 @@ def _evaluate_inside_contract(
         )
     )
     unknowns.extend(construct_capability_limits(scoped, construct_capabilities, parent.label))
+    _, protocol_unknowns, _ = protocol_declaration_results(
+        symbols=symbols,
+        imports=imports,
+        modules=modules,
+        contract=scoped,
+        source_modules=source_modules,
+        uncertain_reexport_origins=uncertain_reexport_origins,
+        type_shapes=type_shapes,
+        profile=profile,
+        scope=parent.label,
+        receipt_scope_complete=scope_receipts_complete(
+            scoped,
+            modules,
+            profile,
+            parent.packages,
+            parent.exact_modules or (),
+            receipt_scan_roots,
+        ),
+    )
+    unknowns.extend(protocol_unknowns)
     return violations, unknowns, failures, allowance_facts
 
 
@@ -857,6 +880,7 @@ def evaluate_source(
         module_names,
         symbols=symbols,
         imports=imports,
+        observed_modules=module_facts,
         contract=contract,
         exports_by_module=facade_exports,
         uncertain_reexport_origins=uncertain_reexport_origins,
@@ -973,8 +997,18 @@ def evaluate_source(
         ],
         key=lambda item: item["id"],
     )
+    numeric_operand_unknowns = [
+        item
+        for item in (*boundary_allowances, *inside_allowances)
+        if item["kind"] == "numeric_operand_unknown"
+    ]
     typing_signals = sorted(
-        [*typing_signals, *boundary_allowances, *inside_allowances], key=lambda item: item["id"]
+        [
+            *typing_signals,
+            *(item for item in boundary_allowances if item["kind"] != "numeric_operand_unknown"),
+            *(item for item in inside_allowances if item["kind"] != "numeric_operand_unknown"),
+        ],
+        key=lambda item: item["id"],
     )
 
     unknowns = [
@@ -985,6 +1019,24 @@ def evaluate_source(
             imports, contract, facade_exports, dependency_symbols=profile.dependency_symbols
         ),
         *construct_capability_limits(contract, facts.capabilities.constructs, "root"),
+        *protocol_declaration_results(
+            symbols=symbols,
+            imports=imports,
+            modules=module_facts,
+            contract=contract,
+            source_modules=None,
+            uncertain_reexport_origins=uncertain_reexport_origins,
+            type_shapes=type_shapes,
+            profile=profile,
+            receipt_scope_complete=scope_receipts_complete(
+                contract,
+                module_facts,
+                profile,
+                (),
+                (),
+                roots if _source_inventory_complete(facts) else (),
+            ),
+        )[1],
         # AD-67: a boundary position the rule could not decide is reported, not silent. It
         # joins the two structural limits above and never `coverage.failures`, because it
         # says how much of a facade was decided, not that the scan was incomplete.
@@ -1012,6 +1064,7 @@ def evaluate_source(
             "name.",
         ),
         *inside_unknowns,
+        *numeric_operand_unknowns,
         *failures,
         *rule_failures,
     ]

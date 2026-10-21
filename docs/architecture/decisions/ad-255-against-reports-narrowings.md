@@ -1,4 +1,4 @@
-# AD-246: `validate --against` reports narrowings
+# AD-255: `validate --against` reports narrowings
 
 A contract review needs the whole semantic change, not only what requires an amendment.
 `validate --against` adds `contract_changes`: each contract change with its direction

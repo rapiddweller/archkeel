@@ -20,6 +20,9 @@ from .architecture_graph import ComponentRole as ComponentRole
 from .architecture_graph import ContractModuleTarget as ContractModuleTarget
 from .architecture_graph import DecisionMaker as DecisionMaker
 from .architecture_graph import ExternalDependencyScopeRule as ExternalDependencyScopeRule
+from .architecture_graph import NumericOperandForm as NumericOperandForm
+from .architecture_graph import ProtocolDeclarationRole as ProtocolDeclarationRole
+from .architecture_graph import ProtocolDeclarationVisibility as ProtocolDeclarationVisibility
 from .architecture_graph import RootLayoutRule as RootLayoutRule
 from .architecture_graph import RuleAssessment as RuleAssessment
 from .architecture_graph import RuleAssessmentStatus as RuleAssessmentStatus
@@ -102,7 +105,7 @@ def public_api_id(selector: str) -> str:
     return f"API-{hashlib.sha256(selector.encode()).hexdigest()[:16]}"
 
 
-SCHEMA_VERSION = "2.1.0"
+SCHEMA_VERSION = "2.3.0"
 DELTA_SCHEMA_VERSION = "2.0.0"
 
 
@@ -490,6 +493,23 @@ class CallOwnerRule(ArchitectureRuleGrammar):
 
 
 @dataclass(frozen=True, slots=True)
+class BoundedNumericOperandRule(ArchitectureRuleGrammar):
+    id: str
+    kind: Literal[ArchitectureRuleKind.BOUNDED_NUMERIC_OPERAND]
+    source: str
+    form: NumericOperandForm
+    terminal_suffix: str
+    minimum_value: int
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+
+    def __post_init__(self) -> None:
+        ArchitectureRuleGrammar.__post_init__(self)
+        builtins.object.__setattr__(self, "form", NumericOperandForm(self.form))
+
+
+@dataclass(frozen=True, slots=True)
 class ForbiddenDependencyRule(ArchitectureRuleGrammar):
     id: str
     kind: Literal[ArchitectureRuleKind.FORBIDDEN_DEPENDENCY]
@@ -754,8 +774,35 @@ class BoundaryTypesRule(ArchitectureRuleGrammar):
     allowed_positions: tuple[BoundaryTypeAllowance, ...] = ()
 
 
+@dataclass(frozen=True, slots=True)
+class ProtocolDeclarationSelector:
+    role: ProtocolDeclarationRole
+    name: str
+    visibility: ProtocolDeclarationVisibility
+    optional: bool = False
+
+    def __post_init__(self) -> None:
+        builtins.object.__setattr__(self, "role", ProtocolDeclarationRole(self.role))
+        builtins.object.__setattr__(
+            self, "visibility", ProtocolDeclarationVisibility(self.visibility)
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ProtocolDeclarationsRule(ArchitectureRuleGrammar):
+    id: str
+    kind: Literal[ArchitectureRuleKind.PROTOCOL_DECLARATIONS]
+    source: str
+    protocol: str
+    selectors: tuple[ProtocolDeclarationSelector, ...]
+    rationale: str
+    provenance: tuple[str, ...]
+    decided_by: DecisionMaker
+
+
 ArchitectureRule: TypeAlias = (
     CallOwnerRule
+    | BoundedNumericOperandRule
     | ForbiddenDependencyRule
     | AllowedDependencyRule
     | ForbiddenConstructRule
@@ -770,6 +817,7 @@ ArchitectureRule: TypeAlias = (
     | SiblingIsolationRule
     | SymbolPlacementRule
     | BoundaryTypesRule
+    | ProtocolDeclarationsRule
 )
 
 # Typed authoring kinds come from ArchitectureRule. Record consumers also assess UML intent.
@@ -1038,6 +1086,19 @@ def _call_owner_references(index: int, rule: CallOwnerRule) -> list[ModuleRefere
     )
 
 
+def _module_object_grant_references(
+    index: int, rule: InterfaceBoundaryRule
+) -> list[ModuleReference]:
+    return [
+        ModuleReference(f"/rules/{index}/module_object_grants/{item}/{field}", value, True)
+        for item, grant in enumerate(rule.module_object_grants or ())
+        for field, value in (
+            ("source_module", grant.source_module),
+            ("target_module", grant.target_module),
+        )
+    ]
+
+
 def _rule_references(
     index: int, rule: ArchitectureRule, external: frozenset[str]
 ) -> list[ModuleReference]:
@@ -1050,10 +1111,12 @@ def _rule_references(
         ForbiddenDependencyRule
         | AllowedDependencyRule
         | ForbiddenConstructRule
+        | BoundedNumericOperandRule
         | CompleteAssignmentRule
         | CompleteExternalScopeRule
         | SymbolPlacementRule
-        | BoundaryTypesRule,
+        | BoundaryTypesRule
+        | ProtocolDeclarationsRule,
     ):
         named += [("source", (rule.source,), True)]
     if isinstance(rule, AllowedDependencyRule):
@@ -1091,20 +1154,11 @@ def _rule_references(
         ]
     references = _references(f"/rules/{index}", named)
     if isinstance(rule, InterfaceBoundaryRule):
-        references += [
-            ModuleReference(
-                f"/rules/{index}/module_object_grants/{item}/{field}",
-                value,
-                True,
-            )
-            for item, grant in enumerate(rule.module_object_grants or ())
-            for field, value in (
-                ("source_module", grant.source_module),
-                ("target_module", grant.target_module),
-            )
-        ]
+        references += _module_object_grant_references(index, rule)
     if isinstance(rule, BoundaryTypesRule):
         references += _boundary_allowance_references(index, rule.allowed_positions)
+    if isinstance(rule, ProtocolDeclarationsRule):
+        references += [ModuleReference(f"/rules/{index}/protocol", rule.protocol, True)]
     if isinstance(rule, ForbiddenConstructRule):
         references += [
             ModuleReference(
@@ -1238,7 +1292,7 @@ class ContractChangeDirection(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class ContractChange:
-    """One semantic contract change since `--against`, amended or not (AD-246)."""
+    """One semantic contract change since `--against`, amended or not (AD-255)."""
 
     direction: ContractChangeDirection
     subject: str
@@ -1622,7 +1676,7 @@ class RunResult:
     failures: tuple[str, ...] = ()
     # Present as null without --against; otherwise only unamended/rejected changes.
     widenings: tuple[WideningFinding, ...] | None = None
-    # AD-246: every contract change with its direction; null without --against.
+    # AD-255: every contract change with its direction; null without --against.
     contract_changes: tuple[ContractChange, ...] | None = None
     amendment_status: AmendmentStatus | None = None
     # AD-77: baseline drift is reported as deterministic fingerprint counts.

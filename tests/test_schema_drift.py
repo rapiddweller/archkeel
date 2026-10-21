@@ -24,6 +24,7 @@ from archkeel.ir.codec import (
     parse_contract,
     parse_observation,
 )
+from archkeel.ir.model import SCHEMA_VERSION
 from archkeel.ir.profiles import PROFILES
 from archkeel.ir.widening import Amendment
 
@@ -54,7 +55,7 @@ def typescript_export_binding(tmp_path_factory):
     return record_payload(binding)
 
 
-@pytest.mark.parametrize("version", ["2.0.0", "2.1.0"])
+@pytest.mark.parametrize("version", ["2.0.0", "2.1.0", "2.3.0"])
 @pytest.mark.parametrize("profile", PROFILES.values(), ids=lambda profile: profile.analyzer)
 def test_direct_export_binding_schema_is_typescript_21_only(
     typescript_export_binding, profile, version
@@ -73,7 +74,7 @@ def test_direct_export_binding_schema_is_typescript_21_only(
         observation[section] = None
     assert validator.is_valid(observation)
     observation["bindings"] = [typescript_export_binding]
-    accepted = version == "2.1.0" and profile.analyzer == "archkeel-typescript-imports"
+    accepted = version in {"2.1.0", "2.3.0"} and profile.analyzer == "archkeel-typescript-imports"
     assert validator.is_valid(observation) is accepted
     if accepted:
         assert parse_observation(observation).records("bindings")[0].data.get("name") == "port"
@@ -380,7 +381,7 @@ def test_amendment_schema_and_parser_reject_malformed_digests(field: str, digest
 
 def test_ir_schemas_accept_the_parsed_self_observation(self_artifact_bytes: bytes) -> None:
     common = _schema("architecture-ir-common.schema.json")
-    profile = _schema("architecture-ir-python-decoded-2.1.schema.json")
+    profile = {"$ref": f"urn:archkeel:architecture-ir:python-decoded:{SCHEMA_VERSION}"}
     Draft202012Validator.check_schema(common)
     Draft202012Validator.check_schema(profile)
     registry = Registry().with_resources(
@@ -433,7 +434,7 @@ def test_requirement_state_schema_is_versioned_and_legacy_report_remains_valid()
 
 
 @pytest.mark.parametrize("profile", PROFILES.values(), ids=lambda profile: profile.analyzer)
-@pytest.mark.parametrize("version", ["2.0.0", "2.1.0"])
+@pytest.mark.parametrize("version", ["2.0.0", "2.1.0", "2.2.0"])
 def test_shared_observation_schema_preserves_each_profile_and_provenance(profile, version) -> None:
     registry = Registry().with_resources(
         (schema["$id"], Resource.from_contents(schema))
@@ -487,7 +488,7 @@ def test_shared_observation_schema_preserves_each_profile_and_provenance(profile
 
 @pytest.mark.parametrize("field", ["runtime", "producer"])
 @pytest.mark.parametrize("value", ["", " ", "unknown", "UNKNOWN", None, False])
-@pytest.mark.parametrize("version", ["2.0.0", "2.1.0"])
+@pytest.mark.parametrize("version", ["2.0.0", "2.1.0", "2.2.0"])
 def test_shared_observation_schema_rejects_unknown_provenance(field, value, version) -> None:
     registry = Registry().with_resources(
         (schema["$id"], Resource.from_contents(schema))

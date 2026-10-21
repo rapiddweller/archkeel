@@ -3,11 +3,15 @@
 # SPDX-License-Identifier: MIT
 """Cross-reference and source-payload invariants of the collection protocol."""
 
+import ast
 from collections.abc import Collection, Iterable, Mapping
+from functools import lru_cache
 from pathlib import PurePosixPath
 
 from .facts import (
     CALL_BINDINGS_FEATURE,
+    MAX_NUMERIC_EVIDENCE_CHARS,
+    MAX_STATIC_INTEGER,
     SOURCE_RESOLUTION_GAP_KIND,
     BuiltinTarget,
     CallBinding,
@@ -17,6 +21,7 @@ from .facts import (
     Evidence,
     EvidenceClass,
     ExternalPackageTarget,
+    JsonValue,
     LocalTarget,
     MethodKind,
     PropertyOrigin,
@@ -453,6 +458,1394 @@ def _call_declaration(binding: CallBinding, declarations: Mapping[str, list[Reco
     return target
 
 
+def _numeric_operand_alias(item: RecordData, evidence_ids: tuple[str, ...]) -> None:
+    span_names = ("line", "column", "end_line", "end_column")
+    origin_fields = {key for key, _ in item.entries}
+    origin_value = item.get("value")
+    origin_span = tuple(item.get(name) for name in span_names)
+    base_fields = {
+        "name",
+        "value",
+        "expression",
+        "evidence_id",
+        "line",
+        "column",
+        "end_line",
+        "end_column",
+    }
+    scope_fields = {"scope_evidence_id", "scope_owner", "scope_symbol_id"}
+    if (
+        origin_fields not in (base_fields, base_fields | scope_fields)
+        or not isinstance(item.get("name"), str)
+        or not item.get("name")
+        or not isinstance(origin_value, int)
+        or isinstance(origin_value, bool)
+        or origin_value < -MAX_STATIC_INTEGER
+        or origin_value > MAX_STATIC_INTEGER
+        or not isinstance(item.get("expression"), str)
+        or not item.get("expression")
+        or not isinstance(item.get("evidence_id"), str)
+        or item.get("evidence_id") not in evidence_ids
+        or origin_fields == base_fields | scope_fields
+        and (
+            not all(isinstance(item.get(name), str) and item.get(name) for name in scope_fields)
+            or item.get("scope_evidence_id") not in evidence_ids
+        )
+        or not all(isinstance(field, int) and not isinstance(field, bool) for field in origin_span)
+        or not isinstance(origin_span[0], int)
+        or not isinstance(origin_span[1], int)
+        or not isinstance(origin_span[2], int)
+        or not isinstance(origin_span[3], int)
+        or origin_span[0] < 1
+        or origin_span[1] < 0
+        or origin_span[2] < origin_span[0]
+        or origin_span[3] < 0
+    ):
+        raise ValueError("invalid numeric operand alias proof")
+
+
+def _parse_numeric_scope_excerpt(excerpt: str) -> tuple[tuple[ast.stmt, ...], int] | None:
+    if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS:
+        return None
+    indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+    if not indentation:
+        try:
+            return tuple(ast.parse(excerpt).body), 0
+        except (IndentationError, SyntaxError, ValueError, RecursionError):
+            return None
+    try:
+        parsed = ast.parse(f"if True:\n{excerpt}")
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    if len(parsed.body) != 1 or not isinstance(parsed.body[0], ast.If):
+        return None
+    return tuple(parsed.body[0].body), 1
+
+
+def _numeric_definition_nodes(
+    nodes: tuple[ast.stmt, ...], parent_name: str
+) -> Iterable[tuple[str, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef]]:
+    for root in nodes:
+        pending: list[ast.AST] = [root]
+        while pending:
+            node = pending.pop()
+            if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+                qualified = f"{parent_name}.{node.name}"
+                yield qualified, node
+                pending.extend(reversed(node.body))
+            else:
+                pending.extend(reversed(tuple(ast.iter_child_nodes(node))))
+
+
+def _numeric_scope_owner(
+    scope_evidence: Evidence, owner_name: str, module_name: str
+) -> tuple[ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef, int] | None:
+    parsed = _parse_numeric_scope_excerpt(scope_evidence.excerpt)
+    if parsed is None:
+        return None
+    nodes, line_offset = parsed
+    owner_span = (scope_evidence.line, scope_evidence.column, scope_evidence.end_line)
+    if not owner_name.startswith(module_name + "."):
+        return None
+    owner_leaf = owner_name.rpartition(".")[2]
+    owners = [
+        node
+        for _, node in _numeric_definition_nodes(nodes, module_name)
+        if node.name == owner_leaf
+        and node.end_lineno is not None
+        and (
+            node.lineno - line_offset + scope_evidence.line - 1,
+            node.col_offset,
+            node.end_lineno - line_offset + scope_evidence.line - 1,
+        )
+        == owner_span
+    ]
+    return (owners[0], line_offset) if len(owners) == 1 else None
+
+
+def _numeric_operation_in_owner(
+    owner: ast.AST,
+    operation: Record,
+    evidence: Evidence,
+    line_offset: int,
+    scope_owner: str,
+) -> ast.BinOp | ast.AugAssign | None:
+    operation_span = tuple(
+        operation.data.get(name) for name in ("line", "column", "end_line", "end_column")
+    )
+    matches = [
+        node
+        for node in ast.walk(owner)
+        if isinstance(node, ast.BinOp | ast.AugAssign)
+        and _numeric_node_span(node, evidence.line, line_offset) == operation_span
+        and (
+            isinstance(node, ast.BinOp)
+            and isinstance(node.op, ast.Mod)
+            or isinstance(node, ast.AugAssign)
+            and isinstance(node.op, ast.Mod)
+        )
+    ]
+    if len(matches) != 1 or not _numeric_operation_owner_matches(
+        owner, matches[0], operation, scope_owner
+    ):
+        return None
+    return matches[0]
+
+
+def _numeric_operation_owner_matches(
+    scope: ast.AST, operation_node: ast.AST, operation: Record, scope_owner: str
+) -> bool:
+    parents = {
+        child: parent for parent in ast.walk(scope) for child in ast.iter_child_nodes(parent)
+    }
+    definitions: list[ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef] = []
+    node = operation_node
+    while node is not scope:
+        parent = parents.get(node)
+        if parent is None:
+            return False
+        node = parent
+        if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef) and (
+            _numeric_definition_contains_in_body(node, operation_node, parents)
+        ):
+            definitions.append(node)
+    qualified_owner = scope_owner
+    for definition in reversed(
+        definitions[:-1] if definitions and definitions[-1] is scope else definitions
+    ):
+        qualified_owner = f"{qualified_owner}.{definition.name}"
+    return operation.data.get("owner") == qualified_owner
+
+
+def _numeric_definition_contains_in_body(
+    definition: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
+    operation: ast.AST,
+    parents: Mapping[ast.AST, ast.AST],
+) -> bool:
+    node = operation
+    while parents.get(node) is not definition:
+        parent = parents.get(node)
+        if parent is None:
+            return False
+        node = parent
+    return any(node is statement for statement in definition.body)
+
+
+def _numeric_lexical_scope_nodes(owner: ast.AST) -> Iterable[ast.AST]:
+    """Visit bindings in one scope, including nested-definition headers only."""
+    if isinstance(owner, ast.Module | ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+        body = owner.body
+    else:
+        return
+    for statement in body:
+        yield from _numeric_lexical_nodes(statement, owner)
+
+
+def _numeric_lexical_nodes(node: ast.AST, owner: ast.AST) -> Iterable[ast.AST]:
+    if node is not owner and isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+        yield node
+        yield from _numeric_definition_header_nodes(node.decorator_list, node.args, node.returns)
+        return
+    if node is not owner and isinstance(node, ast.ClassDef):
+        yield node
+        for expression in (
+            *node.decorator_list,
+            *node.bases,
+            *(item.value for item in node.keywords),
+        ):
+            yield from _numeric_lexical_nodes(expression, owner)
+        return
+    if node is not owner and isinstance(node, ast.Lambda):
+        yield from _numeric_definition_header_nodes((), node.args, None)
+        return
+    if isinstance(node, ast.ListComp | ast.SetComp | ast.GeneratorExp | ast.DictComp):
+        for generator in node.generators:
+            yield from _numeric_lexical_nodes(generator.iter, owner)
+            for condition in generator.ifs:
+                yield from _numeric_lexical_nodes(condition, owner)
+        values = (node.key, node.value) if isinstance(node, ast.DictComp) else (node.elt,)
+        for value in values:
+            yield from _numeric_lexical_nodes(value, owner)
+        return
+    if isinstance(node, ast.NamedExpr):
+        yield node.target
+        yield from _numeric_lexical_nodes(node.value, owner)
+        return
+    yield node
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, ast.comprehension):
+            continue
+        yield from _numeric_lexical_nodes(child, owner)
+
+
+def _numeric_definition_header_nodes(
+    decorators: Iterable[ast.expr], arguments: ast.arguments, returns: ast.expr | None
+) -> Iterable[ast.AST]:
+    for expression in decorators:
+        yield from _numeric_lexical_nodes(expression, arguments)
+    for expression in (*arguments.defaults, *(value for value in arguments.kw_defaults if value)):
+        yield from _numeric_lexical_nodes(expression, arguments)
+    annotated_arguments = (
+        *arguments.posonlyargs,
+        *arguments.args,
+        *([arguments.vararg] if arguments.vararg is not None else []),
+        *arguments.kwonlyargs,
+        *([arguments.kwarg] if arguments.kwarg is not None else []),
+    )
+    annotations = (
+        argument.annotation for argument in annotated_arguments if argument.annotation is not None
+    )
+    for annotation in annotations:
+        yield from _numeric_lexical_nodes(annotation, arguments)
+    if returns is not None:
+        yield from _numeric_lexical_nodes(returns, arguments)
+
+
+def _numeric_unique_local_assignment(
+    owner: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
+    origin: RecordData,
+    evidence: Evidence,
+    line_offset: int,
+    use: ast.BinOp | ast.AugAssign,
+) -> ast.expr | None:
+    name = origin.get("name")
+    if not isinstance(name, str):
+        return None
+    parents = {
+        child: parent for parent in ast.walk(owner) for child in ast.iter_child_nodes(parent)
+    }
+    stores = [
+        node
+        for node in _numeric_lexical_scope_nodes(owner)
+        if isinstance(node, ast.Name)
+        and node.id == name
+        and isinstance(node.ctx, ast.Store | ast.Del)
+    ]
+    if len(stores) != 1:
+        return None
+    target = stores[0]
+    assignment = parents.get(target)
+    if not isinstance(assignment, ast.Assign | ast.AnnAssign) or assignment.value is None:
+        return None
+    if isinstance(assignment, ast.Assign):
+        if not any(target is item for root in assignment.targets for item in ast.walk(root)):
+            return None
+    elif assignment.target is not target:
+        return None
+    if assignment not in owner.body:
+        return None
+    parameters = (
+        [
+            argument.arg
+            for argument in (
+                *owner.args.posonlyargs,
+                *owner.args.args,
+                *([owner.args.vararg] if owner.args.vararg is not None else []),
+                *owner.args.kwonlyargs,
+                *([owner.args.kwarg] if owner.args.kwarg is not None else []),
+            )
+        ]
+        if isinstance(owner, ast.FunctionDef | ast.AsyncFunctionDef)
+        else []
+    )
+    if name in parameters or _numeric_other_binding(owner, name):
+        return None
+    assignment_span = tuple(origin.get(key) for key in ("line", "column", "end_line", "end_column"))
+    if _numeric_node_span(assignment, evidence.line, line_offset) != assignment_span:
+        return None
+    if (assignment.lineno, assignment.col_offset) >= (use.lineno, use.col_offset):
+        return None
+    try:
+        expression = ast.unparse(assignment.value)
+    except (RecursionError, ValueError):
+        return None
+    return assignment.value if expression == origin.get("expression") else None
+
+
+def _numeric_other_binding(owner: ast.AST, name: str) -> bool:
+    if isinstance(owner, ast.FunctionDef | ast.AsyncFunctionDef) and any(
+        argument.arg == name
+        for argument in (
+            *owner.args.posonlyargs,
+            *owner.args.args,
+            *([owner.args.vararg] if owner.args.vararg is not None else []),
+            *owner.args.kwonlyargs,
+            *([owner.args.kwarg] if owner.args.kwarg is not None else []),
+        )
+    ):
+        return True
+    if _numeric_nonlocal_targets_owner(owner, name):
+        return True
+    for node in _numeric_lexical_scope_nodes(owner):
+        if isinstance(node, ast.arg) and node.arg == name:
+            return True
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if node.name == name:
+                return True
+        if isinstance(node, ast.alias):
+            alias_name: str = node.name
+            alias_asname: str | None = node.asname
+            if alias_asname == name or (
+                alias_asname is None
+                and (alias_name == name or alias_name[: len(name) + 1] == name + ".")
+            ):
+                return True
+        if isinstance(node, ast.Global | ast.Nonlocal) and name in node.names:
+            return True
+        if isinstance(node, ast.ExceptHandler) and node.name == name:
+            return True
+        if isinstance(node, ast.MatchAs | ast.MatchStar) and node.name == name:
+            return True
+        if isinstance(node, ast.MatchMapping) and node.rest == name:
+            return True
+    return False
+
+
+def _numeric_nonlocal_targets_owner(owner: ast.AST, name: str) -> bool:
+    if not isinstance(owner, ast.FunctionDef | ast.AsyncFunctionDef):
+        return False
+    parents = {
+        child: parent for parent in ast.walk(owner) for child in ast.iter_child_nodes(parent)
+    }
+    for node in ast.walk(owner):
+        if not isinstance(node, ast.Nonlocal) or name not in node.names:
+            continue
+        scope = _numeric_enclosing_function(parents.get(node), parents)
+        while scope is not None and scope is not owner:
+            scope = _numeric_enclosing_function(parents.get(scope), parents)
+            if scope is owner:
+                return True
+            if scope is not None and _numeric_function_binds_locally(scope, name):
+                break
+    return False
+
+
+def _numeric_enclosing_function(
+    node: ast.AST | None, parents: Mapping[ast.AST, ast.AST]
+) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    while node is not None:
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            return node
+        node = parents.get(node)
+    return None
+
+
+def _numeric_function_binds_locally(
+    function: ast.FunctionDef | ast.AsyncFunctionDef, name: str
+) -> bool:
+    if any(
+        argument.arg == name
+        for argument in (
+            *function.args.posonlyargs,
+            *function.args.args,
+            *([function.args.vararg] if function.args.vararg is not None else []),
+            *function.args.kwonlyargs,
+            *([function.args.kwarg] if function.args.kwarg is not None else []),
+        )
+    ):
+        return True
+    for node in _numeric_lexical_scope_nodes(function):
+        if (
+            isinstance(node, ast.Name)
+            and node.id == name
+            and isinstance(node.ctx, ast.Store | ast.Del)
+        ):
+            return True
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            if node.name == name:
+                return True
+        if isinstance(node, ast.alias):
+            alias_name: str = node.name
+            if node.asname == name or (
+                node.asname is None and (alias_name == name or alias_name.startswith(name + "."))
+            ):
+                return True
+        if isinstance(node, ast.ExceptHandler) and node.name == name:
+            return True
+        if isinstance(node, ast.MatchAs | ast.MatchStar) and node.name == name:
+            return True
+        if isinstance(node, ast.MatchMapping) and node.rest == name:
+            return True
+    return False
+
+
+def _numeric_local_alias_assignment(
+    origin: RecordData,
+    operation: Record,
+    evidence_by_id: Mapping[str, Evidence],
+    declarations_by_id: Mapping[str, Record],
+    expected_file: str,
+    module_name: str,
+    check_operation_binding: bool,
+) -> ast.expr | None:
+    evidence_id = origin.get("scope_evidence_id")
+    owner_name = origin.get("scope_owner")
+    symbol_id = origin.get("scope_symbol_id")
+    if (
+        not isinstance(evidence_id, str)
+        or not isinstance(owner_name, str)
+        or not isinstance(symbol_id, str)
+    ):
+        return None
+    scope_evidence = evidence_by_id.get(evidence_id)
+    symbol_record = declarations_by_id.get(symbol_id)
+    if (
+        scope_evidence is None
+        or symbol_record is None
+        or scope_evidence.file != expected_file
+        or symbol_record.data.get("qualified_name") != owner_name
+        or not _numeric_owner_evidence_matches(symbol_record, scope_evidence, evidence_by_id)
+    ):
+        return None
+    owner_result = _numeric_scope_owner(scope_evidence, owner_name, module_name)
+    if owner_result is None:
+        return None
+    owner, line_offset = owner_result
+    use = _numeric_operation_in_owner(owner, operation, scope_evidence, line_offset, owner_name)
+    if (
+        use is None
+        or _numeric_anonymous_scope_allows_module(owner, use, str(origin.get("name"))) is False
+        or check_operation_binding
+        and _numeric_nested_scope_binds(owner, use, str(origin.get("name")))
+    ):
+        return None
+    return _numeric_unique_local_assignment(owner, origin, scope_evidence, line_offset, use)
+
+
+def _numeric_nested_scope_binds(owner: ast.AST, use: ast.AST, name: str) -> bool:
+    parents = {
+        child: parent for parent in ast.walk(owner) for child in ast.iter_child_nodes(parent)
+    }
+    node = use
+    nested_function = False
+    while node is not owner:
+        parent = parents.get(node)
+        if parent is None:
+            return True
+        if isinstance(parent, ast.FunctionDef | ast.AsyncFunctionDef):
+            if parent is not owner and node in parent.body:
+                nested_function = True
+                if _numeric_other_binding(parent, name) or _numeric_function_binds_locally(
+                    parent, name
+                ):
+                    return True
+        if isinstance(parent, ast.Lambda) and node is parent.body:
+            nested_function = True
+        if (
+            isinstance(parent, ast.ListComp | ast.SetComp | ast.GeneratorExp | ast.DictComp)
+            and parent.generators
+            and not _numeric_is_within(use, parent.generators[0].iter, parents)
+        ):
+            nested_function = True
+        if (
+            isinstance(parent, ast.ClassDef)
+            and parent is not owner
+            and not nested_function
+            and node in parent.body
+            and _numeric_class_binds_locally(parent, name)
+        ):
+            return True
+        node = parent
+    return False
+
+
+def _numeric_class_binds_locally(scope: ast.ClassDef, name: str) -> bool:
+    if _numeric_other_binding(scope, name):
+        return True
+    return any(
+        isinstance(node, ast.Name) and node.id == name and isinstance(node.ctx, ast.Store | ast.Del)
+        for node in _numeric_lexical_scope_nodes(scope)
+    )
+
+
+def _numeric_module_alias_supported(
+    origin: RecordData,
+    operation: Record,
+    declarations_by_name: Mapping[str, tuple[Record, ...]],
+    declarations_by_id: Mapping[str, Record],
+    evidence_by_id: Mapping[str, Evidence],
+    expected_file: str,
+    module_name: str,
+    check_operation_binding: bool,
+) -> bool:
+    name = origin.get("name")
+    evidence_id = origin.get("evidence_id")
+    if not isinstance(name, str) or not isinstance(evidence_id, str):
+        return False
+    declarations = declarations_by_name.get(f"{module_name}.{name}", ())
+    if len(declarations) != 1:
+        return False
+    declaration = declarations[0]
+    if (
+        declaration.kind not in {"static_constant", "dynamic_binding"}
+        or evidence_id not in declaration.evidence_ids
+        or declaration.data.get("source_binding_unique") is not True
+        or check_operation_binding
+        and not _numeric_module_use_chain_supported(
+            operation,
+            name,
+            declarations_by_id,
+            evidence_by_id,
+            expected_file,
+            module_name,
+        )
+    ):
+        return False
+    assignment = (origin.get("line"), origin.get("column"))
+    use = (operation.data.get("line"), operation.data.get("column"))
+    return (
+        all(isinstance(part, int) and not isinstance(part, bool) for part in (*assignment, *use))
+        and assignment < use
+    )
+
+
+def _numeric_module_use_chain_supported(
+    operation: Record,
+    name: str,
+    declarations_by_id: Mapping[str, Record],
+    evidence_by_id: Mapping[str, Evidence],
+    expected_file: str,
+    module_name: str,
+) -> bool:
+    if not _numeric_operation_scope_chain_matches(operation, declarations_by_id, module_name):
+        return False
+    chain = operation.data.get("binding_scopes")
+    if not isinstance(chain, tuple):
+        return False
+    if not chain:
+        return not _numeric_module_anonymous_binding(operation, name, evidence_by_id, expected_file)
+    for item in chain:
+        if not isinstance(item, RecordData):
+            return False
+        if not _numeric_module_use_scope(
+            item,
+            operation,
+            name,
+            evidence_by_id,
+            declarations_by_id,
+            expected_file,
+        ):
+            return False
+    return True
+
+
+def _numeric_operation_scope_chain_matches(
+    operation: Record, declarations_by_id: Mapping[str, Record], module_name: str
+) -> bool:
+    chain = operation.data.get("binding_scopes")
+    operation_owner = operation.data.get("owner")
+    if not isinstance(chain, tuple) or not isinstance(operation_owner, str):
+        return False
+    if operation_owner == module_name:
+        return not chain
+    if not chain:
+        return False
+    first_scope = chain[0]
+    if not isinstance(first_scope, RecordData):
+        return False
+    owner_id = first_scope.get("scope_symbol_id")
+    owner = declarations_by_id.get(owner_id) if isinstance(owner_id, str) else None
+    if owner is None or owner.data.get("qualified_name") != operation_owner:
+        return False
+    expected_ids: list[str] = []
+    while owner.kind in {"function", "method", "class"}:
+        expected_ids.append(owner.id)
+        parent, valid = _numeric_lexical_parent(owner, declarations_by_id, module_name)
+        if not valid:
+            return False
+        if parent is None:
+            break
+        owner = parent
+    return (
+        all(isinstance(item, RecordData) for item in chain)
+        and [item.get("scope_symbol_id") for item in chain if isinstance(item, RecordData)]
+        == expected_ids
+    )
+
+
+def _numeric_lexical_parent(
+    owner: Record, declarations_by_id: Mapping[str, Record], module_name: str
+) -> tuple[Record | None, bool]:
+    qualified_name_value: JsonValue = owner.data.get("qualified_name")
+    name_value: JsonValue = owner.data.get("name")
+    parent_name_value: JsonValue = owner.data.get("parent")
+    parent_id = owner.data.get("lexical_parent_id")
+    if not isinstance(qualified_name_value, str) or not isinstance(name_value, str):
+        return None, False
+    qualified_name: str = qualified_name_value
+    name: str = name_value
+    if parent_name_value is None:
+        return None, qualified_name == module_name + "." + name and parent_id is None
+    if not isinstance(parent_name_value, str):
+        return None, False
+    parent_name: str = parent_name_value
+    if qualified_name != parent_name + "." + name or not isinstance(parent_id, str):
+        return None, False
+    parent = declarations_by_id.get(parent_id)
+    if parent is None or parent.data.get("qualified_name") != parent_name:
+        return None, False
+    return parent, True
+
+
+def _numeric_module_use_scope(
+    item: RecordData,
+    operation: Record,
+    name: str,
+    evidence_by_id: Mapping[str, Evidence],
+    declarations_by_id: Mapping[str, Record],
+    expected_file: str,
+) -> bool:
+    evidence_id = item.get("scope_evidence_id")
+    owner_name = item.get("scope_owner")
+    symbol_id = item.get("scope_symbol_id")
+    if (
+        not isinstance(evidence_id, str)
+        or not isinstance(owner_name, str)
+        or not isinstance(symbol_id, str)
+    ):
+        return False
+    scope_evidence = evidence_by_id.get(evidence_id)
+    symbol = declarations_by_id.get(symbol_id)
+    if (
+        scope_evidence is None
+        or symbol is None
+        or scope_evidence.file != expected_file
+        or symbol.data.get("qualified_name") != owner_name
+        or not _numeric_owner_evidence_matches(symbol, scope_evidence, evidence_by_id)
+    ):
+        return False
+    module_name = symbol.data.get("module")
+    if not isinstance(module_name, str):
+        return False
+    owner_result = _numeric_scope_owner(scope_evidence, owner_name, module_name)
+    if owner_result is None:
+        return False
+    owner, line_offset = owner_result
+    operation_node = _numeric_operation_in_owner(
+        owner, operation, scope_evidence, line_offset, owner_name
+    )
+    if operation_node is None:
+        return False
+    anonymous_scope = _numeric_anonymous_scope_allows_module(owner, operation_node, name)
+    if anonymous_scope is False:
+        return False
+    if isinstance(owner, ast.ClassDef) and anonymous_scope is True:
+        return True
+    is_method_scope = operation.data.get("owner") != owner_name and symbol.kind == "class"
+    if is_method_scope:
+        return True
+    return not _numeric_other_binding(owner, name) and not any(
+        isinstance(node, ast.Name) and node.id == name and isinstance(node.ctx, ast.Store | ast.Del)
+        for node in _numeric_lexical_scope_nodes(owner)
+    )
+
+
+def _numeric_module_anonymous_binding(
+    operation: Record,
+    name: str,
+    evidence_by_id: Mapping[str, Evidence],
+    expected_file: str,
+) -> bool:
+    expected = tuple(
+        operation.data.get(field) for field in ("line", "column", "end_line", "end_column")
+    )
+    matches: dict[str, tuple[ast.stmt, ast.AST]] = {}
+    for evidence_id in operation.evidence_ids:
+        evidence = evidence_by_id.get(evidence_id)
+        if evidence is None or evidence.file != expected_file:
+            continue
+        parsed = _numeric_evidence_nodes(evidence)
+        if parsed is None:
+            continue
+        nodes, line_offset = parsed
+        for root in nodes:
+            for node in ast.walk(root):
+                if (
+                    _numeric_node_span(node, evidence.line, line_offset) == expected
+                    and isinstance(node, ast.BinOp | ast.AugAssign)
+                    and (
+                        isinstance(node, ast.BinOp)
+                        and isinstance(node.op, ast.Mod)
+                        or isinstance(node, ast.AugAssign)
+                        and isinstance(node.op, ast.Mod)
+                    )
+                ):
+                    proof = ast.dump(root, include_attributes=False)
+                    matches[proof] = (root, node)
+    if len(matches) != 1:
+        return True
+    root, operation_node = next(iter(matches.values()))
+    return _numeric_anonymous_scope_allows_module(root, operation_node, name) is False
+
+
+def _numeric_anonymous_scope_allows_module(
+    owner: ast.AST, operation: ast.AST, name: str
+) -> bool | None:
+    parents = {
+        child: parent for parent in ast.walk(owner) for child in ast.iter_child_nodes(parent)
+    }
+    node = operation
+    found_anonymous_scope = False
+    name_is_bound = False
+    while node is not owner:
+        parent = parents.get(node)
+        if parent is None:
+            return False
+        if isinstance(parent, ast.Lambda) and node is parent.body:
+            found_anonymous_scope = True
+            arguments = parent.args
+            parameters = (
+                *arguments.posonlyargs,
+                *arguments.args,
+                *arguments.kwonlyargs,
+            )
+            name_is_bound = name_is_bound or any(argument.arg == name for argument in parameters)
+            name_is_bound = name_is_bound or (
+                arguments.vararg is not None and arguments.vararg.arg == name
+            )
+            name_is_bound = name_is_bound or (
+                arguments.kwarg is not None and arguments.kwarg.arg == name
+            )
+            name_is_bound = name_is_bound or _numeric_anonymous_walrus_binds(parent.body, name)
+        if isinstance(parent, ast.ListComp | ast.SetComp | ast.GeneratorExp | ast.DictComp):
+            if parent.generators and not _numeric_is_within(
+                operation, parent.generators[0].iter, parents
+            ):
+                found_anonymous_scope = True
+                name_is_bound = name_is_bound or any(
+                    isinstance(target, ast.Name) and target.id == name
+                    for generator in parent.generators
+                    for target in ast.walk(generator.target)
+                )
+                name_is_bound = name_is_bound or _numeric_anonymous_walrus_binds(parent, name)
+        node = parent
+    return not name_is_bound if found_anonymous_scope else None
+
+
+def _numeric_anonymous_walrus_binds(scope: ast.AST, name: str) -> bool:
+    for node in _numeric_lexical_nodes(scope, scope):
+        if isinstance(node, ast.Name) and node.id == name and isinstance(node.ctx, ast.Store):
+            return True
+    return False
+
+
+def _numeric_is_within(
+    node: ast.AST, ancestor: ast.AST, parents: Mapping[ast.AST, ast.AST]
+) -> bool:
+    while node is not ancestor:
+        parent = parents.get(node)
+        if parent is None:
+            return False
+        node = parent
+    return True
+
+
+def _numeric_owner_evidence_matches(
+    symbol: Record, scope_evidence: Evidence, evidence_by_id: Mapping[str, Evidence]
+) -> bool:
+    return any(
+        (owner_evidence := evidence_by_id.get(owner_evidence_id)) is not None
+        and (
+            owner_evidence.file,
+            owner_evidence.line,
+            owner_evidence.end_line,
+            owner_evidence.column,
+        )
+        == (
+            scope_evidence.file,
+            scope_evidence.line,
+            scope_evidence.end_line,
+            scope_evidence.column,
+        )
+        for owner_evidence_id in symbol.evidence_ids
+    )
+
+
+@lru_cache(maxsize=256)
+def _parse_numeric_evidence_excerpt(
+    excerpt: str,
+) -> tuple[tuple[ast.stmt, ...], int] | None:
+    if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS or "\n" in excerpt:
+        return None
+    stripped: str = excerpt.lstrip(" \t")
+    if stripped.startswith("@"):
+        return _parse_numeric_decorator_excerpt(excerpt)
+    if _numeric_elif_start(excerpt) is not None:
+        return _parse_numeric_elif_excerpt(excerpt)
+    try:
+        return tuple(ast.parse(excerpt).body), 0
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+        parsed = _parse_indented_numeric_excerpt(excerpt, indentation, synthetic_body=False)
+        if parsed is not None:
+            return parsed
+        parsed = _parse_indented_numeric_excerpt(excerpt, indentation, synthetic_body=True)
+        if parsed is None or len(parsed[0]) != 1:
+            return None
+        return parsed if _numeric_header_has_synthetic_body(parsed[0][0]) else None
+
+
+def _parse_numeric_decorator_excerpt(
+    excerpt: str,
+) -> tuple[tuple[ast.stmt, ...], int] | None:
+    indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+    unit = "\t" if "\t" in indentation else "    "
+    prefix = "if True:\n" if indentation else ""
+    source = (
+        f"{prefix}{excerpt}\n"
+        f"{indentation}def __archkeel_numeric_witness__():\n"
+        f"{indentation}{unit}pass"
+    )
+    try:
+        parsed = ast.parse(source)
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    roots = tuple(parsed.body)
+    if indentation and (len(roots) != 1 or not isinstance(roots[0], ast.If)):
+        return None
+    body = tuple(roots[0].body) if indentation and isinstance(roots[0], ast.If) else roots
+    if (
+        len(body) != 1
+        or not isinstance(body[0], ast.FunctionDef)
+        or len(body[0].decorator_list) != 1
+    ):
+        return None
+    return roots, 1 if indentation else 0
+
+
+def _numeric_elif_start(excerpt: str) -> int | None:
+    for index, character in enumerate(excerpt):
+        if character not in " \t":
+            if excerpt[index : index + 4] != "elif":
+                return None
+            if index + 4 < len(excerpt) and excerpt[index + 4] not in " \t(":
+                return None
+            return index
+    return None
+
+
+def _parse_indented_numeric_excerpt(
+    excerpt: str, indentation: str, *, synthetic_body: bool
+) -> tuple[tuple[ast.stmt, ...], int] | None:
+    unit = "\t" if "\t" in indentation else "    "
+    depth = 1 if indentation else 0
+    wrappers = "if True:\n" if indentation else ""
+    suffix = f"\n{indentation}{unit}pass" if synthetic_body else ""
+    try:
+        parsed = ast.parse(wrappers + excerpt + suffix)
+    except (IndentationError, SyntaxError, ValueError, RecursionError):
+        return None
+    roots = tuple(parsed.body)
+    for _ in range(depth):
+        if len(roots) != 1 or not isinstance(roots[0], ast.If):
+            return None
+        roots = tuple(roots[0].body)
+    return roots, depth
+
+
+def _numeric_header_has_synthetic_body(node: ast.stmt) -> bool:
+    header_types = (
+        ast.If,
+        ast.While,
+        ast.For,
+        ast.AsyncFor,
+        ast.With,
+        ast.AsyncWith,
+        ast.FunctionDef,
+        ast.AsyncFunctionDef,
+        ast.ClassDef,
+    )
+    return (
+        isinstance(node, header_types)
+        and len(node.body) == 1
+        and isinstance(node.body[0], ast.Pass)
+    )
+
+
+def _parse_numeric_elif_excerpt(excerpt: str) -> tuple[tuple[ast.stmt, ...], int] | None:
+    indentation = excerpt[: len(excerpt) - len(excerpt.lstrip(" \t"))]
+    unit = "\t" if "\t" in indentation else "    "
+    source = f"{indentation}if True:\n{indentation}{unit}pass\n{excerpt}"
+    for synthetic_body in (False, True):
+        parsed = _parse_indented_numeric_excerpt(source, indentation, synthetic_body=synthetic_body)
+        if parsed is None:
+            continue
+        roots, depth = parsed
+        if len(roots) != 1 or not isinstance(roots[0], ast.If):
+            return None
+        preceding = roots[0]
+        if len(preceding.body) != 1 or not isinstance(preceding.body[0], ast.Pass):
+            return None
+        if len(preceding.orelse) != 1 or not isinstance(preceding.orelse[0], ast.If):
+            return None
+        alternate = preceding.orelse[0]
+        if not synthetic_body or _numeric_header_has_synthetic_body(alternate):
+            return roots, depth + 2
+    return None
+
+
+def _numeric_evidence_nodes(evidence: Evidence) -> tuple[tuple[ast.stmt, ...], int] | None:
+    return _parse_numeric_evidence_excerpt(evidence.excerpt)
+
+
+def _numeric_node_span(
+    node: ast.AST, source_line: int, line_offset: int
+) -> tuple[int, int, int, int] | None:
+    if not isinstance(node, ast.stmt | ast.expr):
+        return None
+    if node.end_lineno is None or node.end_col_offset is None:
+        return None
+    return (
+        node.lineno - line_offset + source_line - 1,
+        node.col_offset,
+        node.end_lineno - line_offset + source_line - 1,
+        node.end_col_offset,
+    )
+
+
+def _numeric_assignment_expression(
+    origin: RecordData, evidence_by_id: Mapping[str, Evidence], expected_file: str
+) -> ast.expr | None:
+    evidence_id = origin.get("evidence_id")
+    if not isinstance(evidence_id, str):
+        return None
+    evidence = evidence_by_id.get(evidence_id)
+    if evidence is None or evidence.file != expected_file:
+        return None
+    parsed = _numeric_evidence_nodes(evidence)
+    if parsed is None:
+        return None
+    nodes, line_offset = parsed
+    expected = tuple(origin.get(name) for name in ("line", "column", "end_line", "end_column"))
+    matches: list[ast.expr] = []
+    for root in nodes:
+        for node in ast.walk(root):
+            if _numeric_node_span(node, evidence.line, line_offset) != expected:
+                continue
+            value: ast.expr | None = None
+            targets: tuple[ast.expr, ...] = ()
+            if isinstance(node, ast.Assign):
+                value, targets = node.value, tuple(node.targets)
+            elif isinstance(node, ast.AnnAssign):
+                value, targets = node.value, (node.target,)
+            if value is not None and any(
+                isinstance(target, ast.Name) and target.id == origin.get("name")
+                for target in targets
+            ):
+                matches.append(value)
+    if len(matches) != 1:
+        return None
+    try:
+        expression = ast.unparse(matches[0])
+    except (RecursionError, ValueError):
+        return None
+    if expression != origin.get("expression"):
+        return None
+    return matches[0]
+
+
+def _numeric_operation_expression(
+    record: Record, evidence_by_id: Mapping[str, Evidence], expected_file: str
+) -> ast.BinOp | ast.AugAssign | None:
+    data = record.data
+    expected = tuple(data.get(name) for name in ("line", "column", "end_line", "end_column"))
+    matches: dict[tuple[int, int, int, int], ast.BinOp | ast.AugAssign] = {}
+    seen_evidence: set[str] = set()
+    for evidence_id in record.evidence_ids:
+        if evidence_id in seen_evidence:
+            continue
+        seen_evidence.add(evidence_id)
+        evidence = evidence_by_id.get(evidence_id)
+        if evidence is None or evidence.file != expected_file:
+            continue
+        parsed = _numeric_evidence_nodes(evidence)
+        if parsed is None:
+            continue
+        nodes, line_offset = parsed
+        for root in nodes:
+            for node in ast.walk(root):
+                span = _numeric_node_span(node, evidence.line, line_offset)
+                if span is None or span[:2] != (evidence.line, evidence.column):
+                    continue
+                operation: ast.BinOp | ast.AugAssign
+                source_form: str
+                if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod):
+                    operation = node
+                    source_form = "binary"
+                elif isinstance(node, ast.AugAssign) and isinstance(node.op, ast.Mod):
+                    operation = node
+                    source_form = "augmented"
+                else:
+                    continue
+                if data.get("form") != source_form:
+                    raise ValueError("numeric operand form disagrees with its source expression")
+                if span != expected or span[2] != evidence.end_line:
+                    raise ValueError("numeric operand source span disagrees with its evidence")
+                matches[span] = operation
+    return next(iter(matches.values())) if len(matches) == 1 else None
+
+
+def _bounded_numeric_value(
+    node: ast.expr,
+    aliases: Mapping[str, ast.expr],
+    seen: frozenset[str] = frozenset(),
+    depth: int = 0,
+) -> int | None:
+    if depth > 12:
+        return None
+    if isinstance(node, ast.Constant):
+        if type(node.value) is int:
+            constant_value = node.value
+            return (
+                constant_value
+                if -MAX_STATIC_INTEGER <= constant_value <= MAX_STATIC_INTEGER
+                else None
+            )
+        if type(node.value) is bool:
+            return int(node.value)
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+        unary_value = _bounded_numeric_value(node.operand, aliases, seen, depth + 1)
+        if unary_value is None:
+            return None
+        return unary_value if isinstance(node.op, ast.UAdd) else -unary_value
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Pow):
+        base = _bounded_numeric_value(node.left, aliases, seen, depth + 1)
+        exponent = _bounded_numeric_value(node.right, aliases, seen, depth + 1)
+        if base is None or exponent is None or exponent < 0 or exponent > 256:
+            return None
+        magnitude = -base if base < 0 else base
+        result = 1
+        for _ in range(exponent):
+            if magnitude and result > MAX_STATIC_INTEGER // magnitude:
+                return None
+            result *= magnitude
+        return -result if base < 0 and exponent % 2 else result
+    if isinstance(node, ast.Name) and node.id in aliases and node.id not in seen:
+        return _bounded_numeric_value(aliases[node.id], aliases, seen | {node.id}, depth + 1)
+    return None
+
+
+def _validate_numeric_operand_witness(
+    record: Record,
+    evidence_by_id: Mapping[str, Evidence],
+    declarations_by_id: Mapping[str, Record],
+    declarations_by_name: Mapping[str, tuple[Record, ...]],
+    expected_file: str,
+) -> None:
+    data = record.data
+    expression = _numeric_operation_expression(record, evidence_by_id, expected_file)
+    if expression is None:
+        if data.get("proof") == "known":
+            raise ValueError("known numeric operand lacks a complete source witness")
+        return
+    left = expression.left if isinstance(expression, ast.BinOp) else expression.target
+    subject = (
+        left.id
+        if isinstance(left, ast.Name)
+        else left.attr
+        if isinstance(left, ast.Attribute)
+        else None
+    )
+    if data.get("subject") != subject:
+        raise ValueError("numeric operand subject disagrees with its source expression")
+    if data.get("proof") != "known":
+        return
+    operand = expression.right if isinstance(expression, ast.BinOp) else expression.value
+    _validate_known_numeric_operand(
+        record,
+        operand,
+        evidence_by_id,
+        declarations_by_id,
+        declarations_by_name,
+        expected_file,
+    )
+
+
+def _validate_known_numeric_operand(
+    record: Record,
+    operand: ast.expr,
+    evidence_by_id: Mapping[str, Evidence],
+    declarations_by_id: Mapping[str, Record],
+    declarations_by_name: Mapping[str, tuple[Record, ...]],
+    expected_file: str,
+) -> None:
+    data = record.data
+    derivation = data.get("derivation")
+    if not isinstance(derivation, tuple):
+        raise ValueError("invalid numeric operand derivation")
+    if derivation and not _numeric_operation_scope_chain_matches(
+        record, declarations_by_id, str(data.get("module"))
+    ):
+        raise ValueError("numeric operand lexical scope chain is incomplete")
+    aliases: dict[str, ast.expr] = {}
+    origins: dict[str, RecordData] = {}
+    operation_aliases = {
+        node.id
+        for node in ast.walk(operand)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+    }
+    for origin in derivation:
+        if not isinstance(origin, RecordData):
+            raise ValueError("invalid numeric operand derivation")
+        name = origin.get("name")
+        if not isinstance(name, str):
+            raise ValueError("numeric operand alias name is invalid")
+        if origin.get("scope_evidence_id") is not None:
+            alias_expression = _numeric_local_alias_assignment(
+                origin,
+                record,
+                evidence_by_id,
+                declarations_by_id,
+                expected_file,
+                str(data.get("module")),
+                name in operation_aliases,
+            )
+        else:
+            alias_expression = _numeric_assignment_expression(origin, evidence_by_id, expected_file)
+            if not _numeric_module_alias_supported(
+                origin,
+                record,
+                declarations_by_name,
+                declarations_by_id,
+                evidence_by_id,
+                expected_file,
+                str(data.get("module")),
+                name in operation_aliases,
+            ):
+                raise ValueError("numeric module alias lacks a unique preceding declaration")
+        if alias_expression is None:
+            raise ValueError("numeric alias lacks a complete source witness")
+        if name in origins:
+            if origins[name] != origin:
+                raise ValueError("numeric operand alias has conflicting source origins")
+            continue
+        aliases[name] = alias_expression
+        origins[name] = origin
+    if not _numeric_alias_dependencies_precede_use(
+        aliases,
+        origins,
+        record,
+        evidence_by_id,
+        declarations_by_id,
+        expected_file,
+        str(data.get("module")),
+    ):
+        raise ValueError("numeric alias dependency does not precede its source use")
+    for name, origin in origins.items():
+        value = _bounded_numeric_value(aliases[name], aliases, frozenset({name}))
+        if value is None or value != origin.get("value"):
+            raise ValueError("numeric alias value disagrees with its expression")
+    value = _bounded_numeric_value(operand, aliases)
+    if value is None or value != data.get("value"):
+        raise ValueError("numeric operand value disagrees with its expression")
+
+
+def _numeric_alias_dependencies_precede_use(
+    aliases: Mapping[str, ast.expr],
+    origins: Mapping[str, RecordData],
+    operation: Record,
+    evidence_by_id: Mapping[str, Evidence],
+    declarations_by_id: Mapping[str, Record],
+    expected_file: str,
+    module_name: str,
+) -> bool:
+    positions: dict[str, tuple[int, int]] = {}
+    for name, origin in origins.items():
+        line = origin.get("line")
+        column = origin.get("column")
+        if (
+            not isinstance(line, int)
+            or isinstance(line, bool)
+            or not isinstance(column, int)
+            or isinstance(column, bool)
+        ):
+            return False
+        positions[name] = (line, column)
+    for name, expression in aliases.items():
+        for node in ast.walk(expression):
+            if (
+                isinstance(node, ast.Name)
+                and isinstance(node.ctx, ast.Load)
+                and node.id in positions
+                and positions[node.id] >= positions[name]
+            ):
+                return False
+            if (
+                isinstance(node, ast.Name)
+                and isinstance(node.ctx, ast.Load)
+                and node.id in origins
+                and not _numeric_alias_dependency_binding_supported(
+                    origins[name],
+                    origins[node.id],
+                    node.id,
+                    operation,
+                    evidence_by_id,
+                    declarations_by_id,
+                    expected_file,
+                    module_name,
+                )
+            ):
+                return False
+    return True
+
+
+def _numeric_alias_dependency_binding_supported(
+    dependent: RecordData,
+    dependency: RecordData,
+    name: str,
+    operation: Record,
+    evidence_by_id: Mapping[str, Evidence],
+    declarations_by_id: Mapping[str, Record],
+    expected_file: str,
+    module_name: str,
+) -> bool:
+    dependent_scope = dependent.get("scope_symbol_id")
+    dependency_scope = dependency.get("scope_symbol_id")
+    if dependent_scope is None:
+        return dependency_scope is None
+    chain = operation.data.get("binding_scopes")
+    if not isinstance(dependent_scope, str) or not isinstance(chain, tuple):
+        return False
+    start = next(
+        (
+            index
+            for index, item in enumerate(chain)
+            if isinstance(item, RecordData) and item.get("scope_symbol_id") == dependent_scope
+        ),
+        None,
+    )
+    if start is None:
+        return False
+    nested_function = False
+    nested_class = False
+    for item in chain[start:]:
+        if not isinstance(item, RecordData):
+            return False
+        symbol_id = item.get("scope_symbol_id")
+        if symbol_id == dependency_scope:
+            target = declarations_by_id.get(symbol_id) if isinstance(symbol_id, str) else None
+            return target is not None and not (
+                target.kind == "class" and (nested_function or nested_class)
+            )
+        if not isinstance(symbol_id, str):
+            return False
+        symbol = declarations_by_id.get(symbol_id)
+        evidence_id = item.get("scope_evidence_id")
+        owner_name = item.get("scope_owner")
+        scope_evidence = evidence_by_id.get(evidence_id) if isinstance(evidence_id, str) else None
+        if (
+            symbol is None
+            or not isinstance(owner_name, str)
+            or symbol.data.get("qualified_name") != owner_name
+            or scope_evidence is None
+            or scope_evidence.file != expected_file
+            or not _numeric_owner_evidence_matches(symbol, scope_evidence, evidence_by_id)
+        ):
+            return False
+        owner_result = _numeric_scope_owner(scope_evidence, owner_name, module_name)
+        if owner_result is None:
+            return False
+        owner, _ = owner_result
+        if isinstance(owner, ast.FunctionDef | ast.AsyncFunctionDef):
+            if _numeric_other_binding(owner, name) or _numeric_function_binds_locally(owner, name):
+                return False
+            nested_function = True
+        elif (
+            isinstance(owner, ast.ClassDef)
+            and not nested_function
+            and not nested_class
+            and _numeric_class_binds_locally(owner, name)
+        ):
+            return False
+        if isinstance(owner, ast.ClassDef):
+            nested_class = True
+    return dependency_scope is None
+
+
+def _numeric_operand_record(record: Record, fields: set[str]) -> tuple[str, ...]:
+    base_fields = (
+        "owner",
+        "module",
+        "operation",
+        "form",
+        "line",
+        "column",
+        "end_line",
+        "end_column",
+        "subject",
+        "proof",
+        "value",
+        "derivation",
+    )
+    scoped_fields = (
+        *base_fields,
+        "binding_scopes",
+    )
+    required = scoped_fields if "binding_scopes" in fields else base_fields
+    data = record.data
+    span_names = ("line", "column", "end_line", "end_column")
+    span = tuple(data.get(name) for name in span_names)
+    value = data.get("value")
+    derivation = data.get("derivation")
+    if (
+        fields not in (set(base_fields), set(scoped_fields))
+        or data.get("operation") != "modulo"
+        or data.get("form") not in {"binary", "augmented"}
+        or data.get("proof") not in {"known", "unknown"}
+        or not record.evidence_ids
+        or not isinstance(data.get("owner"), str)
+        or not data.get("owner")
+        or not isinstance(data.get("module"), str)
+        or not data.get("module")
+        or data.get("subject") is not None
+        and (not isinstance(data.get("subject"), str) or not data.get("subject"))
+        or not all(isinstance(item, int) and not isinstance(item, bool) for item in span)
+        or not isinstance(span[0], int)
+        or not isinstance(span[1], int)
+        or not isinstance(span[2], int)
+        or not isinstance(span[3], int)
+        or span[0] < 1
+        or span[1] < 0
+        or span[2] < span[0]
+        or span[3] < 0
+        or span[2] == span[0]
+        and span[3] <= span[1]
+        or data.get("proof") == "known"
+        and (
+            not isinstance(value, int)
+            or isinstance(value, bool)
+            or value < -MAX_STATIC_INTEGER
+            or value > MAX_STATIC_INTEGER
+        )
+        or data.get("proof") == "unknown"
+        and value is not None
+        or not isinstance(derivation, tuple)
+        or "binding_scopes" in fields
+        and not _numeric_binding_scopes(record.data.get("binding_scopes"), record.evidence_ids)
+    ):
+        raise ValueError("invalid numeric operand source proof")
+    for item in derivation:
+        if not isinstance(item, RecordData):
+            raise ValueError("invalid numeric operand alias proof")
+        _numeric_operand_alias(item, record.evidence_ids)
+    if data.get("proof") == "unknown" and derivation:
+        raise ValueError("invalid numeric operand source proof")
+    return required
+
+
+def _numeric_binding_scopes(value: JsonValue, evidence_ids: tuple[str, ...]) -> bool:
+    if not isinstance(value, tuple):
+        return False
+    fields = {"scope_owner", "scope_evidence_id", "scope_symbol_id"}
+    return all(
+        isinstance(scope, RecordData)
+        and {key for key, _ in scope.entries} == fields
+        and all(isinstance(scope.get(key), str) and scope.get(key) for key in fields)
+        and scope.get("scope_evidence_id") in evidence_ids
+        for scope in value
+    )
+
+
 def _source_record(record: Record, section: SourceSectionName) -> None:
     if record.evidence_class not in (EvidenceClass.FACT, EvidenceClass.UNKNOWN):
         raise ValueError("source records cannot carry governance decisions")
@@ -470,7 +1863,10 @@ def _source_record(record: Record, section: SourceSectionName) -> None:
         raise ValueError("reference declaration needs both identity fields")
     if fields & declaration and any(record.data.get(key) == "" for key in declaration):
         raise ValueError("reference declaration identities must be nonempty")
-    if not set(_REQUIRED[section]).issubset(fields):
+    required = _REQUIRED[section]
+    if section is SourceSectionName.CONSTRUCTS and record.kind == "numeric_operand":
+        required = _numeric_operand_record(record, fields)
+    if not set(required).issubset(fields):
         raise ValueError(f"{section} source payload is missing required fields")
     if record.data.get("member_inventories") is not None:
         if section != SourceSectionName.SYMBOLS or record.kind != "class":
@@ -763,6 +2159,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
         raise ValueError("provider bindings require Python source facts")
     candidate_ids = _unique((item.id for item in facts.candidate_evidence), "candidate evidence id")
     base_by_id = {item.id: item for item in facts.evidence}
+    module_files = {item.module: item.rel_path for item in facts.files}
     input_by_path = {item.path: item for item in facts.inputs}
     for binding in facts.provider_bindings:
         _unique(binding.supporting_evidence_ids, "provider alias support")
@@ -828,12 +2225,87 @@ def validate_source_facts(facts: SourceFacts) -> None:
     if names != declared:
         raise ValueError("source sections disagree with declared capabilities")
     records = [record for section in facts.sections for record in section.records]
+    declarations_by_id = {
+        record.id: record
+        for section in facts.sections
+        if section.name is SourceSectionName.SYMBOLS
+        for record in section.records
+    }
+    declaration_groups: dict[str, list[Record]] = {}
+    for symbol_record in declarations_by_id.values():
+        qualified_name_value = symbol_record.data.get("qualified_name")
+        if isinstance(qualified_name_value, str):
+            group: list[Record] = declaration_groups.setdefault(qualified_name_value, [])
+            group.append(symbol_record)
+    declarations_by_name = {
+        name: tuple(declarations) for name, declarations in declaration_groups.items()
+    }
     record_ids = _unique((record.id for record in records), "source record id")
     if file_ids & record_ids:
         raise ValueError("file and record ids collide")
+    for record in records:
+        if not set(record.evidence_ids).issubset(evidence_ids):
+            raise ValueError("dangling source evidence reference")
     for section in facts.sections:
         for record in section.records:
             _source_record(record, section.name)
+            if section.name is SourceSectionName.CONSTRUCTS and record.kind == "numeric_operand":
+                operation_span = (
+                    record.data.get("line"),
+                    record.data.get("column"),
+                    record.data.get("end_line"),
+                )
+                if not all(
+                    isinstance(item, int) and not isinstance(item, bool) for item in operation_span
+                ):
+                    raise ValueError("invalid numeric operand span")
+                if not any(
+                    (
+                        base_by_id[evidence_id].line,
+                        base_by_id[evidence_id].column,
+                        base_by_id[evidence_id].end_line,
+                    )
+                    == operation_span
+                    for evidence_id in record.evidence_ids
+                ):
+                    raise ValueError("numeric operand span disagrees with its evidence")
+                derivation = record.data.get("derivation")
+                if not isinstance(derivation, tuple):
+                    raise ValueError("invalid numeric operand derivation")
+                for origin in derivation:
+                    if not isinstance(origin, RecordData):
+                        raise ValueError("invalid numeric operand alias derivation")
+                    evidence_id = origin.get("evidence_id")
+                    line, column, end_line = (
+                        origin.get("line"),
+                        origin.get("column"),
+                        origin.get("end_line"),
+                    )
+                    if not isinstance(evidence_id, str) or not all(
+                        isinstance(item, int) and not isinstance(item, bool)
+                        for item in (line, column, end_line)
+                    ):
+                        raise ValueError("invalid numeric operand alias derivation")
+                    alias_evidence = base_by_id[evidence_id]
+                    if (
+                        alias_evidence.line,
+                        alias_evidence.column,
+                        alias_evidence.end_line,
+                    ) != (line, column, end_line):
+                        raise ValueError("numeric alias derivation disagrees with its evidence")
+                numeric_module = record.data.get("module")
+                expected_file = (
+                    module_files.get(numeric_module) if isinstance(numeric_module, str) else None
+                )
+                if expected_file is None:
+                    raise ValueError("numeric operand needs its source module")
+                _validate_numeric_operand_witness(
+                    record,
+                    base_by_id,
+                    declarations_by_id,
+                    declarations_by_name,
+                    expected_file,
+                )
             construct = record.data.get("construct")
             if construct is not None and not any(
                 entry.name == construct and entry.status != ConstructSupport.UNSUPPORTED
@@ -842,8 +2314,6 @@ def validate_source_facts(facts: SourceFacts) -> None:
                 raise ValueError("source construct disagrees with declared capabilities")
     fact_ids = record_ids | file_ids
     for record in records:
-        if not set(record.evidence_ids).issubset(evidence_ids):
-            raise ValueError("dangling source evidence reference")
         if not set(record.fact_ids).issubset(fact_ids):
             raise ValueError("dangling source fact reference")
     declarations: dict[str, list[Record]] = {}

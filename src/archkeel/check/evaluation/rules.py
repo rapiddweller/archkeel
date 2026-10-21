@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import builtins as _builtins
+import json
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from collections.abc import Set as AbstractSet
@@ -31,6 +32,7 @@ from archkeel.ir.model import (
     ArchitectureContract,
     ArchitectureRule,
     BoundaryTypesRule,
+    BoundedNumericOperandRule,
     CallOwnerRule,
     CompleteAssignmentRule,
     CompleteExternalScopeRule,
@@ -48,6 +50,7 @@ from archkeel.ir.model import (
     LayerOrderRule,
     ModuleExports,
     NoComponentCyclesRule,
+    ProtocolDeclarationsRule,
     RootLayoutRule,
     SiblingIsolationRule,
     SymbolPlacementRule,
@@ -170,6 +173,7 @@ from .boundary_types import boundary_type_limits as boundary_type_limits
 from .boundary_types import facade_signature_types as facade_signature_types
 from .boundary_types import public_api_exposed_types as public_api_exposed_types
 from .boundary_types import resolve_named_type as resolve_named_type
+from .protocol_declarations import protocol_declaration_results
 from .rule_support import DeclaredFacade as DeclaredFacade
 from .rule_support import FacadeEntry as FacadeEntry
 from .rule_support import ReexportIndex as ReexportIndex
@@ -962,9 +966,11 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
     if isinstance(
         rule,
         ForbiddenConstructRule
+        | BoundedNumericOperandRule
         | CompleteAssignmentRule
         | CompleteExternalScopeRule
-        | BoundaryTypesRule,
+        | BoundaryTypesRule
+        | ProtocolDeclarationsRule,
     ):
         return {"source": (rule.source,)}
     if isinstance(rule, RootLayoutRule):
@@ -1084,6 +1090,19 @@ def _construct_subject_symbols(
     return tuple(selected)
 
 
+def _numeric_rule_subject_modules(
+    rule: BoundedNumericOperandRule,
+    observed_modules: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    source_modules: frozenset[str] | None,
+) -> tuple[str, ...]:
+    return tuple(
+        item["data"]["qualified_name"]
+        for item in _modules_for_rule_source(rule.source, observed_modules, contract)
+        if source_modules is None or item["data"]["qualified_name"] in source_modules
+    )
+
+
 def _rule_subject_matches(
     rule: ArchitectureRule,
     contract: ArchitectureContract | None,
@@ -1127,6 +1146,7 @@ def rule_subject_failures(
     target_module_names: set[str] | None = None,
     symbols: Sequence[RawRecord] = (),
     imports: Sequence[RawRecord] = (),
+    observed_modules: Sequence[RawRecord] = (),
     contract: ArchitectureContract | None = None,
     exports_by_module: ModuleExports | None = None,
     uncertain_reexport_origins: UncertainReexportOrigins | None = None,
@@ -1154,6 +1174,12 @@ def rule_subject_failures(
         ):
             scopes = {"source": scopes["source"]}
         source_subjects: AbstractSet[str] = module_names | planned_subjects
+        if isinstance(rule, BoundedNumericOperandRule) and contract is not None:
+            numeric_modules = _numeric_rule_subject_modules(
+                rule, observed_modules, contract, source_modules
+            )
+            source_subjects = source_subjects | set(numeric_modules)
+            scopes = {"source": numeric_modules}
         target_subjects: AbstractSet[str] = (target_module_names or module_names) | planned_subjects
         if isinstance(rule, ForbiddenConstructRule):
             owner_modules = (
@@ -1182,23 +1208,33 @@ def rule_subject_failures(
         matches = _rule_subject_matches(rule, contract, scopes, source_subjects, target_subjects)
         missing = [side for side, count in matches.items() if count == 0]
         if missing:
-            reason = "no declared facade function" if facade_scoped else "no scanned modules"
             rule_failures.append(
-                classified(
-                    item_id=stable_id("UNKNOWN-RULE-SUBJECTS", rule.id),
-                    evidence_class=EvidenceClass.UNKNOWN,
-                    area="analysis_coverage",
-                    kind="rule-without-subjects",
-                    title=f"{rule.id}: {reason} for {', '.join(missing)}",
-                    subjects=[scope for side in missing for scope in scopes[side]],
-                    rule_ids=[rule.id],
-                    data={
-                        "missing": missing,
-                        **{f"{side}_matches": count for side, count in matches.items()},
-                    },
-                )
+                _missing_rule_subject_failure(rule, scopes, matches, facade_scoped)
             )
     return rule_failures
+
+
+def _missing_rule_subject_failure(
+    rule: ArchitectureRule,
+    scopes: dict[str, tuple[str, ...]],
+    matches: dict[str, int],
+    facade_scoped: bool,
+) -> RawRecord:
+    missing = [side for side, count in matches.items() if count == 0]
+    reason = "no declared facade function" if facade_scoped else "no scanned modules"
+    return classified(
+        item_id=stable_id("UNKNOWN-RULE-SUBJECTS", rule.id),
+        evidence_class=EvidenceClass.UNKNOWN,
+        area="analysis_coverage",
+        kind="rule-without-subjects",
+        title=f"{rule.id}: {reason} for {', '.join(missing)}",
+        subjects=[scope for side in missing for scope in scopes[side]],
+        rule_ids=[rule.id],
+        data={
+            "missing": missing,
+            **{f"{side}_matches": count for side, count in matches.items()},
+        },
+    )
 
 
 def _unsupported_module_object_grants(
@@ -1644,6 +1680,78 @@ def _layer_order_violations(contract: ArchitectureContract, scope: str) -> list[
     return violations
 
 
+def _numeric_operand_violations(
+    signals: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    modules: Sequence[RawRecord],
+    source_modules: frozenset[str] | None,
+) -> list[RawRecord]:
+    result: list[RawRecord] = []
+    for rule in contract.rules:
+        if not isinstance(rule, BoundedNumericOperandRule):
+            continue
+        selected = frozenset(
+            item["data"]["qualified_name"]
+            for item in _modules_for_rule_source(rule.source, modules, contract)
+            if source_modules is None or item["data"]["qualified_name"] in source_modules
+        )
+        for item in signals:
+            if item["kind"] != "numeric_operand":
+                continue
+            data = item["data"]
+            owner, subject, form = data["owner"], data["subject"], data["form"]
+            module = data["module"]
+            if (
+                not isinstance(owner, str)
+                or not isinstance(module, str)
+                or module not in selected
+                or not isinstance(subject, str)
+                or subject[len(subject) - len(rule.terminal_suffix) :] != rule.terminal_suffix
+                or rule.form.value not in {"both", form}
+            ):
+                continue
+            if (
+                data["proof"] == "known"
+                and isinstance(data["value"], int)
+                and not isinstance(data["value"], bool)
+            ):
+                if data["value"] >= rule.minimum_value:
+                    continue
+                evidence_class = EvidenceClass.VIOLATION
+                kind = rule.kind.value
+                title = f"{subject} modulo operand is below {rule.minimum_value}"
+            else:
+                evidence_class = EvidenceClass.UNKNOWN
+                kind = "numeric_operand_unknown"
+                title = f"{subject} modulo operand is not statically known"
+            result.append(
+                classified(
+                    item_id=stable_id(
+                        "VIO" if evidence_class is EvidenceClass.VIOLATION else "UNKNOWN",
+                        rule.id,
+                        item["id"],
+                    ),
+                    evidence_class=evidence_class,
+                    area="rules",
+                    kind=kind,
+                    title=title,
+                    subjects=[owner, subject],
+                    evidence_ids=item["evidence_ids"],
+                    rule_ids=[rule.id],
+                    fact_ids=[item["id"]],
+                    data={
+                        "threshold": rule.minimum_value,
+                        "terminal_suffix": rule.terminal_suffix,
+                        "form": form,
+                        "proof": data.get("proof"),
+                        "value": data.get("value"),
+                        "derivation": data.get("derivation", []),
+                    },
+                )
+            )
+    return result
+
+
 def _layer_metadata_failures(
     contract: ArchitectureContract, rule: LayerOrderRule
 ) -> list[RawRecord]:
@@ -1718,6 +1826,7 @@ def _collect_rule_violations(
         *_construct_violations(
             [*typing_signals, *constructs], contract.rules, source_modules, allowance_facts
         ),
+        *_numeric_operand_violations(constructs, contract, modules, source_modules),
         *_external_dependency_violations(imports, contract.rules, source_modules),
         *_external_completeness_violations(
             imports, modules, contract.rules, profile.standard_library, source_modules
@@ -1770,6 +1879,7 @@ def _collect_rule_violations(
                 blank_modules=blank_modules,
                 receipt_scope_complete=receipt_scope_complete,
                 symbols=symbols,
+                constructs=constructs,
             )
         )
     return sorted(result, key=lambda item: item["id"])
@@ -1835,6 +1945,14 @@ def rule_violations(
     cycle_namespace_complete, cycle_graph_components = _cycle_scan_coverage(
         contract, modules, profile, cycle_scan_roots, cycle_namespace
     )
+    receipt_scope_complete = scope_receipts_complete(
+        contract,
+        modules,
+        profile,
+        source_roots,
+        source_exact_modules,
+        receipt_scan_roots if receipt_scan_roots is not None else cycle_scan_roots,
+    )
     result = _collect_rule_violations(
         imports=imports,
         typing_signals=typing_signals,
@@ -1855,46 +1973,31 @@ def rule_violations(
         allowance_facts=allowance_facts,
         assessment_facts=assessment_facts,
         assessment_parent=assessment_parent,
-        receipt_scope_complete=(
-            not (
-                package_scopes := (
-                    *source_roots,
-                    *(
-                        package
-                        for component in contract.components
-                        for package in component.packages
-                    ),
-                )
-            )
-            or _scan_covers_packages(
-                package_scopes,
-                modules,
-                profile,
-                receipt_scan_roots if receipt_scan_roots is not None else cycle_scan_roots,
-            )
-        )
-        and _scan_covers_exact_modules(
-            tuple(
-                module
-                for module in (
-                    *source_exact_modules,
-                    *(
-                        exact_module
-                        for component in contract.components
-                        for exact_module in component.exact_modules or ()
-                    ),
-                )
-            ),
-            modules,
-            receipt_scan_roots if receipt_scan_roots is not None else cycle_scan_roots,
-        ),
+        receipt_scope_complete=receipt_scope_complete,
         cycle_scope_complete=(
             len(cycle_graph_components) == len(contract.components) and bool(contract.components)
         ),
         cycle_graph_components=cycle_graph_components,
         cycle_namespace_complete=cycle_namespace_complete,
     )
-    return result, allowance_facts
+    protocol_violations, _, protocol_receipts = protocol_declaration_results(
+        symbols=symbols,
+        imports=imports,
+        modules=modules,
+        contract=contract,
+        source_modules=source_modules,
+        uncertain_reexport_origins=uncertain_reexport_origins,
+        type_shapes=type_shapes,
+        profile=profile,
+        scope=assessment_parent or "root",
+        receipt_scope_complete=receipt_scope_complete,
+    )
+    result.extend(protocol_violations)
+    if assessment_facts is not None:
+        assessment_facts.extend(protocol_receipts)
+    numeric_unknowns = [item for item in result if item["kind"] == "numeric_operand_unknown"]
+    violations = [item for item in result if item["kind"] != "numeric_operand_unknown"]
+    return violations, [*allowance_facts, *numeric_unknowns]
 
 
 def _cycle_scan_coverage(
@@ -2025,6 +2128,39 @@ def _scan_covers_exact_modules(
     )
 
 
+def scope_receipts_complete(
+    contract: ArchitectureContract,
+    modules: Sequence[RawRecord],
+    profile: Profile,
+    source_roots: tuple[str, ...],
+    source_exact_modules: tuple[str, ...],
+    scan_roots: tuple[str, ...],
+) -> bool:
+    """Prove receipts cover declared, exact, and protocol source domains."""
+    selector_sources: list[str] = []
+    for rule in contract.rules:
+        if not isinstance(rule, ProtocolDeclarationsRule):
+            continue
+        if _modules_for_rule_source(rule.source, modules, contract):
+            selector_sources.append(rule.source)
+    package_scopes = (
+        *source_roots,
+        *(package for component in contract.components for package in component.packages),
+        *selector_sources,
+    )
+    exact_scopes = (
+        *source_exact_modules,
+        *(
+            exact_module
+            for component in contract.components
+            for exact_module in component.exact_modules or ()
+        ),
+    )
+    return (
+        not package_scopes or _scan_covers_packages(package_scopes, modules, profile, scan_roots)
+    ) and _scan_covers_exact_modules(exact_scopes, modules, scan_roots)
+
+
 def _relative_path(value: str) -> PurePosixPath:
     path = PurePosixPath(value)
     return PurePosixPath(*(part for part in path.parts if part not in {".", ""}))
@@ -2049,6 +2185,68 @@ def _forbidden_rule_modules(
     )
 
 
+def _numeric_rule_receipt(
+    rule: BoundedNumericOperandRule,
+    scope: str,
+    selected: Sequence[RawRecord],
+    constructs: Sequence[RawRecord],
+) -> RawRecord:
+    operations = tuple(
+        item
+        for item in constructs
+        if item["kind"] == "numeric_operand"
+        and item["data"]["module"] in {module["data"]["qualified_name"] for module in selected}
+        and isinstance(subject := item["data"]["subject"], str)
+        and subject[len(subject) - len(rule.terminal_suffix) :] == rule.terminal_suffix
+        and rule.form.value in {"both", item["data"]["form"]}
+    )
+    return _rule_evaluation_receipt(
+        rule,
+        scope,
+        operations,
+        subjects=[item["data"]["qualified_name"] for item in selected],
+        data={
+            "threshold": rule.minimum_value,
+            "terminal_suffix": rule.terminal_suffix,
+            "form": rule.form.value,
+            "assessment_complete": bool(operations),
+            "operation_binding": stable_id(
+                "NUMERIC-OPERAND",
+                rule.id,
+                json.dumps(
+                    sorted((item["id"], item["data"]) for item in operations),
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
+            ),
+        },
+    )
+
+
+def _construct_rule_domain(
+    source: str,
+    observed: Sequence[RawRecord],
+    contract: ArchitectureContract,
+    symbols: Sequence[RawRecord],
+) -> tuple[tuple[RawRecord, ...], Sequence[str] | None]:
+    selected = _modules_for_rule_source(source, observed, contract)
+    if selected:
+        return selected, None
+    selected = _construct_subject_symbols(
+        source, symbols, frozenset(item["data"]["qualified_name"] for item in observed)
+    )
+    return selected, [item["data"]["qualified_name"] for item in selected]
+
+
+_SeparateReceiptRule: TypeAlias = (
+    AllowedDependencyRule
+    | BoundaryTypesRule
+    | NoComponentCyclesRule
+    | CallOwnerRule
+    | ProtocolDeclarationsRule
+)
+
+
 def rule_evaluation_facts(
     contract: ArchitectureContract,
     *,
@@ -2059,13 +2257,12 @@ def rule_evaluation_facts(
     blank_modules: frozenset[str],
     receipt_scope_complete: bool,
     symbols: Sequence[RawRecord] = (),
+    constructs: Sequence[RawRecord] = (),
 ) -> list[RawRecord]:
-    """Record completed evaluations or ownership blockers for one observation scope.
+    """Issue completion receipts and explanatory blockers for one observed scope.
 
-    Only `rule_evaluation` records certify completion. Blocker facts explain missing receipts
-    without turning an incomplete scope into PASS. Declaration-only and unsupported rules
-    have no evaluation receipt. Named construct owners additionally require actual symbols;
-    omitted symbol evidence preserves module receipts without certifying a named owner.
+    Unsupported/declaration-only rules receive no receipt. Named construct owners require
+    actual symbol evidence; module evidence alone cannot certify those owners.
     """
     observed = tuple(
         item
@@ -2074,9 +2271,7 @@ def rule_evaluation_facts(
     )
     facts: list[RawRecord] = []
     for rule in contract.rules:
-        if rule.kind in profile.unsupported_rules or isinstance(
-            rule, AllowedDependencyRule | BoundaryTypesRule | NoComponentCyclesRule | CallOwnerRule
-        ):
+        if rule.kind in profile.unsupported_rules or isinstance(rule, _SeparateReceiptRule):
             continue
         if isinstance(rule, LayerOrderRule):
             facts.extend(_layer_order_evaluation_facts(contract, rule, scope))
@@ -2112,22 +2307,23 @@ def rule_evaluation_facts(
                 item for item in observed if in_scope(item["data"]["qualified_name"], rule.root)
             )
         elif isinstance(rule, ForbiddenConstructRule):
-            selected = _modules_for_rule_source(rule.source, observed, contract)
-            if not selected:
-                selected = _construct_subject_symbols(
-                    rule.source,
-                    symbols,
-                    frozenset(item["data"]["qualified_name"] for item in observed),
-                )
-                subjects = [item["data"]["qualified_name"] for item in selected]
+            selected, subjects = _construct_rule_domain(rule.source, observed, contract, symbols)
         elif isinstance(
-            rule, CompleteAssignmentRule | CompleteExternalScopeRule | SymbolPlacementRule
+            rule,
+            BoundedNumericOperandRule
+            | CompleteAssignmentRule
+            | CompleteExternalScopeRule
+            | SymbolPlacementRule,
         ):
             selected = _modules_for_rule_source(rule.source, observed, contract)
         else:
             assert_never(rule)
         if selected:
-            facts.append(_rule_evaluation_receipt(rule, scope, selected, subjects=subjects))
+            facts.append(
+                _numeric_rule_receipt(rule, scope, selected, constructs)
+                if isinstance(rule, BoundedNumericOperandRule)
+                else _rule_evaluation_receipt(rule, scope, selected, subjects=subjects)
+            )
     return facts
 
 
