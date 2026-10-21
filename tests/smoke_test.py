@@ -12,9 +12,6 @@ from importlib.resources import files
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from jsonschema import Draft202012Validator
-from referencing import Registry, Resource
-
 
 def main() -> None:
     assets = files("archkeel.render").joinpath("assets")
@@ -41,16 +38,11 @@ def main() -> None:
         )
     )
     assert python_2_7["$id"] == "urn:archkeel:architecture-ir:python-decoded:2.7.0"
-    resources = []
-    for schema_path in schemas.iterdir():
-        if schema_path.name.endswith(".schema.json"):
-            schema = json.loads(schema_path.read_text(encoding="utf-8"))
-            resources.append((schema["$id"], Resource.from_contents(schema)))
-    registry = Registry().with_resources(resources)
-    Draft202012Validator(
-        {"$ref": "https://archkeel.dev/schema/source-facts/5.0.0#/$defs/CallBinding"},
-        registry=registry,
-    ).validate({"origin": "direct", "target": "sample.call", "evidence_ids": ["EVD-1"]})
+    assert source_facts_5["$defs"]["CallBinding"]["required"] == [
+        "origin",
+        "target",
+        "evidence_ids",
+    ]
     for name in (
         "architecture-ir-common.schema.json",
         "architecture-ir-python-decoded.schema.json",

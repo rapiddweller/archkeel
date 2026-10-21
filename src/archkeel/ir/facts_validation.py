@@ -2817,8 +2817,7 @@ def _numeric_type_alias_parameters(
     type_alias_index: Mapping[str, tuple[tuple[int, ...], tuple[int, ...]]],
 ) -> tuple[frozenset[str], bool]:
     """Return TypeAlias parameters attached to this operation's source witnesses."""
-    type_alias = getattr(ast, "TypeAlias", None)
-    if type_alias is None:
+    if sys.version_info < (3, 12):
         return frozenset(), False
     operation_line = record.data.get("line")
     operation_column = record.data.get("column")
@@ -2849,8 +2848,10 @@ def _numeric_type_alias_parameters(
         evidence = evidence_by_id.get(evidence_id)
         if evidence is None or evidence.file != expected_file:
             continue
-        excerpt = evidence.excerpt.lstrip()
-        if not (excerpt.startswith("type ") and "[" in excerpt):
+        evidence_excerpt: str = evidence.excerpt
+        excerpt: str = evidence_excerpt.lstrip()
+        starts_type_alias: bool = excerpt.startswith("type ")
+        if not (starts_type_alias and "[" in excerpt):
             continue
         parsed = _numeric_evidence_nodes(evidence)
         if parsed is None:
@@ -2861,13 +2862,9 @@ def _numeric_type_alias_parameters(
         roots, line_offset = parsed
         for root in roots:
             for candidate in ast.walk(root):
-                if not isinstance(candidate, type_alias):
+                if not isinstance(candidate, ast.TypeAlias):
                     continue
-                names = {
-                    type_param.name
-                    for type_param in candidate.type_params
-                    if isinstance(getattr(type_param, "name", None), str)
-                }
+                names = {type_param.name for type_param in candidate.type_params}
                 if not names:
                     continue
                 if any(
@@ -5916,11 +5913,12 @@ def validate_source_facts(facts: SourceFacts) -> None:
             continue
         for type_alias_evidence_id in declaration.evidence_ids:
             evidence = base_by_id[type_alias_evidence_id]
-            excerpt = evidence.excerpt.lstrip()
-            if excerpt.startswith("type ") and "[" in excerpt:
-                type_alias_ranges.setdefault(evidence.file, []).append(
-                    (evidence.line, evidence.end_line)
-                )
+            evidence_excerpt: str = evidence.excerpt
+            excerpt: str = evidence_excerpt.lstrip()
+            starts_type_alias: bool = excerpt.startswith("type ")
+            if starts_type_alias and "[" in excerpt:
+                ranges: list[tuple[int, int]] = type_alias_ranges.setdefault(evidence.file, [])
+                ranges.append((evidence.line, evidence.end_line))
     type_alias_index: dict[str, tuple[tuple[int, ...], tuple[int, ...]]] = {}
     for file, ranges in type_alias_ranges.items():
         starts: list[int] = []
