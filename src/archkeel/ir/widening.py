@@ -55,6 +55,7 @@ from .model import (
     SiblingIsolationRule,
     SourceOwnershipRule,
     last_name,
+    requires_covers,
 )
 
 __all__ = (
@@ -575,13 +576,18 @@ def _requires_widenings(
     subject: str, before: tuple[RequiredComponent, ...], after: tuple[RequiredComponent, ...]
 ) -> list[WideningChange]:
     # A component may be required by several entries, so entries are compared as a set, never
-    # keyed by component: any entry not present before grants something new (fail closed),
-    # and an entry no longer present is a removed permission: narrowing, not reported.
+    # keyed by component: a new entry widens unless the same author already permitted its
+    # imports to the same target (AD-245); a removed entry is a narrowing, not reported.
     before_entries = {(item.component, item.through, item.decided_by) for item in before}
     before_components = {item.component for item in before}
     findings: list[WideningChange] = []
     for name, through, decided_by in sorted(
-        {(item.component, item.through, item.decided_by) for item in after} - before_entries,
+        {
+            (item.component, item.through, item.decided_by)
+            for item in after
+            if not _contained(item, before)
+        }
+        - before_entries,
         key=repr,
     ):
         findings.append(
@@ -595,6 +601,31 @@ def _requires_widenings(
             )
         )
     return findings
+
+
+def _effective_requires(component: ContractComponent) -> tuple[RequiredComponent, ...]:
+    """Entries with the author they inherit from their component when they name none (AD-50)."""
+    return tuple(
+        replace(item, decided_by=item.decided_by or component.decided_by)
+        for item in component.requires or ()
+    )
+
+
+def _contained(entry: RequiredComponent, before: tuple[RequiredComponent, ...]) -> bool:
+    """Whether `before` already let the same author import everything `entry` permits."""
+    same = tuple(
+        item
+        for item in before
+        if item.component == entry.component and item.decided_by == entry.decided_by
+    )
+    if not entry.through:
+        return any(not item.through for item in same)
+    return all(
+        requires_covers(same, entry.component, module, symbol or None)
+        for module, _, symbol in (
+            _builtins.str.partition(selector, ":") for selector in entry.through
+        )
+    )
 
 
 def _namespace_widenings(
@@ -636,7 +667,7 @@ def _component_widenings(
             WideningChange(subject, "planned", f"{subject}.planned lost {item!r}")
             for item in sorted(before_planned - after_planned - promoted)
         ],
-        *_requires_widenings(subject, before.requires or (), after.requires or ()),
+        *_requires_widenings(subject, _effective_requires(before), _effective_requires(after)),
         *_namespace_widenings(subject, before.namespace, after.namespace),
         *_generic_field_widenings(
             subject,
