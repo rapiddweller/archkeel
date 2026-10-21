@@ -67,7 +67,9 @@ def test_source_reference_declaration_identity_pair(details, accepted):
         "status": "resolved",
         "targets": ["project.store"],
         "use": "value",
-        "reference_context": "annotation",
+        # This test isolates declaration-identity pairing; E-app is import evidence, not an
+        # annotation occurrence, so keep the claimed reference context unknown.
+        "reference_context": "unknown",
         **details,
     }
     section = next(

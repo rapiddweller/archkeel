@@ -385,6 +385,7 @@ def test_recursive_wide_report_includes_catalog_isolated_module_and_package_root
         for record in observation.records("modules") or ()
     }
     expected = {
+        "shop.app.catalog",
         "shop.app.maintenance",
         "shop.app.orders",
         "shop.app.tokens",

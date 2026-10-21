@@ -116,6 +116,17 @@ def test_missing_symbol_proof_is_unknown(tmp_path, missing, imported_base):
     for section in payload["facts"]["sections"]:
         for record in section["records"]:
             record["data"].pop(missing, None)
+    if missing == "source_binding_unique":
+        # The collector's final-method claim depends on this owner proof. First retain
+        # the contradictory claim to exercise strict rejection, then remove it so this
+        # case isolates the intended missing-proof behavior.
+        with pytest.raises(
+            ProtocolError, match="final method binding needs its last undecorated definition"
+        ):
+            decode_response(json.dumps(payload).encode())
+        for section in payload["facts"]["sections"]:
+            for record in section["records"]:
+                record["data"].pop("source_final_method_binding", None)
     facts = decode_response(json.dumps(payload).encode()).facts
     observation = assemble_observation(
         facts,
