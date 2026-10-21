@@ -339,47 +339,12 @@ def _helper_proof_effect(
             "The helper effect path is incomplete",
             [caller, context.helper, inner_call],
         )
-    return _helper_condition_path_effect(
-        rule,
-        scope,
-        caller,
-        caller_proof,
-        helper_fact,
-        context.helper,
-        inner_call,
-        proof,
-        binding_evidence_ids,
-        token,
-    )
-
-
-def _helper_condition_path_effect(
-    rule: ForbiddenEffectUnderConditionRule,
-    scope: str,
-    caller: RawRecord,
-    caller_proof: GuardedEffectEvidence,
-    helper_fact: GuardHelperBinding,
-    helper: RawRecord,
-    inner_call: RawRecord,
-    proof: GuardedEffectEvidence,
-    binding_evidence_ids: tuple[str, ...],
-    token: GuardHelperArgument,
-) -> tuple[RawRecord | None, RawRecord | None]:
-    if proof.condition_value is None:
-        return _helper_violation(
-            rule,
-            scope,
-            caller,
-            caller_proof,
-            helper_fact,
-            helper,
-            inner_call,
-            proof,
-            binding_evidence_ids,
-            token,
-        ), None
-    substituted, limit = _helper_condition_value(
-        rule, scope, caller, caller_proof, helper, inner_call, token
+    substituted, limit = (
+        (None, None)
+        if proof.condition_value is None
+        else _helper_condition_value(
+            rule, scope, caller, caller_proof, context.helper, inner_call, token
+        )
     )
     if limit is not None:
         return None, limit
@@ -389,7 +354,7 @@ def _helper_condition_path_effect(
             rule,
             scope,
             "The helper path polarity cannot be substituted",
-            [caller, helper, inner_call],
+            [caller, context.helper, inner_call],
         )
     if not violation:
         return None, None
@@ -399,7 +364,7 @@ def _helper_condition_path_effect(
         caller,
         caller_proof,
         helper_fact,
-        helper,
+        context.helper,
         inner_call,
         proof,
         binding_evidence_ids,
