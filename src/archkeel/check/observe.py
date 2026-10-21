@@ -17,7 +17,13 @@ from archkeel.ir.codec import (
 from archkeel.ir.codec import (
     load_inside_contract_tree as _load_inside_contract_tree,
 )
-from archkeel.ir.facts import SOURCE_RESOLUTION_GAP_KIND, SourceFacts, UnresolvedTarget
+from archkeel.ir.collection_features import required_resolution_features
+from archkeel.ir.facts import (
+    RULE_FAMILY_NOT_COLLECTED_KIND,
+    SOURCE_RESOLUTION_GAP_KIND,
+    SourceFacts,
+    UnresolvedTarget,
+)
 from archkeel.ir.facts import ResolutionRole as _ResolutionRole
 from archkeel.ir.model import (
     ArchitectureContract as _ArchitectureContract,
@@ -25,6 +31,7 @@ from archkeel.ir.model import (
 from archkeel.ir.model import (
     Diagnostic,
     DiagnosticKind,
+    InsideContractTree,
     Observation,
     ObservationResult,
     UmlEligibility,
@@ -76,7 +83,7 @@ def _contract_input_failure(error: _ContractInputError) -> ObservationResult:
 
 def _nested_reference_failure(
     root: Path, contract_path: Path, contract: _ArchitectureContract, digest: str
-) -> ObservationResult | None:
+) -> ObservationResult | InsideContractTree:
     repository = root.resolve()
     identity = contract_path.resolve().relative_to(repository).as_posix()
 
@@ -104,10 +111,10 @@ def _nested_reference_failure(
                 str(issue.input_error),
             )
             return _contract_input_failure(error)
-    return None
+    return tree
 
 
-def _contract_failure(path: Path, contract_root: Path) -> ObservationResult | None:
+def _contract_tree(path: Path, contract_root: Path) -> ObservationResult | InsideContractTree:
     try:
         contract, digest = load_contract(path)
     except ContractVersionError as error:
@@ -138,6 +145,10 @@ _RULE_FAILURES: Final[dict[str, tuple[DiagnosticKind, str]]] = {
     "rule-unsupported-by-profile": (
         DiagnosticKind.RULE_UNSUPPORTED_BY_PROFILE,
         "Remove the rule or declaration, or run a profile that supports it.",
+    ),
+    RULE_FAMILY_NOT_COLLECTED_KIND: (
+        DiagnosticKind.RULE_UNSUPPORTED_BY_PROFILE,
+        "Collect the facts under this contract, or use a collector that declares the family.",
     ),
 }
 _SOURCE_NAME: Final[dict[Language, str]] = {
@@ -293,8 +304,9 @@ def _observe(
     suffix = PROFILES[language].source_suffix
     try:
         contract_file = contract_root / contract
-        if failure := _contract_failure(contract_file, contract_root):
-            return failure
+        tree = _contract_tree(contract_file, contract_root)
+        if isinstance(tree, ObservationResult):
+            return tree
         for root in roots:
             directory = source_root / root
             file_root = language == Language.TYPESCRIPT and directory.is_file()
@@ -315,7 +327,9 @@ def _observe(
                         "Remove the source symlink or correct the scan scope.",
                     )
         resolver: ResolverSettings = (
-            PythonSettings()
+            PythonSettings(
+                features=tuple(sorted(required_resolution_features(tree.root, tree.mounts)))
+            )
             if language == Language.PYTHON
             else DartSettings()
             if language == Language.DART

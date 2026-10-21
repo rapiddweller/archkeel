@@ -32,8 +32,10 @@ from archkeel.ir.protocol import (
     CollectionErrorKind,
     CollectionRequest,
     CollectionResponse,
+    ProtocolVersion,
     PythonCollectionPhase,
     PythonSettings,
+    collected_resolution_features,
 )
 
 
@@ -249,6 +251,16 @@ def _requested_facts(facts: SourceFacts, request: CollectionRequest) -> None:
         and frozenset(facts.capabilities.sections) != frozenset(PYTHON_IMPORT_SURVEY_SECTIONS)
     ):
         raise ProtocolError("collector sections disagree with requested import survey")
+    if (
+        request.protocol_version is ProtocolVersion.V7
+        and isinstance(request.resolver, PythonSettings)
+        and request.resolver.phase is PythonCollectionPhase.COLLECT
+        and frozenset(facts.capabilities.resolution_features)
+        != frozenset(
+            collected_resolution_features(request.protocol_version, request.resolver.features)
+        )
+    ):
+        raise ProtocolError("collector resolution features disagree with requested features")
     if (
         facts.source.git_head != request.snapshot.git_head
         or facts.source.dirty != request.snapshot.dirty

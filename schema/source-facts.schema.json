@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://archkeel.dev/schema/source-facts/6.0.0",
-  "title": "ArchKeel source collection protocols 1.0.0-6.0.0",
+  "title": "ArchKeel source collection protocols 1.0.0-7.0.0",
   "description": "Structural wire contract. facts_validation additionally checks section payloads, scope, digests, unique identities, coverage and references. Architecture policy never crosses this port.",
   "$defs": {
     "StringTableReference": {
@@ -1413,7 +1413,8 @@
             "3.0.0",
             "4.0.0",
             "5.0.0",
-            "6.0.0"
+            "6.0.0",
+            "7.0.0"
           ]
         },
         "snapshot": {
@@ -1532,6 +1533,17 @@
                     "imports",
                     "providers"
                   ]
+                },
+                "features": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "enum": [
+                      "construct_selectors",
+                      "guarded_effect_paths",
+                      "source_roles"
+                    ]
+                  }
                 }
               },
               "required": [
@@ -1580,7 +1592,8 @@
                 "enum": [
                   "4.0.0",
                   "5.0.0",
-                  "6.0.0"
+                  "6.0.0",
+                  "7.0.0"
                 ]
               },
               "resolver": {
@@ -1613,6 +1626,44 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "protocol_version": {
+                "const": "7.0.0"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "resolver": {
+                "if": {
+                  "properties": {
+                    "language": {
+                      "const": "python"
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "features"
+                  ]
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "resolver": {
+                "not": {
+                  "required": [
+                    "features"
+                  ]
+                }
+              }
+            }
+          }
         }
       ]
     },
@@ -1626,7 +1677,8 @@
             "3.0.0",
             "4.0.0",
             "5.0.0",
-            "6.0.0"
+            "6.0.0",
+            "7.0.0"
           ]
         },
         "facts": {
@@ -1889,7 +1941,10 @@
           "if": {
             "properties": {
               "protocol_version": {
-                "const": "6.0.0"
+                "enum": [
+                  "6.0.0",
+                  "7.0.0"
+                ]
               }
             }
           },

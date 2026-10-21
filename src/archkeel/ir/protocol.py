@@ -3,11 +3,18 @@
 # SPDX-License-Identifier: MIT
 """Source-only request and response envelopes for replaceable language processes."""
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final, Literal, TypeAlias
 
-from .facts import Language, SourceFacts, SourceSectionName
+from .facts import (
+    BASE_RESOLUTION_FEATURES,
+    GATED_RESOLUTION_FEATURES,
+    Language,
+    SourceFacts,
+    SourceSectionName,
+)
 
 PROTOCOL_VERSION: Final = "3.0.0"
 
@@ -19,6 +26,7 @@ class ProtocolVersion(StrEnum):
     V4 = "4.0.0"
     V5 = "5.0.0"
     V6 = "6.0.0"
+    V7 = "7.0.0"
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +67,8 @@ class PythonSettings:
     language: Literal[Language.PYTHON] = Language.PYTHON
     provider_sources: tuple[PythonProviderSource, ...] = ()
     phase: PythonCollectionPhase = PythonCollectionPhase.COLLECT
+    # Gated resolution families this scan needs; protocols before 7.0.0 collect every family.
+    features: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,3 +112,16 @@ class CollectionError:
     kind: CollectionErrorKind
     subject: str
     message: str
+
+
+def collected_resolution_features(
+    version: ProtocolVersion, requested: Iterable[str]
+) -> tuple[str, ...]:
+    """Families a collector declares: every one before protocol 7.0.0, else base plus requested."""
+    if version is not ProtocolVersion.V7:
+        return (*BASE_RESOLUTION_FEATURES, *GATED_RESOLUTION_FEATURES)
+    wanted = frozenset(requested)
+    return (
+        *BASE_RESOLUTION_FEATURES,
+        *(feature for feature in GATED_RESOLUTION_FEATURES if feature in wanted),
+    )

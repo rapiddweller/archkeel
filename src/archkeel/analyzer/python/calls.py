@@ -320,6 +320,8 @@ def _assignment_name_values(statement: ast.Assign) -> list[tuple[ast.Name, ast.e
 
 
 class CallCollector(ast.NodeVisitor):
+    include_guarded_effects = True  # AD-257: collect_calls_with_resolvers narrows it per scan
+
     def __init__(
         self,
         module: ParsedModule,
@@ -1866,7 +1868,9 @@ class CallCollector(ast.NodeVisitor):
         resolved_targets: list[str],
     ) -> tuple[RecordData, ...]:
         owner = scope.node
-        if not isinstance(owner, ast.FunctionDef | ast.AsyncFunctionDef):
+        if not self.include_guarded_effects or not isinstance(
+            owner, ast.FunctionDef | ast.AsyncFunctionDef
+        ):
             return ()
         candidates = self._guarded_candidates(node, owner, scope)
         facts: list[RecordData] = []
@@ -2215,6 +2219,8 @@ def collect_calls_with_resolvers(
     provider_bindings: Sequence[ProviderBinding] = (),
     runtime: RuntimeInfo | None = None,
     imports: Sequence[RawRecord] = (),
+    *,
+    include_guarded_effects: bool = True,
 ) -> tuple[list[RawRecord], tuple[CallCollector, ...]]:
     """Collect calls and retain their per-module resolver for construct evidence."""
     calls: list[RawRecord] = []
@@ -2238,6 +2244,7 @@ def collect_calls_with_resolvers(
     ]
     revocation_cache: dict[str, bool] = {}
     for call_collector in collectors:
+        call_collector.include_guarded_effects = include_guarded_effects
         call_collector.native_mutation_collectors = tuple(collectors)
         call_collector.native_revocation_cache = revocation_cache
     for call_collector in collectors:

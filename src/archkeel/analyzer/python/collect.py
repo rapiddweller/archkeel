@@ -26,11 +26,10 @@ from archkeel.analyzer.runtime import (
     python_requirement,
 )
 from archkeel.ir.facts import (
-    CALL_ARGUMENTS_FEATURE,
-    CALL_BINDINGS_FEATURE,
-    EXTENDED_CALL_BINDINGS_FEATURE,
+    CONSTRUCT_SELECTORS_FEATURE,
     GUARDED_EFFECTS_FEATURE,
     NATIVE_CALL_TARGETS,
+    SOURCE_ROLES_FEATURE,
     BuiltinTarget,
     Capabilities,
     CollectionCoverage,
@@ -65,6 +64,7 @@ from archkeel.ir.protocol import (
     PythonCollectionPhase,
     PythonProviderSource,
     PythonSettings,
+    collected_resolution_features,
 )
 
 from .bindings import collect_bindings
@@ -137,7 +137,7 @@ class PythonProviderCollector:
         initial_response = self.collector.collect_response(
             replace(
                 request,
-                resolver=PythonSettings(phase=PythonCollectionPhase.PROVIDERS),
+                resolver=replace(request.resolver, phase=PythonCollectionPhase.PROVIDERS),
                 protocol_version=ProtocolVersion.V4,
             )
         )
@@ -164,11 +164,11 @@ class PythonProviderCollector:
         final_request = (
             replace(
                 request,
-                resolver=PythonSettings(provider_sources=providers),
-                protocol_version=ProtocolVersion.V6,
+                resolver=replace(request.resolver, provider_sources=providers),
+                protocol_version=ProtocolVersion.V7,
             )
             if providers
-            else replace(request, protocol_version=ProtocolVersion.V6)
+            else replace(request, protocol_version=ProtocolVersion.V7)
         )
         remaining_collector: ProcessCollector = replace(self.collector, timeout_seconds=remaining)
         enriched = remaining_collector.collect(final_request)
@@ -424,6 +424,10 @@ def collect(request: CollectionRequest) -> SourceFacts:
     captured_sources = (
         request.resolver.provider_sources if isinstance(request.resolver, PythonSettings) else ()
     )
+    collected_features = collected_resolution_features(
+        request.protocol_version,
+        request.resolver.features if isinstance(request.resolver, PythonSettings) else (),
+    )
     uncertain, unsafe_creation_providers = resolve_reexports(
         imports,
         {module.module: module.all_exports for module in modules},
@@ -441,18 +445,34 @@ def collect(request: CollectionRequest) -> SourceFacts:
         unsafe_creation_providers=unsafe_creation_providers,
         unsafe_source_header_providers=explicit_factory_unsafe_providers(imports, modules),
     )
-    if request.protocol_version in {ProtocolVersion.V4, ProtocolVersion.V5, ProtocolVersion.V6}:
+    if request.protocol_version in {
+        ProtocolVersion.V4,
+        ProtocolVersion.V5,
+        ProtocolVersion.V6,
+        ProtocolVersion.V7,
+    }:
         contextmanager_signatures(modules, providers, symbols, provider_bindings, evidence)
     type_shapes = collect_type_shapes(symbol_type_expressions(symbols))
     symbol_index = build_symbol_index(symbols)
     calls, call_resolvers = collect_calls_with_resolvers(
-        modules, symbol_index, evidence, provider_bindings, runtime, imports
+        modules,
+        symbol_index,
+        evidence,
+        provider_bindings,
+        runtime,
+        imports,
+        include_guarded_effects=GUARDED_EFFECTS_FEATURE in collected_features,
     )
     dynamic_imports, dynamic_limits = collect_dynamic_imports(
         modules, calls, imports, evidence, namespace=request.scope.namespace
     )
     imports.extend(dynamic_imports)
-    references = collect_references(modules, symbol_index, evidence)
+    references = collect_references(
+        modules,
+        symbol_index,
+        evidence,
+        include_source_roles=SOURCE_ROLES_FEATURE in collected_features,
+    )
     bindings = collect_bindings(modules, evidence)
     typing_signals = collect_typing_signals(modules, calls, symbols, imports, evidence)
     constructs = collect_constructs(
@@ -462,7 +482,8 @@ def collect(request: CollectionRequest) -> SourceFacts:
         symbol_index=symbol_index,
         receiver_resolvers=call_resolvers,
         include_parameter_owner_proof=request.protocol_version
-        in {ProtocolVersion.V5, ProtocolVersion.V6},
+        in {ProtocolVersion.V5, ProtocolVersion.V6, ProtocolVersion.V7},
+        include_selectors=CONSTRUCT_SELECTORS_FEATURE in collected_features,
     )
     typed_symbols = tuple(parse_record(symbol) for symbol in symbols)
     state, state_evidence = collect_state(modules, typed_symbols, symbol_nodes, symbol_owners)
@@ -501,12 +522,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         ),
         Capabilities(
             _SECTION_NAMES,
-            resolution_features=(
-                CALL_BINDINGS_FEATURE,
-                EXTENDED_CALL_BINDINGS_FEATURE,
-                CALL_ARGUMENTS_FEATURE,
-                GUARDED_EFFECTS_FEATURE,
-            ),
+            resolution_features=collected_features,
             constructs=tuple(
                 ConstructCapability(kind, ConstructSupport.DECIDED)
                 for kind in ForbiddenConstructKind

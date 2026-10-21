@@ -24,6 +24,7 @@ from .codec_strings import (
 )
 from .facts import (
     EVIDENCE_FIELDS,
+    GATED_RESOLUTION_FEATURES,
     RECORD_FIELDS,
     AnalyzerInfo,
     BuiltinTarget,
@@ -239,6 +240,11 @@ _SOURCE_FACTS_SELECTOR_OWNER_FIELDS = frozenset(
         _SourceFactsField.RECEIVER_PARAMETER_SCOPES,
     }
 )
+_PROVIDER_PROTOCOLS = frozenset(
+    {ProtocolVersion.V4, ProtocolVersion.V5, ProtocolVersion.V6, ProtocolVersion.V7}
+)
+_SELECTOR_OWNER_PROTOCOLS = frozenset({ProtocolVersion.V5, ProtocolVersion.V6, ProtocolVersion.V7})
+_COLUMNAR_V2_PROTOCOLS = frozenset({ProtocolVersion.V6, ProtocolVersion.V7})
 
 
 class ProtocolError(ValueError):
@@ -421,9 +427,9 @@ def decode_request(payload: bytes) -> CollectionRequest:
 def _python_settings(raw: dict[str, RawJson], version: ProtocolVersion) -> PythonSettings:
     fields = (
         {"language", "provider_sources", "phase"}
-        if version in {ProtocolVersion.V4, ProtocolVersion.V5, ProtocolVersion.V6}
+        if version in _PROVIDER_PROTOCOLS
         else {"language"}
-    )
+    ) | ({"features"} if version is ProtocolVersion.V7 else set())
     _object(raw, fields, "resolver")
     try:
         phase = PythonCollectionPhase(
@@ -434,14 +440,24 @@ def _python_settings(raw: dict[str, RawJson], version: ProtocolVersion) -> Pytho
     providers = _python_providers(raw.get("provider_sources", []))
     if phase is not PythonCollectionPhase.COLLECT and providers:
         raise ProtocolError("Python import survey cannot include provider sources")
-    return PythonSettings(provider_sources=providers, phase=phase)
+    features = tuple(
+        _string(item, "resolver.features") for item in _array(raw.get("features", []), "features")
+    )
+    if features != tuple(sorted(set(features))) or not set(features) <= set(
+        GATED_RESOLUTION_FEATURES
+    ):
+        raise ProtocolError("resolver.features must be unique, sorted gated resolution features")
+    return PythonSettings(provider_sources=providers, phase=phase, features=features)
 
 
 def encode_request(request: CollectionRequest) -> bytes:
     version = _version(request.protocol_version)
     resolver: dict[str, RawJson] = {"language": request.resolver.language}
     if isinstance(request.resolver, PythonSettings):
-        if version in {ProtocolVersion.V4, ProtocolVersion.V5, ProtocolVersion.V6}:
+        # Protocols before 7.0.0 mean "collect every family", so they carry no feature list.
+        if version is ProtocolVersion.V7:
+            resolver["features"] = list(request.resolver.features)
+        if version in _PROVIDER_PROTOCOLS:
             resolver["phase"] = request.resolver.phase
             resolver["provider_sources"] = [
                 _python_provider_payload(entry) for entry in request.resolver.provider_sources
@@ -855,6 +871,7 @@ def _shape(value: RawJson, protocol_version: ProtocolVersion) -> TypeShape:
         ProtocolVersion.V4,
         ProtocolVersion.V5,
         ProtocolVersion.V6,
+        ProtocolVersion.V7,
     }:
         _object(value, {"kind", "text", "elements"}, "type list")
         return TypeList(
@@ -1007,6 +1024,7 @@ def _runtime_info(value: RawJson, protocol_version: ProtocolVersion) -> RuntimeI
             ProtocolVersion.V4,
             ProtocolVersion.V5,
             ProtocolVersion.V6,
+            ProtocolVersion.V7,
         }
         else {"name", "version", "required"}
     )
@@ -1038,7 +1056,7 @@ def _source_facts(value: RawJson, version: ProtocolVersion) -> SourceFacts:
         "state",
         "candidate_evidence",
     }
-    if version in {ProtocolVersion.V4, ProtocolVersion.V5, ProtocolVersion.V6}:
+    if version in _PROVIDER_PROTOCOLS:
         required_fields.add("provider_bindings")
     item = _object(value, required_fields, "facts")
     adapter = _object(item["adapter"], {"name", "version", "code_digest"}, "adapter")
@@ -1085,7 +1103,7 @@ def _source_facts(value: RawJson, version: ProtocolVersion) -> SourceFacts:
             for entry in _array(item.get("provider_bindings", []), "provider bindings")
         ),
     )
-    if version not in {ProtocolVersion.V5, ProtocolVersion.V6} and any(
+    if version not in _SELECTOR_OWNER_PROTOCOLS and any(
         key in _SOURCE_FACTS_SELECTOR_OWNER_FIELDS
         for section in facts.sections
         for record in section.records
@@ -1447,17 +1465,13 @@ def _response(decoded: RawJson, *, source_facts_expanded: bool = False) -> Colle
         raw = _object(
             decoded,
             {"protocol_version", "facts"}
-            | (
-                {"provider_sources"}
-                if version in {ProtocolVersion.V4, ProtocolVersion.V5, ProtocolVersion.V6}
-                else set()
-            ),
+            | ({"provider_sources"} if version in _PROVIDER_PROTOCOLS else set()),
             "response",
         )
         raw_facts = raw["facts"]
         if version is ProtocolVersion.V5:
             raw_facts = _expand_source_facts(raw_facts)
-        elif version is ProtocolVersion.V6 and not source_facts_expanded:
+        elif version in _COLUMNAR_V2_PROTOCOLS and not source_facts_expanded:
             raw_facts = _expand_source_facts_v6(raw_facts)
         facts = _source_facts(raw_facts, version)
         providers = _python_providers(raw.get("provider_sources", []))
@@ -1537,6 +1551,7 @@ def _runtime_payload(runtime: RuntimeInfo, version: ProtocolVersion) -> dict[str
                 ProtocolVersion.V4,
                 ProtocolVersion.V5,
                 ProtocolVersion.V6,
+                ProtocolVersion.V7,
             }
             else {}
         ),
@@ -1544,7 +1559,7 @@ def _runtime_payload(runtime: RuntimeInfo, version: ProtocolVersion) -> dict[str
 
 
 def _contextmanager_protocol(facts: SourceFacts, version: ProtocolVersion) -> None:
-    if version not in {ProtocolVersion.V4, ProtocolVersion.V5, ProtocolVersion.V6} and any(
+    if version not in _PROVIDER_PROTOCOLS and any(
         record.data.get("contextmanager_signature") is not None
         for section in facts.sections
         for record in section.records
@@ -1562,7 +1577,7 @@ def _facts_payload(
                     _provider_binding_payload(entry) for entry in facts.provider_bindings
                 ]
             }
-            if version in {ProtocolVersion.V4, ProtocolVersion.V5, ProtocolVersion.V6}
+            if version in _PROVIDER_PROTOCOLS
             else {}
         ),
         "state": thaw_data(state_data(facts.state)),
@@ -1628,12 +1643,14 @@ def encode_response(response: CollectionResponse) -> bytes:
         ProtocolVersion.V4,
         ProtocolVersion.V5,
         ProtocolVersion.V6,
+        ProtocolVersion.V7,
     }:
         raise ProtocolError("provider bindings require collection protocol 4.0.0")
     if response.provider_sources and version not in {
         ProtocolVersion.V4,
         ProtocolVersion.V5,
         ProtocolVersion.V6,
+        ProtocolVersion.V7,
     }:
         raise ProtocolError("captured provider sources require collection protocol 4.0.0")
     runtime = _runtime_payload(facts.runtime, version)
@@ -1645,22 +1662,22 @@ def encode_response(response: CollectionResponse) -> bytes:
                     _python_provider_payload(entry) for entry in response.provider_sources
                 ]
             }
-            if version in {ProtocolVersion.V4, ProtocolVersion.V5, ProtocolVersion.V6}
+            if version in _PROVIDER_PROTOCOLS
             else {}
         ),
         "facts": _facts_payload(facts, version, runtime),
     }
-    if version is ProtocolVersion.V6:
+    if version in _COLUMNAR_V2_PROTOCOLS:
         _response(raw, source_facts_expanded=True)
     if version is ProtocolVersion.V5:
         raw["facts"] = _compact_source_facts(raw["facts"])
-    elif version is ProtocolVersion.V6:
+    elif version in _COLUMNAR_V2_PROTOCOLS:
         raw["facts"] = _compact_source_facts_v6(raw["facts"])
     payload = json.dumps(
         raw, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
     ).encode()
     _check_json_value(raw)
-    if version is not ProtocolVersion.V6:
+    if version not in _COLUMNAR_V2_PROTOCOLS:
         _response(raw)
     return payload
 

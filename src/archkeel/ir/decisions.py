@@ -23,6 +23,7 @@ from .baseline import violation_rows
 from .bindings import unread_bindings
 from .codec_contract import parse_dependency_selector
 from .duplication import repeated_logic
+from .facts import RULE_FAMILY_NOT_COLLECTED_KIND
 from .facts import RuntimeRequirementState as _RuntimeRequirementState
 from .facts import SourceProfile as _SourceProfile
 from .facts_codec import thaw_data as _thaw_data
@@ -294,6 +295,13 @@ def _rule_uncertainty_action(record: Record) -> RuleUncertaintyAction:
             False,
             "A contract decision cannot resolve this analysis gap; use an analyzer profile "
             "that supports this rule.",
+        )
+    elif record.kind == RULE_FAMILY_NOT_COLLECTED_KIND:
+        return RuleUncertaintyAction(
+            RuleUncertaintyCause.UNSUPPORTED_ANALYSIS,
+            False,
+            "A contract decision cannot resolve this analysis gap; collect the facts under "
+            "this contract.",
         )
     elif record.kind == "inside_source_domain_incomplete":
         return RuleUncertaintyAction(

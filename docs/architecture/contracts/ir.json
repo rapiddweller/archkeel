@@ -193,7 +193,8 @@
         "archkeel.ir.target_records",
         "archkeel.ir.diagnostics",
         "archkeel.ir.amendment",
-        "archkeel.ir.amendment_codec"
+        "archkeel.ir.amendment_codec",
+        "archkeel.ir.collection_features"
       ],
       "responsibilities": [
         "Own contract/result values, strict wire conversion and pure graph, metric and projection derivation."
@@ -297,7 +298,9 @@
         "archkeel.ir.amendment:AmendmentStatus",
         "archkeel.ir.amendment:Amendment",
         "archkeel.ir.amendment:verify_amendment",
-        "archkeel.ir.architecture_projection:PermissionStatus"
+        "archkeel.ir.architecture_projection:PermissionStatus",
+        "archkeel.ir.collection_features:required_resolution_features",
+        "archkeel.ir.collection_features:rule_resolution_features"
       ]
     },
     {
@@ -590,6 +593,10 @@
       {
         "path": "src/archkeel/ir/diagnostics.py",
         "responsibility": "Own immutable diagnostics, source locations and nominal diagnostic vocabulary with their validation invariants."
+      },
+      {
+        "path": "src/archkeel/ir/collection_features.py",
+        "responsibility": "Map declared rules to the gated resolution families a collector must gather (AD-257)."
       }
     ],
     "uml": {
@@ -8837,6 +8844,20 @@
           "parent_id": "TARGET-FACTS-CODEC",
           "responsibilities": [
             "Define the bounded source path grammar shared by collection and guarded-effect replay."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/decisions/ad-257-rule-driven-fact-collection.md"
+          ],
+          "id": "COLLECTION-FEATURES",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.collection_features",
+          "parent_id": "TARGET-GOVERNANCE",
+          "responsibilities": [
+            "Map declared rules to the gated resolution families a collector must gather."
           ]
         },
         {

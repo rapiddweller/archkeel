@@ -16,12 +16,14 @@ from textwrap import dedent
 from .facts import (
     CALL_ARGUMENTS_FEATURE,
     CALL_BINDINGS_FEATURE,
+    CONSTRUCT_SELECTORS_FEATURE,
     EXTENDED_CALL_BINDINGS_FEATURE,
     GUARDED_EFFECTS_FEATURE,
     MAX_NUMERIC_EVIDENCE_CHARS,
     MAX_STATIC_INTEGER,
     NATIVE_CALL_TARGETS,
     SOURCE_RESOLUTION_GAP_KIND,
+    SOURCE_ROLES_FEATURE,
     BuiltinTarget,
     CallArgument,
     CallArgumentKind,
@@ -6136,7 +6138,13 @@ def validate_source_facts(facts: SourceFacts) -> None:
         if not set(record.fact_ids).issubset(fact_ids):
             raise ValueError("dangling source fact reference")
     _validate_reference_contexts(records, base_by_id, facts.profile)
-    _validate_source_role_identities(records, base_by_id)
+    if SOURCE_ROLES_FEATURE in resolution_features:
+        _validate_source_role_identities(records, base_by_id)
+    elif any(
+        record.kind == "source_role" or record.data.get("local_source_binding") is not None
+        for record in records
+    ):
+        raise ValueError("source role facts require their declared capability")
     declarations: dict[str, list[Record]] = {}
     for symbol_section in facts.sections:
         if symbol_section.name is not SourceSectionName.SYMBOLS:
@@ -6255,6 +6263,8 @@ def validate_source_facts(facts: SourceFacts) -> None:
             continue
         for record in section.records:
             if record.kind == "construct_selector":
+                if CONSTRUCT_SELECTORS_FEATURE not in resolution_features:
+                    raise ValueError("construct selector facts require their declared capability")
                 receiver_parameter = record.data.get("receiver_parameter")
                 _selector_receiver_proof(
                     facts,

@@ -11,7 +11,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum, StrEnum
-from typing import Literal, TypeAlias
+from typing import Final, Literal, TypeAlias
 
 from .state_facts import StateFacts
 from .type_shapes import TypeShape
@@ -329,6 +329,8 @@ NATIVE_CALL_TARGETS = frozenset(
     }
 )
 GUARDED_EFFECTS_FEATURE = "guarded_effect_paths"
+SOURCE_ROLES_FEATURE = "source_roles"
+CONSTRUCT_SELECTORS_FEATURE = "construct_selectors"
 
 
 @dataclass(frozen=True, slots=True)
@@ -352,6 +354,18 @@ class CallArgumentValueKind(StrEnum):
 
 
 CALL_ARGUMENTS_FEATURE = "call_arguments"
+# AD-257: base families are always collected; gated families only when a declared rule uses them.
+BASE_RESOLUTION_FEATURES: Final = (
+    CALL_BINDINGS_FEATURE,
+    EXTENDED_CALL_BINDINGS_FEATURE,
+    CALL_ARGUMENTS_FEATURE,
+)
+RULE_FAMILY_NOT_COLLECTED_KIND: Final = "rule-family-not-collected"
+GATED_RESOLUTION_FEATURES: Final = (
+    GUARDED_EFFECTS_FEATURE,
+    SOURCE_ROLES_FEATURE,
+    CONSTRUCT_SELECTORS_FEATURE,
+)
 
 
 @dataclass(frozen=True, slots=True)

@@ -95,7 +95,9 @@ class ReferenceCollector(ast.NodeVisitor):
         evidence: dict[str, RawEvidence],
         enum_member_roots: frozenset[str],
         enum_member_classes: frozenset[str],
+        include_source_roles: bool = True,
     ) -> None:
+        self.include_source_roles = include_source_roles
         self.module = module
         self.index = index
         self.evidence = evidence
@@ -113,6 +115,8 @@ class ReferenceCollector(ast.NodeVisitor):
         declaration_id: str,
         **details: object,
     ) -> None:
+        if not self.include_source_roles:
+            return
         status = details.get("status", SourceResolution.RESOLVED)
         if role in {"read", "value_transfer"} and canonical_name.startswith("builtins."):
             status = SourceResolution.PARTIALLY_RESOLVED
@@ -643,7 +647,7 @@ class ReferenceCollector(ast.NodeVisitor):
     ) -> tuple[bool, str | None, SourceResolution, list[str]]:
         local_source_binding = False
         local_name: str | None = None
-        if isinstance(node, ast.Name):
+        if self.include_source_roles and isinstance(node, ast.Name):
             binding = self.scopes.lookup(node, node.id)
             sites = binding.owner.bindings.get(node.id, ()) if binding.owner is not None else ()
             local_sites = [
@@ -671,7 +675,7 @@ class ReferenceCollector(ast.NodeVisitor):
             for target in targets
             if target in self.index.names or target in self.index.declaration_names
         ]
-        if not internal and isinstance(node, ast.Name):
+        if self.include_source_roles and not internal and isinstance(node, ast.Name):
             binding = self.scopes.lookup(node, node.id)
             if binding.owner is not None and binding.owner.bindings.get(node.id):
                 local_name = f"{binding.owner.qualified_name}.{node.id}"
@@ -770,13 +774,17 @@ def collect_references(
     parsed: Sequence[ParsedModule],
     index: SymbolIndex,
     evidence: dict[str, RawEvidence],
+    *,
+    include_source_roles: bool = True,
 ) -> list[RawRecord]:
     """Run the reference collector over every module and sort the records by id."""
     references: list[RawRecord] = []
     roots = {module.module: unique_direct_module_bindings(module) for module in parsed}
     enum_classes = _enum_member_classes(parsed, index, roots)
     for module in parsed:
-        collector = ReferenceCollector(module, index, evidence, roots[module.module], enum_classes)
+        collector = ReferenceCollector(
+            module, index, evidence, roots[module.module], enum_classes, include_source_roles
+        )
         collector.visit(module.tree)
         references.extend(_reuse_local_definition_references(collector.items))
     references.sort(key=lambda item: item["id"])

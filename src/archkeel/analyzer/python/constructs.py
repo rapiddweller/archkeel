@@ -668,7 +668,9 @@ class ConstructCollector(ast.NodeVisitor):
         call_collector: SelectorReceiverResolver | None = None,
         imports: Sequence[RawRecord] = (),
         include_parameter_owner_proof: bool = True,
+        include_selectors: bool = True,
     ) -> None:
+        self.include_selectors = include_selectors
         self.module = module
         self.evidence = evidence
         self.items: list[RawRecord] = []
@@ -1198,6 +1200,8 @@ class ConstructCollector(ast.NodeVisitor):
         operation: str = "read",
         receiver_node: ast.expr | None = None,
     ) -> None:
+        if not self.include_selectors:
+            return
         owner = self.scope_stack[-1]
         line, _, column = location(node)
         evidence_id = add_evidence(self.evidence, self.module, node)
@@ -1886,6 +1890,7 @@ def collect_constructs(
     imports: Sequence[RawRecord] = (),
     symbol_index: SymbolIndex | None = None,
     receiver_resolvers: Sequence[SelectorReceiverResolver] = (),
+    include_selectors: bool = True,
     include_parameter_owner_proof: bool = True,
 ) -> list[RawRecord]:
     """Collect written constructs using scanned literal providers and resolved import origins."""
@@ -1939,6 +1944,7 @@ def collect_constructs(
             call_collector,
             imports_by_module.get(module.module, ()),
             include_parameter_owner_proof,
+            include_selectors,
         )
         collector.local_classes = known_classes
         collector.local_members = _class_member_names(module)

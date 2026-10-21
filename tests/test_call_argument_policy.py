@@ -17,9 +17,24 @@ from archkeel.ir.decisions import rule_assessments
 _PROVENANCE = ["docs/architecture/sample.md"]
 
 
-def _contract(*, source="sample.caller", target="sample.storage.page", parameter="query"):
+def _selector_rule():
     return {
-        "schema_version": "3.10.0",
+        "id": "SELECT-PAGE",
+        "kind": "forbidden_construct",
+        "source": "sample",
+        "constructs": ["string_literal_compare"],
+        "selector": {"receiver": "sample.storage.Storage", "member": "page", "role": "call"},
+        "rationale": "Selector facts are only collected for a declared selector rule.",
+        "provenance": _PROVENANCE,
+        "decided_by": "architect",
+    }
+
+
+def _contract(
+    *, source="sample.caller", target="sample.storage.page", parameter="query", selector=False
+):
+    return {
+        "schema_version": "3.11.0" if selector else "3.10.0",
         "components": [
             {
                 "id": "COMP-SAMPLE",
@@ -41,7 +56,8 @@ def _contract(*, source="sample.caller", target="sample.storage.page", parameter
                 "rationale": "Query text must come from the selected typed argument.",
                 "provenance": _PROVENANCE,
                 "decided_by": "architect",
-            }
+            },
+            *([_selector_rule()] if selector else []),
         ],
     }
 
@@ -55,11 +71,14 @@ def _observe(
     source: str = "sample.caller",
     target: str = "sample.storage.page",
     parameter: str = "query",
+    selector: bool = False,
 ):
     files = {
         "pyproject.toml": '[project]\nrequires-python = ">=3.11"\n',
         "docs/architecture/sample.md": "Synthetic decision.\n",
-        "contract.json": json.dumps(_contract(source=source, target=target, parameter=parameter)),
+        "contract.json": json.dumps(
+            _contract(source=source, target=target, parameter=parameter, selector=selector)
+        ),
         "sample/__init__.py": "",
         "sample/storage.py": storage
         or ("class QuerySpec: pass\ndef page(query: QuerySpec, label: str = '') -> None: pass\n"),
@@ -69,11 +88,11 @@ def _observe(
         path = tmp_path / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content)
-    contract = _contract(source=source, target=target, parameter=parameter)
+    contract = _contract(source=source, target=target, parameter=parameter, selector=selector)
     if mounted:
         (tmp_path / "inside.json").write_text(json.dumps(contract))
         contract = {
-            "schema_version": "3.10.0",
+            "schema_version": "3.11.0" if selector else "3.10.0",
             "components": [_component("sample", ["sample"], inside="inside.json")],
             "rules": [],
         }
@@ -88,7 +107,11 @@ def _observe(
         contract_root=tmp_path,
     )
     assert result.observation is not None, result.diagnostics
-    [row] = rule_assessments(result.observation, undecided_by_rule={})
+    [row] = [
+        item
+        for item in rule_assessments(result.observation, undecided_by_rule={})
+        if item.kind == "forbidden_call_argument"
+    ]
     return result, row
 
 
@@ -808,6 +831,7 @@ def test_saved_constructed_receiver_requires_constructor_target_witness(
         storage="class Storage:\n    def page(self, query): pass\n",
         mounted=mounted,
         target="sample.storage.Storage.page",
+        selector=True,
     )
     report = observation_payload(result.observation)
     declaration = next(

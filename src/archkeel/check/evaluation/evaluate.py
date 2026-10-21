@@ -12,10 +12,12 @@ from types import MappingProxyType
 from typing import Any, TypeAlias
 
 from archkeel.ir.codec import InsideContractMount
+from archkeel.ir.collection_features import rule_resolution_features
 from archkeel.ir.facts import (
     CALL_ARGUMENTS_FEATURE,
     CALL_BINDINGS_FEATURE,
     GUARDED_EFFECTS_FEATURE,
+    RULE_FAMILY_NOT_COLLECTED_KIND,
     SOURCE_RESOLUTION_GAP_KIND,
     BuiltinTarget,
     ConstructCapability,
@@ -42,6 +44,7 @@ from archkeel.ir.facts_codec import (
 from archkeel.ir.facts_validation import validate_source_facts
 from archkeel.ir.model import (
     ArchitectureContract,
+    ArchitectureRule,
     CallOwnerRule,
     CatalogArgumentRule,
     CatalogUseRule,
@@ -930,6 +933,42 @@ def _source_inventory_complete(facts: SourceFacts) -> bool:
     )
 
 
+def _collected_rules_only(
+    contract: ArchitectureContract,
+    inside_contracts: Sequence[InsideContractMount],
+    features: set[str],
+) -> tuple[ArchitectureContract, list[InsideContractMount], list[RawRecord]]:
+    """Drop rules whose resolution families the collector did not declare, and report each."""
+    failures: list[RawRecord] = []
+
+    def collected(rules: tuple[ArchitectureRule, ...]) -> tuple[ArchitectureRule, ...]:
+        for rule in rules:
+            missing = rule_resolution_features(rule) - features
+            if missing:
+                failures.append(
+                    classified(
+                        item_id=stable_id("UNKNOWN-RULE-FAMILY", rule.id),
+                        evidence_class=EvidenceClass.UNKNOWN,
+                        area="analysis_coverage",
+                        kind=RULE_FAMILY_NOT_COLLECTED_KIND,
+                        title=(
+                            f"{rule.id}: {', '.join(sorted(missing))} facts were not collected "
+                            "for this scan"
+                        ),
+                        subjects=[rule.id],
+                        rule_ids=[rule.id],
+                        data={"families": sorted(missing)},
+                    )
+                )
+        return tuple(rule for rule in rules if rule_resolution_features(rule) <= features)
+
+    mounts = [
+        replace(mount, contract=replace(mount.contract, rules=collected(mount.contract.rules)))
+        for mount in inside_contracts
+    ]
+    return replace(contract, rules=collected(contract.rules)), mounts, failures
+
+
 def evaluate_source(
     facts: SourceFacts,
     contract: ArchitectureContract,
@@ -1016,6 +1055,12 @@ def evaluate_source(
             profile = replace(profile, dependency_symbols=True)
     elif declared_sections != required:
         raise ProtocolError("source sections do not match the registered profile")
+    uncollected_failures: list[RawRecord] = []
+    if is_python:
+        # AD-257: a rule whose facts were never collected is refused, never read as a PASS.
+        contract, inside_contracts, uncollected_failures = _collected_rules_only(
+            contract, inside_contracts, features
+        )
     sections = {
         section.name: [raw_record(record) for record in section.records]
         for section in facts.sections
@@ -1151,7 +1196,9 @@ def evaluate_source(
         sdk_libraries=profile.sdk_libraries
         | frozenset(target.name for target in facts.imports if isinstance(target, BuiltinTarget)),
     )
-    rule_failures.extend(profile_failures(contract, profile, facts.capabilities.constructs))
+    rule_failures.extend(
+        [*profile_failures(contract, profile, facts.capabilities.constructs), *uncollected_failures]
+    )
     scope_observations = component_scope_observations(
         components=contract.components,
         modules=module_facts,

@@ -9,8 +9,8 @@ One function, `required_resolution_features(contract, inside_contracts)` in
 
 | Family (resolution feature) | Collected records | Rule kinds that use it |
 |---|---|---|
-| `source_roles` | `source_role` records; references marked `local_source_binding` | `source_ownership`, `catalog_use` |
-| `construct_selectors` | `construct_selector` records; class-body member-write witnesses | `forbidden_construct` with `selector` |
+| `source_roles` | `source_role` records; references marked `local_source_binding` | `source_ownership`, `catalog_use`, `catalog_argument` (reads write and delete roles) |
+| `construct_selectors` | `construct_selector` records; member-write witnesses (kept while `extended_call_bindings` is always collected) | `forbidden_construct` with `selector` |
 | `guarded_effect_paths` | `guarded_effect` call data | `forbidden_effect_under_condition` |
 | `call_arguments` | call argument facts | `forbidden_call_argument`, `catalog_argument`, `catalog_use` |
 | `extended_call_bindings` | stored, constructed, constructor and native bindings; member-write witnesses | `call_owner`, `catalog_*`, `forbidden_effect_under_condition`, selector rules |

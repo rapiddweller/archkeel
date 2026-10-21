@@ -264,3 +264,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-254 | [Canonical Protocol declarations](ad-254-canonical-protocol-declarations.md) |
 | AD-255 | [Narrowings in `--against`](ad-255-against-reports-narrowings.md) |
 | AD-256 | [Guarded eager declaration expressions](ad-256-guarded-eager-declaration-expressions.md) |
+| AD-257 | [Rule-driven fact collection](ad-257-rule-driven-fact-collection.md) |

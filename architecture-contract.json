@@ -176,7 +176,9 @@
         "archkeel.ir.contract_version:supports_feature",
         "archkeel.ir.source_records:source_name_visibility",
         "archkeel.ir.guard_paths:GuardedCallPath",
-        "archkeel.ir.guard_paths:guarded_call_paths"
+        "archkeel.ir.guard_paths:guarded_call_paths",
+        "archkeel.ir.collection_features:required_resolution_features",
+        "archkeel.ir.collection_features:rule_resolution_features"
       ],
       "responsibilities": [
         "Own typed values, strict codecs and pure evidence derivations."

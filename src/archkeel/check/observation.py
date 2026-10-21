@@ -17,6 +17,7 @@ from archkeel.ir.codec import (
     load_inside_contract_tree,
     parse_observation,
 )
+from archkeel.ir.collection_features import required_resolution_features
 from archkeel.ir.decisions import (
     dependency_binding_id,
     numeric_operand_inventory_binding_id,
@@ -1213,12 +1214,20 @@ def analyze_source_snapshot(
 
     if dirty != "unknown" and not isinstance(dirty, bool):
         raise ValueError("dirty must be a boolean or unknown")
+    features: tuple[str, ...] = ()
+    if language == Language.PYTHON:
+        declarations_root, contract_file = _contract_source(
+            source_root, contract_root, contract_path
+        )
+        contract, digest = load_contract(contract_file)
+        _, _, mounts, _ = _inside_levels(declarations_root, contract_file, contract, digest)
+        features = tuple(sorted(required_resolution_features(contract, mounts)))
     resolver: ResolverSettings = (
         TypeScriptSettings()
         if language == Language.TYPESCRIPT
         else DartSettings()
         if language == Language.DART
-        else PythonSettings()
+        else PythonSettings(features=features)
     )
     request = CollectionRequest(
         SnapshotInput(str(source_root.resolve()), git_head, dirty),
