@@ -6,13 +6,20 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Protocol
 
 from shop.model.entities import Order
 from shop.store.backend import order_path, read_document, write_document
 from shop.store.codec import decode, encode
 
 
+class RepositoryReader(Protocol):
+    def load(self, order_id: str) -> Order: ...
+
+
 class OrderRepository:
+    reader: RepositoryReader
+
     def __init__(self, root: Path) -> None:
         self._root = root
 

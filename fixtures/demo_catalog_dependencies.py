@@ -66,8 +66,12 @@ REPOSITORY_WITH_MONEY_IMPORT = HEADER + (
     "from __future__ import annotations\n\n"
     "import json\n"
     "from pathlib import Path\n\n"
+    "from typing import Protocol\n\n"
     "from shop.model.entities import Money, Order\n\n\n"
+    "class RepositoryReader(Protocol):\n"
+    "    def load(self, order_id: str) -> Order: ...\n\n\n"
     "class OrderRepository:\n"
+    "    reader: RepositoryReader\n\n"
     "    def __init__(self, root: Path) -> None:\n"
     "        self._root = root\n\n"
     "    def save(self, order: Order) -> None:\n"
@@ -1171,7 +1175,48 @@ _CALL_OWNER_UNKNOWN = Variant(
     expected_declared_rules="UNKNOWN",
 )
 
+_PROTOCOL_READER_ALLOWED = Variant(
+    id="class-a-protocol-declarations-allowed",
+    section="class_a",
+    item="protocol_declarations:allowed",
+    summary="The repository reader member names the canonical RepositoryReader protocol.",
+    files={},
+    expected_violations=(),
+    expected_codes=(),
+)
+_PROTOCOL_READER_FORBIDDEN = Variant(
+    id="class-a-protocol-declarations-forbidden",
+    section="class_a",
+    item="protocol_declarations:forbidden",
+    summary="A concrete repository class cannot replace the declared reader protocol.",
+    files={
+        "shop/store/repository.py": (FIXTURE_DIR / "shop/store/repository.py")
+        .read_text()
+        .replace("reader: RepositoryReader", "reader: OrderRepository")
+    },
+    expected_violations=("STORE-READER-DECLARATION",),
+    expected_codes=("rule.violated",),
+)
+_PROTOCOL_READER_UNKNOWN = Variant(
+    id="class-a-protocol-declarations-unknown",
+    section="class_a",
+    item="protocol_declarations:unknown",
+    summary="An unannotated reader member withholds protocol proof instead of passing.",
+    files={
+        "shop/store/repository.py": (FIXTURE_DIR / "shop/store/repository.py")
+        .read_text()
+        .replace("reader: RepositoryReader", "reader: MissingReader")
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("protocol_declaration_limit", "shop.store.repository.OrderRepository"),),
+    expected_declared_rules="UNKNOWN",
+)
+
 VARIANTS: tuple[Variant, ...] = (
+    _PROTOCOL_READER_ALLOWED,
+    _PROTOCOL_READER_FORBIDDEN,
+    _PROTOCOL_READER_UNKNOWN,
     _CALL_OWNER_FORBIDDEN,
     _CALL_OWNER_DISJOINT,
     _CALL_OWNER_UNKNOWN,

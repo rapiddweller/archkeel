@@ -36,7 +36,6 @@ from archkeel.ir.model import (
     CLASSIFIED_SECTIONS,
     EVIDENCE_FIELDS,
     RECORD_FIELDS,
-    SCHEMA_VERSION,
     AnalyzerInfo,
     ContractInfo,
     Coverage,
@@ -65,7 +64,8 @@ class _ObservationVersion(StrEnum):
     V1_3 = "1.3.0"
     V2 = "2.0.0"
     V2_1 = "2.1.0"
-    V2_2 = SCHEMA_VERSION
+    V2_2 = "2.2.0"
+    V2_3 = "2.3.0"
 
 
 class _VersionedConstruct(StrEnum):
@@ -117,6 +117,24 @@ def _requires_numeric_version(version: _ObservationVersion) -> bool:
 
 class _EncodingKind(StrEnum):
     COLUMNAR = "architecture-ir-columnar-v1"
+
+
+class _ProtocolResultKind(StrEnum):
+    DECLARATION = "protocol_declaration"
+    LIMIT = "protocol_declaration_limit"
+
+
+def _uses_protocol_declaration_fields(section: Section) -> bool:
+    return any(
+        record.kind
+        in {
+            ArchitectureRuleKind.PROTOCOL_DECLARATIONS,
+            _ProtocolResultKind.DECLARATION,
+            _ProtocolResultKind.LIMIT,
+        }
+        or _has_field((key for key, _ in record.data.entries), "protocol_scope_proof")
+        for record in section.records
+    )
 
 
 class _StringSentinel(StrEnum):
@@ -216,6 +234,39 @@ def _percent(value: RawJson, label: str) -> float:
     return value
 
 
+def _validate_versioned_records(
+    schema_version: _ObservationVersion, sections: tuple[Section, ...], profile: Profile
+) -> None:
+    if _requires_numeric_version(schema_version) and any(
+        _uses_numeric_operand_fields(section) for section in sections
+    ):
+        raise ValueError(
+            "numeric_operand constructs require 2.2.0; declarations and receipts do too"
+        )
+    if schema_version in {
+        _ObservationVersion.V2_1,
+        _ObservationVersion.V2_2,
+        _ObservationVersion.V2_3,
+    }:
+        python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
+        for section in sections:
+            if section.name == ObservedSection.CALLS:
+                for call in section.records:
+                    if python_calls and not _has_field(
+                        (key for key, _ in call.data.entries), "call_binding"
+                    ):
+                        raise ValueError("Python 2.1.0 calls require explicit call_binding or null")
+                    _call_binding(call.data.get("call_binding"))
+    if schema_version in {
+        _ObservationVersion.V1_2,
+        _ObservationVersion.V1_3,
+        _ObservationVersion.V2,
+        _ObservationVersion.V2_1,
+        _ObservationVersion.V2_2,
+    } and any(_uses_protocol_declaration_fields(section) for section in sections):
+        raise ValueError("protocol_declarations require observation schema 2.3.0")
+
+
 def parse_observation(raw: object) -> Observation:
     item = _object(raw, "observation")
     optional = {"python_version", "runtime", "producer"}
@@ -245,22 +296,7 @@ def parse_observation(raw: object) -> Observation:
         for name in CLASSIFIED_SECTIONS
         if isinstance(section_items := item[name], list)
     )
-    if _requires_numeric_version(schema_version) and any(
-        _uses_numeric_operand_fields(section) for section in sections
-    ):
-        raise ValueError(
-            "numeric_operand constructs require 2.2.0; declarations and receipts do too"
-        )
-    if schema_version in {_ObservationVersion.V2_1, _ObservationVersion.V2_2}:
-        python_calls = SourceProfile(profile.analyzer) is SourceProfile.PYTHON
-        for section in sections:
-            if section.name == ObservedSection.CALLS:
-                for call in section.records:
-                    if python_calls and not _has_field(
-                        (key for key, _ in call.data.entries), "call_binding"
-                    ):
-                        raise ValueError("Python 2.1.0 calls require explicit call_binding or null")
-                    _call_binding(call.data.get("call_binding"))
+    _validate_versioned_records(schema_version, sections, profile)
     return Observation(
         schema_version=schema_version,
         analyzer=AnalyzerInfo(
@@ -284,7 +320,12 @@ def parse_observation(raw: object) -> Observation:
         runtime=_parse_runtime(
             item["runtime"],
             allow_requirement_state=schema_version
-            in {_ObservationVersion.V2, _ObservationVersion.V2_1, _ObservationVersion.V2_2},
+            in {
+                _ObservationVersion.V2,
+                _ObservationVersion.V2_1,
+                _ObservationVersion.V2_2,
+                _ObservationVersion.V2_3,
+            },
         )
         if item.get("runtime", _MISSING_VALUE) is not _MISSING_VALUE
         else None,
@@ -437,7 +478,12 @@ def _validate_profile_sections(model: Mapping[str, RawJson], profile: Profile) -
 def observation_payload(observation: Observation) -> dict[str, RawJson]:
     if (
         _observation_version(observation.schema_version)
-        not in {_ObservationVersion.V2, _ObservationVersion.V2_1, _ObservationVersion.V2_2}
+        not in {
+            _ObservationVersion.V2,
+            _ObservationVersion.V2_1,
+            _ObservationVersion.V2_2,
+            _ObservationVersion.V2_3,
+        }
         and observation.runtime is not None
         and observation.runtime.requirement_state != RuntimeRequirementState.DECLARED
     ):
@@ -473,12 +519,9 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
             for section in observation.sections
         }
     )
-    if _requires_numeric_version(_observation_version(observation.schema_version)) and any(
-        _uses_numeric_operand_fields(section) for section in observation.sections
-    ):
-        raise ValueError(
-            "numeric_operand constructs require 2.2.0; declarations and receipts do too"
-        )
+    _validate_versioned_records(
+        _observation_version(observation.schema_version), observation.sections, profile
+    )
     _validate_profile_sections(result, profile)
     return result
 

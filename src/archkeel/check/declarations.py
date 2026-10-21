@@ -40,6 +40,7 @@ from archkeel.ir.model import (
     InterfaceBoundaryRule,
     LayerOrderRule,
     NoComponentCyclesRule,
+    ProtocolDeclarationsRule,
     RootLayoutRule,
     SelectorMatch,
     SiblingIsolationRule,
@@ -341,6 +342,26 @@ def project_rule_declaration(rule: ArchitectureRule) -> RawRecord:
                 if rule.allowed_positions
                 else {}
             ),
+            "rationale": rule.rationale,
+        }
+    elif isinstance(rule, ProtocolDeclarationsRule):
+        area, title, subjects = (
+            "type_architecture",
+            f"Selected declarations below {rule.source} use canonical Protocol {rule.protocol}",
+            [rule.source, rule.protocol],
+        )
+        data = {
+            "source": rule.source,
+            "protocol": rule.protocol,
+            "selectors": [
+                {
+                    "role": item.role.value,
+                    "name": item.name,
+                    "visibility": item.visibility.value,
+                    **({"optional": True} if item.optional else {}),
+                }
+                for item in rule.selectors
+            ],
             "rationale": rule.rationale,
         }
     else:

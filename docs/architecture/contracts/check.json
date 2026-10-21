@@ -391,6 +391,10 @@
         "responsibility": "Evaluate declared caller permissions over bound call targets; emit violations, uncertainty and scope-bound evaluation receipts."
       },
       {
+        "path": "src/archkeel/check/evaluation/protocol_declarations.py",
+        "responsibility": "Evaluate canonical Protocol annotations for selected API roles through existing boundary type evidence; emit findings and scope-bound receipts."
+      },
+      {
         "path": "src/archkeel/check/evaluation/topology.py",
         "responsibility": "Aggregate dependency and declared-scope evidence in Core."
       }

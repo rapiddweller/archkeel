@@ -410,10 +410,10 @@ def test_agent_decisions_counts_one_flipped_rule_from_the_observation(tmp_path: 
     assert architecture is not None
     observation = parse_observation(decode_canonical_model(json.loads(architecture)))
 
-    # 41 rules above the level (AD-11, issue #47, including the numeric rule) plus the one
-    # store's inside declares (AD-36); 8 declared public lists and the inside's 3 requires
-    # entries are decisions too (AD-50).
-    assert agent_decisions(observation) == (1, 53)
+    # 42 rules above the level (AD-11, issue #47, including numeric and Protocol declarations)
+    # plus the one store's inside declares (AD-36); 8 declared public lists and the inside's 3
+    # requires entries are decisions too (AD-50).
+    assert agent_decisions(observation) == (1, 54)
 
 
 def test_agent_decisions_counts_requires_entries_and_public_lists() -> None:
@@ -513,6 +513,7 @@ def test_violation_counts_group_the_report_by_rule_and_by_crossing_pair(tmp_path
         ("MODEL-TYPES-IN-ENTITIES", 1),
         ("ROOT-LAYOUT", 1),
         ("STORE-PEERS-ISOLATED", 1),
+        ("STORE-READER-DECLARATION", 1),
         ("store:STORE-REQUIRES-COMPLETE", 1),
     )
     # Direction comes from each record's source_module/target_module: `subjects` is sorted,

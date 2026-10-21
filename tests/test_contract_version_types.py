@@ -31,6 +31,7 @@ VERSIONS = (
     "3.6.0",
     "3.7.0",
     "3.8.0",
+    "3.9.0",
 )
 
 
@@ -77,6 +78,7 @@ def test_parser_keeps_rejecting_unsupported_or_nontext_versions(invalid):
         ("MODULE_OBJECT_GRANTS", "3.5.0", "3.6.0"),
         ("CALL_OWNER", "3.6.0", "3.7.0"),
         ("BOUNDED_NUMERIC_OPERAND", "3.7.0", "3.8.0"),
+        ("PROTOCOL_DECLARATIONS", "3.8.0", "3.9.0"),
     ],
 )
 def test_feature_policy_keeps_each_existing_introduction_boundary(feature, before, first):
@@ -85,7 +87,7 @@ def test_feature_policy_keeps_each_existing_introduction_boundary(feature, befor
     choice = ContractFeature[feature]
     assert not supports_feature(ContractVersion(before), choice)
     assert supports_feature(ContractVersion(first), choice)
-    assert supports_feature(ContractVersion.V3_7, choice) is (first != "3.8.0")
+    assert supports_feature(ContractVersion.V3_9, choice)
 
 
 def _version_repository(tmp_path):
