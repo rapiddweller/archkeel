@@ -178,6 +178,41 @@ def test_absent_variadic_selector_does_not_certify_a_normalized_violation(
     assert row.status == "UNKNOWN" and not row.evaluation_proven
 
 
+@pytest.mark.parametrize("parameter", ["args", "*args"])
+@pytest.mark.parametrize(
+    "actual,expected",
+    [("'literal'", "FAIL"), ("value", "PASS"), ("", "PASS"), ("*values", "UNKNOWN")],
+)
+@pytest.mark.parametrize("mounted", [False, True])
+def test_variadic_only_bound_receiver_preserves_explicit_actuals(
+    tmp_path, parameter, actual, expected, mounted
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import canonical_report_bytes
+
+    result, row = _observe(
+        tmp_path,
+        "from .storage import Storage\n"
+        "def consume(value, values):\n"
+        f"    Storage().page({actual})\n",
+        storage="class Storage:\n    def page(*args): pass\n",
+        target="sample.storage.Storage.page",
+        parameter=parameter,
+        mounted=mounted,
+    )
+    assert row.status == expected and row.evaluation_proven == (expected != "UNKNOWN")
+    model = result.observation
+    for name, payload in (
+        ("ordinary", json.dumps(observation_payload(model)).encode()),
+        ("columnar", canonical_report_bytes(model)),
+    ):
+        saved = tmp_path / f"{name}.json"
+        saved.write_bytes(payload)
+        [replayed] = run_saved_report(saved).rule_assessments
+        assert replayed.status == expected
+        assert replayed.evaluation_proven == (expected != "UNKNOWN")
+
+
 @pytest.mark.parametrize(
     "formal,actual",
     [
@@ -750,6 +785,56 @@ def test_constructed_receiver_arguments_bind_and_replay(
     assert replayed.evaluation_proven == (expected != "UNKNOWN")
     if expected != "UNKNOWN":
         assert replayed == row
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize("tamper", ["removed", "swapped"])
+def test_saved_constructed_receiver_requires_constructor_target_witness(
+    tmp_path, mounted, columnar, tamper
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import encode_canonical_model
+
+    caller = (
+        "from .storage import Storage\n"
+        "def consume(spec, queries):\n"
+        "    store = Storage()\n"
+        "    store.page('literal')\n"
+    )
+    result, _ = _observe(
+        tmp_path,
+        caller,
+        storage="class Storage:\n    def page(self, query): pass\n",
+        mounted=mounted,
+        target="sample.storage.Storage.page",
+    )
+    report = observation_payload(result.observation)
+    declaration = next(
+        row
+        for row in report["symbols"]
+        if row["data"].get("qualified_name") == "sample.storage.Storage"
+    )
+    declaration_ids = set(declaration["evidence_ids"])
+    constructor = next(
+        row
+        for row in report["calls"]
+        if row["data"].get("expression") == "Storage"
+        and "sample.storage.Storage" in row["data"].get("targets", [])
+    )
+    unrelated_id = next(row["id"] for row in report["evidence"] if row["id"] not in declaration_ids)
+    target_ids = [] if tamper == "removed" else [unrelated_id]
+    constructor["data"]["target_evidence_ids"] = target_ids
+    call_binding = constructor["data"]["call_binding"]
+    binding_ids = set(call_binding["evidence_ids"]) - declaration_ids
+    call_binding["evidence_ids"] = sorted(binding_ids | set(target_ids))
+    saved = tmp_path / "tampered-constructed-receiver.json"
+    saved.write_text(json.dumps(encode_canonical_model(report) if columnar else report))
+
+    replay = run_saved_report(saved)
+
+    assert replay.diagnostics
+    assert replay.rule_assessments is None
 
 
 def test_constructed_receiver_does_not_prove_a_mutated_method(tmp_path):

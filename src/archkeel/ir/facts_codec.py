@@ -217,6 +217,8 @@ class _SourceFactsField(StrEnum):
     CANDIDATE_EVIDENCE = "candidate_evidence"
     ENCODING = "encoding"
     STRING_TABLE = "string_table"
+    RECEIVER_PARAMETER_OWNER = "receiver_parameter_owner"
+    RECEIVER_PARAMETER_SCOPES = "receiver_parameter_scopes"
 
 
 _SOURCE_FACTS_DETAIL_FIELDS = frozenset(
@@ -228,6 +230,12 @@ _SOURCE_FACTS_DETAIL_FIELDS = frozenset(
 )
 _SOURCE_FACTS_ENCODING_FIELDS = frozenset(
     {_SourceFactsField.ENCODING, _SourceFactsField.STRING_TABLE}
+)
+_SOURCE_FACTS_SELECTOR_OWNER_FIELDS = frozenset(
+    {
+        _SourceFactsField.RECEIVER_PARAMETER_OWNER,
+        _SourceFactsField.RECEIVER_PARAMETER_SCOPES,
+    }
 )
 
 
@@ -1070,6 +1078,13 @@ def _source_facts(value: RawJson, version: ProtocolVersion) -> SourceFacts:
             for entry in _array(item.get("provider_bindings", []), "provider bindings")
         ),
     )
+    if version is not ProtocolVersion.V5 and any(
+        key in _SOURCE_FACTS_SELECTOR_OWNER_FIELDS
+        for section in facts.sections
+        for record in section.records
+        for key, _ in record.data.entries
+    ):
+        raise ProtocolError("selector parameter owners require collection protocol 5.0.0")
     _contextmanager_protocol(facts, version)
     validate_source_facts(facts)
     return facts
