@@ -41,6 +41,11 @@ empty or missing selected scopes remain UNKNOWN. It does not infer runtime types
 operator overloads, execution reachability, entropy or collision freedom. See
 [AD-246](architecture/decisions/ad-246-bounded-numeric-operand.md).
 
+Named numeric operands inside Python 3.12 generic function and class definition
+intervals, including defaults, remain UNKNOWN because their header scopes are not
+replayed independently. Literal operands remain provable; decorators stay in their
+outer scope.
+
 An explicitly certified `complete_requires` scope can PASS with unrelated source
 resolution gaps. Arbitrary imports still block their own scopes and ancestors;
 signature gaps do not prove or disprove imports. Legacy or unbound gaps remain

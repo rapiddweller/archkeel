@@ -64,6 +64,7 @@ class LexicalScopes(ast.NodeVisitor):
             for child in ast.iter_child_nodes(parent)
         }
         self.by_node: dict[ast.AST, Scope] = {}
+        self.generic_header_numeric_lines: set[int] = set()
         self.visit(module.tree)
 
     @staticmethod
@@ -200,9 +201,57 @@ class LexicalScopes(ast.NodeVisitor):
 
     def _definition(self, node: DefinitionNode) -> None:
         self._bind(node.name, node)
-        for child in ast.iter_child_nodes(node):
-            if child not in node.body:
-                self.visit(child)
+        if sys.version_info >= (3, 12) and node.type_params:
+            for decorator in node.decorator_list:
+                self.visit(decorator)
+            arguments = (
+                node.args if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) else None
+            )
+            if arguments is not None:
+                for default in (*arguments.defaults, *arguments.kw_defaults):
+                    if default is not None:
+                        self.generic_header_numeric_lines.update(
+                            item.lineno
+                            for item in ast.walk(default)
+                            if isinstance(item, ast.BinOp | ast.AugAssign)
+                            and isinstance(item.op, ast.Mod)
+                        )
+                        self.visit(default)
+            parent = self.current
+            line, _, column = location(node)
+            type_parameter_names = frozenset(type_param.name for type_param in node.type_params)
+            self.current = Scope(
+                node,
+                None,
+                f"{parent.qualified_name}.<type-parameters:{node.name}:{line}:{column}>",
+                None,
+                parent,
+                blocked_names=type_parameter_names,
+            )
+            for type_param in node.type_params:
+                self.visit(type_param)
+            if arguments is not None:
+                for argument in (
+                    *arguments.posonlyargs,
+                    *arguments.args,
+                    *arguments.kwonlyargs,
+                    arguments.vararg,
+                    arguments.kwarg,
+                ):
+                    if argument is not None and argument.annotation is not None:
+                        self.visit(argument.annotation)
+                if node.returns is not None:
+                    self.visit(node.returns)
+            elif isinstance(node, ast.ClassDef):
+                for base in node.bases:
+                    self.visit(base)
+                for keyword in node.keywords:
+                    self.visit(keyword.value)
+            self.current = parent
+        else:
+            for child in ast.iter_child_nodes(node):
+                if child not in node.body:
+                    self.visit(child)
         qualified = f"{self.current.qualified_name}.{node.name}"
         parent = self._enter(
             node, node.name, qualified, definition_id(self.module, node, qualified)
@@ -261,43 +310,20 @@ class LexicalScopes(ast.NodeVisitor):
             self.visit(type_param)
         self.current = parent
 
-        matches: list[symtable.SymbolTable] = []
-        parent_table: symtable.SymbolTable | None = parent.table
-        if parent_table is not None:
-            parent_children: list[symtable.SymbolTable] = parent_table.get_children()
-            for child in parent_children:
-                child_name: str = child.get_name()
-                child_line: int = child.get_lineno()
-                child_type: str = child.get_type()
-                if child_name != alias_name or child_line != line:
-                    continue
-                if child_type == "type alias":
-                    matches.append(child)
-                elif child_type == "type parameter":
-                    nested_children: list[symtable.SymbolTable] = child.get_children()
-                    for nested in nested_children:
-                        nested_name: str = nested.get_name()
-                        nested_type: str = nested.get_type()
-                        nested_line: int = nested.get_lineno()
-                        if (
-                            nested_name == alias_name
-                            and nested_type == "type alias"
-                            and nested_line == line
-                        ):
-                            matches.append(nested)
+        parameter_scope_name = (
+            f"{parent.qualified_name}.<type-parameters:{alias_name}:{line}:{column}>"
+        )
+        alias_scope_name = f"{parent.qualified_name}.<type-alias:{alias_name}:{line}:{column}>"
+        self._enter(node, alias_name, parameter_scope_name, None)
+        self.current.blocked_names = type_parameter_names
+        self._enter(node, alias_name, alias_scope_name, None)
+        alias_scope = self.current
+        alias_scope.parent = parent
+        alias_scope.blocked_names = type_parameter_names
         # Class annotation scopes can see class locals. Until those semantics are
         # represented here, withholding all aliases inside a class is fail-closed.
-        table = (
-            matches[0] if len(matches) == 1 and not isinstance(parent.node, ast.ClassDef) else None
-        )
-        self.current = Scope(
-            node,
-            table,
-            f"{parent.qualified_name}.<type-alias:{alias_name}:{line}:{column}>",
-            None,
-            parent,
-            blocked_names=type_parameter_names,
-        )
+        if isinstance(parent.node, ast.ClassDef):
+            alias_scope.table = None
         self.visit(node.value)
         self.current = parent
 
