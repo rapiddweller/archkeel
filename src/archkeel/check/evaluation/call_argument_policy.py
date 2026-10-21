@@ -491,13 +491,16 @@ def _catalog_ambiguous_imports(
             )
         )
     }
-    return [
-        record
-        for record in imports
-        if (data := parse_record(record).data).get("source_module") in selected_modules
-        and data.get("origin_definition") in catalog_origins
-        and data.get("source_binding_unique") is False
-    ]
+    ambiguous: list[RawRecord] = []
+    for record in imports:
+        data: RecordData = parse_record(record).data
+        if (
+            data.get("source_module") in selected_modules
+            and data.get("origin_definition") in catalog_origins
+            and data.get("source_binding_unique") is False
+        ):
+            ambiguous.append(record)
+    return ambiguous
 
 
 def _catalog_source_records(
@@ -719,9 +722,11 @@ def _catalog_target_supports(
     target = rule.target
     if target is None:
         return []
-    names = {target, target.rpartition(".")[0]}
+    target_name: str = target
+    names = {target_name, target_name.rpartition(".")[0]}
     for call in calls:
-        binding = call_binding(parse_record(call).data.get("call_binding"))
+        call_data: RecordData = parse_record(call).data
+        binding = call_binding(call_data.get("call_binding"))
         proof = binding.proof if binding is not None else None
         proof_target = proof.get("target") if proof is not None else None
         if binding is not None and binding.target == target and isinstance(proof_target, str):
@@ -1057,7 +1062,8 @@ def _catalog_call_argument_uses(
         used |= call_uses
         if uncertain_call:
             uncertain.append(call)
-    return used, tuple({record["id"]: record for record in uncertain}.values())
+    unique_uncertain: dict[str, RawRecord] = {record["id"]: record for record in uncertain}
+    return used, tuple(unique_uncertain[identifier] for identifier in unique_uncertain)
 
 
 def _catalog_use_call_entries(
@@ -1069,12 +1075,13 @@ def _catalog_use_call_entries(
     references: Sequence[RawRecord],
     reference_data: dict[str, RecordData],
 ) -> tuple[set[str], bool]:
-    binding = call_binding(parse_record(call).data.get("call_binding"))
+    call_data: RecordData = parse_record(call).data
+    binding = call_binding(call_data.get("call_binding"))
     if binding is None:
         return set(), not _unrelated_resolved_call(call, rule.target or "")
     if binding.target != rule.target:
         return set(), False
-    actuals = call_arguments(parse_record(call).data.get("call_arguments"))
+    actuals = call_arguments(call_data.get("call_arguments"))
     if actuals is None:
         return set(), True
     bound = bind_call_arguments(
@@ -1147,9 +1154,13 @@ def _catalog_actual_entries(
     matches = {identity for identity, (_, literal, _) in entries.items() if literal == actual.value}
     if require_unique_value and len(matches) > 1:
         return set(), True
-    selected = matches & (selected_entries if selected_entries is not None else entries).keys()
-    scoped_entries = selected_entries if selected_entries is not None else entries
-    has_unknown_selected_value = any(literal is None for _, literal, _ in scoped_entries.values())
+    scoped_entries: dict[str, _CatalogEntry] = (
+        selected_entries if selected_entries is not None else entries
+    )
+    selected = matches & set(scoped_entries)
+    has_unknown_selected_value = any(
+        scoped_entries[identity][1] is None for identity in scoped_entries
+    )
     return selected, require_unique_value and has_unknown_selected_value
 
 

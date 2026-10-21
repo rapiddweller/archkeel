@@ -718,7 +718,8 @@ def _enum_mutation_index(
 ) -> _EnumMutationIndex:
     """Index only AST nodes that might mutate an enum owner."""
     candidates: list[tuple[ParsedModule, ast.expr]] = []
-    for module in modules.values():
+    for module_name in modules:
+        module = modules[module_name]
         for node in module.all_nodes:
             target: ast.expr | None = None
             if isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Store | ast.Del):
