@@ -108,7 +108,7 @@ Proposed contract extensions are tracked in [#356](https://github.com/rapiddwell
 
 Protocol declaration selectors use the complete observed scope, closed declaration roles,
 and canonical type identity; their exact and optional-union semantics are recorded in
-[AD-245](decisions/ad-245-canonical-protocol-declarations.md).
+[AD-254](decisions/ad-254-canonical-protocol-declarations.md).
 
 ## Decisions
 
@@ -121,7 +121,7 @@ and canonical type identity; their exact and optional-union semantics are record
 | [AD-239](decisions/ad-239-codec-format-owners.md) | Keep the codec facade while separate format owners preserve parsing and wire bytes. |
 | [AD-238](decisions/ad-238-command-view-preparation.md) | Prepare compact command views in a focused governance module while retaining legacy imports and wire output. |
 | [AD-242](decisions/ad-242-explicit-browser-module-ports.md) | Check named browser module ports and publish one verified offline bundle. |
-| [AD-245](decisions/ad-245-canonical-protocol-declarations.md) | Require exact canonical Protocol identities at selected API positions. |
+| [AD-254](decisions/ad-254-canonical-protocol-declarations.md) | Require exact canonical Protocol identities at selected API positions. |
 | [AD-246](decisions/ad-246-bounded-numeric-operand.md) | Bind selected modulo bounds to bounded source-derived integer proofs. |
 
 | [AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md) | Bind explicitly written actuals to proven formals before applying argument policies. |
