@@ -85,7 +85,10 @@ def test_actual_predicate_enum_and_decoder_satisfy_independent_native_target(tmp
     ("old", "new"),
     [
         ("class _StringPredicate(Enum):", "class _StringPredicate:"),
-        ("imports: Sequence[RawRecord] = (),", "imports: Sequence[str] = (),"),
+        (
+            "    *,\n    imports: Sequence[RawRecord] = (),",
+            "    *,\n    imports: Sequence[str] = (),",
+        ),
         (
             "    include_parameter_owner_proof: bool = True,\n) -> list[RawRecord]:",
             "    include_parameter_owner_proof: bool = True,\n) -> list[str]:",
