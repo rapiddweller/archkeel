@@ -291,6 +291,34 @@ def _local_receiver_types(node: FunctionNode, scopes: LexicalScopes) -> dict[str
     return {name: value for name, value in receivers.items() if value is not None}
 
 
+def _unpacked_values(target: ast.expr, value: ast.expr) -> list[tuple[ast.Name, ast.expr]]:
+    if isinstance(target, ast.Name):
+        return [(target, value)]
+    if isinstance(target, ast.Tuple | ast.List) and isinstance(value, ast.Tuple | ast.List):
+        if len(target.elts) == len(value.elts):
+            return [
+                pair
+                for target_item, value_item in zip(target.elts, value.elts, strict=True)
+                for pair in _unpacked_values(target_item, value_item)
+            ]
+    return []
+
+
+def _unpacked_value(site: ast.Name, target: ast.expr, value: ast.expr) -> ast.expr | None:
+    return next(
+        (source for name, source in _unpacked_values(target, value) if name is site),
+        None,
+    )
+
+
+def _assignment_name_values(statement: ast.Assign) -> list[tuple[ast.Name, ast.expr]]:
+    if statement.value is None:
+        return []
+    return [
+        pair for target in statement.targets for pair in _unpacked_values(target, statement.value)
+    ]
+
+
 class CallCollector(ast.NodeVisitor):
     def __init__(
         self,
@@ -302,6 +330,7 @@ class CallCollector(ast.NodeVisitor):
         imports: Sequence[RawRecord] = (),
     ) -> None:
         self.module = module
+        self.sys_modules_aliases = self._collect_sys_modules_aliases()
         self.index = index
         self.symbol_evidence = index.evidence
         self.evidence = evidence
@@ -312,6 +341,8 @@ class CallCollector(ast.NodeVisitor):
             for item in imports
             if _mapping_value(item["data"], "source_module") == module.module
         )
+        self.native_mutation_collectors: Sequence[CallCollector] = (self,)
+        self.native_revocation_cache: dict[str, bool] = {}
         self.items: list[RawRecord] = []
         self.scopes = LexicalScopes.for_module(module)
         self.receivers = {
@@ -321,11 +352,21 @@ class CallCollector(ast.NodeVisitor):
         }
         self.parents = self.scopes.parents
         self.stable_bindings = stable_direct_module_bindings(module)
-        self.escaped_bindings = {
-            (binding.owner.node, reference.id)
-            for reference in member_escape_references(
+        member_escape_sites = tuple(
+            member_escape_references(
                 module, module.all_nodes, member_surface=True, owner_exposure_only=True
             )
+        )
+        self.escaped_bindings = {
+            (binding.owner.node, reference.id)
+            for reference in member_escape_sites
+            if not self._discarded_attribute_read(reference)
+            if (binding := self.scopes.lookup(reference, reference.id)).owner is not None
+        }
+        self.constructed_escape_bindings = {
+            (binding.owner.node, reference.id)
+            for reference in member_escape_sites
+            if self._receiver_escape_reference(reference)
             if (binding := self.scopes.lookup(reference, reference.id)).owner is not None
         }
         self.escaped_native_targets = {
@@ -337,11 +378,23 @@ class CallCollector(ast.NodeVisitor):
             if isinstance(reference, ast.Name)
             for target in self._native_expression_targets(reference)
         }
+        builtin_mutator_receivers = {
+            call.args[0]
+            for call in module.all_nodes
+            if (
+                isinstance(call, ast.Call)
+                and self._is_builtin_native_mutator(call)
+                and call.args
+                and isinstance(call.args[0], ast.Name)
+                and self._native_expression_targets(call.args[0])
+            )
+        }
         self.escaped_native_targets.update(
             target
             for reference in member_escape_references(
                 module, module.all_nodes, member_surface=True, owner_exposure_only=True
             )
+            if reference not in builtin_mutator_receivers
             for target in self._native_expression_targets(reference)
         )
         self.scope_bindings: dict[ast.ClassDef | FunctionNode, frozenset[str]] = {}
@@ -422,6 +475,19 @@ class CallCollector(ast.NodeVisitor):
                     {location: tuple(paths) for location, paths in member_by_location.items()},
                 )
         return guarded_paths, member_paths
+
+    def _discarded_attribute_read(self, reference: ast.Name) -> bool:
+        """A read-only attribute expression discarded as a statement exposes no receiver."""
+        current: ast.AST = reference
+        while current in self.parents:
+            parent = self.parents[current]
+            if isinstance(parent, ast.Attribute) and parent.value is current:
+                if not isinstance(parent.ctx, ast.Load):
+                    return False
+                current = parent
+                continue
+            return isinstance(parent, ast.Expr) and isinstance(current, ast.Attribute)
+        return False
 
     def _construction(
         self,
@@ -760,6 +826,11 @@ class CallCollector(ast.NodeVisitor):
             or _mapping_value(declaration["data"], "source_binding_unique") is not True
             or _mapping_value(declaration["data"], "source_member_binding_static") is not True
             or _mapping_value(declaration["data"], "class_header_static") is not True
+            or _mapping_value(declaration["data"], "class_body_control_flow") is True
+            or any(
+                hook in (_mapping_value(declaration["data"], "class_members") or [])
+                for hook in ("__getattribute__", "__getattr__", "__setattr__")
+            )
             or any(
                 isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef)
                 and child.name in {"__getattribute__", "__getattr__", "__setattr__", node.attr}
@@ -773,6 +844,11 @@ class CallCollector(ast.NodeVisitor):
             or owner_declaration["kind"] != "class"
             or _mapping_value(owner_declaration["data"], "source_binding_unique") is not True
             or _mapping_value(owner_declaration["data"], "source_member_binding_static") is not True
+            or _mapping_value(owner_declaration["data"], "class_body_control_flow") is True
+            or any(
+                hook in (_mapping_value(owner_declaration["data"], "class_members") or [])
+                for hook in ("__getattribute__", "__getattr__", "__setattr__")
+            )
         ):
             return None
 
@@ -805,7 +881,7 @@ class CallCollector(ast.NodeVisitor):
         ):
             return None
         binding = self.scopes.lookup(receiver, receiver.id)
-        if binding.owner is None or (binding.owner.node, receiver.id) in self.escaped_bindings:
+        if binding.owner is None or self._receiver_escaped(binding.owner, receiver.id):
             return None
         return current_method
 
@@ -814,6 +890,78 @@ class CallCollector(ast.NodeVisitor):
         while current in self.parents:
             current = self.parents[current]
             yield current
+
+    def _receiver_escaped(self, owner: Scope, name: str, *, constructed: bool = False) -> bool:
+        escape_bindings = self.constructed_escape_bindings if constructed else self.escaped_bindings
+        aliases = {name}
+        while True:
+            if any((owner.node, alias) in escape_bindings for alias in aliases):
+                return True
+            expanded: set[str] = set(aliases)
+            bindings: dict[str, list[ast.AST]] = owner.bindings
+            for alias, sites in bindings.items():
+                for site in sites:
+                    if not isinstance(site, ast.Name) or not isinstance(site.ctx, ast.Store):
+                        continue
+                    assignment = self.parents.get(site)
+                    value = (
+                        assignment.value
+                        if isinstance(assignment, ast.Assign | ast.AnnAssign)
+                        else None
+                    )
+                    if isinstance(value, ast.Name) and value.id in aliases:
+                        source = self.scopes.lookup(value, value.id)
+                        if source.owner is owner:
+                            expanded.add(alias)
+            if expanded == aliases:
+                return False
+            aliases = expanded
+
+    def _receiver_escape_reference(self, reference: ast.Name) -> bool:
+        current: ast.AST = reference
+        while current in self.parents:
+            parent = self.parents[current]
+            if isinstance(parent, ast.Call):
+                if current in parent.args or any(
+                    keyword.value is current for keyword in parent.keywords
+                ):
+                    return True
+                return False
+            if isinstance(parent, ast.Attribute):
+                if isinstance(parent.ctx, ast.Store | ast.Del):
+                    return True
+                current = parent
+                continue
+            if (
+                isinstance(parent, ast.Compare)
+                and isinstance(current, ast.Attribute)
+                and current
+                in (
+                    parent.left,
+                    *parent.comparators,
+                )
+            ):
+                return False
+            if isinstance(parent, ast.Assign | ast.AnnAssign):
+                value = parent.value
+                targets = parent.targets if isinstance(parent, ast.Assign) else (parent.target,)
+                if (
+                    value is current
+                    and isinstance(value, ast.Name)
+                    and all(isinstance(target, ast.Name) for target in targets)
+                ):
+                    return False
+                return True
+            if isinstance(
+                parent, ast.AugAssign | ast.NamedExpr | ast.Return | ast.Yield | ast.YieldFrom
+            ):
+                return True
+            if isinstance(
+                parent, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Lambda
+            ):
+                return True
+            current = parent
+        return True
 
     def _in_direct_function_body(self, node: ast.AST, function: ast.AST) -> bool:
         current = node
@@ -868,7 +1016,11 @@ class CallCollector(ast.NodeVisitor):
     ) -> tuple[str, list[str], dict[str, object]] | None:
         if isinstance(expression, ast.Name):
             binding = self.scopes.lookup(expression, expression.id)
-            if binding.uncertain or binding.owner is None:
+            if (
+                binding.uncertain
+                or binding.owner is None
+                or self._receiver_escaped(binding.owner, expression.id, constructed=True)
+            ):
                 return None
             sites = binding.owner.bindings.get(expression.id, ())
             if len(sites) != 1 or not isinstance(sites[0], ast.Name):
@@ -880,6 +1032,8 @@ class CallCollector(ast.NodeVisitor):
                 control_flow_contexts(parent, self.parents)
                 or not self._in_direct_function_body(parent, binding.owner.node)
                 or parent.lineno >= call_site.lineno
+                or isinstance(parent, ast.Assign)
+                and len(parent.targets) != 1
             ):
                 return None
             value = parent.value
@@ -921,6 +1075,11 @@ class CallCollector(ast.NodeVisitor):
                 },
             )
         return None
+
+    @staticmethod
+    def _member_is_static(declaration: RawRecord, member: str) -> bool:
+        writes = _mapping_value(declaration["data"], "instance_member_writes")
+        return isinstance(writes, list) and "*" not in writes and member not in writes
 
     def _constructor_type(self, call: ast.Call) -> tuple[str, list[str]] | None:
         status, targets, _, _ = resolve_name(call.func, index=self.index, scopes=self.scopes)
@@ -966,6 +1125,24 @@ class CallCollector(ast.NodeVisitor):
         inherited_evidence: list[str] = []
         while current not in seen:
             seen.add(current)
+            owner_declaration = self.index.binding_declarations.get(current)
+            class_members = (
+                _mapping_value(owner_declaration["data"], "class_members")
+                if owner_declaration is not None
+                else None
+            )
+            if (
+                owner_declaration is not None
+                and _mapping_value(owner_declaration["data"], "class_body_control_flow") is True
+            ):
+                return None
+            if any(
+                f"{current}.{hook}" in self.index.binding_declarations
+                or isinstance(class_members, list)
+                and hook in class_members
+                for hook in ("__getattr__", "__getattribute__")
+            ):
+                return None
             target = f"{current}.{method}"
             declaration = self.index.binding_declarations.get(target)
             if declaration is not None:
@@ -976,7 +1153,6 @@ class CallCollector(ast.NodeVisitor):
                 ):
                     return None
                 return target, declaration, inherited_evidence
-            owner_declaration = self.index.binding_declarations.get(current)
             if (
                 owner_declaration is None
                 or _mapping_value(owner_declaration["data"], "class_header_static") is not True
@@ -1011,6 +1187,8 @@ class CallCollector(ast.NodeVisitor):
             or binding.uncertain
             or len(binding.targets) != 1
             or binding.owner is None
+            or binding.owner is self.scopes.root
+            and root not in self.stable_bindings
             or binding.targets[0] in self.escaped_native_targets
         ):
             return None
@@ -1023,34 +1201,63 @@ class CallCollector(ast.NodeVisitor):
         return target, [add_evidence(self.evidence, self.module, sites[0])]
 
     def _native_target_revoked(self, target: str) -> bool:
-        sys_modules_aliases = {"sys.modules"}
+        if target in self.native_revocation_cache:
+            return self.native_revocation_cache[target]
+        revoked = any(
+            collector._native_target_revoked_in_module(target)
+            for collector in self.native_mutation_collectors
+        )
+        self.native_revocation_cache[target] = revoked
+        return revoked
+
+    def _collect_sys_modules_aliases(self) -> frozenset[str]:
+        aliases = {"sys.modules"}
         changed = True
         while changed:
             changed = False
-            for statement in ast.walk(self.module.tree):
-                if isinstance(statement, ast.Assign):
-                    source_alias = (
-                        statement.value.id
-                        if isinstance(statement.value, ast.Name)
-                        else dotted_expression(statement.value)
+            for statement in self.module.all_nodes:
+                if isinstance(statement, ast.Import):
+                    alias = next(
+                        (
+                            item.asname or item.name
+                            for item in statement.names
+                            if item.name == "sys"
+                        ),
+                        None,
                     )
-                    if source_alias in sys_modules_aliases:
-                        for assigned in statement.targets:
-                            if (
-                                isinstance(assigned, ast.Name)
-                                and assigned.id not in sys_modules_aliases
-                            ):
-                                sys_modules_aliases.add(assigned.id)
-                                changed = True
+                    if alias is not None and f"{alias}.modules" not in aliases:
+                        aliases.add(f"{alias}.modules")
+                        changed = True
                 elif isinstance(statement, ast.ImportFrom) and statement.module == "sys":
-                    if any(item.name == "modules" for item in statement.names):
-                        sys_modules_aliases.add(
-                            next(
-                                item.asname or item.name
-                                for item in statement.names
-                                if item.name == "modules"
-                            )
-                        )
+                    alias = next(
+                        (
+                            item.asname or item.name
+                            for item in statement.names
+                            if item.name == "modules"
+                        ),
+                        None,
+                    )
+                    if alias is not None and alias not in aliases:
+                        aliases.add(alias)
+                        changed = True
+                elif isinstance(statement, ast.Assign):
+                    for site, value in _assignment_name_values(statement):
+                        source = dotted_expression(value)
+                        if source in aliases and site.id not in aliases:
+                            aliases.add(site.id)
+                            changed = True
+        return frozenset(aliases)
+
+    def _assignment_value(self, site: ast.Name, assignment: ast.AST | None) -> ast.expr | None:
+        if isinstance(assignment, ast.AnnAssign):
+            return assignment.value if assignment.target is site else None
+        if not isinstance(assignment, ast.Assign) or assignment.value is None:
+            return None
+        if len(assignment.targets) > 1:
+            return assignment.value if site in assignment.targets else None
+        return _unpacked_value(site, assignment.targets[0], assignment.value)
+
+    def _native_target_revoked_in_module(self, target: str) -> bool:
         for node in ast.walk(self.module.tree):
             targets: tuple[ast.expr, ...] = ()
             if isinstance(node, ast.Assign):
@@ -1062,16 +1269,24 @@ class CallCollector(ast.NodeVisitor):
             if self._native_targets_mutated(node, targets, target):
                 return True
             for mutation in targets:
-                if not isinstance(mutation, ast.Subscript):
-                    continue
-                table = dotted_expression(mutation.value)
-                module = _partition_first(target, ".")[0]
-                if (
-                    table in sys_modules_aliases
-                    and isinstance(mutation.slice, ast.Constant)
-                    and mutation.slice.value == module
-                ):
-                    return True
+                candidate = mutation
+                if isinstance(candidate, ast.Attribute):
+                    module_name = _partition_first(target, ".")[0]
+                    changed_member = f"{module_name}.{candidate.attr}"
+                    if changed_member == target or _starts_with(target, f"{changed_member}."):
+                        if not isinstance(candidate.value, ast.Subscript):
+                            continue
+                        candidate = candidate.value
+                    else:
+                        continue
+                if isinstance(candidate, ast.Subscript):
+                    table = dotted_expression(candidate.value)
+                    module = _partition_first(target, ".")[0]
+                    if table in self.sys_modules_aliases and (
+                        not isinstance(candidate.slice, ast.Constant)
+                        or candidate.slice.value == module
+                    ):
+                        return True
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
                 if node.func.id in {"setattr", "delattr"} and len(node.args) >= 2:
                     member = node.args[1]
@@ -1112,10 +1327,20 @@ class CallCollector(ast.NodeVisitor):
         for site in sites:
             if not isinstance(site, ast.Name):
                 continue
-            assignment = self.parents.get(site)
-            if not isinstance(assignment, ast.Assign | ast.AnnAssign) or assignment.value is None:
+            parent = self.parents.get(site)
+            while isinstance(parent, ast.Tuple | ast.List | ast.Starred):
+                parent = self.parents.get(parent)
+            value = self._assignment_value(site, parent)
+            if value is None:
                 continue
-            origins = origins | self._native_expression_targets(assignment.value, seen)
+            if isinstance(value, ast.Subscript) and isinstance(value.slice, ast.Constant):
+                table = dotted_expression(value.value)
+                module = value.slice.value
+                if table in self.sys_modules_aliases and isinstance(module, str):
+                    module_name: str = module
+                    if module_name.isidentifier():
+                        origins = origins | {module_name}
+            origins = origins | self._native_expression_targets(value, seen)
         return origins
 
     def _native_targets_mutated(
@@ -1198,13 +1423,14 @@ class CallCollector(ast.NodeVisitor):
             return None
         receiver = node.func.value
         constructor: ast.Call | None = receiver if isinstance(receiver, ast.Call) else None
+        assignment_site: ast.Name | None = None
         assignment_evidence: str | None = None
         if isinstance(receiver, ast.Name):
             binding = self.scopes.lookup(receiver, receiver.id)
             if (
                 binding.uncertain
                 or binding.owner is None
-                or (binding.owner.node, receiver.id) in self.escaped_bindings
+                or self._receiver_escaped(binding.owner, receiver.id)
             ):
                 return None
             sites = binding.owner.bindings.get(receiver.id, ())
@@ -1220,15 +1446,18 @@ class CallCollector(ast.NodeVisitor):
                 return None
             if (assignment.lineno, assignment.col_offset) >= (node.lineno, node.col_offset):
                 return None
-            if self._native_instance_member_changed(receiver.id, node):
-                return None
             constructor = assignment.value if isinstance(assignment.value, ast.Call) else None
-            assignment_evidence = add_evidence(self.evidence, self.module, sites[0])
+            assignment_site = sites[0]
         if constructor is None:
             return None
         type_identity = self._native_import_target(constructor.func)
         if type_identity is None or type_identity[0] != "random.Random":
             return None
+        if isinstance(receiver, ast.Name):
+            if self._native_instance_member_changed(receiver.id, node):
+                return None
+            if assignment_site is not None:
+                assignment_evidence = add_evidence(self.evidence, self.module, assignment_site)
         target = f"{type_identity[0]}.{node.func.attr}"
         if target not in NATIVE_CALL_TARGETS or self._native_target_revoked(target):
             return None
@@ -1483,6 +1712,8 @@ class CallCollector(ast.NodeVisitor):
             or _mapping_value(constructed_declaration["data"], "source_member_owner_static")
             is not True
             or _mapping_value(owner_declaration["data"], "source_member_owner_static") is not True
+            or not self._member_is_static(constructed_declaration, node.func.attr)
+            or not self._member_is_static(owner_declaration, node.func.attr)
         ):
             return None
         return self._receiver_binding_record(
@@ -1526,7 +1757,7 @@ class CallCollector(ast.NodeVisitor):
         if (
             binding.owner is None
             or binding.uncertain
-            or (binding.owner.node, receiver.id) in self.escaped_bindings
+            or self._receiver_escaped(binding.owner, receiver.id)
         ):
             return None
         sites = binding.owner.bindings.get(receiver.id, ())
@@ -1568,7 +1799,21 @@ class CallCollector(ast.NodeVisitor):
             None,
         )
 
-    def _call_arguments(self, node: ast.Call) -> list[RecordData]:
+    def _call_arguments(
+        self, node: ast.Call, expression: str, binding: RecordData | None
+    ) -> list[RecordData] | None:
+        if (
+            binding is None
+            or node.end_lineno != node.lineno
+            or not call_excerpt_matches(
+                expression,
+                self.module.lines[node.lineno - 1],
+                node.lineno,
+                node.col_offset,
+                node.end_lineno,
+            )
+        ):
+            return None
         arguments: list[RecordData] = []
         for argument in node.args:
             value = argument.value if isinstance(argument, ast.Starred) else argument
@@ -1846,7 +2091,6 @@ class CallCollector(ast.NodeVisitor):
         target_evidence_ids: list[str],
         guarded_effect: Sequence[RecordData],
     ) -> None:
-        source_line = self.module.lines[node.lineno - 1]
         self.items.append(
             classified(
                 item_id=item_id,
@@ -1869,19 +2113,7 @@ class CallCollector(ast.NodeVisitor):
                     "candidates_truncated": candidate_count > len(targets),
                     "reason": reason,
                     "target_evidence_ids": target_evidence_ids,
-                    "call_arguments": (
-                        self._call_arguments(node)
-                        if binding is not None
-                        and node.end_lineno == node.lineno
-                        and call_excerpt_matches(
-                            expression,
-                            source_line,
-                            node.lineno,
-                            node.col_offset,
-                            node.end_lineno,
-                        )
-                        else None
-                    ),
+                    "call_arguments": self._call_arguments(node, expression, binding),
                     "result_bindings": self._result_bindings(node, item_id),
                     "construction": self._construction(
                         node, expression, status, targets, candidate_count > len(targets)
@@ -1904,6 +2136,12 @@ class CallCollector(ast.NodeVisitor):
         evidence_id = add_evidence(self.evidence, self.module, node)
         item_id = call_id(self.module, node, expression)
         binding = self._call_binding(node, status, targets, evidence_id)
+        if binding is not None and "proof" in binding and node.func.col_offset > node.col_offset:
+            binding = None
+            status = SourceResolution.UNRESOLVED
+            targets = []
+            candidate_count = 0
+            reason = "Parenthesized callee source evidence is unsupported"
         if binding is not None:
             canonical_target = binding["target"]
             targets = [canonical_target] if isinstance(canonical_target, str) else targets
@@ -1969,9 +2207,16 @@ def collect_calls_with_resolvers(
     """Collect calls and retain their per-module resolver for construct evidence."""
     calls: list[RawRecord] = []
     resolvers: list[CallCollector] = []
-    for module in parsed:
-        call_collector = CallCollector(module, index, evidence, provider_bindings, runtime, imports)
-        call_collector.visit(module.tree)
+    collectors = [
+        CallCollector(module, index, evidence, provider_bindings, runtime, imports)
+        for module in parsed
+    ]
+    revocation_cache: dict[str, bool] = {}
+    for call_collector in collectors:
+        call_collector.native_mutation_collectors = tuple(collectors)
+        call_collector.native_revocation_cache = revocation_cache
+    for call_collector in collectors:
+        call_collector.visit(call_collector.module.tree)
         calls.extend(call_collector.items)
         resolvers.append(call_collector)
     calls.sort(key=lambda item: item["id"])

@@ -461,6 +461,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         imports=imports,
         symbol_index=symbol_index,
         receiver_resolvers=call_resolvers,
+        include_parameter_owner_proof=request.protocol_version is ProtocolVersion.V5,
     )
     typed_symbols = tuple(parse_record(symbol) for symbol in symbols)
     state, state_evidence = collect_state(modules, typed_symbols, symbol_nodes, symbol_owners)

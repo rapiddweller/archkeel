@@ -33,6 +33,7 @@ def _payload(
     other: str = "",
     native: bool = False,
     extra: dict[str, str] | None = None,
+    protocol_version: ProtocolVersion = ProtocolVersion.V4,
 ) -> dict:
     files = {
         "sample/__init__.py": "",
@@ -47,7 +48,7 @@ def _payload(
         path.write_text(source)
     snapshot = SnapshotInput(str(tmp_path), "a" * 40, False)
     scope = SourceScope(("sample",), "sample")
-    request = CollectionRequest(snapshot, scope, PythonSettings(), ProtocolVersion.V4)
+    request = CollectionRequest(snapshot, scope, PythonSettings(), protocol_version)
     sources = ()
     if native:
         survey_request = CollectionRequest(
@@ -59,10 +60,10 @@ def _payload(
         survey = collect(survey_request)
         sources = provider_sources(survey_request, survey)
         request = CollectionRequest(
-            snapshot, scope, PythonSettings(provider_sources=sources), ProtocolVersion.V4
+            snapshot, scope, PythonSettings(provider_sources=sources), protocol_version
         )
     facts = collect(request)
-    response = CollectionResponse(facts, ProtocolVersion.V4)
+    response = CollectionResponse(facts, protocol_version)
     return json.loads(encode_response(response))
 
 
@@ -91,6 +92,52 @@ def test_stored_receiver_field_and_call_expression_cannot_be_retargeted(tmp_path
     initializer["data"]["stored_field_writes"][0]["field"] = "other"
     call["data"]["expression"] = "self.other.page"
     call["data"]["call_binding"]["proof"]["field"] = "other"
+    with pytest.raises(ProtocolError):
+        decode_response(json.dumps(payload).encode())
+
+
+@pytest.mark.parametrize("clear_scope_link", [False, True])
+def test_constructed_member_mutation_inventory_is_linked_to_write_evidence(
+    tmp_path, clear_scope_link
+):
+    caller = "from .storage import Store\ndef run():\n    value = Store()\n    value.page()\n"
+    clean = _payload(tmp_path, caller)
+    decode_response(json.dumps(clean).encode())
+    payload = _payload(
+        tmp_path,
+        caller,
+        extra={
+            "sample/storage.py": "class Store:\n"
+            "    def page(self): pass\n"
+            "    def prepare(self): self.page = lambda: None\n"
+        },
+    )
+    clean_call = next(
+        item for item in _records(clean, "calls") if item["data"]["expression"] == "value.page"
+    )
+    call = next(
+        item for item in _records(payload, "calls") if item["data"]["expression"] == "value.page"
+    )
+    call["data"]["call_binding"] = clean_call["data"]["call_binding"]
+    call["data"]["targets"] = clean_call["data"]["targets"]
+    call["data"]["target_evidence_ids"] = clean_call["data"]["target_evidence_ids"]
+    call["data"]["call_binding"]["evidence_ids"] = [
+        item["id"] for item in payload["facts"]["evidence"]
+    ]
+    declaration = next(
+        item
+        for item in _records(payload, "symbols")
+        if item["data"].get("qualified_name") == "sample.storage.Store"
+    )
+    declaration["data"]["instance_member_writes"] = []
+    if clear_scope_link:
+        scope_id = declaration["data"].pop("instance_member_scope_evidence_id")
+        declaration["evidence_ids"] = [
+            evidence_id for evidence_id in declaration["evidence_ids"] if evidence_id != scope_id
+        ]
+        payload["facts"]["evidence"][:] = [
+            item for item in payload["facts"]["evidence"] if item["id"] != scope_id
+        ]
     with pytest.raises(ProtocolError):
         decode_response(json.dumps(payload).encode())
 
@@ -253,6 +300,7 @@ def test_native_selector_annotation_uses_proven_reexport_origin(tmp_path):
             "sample/pkg/__init__.py": "from .types import Store\n",
             "sample/pkg/types.py": "class Store:\n    def page(self): pass\n",
         },
+        protocol_version=ProtocolVersion.V5,
     )
     facts = decode_response(json.dumps(payload).encode()).facts
     selectors = [
@@ -279,6 +327,7 @@ def test_selector_proof_index_is_shared_across_multiple_source_modules(tmp_path,
             "def run(value: Selected): value.page()\n",
             "sample/other_types.py": "class OtherStore:\n    def page(self): pass\n",
         },
+        protocol_version=ProtocolVersion.V5,
     )
     from archkeel.ir import facts_validation
 
@@ -432,6 +481,8 @@ def test_native_nested_function_cannot_reuse_outer_parameter_binding(tmp_path):
     assert selector.data.get("status") == "unknown"
     assert selector.data.get("receiver_type") is None
     assert selector.data.get("receiver_binding") is None
+    assert "receiver_parameter_owner" not in dict(selector.data.entries)
+    assert "receiver_parameter_scopes" not in dict(selector.data.entries)
 
 
 def test_native_module_level_local_constructor_has_a_source_binding(tmp_path):
@@ -459,6 +510,7 @@ def test_native_nested_attribute_chain_keeps_exact_declared_receiver(tmp_path):
         tmp_path,
         "class Store:\n    parent: Store\ndef run(store: Store): return store.parent.parent\n",
         native=True,
+        protocol_version=ProtocolVersion.V5,
     )
     facts = decode_response(json.dumps(payload).encode()).facts
     selectors = [
@@ -468,7 +520,7 @@ def test_native_nested_attribute_chain_keeps_exact_declared_receiver(tmp_path):
         for record in section.records
         if record.kind == "construct_selector"
     ]
-    [selector] = selectors
+    selector = next(item for item in selectors if item.data.get("receiver_parameter") == "store")
     assert selector.data.get("selector_role") == "read"
     assert selector.data.get("member") == "parent"
     assert selector.data.get("receiver_type") == "sample.caller.Store"

@@ -15,6 +15,7 @@ from collections.abc import Sequence
 from types import EllipsisType
 
 from archkeel.ir.facts import (
+    MAX_NUMERIC_EVIDENCE_CHARS,
     EvidenceClass,
     InventoryStatus,
     MemberInventory,
@@ -28,6 +29,7 @@ from archkeel.ir.facts import (
 )
 from archkeel.ir.facts_codec import RawData as RecordData
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, classified, member_inventory_data
+from archkeel.ir.source_proofs import class_instance_member_write_names
 from archkeel.ir.source_records import source_name_visibility as _source_name_visibility
 
 from .resolve import dotted_expression
@@ -415,6 +417,7 @@ def _class_symbol_data(
     member_escapes: frozenset[str],
 ) -> RecordData:
     attributes = _class_attribute_declarations(node, module, evidence)
+    instance_member_writes = class_instance_member_write_names(node)
     generic_parameters = _generic_parameters(module, node)
     generic_bases = _generic_bases(node)
     return {
@@ -437,6 +440,8 @@ def _class_symbol_data(
         and node.name not in module.owner_exposed_bindings,
         "class_header_static": class_header_static(node),
         "class_members": _class_member_names(node),
+        "instance_member_writes": list(instance_member_writes),
+        "instance_member_scope_evidence_id": _member_write_scope_evidence(module, node, evidence),
         "class_body_control_flow": any(
             isinstance(
                 child,
@@ -458,6 +463,27 @@ def _class_symbol_data(
         **({"generic_parameters": generic_parameters} if generic_parameters else {}),
         **({"generic_bases": generic_bases} if generic_bases else {}),
     }
+
+
+def _member_write_scope_evidence(
+    module: ParsedModule, node: ast.ClassDef, evidence: dict[str, RawEvidence]
+) -> str | None:
+    line, end_line, column = location(node)
+    if line < 1 or end_line > len(module.lines):
+        return None
+    excerpt = "\n".join(module.lines[line - 1 : end_line])
+    if not excerpt or len(excerpt) > MAX_NUMERIC_EVIDENCE_CHARS:
+        return None
+    evidence_id = stable_id("EVD", module.rel_path, line, end_line, column, "member_write_scope")
+    evidence[evidence_id] = {
+        "id": evidence_id,
+        "file": module.rel_path,
+        "line": line,
+        "end_line": end_line,
+        "column": column,
+        "excerpt": excerpt,
+    }
+    return evidence_id
 
 
 def _annotation_name_lookups(
@@ -1117,9 +1143,22 @@ def _definition_symbol(
         kind="class" if isinstance(node, ast.ClassDef) else "method" if classifier else "function",
         title=node.name,
         subjects=[qualname, module.module],
-        evidence_ids=[add_evidence(evidence, module, node)],
+        evidence_ids=_definition_evidence_ids(module, node, data, evidence),
         data=data,
     )
+
+
+def _definition_evidence_ids(
+    module: ParsedModule,
+    node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
+    data: RecordData,
+    evidence: dict[str, RawEvidence],
+) -> list[str]:
+    evidence_ids = [add_evidence(evidence, module, node)]
+    scope_id = data.get("instance_member_scope_evidence_id")
+    if isinstance(node, ast.ClassDef) and isinstance(scope_id, str):
+        evidence_ids.append(scope_id)
+    return evidence_ids
 
 
 def _default_constructor_body(node: ast.ClassDef) -> bool:

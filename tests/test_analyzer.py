@@ -1101,32 +1101,67 @@ def test_collect_constructs_detects_broad_except_and_documented_blind_spots(
 
 
 @pytest.mark.parametrize(
-    ("source", "expected"),
+    ("source", "expected", "selector_expected"),
     [
-        ('setattr(box, "x", 1)\n', [("setattr_call", "sample.mod")]),
-        ('delattr(box, "x")\n', [("delattr_call", "sample.mod")]),
-        ("vars(box)\nvars()\n", [("vars_call", "sample.mod"), ("vars_call", "sample.mod")]),
+        (
+            'setattr(box, "x", 1)\n',
+            [("setattr_call", "sample.mod")],
+            [("reflect", "x", "probe")],
+        ),
+        (
+            'delattr(box, "x")\n',
+            [("delattr_call", "sample.mod")],
+            [("reflect", "x", "probe")],
+        ),
+        (
+            "vars(box)\nvars()\n",
+            [("vars_call", "sample.mod"), ("vars_call", "sample.mod")],
+            [("reflect", None, "probe")],
+        ),
         (
             'import builtins\nbuiltins.setattr(box, "x", 1)\n',
             [("setattr_call", "sample.mod")],
+            [("call", "setattr", "call"), ("reflect", "x", "probe")],
         ),
         (
             "class Widget:\n    def m(self):\n        return self.__dict__\n",
             [("dunder_dict", "sample.mod.Widget.m")],
+            [],
         ),
-        ('box.__dict__["x"] = 1\ndel box.__dict__["x"]\n', [("dunder_dict", "sample.mod")] * 2),
-        ("box.__dict__.__dict__\n", [("dunder_dict", "sample.mod")]),
-        ('box.setattr("x", 1)\nbox.vars()\n', []),
-        ('f = setattr\nf(box, "x", 1)\n', []),
-        ('object.__setattr__(box, "x", 1)\n', []),
+        (
+            'box.__dict__["x"] = 1\ndel box.__dict__["x"]\n',
+            [("dunder_dict", "sample.mod")] * 2,
+            [("read", "__dict__", "read"), ("read", "__dict__", "read")],
+        ),
+        (
+            "box.__dict__.__dict__\n",
+            [("dunder_dict", "sample.mod")],
+            [("read", "__dict__", "read")],
+        ),
+        (
+            'box.setattr("x", 1)\nbox.vars()\n',
+            [],
+            [("call", "setattr", "call"), ("call", "vars", "call")],
+        ),
+        ('f = setattr\nf(box, "x", 1)\n', [], []),
+        ('object.__setattr__(box, "x", 1)\n', [], [("call", "__setattr__", "call")]),
     ],
 )
 def test_collect_constructs_detects_reflection_as_written(
-    source: str, expected: list[tuple[str, str]]
+    source: str,
+    expected: list[tuple[str, str]],
+    selector_expected: list[tuple[str, str | None, str]],
 ) -> None:
     """AD-48: the write side of reflection is matched as written; aliases stay blind spots."""
     records = collect_constructs([_parsed_module(source)], {})
-    assert sorted((item["kind"], item["data"]["owner"]) for item in records) == sorted(expected)
+    observed = [item for item in records if item["kind"] != "construct_selector"]
+    selectors = [item for item in records if item["kind"] == "construct_selector"]
+    assert sorted((item["kind"], item["data"]["owner"]) for item in observed) == sorted(expected)
+    assert sorted(
+        (item["data"]["selector_role"], item["data"]["member"], item["data"]["operation"])
+        for item in selectors
+    ) == sorted(selector_expected)
+    assert all(item["data"]["status"] == "unknown" for item in selectors)
     assert len({item["id"] for item in records}) == len(records)
 
 

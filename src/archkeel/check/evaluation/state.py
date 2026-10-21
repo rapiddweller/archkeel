@@ -212,6 +212,12 @@ def evaluate_contexts(
         )
         detail_ids = {key: sorted(set(value)) for key, value in detail_ids.items()}
         evidence_ids = symbol["evidence_ids"] if symbol else []
+        if symbol is not None:
+            scope_evidence_id = symbol["data"].get("instance_member_scope_evidence_id")
+            if isinstance(scope_evidence_id, str):
+                evidence_ids = [
+                    evidence_id for evidence_id in evidence_ids if evidence_id != scope_evidence_id
+                ]
         all_detail_records.extend(detail_records)
         result.append(
             classified(

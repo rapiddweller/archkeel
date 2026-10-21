@@ -54,9 +54,9 @@ def test_command_result_9_object_branches_admit_intended_observation_versions(br
     version = f"2.{minor}.0"
     raw = _model(git_head="a" * 40)
     raw["schema_version"] = version
-    schema = _validator("command-result-9.0.schema.json").schema["anyOf"][branch][
-        "properties"
-    ]["observation"]
+    schema = _validator("command-result-9.0.schema.json").schema["anyOf"][branch]["properties"][
+        "observation"
+    ]
     observation_validator = _validator("command-result-9.0.schema.json").evolve(schema=schema)
     assert observation_validator.is_valid(raw)
 
@@ -65,9 +65,9 @@ def test_command_result_9_object_branches_admit_intended_observation_versions(br
 def test_command_result_9_object_branches_reject_unknown_observation_versions(branch):
     raw = _model(git_head="a" * 40)
     raw["schema_version"] = "2.99.0"
-    schema = _validator("command-result-9.0.schema.json").schema["anyOf"][branch][
-        "properties"
-    ]["observation"]
+    schema = _validator("command-result-9.0.schema.json").schema["anyOf"][branch]["properties"][
+        "observation"
+    ]
     observation_validator = _validator("command-result-9.0.schema.json").evolve(schema=schema)
     assert not observation_validator.is_valid(raw)
 

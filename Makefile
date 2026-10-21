@@ -71,6 +71,7 @@ pr-test: browser-runtime-install
 		tests/test_native_violation_filter.py \
 		tests/test_scoped_dependency_proof.py \
 		tests/test_call_owner_policy.py tests/test_call_owner_source_facts.py tests/test_call_owner_wire_compatibility.py tests/test_call_scope_receipt_identity.py \
+		tests/test_call_owner_native_proof_regressions.py \
 		tests/test_call_argument_policy.py \
 		tests/test_call_owner_scan_completeness.py \
 		tests/test_call_argument_scan_completeness.py \
@@ -84,6 +85,7 @@ pr-test: browser-runtime-install
 		tests/test_result_schema.py \
 		tests/test_construct_selectors.py \
 		tests/test_source_ownership_policy.py tests/test_source_facts_columnar.py \
+		tests/test_selector_validation_performance.py \
 		tests/test_dart_parse.py tests/test_dart_snapshot.py tests/test_dart_resolve.py \
 		tests/test_dart_typed_controls.py tests/test_dart_local_callable_shadowing.py \
 		tests/test_dart_sdk_free.py tests/test_dart_inner_collect.py tests/test_dart_target.py \
@@ -113,6 +115,7 @@ pr-report-test:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q \
 		--junitxml=test-artifacts/pytest/pr-report.xml \
 		tests/test_report_renderer_units.py tests/test_graph_scene_protocol.py tests/test_atlas_deviation_boundary.py \
+		tests/test_flow_inspector_pagination.py \
 		tests/test_explorer_report.py \
 		tests/test_report_interactions.py::test_native_card_drag_reroutes_all_hits_and_keeps_architecture_unchanged \
 		tests/test_uml_rendering.py::test_standard_uml_ignores_stale_layout_and_retries_rejected_layout \
