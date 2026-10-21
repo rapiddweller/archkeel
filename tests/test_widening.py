@@ -35,6 +35,7 @@ from archkeel.ir.model import (
     ConstructSelector,
     ConstructSelectorRole,
     ContractComponent,
+    DecisionMaker,
     ExternalDependencyScopeRule,
     ForbiddenConstructRule,
     ForbiddenDependencyRule,
@@ -1172,3 +1173,80 @@ def test_string_field_text_preserves_characters_when_str_is_decorated() -> None:
     assert _component_diff(before, after) == (
         "component 'comp'.inside changed from 'before.json' to 'after.json'",
     )
+
+
+def _requires(*entries: tuple[str, tuple[str, ...], DecisionMaker | None]) -> ContractComponent:
+    return _component(
+        requires=tuple(
+            RequiredComponent(target, "because", through, decided_by)
+            for target, through, decided_by in entries
+        )
+    )
+
+
+_ARCHITECT = DecisionMaker.ARCHITECT
+_AGENT = DecisionMaker.AGENT
+_CONTAINMENT_CASES = (
+    (
+        "module to its port",
+        [("other", ("pkg.a",), _AGENT)],
+        [("other", ("pkg.a:Sym",), _AGENT)],
+        False,
+    ),
+    (
+        "module to its submodule",
+        [("other", ("pkg.a",), _AGENT)],
+        [("other", ("pkg.a.b",), _AGENT)],
+        False,
+    ),
+    ("whole surface to a module", [("other", (), _AGENT)], [("other", ("pkg.a",), _AGENT)], False),
+    (
+        "union of two entries covers one",
+        [("other", ("pkg.a",), _AGENT), ("other", ("pkg.b",), _AGENT)],
+        [("other", ("pkg.a:X", "pkg.b.c"), _AGENT)],
+        False,
+    ),
+    (
+        "port to its module",
+        [("other", ("pkg.a:Sym",), _AGENT)],
+        [("other", ("pkg.a",), _AGENT)],
+        True,
+    ),
+    ("sibling prefix", [("other", ("pkg.a",), _AGENT)], [("other", ("pkg.ab",), _AGENT)], True),
+    ("module to whole surface", [("other", ("pkg.a",), _AGENT)], [("other", (), _AGENT)], True),
+    (
+        "another author",
+        [("other", ("pkg.a",), _ARCHITECT)],
+        [("other", ("pkg.a:Sym",), _AGENT)],
+        True,
+    ),
+    ("another target", [("other", ("pkg.a",), _AGENT)], [("third", ("pkg.a",), _AGENT)], True),
+)
+
+
+@pytest.mark.parametrize(
+    "label,before,after,widens", _CONTAINMENT_CASES, ids=[case[0] for case in _CONTAINMENT_CASES]
+)
+def test_requires_entry_widens_only_outside_the_old_permission(
+    label: str,
+    before: list[tuple[str, tuple[str, ...], DecisionMaker | None]],
+    after: list[tuple[str, tuple[str, ...], DecisionMaker | None]],
+    widens: bool,
+) -> None:
+    # AD-245: an entry whose imports the same author already permitted to the same target narrows.
+    findings = _component_diff(_requires(*before), _requires(*after))
+    assert bool(findings) == widens, (label, findings)
+
+
+@pytest.mark.parametrize(
+    ("component_author", "entry_author", "widens"),
+    [(_AGENT, _AGENT, False), (_ARCHITECT, _AGENT, True)],
+    ids=["same effective author", "another effective author"],
+)
+def test_requires_containment_compares_effective_authors(
+    component_author: DecisionMaker, entry_author: DecisionMaker, widens: bool
+) -> None:
+    # An entry without decided_by inherits its component's author (AD-50).
+    before = replace(_requires(("other", ("pkg.a",), None)), decided_by=component_author)
+    after = replace(_requires(("other", ("pkg.a:Sym",), entry_author)), decided_by=component_author)
+    assert bool(_component_diff(before, after)) == widens
