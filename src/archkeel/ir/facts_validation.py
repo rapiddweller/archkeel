@@ -2462,7 +2462,8 @@ def _numeric_generic_header_index(
 ) -> dict[str, tuple[tuple[int, ...], tuple[int, ...]]]:
     """Bound named proofs in generic definition intervals; literals remain replayable."""
     ranges_by_file: dict[str, list[tuple[int, int]]] = {}
-    for declaration in declarations.values():
+    for declaration_id in declarations:
+        declaration = declarations[declaration_id]
         if declaration.kind not in {"function", "method", "class"}:
             continue
         for evidence_id in declaration.evidence_ids:
