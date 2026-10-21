@@ -316,6 +316,7 @@ retiring any method-name scanner. Argument facts require observation 2.5 and
 contract 3.10; older readers must reject that evidence. The current reader
 continues to accept historical observation formats.
 
+Use `catalog_argument` to compare a bound operation argument against canonical Python enum string values, and `catalog_use` to require a real selected member read. The contract names declaration owners, never copied values or `used` flags. Comments, docs, definitions and annotation-only links are not reads; `TYPE_CHECKING` reads count syntactically. Missing or partial scope remains UNKNOWN. These rules require contract 3.14 and observation 2.9; older saved artifacts remain readable but cannot certify them. See AD-251 for limits.
 Use `forbidden_construct.selector` when a policy must select one nominal
 receiver/member and access or comparison role. Contract 3.11 and observation
 2.6 enable the Python slice: annotated direct member reads, positional literal
@@ -325,6 +326,13 @@ Dynamic names, unannotated or ambiguous receivers and missing selected subjects
 remain UNKNOWN. Other language profiles do not claim selector support. See
 [AD-248](../docs/architecture/decisions/ad-248-construct-selectors.md) and
 the [rule grammar](../docs/rules.md#forbidden-construct).
+`forbidden_effect_under_condition` is a static ownership rule. It can prove a declared
+Boolean parameter/member through truth, negation, `if`/`else`, ternary and early
+`return`/`raise`, plus one unique private helper with signature-bound actuals. A known
+unconditional effect is reachable while the condition is true. Reassignment, named
+expressions, short-circuiting, loops, `try`/`finally`, reflection and helper chains or
+recursion remain UNKNOWN. Inspect the rule receipt and path evidence before relying on
+PASS; see [AD-250](../../docs/architecture/decisions/ad-250-bounded-guarded-effect-ownership.md).
 
 ## Daily loop
 

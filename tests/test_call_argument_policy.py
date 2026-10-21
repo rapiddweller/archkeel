@@ -434,6 +434,15 @@ def test_unbounded_multiline_call_keeps_identity_and_unknown_argument_inventory(
     assert replay.rule_assessments[0].status == "UNKNOWN"
     assert not list(validator.iter_errors(result_payload(replay)))
 
+    from test_result_schema import _validator
+
+    validator = _validator("command-result-9.0.schema.json")
+    historical = json.loads(json.dumps(raw))
+    historical["schema_version"] = "2.8.0"
+    for profile in ("decoded", "python-decoded"):
+        schema = validator.evolve(schema={"$ref": f"urn:archkeel:architecture-ir:{profile}:2.8.0"})
+        assert schema.is_valid(historical)
+
 
 @pytest.mark.parametrize("mounted", [False, True])
 @pytest.mark.parametrize(
@@ -559,8 +568,8 @@ def test_call_argument_evidence_requires_the_new_observation_version(tmp_path):
         "from .storage import page\ndef consume(spec):\n    page(spec)\n",
     )
     raw = observation_payload(result.observation)
-    assert raw["schema_version"] == "2.7.0"
-    assert parse_observation(raw).schema_version == "2.7.0"
+    assert raw["schema_version"] == "2.9.0"
+    assert parse_observation(raw).schema_version == "2.9.0"
 
     old = json.loads(json.dumps(raw))
     old["schema_version"] = "2.4.0"
@@ -581,10 +590,28 @@ def test_call_argument_evidence_requires_the_new_observation_version(tmp_path):
     with pytest.raises(ValueError, match="explicit call_arguments"):
         parse_observation(incomplete)
 
+    historical = json.loads(json.dumps(raw))
+    historical["schema_version"] = "2.5.0"
+    historical["references"] = [
+        item for item in historical["references"] if item["kind"] != "source_role"
+    ]
+    for item in historical["references"]:
+        item["data"].pop("reference_context", None)
+    for symbol in historical["symbols"]:
+        for attribute in symbol["data"].get("attribute_declarations", []):
+            attribute.pop("literal_value", None)
+    assert parse_observation(historical).schema_version == "2.5.0"
+    stale_catalog_fact = json.loads(json.dumps(historical))
+    stale_catalog_fact["symbols"][0]["data"].setdefault("attribute_declarations", []).append(
+        {"name": "PAGE_SIZE", "literal_value": "page_size"}
+    )
+    with pytest.raises(ValueError, match="catalog literal values require"):
+        parse_observation(stale_catalog_fact)
+
     from test_result_schema import _validator
 
     validator = _validator("command-result-9.0.schema.json")
-    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.7.0"})
+    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.9.0"})
     historical_schema = validator.evolve(
         schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"}
     )
@@ -624,7 +651,7 @@ def test_unbound_call_has_null_arguments_and_cannot_certify_policy(tmp_path, col
     assert call["data"]["call_arguments"] is None
 
     validator = _validator("command-result-9.0.schema.json")
-    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.7.0"})
+    current_schema = validator.evolve(schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.9.0"})
     assert current_schema.is_valid(raw)
 
     inconsistent = json.loads(json.dumps(raw))

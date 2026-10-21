@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Owned source sections stay nominal through Core without closing observation metadata."""
 
+import ast
 import copy
 import json
 import subprocess
@@ -74,6 +75,32 @@ def test_section_helpers_keep_the_existing_enum_port():
         _section_coverage,
     ):
         assert get_type_hints(operation)["section"] is SourceSectionName
+
+
+def test_source_record_target_signature_includes_guard_proof_context():
+    ir = json.loads((ROOT / "docs/architecture/contracts/ir.json").read_text())
+    target = next(
+        entity
+        for entity in ir["declarations"]["uml"]["entities"]
+        if entity["id"] == "PROFILE-SECTIONS-source-record"
+    )
+    expected = target["signature"]["parameters"]
+    tree = ast.parse(Path(facts_validation.__file__).read_text())
+    function = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "_source_record"
+    )
+    actual = [*function.args.posonlyargs, *function.args.args, *function.args.kwonlyargs]
+    actual_defaults = [None] * (len(actual) - len(function.args.defaults)) + [
+        ast.unparse(default) for default in function.args.defaults
+    ]
+
+    assert [item["name"] for item in expected] == [parameter.arg for parameter in actual]
+    assert [item["annotation"] for item in expected] == [
+        ast.unparse(parameter.annotation) for parameter in actual
+    ]
+    assert [item.get("default") for item in expected] == actual_defaults
 
 
 def _authored_target(*, include_guard=True):
@@ -180,8 +207,8 @@ def test_actual_section_coverage_raw_control_mutation_fails_unchanged_policy(tmp
         (
             "PROFILE-SECTIONS-source-record",
             "ir/facts_validation.py",
-            "def _source_record(record: Record, section: SourceSectionName)",
-            "def _source_record(record: Record, section: str)",
+            "def _source_record(\n    record: Record,\n    section: SourceSectionName,",
+            "def _source_record(\n    record: Record,\n    section: str,",
         ),
         (
             "PROFILE-SECTIONS-base-declarations",

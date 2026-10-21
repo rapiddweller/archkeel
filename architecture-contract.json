@@ -174,7 +174,9 @@
         "archkeel.ir.contract_version:ContractFeature",
         "archkeel.ir.contract_version:ContractVersion",
         "archkeel.ir.contract_version:supports_feature",
-        "archkeel.ir.source_records:source_name_visibility"
+        "archkeel.ir.source_records:source_name_visibility",
+        "archkeel.ir.guard_paths:GuardedCallPath",
+        "archkeel.ir.guard_paths:guarded_call_paths"
       ],
       "responsibilities": [
         "Own typed values, strict codecs and pure evidence derivations."
@@ -341,6 +343,8 @@
             "archkeel.ir.reexports",
             "archkeel.ir.source_records",
             "archkeel.ir.identity",
+            "archkeel.ir.guard_paths:GuardedCallPath",
+            "archkeel.ir.guard_paths:guarded_call_paths",
             "archkeel.ir.source_proofs:class_instance_member_write_names"
           ],
           "rationale": "Adapters publish immutable facts over the shared protocol and use the IR syntax-only source proof helper to emit bounded receiver mutation evidence. Core owns validation, ownership and policy; analyzers do not import it."

@@ -387,6 +387,7 @@ def test_recursive_wide_report_includes_catalog_isolated_module_and_package_root
     expected = {
         "shop.app.maintenance",
         "shop.app.orders",
+        "shop.app.tokens",
         "shop.cli.main",
         "shop.model.entities",
         "shop.render.text",
@@ -468,6 +469,55 @@ def test_forbidden_call_argument_variants_have_real_assessments(
     row = next(
         item for item in report.rule_assessments or () if item.id == "APP-NO-LITERAL-ORDER-ID"
     )
+    assert row.status.value == expected
+
+
+@pytest.mark.parametrize(
+    ("variant_id", "expected"),
+    [
+        ("clean", "PASS"),
+        ("class-a-forbidden-effect-under-condition", "FAIL"),
+        ("tour", "FAIL"),
+    ],
+)
+def test_guarded_effect_demo_assessments_are_real(
+    tmp_path: Path,
+    variant_id: str,
+    expected: str,
+) -> None:
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    report, architecture = run_report(
+        root, config=load_config(root, variant.config), analyzer=observe
+    )
+    assert architecture is not None
+    row = next(
+        item for item in report.rule_assessments or () if item.id == "EFFECT-NO-TOKEN-WHEN-SEEDED"
+    )
+    assert row.status.value == expected
+
+
+@pytest.mark.parametrize(
+    ("variant_id", "rule_id", "expected"),
+    [
+        ("clean", "APP-OPTION-KEY", "PASS"),
+        ("clean", "APP-OPTION-KEY-USED", "PASS"),
+        ("class-a-catalog-argument", "APP-OPTION-KEY", "FAIL"),
+        ("class-a-catalog-use", "APP-OPTION-KEY-USED", "FAIL"),
+        ("tour", "APP-OPTION-KEY", "FAIL"),
+        ("tour", "APP-OPTION-KEY-USED", "FAIL"),
+    ],
+)
+def test_catalog_demo_assessments_are_real(
+    tmp_path: Path, variant_id: str, rule_id: str, expected: str
+) -> None:
+    variant = next(item for item in CATALOG if item.id == variant_id)
+    root = _prepare_repo(tmp_path, dict(variant.files), variant.fixture)
+    report, architecture = run_report(
+        root, config=load_config(root, variant.config), analyzer=observe
+    )
+    assert architecture is not None
+    row = next(item for item in report.rule_assessments or () if item.id == rule_id)
     assert row.status.value == expected
 
 

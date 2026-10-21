@@ -352,6 +352,8 @@ def _update_contract_schema(path: Path) -> None:
     schema = json.loads(path.read_bytes())
     raw_version = schema["properties"]["schema_version"].get("const")
     version = ContractVersion(raw_version) if raw_version is not None else None
+    if version is not None:
+        schema["$id"] = f"urn:archkeel:architecture-contract:{version.value}"
     if version is not None and supports_feature(version, ContractFeature.KEY_ALIAS_BODY):
         selector = schema["$defs"]["boundaryTypes"]["properties"]["allowed_positions"]["items"]
         selector["properties"]["key_alias_body"] = {
@@ -559,6 +561,44 @@ def _update_contract_schema(path: Path) -> None:
         },
     }
     choices = schema["properties"]["rules"]["items"]["oneOf"]
+    if version is not None and supports_feature(version, ContractFeature.GUARDED_EFFECT):
+        schema["$defs"]["conditionSelector"] = {
+            "type": "object",
+            "required": ["kind", "owner", "name"],
+            "additionalProperties": False,
+            "properties": {
+                "kind": {"enum": ["parameter", "member"]},
+                "owner": {"$ref": "#/$defs/nonEmpty"},
+                "name": {"$ref": "#/$defs/nonEmpty"},
+            },
+        }
+        schema["$defs"]["forbiddenEffectUnderCondition"] = {
+            "type": "object",
+            "required": [
+                "id",
+                "kind",
+                "source",
+                "target",
+                "condition",
+                "rationale",
+                "provenance",
+                "decided_by",
+            ],
+            "additionalProperties": False,
+            "properties": {
+                **{
+                    key: value
+                    for key, value in schema["$defs"]["callOwner"]["properties"].items()
+                    if key not in {"target", "allowed_sources", "exact_sources"}
+                },
+                "kind": {"const": "forbidden_effect_under_condition"},
+                "target": {"$ref": "#/$defs/nonEmpty"},
+                "condition": {"$ref": "#/$defs/conditionSelector"},
+            },
+        }
+        reference = {"$ref": "#/$defs/forbiddenEffectUnderCondition"}
+        if reference not in choices:
+            choices.append(reference)
     reference = {"$ref": "#/$defs/layerOrder"}
     if reference not in choices:
         choices.append(reference)
@@ -590,6 +630,84 @@ def _update_contract_schema(path: Path) -> None:
         reference = {"$ref": "#/$defs/forbiddenCallArgument"}
         if reference not in choices:
             choices.append(reference)
+    if version is not None and supports_feature(version, ContractFeature.CATALOG_ARGUMENT):
+        selector = {
+            "source": {"$ref": "#/$defs/nonEmpty"},
+            "source_match": {"enum": ["prefix", "exact"]},
+            "overlays": {
+                "type": "array",
+                "uniqueItems": True,
+                "items": {"$ref": "#/$defs/nonEmpty"},
+            },
+        }
+        schema["$defs"]["catalogArgument"] = {
+            "type": "object",
+            "required": [
+                "id",
+                "kind",
+                "source",
+                "target",
+                "parameter",
+                "catalog",
+                "rationale",
+                "provenance",
+                "decided_by",
+            ],
+            "additionalProperties": False,
+            "properties": {
+                **{
+                    name: {"$ref": "#/$defs/nonEmpty"}
+                    for name in (
+                        "id",
+                        "source",
+                        "target",
+                        "parameter",
+                        "catalog",
+                        "rationale",
+                    )
+                },
+                "kind": {"const": "catalog_argument"},
+                "provenance": {"$ref": "#/$defs/provenance"},
+                "decided_by": {"$ref": "#/$defs/decidedBy"},
+                "overlays": selector["overlays"],
+                "source_match": selector["source_match"],
+            },
+        }
+        schema["$defs"]["catalogUse"] = {
+            "type": "object",
+            "required": [
+                "id",
+                "kind",
+                "source",
+                "catalog",
+                "rationale",
+                "provenance",
+                "decided_by",
+            ],
+            "additionalProperties": False,
+            "properties": {
+                **{
+                    name: {"$ref": "#/$defs/nonEmpty"}
+                    for name in ("id", "source", "catalog", "rationale")
+                },
+                "kind": {"const": "catalog_use"},
+                "provenance": {"$ref": "#/$defs/provenance"},
+                "decided_by": {"$ref": "#/$defs/decidedBy"},
+                "overlays": selector["overlays"],
+                "source_match": selector["source_match"],
+                "member": {"$ref": "#/$defs/nonEmpty"},
+                "target": {"$ref": "#/$defs/nonEmpty"},
+                "parameter": {"$ref": "#/$defs/nonEmpty"},
+            },
+            "allOf": [
+                {"if": {"required": ["target"]}, "then": {"required": ["parameter"]}},
+                {"if": {"required": ["parameter"]}, "then": {"required": ["target"]}},
+            ],
+        }
+        for name in ("catalogArgument", "catalogUse"):
+            reference = {"$ref": f"#/$defs/{name}"}
+            if reference not in choices:
+                choices.append(reference)
     if version is not None and supports_feature(version, ContractFeature.CONSTRUCT_SELECTOR):
         schema["$defs"]["constructSelector"] = {
             "type": "object",

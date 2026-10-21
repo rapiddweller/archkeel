@@ -59,7 +59,16 @@ recognizes written string constants, including empty and adjacent literals;
 f-strings, concatenations and named expressions remain unclaimed. It does not
 check actual type compatibility. Argument facts require
 observation 2.5 and contract 3.10; older readers reject the new evidence.
+`forbidden_effect_under_condition` proves only declared Boolean parameters or members,
+truth/negation, `if`/`else`, ternary expressions, and early `return`/`raise` domination.
+It follows at most one unique private helper whose actuals bind to its observed signature.
+Reassignment, named expressions, short-circuit Boolean operators, loops, exception/finally
+paths, reflection, ambiguous identities, helper chains and recursion remain UNKNOWN. A
+known forbidden effect remains FAIL beside unrelated UNKNOWN paths. These receipts bind
+the source, contract, selected inventory, effect and exact rule claim; they are consistency
+bindings, not artifact authentication ([AD-250](architecture/decisions/ad-250-bounded-guarded-effect-ownership.md)).
 
+`catalog_argument` and `catalog_use` currently consume unique scanned Python enum declarations with literal string member values and the existing call/reference facts. `catalog_use` can count a string actual only when its optional target and parameter identify a proven read operation; unrelated same-text calls do not count. Non-literal enum values, dynamic projections, non-Python catalogs and ambiguous or incomplete source scopes remain UNKNOWN. Overlay selectors identify enum declaration owners. This is syntactic source use, not runtime reachability. The argument member-reference case depends on #613 call identity and #617 canonical read roles in the final stack.
 `forbidden_construct.selector` adds nominal Python selections for member reads,
 reflection probes, constructors, type probes, equality, membership, `match`,
 `startswith` and `endswith`. The current receiver proof begins with direct unique

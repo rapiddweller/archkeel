@@ -506,6 +506,7 @@ def test_violation_counts_group_the_report_by_rule_and_by_crossing_pair(tmp_path
         ("DEP-MODEL-NO-RENDER", 1),
         ("DEP-RENDER-NO-STORE", 1),
         ("DEP-STORE-NO-MONEY", 1),
+        ("EFFECT-NO-TOKEN-WHEN-SEEDED", 1),
         ("EXTERNAL-COMPLETE", 1),
         ("EXTERNAL-JSON-STORE", 1),
         ("INTERFACE-BOUNDARY", 1),

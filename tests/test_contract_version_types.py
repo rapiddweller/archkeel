@@ -35,6 +35,8 @@ VERSIONS = (
     "3.10.0",
     "3.11.0",
     "3.12.0",
+    "3.13.0",
+    "3.14.0",
 )
 
 
@@ -61,7 +63,7 @@ def test_contract_version_field_has_a_concrete_nominal_type():
     assert isinstance(annotation, type) and issubclass(annotation, StrEnum)
 
 
-@pytest.mark.parametrize("invalid", [None, True, 1, {}, [], "", "2.0.0"])
+@pytest.mark.parametrize("invalid", [None, True, 1, {}, [], "", "2.0.0", "3.15.0"])
 def test_parser_keeps_rejecting_unsupported_or_nontext_versions(invalid):
     with pytest.raises(ContractVersionError):
         parse_contract({"schema_version": invalid, "components": [], "rules": []})
@@ -83,8 +85,11 @@ def test_parser_keeps_rejecting_unsupported_or_nontext_versions(invalid):
         ("BOUNDED_NUMERIC_OPERAND", "3.7.0", "3.8.0"),
         ("PROTOCOL_DECLARATIONS", "3.8.0", "3.9.0"),
         ("FORBIDDEN_CALL_ARGUMENT", "3.9.0", "3.10.0"),
+        ("CATALOG_ARGUMENT", "3.13.0", "3.14.0"),
+        ("CATALOG_USE", "3.13.0", "3.14.0"),
         ("CONSTRUCT_SELECTOR", "3.10.0", "3.11.0"),
         ("SOURCE_OWNERSHIP", "3.11.0", "3.12.0"),
+        ("GUARDED_EFFECT", "3.12.0", "3.13.0"),
     ],
 )
 def test_feature_policy_keeps_each_existing_introduction_boundary(feature, before, first):
@@ -93,7 +98,7 @@ def test_feature_policy_keeps_each_existing_introduction_boundary(feature, befor
     choice = ContractFeature[feature]
     assert not supports_feature(ContractVersion(before), choice)
     assert supports_feature(ContractVersion(first), choice)
-    if first not in {"3.11.0", "3.12.0"}:
+    if first in {"3.7.0", "3.8.0", "3.9.0", "3.10.0"}:
         assert supports_feature(ContractVersion.V3_10, choice)
 
 

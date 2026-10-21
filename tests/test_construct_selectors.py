@@ -1363,7 +1363,7 @@ def test_native_saved_report_keeps_fail_and_unknown_for_selected_scope(tmp_path:
     )
     assert encoded is not None, result.diagnostics[0].unknown_claim if result.diagnostics else None
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
-    assert model.schema_version == "2.7.0"
+    assert model.schema_version == "2.9.0"
     assert any(row.kind == "construct_selector" for row in model.records("constructs"))
     reflection = [
         row

@@ -107,6 +107,22 @@ def test_v5_python_request_keeps_v4_collection_settings(_request_validator) -> N
     assert decode_request(encoded) == request
 
 
+def test_v6_python_request_keeps_v4_collection_settings(_request_validator) -> None:
+    from dataclasses import replace
+
+    from archkeel.ir.facts_codec import decode_request, encode_request
+    from archkeel.ir.protocol import ProtocolVersion, PythonSettings
+
+    request = replace(
+        decode_request(_request()),
+        protocol_version=ProtocolVersion.V6,
+        resolver=PythonSettings(),
+    )
+    encoded = encode_request(request)
+    _request_validator.validate(json.loads(encoded))
+    assert decode_request(encoded) == request
+
+
 @pytest.mark.parametrize("version", ["1.0.0", "2.0.0", "3.0.0"])
 def test_default_python_phase_preserves_legacy_request_bytes(version: str) -> None:
     from archkeel.ir.facts_codec import decode_request, encode_request
@@ -218,7 +234,7 @@ def test_import_survey_rejects_provider_sources_and_keeps_positional_settings(
         _request_validator.validate(payload)
 
 
-@pytest.mark.parametrize("version", ["0.0.0", "6.0.0", None, True])
+@pytest.mark.parametrize("version", ["0.0.0", "7.0.0", None, True])
 def test_collection_request_rejects_incompatible_version(version: object) -> None:
     from archkeel.ir.facts_codec import ProtocolError, decode_request
 
@@ -400,7 +416,7 @@ def test_source_response_is_immutable_and_preserves_alternate_parser_identity() 
         response.facts.coverage.files_read = 0
 
 
-@pytest.mark.parametrize("version", ["1.0.0", "2.0.0", "3.0.0", "4.0.0", "5.0.0"])
+@pytest.mark.parametrize("version", ["1.0.0", "2.0.0", "3.0.0", "4.0.0", "5.0.0", "6.0.0"])
 def test_response_encoder_validates_without_reparsing_its_json(version):
     from unittest.mock import patch
 
@@ -432,7 +448,7 @@ def test_response_encoder_validates_without_reparsing_its_json(version):
     )
 
 
-@pytest.mark.parametrize("version", ["1.0.0", "2.0.0", "3.0.0", "4.0.0"])
+@pytest.mark.parametrize("version", ["1.0.0", "2.0.0", "3.0.0", "4.0.0", "5.0.0", "6.0.0"])
 def test_response_encoder_still_rejects_invalid_facts_without_json_reparse(version):
     from dataclasses import replace
     from unittest.mock import patch
@@ -519,12 +535,12 @@ def test_encoders_reject_unsupported_versions(tmp_path) -> None:
         SnapshotInput("/source-project", "a" * 40, False),
         SourceScope(("src",), "project"),
         PythonSettings(),
-        "6.0.0",
+        "7.0.0",
     )
     with pytest.raises(ProtocolError, match="version"):
         encode_request(request)
     with pytest.raises(ProtocolError, match="version"):
-        encode_response(CollectionResponse(_facts(tmp_path), "6.0.0"))
+        encode_response(CollectionResponse(_facts(tmp_path), "7.0.0"))
 
 
 def test_legacy_encoder_rejects_nondefault_runtime_state(tmp_path) -> None:

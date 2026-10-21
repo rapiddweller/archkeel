@@ -29,11 +29,13 @@ existing widening gate.
 ## Capabilities and compatibility
 
 Python records definitions, members, signatures, explicit bases, contexts and
-static assignment sites. Classifier, attribute and instance coverage remains
-partial. The Python-hosted Dart collector records declarations, members, signatures
-and bounded source relationships. TypeScript records lexical declarations and statically
-bound relationships. Static sites do not prove live object identity, lifetime,
-runtime dispatch or composition; unsupported and unresolved facts stay UNKNOWN.
+static assignment sites. The IR Target includes the bounded shared source-path
+grammar used to collect and replay guarded-effect paths. Classifier, attribute
+and instance coverage remains partial. The Python-hosted Dart collector records
+declarations, members, signatures and bounded source relationships. TypeScript
+records lexical declarations and statically bound relationships. Static sites do
+not prove live object identity, lifetime, runtime dispatch or composition;
+unsupported and unresolved facts stay UNKNOWN.
 Complete native Dart/TypeScript direct-member inventories can prove their closed
 owner scopes under unrelated resolver gaps, using bound local source evidence
 ([AD-229](decisions/ad-229-local-member-inventory-proof.md)). Every selected input
