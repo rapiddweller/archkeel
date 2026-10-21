@@ -1245,3 +1245,81 @@ def test_saved_catalog_receipt_rejects_changed_bound_inventory(tmp_path, mutatio
         replay.rule_assessments[0].status != "PASS"
         or not replay.rule_assessments[0].evaluation_proven
     )
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+@pytest.mark.parametrize("missing", ["catalog", "overlay"])
+def test_missing_catalog_inventory_cannot_prove_literal_nonmembership(
+    tmp_path, mounted, columnar, missing
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import encode_canonical_model, observation_payload
+
+    rule = _argument()
+    if missing == "catalog":
+        rule["catalog"] = "sample.catalog.MissingKey"
+    else:
+        rule["overlays"] = ["sample.catalog.MissingKey"]
+    result, rows = _run(
+        tmp_path,
+        mounted=mounted,
+        caller=(
+            "def read_option(key: str) -> None: pass\n"
+            "def consume():\n    read_option('not_a_catalog_entry')\n"
+        ),
+        rules=[rule],
+    )
+
+    assert rows[0].status == "UNKNOWN" and not rows[0].evaluation_proven
+    assert not [
+        row
+        for row in result.observation.records("violations") or ()
+        if row.kind == "catalog_argument"
+    ]
+    payload = observation_payload(result.observation)
+    saved = tmp_path / "incomplete-catalog.json"
+    saved.write_bytes(json.dumps(encode_canonical_model(payload) if columnar else payload).encode())
+    replay = run_saved_report(saved)
+    [replayed] = replay.rule_assessments
+    assert replayed.status.value == "UNKNOWN" and not replayed.evaluation_proven
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("columnar", [False, True])
+def test_local_enum_owner_alias_mutation_keeps_catalog_argument_unknown(
+    tmp_path, mounted, columnar
+):
+    from archkeel.check.report import run_saved_report
+    from archkeel.ir.codec import encode_canonical_model, observation_payload
+
+    result, rows = _run(
+        tmp_path,
+        mounted=mounted,
+        caller=(
+            "from .catalog import OptionKey\n"
+            "def read_option(key: str) -> None: pass\n"
+            "def consume():\n    read_option(OptionKey.PAGE_SIZE)\n"
+        ),
+        rules=[_argument()],
+        extra_files={
+            "sample/mutator.py": (
+                "from .catalog import OptionKey as Keys\n"
+                "Alias = Keys\n"
+                "Alias.PAGE_SIZE._value_ = 'changed'\n"
+            )
+        },
+    )
+
+    assert rows[0].status == "UNKNOWN" and not rows[0].evaluation_proven
+    assert not [
+        row
+        for row in result.observation.records("violations") or ()
+        if row.kind == "catalog_argument"
+    ]
+    payload = observation_payload(result.observation)
+    saved = tmp_path / "mutated-catalog-owner.json"
+    saved.write_bytes(json.dumps(encode_canonical_model(payload) if columnar else payload).encode())
+    replay = run_saved_report(saved)
+    [replayed] = replay.rule_assessments
+    assert replayed.status.value == "UNKNOWN" and not replayed.evaluation_proven

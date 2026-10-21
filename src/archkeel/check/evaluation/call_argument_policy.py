@@ -373,6 +373,7 @@ def _catalog_rule_checks(
             references_measured,
             violations,
             limits,
+            not ambiguous,
         )
     return _catalog_use_policy(
         rule,
@@ -409,6 +410,7 @@ def _catalog_argument_policy(
     references_measured: bool,
     violations: list[RawRecord],
     limits: list[RawRecord],
+    inventory_complete: bool,
 ) -> tuple[list[RawRecord], list[RawRecord]]:
     argument_violations, argument_limits = _catalog_argument_results(
         rule,
@@ -424,6 +426,8 @@ def _catalog_argument_policy(
         arguments_measured,
         references_measured,
     )
+    if not inventory_complete:
+        argument_violations = []
     violations.extend(argument_violations)
     limits.extend(argument_limits)
     return violations, limits
@@ -526,7 +530,9 @@ def _catalog_inventory(
         for record in symbols
         if record["data"]["qualified_name"] in owners
         and record["kind"] == "class"
-        and _catalog_owner_static(record)
+        and _catalog_owner_static(
+            record, require_unexposed_enum_owner=isinstance(rule, CatalogArgumentRule)
+        )
     ]
     entries: dict[str, _CatalogEntry] = {}
     owner_names = tuple(record["data"]["qualified_name"] for record in owner_records)
@@ -1186,12 +1192,14 @@ def _catalog_limit(
     )
 
 
-def _catalog_owner_static(record: RawRecord) -> bool:
+def _catalog_owner_static(record: RawRecord, *, require_unexposed_enum_owner: bool = False) -> bool:
     data = parse_record(record).data
     if data.get("source_binding_unique") is not True:
         return False
     if data.get("class_kind") == "enum":
-        return data.get("class_header_static") is True
+        return data.get("class_header_static") is True and (
+            not require_unexposed_enum_owner or data.get("source_member_owner_static") is True
+        )
     return (
         data.get("class_header_static") is True
         and data.get("source_member_binding_static") is True

@@ -1004,7 +1004,6 @@ def rule_scopes(rule: ArchitectureRule) -> dict[str, tuple[str, ...]]:
         return {"source": (rule.source,)}
     if isinstance(rule, CatalogArgumentRule | CatalogUseRule | ForbiddenEffectUnderConditionRule):
         return {"source": (rule.source,)}
-        return {"source": (rule.source,)}
     if isinstance(rule, ForbiddenDependencyRule | AllowedDependencyRule):
         return {"source": (rule.source,), "target": (rule.target,)}
     if isinstance(rule, ExternalDependencyScopeRule):
