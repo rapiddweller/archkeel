@@ -442,6 +442,25 @@ class ReferenceCollector(ast.NodeVisitor):
 
     def visit_Dict(self, node: ast.Dict) -> None:
         for value in node.values:
+            if isinstance(value, ast.Call):
+                arguments = (*value.args, *(keyword.value for keyword in value.keywords))
+                for child in arguments:
+                    if not isinstance(child, ast.Attribute):
+                        continue
+                    status, targets, _, _ = resolve_name(
+                        child, index=self.index, scopes=self.scopes, value_reference=True
+                    )
+                    if status == SourceResolution.RESOLVED and len(targets) == 1:
+                        target = targets[0]
+                        self._source_role(
+                            value,
+                            "value_transfer",
+                            target,
+                            self._binding_declaration_id(target),
+                            status=SourceResolution.PARTIALLY_RESOLVED,
+                            expression_kind="unsupported",
+                            transfer_kind="unsupported_dictionary_value",
+                        )
             if (
                 isinstance(value, ast.Name | ast.Lambda)
                 or not isinstance(value, ast.Call)
@@ -522,6 +541,21 @@ class ReferenceCollector(ast.NodeVisitor):
         if dotted is None:
             self.generic_visit(node)
             return
+        parent = self.scopes.parents.get(node)
+        if isinstance(parent, ast.Dict) and node in parent.values:
+            status, targets, _, _ = resolve_name(
+                node, index=self.index, scopes=self.scopes, value_reference=True
+            )
+            if status == SourceResolution.RESOLVED and len(targets) == 1:
+                target = targets[0]
+                self._source_role(
+                    node,
+                    "value_transfer",
+                    target,
+                    self._binding_declaration_id(target),
+                    status=status,
+                    transfer_kind="dictionary_value",
+                )
         self._record(node, dotted, "attribute")
 
     def _record(self, node: ast.expr, expression: str, use: str) -> None:

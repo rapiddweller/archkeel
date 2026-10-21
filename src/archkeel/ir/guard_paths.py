@@ -248,7 +248,23 @@ class _GuardPathWalker:
         ):
             self._unsupported_flow(statement, path_nodes)
             return [(None, "unsupported_control_flow", path_nodes)]
-        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            arguments = statement.args
+            for expression in (
+                *statement.decorator_list,
+                *arguments.defaults,
+                *(item for item in arguments.kw_defaults if item is not None),
+            ):
+                self.expression(expression, current, path_nodes, reason)
+            return [(current, reason, path_nodes)]
+        if isinstance(statement, ast.ClassDef):
+            for expression in (
+                *statement.decorator_list,
+                *statement.bases,
+                *(keyword.value for keyword in statement.keywords),
+            ):
+                self.expression(expression, current, path_nodes, reason)
+            self.block(statement.body, current, path_nodes, reason)
             return [(current, reason, path_nodes)]
         return self._ordinary_paths(statement, current, reason, path_nodes)
 

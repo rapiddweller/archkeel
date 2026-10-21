@@ -266,6 +266,57 @@ def test_ambiguous_string_predicate_does_not_disappear_beside_safe_literal():
     assert any(row["evidence_class"] == "UNKNOWN" for row in findings)
 
 
+def test_unannotated_direct_string_predicate_receiver_is_retained_as_unknown():
+    source = (
+        "class Connection: pass\nclass Label: pass\n"
+        "def route(conn: Connection, label: Label, candidate):\n"
+        '    conn.startswith("wide")\n'
+        '    label.startswith("flat")\n'
+        '    candidate.startswith("flat")\n'
+    )
+    signals = collect_constructs([_parsed_module(source, module="sample.core")], {})
+    selectors = [
+        row
+        for row in signals
+        if row["kind"] == "construct_selector" and row["data"]["selector_role"] == "startswith"
+    ]
+    known = next(row for row in selectors if row["data"]["literal"] == "wide")
+    unrelated = next(
+        row
+        for row in selectors
+        if row["data"]["literal"] == "flat" and row["data"]["receiver_type"] == "sample.core.Label"
+    )
+    unresolved = next(
+        (
+            row
+            for row in selectors
+            if row["data"]["literal"] == "flat" and row["data"]["receiver_type"] is None
+        ),
+        None,
+    )
+    assert known["data"]["status"] == "decided"
+    assert known["data"]["receiver_type"] == "sample.core.Connection"
+    assert unrelated["data"]["receiver_type"] == "sample.core.Label"
+    assert unresolved is not None, "unannotated direct predicate receiver was dropped"
+    assert unresolved["data"]["status"] == "unknown"
+    assert unresolved["data"]["receiver_type"] is None
+    rule = ForbiddenConstructRule(
+        "SELECT",
+        ArchitectureRuleKind.FORBIDDEN_CONSTRUCT,
+        "sample.core",
+        (),
+        "Keep unresolved direct predicate receivers observable.",
+        ("test",),
+        DecisionMaker.ARCHITECT,
+        selector=ConstructSelector(
+            "sample.core.Connection", "startswith", ConstructSelectorRole.STARTSWITH, "flat"
+        ),
+    )
+    findings = _construct_violations(signals, [rule])
+    assert not any(row["evidence_class"] == "VIOLATION" for row in findings)
+    assert any(row["evidence_class"] == "UNKNOWN" for row in findings)
+
+
 @pytest.mark.parametrize(
     ("source", "role"),
     [
@@ -2183,31 +2234,52 @@ def test_selector_partial_source_scope_is_unknown_without_hiding_known_failures(
 
 @pytest.mark.parametrize("mounted", [False, True], ids=["root", "mounted"])
 @pytest.mark.parametrize(
-    ("local_use", "role", "literal", "safe_literal"),
+    ("local_use", "role", "literal", "safe_literal", "member"),
     [
         (
             "candidate.backend == key",
             "equality",
             "flat",
             "wide",
+            "backend",
         ),
         (
             'match candidate.backend:\n        case "flat": pass',
             "match",
             "flat",
             "wide",
+            "backend",
         ),
         (
             'unclear.backend == "flat"',
             "equality",
             "round",
             "flat",
+            "backend",
+        ),
+        (
+            'candidate.startswith("flat")',
+            "startswith",
+            "flat",
+            "flat",
+            "startswith",
         ),
     ],
-    ids=["dynamic-compare", "match-case", "unannotated-parameter"],
+    ids=[
+        "dynamic-compare",
+        "match-case",
+        "unannotated-parameter",
+        "unannotated-direct-predicate",
+    ],
 )
 def test_ambiguous_selector_receiver_is_unknown_live_and_in_saved_reports(
-    tmp_path: Path, mounted: bool, local_use: str, role: str, literal: str, safe_literal: str
+    tmp_path: Path,
+    mounted: bool,
+    local_use: str,
+    role: str,
+    literal: str,
+    safe_literal: str,
+    member: str,
 ):
     root = tmp_path / "repo"
     (root / "sample").mkdir(parents=True)
@@ -2218,6 +2290,8 @@ def test_ambiguous_selector_receiver_is_unknown_live_and_in_saved_reports(
         "def route(conn: Connection, label: Label, key, unclear):\n"
         f'    conn.backend == "{safe_literal}"\n'
         '    label.backend == "flat"\n'
+        '    conn.startswith("wide")\n'
+        '    label.startswith("flat")\n'
         "    candidate = factory()\n"
         f"    {local_use}\n"
     )
@@ -2231,7 +2305,7 @@ def test_ambiguous_selector_receiver_is_unknown_live_and_in_saved_reports(
         "constructs": ["string_literal_compare"],
         "selector": {
             "receiver": "sample.core.Connection",
-            "member": "backend",
+            "member": member,
             "role": role,
             "literal": literal,
         },
@@ -2301,7 +2375,7 @@ def test_ambiguous_selector_receiver_is_unknown_live_and_in_saved_reports(
     assert receipt.data.get("claim") == "construct_selector"
     selector = receipt.data.get("selector")
     assert selector.get("receiver") == "sample.core.Connection"
-    assert selector.get("member") == "backend"
+    assert selector.get("member") == member
     assert selector.get("role") == role
     assert selector.get("literal") == literal
     proof = receipt.data.get("selector_scope_proof")
@@ -2313,9 +2387,34 @@ def test_ambiguous_selector_receiver_is_unknown_live_and_in_saved_reports(
     assert len(proof.get("contract_digest", "")) == 64
     assert len(proof.get("source_digest", "")) == 64
 
-    for index, payload in enumerate(
-        (observation_payload(model), decode_canonical_model(json.loads(encoded)))
-    ):
+    if role == "startswith":
+        predicate_signals = [
+            row
+            for row in model.records("constructs") or ()
+            if row.kind == "construct_selector" and row.data.get("selector_role") == "startswith"
+        ]
+        assert any(
+            row.data.get("receiver_type") == "sample.core.Connection"
+            and row.data.get("member") == "startswith"
+            and row.data.get("literal") == "wide"
+            and row.data.get("status") == "decided"
+            for row in predicate_signals
+        )
+        assert any(
+            row.data.get("receiver_type") == "sample.core.Label"
+            and row.data.get("literal") == "flat"
+            and row.data.get("status") == "decided"
+            for row in predicate_signals
+        )
+        assert any(
+            row.data.get("receiver_type") is None
+            and row.data.get("member") == "startswith"
+            and row.data.get("literal") == "flat"
+            and row.data.get("status") == "unknown"
+            for row in predicate_signals
+        )
+
+    for index, payload in enumerate((observation_payload(model), json.loads(encoded))):
         path = tmp_path / f"ambiguous-selector-{mounted}-{index}.json"
         path.write_bytes(canonical_json_bytes(payload))
         replay = run_saved_report(path)

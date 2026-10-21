@@ -95,6 +95,18 @@ class _HelperContext:
     bound: BoundCallArguments
 
 
+def _has_multiple_boolean_parameters(data: RecordData) -> bool:
+    parameters = data.get("parameters")
+    return (
+        isinstance(parameters, tuple)
+        and sum(
+            isinstance(parameter, RecordData) and parameter.get("annotation") == "bool"
+            for parameter in parameters
+        )
+        > 1
+    )
+
+
 def _prepare_helper(
     rule: ForbiddenEffectUnderConditionRule,
     scope: str,
@@ -127,6 +139,19 @@ def _prepare_helper(
         return (
             None,
             [_limit(rule, scope, "The helper is not a unique private function", [caller, helper])],
+            [helper],
+        )
+    if _has_multiple_boolean_parameters(helper_data):
+        return (
+            None,
+            [
+                _limit(
+                    rule,
+                    scope,
+                    "Helpers with multiple Boolean parameters are unsupported",
+                    [caller, helper],
+                )
+            ],
             [helper],
         )
     parsed_caller = parse_record(caller)
@@ -195,7 +220,7 @@ def _helper_effects(
         violations = [*violations, *call_violations]
         limits = [*limits, *call_limits]
         evidence_facts = [*evidence_facts, *call_facts]
-    if not effect_seen and not limits:
+    if helper_calls and not effect_seen and not limits:
         limits = [
             *limits,
             _limit(
@@ -665,10 +690,10 @@ def _guarded_proof_results(
             [_limit(rule, scope, "The call path or canonical target is unproven", [call])],
             [],
         )
-    if binding.target != rule.target:
-        return _helper_proof_results(rule, scope, call, proof, binding, selected, scoped_symbols)
     if proof.condition_value is False:
         return [], [], []
+    if binding.target != rule.target:
+        return _helper_proof_results(rule, scope, call, proof, binding, selected, scoped_symbols)
     return [_direct_violation(rule, scope, call, proof, binding)], [], []
 
 
@@ -684,17 +709,44 @@ def _helper_proof_results(
     violations: list[RawRecord] = []
     limits: list[RawRecord] = []
     facts: list[RawRecord] = []
+    matched_helper = False
     for helper in proof.helper_bindings:
         if helper.target != binding.target or helper.call_id != call["id"]:
             continue
-        if proof.condition_value is False:
-            continue
+        matched_helper = True
         helper_violations, helper_limits, helper_facts = _helper_effects(
             rule, scope, call, proof, helper, calls=selected, symbols=scoped_symbols
         )
         violations.extend(helper_violations)
         limits.extend(helper_limits)
         facts.extend(helper_facts)
+    unresolved_helper_effect = False
+    if not matched_helper:
+        for row in selected:
+            row_data = parse_record(row).data
+            inner_binding = call_binding(row_data.get("call_binding"))
+            if (
+                row_data.get("source_scope") == binding.target
+                and inner_binding is not None
+                and inner_binding.target == rule.target
+            ):
+                unresolved_helper_effect = True
+                break
+    if unresolved_helper_effect:
+        helper_symbol = call
+        for symbol in scoped_symbols:
+            symbol_data = parse_record(symbol).data
+            if symbol_data.get("qualified_name") == binding.target:
+                helper_symbol = symbol
+                break
+        limits.append(
+            _limit(
+                rule,
+                scope,
+                "The resolved local helper is not eligible for bounded proof",
+                [call, helper_symbol],
+            )
+        )
     return violations, limits, facts
 
 

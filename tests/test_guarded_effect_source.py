@@ -677,6 +677,218 @@ def test_nested_declaration_does_not_terminate_the_outer_effect_path(tmp_path, n
     assert assessment.evaluation_proven
 
 
+@pytest.mark.parametrize(
+    "declaration",
+    [
+        "def local(value=_effect()): pass",
+        "@_effect()\ndef local(): pass",
+        "class Local(_effect()): pass",
+        "class Local:\n            _effect()",
+    ],
+    ids=["default", "decorator", "class-base", "class-body"],
+)
+def test_nested_declaration_eager_expressions_keep_the_active_guard(tmp_path, declaration):
+    contract = {
+        "schema_version": "3.13.0",
+        "components": [_component("all", ["sample"])],
+        "rules": [
+            _rule(
+                "forbidden_effect_under_condition",
+                source="sample.core",
+                target="sample.core._effect",
+                condition={"kind": "parameter", "owner": "sample.core.generate", "name": "seeded"},
+            )
+        ],
+    }
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/core.py": (
+                "def _effect(): pass\ndef generate(seeded: bool):\n"
+                f"    if seeded:\n        {declaration.replace(chr(10), chr(10) + '        ')}\n"
+            ),
+        },
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+    [assessment] = rule_assessments(result.observation, undecided_by_rule={})
+    expected = (
+        "UNKNOWN" if declaration.startswith("@") or "class Local:\n" in declaration else "FAIL"
+    )
+    assert assessment.status == expected, assessment.reason
+    if expected == "FAIL":
+        assert assessment.count == 1
+        assert assessment.evaluation_proven
+    elif declaration.startswith("@"):
+        calls = result.observation.records("calls") or ()
+        assert any(
+            proof.get("condition_value") is True
+            for row in calls
+            for proof in row.data.get("guarded_effect", ())
+        )
+    else:
+        unknowns = result.observation.records("unknowns") or ()
+        assert any(item.kind == "guarded_effect_limit" for item in unknowns)
+
+
+def test_future_annotation_is_not_treated_as_an_eager_effect(tmp_path):
+    contract = {
+        "schema_version": "3.13.0",
+        "components": [_component("all", ["sample"])],
+        "rules": [
+            _rule(
+                "forbidden_effect_under_condition",
+                source="sample.core",
+                target="sample.core._effect",
+                condition={"kind": "parameter", "owner": "sample.core.generate", "name": "seeded"},
+            )
+        ],
+    }
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/core.py": (
+                "from __future__ import annotations\ndef _effect(): pass\n"
+                "def generate(seeded: bool):\n    if seeded:\n"
+                "        def local(value: _effect()): pass\n"
+            ),
+        },
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+    [assessment] = rule_assessments(result.observation, undecided_by_rule={})
+    assert assessment.status == "UNKNOWN"
+    assert not assessment.evaluation_proven
+
+
+@pytest.mark.parametrize(
+    "helper", ["def public_helper(): _effect()", "@staticmethod\ndef _helper(): _effect()"]
+)
+def test_ineligible_resolved_local_helper_is_unknown_under_guard(tmp_path, helper):
+    contract = {
+        "schema_version": "3.13.0",
+        "components": [_component("all", ["sample"])],
+        "rules": [
+            _rule(
+                "forbidden_effect_under_condition",
+                source="sample.core",
+                target="sample.core._effect",
+                condition={"kind": "parameter", "owner": "sample.core.generate", "name": "seeded"},
+            )
+        ],
+    }
+    name = "public_helper" if helper.startswith("def public") else "_helper"
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/core.py": (
+                f"def _effect(): pass\n{helper}\ndef generate(seeded: bool):\n"
+                f"    if seeded:\n        {name}()\n"
+            ),
+        },
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+    [assessment] = rule_assessments(result.observation, undecided_by_rule={})
+    assert assessment.status == "UNKNOWN"
+    assert not assessment.evaluation_proven
+
+
+def test_ineligible_resolved_local_helper_on_false_path_is_ignored(tmp_path):
+    contract = {
+        "schema_version": "3.13.0",
+        "components": [_component("all", ["sample"])],
+        "rules": [
+            _rule(
+                "forbidden_effect_under_condition",
+                source="sample.core",
+                target="sample.core._effect",
+                condition={"kind": "parameter", "owner": "sample.core.generate", "name": "seeded"},
+            )
+        ],
+    }
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/core.py": (
+                "def _effect(): pass\ndef public_helper(): _effect()\n"
+                "def generate(seeded: bool):\n    if not seeded:\n        public_helper()\n"
+            ),
+        },
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+    [assessment] = rule_assessments(result.observation, undecided_by_rule={})
+    assert assessment.status == "PASS"
+    assert assessment.evaluation_proven
+
+
+def test_private_helper_with_complete_empty_call_inventory_passes(tmp_path):
+    contract = {
+        "schema_version": "3.13.0",
+        "components": [_component("all", ["sample"])],
+        "rules": [
+            _rule(
+                "forbidden_effect_under_condition",
+                source="sample.core",
+                target="sample.core._effect",
+                condition={"kind": "parameter", "owner": "sample.core.generate", "name": "seeded"},
+            )
+        ],
+    }
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/core.py": (
+                "def _effect(): pass\ndef _helper(): pass\n"
+                "def generate(seeded: bool):\n    if seeded:\n        _helper()\n"
+            ),
+        },
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+    [assessment] = rule_assessments(result.observation, undecided_by_rule={})
+    assert assessment.status == "PASS"
+    assert assessment.evaluation_proven
+
+
+def test_private_helper_with_multiple_boolean_parameters_remains_unknown(tmp_path):
+    contract = {
+        "schema_version": "3.13.0",
+        "components": [_component("all", ["sample"])],
+        "rules": [
+            _rule(
+                "forbidden_effect_under_condition",
+                source="sample.core",
+                target="sample.core._effect",
+                condition={"kind": "parameter", "owner": "sample.core.generate", "name": "seeded"},
+            )
+        ],
+    }
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/core.py": (
+                "def _effect(): pass\ndef _helper(run: bool, tag: bool):\n"
+                "    if run:\n        _effect()\n"
+                "def generate(seeded: bool):\n    if seeded:\n        _helper(False, seeded)\n"
+            ),
+        },
+        contract,
+    )
+    assert result.observation is not None, result.diagnostics
+    [assessment] = rule_assessments(result.observation, undecided_by_rule={})
+    assert assessment.status == "UNKNOWN"
+    assert assessment.count == 0
+    assert not assessment.evaluation_proven
+
+
 def test_private_helper_substitutes_non_self_member_receiver(tmp_path):
     contract = {
         "schema_version": "3.13.0",

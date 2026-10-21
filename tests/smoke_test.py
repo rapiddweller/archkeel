@@ -38,6 +38,11 @@ def main() -> None:
         )
     )
     assert python_2_7["$id"] == "urn:archkeel:architecture-ir:python-decoded:2.7.0"
+    assert python_2_7["properties"]["calls"]["items"]["allOf"][1]["properties"]["data"][
+        "properties"
+    ]["call_binding"]["oneOf"][1]["$ref"] == (
+        "https://archkeel.dev/schema/source-facts/5.0.0#/$defs/CallBinding"
+    )
     assert source_facts_5["$defs"]["CallBinding"]["required"] == [
         "origin",
         "target",

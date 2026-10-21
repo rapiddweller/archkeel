@@ -91,6 +91,21 @@ def _call_binding_refs(value: object) -> list[str]:
     return []
 
 
+def _external_schema_refs(value: object) -> list[str]:
+    if isinstance(value, dict):
+        refs = [
+            reference
+            for key, reference in value.items()
+            if key == "$ref" and isinstance(reference, str) and not reference.startswith("#")
+        ]
+        return refs + [
+            reference for child in value.values() for reference in _external_schema_refs(child)
+        ]
+    if isinstance(value, list):
+        return [reference for child in value for reference in _external_schema_refs(child)]
+    return []
+
+
 @pytest.mark.parametrize("schema_path", SCHEMA_FILES, ids=lambda path: path.name)
 def test_bundled_schemas_are_valid_draft_2020_12_schemas(schema_path: Path) -> None:
     Draft202012Validator.check_schema(json.loads(schema_path.read_bytes()))
@@ -98,7 +113,7 @@ def test_bundled_schemas_are_valid_draft_2020_12_schemas(schema_path: Path) -> N
 
 @pytest.mark.parametrize(
     ("version", "source_facts_version"),
-    [(f"2.{minor}", "4.0.0") for minor in range(1, 7)] + [("2.7", "6.0.0")],
+    [(f"2.{minor}", "4.0.0") for minor in range(1, 7)] + [("2.7", "5.0.0")],
 )
 def test_historical_python_schemas_reference_the_matching_call_binding_schema(
     version: str, source_facts_version: str
@@ -119,6 +134,26 @@ def test_frozen_source_facts_5_resource_resolves_legacy_call_binding_reference()
     Draft202012Validator(
         {"$ref": f"{frozen['$id']}#/$defs/CallBinding"}, registry=registry
     ).validate({"origin": "direct", "target": "sample.call", "evidence_ids": ["EVD-1"]})
+
+
+def test_frozen_decoded_27_profiles_close_with_v5_source_facts_resource() -> None:
+    resource_names = (
+        "architecture-ir-decoded-2.7.schema.json",
+        "architecture-ir-decoded.schema.json",
+        "architecture-ir-python-decoded-2.7.schema.json",
+        "architecture-ir-common.schema.json",
+        "architecture-ir-python-decoded.schema.json",
+        "architecture-ir-python-decoded-2.4.schema.json",
+        "source-facts-4.0.schema.json",
+        "source-facts-5.0.schema.json",
+    )
+    resources = [_schema(name) for name in resource_names]
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema)) for schema in resources
+    )
+    for schema in resources:
+        for reference in _external_schema_refs(schema):
+            registry.resolver(base_uri=schema["$id"]).lookup(reference)
 
 
 @pytest.mark.parametrize("version", [f"2.{minor}.0" for minor in range(1, 8)])
