@@ -641,9 +641,13 @@ export let flow;
     }
   }
 
+  // Above the diagram budget no node is drawn, so a selected module comes from its level.
+  const selectedAtlasModule = (id) => renderedScene?.nodes.find((node) => node.id === id)?.module
+    || REPORT_SCENE.atlasModules(atlasLevel(), viewMode).find((item) => item.id === id);
+
   function openArchitectureEntity(id, sourceGraph = null) {
     if (ATLAS) {
-      const module = renderedScene?.nodes.find((node) => node.id === id)?.module;
+      const module = selectedAtlasModule(id);
       if (module) location.href = atlasDetailsHref(module, atlasLevel());
       else openAtlasComponent(id);
       return;
@@ -1831,7 +1835,7 @@ export let flow;
 
   function updateOpenSelected() {
     if (ATLAS) {
-      const module = renderedScene?.nodes.find((node) => node.id === umlSelection?.id)?.module;
+      const module = umlSelection && selectedAtlasModule(umlSelection.id);
       openSelectedButton.disabled = !module && (!umlSelection || !ATLAS.levels.some((level) => level.parent_id === umlSelection.id));
       openSelectedButton.textContent = module ? `Open ${module.path?.split("/").at(-1) || module.name}` : umlSelection ? `Open ${REPORT_SCENE.atlasComponent(umlSelection.id)?.label || "component"}` : "Open selected";
       return;
@@ -2624,7 +2628,7 @@ export let flow;
     canvas.hidden = !scene.nodes.length; alternative.hidden = Boolean(scene.nodes.length);
     if (!scene.nodes.length) {
       const o = scene.overBudget;
-      alternative.innerHTML = o ? `<div class="flow-scope-notice"><p>${esc(`Diagram not drawn: ${o.modules} modules and ${o.edges} relationships exceed the diagram budget of ${o.budget.modules} modules / ${o.budget.edges} relationships. ${viewMode === "target" ? "Open a component or search for a module. All declared facts remain in architecture.json." : "Open a component, search, or use Health check. All facts remain in the module list and architecture.json."}`)}</p></div>`
+      alternative.innerHTML = o ? `<div class="flow-scope-notice"><p>${esc(`Diagram not drawn: ${REPORT_SCENE.countLabel(o.modules, "module")} and ${REPORT_SCENE.countLabel(o.edges, "relationship")} exceed the diagram budget of ${o.budget.modules} modules / ${o.budget.edges} relationships. ${viewMode === "target" ? `${level.component_ids.length ? "Open a component or search" : "Search"} for a module. All declared facts remain in architecture.json.` : `${level.component_ids.length ? "Open a component, search," : "Search,"} or use Health check. All facts remain in the module list and architecture.json.`}`)}</p></div>`
         : `<div class="flow-scope-notice"><h3>${viewMode === "target" ? "No declared subcomponents. No declared modules recorded." : "No observed content recorded."}</h3><p>${viewMode === "target" ? "Declared facts remain in the Inspector; observed modules are not Target declarations." : "No native module content is recorded for this scope."}</p>${viewMode === "target" ? '<button type="button" class="flow-fit" data-show-as-is>Show As-Is modules</button>' : ""}</div>`;
       const asIs = alternative.querySelector("[data-show-as-is]");
       if (asIs) asIs.onclick = () => switchArchitectureView("diagram");
