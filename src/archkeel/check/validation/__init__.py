@@ -55,6 +55,8 @@ from archkeel.ir.measurements import (
 from archkeel.ir.measurements import MeasurementBudgetName as _MeasurementBudgetName
 from archkeel.ir.model import (
     ArchitectureContract,
+    ContractChange,
+    ContractChangeDirection,
     ContractDeclarations,
     Diagnostic,
     InterfaceBudgetResult,
@@ -87,6 +89,7 @@ from archkeel.ir.renames import (
 from archkeel.ir.widening import (
     WideningChange,
     baseline_widening_changes,
+    contract_narrowing_changes,
     contract_widening_changes,
     measurement_budget_changes,
 )
@@ -899,6 +902,58 @@ def _inside_declaration_widenings(
     return tuple(findings)
 
 
+def _contract_widening_findings(
+    ctx: _AgainstContext,
+    contract: ArchitectureContract,
+    rename: Renamed | None,
+    inside_tree: InsideContractTree | None,
+) -> list[WideningChange]:
+    """The contract part of the `--against` comparison, shared by the gate and AD-255."""
+    if ctx.contract is None:
+        return []
+    if isinstance(ctx.contract, _Introduced):
+        # AD-104: nothing at the revision to compare, so the whole contract is one widening, and
+        # no rename applies to it (AD-105).
+        return [
+            WideningChange(
+                f"contract {ctx.contract.path}",
+                "presence",
+                f"contract introduced: {ctx.contract.path} does not exist at {ctx.against}",
+            )
+        ]
+    before = rename.contract if rename is not None else ctx.contract
+    return [
+        *contract_widening_changes(before, contract),
+        *_inside_declaration_widenings(ctx.inside_tree, inside_tree, rename),
+    ]
+
+
+def _contract_changes(
+    ctx: _AgainstContext,
+    contract: ArchitectureContract,
+    rename: Renamed | None,
+    inside_tree: InsideContractTree | None,
+) -> tuple[ContractChange, ...]:
+    """AD-255: every contract change the gate compares, with narrowings and directions."""
+    narrowed = (
+        ()
+        if ctx.contract is None or isinstance(ctx.contract, _Introduced)
+        else contract_narrowing_changes(
+            rename.contract if rename is not None else ctx.contract, contract
+        )
+    )
+    return (
+        *(
+            ContractChange(ContractChangeDirection.WIDENED, item.subject, item.field, item.message)
+            for item in _contract_widening_findings(ctx, contract, rename, inside_tree)
+        ),
+        *(
+            ContractChange(ContractChangeDirection.NARROWED, item.subject, item.field, item.message)
+            for item in narrowed
+        ),
+    )
+
+
 def _widening_failures(
     ctx: _AgainstContext,
     contract: ArchitectureContract,
@@ -921,26 +976,13 @@ def _widening_failures(
     if ctx.against is None or ctx.contract is None:
         return (), (), None
     violations, budgets = ctx.baseline, ctx.budgets
-    if isinstance(ctx.contract, _Introduced):
-        # AD-104: nothing at the revision to compare, so the whole contract is one widening, and
-        # no rename applies to it (AD-105).
-        findings = [
-            WideningChange(
-                f"contract {ctx.contract.path}",
-                "presence",
-                f"contract introduced: {ctx.contract.path} does not exist at {ctx.against}",
-            )
-        ]
-        targets: dict[str, int] = {}
-    else:
+    findings = _contract_widening_findings(ctx, contract, rename, inside_tree)
+    targets: dict[str, int] = {}
+    if not isinstance(ctx.contract, _Introduced):
         before = ctx.contract
         if rename is not None:
             before, budgets = rename.contract, rename.budgets
             violations = None if violations is None else rename.violations
-        findings = [
-            *contract_widening_changes(before, contract),
-            *_inside_declaration_widenings(ctx.inside_tree, inside_tree, rename),
-        ]
         targets = _name_budget_targets(before.declarations or ContractDeclarations())
     if baseline is not None and violations is not None:
         findings += baseline_widening_changes(violations, after_baseline, cycle_rules=cycle_rules)
@@ -1317,6 +1359,11 @@ def run_validate(
         exit_code=2 if result.exit_code == 2 else 1 if failures else 0,
         failures=failures,
         widenings=widening_findings if against is not None else None,
+        contract_changes=(
+            _contract_changes(against_ctx, comparison_contract, rename, inside_tree)
+            if against is not None
+            else None
+        ),
         amendment_status=amendment_status,
     )
     if against is not None:

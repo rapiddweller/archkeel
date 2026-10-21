@@ -454,7 +454,9 @@ For each edit, record affected scopes/declarations, focused/full input bytes, lo
 files/sites, and before/after ownership, API and permissions. Edit size is maintenance evidence,
 not an architecture verdict or a pass threshold. Run `validate --against <accepted-ref>` and
 use the existing bound amendment for approved widening; never regenerate intent from imports.
-Native widening diagnostics are conservative checks, not a complete readable semantic diff.
+Its `contract_changes` list each change as widened or narrowed; only widenings need the
+amendment, and a tightened `requires` entry narrows. Narrowings cover `requires`, `public` and
+rule presence only; anything else is not enumerated.
 
 The [checkout fixture](https://github.com/rapiddweller/archkeel/tree/main/fixtures/H-uml-dart)
 has `ordering -> domain -> orders/pricing` boundaries. Try these changes independently:

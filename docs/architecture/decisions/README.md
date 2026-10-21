@@ -259,3 +259,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-252 | [Bounded call identity](ad-252-bounded-call-identity.md) |
 | AD-249 | [Source ownership names one declaration](ad-249-source-ownership-defaults.md) |
 | AD-254 | [Canonical Protocol declarations](ad-254-canonical-protocol-declarations.md) |
+| AD-255 | [Narrowings in `--against`](ad-255-against-reports-narrowings.md) |

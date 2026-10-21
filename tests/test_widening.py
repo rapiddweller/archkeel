@@ -54,6 +54,8 @@ from archkeel.ir.widening import (
     _RESTRICTION_RULE_KINDS,
     Amendment,
     baseline_widenings,
+    contract_narrowing_changes,
+    contract_widening_changes,
     contract_widenings,
     verify_amendment,
 )
@@ -1206,6 +1208,54 @@ def test_requires_entry_widens_only_outside_the_old_permission(
     assert bool(findings) == widens, (label, findings)
 
 
+_NARROWING_CASES = (
+    (
+        "requires entry removed",
+        _contract((_requires(("other", ("pkg.a",), _AGENT)),)),
+        _contract((_requires(),)),
+        "requires",
+    ),
+    (
+        "requires entry contained",
+        _contract((_requires(("other", ("pkg.a",), _AGENT)),)),
+        _contract((_requires(("other", ("pkg.a:Sym",), _AGENT)),)),
+        "requires",
+    ),
+    (
+        "public entry removed",
+        _contract((_component(public=("pkg:A", "pkg:B")),)),
+        _contract((_component(public=("pkg:A",)),)),
+        "public",
+    ),
+    ("restriction rule added", _contract(), _contract(rules=(_complete_requires(),)), "presence"),
+    (
+        "permission rule removed",
+        _contract(rules=(_allowed_dependency(),)),
+        _contract(),
+        "presence",
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    "label,before,after,field", _NARROWING_CASES, ids=[case[0] for case in _NARROWING_CASES]
+)
+def test_narrowings_are_reported_without_widening(
+    label: str, before: ArchitectureContract, after: ArchitectureContract, field: str
+) -> None:
+    # AD-255: a reviewer sees what a contract no longer allows; only widenings need amendment.
+    narrowings = contract_narrowing_changes(before, after)
+    assert [item.field for item in narrowings] == [field], (label, narrowings)
+    assert contract_widening_changes(before, after) == (), label
+
+
+def test_a_widening_is_not_reported_as_a_narrowing() -> None:
+    before = _contract((_requires(("other", ("pkg.a:Sym",), _AGENT)),))
+    after = _contract((_requires(("other", ("pkg.a",), _AGENT)),))
+    assert contract_narrowing_changes(before, after) == ()
+    assert contract_widening_changes(before, after) != ()
+
+
 @pytest.mark.parametrize(
     ("component_author", "entry_author", "widens"),
     [(_AGENT, _AGENT, False), (_ARCHITECT, _AGENT, True)],
@@ -1218,3 +1268,13 @@ def test_requires_containment_compares_effective_authors(
     before = replace(_requires(("other", ("pkg.a",), None)), decided_by=component_author)
     after = replace(_requires(("other", ("pkg.a:Sym",), entry_author)), decided_by=component_author)
     assert bool(_component_diff(before, after)) == widens
+
+
+def test_a_redundant_contained_entry_beside_its_broad_entry_is_no_narrowing() -> None:
+    # Review (#640): keeping pkg.a and adding pkg.a:Sym removes nothing.
+    before = _contract((_requires(("other", ("pkg.a",), _AGENT)),))
+    after = _contract(
+        (_requires(("other", ("pkg.a",), _AGENT), ("other", ("pkg.a:Sym",), _AGENT)),)
+    )
+    assert contract_narrowing_changes(before, after) == ()
+    assert contract_widening_changes(before, after) == ()

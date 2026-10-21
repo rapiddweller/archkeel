@@ -63,6 +63,7 @@ __all__ = (
     "Amendment",
     "verify_amendment",
     "WideningChange",
+    "contract_narrowing_changes",
     "contract_widening_changes",
     "baseline_widening_changes",
     "measurement_budget_changes",
@@ -799,6 +800,85 @@ def contract_widening_changes(
                     f"compat module {module!r} lifetime became permanent",
                 )
             )
+    return tuple(sorted(findings, key=lambda item: item.message))
+
+
+def _requires_narrowings(
+    subject: str, before: tuple[RequiredComponent, ...], after: tuple[RequiredComponent, ...]
+) -> list[WideningChange]:
+    """Per target and author: entries that went away, folded with contained replacements."""
+    before_entries = {(item.component, item.through, item.decided_by) for item in before}
+    after_entries = {(item.component, item.through, item.decided_by) for item in after}
+    findings: list[WideningChange] = []
+    for name, decided_by in sorted(
+        {(item.component, item.decided_by) for item in before}, key=repr
+    ):
+        removed = [
+            list(item.through)
+            for item in before
+            if (item.component, item.decided_by) == (name, decided_by)
+            and (item.component, item.through, item.decided_by) not in after_entries
+            and not _contained(item, after)
+        ]
+        contained = [
+            list(item.through)
+            for item in after
+            if (item.component, item.decided_by) == (name, decided_by)
+            and (item.component, item.through, item.decided_by) not in before_entries
+            and _contained(item, before)
+        ]
+        # Only a removed permission narrows; a contained entry beside it is its replacement.
+        if removed and contained:
+            findings.append(
+                WideningChange(
+                    subject,
+                    "requires",
+                    f"{subject}.requires[{name!r}] narrowed from {removed} to {contained}",
+                )
+            )
+        elif removed:
+            findings.append(
+                WideningChange(
+                    subject, "requires", f"{subject}.requires[{name!r}] dropped through {removed}"
+                )
+            )
+    return findings
+
+
+def contract_narrowing_changes(
+    before: ArchitectureContract, after: ArchitectureContract
+) -> tuple[WideningChange, ...]:
+    """What `after` no longer allows that `before` did, for the kinds AD-255 enumerates."""
+    findings: list[WideningChange] = []
+    before_components = {item.id: item for item in before.components}
+    for component in after.components:
+        old = before_components.get(component.id)
+        if old is None:
+            continue
+        subject = f"component {component.label!r}"
+        findings += [
+            WideningChange(subject, "public", f"{subject}.public lost {entry!r}")
+            for entry in sorted(frozenset(old.public or ()) - frozenset(component.public or ()))
+        ]
+        findings += _requires_narrowings(
+            subject, _effective_requires(old), _effective_requires(component)
+        )
+    before_rules = {rule.id: rule for rule in before.rules}
+    after_rules = {rule.id: rule for rule in after.rules}
+    findings += [
+        WideningChange(
+            f"rule {rule_id}", "presence", f"rule {rule_id} ({after_rules[rule_id].kind}) added"
+        )
+        for rule_id in sorted(set(after_rules) - set(before_rules))
+        if after_rules[rule_id].kind in _RESTRICTION_RULE_KINDS
+    ]
+    findings += [
+        WideningChange(
+            f"rule {rule_id}", "presence", f"rule {rule_id} ({before_rules[rule_id].kind}) removed"
+        )
+        for rule_id in sorted(set(before_rules) - set(after_rules))
+        if before_rules[rule_id].kind in _PERMISSION_RULE_KINDS
+    ]
     return tuple(sorted(findings, key=lambda item: item.message))
 
 
