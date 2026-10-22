@@ -6,6 +6,7 @@
 import json
 import subprocess
 import sys
+import zlib
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
@@ -491,8 +492,12 @@ def _request(*features: str, version=ProtocolVersion.V7, root="/source-project")
     )
 
 
-def test_v7_request_carries_sorted_features_and_round_trips():
-    request = _request(CONSTRUCT_SELECTORS_FEATURE, SOURCE_ROLES_FEATURE)
+GATED = [ProtocolVersion.V7, ProtocolVersion.V8]
+
+
+@pytest.mark.parametrize("version", GATED)
+def test_v7_request_carries_sorted_features_and_round_trips(version):
+    request = _request(CONSTRUCT_SELECTORS_FEATURE, SOURCE_ROLES_FEATURE, version=version)
 
     encoded = encode_request(request)
 
@@ -504,8 +509,9 @@ def test_v7_request_carries_sorted_features_and_round_trips():
     assert decode_request(encoded) == request
 
 
-def test_v7_request_without_features_is_valid_and_means_base_only():
-    encoded = encode_request(_request())
+@pytest.mark.parametrize("version", GATED)
+def test_v7_request_without_features_is_valid_and_means_base_only(version):
+    encoded = encode_request(_request(version=version))
 
     assert json.loads(encoded)["resolver"]["features"] == []
     _schema_validator().validate(json.loads(encoded))
@@ -522,8 +528,9 @@ def test_v7_request_without_features_is_valid_and_means_base_only():
         [1],
     ],
 )
-def test_v7_request_rejects_unsorted_duplicate_or_unknown_features(features):
-    payload = json.loads(encode_request(_request()))
+@pytest.mark.parametrize("version", GATED)
+def test_v7_request_rejects_unsorted_duplicate_or_unknown_features(features, version):
+    payload = json.loads(encode_request(_request(version=version)))
     payload["resolver"]["features"] = features
 
     with pytest.raises(ProtocolError):
@@ -544,20 +551,22 @@ def test_older_requests_carry_no_features_on_the_wire(version):
         decode_request(json.dumps(payload).encode())
 
 
+@pytest.mark.parametrize("version", GATED)
 @pytest.mark.parametrize("features", [(), tuple(sorted(GATED_RESOLUTION_FEATURES))])
-def test_v7_response_round_trips_what_the_collector_declared(tmp_path, features):
+def test_v7_response_round_trips_what_the_collector_declared(tmp_path, features, version):
     _write_tree(tmp_path, _contract(), mounted=False)
-    request = _request(*features, root=str(tmp_path))
+    request = _request(*features, root=str(tmp_path), version=version)
 
     facts = collect(request)
-    response = CollectionResponse(facts, ProtocolVersion.V7)
+    response = CollectionResponse(facts, version)
     encoded = encode_response(response)
 
     assert facts.capabilities.resolution_features == collected_resolution_features(
-        ProtocolVersion.V7, request.resolver.features
+        version, request.resolver.features
     )
     assert _present(facts) == frozenset(features)
-    _schema_validator().validate(json.loads(encoded))
+    document = zlib.decompress(encoded) if version is ProtocolVersion.V8 else encoded
+    _schema_validator().validate(json.loads(document))
     assert decode_response(encoded) == response
 
 
@@ -595,33 +604,36 @@ def _without(facts: SourceFacts, family: str) -> SourceFacts:
     )
 
 
+@pytest.mark.parametrize("version", GATED)
 @pytest.mark.parametrize("family", GATED_RESOLUTION_FEATURES)
-def test_records_of_an_undeclared_family_are_rejected(tmp_path, family):
+def test_records_of_an_undeclared_family_are_rejected(tmp_path, family, version):
     _write_tree(tmp_path, _contract(), mounted=False)
-    facts = collect(_request(family, root=str(tmp_path)))
+    facts = collect(_request(family, root=str(tmp_path), version=version))
     assert family in _present(facts)
 
     with pytest.raises(ProtocolError, match="declared (Python )?capability"):
-        encode_response(CollectionResponse(_without(facts, family), ProtocolVersion.V7))
+        encode_response(CollectionResponse(_without(facts, family), version))
 
 
+@pytest.mark.parametrize("version", GATED)
 @pytest.mark.parametrize("family", [EXTENDED_CALL_BINDINGS_FEATURE, CONSTRUCT_SELECTORS_FEATURE])
-def test_a_member_write_witness_needs_one_of_the_families_that_replay_it(tmp_path, family):
+def test_a_member_write_witness_needs_one_of_the_families_that_replay_it(tmp_path, family, version):
     _write_tree(tmp_path, _contract(), mounted=False)
-    facts = collect(_request(family, root=str(tmp_path)))
+    facts = collect(_request(family, root=str(tmp_path), version=version))
     assert _witnesses(facts)
 
     with pytest.raises(ProtocolError, match="member-write witnesses require"):
-        encode_response(CollectionResponse(_without(facts, family), ProtocolVersion.V7))
+        encode_response(CollectionResponse(_without(facts, family), version))
 
 
-def test_a_scan_without_witnesses_validates_without_a_class_body_excerpt(tmp_path):
+@pytest.mark.parametrize("version", GATED)
+def test_a_scan_without_witnesses_validates_without_a_class_body_excerpt(tmp_path, version):
     _write_tree(tmp_path, _contract(), mounted=False)
 
-    facts = collect(_request(root=str(tmp_path)))
+    facts = collect(_request(root=str(tmp_path), version=version))
 
     assert not _witnesses(facts)
-    assert decode_response(encode_response(CollectionResponse(facts, ProtocolVersion.V7)))
+    assert decode_response(encode_response(CollectionResponse(facts, version)))
 
 
 def test_a_scan_without_call_arguments_still_writes_the_field_and_round_trips(tmp_path):
@@ -640,9 +652,10 @@ def test_a_scan_without_call_arguments_still_writes_the_field_and_round_trips(tm
     assert parse_observation(observation_payload(result.observation)) == result.observation
 
 
-def test_response_features_that_differ_from_the_request_are_a_protocol_error(tmp_path):
+@pytest.mark.parametrize("version", GATED)
+def test_response_features_that_differ_from_the_request_are_a_protocol_error(tmp_path, version):
     _write_tree(tmp_path, _contract(), mounted=False)
-    request = _request(root=str(tmp_path))
+    request = _request(root=str(tmp_path), version=version)
     facts = collect(request)
     extra = replace(
         facts,
@@ -651,8 +664,8 @@ def test_response_features_that_differ_from_the_request_are_a_protocol_error(tmp
             resolution_features=(*facts.capabilities.resolution_features, SOURCE_ROLES_FEATURE),
         ),
     )
-    payload = encode_response(CollectionResponse(extra, ProtocolVersion.V7)).decode()
-    script = f"import sys\nsys.stdin.read()\nprint({payload!r})\n"
+    payload = encode_response(CollectionResponse(extra, version))
+    script = f"import sys\nsys.stdin.read()\nsys.stdout.buffer.write({payload!r})\n"
 
     result = ProcessCollector((sys.executable, "-B", "-c", script)).collect(request)
 
@@ -660,8 +673,8 @@ def test_response_features_that_differ_from_the_request_are_a_protocol_error(tmp
     assert result.kind is CollectionErrorKind.PROTOCOL_ERROR
     assert "resolution features disagree" in result.message
 
-    honest = encode_response(CollectionResponse(facts, ProtocolVersion.V7)).decode()
-    script = f"import sys\nsys.stdin.read()\nprint({honest!r})\n"
+    honest = encode_response(CollectionResponse(facts, version))
+    script = f"import sys\nsys.stdin.read()\nsys.stdout.buffer.write({honest!r})\n"
     assert isinstance(
         ProcessCollector((sys.executable, "-B", "-c", script)).collect(request), SourceFacts
     )

@@ -11,6 +11,7 @@ import subprocess
 import sys
 import sysconfig
 import time
+import zlib
 from collections import Counter
 from dataclasses import replace
 from importlib.machinery import (
@@ -192,7 +193,7 @@ def test_provider_pass_errors_are_returned_unchanged(tmp_path, monkeypatch, phas
     monkeypatch.setattr(ProcessCollector, "collect_response", bounded)
     result = PythonProviderCollector(ProcessCollector(("native-python",))).collect(request)
     assert result is expected
-    assert calls == [ProtocolVersion.V4, ProtocolVersion.V7][: 1 if phase == "initial" else 2]
+    assert calls == [ProtocolVersion.V4, ProtocolVersion.V8][: 1 if phase == "initial" else 2]
 
 
 def test_no_provider_sources_still_require_a_final_full_collection(tmp_path, monkeypatch):
@@ -219,7 +220,7 @@ def test_no_provider_sources_still_require_a_final_full_collection(tmp_path, mon
             resolver=PythonSettings(phase=PythonCollectionPhase.PROVIDERS),
             protocol_version=ProtocolVersion.V4,
         ),
-        replace(request, protocol_version=ProtocolVersion.V7),
+        replace(request, protocol_version=ProtocolVersion.V8),
     ]
 
 
@@ -255,7 +256,7 @@ def test_provider_passes_share_one_deadline_and_preserve_process_limits(tmp_path
     assert final_request == replace(
         request,
         resolver=PythonSettings(provider_sources=(provider,)),
-        protocol_version=ProtocolVersion.V7,
+        protocol_version=ProtocolVersion.V8,
     )
 
 
@@ -377,7 +378,7 @@ def test_default_provider_port_runs_both_native_phases_for_actual_contextlib(
     assert not isinstance(facts, CollectionError), facts
     assert calls == [
         (ProtocolVersion.V4, PythonCollectionPhase.PROVIDERS, request.scope),
-        (ProtocolVersion.V7, PythonCollectionPhase.COLLECT, request.scope),
+        (ProtocolVersion.V8, PythonCollectionPhase.COLLECT, request.scope),
     ]
     expected = {"contextlib.contextmanager"}
     if sibling:
@@ -2369,7 +2370,10 @@ def test_captured_provider_buffers_cannot_leak_into_legacy_envelopes(tmp_path, v
         encode_response(CollectionResponse(facts, version, (provider,)))
 
 
-@pytest.mark.parametrize("version", [ProtocolVersion.V4, ProtocolVersion.V6, ProtocolVersion.V7])
+@pytest.mark.parametrize(
+    "version",
+    [ProtocolVersion.V4, ProtocolVersion.V6, ProtocolVersion.V7, ProtocolVersion.V8],
+)
 def test_captured_provider_response_roundtrips_against_the_published_schema(tmp_path, version):
     from jsonschema import Draft202012Validator
 
@@ -2378,16 +2382,20 @@ def test_captured_provider_response_roundtrips_against_the_published_schema(tmp_
     payload = encode_response(response)
     schema = json.loads((Path(__file__).parents[1] / "schema/source-facts.schema.json").read_text())
     validator = Draft202012Validator(schema)
-    validator.validate(json.loads(payload))
+    document = zlib.decompress(payload) if version is ProtocolVersion.V8 else payload
+    validator.validate(json.loads(document))
     assert decode_response(payload) == response
     assert encode_response(decode_response(payload)) == payload
     for legacy_version in (ProtocolVersion.V1, ProtocolVersion.V2, ProtocolVersion.V3):
-        legacy = json.loads(payload)
+        legacy = json.loads(document)
         legacy["protocol_version"] = legacy_version
         assert not validator.is_valid(legacy)
 
 
-@pytest.mark.parametrize("version", [ProtocolVersion.V4, ProtocolVersion.V6, ProtocolVersion.V7])
+@pytest.mark.parametrize(
+    "version",
+    [ProtocolVersion.V4, ProtocolVersion.V6, ProtocolVersion.V7, ProtocolVersion.V8],
+)
 def test_full_python_facts_cannot_claim_provider_capture_buffers(tmp_path, version):
     request, provider, _, _ = _provider_passes(tmp_path)
     with pytest.raises(

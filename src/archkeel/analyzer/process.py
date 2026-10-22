@@ -25,14 +25,19 @@ from archkeel.ir.facts import (
     SourceFacts,
     SourceProfile,
 )
-from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_request
+from archkeel.ir.facts_codec import (
+    DEFAULT_RESPONSE_LIMIT_BYTES,
+    ProtocolError,
+    decode_response,
+    encode_request,
+)
 from archkeel.ir.protocol import (
+    FEATURE_GATED_PROTOCOLS,
     PYTHON_IMPORT_SURVEY_SECTIONS,
     CollectionError,
     CollectionErrorKind,
     CollectionRequest,
     CollectionResponse,
-    ProtocolVersion,
     PythonCollectionPhase,
     PythonSettings,
     collected_resolution_features,
@@ -66,7 +71,7 @@ def _process_platform(name: str) -> _ProcessPlatform | None:
 class ProcessCollector:
     argv: tuple[str, ...]
     timeout_seconds: float = 300
-    output_limit_bytes: int = 64 * 1024 * 1024
+    output_limit_bytes: int = DEFAULT_RESPONSE_LIMIT_BYTES
     stderr_limit_bytes: int = 64 * 1024
 
     def __post_init__(self) -> None:
@@ -134,7 +139,7 @@ class ProcessCollector:
                         subject,
                         f"Collector exited {process.returncode}: {message}",
                     )
-            response = decode_response(stdout)
+            response = decode_response(stdout, output_limit=self.output_limit_bytes)
             _requested_facts(response.facts, request)
             _requested_provider_sources(response, request)
             return response
@@ -252,7 +257,7 @@ def _requested_facts(facts: SourceFacts, request: CollectionRequest) -> None:
     ):
         raise ProtocolError("collector sections disagree with requested import survey")
     if (
-        request.protocol_version is ProtocolVersion.V7
+        request.protocol_version in FEATURE_GATED_PROTOCOLS
         and isinstance(request.resolver, PythonSettings)
         and request.resolver.phase is PythonCollectionPhase.COLLECT
         and frozenset(facts.capabilities.resolution_features)

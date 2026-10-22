@@ -27,6 +27,11 @@ class ProtocolVersion(StrEnum):
     V5 = "5.0.0"
     V6 = "6.0.0"
     V7 = "7.0.0"
+    V8 = "8.0.0"
+
+
+# 8.0.0 keeps the 7.0.0 semantics (AD-257 feature gating) on a plain, compressed wire (AD-259).
+FEATURE_GATED_PROTOCOLS: Final = frozenset({ProtocolVersion.V7, ProtocolVersion.V8})
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,7 +123,7 @@ def collected_resolution_features(
     version: ProtocolVersion, requested: Iterable[str]
 ) -> tuple[str, ...]:
     """Families a collector declares: every one before protocol 7.0.0, else base plus requested."""
-    if version is not ProtocolVersion.V7:
+    if version not in FEATURE_GATED_PROTOCOLS:
         return (*BASE_RESOLUTION_FEATURES, *GATED_RESOLUTION_FEATURES)
     wanted = frozenset(requested)
     return (

@@ -168,10 +168,10 @@ class PythonProviderCollector:
             replace(
                 request,
                 resolver=replace(request.resolver, provider_sources=providers),
-                protocol_version=ProtocolVersion.V7,
+                protocol_version=ProtocolVersion.V8,
             )
             if providers
-            else replace(request, protocol_version=ProtocolVersion.V7)
+            else replace(request, protocol_version=ProtocolVersion.V8)
         )
         remaining_collector: ProcessCollector = replace(self.collector, timeout_seconds=remaining)
         enriched = remaining_collector.collect(final_request)
@@ -457,6 +457,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         ProtocolVersion.V5,
         ProtocolVersion.V6,
         ProtocolVersion.V7,
+        ProtocolVersion.V8,
     }:
         contextmanager_signatures(modules, providers, symbols, provider_bindings, evidence)
     type_shapes = collect_type_shapes(symbol_type_expressions(symbols))
@@ -491,7 +492,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         symbol_index=symbol_index,
         receiver_resolvers=call_resolvers,
         include_parameter_owner_proof=request.protocol_version
-        in {ProtocolVersion.V5, ProtocolVersion.V6, ProtocolVersion.V7},
+        in {ProtocolVersion.V5, ProtocolVersion.V6, ProtocolVersion.V7, ProtocolVersion.V8},
         include_selectors=CONSTRUCT_SELECTORS_FEATURE in collected_features,
         include_numeric_operands=NUMERIC_OPERANDS_FEATURE in collected_features,
     )

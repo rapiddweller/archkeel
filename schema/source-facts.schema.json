@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://archkeel.dev/schema/source-facts/6.0.0",
-  "title": "ArchKeel source collection protocols 1.0.0-7.0.0",
+  "title": "ArchKeel source collection protocols 1.0.0-8.0.0",
   "description": "Structural wire contract. facts_validation additionally checks section payloads, scope, digests, unique identities, coverage and references. Architecture policy never crosses this port.",
   "$defs": {
     "StringTableReference": {
@@ -1414,7 +1414,8 @@
             "4.0.0",
             "5.0.0",
             "6.0.0",
-            "7.0.0"
+            "7.0.0",
+            "8.0.0"
           ]
         },
         "snapshot": {
@@ -1596,7 +1597,8 @@
                   "4.0.0",
                   "5.0.0",
                   "6.0.0",
-                  "7.0.0"
+                  "7.0.0",
+                  "8.0.0"
                 ]
               },
               "resolver": {
@@ -1634,7 +1636,10 @@
           "if": {
             "properties": {
               "protocol_version": {
-                "const": "7.0.0"
+                "enum": [
+                  "7.0.0",
+                  "8.0.0"
+                ]
               }
             }
           },
@@ -1681,7 +1686,8 @@
             "4.0.0",
             "5.0.0",
             "6.0.0",
-            "7.0.0"
+            "7.0.0",
+            "8.0.0"
           ]
         },
         "facts": {
@@ -1742,7 +1748,8 @@
                   "2.0.0",
                   "3.0.0",
                   "4.0.0",
-                  "5.0.0"
+                  "5.0.0",
+                  "8.0.0"
                 ]
               }
             }
@@ -1796,7 +1803,8 @@
               "protocol_version": {
                 "enum": [
                   "4.0.0",
-                  "5.0.0"
+                  "5.0.0",
+                  "8.0.0"
                 ]
               }
             }
@@ -1922,7 +1930,8 @@
                   "1.0.0",
                   "2.0.0",
                   "3.0.0",
-                  "4.0.0"
+                  "4.0.0",
+                  "8.0.0"
                 ]
               }
             }

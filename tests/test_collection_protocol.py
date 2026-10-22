@@ -4,6 +4,7 @@
 """The collection process exchanges source inputs, never architecture policy."""
 
 import json
+import zlib
 
 import pytest
 
@@ -234,7 +235,7 @@ def test_import_survey_rejects_provider_sources_and_keeps_positional_settings(
         _request_validator.validate(payload)
 
 
-@pytest.mark.parametrize("version", ["0.0.0", "8.0.0", None, True])
+@pytest.mark.parametrize("version", ["0.0.0", "9.0.0", None, True])
 def test_collection_request_rejects_incompatible_version(version: object) -> None:
     from archkeel.ir.facts_codec import ProtocolError, decode_request
 
@@ -416,7 +417,9 @@ def test_source_response_is_immutable_and_preserves_alternate_parser_identity() 
         response.facts.coverage.files_read = 0
 
 
-@pytest.mark.parametrize("version", ["1.0.0", "2.0.0", "3.0.0", "4.0.0", "5.0.0", "6.0.0"])
+@pytest.mark.parametrize(
+    "version", ["1.0.0", "2.0.0", "3.0.0", "4.0.0", "5.0.0", "6.0.0", "7.0.0", "8.0.0"]
+)
 def test_response_encoder_validates_without_reparsing_its_json(version):
     from unittest.mock import patch
 
@@ -440,15 +443,18 @@ def test_response_encoder_validates_without_reparsing_its_json(version):
         else:
             encoded = encode_response(response)
     assert decode_response(encoded) == response
+    document = zlib.decompress(encoded) if version == "8.0.0" else encoded
     assert (
-        encoded
+        document
         == json.dumps(
-            json.loads(encoded), ensure_ascii=False, sort_keys=True, separators=(",", ":")
+            json.loads(document), ensure_ascii=False, sort_keys=True, separators=(",", ":")
         ).encode()
     )
 
 
-@pytest.mark.parametrize("version", ["1.0.0", "2.0.0", "3.0.0", "4.0.0", "5.0.0", "6.0.0"])
+@pytest.mark.parametrize(
+    "version", ["1.0.0", "2.0.0", "3.0.0", "4.0.0", "5.0.0", "6.0.0", "7.0.0", "8.0.0"]
+)
 def test_response_encoder_still_rejects_invalid_facts_without_json_reparse(version):
     from dataclasses import replace
     from unittest.mock import patch
@@ -535,12 +541,12 @@ def test_encoders_reject_unsupported_versions(tmp_path) -> None:
         SnapshotInput("/source-project", "a" * 40, False),
         SourceScope(("src",), "project"),
         PythonSettings(),
-        "8.0.0",
+        "9.0.0",
     )
     with pytest.raises(ProtocolError, match="version"):
         encode_request(request)
     with pytest.raises(ProtocolError, match="version"):
-        encode_response(CollectionResponse(_facts(tmp_path), "8.0.0"))
+        encode_response(CollectionResponse(_facts(tmp_path), "9.0.0"))
 
 
 def test_legacy_encoder_rejects_nondefault_runtime_state(tmp_path) -> None:
@@ -936,3 +942,144 @@ def test_encoder_checks_owned_json_before_semantic_claims(version):
     # Owned raw JSON must be valid before semantic claims such as the adapter digest are checked.
     with pytest.raises(codec.ProtocolError, match="JSON fields must be strings"):
         codec.encode_response(replace(response, facts=facts, protocol_version=version))
+
+
+def _response_with(version: str):
+    from archkeel.ir.facts_codec import decode_response
+    from archkeel.ir.protocol import CollectionResponse
+
+    return CollectionResponse(decode_response(json.dumps(_response()).encode()).facts, version)
+
+
+def test_v8_request_roundtrips_with_features(_request_validator) -> None:
+    from dataclasses import replace
+
+    from archkeel.ir.facts import GATED_RESOLUTION_FEATURES
+    from archkeel.ir.facts_codec import decode_request, encode_request
+    from archkeel.ir.protocol import ProtocolVersion, PythonSettings
+
+    request = replace(
+        decode_request(_request()),
+        protocol_version=ProtocolVersion.V8,
+        resolver=PythonSettings(features=tuple(sorted(GATED_RESOLUTION_FEATURES))),
+    )
+    encoded = encode_request(request)
+    assert json.loads(encoded)["resolver"]["features"] == sorted(GATED_RESOLUTION_FEATURES)
+    _request_validator.validate(json.loads(encoded))
+    assert decode_request(encoded) == request
+
+
+def test_v8_response_is_zlib_framed_ordinary_facts(_request_validator) -> None:
+    from archkeel.ir.facts_codec import decode_response, encode_response
+
+    response = _response_with("8.0.0")
+    encoded = encode_response(response)
+    assert encoded[:1] == b"\x78"
+    envelope = json.loads(zlib.decompress(encoded))
+    assert envelope["protocol_version"] == "8.0.0"
+    assert "encoding" not in envelope["facts"] and "string_table" not in envelope["facts"]
+    _request_validator.validate(envelope)
+    assert decode_response(encoded) == response
+    # No pools: the facts object is exactly what V4 puts on the wire.
+    assert envelope["facts"] == json.loads(encode_response(_response_with("4.0.0")))["facts"]
+
+
+@pytest.mark.parametrize(
+    "version", ["1.0.0", "2.0.0", "3.0.0", "4.0.0", "5.0.0", "6.0.0", "7.0.0", "8.0.0"]
+)
+def test_every_protocol_version_decodes_what_it_encodes(version: str) -> None:
+    from archkeel.ir.facts_codec import decode_response, encode_response
+
+    response = _response_with(version)
+    assert decode_response(encode_response(response)) == response
+
+
+def test_only_v8_responses_are_compressed() -> None:
+    from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
+
+    plain_v8 = zlib.decompress(encode_response(_response_with("8.0.0")))
+    with pytest.raises(ProtocolError, match="only collection protocol 8.0.0"):
+        decode_response(plain_v8)
+    with pytest.raises(ProtocolError, match="only collection protocol 8.0.0"):
+        decode_response(zlib.compress(encode_response(_response_with("7.0.0")), 1))
+
+
+def test_v8_decoder_rejects_corrupt_truncated_and_padded_streams() -> None:
+    from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
+
+    encoded = encode_response(_response_with("8.0.0"))
+    for damaged in (encoded[:-4], encoded + b"x", encoded[:20] + b"\x00" + encoded[21:]):
+        with pytest.raises(ProtocolError):
+            decode_response(damaged)
+
+
+def test_v8_decompression_is_bounded_at_sixteen_times_the_output_limit() -> None:
+    from archkeel.ir.facts_codec import ProtocolError, decode_response
+
+    padding = b'{"protocol_version":"8.0.0","pad":"' + b"a" * 20_000 + b'"}'
+    bomb = zlib.compress(padding, 1)
+    assert len(bomb) < 1_000
+    with pytest.raises(ProtocolError, match="exceeds its 16000 byte limit"):
+        decode_response(bomb, output_limit=1_000)
+    # Within the bound the stream is accepted as framing; the response is then judged on content.
+    with pytest.raises(ProtocolError, match="response fields mismatch"):
+        decode_response(bomb, output_limit=2_000)
+
+
+def _emitting(payload: bytes, **limits):
+    import sys
+
+    from archkeel.analyzer.process import ProcessCollector
+
+    script = f"import sys\nsys.stdin.buffer.read()\nsys.stdout.buffer.write({payload!r})\n"
+    return ProcessCollector((sys.executable, "-B", "-c", script), **limits)
+
+
+def _v8_import_survey_request(root):
+    from archkeel.ir.protocol import (
+        CollectionRequest,
+        ProtocolVersion,
+        PythonCollectionPhase,
+        PythonSettings,
+        SnapshotInput,
+        SourceScope,
+    )
+
+    return CollectionRequest(
+        SnapshotInput(str(root), "a" * 40, False),
+        SourceScope(("src",), "project"),
+        PythonSettings(phase=PythonCollectionPhase.IMPORTS),
+        ProtocolVersion.V8,
+    )
+
+
+def test_v8_invalid_facts_are_a_protocol_error_at_the_process_boundary(tmp_path) -> None:
+    from archkeel.ir.facts_codec import encode_response
+    from archkeel.ir.protocol import CollectionError, CollectionErrorKind
+
+    envelope = json.loads(zlib.decompress(encode_response(_response_with("8.0.0"))))
+    envelope["facts"]["coverage"]["files_parsed"] = 999
+    payload = zlib.compress(json.dumps(envelope).encode(), 1)
+
+    result = _emitting(payload).collect_response(_v8_import_survey_request(tmp_path))
+
+    assert isinstance(result, CollectionError)
+    assert result.kind is CollectionErrorKind.PROTOCOL_ERROR
+    assert "impossible collection coverage counts" in result.message
+
+
+def test_output_limit_counts_compressed_bytes_and_bounds_decompression(tmp_path) -> None:
+    from archkeel.ir.protocol import CollectionError, CollectionErrorKind
+
+    request = _v8_import_survey_request(tmp_path)
+    bomb = zlib.compress(b'{"protocol_version":"8.0.0","pad":"' + b"a" * 20_000 + b'"}', 1)
+
+    inflated = _emitting(bomb, output_limit_bytes=1_000).collect_response(request)
+    assert isinstance(inflated, CollectionError)
+    assert inflated.kind is CollectionErrorKind.PROTOCOL_ERROR
+    assert "exceeds its 16000 byte limit" in inflated.message
+
+    oversized = _emitting(bomb, output_limit_bytes=len(bomb) - 1).collect_response(request)
+    assert isinstance(oversized, CollectionError)
+    assert oversized.kind is CollectionErrorKind.PROTOCOL_ERROR
+    assert "Collector output exceeded" in oversized.message

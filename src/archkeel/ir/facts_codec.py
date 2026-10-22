@@ -9,6 +9,7 @@ import builtins as _builtins
 import hashlib
 import json
 import re
+import zlib
 from enum import StrEnum
 from math import isfinite
 from pathlib import PurePosixPath, PureWindowsPath
@@ -81,6 +82,7 @@ from .facts_validation import (
     validate_source_role_vocabulary as validate_source_role_vocabulary,
 )
 from .protocol import (
+    FEATURE_GATED_PROTOCOLS,
     PYTHON_IMPORT_SURVEY_SECTIONS,
     CollectionRequest,
     CollectionResponse,
@@ -242,10 +244,23 @@ _SOURCE_FACTS_SELECTOR_OWNER_FIELDS = frozenset(
     }
 )
 _PROVIDER_PROTOCOLS = frozenset(
-    {ProtocolVersion.V4, ProtocolVersion.V5, ProtocolVersion.V6, ProtocolVersion.V7}
+    {
+        ProtocolVersion.V4,
+        ProtocolVersion.V5,
+        ProtocolVersion.V6,
+        ProtocolVersion.V7,
+        ProtocolVersion.V8,
+    }
 )
-_SELECTOR_OWNER_PROTOCOLS = frozenset({ProtocolVersion.V5, ProtocolVersion.V6, ProtocolVersion.V7})
+_SELECTOR_OWNER_PROTOCOLS = frozenset(
+    {ProtocolVersion.V5, ProtocolVersion.V6, ProtocolVersion.V7, ProtocolVersion.V8}
+)
 _COLUMNAR_V2_PROTOCOLS = frozenset({ProtocolVersion.V6, ProtocolVersion.V7})
+DEFAULT_RESPONSE_LIMIT_BYTES = 64 * 1024 * 1024
+_DECOMPRESSION_BOUND_FACTOR = 16
+_ZLIB_CMF = 0x78
+# Level 1 is enough to keep the byte cap meaningful; higher levels cost collector time.
+_V8_COMPRESSION_LEVEL = 1
 
 
 class ProtocolError(ValueError):
@@ -430,7 +445,7 @@ def _python_settings(raw: dict[str, RawJson], version: ProtocolVersion) -> Pytho
         {"language", "provider_sources", "phase"}
         if version in _PROVIDER_PROTOCOLS
         else {"language"}
-    ) | ({"features"} if version is ProtocolVersion.V7 else set())
+    ) | ({"features"} if version in FEATURE_GATED_PROTOCOLS else set())
     _object(raw, fields, "resolver")
     try:
         phase = PythonCollectionPhase(
@@ -456,7 +471,7 @@ def encode_request(request: CollectionRequest) -> bytes:
     resolver: dict[str, RawJson] = {"language": request.resolver.language}
     if isinstance(request.resolver, PythonSettings):
         # Protocols before 7.0.0 mean "collect every family", so they carry no feature list.
-        if version is ProtocolVersion.V7:
+        if version in FEATURE_GATED_PROTOCOLS:
             resolver["features"] = list(request.resolver.features)
         if version in _PROVIDER_PROTOCOLS:
             resolver["phase"] = request.resolver.phase
@@ -873,6 +888,7 @@ def _shape(value: RawJson, protocol_version: ProtocolVersion) -> TypeShape:
         ProtocolVersion.V5,
         ProtocolVersion.V6,
         ProtocolVersion.V7,
+        ProtocolVersion.V8,
     }:
         _object(value, {"kind", "text", "elements"}, "type list")
         return TypeList(
@@ -1026,6 +1042,7 @@ def _runtime_info(value: RawJson, protocol_version: ProtocolVersion) -> RuntimeI
             ProtocolVersion.V5,
             ProtocolVersion.V6,
             ProtocolVersion.V7,
+            ProtocolVersion.V8,
         }
         else {"name", "version", "required"}
     )
@@ -1112,7 +1129,7 @@ def _source_facts(value: RawJson, version: ProtocolVersion) -> SourceFacts:
     ):
         raise ProtocolError("selector parameter owners require collection protocol 5.0.0")
     _contextmanager_protocol(facts, version)
-    if version is not ProtocolVersion.V7:
+    if version not in FEATURE_GATED_PROTOCOLS:
         facts = without_unnamed_families(facts)
     validate_source_facts(facts)
     return facts
@@ -1488,9 +1505,33 @@ def _response(decoded: RawJson, *, source_facts_expanded: bool = False) -> Colle
         raise ProtocolError(str(error)) from error
 
 
-def decode_response(payload: bytes) -> CollectionResponse:
+def _inflate(payload: bytes, limit: int) -> bytes:
+    inflater = zlib.decompressobj()
+    try:
+        data = inflater.decompress(payload, limit)
+    except zlib.error as error:
+        raise ProtocolError(f"invalid compressed collection response: {error}") from error
+    if inflater.unconsumed_tail:
+        raise ProtocolError(f"decompressed collection response exceeds its {limit} byte limit")
+    if not inflater.eof or inflater.unused_data:
+        raise ProtocolError("compressed collection response is truncated or has trailing data")
+    return data
+
+
+def decode_response(
+    payload: bytes, *, output_limit: int = DEFAULT_RESPONSE_LIMIT_BYTES
+) -> CollectionResponse:
+    """Decode a collector reply; `output_limit` is the transport cap on the bytes received."""
+    # Plain JSON never starts with the zlib CMF byte, so the first byte names the framing.
+    compressed = bool(payload) and payload[0] == _ZLIB_CMF
+    document = (
+        _inflate(payload, output_limit * _DECOMPRESSION_BOUND_FACTOR) if compressed else payload
+    )
     # The decoder owns a JSON-only tree; internal parsers retain structure and semantic checks.
-    return _response(_decode(payload))
+    response = _response(_decode(document))
+    if compressed is not (response.protocol_version is ProtocolVersion.V8):
+        raise ProtocolError("only collection protocol 8.0.0 responses are zlib-compressed")
+    return response
 
 
 def _provider_binding(value: RawJson) -> ProviderBinding:
@@ -1555,6 +1596,7 @@ def _runtime_payload(runtime: RuntimeInfo, version: ProtocolVersion) -> dict[str
                 ProtocolVersion.V5,
                 ProtocolVersion.V6,
                 ProtocolVersion.V7,
+                ProtocolVersion.V8,
             }
             else {}
         ),
@@ -1642,19 +1684,9 @@ def encode_response(response: CollectionResponse) -> bytes:
     facts = response.facts
     version = _version(response.protocol_version)
     _contextmanager_protocol(facts, version)
-    if facts.provider_bindings and version not in {
-        ProtocolVersion.V4,
-        ProtocolVersion.V5,
-        ProtocolVersion.V6,
-        ProtocolVersion.V7,
-    }:
+    if facts.provider_bindings and version not in _PROVIDER_PROTOCOLS:
         raise ProtocolError("provider bindings require collection protocol 4.0.0")
-    if response.provider_sources and version not in {
-        ProtocolVersion.V4,
-        ProtocolVersion.V5,
-        ProtocolVersion.V6,
-        ProtocolVersion.V7,
-    }:
+    if response.provider_sources and version not in _PROVIDER_PROTOCOLS:
         raise ProtocolError("captured provider sources require collection protocol 4.0.0")
     runtime = _runtime_payload(facts.runtime, version)
     raw: dict[str, RawJson] = {
@@ -1676,13 +1708,16 @@ def encode_response(response: CollectionResponse) -> bytes:
         raw["facts"] = _compact_source_facts(raw["facts"])
     elif version in _COLUMNAR_V2_PROTOCOLS:
         raw["facts"] = _compact_source_facts_v6(raw["facts"])
-    payload = json.dumps(
+    text: str = json.dumps(
         raw, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
-    ).encode()
+    )
+    payload = text.encode()
     _check_json_value(raw)
     if version not in _COLUMNAR_V2_PROTOCOLS:
         _response(raw)
-    return payload
+    return (
+        zlib.compress(payload, _V8_COMPRESSION_LEVEL) if version is ProtocolVersion.V8 else payload
+    )
 
 
 def raw_record(record: Record) -> RawRecord:

@@ -49,6 +49,18 @@ requests retain the V4/V5 provider-source and phase fields, and V6 responses ret
 ordinary provider-sources field. V1–V5 wire behavior is unchanged. See
 [AD-253](decisions/ad-253-source-facts-columnar-key-and-value-pooling.md).
 
+V7 keeps the V6 wire and adds the request `features` list: a Python collector collects only
+the base resolution families plus the requested gated ones and declares them in
+`capabilities.resolution_features`. Records of a family a pre-V7 collector cannot name are
+dropped on decode.
+
+V8 ("plain") keeps the V7 request and the V7 semantics, but its facts are the ordinary fact
+objects, without the key and string pools of V6/V7. The response bytes on stdout are
+zlib-compressed (level 1); plain JSON starts with `{` and zlib with `0x78`, and only V8
+responses may be compressed. The collector output limit applies to the compressed bytes,
+and the decompressed size is bounded at 16 times that limit. V1–V7 wire behavior is
+unchanged. See [AD-259](decisions/ad-259-one-plain-wire-one-validation.md).
+
 This migration covers the named collector/codec modules. It does not assert that every historical string-controlled branch in the repository has been migrated.
 
 SourceProfile and SourceSectionName are nominal enums decoded at ingress, with exactly the former three profile IDs and eight section names. ObservedSection remains a compatibility name for the shared section identity owner. Its old six-value Literal annotation imposed no runtime validation; only this internal annotation now names the full canonical vocabulary. Registered profile subsets and mandatory imports/unknowns validation remain unchanged and have decoder controls.

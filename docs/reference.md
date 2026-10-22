@@ -89,7 +89,9 @@ needs no Node runtime. Runtime mismatch, malformed replies and incomplete eviden
 cannot certify a scan. Legacy observations remain readable only under supported
 schemas; missing required sections fail closed.
 
-Collector stdout defaults to a finite 64 MiB limit. Large valid scopes may set
+Collector stdout defaults to a finite 64 MiB limit; protocol 8.0.0 replies are
+zlib-compressed, so the limit counts compressed bytes and the decompressed size is
+bounded at 16 times the limit. Large valid scopes may set
 `collector_output_limit_bytes = 268435456` (256 MiB) in `[scan]`. The value must
 be a positive integer; it changes transport capacity, not source scope or protocol
 validation. Larger replies also require more memory to decode and assess. Existing

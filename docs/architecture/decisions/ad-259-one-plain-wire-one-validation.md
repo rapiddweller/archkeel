@@ -34,7 +34,8 @@ Estimated effect, to be measured per PR: lever 1 −13 s, lever 2 −3.5 s, leve
 
 **Check.**
 - The own report's `architecture.json` stays byte-identical before and after each
-  lever (`cmp`), and so do the fixture outputs.
+  lever (`cmp`), and so do the fixture outputs. The one exception is
+  `analyzer.code_digest`, which hashes the analyzer's own source and changes with it.
 - V1–V7 protocol fixtures still decode unchanged.
 - Each lever has a 3-run median of `make report-timing` before and after, compared
   against ±0.7 s of noise.
