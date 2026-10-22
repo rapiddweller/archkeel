@@ -197,7 +197,11 @@ def _findings_lines(findings: tuple[Finding, ...]) -> str:
 
 def _claims_line(result: RunResult) -> str:
     """Name the ranked findings, else what each review claim found, never as a verdict
-    (AD-26, AD-35, AD-258); silent when absent."""
+    (AD-26, AD-35, AD-258); silent when absent.
+
+    `oversized_components` stays in the JSON for compatibility but is no review claim: it
+    compares a component with the size of its level, which AD-235 rejects.
+    """
     if result.findings is not None:
         return _findings_lines(result.findings)
     claims = result.claims
@@ -207,7 +211,6 @@ def _claims_line(result: RunResult) -> str:
         f"{'unknown' if value is None else value} {label}"
         for label, value in (
             ("unreferenced symbol(s)", claims.unreferenced_symbols),
-            ("component(s) larger than their level", claims.oversized_components),
             ("unread binding(s)", claims.unread_bindings),
             ("repetition(s) outside an owner", claims.repeated_logic),
             ("type(s) crossing many component boundaries", claims.type_fanin),

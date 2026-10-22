@@ -398,14 +398,16 @@ usable and incomplete until the architect decides it.
   verdict or an exit code; bring a nonzero count to the architect as reading work, and never
   delete code because a claim named it. `--json` carries only counts; the HTML page of
   `report --only architecture` names each claimed symbol, binding, repetition and type.
+  `oversized_components` is a compatibility count, not a claim (AD-235); read component
+  sizes in the Structure overview instead.
 
 ## Nested contracts: the inside of a component
 
 A component may name a contract of its own, which becomes a second level of the same
 architecture. Adding one is the architect's decision; inspecting the physical
-subtree is already part of the recursive review above and does not depend on that decision. The
-`component larger than its level` claim is evidence that a component holds more than the whole
-top level does; it is a reason to ask, not permission to split.
+subtree is already part of the recursive review above and does not depend on that decision. A
+component that holds more modules than the whole top level, as the Structure overview shows, is
+a reason to ask, not permission to split (AD-235).
 
 Once the architect decides:
 

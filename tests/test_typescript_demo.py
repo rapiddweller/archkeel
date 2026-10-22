@@ -33,6 +33,9 @@ from fixtures.demo_catalog_typescript import (
 )
 from fixtures.reproduce_typescript import Outcome, check_revisions, run_variant
 
+# Its module fixture is costly; build it in one shard only.
+pytestmark = pytest.mark.shard_group("typescript-demo")
+
 
 def test_catalog_exhausts_rule_and_measurement_vocabulary() -> None:
     assert set(RULE_EXAMPLES) == RULE_KINDS

@@ -350,6 +350,16 @@ def test_hubs_rank_across_levels_by_size_and_stop_at_ten(run: Run) -> None:
     ]
 
 
+def test_a_larger_fan_out_hub_still_follows_every_fan_in_hub(run: Run) -> None:
+    # Review (#652): kinds rank before sizes, so a 40-module fan-out follows a 12-module fan-in.
+    level = _level(None, _statistic("small_in", 12, 0), _statistic("big_out", 0, 40))
+
+    assert [kind for kind, _, _ in _hubs(run, level)] == [
+        FindingKind.FAN_IN_HUB,
+        FindingKind.FAN_OUT_HUB,
+    ]
+
+
 def test_one_module_can_be_a_hub_both_ways_and_fan_in_is_named_first(run: Run) -> None:
     level = _level(None, _statistic("b", 12, 12), _statistic("a", 12, 11))
 

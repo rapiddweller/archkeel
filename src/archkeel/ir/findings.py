@@ -236,7 +236,12 @@ def _hub_findings(
             for item, count in hub_modules(level, fan_in=fan_in):
                 if (kind, item.name) not in hubs:
                     hubs[(kind, item.name)] = _hub_finding(kind, item, count, owners, evidence)
-    return _ranked(hubs.values())[:_HUBS_SHOWN]
+    # Review (#652): fan-in hubs stay ahead of fan-out hubs, as the kinds are ranked.
+    ranked = [
+        *_ranked(item for item in hubs.values() if item.kind is FindingKind.FAN_IN_HUB),
+        *_ranked(item for item in hubs.values() if item.kind is FindingKind.FAN_OUT_HUB),
+    ]
+    return ranked[:_HUBS_SHOWN]
 
 
 def findings(

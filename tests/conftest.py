@@ -109,27 +109,52 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 _SELF_FIXTURES = frozenset({"self_run", "self_observation", "self_artifact_bytes"})
+_SELF_GROUP = "self-report"
 # ponytail: measured on CI (Oct 2026), the self report is about half of one shard's run time;
 # recalibrate from the shard durations when that changes.
 _SELF_REPORT_SHARE = 0.5
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers", "shard_group(name): keep a module's tests in one PR shard (shared setup)"
+    )
+
+
+def _shard_group(item: pytest.Item) -> str | None:
+    if isinstance(item, pytest.Function) and not _SELF_FIXTURES.isdisjoint(item.fixturenames):
+        return _SELF_GROUP
+    marker = item.get_closest_marker("shard_group")
+    return str(marker.args[0]) if marker is not None else None
+
+
 def _shard_assignments(items: list[pytest.Item], total: int) -> list[int]:
-    """Keep self-report tests in shard 0 so the report is built once, then balance the rest."""
-    uses_self = [
-        isinstance(item, pytest.Function) and not _SELF_FIXTURES.isdisjoint(item.fixturenames)
-        for item in items
-    ]
+    """Build each shared setup in one shard, then balance the remaining tests by count."""
+    groups: dict[str, list[int]] = {}
+    singles: list[int] = []
+    for number, item in enumerate(items):
+        name = _shard_group(item)
+        if name is None:
+            singles.append(number)
+        else:
+            members: list[int] = groups.setdefault(name, [])
+            members.append(number)
     loads = [0.0] * total
-    if any(uses_self):
-        loads[0] = sum(uses_self) + len(items) / total * _SELF_REPORT_SHARE
-    assignments: list[int] = []
-    for in_self_group in uses_self:
+    assignments = [0] * len(items)
+    # The self report goes first so it lands in shard 0; larger groups are placed before smaller.
+    order = sorted(groups, key=lambda name: (name != _SELF_GROUP, -len(groups[name]), name))
+    for name in order:
+        shard = min(range(total), key=loads.__getitem__)
+        loads[shard] += len(groups[name])
+        if name == _SELF_GROUP:
+            loads[shard] += len(items) / total * _SELF_REPORT_SHARE
+        for number in groups[name]:
+            assignments[number] = shard
+    for number in singles:
         # Round-robin by test, not by file: one slow file must not pin a whole shard.
-        shard = 0 if in_self_group else min(range(total), key=loads.__getitem__)
-        if not in_self_group:
-            loads[shard] += 1
-        assignments.append(shard)
+        shard = min(range(total), key=loads.__getitem__)
+        loads[shard] += 1
+        assignments[number] = shard
     return assignments
 
 

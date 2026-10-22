@@ -70,8 +70,10 @@ def test_the_decided_contract_passes(steps: tuple[Step, ...]) -> None:
     assert steps[2].outcome == "exit 0, declared_rules PASS, 6 requires entries"
 
 
-def test_the_report_names_one_component_larger_than_its_level(steps: tuple[Step, ...]) -> None:
-    assert steps[3].outcome == "1 component larger than its own level"
+def test_the_structure_overview_shows_the_store_size_as_no_claim(steps: tuple[Step, ...]) -> None:
+    # AD-235: a size is read in the Structure overview, never presented as a claim.
+    assert steps[3].outcome == "store holds 8 modules; the level has 5 components"
+    assert all("claim," not in line.lower() for line in steps[3].detail)
 
 
 def test_nested_draft_is_separate_from_architect_decision(steps: tuple[Step, ...]) -> None:

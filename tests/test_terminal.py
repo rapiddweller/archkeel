@@ -255,7 +255,8 @@ def test_terminal_view_counts_every_review_claim_without_a_verdict() -> None:
     result = RunResult("report", 0, "PASS", "PASS", "n/a", claims=ReviewClaims(2, 3, 0, None, 1))
     summary = report_summary(result)
     assert "2 unreferenced symbol(s)" in summary.claims
-    assert "3 component(s) larger than their level" in summary.claims
+    # AD-235: the size comparison mixes abstraction levels, so it is no review claim (#631).
+    assert "larger than their level" not in summary.claims
     assert "0 unread binding(s)" in summary.claims
     # AD-5: a claim that could not be derived says so; it never reports zero findings.
     assert "unknown repetition(s) outside an owner" in summary.claims

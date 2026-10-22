@@ -15,6 +15,9 @@ from fixtures import typescript_differential as differential
 from fixtures import typescript_scenarios
 from fixtures.demo_catalog_typescript import VARIANTS
 
+# Its module fixture is costly; build it in one shard only.
+pytestmark = pytest.mark.shard_group("typescript-differential")
+
 CATALOGS = Path(differential.FIXTURES)
 
 
