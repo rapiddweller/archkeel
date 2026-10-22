@@ -561,6 +561,28 @@ def test_v7_response_round_trips_what_the_collector_declared(tmp_path, features)
     assert decode_response(encoded) == response
 
 
+def test_a_collector_older_than_protocol_7_cannot_name_the_new_families(tmp_path):
+    # Review (#662): its records of a family it cannot declare count as not collected.
+    _write_tree(tmp_path, _contract(), mounted=False)
+    request = _request(root=str(tmp_path), version=ProtocolVersion.V6)
+    facts = collect(request)
+    unnamed = {SOURCE_ROLES_FEATURE, CONSTRUCT_SELECTORS_FEATURE, NUMERIC_OPERANDS_FEATURE}
+    legacy = replace(
+        facts,
+        capabilities=replace(
+            facts.capabilities,
+            resolution_features=tuple(
+                item for item in facts.capabilities.resolution_features if item not in unnamed
+            ),
+        ),
+    )
+    assert _present(legacy) & unnamed
+
+    decoded = decode_response(encode_response(CollectionResponse(legacy, ProtocolVersion.V6)))
+
+    assert not _present(decoded.facts) & unnamed
+
+
 def _without(facts: SourceFacts, family: str) -> SourceFacts:
     return replace(
         facts,
