@@ -37,7 +37,9 @@ native source evidence and conservative UNKNOWNs.
   and observation version; copying a receipt cannot certify a different scope.
 - **Typed standard-library receivers.** Import-proven `subprocess.Popen`,
   `threading.Thread` and `threading.Event` methods receive partial targets.
-  Unsupported or optional annotations remain unresolved.
+  Documented `base64`, `hmac` and `secrets` byte results support partial
+  `bytes.decode`, `bytes.hex` and `bytes.rstrip` targets. Unsupported or
+  optional annotations remain unresolved.
 - **Less repeated analysis work.** Python collectors share lexical indexes within
   one parsed snapshot while resolving import bindings live. Changed compiler inputs
   rebuild the index; binding decisions are not cached.

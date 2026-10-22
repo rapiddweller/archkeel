@@ -6,6 +6,7 @@ objects. An unshadowed builtin class name may use the same table for partial evi
 binding takes precedence. Annotations may provide partial evidence.
 
 [AD-40](ad-40-a-call-whose-callee-the-import-binding-proves-or-whose.md) extends the table to known
-call results. Unlisted behavior remains unresolved. Proof:
+call results. The closed builtin method table includes `bytes.decode`, `bytes.hex` and
+`bytes.rstrip`. Unlisted behavior remains unresolved. Proof:
 [test_analyzer.py](../../../tests/test_analyzer.py),
 [test_typed_python_receivers.py](../../../tests/test_typed_python_receivers.py).

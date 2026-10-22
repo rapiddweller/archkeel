@@ -342,6 +342,81 @@ def test_external_receiver_annotation_needs_its_compiler_scope():
 
 
 @pytest.mark.parametrize(
+    "source,expected_targets",
+    [
+        (
+            "import base64\ndef use(data: bytes): return base64.b64encode(data).decode()\n",
+            ["builtins.bytes.decode"],
+        ),
+        (
+            "from base64 import urlsafe_b64encode as encode\n"
+            "def use(data: bytes): return encode(data).rstrip(b'=').decode()\n",
+            ["builtins.bytes.rstrip", "builtins.bytes.decode"],
+        ),
+        (
+            "import hmac\ndef use(key: bytes, message: bytes): "
+            "return hmac.digest(key, message, 'sha256').hex()\n",
+            ["builtins.bytes.hex"],
+        ),
+        (
+            "from secrets import token_bytes as make_token\n"
+            "def use(): return make_token(16).hex()\n",
+            ["builtins.bytes.hex"],
+        ),
+    ],
+)
+def test_import_bound_stdlib_byte_results_keep_partial_method_evidence(source, expected_targets):
+    module = _parsed_module(source)
+    collect_imports([module], set(), {}, namespace="sample")
+    rows = collect_calls([module], build_symbol_index([]), {})
+    calls = [row["data"] for row in rows]
+    for target in expected_targets:
+        assert any(
+            call["status"] == "partially_resolved" and call["targets"] == [target] for call in calls
+        )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import custom\ndef use(data): return custom.b64encode(data).decode()\n",
+        "import base64\nbase64 = custom\ndef use(data): return base64.b64encode(data).decode()\n",
+        "from base64 import b64encode as encode\n"
+        "encode = custom\ndef use(data): return encode(data).decode()\n",
+        "from secrets import token_bytes as make_token\n"
+        "def use(make_token): return make_token(16).hex()\n",
+        "import base64\nif enabled: base64 = custom\n"
+        "def use(data): return base64.b64encode(data).decode()\n",
+        "def use(value: bytes): return value.decode()\n",
+        "def use(value: bytes | None): return value.decode()\n",
+        "def use(): return b'value'.decode()\n",
+    ],
+)
+def test_unproven_stdlib_byte_result_bindings_stay_unknown(source):
+    module = _parsed_module(source)
+    collect_imports([module], set(), {}, namespace="sample")
+    rows = collect_calls([module], build_symbol_index([]), {})
+    byte_method_targets = {
+        "builtins.bytes.decode",
+        "builtins.bytes.hex",
+        "builtins.bytes.rstrip",
+    }
+    assert not any(
+        row["data"]["targets"] and row["data"]["targets"][0] in byte_method_targets for row in rows
+    )
+
+
+def test_stdlib_byte_result_needs_its_compiler_scope():
+    module = _parsed_module(
+        "import base64\ndef use(data): return base64.b64encode(data).decode()\n"
+    )
+    collect_imports([module], set(), {}, namespace="sample")
+    module.source = "def incomplete("
+    rows = collect_calls([module], build_symbol_index([]), {})
+    assert not any(row["data"]["targets"] == ["builtins.bytes.decode"] for row in rows)
+
+
+@pytest.mark.parametrize(
     "source,expression,target",
     [
         (

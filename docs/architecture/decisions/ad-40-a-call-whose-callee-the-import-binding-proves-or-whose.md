@@ -10,3 +10,5 @@ This supplies partial static evidence, not project-wide type inference or runtim
 
 The closed receiver table may include selected standard-library methods when the receiver type is
 proven by its import binding; optional unions stay unresolved without narrowing evidence.
+Import-bound `base64.b64encode`, `base64.urlsafe_b64encode`, `hmac.digest` and
+`secrets.token_bytes` document a `bytes` result; downstream method calls remain partial.

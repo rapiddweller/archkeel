@@ -74,6 +74,7 @@ _METHOD_TABLES: dict[str, tuple[str, frozenset[str]]] = {
             ).split()
         ),
     ),
+    "bytes": ("builtins.bytes", frozenset(("decode hex rstrip").split())),
     "Path": (
         "pathlib.Path",
         frozenset(
@@ -145,6 +146,10 @@ _CONSTRUCTORS: dict[str, str] = {
     "subprocess.Popen": "subprocess.Popen",
     "threading.Thread": "threading.Thread",
     "threading.Event": "threading.Event",
+    "base64.b64encode": "bytes",
+    "base64.urlsafe_b64encode": "bytes",
+    "hmac.digest": "bytes",
+    "secrets.token_bytes": "bytes",
     **{
         f"hashlib.{name}": "hashlib._Hash"
         for name in (
@@ -170,6 +175,9 @@ _CONSTRUCTORS: dict[str, str] = {
 _METHOD_RETURNS: dict[tuple[str, str], str] = {
     ("str", "join"): "str",
     ("str", "strip"): "str",
+    ("bytes", "decode"): "str",
+    ("bytes", "hex"): "str",
+    ("bytes", "rstrip"): "bytes",
     ("argparse.ArgumentParser", "add_subparsers"): "argparse._SubParsersAction",
     ("argparse.ArgumentParser", "add_argument_group"): "argparse._ArgumentGroup",
     ("argparse.ArgumentParser", "add_mutually_exclusive_group"): "argparse._ArgumentGroup",
