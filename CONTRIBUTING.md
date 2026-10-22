@@ -101,9 +101,13 @@ Architecture contracts, baselines and amendments remain reviewed source files.
 - **Keep the contract true.** A new module needs a component in `architecture-contract.json`, and a
   new import between components needs a `requires` entry with its reason. Never widen a rule to
   make a check pass.
+- **A performance change earns at least 10 %.** Compare the median of three interleaved runs,
+  before and after, on the run the change targets (`make report-timing`, or a large repository).
+  Below 10 % the change is discarded; record the measurement on the issue instead.
 - **Commit messages** start with an imperative sentence and explain why in the body.
 
-Contract or baseline budget widenings require a reviewed v2 amendment binding both policies. Use `make ci BASE=<base-commit>` to check them before the full gate. A changed amendment must match exactly; multiple changed records fail. `decided_by` and `rationale` are free text, not authenticated approval.
+Contract or baseline budget widenings require a reviewed v2 amendment binding both policies. Use `make ci BASE=<base-commit>` to check them before the full gate. A changed amendment must match exactly; multiple changed records fail. `decided_by` and `rationale` are free text, not authenticated approval. A raised budget is fine
+when its rationale names the cause; never reshape code only to stay under a ratchet.
 
 ## Update the agent skill
 
