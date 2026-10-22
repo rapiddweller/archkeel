@@ -37,6 +37,7 @@ from .receiver_types import (
     ReceiverOrigin,
     ReceiverType,
     annotation_receiver_type,
+    imported_annotation_receiver_type,
     literal_receiver_type,
 )
 from .resolve import (
@@ -239,6 +240,39 @@ def _value_receiver_type(
     return None
 
 
+def _annotation_receiver_type(
+    annotation: ast.expr | None, scopes: LexicalScopes
+) -> str | None:
+    """Read a supported receiver annotation, requiring imports for external types."""
+    if annotation is None:
+        return None
+    if isinstance(annotation, ast.BinOp) and isinstance(annotation.op, ast.BitOr):
+        return None
+
+    base = annotation.value if isinstance(annotation, ast.Subscript) else annotation
+    dotted = dotted_expression(base)
+    if dotted is not None:
+        parts = dotted.split(".")
+        binding = scopes.lookup(base, parts[0])
+        if (
+            binding.kind in {BindingKind.MODULE, BindingKind.SYMBOL}
+            and not binding.uncertain
+            and len(binding.targets) == 1
+        ):
+            qualified = ".".join((binding.targets[0], *parts[1:]))
+            receiver = imported_annotation_receiver_type(qualified)
+            if receiver is not None:
+                if isinstance(annotation, ast.Subscript) and (
+                    receiver != "subprocess.Popen"
+                    or not isinstance(annotation.slice, ast.Name)
+                    or annotation.slice.id != "bytes"
+                    or scopes.lookup(annotation.slice, "bytes").kind is not BindingKind.UNBOUND
+                ):
+                    return None
+                return receiver
+    return annotation_receiver_type(annotation_text(base))
+
+
 def _local_receiver_types(node: FunctionNode, scopes: LexicalScopes) -> dict[str, ReceiverType]:
     """Map each name this function binds to its receiver type, where every binding agrees.
 
@@ -248,7 +282,7 @@ def _local_receiver_types(node: FunctionNode, scopes: LexicalScopes) -> dict[str
     receivers: dict[str, ReceiverType | None] = {}
     arguments = node.args
     for argument in (*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs):
-        type_name = annotation_receiver_type(annotation_text(argument.annotation))
+        type_name = _annotation_receiver_type(argument.annotation, scopes)
         if type_name:
             _bind_receiver(
                 receivers, argument.arg, ReceiverType(type_name, ReceiverOrigin.ANNOTATION)
@@ -264,7 +298,7 @@ def _local_receiver_types(node: FunctionNode, scopes: LexicalScopes) -> dict[str
                 else None
             )
             if candidate is None:
-                annotated_type = annotation_receiver_type(annotation_text(statement.annotation))
+                annotated_type = _annotation_receiver_type(statement.annotation, scopes)
                 candidate = (
                     ReceiverType(annotated_type, ReceiverOrigin.ANNOTATION)
                     if annotated_type

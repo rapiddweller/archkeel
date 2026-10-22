@@ -185,6 +185,127 @@ def test_ambiguous_and_shadowed_receivers_stay_unresolved(source):
     "source,expression,target",
     [
         (
+            "from subprocess import Popen as Child\n"
+            "def use(process: Child[bytes]): process.poll()\n",
+            "process.poll",
+            "subprocess.Popen.poll",
+        ),
+        (
+            "import subprocess as sp\n"
+            "def use(process: sp.Popen[bytes]): process.wait()\n",
+            "process.wait",
+            "subprocess.Popen.wait",
+        ),
+        (
+            "from threading import Thread as Worker, Event as Ready\n"
+            "def use(worker: Worker, ready: Ready):\n"
+            " worker.join()\n"
+            " ready.set()\n",
+            "worker.join",
+            "threading.Thread.join",
+        ),
+        (
+            "from subprocess import Popen as Child\n"
+            "def use():\n process = Child(['tool'])\n process.kill()\n",
+            "process.kill",
+            "subprocess.Popen.kill",
+        ),
+        (
+            "from threading import Thread as Worker\n"
+            "def use():\n worker = Worker(target=work)\n worker.start()\n",
+            "worker.start",
+            "threading.Thread.start",
+        ),
+        (
+            "import threading as th\n"
+            "def use():\n ready = th.Event()\n ready.is_set()\n",
+            "ready.is_set",
+            "threading.Event.is_set",
+        ),
+        (
+            "from threading import Event as Ready\n"
+            "def use(ready: Ready): ready.set()\n",
+            "ready.set",
+            "threading.Event.set",
+        ),
+    ],
+)
+def test_import_bound_external_receiver_calls_are_partial(source, expression, target):
+    module = _parsed_module(source)
+    collect_imports([module], set(), {}, namespace="sample")
+    rows = collect_calls([module], build_symbol_index([]), {})
+    call = next(row["data"] for row in rows if row["data"]["expression"] == expression)
+    assert call["status"] == "partially_resolved" and call["targets"] == [target]
+
+
+@pytest.mark.parametrize(
+    "source,expression",
+    [
+        ("def use(process: Popen): process.poll()\n", "process.poll"),
+        ("def use(process: subprocess.Popen[bytes]): process.poll()\n", "process.poll"),
+        (
+            "from subprocess import Popen as Child\n"
+            "def use(process: Child[str]): process.poll()\n",
+            "process.poll",
+        ),
+        (
+            "from threading import Event as Ready\n"
+            "def use(ready: Ready[int]): ready.set()\n",
+            "ready.set",
+        ),
+        (
+            "from subprocess import Popen as Child\n"
+            "bytes = object\n"
+            "def use(process: Child[bytes]): process.poll()\n",
+            "process.poll",
+        ),
+        (
+            "from subprocess import Popen as Child\n"
+            "Child = object\n"
+            "def use(process: Child[bytes]): process.poll()\n",
+            "process.poll",
+        ),
+        (
+            "from subprocess import Popen as Child\n"
+            "def use(Child):\n def nested(process: Child[bytes]): process.poll()\n",
+            "process.poll",
+        ),
+        (
+            "from subprocess import Popen as Child\n"
+            "def use(process: Child[bytes] | object): process.poll()\n",
+            "process.poll",
+        ),
+        (
+            "from threading import Thread as Worker\n"
+            "def use(worker: Worker | None): worker.join()\n",
+            "worker.join",
+        ),
+    ],
+)
+def test_unproven_external_receiver_annotations_stay_unresolved(source, expression):
+    module = _parsed_module(source)
+    collect_imports([module], set(), {}, namespace="sample")
+    rows = collect_calls([module], build_symbol_index([]), {})
+    call = next(row["data"] for row in rows if row["data"]["expression"] == expression)
+    assert call["status"] == "unresolved" and call["targets"] == []
+
+
+def test_external_receiver_annotation_needs_its_compiler_scope():
+    module = _parsed_module(
+        "from subprocess import Popen as Child\n"
+        "def use(process: Child[bytes]): process.poll()\n"
+    )
+    collect_imports([module], set(), {}, namespace="sample")
+    module.source = "def incomplete("
+    rows = collect_calls([module], build_symbol_index([]), {})
+    call = next(row["data"] for row in rows if row["data"]["expression"] == "process.poll")
+    assert call["status"] == "unresolved" and call["targets"] == []
+
+
+@pytest.mark.parametrize(
+    "source,expression,target",
+    [
+        (
             "def use(): return ''.join(['x']).encode()\n",
             "''.join(['x']).encode",
             "builtins.str.encode",
