@@ -804,6 +804,25 @@ def test_self_report_tests_share_one_shard_and_the_partition_stays_complete() ->
     assert self_tests and self_tests <= set(shards[0])
 
 
+def test_a_shard_group_keeps_its_module_in_one_shard() -> None:
+    # A module fixture built in every shard repeated its setup five or six times.
+    selection = ("tests/test_ci_changes.py", "tests/test_typescript_demo.py")
+    full_result, full = _collected(*selection)
+    assert full_result.returncode == 0, full_result.stdout + full_result.stderr
+    shards = []
+    for index in range(3):
+        result, shard = _collected(f"--shard={index}/3", *selection)
+        assert result.returncode == 0, result.stdout + result.stderr
+        shards.append(shard)
+    assert Counter(test for shard in shards for test in shard) == Counter(full)
+    grouped = [
+        index
+        for index, shard in enumerate(shards)
+        if any(test.startswith("tests/test_typescript_demo.py::") for test in shard)
+    ]
+    assert len(grouped) == 1
+
+
 def test_pr_test_passes_the_whole_selection_and_the_shard_to_pytest() -> None:
     def command(shard: str) -> str:
         result = subprocess.run(
