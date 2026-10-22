@@ -245,7 +245,25 @@ def _annotation_receiver_type(annotation: ast.expr | None, scopes: LexicalScopes
     if annotation is None:
         return None
     if isinstance(annotation, ast.BinOp) and isinstance(annotation.op, ast.BitOr):
-        return None
+        left = annotation.left
+        right = annotation.right
+        left_binding = (
+            scopes.lookup(left.value, left.value.id)
+            if isinstance(left, ast.Subscript) and isinstance(left.value, ast.Name)
+            else None
+        )
+        if (
+            not isinstance(left, ast.Subscript)
+            or not isinstance(left.value, ast.Name)
+            or not isinstance(right, ast.Constant)
+            or right.value is not None
+            or left.value.id not in {"dict", "list", "set", "frozenset", "tuple"}
+            or left_binding is None
+            or left_binding.kind is not BindingKind.UNBOUND
+            or left_binding.uncertain
+        ):
+            return None
+        return annotation_receiver_type(left.value.id)
 
     base = annotation.value if isinstance(annotation, ast.Subscript) else annotation
     dotted = dotted_expression(base)

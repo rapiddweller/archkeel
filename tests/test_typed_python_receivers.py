@@ -281,6 +281,11 @@ def test_import_bound_external_receiver_calls_are_partial(source, expression, ta
             "def use(worker: Optional[Worker]): worker.join()\n",
             "worker.join",
         ),
+        (
+            "from subprocess import Popen as dict\n"
+            "def use(roles: dict[bytes] | None): roles.get('key')\n",
+            "roles.get",
+        ),
     ],
 )
 def test_unproven_external_receiver_annotations_stay_unresolved(source, expression):
@@ -289,6 +294,40 @@ def test_unproven_external_receiver_annotations_stay_unresolved(source, expressi
     rows = collect_calls([module], build_symbol_index([]), {})
     call = next(row["data"] for row in rows if row["data"]["expression"] == expression)
     assert call["status"] == "unresolved" and call["targets"] == []
+
+
+def test_builtin_optional_receiver_keeps_guarded_generator_call_partial():
+    module = _parsed_module(
+        "def _ordered(roles: dict[str, set[str]] | None, fingerprints):\n"
+        "    return tuple(\n"
+        "        (tuple(sorted(roles.get(fingerprint, set()))) if roles is not None else ())\n"
+        "        for fingerprint in fingerprints\n"
+        "    )\n"
+    )
+    collect_imports([module], set(), {}, namespace="sample")
+    rows = collect_calls([module], build_symbol_index([]), {})
+    call = next(row["data"] for row in rows if row["data"]["expression"] == "roles.get")
+    assert call["status"] == "partially_resolved"
+    assert call["targets"] == ["builtins.dict.get"]
+
+
+def test_builtin_optional_receiver_needs_certain_compiler_scope():
+    module = _parsed_module("def use(roles: dict[str, str] | None): roles.get('key')\n")
+    collect_imports([module], set(), {}, namespace="sample")
+    module.source = "def incomplete("
+    rows = collect_calls([module], build_symbol_index([]), {})
+    call = next(row["data"] for row in rows if row["data"]["expression"] == "roles.get")
+    assert call["status"] == "unresolved" and call["targets"] == []
+
+
+def test_unchecked_builtin_optional_receiver_stays_partial():
+    module = _parsed_module("def use(roles: dict[str, str] | None): return roles.get('key')\n")
+    collect_imports([module], set(), {}, namespace="sample")
+    rows = collect_calls([module], build_symbol_index([]), {})
+    call = next(row["data"] for row in rows if row["data"]["expression"] == "roles.get")
+    assert call["status"] == "partially_resolved"
+    assert call["targets"] == ["builtins.dict.get"]
+    assert call["reason"] == "annotated receiver of known type, unproven at runtime"
 
 
 def test_external_receiver_annotation_needs_its_compiler_scope():
