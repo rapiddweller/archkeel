@@ -479,10 +479,14 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     assert "dart-setup" not in workflow
     assert "if: always()" in full
     assert (
-        "needs:\n      - full-suite-and-reports\n      - collector-safety-windows\n"
-        "      - language-collectors" in full
+        "needs:\n      - full-suite-and-reports\n      - full-suite-shards\n"
+        "      - collector-safety-windows\n      - language-collectors" in full
     )
     assert "${{ needs.full-suite-and-reports.result }}" in full
+    # The full suite runs as parallel shards; the gate job skips it (SHARDED_TESTS=1).
+    assert "${{ needs.full-suite-shards.result }}" in full
+    assert "make ci-check SHARDED_TESTS=1" in full
+    assert "make full-test-shard TEST_SHARD=${{ strategy.job-index }}/" in full
     assert "${{ needs.collector-safety-windows.result }}" in full
     assert "${{ needs.language-collectors.result }}" in full
     prune = full.split("  prune-report-artifacts:\n", 1)[1].split("\n  deploy-report-pages:", 1)[0]

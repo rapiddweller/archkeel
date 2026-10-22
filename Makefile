@@ -3,12 +3,13 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: against gate ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts prune-workflows mermaid check test collector-safety typescript-native typescript-compiler-check dart-test lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-browser-tests report-browser-proof report-pages plugin plugin-directory plugin-release build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
+.PHONY: against gate full-test-shard ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts prune-workflows mermaid check test collector-safety typescript-native typescript-compiler-check dart-test lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-browser-tests report-browser-proof report-pages plugin plugin-directory plugin-release build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
 
-check: lint typecheck browser-architecture-check test
+# SHARDED_TESTS=1: the full suite runs in separate shard jobs (make test TEST_SHARD=I/N).
+check: lint typecheck browser-architecture-check $(if $(strip $(SHARDED_TESTS)),,test)
 
 # These stages consume the previous stage's success, even with make -j.
-.NOTPARALLEL: gate release-check ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check
+.NOTPARALLEL: gate full-test-shard release-check ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check
 
 gate: $(if $(strip $(BASE)),against,self-validate) release-check
 
@@ -23,6 +24,11 @@ ci-core-check: PYTEST_STOP := --maxfail=1
 ci-core-check: browser-install gate typescript-compiler-check browser-graph-check ci-typescript browser-runtime-check
 
 ci-report-check: report-timing report-browser-proof
+
+# One shard of the full suite; Full verification runs every shard in parallel.
+full-test-shard: PYTEST_EXTRA = --with playwright==$(PLAYWRIGHT_VERSION)
+full-test-shard: TEST_WORKERS = 4
+full-test-shard: browser-install browser-runtime-install test
 
 ci-pr-check: ci-pr-static pr-test
 
@@ -200,9 +206,12 @@ target-contract-check:
 self-validate:
 	$(UV) run --locked archkeel validate --root . --baseline architecture-baseline.json --json
 
+TEST_WORKERS ?= 2
+
 test:
-	$(UV) run --locked $(PYTEST_EXTRA) python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 \
-		-q $(PYTEST_STOP) --durations=20 --junitxml=test-artifacts/pytest/results.xml
+	$(UV) run --locked $(PYTEST_EXTRA) python -m pytest -n $(TEST_WORKERS) --dist=loadfile --max-worker-restart=0 \
+		-q $(PYTEST_STOP) --durations=20 --junitxml=test-artifacts/pytest/results.xml \
+		$(if $(TEST_SHARD),--shard=$(TEST_SHARD),)
 
 collector-safety:
 	$(UV) run --locked python -m pytest -q tests/test_collection_protocol.py tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py \
