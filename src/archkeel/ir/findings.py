@@ -55,6 +55,40 @@ def _components(subjects: Iterable[str], modules: Mapping[str, ModuleStatistic])
     return tuple(sorted(owner for owner in owners if owner is not None))
 
 
+def _cited_components(
+    records: Iterable[Record],
+    evidence: Mapping[str, Evidence],
+    modules: Mapping[str, ModuleStatistic],
+) -> tuple[str, ...]:
+    """Owners of the modules a finding's evidence cites; subjects may be symbols, not modules."""
+    module_files = {
+        evidence[item.evidence_ids[0]].file: name
+        for name, item in modules.items()
+        if item.evidence_ids and item.evidence_ids[0] in evidence
+    }
+    cited = {
+        module_files[evidence[key].file]
+        for record in records
+        for key in record.evidence_ids
+        if key in evidence and evidence[key].file in module_files
+    }
+    return _components(cited, modules)
+
+
+def _package_modules(packages: Iterable[str], modules: Mapping[str, ModuleStatistic]) -> list[str]:
+    """The first module inside each package, so a package roll-up gets an owner and a link."""
+    return [
+        first
+        for package in packages
+        if (
+            first := next(
+                (name for name in sorted(modules) if name.startswith(f"{package}.")), None
+            )
+        )
+        is not None
+    ]
+
+
 def _ranked(items: Iterable[Finding]) -> list[Finding]:
     return sorted(items, key=lambda item: (-item.size, item.subjects, item.rules))
 
@@ -75,10 +109,14 @@ def _violation_findings(
             fingerprint.rules,
             fingerprint.subjects,
             len(records),
-            records[0].title,
+            # One rule broken in both directions groups A->B with B->A; name neither direction.
+            records[0].title
+            if len({item.title for item in records}) == 1
+            else f"{', '.join(fingerprint.rules)} between {' and '.join(fingerprint.subjects)}",
             f"{', '.join(fingerprint.rules)} is broken {_count(len(records), 'time')}. {remedy}",
             evidence_locations(evidence, (key for item in records for key in item.evidence_ids)),
-            _components(fingerprint.subjects, modules),
+            _components(fingerprint.subjects, modules)
+            or _cited_components(records, evidence, modules),
         )
         for fingerprint, records in grouped.items()
     )
@@ -131,9 +169,25 @@ def _cycle_findings(
         elif level == GraphTopologyLevel.PACKAGE and backed_by == ():
             # A package cycle that a module cycle backs is that module cycle; only the
             # roll-up adds a finding (AD-98).
+            representatives = _package_modules(members, modules)
             package_cycles.append(
                 Finding(
-                    FindingKind.PACKAGE_CYCLE, (), members, size, record.title, sentence, (), ()
+                    FindingKind.PACKAGE_CYCLE,
+                    (),
+                    members,
+                    size,
+                    record.title,
+                    sentence,
+                    evidence_locations(evidence, record.evidence_ids)[:_MEMBERS_NAMED]
+                    or evidence_locations(
+                        evidence,
+                        (
+                            key
+                            for name in representatives[:_MEMBERS_NAMED]
+                            for key in modules[name].evidence_ids[:1]
+                        ),
+                    ),
+                    _components(representatives, modules),
                 )
             )
     return [*_ranked(module_cycles), *_ranked(package_cycles)]

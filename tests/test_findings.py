@@ -32,6 +32,7 @@ from archkeel.ir.model import (
     Finding,
     FindingKind,
     Observation,
+    Record,
     ReportFilter,
     RunResult,
 )
@@ -238,6 +239,47 @@ def test_a_package_roll_up_follows_the_module_cycles(tmp_path: Path) -> None:
         (FindingKind.PACKAGE_CYCLE, ("sample.cli", "sample.core")),
     ]
     assert ranked[1].title.endswith("roll-up only: no module cycle crosses them")
+    # Review (#652): the roll-up names packages, yet it still points at source.
+    assert ranked[1].locations
+
+
+def _with_violations(run: Run, *extra: Record) -> list[Finding]:
+    sections = tuple(
+        replace(section, records=(*section.records, *extra))
+        if section.name == "violations"
+        else section
+        for section in run.observation.sections
+    )
+    observation = replace(run.observation, sections=sections)
+    return list(findings(observation, module_exploration(observation), violation_remedy=REMEDY))
+
+
+def test_one_rule_broken_both_ways_names_neither_direction(run: Run) -> None:
+    # Review (#652): a fingerprint sorts subjects, so A->B and B->A form one finding.
+    original = (run.observation.records("violations") or ())[0]
+    reverse = replace(
+        original,
+        id="VIO-reverse",
+        title="sample.core imports sample.peer",
+        subjects=tuple(reversed(original.subjects)),
+    )
+    [violation] = [
+        item for item in _with_violations(run, reverse) if item.kind is FindingKind.VIOLATION
+    ]
+
+    assert violation.size == 3
+    assert violation.title == "dependencies between sample.core and sample.peer"
+
+
+def test_a_violation_on_a_symbol_is_owned_by_its_cited_module(run: Run) -> None:
+    # Review (#652): construct rules name a function, not a module, as their subject.
+    original = (run.observation.records("violations") or ())[0]
+    on_symbol = replace(original, id="VIO-symbol", subjects=("sample.peer.client.call",))
+    [symbol] = [
+        item for item in _with_violations(run, on_symbol) if item.subjects == on_symbol.subjects
+    ]
+
+    assert symbol.component_ids
 
 
 def _statistic(name: str, fan_in: int | None, fan_out: int | None = 0) -> ModuleStatistic:

@@ -798,7 +798,18 @@ def _finding_href(
         if record is None:
             return None
         return f"#atlas-finding-{record}-{_quote(finding.rules[0], safe='')}"
-    selected = next((module_ids[name] for name in finding.subjects if name in module_ids), None)
+    # A package roll-up names packages; select the first module inside the first package.
+    selected = next(
+        (module_ids[name] for name in finding.subjects if name in module_ids), None
+    ) or next(
+        (
+            module_ids[name]
+            for subject in finding.subjects
+            for name in sorted(module_ids)
+            if name.startswith(f"{subject}.")
+        ),
+        None,
+    )
     if selected is None:
         return None
     query = {"view": "diagram", "content": "modules", "selected": selected}
