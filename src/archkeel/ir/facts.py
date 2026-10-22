@@ -1326,7 +1326,7 @@ class UnresolvedTarget:
 ImportTarget: TypeAlias = LocalTarget | ExternalPackageTarget | BuiltinTarget | UnresolvedTarget
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, weakref_slot=True)
 class SourceFacts:
     profile: SourceProfile
     adapter: AnalyzerInfo

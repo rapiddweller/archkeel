@@ -12,6 +12,7 @@ from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import PurePosixPath
 from textwrap import dedent
+from weakref import WeakValueDictionary
 
 from .facts import (
     CALL_ARGUMENTS_FEATURE,
@@ -4749,6 +4750,8 @@ def _reference_annotation_excerpt(reference: Record, evidence: Evidence) -> bool
     return None
 
 
+# Excerpts repeat across validation passes; the bound caps the collector, where they rarely do.
+@lru_cache(maxsize=1 << 15)
 def source_reference_context(
     excerpt: str, column: int, expression: str
 ) -> SourceReferenceContext | None:
@@ -5884,8 +5887,14 @@ def _validate_unique_local_declaration_anchors(records: tuple[Record, ...]) -> N
         raise ValueError("local declaration has duplicate definition anchors")
 
 
+# Frozen facts that already passed, by identity: equality would hash the whole collection.
+_VALIDATED_SOURCE_FACTS: WeakValueDictionary[int, SourceFacts] = WeakValueDictionary()
+
+
 def validate_source_facts(facts: SourceFacts) -> None:
     """Reject claims that cannot be replayed by Core against a separate contract."""
+    if _VALIDATED_SOURCE_FACTS.get(id(facts)) is facts:
+        return
     selected = _unique(facts.coverage.selected_files, "selected file")
     if not 0 <= facts.coverage.files_parsed <= facts.coverage.files_read <= len(selected):
         raise ValueError("impossible collection coverage counts")
@@ -6387,6 +6396,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
                 and event.evidence_id not in state_ids
             ):
                 raise ValueError("state trace has dangling candidate evidence")
+    _VALIDATED_SOURCE_FACTS[id(facts)] = facts
 
 
 def _unnamed_family(record: Record) -> str | None:

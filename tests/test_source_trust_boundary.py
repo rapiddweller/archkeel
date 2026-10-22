@@ -595,3 +595,68 @@ def test_reference_context_accepts_a_complete_value_occurrence(tmp_path: Path) -
     )
     assert reference["data"]["reference_context"] == "value"
     decode_response(json.dumps(payload).encode())
+
+
+def _collected_python_facts(tmp_path: Path):
+    from archkeel.analyzer.python.collect import collect
+    from archkeel.ir.protocol import PythonSettings
+
+    package = tmp_path / "sample"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    (package / "catalog.py").write_text("from enum import Enum\nclass Keys(Enum): PAGE_SIZE = 1\n")
+    (package / "caller.py").write_text("from .catalog import Keys\nvalue = Keys.PAGE_SIZE\n")
+    return collect(
+        CollectionRequest(
+            SnapshotInput(str(tmp_path), "a" * 40, False),
+            SourceScope(("sample",), "sample"),
+            PythonSettings(),
+        )
+    )
+
+
+def test_validated_facts_are_not_validated_again_but_copies_and_invalid_facts_are(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from archkeel.ir import facts_validation
+
+    passes = []
+    contexts = facts_validation._validate_reference_contexts
+    monkeypatch.setattr(
+        facts_validation,
+        "_validate_reference_contexts",
+        lambda *args: passes.append(args) or contexts(*args),
+    )
+    facts = _collected_python_facts(tmp_path)
+    facts_validation.validate_source_facts(facts)
+    assert len(passes) == 1
+    facts_validation.validate_source_facts(facts)
+    assert len(passes) == 1
+    facts_validation.validate_source_facts(replace(facts))
+    assert len(passes) == 2
+
+    invalid = replace(facts, coverage=replace(facts.coverage, files_parsed=0))
+    for _ in range(2):
+        with pytest.raises(ValueError):
+            facts_validation.validate_source_facts(invalid)
+
+
+def test_validating_equal_facts_again_parses_no_excerpt_twice(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from archkeel.ir import facts_validation
+
+    facts = _collected_python_facts(tmp_path)
+    facts_validation.source_reference_context.cache_clear()
+    parsed = []
+    tree = facts_validation._reference_excerpt_tree
+    monkeypatch.setattr(
+        facts_validation,
+        "_reference_excerpt_tree",
+        lambda excerpt: parsed.append(excerpt) or tree(excerpt),
+    )
+    facts_validation.validate_source_facts(replace(facts))
+    first = len(parsed)
+    assert first
+    facts_validation.validate_source_facts(replace(facts))
+    assert len(parsed) == first
