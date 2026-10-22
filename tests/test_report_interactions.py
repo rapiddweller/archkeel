@@ -316,7 +316,7 @@ def test_atlas_unknown_rule_links_its_analyzer_gap_while_failures_remain_visible
             ).count()
             >= 1
         )
-        assert "UNKNOWN" in page.locator(".decision-banner").inner_text()
+        assert "UNKNOWN" in page.locator(".verdict-line").inner_text()
         assert not errors
     finally:
         browser.close()
@@ -409,7 +409,7 @@ def test_atlas_whole_contract_and_nested_level_counts_have_distinct_scopes(tmp_p
         playwright.stop()
 
 
-def test_atlas_unperformed_check_is_only_a_legend_definition(tmp_path):
+def test_atlas_unrecorded_rule_counts_are_not_zero_counts(tmp_path):
     api = pytest.importorskip("playwright.sync_api")
     model = _sample(tmp_path)
     result = replace(
@@ -426,12 +426,12 @@ def test_atlas_unperformed_check_is_only_a_legend_definition(tmp_path):
     ).decode()
     playwright, browser, page = _browser_page(api, html)
     try:
-        card = page.locator(".verdict-card").nth(3)
-        assert "NOT CHECKED" in card.inner_text()
-        assert "Status definition" in card.inner_text()
-        assert "A check was not performed or could not be completed" in card.inner_text()
-        assert "Count unavailable" not in card.inner_text()
-        assert "0 rules" not in card.inner_text()
+        line = page.locator(".verdict-line").inner_text()
+        assert "UNKNOWN" in line
+        assert "rule counts not recorded" in line
+        assert "0 PASS" not in line
+        assert "0 UNKNOWN" not in line
+        assert page.locator(".verdict-card").count() == 0
     finally:
         browser.close()
         playwright.stop()

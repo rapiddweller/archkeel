@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "7b6b764267442ff3ed27649040762873a2efad27637a8241e94da7778667276e",
+  "after_digest": "efc878788c6177ab71342f988612159a89f8144b6912a01276c4d7036a56c3e7",
+  "before_baseline_digest": "7b6b764267442ff3ed27649040762873a2efad27637a8241e94da7778667276e",
+  "before_digest": "dff0334171b2997aa8f91c12d0c5a70daa3927559466d437e532f7ed6a6d799e",
+  "decided_by": "Alexander Kell (architect), AD-258",
+  "rationale": "Own the AD-258 ranked findings in one ir module that the terminal summary, HTML and JSON share, and the render seams that present them.",
+  "schema_version": "2.0.0"
+}

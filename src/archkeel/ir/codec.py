@@ -48,6 +48,7 @@ from archkeel.ir.codec_result import (
     _architecture_component_payload as _architecture_component_payload,
 )
 from archkeel.ir.codec_result import (
+    finding_payload,
     result_bytes,
     result_payload,
 )
@@ -93,6 +94,7 @@ __all__ = (
     "decode_json",
     "delta_payload",
     "encode_canonical_model",
+    "finding_payload",
     "load_inside_contract_tree",
     "observation_payload",
     "parse_amendment",

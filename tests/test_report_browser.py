@@ -6,6 +6,7 @@
 import contextlib
 import io
 import json
+import re
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -169,7 +170,7 @@ def test_native_shared_shell_retains_uml_and_returns_to_origin_scope(tmp_path, i
             ]
             assert atlas["module_correspondences"] == expected_module_correspondences
             heading = page.locator(".atlas-heading > div").text_content()
-            verdict = page.locator(".atlas-status").inner_text()
+            verdict = page.locator(".verdict-line").inner_text()
             _check_inner_uml(page, "uml-complete", tmp_path)
             assert page.url.split("?")[0].endswith("architecture.detail.html")
             data = json.loads(page.locator("#flow-data").text_content())
@@ -183,8 +184,16 @@ def test_native_shared_shell_retains_uml_and_returns_to_origin_scope(tmp_path, i
             assert page.locator(".atlas-heading > div").text_content() == heading
             detail_status = page.locator(".atlas-detail-status")
             assert "Whole-run rules:" in detail_status.inner_text()
-            assert " ".join(verdict.split()) in detail_status.inner_text()
-            assert not page.locator(".decision-banner, .atlas-verdict-grid").count()
+            for fact, label in (
+                ("Rules", "Whole-run rules"),
+                ("Source observation", "Source observation"),
+            ):
+                value = re.search(rf"{fact} (\w+)", verdict)
+                assert value is not None
+                assert f"{label}: {value[1]}" in detail_status.inner_text()
+            assert not page.locator(
+                ".decision-banner, .verdict-line, .findings-list, .verdict-card"
+            ).count()
             assert (
                 detail_status.get_by_role("link", name="Architecture overview").get_attribute(
                     "href"
@@ -231,7 +240,7 @@ def test_native_shared_shell_retains_uml_and_returns_to_origin_scope(tmp_path, i
             }
             assert page.locator('[data-atlas="true"]').is_visible()
             assert page.locator(".atlas-heading > div").text_content() == heading
-            assert page.locator(".atlas-status").inner_text() == verdict
+            assert page.locator(".verdict-line").inner_text() == verdict
             assert not errors and not external
         finally:
             browser.close()

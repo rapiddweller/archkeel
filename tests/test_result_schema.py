@@ -142,12 +142,12 @@ def legacy_validator() -> Draft202012Validator:
 
 @pytest.fixture(scope="module")
 def validator() -> Draft202012Validator:
-    return _validator("command-result-10.0.schema.json")
+    return _validator("command-result-11.0.schema.json")
 
 
 @pytest.fixture(scope="module")
 def current_validator() -> Draft202012Validator:
-    return _validator("command-result-10.0.schema.json")
+    return _validator("command-result-11.0.schema.json")
 
 
 def test_command_coverage_distinguishes_unmeasured_from_mixed_call_counts(legacy_validator) -> None:
@@ -635,6 +635,30 @@ def test_command_result_9_observation_branches_admit_supported_history(
     nested = validator.evolve(schema=references)
     errors = list(nested.iter_errors(observation))
     assert not errors, (version, branch, [(list(error.path), error.message) for error in errors])
+
+
+def test_report_findings_match_the_current_schema_and_reject_misuse(validator, results) -> None:
+    """AD-258: ranked findings are a report-only array whose items carry no empty change."""
+    payload = results["tour-report"]
+    assert payload["findings"], "the tour demo violates its rules"
+    assert all("change" not in item and "before" not in item for item in payload["findings"])
+    assert validator.is_valid(payload)
+
+    first = payload["findings"][0]
+    for bad in (
+        {**first, "kind": "budget"},
+        {**first, "sentence": ""},
+        {**first, "size": -1},
+        {**first, "change": "unchanged"},
+        {**first, "unexpected": 1},
+        {key: value for key, value in first.items() if key != "locations"},
+    ):
+        assert not validator.is_valid({**payload, "findings": [bad]}), bad
+    assert validator.is_valid({**payload, "findings": [{**first, "change": "new", "before": 0}]})
+    assert not validator.is_valid({**payload, "findings": None})
+    validated = results["validation-facade-budget-clean-validate"]
+    assert "findings" not in validated
+    assert not validator.is_valid({**validated, "findings": [first]})
 
 
 def test_result_properties_cover_the_writer(legacy_validator, current_validator) -> None:

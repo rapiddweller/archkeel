@@ -34,6 +34,7 @@
             "archkeel.render.summary:Comparison",
             "archkeel.render.summary:VerdictRow",
             "archkeel.render.summary:check_summary",
+            "archkeel.render.summary:location_text",
             "archkeel.render.summary:report_summary",
             "archkeel.render.summary:report_violates_rules",
             "archkeel.render.summary_badges:BadgeState",
@@ -218,7 +219,7 @@
     {
       "id": "RENDER-RULE-LEGEND-CONTROL",
       "kind": "forbidden_construct",
-      "source": "archkeel.render.html._atlas_rule_status_cards",
+      "source": "archkeel.render.html._atlas_rule_counts",
       "constructs": [
         "string_literal_compare"
       ],

@@ -169,14 +169,36 @@ Rule and `requires` rationale checks (`rationale.placeholder`, `rationale.repeat
 apply to root and mounted contracts; a mounted diagnostic carries its contract path.
 
 JSON null means unavailable/inapplicable; an empty list means measured empty.
-Pin CLI and [command schema](../schema/command-result-10.0.schema.json) together.
-Version 9 accepts ArchitectureIR 2.1 observations with strict call-binding shapes
+Pin CLI and [command schema](../schema/command-result-11.0.schema.json) together.
+Version 11 adds `findings` to an unfiltered `report` (see below) and retains 10.0, which
+adds `contract_changes`. Version 9 accepts ArchitectureIR 2.1 observations with strict call-binding shapes
 and retains supported version 6/7/8 results. Incomplete reports may preserve a
 traceable FAIL while
 coverage stays UNKNOWN/FAIL; they cannot claim PASS.
 Ignore unknown result properties; required fields and enum meanings remain strict.
 Schema shape validation proves neither authenticity nor conformance.
 `report`/`check --output` also write `.report.html`/`.check.html` companions.
+
+### Ranked findings
+
+An unfiltered `report` opens with one verdict line and one ranked list of findings. The
+terminal's top five, the HTML list (five shown, the rest behind "Show all") and `findings`
+in `--json` read the same list
+([AD-258](architecture/decisions/ad-258-report-opens-with-ranked-findings.md)). Each
+finding has `kind`, `rules`, `subjects`, `size`, `title`, `sentence`, `locations` and
+`component_ids`. The order is fixed and every threshold already existed:
+
+| Order | `kind` | `size` |
+| --- | --- | --- |
+| 1 | `violation`: one per rule set and subjects, as in a baseline | occurrences |
+| 2 | `module_cycle`, then `package_cycle` (roll-up only, no module cycle backs it) | import edges |
+| 3 | `fan_in_hub`, `fan_out_hub`: at least 10, top 3 per level, 10 in total | the fan |
+
+Within a kind, findings sort by size, then by subject name. A module cycle that a
+module-level `no_component_cycles` rule already reports as a violation is listed once.
+`change` and `before` are absent: nothing compares revisions yet, and absence never means
+"new". `findings` is absent from filtered reports and from other commands, which is not an
+empty list.
 
 `validate --json` includes every open ordered component pair by default. For a smaller
 review result, use `validate --compact-open-decisions --json`: it lists observed undecided

@@ -301,7 +301,7 @@ def test_default_report_is_one_authentic_repository_with_sparse_native_cells(tmp
     assert page_bytes - elk_bytes < 400_000
 
 
-def test_atlas_header_shows_four_status_cards_with_native_rule_counts(tmp_path):
+def test_atlas_header_shows_one_verdict_line_with_native_rule_counts(tmp_path):
     from archkeel.render.html import render_architecture_details
 
     model = _sample(tmp_path)
@@ -317,24 +317,27 @@ def test_atlas_header_shows_four_status_cards_with_native_rule_counts(tmp_path):
             ).values()
         )
     ).decode()
-    cards = re.findall(r'<article class="verdict-card".*?</article>', page, re.S)
-    assert len(cards) == 4
-    for card, status in zip(cards, ("PASS", "FAIL", "UNKNOWN", "NOT CHECKED"), strict=True):
-        assert f"</span>{status}</div>" in card
-        if status != "NOT CHECKED":
-            count = sum(item.status == status for item in result.rule_assessments)
-            assert f"<h3>{count} rule{'s' if count != 1 else ''}</h3>" in card
-        else:
-            assert "Status definition" in card
-            assert "which occurred" in card
-    assert '<article class="verdict-card"' not in details
+    (line,) = re.findall(r'<p class="verdict-line".*?</p>', page, re.S)
+    text = re.sub(r"<[^>]+>", "", line)
+    counts = {
+        status: sum(item.status == status for item in result.rule_assessments)
+        for status in ("PASS", "UNKNOWN")
+    }
+    assert f"Rules {result.declared_rules}" in text
+    assert f"{counts['PASS']} PASS · {counts['UNKNOWN']} UNKNOWN" in text
+    assert f"Source observation {result.observation_complete}" in text
+    assert model.source.git_head[:7] in text
+    assert model.source.git_head not in text
+    assert model.source.git_head in page.split("Snapshot and audit")[1]
+    for document in (page, details):
+        assert '<article class="verdict-card"' not in document
+        assert "NOT APPLICABLE" not in document
+        assert "atlas-status-key" not in document
+    assert 'class="verdict-line"' not in details
     assert f"Whole-run rules: {result.declared_rules}" in details
     assert f"Source observation: {result.observation_complete}" in details
     assert '<a href="architecture.report.html">Architecture overview</a>' in details
-    for document in (page, details):
-        assert "NOT APPLICABLE" not in document
-        assert "atlas-status-key" not in document
-        assert "Symbol inventory:" in document
+    assert "Symbol inventory:" in details
 
 
 def test_partial_lexical_inventory_keeps_symbols_and_uncertainty(tmp_path):

@@ -213,6 +213,9 @@ def test_published_legacy_schemas_remain_byte_exact():
     assert sha256((root / "command-result.schema.json").read_bytes()).hexdigest() == (
         "d71145ef1c7b9ec8b80b1446fe3ca6f1aa61efd94939a73a2031f6832f5ff975"
     )
+    assert sha256((root / "command-result-10.0.schema.json").read_bytes()).hexdigest() == (
+        "b3bf8fc8cd1b498726a7b2bebb5b9d0281ef2cc4520ac304e3027ee91ed674f5"
+    )
     assert json.loads((root / "architecture-command-2.0.schema.json").read_bytes()) == (
         command_schema()
     )

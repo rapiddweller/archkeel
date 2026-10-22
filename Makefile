@@ -110,7 +110,7 @@ pr-test: browser-runtime-install
 		tests/test_target_navigation_graph.py \
 		tests/test_annotation_carriers.py \
 		tests/test_absent_import_namespace.py tests/test_dynamic_dependency_policy.py tests/test_string_comparison_observation.py tests/test_local_string_comparisons.py tests/test_string_predicate_observation.py tests/test_python_string_predicate_target.py tests/test_typed_host_events.py \
-		tests/test_empty_literal_all.py tests/test_review_workflow_fixture.py tests/test_contract_edits.py tests/test_collector_real_world_shapes.py tests/test_rule_driven_collection.py tests/test_contract_provenance.py
+		tests/test_empty_literal_all.py tests/test_review_workflow_fixture.py tests/test_contract_edits.py tests/test_collector_real_world_shapes.py tests/test_rule_driven_collection.py tests/test_findings.py tests/test_contract_provenance.py
 
 pr-report-test:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q \
@@ -129,6 +129,7 @@ pr-report-test:
 		tests/test_report_interactions.py::test_atlas_fail_with_undecided_and_mixed_evidence_keeps_all_actions \
 		tests/test_python_realworld_project_report.py::test_python_http_module_scope_preserves_nested_ownership_and_target_routes \
 		tests/test_python_realworld_project_report.py::test_python_realworld_module_overview_uses_actual_edges_and_keeps_isolated_routes \
+		tests/test_findings.py::test_the_report_in_a_browser_lists_what_the_json_lists \
 		tests/test_own_uml_target.py::test_own_filtered_calls_keep_clear_routes_and_readable_arrow_endpoints \
 		tests/test_own_uml_target.py::test_pointer_selection_keeps_card_under_second_tap \
 		'tests/test_own_uml_target.py::test_own_protocol_settings_use_the_same_uml_cards_and_field_navigation[As-Is]'

@@ -194,7 +194,8 @@
         "archkeel.ir.diagnostics",
         "archkeel.ir.amendment",
         "archkeel.ir.amendment_codec",
-        "archkeel.ir.collection_features"
+        "archkeel.ir.collection_features",
+        "archkeel.ir.findings"
       ],
       "responsibilities": [
         "Own contract/result values, strict wire conversion and pure graph, metric and projection derivation."
@@ -300,7 +301,9 @@
         "archkeel.ir.amendment:verify_amendment",
         "archkeel.ir.architecture_projection:PermissionStatus",
         "archkeel.ir.collection_features:required_resolution_features",
-        "archkeel.ir.collection_features:rule_resolution_features"
+        "archkeel.ir.collection_features:rule_resolution_features",
+        "archkeel.ir.findings:findings",
+        "archkeel.ir.findings:evidence_locations"
       ]
     },
     {
@@ -597,6 +600,10 @@
       {
         "path": "src/archkeel/ir/collection_features.py",
         "responsibility": "Map declared rules to the gated resolution families a collector must gather (AD-257)."
+      },
+      {
+        "path": "src/archkeel/ir/findings.py",
+        "responsibility": "Rank violations, dependency cycles and hubs once for the terminal, the HTML and the JSON (AD-258)."
       }
     ],
     "uml": {
@@ -8858,6 +8865,20 @@
           "parent_id": "TARGET-GOVERNANCE",
           "responsibilities": [
             "Map declared rules to the gated resolution families a collector must gather."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/decisions/ad-258-report-opens-with-ranked-findings.md"
+          ],
+          "id": "FINDINGS",
+          "kind": "module",
+          "qualified_name": "archkeel.ir.findings",
+          "parent_id": "TARGET-GOVERNANCE",
+          "responsibilities": [
+            "Rank violations, dependency cycles and hubs once for every presentation."
           ]
         },
         {

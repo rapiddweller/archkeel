@@ -371,7 +371,10 @@ usable and incomplete until the architect decides it.
   recheck related findings rather than repeating a whole-repository review for every edit.
 - Run `archkeel report --json` before submitting any change. A rule violation does not
   change the exit code; read the `declared_rules` verdict. Exit 2 means the evidence is
-  incomplete; fix the diagnostic before trusting any verdict.
+  incomplete; fix the diagnostic before trusting any verdict. An unfiltered report also
+  carries `findings`, the ranked list its terminal summary and HTML page open with:
+  violations, then dependency cycles, then hubs, each with a `size`, source `locations` and one
+  `sentence`. Read it first; a missing `findings` (filtered report) never means none.
 - On a large repository, `report --only violations --rule <id> --component <id-or-scope> --json`
   narrows the review surface to a slice you can actually read: `--only violations` drops
   component flow, communication, claims and structure from the HTML page; `--rule` and

@@ -9,10 +9,14 @@ import base64
 import html
 import json
 import re
+from collections import Counter
+from collections.abc import Mapping
 from dataclasses import replace
 from importlib.resources import files
 from pathlib import PurePosixPath as _PurePosixPath
-from typing import TypeAlias
+from typing import Final, TypeAlias
+from urllib.parse import quote as _quote
+from urllib.parse import urlencode as _urlencode
 
 from archkeel.ir.architecture_graph import (
     ArchitectureReport,
@@ -23,6 +27,7 @@ from archkeel.ir.architecture_graph import CoverageStatus as _CoverageStatus
 from archkeel.ir.architecture_graph import EntityKind as _EntityKind
 from archkeel.ir.architecture_graph import PresenceKind as _PresenceKind
 from archkeel.ir.architecture_projection import ArchitectureProjection
+from archkeel.ir.baseline import ViolationFingerprint, canonical_fingerprint, violation_fingerprint
 from archkeel.ir.bindings import BindingReads, unread_bindings
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.decisions import agent_decisions, open_decisions
@@ -43,10 +48,13 @@ from archkeel.ir.model import (
     BaselineViolationComparison,
     CallRow,
     EvidenceClass,
+    Finding,
+    FindingKind,
     Observation,
     Record,
     RunResult,
     stable_id,
+    text_value,
 )
 from archkeel.ir.model import ComparisonStatus as _ComparisonStatus
 from archkeel.ir.module_explore import ModuleExploreLevel, module_exploration
@@ -65,10 +73,22 @@ from .summary import (
     Comparison,
     VerdictRow,
     check_summary,
+    location_text,
     report_summary,
     report_violates_rules,
 )
 from .summary_badges import BadgeState, badge
+
+_SIZE_LABELS: Final = {
+    FindingKind.VIOLATION: "occurrences",
+    FindingKind.MODULE_CYCLE: "edges",
+    FindingKind.PACKAGE_CYCLE: "edges",
+    FindingKind.FAN_IN_HUB: "fan-in",
+    FindingKind.FAN_OUT_HUB: "fan-out",
+}
+_GIT_HASH_SHOWN: Final = 7
+# The explorer must stay on the first screen; the rest of the list opens on request.
+_FINDINGS_SHOWN: Final = 5
 
 
 def _asset(name: str) -> bytes:
@@ -694,7 +714,7 @@ def _flow_section_head(*, atlas: bool = False) -> str:
 {evidence_views}
         </nav>
 {_flow_toolbar(atlas=atlas)}
-        {_FLOW_GUIDE}
+        {"" if atlas else _FLOW_GUIDE}
         {summary}<div class="flow-layout">
           {map_open}<div class="flow-canvas" tabindex="0" role="region"
                aria-label="Pannable component dependencies diagram">
@@ -742,46 +762,110 @@ def _atlas_section(payload: dict[str, object]) -> str:
     return _explorer_section(encoded, atlas=True)
 
 
-def _atlas_rule_status_cards(result: RunResult) -> str:
-    meanings = (
-        (
-            RuleAssessmentStatus.PASS,
-            "Required evaluator evidence is complete; decided positions have no violations.",
-        ),
-        (
-            RuleAssessmentStatus.FAIL,
-            "A rule violation was found. Undecided evidence can coexist with that failure.",
-        ),
-        (
-            RuleAssessmentStatus.UNKNOWN,
-            "Available evidence does not establish the result. Missing scope proof is not a pass.",
-        ),
-        (
-            None,
-            "A check was not performed or could not be completed. Read its scope and explanation. "
-            "This status definition does not itself say which occurred.",
-        ),
+def _atlas_rule_counts(result: RunResult) -> str:
+    """Count the whole run's PASS and UNKNOWN rules; a FAIL shows in the badge and the list."""
+    if result.rule_assessments is None:
+        return "rule counts not recorded"
+    counts = Counter(item.status for item in result.rule_assessments)
+    return (
+        f"{counts[RuleAssessmentStatus.PASS]} PASS · {counts[RuleAssessmentStatus.UNKNOWN]} UNKNOWN"
     )
-    cards = []
-    for status, reason in meanings:
-        count = (
-            sum(item.status is status for item in result.rule_assessments)
-            if result.rule_assessments is not None and status is not None
-            else None
+
+
+def _atlas_verdict_line(result: RunResult, observation: Observation) -> str:
+    decision = report_summary(result).decision
+    agent, total = agent_decisions(observation)
+    return (
+        f'<p class="verdict-line" data-decision="{decision.state}" '
+        f'aria-label="Decision: {_text(decision.label)}">'
+        f'<span class="decision-symbol" aria-hidden="true">{decision.symbol}</span>'
+        f"<strong>{_text(decision.label)}</strong>"
+        f" · Rules {_text(result.declared_rules)} · {_atlas_rule_counts(result)}"
+        f" · Agent decisions {agent}/{total}"
+        f" · Source observation {_text(result.observation_complete)}"
+        f" · <code>{_text(observation.source.git_head[:_GIT_HASH_SHOWN])}</code></p>"
+    )
+
+
+def _finding_href(
+    finding: Finding,
+    module_ids: Mapping[str, str],
+    violation_ids: Mapping[ViolationFingerprint, str],
+) -> str | None:
+    """Link a finding into the explorer with the route grammar `flow.js` already reads."""
+    if finding.kind is FindingKind.VIOLATION:
+        record = violation_ids.get(canonical_fingerprint(finding.rules, finding.subjects))
+        if record is None:
+            return None
+        return f"#atlas-finding-{record}-{_quote(finding.rules[0], safe='')}"
+    # A package roll-up names packages; select the first module inside the first package.
+    names: list[str] = sorted(module_ids)
+    candidates = [name for name in finding.subjects if name in module_ids] + [
+        name
+        for subject in finding.subjects
+        for name in names
+        if name[: len(subject) + 1] == f"{subject}."
+    ]
+    selected = module_ids[candidates[0]] if candidates else None
+    if selected is None:
+        return None
+    query = {"view": "diagram", "content": "modules", "selected": selected}
+    if len(finding.component_ids) == 1:
+        query["scope"] = finding.component_ids[0]
+    return f"?{_urlencode(sorted(query.items()))}#flow"
+
+
+def _atlas_findings(result: RunResult, observation: Observation) -> str:
+    """The ranked list the report opens with, readable without JavaScript (AD-258)."""
+    if result.findings is None:
+        return (
+            '<section aria-labelledby="findings-heading"><h2 id="findings-heading">Findings</h2>'
+            "<p>No ranked findings are recorded in this result.</p></section>"
         )
-        label = (
-            "Status definition"
-            if status is None
-            else f"{count} rule{'s' if count != 1 else ''}"
-            if count is not None
-            else "No recorded count"
+    heading = f'<h2 id="findings-heading">Findings · {len(result.findings)}</h2>'
+    if not result.findings:
+        return (
+            f'<section aria-labelledby="findings-heading">{heading}'
+            "<p>No violation, dependency cycle or hub.</p></section>"
         )
-        cards.append(
-            _verdict_card(
-                VerdictRow(label, "", status if status is not None else "NOT CHECKED", reason)
-            )
+    violation_ids: dict[ViolationFingerprint, str] = {}
+    for record in observation.records("violations") or ():
+        violation_ids.setdefault(violation_fingerprint(record), record.id)
+    module_ids = {
+        text_value(item.data.get("qualified_name")): item.id
+        for item in observation.records("modules") or ()
+    }
+    rows = []
+    for finding in result.findings:
+        href = _finding_href(finding, module_ids, violation_ids)
+        title = _text(finding.title)
+        linked = f'<a href="{_text(href)}">{title}</a>' if href is not None else title
+        location = (
+            f' <code class="finding-location">{_text(location_text(finding.locations[0]))}</code>'
+            if finding.locations
+            else ""
         )
-    return "".join(cards)
+        more = len(finding.locations) - 1
+        more_text = f' <span class="finding-more">+{more}</span>' if more > 0 else ""
+        identity = json.dumps([finding.kind, finding.rules, finding.subjects])
+        rows.append(
+            f'<li data-finding-identity="{_text(identity)}" title="{_text(finding.sentence)}">'
+            f'<strong class="finding-title">{linked}</strong>'
+            f' <span class="finding-size">{_SIZE_LABELS[finding.kind]}: {finding.size}</span>'
+            f"{location}{more_text}"
+            f' <span class="finding-sentence">{_text(finding.sentence)}</span></li>'
+        )
+    shown, rest = rows[:_FINDINGS_SHOWN], rows[_FINDINGS_SHOWN:]
+    hidden = (
+        f'<details class="findings-more"><summary>Show all {len(rows)} findings</summary>'
+        f'<ol class="findings-list" start="{_FINDINGS_SHOWN + 1}">{"".join(rest)}</ol></details>'
+        if rest
+        else ""
+    )
+    return (
+        f'<section aria-labelledby="findings-heading">{heading}'
+        f'<ol class="findings-list">{"".join(shown)}</ol>{hidden}</section>'
+    )
 
 
 def _atlas_structure_overview(
@@ -818,7 +902,6 @@ def _atlas_content(
         if isinstance(atlas, dict)
         else isinstance(navigation, dict) and navigation.get("symbols_complete") is True
     )
-    summary = report_summary(result)
     inventory_status = "complete" if symbols_complete else "partial"
     overview_href = (
         navigation.get("main_href") if isinstance(navigation, dict) else None
@@ -829,22 +912,11 @@ def _atlas_content(
         f" · Symbol inventory: {_text(inventory_status)}"
         f' · <a href="{_text(overview_href)}">Architecture overview</a></p>'
         if detail_page
-        else f'''<section class="decision-banner" data-decision="{summary.decision.state}"
-        aria-label="Decision: {_text(summary.decision.label)}">
-        <span class="decision-symbol" aria-hidden="true">{summary.decision.symbol}</span>
-        <div><h2>{_text(summary.decision.label)}</h2><p>{_text(summary.sentence)}</p></div>
-      </section>
-      <section aria-labelledby="atlas-verdicts-heading">
-        <h2 id="atlas-verdicts-heading">Rule assessments · whole run</h2>
-        <div class="verdict-grid atlas-verdict-grid">{_atlas_rule_status_cards(result)}</div>
-      </section>
-      <p class="atlas-status">Source observation: {_text(result.observation_complete)}
-      · Symbol inventory: {_text(inventory_status)}</p>'''
+        else _atlas_verdict_line(result, observation) + _atlas_findings(result, observation)
     )
     return f"""<section class="report-heading atlas-heading">
       <div><span class="eyebrow">ArchQ Explorer</span><h1>{_text(repository)}</h1>
-      <p><code>{_text(observation.source.git_head)}</code>
-      · {observation.coverage.files_parsed} observed files
+      <p>{observation.coverage.files_parsed} observed files
       · {components} whole-contract components</p></div>
       <button class="theme-toggle" type="button" aria-label="Switch to light theme">☀</button>
       </section>
@@ -856,7 +928,8 @@ def _atlas_content(
         else ""
     }
       <details class="atlas-source"><summary>Snapshot and audit</summary>
-      <p>Source digest <code>{_text(observation.source.source_digest)}</code>
+      <p>Git head <code>{_text(observation.source.git_head)}</code>
+      · Source digest <code>{_text(observation.source.source_digest)}</code>
       · Dirty {_text(observation.source.dirty)}.</p>
       <p>Scope: {_text(", ".join(observation.source.scope))}</p>
       <p>Contract <code>{_text(observation.contract.path)}</code>

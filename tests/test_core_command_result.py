@@ -251,7 +251,7 @@ def test_result_declared_rules_rejects_values_outside_its_closed_domain(invalid)
 
 RESULT_GUARDS = {
     "IR-RESULT-ASSESSMENT-CONTROL": "archkeel.ir.model.RunResult",
-    "RENDER-RULE-LEGEND-CONTROL": "archkeel.render.html._atlas_rule_status_cards",
+    "RENDER-RULE-LEGEND-CONTROL": "archkeel.render.html._atlas_rule_counts",
     "RENDER-REPORT-FAILURE-CONTROL": "archkeel.render.summary.report_violates_rules",
     "RENDER-REPORT-UNKNOWN-CONTROL": "archkeel.render.summary.report_leaves_rules_undecided",
     "RENDER-RESULT-BADGE-CONTROL": "archkeel.render.summary._decision_badge",
@@ -302,7 +302,7 @@ def _result_guard_repository(tmp_path):
     (render / "html.py").write_text(
         "from archkeel.ir.architecture_graph import RuleAssessmentStatus\n"
         "from archkeel.ir.model import RunResult\n\n"
-        + _source_members("src/archkeel/render/html.py", {"_atlas_rule_status_cards"})
+        + _source_members("src/archkeel/render/html.py", {"_atlas_rule_counts"})
     )
     (render / "summary.py").write_text(
         "from archkeel.ir.model import AssessmentStatus as _AssessmentStatus\n"

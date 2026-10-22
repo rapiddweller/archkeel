@@ -56,7 +56,7 @@ def test_explorer_is_default_and_keeps_architecture_evidence(tmp_path):
         assert page.get_by_role("button", name="Target", exact=True).is_visible()
         assert page.get_by_role("button", name="Diff", exact=True).is_visible()
         assert page.locator(".report-heading").is_visible()
-        assert page.locator(".atlas-verdict-grid").is_visible()
+        assert page.locator(".verdict-line").is_visible()
         assert page.locator("#flow").evaluate("e => getComputedStyle(e).position") == "relative"
         assert page.get_by_role("button", name="Fullscreen", exact=True).is_visible()
         assert page.get_by_role("button", name="Report evidence", exact=True).count() == 0
@@ -381,7 +381,8 @@ def test_fallback_fullscreen_keeps_moved_audit_interactive(explorer, health_open
 def test_print_retains_the_document_evidence(explorer):
     page, _ = explorer
     page.emulate_media(media="print")
-    assert page.locator(".atlas-verdict-grid").is_visible()
+    assert page.locator(".verdict-line").is_visible()
+    assert page.locator("#findings-heading").is_visible()
     assert page.locator(".atlas-source > summary").is_visible()
     assert page.locator(".report-heading").is_visible()
     assert not page.locator(".flow-section").is_visible()
@@ -443,6 +444,8 @@ def test_explorer_controls_fit_without_overlap(explorer, width):
         control.scroll_into_view_if_needed()
         box = control.bounding_box()
         assert box["x"] >= 0 and box["x"] + box["width"] <= width
+        # Page coordinates: the findings above the explorer make each scroll differ.
+        box["y"] += page.evaluate("window.scrollY")
         boxes.append(box)
     for i, a in enumerate(boxes):
         for b in boxes[i + 1 :]:

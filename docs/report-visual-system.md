@@ -6,6 +6,15 @@ code alone; a confirmed violation remains FAIL alongside uncertainty.
 
 ## Render evidence
 
+The report opens with one verdict line, then the ranked findings, then the explorer
+([AD-258](architecture/decisions/ad-258-report-opens-with-ranked-findings.md)). The line
+shows the badge, the declared-rules verdict, the PASS and UNKNOWN rule counts, the
+agent-decision ratio, the source observation and the short git hash; the full hash stays
+in the collapsed Snapshot section. The list is an ordered list rendered without JavaScript:
+rank, title, size, up to three locations and one sentence, each linking into the explorer
+with its own routes. The terminal summary and `--json` carry the same list; no script ranks
+findings. The static rule cards and the reading guide are gone from this page.
+
 ArchQ Explorer is embedded in the report. Fullscreen expands the same explorer;
 Restore returns to the report without losing the current view. Search (`Ctrl/⌘+K` or `/`) finds
 components, modules and rules. Hover traces dependencies; `Ctrl/⌘`+wheel zooms

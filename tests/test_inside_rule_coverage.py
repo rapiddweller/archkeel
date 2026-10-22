@@ -26,14 +26,15 @@ from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 
 
-def _assert_rule_status_card(html: str, status: str, count: int) -> None:
-    card = next(
-        fragment
-        for fragment in re.findall(r'<article class="verdict-card"[^>]*>.*?</article>', html, re.S)
-        if f'data-verdict="{status.lower()}"' in fragment
-    )
-    label = f"{count} rule{'s' if count != 1 else ''}"
-    assert f"<h3>{label}</h3>" in card
+def _assert_rule_status_line(html: str, status: str, count: int) -> None:
+    """The verdict line counts PASS and UNKNOWN rules; a FAIL shows in its badge and the list."""
+    line = re.search(r'<p class="verdict-line"[^>]*>.*?</p>', html, re.S)
+    assert line is not None
+    if status == "FAIL":
+        assert 'data-decision="fail"' in line.group()
+        assert '<ol class="findings-list">' in html
+    else:
+        assert f"{count} {status}" in re.sub(r"<[^>]+>", "", line.group())
 
 
 def _write_inside_case(
@@ -972,7 +973,7 @@ def test_single_owner_inside_rules_have_cli_receipts_and_render_as_pass(
         "app:REQUIRES": ("PASS", True),
     }
     _native_audit(html, artifact, "architecture.json")
-    _assert_rule_status_card(html, "PASS", 2)
+    _assert_rule_status_line(html, "PASS", 2)
 
 
 @pytest.mark.parametrize(
@@ -1206,7 +1207,7 @@ def test_inside_cli_receipts_require_every_physical_package_domain(
     else:
         assert not trace_valid_violations(artifact)
     _native_audit(html, artifact, "architecture.json")
-    _assert_rule_status_card(html, status, 2)
+    _assert_rule_status_line(html, status, 2)
 
 
 def test_complete_and_incomplete_nested_scopes_preserve_outer_violation_in_cli_report(

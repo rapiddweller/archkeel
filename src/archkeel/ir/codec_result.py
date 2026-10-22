@@ -16,7 +16,7 @@ from archkeel.ir.codec_wire import _raw_object, canonical_json_bytes
 from archkeel.ir.command_view import ArchitectureComponentView, architecture_command_envelope
 from archkeel.ir.facts_codec import record_payload as _record_payload
 from archkeel.ir.model import Command as _Command
-from archkeel.ir.model import FilteredViolation, OpenDecision, ReportFilter, RunResult
+from archkeel.ir.model import FilteredViolation, Finding, OpenDecision, ReportFilter, RunResult
 from archkeel.ir.model import RawJson as RawJson
 
 
@@ -247,6 +247,11 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
     if result.contract_changes is None:
         # AD-255: absent without --against, so every other result keeps its 9.0 shape.
         del payload["contract_changes"]
+    if result.findings is None:
+        # AD-258: absent where no report ranked findings; other results keep their 10.0 shape.
+        del payload["findings"]
+    else:
+        payload["findings"] = [finding_payload(item) for item in result.findings]
     if result.report_filter is not None:
         payload["report_filter"] = _report_filter_payload(result.report_filter)
     if result.provenance is not None and result.provenance.initial_pr is None:
@@ -277,6 +282,15 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
         payload["coverage"] = _coverage_payload(result.coverage)
     if result.delta is not None:
         payload["delta"] = delta_payload(result.delta)
+    return payload
+
+
+def finding_payload(finding: Finding) -> dict[str, RawJson]:
+    payload = _raw_object(asdict(finding))
+    # Without a comparison the change is absent, never "new" (AD-130, AD-258).
+    for name in ("change", "before"):
+        if payload[name] is None:
+            del payload[name]
     return payload
 
 

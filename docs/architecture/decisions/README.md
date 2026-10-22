@@ -265,3 +265,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-255 | [Narrowings in `--against`](ad-255-against-reports-narrowings.md) |
 | AD-256 | [Guarded eager declaration expressions](ad-256-guarded-eager-declaration-expressions.md) |
 | AD-257 | [Rule-driven fact collection](ad-257-rule-driven-fact-collection.md) |
+| AD-258 | [The report opens with ranked findings](ad-258-report-opens-with-ranked-findings.md) |
