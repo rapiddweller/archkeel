@@ -2401,7 +2401,9 @@ def test_full_python_facts_cannot_claim_provider_capture_buffers(tmp_path, versi
     with pytest.raises(
         ProtocolError, match="captured provider sources require a Python import survey"
     ):
-        encode_response(CollectionResponse(_native_facts(request), version, (provider,)))
+        decode_response(
+            encode_response(CollectionResponse(_native_facts(request), version, (provider,)))
+        )
 
 
 @pytest.mark.parametrize(

@@ -612,7 +612,7 @@ def test_records_of_an_undeclared_family_are_rejected(tmp_path, family, version)
     assert family in _present(facts)
 
     with pytest.raises(ProtocolError, match="declared (Python )?capability"):
-        encode_response(CollectionResponse(_without(facts, family), version))
+        decode_response(encode_response(CollectionResponse(_without(facts, family), version)))
 
 
 @pytest.mark.parametrize("version", GATED)
@@ -623,7 +623,7 @@ def test_a_member_write_witness_needs_one_of_the_families_that_replay_it(tmp_pat
     assert _witnesses(facts)
 
     with pytest.raises(ProtocolError, match="member-write witnesses require"):
-        encode_response(CollectionResponse(_without(facts, family), version))
+        decode_response(encode_response(CollectionResponse(_without(facts, family), version)))
 
 
 @pytest.mark.parametrize("version", GATED)

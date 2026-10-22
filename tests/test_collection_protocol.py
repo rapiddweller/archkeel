@@ -452,9 +452,7 @@ def test_response_encoder_validates_without_reparsing_its_json(version):
     )
 
 
-@pytest.mark.parametrize(
-    "version", ["1.0.0", "2.0.0", "3.0.0", "4.0.0", "5.0.0", "6.0.0", "7.0.0", "8.0.0"]
-)
+@pytest.mark.parametrize("version", ["1.0.0", "2.0.0", "3.0.0", "4.0.0", "5.0.0", "6.0.0", "7.0.0"])
 def test_response_encoder_still_rejects_invalid_facts_without_json_reparse(version):
     from dataclasses import replace
     from unittest.mock import patch
@@ -1066,6 +1064,25 @@ def test_v8_invalid_facts_are_a_protocol_error_at_the_process_boundary(tmp_path)
     assert isinstance(result, CollectionError)
     assert result.kind is CollectionErrorKind.PROTOCOL_ERROR
     assert "impossible collection coverage counts" in result.message
+
+
+def test_v8_encoder_does_not_validate_and_decoder_rejects_what_it_emits() -> None:
+    from dataclasses import replace
+    from unittest.mock import patch
+
+    from archkeel.ir.facts_codec import ProtocolError, decode_response, encode_response
+    from archkeel.ir.protocol import CollectionResponse
+
+    valid = _response_with("8.0.0")
+    with patch(
+        "archkeel.ir.facts_codec.validate_source_facts", side_effect=AssertionError("validated")
+    ):
+        assert zlib.decompress(encode_response(valid))
+    facts = valid.facts
+    invalid = replace(facts, coverage=replace(facts.coverage, files_parsed=999))
+    encoded = encode_response(CollectionResponse(invalid, valid.protocol_version))
+    with pytest.raises(ProtocolError, match="impossible collection coverage counts"):
+        decode_response(encoded)
 
 
 def test_output_limit_counts_compressed_bytes_and_bounds_decompression(tmp_path) -> None:
