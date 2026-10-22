@@ -12,3 +12,5 @@ The closed receiver table may include selected standard-library methods when the
 proven by its import binding; optional unions stay unresolved without narrowing evidence.
 Import-bound `base64.b64encode`, `base64.urlsafe_b64encode`, `hmac.digest` and
 `secrets.token_bytes` document a `bytes` result; downstream method calls remain partial.
+Import-bound `hmac.new` documents an `hmac.HMAC` result, whose `digest` method documents
+`bytes`; the following `bytes.hex` call remains partial.

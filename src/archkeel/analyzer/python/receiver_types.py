@@ -23,6 +23,7 @@ from typing import TypeAlias
 # types below are keyed by their qualified name, so an annotation spelled `Table` never
 # reaches them: only a constructor or a return the import binding proves does (AD-40).
 _METHOD_TABLES: dict[str, tuple[str, frozenset[str]]] = {
+    "hmac.HMAC": ("hmac.HMAC", frozenset(("digest").split())),
     "random.Random": (
         "random.Random",
         frozenset(
@@ -146,6 +147,7 @@ _CONSTRUCTORS: dict[str, str] = {
     "subprocess.Popen": "subprocess.Popen",
     "threading.Thread": "threading.Thread",
     "threading.Event": "threading.Event",
+    "hmac.new": "hmac.HMAC",
     "base64.b64encode": "bytes",
     "base64.urlsafe_b64encode": "bytes",
     "hmac.digest": "bytes",
@@ -178,6 +180,7 @@ _METHOD_RETURNS: dict[tuple[str, str], str] = {
     ("bytes", "decode"): "str",
     ("bytes", "hex"): "str",
     ("bytes", "rstrip"): "bytes",
+    ("hmac.HMAC", "digest"): "bytes",
     ("argparse.ArgumentParser", "add_subparsers"): "argparse._SubParsersAction",
     ("argparse.ArgumentParser", "add_argument_group"): "argparse._ArgumentGroup",
     ("argparse.ArgumentParser", "add_mutually_exclusive_group"): "argparse._ArgumentGroup",

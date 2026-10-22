@@ -39,7 +39,8 @@ native source evidence and conservative UNKNOWNs.
   `threading.Thread` and `threading.Event` methods receive partial targets.
   Documented `base64`, `hmac` and `secrets` byte results support partial
   `bytes.decode`, `bytes.hex` and `bytes.rstrip` targets. Unsupported or
-  optional annotations remain unresolved.
+  optional annotations remain unresolved. Import-proven `hmac.new().digest().hex()` chains
+  also receive partial targets; HMAC runtime behavior is not inferred.
 - **Less repeated analysis work.** Python collectors share lexical indexes within
   one parsed snapshot while resolving import bindings live. Changed compiler inputs
   rebuild the index; binding decisions are not cached.

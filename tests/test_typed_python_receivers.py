@@ -379,6 +379,68 @@ def test_import_bound_stdlib_byte_results_keep_partial_method_evidence(source, e
 @pytest.mark.parametrize(
     "source",
     [
+        "import hmac\n"
+        "def use(key, message): return hmac.new(key, message, 'sha256').digest().hex()\n",
+        "from hmac import new as make_hmac\n"
+        "def use(key, message):\n"
+        "    digest = make_hmac(key, message, 'sha256')\n"
+        "    return digest.digest().hex()\n",
+    ],
+)
+def test_import_bound_hmac_result_methods_keep_partial_evidence(source):
+    module = _parsed_module(source)
+    collect_imports([module], set(), {}, namespace="sample")
+    rows = collect_calls([module], build_symbol_index([]), {})
+    calls = [row["data"] for row in rows]
+    for target in ("hmac.HMAC.digest", "builtins.bytes.hex"):
+        assert any(
+            call["status"] == "partially_resolved" and call["targets"] == [target] for call in calls
+        )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import custom as hmac\ndef use(k, m): return hmac.new(k, m, 'sha256').digest().hex()\n",
+        "import hmac\nhmac = custom\n"
+        "def use(k, m): return hmac.new(k, m, 'sha256').digest().hex()\n",
+        "import hmac\nif enabled: hmac = custom\n"
+        "def use(k, m): return hmac.new(k, m, 'sha256').digest().hex()\n",
+        "from hmac import new as make_hmac\n"
+        "make_hmac = custom\n"
+        "def use(k, m): return make_hmac(k, m, 'sha256').digest().hex()\n",
+        "import hmac\ndef use(hmac, k, m): return hmac.new(k, m, 'sha256').digest().hex()\n",
+        "import hmac\ndef use(value: hmac.HMAC | None): return value.digest().hex()\n",
+        "import hmac\ndef use(k, m): return hmac.new(k, m, 'sha256').hexdigest()\n",
+    ],
+)
+def test_unproven_hmac_result_methods_stay_unknown(source):
+    module = _parsed_module(source)
+    collect_imports([module], set(), {}, namespace="sample")
+    rows = collect_calls([module], build_symbol_index([]), {})
+    hmac_targets = {"hmac.HMAC.digest", "builtins.bytes.hex", "hmac.HMAC.hexdigest"}
+    assert not any(
+        row["data"]["targets"] and row["data"]["targets"][0] in hmac_targets for row in rows
+    )
+
+
+def test_hmac_result_methods_need_their_compiler_scope():
+    module = _parsed_module(
+        "import hmac\ndef use(k, m): return hmac.new(k, m, 'sha256').digest().hex()\n"
+    )
+    collect_imports([module], set(), {}, namespace="sample")
+    module.source = "def incomplete("
+    rows = collect_calls([module], build_symbol_index([]), {})
+    assert not any(
+        row["data"]["targets"]
+        and row["data"]["targets"][0] in {"hmac.HMAC.digest", "builtins.bytes.hex"}
+        for row in rows
+    )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
         "import custom\ndef use(data): return custom.b64encode(data).decode()\n",
         "import base64\nbase64 = custom\ndef use(data): return base64.b64encode(data).decode()\n",
         "from base64 import b64encode as encode\n"
