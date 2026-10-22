@@ -799,17 +799,14 @@ def _finding_href(
             return None
         return f"#atlas-finding-{record}-{_quote(finding.rules[0], safe='')}"
     # A package roll-up names packages; select the first module inside the first package.
-    selected = next(
-        (module_ids[name] for name in finding.subjects if name in module_ids), None
-    ) or next(
-        (
-            module_ids[name]
-            for subject in finding.subjects
-            for name in sorted(module_ids)
-            if name.startswith(f"{subject}.")
-        ),
-        None,
-    )
+    names: list[str] = sorted(module_ids)
+    candidates = [name for name in finding.subjects if name in module_ids] + [
+        name
+        for subject in finding.subjects
+        for name in names
+        if name[: len(subject) + 1] == f"{subject}."
+    ]
+    selected = module_ids[candidates[0]] if candidates else None
     if selected is None:
         return None
     query = {"view": "diagram", "content": "modules", "selected": selected}

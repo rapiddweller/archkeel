@@ -77,16 +77,13 @@ def _cited_components(
 
 def _package_modules(packages: Iterable[str], modules: Mapping[str, ModuleStatistic]) -> list[str]:
     """The first module inside each package, so a package roll-up gets an owner and a link."""
-    return [
-        first
-        for package in packages
-        if (
-            first := next(
-                (name for name in sorted(modules) if name.startswith(f"{package}.")), None
-            )
-        )
-        is not None
-    ]
+    names: list[str] = sorted(modules)
+    firsts: list[str] = []
+    for package in packages:
+        prefix = f"{package}."
+        inside = [name for name in names if name[: len(prefix)] == prefix]
+        firsts += inside[:1]
+    return firsts
 
 
 def _ranked(items: Iterable[Finding]) -> list[Finding]:
