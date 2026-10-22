@@ -153,6 +153,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         python: ["3.11.12", "3.12.10"]
+        # The full-suite shards already run these suites on Ubuntu with Python 3.11.12.
+        exclude:
+          - os: ubuntu-latest
+            python: "3.11.12"
     runs-on: ${{ matrix.os }}
     env:
       UV_PYTHON: ${{ matrix.python }}
