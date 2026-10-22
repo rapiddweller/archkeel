@@ -121,9 +121,9 @@ _CLASS_D_ROWS: tuple[Variant, ...] = (
         id="class-d-oversized-inside",
         section="class_d",
         item="oversized_inside",
-        summary="A component larger than its own level is named in the report and never gated "
-        "on, so no overlay changes the clean sample's findings; the claim is measured on "
-        "Archkeel itself, where it names analyzer, check and ir.",
+        summary="Component sizes are read in the Structure overview and never gated on, so no "
+        "overlay changes the clean sample's findings; the compatibility count is no claim "
+        "(AD-235).",
         files={},
         expected_violations=(),
         expected_codes=(),

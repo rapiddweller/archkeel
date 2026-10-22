@@ -32,7 +32,7 @@ from archkeel.ir.codec import (
     parse_contract,
     parse_observation,
 )
-from archkeel.ir.decisions import review_claims
+from archkeel.ir.interfaces import component_owners
 from archkeel.ir.model import (
     AllowedDependencyRule,
     ArchitectureContract,
@@ -42,6 +42,7 @@ from archkeel.ir.model import (
     RequiredComponent,
     declared_package_pair,
 )
+from archkeel.ir.structure import StructureLevel, structure_metrics
 from archkeel.ir.trace import trace_valid_violations
 from fixtures.architecture_demo import CATALOG
 from fixtures.demo_catalog_support import FIXTURE_DIR, apply_overlay
@@ -228,14 +229,19 @@ def _names_the_large_component(root: Path) -> Step:
     _, artifact = run_report(root, config=SHOP, analyzer=observe)
     assert artifact is not None
     observation = parse_observation(decode_canonical_model(json.loads(artifact)))
-    claims = review_claims(observation)
+    store = next(
+        metric
+        for metric in structure_metrics(observation)
+        if metric.level is StructureLevel.COMPONENT and metric.scope == "store"
+    )
+    level = len(component_owners(observation))
     return Step(
-        "The report names an oversized component",
+        "The Structure overview shows the store's size",
         "archkeel report",
-        f"{claims.oversized_components} component larger than its own level",
+        f"store holds {store.modules} modules; the level has {level} components",
         (
-            "store holds 7 modules where the whole level has 5 components.",
-            "A claim, never a verdict: it is a reason to ask, not permission to split.",
+            "Read the size in the Structure overview; it is no claim and no finding (AD-235).",
+            "A size is a reason to ask, not permission to split.",
         ),
         "gate",
     )
