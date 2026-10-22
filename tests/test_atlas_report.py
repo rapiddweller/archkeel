@@ -1515,18 +1515,17 @@ def test_tour_nested_scope_chips_balances_and_deviation_links(tmp_path):
                 assert store_card.locator(".atlas-finding-chip, .atlas-deviation-chip").count() == 0
                 assert store_card.locator(".card").get_attribute("height") == "178"
             else:
-                assert (
-                    store_card.locator(".atlas-finding-chip").text_content() == "7 findings inside"
-                )
-                assert (
-                    store_card.locator(".atlas-deviation-chip").text_content()
-                    == "3 deviations inside"
+                # The store's finding count comes from its level in the payload; the loop above
+                # checks its deviation chip against the union over every descendant level.
+                assert store_card.locator(".atlas-finding-chip").text_content() == (
+                    f"{len(store_level['finding_ids'])} findings inside"
                 )
                 assert store_card.locator(".card").get_attribute("height") == "178"
             store_card.press("Space")
             if lens != "Target":
                 scoped_checks = page.locator(".atlas-scoped-findings").inner_text()
-                assert "7 recorded failing findings" in scoped_checks
+                failing = len(store_level["finding_ids"])
+                assert f"{failing} recorded failing findings" in scoped_checks
             if lens == "Diff":
                 root_balance = page.locator(".atlas-balance").inner_text()
                 for field, value in atlas["levels"][0]["balance"].items():
@@ -1560,7 +1559,8 @@ def test_tour_nested_scope_chips_balances_and_deviation_links(tmp_path):
             assert "scope=COMP-STORE" in page.url
             page.locator('.atlas-content-choice [data-content="components"]').click()
             assert (
-                "7 recorded failing findings" in page.locator(".atlas-scoped-findings").inner_text()
+                f"{len(store_level['finding_ids'])} recorded failing findings"
+                in page.locator(".atlas-scoped-findings").inner_text()
             )
             page.wait_for_function(
                 "count => [...document.querySelectorAll('.flow-nodes > g')]"
