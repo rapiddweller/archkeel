@@ -780,6 +780,30 @@ def test_pr_core_shards_partition_collected_tests_once() -> None:
     assert max(map(len, shards)) - min(map(len, shards)) <= 1
 
 
+def test_self_report_tests_share_one_shard_and_the_partition_stays_complete() -> None:
+    # The self report takes about half a shard; building it in every shard doubled CI time.
+    selection = (
+        "tests/test_ci_changes.py",
+        "tests/test_make_gate.py",
+        "tests/test_schema_drift.py",
+    )
+    full_result, full = _collected(*selection)
+    assert full_result.returncode == 0, full_result.stdout + full_result.stderr
+    shards = []
+    for index in range(3):
+        result, shard = _collected(f"--shard={index}/3", *selection)
+        assert result.returncode == 0, result.stdout + result.stderr
+        shards.append(shard)
+    assert Counter(test for shard in shards for test in shard) == Counter(full)
+    self_tests = {
+        test
+        for test in full
+        if test.startswith("tests/test_schema_drift.py::")
+        and ("parsed_self_observation" in test or "metadata_schema" in test)
+    }
+    assert self_tests and self_tests <= set(shards[0])
+
+
 def test_pr_test_passes_the_whole_selection_and_the_shard_to_pytest() -> None:
     def command(shard: str) -> str:
         result = subprocess.run(

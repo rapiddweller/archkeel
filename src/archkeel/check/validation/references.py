@@ -7,12 +7,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from archkeel.ir.codec import InsideContractTree, contract_digest, load_inside_contract_tree
+from archkeel.ir.codec import (
+    InsideContractTree,
+    contract_digest,
+    contract_provenance_locations,
+    load_inside_contract_tree,
+)
 from archkeel.ir.facts import SourceNameVisibility
 from archkeel.ir.model import (
     ArchitectureContract,
     ContractComponent,
-    ContractDeclarations,
     Diagnostic,
     Observation,
     contract_relative_path,
@@ -26,50 +30,6 @@ from archkeel.ir.source_records import source_name_visibility as _source_name_vi
 from ..ports import ScanConfig
 from .diagnostics import _diagnostic, _sorted
 from .public_api import _entry_module, _scanned_modules
-
-
-def _provenance(contract: ArchitectureContract) -> tuple[tuple[str, tuple[str, ...]], ...]:
-    declarations = contract.declarations or ContractDeclarations()
-    return (
-        *(
-            (f"/components/{index}/provenance", item.provenance)
-            for index, item in enumerate(contract.components)
-        ),
-        *(
-            (f"/rules/{index}/provenance", item.provenance)
-            for index, item in enumerate(contract.rules)
-        ),
-        *(
-            (f"/declarations/capabilities/{index}/provenance", item.provenance)
-            for index, item in enumerate(declarations.capabilities)
-        ),
-        *(
-            (f"/declarations/review_scopes/{index}/provenance", item.provenance)
-            for index, item in enumerate(declarations.review_scopes)
-        ),
-        *(
-            (f"/declarations/public_commands/{index}/provenance", item.provenance)
-            for index, item in enumerate(declarations.public_commands)
-        ),
-        *(
-            (f"/declarations/paths/{index}/provenance", item.provenance)
-            for index, item in enumerate(declarations.paths)
-        ),
-        *(
-            (f"/declarations/spot_owners/{index}/provenance", item.provenance)
-            for index, item in enumerate(declarations.spot_owners)
-        ),
-        *(
-            (f"/declarations/facade_budgets/{index}/provenance", item.provenance)
-            for index, item in enumerate(declarations.facade_budgets or ())
-        ),
-        *(
-            (f"/declarations/coupling_budgets/{index}/provenance", item.provenance)
-            for index, item in enumerate(declarations.coupling_budgets or ())
-        ),
-        ("/declarations/public_api_provenance", declarations.public_api_provenance),
-        ("/declarations/context_roots_provenance", declarations.context_roots_provenance),
-    )
 
 
 def _namespace_references(
@@ -197,7 +157,7 @@ def reference_diagnostics(
     ]
     diagnostics.extend(_public_diagnostics(contract))
     repository = root.resolve()
-    for pointer, values in _provenance(contract):
+    for pointer, values in contract_provenance_locations(contract):
         for index, value in enumerate(values):
             if repository_file(repository, value) is None:
                 diagnostics.append(

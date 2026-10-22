@@ -368,13 +368,15 @@ def _resolve_dotted(
 ) -> tuple[SourceResolution, list[str], str, int]:
     parts = dotted.split(".")
     binding = scopes.lookup(node, parts[0])
-    if binding.kind is BindingKind.UNBOUND and parts == ["dict", "fromkeys"]:
-        return (
-            SourceResolution.PARTIALLY_RESOLVED,
-            ["builtins.dict.fromkeys"],
-            "Python builtin classmethod, unproven at runtime",
-            1,
-        )
+    if binding.kind is BindingKind.UNBOUND and len(parts) == 2 and parts[0] in _BUILTINS:
+        target = receiver_call_target(parts[0], parts[1])
+        if target is not None:
+            return (
+                SourceResolution.PARTIALLY_RESOLVED,
+                [target],
+                "Python builtin class member, unproven at runtime",
+                1,
+            )
     if binding.kind in {BindingKind.MODULE, BindingKind.SYMBOL} and binding.targets:
         targets = tuple(".".join([target, *parts[1:]]) for target in binding.targets)
         return _scoped_binding(

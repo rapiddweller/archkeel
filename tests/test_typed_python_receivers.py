@@ -499,6 +499,14 @@ def test_unshadowed_builtin_dict_classmethod_keeps_partial_evidence(source):
     assert call["targets"] == ["builtins.dict.fromkeys"]
 
 
+@pytest.mark.parametrize("source", ["str.split('a,b', ',')", "def use(): return str.split('a')"])
+def test_unshadowed_builtin_str_method_keeps_partial_evidence(source):
+    rows = collect_calls([_parsed_module(source)], build_symbol_index([]), {})
+    call = next(row["data"] for row in rows if row["data"]["expression"] == "str.split")
+    assert call["status"] == "partially_resolved"
+    assert call["targets"] == ["builtins.str.split"]
+
+
 @pytest.mark.parametrize(
     "source,expression",
     [
@@ -525,6 +533,30 @@ def test_builtin_dict_classmethod_does_not_escape_its_exact_binding(source, expr
     call = next(row["data"] for row in rows if row["data"]["expression"] == expression)
     assert "builtins.dict.fromkeys" not in call["targets"]
     if "from custom" not in source:
+        assert call["status"] == "unresolved" and call["targets"] == []
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "def use(str): return str.split('value')",
+        "def use():\n str = other\n return str.split('value')",
+        "if enabled: str = other\nstr.split('value')",
+        "from custom import str\nstr.split('value')",
+        "class str:\n def split(self): pass\n def use(self): return str.split(self)",
+        "str.madeup('value')",
+    ],
+)
+def test_builtin_class_method_resolution_keeps_shadowing_and_method_table_boundaries(source):
+    module = _parsed_module(source)
+    collect_imports([module], {module.module}, {}, namespace="sample")
+    rows = collect_calls([module], build_symbol_index([]), {})
+    call = next(
+        row["data"] for row in rows if row["data"]["expression"] in {"str.split", "str.madeup"}
+    )
+    assert "builtins.str.split" not in call["targets"]
+    assert "builtins.str.madeup" not in call["targets"]
+    if source == "str.madeup('value')":
         assert call["status"] == "unresolved" and call["targets"] == []
 
 
