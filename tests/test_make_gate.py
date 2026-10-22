@@ -463,8 +463,7 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     for trigger in ("workflow_call:", "workflow_dispatch:", "schedule:"):
         assert trigger in full
     assert "make ci-check" in full
-    assert "make mermaid" in full
-    assert "make report-pages" in full
+    assert "make ci-check SHARDED_TESTS=1 mermaid report-pages" in full
     assert "test-artifacts/report-timing/architecture.timing.json" in full
     assert "test-artifacts/report-browser/" in full
     evidence = full.split("name: report-browser-evidence", 1)[1].split("      - name:", 1)[0]

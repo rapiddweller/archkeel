@@ -40,10 +40,8 @@ jobs:
         run: uv sync --locked
 
       - name: Run gates, TypeScript compiler check, browser proof, timing, and report gallery
-        run: |
-          make ci-check SHARDED_TESTS=1
-          make mermaid
-          make report-pages
+        # One make run: report-pages reuses the report that report-timing just measured.
+        run: make ci-check SHARDED_TESTS=1 mermaid report-pages
 
       - name: Upload latest report evidence
         if: always()

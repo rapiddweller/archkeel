@@ -259,9 +259,11 @@ REPORT_MAX_SECONDS ?= 190
 report-timing:
 	$(UV) run --locked python -m tools.report_timing --max-seconds "$(REPORT_MAX_SECONDS)"
 
-report-pages:
+report-pages: report-timing
 	rm -rf test-artifacts/pages
-	$(UV) run --locked archkeel report --root . --output test-artifacts/pages/architecture.json --json
+	mkdir -p test-artifacts/pages
+	cp test-artifacts/report-timing/architecture.json test-artifacts/report-timing/architecture.report.html \
+		test-artifacts/report-timing/architecture.detail*.html test-artifacts/pages/
 	$(UV) run --locked python -m tools.report_pages
 
 architecture-graph-schema:
