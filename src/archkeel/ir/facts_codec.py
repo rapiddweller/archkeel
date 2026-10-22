@@ -9,7 +9,6 @@ import builtins as _builtins
 import hashlib
 import json
 import re
-from dataclasses import replace
 from enum import StrEnum
 from math import isfinite
 from pathlib import PurePosixPath, PureWindowsPath
@@ -24,12 +23,9 @@ from .codec_strings import (
     intern_strings as intern_strings,
 )
 from .facts import (
-    CONSTRUCT_SELECTORS_FEATURE,
     EVIDENCE_FIELDS,
     GATED_RESOLUTION_FEATURES,
-    NUMERIC_OPERANDS_FEATURE,
     RECORD_FIELDS,
-    SOURCE_ROLES_FEATURE,
     AnalyzerInfo,
     BuiltinTarget,
     Capabilities,
@@ -73,6 +69,7 @@ from .facts_validation import (
     _validate_reference_contexts,
     _validate_source_role_identities,
     validate_source_facts,
+    without_unnamed_families,
 )
 from .facts_validation import (
     selector_receiver_site_matches as selector_receiver_site_matches,
@@ -1116,40 +1113,9 @@ def _source_facts(value: RawJson, version: ProtocolVersion) -> SourceFacts:
         raise ProtocolError("selector parameter owners require collection protocol 5.0.0")
     _contextmanager_protocol(facts, version)
     if version is not ProtocolVersion.V7:
-        facts = _without_unnamed_families(facts)
+        facts = without_unnamed_families(facts)
     validate_source_facts(facts)
     return facts
-
-
-def _unnamed_family(record: Record) -> str | None:
-    if record.kind == "source_role" or record.data.get("local_source_binding") is True:
-        return SOURCE_ROLES_FEATURE
-    if record.kind == "construct_selector":
-        return CONSTRUCT_SELECTORS_FEATURE
-    if record.kind == "numeric_operand":
-        return NUMERIC_OPERANDS_FEATURE
-    return None
-
-
-def _without_unnamed_families(facts: SourceFacts) -> SourceFacts:
-    """A collector older than protocol 7 cannot name these families (AD-257).
-
-    Its records of them count as not collected, so a rule that needs them stays
-    rule-family-not-collected instead of failing the whole response.
-    """
-    declared = set(facts.capabilities.resolution_features)
-    sections = tuple(
-        replace(
-            section,
-            records=tuple(
-                record
-                for record in section.records
-                if (family := _unnamed_family(record)) is None or family in declared
-            ),
-        )
-        for section in facts.sections
-    )
-    return replace(facts, sections=sections)
 
 
 def _compact_source_facts(value: RawJson) -> dict[str, RawJson]:

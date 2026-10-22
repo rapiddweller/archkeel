@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "7b6b764267442ff3ed27649040762873a2efad27637a8241e94da7778667276e",
+  "after_digest": "2584ef7536adbd6f71ee555ffa2eedf355e12a53ac8b25b1804e73be5d7d8c06",
+  "before_baseline_digest": "7b6b764267442ff3ed27649040762873a2efad27637a8241e94da7778667276e",
+  "before_digest": "efc878788c6177ab71342f988612159a89f8144b6912a01276c4d7036a56c3e7",
+  "decided_by": "Alexander Kell (architect), AD-257",
+  "rationale": "AD-257 slice 2: the Python collector declares the switches that gate extended bindings, call arguments, numeric operands and member-write witnesses.",
+  "schema_version": "2.0.0"
+}

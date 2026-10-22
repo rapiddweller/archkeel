@@ -8,7 +8,7 @@ import re
 import sys
 from bisect import bisect_right
 from collections.abc import Collection, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import PurePosixPath
 from textwrap import dedent
@@ -6387,3 +6387,34 @@ def validate_source_facts(facts: SourceFacts) -> None:
                 and event.evidence_id not in state_ids
             ):
                 raise ValueError("state trace has dangling candidate evidence")
+
+
+def _unnamed_family(record: Record) -> str | None:
+    if record.kind == "source_role" or record.data.get("local_source_binding") is True:
+        return SOURCE_ROLES_FEATURE
+    if record.kind == "construct_selector":
+        return CONSTRUCT_SELECTORS_FEATURE
+    if record.kind == "numeric_operand":
+        return NUMERIC_OPERANDS_FEATURE
+    return None
+
+
+def without_unnamed_families(facts: SourceFacts) -> SourceFacts:
+    """A collector older than protocol 7 cannot name these families (AD-257).
+
+    Its records of them count as not collected, so a rule that needs them stays
+    rule-family-not-collected instead of failing the whole response.
+    """
+    declared = set(facts.capabilities.resolution_features)
+    sections = tuple(
+        replace(
+            section,
+            records=tuple(
+                record
+                for record in section.records
+                if (family := _unnamed_family(record)) is None or family in declared
+            ),
+        )
+        for section in facts.sections
+    )
+    return replace(facts, sections=sections)
