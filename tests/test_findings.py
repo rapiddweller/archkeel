@@ -389,6 +389,20 @@ def test_the_page_opens_with_one_verdict_line_and_no_rule_cards(run: Run) -> Non
     assert run.observation.source.git_head in page.split("Snapshot and audit")[1]
 
 
+def test_five_findings_show_and_the_rest_open_on_request(run: Run) -> None:
+    # The explorer must stay on the first screen, so the list shows five findings.
+    assert run.result.findings
+    many = (run.result.findings * 7)[:7]
+    page = _page(Run(replace(run.result, findings=many), run.observation, run.architecture))
+    markup = re.sub(r"<(style|script)\b.*?</\1>", "", page, flags=re.S)
+    first, _, rest = markup.partition('<details class="findings-more">')
+
+    assert first.count("data-finding-identity=") == 5
+    assert "<summary>Show all 7 findings</summary>" in rest
+    assert '<ol class="findings-list" start="6">' in rest
+    assert rest.split("</details>")[0].count("data-finding-identity=") == 2
+
+
 def test_a_result_without_findings_never_reads_as_a_clean_list(run: Run) -> None:
     page = _page(Run(replace(run.result, findings=None), run.observation, run.architecture))
 

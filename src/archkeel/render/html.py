@@ -87,7 +87,8 @@ _SIZE_LABELS: Final = {
     FindingKind.FAN_OUT_HUB: "fan-out",
 }
 _GIT_HASH_SHOWN: Final = 7
-_LOCATIONS_SHOWN: Final = 3
+# The explorer must stay on the first screen; the rest of the list opens on request.
+_FINDINGS_SHOWN: Final = 5
 
 
 def _asset(name: str) -> bytes:
@@ -831,21 +832,31 @@ def _atlas_findings(result: RunResult, observation: Observation) -> str:
         href = _finding_href(finding, module_ids, violation_ids)
         title = _text(finding.title)
         linked = f'<a href="{_text(href)}">{title}</a>' if href is not None else title
-        locations = "".join(
-            f"<li><code>{_text(location_text(location))}</code></li>"
-            for location in finding.locations[:_LOCATIONS_SHOWN]
+        location = (
+            f' <code class="finding-location">{_text(location_text(finding.locations[0]))}</code>'
+            if finding.locations
+            else ""
         )
+        more = len(finding.locations) - 1
+        more_text = f' <span class="finding-more">+{more}</span>' if more > 0 else ""
         identity = json.dumps([finding.kind, finding.rules, finding.subjects])
         rows.append(
-            f'<li data-finding-identity="{_text(identity)}">'
+            f'<li data-finding-identity="{_text(identity)}" title="{_text(finding.sentence)}">'
             f'<strong class="finding-title">{linked}</strong>'
             f' <span class="finding-size">{_SIZE_LABELS[finding.kind]}: {finding.size}</span>'
-            f'<ul class="finding-locations">{locations}</ul>'
-            f"<p>{_text(finding.sentence)}</p></li>"
+            f"{location}{more_text}"
+            f' <span class="finding-sentence">{_text(finding.sentence)}</span></li>'
         )
+    shown, rest = rows[:_FINDINGS_SHOWN], rows[_FINDINGS_SHOWN:]
+    hidden = (
+        f'<details class="findings-more"><summary>Show all {len(rows)} findings</summary>'
+        f'<ol class="findings-list" start="{_FINDINGS_SHOWN + 1}">{"".join(rest)}</ol></details>'
+        if rest
+        else ""
+    )
     return (
         f'<section aria-labelledby="findings-heading">{heading}'
-        f'<ol class="findings-list">{"".join(rows)}</ol></section>'
+        f'<ol class="findings-list">{"".join(shown)}</ol>{hidden}</section>'
     )
 
 

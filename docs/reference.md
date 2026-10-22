@@ -180,7 +180,8 @@ Schema shape validation proves neither authenticity nor conformance.
 ### Ranked findings
 
 An unfiltered `report` opens with one verdict line and one ranked list of findings. The
-terminal's top five, the HTML list and `findings` in `--json` read the same list
+terminal's top five, the HTML list (five shown, the rest behind "Show all") and `findings`
+in `--json` read the same list
 ([AD-258](architecture/decisions/ad-258-report-opens-with-ranked-findings.md)). Each
 finding has `kind`, `rules`, `subjects`, `size`, `title`, `sentence`, `locations` and
 `component_ids`. The order is fixed and every threshold already existed:

@@ -9,7 +9,7 @@ computes no findings of its own.
 The verdict line shows the badge, the PASS and UNKNOWN counts, the agent-decision ratio
 and the short git hash.
 
-The list comes before the explorer. The rule cards, the reading guide and the
+The list comes before the explorer and shows five findings; the rest open on request. The rule cards, the reading guide and the
 repeated counts are removed.
 
 Order and sources. No new thresholds: each one already exists in the code or the

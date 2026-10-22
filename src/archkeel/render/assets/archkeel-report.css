@@ -289,15 +289,26 @@ h3 {
   color: var(--ck-text);
 }
 .findings-list {
-  margin: var(--ck-space-3) 0 var(--ck-space-6);
-  padding-left: var(--ck-space-6);
+  margin: var(--ck-space-2) 0;
+  padding-left: 0;
+  list-style-position: inside;
 }
 .findings-list > li {
-  margin: var(--ck-space-3) 0;
-  overflow-wrap: anywhere;
+  margin: var(--ck-space-1) 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-.findings-list p {
-  margin: var(--ck-space-1) 0 0;
+.finding-location,
+.finding-more,
+.finding-sentence {
+  color: var(--ck-muted);
+}
+.findings-more {
+  margin: 0 0 var(--ck-space-4);
+}
+.findings-more > summary {
+  cursor: pointer;
   color: var(--ck-muted);
 }
 .finding-size {
@@ -307,14 +318,6 @@ h3 {
   color: var(--ck-muted);
   font-family: var(--ck-font-mono);
   white-space: nowrap;
-}
-.finding-locations {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ck-space-1) var(--ck-space-3);
-  margin: var(--ck-space-1) 0 0;
-  padding: 0;
-  list-style: none;
 }
 .decision-symbol {
   color: var(--decision-color);
