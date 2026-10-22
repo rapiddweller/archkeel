@@ -178,8 +178,8 @@ jobs:
       - name: Verify Python-hosted language collectors
         shell: bash
         run: |
-          make typescript-native SHELL=bash
-          make dart-test SHELL=bash
+          make typescript-native TEST_WORKERS=4 SHELL=bash
+          make dart-test TEST_WORKERS=4 SHELL=bash
           make build smoke SHELL=bash
 
   verified:
