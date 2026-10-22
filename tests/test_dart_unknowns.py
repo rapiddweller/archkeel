@@ -570,6 +570,8 @@ def test_python_result_json_changes_only_by_the_additive_fields(tmp_path: Path) 
         "filtered_calls",
         "unresolved_call_changes",
         "unresolved_call_note",
+        # AD-258: the ranked findings an unfiltered report opens with.
+        "findings",
     }
     assert (
         payload["filtered_calls"],
