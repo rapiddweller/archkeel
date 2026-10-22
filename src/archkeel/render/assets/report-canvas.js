@@ -441,10 +441,12 @@
   }
   function shareMenu(anchor) {
     const item = (label, run) => h("button", { role: "menuitem", onclick: () => { closePop(); run(); } }, label);
+    // An over-budget diagram is not drawn, so there is no diagram to export.
+    const drawn = !F.state().scene?.overBudget;
     openPop(anchor, [
       item("Copy link to this view", () => copy(location.href, "Link copied")),
-      item("Copy diagram as Mermaid", () => copy(mermaid(), "Mermaid copied")),
-      item("Download SVG", downloadSvg),
+      ...(drawn ? [item("Copy diagram as Mermaid", () => copy(mermaid(), "Mermaid copied")),
+        item("Download SVG", downloadSvg)] : []),
     ], "right");
   }
 

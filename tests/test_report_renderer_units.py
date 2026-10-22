@@ -513,3 +513,74 @@ def test_uml_layout_request_has_an_explicit_edge_clearance_without_changing_inpu
     finally:
         browser.close()
         playwright.stop()
+
+
+def _atlas_payload(module_count, edge_count):
+    cells = []
+    for index in range(edge_count):
+        source = index % module_count
+        target = (source + 1 + index // module_count) % module_count
+        cells.append([source, target, 1, "PASS", [], [], []])
+    return {
+        "reference_ids": ["ref"],
+        "modules": [
+            {
+                "id": f"module:{index}",
+                "name": f"sample.m{index}",
+                "path": f"sample/m{index}.py",
+                "rank": index,
+                "symbol_coverage": 0,
+                "symbols": 0,
+            }
+            for index in range(module_count)
+        ],
+        "symbol_coverages": [[]],
+        "assignments": [[index, None, [], "PASS", 0] for index in range(module_count)],
+        "cells": cells,
+        "levels": [
+            {
+                "parent_id": None,
+                "modules": list(range(module_count)),
+                "cells": list(range(edge_count)),
+            }
+        ],
+        "components": [],
+        "findings": [],
+        "rule_assessments": [],
+        "declared_modules": [],
+        "deviations": [],
+        "cell_permission_reason_ref": 0,
+    }
+
+
+def test_module_scene_over_budget_is_empty_and_counted():
+    api = pytest.importorskip("playwright.sync_api")
+    playwright, browser, page = _asset_page(api, ["report-scene.js"])
+    atlases = [_atlas_payload(81, 0), _atlas_payload(80, 300), _atlas_payload(80, 301)]
+    try:
+        result = page.evaluate(
+            """atlases => ({
+          budget: window.ArchkeelReportScene.create({atlas: atlases[0]})
+            .MODULE_DIAGRAM_BUDGET ?? null,
+          scenes: atlases.map(atlas => {
+            const model = window.ArchkeelReportScene.create({atlas});
+            const scene = model.atlasModuleScene(model.atlas.levels[0], 'diagram');
+            return {overBudget: scene.overBudget ?? null, nodes: scene.nodes.map(node => node.id),
+              edges: scene.edges.map(edge => edge.id)};
+          }),
+        })""",
+            atlases,
+        )
+        over_modules, at_budget, over_edges = result["scenes"]
+        assert over_modules == {
+            "overBudget": {"modules": 81, "edges": 0, "budget": {"modules": 80, "edges": 300}},
+            "nodes": [],
+            "edges": [],
+        }
+        assert at_budget["overBudget"] is None
+        assert len(at_budget["nodes"]) == 80
+        assert over_edges["overBudget"]["edges"] == 301
+        assert result["budget"] == {"modules": 80, "edges": 300}
+    finally:
+        browser.close()
+        playwright.stop()

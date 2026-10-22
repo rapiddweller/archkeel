@@ -335,6 +335,9 @@ class ParsedModule:
     stable_binding_cache: tuple[dict[str, AliasBinding], frozenset[str]] | None = field(
         default=None, init=False, repr=False
     )
+    _dynamic_namespace_cache: tuple[dict[str, AliasBinding], bool] | None = field(
+        default=None, init=False, repr=False
+    )
 
     def __post_init__(self) -> None:
         self.all_nodes = tuple(ast.walk(self.tree))
@@ -1393,9 +1396,19 @@ def unproven_member_bindings(
 ) -> frozenset[str]:
     """Visible member escapes, independent of whether an import binds unconditionally."""
     nodes = module.all_nodes
-    if any(exposes_dynamic_namespace(module, node, member_surface=True) for node in nodes) or any(
-        exposes_dynamic_namespace(module, node, local_namespace=True) for node in module.scope_nodes
-    ):
+    cached = module._dynamic_namespace_cache
+    if cached is None or cached[0] != module.aliases:
+        # Syntax is fixed; aliases can still change while imports converge.
+        cached = (
+            dict(module.aliases),
+            any(exposes_dynamic_namespace(module, node, member_surface=True) for node in nodes)
+            or any(
+                exposes_dynamic_namespace(module, node, local_namespace=True)
+                for node in module.scope_nodes
+            ),
+        )
+        module._dynamic_namespace_cache = cached
+    if cached[1]:
         return frozenset(module.bound_names)
     return frozenset(
         _member_binding_roots(
@@ -2117,6 +2130,8 @@ def quoted_type_expression(node: ast.expr) -> ast.expr | None:
 def annotation_text(node: ast.AST | None) -> str | None:
     if node is None:
         return None
+    if type(node) is ast.Name:
+        return node.id
     try:
         return ast.unparse(node)
     except ValueError:

@@ -1792,6 +1792,9 @@ code {
   stroke-width: 1.25px;
   stroke-dasharray: 1 13;
   opacity: 0.9;
+}
+/* Only emphasized edges pulse: a resting dashoffset animation repaints the whole diagram every frame. */
+[data-emphasis="true"] .edge:not(.dim) .pulse {
   animation: flow-pulse 1.8s linear infinite;
 }
 /* A pulse the colour of its own line cannot be seen, which was true of all four states. A

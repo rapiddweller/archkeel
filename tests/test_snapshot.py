@@ -32,6 +32,7 @@ def _committed_repository(tmp_path: Path) -> tuple[Path, str]:
     root = tmp_path / "repository"
     root.mkdir()
     _git(root, "init", "-q")
+    _git(root, "config", "core.autocrlf", "false")
     _git(root, "config", "user.email", "architecture@example.invalid")
     _git(root, "config", "user.name", "Architecture Test")
     _write(root / "example/__init__.py", "")

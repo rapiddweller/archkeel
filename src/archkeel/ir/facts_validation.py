@@ -350,14 +350,17 @@ def _base_declarations(record: Record, section: SourceSectionName) -> None:
 
 
 def _member_inventory_bindings(records: list[Record]) -> None:
+    methods: dict[str, set[str]] = {}
+    for record in records:
+        if record.kind == "method":
+            parent = record.data.get("lexical_parent_id")
+            if isinstance(parent, str):
+                direct_methods: set[str] = methods.setdefault(parent, set())
+                direct_methods.add(record.id)
     for owner in records:
         for inventory in member_inventories(owner.data.get("member_inventories")):
             if inventory.kind == _MemberKind.METHOD:
-                actual = {
-                    item.id
-                    for item in records
-                    if item.kind == "method" and item.data.get("lexical_parent_id") == owner.id
-                }
+                actual = methods.get(owner.id, set())
             else:
                 attributes = owner.data.get("attribute_declarations")
                 if not isinstance(attributes, tuple) or any(

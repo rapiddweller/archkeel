@@ -247,3 +247,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-237 | [Shared dependency proof binding](ad-237-shared-dependency-proof-binding.md) |
 | AD-238 | [Command-view preparation](ad-238-command-view-preparation.md) |
 | AD-239 | [Codec format owners](ad-239-codec-format-owners.md) |
+| AD-240 | [Module diagrams are budgeted and pulses require interaction](ad-240-module-diagrams-are-budgeted-and-pulses-require-interaction.md) |

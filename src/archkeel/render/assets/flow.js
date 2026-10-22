@@ -557,6 +557,7 @@
 
   function emphasizeUmlScene(focus, previewing = false) {
     if (!renderedScene) return;
+    root.dataset.emphasis = String(Boolean(focus));
     const related = new Set(focus?.type === "node" ? [focus.id] : []);
     const active = new Set();
     renderedScene.edges.forEach((edge) => {
@@ -637,9 +638,14 @@
     }
   }
 
+  function selectedAtlasModule(id) {
+    return renderedScene?.nodes.find((node) => node.id === id)?.module
+      || REPORT_SCENE.atlasModules(atlasLevel(), viewMode).find((item) => item.id === id);
+  }
+
   function openArchitectureEntity(id, sourceGraph = null) {
     if (ATLAS) {
-      const module = renderedScene?.nodes.find((node) => node.id === id)?.module;
+      const module = selectedAtlasModule(id);
       if (module) location.href = atlasDetailsHref(module, atlasLevel());
       else openAtlasComponent(id);
       return;
@@ -1827,7 +1833,7 @@
 
   function updateOpenSelected() {
     if (ATLAS) {
-      const module = renderedScene?.nodes.find((node) => node.id === umlSelection?.id)?.module;
+      const module = umlSelection && selectedAtlasModule(umlSelection.id);
       openSelectedButton.disabled = !module && (!umlSelection || !ATLAS.levels.some((level) => level.parent_id === umlSelection.id));
       openSelectedButton.textContent = module ? `Open ${module.path?.split("/").at(-1) || module.name}` : umlSelection ? `Open ${REPORT_SCENE.atlasComponent(umlSelection.id)?.label || "component"}` : "Open selected";
       return;
@@ -2378,8 +2384,8 @@
           <p>${link(atlasDetailsHref(module, level), "Open UML and source evidence")}</p><p><code>${esc(module.path || "File path not declared")}</code></p>
           <p>${REPORT_SCENE.countLabel(module.declarations, "direct declared definition")}</p>${list("Responsibility", module.responsibilities)}${list("Provenance", module.provenance)}
           ${boundaryPermissionMarkup(module.id, new Set([module.id]))}
-          ${list("Authored module relationships", scene.edges.filter((edge) => edge.source === module.id || edge.target === module.id)
-            .map((edge) => `${edge.id} · ${edge.relationshipKind}: ${edge.source} → ${edge.target} · ${edge.declaration.evidence_ids.join(", ")}`))}`;
+          ${list("Authored module relationships", scene.declared.filter((edge) => edge.source_id === module.id || edge.target_id === module.id)
+            .map((edge) => `${edge.id} · ${edge.kind}: ${edge.source_id} → ${edge.target_id} · ${edge.evidence_ids.join(", ")}`))}`;
         return;
       }
     }
@@ -2619,7 +2625,9 @@
     flowHeading.textContent = level.parent_id ? `Architecture map · ${REPORT_SCENE.atlasComponent(level.parent_id)?.label || level.parent_id}` : "Architecture map";
     canvas.hidden = !scene.nodes.length; alternative.hidden = Boolean(scene.nodes.length);
     if (!scene.nodes.length) {
-      alternative.innerHTML = `<div class="flow-scope-notice"><h3>${viewMode === "target" ? "No declared subcomponents. No declared modules recorded." : "No observed content recorded."}</h3><p>${viewMode === "target" ? "Declared facts remain in the Inspector; observed modules are not Target declarations." : "No native module content is recorded for this scope."}</p>${viewMode === "target" ? '<button type="button" class="flow-fit" data-show-as-is>Show As-Is modules</button>' : ""}</div>`;
+      const o = scene.overBudget;
+      alternative.innerHTML = o ? `<div class="flow-scope-notice"><p>${esc(`Diagram not drawn: ${o.modules} modules and ${o.edges} relationships exceed the diagram budget of ${o.budget.modules} modules / ${o.budget.edges} relationships. ${viewMode === "target" ? "Open a component or search for a module. All declared facts remain in architecture.json." : "Open a component, search, or use Health check. All facts remain in the module list and architecture.json."}`)}</p></div>`
+        : `<div class="flow-scope-notice"><h3>${viewMode === "target" ? "No declared subcomponents. No declared modules recorded." : "No observed content recorded."}</h3><p>${viewMode === "target" ? "Declared facts remain in the Inspector; observed modules are not Target declarations." : "No native module content is recorded for this scope."}</p>${viewMode === "target" ? '<button type="button" class="flow-fit" data-show-as-is>Show As-Is modules</button>' : ""}</div>`;
       const asIs = alternative.querySelector("[data-show-as-is]");
       if (asIs) asIs.onclick = () => switchArchitectureView("diagram");
     }
@@ -2633,7 +2641,9 @@
     const observed = scene.edges.filter((edge) => !edge.declaration);
     const boundary = scene.moduleOverview && scene.boundaryEdges
       ? ` · ${REPORT_SCENE.countLabel(scene.boundaryEdges, "cross-scope relationship")} not drawn at this level` : "";
-    root.querySelector(".atlas-summary").textContent = scene.moduleOverview
+    root.querySelector(".atlas-summary").textContent = scene.overBudget
+      ? `Current level: ${REPORT_SCENE.countLabel(scene.overBudget.modules, viewMode === "target" ? "declared module" : "observed module")} · ${REPORT_SCENE.countLabel(scene.overBudget.edges, "relationship")} · diagram budget exceeded`
+      : scene.moduleOverview
       ? viewMode === "target" ? `Current level: ${REPORT_SCENE.countLabel(scene.nodes.length, "declared module")} · ${REPORT_SCENE.countLabel(scene.edges.length, "authored module relationship")}${boundary}`
         : `Current level: ${REPORT_SCENE.countLabel(scene.nodes.length, "observed module")} · ${REPORT_SCENE.countLabel(observed.length, "local dependency", "local dependencies")} · ${REPORT_SCENE.countLabel(observed.every((edge) => edge.import_sites !== null) ? observed.reduce((sum, edge) => sum + edge.import_sites, 0) : null, "import site")}${boundary}`
       : viewMode === "target"
@@ -2648,7 +2658,7 @@
       renderAtlasScene(level, content, scene, {
         positions: {}, frames: [], routesById: new Map(),
       });
-      root.dataset.layoutState = "ready";
+      root.dataset.layoutState = scene.overBudget ? "skipped" : "ready";
       finishLayout();
       return;
     }
@@ -2681,6 +2691,7 @@
     const scene = renderedScene;
     if (!scene) return;
     const focus = preview || (umlSelection?.type === "node" ? { type: "node", id: umlSelection.id } : null);
+    root.dataset.emphasis = String(Boolean(focus));
     const nodes = new Set(), edges = new Set();
     if (focus?.type === "node") {
       nodes.add(focus.id);
@@ -2801,6 +2812,8 @@
         const edgeFocus = { type: "edge", id: route.edge.id, source: route.edge.source, target: route.edge.target };
         drawn.group.addEventListener("pointerenter", () => atlasEmphasize(edgeFocus));
         drawn.group.addEventListener("pointerleave", () => atlasEmphasize());
+        drawn.hit.addEventListener("focus", () => atlasEmphasize(edgeFocus));
+        drawn.hit.addEventListener("blur", () => atlasEmphasize());
       },
     }, scene.layoutRoutes);
     atlasEmphasize();

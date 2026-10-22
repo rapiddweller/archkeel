@@ -180,6 +180,337 @@ def test_ambiguous_and_shadowed_receivers_stay_unresolved(source):
     assert call["status"] == "unresolved" and call["targets"] == []
 
 
+@pytest.mark.parametrize(
+    "source,expression,target",
+    [
+        (
+            "from subprocess import Popen as Child\n"
+            "def use(process: Child[bytes]): process.poll()\n",
+            "process.poll",
+            "subprocess.Popen.poll",
+        ),
+        (
+            "import subprocess as sp\ndef use(process: sp.Popen[bytes]): process.wait()\n",
+            "process.wait",
+            "subprocess.Popen.wait",
+        ),
+        (
+            "from threading import Thread as Worker\ndef use(worker: Worker): worker.join()\n",
+            "worker.join",
+            "threading.Thread.join",
+        ),
+        (
+            "from threading import Event as Ready\ndef use(ready: Ready): ready.set()\n",
+            "ready.set",
+            "threading.Event.set",
+        ),
+        (
+            "from subprocess import Popen as Child\n"
+            "def use():\n process = Child(['tool'])\n process.kill()\n",
+            "process.kill",
+            "subprocess.Popen.kill",
+        ),
+        (
+            "from threading import Thread as Worker\n"
+            "def use():\n worker = Worker(target=work)\n worker.start()\n",
+            "worker.start",
+            "threading.Thread.start",
+        ),
+        (
+            "import threading as th\ndef use():\n ready = th.Event()\n ready.is_set()\n",
+            "ready.is_set",
+            "threading.Event.is_set",
+        ),
+    ],
+)
+def test_import_bound_external_receiver_calls_are_partial(source, expression, target):
+    module = _parsed_module(source)
+    collect_imports([module], set(), {}, namespace="sample")
+    rows = collect_calls([module], build_symbol_index([]), {})
+    call = next(row["data"] for row in rows if row["data"]["expression"] == expression)
+    assert call["status"] == "partially_resolved" and call["targets"] == [target]
+
+
+@pytest.mark.parametrize(
+    "source,expression",
+    [
+        ("def use(process: Popen): process.poll()\n", "process.poll"),
+        ("def use(process: subprocess.Popen[bytes]): process.poll()\n", "process.poll"),
+        (
+            "from subprocess import Popen as Child\ndef use(process: Child[str]): process.poll()\n",
+            "process.poll",
+        ),
+        (
+            "from threading import Event as Ready\ndef use(ready: Ready[int]): ready.set()\n",
+            "ready.set",
+        ),
+        (
+            "from subprocess import Popen as Child\n"
+            "bytes = object\n"
+            "def use(process: Child[bytes]): process.poll()\n",
+            "process.poll",
+        ),
+        (
+            "from subprocess import Popen as Child\n"
+            "Child = object\n"
+            "def use(process: Child[bytes]): process.poll()\n",
+            "process.poll",
+        ),
+        (
+            "from subprocess import Popen as Child\n"
+            "def use(Child):\n def nested(process: Child[bytes]): process.poll()\n",
+            "process.poll",
+        ),
+        (
+            "from subprocess import Popen as Child\n"
+            "def use(process: Child[bytes] | object): process.poll()\n",
+            "process.poll",
+        ),
+        (
+            "from threading import Thread as Worker\n"
+            "def use(worker: Worker | None): worker.join()\n",
+            "worker.join",
+        ),
+        (
+            "from typing import Optional\n"
+            "from threading import Thread as Worker\n"
+            "def use(worker: Optional[Worker]): worker.join()\n",
+            "worker.join",
+        ),
+        (
+            "from subprocess import Popen as dict\n"
+            "def use(roles: dict[bytes] | None): roles.get('key')\n",
+            "roles.get",
+        ),
+    ],
+)
+def test_unproven_external_receiver_annotations_stay_unresolved(source, expression):
+    module = _parsed_module(source)
+    collect_imports([module], set(), {}, namespace="sample")
+    rows = collect_calls([module], build_symbol_index([]), {})
+    call = next(row["data"] for row in rows if row["data"]["expression"] == expression)
+    assert call["status"] == "unresolved" and call["targets"] == []
+
+
+def test_builtin_optional_receiver_keeps_guarded_generator_call_partial():
+    module = _parsed_module(
+        "def _ordered(roles: dict[str, set[str]] | None, fingerprints):\n"
+        "    return tuple(\n"
+        "        (tuple(sorted(roles.get(fingerprint, set()))) if roles is not None else ())\n"
+        "        for fingerprint in fingerprints\n"
+        "    )\n"
+    )
+    collect_imports([module], set(), {}, namespace="sample")
+    rows = collect_calls([module], build_symbol_index([]), {})
+    call = next(row["data"] for row in rows if row["data"]["expression"] == "roles.get")
+    assert call["status"] == "partially_resolved"
+    assert call["targets"] == ["builtins.dict.get"]
+
+
+def test_builtin_optional_receiver_needs_certain_compiler_scope():
+    module = _parsed_module("def use(roles: dict[str, str] | None): roles.get('key')\n")
+    collect_imports([module], set(), {}, namespace="sample")
+    module.source = "def incomplete("
+    rows = collect_calls([module], build_symbol_index([]), {})
+    call = next(row["data"] for row in rows if row["data"]["expression"] == "roles.get")
+    assert call["status"] == "unresolved" and call["targets"] == []
+
+
+def test_unchecked_builtin_optional_receiver_stays_partial():
+    module = _parsed_module("def use(roles: dict[str, str] | None): return roles.get('key')\n")
+    collect_imports([module], set(), {}, namespace="sample")
+    rows = collect_calls([module], build_symbol_index([]), {})
+    call = next(row["data"] for row in rows if row["data"]["expression"] == "roles.get")
+    assert call["status"] == "partially_resolved"
+    assert call["targets"] == ["builtins.dict.get"]
+    assert call["reason"] == "annotated receiver of known type, unproven at runtime"
+
+
+def test_external_receiver_annotation_needs_its_compiler_scope():
+    module = _parsed_module(
+        "from subprocess import Popen as Child\ndef use(process: Child[bytes]): process.poll()\n"
+    )
+    collect_imports([module], set(), {}, namespace="sample")
+    module.source = "def incomplete("
+    rows = collect_calls([module], build_symbol_index([]), {})
+    call = next(row["data"] for row in rows if row["data"]["expression"] == "process.poll")
+    assert call["status"] == "unresolved" and call["targets"] == []
+
+
+@pytest.mark.parametrize(
+    "source,expected_targets",
+    [
+        (
+            "import base64\ndef use(data: bytes): return base64.b64encode(data).decode()\n",
+            ["builtins.bytes.decode"],
+        ),
+        (
+            "from base64 import urlsafe_b64encode as encode\n"
+            "def use(data: bytes): return encode(data).rstrip(b'=').decode()\n",
+            ["builtins.bytes.rstrip", "builtins.bytes.decode"],
+        ),
+        (
+            "import hmac\ndef use(key: bytes, message: bytes): "
+            "return hmac.digest(key, message, 'sha256').hex()\n",
+            ["builtins.bytes.hex"],
+        ),
+        (
+            "from secrets import token_bytes as make_token\n"
+            "def use(): return make_token(16).hex()\n",
+            ["builtins.bytes.hex"],
+        ),
+    ],
+)
+def test_import_bound_stdlib_byte_results_keep_partial_method_evidence(source, expected_targets):
+    module = _parsed_module(source)
+    collect_imports([module], set(), {}, namespace="sample")
+    rows = collect_calls([module], build_symbol_index([]), {})
+    calls = [row["data"] for row in rows]
+    for target in expected_targets:
+        assert any(
+            call["status"] == "partially_resolved" and call["targets"] == [target] for call in calls
+        )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import hmac\n"
+        "def use(key, message): return hmac.new(key, message, 'sha256').digest().hex()\n",
+        "from hmac import new as make_hmac\n"
+        "def use(key, message):\n"
+        "    digest = make_hmac(key, message, 'sha256')\n"
+        "    return digest.digest().hex()\n",
+    ],
+)
+def test_import_bound_hmac_result_methods_keep_partial_evidence(source):
+    module = _parsed_module(source)
+    collect_imports([module], set(), {}, namespace="sample")
+    rows = collect_calls([module], build_symbol_index([]), {})
+    calls = [row["data"] for row in rows]
+    for target in ("hmac.HMAC.digest", "builtins.bytes.hex"):
+        assert any(
+            call["status"] == "partially_resolved" and call["targets"] == [target] for call in calls
+        )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import custom as hmac\ndef use(k, m): return hmac.new(k, m, 'sha256').digest().hex()\n",
+        "import hmac\nhmac = custom\n"
+        "def use(k, m): return hmac.new(k, m, 'sha256').digest().hex()\n",
+        "import hmac\nif enabled: hmac = custom\n"
+        "def use(k, m): return hmac.new(k, m, 'sha256').digest().hex()\n",
+        "from hmac import new as make_hmac\n"
+        "make_hmac = custom\n"
+        "def use(k, m): return make_hmac(k, m, 'sha256').digest().hex()\n",
+        "import hmac\ndef use(hmac, k, m): return hmac.new(k, m, 'sha256').digest().hex()\n",
+        "import hmac\ndef use(value: hmac.HMAC | None): return value.digest().hex()\n",
+        "import hmac\ndef use(k, m): return hmac.new(k, m, 'sha256').hexdigest()\n",
+    ],
+)
+def test_unproven_hmac_result_methods_stay_unknown(source):
+    module = _parsed_module(source)
+    collect_imports([module], set(), {}, namespace="sample")
+    rows = collect_calls([module], build_symbol_index([]), {})
+    hmac_targets = {"hmac.HMAC.digest", "builtins.bytes.hex", "hmac.HMAC.hexdigest"}
+    assert not any(
+        row["data"]["targets"] and row["data"]["targets"][0] in hmac_targets for row in rows
+    )
+
+
+def test_hmac_result_methods_need_their_compiler_scope():
+    module = _parsed_module(
+        "import hmac\ndef use(k, m): return hmac.new(k, m, 'sha256').digest().hex()\n"
+    )
+    collect_imports([module], set(), {}, namespace="sample")
+    module.source = "def incomplete("
+    rows = collect_calls([module], build_symbol_index([]), {})
+    assert not any(
+        row["data"]["targets"]
+        and row["data"]["targets"][0] in {"hmac.HMAC.digest", "builtins.bytes.hex"}
+        for row in rows
+    )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import custom\ndef use(data): return custom.b64encode(data).decode()\n",
+        "import base64\nbase64 = custom\ndef use(data): return base64.b64encode(data).decode()\n",
+        "from base64 import b64encode as encode\n"
+        "encode = custom\ndef use(data): return encode(data).decode()\n",
+        "from secrets import token_bytes as make_token\n"
+        "def use(make_token): return make_token(16).hex()\n",
+        "import base64\nif enabled: base64 = custom\n"
+        "def use(data): return base64.b64encode(data).decode()\n",
+        "def use(value: bytes): return value.decode()\n",
+        "def use(value: bytes | None): return value.decode()\n",
+        "def use(): return b'value'.decode()\n",
+    ],
+)
+def test_unproven_stdlib_byte_result_bindings_stay_unknown(source):
+    module = _parsed_module(source)
+    collect_imports([module], set(), {}, namespace="sample")
+    rows = collect_calls([module], build_symbol_index([]), {})
+    byte_method_targets = {
+        "builtins.bytes.decode",
+        "builtins.bytes.hex",
+        "builtins.bytes.rstrip",
+    }
+    assert not any(
+        row["data"]["targets"] and row["data"]["targets"][0] in byte_method_targets for row in rows
+    )
+
+
+def test_stdlib_byte_result_needs_its_compiler_scope():
+    module = _parsed_module(
+        "import base64\ndef use(data): return base64.b64encode(data).decode()\n"
+    )
+    collect_imports([module], set(), {}, namespace="sample")
+    module.source = "def incomplete("
+    rows = collect_calls([module], build_symbol_index([]), {})
+    assert not any(row["data"]["targets"] == ["builtins.bytes.decode"] for row in rows)
+
+
+@pytest.mark.parametrize("source", ["str.split('a,b', ',')", "def use(): return str.split('a')"])
+def test_unshadowed_builtin_class_methods_keep_partial_evidence(source):
+    rows = collect_calls([_parsed_module(source)], build_symbol_index([]), {})
+    call = next(row["data"] for row in rows if row["data"]["expression"] == "str.split")
+    assert call["status"] == "partially_resolved"
+    assert call["targets"] == ["builtins.str.split"]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "def use(str): return str.split('value')",
+        "def use():\n str = other\n return str.split('value')",
+        "if enabled: str = other\nstr.split('value')",
+        "from custom import str\nstr.split('value')",
+        "class str:\n def split(self): pass\n def use(self): return str.split(self)",
+        "str.madeup('value')",
+    ],
+)
+def test_builtin_class_method_resolution_keeps_shadowing_and_method_table_boundaries(source):
+    module = _parsed_module(source)
+    collect_imports([module], {module.module}, {}, namespace="sample")
+    rows = collect_calls([module], build_symbol_index([]), {})
+    call = next(
+        row["data"] for row in rows if row["data"]["expression"] in {"str.split", "str.madeup"}
+    )
+    assert "builtins.str.split" not in call["targets"]
+    if source == "str.madeup('value')":
+        assert call["status"] == "unresolved" and call["targets"] == []
+
+
+def test_unbound_non_builtin_type_does_not_use_builtin_class_method_evidence():
+    rows = collect_calls([_parsed_module("Path.read_text('value')")], build_symbol_index([]), {})
+    call = next(row["data"] for row in rows if row["data"]["expression"] == "Path.read_text")
+    assert call["status"] == "unresolved" and call["targets"] == []
+
+
 def _receiver_repository(tmp_path):
     contract = copy.deepcopy(
         json.loads((ROOT / "docs/architecture/contracts/python.json").read_text())

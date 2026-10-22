@@ -297,6 +297,51 @@ def test_source_process_preserves_and_validates_inventory(tmp_path, alter):
             decode_response(encoded)
 
 
+@pytest.mark.parametrize(
+    "parent", ["owner", "other", "", None, False, 1, (), ("owner",), RecordData(), [], {}]
+)
+@pytest.mark.parametrize("claimed", [False, True])
+def test_method_inventory_needs_the_exact_string_parent(parent, claimed):
+    from test_source_evaluation import _facts
+
+    from archkeel.ir.facts_validation import _member_inventory_bindings
+
+    seed = _facts().sections[0].records[0]
+    inventory = RecordData(
+        (
+            ("schema_version", "1.0.0"),
+            ("kind", "method"),
+            ("status", "complete"),
+            ("definition_ids", ("method",) if claimed else ()),
+        )
+    )
+    attributes = RecordData(
+        (
+            ("schema_version", "1.0.0"),
+            ("kind", "attribute"),
+            ("status", "complete"),
+            ("definition_ids", ()),
+        )
+    )
+    owner = replace(
+        seed,
+        id="owner",
+        kind="class",
+        data=RecordData(
+            (("member_inventories", (attributes, inventory)), ("attribute_declarations", ()))
+        ),
+    )
+    method = replace(
+        seed, id="method", kind="method", data=RecordData((("lexical_parent_id", parent),))
+    )
+    for records in ([owner, method], [method, owner]):
+        if claimed is (parent == "owner"):
+            _member_inventory_bindings(records)
+        else:
+            with pytest.raises(ValueError, match="inventory identities"):
+                _member_inventory_bindings(records)
+
+
 def test_member_inventory_schema_is_generated_from_the_source_dataclass():
     import json
 

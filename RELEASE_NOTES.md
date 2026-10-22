@@ -1,3 +1,10 @@
+# ArchKeel 4.0.2 — planned
+
+- **Less repeated Python validation work.** Member-inventory validation groups methods by lexical parent once per inventory pass. Dynamic-namespace scans reuse their fixed-syntax result while alias bindings are unchanged. These behavior-preserving changes reduce repeated scanning; they do not guarantee a wall-time budget on every project or runner.
+- **Bounded large-graph views.** Module and atlas diagrams skip layout above their budgets while retaining recorded facts. Search, Health check and Open selected remain available; edge pulses run only while an item is emphasized.
+- **Builtin class methods retain partial call evidence.** Unshadowed builtin receiver names resolve through the deterministic method table; lexical bindings and unlisted methods remain unresolved by this rule.
+- **Documented byte results retain partial call evidence.** Import-proven `base64`, `hmac` and `secrets` results support the closed `bytes.decode`, `bytes.hex` and `bytes.rstrip` method table. Import-proven `hmac.new().digest().hex()` chains also receive partial targets; HMAC runtime behavior is not inferred.
+
 # ArchKeel 4.0.1 — Exact dependency rules and typed controls
 
 Declare narrower component APIs and check more native source evidence.
