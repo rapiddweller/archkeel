@@ -191,8 +191,7 @@ def test_ambiguous_and_shadowed_receivers_stay_unresolved(source):
             "subprocess.Popen.poll",
         ),
         (
-            "import subprocess as sp\n"
-            "def use(process: sp.Popen[bytes]): process.wait()\n",
+            "import subprocess as sp\ndef use(process: sp.Popen[bytes]): process.wait()\n",
             "process.wait",
             "subprocess.Popen.wait",
         ),
@@ -217,14 +216,12 @@ def test_ambiguous_and_shadowed_receivers_stay_unresolved(source):
             "threading.Thread.start",
         ),
         (
-            "import threading as th\n"
-            "def use():\n ready = th.Event()\n ready.is_set()\n",
+            "import threading as th\ndef use():\n ready = th.Event()\n ready.is_set()\n",
             "ready.is_set",
             "threading.Event.is_set",
         ),
         (
-            "from threading import Event as Ready\n"
-            "def use(ready: Ready): ready.set()\n",
+            "from threading import Event as Ready\ndef use(ready: Ready): ready.set()\n",
             "ready.set",
             "threading.Event.set",
         ),
@@ -244,13 +241,11 @@ def test_import_bound_external_receiver_calls_are_partial(source, expression, ta
         ("def use(process: Popen): process.poll()\n", "process.poll"),
         ("def use(process: subprocess.Popen[bytes]): process.poll()\n", "process.poll"),
         (
-            "from subprocess import Popen as Child\n"
-            "def use(process: Child[str]): process.poll()\n",
+            "from subprocess import Popen as Child\ndef use(process: Child[str]): process.poll()\n",
             "process.poll",
         ),
         (
-            "from threading import Event as Ready\n"
-            "def use(ready: Ready[int]): ready.set()\n",
+            "from threading import Event as Ready\ndef use(ready: Ready[int]): ready.set()\n",
             "ready.set",
         ),
         (
@@ -280,6 +275,12 @@ def test_import_bound_external_receiver_calls_are_partial(source, expression, ta
             "def use(worker: Worker | None): worker.join()\n",
             "worker.join",
         ),
+        (
+            "from typing import Optional\n"
+            "from threading import Thread as Worker\n"
+            "def use(worker: Optional[Worker]): worker.join()\n",
+            "worker.join",
+        ),
     ],
 )
 def test_unproven_external_receiver_annotations_stay_unresolved(source, expression):
@@ -292,8 +293,7 @@ def test_unproven_external_receiver_annotations_stay_unresolved(source, expressi
 
 def test_external_receiver_annotation_needs_its_compiler_scope():
     module = _parsed_module(
-        "from subprocess import Popen as Child\n"
-        "def use(process: Child[bytes]): process.poll()\n"
+        "from subprocess import Popen as Child\ndef use(process: Child[bytes]): process.poll()\n"
     )
     collect_imports([module], set(), {}, namespace="sample")
     module.source = "def incomplete("

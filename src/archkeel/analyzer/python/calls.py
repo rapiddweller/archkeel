@@ -240,9 +240,7 @@ def _value_receiver_type(
     return None
 
 
-def _annotation_receiver_type(
-    annotation: ast.expr | None, scopes: LexicalScopes
-) -> str | None:
+def _annotation_receiver_type(annotation: ast.expr | None, scopes: LexicalScopes) -> str | None:
     """Read a supported receiver annotation, requiring imports for external types."""
     if annotation is None:
         return None
@@ -252,14 +250,20 @@ def _annotation_receiver_type(
     base = annotation.value if isinstance(annotation, ast.Subscript) else annotation
     dotted = dotted_expression(base)
     if dotted is not None:
-        parts = dotted.split(".")
-        binding = scopes.lookup(base, parts[0])
+        root = base
+        suffix = ""
+        while isinstance(root, ast.Attribute):
+            suffix = f".{root.attr}{suffix}"
+            root = root.value
+        if not isinstance(root, ast.Name):
+            return annotation_receiver_type(annotation_text(base))
+        binding = scopes.lookup(root, root.id)
         if (
             binding.kind in {BindingKind.MODULE, BindingKind.SYMBOL}
             and not binding.uncertain
             and len(binding.targets) == 1
         ):
-            qualified = ".".join((binding.targets[0], *parts[1:]))
+            qualified = f"{binding.targets[0]}{suffix}"
             receiver = imported_annotation_receiver_type(qualified)
             if receiver is not None:
                 if isinstance(annotation, ast.Subscript) and (
