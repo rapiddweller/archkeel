@@ -1,4 +1,4 @@
-# ArchKeel 4.0.2 — planned
+# ArchKeel 4.0.2 — Bounded reports and collector fixes
 
 - **Less repeated Python validation work.** Member-inventory validation groups methods by lexical parent once per inventory pass. Dynamic-namespace scans reuse their fixed-syntax result while alias bindings are unchanged. These behavior-preserving changes reduce repeated scanning; they do not guarantee a wall-time budget on every project or runner.
 - **Bounded large-graph views.** Module and atlas diagrams skip layout above their budgets while retaining recorded facts. Search, Health check and Open selected remain available; edge pulses run only while an item is emphasized.
