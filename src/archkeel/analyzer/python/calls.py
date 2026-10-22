@@ -320,7 +320,10 @@ def _assignment_name_values(statement: ast.Assign) -> list[tuple[ast.Name, ast.e
 
 
 class CallCollector(ast.NodeVisitor):
-    include_guarded_effects = True  # AD-257: collect_calls_with_resolvers narrows it per scan
+    # AD-257: collect_calls_with_resolvers narrows these per scan.
+    include_guarded_effects = True
+    include_extended_bindings = True
+    include_call_arguments = True
 
     def __init__(
         self,
@@ -629,6 +632,8 @@ class CallCollector(ast.NodeVisitor):
 
     def _stored_type(self, node: ast.Attribute) -> tuple[str, list[str], dict[str, object]] | None:
         """Prove a field copied once from one typed initializer parameter."""
+        if not self.include_extended_bindings:
+            return None
         context = self._stored_initializer_context(node)
         if context is None:
             return None
@@ -1020,6 +1025,8 @@ class CallCollector(ast.NodeVisitor):
     def _constructed_type(
         self, expression: ast.expr, call_site: ast.expr
     ) -> tuple[str, list[str], dict[str, object]] | None:
+        if not self.include_extended_bindings:
+            return None
         if isinstance(expression, ast.Name):
             binding = self.scopes.lookup(expression, expression.id)
             if (
@@ -1571,7 +1578,8 @@ class CallCollector(ast.NodeVisitor):
     ) -> RecordData | None:
         if node.func.end_lineno != node.func.lineno:
             return None
-        native = self._native_call(node)
+        extended = self.include_extended_bindings
+        native = self._native_call(node) if extended else None
         if native is not None:
             target, origin, witness, proof = native
             return {
@@ -1583,7 +1591,7 @@ class CallCollector(ast.NodeVisitor):
         direct = self._direct_call_binding(node, status, targets, evidence_id)
         if direct is not None:
             return direct
-        constructor = self._constructor_call_binding(node, evidence_id)
+        constructor = self._constructor_call_binding(node, evidence_id) if extended else None
         if constructor is not None:
             return constructor
         return self._receiver_call_binding(node, targets, evidence_id)
@@ -2129,7 +2137,9 @@ class CallCollector(ast.NodeVisitor):
                     "candidates_truncated": candidate_count > len(targets),
                     "reason": reason,
                     "target_evidence_ids": target_evidence_ids,
-                    "call_arguments": self._call_arguments(node, expression, binding),
+                    "call_arguments": self._call_arguments(node, expression, binding)
+                    if self.include_call_arguments
+                    else None,
                     "result_bindings": self._result_bindings(node, item_id),
                     "construction": self._construction(
                         node, expression, status, targets, candidate_count > len(targets)
@@ -2221,6 +2231,8 @@ def collect_calls_with_resolvers(
     imports: Sequence[RawRecord] = (),
     *,
     include_guarded_effects: bool = True,
+    include_extended_bindings: bool = True,
+    include_call_arguments: bool = True,
 ) -> tuple[list[RawRecord], tuple[CallCollector, ...]]:
     """Collect calls and retain their per-module resolver for construct evidence."""
     calls: list[RawRecord] = []
@@ -2245,6 +2257,8 @@ def collect_calls_with_resolvers(
     revocation_cache: dict[str, bool] = {}
     for call_collector in collectors:
         call_collector.include_guarded_effects = include_guarded_effects
+        call_collector.include_extended_bindings = include_extended_bindings
+        call_collector.include_call_arguments = include_call_arguments
         call_collector.native_mutation_collectors = tuple(collectors)
         call_collector.native_revocation_cache = revocation_cache
     for call_collector in collectors:

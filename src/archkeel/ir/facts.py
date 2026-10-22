@@ -308,6 +308,15 @@ _CALL_BINDING_PROOF_FIELDS = {
 
 CALL_BINDINGS_FEATURE = "canonical_call_bindings"
 EXTENDED_CALL_BINDINGS_FEATURE = "extended_call_bindings"
+EXTENDED_CALL_BINDING_ORIGINS: Final = frozenset(
+    {
+        CallBindingOrigin.STORED_RECEIVER,
+        CallBindingOrigin.CONSTRUCTED_RECEIVER,
+        CallBindingOrigin.CONSTRUCTOR,
+        CallBindingOrigin.NATIVE,
+        CallBindingOrigin.NATIVE_RECEIVER,
+    }
+)
 NATIVE_CALL_TARGETS = frozenset(
     {
         "random.Random",
@@ -355,16 +364,16 @@ class CallArgumentValueKind(StrEnum):
 
 CALL_ARGUMENTS_FEATURE = "call_arguments"
 # AD-257: base families are always collected; gated families only when a declared rule uses them.
-BASE_RESOLUTION_FEATURES: Final = (
-    CALL_BINDINGS_FEATURE,
-    EXTENDED_CALL_BINDINGS_FEATURE,
-    CALL_ARGUMENTS_FEATURE,
-)
+NUMERIC_OPERANDS_FEATURE = "numeric_operands"
+BASE_RESOLUTION_FEATURES: Final = (CALL_BINDINGS_FEATURE,)
 RULE_FAMILY_NOT_COLLECTED_KIND: Final = "rule-family-not-collected"
 GATED_RESOLUTION_FEATURES: Final = (
+    EXTENDED_CALL_BINDINGS_FEATURE,
+    CALL_ARGUMENTS_FEATURE,
     GUARDED_EFFECTS_FEATURE,
     SOURCE_ROLES_FEATURE,
     CONSTRUCT_SELECTORS_FEATURE,
+    NUMERIC_OPERANDS_FEATURE,
 )
 
 
@@ -658,17 +667,7 @@ def call_binding(value: JsonValue) -> CallBinding | None:
     if proof is not None and not isinstance(proof, RecordData):
         raise ValueError("invalid call binding proof")
     parsed_origin = CallBindingOrigin(origin)
-    if (
-        parsed_origin
-        in {
-            CallBindingOrigin.STORED_RECEIVER,
-            CallBindingOrigin.CONSTRUCTED_RECEIVER,
-            CallBindingOrigin.CONSTRUCTOR,
-            CallBindingOrigin.NATIVE,
-            CallBindingOrigin.NATIVE_RECEIVER,
-        }
-        and proof is None
-    ):
+    if parsed_origin in EXTENDED_CALL_BINDING_ORIGINS and proof is None:
         raise ValueError("extended call binding needs a typed origin proof")
     if proof is not None:
         _validate_call_binding_proof(proof, parsed_origin, target, evidence)

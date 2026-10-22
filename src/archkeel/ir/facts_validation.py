@@ -17,11 +17,13 @@ from .facts import (
     CALL_ARGUMENTS_FEATURE,
     CALL_BINDINGS_FEATURE,
     CONSTRUCT_SELECTORS_FEATURE,
+    EXTENDED_CALL_BINDING_ORIGINS,
     EXTENDED_CALL_BINDINGS_FEATURE,
     GUARDED_EFFECTS_FEATURE,
     MAX_NUMERIC_EVIDENCE_CHARS,
     MAX_STATIC_INTEGER,
     NATIVE_CALL_TARGETS,
+    NUMERIC_OPERANDS_FEATURE,
     SOURCE_RESOLUTION_GAP_KIND,
     SOURCE_ROLES_FEATURE,
     BuiltinTarget,
@@ -6054,6 +6056,8 @@ def validate_source_facts(facts: SourceFacts) -> None:
                 function_contexts,
             )
             if section.name is SourceSectionName.CONSTRUCTS and record.kind == "numeric_operand":
+                if NUMERIC_OPERANDS_FEATURE not in resolution_features:
+                    raise ValueError("numeric operand facts require their declared capability")
                 operation_span = (
                     record.data.get("line"),
                     record.data.get("column"),
@@ -6145,6 +6149,12 @@ def validate_source_facts(facts: SourceFacts) -> None:
         for record in records
     ):
         raise ValueError("source role facts require their declared capability")
+    if not {EXTENDED_CALL_BINDINGS_FEATURE, CONSTRUCT_SELECTORS_FEATURE} & set(resolution_features):
+        if any(
+            record.kind == "class" and record.data.get("instance_member_scope_evidence_id")
+            for record in records
+        ):
+            raise ValueError("member-write witnesses require their declared capability")
     declarations: dict[str, list[Record]] = {}
     for symbol_section in facts.sections:
         if symbol_section.name is not SourceSectionName.SYMBOLS:
@@ -6166,7 +6176,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
             ):
                 raise ValueError("complete call consideration needs explicit arguments")
             if (
-                argument_field
+                record.data.get("call_arguments") is not None
                 and CALL_ARGUMENTS_FEATURE not in facts.capabilities.resolution_features
             ):
                 raise ValueError("call arguments require their declared capability")
@@ -6195,14 +6205,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
                     raise ValueError("call arguments disagree with their source expression")
             if (
                 call_proof is not None
-                and call_proof.origin
-                in {
-                    CallBindingOrigin.STORED_RECEIVER,
-                    CallBindingOrigin.CONSTRUCTED_RECEIVER,
-                    CallBindingOrigin.CONSTRUCTOR,
-                    CallBindingOrigin.NATIVE,
-                    CallBindingOrigin.NATIVE_RECEIVER,
-                }
+                and call_proof.origin in EXTENDED_CALL_BINDING_ORIGINS
                 and EXTENDED_CALL_BINDINGS_FEATURE not in facts.capabilities.resolution_features
             ):
                 raise ValueError("extended call binding needs its declared capability")
@@ -6266,10 +6269,17 @@ def validate_source_facts(facts: SourceFacts) -> None:
                 if CONSTRUCT_SELECTORS_FEATURE not in resolution_features:
                     raise ValueError("construct selector facts require their declared capability")
                 receiver_parameter = record.data.get("receiver_parameter")
+                receiver_proof = call_binding(record.data.get("receiver_binding"))
+                if (
+                    receiver_proof is not None
+                    and receiver_proof.origin in EXTENDED_CALL_BINDING_ORIGINS
+                    and EXTENDED_CALL_BINDINGS_FEATURE not in resolution_features
+                ):
+                    raise ValueError("extended call binding needs its declared capability")
                 _selector_receiver_proof(
                     facts,
                     record,
-                    call_binding(record.data.get("receiver_binding")),
+                    receiver_proof,
                     receiver_parameter if isinstance(receiver_parameter, str) else None,
                     declarations,
                     typed_evidence,

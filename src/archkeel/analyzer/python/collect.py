@@ -26,9 +26,12 @@ from archkeel.analyzer.runtime import (
     python_requirement,
 )
 from archkeel.ir.facts import (
+    CALL_ARGUMENTS_FEATURE,
     CONSTRUCT_SELECTORS_FEATURE,
+    EXTENDED_CALL_BINDINGS_FEATURE,
     GUARDED_EFFECTS_FEATURE,
     NATIVE_CALL_TARGETS,
+    NUMERIC_OPERANDS_FEATURE,
     SOURCE_ROLES_FEATURE,
     BuiltinTarget,
     Capabilities,
@@ -444,6 +447,10 @@ def collect(request: CollectionRequest) -> SourceFacts:
         evidence,
         unsafe_creation_providers=unsafe_creation_providers,
         unsafe_source_header_providers=explicit_factory_unsafe_providers(imports, modules),
+        # Only constructed-receiver proofs and selector receivers replay the class-body witness.
+        include_member_write_witnesses=bool(
+            {EXTENDED_CALL_BINDINGS_FEATURE, CONSTRUCT_SELECTORS_FEATURE} & set(collected_features)
+        ),
     )
     if request.protocol_version in {
         ProtocolVersion.V4,
@@ -462,6 +469,8 @@ def collect(request: CollectionRequest) -> SourceFacts:
         runtime,
         imports,
         include_guarded_effects=GUARDED_EFFECTS_FEATURE in collected_features,
+        include_extended_bindings=EXTENDED_CALL_BINDINGS_FEATURE in collected_features,
+        include_call_arguments=CALL_ARGUMENTS_FEATURE in collected_features,
     )
     dynamic_imports, dynamic_limits = collect_dynamic_imports(
         modules, calls, imports, evidence, namespace=request.scope.namespace
@@ -484,6 +493,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         include_parameter_owner_proof=request.protocol_version
         in {ProtocolVersion.V5, ProtocolVersion.V6, ProtocolVersion.V7},
         include_selectors=CONSTRUCT_SELECTORS_FEATURE in collected_features,
+        include_numeric_operands=NUMERIC_OPERANDS_FEATURE in collected_features,
     )
     typed_symbols = tuple(parse_record(symbol) for symbol in symbols)
     state, state_evidence = collect_state(modules, typed_symbols, symbol_nodes, symbol_owners)

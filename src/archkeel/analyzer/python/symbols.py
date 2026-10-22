@@ -312,6 +312,7 @@ def _symbol_data(
     parent_node: ast.ClassDef | None = None,
     *,
     evidence: dict[str, RawEvidence],
+    witnesses: bool = False,
 ) -> RecordData:
     data: RecordData = {
         "qualified_name": qualname,
@@ -325,7 +326,7 @@ def _symbol_data(
         "decorators": decorator_names(node),
     }
     if isinstance(node, ast.ClassDef):
-        data.update(_class_symbol_data(module, node, evidence, member_escapes))
+        data.update(_class_symbol_data(module, node, evidence, member_escapes, witnesses))
         if guard_members := _guard_boolean_member_declarations(node, module, evidence):
             data["guard_boolean_members"] = guard_members
         if data["source_binding_unique"] is True and (
@@ -422,6 +423,7 @@ def _class_symbol_data(
     node: ast.ClassDef,
     evidence: dict[str, RawEvidence],
     member_escapes: frozenset[str],
+    witnesses: bool,
 ) -> RecordData:
     attributes = _class_attribute_declarations(node, module, evidence)
     instance_member_writes = class_instance_member_write_names(node)
@@ -448,7 +450,9 @@ def _class_symbol_data(
         "class_header_static": class_header_static(node),
         "class_members": _class_member_names(node),
         "instance_member_writes": list(instance_member_writes),
-        "instance_member_scope_evidence_id": _member_write_scope_evidence(module, node, evidence),
+        "instance_member_scope_evidence_id": (
+            _member_write_scope_evidence(module, node, evidence) if witnesses else None
+        ),
         "class_body_control_flow": any(
             isinstance(
                 child,
@@ -1075,6 +1079,27 @@ def _module_assignment_symbols(
     return symbols
 
 
+def _default_instance_result(
+    module: ParsedModule,
+    node: ast.ClassDef,
+    parent_node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef | None,
+    contexts: DefinitionContexts,
+    data: RecordData,
+) -> bool:
+    return (
+        parent_node is None
+        and node.name in stable_direct_module_bindings(module)
+        and not contexts
+        and not node.bases
+        and not node.keywords
+        and not node.decorator_list
+        and not data["class_body_control_flow"]
+        and _default_constructor_body(node)
+        and "__new__" not in data["class_members"]
+        and "__init__" not in data["class_members"]
+    )
+
+
 def _definition_symbol(
     module: ParsedModule,
     node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
@@ -1086,10 +1111,18 @@ def _definition_symbol(
     contexts: DefinitionContexts,
     member_escapes: frozenset[str],
     overload_bindings: frozenset[str],
+    include_member_write_witnesses: bool,
 ) -> RawRecord:
     classifier = parent_node if isinstance(parent_node, ast.ClassDef) else None
     data = _symbol_data(
-        module, node, qualname, parent, member_escapes, classifier, evidence=evidence
+        module,
+        node,
+        qualname,
+        parent,
+        member_escapes,
+        classifier,
+        evidence=evidence,
+        witnesses=include_member_write_witnesses,
     )
     data["namespace_bound"] = namespace_bound
     if parent_node is None and isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
@@ -1114,17 +1147,8 @@ def _definition_symbol(
             and module.bound_names.count(node.name) == 1
         )
     if isinstance(node, ast.ClassDef):
-        data["default_instance_result"] = (
-            parent_node is None
-            and node.name in stable_direct_module_bindings(module)
-            and not contexts
-            and not node.bases
-            and not node.keywords
-            and not node.decorator_list
-            and not data["class_body_control_flow"]
-            and _default_constructor_body(node)
-            and "__new__" not in data["class_members"]
-            and "__init__" not in data["class_members"]
+        data["default_instance_result"] = _default_instance_result(
+            module, node, parent_node, contexts, data
         )
     data["definition_contexts"] = [
         {
@@ -1196,6 +1220,7 @@ def collect_symbols(
     *,
     unsafe_creation_providers: frozenset[str] = frozenset(),
     unsafe_source_header_providers: frozenset[str] = frozenset(),
+    include_member_write_witnesses: bool = True,
 ) -> tuple[list[RawRecord], dict[str, ast.AST], dict[ast.AST, ParsedModule]]:
     symbols: list[RawRecord] = []
     nodes: dict[str, ast.AST] = {}
@@ -1229,6 +1254,7 @@ def collect_symbols(
                 contexts,
                 member_escapes,
                 overload_bindings,
+                include_member_write_witnesses,
             )
             if isinstance(node, ast.ClassDef) and typed_dict_header_static(
                 module, node, unsafe_native_providers

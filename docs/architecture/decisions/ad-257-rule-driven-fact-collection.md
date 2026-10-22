@@ -10,15 +10,15 @@ One function, `required_resolution_features(contract, inside_contracts)` in
 | Family (resolution feature) | Collected records | Rule kinds that use it |
 |---|---|---|
 | `source_roles` | `source_role` records; references marked `local_source_binding` | `source_ownership`, `catalog_use`, `catalog_argument` (reads write and delete roles) |
-| `construct_selectors` | `construct_selector` records; member-write witnesses (kept while `extended_call_bindings` is always collected) | `forbidden_construct` with `selector` |
-| `guarded_effect_paths` | `guarded_effect` call data | `forbidden_effect_under_condition` |
-| `call_arguments` | call argument facts | `forbidden_call_argument`, `catalog_argument`, `catalog_use` |
-| `extended_call_bindings` | stored, constructed, constructor and native bindings; member-write witnesses | `call_owner`, `catalog_*`, `forbidden_effect_under_condition`, selector rules |
-| `numeric_operands` | `numeric_operand` records | `bounded_numeric_operand` |
+| `construct_selectors` | `construct_selector` records | `forbidden_construct` with `selector` (also `extended_call_bindings`) |
+| `guarded_effect_paths` | `guarded_effect` call data | `forbidden_effect_under_condition` (also `extended_call_bindings`, `call_arguments`: helper actuals) |
+| `call_arguments` | written arguments of every call; the field stays `null` otherwise | `forbidden_call_argument` (also `extended_call_bindings`), `catalog_argument`, `catalog_use` |
+| `extended_call_bindings` | stored, constructed, constructor and native bindings; class-body member-write witnesses, also kept for `construct_selectors` | `call_owner`, `catalog_*`, `forbidden_effect_under_condition`, selector rules |
+| `numeric_operands` | `numeric_operand` records and their type-alias evidence | `bounded_numeric_operand` |
 
 The collector always collects these base facts:
 - symbols and imports;
-- calls with their targets and canonical bindings;
+- calls with their targets and canonical (direct and declared-receiver) bindings;
 - bindings and typing signals;
 - constructs without selectors;
 - unknowns;
@@ -62,9 +62,9 @@ Neither contract declares any of these rule kinds. The gated families make up ab
 - Facts collected without a family, combined with a contract that adds a rule needing
   it, produce `rule-family-not-collected`, exit 2, no receipt and no violations.
 - A response whose features differ from the request is a protocol error.
-- On ArchKeel and EE, the report keeps its rule results and returns close to the
-  pre-#646 size and run time.
+- On ArchKeel and EE, the report keeps its rule results and returns close to the pre-#646 size and run time.
 - PR CI shards stay under 10 minutes.
 
 **Note.** The unreferenced-symbol claim counts references. Without `source_roles`, it
-returns to the pre-#646 counting, which did not include local reads.
+returns to the pre-#646 counting, which did not include local reads. Without
+`extended_call_bindings`, a call only such a proof resolves keeps its name-based target.

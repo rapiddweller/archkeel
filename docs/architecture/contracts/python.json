@@ -917,7 +917,7 @@
           "responsibilities": [
             "Collect written construct facts using scanned literal providers and canonical import origins without runtime namespace claims.",
             "Keep legacy V3/V4 wire shapes by disabling receiver-owner proof fields; V5 retains them.",
-            "Emit selector observations only when the scan declares a selector rule (AD-257)."
+            "Emit selector and numeric operand observations only when the scan declares a rule that uses them (AD-257)."
           ],
           "signature": {
             "parameters": [
@@ -956,6 +956,13 @@
               },
               {
                 "name": "include_selectors",
+                "annotation": "bool",
+                "kind": "keyword_only",
+                "default": "True",
+                "default_known": true
+              },
+              {
+                "name": "include_numeric_operands",
                 "annotation": "bool",
                 "kind": "keyword_only",
                 "default": "True",

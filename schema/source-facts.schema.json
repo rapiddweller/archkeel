@@ -1539,8 +1539,11 @@
                   "uniqueItems": true,
                   "items": {
                     "enum": [
+                      "call_arguments",
                       "construct_selectors",
+                      "extended_call_bindings",
                       "guarded_effect_paths",
+                      "numeric_operands",
                       "source_roles"
                     ]
                   }

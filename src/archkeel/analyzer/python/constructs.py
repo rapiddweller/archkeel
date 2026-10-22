@@ -669,8 +669,10 @@ class ConstructCollector(ast.NodeVisitor):
         imports: Sequence[RawRecord] = (),
         include_parameter_owner_proof: bool = True,
         include_selectors: bool = True,
+        include_numeric_operands: bool = True,
     ) -> None:
         self.include_selectors = include_selectors
+        self.include_numeric_operands = include_numeric_operands
         self.module = module
         self.evidence = evidence
         self.items: list[RawRecord] = []
@@ -978,7 +980,11 @@ class ConstructCollector(ast.NodeVisitor):
         )
 
     def visit_TypeAlias(self, node: ast.AST) -> None:
-        if sys.version_info >= (3, 12) and isinstance(node, ast.TypeAlias):
+        if (
+            self.include_numeric_operands
+            and sys.version_info >= (3, 12)
+            and isinstance(node, ast.TypeAlias)
+        ):
             self.type_alias_evidence_ids.append(add_evidence(self.evidence, self.module, node))
             self.generic_visit(node)
             self.type_alias_evidence_ids.pop()
@@ -986,12 +992,12 @@ class ConstructCollector(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_BinOp(self, node: ast.BinOp) -> None:
-        if isinstance(node.op, ast.Mod):
+        if self.include_numeric_operands and isinstance(node.op, ast.Mod):
             self._modulo(node, node.left, node.right, "binary")
         self.generic_visit(node)
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
-        if isinstance(node.op, ast.Mod):
+        if self.include_numeric_operands and isinstance(node.op, ast.Mod):
             self._modulo(node, node.target, node.value, "augmented")
         self.generic_visit(node)
 
@@ -1891,6 +1897,7 @@ def collect_constructs(
     symbol_index: SymbolIndex | None = None,
     receiver_resolvers: Sequence[SelectorReceiverResolver] = (),
     include_selectors: bool = True,
+    include_numeric_operands: bool = True,
     include_parameter_owner_proof: bool = True,
 ) -> list[RawRecord]:
     """Collect written constructs using scanned literal providers and resolved import origins."""
@@ -1945,6 +1952,7 @@ def collect_constructs(
             imports_by_module.get(module.module, ()),
             include_parameter_owner_proof,
             include_selectors,
+            include_numeric_operands,
         )
         collector.local_classes = known_classes
         collector.local_members = _class_member_names(module)

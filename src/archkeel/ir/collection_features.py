@@ -6,15 +6,21 @@
 from collections.abc import Sequence
 
 from .facts import (
+    CALL_ARGUMENTS_FEATURE,
     CONSTRUCT_SELECTORS_FEATURE,
+    EXTENDED_CALL_BINDINGS_FEATURE,
     GUARDED_EFFECTS_FEATURE,
+    NUMERIC_OPERANDS_FEATURE,
     SOURCE_ROLES_FEATURE,
 )
 from .model import (
     ArchitectureContract,
     ArchitectureRule,
+    BoundedNumericOperandRule,
+    CallOwnerRule,
     CatalogArgumentRule,
     CatalogUseRule,
+    ForbiddenCallArgumentRule,
     ForbiddenConstructRule,
     ForbiddenEffectUnderConditionRule,
     InsideContractMount,
@@ -24,13 +30,27 @@ from .model import (
 
 def rule_resolution_features(rule: ArchitectureRule) -> frozenset[str]:
     """The only mapping from a rule to the gated families its decision reads."""
-    # catalog_argument reads source_role write/delete facts to prove the target mutates no member.
-    if isinstance(rule, SourceOwnershipRule | CatalogUseRule | CatalogArgumentRule):
+    # catalog_* read source_role write/delete facts to prove the target mutates no member.
+    if isinstance(rule, CatalogUseRule | CatalogArgumentRule):
+        return frozenset(
+            {SOURCE_ROLES_FEATURE, EXTENDED_CALL_BINDINGS_FEATURE, CALL_ARGUMENTS_FEATURE}
+        )
+    if isinstance(rule, SourceOwnershipRule):
         return frozenset({SOURCE_ROLES_FEATURE})
-    if isinstance(rule, ForbiddenConstructRule) and rule.selector is not None:
-        return frozenset({CONSTRUCT_SELECTORS_FEATURE})
+    if isinstance(rule, CallOwnerRule):
+        return frozenset({EXTENDED_CALL_BINDINGS_FEATURE})
+    # A written argument is only attributed to a call whose binding is proven, receivers included.
+    if isinstance(rule, ForbiddenCallArgumentRule):
+        return frozenset({CALL_ARGUMENTS_FEATURE, EXTENDED_CALL_BINDINGS_FEATURE})
+    # Helper actuals are bound from the caller's written call arguments.
     if isinstance(rule, ForbiddenEffectUnderConditionRule):
-        return frozenset({GUARDED_EFFECTS_FEATURE})
+        return frozenset(
+            {GUARDED_EFFECTS_FEATURE, EXTENDED_CALL_BINDINGS_FEATURE, CALL_ARGUMENTS_FEATURE}
+        )
+    if isinstance(rule, ForbiddenConstructRule) and rule.selector is not None:
+        return frozenset({CONSTRUCT_SELECTORS_FEATURE, EXTENDED_CALL_BINDINGS_FEATURE})
+    if isinstance(rule, BoundedNumericOperandRule):
+        return frozenset({NUMERIC_OPERANDS_FEATURE})
     return frozenset()
 
 
