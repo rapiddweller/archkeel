@@ -226,7 +226,7 @@ typescript-compiler-check:
 	npx --yes --package typescript@5.9.3 tsc --noEmit --project fixtures/H-uml-typescript/tsconfig.json
 
 typescript-native: browser-runtime-install
-	$(UV) run --locked python -m pytest -q tests/test_typescript_parse.py \
+	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=loadfile -q tests/test_typescript_parse.py \
 		tests/test_typescript_inner.py tests/test_typescript_uml_acceptance.py \
 		tests/test_typescript_namespace_identities.py \
 		tests/test_typescript_collect.py tests/test_typescript_owned_types.py tests/test_typescript_syntax_types.py tests/test_typescript_syntax_compatibility.py tests/test_typescript_source_input.py \
@@ -237,7 +237,7 @@ typescript-native: browser-runtime-install
 		tests/test_typescript_init_acceptance.py tests/test_typescript_demo.py
 
 dart-test:
-	$(UV) run --locked python -m pytest -q tests/test_dart_*.py \
+	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=loadfile -q tests/test_dart_*.py \
 		tests/test_uml_source_facts.py tests/test_language_collectors.py \
 		tests/test_flutter_demo.py::test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct
 

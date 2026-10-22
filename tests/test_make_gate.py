@@ -474,7 +474,7 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     assert "setup-dart@" not in full
     assert "dart-setup" not in full
     assert "dart-native:" not in full
-    assert "make dart-test SHELL=bash" in full
+    assert "make dart-test TEST_WORKERS=4 SHELL=bash" in full
     assert "setup-dart@" not in workflow
     assert "dart-setup" not in workflow
     assert "if: always()" in full
