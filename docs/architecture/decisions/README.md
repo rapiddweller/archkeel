@@ -267,3 +267,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-257 | [Rule-driven fact collection](ad-257-rule-driven-fact-collection.md) |
 | AD-258 | [The report opens with ranked findings](ad-258-report-opens-with-ranked-findings.md) |
 | AD-259 | [One plain wire, one validation](ad-259-one-plain-wire-one-validation.md) |
+| AD-261 | [TypeScript standard globals come from TypeScript's own lib files](ad-261-typescript-standard-globals-from-lib-files.md) |
