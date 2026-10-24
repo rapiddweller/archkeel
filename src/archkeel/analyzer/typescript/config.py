@@ -263,6 +263,11 @@ _MODULE_DEFAULT_TARGETS: Final[dict[ModuleKind, ScriptTarget]] = {
 }
 
 
+# standard_libs cannot import ScriptTarget (a cycle), so it keys its table by value; key it by the
+# enum here once, which fails at import if the generated table names an unknown target.
+_DEFAULT_LIBS: Final = {ScriptTarget(value): libs for value, libs in DEFAULT_LIBS.items()}
+
+
 def _default_target(options: Options) -> ScriptTarget:
     target = options.target
     if target is not None and target is not ScriptTarget.ES3:
@@ -287,9 +292,8 @@ def standard_globals(options: Options) -> frozenset[str]:
     """Recognize platform declarations; unlisted globals and runtime mutations stay unproved."""
     if options.no_lib or options.unmodeled or options.ambient_custom:
         return frozenset()
-    # Keyed by the target's value: standard_libs cannot import ScriptTarget without a cycle.
     libraries = (
-        options.libs if options.libs is not None else DEFAULT_LIBS[_default_target(options).value]
+        options.libs if options.libs is not None else _DEFAULT_LIBS[_default_target(options)]
     )
     return frozenset(name for library in _closure(libraries) for name in LIB_GLOBALS[library])
 
