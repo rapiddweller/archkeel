@@ -66,6 +66,12 @@
           "default": 67108864,
           "description": "Finite collector stdout limit in bytes. Raise explicitly for large valid scopes; protocol validation and the complete source scope remain unchanged."
         },
+        "collector_timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 300,
+          "description": "Collector deadline in seconds. Raise it for a large repository that exceeds the default; a timeout still exits without a complete observation."
+        },
         "collector_argv": {
           "type": "array",
           "minItems": 1,

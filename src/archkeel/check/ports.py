@@ -25,6 +25,7 @@ class ScanConfig:
     tsconfig: str | None = None
     collector_argv: tuple[str, ...] | None = None
     collector_output_limit_bytes: int | None = None
+    collector_timeout_seconds: int | None = None
     bundler: bool = False
 
 

@@ -400,6 +400,12 @@ def build_parser() -> _Parser:
         "Default: 67108864 (64 MiB).",
     )
     init.add_argument(
+        "--collector-timeout-seconds",
+        type=int,
+        metavar="SECONDS",
+        help="Positive collector deadline in seconds, saved in archkeel.toml. Default: 300.",
+    )
+    init.add_argument(
         "--collector-argv",
         nargs="+",
         metavar="ARG",
@@ -501,11 +507,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                         collector_argv=tuple(args.collector_argv) if args.collector_argv else None,
                         tsconfig=args.tsconfig or "tsconfig.json",
                         output_limit_bytes=args.collector_output_limit_bytes,
+                        timeout_seconds=args.collector_timeout_seconds,
                     ),
                     language=args.language,
                     tsconfig=args.tsconfig,
                     collector_argv=tuple(args.collector_argv) if args.collector_argv else None,
                     collector_output_limit_bytes=args.collector_output_limit_bytes,
+                    collector_timeout_seconds=args.collector_timeout_seconds,
                 )
                 files = requested_files.entries
             elif command is Command.REPORT and args.input is not None:
@@ -542,6 +550,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         collector_argv=config.collector_argv,
                         tsconfig=config.tsconfig or "tsconfig.json",
                         output_limit_bytes=config.collector_output_limit_bytes,
+                        timeout_seconds=config.collector_timeout_seconds,
                         bundler=config.bundler,
                     ),
                     only_violations=args.only is ReportMode.VIOLATIONS,
@@ -629,6 +638,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         collector_argv=config.collector_argv,
                         tsconfig=config.tsconfig or "tsconfig.json",
                         output_limit_bytes=config.collector_output_limit_bytes,
+                        timeout_seconds=config.collector_timeout_seconds,
                         bundler=config.bundler,
                     ),
                     write_graph=args.write_graph,
@@ -667,6 +677,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         collector_argv=config.collector_argv,
                         tsconfig=config.tsconfig or "tsconfig.json",
                         output_limit_bytes=config.collector_output_limit_bytes,
+                        timeout_seconds=config.collector_timeout_seconds,
                         bundler=config.bundler,
                     ),
                 )

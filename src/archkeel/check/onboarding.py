@@ -417,6 +417,7 @@ def run_init(
     tsconfig: str | None = None,
     collector_argv: tuple[str, ...] | None = None,
     collector_output_limit_bytes: int | None = None,
+    collector_timeout_seconds: int | None = None,
 ) -> tuple[RunResult, FilesToWrite]:
     """Observe the repository and return the onboarding files without writing them."""
     if language == Language.TYPESCRIPT and (not source or not namespace or not tsconfig):
@@ -459,6 +460,7 @@ def run_init(
         tsconfig,
         collector_argv,
         collector_output_limit_bytes=collector_output_limit_bytes,
+        collector_timeout_seconds=collector_timeout_seconds,
     )
     with TemporaryDirectory(prefix="archkeel-init-") as temporary:
         scaffold = Path(temporary)
@@ -505,11 +507,16 @@ def run_init(
         if collector_output_limit_bytes is None
         else f"collector_output_limit_bytes = {collector_output_limit_bytes}\n"
     )
+    timeout_line = (
+        ""
+        if collector_timeout_seconds is None
+        else f"collector_timeout_seconds = {collector_timeout_seconds}\n"
+    )
     files = {
         CONFIG_PATH: (
             f"[scan]\nroots = {json.dumps(roots)}\nnamespace = {json.dumps(namespace)}\n"
             f"contract = {json.dumps(CONTRACT_PATH)}\n"
-            f"{language_line}{tsconfig_line}{collector_line}{output_limit_line}"
+            f"{language_line}{tsconfig_line}{collector_line}{output_limit_line}{timeout_line}"
         ).encode(),
         CONTRACT_PATH: contract_bytes(contract),
         DOCUMENT_PATH: architecture_document(

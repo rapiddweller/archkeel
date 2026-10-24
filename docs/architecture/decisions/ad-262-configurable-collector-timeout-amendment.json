@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "d144860d67b7fa50f9a5087c55bc8922b5ec53709205c9b21b9788ebc66f6371",
+  "after_digest": "2bea4ef3bc429e76d000018e303e447f9636306fe5e0e3f2f5bb155ea98623d8",
+  "before_baseline_digest": "fd560e2316b05f3708603fce12e45fb8032135d1e720d9e581b72da1f05a9904",
+  "before_digest": "eb6ec8cf2b04739b345280358a60e3182a2a7584bfff636aba6e3dc9db4de70e",
+  "decided_by": "Alexander Kell (architect), AD-262",
+  "rationale": "AD-262 makes the collector deadline configurable like the output limit (AD-224). The check contract's run_init gains the keyword-only collector_timeout_seconds. The calls_unresolved budget rises from 811 to 812 for one new argparse add_argument call (init --collector-timeout-seconds), a call the analyzer cannot resolve.",
+  "schema_version": "2.0.0"
+}
