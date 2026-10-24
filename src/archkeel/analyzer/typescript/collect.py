@@ -52,7 +52,15 @@ from archkeel.ir.facts_codec import (
 from archkeel.ir.identity import module_identity
 from archkeel.ir.protocol import CollectionRequest, TypeScriptSettings
 
-from .config import ModuleKind, Snapshot, join, load_config, standard_globals, within
+from .config import (
+    ModuleKind,
+    ModuleResolution,
+    Snapshot,
+    join,
+    load_config,
+    standard_globals,
+    within,
+)
 from .parse import parse, umd_publication
 from .resolve import Found, Resolver, Unknown
 from .source_input import (
@@ -60,6 +68,7 @@ from .source_input import (
     PathToken,
     SourceKind,
     SpecifierKind,
+    classify_asset,
     classify_file,
     classify_specifier,
 )
@@ -118,6 +127,9 @@ _SECTIONS: tuple[SourceSectionName, ...] = (
 )
 # What the compiler's `trim()` removes, which Python's `strip()` does not match exactly.
 _WHITESPACE: Final = " \t\n\v\f\r                 　﻿"
+# The reserved identity of an asset edge; a colon cannot occur in an npm package name.
+BUNDLER_ASSET: Final = "bundler:asset"
+_BUNDLER_FEATURE: Final = "bundler-mode-v1"
 _FEATURES: Final = (
     "literal-imports",
     "relative-specifiers",
@@ -206,6 +218,12 @@ class _Collection:
         self.snapshot = Snapshot(request.snapshot.root)
         self.config = load_config(self.snapshot, settings.tsconfig, self.roots)
         self.resolver = Resolver(self.snapshot, self.config)
+        self.requested_bundler = settings.bundler
+        self.bundler = (
+            settings.bundler
+            and self.resolver.blocked is None
+            and self.config.options.resolution is ModuleResolution.BUNDLER
+        )
         # Every file to read, in discovery order; an entry added while walking is walked too.
         self.queue: list[str] = list(self.config.files)
         self.evidence: dict[str, RawEvidence] = {}
@@ -233,6 +251,8 @@ class _Collection:
 
     def facts(self) -> SourceFacts:
         index = 0
+        if self.requested_bundler and not self.bundler and self.resolver.blocked is None:
+            self._gap("Bundler mode requires moduleResolution bundler", kind=_GapKind.RESOLUTION)
         while index < len(self.queue):
             self._file(self.queue[index])
             index += 1
@@ -285,7 +305,8 @@ class _Collection:
                     if self.import_binding_facts
                     or any(self._global_dependency_scope(rel) for rel in self.syntax)
                     else ()
-                ),
+                )
+                + ((_BUNDLER_FEATURE,) if self.bundler else ()),
                 (
                     ConstructCapability(
                         ForbiddenConstructKind.STRING_LITERAL_COMPARE, ConstructSupport.PARTIAL
@@ -2025,12 +2046,32 @@ class _Collection:
             mode = ModuleFormat.CJS if form is not None else None
         found = self.resolver.resolve(specifier, rel, mode, prefer_builtin=not reference.type_only)
         if isinstance(found, Unknown):
+            if self.bundler and found.package_internal and source.npm_package:
+                # The bundler picks the file inside the package; the package is the dependency.
+                return ExternalPackageTarget(identity, source.package)
             return self._unresolved(module, identity, specifier, found.reason)
         if found is None:
             if source.builtin:
                 return BuiltinTarget(identity, specifier)
+            asset = self._bundler_asset(rel, identity, specifier) if self.bundler else None
+            if asset is not None:
+                return asset
             return self._unresolved(module, identity, specifier, f"Unresolved module: {specifier}")
         return self._local(rel, module, reference, identity, found)
+
+    def _bundler_asset(self, rel: str, identity: str, specifier: str) -> ImportTarget | None:
+        """An existing asset a bundler loads itself; a missing one stays an unresolved module."""
+        path = classify_asset(specifier)
+        source = classify_specifier(specifier)
+        if path is None:
+            return None
+        if source.relative_path and self.resolver.file_exists(rel, path):
+            return ExternalPackageTarget(identity, BUNDLER_ASSET)
+        if not source.relative and self.resolver.alias_file_exists(path):
+            return ExternalPackageTarget(identity, BUNDLER_ASSET)
+        if source.npm_package and self.resolver.package_file_exists(rel, path):
+            return ExternalPackageTarget(identity, source.package)
+        return None
 
     def _local(
         self, rel: str, module: str, reference: Reference, identity: str, found: Found
@@ -2053,6 +2094,14 @@ class _Collection:
             else:
                 return ExternalPackageTarget(identity, source.package)
             return self._unresolved(module, identity, specifier, reason)
+        if self.bundler and not (
+            self._selected(path) and suffix is not None and suffix.source_kind is not None
+        ):
+            if classify_asset(path) is not None:
+                return ExternalPackageTarget(identity, BUNDLER_ASSET)
+            if found.via_paths and not source.relative and source.npm_package:
+                # A workspace alias outside the scan roots is a dependency on that package.
+                return ExternalPackageTarget(identity, source.package)
         type_only = reference.type_only
         relative = source.relative_path
         lookup = join(posixpath.dirname(rel) or ".", specifier)
@@ -2079,11 +2128,18 @@ class _Collection:
                     kind=_GapKind.RESOLUTION,
                 )
         self._observe(path)
-        if not type_only and (not relative or found.directory_package or common_lookup):
+        alias_proven = self.bundler and found.via_paths and not found.directory_package
+        # A bundler resolves `.` and `..` like `./index`; Node does not prove them.
+        proven_relative = relative or (self.bundler and source.relative)
+        if (
+            not type_only
+            and not alias_proven
+            and (not proven_relative or found.directory_package or common_lookup)
+        ):
             runtime = None
             if common_lookup:
                 reason = f"CommonJS runtime target is not proven: {specifier}"
-            elif found.directory_package:
+            elif found.directory_package and proven_relative:
                 reason = f"Local directory runtime metadata is not proven: {specifier}"
             else:
                 reason = f"Local alias runtime conditions are not proven: {specifier}"

@@ -18,7 +18,11 @@ ROOT = Path(__file__).parents[1]
 SETTINGS = {
     "PythonSettings": {"language": "Literal[Language.PYTHON]"},
     "DartSettings": {"language": "Literal[Language.DART]"},
-    "TypeScriptSettings": {"language": "Literal[Language.TYPESCRIPT]", "tsconfig": "str"},
+    "TypeScriptSettings": {
+        "language": "Literal[Language.TYPESCRIPT]",
+        "tsconfig": "str",
+        "bundler": "bool",
+    },
 }
 PROTOCOL_REFERENCES = {
     ("archkeel.ir.protocol", f"archkeel.ir.protocol.{name}") for name in SETTINGS

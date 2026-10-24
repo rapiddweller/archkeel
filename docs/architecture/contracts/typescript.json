@@ -217,7 +217,8 @@
         "archkeel.analyzer.typescript.source_input:SpecifierInfo",
         "archkeel.analyzer.typescript.source_input:classify_file",
         "archkeel.analyzer.typescript.source_input:split_file",
-        "archkeel.analyzer.typescript.source_input:classify_specifier"
+        "archkeel.analyzer.typescript.source_input:classify_specifier",
+        "archkeel.analyzer.typescript.source_input:classify_asset"
       ]
     }
   ],

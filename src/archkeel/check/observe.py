@@ -298,6 +298,7 @@ def _observe(
     dirty: bool,
     contract_root: Path,
     language: Language = Language.PYTHON,
+    bundler: bool = False,
 ) -> ObservationResult:
     source_root = source_root.resolve()
     contract_root = contract_root.resolve()
@@ -333,7 +334,7 @@ def _observe(
             if language == Language.PYTHON
             else DartSettings()
             if language == Language.DART
-            else TypeScriptSettings(tsconfig)
+            else TypeScriptSettings(tsconfig, bundler)
         )
         request = CollectionRequest(
             SnapshotInput(str(source_root), git_head, dirty),
@@ -391,6 +392,7 @@ def _observe(
 class Observer:
     collector: SourceCollector
     tsconfig: str = "tsconfig.json"
+    bundler: bool = False
 
     def __call__(
         self,
@@ -415,4 +417,5 @@ class Observer:
             dirty=dirty,
             contract_root=contract_root,
             language=language,
+            bundler=self.bundler,
         )

@@ -1021,6 +1021,9 @@ def evaluate_source(
         ):
             raise ProtocolError("source sections or resolution features are not registered")
     elif facts.profile == SourceProfile.TYPESCRIPT:
+        # AD-260: bundler mode only records that the scan was told to trust a bundler. It adds
+        # no section and no record, so it is optional beside every registered feature set.
+        features = features - {"bundler-mode-v1"}
         native_import_features = {
             "literal-imports",
             "relative-specifiers",
@@ -1047,7 +1050,9 @@ def evaluate_source(
                 )
             )
         )
-        if len(facts.capabilities.resolution_features) != len(features):
+        if len(facts.capabilities.resolution_features) != len(
+            set(facts.capabilities.resolution_features)
+        ):
             raise ProtocolError("duplicate resolution feature")
         if not (legacy or inner_uml):
             raise ProtocolError("source sections or resolution features are not registered")

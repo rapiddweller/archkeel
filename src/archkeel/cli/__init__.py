@@ -542,6 +542,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         collector_argv=config.collector_argv,
                         tsconfig=config.tsconfig or "tsconfig.json",
                         output_limit_bytes=config.collector_output_limit_bytes,
+                        bundler=config.bundler,
                     ),
                     only_violations=args.only is ReportMode.VIOLATIONS,
                     only_calls=args.only is ReportMode.CALLS,
@@ -628,6 +629,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         collector_argv=config.collector_argv,
                         tsconfig=config.tsconfig or "tsconfig.json",
                         output_limit_bytes=config.collector_output_limit_bytes,
+                        bundler=config.bundler,
                     ),
                     write_graph=args.write_graph,
                     compact_open_decisions=args.compact_open_decisions,
@@ -665,6 +667,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         collector_argv=config.collector_argv,
                         tsconfig=config.tsconfig or "tsconfig.json",
                         output_limit_bytes=config.collector_output_limit_bytes,
+                        bundler=config.bundler,
                     ),
                 )
                 result = replace(result, scan_roots=config.roots)

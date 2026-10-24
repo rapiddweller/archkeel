@@ -250,3 +250,47 @@ def test_scan_rejects_a_language_outside_its_profile_alias(language: str) -> Non
 
     with pytest.raises(ConfigError, match="scan.language"):
         parse_config(payload)
+
+
+_BUNDLER_BASE = (
+    b'[scan]\nroots = ["src"]\nnamespace = "web"\ncontract = "architecture-contract.json"\n'
+)
+
+
+@pytest.mark.parametrize(
+    ("extra", "expected"),
+    [(b"", False), (b"bundler = true\n", True), (b"bundler = false\n", False)],
+)
+def test_typescript_bundler_key_is_an_optional_boolean(extra: bytes, expected: bool) -> None:
+    config = parse_config(_BUNDLER_BASE + b'language = "typescript"\n' + extra)
+    assert config.bundler is expected
+
+
+@pytest.mark.parametrize("value", [b'"yes"', b"1", b"[]"])
+def test_typescript_bundler_key_rejects_non_booleans(value: bytes) -> None:
+    payload = _BUNDLER_BASE + b'language = "typescript"\nbundler = ' + value + b"\n"
+    with pytest.raises(ConfigError, match="scan.bundler must be a boolean"):
+        parse_config(payload)
+
+
+@pytest.mark.parametrize("language", [None, b"python", b"dart"])
+@pytest.mark.parametrize("value", [b"true", b"false"])
+def test_bundler_key_is_only_valid_for_typescript(language: bytes | None, value: bytes) -> None:
+    payload = _BUNDLER_BASE + (b'language = "' + language + b'"\n' if language else b"")
+    with pytest.raises(ConfigError, match="scan.bundler is only valid when scan.language"):
+        parse_config(payload + b"bundler = " + value + b"\n")
+
+
+def test_bundler_key_is_in_the_published_schema() -> None:
+    import json
+    import tomllib
+
+    from jsonschema import Draft202012Validator
+
+    schema = json.loads((Path(__file__).parents[1] / "schema/archkeel.schema.json").read_bytes())
+    validator = Draft202012Validator(schema)
+    base = _BUNDLER_BASE.decode() + 'language = "typescript"\n'
+    assert validator.is_valid(tomllib.loads(base + "bundler = true\n"))
+    assert not validator.is_valid(tomllib.loads(base + 'bundler = "yes"\n'))
+    python = _BUNDLER_BASE.decode() + "bundler = true\n"
+    assert not validator.is_valid(tomllib.loads(python))

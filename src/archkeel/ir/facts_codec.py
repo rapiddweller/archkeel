@@ -428,8 +428,15 @@ def decode_request(payload: bytes) -> CollectionRequest:
         _object(resolver_raw, {"language"}, "resolver")
         resolver = DartSettings()
     elif language is Language.TYPESCRIPT:
-        _object(resolver_raw, {"language", "tsconfig"}, "resolver")
-        resolver = TypeScriptSettings(_relative(resolver_raw["tsconfig"], "resolver.tsconfig"))
+        # The encoder writes "bundler" only when true, so false has one canonical form: absent.
+        optional = set(resolver_raw) & {"bundler"}
+        _object(resolver_raw, {"language", "tsconfig"} | optional, "resolver")
+        bundler = bool(optional) and _boolean(resolver_raw["bundler"], "resolver.bundler")
+        if optional and not bundler:
+            raise ProtocolError("resolver.bundler must be true when present")
+        resolver = TypeScriptSettings(
+            _relative(resolver_raw["tsconfig"], "resolver.tsconfig"), bundler
+        )
     else:
         raise ProtocolError("unsupported collection language")
     return CollectionRequest(
@@ -484,6 +491,8 @@ def encode_request(request: CollectionRequest) -> bytes:
             raise ProtocolError("Python collection phase requires collection protocol 4.0.0")
     if isinstance(request.resolver, TypeScriptSettings):
         resolver["tsconfig"] = request.resolver.tsconfig
+        if request.resolver.bundler:
+            resolver["bundler"] = True
     raw = {
         "protocol_version": request.protocol_version,
         "snapshot": {

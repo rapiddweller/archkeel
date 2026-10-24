@@ -55,6 +55,11 @@
           },
           "description": "TypeScript project config. TypeScript defaults to tsconfig.json; runtime validation checks that it exists inside the repository."
         },
+        "bundler": {
+          "type": "boolean",
+          "default": false,
+          "description": "TypeScript only. Treat bundler-resolved imports (tsconfig paths, package export conditions, CSS/asset/JSON imports) as known. Requires compilerOptions.moduleResolution bundler. Asserts that the bundler's aliases match tsconfig paths; not verified."
+        },
         "collector_output_limit_bytes": {
           "type": "integer",
           "minimum": 1,
@@ -87,8 +92,17 @@
           "then": {},
           "else": {
             "not": {
-              "required": [
-                "tsconfig"
+              "anyOf": [
+                {
+                  "required": [
+                    "tsconfig"
+                  ]
+                },
+                {
+                  "required": [
+                    "bundler"
+                  ]
+                }
               ]
             }
           }

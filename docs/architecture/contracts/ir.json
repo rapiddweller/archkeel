@@ -5440,6 +5440,25 @@
           "annotation": "Literal[Language.TYPESCRIPT]"
         },
         {
+          "id": "typescript-settings.bundler",
+          "kind": "attribute",
+          "qualified_name": "archkeel.ir.protocol.TypeScriptSettings.bundler",
+          "parent_id": "typescript-settings",
+          "language": "python",
+          "presence": "planned",
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "responsibilities": [
+            "Opt in to bundler-resolved import evidence."
+          ],
+          "provenance": [
+            "docs/architecture/language-adapter-target.md"
+          ],
+          "annotation": "bool"
+        },
+        {
           "id": "typescript-settings.tsconfig",
           "kind": "attribute",
           "qualified_name": "archkeel.ir.protocol.TypeScriptSettings.tsconfig",

@@ -435,3 +435,64 @@ def test_every_owned_suffix_has_complete_nominal_metadata():
         assert suffix.format_hint is None or isinstance(suffix.format_hint, ModuleFormat)
         assert all(isinstance(item, FileSuffix) for item in suffix.replacements(tuple(SourceKind)))
         assert all(isinstance(item, FileSuffix) for item in suffix.priority)
+
+
+@pytest.mark.parametrize(
+    "specifier,expected",
+    [
+        ("react", True),
+        ("react/jsx-runtime", True),
+        ("vite/client", True),
+        ("lodash.debounce", True),
+        ("@obc/api-client", True),
+        ("@obc/api-client/deep/file", True),
+        ("@/lib/x", False),
+        ("@/lib", False),
+        ("~/x", False),
+        ("#x", False),
+        (".", False),
+        ("./a", False),
+        ("../a", False),
+        ("/abs", False),
+        ("node:fs", False),
+        ("@obc", False),
+        ("@", False),
+    ],
+)
+def test_npm_package_accepts_only_registry_shaped_names(specifier: str, expected: bool):
+    from archkeel.analyzer.typescript.source_input import classify_specifier
+
+    assert classify_specifier(specifier).npm_package is expected
+
+
+@pytest.mark.parametrize(
+    "specifier,expected",
+    [
+        ("./a.css", "./a.css"),
+        ("./a.module.css", "./a.module.css"),
+        ("./a.webp?url", "./a.webp"),
+        ("./a.txt?worker", "./a.txt"),
+        ("./a.txt?raw", "./a.txt"),
+        ("./a.ts?worker", None),
+        ("./a.ts?raw", None),
+        ("./a.d.ts?url", None),
+        ("./a.css?inline", "./a.css"),
+        ("./a.txt?url&raw", "./a.txt"),
+        ("./a.txt?v=1&worker", "./a.txt"),
+        ("./a.ts?url&raw", None),
+        ("./data.json", "./data.json"),
+        ("leaflet/dist/leaflet.css", "leaflet/dist/leaflet.css"),
+        ("./a.ts", None),
+        ("./a.d.ts", None),
+        ("./README", None),
+        ("./a.CSS", None),
+        ("./a.ts?url=1", None),
+        ("./a.ts?v=1", None),
+        ("./a.ts?workers", None),
+        ("react", None),
+    ],
+)
+def test_classify_asset_is_closed_and_case_sensitive(specifier: str, expected: str | None):
+    from archkeel.analyzer.typescript.source_input import classify_asset
+
+    assert classify_asset(specifier) == expected

@@ -56,6 +56,17 @@ not globs. Optional `language` selects Python (default), Dart or TypeScript.
 TypeScript also uses `tsconfig`; roots may be files or directories. Python/Dart
 roots are directories. Inputs must exist inside `--root`.
 
+`bundler = true` (TypeScript only, default false) treats imports that a bundler
+resolves as known: tsconfig `paths` aliases (not `baseUrl`-only matches), package
+`exports` and `typesVersions` (an external edge to the package), and asset and JSON
+imports whose file exists (an external edge to the reserved package `bundler:asset`;
+a bare-package asset is an edge to its package and must lie inside it, without `.` or
+`..` segments; `.` and `..` imports count as relative). It needs `compilerOptions.moduleResolution`
+`bundler`; otherwise the scan records a gap and stays UNKNOWN. An active scan carries
+the resolution feature `bundler-mode-v1`. The trade-off: it asserts that the bundler's aliases
+equal tsconfig `paths`, which is not verified. See
+[AD-260](architecture/decisions/ad-260-typescript-bundler-mode.md).
+
 For supported UMD vendors, the `tsconfig` extension `archkeel` declares
 `scriptHost: "classic-browser"` and `scriptProviders`, each with `source` and
 `provenance` paths relative to `--root`. See the

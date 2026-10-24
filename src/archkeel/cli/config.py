@@ -91,6 +91,15 @@ def project_name(root: Path, config: ScanConfig) -> str:
     return config.namespace
 
 
+def _bundler(raw: bool | None, language: Language) -> bool:
+    # AD-260: an explicit opt-in, valid only for TypeScript.
+    if raw is not None and language != Language.TYPESCRIPT:
+        raise ConfigError("scan.bundler is only valid when scan.language is typescript")
+    if raw is not None and type(raw) is not bool:
+        raise ConfigError("scan.bundler must be a boolean")
+    return raw is True
+
+
 def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
     """Parse and validate config syntax without touching the filesystem; `name` is the file."""
     try:
@@ -100,11 +109,11 @@ def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
     if not _fields_match(set(raw), {"scan"}, set()) or not isinstance(raw["scan"], dict):
         raise ConfigError("configuration must contain only [scan]")
     scan = raw["scan"]
-    optional = {"language", "tsconfig", "collector_argv", "collector_output_limit_bytes"}
+    optional = {"language", "tsconfig", "collector_argv", "collector_output_limit_bytes", "bundler"}
     if not _fields_match(set(scan), _REQUIRED_SCAN, optional):
         raise ConfigError(
             "[scan] requires roots, namespace, and contract; language, tsconfig, "
-            "collector_argv, and collector_output_limit_bytes are optional"
+            "collector_argv, collector_output_limit_bytes, and bundler are optional"
         )
     # AD-97: absent means Python, so an existing archkeel.toml keeps its bytes and its digest.
     language_value = scan.get("language", Language.PYTHON)
@@ -122,6 +131,7 @@ def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
         if language == Language.TYPESCRIPT
         else None
     )
+    bundler = _bundler(scan.get("bundler"), language)
     argv_raw = scan.get("collector_argv")
     if argv_raw is not None:
         if (
@@ -166,6 +176,7 @@ def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
         tsconfig=tsconfig,
         collector_argv=collector_argv,
         collector_output_limit_bytes=output_limit,
+        bundler=bundler,
     )
 
 

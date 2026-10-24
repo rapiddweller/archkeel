@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "fd560e2316b05f3708603fce12e45fb8032135d1e720d9e581b72da1f05a9904",
+  "after_digest": "eb6ec8cf2b04739b345280358a60e3182a2a7584bfff636aba6e3dc9db4de70e",
+  "before_baseline_digest": "fd560e2316b05f3708603fce12e45fb8032135d1e720d9e581b72da1f05a9904",
+  "before_digest": "2584ef7536adbd6f71ee555ffa2eedf355e12a53ac8b25b1804e73be5d7d8c06",
+  "decided_by": "Alexander Kell (architect), AD-260",
+  "rationale": "AD-260 adds the opt-in TypeScript bundler mode (#681). The typescript contract publishes input.classify_asset, which the resolver uses to classify bundler assets. The ir inside contract declares the new TypeScriptSettings.bundler attribute that carries the opt-in to the collector.",
+  "schema_version": "2.0.0"
+}

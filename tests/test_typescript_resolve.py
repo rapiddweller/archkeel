@@ -726,3 +726,144 @@ def test_specifier_shapes() -> None:
         "@s/a",
         "@s",
     ]
+
+
+_EXPORT_REASONS = [
+    ("react-server", {"exports": {"react-server": "./s.js", "default": "./i.js"}}),
+    ("module-sync", {"exports": {"module-sync": "./s.js", "default": "./i.js"}}),
+    ("typesVersions", {"typesVersions": {"*": {"*": ["t/*"]}}}),
+]
+
+
+@pytest.mark.parametrize("label,manifest", _EXPORT_REASONS)
+@pytest.mark.parametrize("mode", [ModuleFormat.ESM, None])
+def test_package_internal_marks_unmodelled_package_metadata(tmp_path, label, manifest, mode):
+    files = {
+        "node_modules/pkg/package.json": json.dumps({"name": "pkg", **manifest}),
+        "node_modules/pkg/i.js": _EMPTY,
+        "src/m.ts": _EMPTY,
+    }
+    found = _resolver(tmp_path, files, BUNDLER).resolve("pkg", "src/m.ts", mode)
+    assert isinstance(found, Unknown), label
+    assert found.package_internal is True
+
+
+def test_package_internal_marks_nested_exports_condition_and_no_selection(tmp_path):
+    files = {
+        "node_modules/a/package.json": json.dumps(
+            {"name": "a", "exports": {"import": {"module-sync": "./s.js"}}}
+        ),
+        "node_modules/b/package.json": json.dumps({"name": "b", "exports": {"node": "./s.js"}}),
+        "node_modules/c/package.json": json.dumps(
+            {"name": "c", "exports": {"./sub": {"import": "./s.js"}}}
+        ),
+        "src/m.ts": _EMPTY,
+    }
+    resolver = _resolver(tmp_path, files, BUNDLER)
+    for name in ("a", "b"):
+        found = resolver.resolve(name, "src/m.ts", ModuleFormat.ESM)
+        assert isinstance(found, Unknown) and found.package_internal, name
+    found = resolver.resolve("c/sub", "src/m.ts", ModuleFormat.CJS)
+    assert isinstance(found, Unknown) and found.package_internal
+
+
+def test_package_internal_marks_directory_typesversions_only_in_node_modules(tmp_path):
+    manifest = json.dumps({"name": "d", "typesVersions": {"*": {"*": ["t/*"]}}})
+    files = {
+        "node_modules/d/package.json": manifest,
+        "node_modules/d/index.js": _EMPTY,
+        "src/lib/package.json": manifest,
+        "src/lib/index.ts": _EMPTY,
+        "src/m.ts": _EMPTY,
+    }
+    resolver = _resolver(tmp_path, files, NODE10)
+    external = resolver.resolve("d", "src/m.ts", None)
+    assert isinstance(external, Unknown) and external.package_internal is True
+    local = resolver.resolve("./lib", "src/m.ts", None)
+    assert isinstance(local, Unknown) and local.package_internal is False
+
+
+@pytest.mark.parametrize(
+    "manifest,specifier",
+    [
+        ({"exports": {"./a": "./a.js"}}, "pkg/a"),
+        ({"exports": {"./*": "./*.js"}}, "pkg/x"),
+        ({"exports": ["./a.js"]}, "pkg"),
+        ({"exports": {"default": "../x.js"}}, "pkg"),
+    ],
+)
+def test_package_internal_stays_false_for_shape_and_pattern_reasons(tmp_path, manifest, specifier):
+    files = {
+        "node_modules/pkg/package.json": json.dumps({"name": "pkg", **manifest}),
+        "src/m.ts": _EMPTY,
+    }
+    found = _resolver(tmp_path, files, BUNDLER).resolve(specifier, "src/m.ts", ModuleFormat.ESM)
+    assert isinstance(found, Unknown)
+    assert found.package_internal is False
+
+
+def test_package_internal_stays_false_for_broken_manifest_and_blocked_options(tmp_path):
+    files = {"node_modules/pkg/package.json": "{", "src/m.ts": _EMPTY}
+    found = _resolver(tmp_path, files, BUNDLER).resolve("pkg", "src/m.ts", None)
+    assert isinstance(found, Unknown) and found.package_internal is False
+    blocked = _resolver(
+        tmp_path / "b", {"src/m.ts": _EMPTY}, {**BUNDLER, "customConditions": ["x"]}
+    ).blocked
+    assert isinstance(blocked, Unknown) and blocked.package_internal is False
+
+
+def test_unknown_equality_ignores_package_internal():
+    assert Unknown("r", True) == Unknown("r")
+    assert Unknown("r") != Unknown("s")
+
+
+def test_file_exists_resolves_against_the_importer_directory(tmp_path):
+    files = {"src/a/m.ts": _EMPTY, "src/a/x.css": "", "src/y.css": "", "src/dir/f.ts": _EMPTY}
+    resolver = _resolver(tmp_path, files, BUNDLER)
+    assert resolver.file_exists("src/a/m.ts", "./x.css") is True
+    assert resolver.file_exists("src/a/m.ts", "../y.css") is True
+    assert resolver.file_exists("src/a/m.ts", "./missing.css") is False
+    assert resolver.file_exists("src/a/m.ts", "../dir") is False
+    assert resolver.file_exists("src/a/m.ts", "../../../outside.css") is False
+
+
+def test_package_file_exists_searches_ancestor_node_modules(tmp_path):
+    files = {
+        "node_modules/leaflet/dist/l.css": "",
+        "node_modules/@scope/pkg/i.css": "",
+        "src/deep/er/node_modules/nested/n.css": "",
+        "src/deep/er/m.ts": _EMPTY,
+        "src/m.ts": _EMPTY,
+    }
+    resolver = _resolver(tmp_path, files, BUNDLER)
+    assert resolver.package_file_exists("src/deep/er/m.ts", "leaflet/dist/l.css") is True
+    assert resolver.package_file_exists("src/deep/er/m.ts", "@scope/pkg/i.css") is True
+    assert resolver.package_file_exists("src/deep/er/m.ts", "nested/n.css") is True
+    assert resolver.package_file_exists("src/m.ts", "nested/n.css") is False
+    assert resolver.package_file_exists("src/m.ts", "leaflet/dist/absent.css") is False
+
+
+def test_found_records_whether_paths_matched_and_a_directory_package_decided(tmp_path):
+    options = {**BUNDLER, "baseUrl": ".", "paths": {"@/*": ["src/*"]}}
+    files = {
+        "src/lib/package.json": '{"main": "./x.ts"}',
+        "src/lib/x.ts": _EMPTY,
+        "src/plain.ts": _EMPTY,
+    }
+    resolver = _resolver(tmp_path, files, options)
+    aliased = resolver.resolve("@/lib", "src/m.ts", None)
+    assert isinstance(aliased, Found) and aliased.via_paths and aliased.directory_package
+    plain = resolver.resolve("@/plain", "src/m.ts", None)
+    assert isinstance(plain, Found) and plain.via_paths and not plain.directory_package
+    base = resolver.resolve("src/plain", "src/m.ts", None)
+    assert isinstance(base, Found) and not base.via_paths
+    relative = resolver.resolve("./plain", "src/m.ts", None)
+    assert isinstance(relative, Found) and not relative.via_paths
+
+
+def test_alias_file_exists_follows_the_paths_entry_only(tmp_path):
+    options = {**BUNDLER, "baseUrl": ".", "paths": {"@/*": ["src/*"]}}
+    resolver = _resolver(tmp_path, {"src/ui/t.css": "", "src/m.ts": _EMPTY}, options)
+    assert resolver.alias_file_exists("@/ui/t.css") is True
+    assert resolver.alias_file_exists("@/ui/absent.css") is False
+    assert resolver.alias_file_exists("src/ui/t.css") is False
