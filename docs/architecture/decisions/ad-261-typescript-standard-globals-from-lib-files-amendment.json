@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "d144860d67b7fa50f9a5087c55bc8922b5ec53709205c9b21b9788ebc66f6371",
+  "after_digest": "34550fb3e56881c1a0229b25b05c829e7cbc9bd157c927fa4e2890c65ab58c15",
+  "before_baseline_digest": "d144860d67b7fa50f9a5087c55bc8922b5ec53709205c9b21b9788ebc66f6371",
+  "before_digest": "2bea4ef3bc429e76d000018e303e447f9636306fe5e0e3f2f5bb155ea98623d8",
+  "decided_by": "Alexander Kell (architect), AD-261",
+  "rationale": "AD-261 generates the TypeScript standard-global catalog from the compiler's lib files. The configuration component now owns the generated module standard_libs and publishes its StandardLibrary enum from there instead of config. TYPES-ENUM-IN-MODEL allows that enum in standard_libs, and the analyzer:typescript inside contract declares the new module.",
+  "schema_version": "2.0.0"
+}
