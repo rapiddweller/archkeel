@@ -201,7 +201,7 @@ make report-browser-tests # optional local Chromium tests
 ```
 
 CI checks report data and JavaScript logic without Chromium. Three short local
-browser smokes check findings, keyboard navigation and dragging. Use the Nightly
+browser smokes check findings, keyboard navigation and unsafe-content escaping. Use the Nightly
 gallery for manual visual review.
 
 ArchKeel checks its own [architecture contract](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json) using fresh

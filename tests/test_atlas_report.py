@@ -11,8 +11,10 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from browser_report_support import _browser_page, _open_details
 from test_architecture_demo import _prepare_repo
 from test_module_explore import _sample
+from test_uml_rendering import _wait_for_layout
 
 from archkeel.check.report import run_report
 from archkeel.cli import main
@@ -1451,3 +1453,78 @@ def test_paired_page_carrier_preserves_original_render_type_rule(tmp_path, open_
         if record.kind == "boundary_type_position"
     ]
     assert not result.diagnostics
+
+
+def _open_permission_records(page):
+    """Open the bounded permission lists without eagerly opening record bodies."""
+    _open_details(page)
+    if page.locator(".flow-canvas").is_visible():
+        _wait_for_layout(page)
+    audit = page.locator("[data-boundary-audit]")
+    if audit.count() and audit.get_attribute("open") is None:
+        audit.locator(":scope > summary").click()
+        page.locator("[data-boundary-audit][data-boundary-loaded]").wait_for(state="attached")
+    for group in page.locator("[data-boundary-group]").all():
+        if group.get_attribute("open") is None:
+            group.locator(":scope > summary").click()
+            group.locator("[data-boundary-permission]").first.wait_for(state="attached")
+        while group.locator("[data-boundary-more]").count():
+            group.locator("[data-boundary-more]").click()
+
+
+def _open_permission_record(entry):
+    entry.locator("summary").click()
+    entry.locator("dl").wait_for(state="attached")
+
+
+@pytest.mark.browser
+def test_boundary_permissions_offline_security_audit_and_old_payload(tmp_path):
+    api = pytest.importorskip("playwright.sync_api")
+    output = _boundary_permission_report(tmp_path)
+    html = output.with_suffix(".report.html").read_text()
+    data = _flow_payload(output.with_suffix(".report.html"))
+    malicious = "</script><img src=x onerror=alert(1)>"
+    row = data["boundary_permissions"]["applied"][0]
+    row.update(
+        entity_ids=[],
+        component_ids=[],
+        routes=[],
+        locations=[],
+        declaration_id=None,
+        title=malicious,
+        provenance=["javascript:alert(1)", malicious],
+    )
+    row["data"].update(
+        qualified_name=malicious,
+        annotation=malicious,
+        alias_body={"origin": malicious, "shape": malicious},
+        key_alias_body={"origin": malicious, "shape": malicious},
+    )
+    encoded = json.dumps(data).replace("<", "\\u003c")
+    match = re.search(r'<script id="flow-data" type="application/json">(.*?)</script>', html, re.S)
+    edited = html[: match.start(1)] + encoded + html[match.end(1) :]
+    errors = []
+    playwright, browser, page = _browser_page(api, edited, errors=errors)
+    try:
+        _open_permission_records(page)
+        inspector = page.locator(".flow-inspector")
+        assert "unmapped boundary permission audit" in inspector.inner_text().lower()
+        entry = inspector.locator("[data-boundary-permission]").filter(has_text=malicious)
+        _open_permission_record(entry)
+        assert malicious in entry.inner_text()
+        assert "alias_body.origin" in entry.inner_text()
+        assert "key_alias_body.shape" in entry.inner_text()
+        assert not inspector.locator("img, script, [onerror], a[href^='javascript:']").count()
+        page.locator('.flow-nodes [data-uml-id="COMP-OTHER"]').click()
+        assert "unmapped boundary permission audit" not in inspector.inner_text().lower()
+        data.pop("boundary_permissions")
+        old = (
+            html[: match.start(1)] + json.dumps(data).replace("<", "\\u003c") + html[match.end(1) :]
+        )
+        page.set_content(old)
+        _open_permission_records(page)
+        assert "boundary permissions" not in inspector.inner_text().lower()
+        assert not errors
+    finally:
+        browser.close()
+        playwright.stop()

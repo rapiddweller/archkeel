@@ -11,8 +11,8 @@ in Nightly, manual Full verification and Release.
 
 - Remove 380 browser cases and the screenshot/proof generator.
 - Move 26 data/projection/layout cases to Node, retaining their assertions.
-- Keep local findings, keyboard navigation and dragging smokes; exclude them
-  before fixture setup in CI.
+- Keep local findings, keyboard navigation and unsafe-content escaping smokes;
+  exclude them before fixture setup in CI.
 - Keep Linux logic tests and Windows collector safety in PRs. Require the full
   collector matrix outside PRs; accept its intentional skip only in PRs.
 - Generate and publish the gallery only on scheduled/manual Main runs.
@@ -20,11 +20,11 @@ in Nightly, manual Full verification and Release.
   Main requires that check on an up-to-date branch before merging.
 - Keep native collector work stealing and 20-minute Full job limits.
 
-**Local evidence:** Three browser smokes pass in 3.70 s. The report logic target
+**Local evidence:** Three browser smokes pass in 3.50 s. The report logic target
 passes 121 tests in 45.54 s; the 39 scene/protocol/layout tests alone pass in
 13.22 s, including real compiler-negative controls. CI gate/selection checks,
-lint and type checks pass. All remaining tests collect; 15,329 logic cases and
-three local browser cases remain before the new matrix-gate regression.
+lint and type checks pass. All remaining tests collect; 15,330 logic cases and
+three local browser cases remain.
 
 **Pending:** CI for the final revision. Browser rendering regressions beyond the
 three smokes require manual review; platform-specific collector regressions may

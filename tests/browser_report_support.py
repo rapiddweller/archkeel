@@ -27,3 +27,9 @@ def _browser_page(
         playwright.stop()
         raise
     return playwright, browser, page
+
+
+def _open_details(page: Any) -> None:
+    toggle = page.locator("[data-flow-details-toggle]")
+    if toggle.count() and toggle.is_visible() and toggle.get_attribute("aria-expanded") != "true":
+        toggle.click()
