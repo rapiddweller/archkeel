@@ -61,6 +61,14 @@ TYPE_DEPENDENCIES = {
 }
 
 
+@pytest.fixture(scope="module")
+def own_report_html(self_observation: Observation) -> str:
+    result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=self_observation.coverage)
+    return render_html(
+        result, self_observation, repository="archkeel", architecture_href=None
+    ).decode()
+
+
 def test_own_target_declares_the_component_role_enum_literals():
     target = _target()
     role = next(
@@ -252,15 +260,13 @@ def test_own_target_distinguishes_a_field_from_its_value_binding(self_observatio
 
 
 def test_own_filtered_calls_keep_clear_routes_and_readable_arrow_endpoints(
-    self_observation: Observation,
+    own_report_html: str,
 ):
     api = pytest.importorskip("playwright.sync_api")
-    model = self_observation
-    result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
     errors = []
     playwright, browser, page = _browser_page(
         api,
-        render_html(result, model, repository="archkeel", architecture_href=None).decode(),
+        own_report_html,
         width=1550,
         height=1150,
         errors=errors,
@@ -348,16 +354,12 @@ def test_own_filtered_calls_keep_clear_routes_and_readable_arrow_endpoints(
 
 
 @pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])
-def test_own_ir_scope_sizes_the_canvas_after_collecting_shared_evidence(
-    view, self_observation: Observation
-):
+def test_own_ir_scope_sizes_the_canvas_after_collecting_shared_evidence(view, own_report_html: str):
     api = pytest.importorskip("playwright.sync_api")
-    model = self_observation
-    result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
     errors = []
     playwright, browser, page = _browser_page(
         api,
-        render_html(result, model, repository="archkeel", architecture_href=None).decode(),
+        own_report_html,
         errors=errors,
     )
     try:
@@ -381,13 +383,9 @@ def test_own_ir_scope_sizes_the_canvas_after_collecting_shared_evidence(
         playwright.stop()
 
 
-def test_pointer_selection_keeps_card_under_second_tap(self_observation: Observation):
+def test_pointer_selection_keeps_card_under_second_tap(own_report_html: str):
     api = pytest.importorskip("playwright.sync_api")
-    model = self_observation
-    result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
-    playwright, browser, page = _browser_page(
-        api, render_html(result, model, repository="archkeel", architecture_href=None).decode()
-    )
+    playwright, browser, page = _browser_page(api, own_report_html)
     try:
         page.get_by_role("button", name="Diff", exact=True).click()
         _wait_for_layout(page)
@@ -417,12 +415,9 @@ def test_pointer_selection_keeps_card_under_second_tap(self_observation: Observa
         playwright.stop()
 
 
-def test_zoom_cancels_pending_pointer_reveal(self_observation: Observation):
+def test_zoom_cancels_pending_pointer_reveal(own_report_html: str):
     api = pytest.importorskip("playwright.sync_api")
-    model = self_observation
-    result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
-    html = render_html(result, model, repository="archkeel", architecture_href=None).decode()
-    playwright, browser, page = _browser_page(api, html, width=375, height=1000)
+    playwright, browser, page = _browser_page(api, own_report_html, width=375, height=1000)
     try:
         page.get_by_role("button", name="As-Is", exact=True).click()
         _wait_for_layout(page)
@@ -452,15 +447,10 @@ def test_zoom_cancels_pending_pointer_reveal(self_observation: Observation):
 
 
 @pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])
-def test_own_graph_boundary_has_readable_members_and_directed_calls(
-    view, self_observation: Observation
-):
+def test_own_graph_boundary_has_readable_members_and_directed_calls(view, own_report_html: str):
     api = pytest.importorskip("playwright.sync_api")
-    model = self_observation
-    result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
-    html = render_html(result, model, repository="archkeel", architecture_href=None).decode()
     errors = []
-    playwright, browser, page = _browser_page(api, html, errors=errors)
+    playwright, browser, page = _browser_page(api, own_report_html, errors=errors)
     try:
         page.get_by_role("button", name=view, exact=True).click()
         _wait_for_layout(page)
@@ -504,15 +494,13 @@ def test_own_graph_boundary_has_readable_members_and_directed_calls(
 
 @pytest.mark.parametrize("view", ["Target", "Diff"])
 def test_own_type_dependencies_have_visible_endpoints_and_connected_focus(
-    view, self_observation: Observation
+    view, own_report_html: str
 ):
     api = pytest.importorskip("playwright.sync_api")
-    model = self_observation
-    result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
     errors = []
     playwright, browser, page = _browser_page(
         api,
-        render_html(result, model, repository="archkeel", architecture_href=None).decode(),
+        own_report_html,
         width=1550,
         height=1150,
         errors=errors,
@@ -561,15 +549,13 @@ def test_own_type_dependencies_have_visible_endpoints_and_connected_focus(
 
 @pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])
 def test_member_previews_do_not_squeeze_the_overview_or_change_its_evidence(
-    view, self_observation: Observation
+    view, own_report_html: str
 ):
     api = pytest.importorskip("playwright.sync_api")
-    model = self_observation
-    result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
     errors = []
     playwright, browser, page = _browser_page(
         api,
-        render_html(result, model, repository="archkeel", architecture_href=None).decode(),
+        own_report_html,
         width=1550,
         height=1150,
         errors=errors,
@@ -659,16 +645,12 @@ def test_member_previews_do_not_squeeze_the_overview_or_change_its_evidence(
 
 
 @pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])
-def test_own_class_overview_keeps_distinct_routes_and_type_cues(
-    view, self_observation: Observation
-):
+def test_own_class_overview_keeps_distinct_routes_and_type_cues(view, own_report_html: str):
     api = pytest.importorskip("playwright.sync_api")
-    model = self_observation
-    result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
     errors = []
     playwright, browser, page = _browser_page(
         api,
-        render_html(result, model, repository="archkeel", architecture_href=None).decode(),
+        own_report_html,
         width=1550,
         height=1150,
         errors=errors,
@@ -700,14 +682,12 @@ def test_own_class_overview_keeps_distinct_routes_and_type_cues(
 
 
 @pytest.mark.parametrize("width", [1600, 1300])
-def test_own_ports_context_relationship_routes_keep_sites(width, self_observation: Observation):
+def test_own_ports_context_relationship_routes_keep_sites(width, own_report_html: str):
     api = pytest.importorskip("playwright.sync_api")
-    model = self_observation
-    result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
     errors = []
     playwright, browser, page = _browser_page(
         api,
-        render_html(result, model, repository="archkeel", architecture_href=None).decode(),
+        own_report_html,
         width=width,
         height=1050,
         errors=errors,
@@ -734,15 +714,13 @@ def test_own_ports_context_relationship_routes_keep_sites(width, self_observatio
 
 @pytest.mark.parametrize("view", ["As-Is", "Target", "Diff"])
 def test_own_protocol_settings_use_the_same_uml_cards_and_field_navigation(
-    view, self_observation: Observation
+    view, own_report_html: str
 ):
     api = pytest.importorskip("playwright.sync_api")
-    model = self_observation
-    result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
     errors = []
     playwright, browser, page = _browser_page(
         api,
-        render_html(result, model, repository="archkeel", architecture_href=None).decode(),
+        own_report_html,
         width=1550,
         height=1150,
         errors=errors,
@@ -829,21 +807,20 @@ def test_own_protocol_settings_use_the_same_uml_cards_and_field_navigation(
 
 
 @pytest.mark.parametrize("view", ["As-Is", "Diff"])
-def test_own_dense_scenes_remain_actionable_at_reduced_cpu(view, self_observation: Observation):
+def test_own_dense_scenes_remain_actionable_at_reduced_cpu(view, own_report_html: str):
     api = pytest.importorskip("playwright.sync_api")
-    model = self_observation
-    result = RunResult("report", 0, "PASS", "UNKNOWN", "n/a", coverage=model.coverage)
     errors = []
     playwright, browser, page = _browser_page(
         api,
-        render_html(result, model, repository="archkeel", architecture_href=None).decode(),
+        own_report_html,
         width=1550,
         height=1150,
         errors=errors,
     )
     try:
-        page.context.new_cdp_session(page).send("Emulation.setCPUThrottlingRate", {"rate": 2})
         payload = page.locator("#flow-data").text_content()
+        _wait_for_layout(page)
+        page.context.new_cdp_session(page).send("Emulation.setCPUThrottlingRate", {"rate": 2})
         page.get_by_role("button", name=view, exact=True).click()
         _wait_for_layout(page)
         for depth, label in enumerate(("ir", "governance", "architecture_graph"), start=2):

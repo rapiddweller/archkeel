@@ -226,7 +226,8 @@ typescript-compiler-check:
 	npx --yes --package typescript@5.9.3 tsc --noEmit --project fixtures/H-uml-typescript/tsconfig.json
 
 typescript-native: browser-runtime-install
-	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=loadfile -q tests/test_typescript_parse.py \
+	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=worksteal --max-worker-restart=0 \
+		-q --durations=10 tests/test_typescript_parse.py \
 		tests/test_typescript_inner.py tests/test_typescript_uml_acceptance.py \
 		tests/test_typescript_namespace_identities.py \
 		tests/test_typescript_collect.py tests/test_typescript_owned_types.py tests/test_typescript_syntax_types.py tests/test_typescript_syntax_compatibility.py tests/test_typescript_source_input.py \
@@ -237,7 +238,8 @@ typescript-native: browser-runtime-install
 		tests/test_typescript_init_acceptance.py tests/test_typescript_demo.py
 
 dart-test:
-	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=loadfile -q tests/test_dart_*.py \
+	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=worksteal --max-worker-restart=0 \
+		-q --durations=10 tests/test_dart_*.py \
 		tests/test_uml_source_facts.py tests/test_language_collectors.py \
 		tests/test_flutter_demo.py::test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct
 
@@ -264,7 +266,7 @@ report-pages: report-timing
 	mkdir -p test-artifacts/pages
 	cp test-artifacts/report-timing/architecture.json test-artifacts/report-timing/architecture.report.html \
 		test-artifacts/report-timing/architecture.detail*.html test-artifacts/pages/
-	$(UV) run --locked python -m tools.report_pages
+	$(UV) run --locked python -m tools.report_pages $(if $(ACCEPTED_REPORTS),--accepted-reports "$(ACCEPTED_REPORTS)",)
 
 architecture-graph-schema:
 	$(UV) run --locked python -m tools.architecture_graph_schema schema/architecture-graph.schema.json --contract schema/architecture-contract.schema.json --contract schema/architecture-contract-3.0.schema.json --contract schema/architecture-contract-3.1.schema.json --contract schema/architecture-contract-3.2.schema.json --contract schema/architecture-contract-3.3.schema.json --contract schema/architecture-contract-3.4.schema.json --contract schema/architecture-contract-3.5.schema.json --contract schema/architecture-contract-3.6.schema.json --contract schema/architecture-contract-3.7.schema.json --contract schema/architecture-contract-3.8.schema.json --contract schema/architecture-contract-3.9.schema.json --contract schema/architecture-contract-3.10.schema.json --contract schema/architecture-contract-3.11.schema.json --contract schema/architecture-contract-3.12.schema.json --contract schema/architecture-contract-3.13.schema.json --contract schema/architecture-contract-3.14.schema.json --comparison schema/architecture-comparison.schema.json --report schema/architecture-report.schema.json --source-inventory schema/source-member-inventory.schema.json --source-profile schema/architecture-ir-python-decoded.schema.json --projection schema/architecture-projection.schema.json --command schema/architecture-command-2.0.schema.json
@@ -379,7 +381,7 @@ report-browser-tests:
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q tests/test_*report*.py tests/test_*uml*.py tests/test_*flow*.py tests/test_secondary_table_acceptance.py tests/test_legacy_graph_rendering.py tests/test_diff_import_rendering.py
 
 report-browser-proof:
-	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m tools.report_browser $(if $(OUTPUT),--output "$(OUTPUT)")
+	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m tools.report_browser --workers $(TEST_WORKERS) $(if $(OUTPUT),--output "$(OUTPUT)")
 
 # Twine validates PyPI metadata; it is a build-only tool.
 build:

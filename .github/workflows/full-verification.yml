@@ -13,7 +13,7 @@ jobs:
   full-suite-and-reports:
     name: Full suite, report proof, and gallery
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 20
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -41,7 +41,7 @@ jobs:
 
       - name: Run gates, TypeScript compiler check, browser proof, timing, and report gallery
         # One make run: report-pages reuses the report that report-timing just measured.
-        run: make ci-check SHARDED_TESTS=1 mermaid report-pages
+        run: make ci-check SHARDED_TESTS=1 mermaid report-pages ACCEPTED_REPORTS=test-artifacts/report-browser
 
       - name: Upload latest report evidence
         if: always()
@@ -65,7 +65,7 @@ jobs:
   full-suite-shards:
     name: Full suite / shard ${{ matrix.shard }}
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -146,6 +146,7 @@ jobs:
 
   language-collectors:
     name: Source collectors / ${{ matrix.os }} / Python ${{ matrix.python }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:

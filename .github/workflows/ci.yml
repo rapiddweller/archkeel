@@ -20,6 +20,7 @@ jobs:
       core: ${{ steps.filter.outputs.core }}
       report: ${{ steps.filter.outputs.report }}
       mermaid: ${{ steps.filter.outputs.mermaid }}
+      full: ${{ steps.filter.outputs.full }}
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -49,7 +50,7 @@ jobs:
           git diff --no-renames --name-only -z "$BASE" "$HEAD" | python3 tools/ci_changes.py >> "$GITHUB_OUTPUT"
 
   check:
-    needs: [changes, pr-core-check, pr-report-check, mermaid]
+    needs: [changes, pr-core-check, pr-report-check, mermaid, full-verification]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -66,9 +67,11 @@ jobs:
           CORE: ${{ needs.changes.outputs.core }}
           REPORT: ${{ needs.changes.outputs.report }}
           MERMAID: ${{ needs.changes.outputs.mermaid }}
+          FULL: ${{ needs.changes.outputs.full }}
           CORE_RESULT: ${{ needs.pr-core-check.result }}
           REPORT_RESULT: ${{ needs.pr-report-check.result }}
           MERMAID_RESULT: ${{ needs.mermaid.result }}
+          FULL_RESULT: ${{ needs.full-verification.result }}
         run: |
           set -euo pipefail
           if [[ "$EVENT" != pull_request && "$EVENT" != push ]]; then
@@ -88,6 +91,12 @@ jobs:
           verify_area core "$CORE" "$CORE_RESULT"
           verify_area report "$REPORT" "$REPORT_RESULT"
           verify_area mermaid "$MERMAID" "$MERMAID_RESULT"
+          if [[ "$EVENT" == pull_request ]]; then
+            verify_area full "$FULL" "$FULL_RESULT"
+          else
+            # Protected Main already passed PR acceptance; scheduled Full publishes Pages.
+            verify_area full false "$FULL_RESULT"
+          fi
 
   pr-core-check:
     name: pr-core-check
@@ -241,7 +250,7 @@ jobs:
         if: ${{ always() && hashFiles('test-artifacts/report-browser/**') != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: report-browser-evidence
+          name: pr-report-browser-evidence
           path: test-artifacts/report-browser/
           if-no-files-found: warn
           retention-days: 1
@@ -363,3 +372,13 @@ jobs:
 
       - name: Render every Mermaid block
         run: make mermaid
+
+  full-verification:
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.full == 'true'
+    uses: ./.github/workflows/full-verification.yml
+    permissions:
+      actions: write
+      contents: read
+      pages: write
+      id-token: write

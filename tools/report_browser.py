@@ -10,7 +10,10 @@ import contextlib
 import io
 import json
 import os
+import subprocess
 import sys
+import time
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urljoin, urlsplit
@@ -41,7 +44,7 @@ def _make_reports(
 ) -> dict[str, Path]:
     reports = {}
     for name, (variant, expected_exit) in cases.items():
-        report = output / f"{name}.json"
+        report = output / name / "architecture.json"
         stdout = io.StringIO()
         stderr = io.StringIO()
         with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
@@ -52,7 +55,7 @@ def _make_reports(
         )
         result = json.loads(stdout.getvalue().splitlines()[-1])
         (output / f"{name}.result.json").write_text(json.dumps(result, indent=2) + "\n")
-        html = report.with_name(f"{name}.report.html")
+        html = report.with_suffix(".report.html")
         assert html.is_file(), f"{variant} did not produce {html}"
         reports[name] = html
     return reports
@@ -544,6 +547,7 @@ def _open_project_uml_details(
     project: dict[str, object],
     atlas: dict[str, object],
 ) -> None:
+    main_filename = Path(urlsplit(page.url).path).name
     browser = project["browser"]
     assert isinstance(browser, dict)
     root_id = str(browser["root_component"])
@@ -614,9 +618,9 @@ def _open_project_uml_details(
             page.screenshot(path=str(output / f"{name}-{width}-{view}-source.png"), full_page=True)
 
     overview = page.get_by_role("link", name="Architecture overview", exact=True)
-    assert overview.get_attribute("href") == f"{name}.report.html"
+    assert overview.get_attribute("href") == main_filename
     overview.click()
-    page.wait_for_url(f"**/{name}.report.html*")
+    page.wait_for_url(f"**/{main_filename}*")
     _wait_for_layout(page)
     assert page.locator(".ak-brand").is_visible()
     assert page.locator('[data-atlas="true"]').is_visible()
@@ -1279,6 +1283,38 @@ def _check_report_verdicts(browser: Browser, reports: dict[str, Path], output: P
                 page.close()
 
 
+def _prove_report(output: Path, case: tuple[str, tuple[str, int]]) -> tuple[str, Path]:
+    started = time.perf_counter()
+    name, value = case
+    report = _make_reports(output, {name: value})[name]
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            headless=True, channel=os.environ.get("PLAYWRIGHT_CHANNEL")
+        )
+        try:
+            page, errors = _visit(browser, report, name, output)
+            try:
+                _check_atlas(page, output / name / "architecture.json")
+                for width in (1440, 375):
+                    page.set_viewport_size({"width": width, "height": 1000})
+                    _check_atlas_interactions(page)
+                if name.startswith("uml-"):
+                    page.set_viewport_size({"width": 1440, "height": 1000})
+                    if name == "uml-flutter-unsupported-declaration":
+                        _check_flutter_unsupported(page, name, output)
+                    else:
+                        _check_inner_uml(page, name, output)
+                if name == "wide":
+                    _check_wide_inventory(page)
+                assert not errors, f"{name}: {errors}"
+            finally:
+                _finish(page, name, output)
+        finally:
+            browser.close()
+    print(f"Browser acceptance {name}: {time.perf_counter() - started:.2f}s", flush=True)
+    return name, report
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -1287,44 +1323,46 @@ def main() -> int:
         default=Path(os.environ.get("OUTPUT", "test-artifacts/report-browser")),
     )
     parser.add_argument("--flutter-only", action="store_true")
+    parser.add_argument("--workers", type=int, default=1)
     args = parser.parse_args()
+    if args.workers < 1:
+        parser.error("--workers must be positive")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
+    receipt = output / "accepted.json"
+    receipt.unlink(missing_ok=True)
     cases = REPORT_CASES
     if args.flutter_only:
         cases = {
             name: value for name, value in REPORT_CASES.items() if name.startswith("uml-flutter-")
         }
-    reports = _make_reports(output, cases)
+    if args.workers == 1:
+        reports = dict(_prove_report(output, case) for case in cases.items())
+    else:
+        with ProcessPoolExecutor(max_workers=args.workers) as workers:
+            reports = dict(workers.map(_prove_report, [output] * len(cases), cases.items()))
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(
             headless=True, channel=os.environ.get("PLAYWRIGHT_CHANNEL")
         )
         try:
-            for name, report in reports.items():
-                page, errors = _visit(browser, report, name, output)
-                try:
-                    _check_atlas(page, output / f"{name}.json")
-                    for width in (1440, 375):
-                        page.set_viewport_size({"width": width, "height": 1000})
-                        _check_atlas_interactions(page)
-                    if name.startswith("uml-"):
-                        page.set_viewport_size({"width": 1440, "height": 1000})
-                        if name == "uml-flutter-unsupported-declaration":
-                            _check_flutter_unsupported(page, name, output)
-                        else:
-                            _check_inner_uml(page, name, output)
-                    if name == "wide":
-                        _check_wide_inventory(page)
-                    assert not errors, f"{name}: {errors}"
-                finally:
-                    _finish(page, name, output)
             if not args.flutter_only:
                 _check_no_javascript(browser, reports["mixed"], output)
                 _check_report_verdicts(browser, reports, output)
                 _capture_assets(browser, reports, output)
         finally:
             browser.close()
+    receipt.write_text(
+        json.dumps(
+            {
+                "revision": subprocess.check_output(
+                    ["git", "rev-parse", "HEAD"], text=True
+                ).strip(),
+                "cases": cases,
+            }
+        )
+        + "\n"
+    )
     print(f"Browser acceptance artifacts: {output}")
     return 0
 

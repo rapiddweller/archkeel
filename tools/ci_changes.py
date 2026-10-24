@@ -18,9 +18,21 @@ class Areas:
     core: bool = False
     report: bool = False
     mermaid: bool = False
+    full: bool = False
 
 
-ALL_AREAS = Areas(core=True, report=True, mermaid=True)
+ALL_AREAS = Areas(core=True, report=True, mermaid=True, full=True)
+_VERIFICATION_PATHS = {
+    "tests/conftest.py",
+    "tests/test_make_gate.py",
+    "tests/test_ci_changes.py",
+    "tests/test_report_pages.py",
+    "tests/test_report_browser.py",
+    "tools/ci_changes.py",
+    "tools/report_timing.py",
+    "tools/report_browser.py",
+    "tools/report_pages.py",
+}
 _SCREENSHOT_PATHS = {
     "docs/assets/archkeel-component-flow.png",
     "docs/assets/archkeel-empty-responsibility.png",
@@ -104,7 +116,7 @@ def _is_ci_path(path: str) -> bool:
 
 def classify_path(path: str) -> Areas:
     """Return all CI areas required to validate one repository-relative path."""
-    if _is_ci_path(path):
+    if _is_ci_path(path) or path in _VERIFICATION_PATHS:
         return ALL_AREAS
 
     if any(fnmatchcase(path, pattern) for pattern in _REPORT_PATTERNS):
@@ -130,7 +142,7 @@ def classify_path(path: str) -> Areas:
 
 
 def classify_paths(paths: Iterable[str]) -> Areas:
-    core = report = mermaid = False
+    core = report = mermaid = full = False
     found_path = False
     for path in paths:
         found_path = True
@@ -138,15 +150,17 @@ def classify_paths(paths: Iterable[str]) -> Areas:
         core |= areas.core
         report |= areas.report
         mermaid |= areas.mermaid
+        full |= areas.full
     if not found_path:
         core = True
-    return Areas(core=core, report=report, mermaid=mermaid)
+    return Areas(core=core, report=report, mermaid=mermaid, full=full)
 
 
 def _write(areas: Areas) -> None:
     print(f"core={str(areas.core).lower()}")
     print(f"report={str(areas.report).lower()}")
     print(f"mermaid={str(areas.mermaid).lower()}")
+    print(f"full={str(areas.full).lower()}")
 
 
 def main() -> int:

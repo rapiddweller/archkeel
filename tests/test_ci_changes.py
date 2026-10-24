@@ -45,8 +45,8 @@ class ChangeClassificationTests(unittest.TestCase):
                 Areas(core=True, report=True),
             ),
             ("src/archkeel/render/assets/archkeel-mark.png", Areas(core=True, report=True)),
-            ("Makefile", Areas(core=True, report=True, mermaid=True)),
-            (".github/workflows/ci.yml", Areas(core=True, report=True, mermaid=True)),
+            ("Makefile", Areas(core=True, report=True, mermaid=True, full=True)),
+            (".github/workflows/ci.yml", Areas(core=True, report=True, mermaid=True, full=True)),
             ("README.md", Areas(core=True, mermaid=True)),
             ("docs/architecture/archkeel.md", Areas(core=True, mermaid=True)),
             ("docs/architecture/decisions/README.md", Areas(core=True, mermaid=True)),
@@ -82,6 +82,30 @@ class ChangeClassificationTests(unittest.TestCase):
     def test_empty_diff_fails_closed(self) -> None:
         self.assertEqual(classify_paths(()), Areas(core=True))
 
+    def test_verification_changes_require_full_acceptance(self) -> None:
+        for path in (
+            "Makefile",
+            ".github/workflows/full-verification.yml",
+            ".github/workflows/ci.yml",
+            "tests/conftest.py",
+            "tests/test_make_gate.py",
+            "tests/test_ci_changes.py",
+            "tools/ci_changes.py",
+            "tools/report_timing.py",
+            "tools/report_browser.py",
+            "tools/report_pages.py",
+            "tests/test_report_pages.py",
+            "tests/test_report_browser.py",
+        ):
+            with self.subTest(path=path):
+                self.assertTrue(classify_path(path).full)
+                self.assertTrue(classify_paths(("README.md", path)).full)
+
+    def test_regular_product_and_docs_changes_keep_fast_checks(self) -> None:
+        for path in ("src/archkeel/ir/model.py", "README.md", "docs/roadmap.md"):
+            with self.subTest(path=path):
+                self.assertFalse(classify_path(path).full)
+
     def test_main_runs_every_area_even_with_no_comparable_base(self) -> None:
         root = Path(__file__).parents[1]
         workflow = (root / ".github/workflows/ci.yml").read_text()
@@ -106,7 +130,8 @@ class ChangeClassificationTests(unittest.TestCase):
             )
             self.assertEqual(run.returncode, 0, run.stderr)
             self.assertEqual(
-                output.read_text().splitlines(), ["core=true", "report=true", "mermaid=true"]
+                output.read_text().splitlines(),
+                ["core=true", "report=true", "mermaid=true", "full=true"],
             )
 
 

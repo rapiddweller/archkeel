@@ -4,11 +4,42 @@
 """The published demo gallery links complete, real reports."""
 
 import json
+import subprocess
 from html.parser import HTMLParser
 from urllib.parse import urlsplit
 
+import pytest
+
 from fixtures.architecture_demo import PROJECT_REPORT_GROUPS, REPORT_CASES, UML_DEMO_COMPARISONS
-from tools.report_pages import _write_index, build_demos
+from tools.report_pages import _accepted_report, _write_index, build_demos
+
+
+def test_accepted_report_keeps_the_exact_browser_checked_files(tmp_path):
+    from tools.report_browser import _make_reports
+
+    accepted = tmp_path / "accepted"
+    accepted.mkdir()
+    _make_reports(accepted, {"match": ("uml-match", 0)})
+    artifact = tmp_path / "pages/match/architecture.json"
+    result = _accepted_report("match", accepted, artifact)
+    assert result["command"] == "report"
+    for source in (accepted / "match").iterdir():
+        assert (artifact.parent / source.name).read_bytes() == source.read_bytes()
+
+
+def test_gallery_refuses_unverified_or_stale_report_directories(tmp_path):
+    accepted = tmp_path / "accepted"
+    accepted.mkdir()
+    with pytest.raises(ValueError, match="acceptance"):
+        build_demos(tmp_path / "pages", accepted_reports=accepted)
+    revision = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    for receipt in (
+        {"revision": "0" * 40, "cases": REPORT_CASES},
+        {"revision": revision, "cases": {"match": ("uml-match", 0)}},
+    ):
+        (accepted / "accepted.json").write_text(json.dumps(receipt))
+        with pytest.raises(ValueError, match="acceptance"):
+            build_demos(tmp_path / "pages", accepted_reports=accepted)
 
 
 class Links(HTMLParser):

@@ -7,11 +7,31 @@ import contextlib
 import io
 import json
 import re
+import sys
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
 from fixtures.architecture_demo import replay
+
+
+def test_parallel_proof_failure_invalidates_previous_acceptance(tmp_path, monkeypatch):
+    pytest.importorskip("playwright.sync_api")
+    from tools import report_browser
+
+    receipt = tmp_path / "accepted.json"
+    receipt.write_text("previous successful run")
+    monkeypatch.setattr(
+        report_browser,
+        "REPORT_CASES",
+        {"match": ("uml-match", 0), "wrong-exit": ("uml-match", 2)},
+    )
+    monkeypatch.setattr(
+        sys, "argv", ["report_browser", "--workers", "2", "--output", str(tmp_path)]
+    )
+    with pytest.raises(AssertionError, match="exit 0, expected 2"):
+        report_browser.main()
+    assert not receipt.exists()
 
 
 @pytest.mark.parametrize("width", [1440, 375])

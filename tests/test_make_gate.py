@@ -321,6 +321,8 @@ def test_report_browser_runs_report_tests_before_evidence(
             "python",
             "-m",
             "tools.report_browser",
+            "--workers",
+            "2",
         ]
         assert result.returncode == 0, result.stderr
 
@@ -360,23 +362,30 @@ def test_workflow_files_require_an_explicit_governance_change() -> None:
 def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     check = workflow.split("  check:\n", 1)[1].split("\n  pr-core-check:", 1)[0]
-    assert "needs: [changes, pr-core-check, pr-report-check, mermaid]" in check
+    assert "needs: [changes, pr-core-check, pr-report-check, mermaid, full-verification]" in check
     assert "if: ${{ always() }}" in check
     assert (
         "- name: Fail required check after workflow cancellation\n        if: cancelled()" in check
     )
     assert "needs.changes.result" in check
-    for result in ("CORE_RESULT", "REPORT_RESULT", "MERMAID_RESULT"):
+    for result in ("CORE_RESULT", "REPORT_RESULT", "MERMAID_RESULT", "FULL_RESULT"):
         assert f"{result}: ${{{{ needs." in check
     assert "verify_area core" in check
     assert "verify_area report" in check
     assert "verify_area mermaid" in check
+    assert "verify_area full" in check
     assert "Selected $area check did not succeed" in check
     assert "Unselected $area check was not skipped" in check
     assert "continue-on-error" not in check
     assert "make ci-core-check" not in check
     assert "make ci-report-check" not in check
     assert "make report-pages" not in workflow
+    full_call = workflow.split("  full-verification:\n", 1)[1]
+    assert "needs: changes" in full_call
+    assert (
+        "github.event_name == 'pull_request' && needs.changes.outputs.full == 'true'" in full_call
+    )
+    assert "uses: ./.github/workflows/full-verification.yml" in full_call
     assert "collector-safety-windows:" not in workflow
     assert "typescript-native:" not in workflow
     assert "dart-native:" not in workflow
@@ -543,13 +552,16 @@ def test_check_aggregate_executes_exact_workflow_script_fail_closed() -> None:
         "CORE": "true",
         "REPORT": "true",
         "MERMAID": "true",
+        "FULL": "false",
         "CORE_RESULT": "success",
         "REPORT_RESULT": "success",
         "MERMAID_RESULT": "success",
+        "FULL_RESULT": "skipped",
     }
     cases = (
         ("PR selected", {}, 0),
         ("Main selected", {"EVENT": "push"}, 0),
+        ("Main full stays scheduled", {"EVENT": "push", "FULL": "true"}, 0),
         (
             "core only",
             {
@@ -603,6 +615,14 @@ def test_check_aggregate_executes_exact_workflow_script_fail_closed() -> None:
         ("required Mermaid skipped", {"MERMAID_RESULT": "skipped"}, 1),
         ("unselected child ran", {"CORE": "false", "CORE_RESULT": "success"}, 1),
         ("missing child result", {"CORE_RESULT": None}, 1),
+        ("full selected", {"FULL": "true", "FULL_RESULT": "success"}, 0),
+        ("required full failed", {"FULL": "true", "FULL_RESULT": "failure"}, 1),
+        ("required full cancelled", {"FULL": "true", "FULL_RESULT": "cancelled"}, 1),
+        ("required full skipped", {"FULL": "true"}, 1),
+        ("unselected full ran", {"FULL_RESULT": "success"}, 1),
+        ("malformed full flag", {"FULL": "yes"}, 1),
+        ("missing full flag", {"FULL": None}, 1),
+        ("missing full result", {"FULL": "true", "FULL_RESULT": None}, 1),
     )
     for label, overrides, expected in cases:
         values = {
