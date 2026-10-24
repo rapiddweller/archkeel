@@ -170,6 +170,12 @@ relative. Triple-slash and JSDoc-import
 concerns remain
 ([AD-260](architecture/decisions/ad-260-typescript-bundler-mode.md)).
 See [adapter limits](architecture/typescript-foundation-proposal.md#evidence-and-limits).
+Standard globals follow the pinned TypeScript lib files
+([AD-261](architecture/decisions/ad-261-typescript-standard-globals-from-lib-files.md)):
+a `lib` value the pinned compiler does not name, `noLib`, `types`, `typeRoots` or
+`libReplacement` leaves them unproved. Without `lib`, the target's default file applies,
+DOM included. Only top-level value declarations count, so types such as `Document` are not
+proved, and a newer `lib` name waits for the pinned TypeScript version to move.
 
 ## Dart profile
 

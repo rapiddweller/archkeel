@@ -317,7 +317,7 @@ def test_esm_require_indirect_require_and_triple_slash_references_are_unknown(
         {
             "src/main.mts": (
                 "/// <reference path='./other.d.ts' />\n"
-                "const load = require; require('node:fs'); load(name);"
+                "const load = require; require('node:fs'); load(undeclaredGlobal);"
             ),
             "src/other.d.ts": "export {};",
         },

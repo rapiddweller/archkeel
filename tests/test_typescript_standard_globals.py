@@ -26,9 +26,9 @@ def _environment(tmp_path, options):
 @pytest.mark.parametrize(
     ("compiler", "present", "missing"),
     [
-        ({}, {"String", "Boolean", "Math"}, {"document", "Map", "Promise"}),
-        ({"target": "es2015"}, {"String"}, {"Map", "Promise", "document"}),
-        ({"target": "es2022"}, {"Map", "Promise", "WeakMap"}, {"document"}),
+        ({}, {"String", "Boolean", "Math", "document"}, {"Map", "Promise"}),
+        ({"target": "es2015"}, {"String", "Map", "Promise", "document"}, {"WeakRef"}),
+        ({"target": "es2022"}, {"Map", "Promise", "WeakMap", "document"}, {"Iterator"}),
         ({"lib": ["ES2022", "DoM"]}, {"Map", "document", "CSS", "Event"}, {"ELK"}),
         ({"lib": ["dom"]}, {"document", "location"}, {"String", "Map"}),
         ({"lib": ["es5"], "target": "es2022"}, {"String"}, {"Map", "document", "Event"}),
@@ -54,7 +54,6 @@ def test_supported_library_environments_only_prove_their_own_globals(
 @pytest.mark.parametrize(
     "compiler",
     [
-        {"lib": ["es2015"]},
         {"lib": ["es2022", "unobserved.library"]},
         {"lib": ["es2022", "dom"], "types": ["node"]},
         {"lib": ["es2022", "dom"], "typeRoots": ["./ambient"]},
@@ -121,8 +120,8 @@ def test_standard_environment_has_nominal_typed_fields(changes):
         Options(**changes)
 
 
-def test_catalog_does_not_claim_member_resolution_or_dom_by_target_alone():
+def test_catalog_proves_the_target_default_library_and_no_member_resolution():
     assert Options().libs is None and Options().no_lib is False
     names = standard_globals(Options(target=ScriptTarget.ES2022))
-    assert "Math" in names
-    assert not {"Math.max", "document", "window", "ELK"} & names
+    assert {"Math", "Map", "document"} <= names
+    assert not {"Math.max", "ELK"} & names

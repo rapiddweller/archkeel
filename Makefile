@@ -20,7 +20,7 @@ ci: ci-check mermaid
 ci-check: ci-artifacts-clean ci-core-check ci-report-check
 
 ci-core-check: PYTEST_STOP := --maxfail=1
-ci-core-check: gate typescript-compiler-check browser-graph-check ci-typescript browser-runtime-check
+ci-core-check: gate typescript-compiler-check browser-graph-check ci-typescript browser-runtime-check typescript-libs-check
 
 ci-report-check: report-timing
 
@@ -238,7 +238,7 @@ LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/r
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py fixtures/reproduce_github.py \
 	fixtures/reproduce_typescript.py fixtures/typescript_differential.py fixtures/typescript_scenarios.py fixtures/typescript_realworld.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
-	tools/architecture_graph_schema.py tools/report_timing.py tools/report_artifact_retention.py tools/workflow_registry.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py
+	tools/architecture_graph_schema.py tools/report_timing.py tools/report_artifact_retention.py tools/workflow_registry.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py
 
 # The same commit measured 80-96s on hosted runners; allow for runner noise.
 REPORT_MAX_SECONDS ?= 190
@@ -385,6 +385,11 @@ browser-runtime-check: browser-runtime-install
 	uv run --locked mypy --strict tools/browser_runtime.py
 	uv run --locked python -m tools.browser_runtime --check
 	uv run --locked python -m pytest -q tests/test_flow_runtime_publication.py
+
+.PHONY: typescript-libs-check
+typescript-libs-check: browser-runtime-install
+	$(UV) run --locked mypy --strict tools/typescript_libs.py
+	$(UV) run --locked python -m tools.typescript_libs --check
 
 .PHONY: browser-graph-generate browser-graph-check
 .PHONY: browser-architecture-check

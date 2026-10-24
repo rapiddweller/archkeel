@@ -24,6 +24,7 @@ CI_CHECK_STEPS = [
     "browser-graph-check",
     "demo-typescript",
     "browser-runtime-check",
+    "typescript-libs-check",
     "report-timing",
 ]
 CI_STEPS = [*CI_CHECK_STEPS, "mermaid"]

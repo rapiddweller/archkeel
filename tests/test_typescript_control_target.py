@@ -43,7 +43,15 @@ def _repository(tmp_path, *, changed=None):
         f"archkeel/analyzer/typescript/{name}.py": (
             ROOT / f"src/archkeel/analyzer/typescript/{name}.py"
         ).read_text(encoding="utf-8")
-        for name in ("config", "resolve", "parse", "collect", "syntax", "source_input")
+        for name in (
+            "config",
+            "resolve",
+            "parse",
+            "collect",
+            "syntax",
+            "source_input",
+            "standard_libs",
+        )
         if (ROOT / f"src/archkeel/analyzer/typescript/{name}.py").exists()
     }
     sources.update(changed or {})

@@ -245,7 +245,7 @@ def test_native_global_inventory_has_exact_positive_and_unknown_controls(judged)
         "scenario/esm-require-and-triple-slash": [
             edge("app.src.main_x2e_mts", "require", 2, 14),
             edge("app.src.main_x2e_mts", "require", 2, 23),
-            edge("app.src.main_x2e_mts", "name", 2, 48),
+            edge("app.src.main_x2e_mts", "name", 2, 48, True),
         ],
     }
     for extension in ("js", "mjs"):
