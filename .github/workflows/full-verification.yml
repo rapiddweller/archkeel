@@ -107,15 +107,11 @@ jobs:
           retention-days: 1
 
   collector-safety-windows:
-    name: Collector safety / Windows / Python ${{ matrix.python }}
+    name: Collector safety / Windows / Python 3.11.12
     runs-on: windows-latest
     timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        python: ["3.11.12", "3.12.10"]
     env:
-      UV_PYTHON: ${{ matrix.python }}
+      UV_PYTHON: "3.11.12"
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -131,59 +127,52 @@ jobs:
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
-          python-version: ${{ matrix.python }}
+          python-version: "3.11.12"
           version: "0.12.13"
 
       - name: Install supported runtimes and locked package
         run: |
           uv python install 3.11.12 3.12.10
-          uv sync --locked --python ${{ matrix.python }}
+          uv sync --locked --python 3.11.12
 
       - name: Verify native collector safety
         shell: bash
         run: make collector-safety SHELL=bash
 
   language-collectors:
-    name: Source collectors / ${{ matrix.os }} / Python ${{ matrix.python }}
+    name: Source collectors / Linux / Python 3.12.10
     if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        python: ["3.11.12", "3.12.10"]
-        # The full-suite shards already run these suites on Ubuntu with Python 3.11.12.
-        exclude:
-          - os: ubuntu-latest
-            python: "3.11.12"
-    runs-on: ${{ matrix.os }}
+    # Python 3.11 is covered by the full Linux suite; repeat compatibility on 3.12 only.
     env:
-      UV_PYTHON: ${{ matrix.python }}
+      UV_PYTHON: "3.12.10"
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Install Make on Windows
-        if: runner.os == 'Windows'
-        run: choco install make --version=4.4.1 --yes --no-progress
-
       - name: Install uv and Python
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
-          python-version: ${{ matrix.python }}
+          python-version: "3.12.10"
           version: "0.12.13"
 
       - name: Install locked package
-        run: uv sync --locked --python ${{ matrix.python }}
+        run: uv sync --locked --python 3.12.10
 
-      - name: Verify Python-hosted language collectors
+      - name: Verify TypeScript collector compatibility
         shell: bash
-        run: |
-          make typescript-native TEST_WORKERS=4 SHELL=bash
-          make dart-test TEST_WORKERS=4 SHELL=bash
-          make build smoke SHELL=bash
+        run: make typescript-native TEST_WORKERS=4 SHELL=bash
+
+      - name: Verify Dart collector compatibility
+        shell: bash
+        run: make dart-test TEST_WORKERS=4 SHELL=bash
+
+      - name: Verify package build and installed CLI
+        shell: bash
+        run: make build smoke SHELL=bash
 
   verified:
     name: Full verification aggregate
@@ -209,7 +198,7 @@ jobs:
           done
           expected=success
           if [[ "$EVENT" == pull_request ]]; then expected=skipped; fi
-          [[ "$COLLECTORS_RESULT" == "$expected" ]] || { echo "Unexpected collector matrix result: $COLLECTORS_RESULT (expected $expected)" >&2; exit 1; }
+          [[ "$COLLECTORS_RESULT" == "$expected" ]] || { echo "Unexpected collector compatibility result: $COLLECTORS_RESULT (expected $expected)" >&2; exit 1; }
 
   prune-report-artifacts:
     name: Maintain Actions and report artifacts

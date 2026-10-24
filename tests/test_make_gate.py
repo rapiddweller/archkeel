@@ -491,8 +491,17 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     evidence = full.split("name: report-check-evidence", 1)[1].split("      - name:", 1)[0]
     assert "retention-days: 1" in evidence
     assert "test-artifacts/report-browser/" not in evidence
-    assert 'matrix:\n        python: ["3.11.12", "3.12.10"]' in full
-    assert "matrix:\n        os: [ubuntu-latest, windows-latest]\n        python:" in full
+    safety = full.split("  collector-safety-windows:\n", 1)[1].split("\n  language-collectors:", 1)[
+        0
+    ]
+    assert "runs-on: windows-latest" in safety
+    assert 'UV_PYTHON: "3.11.12"' in safety
+    assert "matrix:" not in safety
+    collectors = full.split("  language-collectors:\n", 1)[1].split("\n  verified:", 1)[0]
+    assert "runs-on: ubuntu-latest" in collectors
+    assert 'UV_PYTHON: "3.12.10"' in collectors
+    assert "matrix:" not in collectors
+    assert "windows" not in collectors.lower()
     assert "setup-dart@" not in full
     assert "dart-setup" not in full
     assert "dart-native:" not in full
@@ -660,7 +669,26 @@ def test_check_aggregate_executes_exact_workflow_script_fail_closed() -> None:
         )
 
 
-def test_full_aggregate_requires_the_matrix_outside_prs() -> None:
+def test_typescript_compatibility_reuses_fixtures_and_keeps_windows_path_check() -> None:
+    result = subprocess.run(
+        ["make", "-n", "typescript-native", "TEST_WORKERS=4"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
+    command = result.stdout
+    assert "--dist=loadfile" in command
+    assert "test_typescript_control_target.py" not in command
+    assert "tests/test_typescript_collect.py" in command
+    assert (
+        "tests/test_browser_architecture.py::"
+        "test_browser_runner_serializes_windows_config_as_a_posix_port"
+    ) in command
+
+
+def test_full_aggregate_requires_collector_compatibility_outside_prs() -> None:
     workflow = (ROOT / ".github/workflows/full-verification.yml").read_text()
     collectors = workflow.split("  language-collectors:\n", 1)[1].split("\n  verified:", 1)[0]
     assert "if: ${{ github.event_name != 'pull_request' }}" in collectors

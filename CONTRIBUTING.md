@@ -19,27 +19,30 @@ TypeScript 5.9.3 against `fixtures/H-uml-typescript/tsconfig.json` with `--noEmi
 This development check is separate from the Python-hosted `make typescript-native`
 collector tests and the installed CLI, which do not require Node.
 Dart analysis runs in Python. `make dart-test` checks it without installing a Dart SDK.
+`make test` also checks the TypeScript collector's Python architecture and browser module boundaries.
 Only `make flutter-demo-check`, which builds and runs the demo app, needs Flutter and Dart.
 
 ## Before you push
 
 ```bash
 make ci-pr-check BASE=origin/main        # policy, lint, types and representative Core tests
-make ci-pr-report-check                  # browser sample for report changes
+make ci-pr-report-check                  # report data and JavaScript logic
 ```
 
 Policy validation runs first. `BASE` also checks widenings and amendments; CI pins the PR base SHA.
 Without `BASE`, the local gate validates only the checked-out policy.
 PRs and Main pushes run the change-selected core and report regression checks; Mermaid checks
-follow Markdown changes. The report sample includes the real nested-Python route regression,
-renderer, drag/async and independent-Target checks. Samples do not replace testing the behavior
+follow Markdown changes. The report sample checks scene/projection data and renderer output.
+Use `make report-browser` for the three local Chromium smokes. Samples do not replace testing the behavior
 you change. The normal core set uses one Dart CLI smoke, one UNKNOWN safety case and four Flutter
 Target guards; complete Dart and Flutter variant coverage stays in the full checks.
 
 The scheduled **Full verification** workflow runs the complete `make ci` gate, including
-the UML TypeScript compiler check, report timing and
-browser proof, gallery generation, plus Windows collector safety and a shared Python/OS matrix for TypeScript and Dart. It
-also supports manual dispatch. Release tags call that same full workflow before package build and
+the UML TypeScript compiler check, report timing and gallery generation. It runs the full suite
+on Linux/Python 3.11, collector compatibility on Linux/Python 3.12, and one Windows/Python 3.11
+safety check for process and path behavior. TypeScript's Python architecture and browser module
+boundaries stay in the full suite. Manual dispatch uses the same checks.
+Release tags call that workflow before package build and
 publication. Use `make ci BASE=origin/main` locally for the complete gate.
 
 Keep five workflow files: CI, Full verification, release, and the two initial-PR
