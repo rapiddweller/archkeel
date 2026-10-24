@@ -337,6 +337,7 @@ def test_self_analyzer_inside_covers_its_modules(self_observation: Observation) 
         "archkeel.analyzer.typescript.parse",
         "archkeel.analyzer.typescript.resolve",
         "archkeel.analyzer.typescript.source_input",
+        "archkeel.analyzer.typescript.standard_libs",
         "archkeel.analyzer.typescript.syntax",
     }
     assert analyzer.unassigned == ()
