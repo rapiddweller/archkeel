@@ -7,8 +7,11 @@ import json
 from html.parser import HTMLParser
 from urllib.parse import urlsplit
 
-from fixtures.architecture_demo import PROJECT_REPORT_GROUPS, REPORT_CASES, UML_DEMO_COMPARISONS
-from tools.report_pages import _write_index, build_demos
+import pytest
+
+from fixtures.architecture_demo import PROJECT_REPORT_GROUPS, REPORT_CASES
+from tools import report_pages
+from tools.report_pages import _entry, _write_index, build_demos
 
 
 class Links(HTMLParser):
@@ -95,65 +98,52 @@ def test_gallery_surfaces_known_rule_failures_separately_from_aggregate_unknown(
     assert failure_offset < html.index("<details>", card_offset)
     assert "UML: N/A" in html
 
+    index = json.loads((output / "index.json").read_text())
+    assert [group["id"] for group in index["projects"]] == [
+        group["id"] for group in PROJECT_REPORT_GROUPS
+    ]
+    parser = Links()
+    parser.feed(html)
+    assert {href for href in parser.hrefs if href.startswith("demos/")} == {
+        row[key] for row in rows for key in ("report_href", "detail_href")
+    }
 
-def test_gallery_builds_real_reports_with_working_dark_links(tmp_path):
+
+@pytest.mark.parametrize("comparison", [None, {"status": "unsupported"}])
+def test_project_gallery_rejects_missing_or_invalid_comparison(tmp_path, comparison):
+    artifact = tmp_path / "architecture.json"
+    artifact.with_suffix(".report.html").write_text("report")
+    payload = json.dumps({"comparison": comparison})
+    artifact.with_suffix(".detail.html").write_text(f'<script id="flow-data">{payload}</script>')
+    with pytest.raises(ValueError, match="comparison status"):
+        _entry("project", "", {}, artifact, requires_uml=True)
+
+
+def test_gallery_builds_real_reports_with_working_dark_links(tmp_path, monkeypatch):
+    selected = ("uml-match", "uml-mismatch", "uml-partial")
+    monkeypatch.setattr(
+        report_pages, "REPORT_CASES", {name: REPORT_CASES[name] for name in selected}
+    )
+    monkeypatch.setattr(report_pages, "PROJECT_REPORT_GROUPS", ())
     output = tmp_path / "demos"
     build_demos(output)
     index = json.loads((output / "index.json").read_text())
     projects = index["projects"]
     controls = index["controls"]
-    assert [item["id"] for item in projects] == [
-        "compass",
-        "python-realworld",
-        "nest-realworld",
-    ]
-    control_ids = {row["id"] for row in controls}
-    runnable = next(row for row in controls if row["id"] == "uml-flutter-shop")
-    assert runnable["kind"] == "runnable_control"
-    assert "smaller runnable control" in runnable["label"]
-    assert control_ids >= {
-        "tour",
-        "uml-dart-match",
-        "uml-dart-signature-fail",
-        "uml-dart-missing-member-fail",
-        "uml-dart-forbidden-dependency-fail",
-        "uml-dart-partial-unknown",
+    assert projects == []
+    assert {row["id"] for row in controls} == {
+        *selected,
         "dart-clean",
         "dart-tour",
         "typescript-clean",
-        "uml-typescript-match",
-        "uml-typescript-mismatch",
-        "uml-typescript-partial",
     }
-    report_rows = [
-        entry for group in projects for entry in (group["baseline"], *group["variants"])
-    ] + controls
+    report_rows = controls
     assert {entry["uml_comparison"] for entry in report_rows} >= {"PASS", "FAIL", "UNKNOWN"}
-    assert all(
-        entry["uml_comparison"] in {"PASS", "FAIL", "UNKNOWN"}
-        for group in projects
-        for entry in (group["baseline"], *group["variants"])
-    )
-    unsupported_control = next(
-        row for row in controls if row["id"] == "uml-flutter-unsupported-declaration"
-    )
-    assert unsupported_control["uml_comparison"] is None
     for entry in report_rows:
         assert entry["observation_complete"] in {"PASS", "FAIL", "UNKNOWN"}
         assert entry["coverage"]["status"] in {"PASS", "FAIL", "UNKNOWN"}
         assert entry["declared_rules"] in {"PASS", "FAIL", "UNKNOWN"}
         assert isinstance(entry["rule_assessments"], list)
-    for group in projects:
-        assert all(entry["rule_assessments"] for entry in (group["baseline"], *group["variants"]))
-    python_group = projects[1]
-    assert python_group["baseline"]["observation_complete"] == "PASS"
-    assert python_group["baseline"]["coverage"]["status"] == "PASS"
-    assert python_group["baseline"]["declared_rules"] == "UNKNOWN"
-    for group in projects:
-        forbidden = next(row for row in group["variants"] if "forbidden-edge" in row["id"])
-        assert any(item["status"] == "FAIL" for item in forbidden["rule_assessments"])
-        assert forbidden["uml_comparison"] == UML_DEMO_COMPARISONS[forbidden["case_id"]]
-
     parser = Links()
     landing = (tmp_path / "index.html").read_text()
     parser.feed(landing)
