@@ -10,6 +10,7 @@ import re
 import tomllib
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
+from threading import TIMEOUT_MAX
 from typing import Final
 
 from archkeel.check.git import read_blob
@@ -47,6 +48,14 @@ class ConfigError(ValueError):
 
 _NAMESPACE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*")
 _REQUIRED_SCAN = {"roots", "namespace", "contract"}
+_OPTIONAL_SCAN = {
+    "language",
+    "tsconfig",
+    "collector_argv",
+    "collector_output_limit_bytes",
+    "collector_timeout_seconds",
+    "bundler",
+}
 
 
 class ConfigFileMissingError(ConfigError):
@@ -91,6 +100,16 @@ def project_name(root: Path, config: ScanConfig) -> str:
     return config.namespace
 
 
+def _collector_timeout(raw: int | None) -> int | None:
+    # Reject here: a bad deadline would otherwise fail later, when a command builds the collector.
+    if raw is not None and (type(raw) is not int or not 0 < raw <= TIMEOUT_MAX):
+        raise ConfigError(
+            "scan.collector_timeout_seconds must be a positive integer no larger than "
+            f"{int(TIMEOUT_MAX)}"
+        )
+    return raw
+
+
 def _bundler(raw: bool | None, language: Language) -> bool:
     # AD-260: an explicit opt-in, valid only for TypeScript.
     if raw is not None and language != Language.TYPESCRIPT:
@@ -109,11 +128,11 @@ def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
     if not _fields_match(set(raw), {"scan"}, set()) or not isinstance(raw["scan"], dict):
         raise ConfigError("configuration must contain only [scan]")
     scan = raw["scan"]
-    optional = {"language", "tsconfig", "collector_argv", "collector_output_limit_bytes", "bundler"}
-    if not _fields_match(set(scan), _REQUIRED_SCAN, optional):
+    if not _fields_match(set(scan), _REQUIRED_SCAN, _OPTIONAL_SCAN):
         raise ConfigError(
             "[scan] requires roots, namespace, and contract; language, tsconfig, "
-            "collector_argv, collector_output_limit_bytes, and bundler are optional"
+            "collector_argv, collector_output_limit_bytes, collector_timeout_seconds, "
+            "and bundler are optional"
         )
     # AD-97: absent means Python, so an existing archkeel.toml keeps its bytes and its digest.
     language_value = scan.get("language", Language.PYTHON)
@@ -149,6 +168,7 @@ def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
     output_limit = scan.get("collector_output_limit_bytes")
     if output_limit is not None and (type(output_limit) is not int or output_limit <= 0):
         raise ConfigError("scan.collector_output_limit_bytes must be a positive integer")
+    timeout_seconds = _collector_timeout(scan.get("collector_timeout_seconds"))
     roots_raw = scan["roots"]
     if not isinstance(roots_raw, list) or not roots_raw:
         raise ConfigError("scan.roots must be a non-empty list")
@@ -176,6 +196,7 @@ def parse_config(payload: bytes, name: str = CONFIG_PATH) -> ScanConfig:
         tsconfig=tsconfig,
         collector_argv=collector_argv,
         collector_output_limit_bytes=output_limit,
+        collector_timeout_seconds=timeout_seconds,
         bundler=bundler,
     )
 
