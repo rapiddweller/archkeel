@@ -26,12 +26,16 @@ def _environment(tmp_path, options):
 @pytest.mark.parametrize(
     ("compiler", "present", "missing"),
     [
-        ({}, {"String", "Boolean", "Math", "document"}, {"Map", "Promise"}),
+        ({}, {"String", "Boolean", "Math", "document", "undefined"}, {"Map", "Promise"}),
         ({"target": "es2015"}, {"String", "Map", "Promise", "document"}, {"WeakRef"}),
         ({"target": "es2022"}, {"Map", "Promise", "WeakMap", "document"}, {"Iterator"}),
         ({"lib": ["ES2022", "DoM"]}, {"Map", "document", "CSS", "Event"}, {"ELK"}),
         ({"lib": ["dom"]}, {"document", "location"}, {"String", "Map"}),
-        ({"lib": ["es5"], "target": "es2022"}, {"String"}, {"Map", "document", "Event"}),
+        (
+            {"lib": ["es5"], "target": "es2022"},
+            {"String", "undefined"},
+            {"Map", "document", "Event"},
+        ),
         ({"lib": []}, set(), {"String", "document", "Map"}),
         ({"noLib": True}, set(), {"String", "document", "Map"}),
     ],

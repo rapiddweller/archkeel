@@ -66,6 +66,8 @@ def test_generated_catalog_is_the_one_the_pinned_compiler_produces():
 
 
 def test_catalog_records_the_pinned_compiler_version():
+    if not TYPESCRIPT_LIB.is_dir():
+        pytest.skip("browser runtime dependencies are not installed")
     version = json.loads((TYPESCRIPT_LIB.parent / "package.json").read_text())["version"]
     assert TYPESCRIPT_VERSION == version
 

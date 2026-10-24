@@ -288,6 +288,10 @@ def _closure(libraries: tuple[StandardLibrary, ...]) -> set[StandardLibrary]:
     return seen
 
 
+# The compiler supplies `undefined` itself, so no lib file declares it.
+_INTRINSIC_GLOBALS: Final = frozenset({"undefined"})
+
+
 def standard_globals(options: Options) -> frozenset[str]:
     """Recognize platform declarations; unlisted globals and runtime mutations stay unproved."""
     if options.no_lib or options.unmodeled or options.ambient_custom:
@@ -295,7 +299,9 @@ def standard_globals(options: Options) -> frozenset[str]:
     libraries = (
         options.libs if options.libs is not None else _DEFAULT_LIBS[_default_target(options)]
     )
-    return frozenset(name for library in _closure(libraries) for name in LIB_GLOBALS[library])
+    return _INTRINSIC_GLOBALS | frozenset(
+        name for library in _closure(libraries) for name in LIB_GLOBALS[library]
+    )
 
 
 @dataclass(frozen=True, slots=True)
