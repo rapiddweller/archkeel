@@ -111,7 +111,8 @@
       "label": "configuration",
       "role": "component",
       "packages": [
-        "archkeel.analyzer.typescript.config"
+        "archkeel.analyzer.typescript.config",
+        "archkeel.analyzer.typescript.standard_libs"
       ],
       "responsibilities": [
         "Decode and resolve compiler settings against authenticated project inputs."
@@ -133,7 +134,7 @@
         "archkeel.analyzer.typescript.config:within",
         "archkeel.analyzer.typescript.config:Json",
         "archkeel.analyzer.typescript.config:has_field",
-        "archkeel.analyzer.typescript.config:StandardLibrary",
+        "archkeel.analyzer.typescript.standard_libs:StandardLibrary",
         "archkeel.analyzer.typescript.config:standard_globals",
         "archkeel.analyzer.typescript.config:ScriptHost",
         "archkeel.analyzer.typescript.config:ScriptProvider"
@@ -1737,6 +1738,20 @@
           "language": "python",
           "presence": "planned",
           "provenance": [
+            "docs/architecture/decisions/ad-261-typescript-standard-globals-from-lib-files.md"
+          ],
+          "id": "TS-TYPED-STANDARD-LIBS",
+          "kind": "module",
+          "qualified_name": "archkeel.analyzer.typescript.standard_libs",
+          "parent_id": "TARGET-CONFIGURATION",
+          "responsibilities": [
+            "Hold the standard-library catalog generated from the pinned compiler's lib files."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
             "docs/architecture/target/design.md"
           ],
           "visibility": {
@@ -1745,8 +1760,8 @@
           },
           "id": "TS-TYPED-StandardLibrary",
           "kind": "enum",
-          "qualified_name": "archkeel.analyzer.typescript.config.StandardLibrary",
-          "parent_id": "TS-TYPED-CONFIG",
+          "qualified_name": "archkeel.analyzer.typescript.standard_libs.StandardLibrary",
+          "parent_id": "TS-TYPED-STANDARD-LIBS",
           "responsibilities": [
             "Name the closed standard-library profiles used for source-global provenance."
           ]

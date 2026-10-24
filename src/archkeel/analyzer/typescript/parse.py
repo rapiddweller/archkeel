@@ -155,6 +155,8 @@ class _NodeKind(Enum):
     INTERFACE_BODY = "interface_body"
     INTERFACE_DECLARATION = "interface_declaration"
     INTERNAL_MODULE = "internal_module"
+    JSX_ATTRIBUTE = "jsx_attribute"
+    JSX_NAMESPACE_NAME = "jsx_namespace_name"
     LEXICAL_DECLARATION = "lexical_declaration"
     MEMBER_EXPRESSION = "member_expression"
     METHOD_DEFINITION = "method_definition"
@@ -3121,10 +3123,28 @@ def _active_scope_names(
     return tuple(sorted(names)), ambiguous
 
 
+def _is_jsx_attribute_name(node: _RawNode) -> bool:
+    # A namespaced name (`aria:label`) nests its identifiers one level down. Only the name
+    # child is skipped: an attribute value is an expression and stays a reference.
+    name = (
+        node.parent
+        if node.parent is not None and _node_kind(node.parent) is _NodeKind.JSX_NAMESPACE_NAME
+        else node
+    )
+    attribute = name.parent
+    return (
+        attribute is not None
+        and _node_kind(attribute) is _NodeKind.JSX_ATTRIBUTE
+        and attribute.children[0] == name
+    )
+
+
 def _is_member_name(node: _RawNode) -> bool:
     parent = node.parent
     if parent is None:
         return False
+    if _is_jsx_attribute_name(node):
+        return True
     if _node_kind(parent) == _NodeKind.MEMBER_EXPRESSION:
         return False
     return (

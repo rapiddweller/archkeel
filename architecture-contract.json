@@ -890,6 +890,7 @@
         "archkeel.ir.state_facts",
         "archkeel.ir.state_codec",
         "archkeel.analyzer.typescript.config",
+        "archkeel.analyzer.typescript.standard_libs",
         "archkeel.analyzer.typescript.resolve",
         "archkeel.ir.protocol",
         "archkeel.ir.facts_codec",
