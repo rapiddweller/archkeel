@@ -63,7 +63,7 @@ pr-test: browser-runtime-install
 		tests/test_boundary_type_bound_aliases.py::test_uncertain_inner_alias_does_not_erase_exact_literal_outer_map_permission \
 		tests/test_boundary_type_bound_aliases.py::test_uncertain_alias_ordinary_permission_is_independent_of_union_order \
 		tests/test_typescript_owned_types.py tests/test_typescript_syntax_types.py tests/test_typescript_syntax_compatibility.py tests/test_typescript_json_fields.py tests/test_typescript_control_target.py tests/test_typescript_source_input.py tests/test_typescript_string_constructs.py \
-		tests/test_python_source_evidence_lines.py tests/test_definition_source_owners.py tests/test_analyzer.py tests/test_typescript_config.py tests/test_typescript_resolve.py tests/test_type_shapes.py \
+		tests/test_python_source_evidence_lines.py tests/test_definition_source_owners.py tests/test_analyzer.py tests/test_typescript_config.py tests/test_typescript_resolve.py tests/test_typescript_bundler.py tests/test_type_shapes.py \
 		tests/test_typescript_array_constants.py \
 		tests/test_typescript_decorated_inventory.py \
 		tests/test_typescript_parameter_properties.py \
@@ -218,7 +218,7 @@ typescript-native: browser-runtime-install
 		tests/test_browser_architecture.py::test_browser_runner_serializes_windows_config_as_a_posix_port \
 		tests/test_typescript_json_fields.py tests/test_typescript_config.py tests/test_typescript_string_constructs.py \
 		tests/test_typescript_config_reference.py \
-		tests/test_typescript_resolve.py tests/test_typescript_provenance.py \
+		tests/test_typescript_resolve.py tests/test_typescript_bundler.py tests/test_typescript_provenance.py \
 		tests/test_typescript_init_acceptance.py tests/test_typescript_demo.py
 
 dart-test:

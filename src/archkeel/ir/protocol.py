@@ -84,6 +84,7 @@ class DartSettings:
 @dataclass(frozen=True, slots=True)
 class TypeScriptSettings:
     tsconfig: str = "tsconfig.json"
+    bundler: bool = False
     language: Literal[Language.TYPESCRIPT] = Language.TYPESCRIPT
 
 

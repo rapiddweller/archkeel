@@ -169,3 +169,30 @@ def test_binary_coverage_verdict_rejects_unknown_and_malformed_tags(value):
 
     with pytest.raises(ValueError, match="coverage status/rules invalid"):
         _parse_verdict(value, "coverage status/rules")
+
+
+def _typescript_payload(**resolver: object) -> bytes:
+    raw = json.loads(_request())
+    raw["protocol_version"] = "3.0.0"
+    raw["resolver"] = {"language": "typescript", "tsconfig": "tsconfig.json", **resolver}
+    return json.dumps(raw, sort_keys=True, separators=(",", ":")).encode()
+
+
+def test_bundler_flag_round_trips_and_is_written_only_when_true():
+    from archkeel.ir.protocol import TypeScriptSettings
+
+    on = _typescript_payload(bundler=True)
+    request = decode_request(on)
+    assert request.resolver == TypeScriptSettings("tsconfig.json", True)
+    assert encode_request(request) == on
+    off = _typescript_payload()
+    assert decode_request(off).resolver == TypeScriptSettings("tsconfig.json")
+    assert b"bundler" not in encode_request(decode_request(off))
+    assert encode_request(decode_request(off)) == off
+    assert TypeScriptSettings("x.json").bundler is False
+
+
+@pytest.mark.parametrize("extra", [{"bundler": "yes"}, {"bundler": False}, {"other": True}])
+def test_bundler_flag_rejects_non_canonical_wire_forms(extra):
+    with pytest.raises(ProtocolError):
+        decode_request(_typescript_payload(**extra))

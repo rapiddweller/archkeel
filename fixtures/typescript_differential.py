@@ -400,7 +400,11 @@ def _fingerprint(case: Case) -> str:
         elif path.is_file():
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
             files.append([relative.as_posix(), "file", digest])
-    value = [asdict(case.request.scope), asdict(case.request.resolver), files]
+    resolver = asdict(case.request.resolver)
+    if not resolver.get("bundler"):
+        # The wire form omits a false `bundler`, so frozen digests stay valid (AD-260).
+        resolver.pop("bundler", None)
+    value = [asdict(case.request.scope), resolver, files]
     return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
 
 

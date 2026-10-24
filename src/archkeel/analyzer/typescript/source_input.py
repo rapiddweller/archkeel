@@ -172,6 +172,12 @@ class SpecifierKind(Enum):
     BARE = "bare"
 
 
+_BARE_PACKAGE: Final[re.Pattern[str]] = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+_SCOPED_PACKAGE: Final[re.Pattern[str]] = re.compile(
+    r"@[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*"
+)
+
+
 @dataclass(frozen=True, slots=True)
 class SpecifierInfo:
     original: str
@@ -194,6 +200,11 @@ class SpecifierInfo:
         return self.name in _BUILTINS or (
             self.kind is SpecifierKind.NODE and self.name in _SCHEME_ONLY
         )
+
+    @property
+    def npm_package(self) -> bool:
+        """Whether `package` is a registry-shaped name; project aliases such as `@/lib` are not."""
+        return _npm_shaped(self.kind, self.package)
 
 
 _SPECIFIER: Final[re.Pattern[str]] = re.compile(
@@ -233,3 +244,83 @@ def classify_specifier(text: str) -> SpecifierInfo:
         typed_name=typed_name,
         directory_only=PathToken.parse(text[-1:]) is PathToken.ROOT,
     )
+
+
+class AssetSuffix(StrEnum):
+    """File types a bundler loads itself; the match is case-sensitive."""
+
+    CSS = ".css"
+    SCSS = ".scss"
+    SASS = ".sass"
+    LESS = ".less"
+    STYL = ".styl"
+    PCSS = ".pcss"
+    SVG = ".svg"
+    PNG = ".png"
+    JPG = ".jpg"
+    JPEG = ".jpeg"
+    GIF = ".gif"
+    WEBP = ".webp"
+    AVIF = ".avif"
+    ICO = ".ico"
+    BMP = ".bmp"
+    WOFF = ".woff"
+    WOFF2 = ".woff2"
+    TTF = ".ttf"
+    OTF = ".otf"
+    EOT = ".eot"
+    MP4 = ".mp4"
+    WEBM = ".webm"
+    MP3 = ".mp3"
+    WAV = ".wav"
+    OGG = ".ogg"
+    JSON = ".json"
+
+
+class AssetQuery(StrEnum):
+    """Import query keys that make a bundler load any file as an asset."""
+
+    URL = "url"
+    RAW = "raw"
+    INLINE = "inline"
+    WORKER = "worker"
+    SHAREDWORKER = "sharedworker"
+
+
+def _asset_suffix(path: str) -> bool:
+    try:
+        AssetSuffix(posixpath.splitext(path)[1])
+    except ValueError:
+        return False
+    return True
+
+
+def _npm_shaped(kind: SpecifierKind, package: str) -> bool:
+    if kind is SpecifierKind.SCOPED:
+        return re.fullmatch(_SCOPED_PACKAGE, package) is not None
+    return kind is SpecifierKind.BARE and re.fullmatch(_BARE_PACKAGE, package) is not None
+
+
+def _asset_query(key: str) -> bool:
+    try:
+        AssetQuery(key)
+    except ValueError:
+        return False
+    return True
+
+
+def classify_asset(specifier: str) -> str | None:
+    """The path of a specifier a bundler loads as an asset, else None; the query is dropped.
+
+    A query alone never turns a source file (`./w.ts?worker`) into an asset.
+    """
+    path, _, rest = specifier.partition("?")
+    query: str = rest
+    keys = query.split("&") if query else []
+    if _asset_suffix(path):
+        return path
+    # A query makes an unknown file type an asset; a source file keeps its own resolution.
+    suffix = classify_file(path)
+    if any(_asset_query(key) for key in keys) and (suffix is None or suffix.source_kind is None):
+        return path
+    return None

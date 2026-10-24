@@ -267,3 +267,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-257 | [Rule-driven fact collection](ad-257-rule-driven-fact-collection.md) |
 | AD-258 | [The report opens with ranked findings](ad-258-report-opens-with-ranked-findings.md) |
 | AD-259 | [One plain wire, one validation](ad-259-one-plain-wire-one-validation.md) |
+| AD-260 | [Opt-in bundler mode for the TypeScript collector](ad-260-typescript-bundler-mode.md) |

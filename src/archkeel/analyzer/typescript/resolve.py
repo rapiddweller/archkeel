@@ -14,7 +14,7 @@ import hashlib
 import json
 import posixpath
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import TypeAlias
 
@@ -72,6 +72,8 @@ def _package_type(manifest: Json) -> _PackageType | None:
 @dataclass(frozen=True, slots=True)
 class Unknown:
     reason: str
+    # The reason concerns package metadata inside a dependency, which a bundler decides itself.
+    package_internal: bool = field(default=False, compare=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +83,8 @@ class Found:
     external: bool
     # A directory's package.json decided the file; Node may load another one than the compiler.
     directory_package: bool
+    # Matched a tsconfig `paths` entry, which a bundler alias is assumed to mirror.
+    via_paths: bool = False
 
 
 def is_builtin(specifier: str) -> bool:
@@ -99,6 +103,23 @@ def _declares_exports(manifest: Json) -> bool:
     """Whether `exports` is truthy in JavaScript, where an empty object still counts."""
     value = manifest.get("exports")
     return isinstance(value, (dict, list)) or bool(value)
+
+
+def _package_subpath(specifier_path: str, name: str) -> str | None:
+    """The path inside a package, or None when it is empty or holds a `.` or `..` segment."""
+    rest: str = specifier_path[len(name) :]
+    if PathToken.parse(rest[:1]) is not PathToken.ROOT:
+        return None
+    subpath: str = rest[1:]
+    steps = {PathToken.CURRENT, PathToken.PARENT}
+    if any(PathToken.parse(segment) in steps for segment in subpath.split("/")):
+        return None
+    return subpath
+
+
+def _substitute(target: str, star: str) -> str:
+    """The compiler substitutes only a non-empty match and keeps the text otherwise."""
+    return target.replace("*", star, 1) if star else target
 
 
 def _best_pattern(
@@ -291,7 +312,7 @@ class Resolver:
         for kinds in passes:
             mapped = self._mapped(specifier, esm, kinds)
             if mapped is not None:
-                return self._found(mapped, False, None)
+                return self._found(mapped[0], False, mapped[1], via_paths=mapped[2])
             if (
                 prefer_builtin
                 and mode is not None
@@ -310,14 +331,23 @@ class Resolver:
                     return self._found(found, True, None)
         return None
 
-    def _mapped(self, specifier: str, esm: bool, kinds: Kinds) -> str | Unknown | None:
-        """`paths`, then `baseUrl`: the project's own names for modules, tried before packages."""
+    def _mapped(
+        self, specifier: str, esm: bool, kinds: Kinds
+    ) -> tuple[str | Unknown, str | None, bool] | None:
+        """`paths`, then `baseUrl`: the project's own names for modules, tried before packages.
+
+        The result, the directory a `package.json` may have decided, and whether `paths` matched.
+        """
         match = _best_pattern(self.options.paths, specifier)
         if match is not None:
             star, targets = match
             for target in targets:
                 if posixpath.isabs(target):
-                    return Unknown(f"Absolute paths targets are not observed: {specifier}")
+                    return (
+                        Unknown(f"Absolute paths targets are not observed: {specifier}"),
+                        None,
+                        True,
+                    )
                 # The compiler substitutes only a non-empty match and keeps the text otherwise.
                 candidate = join(
                     self.options.paths_base, target.replace("*", star, 1) if star else target
@@ -326,20 +356,54 @@ class Resolver:
                 if classify_file(target) not in (None, FileSuffix.NONE) and self.snapshot.is_file(
                     candidate
                 ):
-                    return candidate
+                    return candidate, None, True
                 found = self._by_name(candidate, False, esm, kinds, True)
                 if found is not None:
-                    return found
+                    return found, candidate, True
         if self.options.base_url is not None:
-            return self._by_name(join(self.options.base_url, specifier), False, esm, kinds, True)
+            lookup = join(self.options.base_url, specifier)
+            found = self._by_name(lookup, False, esm, kinds, True)
+            return None if found is None else (found, lookup, False)
         return None
 
-    def _found(self, found: str | Unknown, external: bool, lookup: str | None) -> Found | Unknown:
+    def _found(
+        self, found: str | Unknown, external: bool, lookup: str | None, *, via_paths: bool = False
+    ) -> Found | Unknown:
         if isinstance(found, Unknown):
             return found
         read = lookup is not None and join(lookup, "package.json") in self._reads
         directory = read and lookup is not None and self.snapshot.is_dir(lookup)
-        return Found(self.snapshot.real(found) or found, external, directory)
+        return Found(self.snapshot.real(found) or found, external, directory, via_paths)
+
+    def file_exists(self, importer: str, specifier_path: str) -> bool:
+        """Whether a relative specifier names a file in the snapshot, with no extension search."""
+        return self.snapshot.is_file(join(posixpath.dirname(importer) or ".", specifier_path))
+
+    def package_file_exists(self, importer: str, specifier_path: str) -> bool:
+        """Whether an installed package holds the file a package subpath names, inside itself."""
+        name = package_name(specifier_path)
+        subpath = _package_subpath(specifier_path, name)
+        if subpath is None:
+            return False
+        installed = (
+            join(join(directory, "node_modules"), name) for directory in _ancestors(importer)
+        )
+        return any(
+            self.snapshot.is_dir(package) and self.snapshot.is_file(join(package, subpath))
+            for package in installed
+        )
+
+    def alias_file_exists(self, specifier_path: str) -> bool:
+        """Whether a tsconfig `paths` entry maps a specifier onto an existing file."""
+        match = _best_pattern(self.options.paths, specifier_path)
+        if match is None:
+            return False
+        star, targets = match
+        return any(
+            not posixpath.isabs(target)
+            and self.snapshot.is_file(join(self.options.paths_base, _substitute(target, star)))
+            for target in targets
+        )
 
     def _self_reference(self, importer: str, name: str) -> bool:
         manifest = self.scope(importer)
@@ -374,7 +438,7 @@ class Resolver:
         if isinstance(root, Unknown):
             return root
         if root is not None and has_field(root, "typesVersions"):
-            return Unknown(f"Package typesVersions are not observed: {name}")
+            return Unknown(f"Package typesVersions are not observed: {name}", True)
         if root is not None and self._exports_aware and _declares_exports(root):
             return self._export_target(modules, name, rest, root, esm, kinds)
         candidate = join(modules, specifier)
@@ -423,7 +487,7 @@ class Resolver:
         if isinstance(target, Unknown):
             return target
         if target is None:
-            return Unknown(f"Package exports conditions are not observed: {name}{key[1:]}")
+            return Unknown(f"Package exports conditions are not observed: {name}{key[1:]}", True)
         if PathToken.parse(target[:2]) is not PathToken.RELATIVE:
             return Unknown(f"Package exports target is not package-relative: {name}{key[1:]}")
         if re.fullmatch(r"\./[^/%?#\\]+(?:/[^/%?#\\]+)*\Z", target) is None or any(
@@ -456,7 +520,7 @@ class Resolver:
             try:
                 condition = _ExportCondition(name)
             except ValueError:
-                return Unknown(f"Package exports condition is not observed: {name}")
+                return Unknown(f"Package exports condition is not observed: {name}", True)
             active = _ExportCondition.IMPORT if esm else _ExportCondition.REQUIRE
             if condition in {_ExportCondition.TYPES, _ExportCondition.DEFAULT, active}:
                 if not isinstance(target, (dict, str)):
@@ -467,7 +531,7 @@ class Resolver:
             elif condition in {_ExportCondition.IMPORT, _ExportCondition.REQUIRE}:
                 continue
             else:
-                return Unknown(f"Package exports condition is not observed: {name}")
+                return Unknown(f"Package exports condition is not observed: {name}", True)
         return None
 
     def _by_name(
@@ -492,7 +556,13 @@ class Resolver:
         """A package directory: the file `types` or `main` names, else its `index`."""
         fields = {} if manifest is None else manifest
         if has_field(fields, "typesVersions"):
-            return Unknown(f"Package typesVersions are not observed: {directory}")
+            return Unknown(
+                f"Package typesVersions are not observed: {directory}",
+                any(
+                    PathToken.parse(segment) is PathToken.NODE_MODULES
+                    for segment in directory.split("/")
+                ),
+            )
         keys = [*(("typings", "types") if SourceKind.DECLARATION in kinds else ()), "main"]
         named = next(
             (value for key in keys if isinstance(value := fields.get(key), str) and value), None

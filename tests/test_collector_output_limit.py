@@ -16,6 +16,7 @@ from archkeel.analyzer.python.collect import PythonProviderCollector
 from archkeel.cli import main
 from archkeel.cli.config import ConfigError, parse_config
 from archkeel.cli.observe import observer_for
+from archkeel.ir.facts import Language
 
 ROOT = Path(__file__).parents[1]
 CONFIG = '[scan]\nroots = ["src/sample"]\nnamespace = "sample"\ncontract = "contract.json"\n'
@@ -101,3 +102,8 @@ def test_init_rejects_invalid_output_limits_without_writing_files(
     )
     assert json.loads(capsys.readouterr().out)["diagnostics"]
     assert not (root / "archkeel.toml").exists()
+
+
+def test_observer_carries_the_bundler_flag() -> None:
+    assert observer_for(Language.TYPESCRIPT).bundler is False
+    assert observer_for(Language.TYPESCRIPT, bundler=True).bundler is True

@@ -126,6 +126,7 @@ and canonical type identity; their exact and optional-union semantics are record
 | [AD-257](decisions/ad-257-rule-driven-fact-collection.md) | Collect a fact family only when a declared rule uses it; a rule whose family was not collected is a coverage failure, never PASS. |
 | [AD-258](decisions/ad-258-report-opens-with-ranked-findings.md) | Open the report with one verdict line and a ranked findings list computed once in the IR; a change field appears only with a comparison. |
 | [AD-259](decisions/ad-259-one-plain-wire-one-validation.md) | The native collector speaks a plain, zlib-compressed protocol 8 and validates once, at the main process. |
+| [AD-260](decisions/ad-260-typescript-bundler-mode.md) | Treat bundler-resolved TypeScript imports as known only when `[scan] bundler = true` and tsconfig uses `moduleResolution: bundler`. |
 | [AD-246](decisions/ad-246-bounded-numeric-operand.md) | Bind selected modulo bounds to bounded source-derived integer proofs. |
 
 | [AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md) | Bind explicitly written actuals to proven formals before applying argument policies. |

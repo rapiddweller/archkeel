@@ -21,6 +21,7 @@ def observer_for(
     collector_argv: tuple[str, ...] | None = None,
     tsconfig: str = "tsconfig.json",
     output_limit_bytes: int | None = None,
+    bundler: bool = False,
 ) -> Observer:
     native_python = collector_argv is None and language == Language.PYTHON
     if collector_argv is None:
@@ -30,7 +31,9 @@ def observer_for(
         if output_limit_bytes is None
         else ProcessCollector(collector_argv, output_limit_bytes=output_limit_bytes)
     )
-    return Observer(PythonProviderCollector(collector) if native_python else collector, tsconfig)
+    return Observer(
+        PythonProviderCollector(collector) if native_python else collector, tsconfig, bundler
+    )
 
 
 def observe(

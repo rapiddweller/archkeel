@@ -157,8 +157,18 @@ Other construct forms, call and private-use metrics remain unavailable. See
 [supported string controls](architecture/typescript-written-string-controls.md).
 Computed/indirect
 loaders, incomplete JavaScript closure and missing resolver inputs retain UNKNOWN, as do
-`extends` through a package, `exports` and `typesVersions` maps, and syntax the
-grammar cannot parse (`import('x').T<G>`, `export type *`).
+`extends` through a package, `exports` and `typesVersions` maps (unless bundler mode
+is on, where the package is an external edge), and syntax the grammar cannot parse
+(`import('x').T<G>`, `export type *`).
+`[scan] bundler = true` opts a bundled project into treating tsconfig `paths` aliases
+(not `baseUrl`-only matches), package `exports`/`typesVersions`, and existing asset
+and JSON imports as known. It requires `moduleResolution: bundler` and asserts that
+the bundler's aliases match tsconfig `paths`; ArchKeel does not verify that. A
+`?query` on a source file does not make it an asset. A bare-package asset must lie inside
+the installed package (a `.` or `..` segment is unresolved). `.` and `..` imports count as
+relative. Triple-slash and JSDoc-import
+concerns remain
+([AD-260](architecture/decisions/ad-260-typescript-bundler-mode.md)).
 See [adapter limits](architecture/typescript-foundation-proposal.md#evidence-and-limits).
 
 ## Dart profile
