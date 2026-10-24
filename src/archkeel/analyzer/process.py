@@ -147,7 +147,8 @@ class ProcessCollector:
             return CollectionError(
                 CollectionErrorKind.TIMEOUT,
                 subject,
-                f"Collector exceeded {self.timeout_seconds:g} seconds.",
+                f"Collector exceeded {self.timeout_seconds:g} seconds. "
+                "Raise collector_timeout_seconds in [scan].",
             )
         except OSError as error:
             return CollectionError(

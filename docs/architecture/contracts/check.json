@@ -1807,6 +1807,13 @@
                 "kind": "keyword_only",
                 "default": "None",
                 "default_known": true
+              },
+              {
+                "name": "collector_timeout_seconds",
+                "annotation": "int | None",
+                "kind": "keyword_only",
+                "default": "None",
+                "default_known": true
               }
             ],
             "returns": "tuple[RunResult, FilesToWrite]"

@@ -4,6 +4,7 @@
 """Compose configured language processes with the Core observer."""
 
 import sys
+from dataclasses import replace
 from pathlib import Path
 from typing import Literal
 
@@ -21,16 +22,17 @@ def observer_for(
     collector_argv: tuple[str, ...] | None = None,
     tsconfig: str = "tsconfig.json",
     output_limit_bytes: int | None = None,
+    timeout_seconds: int | None = None,
     bundler: bool = False,
 ) -> Observer:
     native_python = collector_argv is None and language == Language.PYTHON
     if collector_argv is None:
         collector_argv = (sys.executable, "-I", "-B", "-m", f"archkeel.analyzer.{language}.entry")
-    collector = (
-        ProcessCollector(collector_argv)
-        if output_limit_bytes is None
-        else ProcessCollector(collector_argv, output_limit_bytes=output_limit_bytes)
-    )
+    collector = ProcessCollector(collector_argv)
+    if output_limit_bytes is not None:
+        collector = replace(collector, output_limit_bytes=output_limit_bytes)
+    if timeout_seconds is not None:
+        collector = replace(collector, timeout_seconds=timeout_seconds)
     return Observer(
         PythonProviderCollector(collector) if native_python else collector, tsconfig, bundler
     )

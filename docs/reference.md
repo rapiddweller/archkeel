@@ -112,6 +112,12 @@ limit for initialization and saves it in the generated config. `report`, `valida
 and `check` use the configured limit; `check` binds it to the accepted config like
 the other scan inputs. See [AD-224](architecture/decisions/ad-224-configurable-collector-output-limit.md).
 
+The collector deadline defaults to 300 seconds. A large repository that times out may set
+`collector_timeout_seconds = 900` in `[scan]`; the value must be a positive integer no larger
+than the platform's thread timeout limit. It changes only how long a collector may run; a
+timeout still exits without a complete observation. `archkeel init --collector-timeout-seconds 900`
+saves the same value, and `report`, `validate` and `check` use it like the output limit.
+
 SourceFacts 3.0.0 introduced neutral list type syntax for explicit callback arguments.
 Readers retain 1.0.0/2.0.0 packets; those versions reject that list vocabulary,
 including nested shapes. Runtime `requirement_state` is required from SourceFacts

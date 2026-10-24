@@ -94,9 +94,9 @@ ambiguous owners and missing native proof still prevent complete inventories.
 This does not certify inherited/runtime members, signatures, whole-Target UML or
 global coverage ([AD-229](architecture/decisions/ad-229-local-member-inventory-proof.md)).
 
-The bundled collector has a 300-second deadline. Timeout exits 2 without a complete
-observation. An older report file is not fresh evidence. Match the analyzed project's
-Python runtime to avoid `runtime_mismatch`.
+The bundled collector has a 300-second deadline unless `[scan] collector_timeout_seconds`
+raises it. Timeout exits 2 without a complete observation. An older report file is not
+fresh evidence. Match the analyzed project's Python runtime to avoid `runtime_mismatch`.
 
 ## A facade type position is not always decidable
 

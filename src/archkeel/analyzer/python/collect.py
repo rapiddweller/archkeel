@@ -135,7 +135,8 @@ class PythonProviderCollector:
         timeout = CollectionError(
             CollectionErrorKind.TIMEOUT,
             self.collector.argv[0],
-            f"Collector exceeded {self.collector.timeout_seconds:g} seconds.",
+            f"Collector exceeded {self.collector.timeout_seconds:g} seconds. "
+            "Raise collector_timeout_seconds in [scan].",
         )
         initial_response = self.collector.collect_response(
             replace(

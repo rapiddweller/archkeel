@@ -391,7 +391,7 @@ def test_process_limit_stops_spawned_worker(
         assert isinstance(result, CollectionError)
         assert result.kind == ("timeout" if limit == "timeout" else "protocol_error")
         assert result.message == (
-            "Collector exceeded 0.5 seconds."
+            "Collector exceeded 0.5 seconds. Raise collector_timeout_seconds in [scan]."
             if limit == "timeout"
             else "Collector output exceeded its 1000 byte limit."
         )
