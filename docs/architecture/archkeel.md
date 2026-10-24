@@ -128,6 +128,7 @@ and canonical type identity; their exact and optional-union semantics are record
 | [AD-259](decisions/ad-259-one-plain-wire-one-validation.md) | The native collector speaks a plain, zlib-compressed protocol 8 and validates once, at the main process. |
 | [AD-260](decisions/ad-260-typescript-bundler-mode.md) | Treat bundler-resolved TypeScript imports as known only when `[scan] bundler = true` and tsconfig uses `moduleResolution: bundler`. |
 | [AD-262](decisions/ad-262-configurable-collector-timeout.md) | Make the collector deadline a configured positive integer in `[scan]`, defaulting to 300 seconds. |
+| [AD-263](decisions/ad-263-cycle-findings-carry-a-concrete-path.md) | A cycle finding carries one concrete path: the shortest closed walk with a `file:line` site per edge. |
 | [AD-246](decisions/ad-246-bounded-numeric-operand.md) | Bind selected modulo bounds to bounded source-derived integer proofs. |
 
 | [AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md) | Bind explicitly written actuals to proven formals before applying argument policies. |
