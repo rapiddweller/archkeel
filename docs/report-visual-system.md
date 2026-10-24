@@ -69,14 +69,13 @@ geometry. Use them rather than copying a second specification here.
 ## Verify a renderer change
 
 ```bash
-make browser-install
-make report-browser OUTPUT=test-artifacts/report-browser
+make report-browser-tests
 ```
 
-Use a fresh output directory. The pinned Chromium lane exercises nested
-navigation, As-Is/Target/Diff, filters and mobile layouts, saving screenshots and
-traces. Review images and captions before copying canonical PNGs to `docs/assets`.
-Static HTML assertions do not prove browser behavior.
+Three optional local Chromium smokes cover findings links, keyboard navigation
+and card dragging. CI checks data, projection and layout logic directly with
+Python and Node. Review the Nightly gallery for visual changes; these logic
+checks do not prove browser rendering or interaction.
 
 Terminal captures use `make demo OUTPUT=<fresh-directory>` followed by
 `uv run --locked python -m tools.terminal_svg <fresh-directory>`.

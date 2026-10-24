@@ -87,15 +87,15 @@ class ChangeClassificationTests(unittest.TestCase):
             "Makefile",
             ".github/workflows/full-verification.yml",
             ".github/workflows/ci.yml",
+            "pyproject.toml",
             "tests/conftest.py",
+            "tests/test_browser_markers.py",
             "tests/test_make_gate.py",
             "tests/test_ci_changes.py",
             "tools/ci_changes.py",
             "tools/report_timing.py",
-            "tools/report_browser.py",
             "tools/report_pages.py",
             "tests/test_report_pages.py",
-            "tests/test_report_browser.py",
         ):
             with self.subTest(path=path):
                 self.assertTrue(classify_path(path).full)

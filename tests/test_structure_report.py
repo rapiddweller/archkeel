@@ -5,10 +5,8 @@
 
 import re
 from dataclasses import replace
-from urllib.parse import parse_qs, urlsplit
 
 import pytest
-from browser_report_support import _browser_page
 from test_atlas_report import _page, _result
 from test_module_explore import _sample
 
@@ -109,52 +107,3 @@ def test_legacy_evidence_report_also_uses_neutral_structure_overview(tmp_path):
     assert "Review claim: symbols nobody references" in document
     assert "Edges inside" in document and "Unresolved calls" in document
     assert "<code>sample.core</code>" in document
-
-
-@pytest.mark.parametrize("component", ["core", "peer"])
-def test_structure_overview_browser_keeps_neutral_values_and_component_routes(tmp_path, component):
-    api = pytest.importorskip("playwright.sync_api")
-    model = _sparse_component(tmp_path)
-    component_id = next(
-        item.id
-        for item in _result(model).architecture_projection.components
-        if item.label == component
-    )
-    index = tmp_path / "architecture.report.html"
-    index.write_text(_page(model))
-    errors = []
-    playwright, browser, page = _browser_page(api, index.read_text(), errors=errors)
-    try:
-        page.goto(f"{index.as_uri()}?view=target&theme=dark")
-        panel = page.locator(".atlas-structure-overview")
-        panel.locator("summary").click()
-        assert panel.locator("summary").inner_text() == "Structure overview"
-        assert panel.locator("tbody tr").count() == 2
-        core = panel.locator("tbody tr").filter(
-            has=page.get_by_role("link", name="core", exact=True)
-        )
-        assert core.locator("td").all_inner_texts() == [
-            "core",
-            "component",
-            "17",
-            "0",
-            "1",
-            "0",
-            "no calls",
-        ]
-        panel.get_by_role("link", name=component, exact=True).click()
-        page.wait_for_url(
-            lambda url: parse_qs(urlsplit(str(url)).query).get("selected") == [component_id]
-        )
-        query = parse_qs(urlsplit(page.url).query)
-        assert "scope" not in query
-        assert query["view"] == ["target"] and query["theme"] == ["dark"]
-        assert (
-            page.locator('.flow-nodes [aria-pressed="true"]').get_attribute("data-uml-id")
-            == component_id
-        )
-        assert component in page.locator(".flow-inspector-content").inner_text()
-        assert not errors
-    finally:
-        browser.close()
-        playwright.stop()

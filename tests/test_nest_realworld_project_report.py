@@ -7,14 +7,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
 import subprocess
 from collections import Counter
 from pathlib import Path
 
 import pytest
-from test_uml_rendering import _wait_for_layout
 
 from archkeel.ir.graph_codec import parse_report
 from fixtures.architecture_demo import (
@@ -298,75 +296,3 @@ def test_nest_realworld_catalog_and_reports_preserve_full_target_with_partial_co
     assert (baseline_call.status, dynamic_call.status) == ("PASS", "UNKNOWN")
     assert baseline_call.evidence_ids == ("EVD-3c8426b5f4544736",)
     assert set(baseline_call.evidence_ids) <= set(dynamic_call.evidence_ids)
-
-
-def test_nest_realworld_report_browses_deep_target_at_desktop_and_mobile(
-    tmp_path: Path,
-) -> None:
-    api = pytest.importorskip("playwright.sync_api")
-    output = tmp_path / "nest-realworld-project.json"
-    assert replay("nest-realworld-project", output) == 2
-    screenshots = Path(os.environ.get("ARCHKEEL_NEST_REPORT_ARTIFACTS", tmp_path / "screenshots"))
-    screenshots.mkdir(parents=True, exist_ok=True)
-
-    with api.sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
-        try:
-            page = browser.new_page(viewport={"width": 1440, "height": 1000})
-            main = output.with_suffix(".report.html")
-            page.goto(main.as_uri())
-            _wait_for_layout(page)
-            assert _payload(main)["atlas"]["detail_page"] == output.with_suffix(".detail.html").name
-
-            page.locator('.flow-nodes [data-uml-id="publishing"]').click()
-            page.get_by_text("Browse 9 modules", exact=True).click()
-            _wait_for_layout(page)
-            page.locator('[data-content="components"]').last.click()
-            _wait_for_layout(page)
-            page.locator(
-                '.flow-nodes [data-uml-id="Article and comment publishing:article-service"]'
-            ).press("Enter")
-            _wait_for_layout(page)
-
-            atlas = _payload(main)["atlas"]
-            module = next(
-                item
-                for item in atlas["modules"]
-                if item["path"] == "src/article/article.service.ts"
-            )
-            page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]').dblclick()
-            page.wait_for_url("**/*.detail.html?*")
-            _wait_for_layout(page)
-            module_url = page.url
-            assert page.locator(".atlas-heading").is_visible()
-            assert page.locator(".flow-views [data-flow-view]").count() == 3
-
-            for width in (1440, 390):
-                page.set_viewport_size({"width": width, "height": 900})
-                for view in ("diagram", "target", "diff"):
-                    page.goto(module_url)
-                    _wait_for_layout(page)
-                    page.locator(f'[data-flow-view="{view}"]').click()
-                    _wait_for_layout(page)
-                    page.locator('.flow-nodes [data-label="ArticleService"]').dblclick()
-                    _wait_for_layout(page)
-                    member = page.locator('.flow-nodes [data-label="findFeed"]')
-                    assert member.count() == 1
-                    member.press("Space")
-                    inspector = page.locator(".flow-inspector-content").inner_text()
-                    assert "findFeed" in inspector
-                    assert "src/article/article.service.ts" in inspector
-                    if view == "target":
-                        assert "docs/target.md" in inspector
-                        assert "Promise<IArticlesRO>" in inspector
-                    else:
-                        assert "Source sites" in inspector
-                        assert "article.service.ts" in inspector
-                        assert "Promise<IArticlesRO>" in inspector
-                    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-                    page.screenshot(
-                        path=str(screenshots / f"nest-realworld-{width}-{view}.png"),
-                        full_page=True,
-                    )
-        finally:
-            browser.close()

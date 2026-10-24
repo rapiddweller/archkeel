@@ -1,17 +1,14 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Publish the browser-accepted demo reports beside the current Main report."""
+"""Publish generated demo reports beside the current Main report."""
 
 from __future__ import annotations
 
-import argparse
 import contextlib
 import io
 import json
 import re
-import shutil
-import subprocess
 from html import escape
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -23,31 +20,7 @@ from fixtures.demo_catalog_typescript import VARIANTS
 from fixtures.reproduce_typescript import repository
 
 
-def _accepted_report(name: str, accepted: Path, artifact: Path) -> dict[str, object]:
-    result = json.loads((accepted / f"{name}.result.json").read_text())
-    source = accepted / name
-    artifact.parent.mkdir(parents=True)
-    for path in (
-        source / "architecture.json",
-        source / "architecture.report.html",
-        *source.glob("architecture.detail*.html"),
-    ):
-        shutil.copyfile(path, artifact.parent / path.name)
-    return result
-
-
-def build_demos(output: Path, *, accepted_reports: Path | None = None) -> None:
-    if accepted_reports is not None:
-        receipt = accepted_reports / "accepted.json"
-        revision = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-        if not receipt.is_file():
-            raise ValueError("Missing browser acceptance receipt")
-        accepted = json.loads(receipt.read_text())
-        if accepted != {
-            "revision": revision,
-            "cases": {name: list(case) for name, case in REPORT_CASES.items()},
-        }:
-            raise ValueError("Browser acceptance does not cover this revision and catalog")
+def build_demos(output: Path) -> None:
     output.mkdir(parents=True, exist_ok=True)
     variants = {variant.id: variant for variant in CATALOG}
     rows: list[dict[str, object]] = []
@@ -60,20 +33,17 @@ def build_demos(output: Path, *, accepted_reports: Path | None = None) -> None:
     for name, (variant_id, expected_exit) in cases.items():
         print(f"Building demo: {name} ({variant_id})", flush=True)
         artifact = output / name / "architecture.json"
-        if accepted_reports is not None and name in REPORT_CASES:
-            report = _accepted_report(name, accepted_reports, artifact)
-        else:
-            stdout = io.StringIO()
-            with contextlib.redirect_stdout(stdout):
-                actual = replay(variant_id, artifact)
-            if actual != expected_exit:
-                raise ValueError(f"{variant_id}: expected exit {expected_exit}, got {actual}")
-            results = [
-                json.loads(line)
-                for line in stdout.getvalue().splitlines()
-                if line.startswith("{") and line.endswith("}")
-            ]
-            report = next(item for item in results if item["command"] == "report")
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            actual = replay(variant_id, artifact)
+        if actual != expected_exit:
+            raise ValueError(f"{variant_id}: expected exit {expected_exit}, got {actual}")
+        results = [
+            json.loads(line)
+            for line in stdout.getvalue().splitlines()
+            if line.startswith("{") and line.endswith("}")
+        ]
+        report = next(item for item in results if item["command"] == "report")
         rows.append(
             _entry(
                 name,
@@ -330,7 +300,4 @@ runnable control, not a full-project demo.</p>
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--accepted-reports", type=Path)
-    args = parser.parse_args()
-    build_demos(Path("test-artifacts/pages/demos"), accepted_reports=args.accepted_reports)
+    build_demos(Path("test-artifacts/pages/demos"))

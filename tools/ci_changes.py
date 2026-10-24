@@ -23,14 +23,14 @@ class Areas:
 
 ALL_AREAS = Areas(core=True, report=True, mermaid=True, full=True)
 _VERIFICATION_PATHS = {
+    "pyproject.toml",
     "tests/conftest.py",
+    "tests/test_browser_markers.py",
     "tests/test_make_gate.py",
     "tests/test_ci_changes.py",
     "tests/test_report_pages.py",
-    "tests/test_report_browser.py",
     "tools/ci_changes.py",
     "tools/report_timing.py",
-    "tools/report_browser.py",
     "tools/report_pages.py",
 }
 _SCREENSHOT_PATHS = {

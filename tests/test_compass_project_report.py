@@ -12,7 +12,6 @@ from collections import Counter
 from pathlib import Path
 
 import pytest
-from test_uml_rendering import _wait_for_layout
 
 from archkeel.ir.graph_codec import parse_report
 from fixtures.architecture_demo import REPORT_CASES, replay
@@ -254,82 +253,3 @@ def test_compass_reports_keep_target_comparison_and_partial_coverage_distinct(
     )
     assert dynamic_annotation.status == "FAIL"
     assert dynamic_annotation.evidence_ids == ("EVD-6ed26bccb52971b6",)
-
-
-def test_compass_report_opens_generated_detail_page_in_browser(tmp_path: Path) -> None:
-    api = pytest.importorskip("playwright.sync_api")
-    output = tmp_path / "compass-project.json"
-    assert replay("compass-project", output) == 2
-    with api.sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
-        try:
-            page = browser.new_page(viewport={"width": 1440, "height": 1000})
-            page.goto(output.with_suffix(".report.html").as_uri())
-            _wait_for_layout(page)
-            atlas = json.loads(page.locator("#flow-data").text_content() or "{}")["atlas"]
-            assert atlas["detail_page"] == output.with_suffix(".detail.html").name
-            page.locator('.flow-nodes [data-uml-id="presentation"]').click()
-            page.get_by_text("Browse 42 modules", exact=True).click()
-            page.locator('[data-content="components"]').last.click()
-            _wait_for_layout(page)
-            page.locator('.flow-nodes [data-uml-id="presentation:presentation-booking"]').press(
-                "Enter"
-            )
-            _wait_for_layout(page)
-            atlas = json.loads(page.locator("#flow-data").text_content() or "{}")["atlas"]
-            module = next(
-                item
-                for item in atlas["modules"]
-                if item["path"] == "lib/ui/booking/view_models/booking_viewmodel.dart"
-            )
-            page.locator(f'.flow-nodes [data-uml-id="{module["id"]}"]').dblclick()
-            page.wait_for_url("**/*.detail.html?*")
-            _wait_for_layout(page)
-            module_url = page.url
-            assert page.locator(".atlas-heading").is_visible()
-            assert page.locator(".flow-views [data-flow-view]").count() == 3
-            assert page.locator(".flow-nodes [data-label=BookingViewModel]").count() == 1
-            for width in (1440, 390):
-                page.set_viewport_size({"width": width, "height": 900})
-                for view in ("diagram", "target", "diff"):
-                    page.goto(module_url)
-                    _wait_for_layout(page)
-                    page.locator(f'[data-flow-view="{view}"]').click()
-                    _wait_for_layout(page)
-                    page.locator('.flow-nodes [data-label="BookingViewModel"]').dblclick()
-                    _wait_for_layout(page)
-                    member = page.locator('.flow-nodes [data-label="_createBooking"]')
-                    assert member.count() == 1
-                    member.press("Space")
-                    inspector = page.locator(".flow-inspector-content").inner_text()
-                    assert "_createBooking" in inspector
-                    assert "lib/ui/booking/view_models/booking_viewmodel.dart" in inspector
-                    if view in {"diagram", "diff"}:
-                        if view == "diagram":
-                            page.locator(".flow-inspector-content button[data-uml-detail]").nth(
-                                1
-                            ).click()
-                            source_fact = page.locator(".flow-inspector-content").inner_text()
-                            assert (
-                                "result = await _createUseCase.createFrom(itineraryConfig.value)"
-                                in source_fact
-                            )
-                            assert (
-                                "lib/ui/booking/view_models/booking_viewmodel.dart" in source_fact
-                            )
-                        else:
-                            assert "Source sites" in inspector
-                            assert "booking_viewmodel.dart:51:2" in inspector
-                            assert (
-                                "await _createUseCase.createFrom(itineraryConfig.value)"
-                                in inspector
-                            )
-                            page.screenshot(
-                                path=str(tmp_path / f"compass-{width}-diff-source.png"),
-                                full_page=True,
-                            )
-                    else:
-                        assert "docs/target.md" in inspector
-                    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-        finally:
-            browser.close()

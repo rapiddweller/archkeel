@@ -3,7 +3,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: against gate full-test-shard ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts prune-workflows mermaid check test collector-safety typescript-native typescript-compiler-check dart-test lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-browser-tests report-browser-proof report-pages plugin plugin-directory plugin-release build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
+.PHONY: against gate full-test-shard ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts prune-workflows mermaid check test collector-safety typescript-native typescript-compiler-check dart-test lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-browser-tests report-pages plugin plugin-directory plugin-release build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
 
 # SHARDED_TESTS=1: the full suite runs in separate shard jobs (make test TEST_SHARD=I/N).
 check: lint typecheck browser-architecture-check $(if $(strip $(SHARDED_TESTS)),,test)
@@ -19,27 +19,25 @@ ci: ci-check mermaid
 
 ci-check: ci-artifacts-clean ci-core-check ci-report-check
 
-ci-core-check: PYTEST_EXTRA = --with playwright==$(PLAYWRIGHT_VERSION)
 ci-core-check: PYTEST_STOP := --maxfail=1
-ci-core-check: browser-install gate typescript-compiler-check browser-graph-check ci-typescript browser-runtime-check
+ci-core-check: gate typescript-compiler-check browser-graph-check ci-typescript browser-runtime-check
 
-ci-report-check: report-timing report-browser-proof
+ci-report-check: report-timing
 
 # One shard of the full suite; Full verification runs every shard in parallel.
-full-test-shard: PYTEST_EXTRA = --with playwright==$(PLAYWRIGHT_VERSION)
 full-test-shard: TEST_WORKERS = 4
-full-test-shard: browser-install browser-runtime-install test
+full-test-shard: browser-runtime-install test
 
 ci-pr-check: ci-pr-static pr-test
 
 ci-pr-static: $(if $(strip $(BASE)),against,self-validate) lint typecheck browser-architecture-check
 
-ci-pr-report-check: browser-install browser-runtime-check browser-graph-check pr-report-test
+ci-pr-report-check: browser-runtime-check browser-graph-check pr-report-test
 
 pr-test: browser-runtime-install
 	$(UV) run --locked python -m pytest -n 4 --dist=loadfile --max-worker-restart=0 \
 		-q --durations=10 --junitxml=test-artifacts/pytest/pr-core.xml $(if $(PR_TEST_SHARD),--shard=$(PR_TEST_SHARD),) \
-		tests/test_workflow_registry.py tests/test_ci_changes.py tests/test_make_gate.py tests/test_publish_release.py tests/test_repository_hygiene.py \
+		tests/test_workflow_registry.py tests/test_ci_changes.py tests/test_make_gate.py tests/test_browser_markers.py tests/test_publish_release.py tests/test_repository_hygiene.py \
 		tests/test_responsibility_validation.py tests/test_target_architecture.py tests/test_self.py tests/test_contract_maintenance.py tests/test_skill.py \
 		tests/test_contract_model.py tests/test_contract_version_types.py tests/test_dependency_selectors.py tests/test_requires_symbol_ports.py tests/test_typed_dependency_api.py tests/test_dependency_api_target.py tests/test_module_object_grants.py tests/test_dependency_typed_control.py tests/test_typed_state_protocol.py tests/test_typed_python_bindings.py tests/test_typed_python_receivers.py tests/test_typed_method_descriptors.py tests/test_typed_graph_vocabulary.py tests/test_typed_diagnostic_owner.py tests/test_state_facts.py tests/test_boundary_type_nested_mapping.py tests/test_typed_dict_bound_aliases.py tests/test_decisions.py tests/test_typed_python_properties.py tests/test_typed_contract_rule_grammar.py tests/test_typed_contract_rule_native.py tests/test_core_command_result.py tests/test_typed_measurement_controls.py tests/test_typed_parameter_kinds.py tests/test_atlas_deviation_target.py tests/test_definition_context_types.py tests/test_permission_status_types.py tests/test_snapshot_language_types.py tests/test_source_resolution_types.py tests/test_known_delta_action_types.py tests/test_typed_symbol_class_kinds.py tests/test_source_name_visibility.py tests/test_git_blob_types.py tests/test_typed_structure_levels.py tests/test_classifier_projections.py tests/test_unresolved_call_change_types.py \
 		tests/test_target_graph.py::test_contract_corpus_preserves_version_and_uml_presence \
@@ -119,26 +117,10 @@ pr-test: browser-runtime-install
 		tests/test_empty_literal_all.py tests/test_review_workflow_fixture.py tests/test_contract_edits.py tests/test_collector_real_world_shapes.py tests/test_rule_driven_collection.py tests/test_findings.py tests/test_contract_provenance.py
 
 pr-report-test:
-	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q \
+	$(UV) run --locked python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q \
 		--junitxml=test-artifacts/pytest/pr-report.xml \
-		tests/test_report_renderer_units.py tests/test_graph_scene_protocol.py tests/test_atlas_deviation_boundary.py \
-		tests/test_flow_inspector_pagination.py \
-		tests/test_explorer_report.py \
-		tests/test_report_interactions.py::test_native_card_drag_reroutes_all_hits_and_keeps_architecture_unchanged \
-		tests/test_uml_rendering.py::test_standard_uml_ignores_stale_layout_and_retries_rejected_layout \
-		tests/test_atlas_report.py::test_target_content_is_independent_of_observed_evidence \
-		tests/test_atlas_report.py::test_atlas_ignores_stale_layout_and_retries_rejected_layout \
-		tests/test_atlas_report.py::test_atlas_browser_keeps_positions_and_unknown_cells_across_lenses \
-		tests/test_atlas_report.py::test_atlas_component_layout_keeps_union_geometry_and_active_edges \
-		tests/test_report_interactions.py::test_atlas_component_routes_select_leafs_and_open_inside_scopes \
-		tests/test_report_interactions.py::test_atlas_unknown_rule_links_its_analyzer_gap_while_failures_remain_visible \
-		tests/test_report_interactions.py::test_atlas_fail_with_undecided_and_mixed_evidence_keeps_all_actions \
-		tests/test_python_realworld_project_report.py::test_python_http_module_scope_preserves_nested_ownership_and_target_routes \
-		tests/test_python_realworld_project_report.py::test_python_realworld_module_overview_uses_actual_edges_and_keeps_isolated_routes \
-		tests/test_findings.py::test_the_report_in_a_browser_lists_what_the_json_lists \
-		tests/test_own_uml_target.py::test_own_filtered_calls_keep_clear_routes_and_readable_arrow_endpoints \
-		tests/test_own_uml_target.py::test_pointer_selection_keeps_card_under_second_tap \
-		'tests/test_own_uml_target.py::test_own_protocol_settings_use_the_same_uml_cards_and_field_navigation[As-Is]'
+		tests/test_graph_scene_protocol.py tests/test_atlas_deviation_boundary.py tests/test_report_renderer_units.py \
+		tests/test_saved_report.py tests/test_report_agent_json.py
 
 ci-typescript: OUTPUT := test-artifacts/typescript-demo
 ci-typescript: demo-typescript
@@ -249,7 +231,7 @@ typescript-differential:
 		$(UV) run --locked python -m pytest -q tests/test_typescript_differential.py
 
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/rule_yield.py tools/mermaid_blocks.py tools/ci_changes.py \
-	tools/classify_unresolved.py tools/onboarding_svg.py tools/report_browser.py tools/report_pages.py tools/package_plugin.py tools/github_pr_report.py tools/against.py \
+	tools/classify_unresolved.py tools/onboarding_svg.py tools/report_pages.py tools/package_plugin.py tools/github_pr_report.py tools/against.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py \
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py fixtures/reproduce_github.py \
 	fixtures/reproduce_typescript.py fixtures/typescript_differential.py fixtures/typescript_scenarios.py fixtures/typescript_realworld.py \
@@ -266,7 +248,7 @@ report-pages: report-timing
 	mkdir -p test-artifacts/pages
 	cp test-artifacts/report-timing/architecture.json test-artifacts/report-timing/architecture.report.html \
 		test-artifacts/report-timing/architecture.detail*.html test-artifacts/pages/
-	$(UV) run --locked python -m tools.report_pages $(if $(ACCEPTED_REPORTS),--accepted-reports "$(ACCEPTED_REPORTS)",)
+	$(UV) run --locked python -m tools.report_pages
 
 architecture-graph-schema:
 	$(UV) run --locked python -m tools.architecture_graph_schema schema/architecture-graph.schema.json --contract schema/architecture-contract.schema.json --contract schema/architecture-contract-3.0.schema.json --contract schema/architecture-contract-3.1.schema.json --contract schema/architecture-contract-3.2.schema.json --contract schema/architecture-contract-3.3.schema.json --contract schema/architecture-contract-3.4.schema.json --contract schema/architecture-contract-3.5.schema.json --contract schema/architecture-contract-3.6.schema.json --contract schema/architecture-contract-3.7.schema.json --contract schema/architecture-contract-3.8.schema.json --contract schema/architecture-contract-3.9.schema.json --contract schema/architecture-contract-3.10.schema.json --contract schema/architecture-contract-3.11.schema.json --contract schema/architecture-contract-3.12.schema.json --contract schema/architecture-contract-3.13.schema.json --contract schema/architecture-contract-3.14.schema.json --comparison schema/architecture-comparison.schema.json --report schema/architecture-report.schema.json --source-inventory schema/source-member-inventory.schema.json --source-profile schema/architecture-ir-python-decoded.schema.json --projection schema/architecture-projection.schema.json --command schema/architecture-command-2.0.schema.json
@@ -375,13 +357,9 @@ plugin-directory:
 		cp -R "$$stage/archkeel/." plugins/archkeel/
 
 report-browser: report-browser-tests
-	$(MAKE) report-browser-proof OUTPUT="$(OUTPUT)"
 
-report-browser-tests:
-	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q tests/test_*report*.py tests/test_*uml*.py tests/test_*flow*.py tests/test_secondary_table_acceptance.py tests/test_legacy_graph_rendering.py tests/test_diff_import_rendering.py
-
-report-browser-proof:
-	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m tools.report_browser --workers $(TEST_WORKERS) $(if $(OUTPUT),--output "$(OUTPUT)")
+report-browser-tests: browser-install
+	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -m browser -n 2 --dist=loadfile --max-worker-restart=0 -q
 
 # Twine validates PyPI metadata; it is a build-only tool.
 build:

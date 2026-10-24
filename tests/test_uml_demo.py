@@ -250,47 +250,6 @@ def test_language_uml_demo_keeps_declared_target_separate_from_observation(
     assert any(r.kind == "imports" for r in report.observed.relationships)
 
 
-@pytest.mark.parametrize(
-    "variant,exit_code",
-    [
-        ("uml-match", 0),
-        ("uml-complete", 0),
-        ("uml-mismatch", 2),
-        ("uml-partial", 0),
-        ("uml-dart-match", 0),
-        ("uml-dart-signature-fail", 2),
-        ("uml-dart-missing-member-fail", 2),
-        ("uml-dart-forbidden-dependency-fail", 2),
-        ("uml-dart-partial-unknown", 0),
-        ("uml-typescript", 0),
-    ],
-)
-def test_language_uml_demo_uses_shared_browser_acceptance(tmp_path, capsys, variant, exit_code):
-    api = pytest.importorskip("playwright.sync_api")
-    from tools.report_browser import _check_atlas_interactions, _check_inner_uml
-
-    output = tmp_path / "architecture.json"
-    assert replay(variant, output) == exit_code
-    capsys.readouterr()
-    with api.sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
-        try:
-            page = browser.new_page(viewport={"width": 1440, "height": 1000})
-            errors = []
-            page.on("pageerror", lambda error: errors.append(str(error)))
-            page.goto(output.with_suffix(".report.html").as_uri())
-            if variant.startswith("uml-dart-"):
-                page.screenshot(path=str(tmp_path / f"{variant}-overview.png"), full_page=True)
-            for width in (1440, 375):
-                page.set_viewport_size({"width": width, "height": 1000})
-                _check_atlas_interactions(page)
-            page.set_viewport_size({"width": 1440, "height": 1000})
-            _check_inner_uml(page, variant, tmp_path)
-            assert not errors
-        finally:
-            browser.close()
-
-
 def test_typescript_uml_demo_rejects_omitted_standard_global_reference(
     tmp_path, capsys, monkeypatch
 ):

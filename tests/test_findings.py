@@ -500,6 +500,7 @@ def test_the_atlas_payload_carries_the_same_list(run: Run) -> None:
     ]
 
 
+@pytest.mark.browser
 def test_the_report_in_a_browser_lists_what_the_json_lists(tmp_path: Path, run: Run) -> None:
     api = pytest.importorskip("playwright.sync_api")
     report = tmp_path / "report.html"

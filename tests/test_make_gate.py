@@ -19,14 +19,12 @@ ROOT = Path(__file__).parents[1]
 GATE_STEPS = ["self-validate", "browser-architecture-check", "check", "build", "smoke"]
 CI_CHECK_STEPS = [
     "ci-artifacts-clean",
-    "browser-install",
     *GATE_STEPS,
     "typescript-compiler-check",
     "browser-graph-check",
     "demo-typescript",
     "browser-runtime-check",
     "report-timing",
-    "report-browser-proof",
 ]
 CI_STEPS = [*CI_CHECK_STEPS, "mermaid"]
 
@@ -47,8 +45,6 @@ def _run_gate(
         output_guard = ""
         if name == "demo-typescript":
             output_guard = '\t@test "$(OUTPUT)" = test-artifacts/typescript-demo\n'
-        elif name == "report-browser-proof":
-            output_guard = '\t@test -z "$(OUTPUT)"\n'
         recipes.append(
             f'{name}:\n\t@echo {name} >> "{steps}"\n\t@sleep 0.05\n\t@exit {int(name == failed)}\n'
             + output_guard
@@ -110,7 +106,6 @@ def test_gate_uses_pinned_base_instead_of_duplicate_self_validation(
         "report-timing",
         "typescript-compiler-check",
         "demo-typescript",
-        "browser-install",
         "mermaid",
     ],
 )
@@ -175,7 +170,6 @@ def test_against_receives_the_exact_ci_base_and_stops_before_tests(tmp_path: Pat
     )
     assert result.returncode != 0
     assert steps.read_text().splitlines() == [
-        "run --locked --with playwright==1.62.0 python -m playwright install --with-deps chromium",
         f"run --locked python -m tools.against --base {'a' * 40}",
     ]
 
@@ -217,11 +211,11 @@ def test_pr_core_uses_representative_dart_and_flutter_checks() -> None:
 
 @pytest.mark.parametrize(
     "failed",
-    [None, "browser-install", "browser-runtime-check", "browser-graph-check", "pr-report-test"],
+    [None, "browser-runtime-check", "browser-graph-check", "pr-report-test"],
 )
-def test_pr_report_gate_runs_its_browser_sample_and_propagates_failure(tmp_path, failed):
+def test_pr_report_gate_runs_logic_sample_and_propagates_failure(tmp_path, failed):
     result, steps = _run_gate(tmp_path, "ci-pr-report-check", failed, 2, False)
-    expected = ["browser-install", "browser-runtime-check", "browser-graph-check", "pr-report-test"]
+    expected = ["browser-runtime-check", "browser-graph-check", "pr-report-test"]
     if failed is not None:
         expected = expected[: expected.index(failed) + 1]
     assert steps == expected
@@ -239,22 +233,13 @@ def test_pr_report_sample_uses_two_loadfile_workers_and_keeps_selected_tests() -
     )
     assert result.returncode == 0, result.stderr
     command = result.stdout
-    assert "--with playwright==1.62.0" in command
     assert "python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q" in command
     assert "--junitxml=test-artifacts/pytest/pr-report.xml" in command
     for selector in (
-        "tests/test_report_renderer_units.py",
         "tests/test_graph_scene_protocol.py",
         "tests/test_atlas_deviation_boundary.py",
-        "tests/test_report_interactions.py::test_native_card_drag_reroutes_all_hits_and_keeps_architecture_unchanged",
-        "tests/test_uml_rendering.py::test_standard_uml_ignores_stale_layout_and_retries_rejected_layout",
-        "tests/test_atlas_report.py::test_target_content_is_independent_of_observed_evidence",
-        "tests/test_atlas_report.py::test_atlas_browser_keeps_positions_and_unknown_cells_across_lenses",
-        "tests/test_atlas_report.py::test_atlas_component_layout_keeps_union_geometry_and_active_edges",
-        "tests/test_report_interactions.py::test_atlas_component_routes_select_leafs_and_open_inside_scopes",
-        "tests/test_python_realworld_project_report.py::test_python_http_module_scope_preserves_nested_ownership_and_target_routes",
-        "tests/test_python_realworld_project_report.py::test_python_realworld_module_overview_uses_actual_edges_and_keeps_isolated_routes",
-        "tests/test_own_uml_target.py::test_own_filtered_calls_keep_clear_routes_and_readable_arrow_endpoints",
+        "tests/test_saved_report.py",
+        "tests/test_report_agent_json.py",
     ):
         assert selector in command
     assert "tests/test_compass_project_report.py" not in command
@@ -262,7 +247,7 @@ def test_pr_report_sample_uses_two_loadfile_workers_and_keeps_selected_tests() -
 
 
 @pytest.mark.parametrize("fail_pytest", [False, True])
-def test_report_browser_runs_report_tests_before_evidence(
+def test_local_browser_target_installs_and_runs_only_the_smokes(
     tmp_path: Path, fail_pytest: bool
 ) -> None:
     calls = tmp_path / "uv-calls.jsonl"
@@ -274,8 +259,8 @@ def test_report_browser_runs_report_tests_before_evidence(
         "    stream.write(json.dumps(sys.argv[1:]) + '\\n')\n"
         "if (\n"
         "    os.environ.get('FAIL_REPORT_PYTEST') == '1'\n"
-        "    and '-m' in sys.argv\n"
         "    and 'pytest' in sys.argv\n"
+        "    and 'browser' in sys.argv\n"
         "):\n"
         "    raise SystemExit(7)\n"
     )
@@ -295,7 +280,20 @@ def test_report_browser_runs_report_tests_before_evidence(
         timeout=15,
     )
     invocations = [json.loads(line) for line in calls.read_text().splitlines()]
-    assert invocations[0][:10] == [
+    assert invocations[0] == [
+        "run",
+        "--locked",
+        "--with",
+        "playwright==1.62.0",
+        "python",
+        "-m",
+        "playwright",
+        "install",
+        "--with-deps",
+        "chromium",
+    ]
+    assert len(invocations) == 2
+    assert invocations[1][:7] == [
         "run",
         "--locked",
         "--with",
@@ -303,50 +301,60 @@ def test_report_browser_runs_report_tests_before_evidence(
         "python",
         "-m",
         "pytest",
-        "-n",
-        "2",
-        "--dist=loadfile",
     ]
-    assert "--max-worker-restart=0" in invocations[0]
-    if fail_pytest:
-        assert len(invocations) == 1
-        assert result.returncode == 2
-    else:
-        assert len(invocations) == 2
-        assert invocations[1] == [
-            "run",
-            "--locked",
-            "--with",
-            "playwright==1.62.0",
-            "python",
-            "-m",
-            "tools.report_browser",
-            "--workers",
-            "2",
-        ]
+    assert "-m" in invocations[1] and "browser" in invocations[1]
+    assert result.returncode == (2 if fail_pytest else 0), result.stderr
+
+
+def test_ci_paths_avoid_playwright_and_browser_proof_but_local_report_tests_opt_in() -> None:
+    for target in (
+        "ci",
+        "ci-check",
+        "ci-core-check",
+        "ci-report-check",
+        "ci-pr-check",
+        "ci-pr-static",
+        "ci-pr-report-check",
+        "pr-test",
+        "pr-report-test",
+        "full-test-shard",
+    ):
+        result = subprocess.run(
+            ["make", "-n", target],
+            cwd=ROOT,
+            env={**os.environ, "MAKEFLAGS": "", "OUTPUT": ""},
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
         assert result.returncode == 0, result.stderr
+        assert "playwright" not in result.stdout.lower(), target
+        assert "tools.report_browser" not in result.stdout, target
 
-
-def test_main_core_uses_pinned_playwright_once_and_report_stage_only_runs_proof() -> None:
-    result = subprocess.run(
-        ["make", "-n", "-j8", "ci-check"],
+    local = subprocess.run(
+        ["make", "-n", "report-browser-tests"],
         cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": "", "OUTPUT": ""},
+        env={**os.environ, "MAKEFLAGS": ""},
         capture_output=True,
         text=True,
         timeout=15,
     )
-    assert result.returncode == 0, result.stderr
-    commands = result.stdout
-    browser_install = commands.index("python -m playwright install --with-deps chromium")
-    pytest_run = commands.index("run --locked --with playwright==1.62.0 python -m pytest -n 2")
-    report_proof = commands.index("python -m tools.report_browser")
-    report_timing = commands.index("python -m tools.report_timing")
-    assert browser_install < pytest_run < report_proof
-    assert report_timing < report_proof
-    assert commands.count("python -m playwright install --with-deps chromium") == 1
-    assert "tests/test_*report*.py" not in commands
-    assert "make report-browser-tests" not in commands
+    assert local.returncode == 0, local.stderr
+    assert "playwright install --with-deps chromium" in local.stdout
+    assert "pytest -m browser" in local.stdout
+
+    full_shard = subprocess.run(
+        ["make", "-n", "full-test-shard"],
+        cwd=ROOT,
+        env={**os.environ, "MAKEFLAGS": ""},
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert full_shard.returncode == 0, full_shard.stderr
+    runtime_install = full_shard.stdout.index("npm ci --prefix tools/browser-runtime")
+    test_run = full_shard.stdout.index("python -m pytest")
+    assert runtime_install < test_run
 
 
 def test_workflow_files_require_an_explicit_governance_change() -> None:
@@ -472,11 +480,17 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     for trigger in ("workflow_call:", "workflow_dispatch:", "schedule:"):
         assert trigger in full
     assert "make ci-check" in full
-    assert "make ci-check SHARDED_TESTS=1 mermaid report-pages" in full
+    scheduled_gallery_command = (
+        "make ci-check SHARDED_TESTS=1 mermaid ${{ (github.event_name == 'schedule' "
+        "|| github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' "
+        "&& 'report-pages' || '' }}"
+    )
+    assert scheduled_gallery_command in full
     assert "test-artifacts/report-timing/architecture.timing.json" in full
-    assert "test-artifacts/report-browser/" in full
-    evidence = full.split("name: report-browser-evidence", 1)[1].split("      - name:", 1)[0]
+    assert "test-artifacts/report-browser/" not in full
+    evidence = full.split("name: report-check-evidence", 1)[1].split("      - name:", 1)[0]
     assert "retention-days: 1" in evidence
+    assert "test-artifacts/report-browser/" not in evidence
     assert 'matrix:\n        python: ["3.11.12", "3.12.10"]' in full
     assert "matrix:\n        os: [ubuntu-latest, windows-latest]\n        python:" in full
     assert "setup-dart@" not in full
@@ -505,7 +519,11 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     assert "workflow-prune/plan.json" in prune
     assert "needs: [full-suite-and-reports, verified]" in full
     assert "github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'" in full
-    assert "name: report-browser-evidence" in full
+    gallery_step = full.split("- name: Run logic gates and build the scheduled gallery", 1)[
+        1
+    ].split("      - name:", 1)[0]
+    assert "report-pages" in gallery_step
+    assert "name: report-browser-evidence" not in full
     assert "name: scheduled-report-site" not in full
     pages_upload = full.split("- name: Upload report site for deployment\n", 1)[1].split(
         "      - name:", 1
@@ -640,6 +658,37 @@ def test_check_aggregate_executes_exact_workflow_script_fail_closed() -> None:
             result.stdout,
             result.stderr,
         )
+
+
+def test_full_aggregate_requires_the_matrix_outside_prs() -> None:
+    workflow = (ROOT / ".github/workflows/full-verification.yml").read_text()
+    collectors = workflow.split("  language-collectors:\n", 1)[1].split("\n  verified:", 1)[0]
+    assert "if: ${{ github.event_name != 'pull_request' }}" in collectors
+    aggregate = workflow.split("  verified:\n", 1)[1].split("\n  prune-report-artifacts:", 1)[0]
+    script = dedent(aggregate.split("        run: |\n", 1)[1])
+    baseline = {"FULL_RESULT": "success", "SHARDS_RESULT": "success", "SAFETY_RESULT": "success"}
+    for event in ("pull_request", "schedule", "workflow_dispatch", "push"):
+        expected = "skipped" if event == "pull_request" else "success"
+        for matrix in ("success", "skipped", "failure", "cancelled", ""):
+            result = subprocess.run(
+                ["bash", "-eu", "-c", script],
+                env={**os.environ, **baseline, "EVENT": event, "COLLECTORS_RESULT": matrix},
+                capture_output=True,
+            )
+            assert (result.returncode == 0) == (matrix == expected), (event, matrix)
+        for required in baseline:
+            result = subprocess.run(
+                ["bash", "-eu", "-c", script],
+                env={
+                    **os.environ,
+                    **baseline,
+                    required: "skipped",
+                    "EVENT": event,
+                    "COLLECTORS_RESULT": expected,
+                },
+                capture_output=True,
+            )
+            assert result.returncode != 0, (event, required)
 
 
 def test_required_check_script_explicitly_fails_when_workflow_cancelled() -> None:

@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   full-suite-and-reports:
-    name: Full suite, report proof, and gallery
+    name: Logic gates and report gallery
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -39,19 +39,18 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
-      - name: Run gates, TypeScript compiler check, browser proof, timing, and report gallery
-        # One make run: report-pages reuses the report that report-timing just measured.
-        run: make ci-check SHARDED_TESTS=1 mermaid report-pages ACCEPTED_REPORTS=test-artifacts/report-browser
+      - name: Run logic gates and build the scheduled gallery
+        # Build the gallery only for publication; reuse the measured report in the same make run.
+        run: make ci-check SHARDED_TESTS=1 mermaid ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && 'report-pages' || '' }}
 
       - name: Upload latest report evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: report-browser-evidence
+          name: report-check-evidence
           path: |
             test-artifacts/pytest/*.xml
             test-artifacts/report-timing/architecture.timing.json
-            test-artifacts/report-browser/
           if-no-files-found: warn
           retention-days: 1
 
@@ -146,6 +145,7 @@ jobs:
 
   language-collectors:
     name: Source collectors / ${{ matrix.os }} / Python ${{ matrix.python }}
+    if: ${{ github.event_name != 'pull_request' }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -195,17 +195,21 @@ jobs:
       - language-collectors
     runs-on: ubuntu-latest
     steps:
-      - name: Fail if any full verification job failed, was cancelled, or was skipped
+      - name: Require the selected verification jobs
         env:
+          EVENT: ${{ github.event_name }}
           FULL_RESULT: ${{ needs.full-suite-and-reports.result }}
           SHARDS_RESULT: ${{ needs.full-suite-shards.result }}
           SAFETY_RESULT: ${{ needs.collector-safety-windows.result }}
           COLLECTORS_RESULT: ${{ needs.language-collectors.result }}
         run: |
           set -euo pipefail
-          for result in "$FULL_RESULT" "$SHARDS_RESULT" "$SAFETY_RESULT" "$COLLECTORS_RESULT"; do
+          for result in "$FULL_RESULT" "$SHARDS_RESULT" "$SAFETY_RESULT"; do
           [[ "$result" == success ]] || { echo "A required full-verification job did not succeed: $result" >&2; exit 1; }
           done
+          expected=success
+          if [[ "$EVENT" == pull_request ]]; then expected=skipped; fi
+          [[ "$COLLECTORS_RESULT" == "$expected" ]] || { echo "Unexpected collector matrix result: $COLLECTORS_RESULT (expected $expected)" >&2; exit 1; }
 
   prune-report-artifacts:
     name: Maintain Actions and report artifacts

@@ -8,7 +8,7 @@ import importlib.util
 import json
 
 import pytest
-from test_report_renderer_units import _asset_page
+from scene_test_support import evaluate_scene
 
 from archkeel.ir.model import stable_id
 
@@ -34,46 +34,34 @@ def _packed_atlas():
     [("kind", "unsupported-deviation"), ("source_id", 0), ("level_id", 0)],
 )
 def test_public_scene_rejects_malformed_recorded_deviation(field, value):
-    api = pytest.importorskip("playwright.sync_api")
-    playwright, browser, page = _asset_page(api, ["report-scene.js"])
     atlas = _packed_atlas()
     row = {"id": "row", "kind": "undeclared", "source_id": "a", "target_id": "b", "level_id": None}
     row[field] = value
     atlas["deviations"] = [row]
-    try:
-        result = page.evaluate(
-            """data => {
-          try { ArchkeelReportScene.create(data); }
-          catch (error) { return error instanceof TypeError; }
-          return false;
-        }""",
-            {"atlas": atlas},
-        )
-        assert result, f"Actual scene.create accepted malformed deviation {field}"
-    finally:
-        browser.close()
-        playwright.stop()
+    result = evaluate_scene(
+        """data => {
+      try { ArchkeelReportScene.create(data); }
+      catch (error) { return error instanceof TypeError; }
+      return false;
+    }""",
+        {"atlas": atlas},
+    )
+    assert result, f"Actual scene.create accepted malformed deviation {field}"
 
 
 @pytest.mark.parametrize("omitted", [False, True])
 def test_public_scene_preserves_legacy_empty_or_missing_deviations(omitted):
-    api = pytest.importorskip("playwright.sync_api")
-    playwright, browser, page = _asset_page(api, ["report-scene.js"])
     atlas = _packed_atlas()
     if omitted:
         del atlas["deviations"]
-    try:
-        assert page.evaluate(
-            """data => {
-          const before = JSON.stringify(data);
-          const model = ArchkeelReportScene.create(data);
-          return model.atlas !== data.atlas && JSON.stringify(data) === before;
-        }""",
-            {"atlas": atlas},
-        )
-    finally:
-        browser.close()
-        playwright.stop()
+    assert evaluate_scene(
+        """data => {
+      const before = JSON.stringify(data);
+      const model = ArchkeelReportScene.create(data);
+      return model.atlas !== data.atlas && JSON.stringify(data) === before;
+    }""",
+        {"atlas": atlas},
+    )
 
 
 def test_real_deviation_producer_preserves_sorted_wire_order_and_stable_ids():
@@ -111,41 +99,35 @@ def test_real_deviation_producer_preserves_sorted_wire_order_and_stable_ids():
 
 
 def test_actual_deviation_decoder_and_index_keep_rows_and_level_identity():
-    api = pytest.importorskip("playwright.sync_api")
-    playwright, browser, page = _asset_page(api, ["report-scene.js"])
-    try:
-        result = page.evaluate("""() => {
-          const P = ArchkeelGraphSceneProtocol;
-          const rows = [
-            {id:"root",kind:"undeclared",source_id:"PASS",target_id:"observed",level_id:null},
-            {id:"nested",kind:"allowed_unused",source_id:"PASS",target_id:"observed",level_id:"child"},
-          ];
-          const before = JSON.stringify(rows);
-          const decoded = P.decodeAtlasDeviations(rows);
-          const index = ArchkeelAtlasDeviations.create(rows);
-          let rejectsZero = false;
-          try { P.decodeAtlasDeviations([{...rows[0],kind:0}]); }
-          catch (error) { rejectsZero = error instanceof TypeError; }
-          return {list:decoded===rows,row:decoded[0]===rows[0],
-            root:index.isUndeclared(null,"PASS","observed"),
-            nested:index.isUndeclared("child","PASS","observed"),
-            unused:index.unused("child")[0]===rows[1],
-            rootUnused:index.unused(null).length,
-            unchanged:JSON.stringify(rows)===before,rejectsZero};
-        }""")
-        assert result == {
-            "list": True,
-            "row": True,
-            "root": True,
-            "nested": False,
-            "unused": True,
-            "rootUnused": 0,
-            "unchanged": True,
-            "rejectsZero": True,
-        }
-    finally:
-        browser.close()
-        playwright.stop()
+    result = evaluate_scene("""() => {
+      const P = ArchkeelGraphSceneProtocol;
+      const rows = [
+        {id:"root",kind:"undeclared",source_id:"PASS",target_id:"observed",level_id:null},
+        {id:"nested",kind:"allowed_unused",source_id:"PASS",target_id:"observed",level_id:"child"},
+      ];
+      const before = JSON.stringify(rows);
+      const decoded = P.decodeAtlasDeviations(rows);
+      const index = ArchkeelAtlasDeviations.create(rows);
+      let rejectsZero = false;
+      try { P.decodeAtlasDeviations([{...rows[0],kind:0}]); }
+      catch (error) { rejectsZero = error instanceof TypeError; }
+      return {list:decoded===rows,row:decoded[0]===rows[0],
+        root:index.isUndeclared(null,"PASS","observed"),
+        nested:index.isUndeclared("child","PASS","observed"),
+        unused:index.unused("child")[0]===rows[1],
+        rootUnused:index.unused(null).length,
+        unchanged:JSON.stringify(rows)===before,rejectsZero};
+    }""")
+    assert result == {
+        "list": True,
+        "row": True,
+        "root": True,
+        "nested": False,
+        "unused": True,
+        "rootUnused": 0,
+        "unchanged": True,
+        "rejectsZero": True,
+    }
 
 
 @pytest.mark.parametrize(

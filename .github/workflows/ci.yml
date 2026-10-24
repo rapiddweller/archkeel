@@ -246,15 +246,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-      - name: Upload PR report browser evidence
-        if: ${{ always() && hashFiles('test-artifacts/report-browser/**') != '' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: pr-report-browser-evidence
-          path: test-artifacts/report-browser/
-          if-no-files-found: warn
-          retention-days: 1
-
   prune-report-artifacts:
     name: Maintain Actions and report artifacts
     needs: check

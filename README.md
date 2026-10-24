@@ -195,11 +195,14 @@ Python, TypeScript and Dart analysis use the Python installation. Building or ru
 Flutter demo itself still requires Flutter; report generation does not.
 
 ```bash
-make check              # lint, types, tests
+make check              # lint, types, logic tests
 make gate               # also build, isolated installs and self-validation
-make browser-install
-make report-browser OUTPUT=test-artifacts/report-browser
+make report-browser-tests # optional local Chromium tests
 ```
+
+CI checks report data and JavaScript logic without Chromium. Three short local
+browser smokes check findings, keyboard navigation and dragging. Use the Nightly
+gallery for manual visual review.
 
 ArchKeel checks its own [architecture contract](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json) using fresh
 observations on every test run. See [CONTRIBUTING.md](https://github.com/rapiddweller/archkeel/blob/main/CONTRIBUTING.md).

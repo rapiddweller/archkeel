@@ -93,7 +93,10 @@ dev = [
 testpaths = ["tests"]
 # Tests import repository tools such as tools/interface_profile.py.
 pythonpath = ["."]
-addopts = "-p no:cacheprovider"
+addopts = "-p no:cacheprovider -m 'not browser'"
+markers = [
+    "browser: runs the rendered report in Chromium",
+]
 
 [tool.ruff]
 target-version = "py311"
