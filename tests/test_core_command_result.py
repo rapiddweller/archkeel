@@ -44,6 +44,7 @@ def test_command_has_one_core_owner_and_cli_keeps_identical_class():
         ("CHECK", "check"),
         ("INIT", "init"),
         ("SKILL", "skill"),
+        ("GUIDE", "guide"),
         ("ARGUMENTS", "arguments"),
     ]
 
