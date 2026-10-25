@@ -139,6 +139,9 @@
           "items": {
             "$ref": "#/$defs/finding"
           }
+        },
+        "first_look": {
+          "$ref": "#/$defs/first_look"
         }
       },
       "allOf": [
@@ -295,6 +298,9 @@
           "items": {
             "$ref": "#/$defs/finding"
           }
+        },
+        "first_look": {
+          "$ref": "#/$defs/first_look"
         }
       },
       "additionalProperties": false,
@@ -325,6 +331,19 @@
           "items": {
             "$ref": "#/$defs/finding"
           }
+        }
+      }
+    },
+    "first_look": {
+      "required": [
+        "command"
+      ],
+      "properties": {
+        "command": {
+          "const": "init"
+        },
+        "first_look": {
+          "$ref": "#/$defs/first_look"
         }
       }
     }
@@ -486,8 +505,77 @@
         }
       },
       "additionalProperties": false
+    },
+    "first_look": {
+      "type": "object",
+      "required": [
+        "files_parsed",
+        "files_discovered",
+        "call_resolution_percent",
+        "module_cycles",
+        "largest_module_cycle",
+        "most_imported_module",
+        "most_importers",
+        "largest_component",
+        "largest_component_modules",
+        "unknown_positions",
+        "largest_component_ties"
+      ],
+      "properties": {
+        "files_parsed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files_discovered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "call_resolution_percent": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "module_cycles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "largest_module_cycle": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "most_imported_module": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "most_importers": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "largest_component": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "largest_component_ties": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "largest_component_modules": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unknown_positions": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
     }
   },
   "title": "Archkeel command JSON results",
-  "$comment": "AD-258. Ranked findings on a report. Reuse 10.0 by reference without widening published resources."
+  "$comment": "AD-258. Ranked findings on a report. AD-266. first_look on init. Reuse 10.0 by reference without widening published resources."
 }

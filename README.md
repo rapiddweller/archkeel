@@ -29,6 +29,9 @@ The gallery leads with three complete source projects: [Compass booking](https:/
 
 ## Start here
 
+Start with the [first-hour guide](docs/getting-started.md): install, `init`,
+read the overview, read the first verdict, then choose how to keep it green.
+
 Requires Python 3.11+ and a Git repository with at least one commit.
 Run ArchKeel with a Python version that meets your project's requirements.
 

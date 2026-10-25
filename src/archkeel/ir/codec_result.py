@@ -252,6 +252,9 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
         del payload["findings"]
     else:
         payload["findings"] = [finding_payload(item) for item in result.findings]
+    if result.first_look is None:
+        # AD-266: absent on every result but init's, so the other results keep their shape.
+        del payload["first_look"]
     if result.report_filter is not None:
         payload["report_filter"] = _report_filter_payload(result.report_filter)
     if result.provenance is not None and result.provenance.initial_pr is None:
