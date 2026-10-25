@@ -162,3 +162,21 @@ def test_python_entry_reads_and_writes_only_strict_codec_messages(tmp_path: Path
     response = decode_response(completed.stdout)
     assert response.facts.coverage.selected_files == ("src/sample/__init__.py",)
     assert completed.stderr == b""
+
+
+def test_python_entry_collects_a_deep_sum_without_a_traceback(tmp_path: Path) -> None:
+    # sympy's resolvent_lookup.py nests 568 levels; the default recursion limit is 1000.
+    package = tmp_path / "src" / "sample"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("")
+    (package / "deep.py").write_text("TOTAL = " + " + ".join(["a"] * 2000) + "\n")
+    completed = subprocess.run(
+        [sys.executable, "-I", "-B", "-m", "archkeel.analyzer.python.entry"],
+        input=encode_request(_request(tmp_path, "python")),
+        capture_output=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr.decode("utf-8", errors="replace")[-2000:]
+    assert completed.stderr == b""
+    response = decode_response(completed.stdout)
+    assert "src/sample/deep.py" in response.facts.coverage.selected_files
