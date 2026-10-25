@@ -10,6 +10,7 @@ import os
 import re
 import sys
 from collections.abc import Sequence
+from contextlib import redirect_stdout
 from dataclasses import replace
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -49,7 +50,7 @@ from .config import (
     parse_config,
     project_name,
 )
-from .guide import run_guide
+from .guide import GUIDE_PATH, run_guide
 from .observe import observer_for
 from .skill import InstallationAgent, install_skill
 
@@ -770,6 +771,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                     result = replace(
                         result, exit_code=adopted.exit_code, diagnostics=adopted.diagnostics
                     )
+            if command is Command.INIT and result.exit_code == 0:
+                # The guide reads the contract from disk, so it runs after every init file.
+                # Silence the "Wrote ..." line of run_guide, so --json stays one document.
+                with redirect_stdout(io.StringIO()):
+                    guide_code = run_guide(root, CONFIG_PATH, None, check=False)
+                if guide_code != 0:
+                    raise RuntimeError(f"archkeel guide failed with exit code {guide_code}")
+                artifacts.append(root / GUIDE_PATH)
     except ConfigFileMissingError as error:
         result = (
             invalid_result(subject, error)

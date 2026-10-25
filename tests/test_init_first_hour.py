@@ -11,9 +11,11 @@ from pathlib import Path
 import pytest
 from test_onboarding import _repository
 
+from archkeel.check import onboarding
 from archkeel.check.onboarding import ADOPTED_RATIONALE, CONTRACT_PATH, run_init
 from archkeel.cli import main
 from archkeel.cli.config import ADOPTED_BASELINE_PATH as BASELINE_PATH
+from archkeel.cli.guide import GUIDE_PATH
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_json, parse_contract
 from archkeel.ir.model import FirstLook, RunResult
@@ -317,3 +319,89 @@ def test_adopted_crossings_are_the_pairs_init_observed(tmp_path: Path, capsys) -
     }
 
     assert adopted == observed
+
+
+def _tree(root: Path) -> dict[Path, bytes]:
+    return {
+        path: path.read_bytes()
+        for path in root.rglob("*")
+        if path.is_file() and ".git" not in path.relative_to(root).parts
+    }
+
+
+def test_init_writes_the_guide_that_archkeel_guide_would_write(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    root = _repository(tmp_path)
+
+    code, _ = _init_json(root, capsys, "--adopt")
+    assert code == 0
+    written = (root / GUIDE_PATH).read_bytes()
+
+    assert main(["guide", "--root", str(root), "--output", "elsewhere.md"]) == 0
+    assert written == (root / "elsewhere.md").read_bytes()
+    assert main(["guide", "--root", str(root), "--check"]) == 0
+
+
+def test_init_force_adopt_writes_a_guide_that_counts_the_adopted_requires(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    root = _repository(tmp_path)
+    assert _init_json(root, capsys)[0] == 0
+
+    code, _ = _init_json(root, capsys, "--adopt", "--force")
+
+    requires = sum(
+        len(component.get("requires", [])) for component in _contract(root)["components"]
+    )
+    assert code == 0 and requires > 0
+    assert f"- Requires entries: {requires}." in (root / GUIDE_PATH).read_text(encoding="utf-8")
+    assert main(["guide", "--root", str(root), "--check"]) == 0
+
+
+def test_init_refuses_an_existing_guide_without_force_and_changes_nothing(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    root = _repository(tmp_path)
+    guide = root / GUIDE_PATH
+    guide.parent.mkdir(parents=True)
+    guide.write_text("hand written\n", encoding="utf-8")
+    before = _tree(root)
+
+    code, payload = _init_json(root, capsys)
+
+    assert code == 2
+    assert GUIDE_PATH in json.dumps(payload)
+    assert _tree(root) == before
+
+
+def test_init_that_fails_writes_no_guide_and_no_file(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    root = _repository(tmp_path)
+    before = _tree(root)
+
+    code = main(["init", "--root", str(root), "--language", "typescript", "--json"])
+
+    assert code == 2
+    capsys.readouterr()
+    assert not (root / GUIDE_PATH).exists()
+    assert _tree(root) == before
+
+
+def test_interactive_init_names_the_guide_among_the_written_files(
+    tmp_path: Path, capsys: pytest.CaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _repository(tmp_path)
+    monkeypatch.setattr("sys.stdout.isatty", lambda: True)
+    # A wide terminal keeps Rich from splitting the long temporary path.
+    monkeypatch.setenv("COLUMNS", "400")
+
+    assert main(["init", "--root", str(root)]) == 0
+
+    assert "contract-guide.md" in capsys.readouterr().out
+
+
+def test_init_guard_and_guide_command_name_the_same_path() -> None:
+    # init guards the path it never writes itself, so the two copies must stay equal.
+    assert onboarding.GUIDE_PATH == GUIDE_PATH
