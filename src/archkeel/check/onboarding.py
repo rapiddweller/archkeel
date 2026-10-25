@@ -28,6 +28,7 @@ from archkeel.ir.model import (
     ArchitectureRule,
     ArchitectureRuleKind,
     CompleteAssignmentRule,
+    CompleteRequiresRule,
     ComponentOwnership,
     ComponentRole,
     ContractComponent,
@@ -36,12 +37,19 @@ from archkeel.ir.model import (
     Diagnostic,
     DiagnosticError,
     DraftedComponentSize,
+    FirstLook,
+    GraphTopologyLevel,
     InterfaceBoundaryRule,
     NoComponentCyclesRule,
     Observation,
+    OpenDecision,
     Record,
+    RequiredComponent,
     RunResult,
     in_scope,
+    int_value,
+    parse_graph_topology_level,
+    text_value,
 )
 from archkeel.ir.model import (
     AssessmentStatus as _AssessmentStatus,
@@ -65,6 +73,9 @@ from .validation import COMPONENT_GRAPH_MARKER, mermaid_edges, observed_componen
 
 CONFIG_PATH: Final = "archkeel.toml"
 CONTRACT_PATH: Final = "architecture-contract.json"
+# AD-266: the plain sentence that says the adopted state was observed, not reviewed.
+ADOPTED_RATIONALE: Final = "Observed when the contract was drafted; not reviewed."
+_REQUIRES_COMPLETE_ID: Final = "REQUIRES-COMPLETE"
 
 
 def _project_import_name(root: Path) -> str | None:
@@ -405,6 +416,111 @@ def _draft_sizes(sizes: tuple[StructureMetric, ...]) -> tuple[DraftedComponentSi
     return tuple(DraftedComponentSize(item.scope, item.modules, item.inner_edges) for item in sizes)
 
 
+def first_look(
+    observation: Observation,
+    draft_sizes: tuple[DraftedComponentSize, ...],
+    unknown_positions: int,
+) -> FirstLook:
+    """AD-266: count what the observation already holds; no threshold decides any line.
+
+    Fan-in is the count the `modules` records carry; the report's hub rule adds a threshold
+    that would print "none" for a project whose most-imported module has three importers.
+    """
+    cycles = [
+        record
+        for record in observation.records("cycles") or ()
+        if parse_graph_topology_level(record.data.get("level")) is GraphTopologyLevel.MODULE
+    ]
+    importers = sorted(
+        (
+            (int_value(record.data.get("fan_in")), text_value(record.data.get("qualified_name")))
+            for record in observation.records("modules") or ()
+        ),
+        key=lambda item: (-item[0], item[1]),
+    )
+    most_importers, most_imported = importers[0] if importers else (0, "")
+    largest_modules = max((item.modules for item in draft_sizes), default=0)
+    leaders = sorted(item.label for item in draft_sizes if item.modules == largest_modules)
+    coverage = observation.coverage
+    return FirstLook(
+        files_parsed=coverage.files_parsed,
+        files_discovered=coverage.files_discovered,
+        call_resolution_percent=coverage.call_resolution_percent,
+        module_cycles=len(cycles),
+        largest_module_cycle=max((len(record.subjects) for record in cycles), default=0),
+        most_imported_module=most_imported if most_importers else None,
+        most_importers=most_importers,
+        largest_component=leaders[0] if leaders else None,
+        largest_component_ties=len(leaders),
+        largest_component_modules=largest_modules,
+        unknown_positions=unknown_positions,
+    )
+
+
+def _observed_ports(
+    observation: Observation, contract: ArchitectureContract
+) -> dict[tuple[str, str], tuple[str, ...]]:
+    """The `through` ports each observed ordered crossing needs: the name imported, else the module.
+
+    A module port matches the module and its descendants, so a whole-module import needs the
+    module and a named import needs `module:name`, the narrowest port the grammar allows.
+    """
+    ports: dict[tuple[str, str], tuple[str, ...]] = {}
+    for record in observation.records("imports") or ():
+        source_module = record.data.get("source_module")
+        target_module = record.data.get("target_module")
+        if not isinstance(source_module, str) or not isinstance(target_module, str):
+            continue
+        source = contract.component_for(source_module)
+        target = contract.component_for(target_module)
+        if source is None or target is None or source.label == target.label:
+            continue
+        symbol = record.data.get("symbol")
+        named = isinstance(symbol, str) and symbol != "*"
+        pair = (source.label, target.label)
+        port = f"{target_module}:{symbol}" if named else target_module
+        ports[pair] = tuple(sorted({*ports.get(pair, ()), port}))
+    return ports
+
+
+def _adopt_contract(
+    contract: ArchitectureContract, observation: Observation
+) -> ArchitectureContract:
+    """AD-266: record every observed crossing as an agent `requires` entry, then forbid the rest.
+
+    An observed crossing is recorded as observed, not reviewed. `complete_requires` makes every
+    other ordered pair forbidden; without it the pairs stay open and `validate` exits 2. The
+    drafted structural rules carry TODO rationales that validate rejects, so they take the same
+    adopted sentence.
+    """
+    ports = _observed_ports(observation, contract)
+    sources = {source for source, _ in ports}
+    components = tuple(
+        replace(
+            component,
+            requires=tuple(
+                RequiredComponent(target, ADOPTED_RATIONALE, through, DecisionMaker.AGENT)
+                for (source, target), through in sorted(ports.items())
+                if source == component.label
+            ),
+        )
+        if component.label in sources
+        else component
+        for component in contract.components
+    )
+    rules = (
+        *(replace(rule, rationale=ADOPTED_RATIONALE) for rule in contract.rules),
+        CompleteRequiresRule(
+            _REQUIRES_COMPLETE_ID,
+            ArchitectureRuleKind.COMPLETE_REQUIRES,
+            ADOPTED_RATIONALE,
+            (DOCUMENT_PATH,),
+            DecisionMaker.AGENT,
+        ),
+    )
+    return replace(contract, components=components, rules=rules)
+
+
 def run_init(
     root: Path,
     *,
@@ -412,6 +528,7 @@ def run_init(
     namespace: str | None,
     force: bool,
     full: bool = False,
+    adopt_baseline: str | None = None,
     analyzer: Analyzer,
     language: Language = Language.PYTHON,
     tsconfig: str | None = None,
@@ -438,9 +555,14 @@ def run_init(
                 )
             )
         source, namespace = detect_source(root)
-    existing = [
-        path for path in (CONFIG_PATH, CONTRACT_PATH, DOCUMENT_PATH) if (root / path).exists()
-    ]
+    # AD-266: an adoption also replaces the baseline it writes, so that file is guarded too.
+    guarded = (
+        CONFIG_PATH,
+        CONTRACT_PATH,
+        DOCUMENT_PATH,
+        *((adopt_baseline,) if adopt_baseline is not None else ()),
+    )
+    existing = [path for path in guarded if (root / path).exists()]
     if existing and not force:
         raise DiagnosticError(
             Diagnostic(
@@ -512,13 +634,16 @@ def run_init(
         if collector_timeout_seconds is None
         else f"collector_timeout_seconds = {collector_timeout_seconds}\n"
     )
+    written = (
+        _adopt_contract(contract, observed.observation) if adopt_baseline is not None else contract
+    )
     files = {
         CONFIG_PATH: (
             f"[scan]\nroots = {json.dumps(roots)}\nnamespace = {json.dumps(namespace)}\n"
             f"contract = {json.dumps(CONTRACT_PATH)}\n"
             f"{language_line}{tsconfig_line}{collector_line}{output_limit_line}{timeout_line}"
         ).encode(),
-        CONTRACT_PATH: contract_bytes(contract),
+        CONTRACT_PATH: contract_bytes(written),
         DOCUMENT_PATH: architecture_document(
             namespace, contract, edges, sizes, namespace_file=namespace_file
         ).encode(),
@@ -526,7 +651,14 @@ def run_init(
     # AD-15: init has no dependency rule, so count every undecided pair while showing
     # only observed crossings unless the caller explicitly asks for the full list.
     ownership = _drafted_ownership(contract)
-    if full:
+    measurements = measure_python_ratchets(observed.observation)
+    drafted = _draft_sizes(sizes)
+    if adopt_baseline is not None:
+        # Every observed crossing is decided by the adoption and every other pair is forbidden.
+        decisions: tuple[OpenDecision, ...] = ()
+        decision_count = 0
+        decisions_complete = True
+    elif full:
         decisions = open_decisions(observed.observation, ownership)
         decision_count = len(decisions)
         decisions_complete = True
@@ -544,7 +676,10 @@ def run_init(
         open_decisions=decisions,
         open_decision_count=decision_count,
         open_decisions_complete=decisions_complete,
-        draft_sizes=_draft_sizes(sizes),
-        measurements=measure_python_ratchets(observed.observation),
+        draft_sizes=drafted,
+        measurements=measurements,
+        first_look=first_look(
+            observed.observation, drafted, measurements.scalars.unknown_positions
+        ),
     )
     return result, FilesToWrite(tuple(files.items()))

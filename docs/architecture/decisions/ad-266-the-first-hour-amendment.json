@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "d144860d67b7fa50f9a5087c55bc8922b5ec53709205c9b21b9788ebc66f6371",
+  "after_digest": "04908de8a60ed624b74e32bc58545063213bde5d29f6736660f98e4c1ddfd1cb",
+  "before_baseline_digest": "d144860d67b7fa50f9a5087c55bc8922b5ec53709205c9b21b9788ebc66f6371",
+  "before_digest": "34550fb3e56881c1a0229b25b05c829e7cbc9bd157c927fa4e2890c65ab58c15",
+  "decided_by": "Alexander Kell (architect), AD-266",
+  "rationale": "AD-266 adds init --adopt. The check contract's run_init gains the keyword-only adopt_baseline parameter, which names the baseline file init writes when it takes today's state into the contract.",
+  "schema_version": "2.0.0"
+}

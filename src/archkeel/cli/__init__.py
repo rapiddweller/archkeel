@@ -41,6 +41,7 @@ from .arguments import (
     source_language,
 )
 from .config import (
+    ADOPTED_BASELINE_PATH,
     CONFIG_PATH,
     ConfigFileMissingError,
     load_check_config,
@@ -69,6 +70,14 @@ class _Parser(argparse.ArgumentParser):
 
     def error(self, message: str) -> NoReturn:
         raise ValueError(message)
+
+
+def _write_files(root: Path, files: tuple[tuple[str, bytes], ...], artifacts: list[Path]) -> None:
+    for relative, payload in files:
+        target = root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(payload)
+        artifacts.append(target)
 
 
 def html_path(output: Path, command: str) -> Path:
@@ -365,6 +374,7 @@ def build_parser() -> _Parser:
             "Exit codes:\n"
             "  0  draft written\n"
             "  2  not checked: no single package, existing files or incomplete observation\n\n"
+            f"Start here: {_DOCS}/getting-started.md\n"
             f"Onboarding: {_DOCS}/onboarding.md"
         ),
     )
@@ -412,7 +422,15 @@ def build_parser() -> _Parser:
         help="Collector command and arguments. Every language defaults to its own collector "
         "inside this package. On Windows, pass an executable and its script, not a .cmd shim.",
     )
-    init.add_argument("--force", action="store_true", help="Replace existing onboarding files.")
+    for flag, help_text in (
+        ("--force", "Replace existing onboarding files."),
+        (
+            "--adopt",
+            "Record each observed crossing as an agent requires entry, forbid the other pairs, "
+            "and write architecture-baseline.json with today's violations.",
+        ),
+    ):
+        init.add_argument(flag, action="store_true", help=help_text)
 
     skill = commands.add_parser(
         Command.SKILL.value,
@@ -496,19 +514,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         with progress(f"archkeel {command}: {activity}"):
             if command is Command.INIT:
                 subject = str(root)
+                init_analyzer = observer_for(
+                    args.language,
+                    collector_argv=tuple(args.collector_argv) if args.collector_argv else None,
+                    tsconfig=args.tsconfig or "tsconfig.json",
+                    output_limit_bytes=args.collector_output_limit_bytes,
+                    timeout_seconds=args.collector_timeout_seconds,
+                )
                 result, requested_files = run_init(
                     root,
                     source=tuple(args.source) if args.source is not None else None,
                     namespace=args.namespace,
                     force=args.force,
                     full=args.full,
-                    analyzer=observer_for(
-                        args.language,
-                        collector_argv=tuple(args.collector_argv) if args.collector_argv else None,
-                        tsconfig=args.tsconfig or "tsconfig.json",
-                        output_limit_bytes=args.collector_output_limit_bytes,
-                        timeout_seconds=args.collector_timeout_seconds,
-                    ),
+                    adopt_baseline=ADOPTED_BASELINE_PATH if args.adopt else None,
+                    analyzer=init_analyzer,
                     language=args.language,
                     tsconfig=args.tsconfig,
                     collector_argv=tuple(args.collector_argv) if args.collector_argv else None,
@@ -694,11 +714,23 @@ def main(argv: Sequence[str] | None = None) -> int:
                         )
                     )
                     artifacts.extend((args.output, check_html))
-            for relative, payload in files:
-                target = root / relative
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(payload)
-                artifacts.append(target)
+            _write_files(root, files, artifacts)
+            if command is Command.INIT and args.adopt and result.exit_code == 0:
+                # AD-266: the baseline must describe the adopted contract on disk, so validate
+                # runs only after the init files are written; the first baseline accepts all.
+                adopted, adopted_files = run_validate(
+                    root,
+                    load_config(root, CONFIG_PATH),
+                    init_analyzer,
+                    baseline=Path(ADOPTED_BASELINE_PATH),
+                    write_baseline=True,
+                    accept_new=True,
+                )
+                _write_files(root, adopted_files.entries, artifacts)
+                if adopted.exit_code != 0:
+                    result = replace(
+                        result, exit_code=adopted.exit_code, diagnostics=adopted.diagnostics
+                    )
     except ConfigFileMissingError as error:
         result = (
             invalid_result(subject, error)

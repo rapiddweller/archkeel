@@ -17,6 +17,8 @@ from archkeel.check.git import read_blob
 from archkeel.check.ports import Language, ScanConfig
 
 CONFIG_PATH: Final = "archkeel.toml"
+# AD-266: the baseline `init --adopt` writes; `validate --baseline` reads the same name.
+ADOPTED_BASELINE_PATH: Final = "architecture-baseline.json"
 
 
 class _PathToken(StrEnum):
