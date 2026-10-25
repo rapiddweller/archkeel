@@ -218,7 +218,7 @@ def test_failed_collector_reports_the_exit_code_and_the_end_of_a_long_stderr(tmp
     assert result.kind == "execution_error"
     assert result.message.startswith("Collector exited 3:")
     assert result.message.endswith("Traceback\nRealError: boom")
-    assert len(result.message) < 2100
+    assert result.message.count("\n") <= 20
 
 
 def test_output_limit_stops_collector_while_it_is_running(tmp_path) -> None:

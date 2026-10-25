@@ -54,7 +54,7 @@ class _ProcessCleanupError(RuntimeError):
 
 
 _CLEANUP_TIMEOUT_SECONDS = 2
-_STDERR_CHARS_REPORTED = 2000
+_STDERR_LINES_REPORTED = 20
 
 
 class _ProcessPlatform(Enum):
@@ -140,9 +140,8 @@ class ProcessCollector:
                     if cleanup_error is not None:
                         raise cleanup_error
                 if process.returncode:
-                    message = stderr.decode("utf-8", errors="replace").strip()[
-                        -_STDERR_CHARS_REPORTED:
-                    ]
+                    lines = stderr.decode("utf-8", errors="replace").strip().splitlines()
+                    message = "\n".join(lines[-_STDERR_LINES_REPORTED:])
                     return CollectionError(
                         CollectionErrorKind.EXECUTION_ERROR,
                         subject,

@@ -2,8 +2,8 @@
 
 **Decision.** `ProcessCollector` reads collector stderr into a buffer that keeps only the
 last `stderr_limit_bytes` (64 KiB). Stderr size never fails a run. A collector that exits
-with a nonzero code returns an `execution_error` that names the exit code and the last 2,000
-characters of stderr. Stdout keeps its hard limit (AD-224), because a stdout overflow means the
+with a nonzero code returns an `execution_error` that names the exit code and the last 20
+lines of stderr. Stdout keeps its hard limit (AD-224), because a stdout overflow means the
 answer is incomplete.
 
 **Reason.** Before this change, more than 64 KiB on stderr raised an output-limit error.
@@ -23,5 +23,5 @@ stderr stream explains a crash, so the end is the part to keep.
 **Check.**
 - `tests/test_collection_process.py`: a collector writes 200,000 bytes to stderr and still
   returns a valid answer; a collector exits 3 after 50,000 noise lines and the message
-  starts with `Collector exited 3:`, ends with the real exception and is shorter than 2,100 characters.
+  starts with `Collector exited 3:`, ends with the real exception and has at most 20 lines.
 - Both tests fail on the code before this change.
