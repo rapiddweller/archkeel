@@ -1369,6 +1369,72 @@ code {
 .flow-inspector .empty {
   color: var(--ck-muted);
 }
+.flow-inventory-totals {
+  margin: 0 0 var(--ck-space-2);
+  color: var(--ck-muted);
+}
+.flow-inventory-filter {
+  width: 100%;
+  margin: 0 0 var(--ck-space-2);
+  padding: 6px 12px;
+  border: 1px solid var(--ck-border);
+  border-radius: 999px;
+  background: var(--ck-surface-raised);
+  color: var(--ck-text);
+  font: inherit;
+}
+.flow[data-atlas] .flow-inspector .flow-inventory-rows {
+  max-height: 240px;
+  margin: 0 0 var(--ck-space-2);
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.flow[data-atlas] .flow-inspector .flow-inventory-rows li {
+  margin: 0;
+}
+.flow-inventory-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(48px, 96px) 4ch;
+  align-items: center;
+  gap: var(--ck-space-2);
+  width: 100%;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--ck-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.flow-inventory-row:hover .flow-inventory-name,
+.flow-inventory-row:focus-visible .flow-inventory-name {
+  text-decoration: underline;
+}
+.flow-inventory-row:focus-visible {
+  outline: 2px solid var(--ck-teal);
+  outline-offset: 2px;
+}
+.flow-inventory-name {
+  overflow-wrap: anywhere;
+}
+.flow-inventory-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--ck-border);
+  overflow: hidden;
+}
+.flow-inventory-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--ck-muted);
+}
+.flow-inventory-count {
+  color: var(--ck-muted);
+  font-family: var(--ck-font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
 .flow-inspector .violation-card {
   padding: var(--ck-space-2) var(--ck-space-3);
   border-left: 3px solid var(--ck-fail);

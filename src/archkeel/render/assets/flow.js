@@ -2373,6 +2373,54 @@ export let flow;
       <p>${[...new Set(inventories.flatMap((item) => item.provenance))].map(esc).join(" · ")}</p></section>`;
   }
 
+  // The top-level fact sheet answers "what is here" before any selection (AD-264).
+  const INVENTORY_ROWS = 8;
+  function inventoryComponents(level) {
+    return ATLAS.components.filter((item) => item.parent_id === level.parent_id)
+      .sort((a, b) => b.observed_modules - a.observed_modules || a.label.localeCompare(b.label));
+  }
+  function componentInventoryMarkup(level) {
+    const components = inventoryComponents(level);
+    const filterable = components.length > INVENTORY_ROWS;
+    return `<section class="flow-inventory" aria-label="Component inventory">
+      <p class="flow-inventory-totals">${REPORT_SCENE.countLabel(components.length, "component")} · ${REPORT_SCENE.countLabel(ATLAS.modules.length, "module")}</p>
+      <h3>Largest by modules</h3>
+      ${filterable ? `<input type="search" class="flow-inventory-filter" aria-label="Filter components" placeholder="Filter ${components.length} components…">` : ""}
+      <ul class="flow-inventory-rows plain"></ul>
+      ${filterable ? `<button type="button" class="flow-fit" data-inventory-expand aria-expanded="false"></button>` : ""}
+    </section>`;
+  }
+  function wireComponentInventory(level) {
+    const section = inspectorContent.querySelector(".flow-inventory");
+    if (!section) return;
+    const components = inventoryComponents(level);
+    const largest = Math.max(1, components[0]?.observed_modules || 0);
+    const list = section.querySelector(".flow-inventory-rows");
+    const filter = section.querySelector(".flow-inventory-filter");
+    const expand = section.querySelector("[data-inventory-expand]");
+    let query = "", expanded = false;
+    const update = () => {
+      const matches = components.filter((item) => item.label.toLowerCase().includes(query));
+      const shown = expanded ? matches : matches.slice(0, INVENTORY_ROWS);
+      list.innerHTML = shown.map((item) => `<li><button type="button" class="flow-inventory-row" data-inventory-component="${esc(item.id)}">
+        <span class="flow-inventory-name">${esc(item.label)}</span>
+        <span class="flow-inventory-bar" aria-hidden="true"><span style="width: ${(100 * item.observed_modules / largest).toFixed(1)}%"></span></span>
+        <span class="flow-inventory-count">${item.observed_modules}</span></button></li>`).join("");
+      if (expand) {
+        expand.hidden = matches.length <= INVENTORY_ROWS;
+        expand.setAttribute("aria-expanded", String(expanded));
+        expand.textContent = expanded ? `Show the ${INVENTORY_ROWS} largest` : `Show all ${matches.length} ${query ? "matches" : "components"}`;
+      }
+    };
+    filter?.addEventListener("input", () => { query = filter.value.trim().toLowerCase(); update(); });
+    expand?.addEventListener("click", () => { expanded = !expanded; update(); });
+    list.addEventListener("click", (event) => {
+      const row = event.target.closest("[data-inventory-component]");
+      if (row) selectArchitectureSubject("node", row.dataset.inventoryComponent);
+    });
+    update();
+  }
+
   function atlasSheet(level, scene = renderedScene) {
     const component = REPORT_SCENE.atlasComponent(umlSelection?.id || level.parent_id);
     const inventory = viewMode === "target" ? moduleInventoryMarkup(ATLAS.module_inventories
@@ -2433,10 +2481,10 @@ export let flow;
     }
     if (!component) {
       inspectorContent.innerHTML = `<div class="kicker">Fact sheet${viewMode === "target" ? " · Declared intent" : ""}</div><h2>${esc(ATLAS.repository)}</h2>
-        <p>${viewMode === "target" ? "Select a component or declared module." : "Select a component, module, import cell or question."}</p>
-        ${inventory}${boundaryPermissionMarkup()}
+        ${viewMode === "target" ? `<p>Select a component or declared module.</p>${inventory}` : componentInventoryMarkup(level)}${boundaryPermissionMarkup()}
         ${viewMode === "target" ? "" : `${atlasRuleAssessmentMarkup(level)}${atlasEvidenceMarkup()}`}
         <p>${link(ATLAS.architecture_href, "Complete audit JSON")}</p>`;
+      if (viewMode !== "target") wireComponentInventory(level);
       return;
     }
     const componentLevel = ATLAS.levels.find((item) => item.parent_id === component.id);

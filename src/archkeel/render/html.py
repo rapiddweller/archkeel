@@ -776,13 +776,19 @@ def _atlas_rule_counts(result: RunResult) -> str:
 def _atlas_verdict_line(result: RunResult, observation: Observation) -> str:
     decision = report_summary(result).decision
     agent, total = agent_decisions(observation)
+    # Every decision by the agent is a draft until the architect reviews it; say so, not a count.
+    decisions = (
+        f" · Draft contract: all {total} decisions are by the agent, awaiting the architect"
+        if total and agent == total
+        else f" · Agent decisions {agent}/{total}"
+    )
     return (
         f'<p class="verdict-line" data-decision="{decision.state}" '
         f'aria-label="Decision: {_text(decision.label)}">'
         f'<span class="decision-symbol" aria-hidden="true">{decision.symbol}</span>'
         f"<strong>{_text(decision.label)}</strong>"
         f" · Rules {_text(result.declared_rules)} · {_atlas_rule_counts(result)}"
-        f" · Agent decisions {agent}/{total}"
+        f"{decisions}"
         f" · Source observation {_text(result.observation_complete)}"
         f" · <code>{_text(observation.source.git_head[:_GIT_HASH_SHOWN])}</code></p>"
     )
