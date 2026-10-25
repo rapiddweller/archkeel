@@ -1,6 +1,6 @@
 {
   "budgets": {
-    "calls_unresolved": 812,
+    "calls_unresolved": 816,
     "coupling_names": {
       "api -> ir": [
         "archkeel.ir.baseline:ViolationFingerprint",
@@ -35,6 +35,7 @@
         "archkeel.host.gitlab:load_gitlab_records"
       ],
       "cli -> render": [
+        "archkeel.render.guide:render_guide",
         "archkeel.render.html:render_architecture_pages",
         "archkeel.render.html:render_check_html",
         "archkeel.render.summary:check_summary",

@@ -157,7 +157,7 @@ def _rows(
         *_table(headers, rows[:_VISIBLE_ROWS]),
         "",
         "<details>",
-        f"<summary>Show all {_plural(len(rows), noun)}</summary>",
+        f"<summary>Show the other {_plural(len(rows) - _VISIBLE_ROWS, noun)}</summary>",
         "",
         *_table(headers, rows[_VISIBLE_ROWS:]),
         "",
