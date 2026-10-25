@@ -266,7 +266,7 @@ failed run writes no file. Only the Python run measures `providers`.
 | `providers` | phase | Python survey pass, including its process |
 | `collect` | phase | Collector process |
 | `decode` | phase | Decode and validate the collector response |
-| `assemble` | phase | Build the observation from the collected facts |
+| `assemble` | phase | Build the observation from the collected facts, including UML graphs and checks |
 | `result` | phase | Rule results and the report result |
 | `encode` | phase | Canonical `architecture.json` bytes |
 | `render` | phase | Both HTML pages |

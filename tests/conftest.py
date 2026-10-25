@@ -17,6 +17,12 @@ from archkeel.ir.model import Observation
 ROOT = Path(__file__).parents[1]
 
 
+@pytest.fixture(autouse=True)
+def no_step_summary(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A test must never append to the CI job summary; shards 1 to 5 showed such rows."""
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+
+
 @dataclass(frozen=True, slots=True)
 class SelfRun:
     observation: Observation

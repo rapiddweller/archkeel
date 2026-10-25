@@ -5,7 +5,7 @@
   seconds) and `counters` (deterministic numbers). The report, the HTML pages and the `--json`
   result do not change. Without the flag, nothing is measured and nothing is written.
 - Phases: `providers` (the survey pass of the Python collector), `collect`, `decode`
-  (decompress, decode, validate once), `assemble` (the observation is built from the facts),
+  (decompress, decode, validate once), `assemble` (the observation is built from the facts, with UML graphs and checks),
   `result` (rule results and the report result), `encode` (`architecture.json` bytes), `render`
   (both pages). A phase that did not run is absent, never zero. Only the Python collector has
   a survey pass, so only a Python run has `providers`. The survey pass is one phase; its inner

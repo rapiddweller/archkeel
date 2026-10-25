@@ -13,6 +13,7 @@ import pytest
 from test_architecture_demo import _prepare_repo
 
 import tools.report_timing as report_timing
+from archkeel.check import uml
 from archkeel.cli import main
 from archkeel.ir import phases
 from archkeel.ir.phases import Phase, PhaseClock, WorkCounter
@@ -139,11 +140,6 @@ def test_timings_is_refused_with_a_saved_report(
     assert not timings.exists()
 
 
-@pytest.fixture
-def no_step_summary(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
-
-
 def _fake_child(
     phase_seconds: dict[str, float], counters: dict[str, int]
 ) -> Callable[..., subprocess.CompletedProcess[bytes]]:
@@ -161,7 +157,7 @@ def _fake_child(
 
 
 def test_receipt_carries_phases_and_counters_and_a_step_summary(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_step_summary: None
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Keys are out of pipeline order on purpose: the table must follow the Phase enum.
     phase_seconds = {"render": 0.2, "providers": 1.2, "collect": 0.6}
@@ -207,4 +203,25 @@ def test_receipt_carries_phases_and_counters_and_a_step_summary(
 
 
 def test_step_summary_says_when_no_timings_were_written() -> None:
-    assert report_timing._summary({}, {}) == ("### Report timing\n\nNo timings were written.\n")
+    assert report_timing._summary({}, {}, 5.0) == (
+        "### Report timing\n\nNo timings were written.\n"
+    )
+
+
+def test_step_summary_shows_the_untimed_rest_so_rows_add_up_to_wall_time() -> None:
+    text = report_timing._summary({"collect": 3.0, "render": 1.0}, {}, 5.0)
+    assert "| untimed | 1.00 | 20.0 % |\n| **Total** | 5.00 | 100 % |\n" in text
+
+
+def test_uml_assembly_and_evaluation_count_as_assemble_time(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(uml, "resolve_commit", lambda root, revision: "head")
+    monkeypatch.setattr(uml, "git_bytes", lambda root, *args: b"")
+    monkeypatch.setattr(uml, "assemble_uml", lambda result, root, contract: result)
+    monkeypatch.setattr(uml, "evaluate_uml", lambda result: result)
+    config = SimpleNamespace(roots=(), namespace="", contract=None, language=None)
+    _ticks(monkeypatch, [0.0, 2.0])
+    clock = PhaseClock()
+    uml.observe_repository(tmp_path, config, lambda root, **kwargs: "observed", clock=clock)
+    assert clock.to_dict()["phases"] == {"assemble": 2.0}

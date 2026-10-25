@@ -1458,6 +1458,13 @@
                 "kind": "keyword_only",
                 "default": "None",
                 "default_known": true
+              },
+              {
+                "name": "clock",
+                "annotation": "PhaseClock | None",
+                "kind": "keyword_only",
+                "default": "None",
+                "default_known": true
               }
             ],
             "returns": "ObservationResult"
@@ -1872,6 +1879,13 @@
               {
                 "name": "contract_root",
                 "annotation": "Path | None",
+                "kind": "keyword_only",
+                "default": "None",
+                "default_known": true
+              },
+              {
+                "name": "clock",
+                "annotation": "PhaseClock | None",
                 "kind": "keyword_only",
                 "default": "None",
                 "default_known": true

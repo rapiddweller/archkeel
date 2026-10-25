@@ -1,9 +1,9 @@
 {
   "after_baseline_digest": "cad5d4fef07f78c550ebbec381f5f8a26c291ce65549c320f6e56ae576e749f1",
-  "after_digest": "336b291f84ee7050b8d00caeaf990aea82015a15e0a51df21ce06d14446df42a",
+  "after_digest": "f5b45b32bd13bed31967112994433f8299faab0a811fa0ea5e266f49ece59563",
   "before_baseline_digest": "694b068b1e6b6b5857b978530b8e07c24d71eec6d931c33574568b74c004e0a7",
   "before_digest": "5aa5b50efa1c7dd290953c2374d942235b460008f167fd8d818fa0fe0198c816",
   "decided_by": "Alexander Kell (architect), AD-267",
-  "rationale": "AD-267 adds phase timings and work counters (report --timings). The ir component publishes the new module archkeel.ir.phases (Phase, WorkCounter, PhaseClock); analyzer and cli may use it; the enum-placement rule and the governance packages list name it; the check contract's run_report gains the keyword-only clock parameter. The calls_unresolved budget rises from 816 to 817 for one argparse call (report --timings) that the analyzer cannot resolve.",
+  "rationale": "AD-267 adds phase timings and work counters (report --timings). The ir component publishes the new module archkeel.ir.phases (Phase, WorkCounter, PhaseClock); analyzer and cli may use it; the enum-placement rule and the governance packages list name it; the check contract's run_report, report.observe_repository and uml.observe_repository gain the keyword-only clock parameter. The calls_unresolved budget rises from 816 to 817 for one argparse call (report --timings) that the analyzer cannot resolve.",
   "schema_version": "2.0.0"
 }

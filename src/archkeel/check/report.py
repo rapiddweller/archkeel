@@ -255,10 +255,15 @@ def render_result(result: RunResult) -> bytes:
 
 
 def observe_repository(
-    root: Path, config: ScanConfig, analyzer: Analyzer, *, contract_root: Path | None = None
+    root: Path,
+    config: ScanConfig,
+    analyzer: Analyzer,
+    *,
+    contract_root: Path | None = None,
+    clock: PhaseClock | None = None,
 ) -> ObservationResult:
     """Retain the published facade signature while observation lives below commands."""
-    return _observe_repository(root, config, analyzer, contract_root=contract_root)
+    return _observe_repository(root, config, analyzer, contract_root=contract_root, clock=clock)
 
 
 def _selected_violations(
@@ -678,7 +683,7 @@ def run_report(
         only_architecture,
         full_architecture,
     )
-    result = _projection_result(observe_repository(root, config, analyzer))
+    result = _projection_result(observe_repository(root, config, analyzer, clock=clock))
     result = _validated_member_inventory_result(result)
     architecture: bytes | None = None
     if result.observation is not None:
