@@ -25,11 +25,12 @@ The skill gives your coding agent the ArchKeel instructions. Use `/archkeel`
 archkeel init
 ```
 
-`init` reads your source files and writes three files:
+`init` reads your source files and writes four files:
 
 - `archkeel.toml`: where ArchKeel reads your code.
 - `architecture-contract.json`: the components and rules it proposes.
 - `docs/architecture/architecture.md`: a page to edit.
+- `docs/architecture/contract-guide.md`: a readable guide to the contract.
 
 `init` is a draft. It gives no permission for any dependency. An existing
 import is evidence that the code uses it, not approval. This example ends
@@ -62,6 +63,9 @@ archkeel report
 `report` writes `test-artifacts/architecture/architecture.report.html`.
 Open it in a browser. Add `test-artifacts/` to `.gitignore`, or pass
 `--output` to choose another place.
+
+The contract guide, `docs/architecture/contract-guide.md`, lists in plain
+words what the contract says and what is still open.
 
 The **First look** lines are facts from the first scan. They are not
 grades, and no line says good or bad.
