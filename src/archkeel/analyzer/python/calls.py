@@ -389,6 +389,8 @@ class CallCollector(ast.NodeVisitor):
         provider_bindings: Sequence[ProviderBinding] = (),
         runtime: RuntimeInfo | None = None,
         imports: Sequence[RawRecord] = (),
+        *,
+        include_guarded_effects: bool = True,
     ) -> None:
         self.module = module
         self.sys_modules_aliases = self._collect_sys_modules_aliases()
@@ -457,10 +459,47 @@ class CallCollector(ast.NodeVisitor):
             for target in self._native_expression_targets(reference)
         )
         self.scope_bindings: dict[ast.ClassDef | FunctionNode, frozenset[str]] = {}
-        self.guarded_paths: dict[
-            tuple[FunctionNode, str], dict[tuple[int, int], tuple[GuardedCallPath, ...]]
-        ] = {}
-        self.guarded_paths, self.member_paths = self._guarded_path_facts()
+        self.include_guarded_effects = include_guarded_effects
+        self.guarded_paths, self.member_paths = self._guarded_facts()
+
+    def _bool_declarations(
+        self, parent: ast.ClassDef, receiver_name: str
+    ) -> dict[str, list[ast.AST]]:
+        declarations: dict[str, list[ast.AST]] = {}
+        for statement in parent.body:
+            if (
+                isinstance(statement, ast.AnnAssign)
+                and isinstance(statement.target, ast.Name)
+                and annotation_text(statement.annotation) == "bool"
+            ):
+                name = statement.target.id
+                declarations[name] = [*declarations.get(name, ()), statement]
+            if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef):
+                for child in ast.walk(statement):
+                    if (
+                        isinstance(child, ast.AnnAssign)
+                        and isinstance(child.target, ast.Attribute)
+                        and isinstance(child.target.value, ast.Name)
+                        and child.target.value.id == receiver_name
+                        and annotation_text(child.annotation) == "bool"
+                    ):
+                        name = child.target.attr
+                        declarations[name] = [*declarations.get(name, ()), child]
+        return declarations
+
+    def _guarded_facts(
+        self,
+    ) -> tuple[
+        dict[tuple[FunctionNode, str], dict[tuple[int, int], tuple[GuardedCallPath, ...]]],
+        dict[
+            tuple[FunctionNode, str],
+            tuple[ast.ClassDef, ast.AST, dict[tuple[int, int], tuple[GuardedCallPath, ...]]],
+        ],
+    ]:
+        # Guarded paths are only consumed when a declared rule reads them (AD-257).
+        if not self.include_guarded_effects:
+            return {}, {}
+        return self._guarded_path_facts()
 
     def _guarded_path_facts(
         self,
@@ -478,6 +517,8 @@ class CallCollector(ast.NodeVisitor):
         guarded_paths: dict[
             tuple[FunctionNode, str], dict[tuple[int, int], tuple[GuardedCallPath, ...]]
         ] = {}
+        # Declarations depend only on the class and receiver name, so methods share them.
+        declarations_by_scope: dict[tuple[ast.ClassDef, str], dict[str, list[ast.AST]]] = {}
         for function in self.module.all_nodes:
             if not isinstance(function, ast.FunctionDef | ast.AsyncFunctionDef):
                 continue
@@ -491,7 +532,8 @@ class CallCollector(ast.NodeVisitor):
                 by_location: dict[tuple[int, int], list[GuardedCallPath]] = {}
                 for path in guarded_call_paths(function, argument.arg):
                     key = (path.line, path.column)
-                    by_location[key] = [*by_location.get(key, ()), path]
+                    records: list[GuardedCallPath] = by_location.setdefault(key, [])
+                    records.append(path)
                 guarded_paths[(function, argument.arg)] = {
                     location: tuple(paths) for location, paths in by_location.items()
                 }
@@ -501,33 +543,18 @@ class CallCollector(ast.NodeVisitor):
             receiver = next(iter((*function.args.posonlyargs, *function.args.args)), None)
             if receiver is None:
                 continue
-            declarations: dict[str, list[ast.AST]] = {}
-            for statement in parent.body:
-                if (
-                    isinstance(statement, ast.AnnAssign)
-                    and isinstance(statement.target, ast.Name)
-                    and annotation_text(statement.annotation) == "bool"
-                ):
-                    name = statement.target.id
-                    declarations[name] = [*declarations.get(name, ()), statement]
-                if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef):
-                    for child in ast.walk(statement):
-                        if (
-                            isinstance(child, ast.AnnAssign)
-                            and isinstance(child.target, ast.Attribute)
-                            and isinstance(child.target.value, ast.Name)
-                            and child.target.value.id == receiver.arg
-                            and annotation_text(child.annotation) == "bool"
-                        ):
-                            name = child.target.attr
-                            declarations[name] = [*declarations.get(name, ()), child]
+            scope_key = (parent, receiver.arg)
+            if scope_key not in declarations_by_scope:
+                declarations_by_scope[scope_key] = self._bool_declarations(parent, receiver.arg)
+            declarations = declarations_by_scope[scope_key]
             for name, sites in declarations.items():
                 if len(sites) != 1:
                     continue
                 member_by_location: dict[tuple[int, int], list[GuardedCallPath]] = {}
                 for path in guarded_call_paths(function, name, receiver_name=receiver.arg):
                     key = (path.line, path.column)
-                    member_by_location[key] = [*member_by_location.get(key, ()), path]
+                    member_records: list[GuardedCallPath] = member_by_location.setdefault(key, [])
+                    member_records.append(path)
                 member_paths[(function, name)] = (
                     parent,
                     sites[0],
@@ -2307,12 +2334,12 @@ def collect_calls_with_resolvers(
             provider_bindings,
             runtime,
             imports_by_module.get(module.module, ()),
+            include_guarded_effects=include_guarded_effects,
         )
         for module in parsed
     ]
     revocation_cache: dict[str, bool] = {}
     for call_collector in collectors:
-        call_collector.include_guarded_effects = include_guarded_effects
         call_collector.include_extended_bindings = include_extended_bindings
         call_collector.include_call_arguments = include_call_arguments
         call_collector.native_mutation_collectors = tuple(collectors)
