@@ -8,6 +8,9 @@
   The same contract gives the same bytes.
 - It is a separate file from `docs/architecture/architecture.md`. That file is written once by
   `init` and edited by people; the guide is regenerated and is never edited.
+- With no contract, `archkeel guide` exits 2 and says what to do first: `archkeel init`. It
+  does not invent a guide. `init` writes the guide as its last step (AD-266), so a first-time
+  user gets a readable file from the first command.
 - Sections, in order: *At a glance* (counts, and what is missing); *Components* (ownership and
   responsibility); *Public interfaces*; *Rules* (grouped by kind, one explanation per kind, then
   one row per rule: id, scope, who decided, the contract's own rationale); *Decided and open*;

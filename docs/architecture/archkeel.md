@@ -132,6 +132,7 @@ and canonical type identity; their exact and optional-union semantics are record
 | [AD-263](decisions/ad-263-cycle-findings-carry-a-concrete-path.md) | A cycle finding carries one concrete path: the shortest closed walk with a `file:line` site per edge. |
 | [AD-264](decisions/ad-264-the-explorer-opens-on-what-is-here.md) | While nothing is selected, the Explorer's fact sheet lists the largest components; the verdict line names a draft contract. |
 | [AD-265](decisions/ad-265-contract-guide.md) | `archkeel guide` renders the contract as a deterministic Markdown guide, separate from `architecture.md`. |
+| [AD-266](decisions/ad-266-the-first-hour.md) | `init` ends with next steps and a facts-only first look; `init --adopt` takes the current state into the contract as "adopted, not reviewed". |
 | [AD-246](decisions/ad-246-bounded-numeric-operand.md) | Bind selected modulo bounds to bounded source-derived integer proofs. |
 
 | [AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md) | Bind explicitly written actuals to proven formals before applying argument policies. |
