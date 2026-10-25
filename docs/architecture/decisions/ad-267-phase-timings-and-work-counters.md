@@ -7,7 +7,7 @@
 - Phases: `providers` (the survey pass of the Python collector), `collect`, `decode`
   (decompress, decode, validate once), `assemble` (including rule evaluation), `result`,
   `encode` (`architecture.json` bytes), `render` (both pages). A phase that did not run is
-  absent, never zero. A collector without a subprocess (Dart) has no `providers` and no `decode`.
+  absent, never zero. A collector without a subprocess (Dart) has no `providers` and no `decode`. The survey pass is one phase, `providers`; its inner collect and decode are not counted twice.
 - Counters: files parsed, modules, calls analyzed, records, evidence records, collector wire
   bytes, `architecture.json` bytes, report page bytes. The same input gives the same counters.
 - One `PhaseClock` is created by the CLI and passed on as a parameter: to the observer, so the

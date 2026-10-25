@@ -41,6 +41,7 @@ from archkeel.ir.model import (
 from archkeel.ir.model import (
     contract_relative_path as _contract_relative_path,
 )
+from archkeel.ir.phases import Phase, PhaseClock, measured
 from archkeel.ir.profiles import PROFILES, Language
 from archkeel.ir.protocol import (
     CollectionError,
@@ -299,6 +300,7 @@ def _observe(
     contract_root: Path,
     language: Language = Language.PYTHON,
     bundler: bool = False,
+    clock: PhaseClock | None = None,
 ) -> ObservationResult:
     source_root = source_root.resolve()
     contract_root = contract_root.resolve()
@@ -356,14 +358,15 @@ def _observe(
                 facts.message,
                 "Repair the configured collector or its source inputs and retry.",
             )
-        model, _ = assemble_observation(
-            facts,
-            contract_root=contract_root,
-            contract_path=contract_file,
-            roots=roots,
-            namespace=namespace,
-            language=language,
-        )
+        with measured(clock, Phase.ASSEMBLE):
+            model, _ = assemble_observation(
+                facts,
+                contract_root=contract_root,
+                contract_path=contract_file,
+                roots=roots,
+                namespace=namespace,
+                language=language,
+            )
         runtime = runtime_diagnostic(model.runtime) if model.runtime is not None else None
         diagnostics = observation_diagnostics(model, runtime, language)
         eligibility = (
@@ -393,6 +396,7 @@ class Observer:
     collector: SourceCollector
     tsconfig: str = "tsconfig.json"
     bundler: bool = False
+    clock: PhaseClock | None = None
 
     def __call__(
         self,
@@ -418,4 +422,5 @@ class Observer:
             contract_root=contract_root,
             language=language,
             bundler=self.bundler,
+            clock=self.clock,
         )

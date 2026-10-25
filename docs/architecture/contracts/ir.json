@@ -176,6 +176,7 @@
         "archkeel.ir.levels",
         "archkeel.ir.lock",
         "archkeel.ir.measurements",
+        "archkeel.ir.phases",
         "archkeel.ir.model",
         "archkeel.ir.references",
         "archkeel.ir.renames",

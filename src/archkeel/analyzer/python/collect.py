@@ -58,11 +58,13 @@ from archkeel.ir.facts import (
     stable_id,
 )
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, parse_evidence, parse_record, raw_record
+from archkeel.ir.phases import Phase, measured
 from archkeel.ir.protocol import (
     PYTHON_IMPORT_SURVEY_SECTIONS,
     CollectionError,
     CollectionErrorKind,
     CollectionRequest,
+    CollectionResponse,
     ProtocolVersion,
     PythonCollectionPhase,
     PythonProviderSource,
@@ -119,6 +121,15 @@ _SECTION_NAMES: tuple[SourceSectionName, ...] = (
 )
 
 
+def _survey(
+    collector: ProcessCollector, request: CollectionRequest
+) -> CollectionResponse | CollectionError:
+    # The inner collect and decode stay unclocked, so the survey is one phase.
+    survey = replace(collector, clock=None)
+    with measured(collector.clock, Phase.PROVIDERS):
+        return survey.collect_response(request)
+
+
 @dataclass(frozen=True, slots=True)
 class PythonProviderCollector:
     collector: ProcessCollector
@@ -138,12 +149,13 @@ class PythonProviderCollector:
             f"Collector exceeded {self.collector.timeout_seconds:g} seconds. "
             "Raise collector_timeout_seconds in [scan].",
         )
-        initial_response = self.collector.collect_response(
+        initial_response = _survey(
+            self.collector,
             replace(
                 request,
                 resolver=replace(request.resolver, phase=PythonCollectionPhase.PROVIDERS),
                 protocol_version=ProtocolVersion.V4,
-            )
+            ),
         )
         if isinstance(initial_response, CollectionError):
             return initial_response
