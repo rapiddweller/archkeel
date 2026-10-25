@@ -271,3 +271,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-261 | [TypeScript standard globals come from TypeScript's own lib files](ad-261-typescript-standard-globals-from-lib-files.md) |
 | AD-262 | [Configurable collector timeout](ad-262-configurable-collector-timeout.md) |
 | AD-263 | [A cycle finding carries one concrete path](ad-263-cycle-findings-carry-a-concrete-path.md) |
+| AD-264 | [The Explorer opens on what is here](ad-264-the-explorer-opens-on-what-is-here.md) |
