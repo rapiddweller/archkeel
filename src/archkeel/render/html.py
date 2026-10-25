@@ -47,6 +47,7 @@ from archkeel.ir.measurements import Measurements
 from archkeel.ir.model import (
     BaselineViolationComparison,
     CallRow,
+    CyclePath,
     EvidenceClass,
     Finding,
     FindingKind,
@@ -815,6 +816,31 @@ def _finding_href(
     return f"?{_urlencode(sorted(query.items()))}#flow"
 
 
+def _path_block(path: CyclePath | None) -> str:
+    """AD-263: each step of a cycle's path, each with the import site that makes it."""
+    if path is None:
+        return ""
+    steps = "".join(
+        f"<li>{_text(step.source)} → {_text(step.target)}"
+        + (
+            f' <code class="finding-location">{_text(location_text(step.location))}</code>'
+            if step.location is not None
+            else ""
+        )
+        + (" <em>type-checking only</em>" if step.type_checking_only else "")
+        + "</li>"
+        for step in path.steps
+    )
+    omitted = ""
+    if path.omitted_edges:
+        plural = "" if path.omitted_edges == 1 else "s"
+        omitted = (
+            f'<p class="finding-path-omitted">{path.omitted_edges} other cycle edge{plural} '
+            "not on this path</p>"
+        )
+    return f'<ol class="finding-path" aria-label="Cycle path">{steps}</ol>{omitted}'
+
+
 def _atlas_findings(result: RunResult, observation: Observation) -> str:
     """The ranked list the report opens with, readable without JavaScript (AD-258)."""
     if result.findings is None:
@@ -853,7 +879,8 @@ def _atlas_findings(result: RunResult, observation: Observation) -> str:
             f'<strong class="finding-title">{linked}</strong>'
             f' <span class="finding-size">{_SIZE_LABELS[finding.kind]}: {finding.size}</span>'
             f"{location}{more_text}"
-            f' <span class="finding-sentence">{_text(finding.sentence)}</span></li>'
+            f' <span class="finding-sentence">{_text(finding.sentence)}</span>'
+            f"{_path_block(finding.path)}</li>"
         )
     shown, rest = rows[:_FINDINGS_SHOWN], rows[_FINDINGS_SHOWN:]
     hidden = (

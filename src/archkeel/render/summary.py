@@ -18,6 +18,7 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.model import ComparisonStatus as _ComparisonStatus
 from archkeel.ir.model import (
+    CyclePath,
     DraftedComponentSize,
     Finding,
     ReportLocation,
@@ -192,7 +193,23 @@ def _findings_lines(findings: tuple[Finding, ...]) -> str:
     for rank, item in enumerate(shown, 1):
         where = f"  {location_text(item.locations[0])}" if item.locations else ""
         lines.append(f"  {rank}. {item.title}{where}")
+        if item.path is not None:
+            lines.extend(_path_lines(item.path))
     return "\n".join(lines)
+
+
+def _path_lines(path: CyclePath) -> list[str]:
+    """AD-263: a cycle's steps under its line, indented as the list's own items are."""
+    lines = [
+        f"     {step.source} → {step.target}"
+        + (f"  {location_text(step.location)}" if step.location is not None else "")
+        + ("  (type-checking only)" if step.type_checking_only else "")
+        for step in path.steps
+    ]
+    if path.omitted_edges:
+        plural = "" if path.omitted_edges == 1 else "s"
+        lines.append(f"     {path.omitted_edges} other cycle edge{plural} not on this path")
+    return lines
 
 
 def _claims_line(result: RunResult) -> str:

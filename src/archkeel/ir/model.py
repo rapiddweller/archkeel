@@ -1718,6 +1718,28 @@ class FindingKind(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class CyclePathStep:
+    """One edge a cycle's path crosses; `location` is the first import site that makes it.
+
+    `type_checking_only` is true when every import of the edge sits under TYPE_CHECKING, which
+    marks the edge as the cheapest one to remove.
+    """
+
+    source: str
+    target: str
+    location: ReportLocation | None
+    type_checking_only: bool
+
+
+@dataclass(frozen=True, slots=True)
+class CyclePath:
+    """The shortest closed walk through a cycle; `omitted_edges` counts the edges off it."""
+
+    steps: tuple[CyclePathStep, ...]
+    omitted_edges: int
+
+
+@dataclass(frozen=True, slots=True)
 class Finding:
     """One ranked finding the report opens with; terminal, HTML and JSON all read this list.
 
@@ -1737,6 +1759,7 @@ class Finding:
     component_ids: tuple[str, ...]
     change: Literal["known", "new", "reduced", "resolved"] | None = None
     before: int | None = None
+    path: CyclePath | None = None
 
 
 @dataclass(frozen=True, slots=True)

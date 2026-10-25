@@ -16,6 +16,7 @@ import pytest
 from browser_report_support import _browser_page
 from test_cycle_levels import _CLI_CYCLE, _CORE_CYCLE, _observe
 from test_module_explore import _sample
+from test_result_schema import _validator
 
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report, run_saved_report
@@ -372,9 +373,11 @@ def test_one_module_can_be_a_hub_both_ways_and_fan_in_is_named_first(run: Run) -
 
 
 def _terminal_titles(result: RunResult) -> list[str]:
+    # AD-263: a cycle's path lines sit under its numbered line; only numbered lines are titles.
     return [
         re.sub(r"^\s*\d+\. ", "", line).split("  ")[0]
         for line in report_summary(result).claims.splitlines()[1:]
+        if re.match(r"^\s*\d+\. ", line)
     ]
 
 
@@ -530,3 +533,213 @@ def test_the_report_in_a_browser_lists_what_the_json_lists(tmp_path: Path, run: 
     finally:
         browser.close()
         playwright.stop()
+
+
+# AD-263: a cycle finding carries one concrete path, the shortest closed walk through it.
+_TRIANGLE = {
+    "core/a.py": "from sample.core import b\n",
+    "core/b.py": "from sample.core import c\n",
+    "core/c.py": "from sample.core import a\n",
+}
+# Two shortest cycles run through a: a-b-d-a and a-c-d-a. The walk takes the smaller next name, b.
+_DIAMOND = {
+    "core/a.py": "from sample.core import b\nfrom sample.core import c\n",
+    "core/b.py": "from sample.core import d\n",
+    "core/c.py": "from sample.core import d\n",
+    "core/d.py": "from sample.core import a\n",
+}
+_TYPE_CHECKED_BACK = {
+    "core/a.py": (
+        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from sample.core import b\n"
+    ),
+    "core/b.py": "from sample.core import a\n",
+}
+
+
+def _walk(item: Finding) -> list[tuple[str, str, str, int, bool]]:
+    """Each step as (source, target, file, line, type_checking_only); a site must exist."""
+    assert item.path is not None
+    steps = []
+    for step in item.path.steps:
+        assert step.location is not None
+        steps.append(
+            (
+                step.source,
+                step.target,
+                step.location.path,
+                step.location.line,
+                step.type_checking_only,
+            )
+        )
+    return steps
+
+
+def test_a_three_module_cycle_walks_its_three_edges_with_their_import_sites(tmp_path: Path) -> None:
+    [cycle] = _cycle_run(tmp_path, _TRIANGLE, labels=("core",))
+
+    assert _walk(cycle) == [
+        ("sample.core.a", "sample.core.b", "sample/core/a.py", 1, False),
+        ("sample.core.b", "sample.core.c", "sample/core/b.py", 1, False),
+        ("sample.core.c", "sample.core.a", "sample/core/c.py", 1, False),
+    ]
+    assert cycle.path is not None and cycle.path.omitted_edges == 0
+
+
+def test_a_two_package_cycle_shows_one_module_site_per_package_edge(tmp_path: Path) -> None:
+    sources = {
+        "core/x.py": "from sample.cli import y\n",
+        "cli/y.py": "VALUE = 1\n",
+        "cli/z.py": "from sample.core import w\n",
+        "core/w.py": "VALUE = 1\n",
+    }
+    [cycle] = [
+        item for item in _cycle_run(tmp_path, sources) if item.kind is FindingKind.PACKAGE_CYCLE
+    ]
+
+    # The walk starts at the smaller package name, sample.cli.
+    assert _walk(cycle) == [
+        ("sample.cli", "sample.core", "sample/cli/z.py", 1, False),
+        ("sample.core", "sample.cli", "sample/core/x.py", 1, False),
+    ]
+
+
+def test_the_same_repository_in_reversed_file_order_gives_the_same_path(tmp_path: Path) -> None:
+    forward = _cycle_run(tmp_path / "forward", _DIAMOND, labels=("core",))
+    backward = _cycle_run(tmp_path / "backward", dict(reversed(_DIAMOND.items())), labels=("core",))
+
+    assert [item.path for item in forward] == [item.path for item in backward]
+    [cycle] = forward
+    assert [target for _, target, _, _, _ in _walk(cycle)] == [
+        "sample.core.b",
+        "sample.core.d",
+        "sample.core.a",
+    ]
+
+
+def test_a_large_cycle_shows_a_short_path_and_counts_the_edges_it_leaves_out(
+    tmp_path: Path,
+) -> None:
+    size = 30
+    # A ring keeps all 30 modules in one SCC; every third module adds a chord: 40 edges.
+    sources = {
+        f"core/r{i}.py": "".join(
+            f"from sample.core import r{target}\n"
+            for target in [(i + 1) % size, *([(i + 5) % size] if i % 3 == 0 else [])]
+        )
+        for i in range(size)
+    }
+    [cycle] = _cycle_run(tmp_path, sources, labels=("core",))
+    walk = _walk(cycle)
+
+    assert cycle.size == 40
+    assert len(walk) <= size
+    assert cycle.path is not None
+    assert cycle.path.omitted_edges == cycle.size - len(walk)
+    # The steps form one closed walk: each target is the next source, and it returns to the start.
+    assert all(step[1] == following[0] for step, following in zip(walk, walk[1:], strict=False))
+    assert walk[-1][1] == walk[0][0]
+
+
+def test_an_edge_whose_only_import_is_type_checking_is_marked(tmp_path: Path) -> None:
+    [cycle] = _cycle_run(tmp_path, _TYPE_CHECKED_BACK, labels=("core",))
+
+    assert _walk(cycle) == [
+        ("sample.core.a", "sample.core.b", "sample/core/a.py", 3, True),
+        ("sample.core.b", "sample.core.a", "sample/core/b.py", 1, False),
+    ]
+
+
+def test_a_hub_carries_no_path_and_the_result_validates_with_and_without(run: Run) -> None:
+    validator = _validator("command-result-11.0.schema.json")
+    assert run.result.findings is not None
+    by_kind = {item.kind: item for item in run.result.findings}
+    payload = result_payload(run.result)
+    items = payload["findings"]
+    assert isinstance(items, list)
+    serialized = {item["kind"]: item for item in items if isinstance(item, dict)}
+
+    assert by_kind[FindingKind.FAN_IN_HUB].path is None
+    assert "path" not in serialized["fan_in_hub"]
+    assert by_kind[FindingKind.MODULE_CYCLE].path is not None
+    assert "path" in serialized["module_cycle"]
+    assert validator.is_valid(payload)
+    assert not validator.is_valid(
+        {**payload, "findings": [{**serialized["fan_in_hub"], "path": 1}]}
+    )
+
+
+# AD-263 follow-up: a no_component_cycles violation is a cycle too, so it carries the same path.
+_COMPONENTS = ("alpha", "beta", "gamma")
+_COMPONENT_TRIANGLE = {
+    "alpha/x.py": "from sample.beta import y\n",
+    "beta/y.py": "from sample.gamma import z\n",
+    "gamma/z.py": "from sample.alpha import x\n",
+}
+# alpha also imports gamma, so the shortest cycle through alpha is alpha -> gamma -> alpha.
+_COMPONENT_CHORD = {
+    **_COMPONENT_TRIANGLE,
+    "alpha/x.py": "from sample.beta import y\nfrom sample.gamma import z\n",
+}
+_COMPONENT_TYPE_CHECKED = {
+    **_COMPONENT_TRIANGLE,
+    "alpha/x.py": (
+        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from sample.beta import y\n"
+    ),
+}
+
+
+def _component_violation(tmp_path: Path, sources: dict[str, str]) -> Finding:
+    cycles = _cycle_run(tmp_path, sources, labels=_COMPONENTS)
+    [violation] = [item for item in cycles if item.kind is FindingKind.VIOLATION]
+    return violation
+
+
+def test_a_component_cycle_walks_its_three_component_edges_with_their_sites(tmp_path: Path) -> None:
+    violation = _component_violation(tmp_path, _COMPONENT_TRIANGLE)
+
+    assert _walk(violation) == [
+        ("alpha", "beta", "sample/alpha/x.py", 1, False),
+        ("beta", "gamma", "sample/beta/y.py", 1, False),
+        ("gamma", "alpha", "sample/gamma/z.py", 1, False),
+    ]
+    assert violation.path is not None and violation.path.omitted_edges == 0
+
+
+def test_a_component_chord_shortens_the_path_and_counts_the_pairs_left_out(tmp_path: Path) -> None:
+    violation = _component_violation(tmp_path, _COMPONENT_CHORD)
+
+    assert _walk(violation) == [
+        ("alpha", "gamma", "sample/alpha/x.py", 2, False),
+        ("gamma", "alpha", "sample/gamma/z.py", 1, False),
+    ]
+    # Four component pairs are in the cycle and two are on the path; import sites do not count.
+    assert violation.path is not None and violation.path.omitted_edges == 2
+
+
+def test_the_same_component_cycle_in_reversed_file_order_gives_the_same_path(
+    tmp_path: Path,
+) -> None:
+    forward = _component_violation(tmp_path / "forward", _COMPONENT_CHORD)
+    backward = _component_violation(tmp_path / "backward", dict(reversed(_COMPONENT_CHORD.items())))
+
+    assert forward.path == backward.path
+    assert forward.path is not None
+
+
+def test_a_type_checking_only_component_edge_is_marked(tmp_path: Path) -> None:
+    violation = _component_violation(tmp_path, _COMPONENT_TYPE_CHECKED)
+
+    assert _walk(violation) == [
+        ("alpha", "beta", "sample/alpha/x.py", 3, True),
+        ("beta", "gamma", "sample/beta/y.py", 1, False),
+        ("gamma", "alpha", "sample/gamma/z.py", 1, False),
+    ]
+
+
+def test_a_violation_of_another_rule_carries_no_path(run: Run) -> None:
+    assert run.result.findings is not None
+    violation = run.result.findings[0]
+
+    assert violation.kind is FindingKind.VIOLATION
+    assert violation.rules == ("dependencies",)
+    assert violation.path is None
