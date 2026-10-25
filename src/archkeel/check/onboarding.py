@@ -73,6 +73,8 @@ from .validation import COMPONENT_GRAPH_MARKER, mermaid_edges, observed_componen
 
 CONFIG_PATH: Final = "archkeel.toml"
 CONTRACT_PATH: Final = "architecture-contract.json"
+# Written by `archkeel guide`; init guards it like the architecture page.
+GUIDE_PATH: Final = "docs/architecture/contract-guide.md"
 # AD-266: the plain sentence that says the adopted state was observed, not reviewed.
 ADOPTED_RATIONALE: Final = "Observed when the contract was drafted; not reviewed."
 _REQUIRES_COMPLETE_ID: Final = "REQUIRES-COMPLETE"
@@ -560,6 +562,7 @@ def run_init(
         CONFIG_PATH,
         CONTRACT_PATH,
         DOCUMENT_PATH,
+        GUIDE_PATH,
         *((adopt_baseline,) if adopt_baseline is not None else ()),
     )
     existing = [path for path in guarded if (root / path).exists()]
