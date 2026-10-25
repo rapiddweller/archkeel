@@ -248,6 +248,37 @@ retrieves every pair on the initial draft.
 imports or Target permissions. Exactly one observed marker is required; Target
 is optional. Subgraphs, labels and styles require manual editing.
 
+## Phase timings
+
+`archkeel report --timings PATH` writes one JSON file after a successful live report.
+Without the flag, nothing is measured and nothing is written. The report, the HTML
+pages and the `--json` result do not change. `--input` refuses the flag.
+
+```json
+{"schema_version": 1, "phases": {"collect": 0.412}, "counters": {"files_parsed": 160}}
+```
+
+Keys are sorted. Seconds have three decimals. A phase that did not run is absent. A
+failed run writes no file. Only the Python run measures `providers`.
+
+| Name | Kind | Meaning |
+| --- | --- | --- |
+| `providers` | phase | Python survey pass, including its process |
+| `collect` | phase | Collector process |
+| `decode` | phase | Decode and validate the collector response |
+| `assemble` | phase | Build the observation from the collected facts, including UML graphs and checks |
+| `result` | phase | Rule results and the report result |
+| `encode` | phase | Canonical `architecture.json` bytes |
+| `render` | phase | Both HTML pages |
+| `files_parsed` | counter | Source files parsed |
+| `modules` | counter | Module records |
+| `calls_analyzed` | counter | Calls in the coverage record; absent when unknown |
+| `records` | counter | Records in all observation sections |
+| `evidence_records` | counter | Evidence records |
+| `collector_wire_bytes` | counter | Collector response bytes, from the clocked pass only |
+| `architecture_bytes` | counter | `architecture.json` bytes |
+| `report_page_bytes` | counter | HTML page bytes |
+
 ## Focused agent reports
 
 ```bash

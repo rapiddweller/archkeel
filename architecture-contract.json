@@ -84,6 +84,7 @@
         "archkeel.ir.identity:module_identity",
         "archkeel.ir.lock",
         "archkeel.ir.measurements",
+        "archkeel.ir.phases",
         "archkeel.ir.model",
         "archkeel.ir.references",
         "archkeel.ir.renames:Renamed",
@@ -271,7 +272,8 @@
           "component": "ir",
           "through": [
             "archkeel.ir.codec",
-            "archkeel.ir.model:Command"
+            "archkeel.ir.model:Command",
+            "archkeel.ir.phases"
           ],
           "rationale": "Serialize the typed observation to the legacy JSON payload at the CLI compatibility boundary."
         },
@@ -347,6 +349,7 @@
             "archkeel.ir.reexports",
             "archkeel.ir.source_records",
             "archkeel.ir.identity",
+            "archkeel.ir.phases",
             "archkeel.ir.guard_paths:GuardedCallPath",
             "archkeel.ir.guard_paths:guarded_call_paths",
             "archkeel.ir.source_proofs:class_instance_member_write_names"
@@ -927,9 +930,10 @@
         "archkeel.ir.host_records",
         "archkeel.check.snapshot",
         "archkeel.ir.structure",
-        "archkeel.analyzer.process"
+        "archkeel.analyzer.process",
+        "archkeel.ir.phases"
       ],
-      "rationale": "Each closed vocabulary belongs to its domain or wire boundary: shared state and source facts own domain controls; codecs own private wire tags; TypeScript parser and collector own their private controls and share the published syntax port; consumers use published nominal types. Contract versions and feature availability belong to contract_version. The Python Source binding model owns import, lexical binding and compiler-scope control types. Amendment versions and verification outcomes belong to the coherent immutable amendment artifact owner. Measurement budgets, availability and metric comparisons stay with their existing measurement DTO owner. The Python construct owner holds its private written predicate syntax vocabulary. TypeScript source_input owns shared filename/specifier grammar and source/format metadata. The Core boundary evaluator owns its private undecidable-position reasons. Atlas deviation values, deterministic pair derivation and wire emission belong to render.atlas_deviations. The Python Source adapter owns the private AST field grammar that feeds definition contexts; shared context kinds remain facts-owned. Compact architecture projection values own component-pair permission states. Host replay evidence owns its closed expectation publication and candidate submission events. The existing snapshot owner owns the supported regular Git blob byte-pair grammar shared by immutable input readers; the Git consumer does not own that enum. Structure measurement levels belong to the existing pure ir.structure measurement owner. The existing collector process owner owns its recognized POSIX/Windows lifecycle controls; other OS names keep their existing open fallback.",
+      "rationale": "Each closed vocabulary belongs to its domain or wire boundary: shared state and source facts own domain controls; codecs own private wire tags; TypeScript parser and collector own their private controls and share the published syntax port; consumers use published nominal types. Contract versions and feature availability belong to contract_version. The Python Source binding model owns import, lexical binding and compiler-scope control types. Amendment versions and verification outcomes belong to the coherent immutable amendment artifact owner. Measurement budgets, availability and metric comparisons stay with their existing measurement DTO owner. The Python construct owner holds its private written predicate syntax vocabulary. TypeScript source_input owns shared filename/specifier grammar and source/format metadata. The Core boundary evaluator owns its private undecidable-position reasons. Atlas deviation values, deterministic pair derivation and wire emission belong to render.atlas_deviations. The Python Source adapter owns the private AST field grammar that feeds definition contexts; shared context kinds remain facts-owned. Compact architecture projection values own component-pair permission states. Host replay evidence owns its closed expectation publication and candidate submission events. The existing snapshot owner owns the supported regular Git blob byte-pair grammar shared by immutable input readers; the Git consumer does not own that enum. Structure measurement levels belong to the existing pure ir.structure measurement owner. The existing collector process owner owns its recognized POSIX/Windows lifecycle controls; other OS names keep their existing open fallback. The phase clock module owns its closed phase and work counter names.",
       "provenance": [
         "docs/architecture/archkeel.md",
         "docs/architecture/typed-amendment-artifact.md",

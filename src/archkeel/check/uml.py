@@ -45,6 +45,7 @@ from archkeel.ir.model import (
 from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
 from archkeel.ir.model import DiagnosticKind as _DiagnosticKind
 from archkeel.ir.model import EvidenceClass as _EvidenceClass
+from archkeel.ir.phases import Phase, PhaseClock, measured
 from archkeel.ir.source_graph import MEMBER_INVENTORY_PROOF, validated_member_inventory_proof
 from archkeel.ir.target_graph import component_permissions, declared_tree_graph
 
@@ -530,7 +531,12 @@ def assemble_uml(result: ObservationResult, contract_root: Path, path: str) -> O
 
 
 def observe_repository(
-    root: Path, config: ScanConfig, analyzer: Analyzer, *, contract_root: Path | None = None
+    root: Path,
+    config: ScanConfig,
+    analyzer: Analyzer,
+    *,
+    contract_root: Path | None = None,
+    clock: PhaseClock | None = None,
 ) -> ObservationResult:
     """Observe the configured working tree through an injected analyzer."""
     result = analyzer(
@@ -543,4 +549,6 @@ def observe_repository(
         contract_root=contract_root or root,
         language=config.language,
     )
-    return evaluate_uml(assemble_uml(result, contract_root or root, config.contract))
+    # The analyzer's own ASSEMBLE ended inside the call; UML graphs and checks add to it.
+    with measured(clock, Phase.ASSEMBLE):
+        return evaluate_uml(assemble_uml(result, contract_root or root, config.contract))

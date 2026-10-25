@@ -26,6 +26,7 @@ from ..check.run import run_check
 from ..check.snapshot import resolve_commit
 from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
+from ..ir.phases import Phase, PhaseClock, WorkCounter, measured
 from ..render.html import render_architecture_pages, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
@@ -80,6 +81,11 @@ def _write_files(root: Path, files: tuple[tuple[str, bytes], ...], artifacts: li
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(payload)
         artifacts.append(target)
+
+
+def _write_timings(path: Path, clock: PhaseClock) -> None:
+    os.makedirs(path.parent, exist_ok=True)
+    path.write_text(json.dumps(clock.to_dict(), indent=2) + "\n")
 
 
 def html_path(output: Path, command: str) -> Path:
@@ -158,7 +164,8 @@ def build_parser() -> _Parser:
             "  archkeel report --input build/architecture.json --only architecture \\\n"
             "    --component COMP-STORE --json\n"
             "  archkeel report --config archkeel-tests.toml \\\n"
-            "    --output test-artifacts/tests/architecture.json\n\n"
+            "    --output test-artifacts/tests/architecture.json\n"
+            "  archkeel report --timings build/timings.json\n\n"
             "Exit codes:\n"
             "  0  the observation is complete\n"
             "  2  not checked: configuration, tool or source evidence is missing, or --rule or\n"
@@ -171,13 +178,19 @@ def build_parser() -> _Parser:
         "Path of architecture.json; the HTML report is written next to it. "
         "Default: test-artifacts/architecture/architecture.json.",
     )
-    report.set_defaults(root=None, config=None)
+    report.set_defaults(root=None, config=None, timings=None)
     report.add_argument(
         "--input",
         type=Path,
         help="Query a saved snapshot of architecture.json; no scan or file output. Recorded "
         "source identity does not verify the current working tree. Conflicts with --root, "
-        "--config, --baseline and --output.",
+        "--config, --baseline, --output and --timings.",
+    )
+    report.add_argument(
+        "--timings",
+        type=Path,
+        help="Write phase seconds and work counters as JSON after a successful live report. "
+        "Nothing is measured without this flag. Conflicts with --input.",
     )
     report.add_argument(
         "--baseline",
@@ -585,6 +598,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         ("--config", args.config),
                         ("--baseline", args.baseline),
                         ("--output", args.output),
+                        ("--timings", args.timings),
                     )
                     if value is not None
                 )
@@ -602,6 +616,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             elif command is Command.REPORT:
                 config = load_config(root, args.config or CONFIG_PATH)
                 subject = str(root)
+                clock = PhaseClock() if args.timings is not None else None
                 result, architecture = run_report(
                     root,
                     config=config,
@@ -612,6 +627,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         output_limit_bytes=config.collector_output_limit_bytes,
                         timeout_seconds=config.collector_timeout_seconds,
                         bundler=config.bundler,
+                        clock=clock,
                     ),
                     only_violations=args.only is ReportMode.VIOLATIONS,
                     only_calls=args.only is ReportMode.CALLS,
@@ -620,6 +636,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     component=args.component,
                     full_architecture=args.full,
                     baseline=args.baseline,
+                    clock=clock,
                 )
                 result = replace(result, scan_roots=config.roots)
                 if architecture is not None:
@@ -640,12 +657,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                     report_html = html_path(artifact, Command.REPORT)
                     repository = project_name(root, config)
                     # A render failure must not publish a partial HTML set.
-                    pages = render_architecture_pages(
-                        result,
-                        architecture,
-                        repository=repository,
-                        architecture_href=artifact.name,
-                    )
+                    with measured(clock, Phase.RENDER):
+                        pages = render_architecture_pages(
+                            result,
+                            architecture,
+                            repository=repository,
+                            architecture_href=artifact.name,
+                        )
+                    if clock is not None:
+                        clock.count(
+                            WorkCounter.REPORT_PAGE_BYTES, sum(len(payload) for _, payload in pages)
+                        )
                     for name, payload in pages:
                         detail = artifact.parent / name
                         detail.write_bytes(payload)
@@ -660,6 +682,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                             if re.fullmatch(obsolete, previous.name):
                                 previous.unlink()
                     artifacts.extend((artifact, report_html))
+                if clock is not None and args.timings is not None and result.exit_code == 0:
+                    _write_timings(args.timings, clock)
+                    artifacts.append(args.timings)
             elif command is Command.VALIDATE:
                 config = load_config(root, args.config)
                 if args.write_baseline and args.baseline is None:

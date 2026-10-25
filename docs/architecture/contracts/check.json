@@ -1336,6 +1336,13 @@
                 "kind": "keyword_only",
                 "default": "None",
                 "default_known": true
+              },
+              {
+                "name": "clock",
+                "annotation": "PhaseClock | None",
+                "kind": "keyword_only",
+                "default": "None",
+                "default_known": true
               }
             ],
             "returns": "tuple[RunResult, bytes | None]"
@@ -1448,6 +1455,13 @@
               {
                 "name": "contract_root",
                 "annotation": "Path | None",
+                "kind": "keyword_only",
+                "default": "None",
+                "default_known": true
+              },
+              {
+                "name": "clock",
+                "annotation": "PhaseClock | None",
                 "kind": "keyword_only",
                 "default": "None",
                 "default_known": true
@@ -1865,6 +1879,13 @@
               {
                 "name": "contract_root",
                 "annotation": "Path | None",
+                "kind": "keyword_only",
+                "default": "None",
+                "default_known": true
+              },
+              {
+                "name": "clock",
+                "annotation": "PhaseClock | None",
                 "kind": "keyword_only",
                 "default": "None",
                 "default_known": true

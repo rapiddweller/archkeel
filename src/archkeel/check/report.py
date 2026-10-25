@@ -85,6 +85,7 @@ from archkeel.ir.model import (
     RuleAssessmentStatus as _RuleAssessmentStatus,
 )
 from archkeel.ir.module_explore import module_exploration
+from archkeel.ir.phases import Phase, PhaseClock, WorkCounter, measured, observation_counters
 from archkeel.ir.profiles import PROFILES
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.report_projection import architecture_projection
@@ -254,10 +255,15 @@ def render_result(result: RunResult) -> bytes:
 
 
 def observe_repository(
-    root: Path, config: ScanConfig, analyzer: Analyzer, *, contract_root: Path | None = None
+    root: Path,
+    config: ScanConfig,
+    analyzer: Analyzer,
+    *,
+    contract_root: Path | None = None,
+    clock: PhaseClock | None = None,
 ) -> ObservationResult:
     """Retain the published facade signature while observation lives below commands."""
-    return _observe_repository(root, config, analyzer, contract_root=contract_root)
+    return _observe_repository(root, config, analyzer, contract_root=contract_root, clock=clock)
 
 
 def _selected_violations(
@@ -666,6 +672,7 @@ def run_report(
     only_architecture: bool = False,
     full_architecture: bool = False,
     baseline: Path | None = None,
+    clock: PhaseClock | None = None,
 ) -> tuple[RunResult, bytes | None]:
     """Observe once; filters narrow report rows without changing verdicts or measurements."""
     report_filter = _report_filter(
@@ -676,14 +683,22 @@ def run_report(
         only_architecture,
         full_architecture,
     )
-    result = _projection_result(observe_repository(root, config, analyzer))
+    result = _projection_result(observe_repository(root, config, analyzer, clock=clock))
     result = _validated_member_inventory_result(result)
-    architecture = (
-        canonical_report_bytes(result.observation) if result.observation is not None else None
-    )
-    return _report_result(
-        result, report_filter, baseline_root=root, baseline=baseline
-    ), architecture
+    architecture: bytes | None = None
+    if result.observation is not None:
+        with measured(clock, Phase.ENCODE):
+            architecture = canonical_report_bytes(result.observation)
+        if clock is not None:
+            _count_work(clock, result.observation, len(architecture))
+    with measured(clock, Phase.RESULT):
+        report = _report_result(result, report_filter, baseline_root=root, baseline=baseline)
+    return report, architecture
+
+
+def _count_work(clock: PhaseClock, observation: Observation, architecture_bytes: int) -> None:
+    clock.count_all(observation_counters(observation))
+    clock.count(WorkCounter.ARCHITECTURE_BYTES, architecture_bytes)
 
 
 def run_saved_report(

@@ -31,6 +31,7 @@ from archkeel.ir.facts_codec import (
     decode_response,
     encode_request,
 )
+from archkeel.ir.phases import Phase, PhaseClock, WorkCounter, measured
 from archkeel.ir.protocol import (
     FEATURE_GATED_PROTOCOLS,
     PYTHON_IMPORT_SURVEY_SECTIONS,
@@ -73,6 +74,8 @@ class ProcessCollector:
     timeout_seconds: float = 300
     output_limit_bytes: int = DEFAULT_RESPONSE_LIMIT_BYTES
     stderr_limit_bytes: int = 64 * 1024
+    # Set only for a run with --timings; None measures nothing.
+    clock: PhaseClock | None = None
 
     def __post_init__(self) -> None:
         if not self.argv or any(not value or "\x00" in value for value in self.argv):
@@ -115,16 +118,19 @@ class ProcessCollector:
                     )
                 helper = Path(__file__).with_name("windows_job.py")
                 command = (sys.executable, "-I", "-B", str(helper), "--", *self.argv)
-            with subprocess.Popen(
-                command,
-                cwd=request.snapshot.root,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                bufsize=0,
-                env=environment,
-                start_new_session=platform is _ProcessPlatform.POSIX,
-            ) as process:
+            with (
+                measured(self.clock, Phase.COLLECT),
+                subprocess.Popen(
+                    command,
+                    cwd=request.snapshot.root,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    bufsize=0,
+                    env=environment,
+                    start_new_session=platform is _ProcessPlatform.POSIX,
+                ) as process,
+            ):
                 workers: list[Thread] = []
                 try:
                     stdout, stderr = self._exchange(process, payload, workers)
@@ -139,9 +145,12 @@ class ProcessCollector:
                         subject,
                         f"Collector exited {process.returncode}: {message}",
                     )
-            response = decode_response(stdout, output_limit=self.output_limit_bytes)
-            _requested_facts(response.facts, request)
-            _requested_provider_sources(response, request)
+            if self.clock is not None:
+                self.clock.count(WorkCounter.COLLECTOR_WIRE_BYTES, len(stdout))
+            with measured(self.clock, Phase.DECODE):
+                response = decode_response(stdout, output_limit=self.output_limit_bytes)
+                _requested_facts(response.facts, request)
+                _requested_provider_sources(response, request)
             return response
         except subprocess.TimeoutExpired:
             return CollectionError(
