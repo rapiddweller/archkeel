@@ -268,6 +268,15 @@ def _rule_count(contract: ArchitectureContract, kind: ArchitectureRuleKind) -> i
     return sum(rule.kind == kind for rule in contract.rules)
 
 
+def _dependency_decisions(contract: ArchitectureContract) -> int:
+    """Every recorded dependency decision: requires entries and explicit dependency rules."""
+    return (
+        _requires_count(contract)
+        + _rule_count(contract, ArchitectureRuleKind.ALLOWED_DEPENDENCY)
+        + _rule_count(contract, ArchitectureRuleKind.FORBIDDEN_DEPENDENCY)
+    )
+
+
 def _at_a_glance(contract: ArchitectureContract) -> list[str]:
     makers = _decision_makers(contract)
     requires = _requires_count(contract)
@@ -281,11 +290,11 @@ def _at_a_glance(contract: ArchitectureContract) -> list[str]:
         f"{_rule_count(contract, ArchitectureRuleKind.FORBIDDEN_DEPENDENCY)}. "
         f"complete_requires rules: {complete}.",
     ]
-    if requires == 0 and complete == 0:
+    if _dependency_decisions(contract) == 0 and complete == 0:
         lines.append(
-            "- No `requires` entries and no `complete_requires` rule: dependency permissions "
-            "are not declared. A missing entry does not mean a dependency is allowed or "
-            "forbidden."
+            "- No `requires` entries, no `allowed_dependency` or `forbidden_dependency` rule "
+            "and no `complete_requires` rule: dependency permissions are not declared. A "
+            "missing entry does not mean a dependency is allowed or forbidden."
         )
     else:
         declared = sum(component.requires is not None for component in contract.components)
@@ -375,9 +384,7 @@ def _kind_section(contract: ArchitectureContract, kind: ArchitectureRuleKind) ->
         ]
         for rule in rules
     ]
-    explanation = RULE_KIND_EXPLANATIONS.get(
-        kind, f"No explanation yet for `{kind.value}`. Read the rules below."
-    )
+    explanation = RULE_KIND_EXPLANATIONS[kind]
     return [
         f"### {_kind_name(kind)} ({kind.value}, {_plural(len(rules), 'rule')})",
         "",
@@ -427,7 +434,9 @@ def _open_questions(contract: ArchitectureContract) -> list[str]:
             "Are dependency permissions declared?",
             f"{_requires_count(contract)} requires entries, "
             f"{_rule_count(contract, ArchitectureRuleKind.ALLOWED_DEPENDENCY)} "
-            "allowed_dependency rules.",
+            "allowed_dependency rules, "
+            f"{_rule_count(contract, ArchitectureRuleKind.FORBIDDEN_DEPENDENCY)} "
+            "forbidden_dependency rules.",
         ],
         [
             "Is the permission set closed?",
@@ -453,7 +462,7 @@ def _review_items(contract: ArchitectureContract) -> list[str]:
     components = contract.components
     items: list[str] = []
     complete = _rule_count(contract, ArchitectureRuleKind.COMPLETE_REQUIRES) > 0
-    if _requires_count(contract) == 0 and not complete:
+    if _dependency_decisions(contract) == 0 and not complete:
         items.append(
             "Dependency permissions are not declared. Decide them, or record why none are needed."
         )

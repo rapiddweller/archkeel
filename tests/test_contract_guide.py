@@ -19,8 +19,9 @@ NO_DYNAMIC = "CONSTRUCT-NO-DYNAMIC"
 DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 COMMIT = re.compile(r"\b[0-9a-f]{40}\b")
 REQUIRES_NOT_DECLARED = (
-    "No `requires` entries and no `complete_requires` rule: dependency permissions are "
-    "not declared. A missing entry does not mean a dependency is allowed or forbidden."
+    "No `requires` entries, no `allowed_dependency` or `forbidden_dependency` rule and no "
+    "`complete_requires` rule: dependency permissions are not declared. A missing entry "
+    "does not mean a dependency is allowed or forbidden."
 )
 
 
@@ -123,6 +124,17 @@ def test_contract_with_requires_says_the_set_is_closed_and_counts_deciders() -> 
     assert "Decided by: 1 agent, 3 architect, 0 not recorded" in text
 
 
+def test_an_allowed_dependency_rule_is_a_declared_permission() -> None:
+    raw = _without_requires()
+    raw["rules"].append(_rule("ALLOW", "allowed_dependency", source="core", target="cli"))
+    text = _render(raw)
+
+    assert "dependency permissions are not declared" not in text
+    assert "Dependency permissions are not declared. Decide them" not in text
+    assert "allowed_dependency rules: 1" in text
+    assert "The permission set is open" in text
+
+
 def test_render_is_byte_identical_across_runs_and_key_order() -> None:
     raw = _with_requires()
     first = _render(raw)
@@ -203,6 +215,20 @@ def test_guide_never_changes_the_contract_or_other_files(tmp_path: Path) -> None
     created = set(after) - set(before)
     assert created == {root / "docs/architecture/contract-guide.md"}
     assert all(after[path] == before[path] for path in before)
+
+
+def test_guide_refuses_to_overwrite_the_contract_or_the_configuration(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _repository(tmp_path, _without_requires())
+    (root / "alias.json").symlink_to(root / "architecture-contract.json")
+    before = {path: path.read_bytes() for path in root.rglob("*") if path.is_file()}
+
+    for output in ("architecture-contract.json", "archkeel.toml", "alias.json"):
+        assert main(["guide", "--root", str(root), "--output", output]) == 2
+        assert "Refusing to overwrite" in capsys.readouterr().err
+
+    assert {path: path.read_bytes() for path in root.rglob("*") if path.is_file()} == before
 
 
 def test_guide_without_a_contract_exits_two_with_the_init_hint(

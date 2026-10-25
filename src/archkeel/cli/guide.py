@@ -45,6 +45,9 @@ def run_guide(root: Path, config_path: str, output: Path | None, check: bool) ->
         return _fail(f"Cannot read contract at {contract_file}: {error}")
     expected: bytes = text.encode("utf-8")
     target: Path = root / (output or GUIDE_PATH)
+    # resolve() follows symlinks, so an alias of the contract is refused too.
+    if target.resolve() in (contract_file.resolve(), config_file.resolve()):
+        return _fail(f"Refusing to overwrite {target}: it is the contract or the configuration.")
     if check:
         if not target.is_file():
             print(f"Missing: {target}. Run archkeel guide.")
