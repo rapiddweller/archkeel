@@ -30,6 +30,7 @@ from .source_input import (
     split_file,
 )
 from .source_input import PathToken as PathToken
+from .standard_libs import DEFAULT_LIBS, LIB_GLOBALS, LIB_REFERENCES, StandardLibrary
 
 
 class ModuleKind(Enum):
@@ -79,12 +80,6 @@ class ScriptTarget(Enum):
     ES2023 = "es2023"
     ES2024 = "es2024"
     ESNEXT = "esnext"
-
-
-class StandardLibrary(StrEnum):
-    ES5 = "es5"
-    ES2022 = "es2022"
-    DOM = "dom"
 
 
 class ScriptHost(StrEnum):
@@ -259,46 +254,54 @@ class Options:
         )
 
 
-_ES5_GLOBALS: Final = frozenset(
-    "Infinity NaN undefined eval isFinite isNaN parseFloat parseInt decodeURI decodeURIComponent "
-    "encodeURI encodeURIComponent Object Function Boolean Error EvalError RangeError "
-    "ReferenceError SyntaxError TypeError URIError Number Math Date String RegExp "
-    "Array JSON".split()
-)
-_ES2022_GLOBALS: Final = _ES5_GLOBALS | frozenset(
-    "AggregateError ArrayBuffer BigInt BigInt64Array BigUint64Array DataView FinalizationRegistry "
-    "Float32Array Float64Array Int8Array Int16Array Int32Array Map Promise Proxy Reflect Set "
-    "SharedArrayBuffer Symbol Uint8Array Uint8ClampedArray Uint16Array Uint32Array WeakMap "
-    "WeakRef WeakSet Atomics".split()
-)
-_DOM_GLOBALS: Final = frozenset(
-    "document location URLSearchParams addEventListener getComputedStyle CSS navigator Event "
-    "CustomEvent "
-    "URL history requestAnimationFrame matchMedia setTimeout queueMicrotask Blob structuredClone "
-    "HTMLDetailsElement innerHeight scrollX clearTimeout scrollTo XMLSerializer scrollY".split()
-)
-_STANDARD_GLOBALS: Final = {
-    StandardLibrary.ES5: _ES5_GLOBALS,
-    StandardLibrary.ES2022: _ES2022_GLOBALS,
-    StandardLibrary.DOM: _DOM_GLOBALS,
+# The compiler's target when none is set (ES3 counts as unset); an absent module means ES5.
+_MODULE_DEFAULT_TARGETS: Final[dict[ModuleKind, ScriptTarget]] = {
+    ModuleKind.NODE16: ScriptTarget.ES2022,
+    ModuleKind.NODE18: ScriptTarget.ES2022,
+    ModuleKind.NODE20: ScriptTarget.ES2023,
+    ModuleKind.NODENEXT: ScriptTarget.ESNEXT,
 }
-_ES2022_TARGETS: Final = frozenset(
-    {ScriptTarget.ES2022, ScriptTarget.ES2023, ScriptTarget.ES2024, ScriptTarget.ESNEXT}
-)
+
+
+# standard_libs cannot import ScriptTarget (a cycle), so it keys its table by value; key it by the
+# enum here once, which fails at import if the generated table names an unknown target.
+_DEFAULT_LIBS: Final = {ScriptTarget(value): libs for value, libs in DEFAULT_LIBS.items()}
+
+
+def _default_target(options: Options) -> ScriptTarget:
+    target = options.target
+    if target is not None and target is not ScriptTarget.ES3:
+        return target
+    if options.module is None:
+        return ScriptTarget.ES5
+    return _MODULE_DEFAULT_TARGETS.get(options.module, ScriptTarget.ES5)
+
+
+def _closure(libraries: tuple[StandardLibrary, ...]) -> set[StandardLibrary]:
+    pending = list(libraries)
+    seen: set[StandardLibrary] = set()
+    while pending:
+        library = pending.pop()
+        if library not in seen:
+            seen.add(library)
+            pending.extend(LIB_REFERENCES[library])
+    return seen
+
+
+# The compiler supplies `undefined` itself, so no lib file declares it.
+_INTRINSIC_GLOBALS: Final = frozenset({"undefined"})
 
 
 def standard_globals(options: Options) -> frozenset[str]:
     """Recognize platform declarations; unlisted globals and runtime mutations stay unproved."""
     if options.no_lib or options.unmodeled or options.ambient_custom:
         return frozenset()
-    libraries = options.libs
-    if libraries is None:
-        libraries = (
-            (StandardLibrary.ES2022,)
-            if options.target in _ES2022_TARGETS
-            else (StandardLibrary.ES5,)
-        )
-    return frozenset(name for library in libraries for name in _STANDARD_GLOBALS[library])
+    libraries = (
+        options.libs if options.libs is not None else _DEFAULT_LIBS[_default_target(options)]
+    )
+    return _INTRINSIC_GLOBALS | frozenset(
+        name for library in _closure(libraries) for name in LIB_GLOBALS[library]
+    )
 
 
 @dataclass(frozen=True, slots=True)
