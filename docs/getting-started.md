@@ -157,8 +157,10 @@ agent proposes. Replace every `TODO` reason with your own words, then run
 
 ## 6. Keep it green in CI
 
-Commit `archkeel.toml`, `architecture-contract.json` and
-`architecture-baseline.json`. Then run this in CI:
+Commit `archkeel.toml`, `architecture-contract.json`,
+`architecture-baseline.json` and `docs/architecture/architecture.md`. The contract names
+that page as the source of its reasons, and `validate` exits `2` when it is missing in a
+fresh checkout. Then run this in CI:
 
 ```bash
 archkeel validate --baseline architecture-baseline.json
