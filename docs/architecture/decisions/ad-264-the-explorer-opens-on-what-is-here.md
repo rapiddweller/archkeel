@@ -2,7 +2,7 @@
 
 **Decision.**
 - While nothing is selected, the Explorer's fact sheet shows an inventory instead of an empty
-  prompt: the counts (components, modules, calls analyzed) and the components with the most
+  prompt: the counts (components and modules) and the components with the most
   modules, as a bar per component, largest first.
 - It shows the 8 largest. A filter box narrows the list, and "Show all N components" opens
   it as a scrollable list. The list is never drawn in full by default, so a project with
