@@ -54,6 +54,7 @@ class _ProcessCleanupError(RuntimeError):
 
 
 _CLEANUP_TIMEOUT_SECONDS = 2
+_STDERR_CHARS_REPORTED = 2000
 
 
 class _ProcessPlatform(Enum):
@@ -139,7 +140,9 @@ class ProcessCollector:
                     if cleanup_error is not None:
                         raise cleanup_error
                 if process.returncode:
-                    message = stderr.decode("utf-8", errors="replace").strip()
+                    message = stderr.decode("utf-8", errors="replace").strip()[
+                        -_STDERR_CHARS_REPORTED:
+                    ]
                     return CollectionError(
                         CollectionErrorKind.EXECUTION_ERROR,
                         subject,
@@ -174,15 +177,20 @@ class ProcessCollector:
         deadline = time.monotonic() + self.timeout_seconds
         completed: Queue[tuple[str, bytes | OSError | _OutputLimitError]] = Queue()
 
-        def read_output(name: str, stream: BinaryIO, limit: int, remedy: str) -> None:
+        def read_output(
+            name: str, stream: BinaryIO, limit: int, remedy: str, keep_tail: bool
+        ) -> None:
             output = bytearray()
             try:
                 while chunk := stream.read(64 * 1024):
-                    if len(output) + len(chunk) > limit:
+                    if not keep_tail and len(output) + len(chunk) > limit:
                         raise _OutputLimitError(
                             f"Collector output exceeded its {limit} byte limit.{remedy}"
                         )
                     output.extend(chunk)
+                    if keep_tail:
+                        # Only the end of stderr explains a crash, so a long trace must not fail.
+                        del output[:-limit]
                 completed.put((name, bytes(output)))
             except (OSError, _OutputLimitError) as error:
                 completed.put((name, error))
@@ -203,7 +211,7 @@ class ProcessCollector:
                 return
             completed.put(("stdin", b""))
 
-        # Pipe selectors are unavailable on Windows. Separate bounded readers also drain
+        # Pipe selectors are unavailable on Windows. Separate readers also drain
         # stderr while a collector writes stdout or waits for its request.
         readers_and_writer = (
             Thread(target=write_input, args=(process.stdin,), daemon=True),
@@ -214,12 +222,13 @@ class ProcessCollector:
                     process.stdout,
                     self.output_limit_bytes,
                     " Raise collector_output_limit_bytes in [scan].",
+                    False,
                 ),
                 daemon=True,
             ),
             Thread(
                 target=read_output,
-                args=("stderr", process.stderr, self.stderr_limit_bytes, ""),
+                args=("stderr", process.stderr, self.stderr_limit_bytes, "", True),
                 daemon=True,
             ),
         )

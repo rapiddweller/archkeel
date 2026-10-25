@@ -187,6 +187,40 @@ def test_nonzero_process_exit_cannot_be_a_complete_collection(tmp_path) -> None:
     assert "collector failed" in result.message
 
 
+def test_long_stderr_does_not_fail_a_valid_collection(tmp_path) -> None:
+    from dataclasses import replace
+
+    request = decode_request(_request())
+    request = replace(
+        request,
+        protocol_version="2.0.0",
+        snapshot=replace(request.snapshot, root=str(tmp_path)),
+    )
+    code = (
+        "import sys; sys.stdin.read(); sys.stderr.write('w' * 200000); sys.stderr.flush(); "
+        f"print({json.dumps(json.dumps(_response()))})"
+    )
+    facts = _collector(code).collect(request)
+    assert not isinstance(facts, CollectionError)
+
+
+def test_failed_collector_reports_the_exit_code_and_the_end_of_a_long_stderr(tmp_path) -> None:
+    from dataclasses import replace
+
+    request = decode_request(_request())
+    request = replace(request, snapshot=replace(request.snapshot, root=str(tmp_path)))
+    code = (
+        "import sys; sys.stdin.read(); "
+        "sys.stderr.write('noise\\n' * 50000 + 'Traceback\\nRealError: boom'); sys.exit(3)"
+    )
+    result = _collector(code).collect(request)
+    assert isinstance(result, CollectionError)
+    assert result.kind == "execution_error"
+    assert result.message.startswith("Collector exited 3:")
+    assert result.message.endswith("Traceback\nRealError: boom")
+    assert len(result.message) < 2100
+
+
 def test_output_limit_stops_collector_while_it_is_running(tmp_path) -> None:
     from dataclasses import replace
 
