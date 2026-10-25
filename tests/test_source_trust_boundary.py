@@ -393,7 +393,10 @@ def test_process_limit_stops_spawned_worker(
         assert result.message == (
             "Collector exceeded 0.5 seconds. Raise collector_timeout_seconds in [scan]."
             if limit == "timeout"
-            else "Collector output exceeded its 1000 byte limit."
+            else (
+                "Collector output exceeded its 1000 byte limit. "
+                "Raise collector_output_limit_bytes in [scan]."
+            )
         )
         assert time.monotonic() - started < 4
         assert pid_path.exists(), "The worker must start before the host limit is exercised."

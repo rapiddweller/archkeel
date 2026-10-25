@@ -174,13 +174,13 @@ class ProcessCollector:
         deadline = time.monotonic() + self.timeout_seconds
         completed: Queue[tuple[str, bytes | OSError | _OutputLimitError]] = Queue()
 
-        def read_output(name: str, stream: BinaryIO, limit: int) -> None:
+        def read_output(name: str, stream: BinaryIO, limit: int, remedy: str) -> None:
             output = bytearray()
             try:
                 while chunk := stream.read(64 * 1024):
                     if len(output) + len(chunk) > limit:
                         raise _OutputLimitError(
-                            f"Collector output exceeded its {limit} byte limit."
+                            f"Collector output exceeded its {limit} byte limit.{remedy}"
                         )
                     output.extend(chunk)
                 completed.put((name, bytes(output)))
@@ -209,12 +209,17 @@ class ProcessCollector:
             Thread(target=write_input, args=(process.stdin,), daemon=True),
             Thread(
                 target=read_output,
-                args=("stdout", process.stdout, self.output_limit_bytes),
+                args=(
+                    "stdout",
+                    process.stdout,
+                    self.output_limit_bytes,
+                    " Raise collector_output_limit_bytes in [scan].",
+                ),
                 daemon=True,
             ),
             Thread(
                 target=read_output,
-                args=("stderr", process.stderr, self.stderr_limit_bytes),
+                args=("stderr", process.stderr, self.stderr_limit_bytes, ""),
                 daemon=True,
             ),
         )
