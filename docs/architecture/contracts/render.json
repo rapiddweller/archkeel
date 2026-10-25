@@ -150,6 +150,29 @@
         }
       ],
       "packages": []
+    },
+    {
+      "id": "RENDER-GUIDE",
+      "label": "guide",
+      "role": "projection",
+      "exact_modules": [
+        "archkeel.render.guide"
+      ],
+      "public": [
+        "archkeel.render.guide:render_guide"
+      ],
+      "responsibilities": [
+        "Render the architecture contract as a Markdown guide, a pure function of the contract."
+      ],
+      "forbidden_responsibilities": [
+        "Scanning source, reading observed imports, or writing files.",
+        "Architecture policy or rule evaluation."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-265-contract-guide.md"
+      ],
+      "decided_by": "agent",
+      "packages": []
     }
   ],
   "rules": [

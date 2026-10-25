@@ -116,7 +116,8 @@
         "archkeel.cli",
         "archkeel.cli.__main__",
         "archkeel.cli.config",
-        "archkeel.cli.observe"
+        "archkeel.cli.observe",
+        "archkeel.cli.guide"
       ],
       "packages": []
     }

@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "694b068b1e6b6b5857b978530b8e07c24d71eec6d931c33574568b74c004e0a7",
+  "after_digest": "5aa5b50efa1c7dd290953c2374d942235b460008f167fd8d818fa0fe0198c816",
+  "before_baseline_digest": "d144860d67b7fa50f9a5087c55bc8922b5ec53709205c9b21b9788ebc66f6371",
+  "before_digest": "04908de8a60ed624b74e32bc58545063213bde5d29f6736660f98e4c1ddfd1cb",
+  "decided_by": "Alexander Kell (architect), AD-265",
+  "rationale": "AD-265 adds archkeel guide. The render component publishes render_guide, a new inside component guide owns the renderer, and the cli composition owns the new archkeel.cli.guide module. The calls_unresolved budget rises from 812 to 816 for four argparse calls the analyzer cannot resolve (the guide subcommand and its three options). The cli to render coupling gains the name render_guide, which the command calls.",
+  "schema_version": "2.0.0"
+}

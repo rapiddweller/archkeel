@@ -49,6 +49,7 @@ from .config import (
     parse_config,
     project_name,
 )
+from .guide import run_guide
 from .observe import observer_for
 from .skill import InstallationAgent, install_skill
 
@@ -463,6 +464,42 @@ def build_parser() -> _Parser:
     )
     _observing(skill, None)
 
+    guide: argparse.ArgumentParser = commands.add_parser(
+        Command.GUIDE.value,
+        parents=[configured],
+        help="Write a Markdown guide that explains the architecture contract.",
+        formatter_class=RawDescriptionRichHelpFormatter,
+        description=(
+            "Reads the architecture contract and writes docs/architecture/contract-guide.md.\n"
+            "The guide needs no source scan and never changes the contract. The same contract\n"
+            "gives the same bytes, so --check can keep the file fresh in CI.\n\n"
+            "Examples:\n"
+            "  archkeel guide\n"
+            "  archkeel guide --check\n\n"
+            "Exit codes:\n"
+            "  0  guide written, or --check finds the file up to date\n"
+            "  1  --check finds the file missing or different\n"
+            "  2  no contract, or the contract cannot be read\n\n"
+            f"Reference: {_DOCS}/reference.md"
+        ),
+    )
+    guide.add_argument(
+        "--root",
+        type=Path,
+        default=Path.cwd(),
+        help="Repository root. Default: the current directory.",
+    )
+    guide.add_argument(
+        "--output",
+        type=Path,
+        help="Guide file, relative to --root. Default: docs/architecture/contract-guide.md.",
+    )
+    guide.add_argument(
+        "--check",
+        action="store_true",
+        help="Write nothing; exit 1 when the guide file is missing or differs from the contract.",
+    )
+
     return parser
 
 
@@ -501,6 +538,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if args.config is None and (command is not Command.REPORT or args.input is None):
             args.config = CONFIG_PATH
+        if command is Command.GUIDE:
+            return run_guide(args.root.resolve(), args.config, args.output, args.check)
         root = (args.root or Path.cwd()).resolve()
         subject = str(root / (args.config or CONFIG_PATH))
         activity = (

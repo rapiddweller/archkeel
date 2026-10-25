@@ -152,6 +152,21 @@ The internal `FilesToWrite` port now stores immutable ordered
 still owns writes. Documented `archkeel.api` exports retain their interfaces.
 
 
+## Contract guide
+
+`archkeel guide` reads the root contract and writes
+`docs/architecture/contract-guide.md` under `--root`, or the path given by `--output`.
+It needs no source scan, reads nothing else and never changes the contract. The file
+is generated: it has no dates or commit hashes, so the same contract gives the same
+bytes. Regenerate it after a contract edit instead of editing it.
+
+`archkeel guide --check` writes nothing. It exits 1 and names the file when the file
+is missing or differs from what would be written, so CI can keep it fresh. Without a
+contract, `guide` exits 2 and says to run `archkeel init` first. The guide says
+which dependency permissions are declared, and it counts decisions by `decided_by`.
+That count is recorded metadata, not verified approval; the guide does not observe
+imports and gives no verdicts.
+
 ## Results
 
 Read `observation_complete`, `declared_rules` and `expectation_fulfilled` separately.
@@ -168,6 +183,7 @@ expectations are n/a. Filtering and baseline display do not change canonical fac
 | `report` | Observation complete; read verdicts | — | Input/evidence unverifiable |
 | `init` | Draft written | — | Draft unavailable |
 | `skill install` | Instructions written | — | Target could not be updated |
+| `guide` | Guide written, or `--check` up to date | `--check`: missing or different | No contract, or it cannot be read |
 
 Exit 0 is not architecture approval. Exit 2 carries diagnostics with `kind`,
 `subject`, `unknown_claim` and `remedy`; inspected evidence may remain available.
