@@ -281,7 +281,7 @@ def test_skill_install_writes_the_packaged_instructions(
     assert "archkeel validate --json" in path.read_text()
 
 
-@pytest.mark.parametrize("command", ["init", "report", "validate", "check", "skill"])
+@pytest.mark.parametrize("command", ["init", "report", "validate", "check", "skill", "guide"])
 def test_every_command_help_explains_purpose_and_exit_codes(command: str) -> None:
     result = subprocess.run(
         [sys.executable, "-m", "archkeel.cli", command, "--help"],

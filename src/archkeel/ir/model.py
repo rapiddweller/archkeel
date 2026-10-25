@@ -129,6 +129,7 @@ class Command(StrEnum):
     CHECK = "check"
     INIT = "init"
     SKILL = "skill"
+    GUIDE = "guide"
     ARGUMENTS = "arguments"
 
 

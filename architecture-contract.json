@@ -397,7 +397,8 @@
         "archkeel.render.summary:Summary",
         "archkeel.render.summary:report_summary",
         "archkeel.render.terminal",
-        "archkeel.render.summary_badges:BadgeState"
+        "archkeel.render.summary_badges:BadgeState",
+        "archkeel.render.guide:render_guide"
       ],
       "responsibilities": [
         "Explain authenticated results through HTML, terminal output and offline scenes."
