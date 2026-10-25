@@ -287,8 +287,9 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
 
 def finding_payload(finding: Finding) -> dict[str, RawJson]:
     payload = _raw_object(asdict(finding))
-    # Without a comparison the change is absent, never "new" (AD-130, AD-258).
-    for name in ("change", "before"):
+    # Without a comparison the change is absent, never "new" (AD-130, AD-258); only a cycle
+    # carries a path (AD-263).
+    for name in ("change", "before", "path"):
         if payload[name] is None:
             del payload[name]
     return payload

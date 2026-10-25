@@ -16,7 +16,17 @@ from typing import Final
 
 from .baseline import ViolationFingerprint, violation_fingerprint
 from .facts import Evidence, Record
-from .model import Finding, FindingKind, GraphTopologyLevel, Observation, ReportLocation
+from .model import (
+    CyclePath,
+    CyclePathStep,
+    Finding,
+    FindingKind,
+    GraphTopologyLevel,
+    Observation,
+    ReportLocation,
+    int_value,
+    text_value,
+)
 from .module_explore import ModuleExploreLevel, ModuleStatistic, hub_modules
 
 # AD-258: hubs are ranked across every level, then cut, so a large repository stays readable.
@@ -119,11 +129,80 @@ def _violation_findings(
     )
 
 
+def _edge_ends(edge: Record) -> tuple[str, str]:
+    """Direction lives in the data: `subjects` are sorted, so they carry no order."""
+    return text_value(edge.data.get("source")), text_value(edge.data.get("target"))
+
+
+def _cycle_step(
+    edge: Record, imports: Mapping[str, Record], evidence: Mapping[str, Evidence]
+) -> CyclePathStep | None:
+    if any(identity not in imports for identity in edge.fact_ids):
+        return None
+    sites = [imports[identity] for identity in edge.fact_ids]
+    locations = evidence_locations(evidence, (key for site in sites for key in site.evidence_ids))
+    source, target = _edge_ends(edge)
+    # A missing count is no proof of type-checking-only, so it never sets the flag.
+    runtime = int_value(edge.data.get("runtime_count"), default=1)
+    return CyclePathStep(source, target, locations[0] if locations else None, runtime == 0)
+
+
+def _cycle_path(
+    cycle: Record,
+    edges: Mapping[str, Record],
+    imports: Mapping[str, Record],
+    evidence: Mapping[str, Evidence],
+) -> CyclePath | None:
+    """AD-263: the shortest closed walk through the cycle, from its smallest member.
+
+    BFS distances do not depend on the order a frontier is visited in, and every choice takes
+    the smallest name, so one observation always yields one walk.
+    """
+    internal = [edges[identity] for identity in cycle.fact_ids if identity in edges]
+    if len(internal) != len(cycle.fact_ids):
+        return None
+    ends = {_edge_ends(edge): edge for edge in internal}
+    # ponytail: each member scans every edge; index by source if a huge SCC is slow.
+    successors = {
+        node: [target for source, target in ends if source == node] for node in cycle.subjects
+    }
+    predecessors = {
+        node: [source for source, target in ends if target == node] for node in cycle.subjects
+    }
+    start = min(cycle.subjects)
+    # Edges from each member back to the start, following the edges in reverse.
+    back = {start: 0}
+    frontier = {start}
+    distance = 0
+    while frontier:
+        distance += 1
+        frontier = {
+            previous for node in frontier for previous in predecessors[node] if previous not in back
+        }
+        for previous in frontier:
+            back[previous] = distance
+    length = 1 + min(back[target] for target in successors[start])
+    steps: list[CyclePathStep] = []
+    current = start
+    for remaining in range(length, 0, -1):
+        following = min(
+            target for target in successors[current] if back.get(target) == remaining - 1
+        )
+        step = _cycle_step(ends[current, following], imports, evidence)
+        if step is None:
+            return None
+        steps.append(step)
+        current = following
+    return CyclePath(tuple(steps), omitted_edges=len(internal) - length)
+
+
 def _cycle_findings(
     observation: Observation,
     evidence: Mapping[str, Evidence],
     modules: Mapping[str, ModuleStatistic],
 ) -> list[Finding]:
+    edges = {item.id: item for item in observation.records("dependency_edges") or ()}
+    imports = {item.id: item for item in observation.records("imports") or ()}
     # AD-98: a module-level cycle rule already reports the whole SCC, so it is listed once.
     reported = {
         frozenset(item.subjects)
@@ -161,6 +240,7 @@ def _cycle_findings(
                     sentence,
                     locations,
                     _components(members, modules),
+                    path=_cycle_path(record, edges, imports, evidence),
                 )
             )
         elif level == GraphTopologyLevel.PACKAGE and backed_by == ():
@@ -185,6 +265,7 @@ def _cycle_findings(
                         ),
                     ),
                     _components(representatives, modules),
+                    path=_cycle_path(record, edges, imports, evidence),
                 )
             )
     return [*_ranked(module_cycles), *_ranked(package_cycles)]

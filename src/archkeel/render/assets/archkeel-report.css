@@ -304,6 +304,18 @@ h3 {
 .finding-sentence {
   color: var(--ck-muted);
 }
+/* AD-263: a cycle's steps wrap; the row's nowrap would clip them onto one line. */
+.finding-path,
+.finding-path-omitted {
+  margin: 0;
+  padding-left: var(--ck-space-4);
+  color: var(--ck-muted);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.finding-path {
+  list-style: none;
+}
 .findings-more {
   margin: 0 0 var(--ck-space-4);
 }
