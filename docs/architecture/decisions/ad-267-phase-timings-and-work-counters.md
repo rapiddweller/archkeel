@@ -5,9 +5,11 @@
   seconds) and `counters` (deterministic numbers). The report, the HTML pages and the `--json`
   result do not change. Without the flag, nothing is measured and nothing is written.
 - Phases: `providers` (the survey pass of the Python collector), `collect`, `decode`
-  (decompress, decode, validate once), `assemble` (including rule evaluation), `result`,
-  `encode` (`architecture.json` bytes), `render` (both pages). A phase that did not run is
-  absent, never zero. A collector without a subprocess (Dart) has no `providers` and no `decode`. The survey pass is one phase, `providers`; its inner collect and decode are not counted twice.
+  (decompress, decode, validate once), `assemble` (the observation is built from the facts),
+  `result` (rule results and the report result), `encode` (`architecture.json` bytes), `render`
+  (both pages). A phase that did not run is absent, never zero. Only the Python collector has
+  a survey pass, so only a Python run has `providers`. The survey pass is one phase; its inner
+  collect and decode are not counted twice.
 - Counters: files parsed, modules, calls analyzed, records, evidence records, collector wire
   bytes, `architecture.json` bytes, report page bytes. The same input gives the same counters.
 - One `PhaseClock` is created by the CLI and passed on as a parameter: to the observer, so the

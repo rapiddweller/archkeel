@@ -267,7 +267,7 @@ failed run writes no file. Only the Python run measures `providers`.
 | `collect` | phase | Collector process |
 | `decode` | phase | Decode and validate the collector response |
 | `assemble` | phase | Build the observation from the collected facts |
-| `result` | phase | Build the report result |
+| `result` | phase | Rule results and the report result |
 | `encode` | phase | Canonical `architecture.json` bytes |
 | `render` | phase | Both HTML pages |
 | `files_parsed` | counter | Source files parsed |
