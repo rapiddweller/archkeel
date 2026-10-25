@@ -14,7 +14,12 @@
   which edge is cheapest to remove.
 - The finding keeps its member list and size. A large SCC shows the shortest path and the
   count of edges not on it, never the whole edge list.
-- Result schema: `findings[].path` is optional and additive. An older reader ignores it.
+- A component cycle that `no_component_cycles` reports (`Component cycle: a ↔ b ↔ c`) carries
+  the same path, in component steps with one module-level import site each. It is derived in
+  `ir/findings.py` from the violation's import records and the contract's component
+  membership. The violation record itself does not change. One helper finds the path for all
+  three levels.
+- Result schema 11.0 has not been released, so `findings[].path` (optional) is added to it in place.
 
 **Reason.** #678 (fastmcp: a 63-module, 10-package SCC). The report names the component set and
 the first location, `src/fastmcp/__init__.py:5`, but not the edges that close the loop. The user
@@ -34,6 +39,7 @@ cycles are built from import records only (`check/evaluation/topology.py`).
 **Check.**
 - A fixture with a 3-module cycle yields the path `a → b → c → a` with the three `file:line` sites.
 - A two-package cycle shows the package edges with a module site each.
+- A `no_component_cycles` violation (fastmcp, 9 components) shows a component path with a site per step.
 - The same input in two runs, and under reversed file order, yields an identical path.
 - An SCC of 63 modules yields a path no longer than the SCC, plus a count of edges left out.
 - A type-checking-only edge is marked.

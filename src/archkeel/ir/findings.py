@@ -14,6 +14,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from typing import Final
 
+from .architecture_graph import ArchitectureRuleKind
 from .baseline import ViolationFingerprint, violation_fingerprint
 from .facts import Evidence, Record
 from .model import (
@@ -29,6 +30,9 @@ from .model import (
 )
 from .module_explore import ModuleExploreLevel, ModuleStatistic, hub_modules
 
+# The record kinds that declare a component and that scope its modules (AD-263 component paths).
+_COMPONENT_DECLARATION: Final = "component_responsibility"
+_DECLARED_SCOPE: Final = "declared_component_scope_observation"
 # AD-258: hubs are ranked across every level, then cut, so a large repository stays readable.
 _HUBS_SHOWN: Final = 10
 _MEMBERS_NAMED: Final = 3
@@ -100,14 +104,34 @@ def _ranked(items: Iterable[Finding]) -> list[Finding]:
     return sorted(items, key=lambda item: (-item.size, item.subjects, item.rules))
 
 
+def _violation_path(
+    record: Record,
+    owners: Mapping[str, str],
+    imports: Mapping[str, Record],
+    evidence: Mapping[str, Evidence],
+) -> CyclePath | None:
+    """Only a component cycle among the violations carries a path (AD-263)."""
+    if record.kind != ArchitectureRuleKind.NO_COMPONENT_CYCLES:
+        return None
+    return _component_cycle_path(record, owners, imports, evidence)
+
+
 def _violation_findings(
     observation: Observation,
     evidence: Mapping[str, Evidence],
     modules: Mapping[str, ModuleStatistic],
+    imports: Mapping[str, Record],
     remedy: str,
 ) -> list[Finding]:
+    violations = observation.records("violations") or ()
+    # Labels come from the target graph, so they are read only when a component cycle needs them.
+    owners = (
+        _module_labels(observation)
+        if any(item.kind == ArchitectureRuleKind.NO_COMPONENT_CYCLES for item in violations)
+        else {}
+    )
     grouped: defaultdict[ViolationFingerprint, list[Record]] = defaultdict(list)
-    for record in observation.records("violations") or ():
+    for record in violations:
         group: list[Record] = grouped[violation_fingerprint(record)]
         group.append(record)
     return _ranked(
@@ -124,53 +148,30 @@ def _violation_findings(
             evidence_locations(evidence, (key for item in records for key in item.evidence_ids)),
             _components(fingerprint.subjects, modules)
             or _cited_components(records, evidence, modules),
+            path=_violation_path(records[0], owners, imports, evidence),
         )
         for fingerprint, records in grouped.items()
     )
 
 
-def _edge_ends(edge: Record) -> tuple[str, str]:
-    """Direction lives in the data: `subjects` are sorted, so they carry no order."""
-    return text_value(edge.data.get("source")), text_value(edge.data.get("target"))
+def _shortest_cycle(
+    nodes: Iterable[str], pairs: Iterable[tuple[str, str]]
+) -> tuple[tuple[str, str], ...]:
+    """AD-263: the shortest closed walk through one strongly connected set of pairs.
 
-
-def _cycle_step(
-    edge: Record, imports: Mapping[str, Record], evidence: Mapping[str, Evidence]
-) -> CyclePathStep | None:
-    if any(identity not in imports for identity in edge.fact_ids):
-        return None
-    sites = [imports[identity] for identity in edge.fact_ids]
-    locations = evidence_locations(evidence, (key for site in sites for key in site.evidence_ids))
-    source, target = _edge_ends(edge)
-    # A missing count is no proof of type-checking-only, so it never sets the flag.
-    runtime = int_value(edge.data.get("runtime_count"), default=1)
-    return CyclePathStep(source, target, locations[0] if locations else None, runtime == 0)
-
-
-def _cycle_path(
-    cycle: Record,
-    edges: Mapping[str, Record],
-    imports: Mapping[str, Record],
-    evidence: Mapping[str, Evidence],
-) -> CyclePath | None:
-    """AD-263: the shortest closed walk through the cycle, from its smallest member.
-
-    BFS distances do not depend on the order a frontier is visited in, and every choice takes
-    the smallest name, so one observation always yields one walk.
+    The walk starts at the smallest node and takes the smallest next node among the shortest
+    continuations. BFS distances do not depend on the order a frontier is visited in, so the
+    same pairs always give the same walk.
     """
-    internal = [edges[identity] for identity in cycle.fact_ids if identity in edges]
-    if len(internal) != len(cycle.fact_ids):
-        return None
-    ends = {_edge_ends(edge): edge for edge in internal}
-    # ponytail: each member scans every edge; index by source if a huge SCC is slow.
-    successors = {
-        node: [target for source, target in ends if source == node] for node in cycle.subjects
-    }
-    predecessors = {
-        node: [source for source, target in ends if target == node] for node in cycle.subjects
-    }
-    start = min(cycle.subjects)
-    # Edges from each member back to the start, following the edges in reverse.
+    ends = sorted(set(pairs))
+    members = sorted(nodes)
+    if not members:
+        return ()
+    # ponytail: each member scans every pair; index by source if a huge SCC is slow.
+    successors = {node: [target for source, target in ends if source == node] for node in members}
+    predecessors = {node: [source for source, target in ends if target == node] for node in members}
+    start = members[0]
+    # Edges from each member back to the start, following the pairs in reverse.
     back = {start: 0}
     frontier = {start}
     distance = 0
@@ -181,28 +182,147 @@ def _cycle_path(
         }
         for previous in frontier:
             back[previous] = distance
-    length = 1 + min(back[target] for target in successors[start])
-    steps: list[CyclePathStep] = []
+    closing = [back[target] for target in successors[start] if target in back]
+    if not closing:
+        # Pairs that do not close through the start name no cycle; the caller shows no path.
+        return ()
+    length = 1 + min(closing)
+    walk: list[tuple[str, str]] = []
     current = start
     for remaining in range(length, 0, -1):
         following = min(
             target for target in successors[current] if back.get(target) == remaining - 1
         )
-        step = _cycle_step(ends[current, following], imports, evidence)
-        if step is None:
-            return None
-        steps.append(step)
+        walk.append((current, following))
         current = following
-    return CyclePath(tuple(steps), omitted_edges=len(internal) - length)
+    return tuple(walk)
+
+
+def _edge_ends(edge: Record) -> tuple[str, str]:
+    """Direction lives in the data: `subjects` are sorted, so they carry no order."""
+    return text_value(edge.data.get("source")), text_value(edge.data.get("target"))
+
+
+def _step(
+    source: str,
+    target: str,
+    sites: Iterable[Record],
+    evidence: Mapping[str, Evidence],
+    type_checking_only: bool,
+) -> CyclePathStep:
+    locations = evidence_locations(evidence, (key for site in sites for key in site.evidence_ids))
+    return CyclePathStep(source, target, locations[0] if locations else None, type_checking_only)
+
+
+def _module_cycle_path(
+    cycle: Record,
+    edges: Mapping[str, Record],
+    imports: Mapping[str, Record],
+    evidence: Mapping[str, Evidence],
+) -> CyclePath | None:
+    """A module or package cycle: its edge records are the pairs, each with its import sites."""
+    internal = [edges[identity] for identity in cycle.fact_ids if identity in edges]
+    if len(internal) != len(cycle.fact_ids):
+        return None
+    by_pair = {_edge_ends(edge): edge for edge in internal}
+    walk = _shortest_cycle(cycle.subjects, by_pair.keys())
+    if not walk:
+        return None
+    steps: list[CyclePathStep] = []
+    for source, target in walk:
+        edge = by_pair[source, target]
+        if any(identity not in imports for identity in edge.fact_ids):
+            return None
+        # A missing count is no proof of type-checking-only, so it never sets the flag.
+        runtime = int_value(edge.data.get("runtime_count"), default=1)
+        sites = [imports[identity] for identity in edge.fact_ids]
+        steps.append(_step(source, target, sites, evidence, runtime == 0))
+    return CyclePath(tuple(steps), omitted_edges=len(by_pair) - len(walk))
+
+
+def _module_labels(observation: Observation) -> dict[str, str]:
+    """AD-263: each module's component label, read from the contract's own membership.
+
+    A declared scope record names the modules a component owns under its id, and the
+    declaration names that id with its label. The exploration level is no source here: it
+    carries ids, and it is empty of owners when the observation has no authenticated target.
+    """
+    labels = {
+        record.id: record.title
+        for record in observation.records("declarations") or ()
+        if record.kind == _COMPONENT_DECLARATION
+    }
+    owners: dict[str, str] = {}
+    for record in observation.records("scope_observations") or ():
+        component = text_value(record.data.get("component_id"))
+        modules = record.data.get("modules")
+        if (
+            record.kind != _DECLARED_SCOPE
+            or component not in labels
+            or not isinstance(modules, tuple)
+        ):
+            continue
+        for module in modules:
+            if isinstance(module, str):
+                owners[module] = labels[component]
+    return owners
+
+
+def _component_pair(
+    site: Record, owners: Mapping[str, str], members: frozenset[str]
+) -> tuple[str, str] | None:
+    source = owners.get(text_value(site.data.get("source_module")))
+    target = owners.get(text_value(site.data.get("target_module")))
+    if source is None or target is None or source == target:
+        return None
+    if source not in members or target not in members:
+        return None
+    return source, target
+
+
+def _component_cycle_path(
+    violation: Record,
+    owners: Mapping[str, str],
+    imports: Mapping[str, Record],
+    evidence: Mapping[str, Evidence],
+) -> CyclePath | None:
+    """A component cycle: its pairs come from the cross-component import sites it cites."""
+    if any(identity not in imports for identity in violation.fact_ids):
+        return None
+    members = frozenset(violation.subjects)
+    cited = [imports[identity] for identity in violation.fact_ids]
+    keyed = [
+        (pair, site)
+        for site in cited
+        if (pair := _component_pair(site, owners, members)) is not None
+    ]
+    sites_by_pair = {pair: [site for key, site in keyed if key == pair] for pair, _ in keyed}
+    walk = _shortest_cycle(members, sites_by_pair.keys())
+    if not walk:
+        return None
+    steps = [
+        _step(
+            source,
+            target,
+            sites_by_pair[source, target],
+            evidence,
+            all(
+                site.data.get("under_type_checking") is True
+                for site in sites_by_pair[source, target]
+            ),
+        )
+        for source, target in walk
+    ]
+    return CyclePath(tuple(steps), omitted_edges=len(sites_by_pair) - len(walk))
 
 
 def _cycle_findings(
     observation: Observation,
     evidence: Mapping[str, Evidence],
     modules: Mapping[str, ModuleStatistic],
+    edges: Mapping[str, Record],
+    imports: Mapping[str, Record],
 ) -> list[Finding]:
-    edges = {item.id: item for item in observation.records("dependency_edges") or ()}
-    imports = {item.id: item for item in observation.records("imports") or ()}
     # AD-98: a module-level cycle rule already reports the whole SCC, so it is listed once.
     reported = {
         frozenset(item.subjects)
@@ -240,7 +360,7 @@ def _cycle_findings(
                     sentence,
                     locations,
                     _components(members, modules),
-                    path=_cycle_path(record, edges, imports, evidence),
+                    path=_module_cycle_path(record, edges, imports, evidence),
                 )
             )
         elif level == GraphTopologyLevel.PACKAGE and backed_by == ():
@@ -265,7 +385,7 @@ def _cycle_findings(
                         ),
                     ),
                     _components(representatives, modules),
-                    path=_cycle_path(record, edges, imports, evidence),
+                    path=_module_cycle_path(record, edges, imports, evidence),
                 )
             )
     return [*_ranked(module_cycles), *_ranked(package_cycles)]
@@ -329,8 +449,10 @@ def findings(
     evidence = {item.id: item for item in observation.evidence}
     root = next((level for level in levels if level.parent_id is None), None)
     modules = {item.name: item for item in root.modules} if root is not None else {}
+    edges = {item.id: item for item in observation.records("dependency_edges") or ()}
+    imports = {item.id: item for item in observation.records("imports") or ()}
     return (
-        *_violation_findings(observation, evidence, modules, violation_remedy),
-        *_cycle_findings(observation, evidence, modules),
+        *_violation_findings(observation, evidence, modules, imports, violation_remedy),
+        *_cycle_findings(observation, evidence, modules, edges, imports),
         *_hub_findings(levels, evidence),
     )

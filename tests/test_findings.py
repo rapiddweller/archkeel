@@ -666,3 +666,80 @@ def test_a_hub_carries_no_path_and_the_result_validates_with_and_without(run: Ru
     assert not validator.is_valid(
         {**payload, "findings": [{**serialized["fan_in_hub"], "path": 1}]}
     )
+
+
+# AD-263 follow-up: a no_component_cycles violation is a cycle too, so it carries the same path.
+_COMPONENTS = ("alpha", "beta", "gamma")
+_COMPONENT_TRIANGLE = {
+    "alpha/x.py": "from sample.beta import y\n",
+    "beta/y.py": "from sample.gamma import z\n",
+    "gamma/z.py": "from sample.alpha import x\n",
+}
+# alpha also imports gamma, so the shortest cycle through alpha is alpha -> gamma -> alpha.
+_COMPONENT_CHORD = {
+    **_COMPONENT_TRIANGLE,
+    "alpha/x.py": "from sample.beta import y\nfrom sample.gamma import z\n",
+}
+_COMPONENT_TYPE_CHECKED = {
+    **_COMPONENT_TRIANGLE,
+    "alpha/x.py": (
+        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from sample.beta import y\n"
+    ),
+}
+
+
+def _component_violation(tmp_path: Path, sources: dict[str, str]) -> Finding:
+    cycles = _cycle_run(tmp_path, sources, labels=_COMPONENTS)
+    [violation] = [item for item in cycles if item.kind is FindingKind.VIOLATION]
+    return violation
+
+
+def test_a_component_cycle_walks_its_three_component_edges_with_their_sites(tmp_path: Path) -> None:
+    violation = _component_violation(tmp_path, _COMPONENT_TRIANGLE)
+
+    assert _walk(violation) == [
+        ("alpha", "beta", "sample/alpha/x.py", 1, False),
+        ("beta", "gamma", "sample/beta/y.py", 1, False),
+        ("gamma", "alpha", "sample/gamma/z.py", 1, False),
+    ]
+    assert violation.path is not None and violation.path.omitted_edges == 0
+
+
+def test_a_component_chord_shortens_the_path_and_counts_the_pairs_left_out(tmp_path: Path) -> None:
+    violation = _component_violation(tmp_path, _COMPONENT_CHORD)
+
+    assert _walk(violation) == [
+        ("alpha", "gamma", "sample/alpha/x.py", 2, False),
+        ("gamma", "alpha", "sample/gamma/z.py", 1, False),
+    ]
+    # Four component pairs are in the cycle and two are on the path; import sites do not count.
+    assert violation.path is not None and violation.path.omitted_edges == 2
+
+
+def test_the_same_component_cycle_in_reversed_file_order_gives_the_same_path(
+    tmp_path: Path,
+) -> None:
+    forward = _component_violation(tmp_path / "forward", _COMPONENT_CHORD)
+    backward = _component_violation(tmp_path / "backward", dict(reversed(_COMPONENT_CHORD.items())))
+
+    assert forward.path == backward.path
+    assert forward.path is not None
+
+
+def test_a_type_checking_only_component_edge_is_marked(tmp_path: Path) -> None:
+    violation = _component_violation(tmp_path, _COMPONENT_TYPE_CHECKED)
+
+    assert _walk(violation) == [
+        ("alpha", "beta", "sample/alpha/x.py", 3, True),
+        ("beta", "gamma", "sample/beta/y.py", 1, False),
+        ("gamma", "alpha", "sample/gamma/z.py", 1, False),
+    ]
+
+
+def test_a_violation_of_another_rule_carries_no_path(run: Run) -> None:
+    assert run.result.findings is not None
+    violation = run.result.findings[0]
+
+    assert violation.kind is FindingKind.VIOLATION
+    assert violation.rules == ("dependencies",)
+    assert violation.path is None

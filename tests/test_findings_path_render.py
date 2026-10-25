@@ -5,11 +5,15 @@
 
 from __future__ import annotations
 
+import json
 import re
+import subprocess
 from dataclasses import replace
 from html import unescape
+from pathlib import Path
 
 import pytest
+from test_cycle_levels import _component
 from test_findings import HUB_FILES, Run, _page, _run
 from test_module_explore import _sample
 
@@ -88,3 +92,78 @@ def test_the_terminal_names_the_edges_a_path_leaves_out(run: Run) -> None:
     lines = report_summary(replace(run.result, findings=(shortened,))).claims.splitlines()
 
     assert lines[-1] == "     1 other cycle edge not on this path"
+
+
+_COMPONENT_CYCLE = {
+    "alpha/x.py": "from sample.beta import y\n",
+    "beta/y.py": "from sample.gamma import z\n",
+    "gamma/z.py": "from sample.alpha import x\n",
+}
+
+
+def _component_run(root: Path) -> Run:
+    """A three-component cycle that no_component_cycles reports, through the real report path."""
+    root.mkdir(parents=True)
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [_component(label) for label in ("alpha", "beta", "gamma")],
+        "rules": [
+            {
+                "id": "RULE",
+                "kind": "no_component_cycles",
+                "rationale": "Probe.",
+                "provenance": ["docs/architecture/sample.md"],
+                "decided_by": "architect",
+            }
+        ],
+    }
+    (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
+    (root / "contract.json").write_text(json.dumps(contract))
+    for name, text in _COMPONENT_CYCLE.items():
+        path = root / "sample" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    # The report resolves HEAD, so the sample must be a committed repository.
+    for args in (
+        ("init", "-q", "-b", "main"),
+        ("config", "user.email", "demo@example.invalid"),
+        ("config", "user.name", "Demo"),
+        ("add", "-A"),
+        ("-c", "commit.gpgsign=false", "commit", "-q", "-m", "sample"),
+    ):
+        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+    return _run(root)
+
+
+@pytest.fixture(scope="module")
+def component_run(tmp_path_factory: pytest.TempPathFactory) -> Run:
+    return _component_run(tmp_path_factory.mktemp("component-path") / "repo")
+
+
+def test_the_html_row_of_a_component_cycle_shows_its_steps(component_run: Run) -> None:
+    assert component_run.result.findings is not None
+    index = next(
+        i
+        for i, item in enumerate(component_run.result.findings)
+        if item.kind is FindingKind.VIOLATION
+    )
+    row = _text(_rows(_page(component_run))[index])
+
+    assert "alpha → beta sample/alpha/x.py:1" in row
+    assert "beta → gamma sample/beta/y.py:1" in row
+    assert "gamma → alpha sample/gamma/z.py:1" in row
+
+
+def test_the_terminal_prints_a_component_cycle_path_under_its_violation(
+    component_run: Run,
+) -> None:
+    lines = report_summary(component_run.result).claims.splitlines()
+    start = next(
+        i for i, line in enumerate(lines) if "Component cycle: alpha ↔ beta ↔ gamma" in line
+    )
+
+    assert lines[start + 1 : start + 4] == [
+        "     alpha → beta  sample/alpha/x.py:1",
+        "     beta → gamma  sample/beta/y.py:1",
+        "     gamma → alpha  sample/gamma/z.py:1",
+    ]
