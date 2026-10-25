@@ -827,6 +827,7 @@ def _path_block(path: CyclePath | None) -> str:
             if step.location is not None
             else ""
         )
+        + (" <em>type-checking only</em>" if step.type_checking_only else "")
         + "</li>"
         for step in path.steps
     )

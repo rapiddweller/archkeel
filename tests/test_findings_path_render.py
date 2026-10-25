@@ -94,6 +94,25 @@ def test_the_terminal_names_the_edges_a_path_leaves_out(run: Run) -> None:
     assert lines[-1] == "     1 other cycle edge not on this path"
 
 
+def test_the_html_and_the_terminal_mark_a_type_checking_only_step(run: Run) -> None:
+    assert run.result.findings is not None
+    cycle = run.result.findings[_index(run, FindingKind.MODULE_CYCLE)]
+    assert cycle.path is not None
+    steps = (replace(cycle.path.steps[0], type_checking_only=True), *cycle.path.steps[1:])
+    rendered = replace(
+        run.result, findings=(replace(cycle, path=replace(cycle.path, steps=steps)),)
+    )
+
+    row = _text(_rows(_page(Run(rendered, run.observation, run.architecture)))[0])
+    assert "sample.core.c1 → sample.core.c2 sample/core/c1.py:1 type-checking only" in row
+    assert "sample/core/c2.py:1 type-checking only" not in row
+    lines = report_summary(rendered).claims.splitlines()
+    assert (
+        "     sample.core.c1 → sample.core.c2  sample/core/c1.py:1  (type-checking only)" in lines
+    )
+    assert "     sample.core.c2 → sample.core.c3  sample/core/c2.py:1" in lines
+
+
 _COMPONENT_CYCLE = {
     "alpha/x.py": "from sample.beta import y\n",
     "beta/y.py": "from sample.gamma import z\n",

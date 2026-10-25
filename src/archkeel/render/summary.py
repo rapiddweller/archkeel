@@ -203,6 +203,7 @@ def _path_lines(path: CyclePath) -> list[str]:
     lines = [
         f"     {step.source} → {step.target}"
         + (f"  {location_text(step.location)}" if step.location is not None else "")
+        + ("  (type-checking only)" if step.type_checking_only else "")
         for step in path.steps
     ]
     if path.omitted_edges:
