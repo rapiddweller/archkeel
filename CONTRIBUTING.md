@@ -112,6 +112,29 @@ Architecture contracts, baselines and amendments remain reviewed source files.
 Contract or baseline budget widenings require a reviewed v2 amendment binding both policies. Use `make ci BASE=<base-commit>` to check them before the full gate. A changed amendment must match exactly; multiple changed records fail. `decided_by` and `rationale` are free text, not authenticated approval. A raised budget is fine
 when its rationale names the cause; never reshape code only to stay under a ratchet.
 
+## Write in Simplified Technical English
+
+Write issues, pull request text, commit messages, docs, decision records and code comments in
+[ASD-STE100](https://www.asd-ste100.org/) (Simplified Technical English). Aim for about 80 % of
+the spec. The full spec is very strict, and 80 % already makes text much easier to read. This
+applies to people and to coding agents. Put it in every brief you give to an agent.
+
+- Write one idea in each sentence. Steps: up to 20 words. Descriptions: up to 25 words.
+- Write steps in the imperative, one action in each step, and number them.
+- Use the active voice and the present tense. Use "must" for a requirement and "can" for a possibility.
+- One word has one meaning. Do not use synonyms for variety. Use the same term for the same thing every time.
+- Use plain words: "use", not "utilize"; "start", not "initiate". No slang, no idioms.
+- Keep the articles (a, an, the). Do not stack more than three nouns.
+- Put a warning before the step it affects.
+- Define a technical term once. Keep command, flag and file names exact, in code font.
+- Keep a paragraph to six sentences or less. Use lists and tables for facts and steps.
+
+Before: "The collector's deadline can potentially be overridden by users who might want to
+accommodate larger repositories." After: "Set `collector_timeout_seconds` to give the collector more
+time on a large repository."
+
+Do not rewrite old text only for style. New and changed text follows this standard.
+
 ## Update the agent skill
 
 Edit [skills/archkeel/SKILL.md](skills/archkeel/SKILL.md). The CLI asset links to this source.
