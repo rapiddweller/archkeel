@@ -274,3 +274,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-264 | [The Explorer opens on what is here](ad-264-the-explorer-opens-on-what-is-here.md) |
 | AD-265 | [`archkeel guide` writes a readable guide from the contract](ad-265-contract-guide.md) |
 | AD-266 | [The first hour: from no contract to a first overview](ad-266-the-first-hour.md) |
+| AD-267 | [Phase timings and work counters beside the report](ad-267-phase-timings-and-work-counters.md) |
