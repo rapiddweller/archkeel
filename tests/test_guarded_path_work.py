@@ -118,3 +118,45 @@ def test_sequential_ifs_keep_every_path_record_in_order():
     assert {(record.call_name, record.condition_value) for record in records} == {
         ("self.run", None)
     }
+
+
+def test_guarded_path_facts_are_skipped_when_the_feature_is_off(monkeypatch):
+    computed = []
+    original = calls.CallCollector._guarded_path_facts
+
+    def count_computations(collector):
+        computed.append(collector)
+        return original(collector)
+
+    monkeypatch.setattr(calls.CallCollector, "_guarded_path_facts", count_computations)
+
+    collector = calls.CallCollector(
+        _parsed_module(GUARDED_MODULE, module="sample.core"),
+        build_symbol_index([]),
+        {},
+        include_guarded_effects=False,
+    )
+
+    assert computed == []
+    assert collector.guarded_paths == {}
+    assert collector.member_paths == {}
+
+
+def test_collection_passes_the_feature_flag_to_each_collector(monkeypatch):
+    computed = []
+    original = calls.CallCollector._guarded_path_facts
+
+    def count_computations(collector):
+        computed.append(collector)
+        return original(collector)
+
+    monkeypatch.setattr(calls.CallCollector, "_guarded_path_facts", count_computations)
+
+    calls.collect_calls_with_resolvers(
+        [_parsed_module(GUARDED_MODULE, module="sample.core")],
+        build_symbol_index([]),
+        {},
+        include_guarded_effects=False,
+    )
+
+    assert computed == []

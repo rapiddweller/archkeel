@@ -389,6 +389,8 @@ class CallCollector(ast.NodeVisitor):
         provider_bindings: Sequence[ProviderBinding] = (),
         runtime: RuntimeInfo | None = None,
         imports: Sequence[RawRecord] = (),
+        *,
+        include_guarded_effects: bool = True,
     ) -> None:
         self.module = module
         self.sys_modules_aliases = self._collect_sys_modules_aliases()
@@ -457,10 +459,8 @@ class CallCollector(ast.NodeVisitor):
             for target in self._native_expression_targets(reference)
         )
         self.scope_bindings: dict[ast.ClassDef | FunctionNode, frozenset[str]] = {}
-        self.guarded_paths: dict[
-            tuple[FunctionNode, str], dict[tuple[int, int], tuple[GuardedCallPath, ...]]
-        ] = {}
-        self.guarded_paths, self.member_paths = self._guarded_path_facts()
+        self.include_guarded_effects = include_guarded_effects
+        self.guarded_paths, self.member_paths = self._guarded_facts()
 
     def _bool_declarations(
         self, parent: ast.ClassDef, receiver_name: str
@@ -486,6 +486,20 @@ class CallCollector(ast.NodeVisitor):
                         name = child.target.attr
                         declarations[name] = [*declarations.get(name, ()), child]
         return declarations
+
+    def _guarded_facts(
+        self,
+    ) -> tuple[
+        dict[tuple[FunctionNode, str], dict[tuple[int, int], tuple[GuardedCallPath, ...]]],
+        dict[
+            tuple[FunctionNode, str],
+            tuple[ast.ClassDef, ast.AST, dict[tuple[int, int], tuple[GuardedCallPath, ...]]],
+        ],
+    ]:
+        # Guarded paths are only consumed when a declared rule reads them (AD-257).
+        if not self.include_guarded_effects:
+            return {}, {}
+        return self._guarded_path_facts()
 
     def _guarded_path_facts(
         self,
@@ -2320,12 +2334,12 @@ def collect_calls_with_resolvers(
             provider_bindings,
             runtime,
             imports_by_module.get(module.module, ()),
+            include_guarded_effects=include_guarded_effects,
         )
         for module in parsed
     ]
     revocation_cache: dict[str, bool] = {}
     for call_collector in collectors:
-        call_collector.include_guarded_effects = include_guarded_effects
         call_collector.include_extended_bindings = include_extended_bindings
         call_collector.include_call_arguments = include_call_arguments
         call_collector.native_mutation_collectors = tuple(collectors)
