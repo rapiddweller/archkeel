@@ -21,6 +21,7 @@ from archkeel.ir.model import (
     CyclePath,
     DraftedComponentSize,
     Finding,
+    FirstLook,
     ReportLocation,
     RunResult,
 )
@@ -39,6 +40,14 @@ Comparison: TypeAlias = tuple[str, str, str, _MetricComparisonStatus]
 _CALL_SITES_SHOWN: Final = 5
 # AD-258: the terminal names this many findings; the JSON result and the HTML list all.
 _FINDINGS_SHOWN: Final = 5
+# AD-266: the path `report` prints for its HTML sidecar of the default architecture.json.
+_REPORT_HTML: Final = "test-artifacts/architecture/architecture.report.html"
+_NEXT_STEPS: Final = (
+    "1. archkeel report            # read the overview and the first findings",
+    f"2. open {_REPORT_HTML}   # the Explorer; click a name to select a component",
+    "3. archkeel init --force --adopt   # or write the target yourself "
+    "(see docs/getting-started.md)",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -414,6 +423,48 @@ def _draft_sizes_line(result: RunResult) -> str:
     )
 
 
+def _first_look_text(look: FirstLook) -> str:
+    """AD-266: the facts `init` read from its own observation, one per line, never advice."""
+    calls = (
+        "not measured"
+        if look.call_resolution_percent is None
+        else f"{look.call_resolution_percent:.2f} %"
+    )
+    cycles = (
+        f"{look.module_cycles} (largest: {look.largest_module_cycle} modules)"
+        if look.module_cycles
+        else "none"
+    )
+    importers = (
+        "1 module imports it"
+        if look.most_importers == 1
+        else f"{look.most_importers} modules import it"
+    )
+    most = (
+        f"{look.most_imported_module} ({importers})"
+        if look.most_imported_module is not None
+        else "none"
+    )
+    if look.largest_component is None:
+        largest = "none"
+    elif look.largest_component_ties == 1:
+        largest = f"{look.largest_component} ({look.largest_component_modules} modules)"
+    else:
+        largest = (
+            f"tie of {look.largest_component_ties} components "
+            f"({look.largest_component_modules} modules each)"
+        )
+    lines = (
+        f"Files parsed: {look.files_parsed} of {look.files_discovered}",
+        f"Calls resolved: {calls}",
+        f"Module cycles: {cycles}",
+        f"Most imported module: {most}",
+        f"Largest component: {largest}",
+        f"Positions left UNKNOWN: {look.unknown_positions}",
+    )
+    return "\n\nFirst look:\n" + "\n".join(f"  {line}" for line in lines)
+
+
 def init_summary(result: RunResult) -> Summary:
     """Summarize onboarding, whose drafted rules are evaluated later by validate."""
     report = report_summary(result)
@@ -431,6 +482,12 @@ def init_summary(result: RunResult) -> Summary:
                 f"\n\nObserved {cycle_edges} cycle edge position(s). Review these cycles; "
                 "init does not draft no_component_cycles when components already cycle."
             )
+    if result.exit_code == 0 and result.first_look is not None:
+        sentence += (
+            _first_look_text(result.first_look)
+            + "\n\nNext steps:\n"
+            + "\n".join(f"  {line}" for line in _NEXT_STEPS)
+        )
     decision = Badge(BadgeState.INFO, "i", "DRAFT") if result.exit_code == 0 else report.decision
     return Summary(decision, sentence, report.verdicts[:1], ())
 

@@ -1693,6 +1693,28 @@ class DraftedComponentSize:
 
 
 @dataclass(frozen=True, slots=True)
+class FirstLook:
+    """AD-266: facts `init` read from its own observation, never advice or a threshold.
+
+    `most_imported_module` is None when no module imports another. `largest_component` is the
+    first drafted component tied for the most modules; `largest_component_ties` counts them, so
+    a large tie does not put every name in the result.
+    """
+
+    files_parsed: int
+    files_discovered: int
+    call_resolution_percent: float | None
+    module_cycles: int
+    largest_module_cycle: int
+    most_imported_module: str | None
+    most_importers: int
+    largest_component: str | None
+    largest_component_ties: int
+    largest_component_modules: int
+    unknown_positions: int
+
+
+@dataclass(frozen=True, slots=True)
 class ReviewClaims:
     """How many candidates each review claim named, or None where its signal was missing.
 
@@ -1946,6 +1968,8 @@ class RunResult:
     violations_by_component_pair: tuple[tuple[str, str, int], ...] | None = None
     # AD-38: `init`'s own drafted components with their measured size, from `draft_contract`.
     draft_sizes: tuple[DraftedComponentSize, ...] | None = None
+    # AD-266: init's facts about its own observation, from `check.onboarding.first_look`.
+    first_look: FirstLook | None = None
     # AD-60: the filter behind a rendered `report`, or None when it shows every violation.
     report_filter: ReportFilter | None = None
     # AD-60: the violation records `report_filter` selects, the same ones the HTML table
