@@ -14,12 +14,13 @@
   "Observed when the contract was drafted; not reviewed." It also records today's violations in
   `architecture-baseline.json`. The contract is then green today, and a new crossing or a new
   violation fails.
-- Adopted entries stay visible as such: the guide (AD-265) and the report list them as
-  "adopted, not reviewed", apart from entries a person chose. An architect confirms or removes
-  them one by one; a confirmed entry changes its author and rationale.
+- Adopted entries are agent decisions, the mark ArchKeel already has for "not yet confirmed by
+  the architect". The report counts them in "Agent decisions", the guide (AD-265) shows
+  "decided by: agent", and the rationale says they were observed, not reviewed. An architect
+  confirms one by setting `decided_by: "architect"`. No new field and no new schema value.
 - Plain `init` still writes no dependency rule. Existing imports remain evidence, not
   permission, unless someone runs `--adopt` and the file says so.
-- `init` writes the guide (AD-265) as its last step.
+- `init` writes the guide (AD-265) as its last step, once that command exists.
 
 **Reason.** A first-time user (and the people at the maintainers' companies) asked: what is
 here, what is the goal, what works, what does not, and can I take the current state as the start?
@@ -39,6 +40,6 @@ right; the "not reviewed" mark is the whole point.
 - `init` on fastmcp prints Next steps and First look, with the 63-module cycle, the most-imported module and the largest component.
 - A project with no cycles prints "module cycles: none".
 - After `init --adopt`, `validate` exits 0; adding a new cross-component import makes it exit 1.
-- The adopted entries read "not reviewed" in the guide and in the report; plain `init` has none.
+- The adopted entries count in "Agent decisions" and read "not reviewed" in their rationale; plain `init` writes none.
 - `init` without `--adopt` writes no `requires` entry.
 - `archkeel guide` with no contract exits 2 and names `archkeel init`.
