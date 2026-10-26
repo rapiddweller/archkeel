@@ -5,8 +5,10 @@ every module of the snapshot. It withholds the proof in that module only. These 
 - a scanned module that is `importlib` or `builtins` itself;
 - a visible mutation or escape of a loader (`importlib.import_module = ...`, `mutate(importlib)`,
   an alias that mutates), for the loader it names.
-- any use of `__builtins__`, for `__import__`: every module shares the builtins dict, so
-  `__builtins__["__import__"] = f` changes the loader for all of them (Codex found it on #717).
+- any use of `__builtins__` or of `.f_builtins`, for `__import__`: every module shares the builtins
+  dict, so `__builtins__["__import__"] = f` changes the loader for all of them;
+- any use of `.f_globals` or `.f_locals`, for both loaders: a frame reaches the namespace of its
+  callers. (Codex found both reaches on #717.)
 
 **Reason.** `_loader_mutations` treated the exposure of any one module as a change of both loaders
 for the whole snapshot. A namespace exposure changes the names of the exposing module. It does not
@@ -19,7 +21,8 @@ Measured on DATAMIMIC EE (internal, 1,174 files, one pinned copy):
   (two registries in `domains`, two in `engine`). Exit code 0 before and after.
 - 4.0.1 read PASS for all 431, because it had no dynamic-dependency record.
 
-**Not changed.** A target that is not a literal stays UNKNOWN. Code that `exec` runs can still
+**Not changed.** A route to a foreign namespace that no scan found before (`sys.modules[...]`,
+`vars(module)`, `setattr(module, ...)`) is still not found. A target that is not a literal stays UNKNOWN. Code that `exec` runs can still
 change a loader at runtime; AD-240 already does not prove arbitrary runtime effects. A project
 cannot yet accept a loader call with a variable target; that needs its own decision.
 
@@ -36,4 +39,4 @@ cannot yet accept a loader call with a variable target; that needs its own decis
 - Direct tests: a scanned `importlib` or `builtins` module changes both loaders everywhere; an
   exposing module is listed by name and changes nothing globally.
 - 6 faults in `_loader_mutations` (the old rule, exposure ignored, exposure global, escapes local,
-  owner not global, `__builtins__` not global) are all caught. The existing 118 dynamic-dependency tests pass.
+  owner not global, `__builtins__` not global, frame reaches not global) are all caught. The existing 118 dynamic-dependency tests pass.

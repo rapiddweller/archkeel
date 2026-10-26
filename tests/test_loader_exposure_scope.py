@@ -46,6 +46,10 @@ ESCAPES = {
     "store_builtins_item": ("builtins", '__builtins__["__import__"] = lambda *args: None\n'),
     "set_builtins_attribute": ("builtins", "__builtins__.__import__ = lambda *args: None\n"),
     "read_builtins": ("builtins", "table = __builtins__\n"),
+    # A frame reaches the builtins dict, and the globals and locals of its callers.
+    "frame_builtins": ("builtins", "import sys\nsys._getframe().f_builtins['x'] = 1\n"),
+    "frame_globals": ("both", "import sys\nsys._getframe(1).f_globals['x'] = 1\n"),
+    "frame_locals": ("both", "import sys\nsys._getframe(1).f_locals['x'] = 1\n"),
 }
 
 
@@ -107,7 +111,7 @@ def test_a_visible_loader_mutation_withholds_proof_of_its_own_loader_in_every_mo
     tmp_path: Path, escape: str, load: str
 ) -> None:
     family, body = ESCAPES[escape]
-    expected = ("UNKNOWN", False) if family == LOAD_FAMILY[load] else ("FAIL", True)
+    expected = ("UNKNOWN", False) if family in {LOAD_FAMILY[load], "both"} else ("FAIL", True)
     assert _status(tmp_path, _caller(load), body + "marker = 1\n") == expected
 
 
@@ -154,6 +158,24 @@ BOTH = frozenset({"importlib.import_module", "builtins.__import__"})
 def test_a_scanned_loader_owner_changes_both_loaders_everywhere(tmp_path: Path, owner: str) -> None:
     changed, exposed = _mutations(tmp_path, owner, a="x = 1\n")
     assert (changed, exposed) == (BOTH, {})
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        ("table = __builtins__\n", {"builtins.__import__"}),
+        ("import sys\nsys._getframe().f_builtins['x'] = 1\n", {"builtins.__import__"}),
+        ("import sys\nsys._getframe(1).f_globals['x'] = 1\n", set(BOTH)),
+        ("import sys\nsys._getframe(1).f_locals['x'] = 1\n", set(BOTH)),
+        ("names = globals()\neval('1')\nexec('x = 1')\n", set()),
+    ],
+    ids=["__builtins__", "f_builtins", "f_globals", "f_locals", "own namespace"],
+)
+def test_only_a_reach_into_another_namespace_changes_a_loader_everywhere(
+    tmp_path: Path, body: str, expected: set[str]
+) -> None:
+    changed, _ = _mutations(tmp_path, "sample", a=body)
+    assert changed == frozenset(expected)
 
 
 def test_an_exposing_module_is_listed_by_name_and_changes_nothing_globally(tmp_path: Path) -> None:
