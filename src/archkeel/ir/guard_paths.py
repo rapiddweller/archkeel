@@ -307,11 +307,17 @@ class _GuardPathWalker:
         return branches
 
     def _unsupported_flow(self, statement: ast.stmt, path_nodes: tuple[ast.AST, ...]) -> None:
-        for child in ast.iter_child_nodes(statement):
+        self._unsupported_children(statement, (*path_nodes, statement))
+
+    def _unsupported_children(self, node: ast.AST, path_nodes: tuple[ast.AST, ...]) -> None:
+        for child in ast.iter_child_nodes(node):
             if isinstance(child, ast.expr):
-                self.expression(child, None, (*path_nodes, statement), "unsupported_control_flow")
+                self.expression(child, None, path_nodes, "unsupported_control_flow")
             elif isinstance(child, ast.stmt):
-                self.block([child], None, (*path_nodes, statement), "unsupported_control_flow")
+                self.block([child], None, path_nodes, "unsupported_control_flow")
+            else:
+                # except handlers, with items and match cases hold statements and expressions.
+                self._unsupported_children(child, path_nodes)
 
     def _ordinary_paths(
         self,
