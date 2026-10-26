@@ -37,7 +37,7 @@ rewrites it.
   and assignment writes, reflective writes, return and raise, loops, `try`, `with`, `match`,
   conditional expressions, nested functions and classes, empty branches. It checks every kind
   alone and nested in five contexts, every ordered pair in five contexts, every ordered triple of
-  the ten state-changing kinds, and doubled pairs: 12,130 functions. In each, the distinct records are equal
+  the ten state-changing kinds, and doubled pairs: 14,130 functions. In each, the distinct records are equal
   and the new list is an ordered subsequence of the old. A second table pins the expected value
   and reason of a call after each kind. Seven deliberate faults in the merge line (no merge,
   merge on value only, on value and reason, on reason and nodes, on value and nodes, keep the
