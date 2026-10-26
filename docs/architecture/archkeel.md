@@ -134,6 +134,7 @@ and canonical type identity; their exact and optional-union semantics are record
 | [AD-265](decisions/ad-265-contract-guide.md) | `archkeel guide` renders the contract as a deterministic Markdown guide, separate from `architecture.md`. |
 | [AD-266](decisions/ad-266-the-first-hour.md) | `init` ends with next steps and a facts-only first look; `init --adopt` takes the current state into the contract as "adopted, not reviewed". |
 | [AD-267](decisions/ad-267-phase-timings-and-work-counters.md) | `report --timings` writes phase seconds and deterministic work counters beside the report, never inside it. |
+| [AD-268](decisions/ad-268-collector-stderr-tail.md) | A collector keeps the last 64 KiB of stderr; stderr size never fails a run, and a failed run reports the exit code and the last 20 lines. |
 | [AD-246](decisions/ad-246-bounded-numeric-operand.md) | Bind selected modulo bounds to bounded source-derived integer proofs. |
 
 | [AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md) | Bind explicitly written actuals to proven formals before applying argument policies. |

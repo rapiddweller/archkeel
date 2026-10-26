@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "60f6d1eb075a22354e366f846caceee210e00f8d3d903fcef374004394ec5a73",
+  "after_digest": "f5b45b32bd13bed31967112994433f8299faab0a811fa0ea5e266f49ece59563",
+  "before_baseline_digest": "cad5d4fef07f78c550ebbec381f5f8a26c291ce65549c320f6e56ae576e749f1",
+  "before_digest": "f5b45b32bd13bed31967112994433f8299faab0a811fa0ea5e266f49ece59563",
+  "decided_by": "Alexander Kell (architect), AD-268",
+  "rationale": "AD-268 keeps the last 64 KiB of collector stderr and reports the last 20 lines of a failed run. The calls_unresolved budget rises from 817 to 818 for one call the analyzer cannot resolve: the splitlines call on the decoded stderr in ProcessCollector.collect_response.",
+  "schema_version": "2.0.0"
+}
