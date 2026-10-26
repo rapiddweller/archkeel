@@ -41,7 +41,9 @@ class _UnmergedWalker(_GuardPathWalker):
         return active
 
 
-def _run(walker: type[_GuardPathWalker], function: ast.FunctionDef, member: bool) -> Paths:
+def _run(
+    walker: type[_GuardPathWalker], function: ast.FunctionDef | ast.AsyncFunctionDef, member: bool
+) -> Paths:
     instance = walker(function, "flag", "self" if member else None)
     instance.block(function.body, None, ())
     return instance.calls
@@ -106,23 +108,6 @@ WRAPS = {
     "in_guard": "if flag:\n{s}",
     "in_notguard": "if not flag:\n{s}",
 }
-
-
-def build(menu, kinds, wrap, member):
-    parts = []
-    for i, kind in enumerate(kinds):
-        parts.append(menu[kind].format(i=i))
-    body = "\n".join(parts) + "\nprobe()"
-    w = WRAPS[wrap]
-    if wrap != "top":
-        body = (
-            w.format(s=textwrap.indent(body, "    ")).replace("flag", "self.flag")
-            if member
-            else w.format(s=textwrap.indent(body, "    "))
-        )
-    head = "def f(self, other, qs, ctx):" if member else "def f(flag, other, qs, ctx):"
-    src = head + "\n" + textwrap.indent(body, "    ") + "\n"
-    return ast.parse(src).body[0]
 
 
 PARAM_EXPECTED = {
@@ -303,15 +288,24 @@ def _is_subsequence(small: list[tuple[object, ...]], big: list[tuple[object, ...
     return all(any(item == other for other in remaining) for item in small)
 
 
-def _function(menu: dict[str, str], kinds: Iterable[str], wrap: str, member: bool):
+def _function(
+    menu: dict[str, str],
+    kinds: Iterable[str],
+    wrap: str,
+    member: bool,
+    asynchronous: bool = False,
+):
     body = "\n".join(menu[kind].format(i=i) for i, kind in enumerate(kinds)) + "\nprobe()"
     if wrap != "top":
         body = WRAPS[wrap].format(s=textwrap.indent(body, "    "))
         if member:
             body = body.replace("flag", "self.flag")
-    head = "def f(self, other, qs, ctx):" if member else "def f(flag, other, qs, ctx):"
+    keyword = "async def" if asynchronous else "def"
+    head = (
+        f"{keyword} f(self, other, qs, ctx):" if member else f"{keyword} f(flag, other, qs, ctx):"
+    )
     function = ast.parse(head + "\n" + textwrap.indent(body, "    ") + "\n").body[0]
-    assert isinstance(function, ast.FunctionDef)
+    assert isinstance(function, ast.FunctionDef | ast.AsyncFunctionDef)
     return function
 
 
@@ -469,3 +463,278 @@ def test_a_guard_inside_an_unsupported_block_keeps_its_statement_and_test_as_pat
         assert "Name" in kinds, kinds
         assert paths[name].condition_value is None
         assert paths[name].unknown_reason == "unsupported_control_flow"
+
+
+# Every way the guarded value can be read: the call in the `if` body and in the `else` body.
+PARAM_CONDITIONS = {
+    "flag": ([(True, None)], [(False, None)]),
+    "(flag)": ([(True, None)], [(False, None)]),
+    "not flag": ([(False, None)], [(True, None)]),
+    "not (flag)": ([(False, None)], [(True, None)]),
+    "not not flag": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "flag is True": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "flag == True": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "bool(flag)": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "flag and other": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "other and flag": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "flag or other": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "other": ([(None, None)], [(None, None)]),
+    "not other": ([(None, None)], [(None, None)]),
+    "True": ([(None, None)], [(None, None)]),
+    "flag if other else other": (
+        [(None, "unsupported_condition")],
+        [(None, "unsupported_condition")],
+    ),
+    "[flag]": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "flag[0]": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "-flag": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "(flag := other)": ([(None, "condition_mutation")], [(None, "condition_mutation")]),
+    "g(flag)": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "g()": ([(None, None)], [(None, None)]),
+    "other.flag": ([(None, None)], [(None, None)]),
+    "other == flag": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+}
+MEMBER_CONDITIONS = {
+    "flag": ([(True, None)], [(False, None)]),
+    "(flag)": ([(True, None)], [(False, None)]),
+    "not flag": ([(False, None)], [(True, None)]),
+    "not (flag)": ([(False, None)], [(True, None)]),
+    "not not flag": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "flag is True": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "flag == True": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "bool(flag)": ([(None, "opaque_call_mutation")], [(None, "opaque_call_mutation")]),
+    "flag and other": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "other and flag": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "flag or other": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "other": ([(None, None)], [(None, None)]),
+    "not other": ([(None, None)], [(None, None)]),
+    "True": ([(None, None)], [(None, None)]),
+    "flag if other else other": (
+        [(None, "unsupported_condition")],
+        [(None, "unsupported_condition")],
+    ),
+    "[flag]": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "flag[0]": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "-flag": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+    "g(flag)": ([(None, "opaque_call_mutation")], [(None, "opaque_call_mutation")]),
+    "g()": ([(None, "opaque_call_mutation")], [(None, "opaque_call_mutation")]),
+    "other == flag": ([(None, "unsupported_condition")], [(None, "unsupported_condition")]),
+}
+
+# Statements that may change the guarded value, after `if flag:` fixed it to True:
+# the value a later call sees. `None` plus a reason means the walker gave up, which is safe.
+PARAM_WRITE_SOURCES = {
+    "assign": "flag = x",
+    "augassign": "flag |= x",
+    "annassign": "flag: bool = x",
+    "annassign_novalue": "flag: bool",
+    "tuple_unpack": "flag, y = x, 1",
+    "starred_unpack": "*flag, y = x",
+    "walrus_stmt": "(flag := x)",
+    "chained_assign": "a = flag = x",
+    "for_target": "for flag in xs:\n    pass",
+    "with_target": "with ctx as flag:\n    pass",
+    "except_as": "try:\n    pass\nexcept E as flag:\n    pass",
+    "global": "global flag",
+    "match_capture": "match x:\n    case flag:\n        pass",
+    "comprehension_var": "y = [flag for flag in xs]",
+    "lambda_param": "g = lambda flag: flag",
+    "nested_def_param": "def inner(flag):\n    return flag",
+    "attr_of_flag": "flag.x = 1",
+    "subscript_of_flag": "flag[0] = 1",
+    "other_name": "other = 1",
+    "exec": "exec('flag = 1')",
+    "eval": "eval('flag')",
+    "globals": "globals()",
+    "locals": "locals()",
+    "vars": "vars()",
+}
+PARAM_WRITES = {
+    "assign": [(None, "condition_mutation")],
+    "augassign": [(None, "condition_mutation")],
+    "annassign": [(None, "condition_mutation")],
+    "annassign_novalue": [(None, "condition_mutation")],
+    "tuple_unpack": [(None, "condition_mutation")],
+    "starred_unpack": [(None, "condition_mutation")],
+    "walrus_stmt": [(None, "condition_mutation")],
+    "chained_assign": [(None, "condition_mutation")],
+    "for_target": [(None, "unsupported_control_flow")],
+    "with_target": [(None, "unsupported_control_flow")],
+    "except_as": [(None, "unsupported_control_flow")],
+    "global": [(True, None)],
+    "match_capture": [(None, "unsupported_control_flow")],
+    "comprehension_var": [(None, "condition_mutation")],
+    "lambda_param": [(True, None)],
+    "nested_def_param": [(True, None)],
+    "attr_of_flag": [(True, None)],
+    "subscript_of_flag": [(True, None)],
+    "other_name": [(True, None)],
+    "exec": [(None, "condition_mutation")],
+    "eval": [(None, "condition_mutation")],
+    "globals": [(None, "condition_mutation")],
+    "locals": [(None, "condition_mutation")],
+    "vars": [(None, "condition_mutation")],
+}
+MEMBER_WRITE_SOURCES = {
+    "attr_assign": "self.flag = x",
+    "attr_aug": "self.flag |= x",
+    "attr_ann": "self.flag: bool = x",
+    "attr_tuple": "self.flag, y = x, 1",
+    "other_attr": "self.other = 1",
+    "other_receiver": "o.flag = 1",
+    "setattr_flag": "setattr(self, 'flag', x)",
+    "setattr_other_name": "setattr(self, 'other', x)",
+    "setattr_dynamic": "setattr(self, n, x)",
+    "setattr_other_obj": "setattr(o, 'flag', x)",
+    "setattr_one_arg": "setattr(self)",
+    "delattr_flag": "delattr(self, 'flag')",
+    "delattr_other": "delattr(self, 'other')",
+    "object_setattr_flag": "object.__setattr__(self, 'flag', x)",
+    "object_setattr_other": "object.__setattr__(self, 'other', x)",
+    "object_setattr_other_obj": "object.__setattr__(o, 'flag', x)",
+    "self_setattr_flag": "self.__setattr__('flag', x)",
+    "self_setattr_other": "self.__setattr__('other', x)",
+    "o_setattr_flag": "o.__setattr__('flag', x)",
+    "self_delattr_flag": "self.__delattr__('flag')",
+    "dict_item": "self.__dict__['flag'] = x",
+    "dict_update": "self.__dict__.update(n=1)",
+    "vars_self": "vars(self)['flag'] = x",
+    "method_call": "self.run()",
+    "plain_function_call": "helper()",
+    "no_op": "pass",
+    "read_only": "y = self.flag",
+    "exec": "exec('self.flag = 1')",
+}
+MEMBER_WRITES = {
+    "attr_assign": [(None, "condition_mutation")],
+    "attr_aug": [(None, "condition_mutation")],
+    "attr_ann": [(None, "condition_mutation")],
+    "attr_tuple": [(None, "condition_mutation")],
+    "other_attr": [(True, None)],
+    "other_receiver": [(True, None)],
+    "setattr_flag": [(None, "opaque_call_mutation")],
+    "setattr_other_name": [(None, "opaque_call_mutation")],
+    "setattr_dynamic": [(None, "opaque_call_mutation")],
+    "setattr_other_obj": [(None, "opaque_call_mutation")],
+    "setattr_one_arg": [(None, "opaque_call_mutation")],
+    "delattr_flag": [(None, "opaque_call_mutation")],
+    "delattr_other": [(None, "opaque_call_mutation")],
+    "object_setattr_flag": [(None, "opaque_call_mutation")],
+    "object_setattr_other": [(None, "opaque_call_mutation")],
+    "object_setattr_other_obj": [(None, "opaque_call_mutation")],
+    "self_setattr_flag": [(None, "opaque_call_mutation")],
+    "self_setattr_other": [(None, "opaque_call_mutation")],
+    "o_setattr_flag": [(None, "opaque_call_mutation")],
+    "self_delattr_flag": [(None, "opaque_call_mutation")],
+    "dict_item": [(None, "condition_mutation")],
+    "dict_update": [(None, "opaque_call_mutation")],
+    "vars_self": [(None, "opaque_call_mutation")],
+    "method_call": [(None, "opaque_call_mutation")],
+    "plain_function_call": [(None, "opaque_call_mutation")],
+    "no_op": [(True, None)],
+    "read_only": [(True, None)],
+    "exec": [(None, "opaque_call_mutation")],
+}
+# Rebinding forms the walker does not see yet (the value stays True), see issue #710.
+REBINDING_SOURCES = {
+    "import": "import flag",
+    "import_as": "import m as flag",
+    "from_import": "from m import flag",
+    "del": "del flag",
+    "def": "def flag():\n    pass",
+    "class": "class flag:\n    pass",
+}
+
+
+def _guarded(function_source: str, member: bool) -> Paths:
+    function = ast.parse(function_source).body[0]
+    assert isinstance(function, ast.FunctionDef | ast.AsyncFunctionDef)
+    return _run(_GuardPathWalker, function, member)
+
+
+def _values(paths: Paths, call: str) -> set[tuple[bool | None, str | None]]:
+    return {(p.condition_value, p.unknown_reason) for p in paths if p.call_name == call}
+
+
+@pytest.mark.parametrize("condition", PARAM_CONDITIONS)
+def test_each_parameter_condition_form_is_classified_as_expected(condition: str) -> None:
+    source = (
+        f"def f(flag, other, o, x):\n    if {condition}:\n        body()\n"
+        "    else:\n        orelse()\n"
+    )
+    paths = _guarded(source, False)
+    body, orelse = PARAM_CONDITIONS[condition]
+    assert _values(paths, "body") == {tuple(item) for item in body}
+    assert _values(paths, "orelse") == {tuple(item) for item in orelse}
+
+
+@pytest.mark.parametrize("condition", MEMBER_CONDITIONS)
+def test_each_member_condition_form_is_classified_as_expected(condition: str) -> None:
+    source = (
+        f"def f(self, other, o, x):\n    if {condition.replace('flag', 'self.flag')}:\n"
+        "        body()\n    else:\n        orelse()\n"
+    )
+    paths = _guarded(source, True)
+    body, orelse = MEMBER_CONDITIONS[condition]
+    assert _values(paths, "body") == {tuple(item) for item in body}
+    assert _values(paths, "orelse") == {tuple(item) for item in orelse}
+
+
+def _after_write(statement: str, member: bool) -> set[tuple[bool | None, str | None]]:
+    guard = "self.flag" if member else "flag"
+    head = "def f(self, o, n, x, xs, ctx):" if member else "def f(flag, x, xs, ctx):"
+    body = textwrap.indent(statement + "\nprobe()", "    ")
+    source = head + "\n" + textwrap.indent(f"if {guard}:\n" + body, "    ") + "\n"
+    return _values(_guarded(source, member), "probe")
+
+
+@pytest.mark.parametrize("name", PARAM_WRITE_SOURCES)
+def test_each_parameter_write_form_changes_or_keeps_the_value_as_expected(name: str) -> None:
+    assert _after_write(PARAM_WRITE_SOURCES[name], False) == {
+        tuple(item) for item in PARAM_WRITES[name]
+    }
+
+
+@pytest.mark.parametrize("name", MEMBER_WRITE_SOURCES)
+def test_each_member_write_form_changes_or_keeps_the_value_as_expected(name: str) -> None:
+    assert _after_write(MEMBER_WRITE_SOURCES[name], True) == {
+        tuple(item) for item in MEMBER_WRITES[name]
+    }
+
+
+@pytest.mark.xfail(strict=True, reason="rebinding by import, del, def or class is not seen (#710)")
+@pytest.mark.parametrize("name", REBINDING_SOURCES)
+def test_rebinding_the_parameter_by_a_non_assignment_makes_the_value_unknown(name: str) -> None:
+    ((value, reason),) = _after_write(REBINDING_SOURCES[name], False)
+    assert value is None
+    assert reason is not None
+
+
+ASYNC_ONLY = {
+    "async_for": "async for q in qs:\n    c{i}()",
+    "async_with": "async with ctx:\n    c{i}()",
+    "async_with_item": "async with c{i}() as f:\n    pass",
+    "await_in_test": "if await c{i}():\n    d{i}()",
+    "await_call": "x{i} = await c{i}()",
+}
+
+
+@pytest.mark.parametrize(
+    ("menu", "member"), [(PARAM, False), (MEMBER, True)], ids=["parameter", "member"]
+)
+def test_the_same_checks_hold_in_an_async_function(menu, member) -> None:
+    both = {**menu, **ASYNC_ONLY}
+    checked = 0
+    for kinds in itertools.chain(((k,) for k in both), itertools.product(both, repeat=2)):
+        for wrap in ("top", "in_other", "in_else"):
+            function = _function(both, kinds, wrap, member, asynchronous=True)
+            assert isinstance(function, ast.AsyncFunctionDef)
+            before = _identity(_run(_UnmergedWalker, function, member))
+            after = _identity(_run(_GuardPathWalker, function, member))
+            assert set(after) == set(before), (kinds, wrap)
+            assert _is_subsequence(after, before), (kinds, wrap)
+            if kinds[0] != "return_in_guard" or len(kinds) == 1:
+                recorded = {(p.line, p.column) for p in _run(_GuardPathWalker, function, member)}
+                assert not _calls_in_body(function) - recorded, (kinds, wrap)
+            checked += 1
+    assert checked == (len(both) + len(both) ** 2) * 3
