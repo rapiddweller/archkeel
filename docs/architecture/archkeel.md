@@ -137,6 +137,7 @@ and canonical type identity; their exact and optional-union semantics are record
 | [AD-268](decisions/ad-268-collector-stderr-tail.md) | A collector keeps the last 64 KiB of stderr; stderr size never fails a run, and a failed run reports the exit code and the last 20 lines. |
 | [AD-269](decisions/ad-269-python-module-depth-ceiling.md) | A Python module nested deeper than 5,000 AST levels becomes one coverage gap; the scan goes on. |
 | [AD-270](decisions/ad-270-merge-identical-guard-path-states.md) | The guarded-path walker merges equal states, so k sequential `if` blocks give k records, not 2^k. |
+| [AD-271](decisions/ad-271-guard-paths-through-all-unsupported-children.md) | The guarded-path walker records calls in except handlers, `with` items and `match` cases as `unsupported_control_flow`. |
 | [AD-246](decisions/ad-246-bounded-numeric-operand.md) | Bind selected modulo bounds to bounded source-derived integer proofs. |
 
 | [AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md) | Bind explicitly written actuals to proven formals before applying argument policies. |
