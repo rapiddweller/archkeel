@@ -219,7 +219,9 @@ class _GuardPathWalker:
                 next_active.extend(
                     self._statement_paths(statement, current, current_reason, current_nodes)
                 )
-            active = next_active
+            # Identical states walk identically, so merging them keeps every distinct record
+            # and stops sequential `if` blocks from doubling the states (2^k).
+            active = list(dict.fromkeys(next_active))
             if not active:
                 break
         return active

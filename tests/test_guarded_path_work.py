@@ -95,7 +95,7 @@ def test_class_bool_declarations_are_scanned_once_for_thirty_methods(monkeypatch
     assert scans == [("Service", "self")]
 
 
-def test_sequential_ifs_keep_every_path_record_in_order():
+def test_sequential_ifs_do_not_multiply_path_records():
     body = "".join(
         f"        if value_{number}:\n            total_{number} = 1\n" for number in range(6)
     )
@@ -114,7 +114,8 @@ def test_sequential_ifs_keep_every_path_record_in_order():
         if function.name == "busy" and name == "flag"
     ]
     [records] = paths.values()
-    assert len(records) == 2**6
+    # Six unrelated `if` blocks once made 2**6 identical records for this one call (AD-270).
+    assert len(records) == 1
     assert {(record.call_name, record.condition_value) for record in records} == {
         ("self.run", None)
     }
