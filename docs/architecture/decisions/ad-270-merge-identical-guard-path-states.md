@@ -30,6 +30,18 @@ rewrites it.
   the condition and a receiver attribute guard keep their results; 40 random functions keep
   the same records for their calls when an unrelated block is added; a guarded rule over
   12 blocks gives exactly one violation.
+- `tests/test_guard_path_classes.py` splits the input into equivalence classes and compares the
+  walker with a copy of the walker before this change (no merging). The classes are 30 statement
+  kinds for a parameter condition and 32 for a member condition: plain, call, guard test (plain,
+  negated, with else, elif), unrelated test, compound or comparing read, call in the test, walrus
+  and assignment writes, reflective writes, return and raise, loops, `try`, `with`, `match`,
+  conditional expressions, nested functions and classes, empty branches. It checks every kind
+  alone and nested in five contexts, every ordered pair in five contexts, every ordered triple of
+  the ten state-changing kinds, and doubled pairs: 12,130 functions. In each, the distinct records are equal
+  and the new list is an ordered subsequence of the old. A second table pins the expected value
+  and reason of a call after each kind. Seven deliberate faults in the merge line (no merge,
+  merge on value only, on value and reason, on reason and nodes, on value and nodes, keep the
+  first state, keep the last state) each fail these tests.
 - Before the change, the record count for k blocks was 2^(k+1) - 1 (k = 12: 8,191); after, k + 1.
 - A comparison of the old and the new walker over 34,930 calls of `guarded_call_paths`
   (30,430 on `src/archkeel` and the standard library, 4,500 on random control flow) gave
