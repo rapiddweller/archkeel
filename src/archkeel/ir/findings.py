@@ -14,7 +14,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from typing import Final
 
-from .architecture_graph import ArchitectureRuleKind
+from .architecture_graph import ArchitectureRuleKind, AssessmentStatus
 from .baseline import ViolationFingerprint, violation_fingerprint
 from .facts import Evidence, Record
 from .model import (
@@ -22,13 +22,16 @@ from .model import (
     CyclePathStep,
     Finding,
     FindingKind,
+    FindingsState,
     GraphTopologyLevel,
     Observation,
     ReportLocation,
+    RunResult,
     int_value,
     text_value,
 )
 from .module_explore import ModuleExploreLevel, ModuleStatistic, hub_modules
+from .trace import trace_valid_violations
 
 # The record kinds that declare a component and that scope its modules (AD-263 component paths).
 _COMPONENT_DECLARATION: Final = "component_responsibility"
@@ -118,12 +121,12 @@ def _violation_path(
 
 def _violation_findings(
     observation: Observation,
+    violations: tuple[Record, ...],
     evidence: Mapping[str, Evidence],
     modules: Mapping[str, ModuleStatistic],
     imports: Mapping[str, Record],
     remedy: str,
 ) -> list[Finding]:
-    violations = observation.records("violations") or ()
     # Labels come from the target graph, so they are read only when a component cycle needs them.
     owners = (
         _module_labels(observation)
@@ -318,6 +321,7 @@ def _component_cycle_path(
 
 def _cycle_findings(
     observation: Observation,
+    violations: tuple[Record, ...],
     evidence: Mapping[str, Evidence],
     modules: Mapping[str, ModuleStatistic],
     edges: Mapping[str, Record],
@@ -325,9 +329,7 @@ def _cycle_findings(
 ) -> list[Finding]:
     # AD-98: a module-level cycle rule already reports the whole SCC, so it is listed once.
     reported = {
-        frozenset(item.subjects)
-        for item in observation.records("violations") or ()
-        if item.kind == _MODULE_CYCLE_VIOLATION
+        frozenset(item.subjects) for item in violations if item.kind == _MODULE_CYCLE_VIOLATION
     }
     module_cycles: list[Finding] = []
     package_cycles: list[Finding] = []
@@ -442,17 +444,82 @@ def _hub_findings(
     return ranked[:_HUBS_SHOWN]
 
 
+def _proven_violations(observation: Observation) -> tuple[Record, ...]:
+    """AD-272: the violations with a complete trace, the predicate that fails a partial run."""
+    try:
+        return trace_valid_violations(observation)
+    except ValueError:
+        return ()
+
+
+def _has_import_sites(finding: Finding) -> bool:
+    return finding.path is not None and all(
+        step.location is not None for step in finding.path.steps
+    )
+
+
 def findings(
-    observation: Observation, levels: tuple[ModuleExploreLevel, ...], *, violation_remedy: str
+    observation: Observation,
+    levels: tuple[ModuleExploreLevel, ...],
+    *,
+    violation_remedy: str,
+    complete: bool = True,
 ) -> tuple[Finding, ...]:
-    """Rank violations, then module and package cycles, then hubs; by size within a kind."""
+    """Rank violations, then module and package cycles, then hubs; by size within a kind.
+
+    AD-272: an incomplete observation ranks what one piece of evidence proves, a violation with a
+    complete trace and a cycle whose every step has an import site, and no hub: a missing import
+    lowers a count, so it cannot prove one.
+    """
     evidence = {item.id: item for item in observation.evidence}
     root = next((level for level in levels if level.parent_id is None), None)
     modules = {item.name: item for item in root.modules} if root is not None else {}
     edges = {item.id: item for item in observation.records("dependency_edges") or ()}
     imports = {item.id: item for item in observation.records("imports") or ()}
-    return (
-        *_violation_findings(observation, evidence, modules, imports, violation_remedy),
-        *_cycle_findings(observation, evidence, modules, edges, imports),
-        *_hub_findings(levels, evidence),
+    violations = (
+        observation.records("violations") or () if complete else _proven_violations(observation)
     )
+    cycles = _cycle_findings(observation, violations, evidence, modules, edges, imports)
+    return (
+        *_violation_findings(observation, violations, evidence, modules, imports, violation_remedy),
+        *(cycles if complete else [item for item in cycles if _has_import_sites(item)]),
+        *(_hub_findings(levels, evidence) if complete else ()),
+    )
+
+
+def findings_state(result: RunResult) -> FindingsState:
+    """The state of a report result, from fields the result already carries."""
+    if result.report_filter is not None:
+        return FindingsState.FILTERED
+    if result.observation_complete is AssessmentStatus.PASS:
+        return (
+            FindingsState.COMPLETE if result.findings is not None else FindingsState.NONE_RECORDED
+        )
+    # An incomplete run never has an empty list: an empty list means measured empty.
+    if result.findings:
+        return FindingsState.PARTIAL
+    return FindingsState.NO_OBSERVATION if result.coverage is None else FindingsState.NOT_RANKED
+
+
+def findings_note(result: RunResult) -> str | None:
+    """The one sentence that explains a missing or partial list; None where the list says it all."""
+    state = findings_state(result)
+    gaps = (
+        f" ({_count(len(result.coverage.failures), 'coverage failure')})"
+        if result.coverage is not None
+        else ""
+    )
+    if state is FindingsState.PARTIAL:
+        return f"Hubs are not ranked: the observation is incomplete{gaps}."
+    if state is FindingsState.NOT_RANKED:
+        return (
+            f"Findings are not ranked: the observation is incomplete{gaps}. "
+            "Nothing was found in the part that was observed. No absence is claimed."
+        )
+    if state is FindingsState.NO_OBSERVATION:
+        return "Findings are not ranked: no observation was produced."
+    if state is FindingsState.FILTERED:
+        return "A filtered result lists no findings. Run report without a filter."
+    if state is FindingsState.NONE_RECORDED:
+        return "This result carries no ranked findings."
+    return None

@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "60f6d1eb075a22354e366f846caceee210e00f8d3d903fcef374004394ec5a73",
+  "after_digest": "a1b0e05bf72453c2b35ee4123b43acf408816cd227f0477cf709d61f0d145bd2",
+  "before_baseline_digest": "60f6d1eb075a22354e366f846caceee210e00f8d3d903fcef374004394ec5a73",
+  "before_digest": "f5b45b32bd13bed31967112994433f8299faab0a811fa0ea5e266f49ece59563",
+  "decided_by": "Alexander Kell (architect), AD-272",
+  "rationale": "AD-272 lets a report rank what an incomplete observation proves. The ir component publishes two functions of archkeel.ir.findings that the render component reads: findings_state and findings_note. FindingsState lives in archkeel.ir.model with the other enums.",
+  "schema_version": "2.0.0"
+}

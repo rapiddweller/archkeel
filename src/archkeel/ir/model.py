@@ -1740,6 +1740,17 @@ class FindingKind(StrEnum):
     FAN_OUT_HUB = "fan_out_hub"
 
 
+class FindingsState(StrEnum):
+    """AD-272: why a report's ranked list is what it is. One value for every result."""
+
+    COMPLETE = "complete"
+    PARTIAL = "partial"
+    NOT_RANKED = "not_ranked"
+    NO_OBSERVATION = "no_observation"
+    FILTERED = "filtered"
+    NONE_RECORDED = "none_recorded"
+
+
 @dataclass(frozen=True, slots=True)
 class CyclePathStep:
     """One edge a cycle's path crosses; `location` is the first import site that makes it.

@@ -233,7 +233,14 @@ Within a kind, findings sort by size, then by subject name. A module cycle that 
 module-level `no_component_cycles` rule already reports as a violation is listed once.
 `change` and `before` are absent: nothing compares revisions yet, and absence never means
 "new". `findings` is absent from filtered reports and from other commands, which is not an
-empty list.
+empty list. An empty list means measured empty; absent means not ranked.
+
+An incomplete observation ranks what one piece of evidence proves
+([AD-272](architecture/decisions/ad-272-rank-what-an-incomplete-observation-proves.md)):
+violations with a complete trace and cycles whose every step has an import site. It ranks no hub,
+because a missing import lowers a count. The page and the terminal then say so and name the
+number of coverage failures. With nothing proven, `findings` is absent. The states, the sentences
+and the equivalence classes are in [findings-path](architecture/findings-path.md).
 
 `validate --json` includes every open ordered component pair by default. For a smaller
 review result, use `validate --compact-open-decisions --json`: it lists observed undecided
