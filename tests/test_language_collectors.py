@@ -7,11 +7,14 @@ import hashlib
 import json
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
+import pytest
 from dart_native_helpers import collect_native_dart, require_native_dart
 
 from archkeel.analyzer.python.collect import collect as collect_python
+from archkeel.analyzer.python.source import MAX_AST_DEPTH
 from archkeel.ir.facts import ExternalPackageTarget, LocalTarget
 from archkeel.ir.facts_codec import (
     decode_request,
@@ -162,6 +165,37 @@ def test_python_entry_reads_and_writes_only_strict_codec_messages(tmp_path: Path
     response = decode_response(completed.stdout)
     assert response.facts.coverage.selected_files == ("src/sample/__init__.py",)
     assert completed.stderr == b""
+
+
+@pytest.mark.parametrize(
+    "shape",
+    [
+        lambda n: "TOTAL = " + " + ".join(["a"] * n),
+        lambda n: "TOTAL = a" + ".b" * n,
+        # CPython raises MemoryError in its parser for this shape.
+        lambda n: "TOTAL = " + "1 if a else " * n + "2",
+    ],
+    ids=["sum", "attribute", "conditional"],
+)
+def test_python_entry_records_a_gap_for_a_module_nested_beyond_the_ceiling(
+    tmp_path: Path, shape: Callable[[int], str]
+) -> None:
+    package = tmp_path / "src" / "sample"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("")
+    (package / "ok.py").write_text("def run():\n    return 1\n")
+    (package / "deep.py").write_text(shape(MAX_AST_DEPTH + 1_000) + "\n")
+    completed = subprocess.run(
+        [sys.executable, "-I", "-B", "-m", "archkeel.analyzer.python.entry"],
+        input=encode_request(_request(tmp_path, "python")),
+        capture_output=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr.decode("utf-8", errors="replace")[-2000:]
+    coverage = decode_response(completed.stdout).facts.coverage
+    assert len(coverage.gaps) == 1
+    assert "src/sample/deep.py" in str(coverage.gaps[0])
+    assert coverage.files_parsed == len(coverage.selected_files) - 1
 
 
 def test_python_entry_collects_a_deep_sum_without_a_traceback(tmp_path: Path) -> None:

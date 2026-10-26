@@ -11,9 +11,9 @@ from archkeel.ir.facts_codec import decode_request, encode_response
 from archkeel.ir.protocol import CollectionResponse, PythonCollectionPhase, PythonSettings
 
 from .collect import collect, provider_sources
+from .source import RECURSION_LIMIT
 
 # Sympy's resolvent_lookup.py nests 568 levels. The default limit of 1000 frames is too low.
-_RECURSION_LIMIT = 20_000
 # The walk runs on a worker thread. Its large stack stops a high limit from crashing Windows.
 _STACK_BYTES = 64 * 1024 * 1024
 
@@ -34,7 +34,7 @@ def main() -> int:
 
 
 def _run_with_deep_recursion() -> int:
-    # ponytail: ceiling is about 8000 operators in one chain; iterative walkers are the next step.
+    # ponytail: a module nested deeper than MAX_AST_DEPTH is skipped with a coverage gap.
     # A worker that raises keeps status 1; threading prints its traceback to stderr.
     status = 1
 
@@ -43,7 +43,7 @@ def _run_with_deep_recursion() -> int:
         status = main()
 
     threading.stack_size(_STACK_BYTES)
-    sys.setrecursionlimit(_RECURSION_LIMIT)
+    sys.setrecursionlimit(RECURSION_LIMIT)
     worker = threading.Thread(target=run)
     worker.start()
     worker.join()
