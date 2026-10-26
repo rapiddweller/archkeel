@@ -440,9 +440,9 @@ def test_every_call_of_every_statement_class_gets_a_path_record(menu, member) ->
 @pytest.mark.parametrize(
     "wrapper",
     [
-        "try:\n    pass\nexcept E:\n{body}",
+        "try:\n    pass\nexcept Error:\n{body}",
         "match other:\n    case 1:\n{body}",
-        "with ctx as f:\n{body}",
+        "with ctx as handle:\n{body}",
     ],
     ids=["except_handler", "match_case", "with_body"],
 )
