@@ -16,9 +16,20 @@ from archkeel.ir.decisions import rule_assessments
 EXPOSURES = {
     "globals": "names = globals()\n",
     "globals_read": "keys = sorted(set(globals()))\n",
+    "globals_alias": "grab = globals\nnames = grab()\n",
+    "builtins_qualified": "import builtins\nnames = builtins.globals()\n",
     "eval": "value = eval('1 + 1')\n",
+    "eval_from_builtins": "from builtins import eval as run\nvalue = run('1')\n",
     "exec": "exec('x = 1')\n",
     "exec_with_namespace": "scope = {}\nexec('x = 1', scope)\n",
+    "annotations": "table = __annotations__\n",
+    "type_hints": "from typing import get_type_hints\nhints = get_type_hints(int)\n",
+    "extension_type_hints": (
+        "from typing_extensions import get_type_hints\nhints = get_type_hints(int)\n"
+    ),
+    "inspect_annotations": "import inspect\nhints = inspect.get_annotations(int)\n",
+    "inside_function": "def helper():\n    return globals()\n",
+    "inside_class": "class Holder:\n    names = globals()\n",
 }
 LOADS = {
     "import_module": (
@@ -36,18 +47,17 @@ LOAD_FAMILY = {
     "dunder_import": "builtins",
     "from_import_alias": "importlib",
 }
-# Visible mutation of a loader is a real escape: it withholds proof of that loader in every module.
+# A visible mutation of a loader changes that loader everywhere. Any exposure that is not the
+# module's own namespace could reach every module, so it changes both loaders everywhere.
 ESCAPES = {
     "assign_importlib": ("importlib", "import importlib\nimportlib.import_module = lambda n: n\n"),
     "pass_importlib": ("importlib", "import importlib\nmutate(importlib)\n"),
     "assign_builtins": ("builtins", "import builtins\nbuiltins.__import__ = lambda n: n\n"),
     "pass_builtins": ("builtins", "import builtins\nmutate(builtins)\n"),
-    # The builtins dict is shared, so any use of `__builtins__` can change `__import__` everywhere.
-    "store_builtins_item": ("builtins", '__builtins__["__import__"] = lambda *args: None\n'),
-    "set_builtins_attribute": ("builtins", "__builtins__.__import__ = lambda *args: None\n"),
-    "read_builtins": ("builtins", "table = __builtins__\n"),
-    # A frame reaches the builtins dict, and the globals and locals of its callers.
-    "frame_builtins": ("builtins", "import sys\nsys._getframe().f_builtins['x'] = 1\n"),
+    "store_builtins_item": ("both", '__builtins__["__import__"] = lambda *args: None\n'),
+    "set_builtins_attribute": ("both", "__builtins__.__import__ = lambda *args: None\n"),
+    "read_builtins": ("both", "table = __builtins__\n"),
+    "frame_builtins": ("both", "import sys\nsys._getframe().f_builtins['x'] = 1\n"),
     "frame_globals": ("both", "import sys\nsys._getframe(1).f_globals['x'] = 1\n"),
     "frame_locals": ("both", "import sys\nsys._getframe(1).f_locals['x'] = 1\n"),
 }
@@ -163,13 +173,14 @@ def test_a_scanned_loader_owner_changes_both_loaders_everywhere(tmp_path: Path, 
 @pytest.mark.parametrize(
     ("body", "expected"),
     [
-        ("table = __builtins__\n", {"builtins.__import__"}),
-        ("import sys\nsys._getframe().f_builtins['x'] = 1\n", {"builtins.__import__"}),
+        ("table = __builtins__\n", set(BOTH)),
+        ("import sys\nsys._getframe().f_builtins['x'] = 1\n", set(BOTH)),
         ("import sys\nsys._getframe(1).f_globals['x'] = 1\n", set(BOTH)),
         ("import sys\nsys._getframe(1).f_locals['x'] = 1\n", set(BOTH)),
         ("names = globals()\neval('1')\nexec('x = 1')\n", set()),
+        ("import builtins\nbuiltins.exec('x = 1')\ntable = __annotations__\n", set()),
     ],
-    ids=["__builtins__", "f_builtins", "f_globals", "f_locals", "own namespace"],
+    ids=["__builtins__", "f_builtins", "f_globals", "f_locals", "own namespace", "qualified"],
 )
 def test_only_a_reach_into_another_namespace_changes_a_loader_everywhere(
     tmp_path: Path, body: str, expected: set[str]
@@ -182,3 +193,21 @@ def test_an_exposing_module_is_listed_by_name_and_changes_nothing_globally(tmp_p
     changed, exposed = _mutations(tmp_path, "sample", a="names = globals()\n", b="x = 1\n")
     assert changed == frozenset()
     assert exposed == {"sample.a": BOTH}
+
+
+def test_an_exposure_that_is_not_listed_as_own_reaches_other_modules(tmp_path: Path) -> None:
+    """Fail closed: a trigger nobody classified changes the loaders everywhere."""
+    import ast
+
+    from archkeel.analyzer.python.source import exposes_own_namespace_only, parse_sources
+
+    package = tmp_path / "sample"
+    package.mkdir()
+    (package / "__init__.py").write_text("mystery_namespace_access\n")
+    module = parse_sources([package / "__init__.py"], root=tmp_path, namespace="sample").modules[0]
+    name = next(
+        node
+        for node in module.all_nodes
+        if isinstance(node, ast.Name) and node.id == "mystery_namespace_access"
+    )
+    assert exposes_own_namespace_only(module, name) is False

@@ -10,7 +10,7 @@ import importlib.util
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from collections.abc import Set as AbstractSet
-from typing import Final, TypeAlias
+from typing import TypeAlias
 
 from archkeel.ir.facts import EvidenceClass, in_scope, stable_id
 from archkeel.ir.facts_codec import RawData as RecordData
@@ -33,6 +33,7 @@ from .source import (
     class_namespace_static,
     explicit_provider_escapes,
     exposes_dynamic_namespace,
+    exposes_own_namespace_only,
     intrinsic_nullable_aliases,
     location,
     member_binding_closure,
@@ -1369,44 +1370,28 @@ def _import_origins(target: str, routes: Mapping[str, frozenset[str]]) -> frozen
     return frozenset(origins)
 
 
-# Names and frame attributes that reach a namespace other than the module's own (AD-273):
-# every module shares the builtins dict, and a frame reaches the globals or locals of its callers.
-_BUILTINS_REACH: Final = frozenset({"f_builtins"})
-_FRAME_REACH: Final = frozenset({"f_globals", "f_locals"})
-
-
-def _cross_module_loaders(module: ParsedModule) -> frozenset[str]:
-    """The loaders a use of `__builtins__` or of a frame's namespace can change in any module."""
-    changed: set[str] = set()
-    for node in module.all_nodes:
-        if isinstance(node, ast.Name) and node.id == "__builtins__":
-            changed.add("builtins.__import__")
-        elif isinstance(node, ast.Attribute):
-            if node.attr in _BUILTINS_REACH:
-                changed.add("builtins.__import__")
-            elif node.attr in _FRAME_REACH:
-                changed.update(_LOADERS)
-    return frozenset(changed)
-
-
 def _loader_mutations(
     parsed: Sequence[ParsedModule], routes: Mapping[str, frozenset[str]]
 ) -> tuple[frozenset[str], Mapping[str, frozenset[str]]]:
-    """The loaders a visible mutation changes in every module, and those a module's own namespace
-    exposure (`globals()`, `eval`, `exec`) changes in that module only (AD-273)."""
+    """The loaders that change in every module, and those a module's own namespace exposure
+    (`globals()`, `eval`, `exec`) changes in that module only (AD-273).
+
+    Everything else that exposes a namespace, such as `__builtins__` or a frame's `f_globals`,
+    can reach the other modules and changes the loaders everywhere.
+    """
     changed: set[str] = set()
     exposed: dict[str, frozenset[str]] = {}
     for module in parsed:
         if module.module in {"importlib", "builtins"}:
             changed.update(_LOADERS)
-        elif any(
-            exposes_dynamic_namespace(
+        for node in module.all_nodes:
+            if exposes_dynamic_namespace(
                 module, node, member_surface=True, include_import_effects=False
-            )
-            for node in module.all_nodes
-        ):
-            exposed[module.module] = _LOADERS
-        changed.update(_cross_module_loaders(module))
+            ):
+                if exposes_own_namespace_only(module, node):
+                    exposed[module.module] = _LOADERS
+                else:
+                    changed.update(_LOADERS)
         scopes = LexicalScopes.for_module(module)
         for node in member_escape_references(
             module, module.all_nodes, member_surface=True, owner_exposure_only=True

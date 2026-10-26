@@ -2700,6 +2700,45 @@ def exposes_dynamic_namespace(
     )
 
 
+# The calls and names that expose only the namespace of the module that uses them (AD-273).
+_OWN_NAMESPACE_NAMES: Final = frozenset(
+    {
+        "globals",
+        "builtins.globals",
+        "exec",
+        "builtins.exec",
+        "eval",
+        "builtins.eval",
+        "typing.get_type_hints",
+        "typing_extensions.get_type_hints",
+        "inspect.get_annotations",
+    }
+)
+
+
+def exposes_own_namespace_only(module: ParsedModule, node: ast.AST) -> bool:
+    """Whether an exposure that `exposes_dynamic_namespace` found stays in the module itself.
+
+    Fail closed: an exposure that is not listed here (a frame's `f_globals`, `__builtins__`, any
+    trigger added later) is treated as reaching other modules.
+    """
+    if isinstance(node, ast.Name):
+        return node.id == "__annotations__" or resolve_static_name(module, node) in (
+            _OWN_NAMESPACE_NAMES
+        )
+    if isinstance(node, ast.Call):
+        target = node.func
+    elif isinstance(node, ast.Assign | ast.AnnAssign) and isinstance(
+        node.value, ast.Name | ast.Attribute
+    ):
+        target = node.value
+    elif isinstance(node, ast.Attribute):
+        target = node
+    else:
+        return False
+    return resolve_static_name(module, target) in _OWN_NAMESPACE_NAMES
+
+
 def _import_bindings(node: ast.Import | ast.ImportFrom) -> tuple[str, ...]:
     return tuple(
         alias.asname or (alias.name.split(".")[0] if isinstance(node, ast.Import) else alias.name)
