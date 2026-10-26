@@ -57,12 +57,18 @@ Sentences (one table, one function `findings_note(result)` in `ir/findings.py`):
 
 | State | Sentence |
 |---|---|
-| `COMPLETE`, empty list | `No ranked findings: no violation, dependency cycle or hub.` |
 | `PARTIAL` | `Hubs are not ranked: the observation is incomplete (30 coverage failures).` |
 | `NOT_RANKED` | `Findings are not ranked: the observation is incomplete (30 coverage failures). Nothing was found in the part that was observed. No absence is claimed.` |
 | `NO_OBSERVATION` | `Findings are not ranked: no observation was produced.` |
 | `FILTERED` | `A filtered result lists no findings. Run report without a filter.` |
 | `NONE_RECORDED` | `This result carries no ranked findings.` |
+
+A `COMPLETE` list has no note. An empty one keeps the sentence each render had before:
+the terminal says `No ranked findings: no violation, dependency cycle or hub.`, and the HTML says
+`No violation, dependency cycle or hub.` under the heading `Findings · 0`. No incomplete observation
+produces them. The terminal prints a note for `PARTIAL` (under the list) and `NOT_RANKED`; a run
+with no observation prints its diagnostics, and a filtered report prints its own selection. The HTML
+prints the note of every state but `COMPLETE`.
 
 The result schema stays 11.0. `findings` keeps its meaning: an empty list is measured empty,
 and absent is not ranked. The reason is in `observation_complete`, `coverage` and
@@ -90,7 +96,8 @@ table with the test table.
 | C13 | any filter: only violations, only architecture, component, rule, only calls | absent | `FILTERED` |
 | C14 | a result read without `findings` and without a filter | absent | `NONE_RECORDED` |
 | C15 | the same rule broken in both directions, or twice at one pair | one finding, `size` = records | as C2, C5 |
-| C16 | a component-cycle violation | one finding with its path | as C2, C5 |
+| C16 | a component-cycle violation | one finding with its path, the same on a partial run | as C2, C5 |
+| C17 | incomplete, a module-cycle rule violation | the violation and its cycle once; the cycle alone when the trace is incomplete | `PARTIAL` |
 
 Renders: the terminal summary, the terminal with `--json`, the HTML list without JavaScript,
 the Explorer data (`DATA.findings`), and `report --only violations`. The HTML and the terminal

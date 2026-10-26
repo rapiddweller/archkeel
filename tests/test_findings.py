@@ -386,11 +386,15 @@ def test_the_terminal_names_five_findings_and_an_empty_list_is_not_a_missing_one
         Finding(FindingKind.FAN_IN_HUB, (), (f"m{i}",), 10, f"m{i} is a hub", "", (), ())
         for i in range(7)
     )
-    lines = report_summary(RunResult("report", 0, findings=many)).claims.splitlines()
+    complete = AssessmentStatus.PASS
+    lines = report_summary(
+        RunResult("report", 0, observation_complete=complete, findings=many)
+    ).claims.splitlines()
 
     assert lines[0] == "Findings, ranked (5 of 7):"
     assert [line.strip() for line in lines[1:]] == [f"{i + 1}. m{i} is a hub" for i in range(5)]
-    assert report_summary(RunResult("report", 0, findings=())).claims.startswith("No ranked")
+    empty = RunResult("report", 0, observation_complete=complete, findings=())
+    assert report_summary(empty).claims.startswith("No ranked")
     assert report_summary(RunResult("report", 0)).claims == ""
 
 
@@ -461,7 +465,7 @@ def test_five_findings_show_and_the_rest_open_on_request(run: Run) -> None:
 def test_a_result_without_findings_never_reads_as_a_clean_list(run: Run) -> None:
     page = _page(Run(replace(run.result, findings=None), run.observation, run.architecture))
 
-    assert "No ranked findings are recorded in this result." in page
+    assert "This result carries no ranked findings." in page
     assert "findings-list" not in re.sub(r"<(style|script)\b.*?</\1>", "", page, flags=re.S)
 
 

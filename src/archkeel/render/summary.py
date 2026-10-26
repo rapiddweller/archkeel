@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final, TypeAlias
 
+from archkeel.ir.findings import FindingsState, findings_note, findings_state
 from archkeel.ir.measurements import MetricComparisonStatus as _MetricComparisonStatus
 from archkeel.ir.measurements import compare_measurements
 from archkeel.ir.model import (
@@ -228,8 +229,15 @@ def _claims_line(result: RunResult) -> str:
     `oversized_components` stays in the JSON for compatibility but is no review claim: it
     compares a component with the size of its level, which AD-235 rejects.
     """
-    if result.findings is not None:
-        return _findings_lines(result.findings)
+    state = findings_state(result)
+    note = findings_note(result)
+    if state is FindingsState.COMPLETE:
+        return _findings_lines(result.findings or ())
+    if state is FindingsState.PARTIAL:
+        return f"{_findings_lines(result.findings or ())}\n{note}"
+    # AD-272: a run with no observation prints its diagnostics; only a partial run needs the note.
+    if state is FindingsState.NOT_RANKED and note is not None:
+        return note
     claims = result.claims
     if claims is None:
         return ""

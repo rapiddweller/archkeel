@@ -19,7 +19,7 @@ observation.
 `findings_note(result)` gives the sentence for each state. The terminal, the HTML and the JSON read
 both, and no render tests `findings is None`. The result schema stays 11.0: an empty list is
 measured empty, and absent is not ranked. The states, the sentences, the path as a diagram and the
-16 equivalence classes are in [findings-path.md](../findings-path.md).
+17 equivalence classes are in [findings-path.md](../findings-path.md).
 
 **Proof predicates, one source each.** A violation is proven by `trace_valid_violations` (the
 predicate that already turns `declared_rules` to FAIL on a partial observation). A cycle is
@@ -45,7 +45,7 @@ revisions rank.
 - Remove the second build of `architecture_report` now: 3 % on EE, below the 10 % rule.
 
 **Check.**
-- Each class C1 to C16 has a test on the terminal, the HTML and the JSON, from one table.
+- Each class C1 to C17 has a test on the terminal, the HTML and the JSON, from one table.
 - A drift test fails when `findings-path.md` and the test table differ.
 - Compass forbidden-edge lists the violation and both cycles with the `PARTIAL` sentence; the
   project variant lists the two cycles.

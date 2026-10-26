@@ -477,12 +477,19 @@ def _ranked_findings(
     complete: bool,
     report_filter: ReportFilter | None,
 ) -> tuple[Finding, ...] | None:
-    """AD-258: a partial observation ranks nothing, and filtered payloads carry no findings."""
-    if not complete or report_filter is not None:
+    """AD-272: an incomplete observation ranks what it proves; a filtered payload carries none.
+
+    An incomplete run with nothing proven has no list, because an empty list means measured empty.
+    """
+    if report_filter is not None:
         return None
-    return findings(
-        model, module_exploration(model, report=report), violation_remedy=VIOLATION_REMEDY
+    ranked = findings(
+        model,
+        module_exploration(model, report=report),
+        violation_remedy=VIOLATION_REMEDY,
+        complete=complete,
     )
+    return ranked if complete or ranked else None
 
 
 def _architecture_result(
