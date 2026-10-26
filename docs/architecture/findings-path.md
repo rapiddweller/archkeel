@@ -70,7 +70,8 @@ produces them. The terminal prints a note for `PARTIAL` (under the list) and `NO
 with no observation prints its diagnostics, and a filtered report prints its own selection. The HTML
 prints the note of every state but `COMPLETE`.
 
-The result schema stays 11.0. `findings` keeps its meaning: an empty list is measured empty,
+The result schema stays 11.0, which no release has shipped. It gains one branch: an incomplete
+report (the 8.0 shape) that carries `findings`. `findings` keeps its meaning: an empty list is measured empty,
 and absent is not ranked. The reason is in `observation_complete`, `coverage` and
 `report_filter`, which the result already carries.
 

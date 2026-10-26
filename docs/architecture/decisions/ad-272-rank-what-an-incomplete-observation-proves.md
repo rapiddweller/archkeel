@@ -17,7 +17,8 @@ observation.
 **States.** One pure function `findings_state(result)` returns one of six values: `COMPLETE`,
 `PARTIAL`, `NOT_RANKED`, `NO_OBSERVATION`, `FILTERED`, `NONE_RECORDED`. One function
 `findings_note(result)` gives the sentence for each state. The terminal, the HTML and the JSON read
-both, and no render tests `findings is None`. The result schema stays 11.0: an empty list is
+both, and no render tests `findings is None`. The result schema stays 11.0, which no release has
+shipped: it gains one branch, an incomplete report that carries `findings`. An empty list is
 measured empty, and absent is not ranked. The states, the sentences, the path as a diagram and the
 17 equivalence classes are in [findings-path.md](../findings-path.md).
 
