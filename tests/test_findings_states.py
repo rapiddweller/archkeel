@@ -24,8 +24,14 @@ from test_module_explore import _sample
 from archkeel.check.report import _ranked_findings
 from archkeel.ir.architecture_graph import AssessmentStatus
 from archkeel.ir.codec import result_payload
-from archkeel.ir.findings import FindingsState, findings, findings_note, findings_state
-from archkeel.ir.model import FindingKind, Observation, ReportFilter, RunResult
+from archkeel.ir.findings import findings, findings_note, findings_state
+from archkeel.ir.model import (
+    FindingKind,
+    FindingsState,
+    Observation,
+    ReportFilter,
+    RunResult,
+)
 from archkeel.ir.module_explore import module_exploration
 from archkeel.ir.report_graph import architecture_report
 from archkeel.render.summary import report_summary

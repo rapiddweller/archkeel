@@ -304,6 +304,8 @@
         "archkeel.ir.collection_features:required_resolution_features",
         "archkeel.ir.collection_features:rule_resolution_features",
         "archkeel.ir.findings:findings",
+        "archkeel.ir.findings:findings_note",
+        "archkeel.ir.findings:findings_state",
         "archkeel.ir.findings:evidence_locations"
       ]
     },

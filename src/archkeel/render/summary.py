@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final, TypeAlias
 
-from archkeel.ir.findings import FindingsState, findings_note, findings_state
+from archkeel.ir.findings import findings_note, findings_state
 from archkeel.ir.measurements import MetricComparisonStatus as _MetricComparisonStatus
 from archkeel.ir.measurements import compare_measurements
 from archkeel.ir.model import (
@@ -22,6 +22,7 @@ from archkeel.ir.model import (
     CyclePath,
     DraftedComponentSize,
     Finding,
+    FindingsState,
     FirstLook,
     ReportLocation,
     RunResult,

@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
-from enum import StrEnum
 from typing import Final
 
 from .architecture_graph import ArchitectureRuleKind, AssessmentStatus
@@ -23,6 +22,7 @@ from .model import (
     CyclePathStep,
     Finding,
     FindingKind,
+    FindingsState,
     GraphTopologyLevel,
     Observation,
     ReportLocation,
@@ -485,17 +485,6 @@ def findings(
         *(cycles if complete else [item for item in cycles if _has_import_sites(item)]),
         *(_hub_findings(levels, evidence) if complete else ()),
     )
-
-
-class FindingsState(StrEnum):
-    """AD-272: why a report's ranked list is what it is. One value for every result."""
-
-    COMPLETE = "complete"
-    PARTIAL = "partial"
-    NOT_RANKED = "not_ranked"
-    NO_OBSERVATION = "no_observation"
-    FILTERED = "filtered"
-    NONE_RECORDED = "none_recorded"
 
 
 def findings_state(result: RunResult) -> FindingsState:
