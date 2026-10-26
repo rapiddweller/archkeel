@@ -1,11 +1,12 @@
 # AD-273 A namespace exposure withholds loader proof in its own module only
 
-**Decision.** This amends AD-240. A module that calls `globals()`, `eval` or `exec`, or reads
-`__builtins__`, no longer withholds the proof of `importlib.import_module` and `__import__` in
+**Decision.** This amends AD-240. A module that calls `globals()`, `eval` or `exec` no longer withholds the proof of `importlib.import_module` and `__import__` in
 every module of the snapshot. It withholds the proof in that module only. These stay global:
 - a scanned module that is `importlib` or `builtins` itself;
 - a visible mutation or escape of a loader (`importlib.import_module = ...`, `mutate(importlib)`,
   an alias that mutates), for the loader it names.
+- any use of `__builtins__`, for `__import__`: every module shares the builtins dict, so
+  `__builtins__["__import__"] = f` changes the loader for all of them (Codex found it on #717).
 
 **Reason.** `_loader_mutations` treated the exposure of any one module as a change of both loaders
 for the whole snapshot. A namespace exposure changes the names of the exposing module. It does not
@@ -29,10 +30,10 @@ cannot yet accept a loader call with a variable target; that needs its own decis
 - Keep the global rule and document it: one `eval` in one file then hides every dynamic proof.
 
 **Check.**
-- `tests/test_loader_exposure_scope.py` crosses 6 exposure forms with 3 loader forms: an exposure
+- `tests/test_loader_exposure_scope.py` crosses 5 exposure forms with 3 loader forms: an exposure
   in another module leaves the proof (FAIL witnessed), the same exposure in the loading module gives
-  UNKNOWN, and 4 visible mutations withhold proof of their own loader only.
+  UNKNOWN, and 7 visible mutations withhold proof of their own loader only.
 - Direct tests: a scanned `importlib` or `builtins` module changes both loaders everywhere; an
   exposing module is listed by name and changes nothing globally.
-- 5 faults in `_loader_mutations` (the old rule, exposure ignored, exposure global, escapes local,
-  owner not global) are all caught. The existing 118 dynamic-dependency tests pass.
+- 6 faults in `_loader_mutations` (the old rule, exposure ignored, exposure global, escapes local,
+  owner not global, `__builtins__` not global) are all caught. The existing 118 dynamic-dependency tests pass.

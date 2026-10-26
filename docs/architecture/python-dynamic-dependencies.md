@@ -9,7 +9,8 @@ Call IDs distinguish nested calls even when their source evidence spans coincide
 A loader needs a unique stable lexical import/builtin binding. Native member-escape
 syntax and lexical binding owners invalidate visibly mutated or escaped loader
 objects across the scanned snapshot. A module that exposes its namespace (`globals()`,
-`eval`, `exec`, `__builtins__`) withholds the proof in that module only
+`eval`, `exec`) withholds the proof in that module only; a use of `__builtins__` withholds the
+proof of `__import__` in every module
 ([AD-273](decisions/ad-273-namespace-exposure-is-local-to-its-module.md)). Conditional mutations are conservative;
 execution order and arbitrary runtime effects are not proved. Reexported loader
 calls remain UNKNOWN without a proven native call target. Bare assignment

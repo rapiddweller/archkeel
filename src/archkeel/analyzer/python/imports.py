@@ -1386,6 +1386,12 @@ def _loader_mutations(
             for node in module.all_nodes
         ):
             exposed[module.module] = _LOADERS
+        # Every module shares the builtins dict, so a use of `__builtins__` can change `__import__`
+        # for all of them; it is a visible escape, not a namespace exposure of this module.
+        if any(
+            isinstance(node, ast.Name) and node.id == "__builtins__" for node in module.all_nodes
+        ):
+            changed.add("builtins.__import__")
         scopes = LexicalScopes.for_module(module)
         for node in member_escape_references(
             module, module.all_nodes, member_surface=True, owner_exposure_only=True

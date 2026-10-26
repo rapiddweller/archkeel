@@ -19,7 +19,6 @@ EXPOSURES = {
     "eval": "value = eval('1 + 1')\n",
     "exec": "exec('x = 1')\n",
     "exec_with_namespace": "scope = {}\nexec('x = 1', scope)\n",
-    "builtins_name": "table = __builtins__\n",
 }
 LOADS = {
     "import_module": (
@@ -43,6 +42,10 @@ ESCAPES = {
     "pass_importlib": ("importlib", "import importlib\nmutate(importlib)\n"),
     "assign_builtins": ("builtins", "import builtins\nbuiltins.__import__ = lambda n: n\n"),
     "pass_builtins": ("builtins", "import builtins\nmutate(builtins)\n"),
+    # The builtins dict is shared, so any use of `__builtins__` can change `__import__` everywhere.
+    "store_builtins_item": ("builtins", '__builtins__["__import__"] = lambda *args: None\n'),
+    "set_builtins_attribute": ("builtins", "__builtins__.__import__ = lambda *args: None\n"),
+    "read_builtins": ("builtins", "table = __builtins__\n"),
 }
 
 
