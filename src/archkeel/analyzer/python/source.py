@@ -2904,8 +2904,18 @@ RECURSION_LIMIT: Final = 20_000
 MAX_AST_DEPTH: Final = 5_000
 
 
-class _TooDeepError(ValueError):
+class TooDeepError(ValueError):
     pass
+
+
+def _ast_depth(tree: ast.AST) -> int:
+    deepest = 0
+    pending: list[tuple[ast.AST, int]] = [(tree, 1)]
+    while pending:
+        node, depth = pending.pop()
+        deepest = max(deepest, depth)
+        pending.extend((child, depth + 1) for child in ast.iter_child_nodes(node))
+    return deepest
 
 
 def _parse_bounded(source: str, filename: str) -> ast.Module:
@@ -2914,15 +2924,10 @@ def _parse_bounded(source: str, filename: str) -> ast.Module:
         tree = ast.parse(source, filename=filename)
     except (RecursionError, MemoryError) as exc:
         # CPython raises MemoryError when its parser stack overflows on a very deep expression.
-        raise _TooDeepError("expression nesting exceeds the parser stack") from exc
-    deepest = 0
-    pending = [(tree, 1)]
-    while pending:
-        node, depth = pending.pop()
-        deepest = max(deepest, depth)
-        pending.extend((child, depth + 1) for child in ast.iter_child_nodes(node))
-    if deepest > MAX_AST_DEPTH:
-        raise _TooDeepError(f"expression nesting of {deepest} levels exceeds {MAX_AST_DEPTH}")
+        raise TooDeepError("expression nesting exceeds the parser stack") from exc
+    depth = _ast_depth(tree)
+    if depth > MAX_AST_DEPTH:
+        raise TooDeepError(f"expression nesting of {depth} levels exceeds {MAX_AST_DEPTH}")
     return tree
 
 
@@ -2957,7 +2962,7 @@ def parse_sources(paths: Sequence[Path], *, root: Path, namespace: str) -> Parse
         except (OSError, UnicodeDecodeError, SyntaxError, ValueError) as exc:
             if isinstance(exc, SyntaxError):
                 line, message = exc.lineno or 1, exc.msg
-            elif isinstance(exc, _TooDeepError):
+            elif isinstance(exc, TooDeepError):
                 line, message = 1, str(exc)
             elif isinstance(exc, OSError):
                 line, message = 1, exc.strerror or exc.__class__.__name__

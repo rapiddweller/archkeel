@@ -7,6 +7,10 @@ coverage gap with the file and the reason, and the scan goes on. A `RecursionErr
 `MemoryError` when its parser stack overflows. `RECURSION_LIMIT` (20,000) moves to
 `source.py`, so the limit and the ceiling sit side by side.
 
+A gap leaves the observation incomplete, as a syntax error does. `init` and `report` still
+exit 2, but the diagnostic names the file and the nesting depth, and every other file is
+observed. There is no exclusion setting yet for generated files.
+
 **Reason.** The walkers are recursive. They use about three frames for each AST level. With
 the limit of 20,000 frames (AD for #676), a chain of 6,500 operators passes and 7,500
 fails. One generated file with a huge sum then stopped the whole scan with a
@@ -23,7 +27,10 @@ a syntax error in that file. The rest of the project stays observed.
   It has no evidence of need beyond generated files.
 
 **Check.**
-- `tests/test_language_collectors.py`: a module nested `MAX_AST_DEPTH + 1,000` levels
-  (sum, attribute chain, conditional chain) gives exit 0, one gap that names the file, and
-  all other files parsed.
-- The existing deep-sum test (2,000 operators) still collects the module.
+- `tests/test_python_depth_ceiling.py` runs the real collector entry. Sum, attribute, call
+  and conditional chains of 12,000 levels each give one gap that names the file. A chain
+  of exactly `MAX_AST_DEPTH` levels is analyzed; one level more is a gap. A 300,000-term sum
+  (parser stack overflow) is a gap. Other modules keep their facts. Two deep modules give
+  two gaps and byte-identical output on a second run. A flat list of 200,000 elements is
+  not deep. A chain of 2,000 operators is still analyzed.
+- Eight of these tests fail on the code before this change.
