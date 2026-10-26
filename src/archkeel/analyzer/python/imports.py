@@ -1371,24 +1371,32 @@ def _import_origins(target: str, routes: Mapping[str, frozenset[str]]) -> frozen
 
 def _loader_mutations(
     parsed: Sequence[ParsedModule], routes: Mapping[str, frozenset[str]]
-) -> frozenset[str]:
+) -> tuple[frozenset[str], Mapping[str, frozenset[str]]]:
+    """The loaders a visible mutation changes in every module, and those a module's own namespace
+    exposure (`globals()`, `eval`, `exec`) changes in that module only (AD-273)."""
     changed: set[str] = set()
+    exposed: dict[str, frozenset[str]] = {}
     for module in parsed:
-        if module.module in {"importlib", "builtins"} or any(
+        if module.module in {"importlib", "builtins"}:
+            changed.update(_LOADERS)
+        elif any(
             exposes_dynamic_namespace(
                 module, node, member_surface=True, include_import_effects=False
             )
             for node in module.all_nodes
         ):
-            changed.update(_LOADERS)
+            exposed[module.module] = _LOADERS
         scopes = LexicalScopes.for_module(module)
         for node in member_escape_references(
             module, module.all_nodes, member_surface=True, owner_exposure_only=True
         ):
             for target in _import_targets(scopes, node):
                 changed.update(_import_origins(target, routes))
-    return frozenset(
-        loader for loader in _LOADERS if any(in_scope(loader, target) for target in changed)
+    return (
+        frozenset(
+            loader for loader in _LOADERS if any(in_scope(loader, target) for target in changed)
+        ),
+        exposed,
     )
 
 
@@ -1530,11 +1538,12 @@ def collect_dynamic_imports(
             {target, data.get("origin_definition") or target, *data.get("reexport_candidates", ())}
         )
     imported_origins = {name: frozenset(values) for name, values in routes.items()}
-    mutations = _loader_mutations(parsed, imported_origins)
+    mutations, exposed = _loader_mutations(parsed, imported_origins)
     imports: list[RawRecord] = []
     unknowns: list[RawRecord] = []
     for module in parsed:
-        collector = _DynamicImports(module, evidence, namespace, by_id, mutations, imported_origins)
+        changed = mutations | exposed.get(module.module, frozenset())
+        collector = _DynamicImports(module, evidence, namespace, by_id, changed, imported_origins)
         collector.visit(module.tree)
         imports.extend(collector.items)
         unknowns.extend(collector.unknowns)
