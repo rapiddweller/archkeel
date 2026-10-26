@@ -74,6 +74,19 @@ PARAM = {
     "try": "try:\n    c{i}()\nexcept E:\n    d{i}()",
     "with": "with ctx:\n    c{i}()",
     "match": "match other:\n    case 1:\n        c{i}()",
+    "except_type": "try:\n    pass\nexcept E{i}(c{i}()):\n    pass",
+    "try_else": "try:\n    pass\nexcept E:\n    pass\nelse:\n    c{i}()",
+    "try_finally": "try:\n    pass\nfinally:\n    c{i}()",
+    "try_star": "try:\n    pass\nexcept* E:\n    c{i}()",
+    "with_item": "with c{i}() as f:\n    pass",
+    "with_target": "with ctx as c{i}().x:\n    pass",
+    "match_guard": "match other:\n    case 1 if c{i}():\n        pass",
+    "match_subject": "match c{i}():\n    case 1:\n        pass",
+    "match_nested_try": (
+        "match other:\n    case 1:\n        try:\n            pass\n"
+        "        except E:\n            c{i}()"
+    ),
+    "for_else": "for q in qs:\n    pass\nelse:\n    c{i}()",
     "ifexp_guard": "x{i} = a{i}() if flag else b{i}()",
     "ifexp_other": "x{i} = a{i}() if other else b{i}()",
     "nested_def": "def inner{i}(p=c{i}()):\n    return 1",
@@ -138,15 +151,47 @@ PARAM_EXPECTED = {
     "raise_bare": ([(None, None)], []),
     "loop": ([(None, "unsupported_control_flow")], [("c", None, "unsupported_control_flow")]),
     "while": ([(None, "unsupported_control_flow")], [("c", None, "unsupported_control_flow")]),
-    "try": ([(None, "unsupported_control_flow")], [("c", None, "unsupported_control_flow")]),
+    "try": (
+        [(None, "unsupported_control_flow")],
+        [("c", None, "unsupported_control_flow"), ("d", None, "unsupported_control_flow")],
+    ),
     "with": ([(None, "unsupported_control_flow")], [("c", None, "unsupported_control_flow")]),
-    "match": ([(None, "unsupported_control_flow")], []),
+    "match": ([(None, "unsupported_control_flow")], [("c", None, "unsupported_control_flow")]),
+    "except_type": (
+        [(None, "unsupported_control_flow")],
+        [("E", None, "unsupported_control_flow"), ("c", None, "unsupported_control_flow")],
+    ),
+    "try_else": ([(None, "unsupported_control_flow")], [("c", None, "unsupported_control_flow")]),
+    "try_finally": (
+        [(None, "unsupported_control_flow")],
+        [("c", None, "unsupported_control_flow")],
+    ),
+    "try_star": ([(None, "unsupported_control_flow")], [("c", None, "unsupported_control_flow")]),
+    "with_item": ([(None, "unsupported_control_flow")], [("c", None, "unsupported_control_flow")]),
+    "with_target": (
+        [(None, "unsupported_control_flow")],
+        [("c", None, "unsupported_control_flow")],
+    ),
+    "match_guard": (
+        [(None, "unsupported_control_flow")],
+        [("c", None, "unsupported_control_flow")],
+    ),
+    "match_subject": (
+        [(None, "unsupported_control_flow")],
+        [("c", None, "unsupported_control_flow")],
+    ),
+    "match_nested_try": (
+        [(None, "unsupported_control_flow")],
+        [("c", None, "unsupported_control_flow")],
+    ),
+    "for_else": ([(None, "unsupported_control_flow")], [("c", None, "unsupported_control_flow")]),
     "ifexp_guard": ([(None, None)], [("a", True, None), ("b", False, None)]),
     "ifexp_other": ([(None, None)], [("a", None, None), ("b", None, None)]),
     "nested_def": ([(None, None)], [("c", None, None)]),
     "nested_class": ([(None, None)], [("Base", None, None), ("c", None, None)]),
     "empty_branch": ([(None, None)], []),
 }
+
 MEMBER_EXPECTED = {
     "plain": ([(None, None)], []),
     "call": ([(None, "opaque_call_mutation")], [("c", None, None)]),
@@ -184,9 +229,40 @@ MEMBER_EXPECTED = {
     "raise_bare": ([(None, None)], []),
     "loop": ([(None, "unsupported_control_flow")], [("c", None, "unsupported_control_flow")]),
     "while": ([(None, "unsupported_control_flow")], [("c", None, "unsupported_control_flow")]),
-    "try": ([(None, "unsupported_control_flow")], [("c", None, "unsupported_control_flow")]),
+    "try": (
+        [(None, "unsupported_control_flow")],
+        [("c", None, "unsupported_control_flow"), ("d", None, "unsupported_control_flow")],
+    ),
     "with": ([(None, "unsupported_control_flow")], [("c", None, "unsupported_control_flow")]),
-    "match": ([(None, "unsupported_control_flow")], []),
+    "match": ([(None, "unsupported_control_flow")], [("c", None, "unsupported_control_flow")]),
+    "except_type": (
+        [(None, "unsupported_control_flow")],
+        [("E", None, "unsupported_control_flow"), ("c", None, "unsupported_control_flow")],
+    ),
+    "try_else": ([(None, "unsupported_control_flow")], [("c", None, "unsupported_control_flow")]),
+    "try_finally": (
+        [(None, "unsupported_control_flow")],
+        [("c", None, "unsupported_control_flow")],
+    ),
+    "try_star": ([(None, "unsupported_control_flow")], [("c", None, "unsupported_control_flow")]),
+    "with_item": ([(None, "unsupported_control_flow")], [("c", None, "unsupported_control_flow")]),
+    "with_target": (
+        [(None, "unsupported_control_flow")],
+        [("c", None, "unsupported_control_flow")],
+    ),
+    "match_guard": (
+        [(None, "unsupported_control_flow")],
+        [("c", None, "unsupported_control_flow")],
+    ),
+    "match_subject": (
+        [(None, "unsupported_control_flow")],
+        [("c", None, "unsupported_control_flow")],
+    ),
+    "match_nested_try": (
+        [(None, "unsupported_control_flow")],
+        [("c", None, "unsupported_control_flow")],
+    ),
+    "for_else": ([(None, "unsupported_control_flow")], [("c", None, "unsupported_control_flow")]),
     "ifexp_guard": (
         [(None, "opaque_call_mutation")],
         [("a", None, "opaque_call_mutation"), ("b", None, "opaque_call_mutation")],
@@ -328,3 +404,68 @@ def test_expected_result_after_each_member_statement_class(kind: str) -> None:
     expected_probe, expected_inner = MEMBER_EXPECTED[kind]
     assert probe == {tuple(item) for item in expected_probe}
     assert inner == {tuple(item) for item in expected_inner}
+
+
+def _calls_in_body(function: ast.FunctionDef) -> set[tuple[int, int]]:
+    """Call sites of the function body, without the bodies of nested functions."""
+    sites: set[tuple[int, int]] = set()
+
+    def visit(node: ast.AST) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
+                for decorated in child.decorator_list:
+                    visit_expression(decorated)
+                continue
+            if isinstance(child, ast.Call):
+                sites.add((child.lineno, child.col_offset))
+            visit(child)
+
+    def visit_expression(node: ast.expr) -> None:
+        if isinstance(node, ast.Call):
+            sites.add((node.lineno, node.col_offset))
+        visit(node)
+
+    visit(function)
+    return sites
+
+
+@CASES
+def test_every_call_of_every_statement_class_gets_a_path_record(menu, member) -> None:
+    # Pruning drops calls on purpose: inside a fixed guard, and after a `return` under the
+    # guard, where the walker knows the flag is false. Those two cases stay out.
+    for kinds in itertools.chain(((kind,) for kind in menu), itertools.product(menu, repeat=2)):
+        if kinds[0] == "return_in_guard" and len(kinds) > 1:
+            continue
+        for wrap in ("top", "in_other", "in_else"):
+            function = _function(menu, kinds, wrap, member)
+            recorded = {(p.line, p.column) for p in _run(_GuardPathWalker, function, member)}
+            missing = _calls_in_body(function) - recorded
+            assert not missing, (kinds, wrap, sorted(missing))
+
+
+@pytest.mark.parametrize(
+    "wrapper",
+    [
+        "try:\n    pass\nexcept E:\n{body}",
+        "match other:\n    case 1:\n{body}",
+        "with ctx as f:\n{body}",
+    ],
+    ids=["except_handler", "match_case", "with_body"],
+)
+def test_a_guard_inside_an_unsupported_block_keeps_its_statement_and_test_as_path(
+    wrapper: str,
+) -> None:
+    body = textwrap.indent("if flag:\n    c0()\nelse:\n    d0()", "        ")
+    source = (
+        "def f(flag, other, ctx):\n" + textwrap.indent(wrapper.format(body=body), "    ") + "\n"
+    )
+    function = ast.parse(source).body[0]
+    assert isinstance(function, ast.FunctionDef)
+    paths = {p.call_name: p for p in _run(_GuardPathWalker, function, False)}
+    for name in ("c0", "d0"):
+        # The unsupported statement and the guard test stay on the path, so the evidence is exact.
+        kinds = [type(node).__name__ for node in paths[name].path_nodes]
+        assert kinds[0] in {"Try", "Match", "With"}, kinds
+        assert "Name" in kinds, kinds
+        assert paths[name].condition_value is None
+        assert paths[name].unknown_reason == "unsupported_control_flow"
