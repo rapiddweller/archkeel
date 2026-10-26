@@ -276,3 +276,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-266 | [The first hour: from no contract to a first overview](ad-266-the-first-hour.md) |
 | AD-267 | [Phase timings and work counters beside the report](ad-267-phase-timings-and-work-counters.md) |
 | AD-268 | [Keep the end of collector stderr, never fail on its size](ad-268-collector-stderr-tail.md) |
+| AD-269 | [Skip one too-deep Python module with a coverage gap](ad-269-python-module-depth-ceiling.md) |

@@ -2898,6 +2898,39 @@ def package_for(module: str) -> str:
     return ".".join(parts[:2]) if len(parts) > 1 else module
 
 
+# The collector entry sets this recursion limit. The recursive walkers use about three frames
+# for each AST level, so a deeper tree would stop the whole scan with a RecursionError.
+RECURSION_LIMIT: Final = 20_000
+MAX_AST_DEPTH: Final = 5_000
+
+
+class TooDeepError(ValueError):
+    pass
+
+
+def _ast_depth(tree: ast.AST) -> int:
+    deepest = 0
+    pending: list[tuple[ast.AST, int]] = [(tree, 1)]
+    while pending:
+        node, depth = pending.pop()
+        deepest = max(deepest, depth)
+        pending.extend((child, depth + 1) for child in ast.iter_child_nodes(node))
+    return deepest
+
+
+def _parse_bounded(source: str, filename: str) -> ast.Module:
+    """Parse one module, or refuse it when the tree is too deep for the walkers to traverse."""
+    try:
+        tree = ast.parse(source, filename=filename)
+    except (RecursionError, MemoryError) as exc:
+        # CPython raises MemoryError when its parser stack overflows on a very deep expression.
+        raise TooDeepError("expression nesting exceeds the parser stack") from exc
+    depth = _ast_depth(tree)
+    if depth > MAX_AST_DEPTH:
+        raise TooDeepError(f"expression nesting of {depth} levels exceeds {MAX_AST_DEPTH}")
+    return tree
+
+
 @dataclass(frozen=True)
 class ParsedSources:
     """Modules parsed from one scan pass, their coverage failures and source digest."""
@@ -2924,11 +2957,13 @@ def parse_sources(paths: Sequence[Path], *, root: Path, namespace: str) -> Parse
             digest.update(raw)
             digest.update(b"\0")
             source = raw.decode("utf-8")
-            tree = ast.parse(source, filename=rel)
+            tree = _parse_bounded(source, rel)
             module_name = module_for(path, root=root, namespace=namespace)
         except (OSError, UnicodeDecodeError, SyntaxError, ValueError) as exc:
             if isinstance(exc, SyntaxError):
                 line, message = exc.lineno or 1, exc.msg
+            elif isinstance(exc, TooDeepError):
+                line, message = 1, str(exc)
             elif isinstance(exc, OSError):
                 line, message = 1, exc.strerror or exc.__class__.__name__
             else:
