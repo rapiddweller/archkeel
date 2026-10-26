@@ -33,6 +33,7 @@ from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.decisions import agent_decisions, open_decisions
 from archkeel.ir.diagnostics import Diagnostic as Diagnostic
 from archkeel.ir.duplication import MINIMUM_SHAPE_NODES, OwnedLogic, repeated_logic
+from archkeel.ir.findings import findings_note
 from archkeel.ir.graph_codec import report_bytes
 from archkeel.ir.interfaces import (
     InterfaceEdge,
@@ -849,12 +850,16 @@ def _path_block(path: CyclePath | None) -> str:
 
 def _atlas_findings(result: RunResult, observation: Observation) -> str:
     """The ranked list the report opens with, readable without JavaScript (AD-258)."""
+    note = findings_note(result)
     if result.findings is None:
+        # AD-272: the sentence names why there is no list; it never reads as "nothing found".
         return (
             '<section aria-labelledby="findings-heading"><h2 id="findings-heading">Findings</h2>'
-            "<p>No ranked findings are recorded in this result.</p></section>"
+            f'<p class="findings-note">{_text(note or "")}</p></section>'
         )
     heading = f'<h2 id="findings-heading">Findings · {len(result.findings)}</h2>'
+    if note is not None:
+        heading += f'<p class="findings-note">{_text(note)}</p>'
     if not result.findings:
         return (
             f'<section aria-labelledby="findings-heading">{heading}'
