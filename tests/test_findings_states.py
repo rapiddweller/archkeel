@@ -10,6 +10,7 @@ a human reviewer, and `test_the_page_and_the_tests_name_the_same_classes` fails 
 from __future__ import annotations
 
 import itertools
+import json
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, replace
@@ -21,11 +22,13 @@ from test_findings import HUB_FILES, REMEDY, Run, _page, _run
 from test_findings_path_render import _component_run
 from test_module_explore import _sample
 
-from archkeel.check.report import _ranked_findings
+from archkeel.check.report import _proofs_hold, _ranked_findings, run_saved_report
 from archkeel.ir.architecture_graph import AssessmentStatus
-from archkeel.ir.codec import result_payload
+from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, result_payload
+from archkeel.ir.diagnostics import Diagnostic, DiagnosticCode, DiagnosticKind
 from archkeel.ir.findings import findings, findings_note, findings_state
 from archkeel.ir.model import (
+    Finding,
     FindingKind,
     FindingsState,
     Observation,
@@ -150,10 +153,20 @@ FILTERS = (
 FILTER_NAMES = ("only_violations", "only_architecture", "component", "rule", "only_calls")
 
 
+def _ranked_for(
+    observation: Observation,
+    complete: bool,
+    report_filter: ReportFilter | None = None,
+) -> tuple[Finding, ...] | None:
+    """Rank through the real function, which reads only the status and the diagnostics."""
+    result = RunResult("report", 0, observation_complete=PASS if complete else UNKNOWN)
+    return _ranked_findings(observation, architecture_report(observation), result, report_filter)
+
+
 def _ranked(case: Case, runs: dict[str, Run]) -> tuple[Run, Observation, RunResult]:
     run = runs[case.base]
     observation = case.edit(run.observation)
-    ranked = _ranked_findings(observation, architecture_report(observation), case.complete, None)
+    ranked = _ranked_for(observation, case.complete)
     status = PASS if case.complete else UNKNOWN
     result = replace(run.result, observation_complete=status, findings=ranked)
     return run, observation, result
@@ -254,7 +267,7 @@ def test_the_proven_violation_keeps_its_size_and_sentence_on_an_incomplete_run(
 
 
 def _rank(observation: Observation, complete: bool) -> tuple[FindingKind, ...] | None:
-    ranked = _ranked_findings(observation, architecture_report(observation), complete, None)
+    ranked = _ranked_for(observation, complete)
     return None if ranked is None else tuple(item.kind for item in ranked)
 
 
@@ -274,15 +287,57 @@ def test_a_component_cycle_violation_keeps_its_path_on_an_incomplete_run(
     run = _component_run(tmp_path_factory.mktemp("states-component") / "repo")
     kinds = {}
     for complete in (True, False):
-        ranked = _ranked_findings(
-            run.observation, architecture_report(run.observation), complete, None
-        )
+        ranked = _ranked_for(run.observation, complete)
         assert ranked is not None
         [violation] = [item for item in ranked if item.kind is V]
         assert violation.path is not None
         kinds[complete] = [(step.source, step.target) for step in violation.path.steps]
     assert kinds[True] == kinds[False]
     assert len(kinds[True]) == 3
+
+
+def _saved(full: Run, tmp_path: Path, runtime_required: str | None) -> RunResult:
+    raw = decode_canonical_model(json.loads(full.architecture))
+    if runtime_required is not None:
+        raw["runtime"]["required"] = runtime_required
+    path = tmp_path / "saved.json"
+    path.write_bytes(canonical_report_bytes(raw))
+    return run_saved_report(path)
+
+
+def test_a_run_that_cannot_fail_a_rule_does_not_rank_its_violations(
+    full: Run, tmp_path: Path
+) -> None:
+    """C18: the gates that keep `declared_rules` UNKNOWN also keep the violation out of the list."""
+    ok = _saved(full, tmp_path, None)
+    assert ok.declared_rules == "FAIL"
+    assert findings_state(ok) is FindingsState.COMPLETE
+    blocked = _saved(full, tmp_path, ">=9.0")
+    assert blocked.observation_complete is UNKNOWN
+    assert blocked.declared_rules == "UNKNOWN"
+    assert blocked.findings is None
+    assert findings_state(blocked) is FindingsState.NOT_RANKED
+
+
+@pytest.mark.parametrize("kind", list(DiagnosticKind))
+def test_only_the_three_revoking_diagnostics_close_the_proof_gate(
+    kind: DiagnosticKind, full: Run
+) -> None:
+    revoking = {
+        DiagnosticKind.CONTRACT_INVALID,
+        DiagnosticKind.RUNTIME_MISMATCH,
+        DiagnosticKind.INCOMPARABLE_RUNTIME,
+    }
+    # Only a contract_invalid diagnostic carries a code, and it must carry one.
+    code = DiagnosticCode.DECISION_OPEN if kind is DiagnosticKind.CONTRACT_INVALID else None
+    diagnostic = Diagnostic(kind, "subject", "claim", "remedy", code=code)
+    assert _proofs_hold(full.observation, (diagnostic,)) is (kind not in revoking)
+
+
+def test_the_proof_gate_needs_a_model_and_a_runtime(full: Run) -> None:
+    assert _proofs_hold(full.observation, ()) is True
+    assert _proofs_hold(None, ()) is False
+    assert _proofs_hold(replace(full.observation, runtime=None), ()) is False
 
 
 def test_a_complete_run_ranks_exactly_what_it_ranked_before(full: Run) -> None:
@@ -309,12 +364,7 @@ def test_every_filter_ranks_nothing_whatever_the_observation(
     report_filter: ReportFilter, full: Run
 ) -> None:
     for complete in (True, False):
-        assert (
-            _ranked_findings(
-                full.observation, architecture_report(full.observation), complete, report_filter
-            )
-            is None
-        )
+        assert _ranked_for(full.observation, complete, report_filter) is None
         result = replace(
             full.result,
             report_filter=report_filter,

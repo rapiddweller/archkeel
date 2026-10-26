@@ -333,23 +333,30 @@ def _report_filter(
     return None
 
 
-def _incomplete_report_result(result: ObservationResult) -> RunResult:
-    model = result.observation
-    declared = _AssessmentStatus.UNKNOWN
-    if (
+# AD-272: these diagnostics revoke every proof, so a partial run neither fails a rule nor ranks one.
+_REVOKING_DIAGNOSTICS = frozenset(
+    {
+        _DiagnosticKind.CONTRACT_INVALID,
+        _DiagnosticKind.RUNTIME_MISMATCH,
+        _DiagnosticKind.INCOMPARABLE_RUNTIME,
+    }
+)
+
+
+def _proofs_hold(model: Observation | None, diagnostics: tuple[Diagnostic, ...]) -> bool:
+    """The gate under which a partial observation may fail a rule and rank what it proves."""
+    return (
         model is not None
         and model.runtime is not None
         and runtime_diagnostic(model.runtime) is None
-        and not any(
-            item.kind
-            in {
-                _DiagnosticKind.CONTRACT_INVALID,
-                _DiagnosticKind.RUNTIME_MISMATCH,
-                _DiagnosticKind.INCOMPARABLE_RUNTIME,
-            }
-            for item in result.diagnostics
-        )
-    ):
+        and not any(item.kind in _REVOKING_DIAGNOSTICS for item in diagnostics)
+    )
+
+
+def _incomplete_report_result(result: ObservationResult) -> RunResult:
+    model = result.observation
+    declared = _AssessmentStatus.UNKNOWN
+    if model is not None and _proofs_hold(model, result.diagnostics):
         try:
             if trace_valid_violations(model):
                 declared = _AssessmentStatus.FAIL
@@ -474,14 +481,16 @@ def _selected_finding_ids(
 def _ranked_findings(
     model: Observation,
     report: ArchitectureReport,
-    complete: bool,
+    result: RunResult,
     report_filter: ReportFilter | None,
 ) -> tuple[Finding, ...] | None:
     """AD-272: an incomplete observation ranks what it proves; a filtered payload carries none.
 
-    An incomplete run with nothing proven has no list, because an empty list means measured empty.
+    A partial run whose proofs are revoked ranks nothing, as it fails no rule. An incomplete run
+    with nothing proven has no list, because an empty list means measured empty.
     """
-    if report_filter is not None:
+    complete = result.observation_complete is _AssessmentStatus.PASS
+    if report_filter is not None or not (complete or _proofs_hold(model, result.diagnostics)):
         return None
     ranked = findings(
         model,
@@ -542,7 +551,7 @@ def _architecture_result(
             command_result,
             report_filter=report_filter,
             architecture_projection=projection,
-            findings=_ranked_findings(model, report, complete, report_filter),
+            findings=_ranked_findings(model, report, command_result, report_filter),
             filtered_violations=None
             if not findings_available
             else tuple(item for item in selected_violations if item.record.id in finding_ids)
@@ -572,15 +581,7 @@ def _architecture_result(
 
 
 def _projection_result(result: ObservationResult) -> ObservationResult:
-    if any(
-        item.kind
-        in {
-            _DiagnosticKind.CONTRACT_INVALID,
-            _DiagnosticKind.RUNTIME_MISMATCH,
-            _DiagnosticKind.INCOMPARABLE_RUNTIME,
-        }
-        for item in result.diagnostics
-    ):
+    if any(item.kind in _REVOKING_DIAGNOSTICS for item in result.diagnostics):
         return _revoke_dependency_proofs(result)
     return result
 

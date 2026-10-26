@@ -48,8 +48,10 @@ renders choose their text from it, and no render tests `findings is None` any mo
 | `NONE_RECORDED` | the result has no `findings` and no reason above applies (an older result) |
 
 Proof predicates, each with one source:
-- **Violation:** `trace_valid_violations(model)` in `ir/trace.py`. It is the same predicate that
-  already turns `declared_rules` to FAIL on a partial observation (`_incomplete_report_result`).
+- **Violation:** `trace_valid_violations(model)` in `ir/trace.py`, behind the gate `_proofs_hold` in
+  `check/report.py`: a runtime and no runtime, contract or comparability diagnostic. The same two
+  conditions already turn `declared_rules` to FAIL on a partial observation, so a rule never fails
+  without its violation being ranked, and never the other way round.
 - **Cycle:** the finding already carries the import site of every step. A cycle with a step
   that has no import site is not ranked on an incomplete observation.
 
@@ -99,6 +101,7 @@ table with the test table.
 | C15 | the same rule broken in both directions, or twice at one pair | one finding, `size` = records | as C2, C5 |
 | C16 | a component-cycle violation | one finding with its path, the same on a partial run | as C2, C5 |
 | C17 | incomplete, a module-cycle rule violation | the violation and its cycle once; the cycle alone when the trace is incomplete | `PARTIAL` |
+| C18 | incomplete, a trace-valid violation, but a runtime or contract diagnostic revokes the proofs | absent | `NOT_RANKED` |
 
 Renders: the terminal summary, the terminal with `--json`, the HTML list without JavaScript,
 the Explorer data (`DATA.findings`), and `report --only violations`. The HTML and the terminal
