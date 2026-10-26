@@ -1,17 +1,21 @@
 # AD-273 A namespace exposure withholds loader proof in its own module only
 
-**Decision.** This amends AD-240. An exposure of the module's own namespace (`globals()`, `eval`,
-`exec`, `__annotations__`, `get_type_hints`, `inspect.get_annotations`) no longer withholds the
-proof of `importlib.import_module` and `__import__` in every module of the snapshot. It withholds
-the proof in that module only. These stay global:
-- a scanned module that is `importlib` or `builtins` itself;
-- a visible mutation or escape of a loader (`importlib.import_module = ...`, `mutate(importlib)`,
-  an alias that mutates), for the loader it names;
-- **every other exposure**, for both loaders. The own-namespace names are one explicit list
-  (`exposes_own_namespace_only`). What the list does not name fails closed. This holds `__builtins__`
-  and the frame attributes `f_builtins`, `f_globals` and `f_locals`, which reach the shared builtins
-  dict or the namespace of a caller (Codex found three of these on #717), and any trigger that a later
-  change adds to `exposes_dynamic_namespace`.
+**Decision.** This amends AD-240. Three classes replace the snapshot-wide rule:
+- **No exposure:** a `globals()` that only reads names (`set(globals())`, `sorted(globals().keys())`,
+  `'x' in globals()`, `len(...)`, iteration). Keys are strings and reach no shared object.
+- **Own module only:** `eval`, `exec`, `__annotations__`, `get_type_hints` and
+  `inspect.get_annotations`. They withhold the proof of both loaders in that module. The code that
+  `eval` and `exec` run is not proved; AD-240 already does not prove arbitrary runtime effects.
+- **Every module, both loaders:** everything else. `globals()` as a dict (`globals()['importlib']`,
+  `.get`, `.items()`, a variable, an argument) holds references to shared objects such as
+  `importlib`. `__builtins__`, `f_builtins`, `f_globals` and `f_locals` reach the shared builtins
+  dict or a caller. A trigger that a later change adds fails closed into this class
+  (`exposes_own_namespace_only` is the one list of the own-module names). Codex found four of
+  these on #717.
+
+Still global as before: a scanned module that is `importlib` or `builtins`, and a visible
+mutation or escape of a loader (`importlib.import_module = ...`, `mutate(importlib)`), for the
+loader it names.
 
 **Reason.** `_loader_mutations` treated the exposure of any one module as a change of both loaders
 for the whole snapshot. A namespace exposure changes the names of the exposing module. It does not
@@ -36,12 +40,14 @@ cannot yet accept a loader call with a variable target; that needs its own decis
 - Keep the global rule and document it: one `eval` in one file then hides every dynamic proof.
 
 **Check.**
-- `tests/test_loader_exposure_scope.py` crosses 14 exposure forms with 3 loader forms: an exposure
-  in another module leaves the proof (FAIL witnessed), the same exposure in the loading module gives
-  UNKNOWN, and 10 escapes withhold proof everywhere (an escape of one loader, only that loader).
-- Direct tests: a scanned `importlib` or `builtins` module changes both loaders everywhere; an
-  exposing module is listed by name and changes nothing globally.
-- 16 faults in `_loader_mutations` and the own-namespace list (the old rule, exposure ignored,
-  exposure global, escapes local, owner not global, everything own, nothing own, and each of the 9
-  names dropped from the list) are all caught. The 9 names are `globals`, `exec`, `eval`, their
-  `builtins.` forms, both type-hint helpers and `inspect.get_annotations`. The existing 118 dynamic-dependency tests pass.
+- `tests/test_loader_exposure_scope.py`: 11 own-module forms, 7 names-only forms and 3 loader forms.
+  An own-module form in another module leaves the proof (FAIL witnessed) and in the loading module
+  gives UNKNOWN. A names-only form changes no loader anywhere. 28 uses of `globals()` are classified
+  one by one, and 19 escapes (loader mutations, `__builtins__`, frames, `globals()` as a dict) withhold
+  proof in every module.
+- Direct tests: a scanned `importlib` or `builtins` module is global; an own-module exposure is
+  listed by name; an unlisted trigger is not own.
+- 31 faults in the classification are all caught: the old rule, exposure ignored or global, escapes
+  local, owner not global, everything or nothing own, each of the 7 own names, and 17 changes to
+  the names-only rule (each branch, each of the 6 containers, the callee skip).
+- The existing 118 dynamic-dependency tests pass.

@@ -2701,10 +2701,9 @@ def exposes_dynamic_namespace(
 
 
 # The calls and names that expose only the namespace of the module that uses them (AD-273).
+# `globals()` is not one of them: its dict holds references to shared objects such as `importlib`.
 _OWN_NAMESPACE_NAMES: Final = frozenset(
     {
-        "globals",
-        "builtins.globals",
         "exec",
         "builtins.exec",
         "eval",
@@ -2714,6 +2713,37 @@ _OWN_NAMESPACE_NAMES: Final = frozenset(
         "inspect.get_annotations",
     }
 )
+
+
+_NAME_CONTAINERS: Final = frozenset({"set", "frozenset", "sorted", "list", "tuple", "len"})
+
+
+def reads_only_namespace_names(
+    module: ParsedModule, node: ast.AST, parents: Mapping[ast.AST, ast.AST]
+) -> bool:
+    """Whether a `globals()` call only reads the names of the module (AD-273).
+
+    The keys are strings, so reading them reaches no shared object. Any other use of the dict
+    (`globals()[name]`, `.get`, `.items()`, `dict(globals())`, a variable) can reach `importlib` or
+    `builtins` through the module's bindings and is not a read of names.
+    """
+    if not (
+        isinstance(node, ast.Call)
+        and not node.args
+        and resolve_static_name(module, node.func) in {"globals", "builtins.globals"}
+    ):
+        return False
+    parent = parents.get(node)
+    if isinstance(parent, ast.Attribute) and parent.attr == "keys":
+        call = parents.get(parent)
+        return isinstance(call, ast.Call) and call.func is parent
+    if isinstance(parent, ast.Call):
+        return resolve_static_name(module, parent.func) in _NAME_CONTAINERS
+    if isinstance(parent, ast.Compare):
+        return parent.left is not node and all(
+            isinstance(op, ast.In | ast.NotIn) for op in parent.ops
+        )
+    return isinstance(parent, ast.For | ast.AsyncFor | ast.comprehension) and parent.iter is node
 
 
 def exposes_own_namespace_only(module: ParsedModule, node: ast.AST) -> bool:

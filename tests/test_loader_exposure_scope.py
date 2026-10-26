@@ -13,14 +13,13 @@ from test_exact_module_ownership import _observe_tree
 
 from archkeel.ir.decisions import rule_assessments
 
+# The module's own namespace: `eval`, `exec` and annotations. The code they run is not proved
+# (AD-240), so they withhold proof in their own module and nowhere else.
 EXPOSURES = {
-    "globals": "names = globals()\n",
-    "globals_read": "keys = sorted(set(globals()))\n",
-    "globals_alias": "grab = globals\nnames = grab()\n",
-    "builtins_qualified": "import builtins\nnames = builtins.globals()\n",
     "eval": "value = eval('1 + 1')\n",
     "eval_from_builtins": "from builtins import eval as run\nvalue = run('1')\n",
     "exec": "exec('x = 1')\n",
+    "exec_qualified": "import builtins\nbuiltins.exec('x = 1')\n",
     "exec_with_namespace": "scope = {}\nexec('x = 1', scope)\n",
     "annotations": "table = __annotations__\n",
     "type_hints": "from typing import get_type_hints\nhints = get_type_hints(int)\n",
@@ -28,8 +27,18 @@ EXPOSURES = {
         "from typing_extensions import get_type_hints\nhints = get_type_hints(int)\n"
     ),
     "inspect_annotations": "import inspect\nhints = inspect.get_annotations(int)\n",
-    "inside_function": "def helper():\n    return globals()\n",
-    "inside_class": "class Holder:\n    names = globals()\n",
+    "inside_function": "def helper():\n    return eval('1')\n",
+    "inside_class": "class Holder:\n    value = eval('1')\n",
+}
+# `globals()` that only reads the names of the module reaches no shared object: no exposure.
+NAMES_ONLY = {
+    "set": "keys = set(globals())\n",
+    "sorted_keys": "keys = sorted(globals().keys())\n",
+    "membership": "known = 'x' in globals()\n",
+    "length": "size = len(globals())\n",
+    "iteration": "for name in globals():\n    pass\n",
+    "comprehension": "keys = [name for name in globals()]\n",
+    "inside_function": "def names():\n    return sorted(set(globals()))\n",
 }
 LOADS = {
     "import_module": (
@@ -60,6 +69,19 @@ ESCAPES = {
     "frame_builtins": ("both", "import sys\nsys._getframe().f_builtins['x'] = 1\n"),
     "frame_globals": ("both", "import sys\nsys._getframe(1).f_globals['x'] = 1\n"),
     "frame_locals": ("both", "import sys\nsys._getframe(1).f_locals['x'] = 1\n"),
+    # The dict of `globals()` holds references to shared objects such as `importlib`.
+    "globals_subscript_mutation": (
+        "both",
+        "import importlib\nglobals()['importlib'].import_module = lambda *a, **k: None\n",
+    ),
+    "globals_variable": ("both", "names = globals()\n"),
+    "globals_get": ("both", "item = globals().get('x')\n"),
+    "globals_copy": ("both", "copy = dict(globals())\n"),
+    "globals_items": ("both", "pairs = list(globals().items())\n"),
+    "globals_alias": ("both", "grab = globals\nnames = grab()\n"),
+    "globals_store": ("both", "globals()['x'] = 1\n"),
+    "globals_passed_on": ("both", "def use(namespace): ...\nuse(globals())\n"),
+    "builtins_globals_qualified": ("both", "import builtins\nnames = builtins.globals()\n"),
 }
 
 
@@ -107,6 +129,28 @@ def test_an_exposure_in_another_module_leaves_the_literal_load_proven(
 
 
 @pytest.mark.parametrize("load", LOADS)
+@pytest.mark.parametrize("names_only", NAMES_ONLY)
+def test_reading_the_names_of_globals_in_another_module_exposes_nothing(
+    tmp_path: Path, names_only: str, load: str
+) -> None:
+    errors = NAMES_ONLY[names_only] + "marker = 1\n"
+    assert _status(tmp_path, _caller(load), errors) == ("FAIL", True)
+
+
+@pytest.mark.parametrize("load", LOADS)
+@pytest.mark.parametrize("names_only", NAMES_ONLY)
+def test_reading_the_names_of_globals_in_the_loading_module_changes_no_loader(
+    tmp_path: Path, names_only: str, load: str
+) -> None:
+    # `__import__` stays proven. An `importlib` alias in a module that reads `globals()` keeps its
+    # own, older limit: the binding stability of that module (`stable_direct_module_bindings`),
+    # which this decision leaves alone.
+    expected = ("FAIL", True) if LOAD_FAMILY[load] == "builtins" else ("UNKNOWN", False)
+    code = NAMES_ONLY[names_only]
+    assert _status(tmp_path, _caller(load, code), "marker = 1\n") == expected
+
+
+@pytest.mark.parametrize("load", LOADS)
 @pytest.mark.parametrize("exposure", EXPOSURES)
 def test_an_exposure_in_the_loading_module_withholds_its_own_proof(
     tmp_path: Path, exposure: str, load: str
@@ -135,7 +179,7 @@ def test_exposures_in_two_other_modules_do_not_add_up_to_a_global_escape(tmp_pat
             "sample/__init__.py": "",
             "sample/caller/__init__.py": _caller("import_module"),
             "sample/errors/__init__.py": "exec('x = 1')\nmarker = 1\n",
-            "sample/other.py": "names = globals()\nvalue = eval('2')\n",
+            "sample/other.py": "keys = set(globals())\nvalue = eval('2')\n",
         },
         contract,
     )
@@ -177,10 +221,21 @@ def test_a_scanned_loader_owner_changes_both_loaders_everywhere(tmp_path: Path, 
         ("import sys\nsys._getframe().f_builtins['x'] = 1\n", set(BOTH)),
         ("import sys\nsys._getframe(1).f_globals['x'] = 1\n", set(BOTH)),
         ("import sys\nsys._getframe(1).f_locals['x'] = 1\n", set(BOTH)),
-        ("names = globals()\neval('1')\nexec('x = 1')\n", set()),
+        ("eval('1')\nexec('x = 1')\n", set()),
+        ("names = globals()\n", set(BOTH)),
+        ("keys = set(globals())\n", set()),
         ("import builtins\nbuiltins.exec('x = 1')\ntable = __annotations__\n", set()),
     ],
-    ids=["__builtins__", "f_builtins", "f_globals", "f_locals", "own namespace", "qualified"],
+    ids=[
+        "__builtins__",
+        "f_builtins",
+        "f_globals",
+        "f_locals",
+        "eval and exec",
+        "globals as a dict",
+        "globals names only",
+        "qualified",
+    ],
 )
 def test_only_a_reach_into_another_namespace_changes_a_loader_everywhere(
     tmp_path: Path, body: str, expected: set[str]
@@ -190,7 +245,7 @@ def test_only_a_reach_into_another_namespace_changes_a_loader_everywhere(
 
 
 def test_an_exposing_module_is_listed_by_name_and_changes_nothing_globally(tmp_path: Path) -> None:
-    changed, exposed = _mutations(tmp_path, "sample", a="names = globals()\n", b="x = 1\n")
+    changed, exposed = _mutations(tmp_path, "sample", a="value = eval('1')\n", b="x = 1\n")
     assert changed == frozenset()
     assert exposed == {"sample.a": BOTH}
 
@@ -211,3 +266,57 @@ def test_an_exposure_that_is_not_listed_as_own_reaches_other_modules(tmp_path: P
         if isinstance(node, ast.Name) and node.id == "mystery_namespace_access"
     )
     assert exposes_own_namespace_only(module, name) is False
+
+
+READS = {
+    "set(globals())": True,
+    "frozenset(globals())": True,
+    "sorted(globals())": True,
+    "list(globals())": True,
+    "tuple(globals())": True,
+    "sorted(set(globals()))": True,
+    "list(globals().keys())": True,
+    "'x' in globals()": True,
+    "'x' not in globals()": True,
+    "len(globals())": True,
+    "[k for k in globals()]": True,
+    "for k in globals(): pass": True,
+    "g = globals()": False,
+    "globals()['importlib']": False,
+    "globals().get('x')": False,
+    "dict(globals())": False,
+    "list(globals().items())": False,
+    "list(globals().values())": False,
+    "f(globals())": False,
+    "globals().update(x=1)": False,
+    "globals()['a'] = 1": False,
+    "x == globals()": False,
+    "globals() in x": False,
+    "f = globals().keys": False,
+    "sorted([], key=globals())": False,
+    "[k for k in x if globals()]": False,
+    "globals()(1)": False,
+    "x in globals() == y": False,
+}
+
+
+@pytest.mark.parametrize("source", READS)
+def test_which_uses_of_globals_only_read_its_names(tmp_path: Path, source: str) -> None:
+    import ast
+
+    from archkeel.analyzer.python.source import parse_sources, reads_only_namespace_names
+
+    package = tmp_path / "sample"
+    package.mkdir()
+    (package / "__init__.py").write_text(f"{source}\n")
+    module = parse_sources([package / "__init__.py"], root=tmp_path, namespace="sample").modules[0]
+    parents = {
+        child: parent for parent in ast.walk(module.tree) for child in ast.iter_child_nodes(parent)
+    }
+    calls = [
+        node
+        for node in module.all_nodes
+        if isinstance(node, ast.Call) and ast.unparse(node.func) == "globals"
+    ]
+    assert calls
+    assert all(reads_only_namespace_names(module, call, parents) for call in calls) is READS[source]

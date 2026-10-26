@@ -47,6 +47,7 @@ from .source import (
     proven_class_value_candidates,
     proven_constructor_return_candidates,
     proven_map_union_candidates,
+    reads_only_namespace_names,
     resolve_static_name,
     setter_local_references,
     stable_direct_module_bindings,
@@ -1373,25 +1374,40 @@ def _import_origins(target: str, routes: Mapping[str, frozenset[str]]) -> frozen
 def _loader_mutations(
     parsed: Sequence[ParsedModule], routes: Mapping[str, frozenset[str]]
 ) -> tuple[frozenset[str], Mapping[str, frozenset[str]]]:
-    """The loaders that change in every module, and those a module's own namespace exposure
-    (`globals()`, `eval`, `exec`) changes in that module only (AD-273).
+    """The loaders that change in every module, and those a module's own `eval` or `exec` changes
+    in that module only (AD-273).
 
-    Everything else that exposes a namespace, such as `__builtins__` or a frame's `f_globals`,
-    can reach the other modules and changes the loaders everywhere.
+    A `globals()` that only reads names exposes nothing. Everything else that exposes a namespace
+    (`globals()` as a dict, `__builtins__`, a frame's `f_globals`) can reach shared objects and
+    changes the loaders everywhere.
     """
     changed: set[str] = set()
     exposed: dict[str, frozenset[str]] = {}
     for module in parsed:
         if module.module in {"importlib", "builtins"}:
             changed.update(_LOADERS)
+        parents: dict[ast.AST, ast.AST] | None = None
         for node in module.all_nodes:
-            if exposes_dynamic_namespace(
+            if not exposes_dynamic_namespace(
                 module, node, member_surface=True, include_import_effects=False
             ):
-                if exposes_own_namespace_only(module, node):
-                    exposed[module.module] = _LOADERS
-                else:
-                    changed.update(_LOADERS)
+                continue
+            if parents is None:
+                parents = {
+                    child: parent
+                    for parent in ast.walk(module.tree)
+                    for child in ast.iter_child_nodes(parent)
+                }
+            call = parents.get(node)
+            # The callee of a call is judged once, with the call itself.
+            if isinstance(call, ast.Call) and call.func is node:
+                continue
+            if reads_only_namespace_names(module, node, parents):
+                continue
+            if exposes_own_namespace_only(module, node):
+                exposed[module.module] = _LOADERS
+            else:
+                changed.update(_LOADERS)
         scopes = LexicalScopes.for_module(module)
         for node in member_escape_references(
             module, module.all_nodes, member_surface=True, owner_exposure_only=True
