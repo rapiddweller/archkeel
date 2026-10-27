@@ -700,6 +700,27 @@ class _Collection:
         self._gap(reason, (evidence,), module, kind=_GapKind.RESOLUTION)
         return path[0]
 
+    def _script_declaration_fact(self, rel: str, span: Span, name: str) -> str:
+        module = self.modules[rel]
+        identity = stable_id("SCRIPTDECLARATION", module, span.line, span.column, name)
+        self.script_publications[identity] = classified(
+            item_id=identity,
+            evidence_class=EvidenceClass.FACT,
+            area="source",
+            kind="bindings",
+            title=f"{module} declares script global {name}",
+            subjects=[module],
+            evidence_ids=[self._cite(rel, span)],
+            data={
+                "source_module": module,
+                "source_scope": module,
+                "module": module,
+                "binding": name,
+                "script_global": name,
+            },
+        )
+        return identity
+
     def _script_factory_source(self, rel: str, span: Span) -> str:
         module = self.modules[rel]
         identity = stable_id("SCRIPT_FACTORY_SOURCE", module, span.line, span.column)
@@ -770,17 +791,19 @@ class _Collection:
     ) -> bool:
         module = self.modules[rel]
         identity = stable_id("TSGLOBAL", module, site.span.line, site.span.column, site.kind.value)
-        vendor = self._script_vendor_package(path[0], publishers)
-        declared = self._script_declared_global(path[0], publishers)
-        evidence = [self._cite(rel, site.span)]
         if self._script_standard_global(path[0], publishers):
             target: ImportTarget = BuiltinTarget(identity, path[0])
             package = path[0]
-        elif declared is not None:
+        elif (declared := self._script_declared_global(path[0], publishers)) is not None:
             target = BuiltinTarget(identity, path[0])
             package = path[0]
-            evidence.append(self._cite(*declared))
-        elif vendor is not None:
+            # The declaration sits in another file, so it is a fact, not evidence of this record.
+            fact = self._script_declaration_fact(*declared, path[0])
+            self.script_fact_ids[(module, site)] = (
+                *self.script_fact_ids.get((module, site), ()),
+                fact,
+            )
+        elif (vendor := self._script_vendor_package(path[0], publishers)) is not None:
             target = ExternalPackageTarget(identity, vendor)
             package = vendor
         else:
@@ -793,7 +816,7 @@ class _Collection:
             package,
             None,
             False,
-            evidence,
+            [self._cite(rel, site.span)],
             alias,
             target_package=package,
         )

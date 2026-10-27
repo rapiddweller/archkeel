@@ -8,6 +8,7 @@ import json
 import pytest
 
 from archkeel.analyzer.typescript.collect import collect
+from archkeel.ir.facts_validation import validate_source_facts
 from archkeel.ir.protocol import CollectionRequest, SnapshotInput, SourceScope, TypeScriptSettings
 
 ENVIRONMENT = {"target": "ES2022", "lib": ["ES2023", "DOM", "DOM.Iterable"]}
@@ -22,13 +23,16 @@ def _facts(tmp_path, files, compiler=None):
     (tmp_path / "tsconfig.json").write_text(
         json.dumps({"compilerOptions": options, "include": ["src"]})
     )
-    return collect(
+    facts = collect(
         CollectionRequest(
             SnapshotInput(str(tmp_path), "a" * 40, False),
             SourceScope(("src",), "app"),
             TypeScriptSettings(),
         )
     )
+    # The collector hands its facts to this check; a record that cites another file crashes a run.
+    validate_source_facts(facts)
+    return facts
 
 
 def _gaps(facts, name):
@@ -131,15 +135,22 @@ def test_a_script_ts_file_without_import_or_export_declares_globals_too(tmp_path
     assert _published(tmp_path, "declare const NAME: string;", path="src/env.ts")
 
 
-def test_the_use_cites_the_declaration_as_evidence(tmp_path):
+def test_the_use_is_backed_by_a_fact_that_cites_the_declaration(tmp_path):
     facts = _facts(
         tmp_path,
         {"src/globals.d.ts": "\n\ndeclare const NAME: string;\n", "src/use.ts": USE},
     )
     (row,) = _reads(facts, "NAME")
     cited = {item.id: item for item in facts.evidence}
-    spots = {(cited[item].file, cited[item].line) for item in row.evidence_ids}
-    assert ("src/globals.d.ts", 3) in spots and ("src/use.ts", 1) in spots
+    assert {(cited[item].file, cited[item].line) for item in row.evidence_ids} == {
+        ("src/use.ts", 1)
+    }
+    bindings = next(item.records for item in facts.sections if item.name == "bindings")
+    (fact,) = [item for item in bindings if item.id in row.fact_ids]
+    assert fact.data.get("script_global") == "NAME"
+    assert {(cited[item].file, cited[item].line) for item in fact.evidence_ids} == {
+        ("src/globals.d.ts", 3)
+    }
     assert row.data.get("target_module") == "NAME" and not row.data.get("symbols_known")
 
 
