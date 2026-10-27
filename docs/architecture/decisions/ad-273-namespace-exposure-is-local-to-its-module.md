@@ -2,7 +2,9 @@
 
 **Decision.** This amends AD-240. Three classes replace the snapshot-wide rule:
 - **No exposure:** a `globals()` that only reads names (`set(globals())`, `sorted(globals().keys())`,
-  `'x' in globals()`, `len(...)`, iteration). Keys are strings and reach no shared object.
+  `'x' in globals()`, `len(...)`, iteration). Keys are strings and reach no shared object. The
+  consumer must be the builtin: a module's own `def set` does not count. A keys view keeps its dict in
+  `.mapping`, so `.keys()` passes the check on to the next consumer.
 - **Own module only:** `eval`, `exec`, `__annotations__`, `get_type_hints` and
   `inspect.get_annotations`. They withhold the proof of both loaders in that module. The code that
   `eval` and `exec` run is not proved; AD-240 already does not prove arbitrary runtime effects.

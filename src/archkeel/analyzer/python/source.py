@@ -2733,12 +2733,24 @@ def reads_only_namespace_names(
         and resolve_static_name(module, node.func) in {"globals", "builtins.globals"}
     ):
         return False
+    return _consumed_as_names(module, node, parents)
+
+
+def _consumed_as_names(
+    module: ParsedModule, node: ast.expr, parents: Mapping[ast.AST, ast.AST]
+) -> bool:
+    # A keys view keeps its dict in `.mapping`, so `.keys()` only passes on to the same consumers.
     parent = parents.get(node)
     if isinstance(parent, ast.Attribute) and parent.attr == "keys":
         call = parents.get(parent)
-        return isinstance(call, ast.Call) and call.func is parent
+        return (
+            isinstance(call, ast.Call)
+            and call.func is parent
+            and _consumed_as_names(module, call, parents)
+        )
     if isinstance(parent, ast.Call):
-        return resolve_static_name(module, parent.func) in _NAME_CONTAINERS
+        # A module-level `def set(...)` must not pass for the builtin.
+        return parent.args == [node] and _bare_builtin(module, parent.func, _NAME_CONTAINERS)
     if isinstance(parent, ast.Compare):
         return parent.left is not node and all(
             isinstance(op, ast.In | ast.NotIn) for op in parent.ops

@@ -297,6 +297,21 @@ READS = {
     "[k for k in x if globals()]": False,
     "globals()(1)": False,
     "x in globals() == y": False,
+    "set(globals().keys())": True,
+    "'x' in globals().keys()": True,
+    "for k in globals().keys(): pass": True,
+    "sorted(globals(), key=len)": True,
+    "k = globals().keys()": False,
+    "globals().keys().mapping['importlib']": False,
+    "globals().keys() & x": False,
+    "set(x, globals())": False,
+    "def set(ns): pass\nset(globals())": False,
+    "set = f\nset(globals())": False,
+    "import set\nset(globals())": False,
+    "from m import sorted\nsorted(globals())": False,
+    "class list: pass\nlist(globals())": False,
+    "def f(len): return len(globals())": False,
+    "builtins.set(globals())": False,
 }
 
 
