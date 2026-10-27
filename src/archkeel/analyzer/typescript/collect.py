@@ -791,6 +791,7 @@ class _Collection:
     ) -> bool:
         module = self.modules[rel]
         identity = stable_id("TSGLOBAL", module, site.span.line, site.span.column, site.kind.value)
+        facts: tuple[str, ...] = ()
         if self._script_standard_global(path[0], publishers):
             target: ImportTarget = BuiltinTarget(identity, path[0])
             package = path[0]
@@ -798,11 +799,7 @@ class _Collection:
             target = BuiltinTarget(identity, path[0])
             package = path[0]
             # The declaration sits in another file, so it is a fact, not evidence of this record.
-            fact = self._script_declaration_fact(*declared, path[0])
-            self.script_fact_ids[(module, site)] = (
-                *self.script_fact_ids.get((module, site), ()),
-                fact,
-            )
+            facts = (self._script_declaration_fact(*declared, path[0]),)
         elif (vendor := self._script_vendor_package(path[0], publishers)) is not None:
             target = ExternalPackageTarget(identity, vendor)
             package = vendor
@@ -819,6 +816,7 @@ class _Collection:
             [self._cite(rel, site.span)],
             alias,
             target_package=package,
+            facts=facts,
         )
         return True
 
@@ -966,6 +964,7 @@ class _Collection:
         alias: ScriptAlias | None,
         *,
         target_package: str | None = None,
+        facts: tuple[str, ...] = (),
     ) -> None:
         module = self.modules[rel]
         identity = stable_id("TSGLOBAL", module, site.span.line, site.span.column, site.kind.value)
@@ -978,7 +977,7 @@ class _Collection:
                 title=f"{module} uses script global {path[0]}",
                 subjects=[module, target_module],
                 evidence_ids=evidence_ids,
-                fact_ids=list(self.script_fact_ids.get((module, site), ())),
+                fact_ids=[*self.script_fact_ids.get((module, site), ()), *facts],
                 data={
                     "source_module": module,
                     "source_package": _package_of(module),

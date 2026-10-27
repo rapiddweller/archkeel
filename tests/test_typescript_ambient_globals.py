@@ -217,3 +217,12 @@ def test_a_vite_project_reports_only_what_the_catalog_and_declarations_cannot_pr
     )
     assert not any("Script global" in gap.data.get("reason", "") for gap in facts.coverage.gaps)
     assert not any("triple-slash" in gap.data.get("reason", "") for gap in facts.coverage.gaps)
+
+
+def test_a_declared_global_read_through_an_alias_keeps_record_ids_unique(tmp_path):
+    files = {
+        "src/globals.d.ts": "declare const NAME: { go(): void };",
+        "src/use.js": "(function () { const port = window.NAME; port.go(); })();\n",
+    }
+    facts = _facts(tmp_path, files, {"allowJs": True})
+    assert not _gaps(facts, "NAME")
