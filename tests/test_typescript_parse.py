@@ -148,7 +148,12 @@ def test_a_reference_the_parser_had_to_repair_is_dropped() -> None:
         ("import {createRequire} from 'node:module';", ["Node module loader is not observed"]),
         ("const x = {'createRequire': 1};", ["Node module loader is not observed"]),
         ("import type {X} from 'module';", ["Node module loader is not observed"]),
-        ("/// <reference types='node' />\nexport {};", ["Unobserved triple-slash reference: node"]),
+        ("/// <reference types='node' />\nexport {};", []),
+        (
+            "/// <reference path='./a.d.ts' />\nexport {};",
+            ["Unobserved triple-slash reference: ./a.d.ts"],
+        ),
+        ("/// <reference lib='dom' />\nexport {};", ["Unobserved triple-slash reference: dom"]),
         ("export {};\n/// <reference types='node' />", []),
         ("// import('x')\n/* @import {X} from 'x' */", []),
         ("/** @typedef {import('./a').A} A */", ["JSDoc import is not observed"]),
