@@ -2700,6 +2700,87 @@ def exposes_dynamic_namespace(
     )
 
 
+# The calls and names that expose only the namespace of the module that uses them (AD-273).
+# `globals()` is not one of them: its dict holds references to shared objects such as `importlib`.
+_OWN_NAMESPACE_NAMES: Final = frozenset(
+    {
+        "exec",
+        "builtins.exec",
+        "eval",
+        "builtins.eval",
+        "typing.get_type_hints",
+        "typing_extensions.get_type_hints",
+        "inspect.get_annotations",
+    }
+)
+
+
+_NAME_CONTAINERS: Final = frozenset({"set", "frozenset", "sorted", "list", "tuple", "len"})
+
+
+def reads_only_namespace_names(
+    module: ParsedModule, node: ast.AST, parents: Mapping[ast.AST, ast.AST]
+) -> bool:
+    """Whether a `globals()` call only reads the names of the module (AD-273).
+
+    The keys are strings, so reading them reaches no shared object. Any other use of the dict
+    (`globals()[name]`, `.get`, `.items()`, `dict(globals())`, a variable) can reach `importlib` or
+    `builtins` through the module's bindings and is not a read of names.
+    """
+    if not (
+        isinstance(node, ast.Call)
+        and not node.args
+        and resolve_static_name(module, node.func) in {"globals", "builtins.globals"}
+    ):
+        return False
+    return _consumed_as_names(module, node, parents)
+
+
+def _consumed_as_names(
+    module: ParsedModule, node: ast.expr, parents: Mapping[ast.AST, ast.AST]
+) -> bool:
+    # A keys view keeps its dict in `.mapping`, so `.keys()` only passes on to the same consumers.
+    parent = parents.get(node)
+    if isinstance(parent, ast.Attribute) and parent.attr == "keys":
+        call = parents.get(parent)
+        return (
+            isinstance(call, ast.Call)
+            and call.func is parent
+            and _consumed_as_names(module, call, parents)
+        )
+    if isinstance(parent, ast.Call):
+        # A module-level `def set(...)` must not pass for the builtin.
+        return parent.args == [node] and _bare_builtin(module, parent.func, _NAME_CONTAINERS)
+    if isinstance(parent, ast.Compare):
+        return parent.left is not node and all(
+            isinstance(op, ast.In | ast.NotIn) for op in parent.ops
+        )
+    return isinstance(parent, ast.For | ast.AsyncFor | ast.comprehension) and parent.iter is node
+
+
+def exposes_own_namespace_only(module: ParsedModule, node: ast.AST) -> bool:
+    """Whether an exposure that `exposes_dynamic_namespace` found stays in the module itself.
+
+    Fail closed: an exposure that is not listed here (a frame's `f_globals`, `__builtins__`, any
+    trigger added later) is treated as reaching other modules.
+    """
+    if isinstance(node, ast.Name):
+        return node.id == "__annotations__" or resolve_static_name(module, node) in (
+            _OWN_NAMESPACE_NAMES
+        )
+    if isinstance(node, ast.Call):
+        target = node.func
+    elif isinstance(node, ast.Assign | ast.AnnAssign) and isinstance(
+        node.value, ast.Name | ast.Attribute
+    ):
+        target = node.value
+    elif isinstance(node, ast.Attribute):
+        target = node
+    else:
+        return False
+    return resolve_static_name(module, target) in _OWN_NAMESPACE_NAMES
+
+
 def _import_bindings(node: ast.Import | ast.ImportFrom) -> tuple[str, ...]:
     return tuple(
         alias.asname or (alias.name.split(".")[0] if isinstance(node, ast.Import) else alias.name)

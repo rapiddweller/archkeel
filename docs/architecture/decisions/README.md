@@ -281,3 +281,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-271 | [Record the calls in every child of an unsupported statement](ad-271-guard-paths-through-all-unsupported-children.md) |
 | AD-272 | [Rank what an incomplete observation proves](ad-272-rank-what-an-incomplete-observation-proves.md) |
 | AD-274 | [`types` adds globals, and a project declaration publishes its name](ad-274-types-add-and-project-declarations-publish.md) |
+| AD-273 | [A namespace exposure withholds loader proof in its own module only](ad-273-namespace-exposure-is-local-to-its-module.md) |
