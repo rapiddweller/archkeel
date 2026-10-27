@@ -140,6 +140,7 @@ and canonical type identity; their exact and optional-union semantics are record
 | [AD-271](decisions/ad-271-guard-paths-through-all-unsupported-children.md) | The guarded-path walker records calls in except handlers, `with` items and `match` cases as `unsupported_control_flow`. |
 | [AD-272](decisions/ad-272-rank-what-an-incomplete-observation-proves.md) | An incomplete observation ranks the violations and cycles it proves, never hubs; the page names the reason. |
 | [AD-273](decisions/ad-273-namespace-exposure-is-local-to-its-module.md) | `globals()`, `eval` and `exec` withhold loader proof in their own module, not in the whole snapshot. |
+| [AD-274](decisions/ad-274-types-add-and-project-declarations-publish.md) | `types` adds globals instead of switching the catalog off; a project `declare` in a script file publishes its name. |
 | [AD-246](decisions/ad-246-bounded-numeric-operand.md) | Bind selected modulo bounds to bounded source-derived integer proofs. |
 
 | [AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md) | Bind explicitly written actuals to proven formals before applying argument policies. |

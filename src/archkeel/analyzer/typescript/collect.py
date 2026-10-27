@@ -715,25 +715,50 @@ class _Collection:
         )
         return identity
 
-    def _script_standard_global(
-        self, name: str, publishers: list[tuple[str, ScriptGlobal]]
-    ) -> bool:
+    def _script_global_stable(self, name: str, publishers: list[tuple[str, ScriptGlobal]]) -> bool:
         return (
             not publishers
             and self.script_vendors_complete
             and not self.script_vendor_writes_unbounded
             and name not in self.script_vendor_writes
             and name not in self.script_vendors
-            and name in standard_globals(self.config.options)
             and not self.config.partial
             and all(syntax.first_error is None for syntax in self.syntax.values())
-            and not any(name in syntax.script_bindings for syntax in self.syntax.values())
             and not any(
                 not path or path == (name,)
                 for syntax in self.syntax.values()
                 for path in syntax.script_write_paths
             )
         )
+
+    def _script_standard_global(
+        self, name: str, publishers: list[tuple[str, ScriptGlobal]]
+    ) -> bool:
+        return (
+            name in standard_globals(self.config.options)
+            and self._script_global_stable(name, publishers)
+            and not any(name in syntax.script_bindings for syntax in self.syntax.values())
+        )
+
+    def _script_declared_global(
+        self, name: str, publishers: list[tuple[str, ScriptGlobal]]
+    ) -> tuple[str, Span] | None:
+        """The first project `declare` of `name`, when nothing else binds or writes the name."""
+        declarations = [
+            (rel, span)
+            for rel, syntax in sorted(self.syntax.items())
+            for declared, span in syntax.ambient_globals
+            if declared == name
+        ]
+        # A `declare const` is also a binding of its own file; any other file binding it blocks.
+        bound_elsewhere = any(
+            name in syntax.script_bindings
+            and name not in {declared for declared, _ in syntax.ambient_globals}
+            for syntax in self.syntax.values()
+        )
+        if declarations and not bound_elsewhere and self._script_global_stable(name, publishers):
+            return declarations[0]
+        return None
 
     def _script_external_dependency(
         self,
@@ -746,9 +771,15 @@ class _Collection:
         module = self.modules[rel]
         identity = stable_id("TSGLOBAL", module, site.span.line, site.span.column, site.kind.value)
         vendor = self._script_vendor_package(path[0], publishers)
+        declared = self._script_declared_global(path[0], publishers)
+        evidence = [self._cite(rel, site.span)]
         if self._script_standard_global(path[0], publishers):
             target: ImportTarget = BuiltinTarget(identity, path[0])
             package = path[0]
+        elif declared is not None:
+            target = BuiltinTarget(identity, path[0])
+            package = path[0]
+            evidence.append(self._cite(*declared))
         elif vendor is not None:
             target = ExternalPackageTarget(identity, vendor)
             package = vendor
@@ -762,7 +793,7 @@ class _Collection:
             package,
             None,
             False,
-            [self._cite(rel, site.span)],
+            evidence,
             alias,
             target_package=package,
         )

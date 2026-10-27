@@ -651,11 +651,9 @@ def _options(layer: _Layer, problems: list[str]) -> Options:
         json_flag if isinstance(json_flag, bool) else None,
         libraries,
         raw.get("noLib") is True,
-        unsupported_library
-        or any(
-            raw.get(name) not in (None, False, [])
-            for name in ("types", "typeRoots", "libReplacement")
-        ),
+        # `types` and `typeRoots` only add globals to the catalog (AD-274); a replacement lib
+        # can change what a lib name means.
+        unsupported_library or raw.get("libReplacement") not in (None, False),
     )
     if options.no_lib and libraries is not None:
         problems.append("Compiler option 5053: 'lib' cannot be specified with 'noLib'.")

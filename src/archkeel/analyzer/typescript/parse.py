@@ -161,7 +161,9 @@ class _NodeKind(Enum):
     MEMBER_EXPRESSION = "member_expression"
     METHOD_DEFINITION = "method_definition"
     METHOD_SIGNATURE = "method_signature"
+    MODULE = "module"
     NAMED_IMPORTS = "named_imports"
+    NESTED_IDENTIFIER = "nested_identifier"
     NAMESPACE_EXPORT = "namespace_export"
     NAMESPACE_IMPORT = "namespace_import"
     NEW_EXPRESSION = "new_expression"
@@ -325,7 +327,17 @@ def _special_name(value: str | None) -> _SpecialName | None:
 _LOADER: Final = "Node module loader is not observed"
 # A comment opens a JSDoc block unless it is `/**/`; only those can carry typed imports.
 _JSDOC_IMPORT: Final = re.compile(r"^/\*\*(?!/)[\s\S]*(?:@import\b|\bimport\s*\()")
-_TRIPLE_SLASH: Final = re.compile(r"^///\s*<reference\s+(?:path|types|lib)\s*=\s*(['\"])(.*?)\1")
+
+
+class _ReferenceDirective(Enum):
+    PATH = "path"
+    TYPES = "types"
+    LIB = "lib"
+
+
+_TRIPLE_SLASH: Final = re.compile(
+    r"^///\s*<reference\s+(?P<kind>path|types|lib)\s*=\s*(['\"])(?P<name>.*?)\2"
+)
 # Line breaks as the TypeScript compiler counts them, so reported lines agree with it.
 _LINE_BREAK: Final = re.compile(rb"\r\n|[\n\r]|\xe2\x80[\xa8\xa9]")
 # Constructs that hold types: a module named inside them is a type-only reference.
@@ -504,6 +516,7 @@ def parse(rel_path: str, data: bytes) -> Syntax:
         tuple(sorted(bindings.get(source.root, ()))),
         _script_namespaces(source, bindings) if script_mode else (),
         _module_export_bindings(source, bindings, ambiguous_bindings),
+        _ambient_globals(source),
     )
 
 
@@ -1663,6 +1676,74 @@ def _static_path(node: _RawNode) -> tuple[str, ...]:
             path = _static_path(receiver)
             return (*path, _text(name)) if path else ()
     return ()
+
+
+_AMBIENT_VALUE_NAMES: Final = frozenset(
+    {
+        _NodeKind.LEXICAL_DECLARATION,
+        _NodeKind.VARIABLE_DECLARATION,
+        _NodeKind.FUNCTION_SIGNATURE,
+        _NodeKind.CLASS_DECLARATION,
+        _NodeKind.ABSTRACT_CLASS_DECLARATION,
+        _NodeKind.ENUM_DECLARATION,
+        _NodeKind.INTERNAL_MODULE,
+        _NodeKind.MODULE,
+    }
+)
+
+
+def _ambient_globals(source: _Source) -> tuple[tuple[str, Span], ...]:
+    """Value names that a `declare` statement adds to the global scope (AD-274).
+
+    A file with a top-level `import` or `export` is a module: only its `declare global` block adds
+    globals. Any other file is a global script, and its top-level `declare` statements do.
+    """
+    top = source.root.named_children
+    module_syntax = any(
+        _node_kind(item)
+        in {_NodeKind.IMPORT_STATEMENT, _NodeKind.IMPORT_ALIAS, _NodeKind.EXPORT_STATEMENT}
+        for item in top
+    )
+    found: list[tuple[str, Span]] = []
+    for statement in top:
+        if (
+            _node_kind(statement) is not _NodeKind.AMBIENT_DECLARATION
+            or not statement.named_children
+        ):
+            continue
+        inner = statement.named_children[0]
+        if _node_kind(inner) is _NodeKind.STATEMENT_BLOCK:
+            declarations = inner.named_children
+        elif module_syntax:
+            continue
+        else:
+            declarations = [inner]
+        for declaration in declarations:
+            # Inside `declare global { }` a namespace parses as an expression statement.
+            if (
+                _node_kind(declaration) is _NodeKind.EXPRESSION_STATEMENT
+                and declaration.named_children
+            ):
+                declaration = declaration.named_children[0]
+            if _node_kind(declaration) not in _AMBIENT_VALUE_NAMES:
+                continue
+            if _node_kind(declaration) in {
+                _NodeKind.LEXICAL_DECLARATION,
+                _NodeKind.VARIABLE_DECLARATION,
+            }:
+                names = [item.child_by_field_name("name") for item in declaration.named_children]
+            else:
+                names = [declaration.child_by_field_name("name")]
+            for name in names:
+                # `namespace A.B` publishes `A`; `module "x"` names no global.
+                if name is not None and _node_kind(name) is _NodeKind.NESTED_IDENTIFIER:
+                    name = name.named_children[0]
+                if name is not None and _node_kind(name) in {
+                    _NodeKind.IDENTIFIER,
+                    _NodeKind.TYPE_IDENTIFIER,
+                }:
+                    found.append((_text(name), source.span(name)))
+    return tuple(found)
 
 
 def _script_bindings(
@@ -3579,8 +3660,12 @@ def _comment_concerns(source: _Source) -> list[Concern]:
     for node in source.captures("comments").get("comment", []):
         body = _text(node)
         directive = _TRIPLE_SLASH.match(body) if node.start_byte < first else None
-        if directive is not None:
-            reason = f"Unobserved triple-slash reference: {directive[2]}"
+        # A `types` entry only adds globals, which the catalog does not model (AD-274).
+        if (
+            directive is not None
+            and _ReferenceDirective(directive["kind"]) is not _ReferenceDirective.TYPES
+        ):
+            reason = f"Unobserved triple-slash reference: {directive['name']}"
             concerns.append(Concern(reason, source.span(node)))
         if _JSDOC_IMPORT.match(body):
             concerns.append(Concern("JSDoc import is not observed", source.span(node)))

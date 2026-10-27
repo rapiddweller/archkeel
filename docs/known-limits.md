@@ -172,9 +172,11 @@ concerns remain
 See [adapter limits](architecture/typescript-foundation-proposal.md#evidence-and-limits).
 Standard globals follow the pinned TypeScript lib files
 ([AD-261](architecture/decisions/ad-261-typescript-standard-globals-from-lib-files.md)):
-a `lib` value the pinned compiler does not name, `noLib`, `types`, `typeRoots` or
-`libReplacement` leaves them unproved. Without `lib`, the target's default file applies,
-DOM included. Only top-level value declarations count, so types such as `Document` are not
+a `lib` value the pinned compiler does not name, `noLib` or `libReplacement` leaves them unproved.
+`types` and `typeRoots` add names the catalog does not hold, so those names stay unproved
+([AD-274](architecture/decisions/ad-274-types-add-and-project-declarations-publish.md)); a
+project `declare` of a name, in a global script or a `declare global` block, proves that name.
+Without `lib`, the target's default file applies, DOM included. Only top-level value declarations count, so types such as `Document` are not
 proved, and a newer `lib` name waits for the pinned TypeScript version to move.
 
 ## Dart profile

@@ -59,8 +59,6 @@ def test_supported_library_environments_only_prove_their_own_globals(
     "compiler",
     [
         {"lib": ["es2022", "unobserved.library"]},
-        {"lib": ["es2022", "dom"], "types": ["node"]},
-        {"lib": ["es2022", "dom"], "typeRoots": ["./ambient"]},
         {"lib": ["es2022", "dom"], "libReplacement": True},
     ],
 )
@@ -74,12 +72,27 @@ def test_unmodeled_library_selection_never_partly_proves_a_standard_environment(
     assert isinstance(source_edge, Found) and source_edge.path == "dependency.ts"
 
 
-@pytest.mark.parametrize("options", [{"types": []}, {"typeRoots": []}, {"libReplacement": False}])
-def test_disabled_ambient_overrides_keep_an_explicit_standard_environment(tmp_path, options):
+@pytest.mark.parametrize(
+    "options",
+    [
+        {},
+        {"types": []},
+        {"types": ["node"]},
+        {"types": ["vite/client", "node", "vitest/globals"]},
+        {"typeRoots": []},
+        {"typeRoots": ["./ambient"]},
+        {"types": ["node"], "typeRoots": ["./ambient"]},
+        {"libReplacement": False},
+    ],
+)
+def test_types_and_type_roots_add_globals_and_keep_the_standard_environment(tmp_path, options):
     config, snapshot = _environment(tmp_path, {"lib": ["es2022", "dom"], **options})
     assert not config.partial and not snapshot.problems and not config.options.unmodeled
     assert not config.options.ambient_custom
-    assert {"Map", "String", "document"} <= standard_globals(config.options)
+    names = standard_globals(config.options)
+    assert {"Map", "String", "document", "Math", "Date"} <= names
+    # A types package adds names the catalog does not hold; they stay unproved (AD-274).
+    assert not {"process", "__dirname", "describe", "Buffer"} & names
 
 
 @pytest.mark.parametrize(
