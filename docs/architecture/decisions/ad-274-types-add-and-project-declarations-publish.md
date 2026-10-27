@@ -35,6 +35,9 @@ exists, the config is not partial, no scanned file has a syntax error, no scanne
 name, and nothing writes to it (`window.fetch = ...`). A project declaration (rule 2) obeys the same
 conditions. A declaration is not a publisher, so a second declaration of the name does not conflict.
 
+**Also.** A vendored classic-browser script is no longer blocked by `types` or `typeRoots`. A
+types package adds declarations only; the vendor proof rests on the bundle bytes.
+
 **Not changed.** `window.fetch = ...` and `window` as a default parameter value keep their gap
 ("Escaped or computed global host dependency"). An `open` gap that Peter reports could not be
 reproduced; we asked for the two modules.

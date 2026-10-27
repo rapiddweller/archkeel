@@ -298,3 +298,4 @@ class Syntax:
     script_bindings: tuple[str, ...] = ()
     script_namespaces: tuple[ScriptNamespace, ...] = ()
     module_exports: tuple[tuple[str, Span, Span], ...] = ()
+    ambient_globals: tuple[tuple[str, Span], ...] = ()

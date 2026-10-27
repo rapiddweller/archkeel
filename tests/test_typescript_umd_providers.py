@@ -25,7 +25,7 @@ UMD = (
 )
 
 
-def _repository(tmp_path, *, source=UMD, host="classic-browser", metadata=None):
+def _repository(tmp_path, *, source=UMD, host="classic-browser", metadata=None, compiler=None):
     (tmp_path / "main.js").write_text("new Widget();")
     (tmp_path / "vendor.js").write_text(source)
     digest = hashlib.sha256(source.encode()).hexdigest()
@@ -41,7 +41,11 @@ def _repository(tmp_path, *, source=UMD, host="classic-browser", metadata=None):
         section["scriptHost"] = host
     (tmp_path / "tsconfig.json").write_text(
         json.dumps(
-            {"compilerOptions": {"allowJs": True}, "files": ["main.js"], "archkeel": section}
+            {
+                "compilerOptions": {"allowJs": True, **(compiler or {})},
+                "files": ["main.js"],
+                "archkeel": section,
+            }
         )
     )
     snapshot = Snapshot(str(tmp_path))
@@ -82,6 +86,20 @@ def test_renamed_native_envelope_uses_actual_package_not_publication_name(tmp_pa
     assert package == "vendor-widget"
     assert umd_publication("vendor.js", content)[0] == "Widget"
     assert {"tsconfig.json", "vendor.js", "LICENSE.md"} <= snapshot.inputs.keys()
+
+
+@pytest.mark.parametrize(
+    ("compiler", "authenticated"),
+    [
+        ({"types": ["node"]}, True),
+        ({"typeRoots": ["./ambient"]}, True),
+        ({"libReplacement": True}, False),
+        ({"lib": ["es2022", "unobserved.library"]}, False),
+    ],
+)
+def test_types_do_not_block_a_vendor_but_a_replacement_lib_does(tmp_path, compiler, authenticated):
+    config, _, resolver = _repository(tmp_path, compiler=compiler)
+    assert (resolver.script_provider(config.script_providers[0]) is not None) is authenticated
 
 
 @pytest.mark.parametrize("host", [None, "commonjs", "amd"])
