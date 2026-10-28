@@ -113,6 +113,10 @@ class Variant:
     # pass once the analyzer named the wrong public_api entry, the failure mode AD-72 exists to
     # surface, so each pair is checked whole.
     expected_unknowns: tuple[tuple[str, str], ...] = ()
+    # (kind, subject) pairs a real run's `unknowns` records must NOT contain: a PASS cannot be
+    # read from declared_rules, which stays UNKNOWN for the whole sample, so a row proving one
+    # rule's PASS names the limit that rule would otherwise record.
+    absent_unknowns: tuple[tuple[str, str], ...] = ()
     evidence: str | None = None
     check: CheckExpectation | None = None
     against: AgainstExpectation | None = None
