@@ -1814,13 +1814,32 @@
             "kind": "public",
             "basis": "declared"
           },
-          "id": "TS-TYPED-Options.ambient_custom",
+          "id": "TS-TYPED-Options.lib_unmodeled",
           "kind": "attribute",
-          "qualified_name": "archkeel.analyzer.typescript.config.Options.ambient_custom",
+          "qualified_name": "archkeel.analyzer.typescript.config.Options.lib_unmodeled",
           "parent_id": "TS-TYPED-Options",
           "annotation": "bool",
           "responsibilities": [
-            "Keep customized ambient environments outside the closed standard-library proof."
+            "Keep replaced or unsupported libraries outside the closed standard-library proof."
+          ]
+        },
+        {
+          "language": "python",
+          "presence": "planned",
+          "provenance": [
+            "docs/architecture/target/design.md"
+          ],
+          "visibility": {
+            "kind": "public",
+            "basis": "declared"
+          },
+          "id": "TS-TYPED-Options.module_detection",
+          "kind": "attribute",
+          "qualified_name": "archkeel.analyzer.typescript.config.Options.module_detection",
+          "parent_id": "TS-TYPED-Options",
+          "annotation": "ModuleDetection | None",
+          "responsibilities": [
+            "Decide with the module kind whether a source file without import or export is global."
           ]
         },
         {
