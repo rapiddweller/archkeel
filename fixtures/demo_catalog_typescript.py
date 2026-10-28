@@ -70,6 +70,54 @@ def example(
     )
 
 
+def _bundler_package(*, asset: bool) -> dict[str, str]:
+    """A bundler-mode project that imports a stylesheet through a package `exports` map."""
+    files = {
+        "tsconfig.json": json.dumps(
+            {
+                "compilerOptions": {
+                    "target": "ES2022",
+                    "module": "ESNext",
+                    "moduleResolution": "Bundler",
+                    "strict": True,
+                    "noEmit": True,
+                },
+                "include": ["src/**/*.ts"],
+            },
+            indent=2,
+        )
+        + "\n",
+        "archkeel.toml": (TYPESCRIPT_FIXTURE_DIR / "archkeel.toml").read_text()
+        + "bundler = true\n",
+        "resolver-inputs/styled/package.json": json.dumps(
+            {
+                "name": "styled",
+                "version": "1.0.0",
+                "exports": {
+                    ".": {"types": "./dist/index.d.ts", "default": "./dist/index.js"},
+                    "./dist/styles.css": "./dist/styles.css",
+                },
+            }
+        ),
+        "resolver-inputs/styled/dist/index.d.ts": "export declare const sheet: number;\n",
+        "src/main.ts": appended("src/main.ts", 'import "styled/dist/styles.css";\n'),
+    }
+    if asset:
+        files["resolver-inputs/styled/dist/styles.css"] = ""
+    return files
+
+
+def _tsconfig(**options: object) -> str:
+    """The fixture TSConfig with extra compiler options."""
+    value = json.loads((TYPESCRIPT_FIXTURE_DIR / "tsconfig.json").read_text())
+    value["compilerOptions"].update(options)
+    return json.dumps(value, indent=2) + "\n"
+
+
+def _global_use(name: str) -> str:
+    return appended("src/main.ts", f"export const global_{name.lower()} = {name};\n")
+
+
 UNSUPPORTED_RULES = {
     "protocol_declarations": {
         "source": "shop",
@@ -536,6 +584,79 @@ VARIANTS: tuple[Variant, ...] = (
         "Import-graph edges do not measure imported facade names.",
         {"architecture-contract.json": _name_budget(coupling=True)},
         refused=True,
+    ),
+    # AD-274 (#682, #721): `types` adds globals, and a project `declare` publishes its name.
+    example(
+        "types-keep-the-catalog",
+        "standard_globals:types",
+        "A `types` entry keeps `Math` and `document` proven; the project is complete.",
+        {
+            "tsconfig.json": _tsconfig(lib=["ES2023", "DOM"], types=["vite/client"]),
+            "src/main.ts": appended(
+                "src/main.ts", "export const m = Math.max(1, 2);\nexport const d = document;\n"
+            ),
+        },
+    ),
+    example(
+        "types-unlisted-global",
+        "standard_globals:types_unlisted",
+        "A name that only a types package adds stays a gap.",
+        {
+            "tsconfig.json": _tsconfig(lib=["ES2023", "DOM"], types=["node"]),
+            "src/main.ts": _global_use("process"),
+        },
+        gap=True,
+    ),
+    example(
+        "declared-global",
+        "standard_globals:declared",
+        "A `declare global` block publishes its name for every file.",
+        {
+            "src/domain/order.ts": appended(
+                "src/domain/order.ts", "declare global { const __APP_VERSION__: string; }\n"
+            ),
+            "src/main.ts": _global_use("__APP_VERSION__"),
+        },
+    ),
+    example(
+        "declared-global-in-a-module",
+        "standard_globals:declared_in_module",
+        "A top-level `declare const` in a file with `export` is local and publishes nothing.",
+        {
+            "src/domain/order.ts": appended(
+                "src/domain/order.ts", "declare const __APP_VERSION__: string;\n"
+            ),
+            "src/main.ts": _global_use("__APP_VERSION__"),
+        },
+        gap=True,
+    ),
+    example(
+        "module-binding-is-not-a-publication",
+        "standard_globals:module_binding",
+        "A module-local `function open` does not make `window.open` a second publication.",
+        {
+            "src/domain/order.ts": appended(
+                "src/domain/order.ts", "function open(n: number): number { return n + 1; }\n"
+            ),
+            "src/main.ts": appended(
+                "src/main.ts", "export const go = () => window.open('/x', '_blank');\n"
+            ),
+        },
+    ),
+    # #728: a package that exports an asset is an edge to its package in bundler mode.
+    example(
+        "bundler-exported-asset",
+        "bundler:exported_asset",
+        "A stylesheet that a package exports is an edge to the package, so the package is seen.",
+        _bundler_package(asset=True),
+        ("EXTERNAL-COMPLETE",),
+    ),
+    example(
+        "bundler-exported-asset-missing",
+        "bundler:exported_asset_missing",
+        "An exported stylesheet that is not installed stays an unresolved import.",
+        _bundler_package(asset=False),
+        gap=True,
     ),
     Variant(
         id="typescript-syntax-error",
