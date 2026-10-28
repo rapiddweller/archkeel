@@ -663,7 +663,21 @@ def _provider_modules(
                 tree,
             )
         )
-    return [module for module in providers if _provider_source_eligible(module)]
+    eligible = [module for module in providers if _provider_source_eligible(module)]
+    keys = {
+        (module.module, node.slice.value)
+        for module in eligible
+        if module.path.name == "__init__.py"
+        for node in module.all_nodes
+        if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant)
+    }
+    kept: list[ParsedModule] = []
+    for module in eligible:
+        name: str = module.module
+        # Python imports a child that its parent puts in sys.modules from there, not from its file.
+        if (name.rpartition(".")[0], name) not in keys:
+            kept.append(module)
+    return kept
 
 
 def _provider_bindings(
@@ -1132,16 +1146,20 @@ def _provider_parents_static(
 def _registry_children(module: ParsedModule) -> dict[str, tuple[ast.Assign, str]]:
     """Children that one top-level `sys.modules['<package>.<child>'] = <module>` publishes."""
     writes: dict[str, list[tuple[ast.Assign, str]]] = {}
-    for statement in module.tree.body:
+    for index, statement in enumerate(module.tree.body):
         if not isinstance(statement, ast.Assign) or len(statement.targets) != 1:
             continue
         [target] = statement.targets
         if (
             isinstance(target, ast.Subscript)
+            and isinstance(target.value, ast.Attribute)
+            and target.value.attr == "modules"
+            and isinstance(target.value.value, ast.Name)
+            and _plain_import(module, target.value.value.id, index) == "sys"
             and isinstance(target.slice, ast.Constant)
             and isinstance(target.slice.value, str)
             and isinstance(statement.value, ast.Name)
-            and resolve_static_name(module, target.value) == "sys.modules"
+            and _plain_import(module, statement.value.id, index) == statement.value.id
         ):
             key: str = target.slice.value
             package, _, child = key.rpartition(".")
@@ -1167,7 +1185,6 @@ def _registry_children(module: ParsedModule) -> dict[str, tuple[ast.Assign, str]
         if len(found) != 1:
             continue
         [(statement, value)] = found
-        imported = module.aliases.get(value)
         attribute = [
             item.value
             for item in module.tree.body
@@ -1176,21 +1193,31 @@ def _registry_children(module: ParsedModule) -> dict[str, tuple[ast.Assign, str]
             if isinstance(target, ast.Name) and target.id == child
         ]
         if (
-            imported is not None
-            and imported.target == value
-            and module.scope_bound_names.count(value) == 1
-            and value not in module.global_names
-            and child not in module.global_names
-            and (
-                child not in module.scope_bound_names
-                or module.scope_bound_names.count(child) == 1
-                and len(attribute) == 1
-                and isinstance(attribute[0], ast.Name)
-                and attribute[0].id == value
-            )
+            child not in module.scope_bound_names
+            or module.scope_bound_names.count(child) == 1
+            and len(attribute) == 1
+            and isinstance(attribute[0], ast.Name)
+            and attribute[0].id == value
         ):
             published[child] = (statement, value)
     return published
+
+
+def _plain_import(module: ParsedModule, name: str, before: int) -> str | None:
+    """The module that a unique top-level `import` before `before` binds to `name`."""
+    found = [
+        alias.name
+        for statement in module.tree.body[:before]
+        if isinstance(statement, ast.Import)
+        for alias in statement.names
+        if (alias.asname or alias.name) == name
+    ]
+    unique = (
+        len(found) == 1
+        and module.scope_bound_names.count(name) == 1
+        and name not in module.global_names
+    )
+    return found[0] if unique else None
 
 
 def _import_targets(

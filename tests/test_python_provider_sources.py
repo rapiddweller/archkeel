@@ -2203,6 +2203,7 @@ _REGISTRY = "import sys\nimport model\nsys.modules['vendor.leaf'] = model\n"
         (_REGISTRY + "model = None\n", False),
         (_REGISTRY + "leaf = None\n", False),
         (_REGISTRY + "leaf = sys\n", False),
+        (_REGISTRY + "def reset():\n    global leaf\n    leaf = None\n", False),
         (_REGISTRY + "def __getattr__(name): return None\n", False),
     ],
     ids=[
@@ -2220,6 +2221,7 @@ _REGISTRY = "import sys\nimport model\nsys.modules['vendor.leaf'] = model\n"
         "rebound-value",
         "rebound-attribute",
         "attribute-other-module",
+        "attribute-global-rebind",
         "missing-name-hook",
     ],
 )
@@ -2245,6 +2247,113 @@ def test_registry_published_child_is_an_alias_of_its_module(tmp_path, parent, kn
         assert evidence[alias.evidence_id].file == ".archkeel-providers/vendor/__init__.py"
         assert "sys.modules['vendor.leaf'] = model" in evidence[alias.evidence_id].excerpt
         assert evidence[alias.supporting_evidence_ids[0]].file == ".archkeel-providers/model.py"
+
+
+_WRITE = "sys.modules['vendor.leaf'] = model\n"
+
+
+@pytest.mark.parametrize(
+    ("parent", "known"),
+    [
+        ("import sys\nimport model\n" + _WRITE, True),
+        ("import sys as registry\nimport model\nregistry.modules['vendor.leaf'] = model\n", True),
+        ("import sys\nimport model\ndef read(sys): return sys\n" + _WRITE, True),
+        ("import model\n" + _WRITE, False),
+        ("from sys import modules\nimport model\nmodules['vendor.leaf'] = model\n", False),
+        ("import sys\nimport model\nsys = model\n" + _WRITE, False),
+        (
+            "from types import SimpleNamespace\nsys = SimpleNamespace(modules={})\nimport model\n"
+            + _WRITE,
+            False,
+        ),
+        ("if flag:\n    import sys\nimport model\n" + _WRITE, False),
+        ("def load():\n    import sys\nimport model\n" + _WRITE, False),
+        ("import sys\nimport model\n" + _WRITE + "del sys\n", False),
+        ("import sys\nimport model\nfrom other import *\n" + _WRITE, False),
+        ("import sys\nimport sys\nimport model\n" + _WRITE, False),
+        (
+            "import sys\nimport model\n"
+            + _WRITE
+            + "def reset():\n    global sys\n    sys = None\n",
+            False,
+        ),
+        ("import model\n" + _WRITE + "import sys\n", False),
+        ("import sys\n" + _WRITE + "import model\n", False),
+    ],
+    ids=[
+        "plain-sys",
+        "aliased-sys",
+        "parameter-named-sys",
+        "no-sys-import",
+        "from-sys-import",
+        "sys-rebound",
+        "sys-local-object",
+        "sys-conditional",
+        "sys-in-function",
+        "sys-deleted",
+        "star-import",
+        "sys-imported-twice",
+        "sys-global-rebind",
+        "sys-after-write",
+        "value-after-write",
+    ],
+)
+def test_registry_receiver_is_a_stable_sys_import(tmp_path, parent, known):
+    facts = _native_facts(
+        _request(
+            tmp_path,
+            [
+                _provider("vendor", parent, package=True),
+                _provider("model", "class Payload: pass\n"),
+            ],
+            imported="vendor.leaf",
+            binding="Payload",
+        )
+    )
+    assert (
+        "vendor.leaf.Payload" in {item.qualified_name for item in facts.provider_bindings}
+    ) is known
+    assert len(_route_records(facts)[0]) == (0 if known else 1)
+
+
+@pytest.mark.parametrize(
+    ("parent", "target", "expected"),
+    [
+        (_REGISTRY + "leaf = model\n", "Payload = None\n", ProviderBindingKind.ALIAS),
+        (_REGISTRY, "class Payload: pass\n", ProviderBindingKind.ALIAS),
+        (_REGISTRY + "def __getattr__(name): return None\n", "class Payload: pass\n", None),
+        ("import sys\nimport model\nfrom . import leaf\n" + _WRITE, "class Payload: pass\n", None),
+        (
+            "import sys\nimport model\nif flag:\n    " + _WRITE,
+            "class Payload: pass\n",
+            None,
+        ),
+    ],
+    ids=["other-value", "same-class", "parent-hook", "child-imported-first", "conditional-write"],
+)
+def test_registry_publication_wins_over_a_captured_child_file(tmp_path, parent, target, expected):
+    facts = _native_facts(
+        _request(
+            tmp_path,
+            [
+                _provider("vendor", parent, package=True),
+                _provider("vendor.leaf", "class Payload: pass\n"),
+                _provider("model", target),
+            ],
+            imported="vendor.leaf",
+            binding="Payload",
+        )
+    )
+    by_name = {item.qualified_name: item for item in facts.provider_bindings}
+    evidence = {item.id: item.file for item in facts.evidence}
+    assert all(
+        evidence[item.evidence_id] != ".archkeel-providers/vendor/leaf.py"
+        for item in facts.provider_bindings
+    )
+    binding = by_name.get("vendor.leaf.Payload")
+    assert (binding.kind if binding is not None else None) is expected
+    if binding is not None:
+        assert binding.target == "model.Payload"
 
 
 def test_registry_alias_needs_the_published_module_source(tmp_path):
