@@ -11,6 +11,7 @@ from importlib.machinery import BuiltinImporter, ModuleSpec
 from types import BuiltinFunctionType, ModuleType, WrapperDescriptorType
 
 from archkeel.ir.facts import (
+    CPYTHON_NATIVE_RUNTIMES,
     ContextManagerReturn,
     ContextManagerSignature,
     CPythonABCBranch,
@@ -433,12 +434,7 @@ def _builtin_module(name: str) -> ModuleType | None:
 
 
 def _partial_intrinsic() -> CPythonPartialIntrinsic | None:
-    if sys.implementation.name != "cpython" or sys.version_info[:2] not in {
-        (3, 11),
-        (3, 12),
-        (3, 13),
-        (3, 14),
-    }:
+    if sys.implementation.name != "cpython" or sys.version_info[:2] not in CPYTHON_NATIVE_RUNTIMES:
         return None
     module = _builtin_module("_functools")
     if module is None:

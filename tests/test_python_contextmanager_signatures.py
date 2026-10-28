@@ -473,3 +473,18 @@ def test_published_schema_accepts_native_signature(tmp_path):
     wire, _ = _wire(tmp_path)
     schema = json.loads((Path(__file__).parents[1] / "schema/source-facts.schema.json").read_text())
     jsonschema.Draft202012Validator(schema).validate(wire)
+
+
+@pytest.mark.parametrize(
+    "name", ["source-facts.schema.json", "architecture-ir-python-decoded.schema.json"]
+)
+def test_native_runtime_set_matches_the_current_schemas(name):
+    from archkeel.ir.facts import CPYTHON_NATIVE_RUNTIMES
+
+    schema = json.loads((Path(__file__).parents[1] / "schema" / name).read_text())
+    partial = schema["$defs"]["CPythonPartialIntrinsic"]["properties"]
+    minors = "|".join(str(minor) for _, minor in CPYTHON_NATIVE_RUNTIMES)
+    assert partial["version"]["pattern"] == rf"^3\.({minors})\.[0-9]+$"
+    assert partial["cache_tag"]["enum"] == [
+        f"cpython-{major}{minor}" for major, minor in CPYTHON_NATIVE_RUNTIMES
+    ]

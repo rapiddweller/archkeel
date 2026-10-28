@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import ast
 import hashlib
-import re
 import sys
 import sysconfig
 from dataclasses import dataclass, replace
@@ -94,8 +93,10 @@ from .source import (
     class_header_static,
     exposes_dynamic_namespace,
     file_evidence,
+    is_stdlib_root,
     member_binding_closure,
-    package_for,
+    module_registry,
+    parse_provider,
     parse_sources,
     resolve_static_name,
     stable_direct_module_bindings,
@@ -197,6 +198,12 @@ class PythonProviderCollector:
                 CollectionErrorKind.PROTOCOL_ERROR,
                 self.collector.argv[0],
                 "Collector did not return complete Python source sections after the import survey.",
+            )
+        if not _registry_aliases_proven(enriched, providers):
+            return CollectionError(
+                CollectionErrorKind.PROTOCOL_ERROR,
+                self.collector.argv[0],
+                "Collector registry alias disagrees with its initializer source.",
             )
         provider_paths = {item.path for item in providers}
         project_inputs = tuple(item for item in enriched.inputs if item.path not in provider_paths)
@@ -638,89 +645,52 @@ def _inputs(
     return tuple(sorted(inputs, key=lambda item: item.path)), source.hexdigest()
 
 
+def _registry_aliases_proven(
+    facts: SourceFacts, providers: tuple[PythonProviderSource, ...]
+) -> bool:
+    """An initializer alias needs the publication that the collector proves on that source."""
+    sources = {item.path: item for item in providers}
+    files = {item.id: item.file for item in facts.evidence}
+    for binding in facts.provider_bindings:
+        source = sources.get(files.get(binding.evidence_id, ""))
+        qualified: str = binding.qualified_name
+        owner: str = qualified.rpartition(".")[0]
+        if (
+            binding.kind is not ProviderBindingKind.ALIAS
+            or source is None
+            or owner == source.module
+        ):
+            continue
+        package, _, child = owner.rpartition(".")
+        parsed = parse_provider(source)
+        if parsed is None or package != source.module or child not in _published(parsed):
+            return False
+    return True
+
+
 def _provider_modules(
     sources: tuple[PythonProviderSource, ...], selected: list[ParsedModule]
 ) -> list[ParsedModule]:
     governed = {module.module for module in selected}
-    providers: list[ParsedModule] = []
-    for source in sources:
-        if source.module in governed:
-            raise ValueError("provider source duplicates a governed module")
-        source_text: str = source.source
-        try:
-            tree = ast.parse(source_text, filename=source.path)
-        except (SyntaxError, ValueError):
-            continue
-        providers.append(
-            ParsedModule(
-                Path(source.path),
-                source.path,
-                source.module,
-                package_for(source.module),
-                source_text,
-                source_text.encode("utf-8"),
-                re.split(r"\r\n?|\n", source_text),
-                tree,
-            )
-        )
-    eligible = [module for module in providers if _provider_source_eligible(module)]
+    if any(source.module in governed for source in sources):
+        raise ValueError("provider source duplicates a governed module")
+    parsed = [parse_provider(source) for source in sources]
+    eligible = [
+        module for module in parsed if module is not None and _provider_source_eligible(module)
+    ]
     keys = {
         (module.module, key)
         for module in eligible
         if module.path.name == "__init__.py"
-        for key in _registry_keys(module)
+        for key in module_registry(module).keys
     }
     kept: list[ParsedModule] = []
     for module in eligible:
         name: str = module.module
-        package = name.rpartition(".")[0]
         # Python imports a child that its parent puts in sys.modules from there, not from its file.
-        if (package, name) not in keys:
+        if (name.rpartition(".")[0], name) not in keys:
             kept.append(module)
     return kept
-
-
-def _registry_keys(module: ParsedModule) -> set[object]:
-    """Literal keys that the module reads or writes in sys.modules, also in deferred bodies."""
-    # Any `import sys` counts, also a conditional one: an unstable name can still be the registry.
-    systems = {
-        alias.asname or alias.name
-        for node in module.all_nodes
-        if isinstance(node, ast.Import)
-        for alias in node.names
-        if alias.name == "sys"
-    }
-    registries = {
-        alias.asname or alias.name
-        for node in module.all_nodes
-        if isinstance(node, ast.ImportFrom) and node.module == "sys" and not node.level
-        for alias in node.names
-        if alias.name == "modules"
-    }
-    owners = {child: node for node in module.all_nodes for child in ast.iter_child_nodes(node)}
-    keys: set[object] = set()
-    for node in module.all_nodes:
-        if not (
-            isinstance(node, ast.Attribute)
-            and node.attr == "modules"
-            and isinstance(node.value, ast.Name)
-            and node.value.id in systems
-            or isinstance(node, ast.Name)
-            and node.id in registries
-        ):
-            continue
-        owner = owners.get(node)
-        call = owners.get(owner) if isinstance(owner, ast.Attribute) else None
-        # An eager access with a computed key already fails the registry identity of the parent.
-        arguments: list[ast.expr] = (
-            [owner.slice]
-            if isinstance(owner, ast.Subscript)
-            else call.args
-            if isinstance(call, ast.Call)
-            else []
-        )
-        keys.update(item.value for item in arguments if isinstance(item, ast.Constant))
-    return keys
 
 
 def _provider_bindings(
@@ -762,7 +732,7 @@ def _provider_bindings(
     bindings = _provider_aliases(wanted, by_module, provider_imports, evidence, discover=discover)
     for module in providers:
         runtime_parent = _provider_parents_static(module.module, by_module)
-        stdlib_root = module.module in sys.stdlib_module_names and "." not in module.module
+        stdlib_root = is_stdlib_root(module.module)
         if not _provider_module_is_relevant(module, runtime_parent, stdlib_root, by_module):
             continue
         if _provider_module_binding(module, runtime_parent, stdlib_root, wanted):
@@ -991,7 +961,7 @@ def _provider_registry_alias(
     parent = by_module.get(package)
     if parent is None or parent.path.name != "__init__.py" or name in by_module:
         return None
-    registered = _registry_children(parent).get(child)
+    registered = _published(parent).get(child)
     if registered is None or not _provider_parents_static(name, by_module, source_identity=True):
         return None
     statement, target = registered
@@ -1104,7 +1074,7 @@ def _provider_identity_static(
     # A proven write of a child key publishes the child; it does not replace this module.
     published = {
         node
-        for statement, _ in (_registry_children(module).values() if registry_identity else ())
+        for statement, _ in (_published(module).values() if registry_identity else ())
         for node in ast.walk(statement)
     }
     nodes = tuple(node for node in _provider_identity_nodes(module) if node not in published)
@@ -1113,13 +1083,7 @@ def _provider_identity_static(
         {name for name, binding in module.aliases.items() if binding.target == "sys"},
         member_surface=False,
     )
-    body: list[ast.stmt] = module.tree.body
-    # PEP 562 __getattr__ and an earlier star import cannot replace a later unique binding.
-    member_bound = member is not None and not any(
-        isinstance(node, ast.ImportFrom) and any(alias.name == "*" for alias in node.names)
-        for statement in body[body.index(member) :]
-        for node in ast.walk(statement)
-    )
+    member_bound = member is not None and _member_static(module, member)
     return (
         (
             member_bound
@@ -1175,7 +1139,7 @@ def _provider_parents_static(
         ):
             return False
         child = parts[end]
-        if child in parent.scope_bound_names and child not in _registry_children(parent):
+        if child in parent.scope_bound_names and child not in _published(parent):
             imported = parent.aliases.get(child)
             if (
                 child not in stable_direct_module_bindings(parent)
@@ -1186,81 +1150,40 @@ def _provider_parents_static(
     return True
 
 
-def _registry_children(module: ParsedModule) -> dict[str, tuple[ast.Assign, str]]:
-    """Children that one top-level `sys.modules['<package>.<child>'] = <module>` publishes."""
-    writes: dict[str, list[tuple[ast.Assign, str]]] = {}
-    for index, statement in enumerate(module.tree.body):
-        if not isinstance(statement, ast.Assign) or len(statement.targets) != 1:
-            continue
-        [target] = statement.targets
-        if (
-            isinstance(target, ast.Subscript)
-            and isinstance(target.value, ast.Attribute)
-            and target.value.attr == "modules"
-            and isinstance(target.value.value, ast.Name)
-            and _plain_import(module, target.value.value.id, index) == "sys"
-            and isinstance(target.slice, ast.Constant)
-            and isinstance(target.slice.value, str)
-            and isinstance(statement.value, ast.Name)
-            and _plain_import(module, statement.value.id, index) == statement.value.id
-        ):
-            key: str = target.slice.value
-            package, _, child = key.rpartition(".")
-            if package == module.module:
-                writes[child] = [*writes.get(child, []), (statement, statement.value.id)]
-    matched = {
-        node for found in writes.values() for statement, _ in found for node in ast.walk(statement)
-    }
-    # Any other registry access can replace or remove the published child.
-    if any(
-        node not in matched
-        and (
-            isinstance(node, ast.Attribute)
-            and node.attr == "modules"
-            or isinstance(node, ast.Name | ast.Attribute)
-            and resolve_static_name(module, node) == "sys.modules"
-        )
-        for node in module.all_nodes
-    ):
-        return {}
-    published: dict[str, tuple[ast.Assign, str]] = {}
-    for child, found in writes.items():
-        if len(found) != 1:
-            continue
-        [(statement, value)] = found
-        attribute = [
-            item.value
-            for item in module.tree.body
-            if isinstance(item, ast.Assign)
-            for target in item.targets
-            if isinstance(target, ast.Name) and target.id == child
-        ]
-        if (
-            child not in module.scope_bound_names
-            or module.scope_bound_names.count(child) == 1
-            and len(attribute) == 1
-            and isinstance(attribute[0], ast.Name)
-            and attribute[0].id == value
-        ):
-            published[child] = (statement, value)
-    return published
+def _published(module: ParsedModule) -> dict[str, tuple[ast.Assign, str]]:
+    """Children that a stdlib initializer publishes; a third-party layout stays unproven."""
+    return module_registry(module).published if is_stdlib_root(module.module) else {}
 
 
-def _plain_import(module: ParsedModule, name: str, before: int) -> str | None:
-    """The module that a unique top-level `import` before `before` binds to `name`."""
-    found = [
-        alias.name
-        for statement in module.tree.body[:before]
-        if isinstance(statement, ast.Import)
-        for alias in statement.names
-        if (alias.asname or alias.name) == name
+def _member_static(module: ParsedModule, member: ast.stmt) -> bool:
+    """A stdlib binding that no missing-name hook or star import can answer first."""
+    # During an import cycle, a hook or a star import before the binding answers the import.
+    body: list[ast.stmt] = module.tree.body
+    before = {node for statement in body[: body.index(member)] for node in ast.walk(statement)}
+    # Module scope only: a method named __getattr__ is no module hook.
+    earlier = [node for node in module.scope_nodes if node in before]
+    stars = [
+        node
+        for node in module.scope_nodes
+        if isinstance(node, ast.ImportFrom) and "*" in {alias.name for alias in node.names}
     ]
-    unique = (
-        len(found) == 1
-        and module.scope_bound_names.count(name) == 1
-        and name not in module.global_names
+    return (
+        is_stdlib_root(module.module)
+        and all(
+            node in before and not node.level and node.module in sys.stdlib_module_names
+            for node in stars
+        )
+        and not any(
+            isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
+            and node.name == "__getattr__"
+            or isinstance(node, ast.Name)
+            and node.id == "__getattr__"
+            and isinstance(node.ctx, ast.Store)
+            or isinstance(node, ast.alias)
+            and (node.asname or node.name) == "__getattr__"
+            for node in earlier
+        )
     )
-    return found[0] if unique else None
 
 
 def _import_targets(

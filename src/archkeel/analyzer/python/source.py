@@ -44,6 +44,7 @@ from archkeel.ir.facts_codec import (
 from archkeel.ir.facts_codec import (
     record_evidence as record_evidence,
 )
+from archkeel.ir.protocol import PythonProviderSource
 from archkeel.ir.source_records import FRAMEWORK_BASES as FRAMEWORK_BASES
 from archkeel.ir.source_records import is_public_method_name as is_public_method_name
 
@@ -3096,6 +3097,179 @@ def parse_sources(paths: Sequence[Path], *, root: Path, namespace: str) -> Parse
         files_read=read_count,
         source_digest=digest.hexdigest(),
     )
+
+
+def parse_provider(source: PythonProviderSource) -> ParsedModule | None:
+    """Parse one captured provider source; a syntax error leaves it unparsed."""
+    text: str = source.source
+    try:
+        tree = ast.parse(text, filename=source.path)
+    except (SyntaxError, ValueError):
+        return None
+    return ParsedModule(
+        Path(source.path),
+        source.path,
+        source.module,
+        package_for(source.module),
+        text,
+        text.encode("utf-8"),
+        re.split(r"\r\n?|\n", text),
+        tree,
+    )
+
+
+def is_stdlib_root(name: str) -> bool:
+    """A top-level standard library module: the only scope of the 3.13+ layout proofs (#724)."""
+    return name in sys.stdlib_module_names and "." not in name
+
+
+@dataclass(frozen=True, slots=True)
+class ModuleRegistry:
+    """How one module uses sys.modules."""
+
+    # Child name -> the one proven top-level write and the plain import that it publishes.
+    published: dict[str, tuple[ast.Assign, str]]
+    # Literal keys of every registry access, also in deferred bodies.
+    keys: frozenset[str]
+
+
+def module_registry(module: ParsedModule) -> ModuleRegistry:
+    """Find the sys.modules writes that publish a child and every other registry access."""
+    # Any `import sys` counts for the keys, also a conditional one: it can be the registry.
+    systems = {
+        alias.asname or alias.name
+        for node in module.all_nodes
+        if isinstance(node, ast.Import)
+        for alias in node.names
+        if alias.name == "sys"
+    }
+    registries = {
+        alias.asname or alias.name
+        for node in module.all_nodes
+        if isinstance(node, ast.ImportFrom) and node.module == "sys" and not node.level
+        for alias in node.names
+        if alias.name == "modules"
+    }
+    owners = {child: node for node in module.all_nodes for child in ast.iter_child_nodes(node)}
+    keys: set[str] = set()
+    for node in module.all_nodes:
+        if not (
+            isinstance(node, ast.Attribute)
+            and node.attr == "modules"
+            and isinstance(node.value, ast.Name)
+            and node.value.id in systems
+            or isinstance(node, ast.Name)
+            and node.id in registries
+        ):
+            continue
+        owner = owners.get(node)
+        call = owners.get(owner) if isinstance(owner, ast.Attribute) else None
+        arguments: list[ast.expr] = (
+            [owner.slice]
+            if isinstance(owner, ast.Subscript)
+            else call.args
+            if isinstance(call, ast.Call)
+            else []
+        )
+        keys.update(
+            item.value
+            for item in arguments
+            if isinstance(item, ast.Constant) and isinstance(item.value, str)
+        )
+    writes: dict[str, list[tuple[ast.Assign, str]]] = {}
+    for index, statement in enumerate(module.tree.body):
+        if not isinstance(statement, ast.Assign) or len(statement.targets) != 1:
+            continue
+        [target] = statement.targets
+        if (
+            isinstance(target, ast.Subscript)
+            and isinstance(target.value, ast.Attribute)
+            and target.value.attr == "modules"
+            and isinstance(target.value.value, ast.Name)
+            and _plain_import(module, target.value.value.id, index) == "sys"
+            and isinstance(target.slice, ast.Constant)
+            and isinstance(target.slice.value, str)
+            and isinstance(statement.value, ast.Name)
+            and _plain_import(module, statement.value.id, index) == statement.value.id
+        ):
+            key: str = target.slice.value
+            package, _, child = key.rpartition(".")
+            if package == module.module:
+                writes[child] = [*writes.get(child, []), (statement, statement.value.id)]
+    matched = {
+        node for found in writes.values() for statement, _ in found for node in ast.walk(statement)
+    }
+    # Another registry access, also through an alias of sys, can replace or remove a child.
+    if any(
+        node not in matched
+        and (
+            isinstance(node, ast.Attribute)
+            and node.attr == "modules"
+            or isinstance(node, ast.Name)
+            and node.id in registries
+        )
+        for node in module.all_nodes
+    ):
+        return ModuleRegistry({}, frozenset(keys))
+    published: dict[str, tuple[ast.Assign, str]] = {}
+    for child, found in writes.items():
+        if len(found) != 1:
+            continue
+        [(statement, value)] = found
+        attribute = [
+            item.value
+            for item in module.tree.body
+            if isinstance(item, ast.Assign)
+            for target in item.targets
+            if isinstance(target, ast.Name) and target.id == child
+        ]
+        if (
+            child not in module.scope_bound_names
+            or module.scope_bound_names.count(child) == 1
+            and len(attribute) == 1
+            and isinstance(attribute[0], ast.Name)
+            and attribute[0].id == value
+        ) and _module_unchanged(module, value, owners, {statement.value, *attribute}):
+            published[child] = (statement, value)
+    return ModuleRegistry(published, frozenset(keys))
+
+
+def _module_unchanged(
+    module: ParsedModule, name: str, owners: Mapping[ast.AST, ast.AST], allowed: set[ast.expr]
+) -> bool:
+    """The module only reads plain members of the imported module `name`, also in functions."""
+    for node in module.all_nodes:
+        if not isinstance(node, ast.Name) or node.id != name or node in allowed:
+            continue
+        owner = owners.get(node)
+        call = owners.get(owner) if owner is not None else None
+        # A store, a call, `__dict__` or an escape of the module can change a published member.
+        if not (
+            isinstance(owner, ast.Attribute)
+            and isinstance(owner.ctx, ast.Load)
+            and owner.attr != "__dict__"
+            and not (isinstance(call, ast.Call) and call.func is owner)
+        ):
+            return False
+    return True
+
+
+def _plain_import(module: ParsedModule, name: str, before: int) -> str | None:
+    """The module that a unique top-level `import` before `before` binds to `name`."""
+    # The import collector fills module.aliases later, and the decoder has no import collector.
+    found = [
+        alias.name
+        for statement in module.tree.body[:before]
+        if isinstance(statement, ast.Import)
+        for alias in statement.names
+        if (alias.asname or alias.name) == name
+    ]
+    unique = (
+        len(found) == 1
+        and module.scope_bound_names.count(name) == 1
+        and name not in module.global_names
+    )
+    return found[0] if unique else None
 
 
 def provider_source_eligible(module: ParsedModule) -> bool:

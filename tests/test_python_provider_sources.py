@@ -39,7 +39,7 @@ from archkeel.check.observation import assemble_observation
 from archkeel.cli.observe import observer_for
 from archkeel.ir.codec import parse_contract
 from archkeel.ir.decisions import rule_assessments
-from archkeel.ir.facts import Language, ProviderBindingKind, SourceSectionName
+from archkeel.ir.facts import Language, ProviderBinding, ProviderBindingKind, SourceSectionName
 from archkeel.ir.facts_codec import (
     ProtocolError,
     decode_request,
@@ -1356,57 +1356,69 @@ def test_provider_source_binders_and_runtime_effects_are_distinct(tmp_path, suff
     assert len(_route_records(facts)[0]) == (0 if declared else 1)
 
 
+_HOOK = "def __getattr__(name): return None\n"
+_STAR = "from errno import *\n"
+
+
 @pytest.mark.parametrize(
     ("source", "declared"),
     [
-        ("def __getattr__(name): return None\nclass Payload: pass\n", True),
-        ("class Payload: pass\ndef __getattr__(name): return None\n", True),
-        ("def __getattr__(name): return None\n", False),
-        ("def __getattr__(name): return None\nclass Payload: pass\nPayload = 1\n", False),
-        ("def __getattr__(name): return None\nif flag:\n    class Payload: pass\n", False),
-        ("from unavailable import *\nclass Payload: pass\n", True),
+        (_HOOK + "class Payload: pass\n", False),
+        ("class Payload: pass\n" + _HOOK, True),
+        (_HOOK, False),
+        ("class Payload: pass\n" + _HOOK + "Payload = 1\n", False),
+        ("if flag:\n    class Payload: pass\n" + _HOOK, False),
+        (_STAR + "class Payload: pass\n", True),
+        ("try:\n    " + _STAR + "except ImportError:\n    pass\nclass Payload: pass\n", True),
+        ("from unavailable import *\nclass Payload: pass\n", False),
+        ("from .errno import *\nclass Payload: pass\n", False),
         (
-            "try:\n    from unavailable import *\nexcept ImportError:\n    pass\n"
-            "class Payload: pass\n",
+            "class Other:\n    def __getattr__(self, name): return None\nclass Payload: pass\n"
+            + _HOOK,
             True,
         ),
-        ("class Payload: pass\nfrom unavailable import *\n", False),
-        ("from unavailable import *\nclass Payload: pass\nfrom other import *\n", False),
-        ("from unavailable import *\n", False),
-        ("from unavailable import *\nclass Payload: pass\nPayload = 1\n", False),
-        ("from unavailable import *\nif flag:\n    class Payload: pass\n", False),
-        ("from unavailable import *\nclass Payload: pass\nglobals()['Payload'] = 1\n", False),
-        (
-            "from unavailable import *\ndef __getattr__(name): return None\nclass Payload: pass\n",
-            True,
-        ),
+        ("class Payload: pass\n" + _STAR, False),
+        (_STAR + "class Payload: pass\nfrom os import *\n", False),
+        (_STAR, False),
+        (_STAR + "class Payload: pass\nPayload = 1\n", False),
+        (_STAR + "if flag:\n    class Payload: pass\n", False),
+        (_STAR + "class Payload: pass\nglobals()['Payload'] = 1\n", False),
+        (_STAR + "class Payload: pass\n" + _HOOK, True),
+        (_STAR + _HOOK + "class Payload: pass\n", False),
     ],
     ids=[
-        "getattr-before",
-        "getattr-after",
-        "getattr-unbound",
-        "getattr-twice",
-        "getattr-conditional",
-        "star-before",
-        "star-in-try-before",
+        "hook-before",
+        "hook-after",
+        "hook-unbound",
+        "hook-twice",
+        "hook-conditional",
+        "stdlib-star-before",
+        "stdlib-star-in-try-before",
+        "foreign-star-before",
+        "relative-star-before",
+        "method-hook-before",
         "star-after",
         "star-around",
         "star-unbound",
         "star-twice",
         "star-conditional",
         "star-dynamic-rebind",
-        "star-and-getattr",
+        "star-then-hook-after",
+        "star-then-hook-before",
     ],
 )
-def test_direct_binding_survives_missing_name_hooks_before_it(tmp_path, source, declared):
-    request = _request(
-        tmp_path, [_provider("value_tools", source)], imported="value_tools", binding="Payload"
-    )
+@pytest.mark.parametrize("module", ["textwrap", "value_tools"], ids=["stdlib", "third-party"])
+def test_direct_binding_survives_missing_name_hooks_only_in_the_stdlib(
+    tmp_path, source, declared, module
+):
+    # A hook or star import before the binding can answer during an import cycle.
+    request = _request(tmp_path, [_provider(module, source)], imported=module, binding="Payload")
     facts = _native_facts(request)
+    known = declared and module == "textwrap"
     assert [item.qualified_name for item in facts.provider_bindings] == (
-        ["value_tools.Payload"] if declared else []
+        [f"{module}.Payload"] if known else []
     )
-    assert len(_route_records(facts)[0]) == (0 if declared else 1)
+    assert len(_route_records(facts)[0]) == (0 if known else 1)
 
 
 @pytest.mark.parametrize(
@@ -2180,7 +2192,7 @@ def test_frozen_star_source_needs_matching_native_code_and_side_source(
     assert len(_route_records(facts)[0]) == (0 if change == "none" else 1)
 
 
-_REGISTRY = "import sys\nimport model\nsys.modules['vendor.leaf'] = model\n"
+_REGISTRY = "import sys\nimport model\nsys.modules['json.leaf'] = model\n"
 
 
 @pytest.mark.parametrize(
@@ -2188,16 +2200,17 @@ _REGISTRY = "import sys\nimport model\nsys.modules['vendor.leaf'] = model\n"
     [
         (_REGISTRY, True),
         (
-            "import model\nimport sys as _sys\n_sys.modules['vendor.leaf'] = model\nleaf = model\n",
+            "import model\nimport sys as _sys\n_sys.modules['json.leaf'] = model\nleaf = model\n",
             True,
         ),
-        ("import sys\nimport model\nif flag:\n    sys.modules['vendor.leaf'] = model\n", False),
-        ("import sys\nimport model\nkey = 'vendor.leaf'\nsys.modules[key] = model\n", False),
-        ("import sys\nimport model\nsys.modules['vendor.leaf'] = model.inner\n", False),
+        ("import sys\nimport model\nif flag:\n    sys.modules['json.leaf'] = model\n", False),
+        ("import sys\nimport model\nkey = 'json.leaf'\nsys.modules[key] = model\n", False),
+        ("import sys\nimport model\nsys.modules['json.leaf'] = model.inner\n", False),
         ("import sys\nimport model\nsys.modules['other.leaf'] = model\n", False),
-        (_REGISTRY + "sys.modules['vendor.leaf'] = model\n", False),
-        (_REGISTRY + "del sys.modules['vendor.leaf']\n", False),
-        (_REGISTRY + "def reset():\n    sys.modules['vendor.leaf'] = None\n", False),
+        (_REGISTRY + "sys.modules['json.leaf'] = model\n", False),
+        (_REGISTRY + "import other\nsys.modules['json.leaf'] = other\n", False),
+        (_REGISTRY + "del sys.modules['json.leaf']\n", False),
+        (_REGISTRY + "def reset():\n    sys.modules['json.leaf'] = None\n", False),
         (_REGISTRY.replace("import model", "import other as model"), False),
         (_REGISTRY.replace("import model", "from model import model"), False),
         (_REGISTRY + "model = None\n", False),
@@ -2214,6 +2227,7 @@ _REGISTRY = "import sys\nimport model\nsys.modules['vendor.leaf'] = model\n"
         "member-value",
         "foreign-key",
         "written-twice",
+        "rewritten-to-other-module",
         "deleted",
         "deferred-write",
         "renamed-import",
@@ -2230,36 +2244,36 @@ def test_registry_published_child_is_an_alias_of_its_module(tmp_path, parent, kn
         _request(
             tmp_path,
             [
-                _provider("vendor", parent, package=True),
+                _provider("json", parent, package=True),
                 _provider("model", "class Payload: pass\n"),
             ],
-            imported="vendor.leaf",
+            imported="json.leaf",
             binding="Payload",
         )
     )
     by_name = {item.qualified_name: item for item in facts.provider_bindings}
     assert len(_route_records(facts)[0]) == (0 if known else 1)
-    assert ("vendor.leaf.Payload" in by_name) is known
+    assert ("json.leaf.Payload" in by_name) is known
     if known:
-        alias = by_name["vendor.leaf.Payload"]
+        alias = by_name["json.leaf.Payload"]
         assert alias.kind is ProviderBindingKind.ALIAS and alias.target == "model.Payload"
         evidence = {item.id: item for item in facts.evidence}
-        assert evidence[alias.evidence_id].file == ".archkeel-providers/vendor/__init__.py"
-        assert "sys.modules['vendor.leaf'] = model" in evidence[alias.evidence_id].excerpt
+        assert evidence[alias.evidence_id].file == ".archkeel-providers/json/__init__.py"
+        assert "sys.modules['json.leaf'] = model" in evidence[alias.evidence_id].excerpt
         assert evidence[alias.supporting_evidence_ids[0]].file == ".archkeel-providers/model.py"
 
 
-_WRITE = "sys.modules['vendor.leaf'] = model\n"
+_WRITE = "sys.modules['json.leaf'] = model\n"
 
 
 @pytest.mark.parametrize(
     ("parent", "known"),
     [
         ("import sys\nimport model\n" + _WRITE, True),
-        ("import sys as registry\nimport model\nregistry.modules['vendor.leaf'] = model\n", True),
+        ("import sys as registry\nimport model\nregistry.modules['json.leaf'] = model\n", True),
         ("import sys\nimport model\ndef read(sys): return sys\n" + _WRITE, True),
         ("import model\n" + _WRITE, False),
-        ("from sys import modules\nimport model\nmodules['vendor.leaf'] = model\n", False),
+        ("from sys import modules\nimport model\nmodules['json.leaf'] = model\n", False),
         ("import sys\nimport model\nsys = model\n" + _WRITE, False),
         (
             "from types import SimpleNamespace\nsys = SimpleNamespace(modules={})\nimport model\n"
@@ -2303,15 +2317,15 @@ def test_registry_receiver_is_a_stable_sys_import(tmp_path, parent, known):
         _request(
             tmp_path,
             [
-                _provider("vendor", parent, package=True),
+                _provider("json", parent, package=True),
                 _provider("model", "class Payload: pass\n"),
             ],
-            imported="vendor.leaf",
+            imported="json.leaf",
             binding="Payload",
         )
     )
     assert (
-        "vendor.leaf.Payload" in {item.qualified_name for item in facts.provider_bindings}
+        "json.leaf.Payload" in {item.qualified_name for item in facts.provider_bindings}
     ) is known
     assert len(_route_records(facts)[0]) == (0 if known else 1)
 
@@ -2336,21 +2350,21 @@ def test_registry_publication_wins_over_a_captured_child_file(tmp_path, parent, 
         _request(
             tmp_path,
             [
-                _provider("vendor", parent, package=True),
-                _provider("vendor.leaf", "class Payload: pass\n"),
+                _provider("json", parent, package=True),
+                _provider("json.leaf", "class Payload: pass\n"),
                 _provider("model", target),
             ],
-            imported="vendor.leaf",
+            imported="json.leaf",
             binding="Payload",
         )
     )
     by_name = {item.qualified_name: item for item in facts.provider_bindings}
     evidence = {item.id: item.file for item in facts.evidence}
     assert all(
-        evidence[item.evidence_id] != ".archkeel-providers/vendor/leaf.py"
+        evidence[item.evidence_id] != ".archkeel-providers/json/leaf.py"
         for item in facts.provider_bindings
     )
-    binding = by_name.get("vendor.leaf.Payload")
+    binding = by_name.get("json.leaf.Payload")
     assert (binding.kind if binding is not None else None) is expected
     if binding is not None:
         assert binding.target == "model.Payload"
@@ -2360,20 +2374,20 @@ def test_registry_publication_wins_over_a_captured_child_file(tmp_path, parent, 
     ("parent", "kept"),
     [
         ("", True),
-        ("def label(labels): return labels['vendor.leaf']\n", True),
-        ("labels = {}\nlabels['vendor.leaf'] = 1\n", True),
-        ("def env():\n    import os\n    return os.environ['vendor.leaf']\n", True),
-        ("import sys\ndef path(): return sys.path['vendor.leaf']\n", True),
-        ("class Other:\n    modules = {}\nOther.modules['vendor.leaf'] = 1\n", True),
-        ("import sys\ndef other(): return sys.modules['vendor.other']\n", True),
-        ("import sys\ndef read(): return sys.modules['vendor.leaf']\n", False),
-        ("import sys\ndef drop(): del sys.modules['vendor.leaf']\n", False),
-        ("import sys\ndef read(): return sys.modules.get('vendor.leaf')\n", False),
-        ("import sys\ndef drop(): return sys.modules.pop('vendor.leaf')\n", False),
-        ("import sys\ndef put(value): sys.modules.setdefault('vendor.leaf', value)\n", False),
-        ("from sys import modules\ndef read(): return modules['vendor.leaf']\n", False),
-        ("if flag:\n    import sys\ndef read(): return sys.modules['vendor.leaf']\n", False),
-        ("import sys\nkey = 'vendor.' + 'leaf'\nloaded = sys.modules[key]\n", False),
+        ("def label(labels): return labels['json.leaf']\n", True),
+        ("labels = {}\nlabels['json.leaf'] = 1\n", True),
+        ("def env():\n    import os\n    return os.environ['json.leaf']\n", True),
+        ("import sys\ndef path(): return sys.path['json.leaf']\n", True),
+        ("class Other:\n    modules = {}\nOther.modules['json.leaf'] = 1\n", True),
+        ("import sys\ndef other(): return sys.modules['json.other']\n", True),
+        ("import sys\ndef read(): return sys.modules['json.leaf']\n", False),
+        ("import sys\ndef drop(): del sys.modules['json.leaf']\n", False),
+        ("import sys\ndef read(): return sys.modules.get('json.leaf')\n", False),
+        ("import sys\ndef drop(): return sys.modules.pop('json.leaf')\n", False),
+        ("import sys\ndef put(value): sys.modules.setdefault('json.leaf', value)\n", False),
+        ("from sys import modules\ndef read(): return modules['json.leaf']\n", False),
+        ("if flag:\n    import sys\ndef read(): return sys.modules['json.leaf']\n", False),
+        ("import sys\nkey = 'json.' + 'leaf'\nloaded = sys.modules[key]\n", False),
         ("import sys\nregistry = sys.modules\n", False),
         ("import sys\ndef read(key): return sys.modules[key]\n", True),
         ("import sys\ndef escape(): return sys.modules\n", True),
@@ -2404,23 +2418,23 @@ def test_child_file_yields_only_to_module_registry_access(tmp_path, parent, kept
         _request(
             tmp_path,
             [
-                _provider("vendor", parent, package=True),
-                _provider("vendor.leaf", "class Payload: pass\n"),
+                _provider("json", parent, package=True),
+                _provider("json.leaf", "class Payload: pass\n"),
             ],
-            imported="vendor.leaf",
+            imported="json.leaf",
             binding="Payload",
         )
     )
     kinds = {item.qualified_name: item.kind for item in facts.provider_bindings}
-    assert kinds == ({"vendor.leaf.Payload": ProviderBindingKind.CLASS} if kept else {})
+    assert kinds == ({"json.leaf.Payload": ProviderBindingKind.CLASS} if kept else {})
 
 
 def test_registry_alias_needs_the_published_module_source(tmp_path):
     facts = _native_facts(
         _request(
             tmp_path,
-            [_provider("vendor", _REGISTRY, package=True)],
-            imported="vendor.leaf",
+            [_provider("json", _REGISTRY, package=True)],
+            imported="json.leaf",
             binding="Payload",
         )
     )
@@ -2432,7 +2446,7 @@ def test_registry_alias_needs_the_published_module_source(tmp_path):
     ("parent", "known"),
     [
         (_REGISTRY, True),
-        (_REGISTRY + "sys.modules['vendor.leaf'] = model\n", False),
+        (_REGISTRY + "sys.modules['json.leaf'] = model\n", False),
         ("import sys\nsys.modules[__name__] = None\n", False),
     ],
     ids=["child-write", "child-written-twice", "own-write"],
@@ -2441,13 +2455,13 @@ def test_child_registry_write_keeps_the_package_member_identity(tmp_path, parent
     facts = _native_facts(
         _request(
             tmp_path,
-            [_provider("vendor", parent + "class Payload: pass\n", package=True)],
-            imported="vendor",
+            [_provider("json", parent + "class Payload: pass\n", package=True)],
+            imported="json",
             binding="Payload",
         )
     )
     kinds = {item.qualified_name: item.kind for item in facts.provider_bindings}
-    assert (kinds.get("vendor.Payload") is ProviderBindingKind.CLASS) is known
+    assert (kinds.get("json.Payload") is ProviderBindingKind.CLASS) is known
 
 
 def test_actual_collections_member_has_a_class_receipt(tmp_path):
@@ -2465,14 +2479,14 @@ def test_registry_alias_needs_a_static_target_module(tmp_path):
         _request(
             tmp_path,
             [
-                _provider("vendor", _REGISTRY, package=True),
+                _provider("json", _REGISTRY, package=True),
                 _provider("model", "class Payload: pass\nexec(source)\n"),
             ],
-            imported="vendor.leaf",
+            imported="json.leaf",
             binding="Payload",
         )
     )
-    assert "vendor.leaf.Payload" not in {item.qualified_name for item in facts.provider_bindings}
+    assert "json.leaf.Payload" not in {item.qualified_name for item in facts.provider_bindings}
     assert len(_route_records(facts)[0]) == 1
 
 
@@ -2480,10 +2494,10 @@ def _registry_alias_case(tmp_path):
     request = _request(
         tmp_path,
         [
-            _provider("vendor", _REGISTRY, package=True),
+            _provider("json", _REGISTRY, package=True),
             _provider("model", "class Payload: pass\n"),
         ],
-        imported="vendor.leaf",
+        imported="json.leaf",
         binding="Payload",
     )
     request = replace(request, protocol_version=ProtocolVersion.V4)
@@ -2501,7 +2515,7 @@ def test_registry_alias_evidence_must_sit_in_the_parent_initializer(tmp_path, ch
     if change == "foreign-file":
         alias["evidence_id"] = alias["supporting_evidence_ids"][0]
     elif change == "grandparent":
-        alias["qualified_name"] = "vendor.leaf.inner.Payload"
+        alias["qualified_name"] = "json.leaf.inner.Payload"
     if accepted:
         decode_response(json.dumps(wire).encode())
     else:
@@ -2510,7 +2524,7 @@ def test_registry_alias_evidence_must_sit_in_the_parent_initializer(tmp_path, ch
 
 
 @pytest.mark.parametrize(
-    ("qualified", "accepted"), [("vendor.leaf.Payload", True), ("vendor.leaf.inner.Payload", False)]
+    ("qualified", "accepted"), [("json.leaf.Payload", True), ("json.leaf.inner.Payload", False)]
 )
 def test_requested_registry_alias_must_name_a_child_of_its_initializer(
     tmp_path, qualified, accepted
@@ -2530,6 +2544,148 @@ def test_requested_registry_alias_must_name_a_child_of_its_initializer(
     else:
         with pytest.raises(ProtocolError, match="disagrees with requested source"):
             _requested_facts(facts, request)
+
+
+@pytest.mark.parametrize(
+    "parent",
+    [
+        _REGISTRY.replace("json", "vendor"),
+        "import sys\nimport model\nsys.modules['vendor.leaf'] = model\nleaf = model\n",
+    ],
+    ids=["exact", "with-attribute"],
+)
+def test_third_party_registry_layout_stays_unknown(tmp_path, parent):
+    facts = _native_facts(
+        _request(
+            tmp_path,
+            [
+                _provider("vendor", parent, package=True),
+                _provider("model", "class Payload: pass\n"),
+            ],
+            imported="vendor.leaf",
+            binding="Payload",
+        )
+    )
+    assert "vendor.leaf.Payload" not in {item.qualified_name for item in facts.provider_bindings}
+    assert len(_route_records(facts)[0]) == 1
+
+
+@pytest.mark.parametrize(
+    ("change", "known"),
+    [
+        ("", True),
+        ("value = model.Payload\n", True),
+        ("class Local(model.Payload): pass\n", True),
+        ("model.Payload = None\n", False),
+        ("model.Other = None\n", False),
+        ("del model.Payload\n", False),
+        ("model.count += 1\n", False),
+        ("setattr(model, 'Payload', None)\n", False),
+        ("model.__dict__['Payload'] = None\n", False),
+        ("vars(model)['Payload'] = None\n", False),
+        ("alias = model\nalias.Payload = None\n", False),
+        ("def reset():\n    model.Payload = None\n", False),
+        ("model.reset()\n", False),
+    ],
+    ids=[
+        "unchanged",
+        "member-read",
+        "member-base",
+        "assign",
+        "assign-other",
+        "delete",
+        "augmented",
+        "setattr",
+        "namespace",
+        "vars",
+        "alias",
+        "deferred-assign",
+        "method-call",
+    ],
+)
+@pytest.mark.parametrize("before", [True, False], ids=["before-write", "after-write"])
+def test_registry_publication_needs_an_unchanged_module(tmp_path, change, known, before):
+    parent = "import sys\nimport model\n" + change + _WRITE if before else _REGISTRY + change
+    facts = _native_facts(
+        _request(
+            tmp_path,
+            [_provider("json", parent, package=True), _provider("model", "class Payload: pass\n")],
+            imported="json.leaf",
+            binding="Payload",
+        )
+    )
+    assert (
+        "json.leaf.Payload" in {item.qualified_name for item in facts.provider_bindings}
+    ) is known
+
+
+def _injected(facts, qualified, evidence_file):
+    [evidence] = [item for item in facts.evidence if item.file == evidence_file][:1]
+    alias = ProviderBinding(qualified, ProviderBindingKind.ALIAS, evidence.id, "model.Payload")
+    return replace(facts, provider_bindings=(*facts.provider_bindings, alias))
+
+
+@pytest.mark.parametrize(
+    ("parent", "extra", "qualified", "evidence_file"),
+    [
+        (_REGISTRY, (), "json.ghost.Payload", ".archkeel-providers/json/__init__.py"),
+        (_REGISTRY, (), "other.leaf.Payload", ".archkeel-providers/json/__init__.py"),
+        (
+            _REGISTRY,
+            (_provider("json.real", "Payload = None\n"),),
+            "json.real.Payload",
+            ".archkeel-providers/json/__init__.py",
+        ),
+        (
+            _REGISTRY.replace("json", "vendor") + "class Thing: pass\n",
+            (),
+            "vendor.leaf.Payload",
+            ".archkeel-providers/vendor/__init__.py",
+        ),
+    ],
+    ids=["unpublished-child", "foreign-package", "captured-child", "third-party-parent"],
+)
+def test_requested_registry_alias_needs_the_producer_proof(
+    tmp_path, parent, extra, qualified, evidence_file
+):
+    package = evidence_file.split("/")[1]
+    imported, binding = ("json.leaf", "Payload") if package == "json" else ("vendor", "Thing")
+    request = replace(
+        _request(
+            tmp_path,
+            [
+                _provider(package, parent, package=True),
+                _provider("model", "class Payload: pass\n"),
+                *extra,
+            ],
+            imported=imported,
+            binding=binding,
+        ),
+        protocol_version=ProtocolVersion.V4,
+    )
+    facts = collect(request)
+    providers = request.resolver.provider_sources
+    assert collect_owner._registry_aliases_proven(facts, providers)
+    assert not collect_owner._registry_aliases_proven(
+        _injected(facts, qualified, evidence_file), providers
+    )
+
+
+def test_provider_collector_rejects_an_unproven_registry_alias(tmp_path, monkeypatch):
+    request = replace(
+        _request(tmp_path, imported="collections.abc", binding="Iterator"),
+        protocol_version=ProtocolVersion.V3,
+    )
+    checked = []
+
+    def unproven(facts, providers):
+        checked.append(providers)
+        return False
+
+    monkeypatch.setattr(collect_owner, "_registry_aliases_proven", unproven)
+    result = observer_for(Language.PYTHON).collector.collect(request)
+    assert isinstance(result, CollectionError) and checked
+    assert result.kind is CollectionErrorKind.PROTOCOL_ERROR
 
 
 def test_default_provider_discovery_binds_actual_collections_iterator(tmp_path, monkeypatch):
