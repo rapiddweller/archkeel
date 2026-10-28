@@ -543,6 +543,28 @@ PARAM_WRITE_SOURCES = {
     "attr_of_flag": "flag.x = 1",
     "subscript_of_flag": "flag[0] = 1",
     "other_name": "other = 1",
+    "del": "del flag",
+    "del_parenthesized": "del (flag)",
+    "del_tuple": "del (x, flag)",
+    "del_list": "del [flag]",
+    "del_nested_if": "if x:\n    del flag",
+    "del_attr_of_flag": "del flag.x",
+    "del_item_of_flag": "del flag[0]",
+    "del_other_name": "del x",
+    "import": "import flag",
+    "import_dotted": "import flag.sub",
+    "import_as": "import m as flag",
+    "from_import": "from m import flag",
+    "from_import_as": "from m import n as flag",
+    "import_other_name": "import m",
+    "def": "def flag():\n    pass",
+    "async_def": "async def flag():\n    pass",
+    "class": "class flag:\n    pass",
+    "def_other_name": "def g():\n    pass",
+    "class_other_name": "class G:\n    pass",
+    "walrus_in_default": "def g(a=(flag := x)):\n    pass",
+    "walrus_in_decorator": "@(flag := x)\ndef g():\n    pass",
+    "walrus_in_class_base": "class G((flag := x)):\n    pass",
     "exec": "exec('flag = 1')",
     "eval": "eval('flag')",
     "globals": "globals()",
@@ -569,6 +591,28 @@ PARAM_WRITES = {
     "attr_of_flag": [(True, None)],
     "subscript_of_flag": [(True, None)],
     "other_name": [(True, None)],
+    "del": [(None, "condition_mutation")],
+    "del_parenthesized": [(None, "condition_mutation")],
+    "del_tuple": [(None, "condition_mutation")],
+    "del_list": [(None, "condition_mutation")],
+    "del_nested_if": [(None, "condition_mutation"), (True, None)],
+    "del_attr_of_flag": [(True, None)],
+    "del_item_of_flag": [(True, None)],
+    "del_other_name": [(True, None)],
+    "import": [(None, "condition_mutation")],
+    "import_dotted": [(None, "condition_mutation")],
+    "import_as": [(None, "condition_mutation")],
+    "from_import": [(None, "condition_mutation")],
+    "from_import_as": [(None, "condition_mutation")],
+    "import_other_name": [(True, None)],
+    "def": [(None, "condition_mutation")],
+    "async_def": [(None, "condition_mutation")],
+    "class": [(None, "condition_mutation")],
+    "def_other_name": [(True, None)],
+    "class_other_name": [(True, None)],
+    "walrus_in_default": [(None, "condition_mutation")],
+    "walrus_in_decorator": [(None, "condition_mutation")],
+    "walrus_in_class_base": [(None, "condition_mutation")],
     "exec": [(None, "condition_mutation")],
     "eval": [(None, "condition_mutation")],
     "globals": [(None, "condition_mutation")],
@@ -582,6 +626,13 @@ MEMBER_WRITE_SOURCES = {
     "attr_tuple": "self.flag, y = x, 1",
     "other_attr": "self.other = 1",
     "other_receiver": "o.flag = 1",
+    "attr_del": "del self.flag",
+    "attr_del_tuple": "del (self.other, self.flag)",
+    "attr_del_other": "del self.other",
+    "receiver_assign": "self = x",
+    "receiver_del": "del self",
+    "receiver_import_as": "import m as self",
+    "receiver_def": "def self():\n    pass",
     "setattr_flag": "setattr(self, 'flag', x)",
     "setattr_other_name": "setattr(self, 'other', x)",
     "setattr_dynamic": "setattr(self, n, x)",
@@ -612,6 +663,13 @@ MEMBER_WRITES = {
     "attr_tuple": [(None, "condition_mutation")],
     "other_attr": [(True, None)],
     "other_receiver": [(True, None)],
+    "attr_del": [(None, "condition_mutation")],
+    "attr_del_tuple": [(None, "condition_mutation")],
+    "attr_del_other": [(True, None)],
+    "receiver_assign": [(None, "condition_mutation")],
+    "receiver_del": [(None, "condition_mutation")],
+    "receiver_import_as": [(None, "condition_mutation")],
+    "receiver_def": [(None, "condition_mutation")],
     "setattr_flag": [(None, "opaque_call_mutation")],
     "setattr_other_name": [(None, "opaque_call_mutation")],
     "setattr_dynamic": [(None, "opaque_call_mutation")],
@@ -634,15 +692,6 @@ MEMBER_WRITES = {
     "no_op": [(True, None)],
     "read_only": [(True, None)],
     "exec": [(None, "opaque_call_mutation")],
-}
-# Rebinding forms the walker does not see yet (the value stays True), see issue #710.
-REBINDING_SOURCES = {
-    "import": "import flag",
-    "import_as": "import m as flag",
-    "from_import": "from m import flag",
-    "del": "del flag",
-    "def": "def flag():\n    pass",
-    "class": "class flag:\n    pass",
 }
 
 
@@ -702,12 +751,19 @@ def test_each_member_write_form_changes_or_keeps_the_value_as_expected(name: str
     }
 
 
-@pytest.mark.xfail(strict=True, reason="rebinding by import, del, def or class is not seen (#710)")
-@pytest.mark.parametrize("name", REBINDING_SOURCES)
-def test_rebinding_the_parameter_by_a_non_assignment_makes_the_value_unknown(name: str) -> None:
-    ((value, reason),) = _after_write(REBINDING_SOURCES[name], False)
-    assert value is None
-    assert reason is not None
+@pytest.mark.parametrize(
+    "header,expected",
+    [
+        ("class G(base):", {(True, None)}),
+        ("class G((flag := base)):", {(None, "condition_mutation")}),
+        ("class G(metaclass=(flag := base)):", {(None, "condition_mutation")}),
+        ("@(flag := deco)\n        class G:", {(None, "condition_mutation")}),
+        ("class flag:", {(None, "condition_mutation")}),
+    ],
+)
+def test_a_class_body_runs_after_the_rebinding_in_its_header(header: str, expected: set) -> None:
+    source = f"def f(flag):\n    if flag:\n        {header}\n            inner()\n"
+    assert _values(_guarded(source, False), "inner") == expected
 
 
 ASYNC_ONLY = {

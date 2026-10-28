@@ -565,8 +565,9 @@ def _guarded_rule_results(
         )
     violations: list[RawRecord] = []
     for call in selected:
+        # A private helper can live outside the selected source, so its walk needs every call.
         call_violations, call_limits, call_facts = _guarded_call_results(
-            rule, scope, call, selected, scoped_symbols, condition_scopes
+            rule, scope, call, calls, scoped_symbols, condition_scopes
         )
         violations.extend(call_violations)
         limits.extend(call_limits)
@@ -611,7 +612,7 @@ def _guarded_call_results(
     rule: ForbiddenEffectUnderConditionRule,
     scope: str,
     call: RawRecord,
-    selected: Sequence[RawRecord],
+    calls: Sequence[RawRecord],
     scoped_symbols: Sequence[RawRecord],
     condition_scopes: set[str],
 ) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord]]:
@@ -643,7 +644,7 @@ def _guarded_call_results(
     facts: list[RawRecord] = []
     for proof in proofs:
         effect_violations, effect_limits, effect_facts = _guarded_proof_results(
-            rule, scope, call, proof, binding, selected, scoped_symbols
+            rule, scope, call, proof, binding, calls, scoped_symbols
         )
         violations.extend(effect_violations)
         limits.extend(effect_limits)
@@ -667,7 +668,7 @@ def _guarded_proof_results(
     call: RawRecord,
     proof: GuardedEffectEvidence,
     binding: CallBinding | None,
-    selected: Sequence[RawRecord],
+    calls: Sequence[RawRecord],
     scoped_symbols: Sequence[RawRecord],
 ) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord]]:
     reason = proof.unknown_reason
@@ -693,7 +694,7 @@ def _guarded_proof_results(
     if proof.condition_value is False:
         return [], [], []
     if binding.target != rule.target:
-        return _helper_proof_results(rule, scope, call, proof, binding, selected, scoped_symbols)
+        return _helper_proof_results(rule, scope, call, proof, binding, calls, scoped_symbols)
     return [_direct_violation(rule, scope, call, proof, binding)], [], []
 
 
@@ -703,7 +704,7 @@ def _helper_proof_results(
     call: RawRecord,
     proof: GuardedEffectEvidence,
     binding: CallBinding,
-    selected: Sequence[RawRecord],
+    calls: Sequence[RawRecord],
     scoped_symbols: Sequence[RawRecord],
 ) -> tuple[list[RawRecord], list[RawRecord], list[RawRecord]]:
     violations: list[RawRecord] = []
@@ -715,14 +716,14 @@ def _helper_proof_results(
             continue
         matched_helper = True
         helper_violations, helper_limits, helper_facts = _helper_effects(
-            rule, scope, call, proof, helper, calls=selected, symbols=scoped_symbols
+            rule, scope, call, proof, helper, calls=calls, symbols=scoped_symbols
         )
         violations.extend(helper_violations)
         limits.extend(helper_limits)
         facts.extend(helper_facts)
     unresolved_helper_effect = False
     if not matched_helper:
-        for row in selected:
+        for row in calls:
             row_data: RecordData = parse_record(row).data
             inner_binding = call_binding(row_data.get("call_binding"))
             if (
