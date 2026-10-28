@@ -156,8 +156,9 @@ def test_a_reference_the_parser_had_to_repair_is_dropped() -> None:
         ("/// <reference lib='dom' />\nexport {};", ["Unobserved triple-slash reference: dom"]),
         ("export {};\n/// <reference types='node' />", []),
         ("// import('x')\n/* @import {X} from 'x' */", []),
-        ("/** @typedef {import('./a').A} A */", ["JSDoc import is not observed"]),
-        ("/** @import {A} from './a' */", ["JSDoc import is not observed"]),
+        # tsc reads JSDoc types only in JavaScript files (#744).
+        ("/** @typedef {import('./a').A} A */", []),
+        ("/** @import {A} from './a' */", []),
         ("/**/ const a = 1;", []),
     ],
 )

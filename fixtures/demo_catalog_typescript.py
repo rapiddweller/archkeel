@@ -688,6 +688,30 @@ VARIANTS: tuple[Variant, ...] = (
         _bundler_package(asset=False),
         gap=True,
     ),
+    # #744: tsc reads a JSDoc type only in JavaScript, and prose `import()` is no type.
+    example(
+        "jsdoc-prose-import",
+        "jsdoc:prose_import",
+        "A doc comment that names `import()` in prose adds no dependency.",
+        {
+            "src/main.ts": appended(
+                "src/main.ts",
+                "/** After a deploy the dynamic import() fails. */\nexport const reload = 1;\n",
+            )
+        },
+    ),
+    example(
+        "jsdoc-type-import-in-typescript",
+        "jsdoc:type_import_in_typescript",
+        "tsc ignores a JSDoc type in a TypeScript file, so the type adds no dependency.",
+        {
+            "src/main.ts": appended(
+                "src/main.ts",
+                "/** @type {import('./domain/order').Order} */\n"
+                "export const order = { id: 'a' };\n",
+            )
+        },
+    ),
     Variant(
         id="typescript-syntax-error",
         section="validation",

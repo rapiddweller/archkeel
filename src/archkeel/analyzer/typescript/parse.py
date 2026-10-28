@@ -325,8 +325,43 @@ def _special_name(value: str | None) -> _SpecialName | None:
 
 
 _LOADER: Final = "Node module loader is not observed"
-# A comment opens a JSDoc block unless it is `/**/`; only those can carry typed imports.
-_JSDOC_IMPORT: Final = re.compile(r"^/\*\*(?!/)[\s\S]*(?:@import\b|\bimport\s*\()")
+
+
+class _JSDocType(Enum):
+    """How a JSDoc tag can name a module; tsc 5.9.3 reads these only in JavaScript (#744)."""
+
+    BRACED = "braced"
+    BARE = "bare"  # The type can omit its braces.
+    IMPORT = "import"
+
+
+_JSDOC_TAGS: Final = {
+    "import": _JSDocType.IMPORT,
+    **dict.fromkeys(("type", "this", "enum", "extends", "augments", "implements"), _JSDocType.BARE),
+    **dict.fromkeys(
+        (
+            "satisfies",
+            "return",
+            "returns",
+            "param",
+            "arg",
+            "argument",
+            "prop",
+            "property",
+            "typedef",
+            "template",
+            "throws",
+            "exception",
+        ),
+        _JSDocType.BRACED,
+    ),
+}
+# Only a `/**` comment is a JSDoc block. tsc starts a tag at `@` after whitespace or a margin
+# `*`, so `a@type` is no tag.
+_JSDOC_TOKEN: Final = re.compile(
+    r"(?P<block>\A/\*\*)|(?<![^\s*])@(?P<tag>\w+)(?P<braced>[\s*]*\{)?"
+    r"|(?P<open>\{)|(?P<close>\})|(?P<quote>['\"`])|(?P<call>\bimport[\s*]*\()"
+)
 
 
 _TRIPLE_SLASH: Final = re.compile(r"^///\s*<reference\s+(?:path|lib)\s*=\s*(['\"])(.*?)\1")
@@ -470,7 +505,7 @@ def parse(rel_path: str, data: bytes) -> Syntax:
     if loaders:
         concerns.append(Concern(_LOADER, min(loaders, key=lambda span: (span.line, span.column))))
     if re.search(rb"/\*\*|///", data):
-        concerns.extend(_comment_concerns(source))
+        concerns.extend(_comment_concerns(source, suffix))
     errors = sorted(source.captures("errors").get("error", []), key=lambda item: item.start_byte)
     bindings, ambiguous_bindings = _script_bindings(source)
     if script_mode:
@@ -3659,8 +3694,13 @@ def _require_concerns(source: _Source, concerns: list[Concern]) -> bool:
     return shadows
 
 
-def _comment_concerns(source: _Source) -> list[Concern]:
+def _comment_concerns(source: _Source, suffix: FileSuffix | None) -> list[Concern]:
     concerns: list[Concern] = []
+    # tsc reads JSDoc types only in JavaScript files; an unknown suffix keeps the gap.
+    jsdoc = suffix is None or suffix.source_kind not in (
+        SourceKind.TYPESCRIPT,
+        SourceKind.DECLARATION,
+    )
     # Triple-slash directives count only before the first statement of the file.
     statements = [
         child.start_byte
@@ -3676,9 +3716,47 @@ def _comment_concerns(source: _Source) -> list[Concern]:
         if directive is not None:
             reason = f"Unobserved triple-slash reference: {directive[2]}"
             concerns.append(Concern(reason, source.span(node)))
-        if _JSDOC_IMPORT.match(body):
+        if jsdoc and _jsdoc_imports(body):
             concerns.append(Concern("JSDoc import is not observed", source.span(node)))
     return concerns
+
+
+def _jsdoc_imports(body: str) -> bool:
+    """An `@import` tag, or `import(` in the type of a tag; prose is no type (#744)."""
+    kind: _JSDocType | None = None
+    depth = 0
+    # `armed`: the end of a type is not known, so any later import counts.
+    armed = False
+    # The quotes seen an odd number of times in the open types.
+    odd: set[str] = set()
+    tokens = _JSDOC_TOKEN.finditer(body)
+    first = next(tokens, None)
+    if first is None or first["block"] is None:
+        return False
+    for token in tokens:
+        if token["call"] is not None:
+            if armed or depth:
+                return True
+        elif token["tag"] is not None:
+            # A tag inside an open type: a broken type, or an `@` inside a string.
+            armed = armed or depth > 0
+            kind = _JSDOC_TAGS.get(token["tag"])
+            if kind is _JSDocType.IMPORT:
+                return True
+            depth = 1 if kind is not None and token["braced"] is not None else 0
+            # Without braces the end of the type is not known.
+            armed = armed or (kind is _JSDocType.BARE and not depth)
+        elif kind is None:
+            continue
+        elif token["open"] is not None:
+            depth += 1
+        elif token["close"] is not None and depth:
+            depth -= 1
+            # An odd quote count can put this brace inside a string.
+            armed = armed or bool(odd)
+        elif token["quote"] is not None and depth:
+            odd ^= {token["quote"]}
+    return False
 
 
 class _UMDSlot(Enum):
