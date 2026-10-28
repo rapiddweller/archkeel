@@ -53,6 +53,14 @@ class ModuleKind(Enum):
     PRESERVE = "preserve"
 
 
+class ModuleDetection(Enum):
+    """How the compiler decides that a file is a module (`moduleDetection`)."""
+
+    AUTO = "auto"
+    LEGACY = "legacy"
+    FORCE = "force"
+
+
 class ModuleResolution(Enum):
     """Accepted resolver modes; NODE is normalized to NODE10 at the input boundary."""
 
@@ -121,10 +129,14 @@ _RESOLUTION_VALUES: Final[dict[str, ModuleResolution]] = {
     **{member.value: member for member in ModuleResolution},
     "node": ModuleResolution.NODE10,
 }
+_DETECTION_VALUES: Final[dict[str, ModuleDetection]] = {
+    member.value: member for member in ModuleDetection
+}
 _TARGET_VALUES: Final[dict[str, ScriptTarget]] = {member.value: member for member in ScriptTarget}
 _ENUMS: Final[dict[str, dict[str, Enum]]] = {
     "module": dict(_MODULE_VALUES),
     "moduleResolution": dict(_RESOLUTION_VALUES),
+    "moduleDetection": dict(_DETECTION_VALUES),
     "target": dict(_TARGET_VALUES),
 }
 _BOOLEAN_OPTIONS: Final = frozenset(
@@ -197,7 +209,8 @@ class Options:
     json_modules: bool | None = None
     libs: tuple[StandardLibrary, ...] | None = None
     no_lib: bool = False
-    ambient_custom: bool = False
+    lib_unmodeled: bool = False
+    module_detection: ModuleDetection | None = None
 
     def __post_init__(self) -> None:
         for name, value, kind in (
@@ -214,8 +227,23 @@ class Options:
             raise TypeError("libs must be a tuple of StandardLibrary or None")
         if not isinstance(self.no_lib, bool):
             raise TypeError("no_lib must be boolean")
-        if not isinstance(self.ambient_custom, bool):
-            raise TypeError("ambient_custom must be boolean")
+        if not isinstance(self.lib_unmodeled, bool):
+            raise TypeError("lib_unmodeled must be boolean")
+        if self.module_detection is not None and not isinstance(
+            self.module_detection, ModuleDetection
+        ):
+            raise TypeError("module_detection must be ModuleDetection or None")
+
+    @property
+    def scripts_are_global(self) -> bool:
+        """Whether a source file without `import` or `export` still is a global script.
+
+        Under `force` and under the Node module modes the compiler treats every source file as a
+        module. A declaration file is not affected.
+        """
+        return self.module_detection is not ModuleDetection.FORCE and self.emit_module not in (
+            _NODE16_MODULES | {ModuleKind.NODENEXT}
+        )
 
     @property
     def resolve_json(self) -> bool:
@@ -294,7 +322,7 @@ _INTRINSIC_GLOBALS: Final = frozenset({"undefined"})
 
 def standard_globals(options: Options) -> frozenset[str]:
     """Recognize platform declarations; unlisted globals and runtime mutations stay unproved."""
-    if options.no_lib or options.unmodeled or options.ambient_custom:
+    if options.no_lib or options.unmodeled or options.lib_unmodeled:
         return frozenset()
     libraries = (
         options.libs if options.libs is not None else _DEFAULT_LIBS[_default_target(options)]
@@ -654,6 +682,7 @@ def _options(layer: _Layer, problems: list[str]) -> Options:
         # `types` and `typeRoots` only add globals to the catalog (AD-274); a replacement lib
         # can change what a lib name means.
         unsupported_library or raw.get("libReplacement") not in (None, False),
+        _DETECTION_VALUES.get(_normalized(raw, "moduleDetection")),
     )
     if options.no_lib and libraries is not None:
         problems.append("Compiler option 5053: 'lib' cannot be specified with 'noLib'.")

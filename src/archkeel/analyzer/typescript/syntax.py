@@ -298,4 +298,9 @@ class Syntax:
     script_bindings: tuple[str, ...] = ()
     script_namespaces: tuple[ScriptNamespace, ...] = ()
     module_exports: tuple[tuple[str, Span, Span], ...] = ()
+    # Names of `declare global { }` blocks, and of top-level `declare` statements (AD-274).
     ambient_globals: tuple[tuple[str, Span], ...] = ()
+    ambient_top_level: tuple[tuple[str, Span], ...] = ()
+    # Module syntax or a module extension; `declaration_file` marks files that stay global scripts.
+    module_file: bool = False
+    declaration_file: bool = False

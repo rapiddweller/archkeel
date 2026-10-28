@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "60f6d1eb075a22354e366f846caceee210e00f8d3d903fcef374004394ec5a73",
+  "after_digest": "f17b4ed38769e43bef637a3c3be92b0f3f67a6842da37df558363451e7177551",
+  "before_baseline_digest": "60f6d1eb075a22354e366f846caceee210e00f8d3d903fcef374004394ec5a73",
+  "before_digest": "a1b0e05bf72453c2b35ee4123b43acf408816cd227f0477cf709d61f0d145bd2",
+  "decided_by": "Alex (2026-10-28 approval: script or module follows the compiler, AD-274 amendment, #721)",
+  "rationale": "Declare the Options.lib_unmodeled (renamed from ambient_custom) and Options.module_detection attributes in the TypeScript inner contract. They let the collector decide whether a source file is a global script.",
+  "schema_version": "2.0.0"
+}

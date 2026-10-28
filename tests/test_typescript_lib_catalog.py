@@ -46,7 +46,7 @@ def test_lib_and_default_target_prove_exactly_the_compiler_globals(
     tmp_path, compiler, present, missing
 ):
     config, snapshot = _environment(tmp_path, compiler)
-    assert not config.partial and not snapshot.problems and not config.options.ambient_custom
+    assert not config.partial and not snapshot.problems and not config.options.lib_unmodeled
     names = standard_globals(config.options)
     assert present <= names
     assert not missing & names

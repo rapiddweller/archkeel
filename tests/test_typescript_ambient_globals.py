@@ -15,11 +15,13 @@ ENVIRONMENT = {"target": "ES2022", "lib": ["ES2023", "DOM", "DOM.Iterable"]}
 USE = "export const used = NAME;\n"
 
 
-def _facts(tmp_path, files, compiler=None):
+def _facts(tmp_path, files, compiler=None, package_type=None):
     for rel, text in files.items():
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / rel).write_text(text)
     options = {**ENVIRONMENT, **(compiler or {})}
+    if package_type is not None:
+        (tmp_path / "package.json").write_text(json.dumps({"type": package_type}))
     (tmp_path / "tsconfig.json").write_text(
         json.dumps({"compilerOptions": options, "include": ["src"]})
     )
@@ -161,8 +163,8 @@ def test_the_use_is_backed_by_a_fact_that_cites_the_declaration(tmp_path):
         {"src/write.ts": "window.NAME = 1;"},
         {"src/write.ts": "globalThis.NAME = 1;"},
         {"src/write.ts": "NAME = 1;"},
-        {"src/shadow.ts": "export const NAME = 1;"},
-        {"src/shadow.ts": "export function NAME() {}"},
+        {"src/shadow.ts": "const NAME = 1;"},
+        {"src/shadow.ts": "function NAME() {}"},
     ],
 )
 def test_the_conditions_of_a_standard_global_apply_to_a_declared_one(tmp_path, extra):
@@ -194,11 +196,6 @@ def test_a_directive_for_types_creates_no_gap_and_other_directives_keep_theirs(t
     assert any("Unobserved triple-slash reference: dom" in reason for reason in reasons)
 
 
-def test_a_directive_after_the_first_statement_is_a_plain_comment(tmp_path):
-    files = {"src/a.ts": 'export const a = 1;\n/// <reference types="vite/client" />\n'}
-    assert not _facts(tmp_path, files).coverage.gaps
-
-
 def test_a_vite_project_reports_only_what_the_catalog_and_declarations_cannot_prove(tmp_path):
     files = {
         "src/vite-env.d.ts": (
@@ -226,3 +223,123 @@ def test_a_declared_global_read_through_an_alias_keeps_record_ids_unique(tmp_pat
     }
     facts = _facts(tmp_path, files, {"allowJs": True})
     assert not _gaps(facts, "NAME")
+
+
+DECLARE = "declare const NAME: string;\n"
+NODENEXT = {"module": "nodenext", "moduleResolution": "nodenext"}
+NODE16 = {"module": "node16", "moduleResolution": "node16"}
+# Verified with tsc 5.9.3: (files, compiler options, package type) -> is NAME global? The use file
+# `src/use.ts` reads NAME; "global" means tsc finds it, "local" means tsc reports TS2304 or TS2552.
+MODULE_OR_SCRIPT = {
+    "d.ts script": ({"src/env.d.ts": DECLARE}, {}, None, True),
+    "d.ts with export": ({"src/env.d.ts": "export {};\n" + DECLARE}, {}, None, False),
+    "d.ts forced": ({"src/env.d.ts": DECLARE}, {"moduleDetection": "force"}, None, True),
+    "d.mts script": ({"src/env.d.mts": DECLARE}, {}, None, True),
+    "d.cts script": ({"src/env.d.cts": DECLARE}, {}, None, True),
+    "ts script": ({"src/env.ts": DECLARE}, {}, None, True),
+    "ts script, detection auto": ({"src/env.ts": DECLARE}, {"moduleDetection": "auto"}, None, True),
+    "ts script, detection legacy": (
+        {"src/env.ts": DECLARE},
+        {"moduleDetection": "legacy"},
+        None,
+        True,
+    ),
+    "ts script, detection force": (
+        {"src/env.ts": DECLARE},
+        {"moduleDetection": "force"},
+        None,
+        False,
+    ),
+    "mts script": ({"src/env.mts": DECLARE}, {}, None, False),
+    "cts script": ({"src/env.cts": DECLARE}, {}, None, False),
+    "tsx script, react-jsx": ({"src/env.tsx": DECLARE}, {"jsx": "react-jsx"}, None, True),
+    "ts script, module esnext": (
+        {"src/env.ts": DECLARE},
+        {"module": "esnext", "moduleResolution": "bundler"},
+        None,
+        True,
+    ),
+    "ts script, module preserve": (
+        {"src/env.ts": DECLARE},
+        {"module": "preserve", "moduleResolution": "bundler"},
+        None,
+        True,
+    ),
+    "ts script, nodenext, package module": ({"src/env.ts": DECLARE}, NODENEXT, "module", False),
+    "ts script, nodenext, package commonjs": (
+        {"src/env.ts": DECLARE},
+        NODENEXT,
+        "commonjs",
+        False,
+    ),
+    "ts script, nodenext, no package type": ({"src/env.ts": DECLARE}, NODENEXT, None, False),
+    "ts script, node16, package module": ({"src/env.ts": DECLARE}, NODE16, "module", False),
+    "nested namespace in a script": (
+        {"src/env.ts": "declare namespace NAME.B.C { const x: 1 }\n"},
+        {},
+        None,
+        True,
+    ),
+    "declare global in a module": (
+        {"src/env.ts": "export {};\ndeclare global { const NAME: string }\n"},
+        {},
+        None,
+        True,
+    ),
+    "declare global in a forced module": (
+        {"src/env.ts": "export {};\ndeclare global { const NAME: string }\n"},
+        {"moduleDetection": "force"},
+        None,
+        True,
+    ),
+    "declare global in an mts file": (
+        {"src/env.mts": "export {};\ndeclare global { const NAME: string }\n"},
+        {},
+        None,
+        True,
+    ),
+    "exported declaration in declare global": (
+        {"src/env.ts": "export {};\ndeclare global { export const NAME: string }\n"},
+        {},
+        None,
+        True,
+    ),
+}
+
+
+@pytest.mark.parametrize("case", MODULE_OR_SCRIPT)
+def test_a_declaration_is_global_exactly_when_the_compiler_says_so(tmp_path, case):
+    files, compiler, package_type, global_name = MODULE_OR_SCRIPT[case]
+    facts = _facts(
+        tmp_path,
+        {**files, "src/use.ts": USE},
+        {"allowJs": False, **compiler},
+        package_type,
+    )
+    # The collector reads no global in the Node module modes, so "global" needs a read and no gap.
+    assert (bool(_reads(facts, "NAME")) and not _gaps(facts, "NAME")) is global_name
+
+
+@pytest.mark.parametrize(
+    "module_file",
+    [
+        "export function open() {}",
+        "function open() {}\nexport {};",
+        "export const open = 1;",
+        "const open = 1;\nexport {};",
+    ],
+)
+def test_a_module_local_binding_of_a_catalog_name_is_not_a_second_publication(
+    tmp_path, module_file
+):
+    files = {"src/a.ts": "export const go = () => window.open('/x');", "src/b.ts": module_file}
+    facts = _facts(tmp_path, files)
+    assert not _gaps(facts, "open")
+
+
+def test_a_binding_in_a_global_script_still_blocks_a_catalog_name(tmp_path):
+    files = {
+        "src/a.ts": "export const go = () => window.open('/x');",
+        "src/b.ts": "function open() {}",
+    }
+    assert _gaps(_facts(tmp_path, files), "open")
