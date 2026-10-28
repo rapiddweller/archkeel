@@ -43,7 +43,8 @@ def _gap(source: str, path: str = "main.js") -> bool:
         (f"/** x */\n/* @type {{{TYPE}}} */", False),
         (f"/** x */\n/* @param {{string}} p\n * @type {{{TYPE}}} */", False),
         (f"/*** @type {{{TYPE}}} */", True),
-        # Every tag that holds a type, with braces.
+        # Every tag that holds a type, with braces. `@prop` and `@property` load only in a
+        # `@typedef` or a `@callback`; alone they keep the gap: fail closed.
         *(
             (f"/** @{tag} {{{TYPE}}} p */", True)
             for tag in (
@@ -65,6 +66,38 @@ def _gap(source: str, path: str = "main.js") -> bool:
             )
         ),
         *((f"/** @{tag} {{B<{TYPE}>}} */", True) for tag in ("extends", "augments", "implements")),
+        (f"/** @typedef {{object}} O\n * @property {{{TYPE}}} p */", True),
+        # A `@template` default in brackets holds a type, with or without a constraint first.
+        (f"/** @template [T={TYPE}] */", True),
+        (f"/** @template [ T = {TYPE} ] */", True),
+        (f"/** @template [const T={TYPE}] */", True),
+        (f"/** @template {{number}} [T={TYPE}] */", True),
+        (f"/** @template {{number}} T, [U={TYPE}] */", True),
+        (f"/** @template A, B, [C={TYPE}] */", True),
+        (f"/** @template [T={TYPE}[]] */", True),
+        (f"/** @template [T=[number] | {TYPE}] */", True),
+        (f"/** @template [T={{a: {TYPE}}}] */", True),
+        (f"/** @template [T={TYPE}] a description */", True),
+        (f"/** @template\n * [T={TYPE}] */", True),
+        (f"/** @template {{{TYPE}}} T */", True),
+        (f"/** @template [T={TYPE} */", True),
+        # Prose after the template names is no type.
+        ("/** @template T the dynamic import('./a') fails */", False),
+        ("/** @template [T] import('./a') */", False),
+        ("/** @template [T=number] the dynamic import('./a') fails */", False),
+        ("/** @template {number} T the [docs] say import('./a') */", False),
+        (f"/** @template T={TYPE} */", False),
+        (f"/** @template [T=number]\n * @returns {{number}} after {TYPE} */", False),
+        # Only a template reads a type in brackets: a parameter default is an expression.
+        ("/** @param {number} [p=import('./a')] */", False),
+        ("/** @param [p=import('./a')] */", False),
+        ("/** @property {number} [p=import('./a')] */", False),
+        # A quote can hide a bracket, so the reader cannot find the end of the default.
+        (f"/** @template [T='a]' | {TYPE}] */", True),
+        # Kept although tsc ends the template names before the brackets: fail closed.
+        (f"/** @template A [B={TYPE}] */", True),
+        (f"/** @template T,\n * [U={TYPE}] */", True),
+        (f"/** @template [T=\n * {TYPE}] */", True),
         # The `@import` tag in each form.
         ("/** @import {A} from './a' */", True),
         ("/** @import A from './a' */", True),
@@ -76,9 +109,11 @@ def _gap(source: str, path: str = "main.js") -> bool:
         ("/** @type {import\n * ('./a').A} */", True),
         ("/** @type {{ a: import('./a').A }} */", True),
         ("/** @type {{a: 1} | import('./a').A} */", True),
+        ("/** @type {[number] | import('./a').A} */", True),
         (f"/** @type {{`${{{TYPE}['n']}}`}} */", True),
         # Some tags may omit the braces.
         (f"/** @type {TYPE} */", True),
+        (f"/** @satisfies {TYPE} */", True),
         (f"/** @this {TYPE} */", True),
         (f"/** @enum {TYPE} */", True),
         (f"/** @extends B<{TYPE}> */", True),
@@ -172,9 +207,10 @@ def test_only_javascript_files_read_jsdoc_types(path: str, gap: bool) -> None:
         "/** " + "a import( b " * 20_000 + "*/",
         "/** import( @type " + "x @type x " * 20_000 + "*/",
         "/** @type " + "{" * 100_000 + "}" * 100_000 + " import( */",
+        "/** @template " + "[" * 100_000 + "]" * 100_000 + " import( */",
         "/** import( " + "@param {a} p " * 20_000 + "*/",
     ],
-    ids=["prose", "bare tags", "nested braces", "braced tags"],
+    ids=["prose", "bare tags", "nested braces", "nested brackets", "braced tags"],
 )
 def test_a_large_comment_is_read_in_linear_time(comment: str) -> None:
     started = time.perf_counter()
@@ -220,6 +256,8 @@ def test_the_collector_reports_no_jsdoc_import_in_a_typescript_file(tmp_path, co
         ("/**\n * After a deploy the dynamic import() fails.\n */", False),
         (f"/** @type {{{TYPE}}} */", True),
         ("/** @import {A} from './a' */", True),
+        (f"/** @template [T={TYPE}] */", True),
+        ("/** @template [T=number] the dynamic import('./a') fails */", False),
     ],
 )
 def test_the_collector_reports_a_jsdoc_type_import_in_a_javascript_file(

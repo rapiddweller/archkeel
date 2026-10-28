@@ -332,15 +332,18 @@ class _JSDocType(Enum):
 
     BRACED = "braced"
     BARE = "bare"  # The type can omit its braces.
+    TEMPLATE = "template"  # A `[name=default]` also holds a type.
     IMPORT = "import"
 
 
 _JSDOC_TAGS: Final = {
     "import": _JSDocType.IMPORT,
-    **dict.fromkeys(("type", "this", "enum", "extends", "augments", "implements"), _JSDocType.BARE),
+    "template": _JSDocType.TEMPLATE,
+    **dict.fromkeys(
+        ("type", "this", "enum", "extends", "augments", "implements", "satisfies"), _JSDocType.BARE
+    ),
     **dict.fromkeys(
         (
-            "satisfies",
             "return",
             "returns",
             "param",
@@ -349,7 +352,6 @@ _JSDOC_TAGS: Final = {
             "prop",
             "property",
             "typedef",
-            "template",
             "throws",
             "exception",
         ),
@@ -360,7 +362,8 @@ _JSDOC_TAGS: Final = {
 # `*`, so `a@type` is no tag.
 _JSDOC_TOKEN: Final = re.compile(
     r"(?P<block>\A/\*\*)|(?<![^\s*])@(?P<tag>\w+)(?P<braced>[\s*]*\{)?"
-    r"|(?P<open>\{)|(?P<close>\})|(?P<quote>['\"`])|(?P<call>\bimport[\s*]*\()"
+    r"|(?P<open>\{)|(?P<close>\})|(?P<bracket>\[)|(?P<end>\])|(?P<quote>['\"`])"
+    r"|(?P<call>\bimport[\s*]*\()"
 )
 
 
@@ -3748,11 +3751,15 @@ def _jsdoc_imports(body: str) -> bool:
             armed = armed or (kind is _JSDocType.BARE and not depth)
         elif kind is None:
             continue
-        elif token["open"] is not None:
+        elif token["open"] is not None or (
+            token["bracket"] is not None and kind is _JSDocType.TEMPLATE
+        ):
             depth += 1
-        elif token["close"] is not None and depth:
+        elif (
+            token["close"] is not None or (token["end"] is not None and kind is _JSDocType.TEMPLATE)
+        ) and depth:
             depth -= 1
-            # An odd quote count can put this brace inside a string.
+            # An odd quote count can put this brace or bracket inside a string.
             armed = armed or bool(odd)
         elif token["quote"] is not None and depth:
             odd ^= {token["quote"]}
