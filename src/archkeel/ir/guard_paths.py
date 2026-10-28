@@ -52,21 +52,12 @@ class _GuardPathWalker:
         self.function = function
         self.condition_name = condition_name
         self.receiver_name = receiver_name
+        # Rebinding the receiver (`self = other`) moves the guard just like rebinding the name.
+        self.bound_names = {condition_name} | ({receiver_name} if receiver_name else set())
         self.calls: list[GuardedCallPath] = []
 
     def writes_name(self, node: ast.AST) -> bool:
-        direct = any(
-            isinstance(child, ast.Name)
-            and child.id == self.condition_name
-            and isinstance(child.ctx, ast.Store)
-            or self.receiver_name is not None
-            and isinstance(child, ast.Attribute)
-            and child.attr == self.condition_name
-            and isinstance(child.ctx, ast.Store)
-            and isinstance(child.value, ast.Name)
-            and child.value.id == self.receiver_name
-            for child in ast.walk(node)
-        )
+        direct = any(self._rebinds(child) for child in ast.walk(node))
         if direct:
             return True
         return any(self._reflective_write(child) for child in ast.walk(node)) or (
@@ -79,6 +70,25 @@ class _GuardPathWalker:
                 for child in ast.walk(node)
             )
         )
+
+    def _rebinds(self, child: ast.AST) -> bool:
+        # Store and Del both end the guard: after `del flag` the name is no longer the parameter.
+        if isinstance(child, ast.Name):
+            return child.id in self.bound_names and isinstance(child.ctx, ast.Store | ast.Del)
+        if isinstance(child, ast.Attribute):
+            return (
+                child.attr == self.condition_name
+                and isinstance(child.ctx, ast.Store | ast.Del)
+                and isinstance(child.value, ast.Name)
+                and child.value.id == self.receiver_name
+            )
+        if isinstance(child, ast.alias):
+            # `import a.b` binds `a`.
+            bound = child.asname or child.name
+            return any(
+                bound == name or bound[: len(name) + 1] == f"{name}." for name in self.bound_names
+            )
+        return False
 
     def _reflective_write(self, child: ast.AST) -> bool:
         if not isinstance(child, ast.Call):
@@ -252,23 +262,39 @@ class _GuardPathWalker:
             return [(None, "unsupported_control_flow", path_nodes)]
         if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
             arguments = statement.args
-            for expression in (
+            header = (
                 *statement.decorator_list,
                 *arguments.defaults,
                 *(item for item in arguments.kw_defaults if item is not None),
-            ):
-                self.expression(expression, current, path_nodes, reason)
-            return [(current, reason, path_nodes)]
+            )
+            state = self._definition_state(statement.name, header, current, reason)
+            for expression in header:
+                self.expression(expression, state[0], path_nodes, state[1])
+            return [(*state, path_nodes)]
         if isinstance(statement, ast.ClassDef):
-            for expression in (
+            header = (
                 *statement.decorator_list,
                 *statement.bases,
                 *(keyword.value for keyword in statement.keywords),
-            ):
-                self.expression(expression, current, path_nodes, reason)
-            self.block(statement.body, current, path_nodes, reason)
-            return [(current, reason, path_nodes)]
+            )
+            state = self._definition_state(statement.name, header, current, reason)
+            for expression in header:
+                self.expression(expression, state[0], path_nodes, state[1])
+            self.block(statement.body, state[0], path_nodes, state[1])
+            return [(*state, path_nodes)]
         return self._ordinary_paths(statement, current, reason, path_nodes)
+
+    def _definition_state(
+        self,
+        name: str,
+        header: tuple[ast.expr, ...],
+        current: bool | None,
+        reason: str | None,
+    ) -> tuple[bool | None, str | None]:
+        """A `def` or `class` binds its name and runs its header; either can rebind the guard."""
+        if name in self.bound_names or any(self.writes_name(item) for item in header):
+            return None, "condition_mutation"
+        return current, reason
 
     def _if_paths(
         self,
@@ -361,5 +387,10 @@ def guarded_call_paths(
 ) -> tuple[GuardedCallPath, ...]:
     """Record call occurrences with a Boolean parameter path when the syntax proves one."""
     walker = _GuardPathWalker(function, condition_name, receiver_name)
-    walker.block(function.body, None, ())
+    # A nested function can rebind the name later, through a call the walker does not follow.
+    closure_rebinds = any(
+        isinstance(node, ast.Nonlocal) and any(name in walker.bound_names for name in node.names)
+        for node in ast.walk(function)
+    )
+    walker.block(function.body, None, (), "condition_mutation" if closure_rebinds else None)
     return tuple(walker.calls)
