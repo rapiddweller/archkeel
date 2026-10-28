@@ -48,13 +48,13 @@ options. A top-level `declare` publishes its name only in a global script:
 - A `declare global { }` block publishes in every file.
 A top-level binding in a file that is a module for the compiler (import, export, module extension,
 `force`, Node module modes) is local. It no longer blocks a catalog name or a declared name in other
-files (Peter's `function open`). A binding in a global script still blocks. `tsc` 5.9.3 decided each class of the table in
+files (Peter's `function open`). A write to such a binding (`open = v`) is local too (#682).
+A binding or a write in a global script still blocks. `tsc` 5.9.3 decided each class of the table in
 `tests/test_typescript_ambient_globals.py`. Known limit: a file that only uses `import.meta` or
 top-level `await` is a module for the compiler, and its `declare` still publishes here.
 
 **Not changed.** `window.fetch = ...` and `window` as a default parameter value keep their gap
-("Escaped or computed global host dependency"). The `open` gap that Peter found is
-fixed by the amendment above.
+("Escaped or computed global host dependency"). The amendment above fixes Peter's `open` gap.
 
 **Check.** Each class has a test on a small project:
 - `types` absent, `[]`, one entry, several entries, `typeRoots` only: `Math`, `Date` and `document`

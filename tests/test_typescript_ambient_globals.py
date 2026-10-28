@@ -361,3 +361,66 @@ def test_a_script_binding_is_local_when_the_options_make_every_file_a_module(tmp
         "src/b.ts": "function open() {}",
     }
     assert not _gaps(_facts(tmp_path, files, {"moduleDetection": "force"}), "open")
+
+
+READ_OPEN = "export function go(t: string) { window.open(t, '_blank', 'noopener'); }\n"
+LET_OPEN = "let open = false;\n"
+WRITE_IN = "export function f(v: boolean) { %s }\n"
+# Verified with tsc 5.9.3: each write binds the module `let open = false`. A write to the global
+# `open` with a boolean is TS2630, so these files type-check only because the binding is local.
+MODULE_LOCAL_WRITES = {
+    "plain, in an exported function": {"src/b.ts": LET_OPEN + WRITE_IN % "open = v;"},
+    "plain, at top level": {"src/b.ts": LET_OPEN + "open = true;\nexport {};\n"},
+    "compound": {"src/b.ts": "let open = 0;\nexport function f() { open += 1; }\n"},
+    "update": {"src/b.ts": "let open = 0;\nexport function f() { open++; }\n"},
+    "array destructuring": {"src/b.ts": LET_OPEN + WRITE_IN % "[open] = [v];"},
+    "object destructuring": {"src/b.ts": LET_OPEN + WRITE_IN % "({ open } = { open: v });"},
+    "for-of head": {"src/b.ts": LET_OPEN + WRITE_IN % "for (open of [v]) {}"},
+    "for-in head": {"src/b.ts": "let open = '';\nexport function f() { for (open in {}) {} }\n"},
+    "nested arrow": {"src/b.ts": LET_OPEN + WRITE_IN % "const g = () => { open = v; }; g();"},
+    "class method": {"src/b.ts": LET_OPEN + "export class C { m(v: boolean) { open = v; } }\n"},
+    "static block": {"src/b.ts": LET_OPEN + "export class C { static { open = true; } }\n"},
+    "export let": {"src/b.ts": "export " + LET_OPEN + WRITE_IN % "open = v;"},
+    "var in a module": {"src/b.ts": "var open = false;\n" + WRITE_IN % "open = v;"},
+    "module extension": {"src/b.mts": LET_OPEN + "open = true;\n"},
+}
+
+
+@pytest.mark.parametrize("case", MODULE_LOCAL_WRITES)
+def test_a_write_to_a_module_local_binding_is_not_a_global_write(tmp_path, case):
+    files = {"src/a.ts": READ_OPEN, **MODULE_LOCAL_WRITES[case]}
+    assert not _gaps(_facts(tmp_path, files), "open")
+
+
+def test_a_top_level_write_is_local_when_the_options_make_every_file_a_module(tmp_path):
+    files = {
+        "src/env.d.ts": DECLARE,
+        "src/local.ts": "let NAME = 0;\nNAME = 1;\n",
+        "src/use.ts": USE,
+    }
+    assert not _gaps(_facts(tmp_path, files, {"moduleDetection": "force"}), "NAME")
+
+
+@pytest.mark.parametrize(
+    "module_file",
+    [
+        # The module binds `open`, but `window.open` writes the global all the same.
+        LET_OPEN + "export function f() { window.open = () => null; }\n",
+        "export function f() { const w = window; w.open = () => null; }\n",
+    ],
+)
+def test_a_global_write_in_a_module_still_blocks_a_catalog_name(tmp_path, module_file):
+    assert _gaps(_facts(tmp_path, {"src/a.ts": READ_OPEN, "src/b.ts": module_file}), "open")
+
+
+@pytest.mark.parametrize(
+    "files",
+    [
+        # A global script that declares and writes the name: its write is the global (AD-274).
+        {"src/env.ts": 'declare var NAME: string;\nNAME = "x";\n'},
+        # A module that does not bind the name writes the global, also in a nested function.
+        {"src/env.d.ts": "declare var NAME: string;", "src/m.ts": WRITE_IN % 'NAME = "x";'},
+    ],
+)
+def test_a_write_to_a_global_name_still_blocks_a_declared_global(tmp_path, files):
+    assert _gaps(_facts(tmp_path, {**files, "src/use.ts": USE}), "NAME")
