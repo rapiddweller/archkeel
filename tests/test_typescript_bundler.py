@@ -579,3 +579,82 @@ def test_evaluation_rejects_the_bundler_feature_without_a_registered_set(tmp_pat
     on = _facts(tmp_path, {"src/main.ts": _EMPTY}, bundler=True)
     with pytest.raises(ProtocolError, match="not registered"):
         _evaluate_with_features(on, ("bundler-mode-v1",))
+
+
+_EXPORTED_ASSET = 'import { x } from "pkg";\nimport "pkg/dist/styles.css";\nexport const y = x;\n'
+
+
+def _exporting(exports: object, *, asset: str | None = "dist/styles.css") -> dict[str, str]:
+    files = {
+        "src/main.ts": _EXPORTED_ASSET,
+        **_package("pkg", version="1.0.0", exports=exports),
+        "node_modules/pkg/dist/index.d.ts": "export declare const x: number;",
+    }
+    if asset is not None:
+        files[f"node_modules/pkg/{asset}"] = ""
+    return files
+
+
+_INDEX = {".": {"types": "./dist/index.d.ts", "default": "./dist/index.js"}}
+
+
+@pytest.mark.parametrize(
+    "exports",
+    [
+        {**_INDEX, "./dist/styles.css": "./dist/styles.css"},
+        {**_INDEX, "./dist/styles.css": {"default": "./dist/styles.css"}},
+        {**_INDEX, "./dist/styles.css": {"import": "./dist/styles.css"}},
+    ],
+    ids=["string", "default condition", "import condition"],
+)
+@pytest.mark.parametrize("bundler", [True, False])
+def test_an_exported_existing_asset_is_a_package_edge_only_in_bundler_mode(
+    tmp_path, exports, bundler
+):
+    facts = _facts(tmp_path, _exporting(exports), bundler=bundler)
+    if bundler:
+        assert _external(facts) == ["pkg", "pkg"]
+        assert _gaps(facts) == []
+    else:
+        assert _external(facts) == ["pkg"]
+        assert _gaps(facts) != []
+
+
+@pytest.mark.parametrize("asset", ["dist/styles.css", "dist/logo.svg", "dist/logo.png", "f.woff2"])
+def test_every_asset_kind_that_a_bundler_loads_is_accepted_through_exports(tmp_path, asset):
+    exports = {**_INDEX, f"./{asset}": f"./{asset}"}
+    files = _exporting(exports, asset=asset)
+    files["src/main.ts"] = f'import "pkg/{asset}";\nexport {{}};\n'
+    facts = _facts(tmp_path, files, bundler=True)
+    assert _external(facts) == ["pkg"] and _gaps(facts) == []
+
+
+def test_an_exported_asset_may_sit_at_another_path_than_its_subpath(tmp_path):
+    exports = {**_INDEX, "./styles.css": "./dist/styles.css"}
+    files = _exporting(exports)
+    files["src/main.ts"] = 'import "pkg/styles.css";\nexport {};\n'
+    facts = _facts(tmp_path, files, bundler=True)
+    assert _external(facts) == ["pkg"] and _gaps(facts) == []
+
+
+def test_an_exported_asset_that_does_not_exist_stays_a_gap(tmp_path):
+    exports = {**_INDEX, "./dist/styles.css": "./dist/styles.css"}
+    facts = _facts(tmp_path, _exporting(exports, asset=None), bundler=True)
+    assert _external(facts) == ["pkg"]
+    assert any(
+        "Package exports target is unavailable: pkg/dist/styles.css" in g for g in _gaps(facts)
+    )
+
+
+def test_a_pattern_export_of_assets_stays_unobserved(tmp_path):
+    exports = {**_INDEX, "./dist/*": "./dist/*"}
+    facts = _facts(tmp_path, _exporting(exports), bundler=True)
+    assert any("Package exports patterns are not observed" in g for g in _gaps(facts))
+
+
+@pytest.mark.parametrize("target", ["dist/notes.txt", "dist/metadata"])
+def test_an_exported_file_that_is_no_asset_stays_a_gap_in_bundler_mode(tmp_path, target):
+    files = _exporting({**_INDEX, "./dist/data": f"./{target}"}, asset=target)
+    files["src/main.ts"] = 'import "pkg/dist/data";\nexport {};\n'
+    facts = _facts(tmp_path, files, bundler=True)
+    assert any("Package exports target is unavailable: pkg/dist/data" in g for g in _gaps(facts))
