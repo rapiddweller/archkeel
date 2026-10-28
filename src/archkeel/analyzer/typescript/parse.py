@@ -480,7 +480,7 @@ def parse(rel_path: str, data: bytes) -> Syntax:
         )
     definitions, sites, comparisons = _inner(source, bindings, ambiguous_bindings)
     script_globals, script_writes = _script_globals(source, bindings, ambiguous_bindings)
-    declarations, source_writes, source_paths = _script_declarations(source, definitions, bindings)
+    declarations, writes, paths, top_paths = _script_declarations(source, definitions, bindings)
     script_globals = tuple(
         replace(publication, source_members=declarations.get(publication.span, ()))
         for publication in script_globals
@@ -502,8 +502,9 @@ def parse(rel_path: str, data: bytes) -> Syntax:
         script_mode,
         _script_aliases(source, bindings, ambiguous_bindings) if script_mode else (),
         _script_factories(source, definitions, bindings) if script_mode else (),
-        source_writes,
-        source_paths,
+        writes,
+        paths,
+        top_paths,
         _script_destructures(source, bindings, ambiguous_bindings) if script_mode else (),
         tuple(sorted(bindings.get(source.root, ()))),
         _script_namespaces(source, bindings) if script_mode else (),
@@ -2781,10 +2782,12 @@ def _script_declarations(
     dict[Span, tuple[tuple[str, str, Span], ...]],
     tuple[tuple[str | None, Span], ...],
     tuple[tuple[str, ...], ...],
+    tuple[tuple[str, ...], ...],
 ]:
     objects: dict[Span, _RawNode] = {}
     writes: list[tuple[str | None, Span]] = []
     paths: list[tuple[str, ...]] = []
+    top_level_paths: list[tuple[str, ...]] = []
     wrappers = {
         node: info for node in _walk(source.root) if (info := _script_wrapper(node)) is not None
     }
@@ -2807,11 +2810,11 @@ def _script_declarations(
                 writes.append(_script_target_write(node, target, aliases, source))
                 route = _static_path(target)
                 if route and (
-                    route[0] in _SCRIPT_ROOTS
-                    or _script_free(target, target, bindings, set())
-                    or _script_bound_scope(target, route[0], bindings) == source.root
+                    route[0] in _SCRIPT_ROOTS or _script_free(target, target, bindings, set())
                 ):
                     paths.append(route[1:] if route[0] in _SCRIPT_ROOTS else route)
+                elif route and _script_bound_scope(target, route[0], bindings) == source.root:
+                    top_level_paths.append(route)
                 alias_route = (
                     _script_write_alias_path(target, source, bindings, ())
                     if len(route) > 1
@@ -2839,7 +2842,12 @@ def _script_declarations(
         span: _script_object_members(obj, source, bindings, definitions)
         for span, obj in objects.items()
     }
-    return members, tuple(dict.fromkeys(writes)), tuple(dict.fromkeys(paths))
+    return (
+        members,
+        tuple(dict.fromkeys(writes)),
+        tuple(dict.fromkeys(paths)),
+        tuple(dict.fromkeys(top_level_paths)),
+    )
 
 
 def _script_object_members(

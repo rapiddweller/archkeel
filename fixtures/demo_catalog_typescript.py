@@ -643,6 +643,36 @@ VARIANTS: tuple[Variant, ...] = (
             ),
         },
     ),
+    example(
+        "module-local-write-is-not-a-global-write",
+        "standard_globals:module_local_write",
+        "A write to a module-local `let open` does not write `window.open`.",
+        {
+            "src/domain/order.ts": appended(
+                "src/domain/order.ts",
+                "let open = false;\nexport function toggle(): void { open = !open; }\n",
+            ),
+            "src/main.ts": appended(
+                "src/main.ts", "export const go = () => window.open('/x', '_blank');\n"
+            ),
+        },
+    ),
+    example(
+        "module-binding-and-global-write",
+        "standard_globals:module_binding_global_write",
+        "A module that binds `open` and writes `window.open` still writes the global.",
+        {
+            "src/domain/order.ts": appended(
+                "src/domain/order.ts",
+                "let open = false;\n"
+                "export function toggle(): void { open = !open; window.open = () => null; }\n",
+            ),
+            "src/main.ts": appended(
+                "src/main.ts", "export const go = () => window.open('/x', '_blank');\n"
+            ),
+        },
+        gap=True,
+    ),
     # #728: a package that exports an asset is an edge to its package in bundler mode.
     example(
         "bundler-exported-asset",
