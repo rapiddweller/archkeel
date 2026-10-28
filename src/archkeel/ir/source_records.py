@@ -68,6 +68,11 @@ def classified(
     }
 
 
+def evidence_id(rel_path: str, line: int, end_line: int, column: int) -> str:
+    """Name a source location; callers that derive a neighbouring location need the same id."""
+    return stable_id("EVD", rel_path, line, end_line, column)
+
+
 def record_evidence(
     evidence: dict[str, RawEvidence],
     rel_path: str,
@@ -78,16 +83,16 @@ def record_evidence(
     line, end_line, column = position
     # One source location is one evidence owner even when several observations
     # (for example a call and a dynamic-typing signal) refer to it.
-    evidence_id = stable_id("EVD", rel_path, line, end_line, column)
-    evidence[evidence_id] = {
-        "id": evidence_id,
+    identifier = evidence_id(rel_path, line, end_line, column)
+    evidence[identifier] = {
+        "id": identifier,
         "file": rel_path,
         "line": line,
         "end_line": end_line,
         "column": column,
         "excerpt": excerpt,
     }
-    return evidence_id
+    return identifier
 
 
 def file_evidence(evidence: dict[str, RawEvidence], rel_path: str, lines: Sequence[str]) -> str:
