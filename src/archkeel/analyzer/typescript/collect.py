@@ -748,7 +748,7 @@ class _Collection:
             and not any(
                 not path or path == (name,)
                 for syntax in self.syntax.values()
-                for path in syntax.script_write_paths
+                for path in self._global_write_paths(syntax)
             )
         )
 
@@ -761,6 +761,12 @@ class _Collection:
         return syntax.declaration_file or (
             self.config.options.scripts_are_global and not syntax.module_file
         )
+
+    def _global_write_paths(self, syntax: Syntax) -> tuple[tuple[str, ...], ...]:
+        """The global writes of a file. A write to a top-level binding of a module is local."""
+        if self._global_script(syntax):
+            return (*syntax.script_write_paths, *syntax.script_top_level_write_paths)
+        return syntax.script_write_paths
 
     def _script_standard_global(
         self, name: str, publishers: list[tuple[str, ScriptGlobal]]
@@ -878,7 +884,7 @@ class _Collection:
                 and path[0] in collisions
                 or path[0] in _SCRIPT_LOADER_NAMES
                 for syntax in self.syntax.values()
-                for path in syntax.script_write_paths
+                for path in self._global_write_paths(syntax)
             )
         ):
             return None
@@ -903,9 +909,11 @@ class _Collection:
         source_rel, namespace = namespaces[0]
         if any(
             syntax.first_error is not None
-            or () in syntax.script_write_paths
+            or () in self._global_write_paths(syntax)
             or source_rel != candidate
-            and (path[0] in syntax.script_bindings or (path[0],) in syntax.script_write_paths)
+            and (
+                path[0] in syntax.script_bindings or (path[0],) in self._global_write_paths(syntax)
+            )
             for candidate, syntax in self.syntax.items()
         ):
             return False
@@ -964,7 +972,7 @@ class _Collection:
             path[: len(prefix)] == prefix
             for prefix in alias.escapes
             for syntax in self.syntax.values()
-            for path in syntax.script_write_paths
+            for path in self._global_write_paths(syntax)
         ):
             return None
         proof = self._script_factory_member(rel, entry, site.path[-1], ())
