@@ -123,6 +123,104 @@ _FORBIDDEN_DEPENDENCY_ALLOWED_SOURCES = Variant(
     expected_violations=("DEP-APP-NO-STORE-SQLITE", "DEP-APP-NO-STORE-SQLITE"),
     expected_codes=("rule.violated", "rule.violated"),
 )
+_LOADER_LIMITS = (
+    ("dynamic_dependency_limit", "shop.render.loader"),
+    ("dynamic_import_limit", "shop.render.loader"),
+)
+
+
+def _loader_variant(
+    slug: str,
+    summary: str,
+    *,
+    proven: bool,
+    dynamic_constructs: int = 1,
+    loader_exposure: str = "",
+    registry: str | None = None,
+) -> Variant:
+    """AD-273: shop.render loads shop.store by a literal name, beside one namespace exposure.
+
+    A proven load is a DEP-RENDER-NO-STORE violation; a withheld proof records the loader limits.
+    The load and each eval or exec are CONSTRUCT-NO-DYNAMIC violations (`dynamic_constructs`).
+    """
+    files = {
+        "shop/render/loader.py": HEADER
+        + (
+            '"""Load the store by a literal name."""\n\n'
+            "import importlib\n\n"
+            f"{loader_exposure}"
+            'STORE = importlib.import_module("shop.store.repository")\n'
+        )
+    }
+    if registry is not None:
+        files["shop/app/registry.py"] = HEADER + '"""Look at the own namespace."""\n\n' + registry
+    violations = ("CONSTRUCT-NO-DYNAMIC",) * dynamic_constructs
+    graph_codes: tuple[str, ...] = ()
+    if proven:
+        violations += ("DEP-RENDER-NO-STORE",)
+        # A proven render->store edge is also an undeclared forbidden pair in the component graph.
+        graph_codes = ("closed_world.observed_forbidden", "graph.drift")
+    return Variant(
+        id=f"class-a-forbidden-dependency-loader-{slug}",
+        section="class_a",
+        item=f"forbidden_dependency:literal loader, {slug.replace('-', ' ')}",
+        summary=summary,
+        files=files,
+        expected_violations=violations,
+        expected_codes=graph_codes + ("rule.violated",) * len(violations),
+        expected_unknowns=() if proven else _LOADER_LIMITS,
+        absent_unknowns=_LOADER_LIMITS if proven else (),
+    )
+
+
+_LOADER_VARIANTS = (
+    _loader_variant(
+        "names-only-globals-elsewhere",
+        "shop.app.registry reads only the names of globals(). Keys are strings and reach no "
+        "loader, so the literal load in shop.render.loader stays proven and "
+        "DEP-RENDER-NO-STORE FAILs. Before AD-273 any globals() withheld every loader proof.",
+        proven=True,
+        registry="NAMES = sorted(set(globals()))\n",
+    ),
+    _loader_variant(
+        "own-namespace-elsewhere",
+        "shop.app.registry uses eval, exec and __annotations__. They expose its own namespace "
+        "only, so the load in shop.render.loader stays proven and DEP-RENDER-NO-STORE FAILs. "
+        "Before AD-273 they withheld every loader proof.",
+        proven=True,
+        dynamic_constructs=3,
+        registry='VALUE = eval("1 + 1")\nexec("pass")\nTABLE = __annotations__\n',
+    ),
+    _loader_variant(
+        "own-namespace-in-loader",
+        "shop.render.loader itself uses eval, so its own load is not proven and "
+        "DEP-RENDER-NO-STORE is UNKNOWN.",
+        proven=False,
+        dynamic_constructs=2,
+        loader_exposure='VALUE = eval("1 + 1")\n',
+    ),
+    _loader_variant(
+        "globals-dict-elsewhere",
+        "shop.app.registry keeps globals() as a dict. The dict holds shared objects such as "
+        "importlib, so no loader is proven in any module.",
+        proven=False,
+        registry="NAMES = globals()\n",
+    ),
+    _loader_variant(
+        "builtins-elsewhere",
+        "shop.app.registry reads __builtins__, the shared builtins, so no loader is proven in "
+        "any module.",
+        proven=False,
+        registry="TABLE = __builtins__\n",
+    ),
+    _loader_variant(
+        "frame-globals-elsewhere",
+        "shop.app.registry reads the f_globals of a frame, which reaches a caller, so no "
+        "loader is proven in any module.",
+        proven=False,
+        registry="import sys\n\nNAMES = sys._getframe().f_globals\n",
+    ),
+)
 _EXTERNAL_DEPENDENCY_SCOPE = Variant(
     id="class-a-external-dependency-scope",
     section="class_a",
@@ -1303,6 +1401,7 @@ VARIANTS: tuple[Variant, ...] = (
     _FORBIDDEN_DEPENDENCY_TARGET_SYMBOL,
     _FORBIDDEN_DEPENDENCY_TYPE_CHECKING,
     _FORBIDDEN_DEPENDENCY_ALLOWED_SOURCES,
+    *_LOADER_VARIANTS,
     _EXTERNAL_DEPENDENCY_SCOPE,
     _COMPLETE_ASSIGNMENT,
     _NO_COMPONENT_CYCLES,

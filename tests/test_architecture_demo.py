@@ -478,6 +478,10 @@ def test_forbidden_call_argument_variants_have_real_assessments(
     [
         ("clean", "PASS"),
         ("class-a-forbidden-effect-under-condition", "FAIL"),
+        ("class-a-forbidden-effect-under-condition-helper-elsewhere", "FAIL"),
+        ("class-a-forbidden-effect-under-condition-deleted-guard", "UNKNOWN"),
+        ("class-a-forbidden-effect-under-condition-repeated-blocks", "FAIL"),
+        ("class-a-forbidden-effect-under-condition-with-item", "UNKNOWN"),
         ("tour", "FAIL"),
     ],
 )

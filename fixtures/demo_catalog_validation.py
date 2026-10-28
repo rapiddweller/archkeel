@@ -993,6 +993,27 @@ _VALIDATION_PARSE_ERROR = Variant(
     expected_codes=(),
     expected_kinds=("parse_error",),
 )
+_VALIDATION_TOO_DEEP = Variant(
+    id="validation-too-deep-module",
+    section="validation",
+    item="parse_error:too deep",
+    summary="shop/model/generated.py holds a sum of 12,000 terms, deeper than the 5,000 AST "
+    "levels the collector walks. AD-269 makes the file one parse_error gap and observes every "
+    "other file, so the Money import in shop.store.repository is still a DEP-STORE-NO-MONEY "
+    "violation. Before AD-269 the collector stopped the whole scan with a RecursionError and "
+    "reported no violation.",
+    files={
+        "shop/model/generated.py": HEADER
+        + '"""A generated sum for the architecture demo."""\n\n'
+        + "TOTAL = "
+        + " + ".join(["1"] * 12_000)
+        + "\n",
+        "shop/store/repository.py": REPOSITORY_WITH_MONEY_IMPORT,
+    },
+    expected_violations=("DEP-STORE-NO-MONEY",),
+    expected_codes=(),
+    expected_kinds=("parse_error",),
+)
 _SHOP_PY_FILES = tuple(
     sorted(path.relative_to(FIXTURE_DIR).as_posix() for path in FIXTURE_DIR.glob("shop/**/*.py"))
 )
@@ -1100,6 +1121,7 @@ VARIANTS: tuple[Variant, ...] = (
     _VALIDATION_API_SURFACE_UNKNOWN,
     _VALIDATION_RULE_WITHOUT_SUBJECTS,
     _VALIDATION_PARSE_ERROR,
+    _VALIDATION_TOO_DEEP,
     _VALIDATION_SCOPE_EMPTY,
     _VALIDATION_RUNTIME_MISMATCH,
     _VALIDATION_MISSING_TOOL,
