@@ -235,6 +235,14 @@ _LOADER_VARIANTS = (
         proven=False,
         loader_exposure='globals()["importlib"] = importlib\n',
     ),
+    _loader_variant(
+        "globals-chain-in-loader",
+        "shop.render.loader tests a name with __name__ in globals() in SINK. Python then calls "
+        "SINK.__contains__ with the globals dict, which can replace importlib, so its load "
+        "stays UNKNOWN (AD-275).",
+        proven=False,
+        loader_exposure="SINK: list[object] = []\nKNOWN = __name__ in globals() in SINK\n",
+    ),
 )
 _EXTERNAL_DEPENDENCY_SCOPE = Variant(
     id="class-a-external-dependency-scope",

@@ -4,6 +4,9 @@
 `globals()` as safe" for the binding stability of the module.
 1. A `globals()` that only reads names (`reads_only_namespace_names`, AD-273) does not make the
    direct module bindings of its module unstable. The callee `globals` is judged with its call.
+   In a comparison the dict (or its keys view) must be the last comparator of `in` or `not in`.
+   Python runs `a in b in c` as `b.__contains__(a) and c.__contains__(b)`, so any other operand
+   is handed to an object that can replace a binding (Codex on #738; this also closes the AD-273 check).
 2. One check, `_namespace_may_rebind` in `source.py`, applies this rule. Its callers are
    `stable_direct_module_bindings` and `static_overload_bindings`. Both ask one question: can a
    visible exposure rebind a module-level name?
@@ -53,12 +56,14 @@ aliases) are not changed.
 - `tests/test_loader_exposure_scope.py`: 9 names-only forms x 4 loader forms in the loading
   module give FAIL with proof, and the EE shape too. 5 unstable loader bindings and 3 module-level
   `locals()` or `vars()` forms stay UNKNOWN. Each of the 43 `READS` forms keeps `importlib` stable
-  exactly when it is names-only. An overload group stays static beside `set(globals())` only.
-  45 of these tests fail on the code before this change.
+  exactly when it is names-only (13 chained comparisons included). An overload group stays static
+  beside `set(globals())` only. 45 tests fail before AD-275; 24 chained-comparison tests fail on 455ebf40.
 - 8 faults in `_namespace_may_rebind` are all caught: skip of every callee, no callee mapping,
   every `globals()` exempt, exposure ignored, no scope-node list, no all-node list, import
-  effects always on, and the old rule kept in `static_overload_bindings`.
+  effects always on, and the old rule kept in `static_overload_bindings`. 6 faults in the
+  comparison rule are caught: the old rule, no last-op check, no last-comparator check, first
+  comparator, all ops membership, single comparison only.
 - Demo catalog, `_LOADER_VARIANTS` in `fixtures/demo_catalog_dependencies.py`:
   `loader-names-only-globals-in-loader` gives a proven DEP-RENDER-NO-STORE violation (UNKNOWN
-  before). The control `loader-globals-store-in-loader` writes `globals()["importlib"]` and stays
-  UNKNOWN.
+  before). The controls `loader-globals-store-in-loader` (`globals()["importlib"] = ...`) and
+  `loader-globals-chain-in-loader` (`__name__ in globals() in SINK`) stay UNKNOWN.

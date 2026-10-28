@@ -2769,9 +2769,8 @@ def _consumed_as_names(
         # A module-level `def set(...)` must not pass for the builtin.
         return parent.args == [node] and _bare_builtin(module, parent.func, _NAME_CONTAINERS)
     if isinstance(parent, ast.Compare):
-        return parent.left is not node and all(
-            isinstance(op, ast.In | ast.NotIn) for op in parent.ops
-        )
+        # `a in b in c` runs `c.__contains__(b)`: any other operand is handed to a user object.
+        return parent.comparators[-1] is node and isinstance(parent.ops[-1], ast.In | ast.NotIn)
     return isinstance(parent, ast.For | ast.AsyncFor | ast.comprehension) and parent.iter is node
 
 
