@@ -262,6 +262,49 @@ _CAPTURED_LOCALS = [
         None,
         id="class-body-alias",
     ),
+    pytest.param(
+        "WIDTH = 4\nclass K:\n    class L:\n        type Alias[T] = nonce % WIDTH\n",
+        "unknown",
+        None,
+        id="nested-class-body-generic-alias",
+    ),
+    pytest.param(
+        "def outer():\n    W = 7\n    class K:\n        type Alias[T] = nonce % W\n",
+        "unknown",
+        None,
+        id="local-class-body-generic-alias",
+    ),
+    # A plain alias in a class body has no annotation scope, so the collector keeps its proof.
+    pytest.param(
+        "WIDTH = 4\nclass K:\n    type Alias = nonce % WIDTH\n",
+        "known",
+        4,
+        id="class-body-plain-module",
+    ),
+    pytest.param(
+        "class K:\n    W = 7\n    type Alias = nonce % W\n",
+        "known",
+        7,
+        id="class-body-plain-class-local",
+    ),
+    pytest.param(
+        "WIDTH = 4\nclass K:\n    class L:\n        type Alias = nonce % WIDTH\n",
+        "known",
+        4,
+        id="nested-class-body-plain-module",
+    ),
+    pytest.param(
+        "def outer():\n    W = 7\n    class K:\n        type Alias = nonce % W\n",
+        "known",
+        7,
+        id="local-class-body-plain",
+    ),
+    pytest.param(
+        "WIDTH = 4\ndef outer():\n    class K:\n        type Alias = nonce % WIDTH\n",
+        "known",
+        4,
+        id="function-class-body-plain-module",
+    ),
     # Generic definition scopes: the collector withholds the proof, except for decorators.
     pytest.param(
         "def outer():\n    WIDTH = 7\n    def g[T](x: nonce % WIDTH): pass\n",

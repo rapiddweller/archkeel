@@ -2100,7 +2100,7 @@ def _numeric_nested_scope_binds(owner: ast.AST, use: ast.AST, name: str) -> bool
             if (
                 any(type_param.name == name for type_param in parent.type_params)
                 or not _numeric_is_within(use, parent.value, parents)
-                or isinstance(alias_scope, ast.ClassDef)
+                or (bool(parent.type_params) and isinstance(alias_scope, ast.ClassDef))
             ):
                 return True
         if isinstance(parent, ast.FunctionDef | ast.AsyncFunctionDef):
