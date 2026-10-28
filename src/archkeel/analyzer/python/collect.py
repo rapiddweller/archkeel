@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import ast
 import hashlib
-import re
 import sys
 import sysconfig
 from dataclasses import dataclass, replace
@@ -94,11 +93,14 @@ from .source import (
     class_header_static,
     exposes_dynamic_namespace,
     file_evidence,
+    is_stdlib_root,
     member_binding_closure,
-    package_for,
+    module_registry,
+    parse_provider,
     parse_sources,
     resolve_static_name,
     stable_direct_module_bindings,
+    stdlib_member_static,
     unproven_member_bindings,
 )
 from .source import (
@@ -192,28 +194,33 @@ class PythonProviderCollector:
             return enriched
         if monotonic() >= deadline:
             return timeout
-        if frozenset(enriched.capabilities.sections) != frozenset(_SECTION_NAMES):
+        problem = _provider_pass_problem(initial, enriched, providers)
+        if problem is not None:
             return CollectionError(
-                CollectionErrorKind.PROTOCOL_ERROR,
-                self.collector.argv[0],
-                "Collector did not return complete Python source sections after the import survey.",
-            )
-        provider_paths = {item.path for item in providers}
-        project_inputs = tuple(item for item in enriched.inputs if item.path not in provider_paths)
-        if (
-            project_inputs
-            != tuple(item for item in initial.inputs if item.path not in provider_paths)
-            or enriched.profile != initial.profile
-            or enriched.adapter != initial.adapter
-            or enriched.runtime != initial.runtime
-            or enriched.source.scope != initial.source.scope
-        ):
-            return CollectionError(
-                CollectionErrorKind.PROTOCOL_ERROR,
-                self.collector.argv[0],
-                "Collector source inputs, analyzer, or runtime changed between provider passes.",
+                CollectionErrorKind.PROTOCOL_ERROR, self.collector.argv[0], problem
             )
         return enriched
+
+
+def _provider_pass_problem(
+    initial: SourceFacts, enriched: SourceFacts, providers: tuple[PythonProviderSource, ...]
+) -> str | None:
+    """The reason why the final pass disagrees with the import survey, if it does."""
+    if frozenset(enriched.capabilities.sections) != frozenset(_SECTION_NAMES):
+        return "Collector did not return complete Python source sections after the import survey."
+    if not _registry_aliases_proven(enriched, providers):
+        return "Collector registry alias disagrees with its initializer source."
+    provider_paths = {item.path for item in providers}
+    project_inputs = tuple(item for item in enriched.inputs if item.path not in provider_paths)
+    if (
+        project_inputs != tuple(item for item in initial.inputs if item.path not in provider_paths)
+        or enriched.profile != initial.profile
+        or enriched.adapter != initial.adapter
+        or enriched.runtime != initial.runtime
+        or enriched.source.scope != initial.source.scope
+    ):
+        return "Collector source inputs, analyzer, or runtime changed between provider passes."
+    return None
 
 
 def _selected_paths(root: Path, roots: tuple[str, ...]) -> tuple[Path, ...]:
@@ -638,32 +645,58 @@ def _inputs(
     return tuple(sorted(inputs, key=lambda item: item.path)), source.hexdigest()
 
 
+def _registry_aliases_proven(
+    facts: SourceFacts, providers: tuple[PythonProviderSource, ...]
+) -> bool:
+    """An initializer alias needs the publication that the collector proves on that source."""
+    sources = {item.path: item for item in providers}
+    files = {item.id: item.file for item in facts.evidence}
+    for binding in facts.provider_bindings:
+        source = sources.get(files.get(binding.evidence_id, ""))
+        qualified: str = binding.qualified_name
+        owner: str = qualified.rpartition(".")[0]
+        if (
+            binding.kind is not ProviderBindingKind.ALIAS
+            or source is None
+            or owner == source.module
+        ):
+            continue
+        package, _, child = owner.rpartition(".")
+        parsed = parse_provider(source)
+        published = _published(parsed).get(child) if parsed is not None else None
+        name = qualified.rpartition(".")[2]
+        if (
+            published is None
+            or package != source.module
+            or binding.target != f"{published[1]}.{name}"
+        ):
+            return False
+    return True
+
+
 def _provider_modules(
     sources: tuple[PythonProviderSource, ...], selected: list[ParsedModule]
 ) -> list[ParsedModule]:
     governed = {module.module for module in selected}
-    providers: list[ParsedModule] = []
-    for source in sources:
-        if source.module in governed:
-            raise ValueError("provider source duplicates a governed module")
-        source_text: str = source.source
-        try:
-            tree = ast.parse(source_text, filename=source.path)
-        except (SyntaxError, ValueError):
-            continue
-        providers.append(
-            ParsedModule(
-                Path(source.path),
-                source.path,
-                source.module,
-                package_for(source.module),
-                source_text,
-                source_text.encode("utf-8"),
-                re.split(r"\r\n?|\n", source_text),
-                tree,
-            )
-        )
-    return [module for module in providers if _provider_source_eligible(module)]
+    if any(source.module in governed for source in sources):
+        raise ValueError("provider source duplicates a governed module")
+    parsed = [parse_provider(source) for source in sources]
+    eligible = [
+        module for module in parsed if module is not None and _provider_source_eligible(module)
+    ]
+    keys = {
+        (module.module, key)
+        for module in eligible
+        if module.path.name == "__init__.py"
+        for key in module_registry(module).keys
+    }
+    kept: list[ParsedModule] = []
+    for module in eligible:
+        name: str = module.module
+        # Python imports a child that its parent puts in sys.modules from there, not from its file.
+        if (name.rpartition(".")[0], name) not in keys:
+            kept.append(module)
+    return kept
 
 
 def _provider_bindings(
@@ -705,7 +738,7 @@ def _provider_bindings(
     bindings = _provider_aliases(wanted, by_module, provider_imports, evidence, discover=discover)
     for module in providers:
         runtime_parent = _provider_parents_static(module.module, by_module)
-        stdlib_root = module.module in sys.stdlib_module_names and "." not in module.module
+        stdlib_root = is_stdlib_root(module.module)
         if not _provider_module_is_relevant(module, runtime_parent, stdlib_root, by_module):
             continue
         if _provider_module_binding(module, runtime_parent, stdlib_root, wanted):
@@ -757,7 +790,7 @@ def _provider_member_bindings(
     for node in module.tree.body:
         for name, kind in _provider_declarations(node):
             qualified = f"{module.module}.{name}"
-            if not _provider_declaration_selected(module, name, qualified, kind, wanted):
+            if not _provider_declaration_selected(module, node, name, qualified, kind, wanted):
                 continue
             if not runtime_parent:
                 if qualified in direct_wanted and not stdlib_root:
@@ -772,6 +805,7 @@ def _provider_member_bindings(
 
 def _provider_declaration_selected(
     module: ParsedModule,
+    node: ast.stmt,
     name: str,
     qualified: str,
     kind: ProviderBindingKind,
@@ -782,7 +816,7 @@ def _provider_declaration_selected(
         and name not in module.global_names
         and qualified in wanted
         and _provider_identity_static(
-            module, registry_identity=kind is not ProviderBindingKind.DECLARATION
+            module, registry_identity=kind is not ProviderBindingKind.DECLARATION, member=node
         )
     )
 
@@ -878,6 +912,12 @@ def _provider_aliases(
         visited.add(qualified)
         name, _, binding = qualified.rpartition(".")
         module = by_module.get(name)
+        registry = _provider_registry_alias(name, binding, by_module, evidence, discover=discover)
+        if registry is not None and registry.target is not None:
+            bindings.append(registry)
+            wanted.add(registry.target)
+            pending.append(registry.target)
+            continue
         if module is None or not _provider_parents_static(name, by_module, source_identity=True):
             continue
         star = _provider_star_alias(
@@ -913,6 +953,36 @@ def _provider_aliases(
         wanted.add(target)
         pending.append(target)
     return bindings
+
+
+def _provider_registry_alias(
+    name: str,
+    binding: str,
+    by_module: dict[str, ParsedModule],
+    evidence: dict[str, RawEvidence],
+    *,
+    discover: bool,
+) -> ProviderBinding | None:
+    package, _, child = name.rpartition(".")
+    parent = by_module.get(package)
+    if parent is None or parent.path.name != "__init__.py" or name in by_module:
+        return None
+    registered = _published(parent).get(child)
+    if registered is None or not _provider_parents_static(name, by_module, source_identity=True):
+        return None
+    statement, target = registered
+    provider = by_module.get(target)
+    if provider is None and not discover:
+        return None
+    if provider is not None and not _provider_identity_static(provider, registry_identity=False):
+        return None
+    return ProviderBinding(
+        f"{name}.{binding}",
+        ProviderBindingKind.ALIAS,
+        add_evidence(evidence, parent, statement),
+        f"{target}.{binding}",
+        () if provider is None else (file_evidence(evidence, provider.rel_path, provider.lines),),
+    )
 
 
 def _provider_star_alias(
@@ -1004,16 +1074,28 @@ def _provider_identity_nodes(module: ParsedModule) -> tuple[ast.AST, ...]:
     return tuple(node for node in module.all_nodes if node not in deferred)
 
 
-def _provider_identity_static(module: ParsedModule, *, registry_identity: bool = True) -> bool:
-    nodes = _provider_identity_nodes(module)
+def _provider_identity_static(
+    module: ParsedModule, *, registry_identity: bool = True, member: ast.stmt | None = None
+) -> bool:
+    # A proven write of a child key publishes the child; it does not replace this module.
+    published = {
+        node
+        for statement, _ in (_published(module).values() if registry_identity else ())
+        for node in ast.walk(statement)
+    }
+    nodes = tuple(node for node in _provider_identity_nodes(module) if node not in published)
     system_names = member_binding_closure(
         nodes,
         {name for name, binding in module.aliases.items() if binding.target == "sys"},
         member_surface=False,
     )
+    member_bound = member is not None and stdlib_member_static(module, member)
     return (
-        module.binding_names is not None
-        and "__getattr__" not in module.scope_bound_names
+        (
+            member_bound
+            or module.binding_names is not None
+            and "__getattr__" not in module.scope_bound_names
+        )
         and "__path__" not in module.global_names
         and not any(
             exposes_dynamic_namespace(module, node)
@@ -1063,7 +1145,7 @@ def _provider_parents_static(
         ):
             return False
         child = parts[end]
-        if child in parent.scope_bound_names:
+        if child in parent.scope_bound_names and child not in _published(parent):
             imported = parent.aliases.get(child)
             if (
                 child not in stable_direct_module_bindings(parent)
@@ -1072,6 +1154,11 @@ def _provider_parents_static(
             ):
                 return False
     return True
+
+
+def _published(module: ParsedModule) -> dict[str, tuple[ast.Assign, str]]:
+    """Children that a stdlib initializer publishes; a third-party layout stays unproven."""
+    return module_registry(module).published if is_stdlib_root(module.module) else {}
 
 
 def _import_targets(

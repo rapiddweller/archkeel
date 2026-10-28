@@ -11,6 +11,7 @@ from importlib.machinery import BuiltinImporter, ModuleSpec
 from types import BuiltinFunctionType, ModuleType, WrapperDescriptorType
 
 from archkeel.ir.facts import (
+    CPYTHON_NATIVE_RUNTIMES,
     ContextManagerReturn,
     ContextManagerSignature,
     CPythonABCBranch,
@@ -166,11 +167,12 @@ def _partial_route(tree: ast.Module, local: str) -> bool:
     ):
         return False
     target = candidates[1]
+    # Python 3.14 imports Placeholder in the same statement; `_stores` still sees one partial.
     if (
         target.module != "_functools"
         or target.level
-        or len(target.names) != 1
         or target.names[0].name != "partial"
+        or target.names[0].asname is not None
     ):
         return False
     enclosing = [node for node in tree.body if isinstance(node, ast.Try) and target in node.body]
@@ -222,6 +224,8 @@ def _updater(tree: ast.Module, node: ast.FunctionDef) -> bool:
             "__qualname__",
             "__doc__",
             "__annotations__",
+            # Python 3.14 copies the lazy annotation function instead of the annotations (PEP 649).
+            "__annotate__",
             "__type_params__",
         }
     ):
@@ -314,7 +318,7 @@ self.__doc__ = doc
     )
 
 
-def _wrapper(tree: ast.Module, node: ast.ClassDef, version: str) -> bool:
+def _wrapper(tree: ast.Module, node: ast.ClassDef) -> bool:
     if (
         node.decorator_list
         or node.keywords
@@ -364,10 +368,11 @@ except StopIteration:
 """,
     ):
         return False
+    # Python 3.12 deprecated the three-argument generator throw, so contextlib passes only value.
     expected_exit = (
-        _EXIT_BODY.replace("self.gen.throw(typ, value, traceback)", "self.gen.throw(value)")
-        if version.startswith("3.12.")
-        else _EXIT_BODY
+        _EXIT_BODY
+        if sys.version_info[:2] == (3, 11)
+        else _EXIT_BODY.replace("self.gen.throw(typ, value, traceback)", "self.gen.throw(value)")
     )
     if not _equal(_body(exit), expected_exit):
         return False
@@ -429,7 +434,7 @@ def _builtin_module(name: str) -> ModuleType | None:
 
 
 def _partial_intrinsic() -> CPythonPartialIntrinsic | None:
-    if sys.implementation.name != "cpython" or sys.version_info[:2] not in {(3, 11), (3, 12)}:
+    if sys.implementation.name != "cpython" or sys.version_info[:2] not in CPYTHON_NATIVE_RUNTIMES:
         return None
     module = _builtin_module("_functools")
     if module is None:
@@ -589,6 +594,9 @@ def _abstract_base(module: ParsedModule, node: ast.ClassDef, abc: ParsedModule) 
     ):
         return False
     members = _body(node)
+    # Python 3.13 adds empty slots; they change only the instance layout.
+    if len(members) == 5 and _equal([members[1]], "__slots__ = ()"):
+        members = [members[0], *members[2:]]
     if len(members) != 4 or not _equal(
         [members[0]], "__class_getitem__ = classmethod(GenericAlias)"
     ):
@@ -869,9 +877,7 @@ def _chain_support(
         )
     ):
         return []
-    if not _chain_builtins(module, tools) or not _wrapper(
-        module.tree, constructed, partial.version
-    ):
+    if not _chain_builtins(module, tools) or not _wrapper(module.tree, constructed):
         return []
     bases = [
         _declared(module.tree, base.id, ast.ClassDef)

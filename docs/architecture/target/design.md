@@ -268,7 +268,7 @@ The ordinary `LexicalScopes` constructor still creates a fresh index.
 
 Synchronous `contextmanager` declarations have a separate native signature proof.
 It binds the factory, wrapper, metadata updater and complete supported base-class
-surfaces to captured source. Closed CPython 3.11/3.12 witnesses cover native
+surfaces to captured source. Closed CPython 3.11 to 3.14 witnesses cover native
 `partial` and the successful `_abc` import branch; unsupported variants stay UNKNOWN.
 The proof references its own function evidence and separate provider support.
 Original parameters, returns and decorator flags remain unchanged. Only the exact

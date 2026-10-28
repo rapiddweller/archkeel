@@ -17,6 +17,11 @@ from .state_facts import StateFacts
 from .type_shapes import TypeShape
 
 MAX_STATIC_INTEGER = (1 << 4096) - 1
+# CPython runtimes whose native partial and contextlib sources the signature proof knows.
+CPYTHON_NATIVE_RUNTIMES: Final = ((3, 11), (3, 12), (3, 13), (3, 14))
+_NATIVE_VERSION: Final = (
+    r"3\.(" + "|".join(str(minor) for _, minor in CPYTHON_NATIVE_RUNTIMES) + r")\.[0-9]+"
+)
 MAX_NUMERIC_EVIDENCE_CHARS = 16_384
 
 
@@ -1175,7 +1180,7 @@ def _partial_intrinsic(value: JsonValue) -> CPythonPartialIntrinsic:
         or NativeOrigin(origin) is not NativeOrigin.BUILTIN
         or not isinstance(version, str)
         or not isinstance(cache_tag, str)
-        or re.fullmatch(r"3\.(11|12)\.[0-9]+", version) is None
+        or re.fullmatch(_NATIVE_VERSION, version) is None
         or cache_tag != "cpython-" + "".join(version.split(".")[:2])
     ):
         raise ValueError("invalid CPython partial intrinsic")

@@ -1315,12 +1315,14 @@
         },
         "version": {
           "type": "string",
-          "pattern": "^3\\.(11|12)\\.[0-9]+$"
+          "pattern": "^3\\.(11|12|13|14)\\.[0-9]+$"
         },
         "cache_tag": {
           "enum": [
             "cpython-311",
-            "cpython-312"
+            "cpython-312",
+            "cpython-313",
+            "cpython-314"
           ]
         },
         "origin": {
