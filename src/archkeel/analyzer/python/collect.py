@@ -665,19 +665,62 @@ def _provider_modules(
         )
     eligible = [module for module in providers if _provider_source_eligible(module)]
     keys = {
-        (module.module, node.slice.value)
+        (module.module, key)
         for module in eligible
         if module.path.name == "__init__.py"
-        for node in module.all_nodes
-        if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant)
+        for key in _registry_keys(module)
     }
     kept: list[ParsedModule] = []
     for module in eligible:
         name: str = module.module
+        package = name.rpartition(".")[0]
         # Python imports a child that its parent puts in sys.modules from there, not from its file.
-        if (name.rpartition(".")[0], name) not in keys:
+        if (package, name) not in keys:
             kept.append(module)
     return kept
+
+
+def _registry_keys(module: ParsedModule) -> set[object]:
+    """Literal keys that the module reads or writes in sys.modules, also in deferred bodies."""
+    # Any `import sys` counts, also a conditional one: an unstable name can still be the registry.
+    systems = {
+        alias.asname or alias.name
+        for node in module.all_nodes
+        if isinstance(node, ast.Import)
+        for alias in node.names
+        if alias.name == "sys"
+    }
+    registries = {
+        alias.asname or alias.name
+        for node in module.all_nodes
+        if isinstance(node, ast.ImportFrom) and node.module == "sys" and not node.level
+        for alias in node.names
+        if alias.name == "modules"
+    }
+    owners = {child: node for node in module.all_nodes for child in ast.iter_child_nodes(node)}
+    keys: set[object] = set()
+    for node in module.all_nodes:
+        if not (
+            isinstance(node, ast.Attribute)
+            and node.attr == "modules"
+            and isinstance(node.value, ast.Name)
+            and node.value.id in systems
+            or isinstance(node, ast.Name)
+            and node.id in registries
+        ):
+            continue
+        owner = owners.get(node)
+        call = owners.get(owner) if isinstance(owner, ast.Attribute) else None
+        # An eager access with a computed key already fails the registry identity of the parent.
+        arguments: list[ast.expr] = (
+            [owner.slice]
+            if isinstance(owner, ast.Subscript)
+            else call.args
+            if isinstance(call, ast.Call)
+            else []
+        )
+        keys.update(item.value for item in arguments if isinstance(item, ast.Constant))
+    return keys
 
 
 def _provider_bindings(

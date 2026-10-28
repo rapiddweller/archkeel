@@ -2356,6 +2356,65 @@ def test_registry_publication_wins_over_a_captured_child_file(tmp_path, parent, 
         assert binding.target == "model.Payload"
 
 
+@pytest.mark.parametrize(
+    ("parent", "kept"),
+    [
+        ("", True),
+        ("def label(labels): return labels['vendor.leaf']\n", True),
+        ("labels = {}\nlabels['vendor.leaf'] = 1\n", True),
+        ("def env():\n    import os\n    return os.environ['vendor.leaf']\n", True),
+        ("import sys\ndef path(): return sys.path['vendor.leaf']\n", True),
+        ("class Other:\n    modules = {}\nOther.modules['vendor.leaf'] = 1\n", True),
+        ("import sys\ndef other(): return sys.modules['vendor.other']\n", True),
+        ("import sys\ndef read(): return sys.modules['vendor.leaf']\n", False),
+        ("import sys\ndef drop(): del sys.modules['vendor.leaf']\n", False),
+        ("import sys\ndef read(): return sys.modules.get('vendor.leaf')\n", False),
+        ("import sys\ndef drop(): return sys.modules.pop('vendor.leaf')\n", False),
+        ("import sys\ndef put(value): sys.modules.setdefault('vendor.leaf', value)\n", False),
+        ("from sys import modules\ndef read(): return modules['vendor.leaf']\n", False),
+        ("if flag:\n    import sys\ndef read(): return sys.modules['vendor.leaf']\n", False),
+        ("import sys\nkey = 'vendor.' + 'leaf'\nloaded = sys.modules[key]\n", False),
+        ("import sys\nregistry = sys.modules\n", False),
+        ("import sys\ndef read(key): return sys.modules[key]\n", True),
+        ("import sys\ndef escape(): return sys.modules\n", True),
+    ],
+    ids=[
+        "empty",
+        "unrelated-lookup",
+        "unrelated-dict-write",
+        "environment",
+        "sys-path",
+        "other-modules-attribute",
+        "other-registry-key",
+        "registry-read",
+        "registry-del",
+        "registry-get",
+        "registry-pop",
+        "registry-setdefault",
+        "from-sys-modules",
+        "unstable-sys",
+        "computed-key",
+        "registry-escape",
+        "deferred-computed-key",
+        "deferred-registry-escape",
+    ],
+)
+def test_child_file_yields_only_to_module_registry_access(tmp_path, parent, kept):
+    facts = _native_facts(
+        _request(
+            tmp_path,
+            [
+                _provider("vendor", parent, package=True),
+                _provider("vendor.leaf", "class Payload: pass\n"),
+            ],
+            imported="vendor.leaf",
+            binding="Payload",
+        )
+    )
+    kinds = {item.qualified_name: item.kind for item in facts.provider_bindings}
+    assert kinds == ({"vendor.leaf.Payload": ProviderBindingKind.CLASS} if kept else {})
+
+
 def test_registry_alias_needs_the_published_module_source(tmp_path):
     facts = _native_facts(
         _request(
