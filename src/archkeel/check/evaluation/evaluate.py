@@ -445,6 +445,7 @@ def _inside_rule_results(
             modules=modules,
             symbols=symbols,
             references=references,
+            evidence=evidence,
             calls_complete=calls_complete,
             bindings_measured=bindings_measured,
             arguments_measured=arguments_measured,
@@ -563,6 +564,7 @@ def _call_argument_rule_results(
     modules: Sequence[RawRecord],
     symbols: Sequence[RawRecord],
     references: Sequence[RawRecord],
+    evidence: dict[str, RawEvidence],
     calls_complete: bool,
     bindings_measured: bool,
     arguments_measured: bool,
@@ -580,17 +582,14 @@ def _call_argument_rule_results(
     for rule in contract.rules:
         if not isinstance(rule, ForbiddenCallArgumentRule | CatalogArgumentRule | CatalogUseRule):
             continue
-        match = (
-            rule.source_match
-            if isinstance(rule, (CatalogArgumentRule, CatalogUseRule))
-            else SelectorMatch.PREFIX
-        )
         packages, exact_modules = source_selector_domains(
             rule.source,
             modules,
             package_scopes=package_scopes,
             exact_module_scopes=exact_module_scopes,
-            match=match,
+            match=SelectorMatch.PREFIX
+            if isinstance(rule, ForbiddenCallArgumentRule)
+            else rule.source_match,
         )
         complete = calls_complete and source_domains_complete(
             modules=modules,
@@ -622,6 +621,7 @@ def _call_argument_rule_results(
                 modules=modules,
                 symbols=symbols,
                 references=references,
+                evidence=evidence,
                 complete=complete,
                 bindings_measured=bindings_measured,
                 arguments_measured=arguments_measured,
@@ -1429,6 +1429,7 @@ def evaluate_source(
         modules=module_facts,
         symbols=symbols,
         references=references,
+        evidence=evidence,
         calls_complete=calls_complete,
         bindings_measured=bindings_measured,
         arguments_measured=arguments_measured,
