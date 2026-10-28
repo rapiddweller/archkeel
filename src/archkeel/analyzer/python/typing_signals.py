@@ -69,7 +69,8 @@ def _type_ignore_signals(
     statements: dict[int, tuple[str, ast.stmt]],
 ) -> list[RawRecord]:
     items: list[RawRecord] = []
-    comments = tokenize.generate_tokens(io.StringIO(module.source).readline)
+    # Universal newlines give the same physical lines as ast; a bare CR is a line break.
+    comments = tokenize.generate_tokens(io.StringIO(module.source, newline=None).readline)
     for token in comments:
         if token.type != tokenize.COMMENT or "type: ignore" not in token.string:
             continue

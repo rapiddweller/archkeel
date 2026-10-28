@@ -423,3 +423,96 @@ def test_class_values_do_not_borrow_globals_but_method_reads_use_globals():
         "sample.core.Owner": ["sample.core.Owner.VALUE"],
         "sample.core.Owner.use": ["sample.core.VALUE"],
     }
+
+
+_USE = "def use(rows):\n return "
+_HELPER = ("helper", "resolved", ["sample.core.helper"])
+_SHADOWED = ("helper", "unresolved", [])
+_INLINED_COMPREHENSION_SCOPES = {
+    "list-genexpr": (_USE + "[any(helper(c) for c in row) for row in rows]", _HELPER),
+    "set-genexpr": (_USE + "{any(helper(c) for c in row) for row in rows}", _HELPER),
+    "dict-genexpr": (_USE + "{row: any(helper(c) for c in row) for row in rows}", _HELPER),
+    "list-lambda": (_USE + "[(lambda: helper(row)) for row in rows]", _HELPER),
+    "genexpr-in-genexpr": (
+        _USE + "[any(any(helper(d) for d in c) for c in row) for row in rows]",
+        _HELPER,
+    ),
+    "genexpr-in-nested-list": (
+        _USE + "[[any(helper(d) for d in c) for c in row] for row in rows]",
+        _HELPER,
+    ),
+    "list-in-genexpr": (
+        _USE + "[any([helper(d) for d in c] for c in row) for row in rows]",
+        _HELPER,
+    ),
+    "nested-list": (_USE + "[[helper(c) for c in row] for row in rows]", _HELPER),
+    "builtin": (
+        _USE + "[any(isinstance(c, int) for c in row) for row in rows]",
+        ("isinstance", "resolved", ["builtins.isinstance"]),
+    ),
+    "class-genexpr": (
+        "class Owner:\n value = [any(helper(c) for c in row) for row in rows]",
+        _HELPER,
+    ),
+    "class-lambda": ("class Owner:\n value = [(lambda: helper(row)) for row in rows]", _HELPER),
+    "class-local-skipped": (
+        "class Owner:\n def helper(self): pass\n"
+        " value = [any(helper(c) for c in row) for row in rows]",
+        _HELPER,
+    ),
+    "module-genexpr": ("value = [any(helper(c) for c in row) for row in rows]", _HELPER),
+    "module-lambda": ("value = [(lambda: helper(row)) for row in rows]", _HELPER),
+    "global-declaration": (
+        "def use(rows):\n global helper\n return [any(helper(c) for c in row) for row in rows]",
+        _HELPER,
+    ),
+    "enclosing-closure": (
+        "def use(rows):\n def helper(c): pass\n"
+        " return [any(helper(c) for c in row) for row in rows]",
+        ("helper", "resolved", ["sample.core.use.helper"]),
+    ),
+    "same-line-distinct-targets": (
+        _USE + "[any(helper(c) for c in row) for row in rows] or any(x for x in rows)",
+        _HELPER,
+    ),
+    "comprehension-target": (_USE + "[any(helper() for c in rows) for helper in rows]", _SHADOWED),
+    "module-comprehension-target": (
+        "value = [any(helper() for c in items) for helper in rows]",
+        _SHADOWED,
+    ),
+    "class-comprehension-target": (
+        "class Owner:\n value = [any(helper() for c in items) for helper in rows]",
+        _SHADOWED,
+    ),
+    "module-lambda-comprehension-target": (
+        "value = [(lambda: helper()) for helper in rows]",
+        _SHADOWED,
+    ),
+    "genexpr-target": (_USE + "[any(helper(1) for helper in row) for row in rows]", _SHADOWED),
+    "lambda-parameter": (_USE + "[(lambda helper: helper(row)) for row in rows]", _SHADOWED),
+    "lambda-walrus": (_USE + "[(lambda: ((helper := row), helper())) for row in rows]", _SHADOWED),
+    "enclosing-parameter": (
+        "def use(rows, helper):\n return [any(helper(c) for c in row) for row in rows]",
+        _SHADOWED,
+    ),
+    "enclosing-local": (
+        "def use(rows):\n helper = rows\n return [any(helper(c) for c in row) for row in rows]",
+        _SHADOWED,
+    ),
+    "really-unresolved": (
+        _USE + "[any(missing(c) for c in row) for row in rows]",
+        ("missing", "unresolved", []),
+    ),
+}
+
+
+@pytest.mark.parametrize(
+    "body,expected",
+    _INLINED_COMPREHENSION_SCOPES.values(),
+    ids=_INLINED_COMPREHENSION_SCOPES.keys(),
+)
+def test_scopes_inside_inlined_comprehensions_keep_their_compiler_binding(body, expected):
+    # PEP 709 moves these tables to the first enclosing scope that is not inlined.
+    _, _, calls, _ = _facts(f"def helper(item): return True\n{body}\n")
+    [call] = [item["data"] for item in calls if item["data"]["expression"] == expected[0]]
+    assert (call["expression"], call["status"], call["targets"]) == expected

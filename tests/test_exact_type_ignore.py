@@ -163,6 +163,36 @@ def test_comment_without_statement_cannot_match(tmp_path: Path) -> None:
     assert len(result.observation.records("violations") or ()) == 1
 
 
+_LINES = SOURCE.split("\n")[:-1]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        SOURCE,
+        SOURCE.replace("\n", "\r\n"),
+        SOURCE.replace("\n", "\r"),
+        SOURCE.replace("\n", "\r").removesuffix("\r"),
+        "".join(line + ("\r\n", "\r", "\n")[index % 3] for index, line in enumerate(_LINES)),
+        # Unicode and control separators in data or whitespace are not physical line breaks.
+        SOURCE.replace("\n\n", '\nMARK = "\x0b\x0c\x1c\x85  "  # \x0c\x85 \n', 1)
+        .replace("\n\n", "\n\x0c\n")
+        .replace("\n", "\r"),
+    ],
+    ids=["lf", "crlf", "cr", "cr-no-eof-newline", "mixed", "separators-in-data"],
+)
+def test_type_ignore_lines_follow_physical_lines(tmp_path: Path, source: str) -> None:
+    result = _observe_one_rule(tmp_path, RULE, {"operations.py": source})
+    assert result.exit_code == 0, result.diagnostics
+    assert result.observation is not None
+    signals = result.observation.records("typing_signals") or ()
+    lines = [dict(item.data.entries)["line"] for item in signals if item.kind == "type_ignore"]
+    assert sorted(lines) == [4, 7, 10]
+    [match] = [item for item in signals if item.kind == "type_ignore_allowance"]
+    evidence = {item.id: item for item in result.observation.evidence}
+    assert [evidence[item].line for item in match.evidence_ids] == [4]
+
+
 @pytest.mark.parametrize(
     ("variant", "violation_count"),
     [("class-a-type-ignore-exact", 0), ("class-a-type-ignore-neighbors", 5)],

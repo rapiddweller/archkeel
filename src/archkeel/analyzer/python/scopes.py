@@ -117,6 +117,12 @@ class LexicalScopes(ast.NodeVisitor):
             return self.root
         parent = scope.parent
         while parent is not None:
+            if parent.inlined:
+                # An inlined comprehension has no table, so its targets come from the AST.
+                if name in parent.local_names:
+                    return parent
+                parent = parent.parent
+                continue
             if parent.table is None:
                 return None
             kind = compiler_scope_kind(parent.table.get_type())
@@ -140,12 +146,16 @@ class LexicalScopes(ast.NodeVisitor):
 
     def _enter(self, node: ast.AST, name: str, qualified_name: str, identity: str | None) -> Scope:
         parent = self.current
+        # PEP 709 moves child tables of an inlined comprehension up to its compiler scope.
+        table_owner = parent
+        while table_owner.inlined and table_owner.parent is not None:
+            table_owner = table_owner.parent
         matches = (
             []
-            if parent.table is None
+            if table_owner.table is None
             else [
                 table
-                for table in parent.table.get_children()
+                for table in table_owner.table.get_children()
                 if table.get_name() == name and table.get_lineno() == location(node)[0]
             ]
         )
