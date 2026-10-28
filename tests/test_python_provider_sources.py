@@ -2471,6 +2471,72 @@ def test_child_file_yields_only_to_module_registry_access(tmp_path, parent, kept
     assert kinds == ({"json.leaf.Payload": ProviderBindingKind.CLASS} if kept else {})
 
 
+_PUBLISH = "sys.modules['json.leaf'] = model\n"
+
+
+@pytest.mark.parametrize(
+    ("parent", "known"),
+    [
+        ("import sys\nimport model\n" + _PUBLISH, True),
+        ("import sys\nimport model, other\n" + _PUBLISH, False),
+        ("import sys\nimport other, model\n" + _PUBLISH, False),
+        ("import sys\nimport other as alias, model\n" + _PUBLISH, False),
+        ("import sys, model\n" + _PUBLISH, False),
+        (
+            "import sys as registry, other\nimport model\nregistry.modules['json.leaf'] = model\n",
+            False,
+        ),
+        ("import other\nimport sys\nimport model\n" + _PUBLISH, False),
+        ("from other import helper\nimport sys\nimport model\n" + _PUBLISH, False),
+        ("import sys\nimport model\n" + _PUBLISH + "import other\n", False),
+        ("import sys\nimport model\n" + _PUBLISH + "from other import first, second\n", False),
+        ("import sys\nimport model\n" + _PUBLISH + "def load():\n    import other\n", False),
+        ("import sys\nimport model\n" + _PUBLISH + "from json import other\n", False),
+        ("import sys\nimport model\n" + _PUBLISH + "from os.path import join\n", False),
+        ("import sys\nimport model\n" + _PUBLISH + "from .itertools import chain\n", False),
+        ("from itertools import chain\nimport sys\nimport model\n" + _PUBLISH, True),
+        ("import sys\nimport model\n" + _PUBLISH + "import itertools as tools, keyword\n", True),
+        ("import sys\nimport model\n" + _PUBLISH + "def load():\n    import heapq\n", True),
+    ],
+    ids=[
+        "own-statement",
+        "other-after-comma",
+        "other-before-comma",
+        "renamed-other-before-comma",
+        "with-sys",
+        "with-sys-alias",
+        "other-statement-before",
+        "other-from-import-before",
+        "other-statement-after",
+        "other-from-import-after",
+        "other-import-in-function",
+        "own-package-from-import",
+        "dotted-from-import",
+        "relative-stdlib-name",
+        "stdlib-before",
+        "stdlib-after",
+        "stdlib-in-function",
+    ],
+)
+def test_registry_publication_allows_no_foreign_import(tmp_path, parent, known):
+    # A foreign module runs its own code at import time and can change the published module.
+    facts = _native_facts(
+        _request(
+            tmp_path,
+            [
+                _provider("json", parent, package=True),
+                _provider("model", "class Payload: pass\n"),
+                _provider("other", "import model\nmodel.Payload = None\n"),
+            ],
+            imported="json.leaf",
+            binding="Payload",
+        )
+    )
+    assert (
+        "json.leaf.Payload" in {item.qualified_name for item in facts.provider_bindings}
+    ) is known
+
+
 def test_registry_alias_needs_the_published_module_source(tmp_path):
     facts = _native_facts(
         _request(

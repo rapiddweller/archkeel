@@ -3278,6 +3278,7 @@ def _child_published(
         if isinstance(item, ast.Import)
         and value in {alias.asname or alias.name for alias in item.names}
     )
+    first = body[start]
     end = max(body.index(item) for item in (statement, *bindings))
     # Another import here can import `<package>.<module>` and rebind the module name.
     between = [
@@ -3302,14 +3303,11 @@ def _child_published(
             for item in between
         )
         and len(imports) == 1
+        and isinstance(first, ast.Import)
+        and len(first.names) == 1
+        and _only_stdlib_imports(module, imports[0])
         and not any(
-            isinstance(node, ast.ImportFrom)
-            and node.level
-            or isinstance(node, ast.Import)
-            and any("." in alias.name for alias in node.names)
-            or isinstance(node, ast.Constant)
-            and node.value == value
-            for node in module.all_nodes
+            isinstance(node, ast.Constant) and node.value == value for node in module.all_nodes
         )
         and _module_unchanged(
             module,
@@ -3317,6 +3315,21 @@ def _child_published(
             owners,
             {statement.value, *attribute, *(name for item in bindings for name in item.targets)},
         )
+    )
+
+
+def _only_stdlib_imports(module: ParsedModule, published: ast.alias) -> bool:
+    """Every other import loads a top-level stdlib module, also in functions."""
+    # A foreign or own-package module runs its code at import time and can change the published one.
+    return all(
+        alias is published or alias.name in sys.stdlib_module_names
+        for node in module.all_nodes
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    ) and all(
+        not node.level and node.module in sys.stdlib_module_names and node.module != module.module
+        for node in module.all_nodes
+        if isinstance(node, ast.ImportFrom)
     )
 
 
