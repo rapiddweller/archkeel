@@ -128,6 +128,14 @@ providers. Arbitrary operators, class namespace redirects and opaque module/obje
 transfers can invalidate proof across the scanned closure. Captured provider source
 does not establish runtime immutability or arbitrary factory behavior.
 
+## Source syntax newer than the interpreter
+
+ArchKeel reads Python source with the `ast` module of the interpreter that runs it. Code with newer
+syntax (for example `except A, B:` from Python 3.14, PEP 758) is a parse failure on an older
+interpreter. The report then shows a `runtime_mismatch` diagnostic. Run ArchKeel with the Python
+version of the project: `uvx --python 3.14 archkeel report`. The tool supports Python 3.11 and
+newer; the nightly job checks the newest versions (#724).
+
 ## Other static blind spots
 
 - Calls are partly resolved. Annotated receivers do not enforce runtime types;

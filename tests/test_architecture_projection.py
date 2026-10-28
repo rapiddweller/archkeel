@@ -248,7 +248,7 @@ def _repository(tmp_path, *, closed=True):
         '[scan]\nroots=["sample"]\nnamespace="sample"\ncontract="architecture-contract.json"\n'
     )
     (root / "pyproject.toml").write_text(
-        '[project]\nname="projection-test"\nversion="0.0.0"\nrequires-python=">=3.11,<3.12"\n'
+        '[project]\nname="projection-test"\nversion="0.0.0"\nrequires-python=">=3.11"\n'
     )
     (root / "docs").mkdir()
     (root / "docs/target.md").write_text("Own explicit boundaries.\n")
