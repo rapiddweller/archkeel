@@ -2090,8 +2090,19 @@ def _numeric_nested_scope_binds(owner: ast.AST, use: ast.AST, name: str) -> bool
         parent = parents.get(node)
         if parent is None:
             return True
-        if sys.version_info >= (3, 12) and isinstance(parent, ast.TypeAlias) and parent.type_params:
-            return True
+        if sys.version_info >= (3, 12) and isinstance(parent, ast.TypeAlias):
+            # The collector proves only an alias value in a function, past the alias parameters.
+            alias_scope = parents.get(parent)
+            while alias_scope is not None and not isinstance(
+                alias_scope, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
+            ):
+                alias_scope = parents.get(alias_scope)
+            if (
+                any(type_param.name == name for type_param in parent.type_params)
+                or not _numeric_is_within(use, parent.value, parents)
+                or (bool(parent.type_params) and isinstance(alias_scope, ast.ClassDef))
+            ):
+                return True
         if isinstance(parent, ast.FunctionDef | ast.AsyncFunctionDef):
             if parent is not owner and node in parent.body:
                 nested_function = True
@@ -2559,30 +2570,29 @@ def _numeric_evidence_nodes(evidence: Evidence) -> tuple[tuple[ast.stmt, ...], i
 
 
 def _numeric_generic_header_index(
-    declarations: Mapping[str, Record], evidence_by_id: Mapping[str, Evidence]
+    evidence_by_id: Mapping[str, Evidence],
 ) -> dict[str, tuple[tuple[int, ...], tuple[int, ...]]]:
-    """Bound named proofs in generic definition intervals; literals remain replayable."""
+    """Bound named proofs in generic definition intervals; literals remain replayable.
+
+    Saved facts can omit symbol records, so this reads evidence rows only.
+    """
     ranges_by_file: dict[str, list[tuple[int, int]]] = {}
-    for declaration_id in declarations:
-        declaration = declarations[declaration_id]
-        if declaration.kind not in {"function", "method", "class"}:
-            continue
-        for evidence_id in declaration.evidence_ids:
-            evidence = evidence_by_id[evidence_id]
-            evidence_excerpt: str = evidence.excerpt
-            excerpt: str = evidence_excerpt.lstrip()
-            is_definition = excerpt.startswith(("def ", "async def ", "class "))
-            bracket = excerpt.find("[")
-            opening = excerpt.find("(")
-            colon = excerpt.find(":")
-            if (
-                is_definition
-                and bracket >= 0
-                and (opening < 0 or bracket < opening)
-                and (colon < 0 or bracket < colon)
-            ):
-                generic_ranges: list[tuple[int, int]] = ranges_by_file.setdefault(evidence.file, [])
-                generic_ranges.append((evidence.line, evidence.end_line))
+    for evidence_id in evidence_by_id:
+        evidence = evidence_by_id[evidence_id]
+        evidence_excerpt: str = evidence.excerpt
+        excerpt: str = evidence_excerpt.lstrip()
+        is_definition = excerpt.startswith(("def ", "async def ", "class "))
+        bracket = excerpt.find("[")
+        opening = excerpt.find("(")
+        colon = excerpt.find(":")
+        if (
+            is_definition
+            and bracket >= 0
+            and (opening < 0 or bracket < opening)
+            and (colon < 0 or bracket < colon)
+        ):
+            generic_ranges: list[tuple[int, int]] = ranges_by_file.setdefault(evidence.file, [])
+            generic_ranges.append((evidence.line, evidence.end_line))
     result: dict[str, tuple[tuple[int, ...], tuple[int, ...]]] = {}
     for file, file_ranges in ranges_by_file.items():
         starts: list[int] = []
@@ -6045,7 +6055,7 @@ def validate_source_facts(facts: SourceFacts) -> None:
             maximum = max(maximum, end)
             max_ends.append(maximum)
         type_alias_index[file] = (tuple(starts), tuple(max_ends))
-    generic_header_index = _numeric_generic_header_index(declarations_by_id, base_by_id)
+    generic_header_index = _numeric_generic_header_index(base_by_id)
     for section in facts.sections:
         for record in section.records:
             _source_record(
