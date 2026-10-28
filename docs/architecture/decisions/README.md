@@ -282,3 +282,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-272 | [Rank what an incomplete observation proves](ad-272-rank-what-an-incomplete-observation-proves.md) |
 | AD-273 | [A namespace exposure withholds loader proof in its own module only](ad-273-namespace-exposure-is-local-to-its-module.md) |
 | AD-274 | [`types` adds globals, and a project declaration publishes its name](ad-274-types-add-and-project-declarations-publish.md) |
+| AD-275 | [The use of a loader result never withholds its module edge](ad-275-loader-result-use-keeps-the-module-edge.md) |
