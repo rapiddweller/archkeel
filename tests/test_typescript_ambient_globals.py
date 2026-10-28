@@ -343,3 +343,21 @@ def test_a_binding_in_a_global_script_still_blocks_a_catalog_name(tmp_path):
         "src/b.ts": "function open() {}",
     }
     assert _gaps(_facts(tmp_path, files), "open")
+
+
+def test_a_module_local_declaration_under_forced_modules_does_not_block_a_global_one(tmp_path):
+    files = {
+        "src/env.d.ts": "declare const NAME: string;",
+        "src/local.ts": "declare const NAME: number;",
+        "src/use.ts": USE,
+    }
+    facts = _facts(tmp_path, files, {"moduleDetection": "force"})
+    assert _reads(facts, "NAME") and not _gaps(facts, "NAME")
+
+
+def test_a_script_binding_is_local_when_the_options_make_every_file_a_module(tmp_path):
+    files = {
+        "src/a.ts": "export const go = () => window.open('/x');",
+        "src/b.ts": "function open() {}",
+    }
+    assert not _gaps(_facts(tmp_path, files, {"moduleDetection": "force"}), "open")
