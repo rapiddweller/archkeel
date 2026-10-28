@@ -455,11 +455,7 @@ def static_overload_bindings(module: ParsedModule) -> frozenset[str]:
             for field, value in ast.iter_fields(node)
             if field == "type_params"
         )
-        or any(exposes_dynamic_namespace(module, node) for node in module.all_nodes)
-        or any(
-            exposes_dynamic_namespace(module, node, local_namespace=True)
-            for node in module.scope_nodes
-        )
+        or _namespace_may_rebind(module)
     ):
         return frozenset()
     counts = Counter(module.scope_bound_names)
@@ -560,23 +556,44 @@ def _stable_direct_module_bindings(
         return frozenset()
     counts = Counter(module.scope_bound_names)
     # ponytail: visible writes invalidate shared imports; prove scopes if false UNKNOWNs grow.
-    all_nodes = module.all_nodes
-    if any(
-        exposes_dynamic_namespace(module, node, include_import_effects=include_import_effects)
-        for node in all_nodes
-    ) or any(
-        exposes_dynamic_namespace(
-            module, node, local_namespace=True, include_import_effects=include_import_effects
-        )
-        for node in nodes
-    ):
+    if _namespace_may_rebind(module, include_import_effects=include_import_effects):
         return frozenset()
-    changed_members = _member_binding_roots(module, all_nodes, member_surface=False)
+    changed_members = _member_binding_roots(module, module.all_nodes, member_surface=False)
     return frozenset(
         name
         for name, count in direct.items()
         if count == 1 and counts[name] == 1 and name not in module.global_names | changed_members
     )
+
+
+def _namespace_may_rebind(module: ParsedModule, *, include_import_effects: bool = True) -> bool:
+    """Whether a visible namespace exposure can rebind a module-level name.
+
+    A `globals()` that only reads names cannot (AD-275). `locals()` and `vars()` stay exposures.
+    """
+    exposures = [
+        node
+        for node in module.all_nodes
+        if exposes_dynamic_namespace(module, node, include_import_effects=include_import_effects)
+    ] + [
+        node
+        for node in module.scope_nodes
+        if exposes_dynamic_namespace(
+            module, node, local_namespace=True, include_import_effects=include_import_effects
+        )
+    ]
+    if not exposures:
+        return False
+    parents = {
+        child: parent for parent in ast.walk(module.tree) for child in ast.iter_child_nodes(parent)
+    }
+    for node in exposures:
+        call = parents.get(node)
+        # The callee `globals` is judged with its call; `vars(x)` has only its callee to judge.
+        read = call if isinstance(call, ast.Call) and call.func is node else node
+        if not reads_only_namespace_names(module, read, parents):
+            return True
+    return False
 
 
 def binding_may_exist_before(

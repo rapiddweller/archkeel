@@ -1,7 +1,10 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-273: a module's namespace exposure withholds loader proof in that module only."""
+"""AD-273: a module's namespace exposure withholds loader proof in that module only.
+
+AD-275: a `globals()` that only reads names keeps the module's direct bindings stable.
+"""
 
 from __future__ import annotations
 
@@ -39,6 +42,8 @@ NAMES_ONLY = {
     "iteration": "for name in globals():\n    pass\n",
     "comprehension": "keys = [name for name in globals()]\n",
     "inside_function": "def names():\n    return sorted(set(globals()))\n",
+    "not_in": "missing = 'x' not in globals()\n",
+    "union": "keys = sorted(set(globals()) | set(['x']))\n",
 }
 LOADS = {
     "import_module": (
@@ -50,11 +55,16 @@ LOADS = {
         "from importlib import import_module as load\n",
         'load("sample.retired.old")\n',
     ),
+    "inside_function": (
+        "from importlib import import_module\n",
+        'def load():\n    return import_module("sample.retired.old")\n',
+    ),
 }
 LOAD_FAMILY = {
     "import_module": "importlib",
     "dunder_import": "builtins",
     "from_import_alias": "importlib",
+    "inside_function": "importlib",
 }
 # A visible mutation of a loader changes that loader everywhere. Any exposure that is not the
 # module's own namespace could reach every module, so it changes both loaders everywhere.
@@ -142,11 +152,66 @@ def test_reading_the_names_of_globals_in_another_module_exposes_nothing(
 def test_reading_the_names_of_globals_in_the_loading_module_changes_no_loader(
     tmp_path: Path, names_only: str, load: str
 ) -> None:
-    # `__import__` stays proven. An `importlib` alias in a module that reads `globals()` keeps its
-    # own, older limit: the binding stability of that module (`stable_direct_module_bindings`),
-    # which this decision leaves alone.
-    expected = ("FAIL", True) if LOAD_FAMILY[load] == "builtins" else ("UNKNOWN", False)
+    # AD-275: the read also keeps the loader binding of the module stable.
     code = NAMES_ONLY[names_only]
+    assert _status(tmp_path, _caller(load, code), "marker = 1\n") == ("FAIL", True)
+
+
+def test_a_lazy_package_that_lists_its_names_keeps_the_literal_load_proven(
+    tmp_path: Path,
+) -> None:
+    """The shape measured on DATAMIMIC EE (internal): a lazy package `__init__` with `__dir__`."""
+    caller = (
+        "from importlib import import_module\n"
+        "from sample.errors import marker\n"
+        "def _load():\n"
+        '    return import_module("sample.retired.old")\n'
+        "def __getattr__(name):\n"
+        "    return getattr(_load(), name)\n"
+        "def __dir__():\n"
+        "    return sorted(set(globals()) | set(marker.__all__))\n"
+    )
+    assert _status(tmp_path, caller, "marker = 1\n") == ("FAIL", True)
+
+
+# A loader binding that is not bound once at module level stays unproven with a names-only read.
+UNSTABLE_LOADERS = {
+    "try": "try:\n    import importlib\nexcept ImportError:\n    importlib = None\n",
+    "if": "if marker:\n    import importlib\n",
+    "rebound": "import importlib\nimportlib = importlib\n",
+    "deleted": "import importlib\ndel importlib\nimport importlib\n",
+    "global_rebind": "import importlib\ndef swap():\n    global importlib\n    importlib = None\n",
+}
+
+
+@pytest.mark.parametrize("binding", UNSTABLE_LOADERS)
+def test_reading_the_names_of_globals_does_not_prove_an_unstable_loader_binding(
+    tmp_path: Path, binding: str
+) -> None:
+    caller = (
+        "from sample.errors import marker\n"
+        + UNSTABLE_LOADERS[binding]
+        + "keys = set(globals())\n"
+        + 'importlib.import_module("sample.retired.old")\n'
+    )
+    assert _status(tmp_path, caller, "marker = 1\n") == ("UNKNOWN", False)
+
+
+# `locals()` and `vars()` at module level are the module's dict: still an exposure (fail closed).
+MODULE_NAMESPACE_READS = {
+    "vars_of_object": "names = vars(marker)\n",
+    "vars": "keys = set(vars())\n",
+    "locals": "keys = set(locals())\n",
+}
+
+
+@pytest.mark.parametrize("load", LOADS)
+@pytest.mark.parametrize("read", MODULE_NAMESPACE_READS)
+def test_locals_and_vars_at_module_level_keep_the_loader_binding_unstable(
+    tmp_path: Path, read: str, load: str
+) -> None:
+    expected = ("FAIL", True) if LOAD_FAMILY[load] == "builtins" else ("UNKNOWN", False)
+    code = MODULE_NAMESPACE_READS[read]
     assert _status(tmp_path, _caller(load, code), "marker = 1\n") == expected
 
 
@@ -335,3 +400,47 @@ def test_which_uses_of_globals_only_read_its_names(tmp_path: Path, source: str) 
     ]
     assert calls
     assert all(reads_only_namespace_names(module, call, parents) for call in calls) is READS[source]
+
+
+def _module(tmp_path: Path, source: str):
+    from archkeel.analyzer.python.source import parse_sources
+
+    package = tmp_path / "sample"
+    package.mkdir()
+    (package / "__init__.py").write_text(source)
+    return parse_sources([package / "__init__.py"], root=tmp_path, namespace="sample").modules[0]
+
+
+@pytest.mark.parametrize("source", READS)
+def test_only_a_names_only_globals_keeps_the_direct_bindings_stable(
+    tmp_path: Path, source: str
+) -> None:
+    from archkeel.analyzer.python.source import stable_direct_module_bindings
+
+    module = _module(tmp_path, f"import importlib\n{source}\n")
+    assert ("importlib" in stable_direct_module_bindings(module)) is READS[source]
+
+
+@pytest.mark.parametrize(
+    ("read", "stable"),
+    [
+        ("keys = set(globals())\n", True),
+        ("names = globals()\n", False),
+        ("names = vars(importlib)\n", False),
+        ("keys = set(locals())\n", False),
+        ('__import__("json")\n', False),
+    ],
+)
+def test_an_overload_group_stays_static_beside_a_names_only_globals(
+    read: str, stable: bool
+) -> None:
+    from test_analyzer import _parsed_module
+    from test_boundary_types_reexport_proofs import _OVERLOAD_GROUP
+
+    from archkeel.analyzer.python.imports import collect_imports
+    from archkeel.analyzer.python.source import static_overload_bindings
+
+    module = _parsed_module(f"import importlib\n{_OVERLOAD_GROUP}{read}")
+    collect_imports([module], {module.module}, {}, namespace="sample")
+    expected = frozenset({"resolve_source_entity"}) if stable else frozenset()
+    assert static_overload_bindings(module) == expected
