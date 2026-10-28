@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import sys
+
 from archkeel.ir.model import ForbiddenConstructKind
 from fixtures.demo_catalog_support import FIXTURE_DIR, HEADER, Variant, contract_rule_field
 
@@ -328,3 +330,59 @@ VARIANTS: tuple[Variant, ...] = (
         )
     ),
 )
+
+
+def _pep_695_variant(
+    name: str, summary: str, body: str, *, forbidden: bool = False, unknown: bool = False
+) -> Variant:
+    return Variant(
+        id=f"class-a-numeric-operand-{name}",
+        section="class_a",
+        item=f"bounded_numeric_operand:{name}",
+        summary=summary,
+        files={
+            "shop/model/probe_type_alias.py": HEADER
+            + '"""Type alias probe for the numeric operand rule."""\n\n'
+            + body
+        },
+        expected_violations=("MODEL-NONCE-WIDTH",) if forbidden else (),
+        expected_codes=("rule.violated",) if forbidden else (),
+        expected_unknowns=(
+            (("numeric_operand_unknown", "shop.model.probe_type_alias.bucket"),) if unknown else ()
+        ),
+        expected_declared_rules="UNKNOWN" if unknown else None,
+    )
+
+
+# PEP 695 syntax needs Python 3.12. A 3.11 replay would only see a syntax error, so these
+# rows join the catalog on 3.12 and newer.
+_PEP_695_VARIANTS: tuple[Variant, ...] = (
+    (
+        _pep_695_variant(
+            "type-alias-captured-forbidden",
+            "A local constant captured by a generic type alias keeps its proof: below the floor.",
+            "def bucket() -> None:\n    width = 3\n    type Alias[T] = job_nonce % width\n",
+            forbidden=True,
+        ),
+        _pep_695_variant(
+            "type-alias-captured-allowed",
+            "A local constant captured by a generic type alias keeps its proof: at the floor.",
+            "def bucket() -> None:\n    width = 16\n    type Alias[T] = job_nonce % width\n",
+        ),
+        _pep_695_variant(
+            "type-alias-parameter-unknown",
+            "A type parameter hides the local constant, so the rule does not claim the operand.",
+            "def bucket() -> None:\n    width = 3\n    type Alias[width] = job_nonce % width\n",
+            unknown=True,
+        ),
+        _pep_695_variant(
+            "type-alias-class-body-forbidden",
+            "A plain type alias in a class body keeps its proof of a module constant.",
+            "WIDTH = 3\n\n\nclass Holder:\n    type Alias = job_nonce % WIDTH\n",
+            forbidden=True,
+        ),
+    )
+    if sys.version_info >= (3, 12)
+    else ()
+)
+VARIANTS = (*VARIANTS, *_PEP_695_VARIANTS)
