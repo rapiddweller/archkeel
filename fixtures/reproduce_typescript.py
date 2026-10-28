@@ -80,6 +80,7 @@ def run_variant(workspace: Path, variant: Variant) -> Outcome:
         config.language,
         collector_argv=config.collector_argv,
         tsconfig=config.tsconfig or "tsconfig.json",
+        bundler=config.bundler,
     )
     validated, _ = run_validate(root, config, observe, baseline=baseline)
     report, artifact = run_report(root, config=config, analyzer=observe, baseline=baseline)
