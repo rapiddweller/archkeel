@@ -182,7 +182,7 @@ class Resolver:
             or provider not in self._script_providers
             or self.partial
             or self.options.unmodeled
-            or self.options.ambient_custom
+            or self.options.lib_unmodeled
         ):
             return None
         content = self.snapshot.read(provider.source)

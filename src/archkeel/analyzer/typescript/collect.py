@@ -752,31 +752,49 @@ class _Collection:
             )
         )
 
+    def _global_script(self, syntax: Syntax) -> bool:
+        """Whether the top-level names of this file belong to the global scope (AD-274).
+
+        A declaration file counts whatever the extension and the options say. Any other file
+        counts only when the compiler options keep scripts global and it has no module syntax.
+        """
+        return syntax.declaration_file or (
+            self.config.options.scripts_are_global and not syntax.module_file
+        )
+
     def _script_standard_global(
         self, name: str, publishers: list[tuple[str, ScriptGlobal]]
     ) -> bool:
         return (
             name in standard_globals(self.config.options)
             and self._script_global_stable(name, publishers)
-            and not any(name in syntax.script_bindings for syntax in self.syntax.values())
+            and not any(
+                name in syntax.script_bindings
+                for syntax in self.syntax.values()
+                if self._global_script(syntax)
+            )
         )
 
     def _script_declared_global(
         self, name: str, publishers: list[tuple[str, ScriptGlobal]]
     ) -> tuple[str, Span] | None:
         """The first project `declare` of `name`, when nothing else binds or writes the name."""
-        declarations = [
-            (rel, span)
-            for rel, syntax in sorted(self.syntax.items())
-            for declared, span in syntax.ambient_globals
-            if declared == name
-        ]
-        # A `declare const` is also a binding of its own file; any other file binding it blocks.
-        bound_elsewhere = any(
-            name in syntax.script_bindings
-            and name not in {declared for declared, _ in syntax.ambient_globals}
-            for syntax in self.syntax.values()
-        )
+        declarations: list[tuple[str, Span]] = []
+        bound_elsewhere = False
+        for rel, syntax in sorted(self.syntax.items()):
+            declared = [
+                (declared_name, span)
+                for declared_name, span in (
+                    *syntax.ambient_globals,
+                    *(syntax.ambient_top_level if self._global_script(syntax) else ()),
+                )
+                if declared_name == name
+            ]
+            declarations.extend((rel, span) for _, span in declared)
+            # A `declare const` also binds its own file; only another binding blocks.
+            bound_elsewhere = bound_elsewhere or (
+                not declared and name in syntax.script_bindings and self._global_script(syntax)
+            )
         if declarations and not bound_elsewhere and self._script_global_stable(name, publishers):
             return declarations[0]
         return None
