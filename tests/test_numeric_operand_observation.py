@@ -1619,6 +1619,12 @@ def test_numeric_module_alias_cannot_drop_an_enclosing_shadow_scope(tmp_path):
         decode_response(json.dumps(payload).encode())
 
 
+# Python 3.14 refuses a named expression in an annotation when it compiles the source.
+_NO_WALRUS_IN_ANNOTATION = pytest.mark.skipif(
+    sys.version_info >= (3, 14), reason="named expression in an annotation is a SyntaxError"
+)
+
+
 @pytest.mark.parametrize(
     ("source", "forged_line", "binding_lines"),
     [
@@ -1661,7 +1667,7 @@ def test_numeric_module_alias_cannot_drop_an_enclosing_shadow_scope(tmp_path):
             6,
             (4,),
         ),
-        (
+        pytest.param(
             "def choose(job_nonce):\n"
             "    SAFE = 9\n"
             "    keep = job_nonce % SAFE\n"
@@ -1670,8 +1676,9 @@ def test_numeric_module_alias_cannot_drop_an_enclosing_shadow_scope(tmp_path):
             "    forged = job_nonce % WIDTH\n",
             6,
             (4,),
+            marks=_NO_WALRUS_IN_ANNOTATION,
         ),
-        (
+        pytest.param(
             "def choose(job_nonce):\n"
             "    SAFE = 9\n"
             "    keep = job_nonce % SAFE\n"
@@ -1680,6 +1687,7 @@ def test_numeric_module_alias_cannot_drop_an_enclosing_shadow_scope(tmp_path):
             "    forged = job_nonce % WIDTH\n",
             6,
             (4,),
+            marks=_NO_WALRUS_IN_ANNOTATION,
         ),
     ],
 )

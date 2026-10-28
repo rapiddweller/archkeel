@@ -3,7 +3,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: against gate full-test-shard ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts prune-workflows mermaid check test collector-safety typescript-native typescript-compiler-check dart-test lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-browser-tests report-pages plugin plugin-directory plugin-release build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
+.PHONY: against gate full-test-shard ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts prune-workflows mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-browser-tests report-pages plugin plugin-directory plugin-release build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
 
 # SHARDED_TESTS=1: the full suite runs in separate shard jobs (make test TEST_SHARD=I/N).
 check: lint typecheck browser-architecture-check $(if $(strip $(SHARDED_TESTS)),,test)
@@ -194,6 +194,18 @@ test:
 	$(UV) run --locked $(PYTEST_EXTRA) python -m pytest -n $(TEST_WORKERS) --dist=loadfile --max-worker-restart=0 \
 		-q $(PYTEST_STOP) --durations=20 --junitxml=test-artifacts/pytest/results.xml \
 		$(if $(TEST_SHARD),--shard=$(TEST_SHARD),)
+
+# The Python analyzer reads source with the `ast` of the running interpreter: these files cover what
+# differs between Python versions. The nightly job runs them on the newest versions (#724).
+PYTHON_COMPAT_TESTS = tests/test_analyzer.py tests/test_python_provider_sources.py \
+	tests/test_python_contextmanager_signatures.py tests/test_boundary_types_contextmanager.py \
+	tests/test_python_source_evidence_lines.py tests/test_typed_python_receivers.py \
+	tests/test_python_class_value_proofs.py tests/test_numeric_operand_observation.py \
+	tests/test_architecture_projection.py tests/test_validation.py
+
+python-compat:
+	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=loadfile --max-worker-restart=0 \
+		-q --durations=10 $(PYTHON_COMPAT_TESTS)
 
 collector-safety:
 	$(UV) run --locked python -m pytest -q tests/test_collection_protocol.py tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py \

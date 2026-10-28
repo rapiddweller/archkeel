@@ -512,7 +512,8 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     assert "if: always()" in full
     assert (
         "needs:\n      - full-suite-and-reports\n      - full-suite-shards\n"
-        "      - collector-safety-windows\n      - language-collectors" in full
+        "      - python-compat\n      - collector-safety-windows\n      - language-collectors"
+        in full
     )
     assert "${{ needs.full-suite-and-reports.result }}" in full
     # The full suite runs as parallel shards; the gate job skips it (SHARDED_TESTS=1).
@@ -521,6 +522,7 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     assert "make full-test-shard TEST_SHARD=${{ strategy.job-index }}/" in full
     assert "${{ needs.collector-safety-windows.result }}" in full
     assert "${{ needs.language-collectors.result }}" in full
+    assert "${{ needs.python-compat.result }}" in full
     prune = full.split("  prune-report-artifacts:\n", 1)[1].split("\n  deploy-report-pages:", 1)[0]
     assert "needs: [verified, deploy-report-pages]" in prune
     assert "make prune-report-artifacts DELETE=true" in prune
@@ -701,10 +703,29 @@ def test_full_aggregate_requires_collector_compatibility_outside_prs() -> None:
         for matrix in ("success", "skipped", "failure", "cancelled", ""):
             result = subprocess.run(
                 ["bash", "-eu", "-c", script],
-                env={**os.environ, **baseline, "EVENT": event, "COLLECTORS_RESULT": matrix},
+                env={
+                    **os.environ,
+                    **baseline,
+                    "EVENT": event,
+                    "COLLECTORS_RESULT": matrix,
+                    "COMPAT_RESULT": expected,
+                },
                 capture_output=True,
             )
             assert (result.returncode == 0) == (matrix == expected), (event, matrix)
+            # The Python compatibility job follows the same rule as the collector job.
+            result = subprocess.run(
+                ["bash", "-eu", "-c", script],
+                env={
+                    **os.environ,
+                    **baseline,
+                    "EVENT": event,
+                    "COLLECTORS_RESULT": expected,
+                    "COMPAT_RESULT": matrix,
+                },
+                capture_output=True,
+            )
+            assert (result.returncode == 0) == (matrix == expected), (event, "compat", matrix)
         for required in baseline:
             result = subprocess.run(
                 ["bash", "-eu", "-c", script],
@@ -714,6 +735,7 @@ def test_full_aggregate_requires_collector_compatibility_outside_prs() -> None:
                     required: "skipped",
                     "EVENT": event,
                     "COLLECTORS_RESULT": expected,
+                    "COMPAT_RESULT": expected,
                 },
                 capture_output=True,
             )

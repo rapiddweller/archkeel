@@ -106,6 +106,37 @@ jobs:
           if-no-files-found: warn
           retention-days: 1
 
+  python-compat:
+    name: Python compatibility / Python ${{ matrix.python }}
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # The analyzer reads source with the `ast` of the running interpreter (#724). The files in
+    # `make python-compat` cover what differs between versions; the full suite runs on 3.11.
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12.10", "3.14.7"]
+    env:
+      UV_PYTHON: ${{ matrix.python }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: ${{ matrix.python }}
+          version: "0.12.13"
+
+      - name: Install locked package
+        run: uv sync --locked --python ${{ matrix.python }}
+
+      - name: Run the Python compatibility tests
+        run: make python-compat TEST_WORKERS=4
+
   collector-safety-windows:
     name: Collector safety / Windows / Python 3.11.12
     runs-on: windows-latest
@@ -180,6 +211,7 @@ jobs:
     needs:
       - full-suite-and-reports
       - full-suite-shards
+      - python-compat
       - collector-safety-windows
       - language-collectors
     runs-on: ubuntu-latest
@@ -189,6 +221,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           FULL_RESULT: ${{ needs.full-suite-and-reports.result }}
           SHARDS_RESULT: ${{ needs.full-suite-shards.result }}
+          COMPAT_RESULT: ${{ needs.python-compat.result }}
           SAFETY_RESULT: ${{ needs.collector-safety-windows.result }}
           COLLECTORS_RESULT: ${{ needs.language-collectors.result }}
         run: |
@@ -198,6 +231,7 @@ jobs:
           done
           expected=success
           if [[ "$EVENT" == pull_request ]]; then expected=skipped; fi
+          [[ "$COMPAT_RESULT" == "$expected" ]] || { echo "Unexpected Python compatibility result: $COMPAT_RESULT (expected $expected)" >&2; exit 1; }
           [[ "$COLLECTORS_RESULT" == "$expected" ]] || { echo "Unexpected collector compatibility result: $COLLECTORS_RESULT (expected $expected)" >&2; exit 1; }
 
   prune-report-artifacts:

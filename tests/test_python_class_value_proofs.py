@@ -172,8 +172,10 @@ def test_constructor_return_headers_follow_their_execution_time(
     )
     runtime = {"__name__": "sample.owner"}
     exec(source, runtime)
+    # The analyzer keeps the eager reading of annotations; Python 3.14 defers them (PEP 649).
     executed = not future or not annotation
-    assert (runtime["Owner"].__annotations__["value"] is dict) is executed
+    ran = executed and not (annotation and sys.version_info >= (3, 14))
+    assert (runtime["Owner"].__annotations__["value"] is dict) is ran
 
     module = _resolve(tmp_path, source)
     assert ("Owner" in unproven_member_bindings(module)) is executed
@@ -181,22 +183,24 @@ def test_constructor_return_headers_follow_their_execution_time(
 
 
 @pytest.mark.parametrize(
-    "header",
+    ("header", "annotation"),
     [
-        "(value=Missing) -> Owner",
-        "(value: Missing) -> Owner",
-        "() -> Missing",
-        "(value: Missing.attribute) -> Owner",
-        "(value: Missing[str]) -> Owner",
-        "() -> Missing | str",
+        ("(value=Missing) -> Owner", False),
+        ("(value: Missing) -> Owner", True),
+        ("() -> Missing", True),
+        ("(value: Missing.attribute) -> Owner", True),
+        ("(value: Missing[str]) -> Owner", True),
+        ("() -> Missing | str", True),
     ],
 )
 def test_constructor_return_header_requires_name_binding_evidence(
-    tmp_path: Path, header: str
+    tmp_path: Path, header: str, annotation: bool
 ) -> None:
     source = f"class Owner:\n    value: str\ndef make{header}:\n    return Owner()\n"
-    with pytest.raises(NameError):
-        exec(source, {"__name__": "sample.owner"})
+    # Python 3.14 defers annotations (PEP 649), so only a default value fails at definition time.
+    if not annotation or sys.version_info < (3, 14):
+        with pytest.raises(NameError):
+            exec(source, {"__name__": "sample.owner"})
     module = _resolve(tmp_path, source)
     assert "Owner" in unproven_member_bindings(module)
     assert not module._proven_constructor_returns
