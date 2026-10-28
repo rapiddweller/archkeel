@@ -40,9 +40,9 @@ def _git(root: Path, *args: str) -> None:
     subprocess.run(["git", *args], cwd=root, check=True, capture_output=True, text=True)
 
 
-def _fixture(tmp_path: Path) -> Path:
+def _fixture(tmp_path: Path, fixture: Path = FIXTURE) -> Path:
     root = tmp_path / "runtime-fixture"
-    shutil.copytree(FIXTURE, root)
+    shutil.copytree(fixture, root)
     _git(root, "init", "-q")
     _git(root, "config", "user.email", "fixture@example.invalid")
     _git(root, "config", "user.name", "Archkeel fixture")

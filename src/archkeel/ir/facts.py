@@ -1175,7 +1175,7 @@ def _partial_intrinsic(value: JsonValue) -> CPythonPartialIntrinsic:
         or NativeOrigin(origin) is not NativeOrigin.BUILTIN
         or not isinstance(version, str)
         or not isinstance(cache_tag, str)
-        or re.fullmatch(r"3\.(11|12)\.[0-9]+", version) is None
+        or re.fullmatch(r"3\.(11|12|13|14)\.[0-9]+", version) is None
         or cache_tag != "cpython-" + "".join(version.split(".")[:2])
     ):
         raise ValueError("invalid CPython partial intrinsic")

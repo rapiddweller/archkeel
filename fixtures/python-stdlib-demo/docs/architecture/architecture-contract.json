@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
+  "schema_version": "3.6.0",
+  "components": [
+    {
+      "id": "sample",
+      "label": "sample",
+      "role": "component",
+      "packages": ["sample"],
+      "public": ["sample.api"],
+      "responsibilities": ["Publish declared standard library types."],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/architecture.md"]
+    }
+  ],
+  "rules": [
+    {
+      "id": "STDLIB-TYPES-DECLARED",
+      "kind": "boundary_types",
+      "source": "sample.api",
+      "rationale": "Each facade type has a declared standard library source.",
+      "decided_by": "architect",
+      "provenance": ["docs/architecture/architecture.md"]
+    }
+  ]
+}

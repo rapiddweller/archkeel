@@ -146,7 +146,7 @@ def native_sources(tmp_path_factory):
             "class ABCMeta(type):\n        def __call__(cls, *args): return 7",
         ),
         ("functools", "return wrapper\n", "return wrapped\n"),
-        ("functools", "'__annotations__'", "'__code__'"),
+        ("functools", "'__qualname__', '__doc__'", "'__qualname__', '__code__'"),
         ("_collections_abc", "class Iterator(Iterable):", "class Iterator(object):"),
     ],
 )
@@ -158,6 +158,57 @@ def test_changed_source_chain_cannot_supply_effective_signature(
     changed = _provider(module, original.source.replace(before, after))
     sources = tuple(changed if item.module == module else item for item in native_sources)
     assert _signature(_native_case(tmp_path, providers=sources)[0])[1] is None
+
+
+def test_exit_body_of_another_runtime_keeps_signature_unproved(tmp_path, native_sources):
+    original = next(item for item in native_sources if item.module == "contextlib")
+    # 3.11 throws (typ, value, traceback); 3.12 to 3.14 throw (value) only.
+    swapped = (
+        original.source.replace("self.gen.throw(typ, value, traceback)", "THROW")
+        .replace("self.gen.throw(value)", "self.gen.throw(typ, value, traceback)")
+        .replace("THROW", "self.gen.throw(value)")
+    )
+    assert swapped != original.source
+    sources = tuple(
+        _provider("contextlib", swapped) if item.module == "contextlib" else item
+        for item in native_sources
+    )
+    assert _signature(_native_case(tmp_path, providers=sources)[0])[1] is None
+
+
+@pytest.mark.parametrize(
+    ("imported", "proven"),
+    [
+        ("from _functools import partial, reduce", True),
+        ("from _functools import reduce, partial", False),
+        ("from _functools import partial as other, reduce as partial", False),
+    ],
+    ids=["partial-first", "partial-second", "partial-renamed"],
+)
+def test_native_partial_must_bind_first_in_its_import(tmp_path, native_sources, imported, proven):
+    original = next(item for item in native_sources if item.module == "functools")
+    assert "from _functools import partial" in original.source
+    source = original.source.replace("from _functools import partial", imported, 1)
+    sources = tuple(
+        _provider("functools", source) if item.module == "functools" else item
+        for item in native_sources
+    )
+    assert (_signature(_native_case(tmp_path, providers=sources)[0])[1] is not None) is proven
+
+
+@pytest.mark.parametrize(("slots", "proven"), [("()", True), ('("gen",)', False)])
+def test_abstract_context_manager_accepts_only_empty_slots(tmp_path, native_sources, slots, proven):
+    original = next(item for item in native_sources if item.module == "contextlib")
+    member = "    __class_getitem__ = classmethod(GenericAlias)\n"
+    assert member in original.source
+    # Python 3.13 and later declare empty slots; drop them before the test adds its own.
+    source = original.source.replace("    __slots__ = ()\n", "", 1)
+    source = source.replace(member, member + f"    __slots__ = {slots}\n", 1)
+    sources = tuple(
+        _provider("contextlib", source) if item.module == "contextlib" else item
+        for item in native_sources
+    )
+    assert (_signature(_native_case(tmp_path, providers=sources)[0])[1] is not None) is proven
 
 
 def test_factory_helper_and_wrapper_names_are_source_bound(tmp_path, native_sources):
@@ -207,7 +258,7 @@ def test_intrinsic_needs_supported_runtime_and_actual_native_members(monkeypatch
     assert owner._partial_intrinsic() is not None
     assert owner._abc_intrinsic() is not None
     with monkeypatch.context() as changed:
-        changed.setattr(owner.sys, "version_info", (3, 13, 0))
+        changed.setattr(owner.sys, "version_info", (3, 15, 0))
         assert owner._partial_intrinsic() is None
     changed_module = ModuleType("_functools")
     changed_module.partial = type("partial", (), {})
@@ -325,8 +376,8 @@ def _wire(tmp_path):
         ("proof", "support_evidence_ids", ["missing"]),
         ("effective", "payload", "str"),
         ("effective", "wrapper", "other.Wrapper"),
-        ("partial", "version", "3.13.0"),
-        ("partial", "cache_tag", "cpython-313"),
+        ("partial", "version", "3.10.0"),
+        ("partial", "cache_tag", "cpython-310"),
         ("partial", "implementation", "pypy"),
         ("partial", "origin", "source"),
         ("abc", "members", ["_abc_init"]),

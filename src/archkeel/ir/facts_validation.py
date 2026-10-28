@@ -5944,6 +5944,10 @@ def validate_source_facts(facts: SourceFacts) -> None:
             else qualified_name.startswith(source_module + ".")
             if binding.kind is not ProviderBindingKind.ALIAS and source_module is not None
             else module == source_module
+            # A package initializer can publish its child through sys.modules (collections.abc).
+            or evidence is not None
+            and PurePosixPath(evidence.file).name == "__init__.py"
+            and module.rpartition(".")[0] == source_module
         )
         if (
             binding.kind is ProviderBindingKind.ALIAS

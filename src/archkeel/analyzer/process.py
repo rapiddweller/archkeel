@@ -322,10 +322,14 @@ def _requested_facts(facts: SourceFacts, request: CollectionRequest) -> None:
             continue
         source = providers_by_path.get(evidence[binding.evidence_id].file)
         qualified_name: str = binding.qualified_name
+        owner: str = qualified_name.rpartition(".")[0]
         source_matches = source is not None and (
             qualified_name == source.module
             if binding.kind is ProviderBindingKind.MODULE
-            else qualified_name.rpartition(".")[0] == source.module
+            else owner == source.module
+            # A package initializer can publish its child through sys.modules (collections.abc).
+            or PurePosixPath(source.path).name == "__init__.py"
+            and owner.rpartition(".")[0] == source.module
             if binding.kind is ProviderBindingKind.ALIAS
             else qualified_name.startswith(source.module + ".")
         )

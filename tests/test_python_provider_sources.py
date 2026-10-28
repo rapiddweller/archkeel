@@ -1184,6 +1184,20 @@ def test_actual_typing_forms_have_declaration_receipts(tmp_path, name):
     assert not _route_records(facts)[0]
 
 
+def test_actual_pathlib_path_has_a_class_receipt(tmp_path):
+    stdlib = Path(sysconfig.get_path("stdlib"))
+    package = (stdlib / "pathlib/__init__.py").is_file()
+    source = (stdlib / ("pathlib/__init__.py" if package else "pathlib.py")).read_text()
+    if "\nclass Path(" not in source:
+        pytest.skip("pathlib publishes Path only through two star imports (Python 3.13)")
+    provider = _provider("pathlib", source, package=package)
+    facts = _native_facts(_request(tmp_path, [provider], imported="pathlib", binding="Path"))
+    [binding] = facts.provider_bindings
+    assert binding.qualified_name == "pathlib.Path"
+    assert binding.kind is ProviderBindingKind.CLASS
+    assert not _route_records(facts)[0]
+
+
 def test_actual_typing_runtime_module_publication_has_no_declaration_receipt(tmp_path):
     source = (Path(sysconfig.get_path("stdlib")) / "typing.py").read_text()
     request = _request(tmp_path, [_provider("typing", source)], imported="typing", binding="io")
@@ -1320,7 +1334,8 @@ def test_eager_provider_identity_gaps_stay_unknown(tmp_path, effect):
         ("\nif conditional:\n    contextmanager = None\n", False),
         ("\ndef mutate():\n    global contextmanager\n    contextmanager = None\n", False),
         ("\nglobals()['contextmanager'] = None\n", False),
-        ("\ndef __getattr__(name):\n    return None\n", False),
+        # PEP 562: a module __getattr__ runs only for names that are missing.
+        ("\ndef __getattr__(name):\n    return None\n", True),
         ("\nvalue = opaque()\n", True),
         ("\nimport unavailable\n", True),
         ("\nfrom unavailable import factory\n", True),
@@ -1338,6 +1353,59 @@ def test_provider_source_binders_and_runtime_effects_are_distinct(tmp_path, suff
     )
     facts = _native_facts(request)
     assert bool(facts.provider_bindings) is declared
+    assert len(_route_records(facts)[0]) == (0 if declared else 1)
+
+
+@pytest.mark.parametrize(
+    ("source", "declared"),
+    [
+        ("def __getattr__(name): return None\nclass Payload: pass\n", True),
+        ("class Payload: pass\ndef __getattr__(name): return None\n", True),
+        ("def __getattr__(name): return None\n", False),
+        ("def __getattr__(name): return None\nclass Payload: pass\nPayload = 1\n", False),
+        ("def __getattr__(name): return None\nif flag:\n    class Payload: pass\n", False),
+        ("from unavailable import *\nclass Payload: pass\n", True),
+        (
+            "try:\n    from unavailable import *\nexcept ImportError:\n    pass\n"
+            "class Payload: pass\n",
+            True,
+        ),
+        ("class Payload: pass\nfrom unavailable import *\n", False),
+        ("from unavailable import *\nclass Payload: pass\nfrom other import *\n", False),
+        ("from unavailable import *\n", False),
+        ("from unavailable import *\nclass Payload: pass\nPayload = 1\n", False),
+        ("from unavailable import *\nif flag:\n    class Payload: pass\n", False),
+        ("from unavailable import *\nclass Payload: pass\nglobals()['Payload'] = 1\n", False),
+        (
+            "from unavailable import *\ndef __getattr__(name): return None\nclass Payload: pass\n",
+            True,
+        ),
+    ],
+    ids=[
+        "getattr-before",
+        "getattr-after",
+        "getattr-unbound",
+        "getattr-twice",
+        "getattr-conditional",
+        "star-before",
+        "star-in-try-before",
+        "star-after",
+        "star-around",
+        "star-unbound",
+        "star-twice",
+        "star-conditional",
+        "star-dynamic-rebind",
+        "star-and-getattr",
+    ],
+)
+def test_direct_binding_survives_missing_name_hooks_before_it(tmp_path, source, declared):
+    request = _request(
+        tmp_path, [_provider("value_tools", source)], imported="value_tools", binding="Payload"
+    )
+    facts = _native_facts(request)
+    assert [item.qualified_name for item in facts.provider_bindings] == (
+        ["value_tools.Payload"] if declared else []
+    )
     assert len(_route_records(facts)[0]) == (0 if declared else 1)
 
 
@@ -1996,7 +2064,7 @@ def test_provider_discovery_readback_rejects_changed_provider_before_full_collec
             False,
         ),
         (
-            "from model import *\nPayload = 1\n",
+            "from model import *\nif flag:\n    Payload = 1\n",
             "__all__ = ['Payload']\nclass Payload: pass\n",
             False,
         ),
@@ -2110,6 +2178,190 @@ def test_frozen_star_source_needs_matching_native_code_and_side_source(
         )
     )
     assert len(_route_records(facts)[0]) == (0 if change == "none" else 1)
+
+
+_REGISTRY = "import sys\nimport model\nsys.modules['vendor.leaf'] = model\n"
+
+
+@pytest.mark.parametrize(
+    ("parent", "known"),
+    [
+        (_REGISTRY, True),
+        (
+            "import model\nimport sys as _sys\n_sys.modules['vendor.leaf'] = model\nleaf = model\n",
+            True,
+        ),
+        ("import sys\nimport model\nif flag:\n    sys.modules['vendor.leaf'] = model\n", False),
+        ("import sys\nimport model\nkey = 'vendor.leaf'\nsys.modules[key] = model\n", False),
+        ("import sys\nimport model\nsys.modules['vendor.leaf'] = model.inner\n", False),
+        ("import sys\nimport model\nsys.modules['other.leaf'] = model\n", False),
+        (_REGISTRY + "sys.modules['vendor.leaf'] = model\n", False),
+        (_REGISTRY + "del sys.modules['vendor.leaf']\n", False),
+        (_REGISTRY + "def reset():\n    sys.modules['vendor.leaf'] = None\n", False),
+        (_REGISTRY.replace("import model", "import other as model"), False),
+        (_REGISTRY.replace("import model", "from model import model"), False),
+        (_REGISTRY + "model = None\n", False),
+        (_REGISTRY + "leaf = None\n", False),
+        (_REGISTRY + "leaf = sys\n", False),
+        (_REGISTRY + "def __getattr__(name): return None\n", False),
+    ],
+    ids=[
+        "exact",
+        "aliased-registry-and-attribute",
+        "conditional",
+        "computed-key",
+        "member-value",
+        "foreign-key",
+        "written-twice",
+        "deleted",
+        "deferred-write",
+        "renamed-import",
+        "from-import",
+        "rebound-value",
+        "rebound-attribute",
+        "attribute-other-module",
+        "missing-name-hook",
+    ],
+)
+def test_registry_published_child_is_an_alias_of_its_module(tmp_path, parent, known):
+    facts = _native_facts(
+        _request(
+            tmp_path,
+            [
+                _provider("vendor", parent, package=True),
+                _provider("model", "class Payload: pass\n"),
+            ],
+            imported="vendor.leaf",
+            binding="Payload",
+        )
+    )
+    by_name = {item.qualified_name: item for item in facts.provider_bindings}
+    assert len(_route_records(facts)[0]) == (0 if known else 1)
+    assert ("vendor.leaf.Payload" in by_name) is known
+    if known:
+        alias = by_name["vendor.leaf.Payload"]
+        assert alias.kind is ProviderBindingKind.ALIAS and alias.target == "model.Payload"
+        evidence = {item.id: item for item in facts.evidence}
+        assert evidence[alias.evidence_id].file == ".archkeel-providers/vendor/__init__.py"
+        assert "sys.modules['vendor.leaf'] = model" in evidence[alias.evidence_id].excerpt
+        assert evidence[alias.supporting_evidence_ids[0]].file == ".archkeel-providers/model.py"
+
+
+def test_registry_alias_needs_the_published_module_source(tmp_path):
+    facts = _native_facts(
+        _request(
+            tmp_path,
+            [_provider("vendor", _REGISTRY, package=True)],
+            imported="vendor.leaf",
+            binding="Payload",
+        )
+    )
+    assert not facts.provider_bindings
+    assert len(_route_records(facts)[0]) == 1
+
+
+@pytest.mark.parametrize(
+    ("parent", "known"),
+    [
+        (_REGISTRY, True),
+        (_REGISTRY + "sys.modules['vendor.leaf'] = model\n", False),
+        ("import sys\nsys.modules[__name__] = None\n", False),
+    ],
+    ids=["child-write", "child-written-twice", "own-write"],
+)
+def test_child_registry_write_keeps_the_package_member_identity(tmp_path, parent, known):
+    facts = _native_facts(
+        _request(
+            tmp_path,
+            [_provider("vendor", parent + "class Payload: pass\n", package=True)],
+            imported="vendor",
+            binding="Payload",
+        )
+    )
+    kinds = {item.qualified_name: item.kind for item in facts.provider_bindings}
+    assert (kinds.get("vendor.Payload") is ProviderBindingKind.CLASS) is known
+
+
+def test_actual_collections_member_has_a_class_receipt(tmp_path):
+    source = (Path(sysconfig.get_path("stdlib")) / "collections/__init__.py").read_text()
+    provider = _provider("collections", source, package=True)
+    facts = _native_facts(_request(tmp_path, [provider], imported="collections", binding="Counter"))
+    [binding] = facts.provider_bindings
+    assert binding.qualified_name == "collections.Counter"
+    assert binding.kind is ProviderBindingKind.CLASS
+    assert not _route_records(facts)[0]
+
+
+def test_registry_alias_needs_a_static_target_module(tmp_path):
+    facts = _native_facts(
+        _request(
+            tmp_path,
+            [
+                _provider("vendor", _REGISTRY, package=True),
+                _provider("model", "class Payload: pass\nexec(source)\n"),
+            ],
+            imported="vendor.leaf",
+            binding="Payload",
+        )
+    )
+    assert "vendor.leaf.Payload" not in {item.qualified_name for item in facts.provider_bindings}
+    assert len(_route_records(facts)[0]) == 1
+
+
+def _registry_alias_case(tmp_path):
+    request = _request(
+        tmp_path,
+        [
+            _provider("vendor", _REGISTRY, package=True),
+            _provider("model", "class Payload: pass\n"),
+        ],
+        imported="vendor.leaf",
+        binding="Payload",
+    )
+    request = replace(request, protocol_version=ProtocolVersion.V4)
+    return request, collect(request)
+
+
+@pytest.mark.parametrize(
+    ("change", "accepted"),
+    [("none", True), ("foreign-file", False), ("grandparent", False)],
+)
+def test_registry_alias_evidence_must_sit_in_the_parent_initializer(tmp_path, change, accepted):
+    request, facts = _registry_alias_case(tmp_path)
+    wire = json.loads(encode_response(CollectionResponse(facts, request.protocol_version)))
+    [alias] = [item for item in wire["facts"]["provider_bindings"] if item["kind"] == "alias"]
+    if change == "foreign-file":
+        alias["evidence_id"] = alias["supporting_evidence_ids"][0]
+    elif change == "grandparent":
+        alias["qualified_name"] = "vendor.leaf.inner.Payload"
+    if accepted:
+        decode_response(json.dumps(wire).encode())
+    else:
+        with pytest.raises(ValueError, match="separate resolution source"):
+            decode_response(json.dumps(wire).encode())
+
+
+@pytest.mark.parametrize(
+    ("qualified", "accepted"), [("vendor.leaf.Payload", True), ("vendor.leaf.inner.Payload", False)]
+)
+def test_requested_registry_alias_must_name_a_child_of_its_initializer(
+    tmp_path, qualified, accepted
+):
+    request, facts = _registry_alias_case(tmp_path)
+    facts = replace(
+        facts,
+        provider_bindings=tuple(
+            replace(item, qualified_name=qualified)
+            if item.kind is ProviderBindingKind.ALIAS
+            else item
+            for item in facts.provider_bindings
+        ),
+    )
+    if accepted:
+        _requested_facts(facts, request)
+    else:
+        with pytest.raises(ProtocolError, match="disagrees with requested source"):
+            _requested_facts(facts, request)
 
 
 def test_default_provider_discovery_binds_actual_collections_iterator(tmp_path, monkeypatch):
