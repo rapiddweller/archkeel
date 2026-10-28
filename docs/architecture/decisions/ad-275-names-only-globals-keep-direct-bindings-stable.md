@@ -29,8 +29,9 @@ older limit ... which this decision leaves alone."
 Measured on DATAMIMIC EE (internal): this limit is the cause of one of five unproven dynamic
 import sites. The shape is a lazy package `__init__`: `from importlib import import_module`, a
 helper that calls `import_module` with a literal dotted name, a module `__getattr__`, and
-`__dir__` that returns `sorted(set(globals()) | set(api.__all__))`. Before: UNKNOWN. After: a
-proven import edge. AD-273 rejected this step because it "is not needed to reach 25 on EE".
+`__dir__` that returns `sorted(set(globals()) | set(api.__all__))`. The same shape through the
+real collector gives UNKNOWN before and a proven import edge after. EE was not run again.
+AD-273 rejected this step because it "is not needed to reach 25 on EE".
 This site needs it.
 
 **Rejected.**
@@ -45,7 +46,7 @@ This site needs it.
 
 **Not changed.** A target that is not a literal stays UNKNOWN. The other open rows of the draft
 class table of #735 (relative names, own-module exposure, `try` and rebound loaders, assignment
-aliases) are not changed. EE was not measured again in this change.
+aliases) are not changed.
 
 **Check.**
 - Class table: [python-dynamic-dependencies.md](../python-dynamic-dependencies.md#names-only-globals-in-the-loading-module-ad-275).
