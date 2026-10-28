@@ -108,6 +108,22 @@ _CATALOG_ARGUMENT_ESCAPE_OUTSIDE = Variant(
     expected_unknowns=(("catalog_limit", "shop.app.orders.read_catalog_option"),),
 )
 
+_CATALOG_ARGUMENT_UNICODE_ALIAS = Variant(
+    id="class-a-catalog-argument-unicode-alias",
+    section="class_a",
+    item="catalog_argument:non_ascii_alias",
+    summary="The application reaches the declared member through a non-ASCII import alias.",
+    files={
+        "shop/app/orders.py": _APP_ORDERS.replace(
+            "from shop.app.catalog import OptionKey, read_option",
+            "from shop.app.catalog import OptionKey as Clé, read_option",
+        ).replace(_READ_OPTION_CALL, "read_option(Clé.PAGE_SIZE)")
+    },
+    expected_violations=(),
+    expected_codes=(),
+    absent_unknowns=(("catalog_limit", "shop.app.orders.read_catalog_option"),),
+)
+
 VARIANTS: tuple[Variant, ...] = (
     _CATALOG_ARGUMENT,
     _CATALOG_USE,
@@ -115,4 +131,5 @@ VARIANTS: tuple[Variant, ...] = (
     _CATALOG_ARGUMENT_KEYWORD_UNLISTED,
     _CATALOG_ARGUMENT_ESCAPE_INSIDE,
     _CATALOG_ARGUMENT_ESCAPE_OUTSIDE,
+    _CATALOG_ARGUMENT_UNICODE_ALIAS,
 )

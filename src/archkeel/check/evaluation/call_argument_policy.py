@@ -4,6 +4,7 @@
 """Evaluate policies over explicit actuals bound to observed formals."""
 
 import re
+import unicodedata
 from collections.abc import Sequence
 
 from archkeel.ir.facts import (
@@ -35,6 +36,9 @@ _BOUND_RECEIVER_ORIGINS = frozenset(
     {"declared_receiver", "stored_receiver", "constructed_receiver", "native_receiver"}
 )
 _CatalogEntry = tuple[RawRecord, str | None, str]
+# The text of one written value up to its delimiter. The caller compares it with the collector's
+# expression, so a wider match here only fails closed.
+_NAME_TEXT = r"[^\s,()]+"
 
 
 def call_argument_results(
@@ -836,16 +840,17 @@ def _actual_name(actual: CallArgument, evidence: dict[str, RawEvidence]) -> tupl
     start = evidence.get(actual.evidence_ids[0])
     if start is None:
         return None
-    # Evidence columns count UTF-8 bytes, as the Python AST does.
-    line = bytes(start["excerpt"], "utf-8")[start["column"] :]
-    keyword = rb"%s\s*=\s*" % re.escape(bytes(actual.keyword, "utf-8")) if actual.keyword else b""
-    found = re.findall(rb"^(" + keyword + rb")([^\W\d][\w.]*)\s*[,)]", line)
+    # Evidence columns count UTF-8 bytes, as the Python AST does; the pattern needs Unicode text.
+    line = str(bytes(start["excerpt"], "utf-8")[start["column"] :], "utf-8")
+    keyword = re.escape(actual.keyword) + r"\s*=\s*" if actual.keyword else ""
+    found = re.findall(r"^(" + keyword + r")(" + _NAME_TEXT + r")\s*[,)]", line)
     if not found:
         return None
     prefix, name = found[0]
-    column = start["column"] + len(prefix)
+    column = start["column"] + len(bytes(prefix, "utf-8"))
     identifier = evidence_id(start["file"], start["line"], start["end_line"], column)
-    return identifier, str(name, "utf-8")
+    # The parser reads identifiers in NFKC form, so the collector's expression text is in that form.
+    return identifier, unicodedata.normalize("NFKC", name)
 
 
 def _catalog_entry_owners(entries: dict[str, _CatalogEntry]) -> set[str]:

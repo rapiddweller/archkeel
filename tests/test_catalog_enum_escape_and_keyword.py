@@ -274,3 +274,97 @@ def test_catalog_use_reports_a_member_no_keyword_call_reads(tmp_path):
         "FAIL",
         True,
     )
+
+
+# --- non-ASCII identifiers: Python allows them, and evidence columns count UTF-8 bytes ------
+
+TWO_FORMAL_OPS_PREFIXED = "def read_option(prefix: str, key: str) -> None: pass\n"
+
+
+def _alias_verdict(tmp_path, alias: str, statement: str, operation: str = OPS, **rule_changes):
+    return _verdicts(
+        tmp_path,
+        caller=f"from .ops import read_option\nfrom .catalog import OptionKey as {alias}\n"
+        f"def consume():\n    {statement}\n",
+        rules=[{**_argument_rule("sample.ops.read_option"), **rule_changes}],
+        extra_files={"sample/ops.py": operation},
+    )
+
+
+UNICODE_ALIAS_CALLS = {
+    "ascii-positional": ("Keys", "read_option(Keys.PAGE_SIZE)", OPS),
+    "ascii-keyword": ("Keys", "read_option(key=Keys.PAGE_SIZE)", OPS),
+    "unicode-positional": ("Clé", "read_option(Clé.PAGE_SIZE)", OPS),
+    "unicode-keyword": ("Clé", "read_option(key=Clé.PAGE_SIZE)", OPS),
+    "unicode-after-multibyte-text": ("Clé", "result = ('é', read_option(Clé.PAGE_SIZE))", OPS),
+    "unicode-keyword-after-multibyte-argument": (
+        "Clé",
+        "read_option('é', key=Clé.PAGE_SIZE)",
+        TWO_FORMAL_OPS_PREFIXED,
+    ),
+    "unicode-alias-spaced": ("Clé", "read_option( Clé.PAGE_SIZE )", OPS),
+}
+
+
+@pytest.mark.parametrize("case", UNICODE_ALIAS_CALLS)
+def test_catalog_argument_proves_members_reached_through_an_alias(tmp_path, case):
+    alias, statement, operation = UNICODE_ALIAS_CALLS[case]
+    assert _alias_verdict(tmp_path, alias, statement, operation) == ("PASS", True)
+
+
+def test_catalog_argument_proves_a_keyword_for_a_non_ascii_formal(tmp_path):
+    verdict = _alias_verdict(
+        tmp_path,
+        "Keys",
+        "read_option(clé=Keys.PAGE_SIZE)",
+        "def read_option(clé: str) -> None: pass\n",
+        parameter="clé",
+    )
+    assert verdict == ("PASS", True)
+
+
+def test_catalog_argument_proves_a_catalog_in_a_non_ascii_module(tmp_path):
+    verdict = _verdicts(
+        tmp_path,
+        caller="from .ops import read_option\nfrom .café import OptionKey\n"
+        "def consume():\n    read_option(OptionKey.PAGE_SIZE)\n",
+        rules=[{**_argument_rule("sample.ops.read_option"), "catalog": "sample.café.OptionKey"}],
+        extra_files={
+            "sample/ops.py": OPS,
+            "sample/café.py": "from enum import StrEnum\n"
+            "class OptionKey(StrEnum):\n    PAGE_SIZE = 'page_size'\n",
+        },
+    )
+    assert verdict == ("PASS", True)
+
+
+def test_unicode_alias_member_in_a_selected_operation_call_elsewhere_is_accounted(tmp_path):
+    verdict = _verdicts(
+        tmp_path,
+        caller=HEAD + CONSUME,
+        rules=[_argument_rule()],
+        extra_files={
+            "sample/other.py": "from .catalog import OptionKey as Clé, read_option\n"
+            "def go():\n    read_option(Clé.PAGE_SIZE)\n"
+        },
+    )
+    assert verdict == ("PASS", True)
+
+
+def test_unicode_alias_member_passed_elsewhere_is_an_escape(tmp_path):
+    verdict = _verdicts(
+        tmp_path,
+        caller=HEAD + CONSUME,
+        rules=[_argument_rule()],
+        extra_files={
+            "sample/other.py": "from .catalog import OptionKey as Clé\n"
+            "def go():\n    print(Clé.PAGE_SIZE)\n"
+        },
+    )
+    assert verdict == ("UNKNOWN", False)
+
+
+@pytest.mark.parametrize("alias", ["\ufb01le", "Cle\u0301", "\U0001d40aeys"])
+def test_catalog_argument_proves_an_alias_the_parser_normalises(tmp_path, alias):
+    # Python reads identifiers in NFKC form: a ligature, a combining mark and a styled letter.
+    assert _alias_verdict(tmp_path, alias, f"read_option({alias}.PAGE_SIZE)") == ("PASS", True)
