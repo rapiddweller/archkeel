@@ -13,3 +13,6 @@ tools/browser-runtime/protocol-exports.* text eol=lf
 
 # Vendor provenance authenticates the original bytes.
 src/archkeel/render/assets/elkjs-0.12.0.bundled.js -text
+
+# The demo tests classic Mac CR line endings; Git must keep these bytes.
+fixtures/python-newer-syntax-demo/sample/legacy.py -text

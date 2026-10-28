@@ -1281,7 +1281,7 @@ def test_saved_catalog_receipt_rejects_changed_bound_inventory(tmp_path, mutatio
             "def read_option(key: str) -> None: pass\n"
             "def consume(key):\n"
             "    read_option(OptionKey.PAGE_SIZE)\n"
-            "    print(OptionKey.PAGE_SIZE)\n"
+            "    read_option(OptionKey.PAGE_SIZE)\n"
         ),
         rules=[_argument()],
     )

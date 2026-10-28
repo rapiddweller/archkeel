@@ -177,6 +177,8 @@ the installed package (a `.` or `..` segment is unresolved). `.` and `..` import
 relative. Triple-slash and JSDoc-import
 concerns remain
 ([AD-260](architecture/decisions/ad-260-typescript-bundler-mode.md)).
+A JSDoc-import concern needs a JavaScript file and an `@import` tag or `import()` in the type
+of a tag: tsc 5.9.3 ignores JSDoc types in TypeScript files, and prose is no type (#744).
 See [adapter limits](architecture/typescript-foundation-proposal.md#evidence-and-limits).
 Standard globals follow the pinned TypeScript lib files
 ([AD-261](architecture/decisions/ad-261-typescript-standard-globals-from-lib-files.md)):

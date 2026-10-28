@@ -478,6 +478,10 @@ def test_forbidden_call_argument_variants_have_real_assessments(
     [
         ("clean", "PASS"),
         ("class-a-forbidden-effect-under-condition", "FAIL"),
+        ("class-a-forbidden-effect-under-condition-helper-elsewhere", "FAIL"),
+        ("class-a-forbidden-effect-under-condition-deleted-guard", "UNKNOWN"),
+        ("class-a-forbidden-effect-under-condition-repeated-blocks", "FAIL"),
+        ("class-a-forbidden-effect-under-condition-with-item", "UNKNOWN"),
         ("tour", "FAIL"),
     ],
 )
@@ -812,6 +816,7 @@ def test_variant_produces_the_catalogued_findings(
     # Subset, not equality: dynamic_call_limit/context_alias_limit/boundary_type_limit fire on
     # every sample scan regardless of this variant's own overlay (see Variant.expected_unknowns).
     assert set(variant.expected_unknowns) <= set(actual_unknowns)
+    assert not set(variant.absent_unknowns) & set(actual_unknowns)
     if variant.expected_declared_rules is not None:
         assert declared_rules == variant.expected_declared_rules
 

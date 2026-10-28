@@ -294,6 +294,8 @@ class Syntax:
     script_factories: tuple[ScriptFactory, ...] = ()
     script_source_writes: tuple[tuple[str | None, Span], ...] = ()
     script_write_paths: tuple[tuple[str, ...], ...] = ()
+    # Writes to a top-level binding of the file: global writes only in a global script (AD-274).
+    script_top_level_write_paths: tuple[tuple[str, ...], ...] = ()
     script_destructures: tuple[ScriptDestructure, ...] = ()
     script_bindings: tuple[str, ...] = ()
     script_namespaces: tuple[ScriptNamespace, ...] = ()

@@ -228,6 +228,116 @@ _SEEDED_EFFECT = Variant(
     expected_violations=("EFFECT-NO-TOKEN-WHEN-SEEDED",),
     expected_codes=("rule.violated",),
 )
+# The guard path limit that an UNKNOWN guarded row records for the seeded token function.
+_TOKEN_GUARD_LIMIT = (("guarded_effect_limit", "shop.app.tokens.token_for_run"),)
+_HELPER_ELSEWHERE = Variant(
+    id="class-a-forbidden-effect-under-condition-helper-elsewhere",
+    section="class_a",
+    item="forbidden_effect_under_condition:private helper in another module",
+    summary="The seeded branch passes seeded to a private helper in another module, and the "
+    "helper calls secrets.token_hex under that flag. The rule FAILs as for a helper in the "
+    "same module. Before #726 the helper walk saw only the calls of shop.app.tokens: a false "
+    "PASS.",
+    files={
+        "shop/app/entropy.py": HEADER
+        + (
+            '"""Draw random tokens for the token module."""\n\n'
+            "import secrets\n\n\n"
+            "def _draw(fresh: bool) -> str:\n"
+            "    if fresh:\n"
+            "        return secrets.token_hex(8)\n"
+            '    return "fixed-token"\n'
+        ),
+        "shop/app/tokens.py": HEADER
+        + (
+            '"""Generate tokens through a private helper in another module."""\n\n'
+            "from shop.app.entropy import _draw\n\n\n"
+            "def token_for_run(seeded: bool) -> str:\n"
+            "    if seeded:\n"
+            "        return _draw(seeded)\n"
+            '    return "fixed-token"\n'
+        ),
+    },
+    expected_violations=("EFFECT-NO-TOKEN-WHEN-SEEDED",),
+    expected_codes=("rule.violated",),
+    expected_declared_rules="FAIL",
+)
+_DELETED_GUARD = Variant(
+    id="class-a-forbidden-effect-under-condition-deleted-guard",
+    section="class_a",
+    item="forbidden_effect_under_condition:deleted guard name",
+    summary="The seeded branch deletes seeded before it calls secrets.token_hex. After `del` "
+    "the name is no longer the parameter, so the rule is UNKNOWN. Before #726 only a store "
+    "ended the guard: a false proven FAIL.",
+    files={
+        "shop/app/tokens.py": HEADER
+        + (
+            '"""Generate tokens after the seeded name is deleted."""\n\n'
+            "import secrets\n\n\n"
+            "def token_for_run(seeded: bool) -> str:\n"
+            "    if seeded:\n"
+            "        del seeded\n"
+            "        return secrets.token_hex(8)\n"
+            '    return "fixed-token"\n'
+        )
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=_TOKEN_GUARD_LIMIT,
+    expected_declared_rules="UNKNOWN",
+)
+_REPEATED_BLOCKS = Variant(
+    id="class-a-forbidden-effect-under-condition-repeated-blocks",
+    section="class_a",
+    item="forbidden_effect_under_condition:unrelated blocks before the guard",
+    summary="Two unrelated if blocks run before the seeded branch. The report has one "
+    "EFFECT-NO-TOKEN-WHEN-SEEDED violation. Before AD-270 each block doubled the walker "
+    "states, the same violation came out 2^k times and the report graph refused the "
+    "duplicate finding identities.",
+    files={
+        "shop/app/tokens.py": HEADER
+        + (
+            '"""Generate tokens after two unrelated size checks."""\n\n'
+            "import secrets\n\n\n"
+            "def token_for_run(seeded: bool, size: int) -> str:\n"
+            "    if size > 8:\n"
+            "        size = 8\n"
+            "    if size < 4:\n"
+            "        size = 4\n"
+            "    if seeded:\n"
+            "        return secrets.token_hex(size)\n"
+            '    return "fixed-token"\n'
+        )
+    },
+    expected_violations=("EFFECT-NO-TOKEN-WHEN-SEEDED",),
+    expected_codes=("rule.violated",),
+    expected_declared_rules="FAIL",
+)
+_WITH_ITEM = Variant(
+    id="class-a-forbidden-effect-under-condition-with-item",
+    section="class_a",
+    item="forbidden_effect_under_condition:effect in a with item",
+    summary="The seeded branch calls secrets.token_hex in a `with` item. The walker does not "
+    "follow a `with` statement, so the rule is UNKNOWN. Before AD-271 the walker skipped "
+    "`with` items and found no effect: a false PASS.",
+    files={
+        "shop/app/tokens.py": HEADER
+        + (
+            '"""Generate tokens inside a with item."""\n\n'
+            "import contextlib\n"
+            "import secrets\n\n\n"
+            "def token_for_run(seeded: bool) -> str:\n"
+            "    if seeded:\n"
+            "        with contextlib.nullcontext(secrets.token_hex(8)) as token:\n"
+            "            return token\n"
+            '    return "fixed-token"\n'
+        )
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=_TOKEN_GUARD_LIMIT,
+    expected_declared_rules="UNKNOWN",
+)
 _TOUR = Variant(
     id="tour",
     section="showcase",
@@ -370,6 +480,10 @@ _SOURCE_OWNERSHIP_ESCAPE = Variant(
 VARIANTS: tuple[Variant, ...] = (
     _TOUR,
     _SEEDED_EFFECT,
+    _HELPER_ELSEWHERE,
+    _DELETED_GUARD,
+    _REPEATED_BLOCKS,
+    _WITH_ITEM,
     _CLEAN,
     _SOURCE_OWNERSHIP_ESCAPE,
 )

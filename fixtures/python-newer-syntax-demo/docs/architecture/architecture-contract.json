@@ -1,0 +1,44 @@
+{
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
+  "schema_version": "3.7.0",
+  "components": [
+    {
+      "id": "COMP-SAMPLE",
+      "label": "sample",
+      "role": "component",
+      "packages": ["sample"],
+      "responsibilities": ["Own the newer Python syntax demo."],
+      "forbidden_responsibilities": [],
+      "provenance": ["docs/architecture/architecture-contract.json"]
+    }
+  ],
+  "rules": [
+    {
+      "id": "CALL-PURGE-MAINTENANCE-ONLY",
+      "kind": "call_owner",
+      "source": "sample",
+      "target": "sample.maintenance.purge",
+      "allowed_sources": ["sample.maintenance"],
+      "rationale": "Only maintenance purges cells; a report must not delete data.",
+      "provenance": ["docs/architecture/architecture-contract.json"],
+      "decided_by": "architect"
+    },
+    {
+      "id": "CONSTRUCT-EXACT-TYPE-IGNORE",
+      "kind": "forbidden_construct",
+      "source": "sample",
+      "constructs": ["type_ignore"],
+      "allowed_type_ignores": [
+        {
+          "qualified_name": "sample.legacy.close",
+          "line": 8,
+          "statement": "handle.close()",
+          "tag": "[attr-defined]"
+        }
+      ],
+      "rationale": "A suppression is allowed only at its exact reviewed line.",
+      "provenance": ["docs/architecture/architecture-contract.json"],
+      "decided_by": "architect"
+    }
+  ]
+}

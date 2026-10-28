@@ -7,7 +7,6 @@ import ast
 import copy
 import inspect
 import json
-import sys
 from dataclasses import FrozenInstanceError
 from enum import Enum
 from pathlib import Path
@@ -696,14 +695,9 @@ def test_string_method_elements_keep_documented_receiver_proof(method, expressio
     )
     rows = collect_calls([module], build_symbol_index([]), {})
     call = next(row["data"] for row in rows if row["data"]["expression"] == "part.isidentifier")
-    # PEP 709 removes these compiler scopes; their element binding stays unproven.
-    status = (
-        "unresolved"
-        if sys.version_info >= (3, 12) and not expression.startswith("(")
-        else "partially_resolved"
-    )
-    assert call["status"] == status
-    assert call["targets"] == ([] if status == "unresolved" else ["builtins.str.isidentifier"])
+    # A PEP 709 inlined comprehension keeps the element proof of its own target.
+    assert call["status"] == "partially_resolved"
+    assert call["targets"] == ["builtins.str.isidentifier"]
 
 
 @pytest.mark.parametrize(
@@ -741,8 +735,7 @@ def test_comprehension_receiver_proof_does_not_escape_its_owner():
     )
     rows = collect_calls([module], build_symbol_index([]), {})
     calls = [row["data"] for row in rows if row["data"]["expression"] == "part.isidentifier"]
-    inner_status = "unresolved" if sys.version_info >= (3, 12) else "partially_resolved"
-    assert sorted(call["status"] for call in calls) == [inner_status, "unresolved"]
+    assert sorted(call["status"] for call in calls) == ["partially_resolved", "unresolved"]
     assert all(call["targets"] == [] for call in calls if call["status"] == "unresolved")
     append = next(row["data"] for row in rows if row["data"]["expression"] == "part.append")
     assert append["status"] == "resolved" and append["targets"] == ["builtins.list.append"]
@@ -757,8 +750,6 @@ def test_nested_comprehensions_reuse_only_their_own_proven_elements(annotation, 
     )
     rows = collect_calls([module], build_symbol_index([]), {})
     call = next(row["data"] for row in rows if row["data"]["expression"] == "part.isidentifier")
-    if sys.version_info >= (3, 12):
-        status = "unresolved"
     assert call["status"] == status
     assert call["targets"] == ([] if status == "unresolved" else ["builtins.str.isidentifier"])
 
