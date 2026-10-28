@@ -10,6 +10,7 @@ import pytest
 from test_typescript_config import _config
 
 from archkeel.analyzer.typescript.config import (
+    ModuleDetection,
     Options,
     ScriptTarget,
     StandardLibrary,
@@ -66,7 +67,7 @@ def test_unmodeled_library_selection_never_partly_proves_a_standard_environment(
     (tmp_path / "dependency.ts").write_text("export const value = 1;")
     config, snapshot = _environment(tmp_path, compiler)
     assert not config.partial and not snapshot.problems and not config.options.unmodeled
-    assert config.options.ambient_custom
+    assert config.options.lib_unmodeled
     assert standard_globals(config.options) == frozenset()
     source_edge = Resolver(snapshot, config).resolve("./dependency", "main.ts", None)
     assert isinstance(source_edge, Found) and source_edge.path == "dependency.ts"
@@ -88,7 +89,7 @@ def test_unmodeled_library_selection_never_partly_proves_a_standard_environment(
 def test_types_and_type_roots_add_globals_and_keep_the_standard_environment(tmp_path, options):
     config, snapshot = _environment(tmp_path, {"lib": ["es2022", "dom"], **options})
     assert not config.partial and not snapshot.problems and not config.options.unmodeled
-    assert not config.options.ambient_custom
+    assert not config.options.lib_unmodeled
     names = standard_globals(config.options)
     assert {"Map", "String", "document", "Math", "Date"} <= names
     # A types package adds names the catalog does not hold; they stay unproved (AD-274).
@@ -130,7 +131,7 @@ def test_inherited_libraries_are_captured_and_child_selection_replaces_them(tmp_
 
 @pytest.mark.parametrize(
     "changes",
-    [{"libs": ("dom",)}, {"libs": [StandardLibrary.DOM]}, {"no_lib": 1}, {"ambient_custom": 1}],
+    [{"libs": ("dom",)}, {"libs": [StandardLibrary.DOM]}, {"no_lib": 1}, {"lib_unmodeled": 1}],
 )
 def test_standard_environment_has_nominal_typed_fields(changes):
     with pytest.raises(TypeError):
@@ -142,3 +143,40 @@ def test_catalog_proves_the_target_default_library_and_no_member_resolution():
     names = standard_globals(Options(target=ScriptTarget.ES2022))
     assert {"Math", "Map", "document"} <= names
     assert not {"Math.max", "ELK"} & names
+
+
+@pytest.mark.parametrize(
+    ("value", "partial"),
+    [("force", False), ("FORCE", False), ("Auto", False), ("bogus", True), (True, True)],
+)
+def test_module_detection_is_read_like_the_compiler_reads_it(tmp_path, value, partial):
+    config, snapshot = _environment(tmp_path, {"moduleDetection": value})
+    assert config.partial is partial and bool(snapshot.problems) is partial
+    if not partial:
+        assert config.options.module_detection is ModuleDetection(value.lower())
+
+
+@pytest.mark.parametrize(
+    ("compiler", "global_scripts"),
+    [
+        ({}, True),
+        ({"moduleDetection": "auto"}, True),
+        ({"moduleDetection": "legacy"}, True),
+        ({"moduleDetection": "force"}, False),
+        ({"module": "esnext", "moduleResolution": "bundler"}, True),
+        ({"module": "preserve", "moduleResolution": "bundler"}, True),
+        ({"module": "node16", "moduleResolution": "node16"}, False),
+        ({"module": "node18", "moduleResolution": "node16"}, False),
+        ({"module": "node20", "moduleResolution": "node16"}, False),
+        ({"module": "nodenext", "moduleResolution": "nodenext"}, False),
+        (
+            {"module": "nodenext", "moduleResolution": "nodenext", "moduleDetection": "legacy"},
+            False,
+        ),
+    ],
+)
+def test_a_source_file_without_import_or_export_is_a_global_script_only_when_the_options_allow(
+    tmp_path, compiler, global_scripts
+):
+    config, _ = _environment(tmp_path, compiler)
+    assert config.options.scripts_are_global is global_scripts
