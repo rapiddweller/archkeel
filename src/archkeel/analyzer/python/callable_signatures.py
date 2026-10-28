@@ -167,7 +167,7 @@ def _partial_route(tree: ast.Module, local: str) -> bool:
     ):
         return False
     target = candidates[1]
-    # Python 3.14 imports Placeholder in the same statement; partial comes first, so it binds first.
+    # Python 3.14 imports Placeholder in the same statement; `_stores` still sees one partial.
     if (
         target.module != "_functools"
         or target.level

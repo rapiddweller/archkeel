@@ -1385,6 +1385,11 @@ _STAR = "from errno import *\n"
         (_STAR + "class Payload: pass\nglobals()['Payload'] = 1\n", False),
         (_STAR + "class Payload: pass\n" + _HOOK, True),
         (_STAR + _HOOK + "class Payload: pass\n", False),
+        ("match handler:\n    case __getattr__:\n        pass\nclass Payload: pass\n", False),
+        (
+            "try:\n    pass\nexcept Exception as __getattr__:\n    pass\nclass Payload: pass\n",
+            False,
+        ),
     ],
     ids=[
         "hook-before",
@@ -1405,6 +1410,8 @@ _STAR = "from errno import *\n"
         "star-dynamic-rebind",
         "star-then-hook-after",
         "star-then-hook-before",
+        "match-capture-hook-before",
+        "except-name-hook-before",
     ],
 )
 @pytest.mark.parametrize("module", ["textwrap", "value_tools"], ids=["stdlib", "third-party"])
@@ -2218,6 +2225,26 @@ _REGISTRY = "import sys\nimport model\nsys.modules['json.leaf'] = model\n"
         (_REGISTRY + "leaf = sys\n", False),
         (_REGISTRY + "def reset():\n    global leaf\n    leaf = None\n", False),
         (_REGISTRY + "def __getattr__(name): return None\n", False),
+        ("import model\nimport sys\nsys.modules['json.leaf'] = model\n", True),
+        (
+            "import sys\nimport model\nfrom .model import x\nsys.modules['json.leaf'] = model\n",
+            False,
+        ),
+        ("import sys\nimport model\nimport json.model\nsys.modules['json.leaf'] = model\n", False),
+        (
+            "import sys\nimport model\nfrom . import model as _m\n"
+            "sys.modules['json.leaf'] = model\n",
+            False,
+        ),
+        ("import sys\nimport model\nimport other\nsys.modules['json.leaf'] = model\n", False),
+        (_REGISTRY + "import other\nleaf = model\n", False),
+        (_REGISTRY + "from .tools import helper\n", False),
+        (_REGISTRY + "import json.model\n", False),
+        (_REGISTRY + "import model as m\nm.Payload = None\n", False),
+        (_REGISTRY + "import importlib\nimportlib.import_module('model').Payload = None\n", False),
+        (_REGISTRY + "leaf = model\nleaf.Payload = None\n", False),
+        (_REGISTRY + "leaf = model\nvalue = leaf.Payload\n", True),
+        (_REGISTRY + "import other\nsys.__dict__['modules']['json.leaf'] = other\n", False),
     ],
     ids=[
         "exact",
@@ -2237,6 +2264,19 @@ _REGISTRY = "import sys\nimport model\nsys.modules['json.leaf'] = model\n"
         "attribute-other-module",
         "attribute-global-rebind",
         "missing-name-hook",
+        "sys-imported-after-value",
+        "relative-submodule-import",
+        "dotted-submodule-import",
+        "relative-module-import",
+        "other-import-before-write",
+        "other-import-before-attribute",
+        "relative-import-after",
+        "dotted-import-after",
+        "second-import-mutates",
+        "importlib-mutates",
+        "attribute-alias-mutates",
+        "attribute-alias-read",
+        "registry-namespace-rewrite",
     ],
 )
 def test_registry_published_child_is_an_alias_of_its_module(tmp_path, parent, known):
@@ -2271,7 +2311,7 @@ _WRITE = "sys.modules['json.leaf'] = model\n"
     [
         ("import sys\nimport model\n" + _WRITE, True),
         ("import sys as registry\nimport model\nregistry.modules['json.leaf'] = model\n", True),
-        ("import sys\nimport model\ndef read(sys): return sys\n" + _WRITE, True),
+        ("import sys\nimport model\n" + _WRITE + "def read(sys): return sys\n", True),
         ("import model\n" + _WRITE, False),
         ("from sys import modules\nimport model\nmodules['json.leaf'] = model\n", False),
         ("import sys\nimport model\nsys = model\n" + _WRITE, False),
@@ -2389,6 +2429,7 @@ def test_registry_publication_wins_over_a_captured_child_file(tmp_path, parent, 
         ("if flag:\n    import sys\ndef read(): return sys.modules['json.leaf']\n", False),
         ("import sys\nkey = 'json.' + 'leaf'\nloaded = sys.modules[key]\n", False),
         ("import sys\nregistry = sys.modules\n", False),
+        ("import sys\nimport other\nsys.__dict__['modules']['json.leaf'] = other\n", False),
         ("import sys\ndef read(key): return sys.modules[key]\n", True),
         ("import sys\ndef escape(): return sys.modules\n", True),
     ],
@@ -2409,6 +2450,7 @@ def test_registry_publication_wins_over_a_captured_child_file(tmp_path, parent, 
         "unstable-sys",
         "computed-key",
         "registry-escape",
+        "registry-namespace",
         "deferred-computed-key",
         "deferred-registry-escape",
     ],
@@ -2614,15 +2656,46 @@ def test_registry_publication_needs_an_unchanged_module(tmp_path, change, known,
             binding="Payload",
         )
     )
+    # Only `import sys` may stand between the import of the module and the write.
+    expected = known and not (before and change)
     assert (
         "json.leaf.Payload" in {item.qualified_name for item in facts.provider_bindings}
-    ) is known
+    ) is expected
 
 
 def _injected(facts, qualified, evidence_file):
     [evidence] = [item for item in facts.evidence if item.file == evidence_file][:1]
     alias = ProviderBinding(qualified, ProviderBindingKind.ALIAS, evidence.id, "model.Payload")
     return replace(facts, provider_bindings=(*facts.provider_bindings, alias))
+
+
+def test_requested_registry_alias_needs_its_published_target(tmp_path):
+    request = replace(
+        _request(
+            tmp_path,
+            [
+                _provider("json", _REGISTRY, package=True),
+                _provider("model", "class Payload: pass\n"),
+                _provider("other", "Payload = None\n"),
+            ],
+            imported="json.leaf",
+            binding="Payload",
+        ),
+        protocol_version=ProtocolVersion.V4,
+    )
+    facts = collect(request)
+    providers = request.resolver.provider_sources
+    assert collect_owner._registry_aliases_proven(facts, providers)
+    retargeted = replace(
+        facts,
+        provider_bindings=tuple(
+            replace(item, target="other.Payload", supporting_evidence_ids=())
+            if item.kind is ProviderBindingKind.ALIAS
+            else item
+            for item in facts.provider_bindings
+        ),
+    )
+    assert not collect_owner._registry_aliases_proven(retargeted, providers)
 
 
 @pytest.mark.parametrize(

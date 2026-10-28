@@ -100,6 +100,7 @@ from .source import (
     parse_sources,
     resolve_static_name,
     stable_direct_module_bindings,
+    stdlib_member_static,
     unproven_member_bindings,
 )
 from .source import (
@@ -193,34 +194,33 @@ class PythonProviderCollector:
             return enriched
         if monotonic() >= deadline:
             return timeout
-        if frozenset(enriched.capabilities.sections) != frozenset(_SECTION_NAMES):
+        problem = _provider_pass_problem(initial, enriched, providers)
+        if problem is not None:
             return CollectionError(
-                CollectionErrorKind.PROTOCOL_ERROR,
-                self.collector.argv[0],
-                "Collector did not return complete Python source sections after the import survey.",
-            )
-        if not _registry_aliases_proven(enriched, providers):
-            return CollectionError(
-                CollectionErrorKind.PROTOCOL_ERROR,
-                self.collector.argv[0],
-                "Collector registry alias disagrees with its initializer source.",
-            )
-        provider_paths = {item.path for item in providers}
-        project_inputs = tuple(item for item in enriched.inputs if item.path not in provider_paths)
-        if (
-            project_inputs
-            != tuple(item for item in initial.inputs if item.path not in provider_paths)
-            or enriched.profile != initial.profile
-            or enriched.adapter != initial.adapter
-            or enriched.runtime != initial.runtime
-            or enriched.source.scope != initial.source.scope
-        ):
-            return CollectionError(
-                CollectionErrorKind.PROTOCOL_ERROR,
-                self.collector.argv[0],
-                "Collector source inputs, analyzer, or runtime changed between provider passes.",
+                CollectionErrorKind.PROTOCOL_ERROR, self.collector.argv[0], problem
             )
         return enriched
+
+
+def _provider_pass_problem(
+    initial: SourceFacts, enriched: SourceFacts, providers: tuple[PythonProviderSource, ...]
+) -> str | None:
+    """The reason why the final pass disagrees with the import survey, if it does."""
+    if frozenset(enriched.capabilities.sections) != frozenset(_SECTION_NAMES):
+        return "Collector did not return complete Python source sections after the import survey."
+    if not _registry_aliases_proven(enriched, providers):
+        return "Collector registry alias disagrees with its initializer source."
+    provider_paths = {item.path for item in providers}
+    project_inputs = tuple(item for item in enriched.inputs if item.path not in provider_paths)
+    if (
+        project_inputs != tuple(item for item in initial.inputs if item.path not in provider_paths)
+        or enriched.profile != initial.profile
+        or enriched.adapter != initial.adapter
+        or enriched.runtime != initial.runtime
+        or enriched.source.scope != initial.source.scope
+    ):
+        return "Collector source inputs, analyzer, or runtime changed between provider passes."
+    return None
 
 
 def _selected_paths(root: Path, roots: tuple[str, ...]) -> tuple[Path, ...]:
@@ -663,7 +663,13 @@ def _registry_aliases_proven(
             continue
         package, _, child = owner.rpartition(".")
         parsed = parse_provider(source)
-        if parsed is None or package != source.module or child not in _published(parsed):
+        published = _published(parsed).get(child) if parsed is not None else None
+        name = qualified.rpartition(".")[2]
+        if (
+            published is None
+            or package != source.module
+            or binding.target != f"{published[1]}.{name}"
+        ):
             return False
     return True
 
@@ -1083,7 +1089,7 @@ def _provider_identity_static(
         {name for name, binding in module.aliases.items() if binding.target == "sys"},
         member_surface=False,
     )
-    member_bound = member is not None and _member_static(module, member)
+    member_bound = member is not None and stdlib_member_static(module, member)
     return (
         (
             member_bound
@@ -1153,37 +1159,6 @@ def _provider_parents_static(
 def _published(module: ParsedModule) -> dict[str, tuple[ast.Assign, str]]:
     """Children that a stdlib initializer publishes; a third-party layout stays unproven."""
     return module_registry(module).published if is_stdlib_root(module.module) else {}
-
-
-def _member_static(module: ParsedModule, member: ast.stmt) -> bool:
-    """A stdlib binding that no missing-name hook or star import can answer first."""
-    # During an import cycle, a hook or a star import before the binding answers the import.
-    body: list[ast.stmt] = module.tree.body
-    before = {node for statement in body[: body.index(member)] for node in ast.walk(statement)}
-    # Module scope only: a method named __getattr__ is no module hook.
-    earlier = [node for node in module.scope_nodes if node in before]
-    stars = [
-        node
-        for node in module.scope_nodes
-        if isinstance(node, ast.ImportFrom) and "*" in {alias.name for alias in node.names}
-    ]
-    return (
-        is_stdlib_root(module.module)
-        and all(
-            node in before and not node.level and node.module in sys.stdlib_module_names
-            for node in stars
-        )
-        and not any(
-            isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
-            and node.name == "__getattr__"
-            or isinstance(node, ast.Name)
-            and node.id == "__getattr__"
-            and isinstance(node.ctx, ast.Store)
-            or isinstance(node, ast.alias)
-            and (node.asname or node.name) == "__getattr__"
-            for node in earlier
-        )
-    )
 
 
 def _import_targets(
