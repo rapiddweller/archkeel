@@ -23,7 +23,7 @@ import tree_sitter_typescript
 from tree_sitter import Language, Parser, Query, QueryCursor
 from tree_sitter import Node as _RawNode
 
-from .source_input import SourceKind, classify_file
+from .source_input import FileSuffix, SourceKind, classify_file
 from .syntax import (
     Base as Base,
 )
@@ -329,15 +329,7 @@ _LOADER: Final = "Node module loader is not observed"
 _JSDOC_IMPORT: Final = re.compile(r"^/\*\*(?!/)[\s\S]*(?:@import\b|\bimport\s*\()")
 
 
-class _ReferenceDirective(Enum):
-    PATH = "path"
-    TYPES = "types"
-    LIB = "lib"
-
-
-_TRIPLE_SLASH: Final = re.compile(
-    r"^///\s*<reference\s+(?P<kind>path|types|lib)\s*=\s*(['\"])(?P<name>.*?)\2"
-)
+_TRIPLE_SLASH: Final = re.compile(r"^///\s*<reference\s+(?:path|lib)\s*=\s*(['\"])(.*?)\1")
 # Line breaks as the TypeScript compiler counts them, so reported lines agree with it.
 _LINE_BREAK: Final = re.compile(rb"\r\n|[\n\r]|\xe2\x80[\xa8\xa9]")
 # Constructs that hold types: a module named inside them is a type-only reference.
@@ -516,7 +508,7 @@ def parse(rel_path: str, data: bytes) -> Syntax:
         tuple(sorted(bindings.get(source.root, ()))),
         _script_namespaces(source, bindings) if script_mode else (),
         _module_export_bindings(source, bindings, ambiguous_bindings),
-        _ambient_globals(source),
+        *_ambient_scope(source, suffix),
     )
 
 
@@ -1678,7 +1670,9 @@ def _static_path(node: _RawNode) -> tuple[str, ...]:
     return ()
 
 
-_AMBIENT_VALUE_NAMES: Final = frozenset(
+# The grammar nests `A.B.C` as a nested_identifier that holds a member_expression.
+_QUALIFIED_NAMES: Final = frozenset({_NodeKind.NESTED_IDENTIFIER, _NodeKind.MEMBER_EXPRESSION})
+_AMBIENT_VALUE_KINDS: Final = frozenset(
     {
         _NodeKind.LEXICAL_DECLARATION,
         _NodeKind.VARIABLE_DECLARATION,
@@ -1692,20 +1686,55 @@ _AMBIENT_VALUE_NAMES: Final = frozenset(
 )
 
 
-def _ambient_globals(source: _Source) -> tuple[tuple[str, Span], ...]:
-    """Value names that a `declare` statement adds to the global scope (AD-274).
-
-    A file with a top-level `import` or `export` is a module: only its `declare global` block adds
-    globals. Any other file is a global script, and its top-level `declare` statements do.
-    """
-    top = source.root.named_children
-    module_syntax = any(
-        _node_kind(item)
-        in {_NodeKind.IMPORT_STATEMENT, _NodeKind.IMPORT_ALIAS, _NodeKind.EXPORT_STATEMENT}
-        for item in top
-    )
+def _declared_names(source: _Source, declaration: _RawNode) -> list[tuple[str, Span]]:
+    # In `declare global { }` a namespace parses as an expression statement; `export` wraps.
+    while _node_kind(declaration) in {_NodeKind.EXPRESSION_STATEMENT, _NodeKind.EXPORT_STATEMENT}:
+        if not declaration.named_children:
+            return []
+        declaration = declaration.named_children[0]
+    if _node_kind(declaration) not in _AMBIENT_VALUE_KINDS:
+        return []
+    if _node_kind(declaration) in {_NodeKind.LEXICAL_DECLARATION, _NodeKind.VARIABLE_DECLARATION}:
+        names = [item.child_by_field_name("name") for item in declaration.named_children]
+    else:
+        names = [declaration.child_by_field_name("name")]
     found: list[tuple[str, Span]] = []
-    for statement in top:
+    for name in names:
+        # `namespace A.B.C` publishes `A`; `module "x"` names no global.
+        while name is not None and _node_kind(name) in _QUALIFIED_NAMES:
+            name = name.named_children[0]
+        if name is not None and _node_kind(name) in {
+            _NodeKind.IDENTIFIER,
+            _NodeKind.TYPE_IDENTIFIER,
+        }:
+            found.append((_text(name), source.span(name)))
+    return found
+
+
+def _ambient_scope(
+    source: _Source, suffix: FileSuffix | None
+) -> tuple[tuple[tuple[str, Span], ...], tuple[tuple[str, Span], ...], bool, bool]:
+    """The ambient names of a file, and whether it is a module or a declaration file (AD-274)."""
+    declaration_file = suffix is not None and suffix.source_kind is SourceKind.DECLARATION
+    # A module extension makes a source file a module; a declaration file stays a script (tsc).
+    module_file = _module_exports(source.root)[0] or (
+        suffix is not None and suffix.format_hint is not None and not declaration_file
+    )
+    return (*_ambient_globals(source), module_file, declaration_file)
+
+
+def _ambient_globals(
+    source: _Source,
+) -> tuple[tuple[tuple[str, Span], ...], tuple[tuple[str, Span], ...]]:
+    """Value names that `declare` adds to the global scope, from `declare global` and top level.
+
+    A `declare global` block is global in every file. A top-level `declare` is global only when
+    the file is a global script, which the collector decides from the compiler options (AD-274).
+    """
+    module_syntax = _module_exports(source.root)[0]
+    block: list[tuple[str, Span]] = []
+    top_level: list[tuple[str, Span]] = []
+    for statement in source.root.named_children:
         if (
             _node_kind(statement) is not _NodeKind.AMBIENT_DECLARATION
             or not statement.named_children
@@ -1713,37 +1742,11 @@ def _ambient_globals(source: _Source) -> tuple[tuple[str, Span], ...]:
             continue
         inner = statement.named_children[0]
         if _node_kind(inner) is _NodeKind.STATEMENT_BLOCK:
-            declarations = inner.named_children
-        elif module_syntax:
-            continue
-        else:
-            declarations = [inner]
-        for declaration in declarations:
-            # Inside `declare global { }` a namespace parses as an expression statement.
-            if (
-                _node_kind(declaration) is _NodeKind.EXPRESSION_STATEMENT
-                and declaration.named_children
-            ):
-                declaration = declaration.named_children[0]
-            if _node_kind(declaration) not in _AMBIENT_VALUE_NAMES:
-                continue
-            if _node_kind(declaration) in {
-                _NodeKind.LEXICAL_DECLARATION,
-                _NodeKind.VARIABLE_DECLARATION,
-            }:
-                names = [item.child_by_field_name("name") for item in declaration.named_children]
-            else:
-                names = [declaration.child_by_field_name("name")]
-            for name in names:
-                # `namespace A.B` publishes `A`; `module "x"` names no global.
-                if name is not None and _node_kind(name) is _NodeKind.NESTED_IDENTIFIER:
-                    name = name.named_children[0]
-                if name is not None and _node_kind(name) in {
-                    _NodeKind.IDENTIFIER,
-                    _NodeKind.TYPE_IDENTIFIER,
-                }:
-                    found.append((_text(name), source.span(name)))
-    return tuple(found)
+            for declaration in inner.named_children:
+                block.extend(_declared_names(source, declaration))
+        elif not module_syntax:
+            top_level.extend(_declared_names(source, inner))
+    return tuple(block), tuple(top_level)
 
 
 def _script_bindings(
@@ -3661,11 +3664,9 @@ def _comment_concerns(source: _Source) -> list[Concern]:
         body = _text(node)
         directive = _TRIPLE_SLASH.match(body) if node.start_byte < first else None
         # A `types` entry only adds globals, which the catalog does not model (AD-274).
-        if (
-            directive is not None
-            and _ReferenceDirective(directive["kind"]) is not _ReferenceDirective.TYPES
-        ):
-            reason = f"Unobserved triple-slash reference: {directive['name']}"
+        # `types` is no concern: it only adds globals, which the catalog does not model (AD-274).
+        if directive is not None:
+            reason = f"Unobserved triple-slash reference: {directive[2]}"
             concerns.append(Concern(reason, source.span(node)))
         if _JSDOC_IMPORT.match(body):
             concerns.append(Concern("JSDoc import is not observed", source.span(node)))

@@ -38,9 +38,23 @@ conditions. A declaration is not a publisher, so a second declaration of the nam
 **Also.** A vendored classic-browser script is no longer blocked by `types` or `typeRoots`. A
 types package adds declarations only; the vendor proof rests on the bundle bytes.
 
+**Amendment (#721, 2026-10-28): script or module follows the compiler.** Rule 2 said "script file" and
+meant "no top-level `import` or `export`". The compiler also looks at the file extension and at two
+options. A top-level `declare` publishes its name only in a global script:
+- A declaration file (`.d.ts`, `.d.mts`, `.d.cts`) without `import` or `export`: always.
+- Any other source file: only without `import` or `export`, without a module extension (`.mts`,
+  `.cts`), with `moduleDetection` not `force`, and with `module` not `node16`, `node18`, `node20` or
+  `nodenext`. When a condition fails, the file publishes nothing (fail closed).
+- A `declare global { }` block publishes in every file.
+A top-level binding in a file that is a module for the compiler (import, export, module extension,
+`force`, Node module modes) is local. It no longer blocks a catalog name or a declared name in other
+files (Peter's `function open`). A binding in a global script still blocks. `tsc` 5.9.3 decided each class of the table in
+`tests/test_typescript_ambient_globals.py`. Known limit: a file that only uses `import.meta` or
+top-level `await` is a module for the compiler, and its `declare` still publishes here.
+
 **Not changed.** `window.fetch = ...` and `window` as a default parameter value keep their gap
-("Escaped or computed global host dependency"). An `open` gap that Peter reports could not be
-reproduced; we asked for the two modules.
+("Escaped or computed global host dependency"). The `open` gap that Peter found is
+fixed by the amendment above.
 
 **Check.** Each class has a test on a small project:
 - `types` absent, `[]`, one entry, several entries, `typeRoots` only: `Math`, `Date` and `document`
