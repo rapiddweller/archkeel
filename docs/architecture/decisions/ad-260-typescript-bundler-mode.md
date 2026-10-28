@@ -62,7 +62,7 @@ produces.
 - `bundler:asset` is a reserved identity that rules and the report show as a package.
 - Asset suffixes are case-sensitive. Triple-slash and JSDoc-import concerns stay UNKNOWN
   (no bundler changes them).
-- `exports` patterns and other shapes the resolver rejects stay UNKNOWN, also for assets.
+- `exports` patterns and other rejected shapes stay UNKNOWN. An exported asset that exists is an edge to its package (#728).
 - Asset existence is a probe, not a digested input, like the resolver's other probes.
 
 **Check.** `tests/test_config.py`, `tests/test_typed_collector_protocol.py`,

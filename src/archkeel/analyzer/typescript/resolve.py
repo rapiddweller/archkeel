@@ -34,6 +34,7 @@ from .source_input import (
     FileSuffix,
     PathToken,
     SpecifierKind,
+    classify_asset,
     classify_file,
     classify_specifier,
     split_file,
@@ -509,6 +510,13 @@ class Resolver:
             paths = _file_paths(candidate, True, kinds)
         found = next((path for path in paths if self.snapshot.is_file(path)), None)
         if found is None:
+            if (
+                self.options.resolution is ModuleResolution.BUNDLER
+                and classify_asset(target) is not None
+                and self.snapshot.is_file(candidate)
+            ):
+                # A bundler loads an exported asset itself; the package is the dependency.
+                return Unknown(f"Package exports target is an asset: {name}{key[1:]}", True)
             return Unknown(f"Package exports target is unavailable: {name}{key[1:]}")
         return found
 
