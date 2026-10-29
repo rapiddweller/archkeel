@@ -267,9 +267,7 @@ class _GuardPathWalker:
                 *arguments.defaults,
                 *(item for item in arguments.kw_defaults if item is not None),
             )
-            state = self._definition_state(statement.name, header, current, reason)
-            for expression in header:
-                self.expression(expression, state[0], path_nodes, state[1])
+            state = self._definition_state(statement.name, header, current, reason, path_nodes)
             return [(*state, path_nodes)]
         if isinstance(statement, ast.ClassDef):
             header = (
@@ -277,9 +275,7 @@ class _GuardPathWalker:
                 *statement.bases,
                 *(keyword.value for keyword in statement.keywords),
             )
-            state = self._definition_state(statement.name, header, current, reason)
-            for expression in header:
-                self.expression(expression, state[0], path_nodes, state[1])
+            state = self._definition_state(statement.name, header, current, reason, path_nodes)
             # The body runs now, in order, so the code after the class starts from its end states.
             return self.block(statement.body, state[0], path_nodes, state[1])
         return self._ordinary_paths(statement, current, reason, path_nodes)
@@ -290,11 +286,31 @@ class _GuardPathWalker:
         header: tuple[ast.expr, ...],
         current: bool | None,
         reason: str | None,
+        path_nodes: tuple[ast.AST, ...],
     ) -> tuple[bool | None, str | None]:
-        """A `def` or `class` binds its name and runs its header; either can rebind the guard."""
+        """Run the header of a `def` or `class`, record its calls, return the state after it.
+
+        The header runs when the statement runs, before the body. Like an ordinary statement,
+        it can rebind the guard, and with a receiver any call in it can change the member.
+        """
         if name in self.bound_names or any(self.writes_name(item) for item in header):
-            return None, "condition_mutation"
-        return current, reason
+            state: tuple[bool | None, str | None] = (None, "condition_mutation")
+            record = state
+        else:
+            calls = sum(isinstance(child, ast.Call) for item in header for child in ast.walk(item))
+            state = (
+                (None, "opaque_call_mutation")
+                if self.receiver_name is not None and calls
+                else (current, reason)
+            )
+            record = (
+                (None, "opaque_call_mutation")
+                if self.receiver_name is not None and calls > 1
+                else (current, reason)
+            )
+        for expression in header:
+            self.expression(expression, record[0], path_nodes, record[1])
+        return state
 
     def _if_paths(
         self,

@@ -325,6 +325,46 @@ _CLASS_BODY_MUTATION = Variant(
     expected_unknowns=(("guarded_effect_limit", "shop.app.tokens.TokenSource"),),
     expected_declared_rules="UNKNOWN",
 )
+_HEADER_CALL = Variant(
+    id="class-a-forbidden-effect-under-condition-definition-header",
+    section="class_a",
+    item="forbidden_effect_under_condition:call in a definition header",
+    summary="The rule guards the member self.seeded. The seeded branch declares a function "
+    "whose default value is self.reset(), then calls secrets.token_hex. A default value, a "
+    "decorator, a class base and a class keyword run when the statement runs, so the call can "
+    "change the member and the rule is UNKNOWN. Before #619 the walker kept the guard and "
+    "gave a false proven FAIL.",
+    files={
+        "shop/app/tokens.py": HEADER
+        + (
+            '"""Generate tokens after a default value that can reset the seeded member."""\n\n'
+            "import secrets\n\n\n"
+            "class TokenSource:\n"
+            "    def __init__(self) -> None:\n"
+            "        self.seeded: bool = False\n\n"
+            "    def reset(self) -> None:\n"
+            "        self.seeded = False\n\n"
+            "    def token_for_run(self) -> str:\n"
+            "        if self.seeded:\n\n"
+            "            def local(reset_now=self.reset()) -> None:\n"
+            "                return None\n\n"
+            "            return secrets.token_hex(8)\n"
+            '        return "fixed-token"\n'
+        ),
+        "architecture-contract.json": contract_rule_field(
+            "EFFECT-NO-TOKEN-WHEN-SEEDED",
+            condition={
+                "kind": "member",
+                "owner": "shop.app.tokens.TokenSource",
+                "name": "seeded",
+            },
+        ),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("guarded_effect_limit", "shop.app.tokens.TokenSource"),),
+    expected_declared_rules="UNKNOWN",
+)
 _REPEATED_BLOCKS = Variant(
     id="class-a-forbidden-effect-under-condition-repeated-blocks",
     section="class_a",
@@ -522,6 +562,7 @@ VARIANTS: tuple[Variant, ...] = (
     _HELPER_ELSEWHERE,
     _DELETED_GUARD,
     _CLASS_BODY_MUTATION,
+    _HEADER_CALL,
     _REPEATED_BLOCKS,
     _WITH_ITEM,
     _CLEAN,

@@ -310,3 +310,34 @@ def test_a_class_body_that_rebinds_the_parameter_through_nonlocal_makes_the_guar
     """
     files = {"sample/core.py": source}
     assert _verdict(tmp_path, files, target="sample.core._effect") == UNKNOWN
+
+
+# A definition header runs when the statement runs, before the body: a call there can change the
+# guard. A decorated definition or a metaclass keyword already gives UNKNOWN end to end for another
+# reason, so those forms are checked on the walker in test_guard_path_classes.py.
+HEADERS = {
+    "default": ("def local(a=self.reset()):\n    return a", UNKNOWN),
+    "keyword_default": ("def local(*, a=self.reset()):\n    return a", UNKNOWN),
+    "async_default": ("async def local(a=self.reset()):\n    return a", UNKNOWN),
+    "lambda_default": ("local = lambda a=self.reset(): a", UNKNOWN),
+    "class_base": ("class Local(make(self.reset())):\n    pass", UNKNOWN),
+    "two_calls_in_header": ("def local(a=self.reset(), b=other()):\n    return a", UNKNOWN),
+    "harmless_default": ("def local(a=1):\n    return a", FAIL),
+    "harmless_class_base": ("class Local(Base):\n    pass", FAIL),
+}
+
+
+@pytest.mark.parametrize("name", HEADERS)
+def test_a_call_in_a_definition_header_makes_the_guarded_member_unknown(tmp_path, name):
+    statement, expected = HEADERS[name]
+    body = textwrap.indent(statement, "            ")
+    source = (
+        "def _effect():\n    return None\n\n"
+        "class Generator:\n"
+        "    def __init__(self):\n        self.seeded: bool = False\n\n"
+        "    def reset(self):\n        return None\n\n"
+        "    def generate(self):\n"
+        f"        if self.seeded:\n{body}\n            _effect()\n"
+    )
+    files = {"sample/core.py": source}
+    assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == expected

@@ -256,11 +256,12 @@ MEMBER_EXPECTED = {
         [(None, "opaque_call_mutation")],
         [("a", None, "opaque_call_mutation"), ("b", None, "opaque_call_mutation")],
     ),
-    "nested_def": ([(None, None)], [("c", None, None)]),
-    # The class body calls c(): that call can change the member before the code after the class.
+    # The header calls c(): that call can change the member before the code after the def.
+    "nested_def": ([(None, "opaque_call_mutation")], [("c", None, None)]),
+    # Base() runs first and can change the member, so the body call c() has no value.
     "nested_class": (
         [(None, "opaque_call_mutation")],
-        [("Base", None, None), ("c", None, None)],
+        [("Base", None, None), ("c", None, "opaque_call_mutation")],
     ),
     "empty_branch": ([(None, None)], []),
     "setattr_write": ([(None, "opaque_call_mutation")], [("setattr", None, "condition_mutation")]),
@@ -798,3 +799,50 @@ def test_the_same_checks_hold_in_an_async_function(menu, member) -> None:
                 assert not _calls_in_body(function) - recorded, (kinds, wrap)
             checked += 1
     assert checked == (len(both) + len(both) ** 2) * 3
+
+
+HEADER_FORMS = {
+    "default": "def g(a=c()):\n    pass",
+    "keyword_default": "def g(*, a=c()):\n    pass",
+    "async_default": "async def g(a=c()):\n    pass",
+    "lambda_default": "g = lambda a=c(): a",
+    "def_decorator": "@c()\ndef g():\n    pass",
+    "class_decorator": "@c()\nclass G:\n    pass",
+    "class_base": "class G(c()):\n    pass",
+    "class_keyword": "class G(metaclass=c()):\n    pass",
+}
+PLAIN_HEADER_FORMS = {
+    "default": "def g(a=1):\n    pass",
+    "def_decorator": "@d\ndef g():\n    pass",
+    "class_decorator": "@d\nclass G:\n    pass",
+    "class_base": "class G(Base):\n    pass",
+    "class_keyword": "class G(metaclass=Meta):\n    pass",
+}
+
+
+@pytest.mark.parametrize("form", HEADER_FORMS)
+def test_a_call_in_a_definition_header_is_an_opaque_mutation_of_the_member(form: str) -> None:
+    body = textwrap.indent(HEADER_FORMS[form], "        ")
+    paths = _guarded(f"def f(self):\n    if self.flag:\n{body}\n        after()\n", True)
+    assert _values(paths, "after") == {(None, "opaque_call_mutation")}
+    # The one call of the header runs under the guard, before it can change anything.
+    assert _values(paths, "c") == {(True, None)}
+
+
+@pytest.mark.parametrize("form", HEADER_FORMS)
+def test_a_call_in_a_definition_header_does_not_change_a_parameter_guard(form: str) -> None:
+    body = textwrap.indent(HEADER_FORMS[form], "        ")
+    paths = _guarded(f"def f(flag):\n    if flag:\n{body}\n        after()\n", False)
+    assert _values(paths, "after") == {(True, None)}
+
+
+@pytest.mark.parametrize("form", PLAIN_HEADER_FORMS)
+def test_a_header_without_a_call_keeps_the_member_guard(form: str) -> None:
+    body = textwrap.indent(PLAIN_HEADER_FORMS[form], "        ")
+    paths = _guarded(f"def f(self):\n    if self.flag:\n{body}\n        after()\n", True)
+    assert _values(paths, "after") == {(True, None)}
+
+
+def test_two_calls_in_a_definition_header_leave_the_second_call_without_a_value() -> None:
+    source = "def f(self):\n    if self.flag:\n        def g(a=c(), b=d()):\n            pass\n"
+    assert _values(_guarded(source, True), "d") == {(None, "opaque_call_mutation")}
