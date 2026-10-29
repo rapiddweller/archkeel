@@ -550,6 +550,8 @@ class ReferenceCollector(ast.NodeVisitor):
             self._source_role(
                 node, role, name, stable_id("DECL", self.module.rel_path, name), status=status
             )
+            # `OptionKey('page_size')._value_ = x` reads the owner inside the write target.
+            self.visit(node.value)
             return
         dotted = dotted_expression(node) if isinstance(node.ctx, ast.Load) else None
         if dotted is None:
@@ -573,7 +575,11 @@ class ReferenceCollector(ast.NodeVisitor):
                     status=status,
                     transfer_kind="dictionary_value",
                 )
+        recorded = len(self.items)
         self._record(node, dotted, "attribute")
+        if len(self.items) == recorded:
+            # An unresolved chain such as `OptionKey.PAGE_SIZE.__dict__` still reads its prefix.
+            self.visit(node.value)
 
     def _record(self, node: ast.expr, expression: str, use: str) -> None:
         scope = self.scopes.by_node[node]

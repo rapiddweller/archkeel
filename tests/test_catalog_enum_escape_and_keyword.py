@@ -87,6 +87,21 @@ COLLECTOR_ESCAPES = {
     "members-mapping": "OptionKey.__members__['PAGE_SIZE']._value_ = 'x'\n",
     "vars-mapping": "vars(OptionKey)['PAGE_SIZE']._value_ = 'x'\n",
     "member-dunder-setattr": "OptionKey.PAGE_SIZE.__setattr__('_value_', 'x')\n",
+    # Other ways to get a member than `OptionKey.PAGE_SIZE` (#731).
+    "owner-subscript": "OptionKey['PAGE_SIZE']._value_ = 'x'\n",
+    "member-map": "OptionKey._member_map_['PAGE_SIZE']._value_ = 'x'\n",
+    "value-map": "OptionKey._value2member_map_['page_size']._value_ = 'x'\n",
+    "owner-dict": "OptionKey.__dict__['PAGE_SIZE']._value_ = 'x'\n",
+    "owner-iteration": "for m in OptionKey:\n    m._value_ = 'x'\n",
+    "owner-list": "list(OptionKey)[0]._value_ = 'x'\n",
+    "owner-sorted": "sorted(OptionKey)[0]._value_ = 'x'\n",
+    "owner-getattr": "getattr(OptionKey, 'PAGE_SIZE')._value_ = 'x'\n",
+    "owner-dunder-call": "OptionKey.__call__('page_size')._value_ = 'x'\n",
+    "member-class-call": "OptionKey.PAGE_SIZE.__class__('page_size')._value_ = 'x'\n",
+    "owner-partial": "import functools\n"
+    "functools.partial(OptionKey, 'page_size')()._value_ = 'x'\n",
+    "owner-local-alias": "def go():\n    A = OptionKey\n    A('page_size')._value_ = 'x'\n",
+    "missing-hook-assignment": "OptionKey._missing_ = classmethod(lambda cls, v: None)\n",
 }
 
 
@@ -173,6 +188,83 @@ def test_catalog_use_by_member_reference_is_unaffected_by_escape(tmp_path, where
         mounted=mounted,
     )
     assert verdict == ("PASS", True)
+
+
+# --- (a) continued: any owner read that is not a member read is an escape (#731) -----------
+
+# `OptionKey('page_size')` returns the PAGE_SIZE member itself, so a call of the owner gives
+# the member away like `OptionKey['PAGE_SIZE']`. The other forms hide a member read inside an
+# attribute chain or a write target, where no reference record named it before.
+OWNER_ESCAPES = {
+    "call-module-scope": "OptionKey('page_size')._value_ = 'x'\n",
+    "call-in-function": "def go():\n    OptionKey('page_size')._value_ = 'x'\n",
+    "call-result-alias": "def go():\n    m = OptionKey('page_size')\n    m._value_ = 'x'\n",
+    "call-result-walrus": "def go():\n    (m := OptionKey('page_size'))._value_ = 'x'\n",
+    "call-result-argument": "def go():\n    print(OptionKey('page_size'))\n",
+    "call-result-returned": "def get():\n    return OptionKey('page_size')\n",
+    "call-in-comprehension": "def go():\n    return [OptionKey(v) for v in ('page_size',)]\n",
+    "call-through-module": "from . import catalog\n"
+    "def go():\n    catalog.OptionKey('page_size')._value_ = 'x'\n",
+    "call-through-import-alias": "import sample.catalog as c\n"
+    "def go():\n    c.OptionKey('page_size')._value_ = 'x'\n",
+    "type-of-member-call": "def go():\n    type(OptionKey.PAGE_SIZE)('page_size')._value_ = 'x'\n",
+    "member-in-write-target": "def go():\n    f(OptionKey.PAGE_SIZE).x = 1\n",
+    # The excerpt of a continuation line does not parse, so the read has an unknown context.
+    "call-on-continuation-line": "def go():\n    x = [1,\n         OptionKey('page_size')]\n",
+    "member-attribute-argument": "def go():\n    f(OptionKey.PAGE_SIZE.__dict__)\n",
+    "member-method-argument": "def go():\n    f(OptionKey.PAGE_SIZE.upper())\n",
+    "owner-mapping-method": "def go():\n"
+    "    OptionKey._value2member_map_.get('page_size')._value_ = 'x'\n",
+    "owner-hook-call": "def go():\n    OptionKey._missing_('page_size')\n",
+}
+
+
+@pytest.mark.parametrize("mounted", [False, True])
+@pytest.mark.parametrize("where", ["outside-source", "inside-source"])
+@pytest.mark.parametrize("form", OWNER_ESCAPES)
+def test_owner_read_that_is_not_a_member_read_keeps_argument_unknown(
+    tmp_path, form, where, mounted
+):
+    body = OWNER_ESCAPES[form]
+    if where == "inside-source":
+        caller, extra = HEAD + CONSUME + body, {}
+    else:
+        caller, extra = HEAD + CONSUME, {"sample/other.py": HEAD + body}
+    verdict = _verdicts(
+        tmp_path, caller=caller, rules=[_argument_rule()], extra_files=extra, mounted=mounted
+    )
+    assert verdict == ("UNKNOWN", False)
+
+
+def test_owner_named_only_in_annotations_elsewhere_still_passes(tmp_path):
+    verdict = _verdicts(
+        tmp_path,
+        caller=HEAD + CONSUME,
+        rules=[_argument_rule()],
+        extra_files={
+            "sample/other.py": HEAD + "def typed(value: OptionKey) -> OptionKey: ...\n"
+            "LATEST: OptionKey | None = None\n"
+        },
+    )
+    assert verdict == ("PASS", True)
+
+
+def test_owner_call_through_a_star_import_keeps_argument_unknown(tmp_path):
+    verdict = _verdicts(
+        tmp_path,
+        caller=HEAD + CONSUME,
+        rules=[_argument_rule()],
+        extra_files={
+            "sample/other.py": "from .catalog import *\n"
+            "def go():\n    OptionKey('page_size')._value_ = 'x'\n"
+        },
+    )
+    assert verdict == ("UNKNOWN", False)
+
+
+def test_owner_call_as_the_selected_argument_keeps_argument_unknown(tmp_path):
+    caller = HEAD + "def consume():\n    read_option(OptionKey('page_size'))\n"
+    assert _verdicts(tmp_path, caller=caller, rules=[_argument_rule()]) == ("UNKNOWN", False)
 
 
 # --- (b) keyword argument evidence matches the member reference it contains ----------------

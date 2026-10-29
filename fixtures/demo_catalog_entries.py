@@ -124,6 +124,23 @@ _CATALOG_ARGUMENT_UNICODE_ALIAS = Variant(
     absent_unknowns=(("catalog_limit", "shop.app.orders.read_catalog_option"),),
 )
 
+_CATALOG_ARGUMENT_VALUE_LOOKUP = Variant(
+    id="class-a-catalog-argument-value-lookup",
+    section="class_a",
+    item="catalog_argument:member_from_value_lookup",
+    summary="Another application module gets the member by value and returns it to any caller.",
+    files={
+        "shop/app/maintenance.py": _APP_MAINTENANCE.replace(
+            "from shop.store.sqlite import",
+            "from shop.app.catalog import OptionKey\nfrom shop.store.sqlite import",
+        )
+        + "\n\ndef parse_option(raw: str) -> OptionKey:\n    return OptionKey(raw)\n"
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("catalog_limit", "shop.app.orders.read_catalog_option"),),
+)
+
 VARIANTS: tuple[Variant, ...] = (
     _CATALOG_ARGUMENT,
     _CATALOG_USE,
@@ -132,4 +149,5 @@ VARIANTS: tuple[Variant, ...] = (
     _CATALOG_ARGUMENT_ESCAPE_INSIDE,
     _CATALOG_ARGUMENT_ESCAPE_OUTSIDE,
     _CATALOG_ARGUMENT_UNICODE_ALIAS,
+    _CATALOG_ARGUMENT_VALUE_LOOKUP,
 )

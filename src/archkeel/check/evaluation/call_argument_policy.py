@@ -753,30 +753,28 @@ def _catalog_enum_escape_limit(
     all_references: Sequence[RawRecord],
     evidence: dict[str, RawEvidence],
 ) -> RawRecord | None:
-    """Require every catalog member read in the snapshot to reach only the selected operation."""
+    """Require every non-annotation read of a catalog owner to reach only the selected operation.
+
+    Not only `OptionKey.PAGE_SIZE`: `OptionKey('page_size')` returns the member too (#731).
+    """
     owners = _catalog_entry_owners(entries)
-    members: list[RawRecord] = []
+    reads: list[RawRecord] = []
     for reference in all_references:
         data = reference_data.get(reference["id"])
-        expression = _record_text(data, "expression") if data is not None else None
         if (
             data is not None
-            and expression is not None
-            and _record_text(data, "reference_context") == "value"
-            and any(
-                f"{owner}.{last_name(expression)}" in entries
-                for owner in owners & set(_record_strings(data, "targets"))
-            )
+            and _record_text(data, "reference_context") != "annotation"
+            and owners & set(_record_strings(data, "targets"))
         ):
-            members.append(reference)
-    if not members:
+            reads.append(reference)
+    if not reads:
         return None
     accounted: set[str] = set()
     if rule.target is not None and not _catalog_target_may_change(
         rule.target, all_calls, all_references
     ):
-        accounted = _catalog_target_argument_references(rule.target, members, all_calls, evidence)
-    escaped = [reference for reference in members if reference["id"] not in accounted]
+        accounted = _catalog_target_argument_references(rule.target, reads, all_calls, evidence)
+    escaped = [reference for reference in reads if reference["id"] not in accounted]
     if not escaped:
         return None
     return _catalog_limit(
