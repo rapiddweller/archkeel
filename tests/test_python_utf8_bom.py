@@ -23,6 +23,7 @@ from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.decisions import rule_assessments
+from archkeel.ir.facts import ResolutionRole
 from archkeel.ir.protocol import PythonSettings
 
 BOM = b"\xef\xbb\xbf"
@@ -47,6 +48,9 @@ def _parse(tmp_path: Path, raw: bytes):
         BOM + b"x = 1",
         BOM,
         BOM + b"\n",
+        b"# a\r# b\r# coding: latin-1\rx = 1\r",
+        # The interpreter splits lines at CR too, so line 3 is a comment text, not a cookie.
+        BOM + b"# a\r# b\r# coding: latin-1\rx = 1\r",
     ],
     ids=[
         "no-bom",
@@ -58,6 +62,8 @@ def _parse(tmp_path: Path, raw: bytes):
         "bom-no-eof-newline",
         "bom-only",
         "bom-newline",
+        "cr-comment-with-coding-text",
+        "bom-cr-comment-with-coding-text",
     ],
 )
 def test_source_with_a_mark_parses_and_keeps_its_bytes(tmp_path: Path, raw: bytes) -> None:
@@ -80,12 +86,11 @@ def test_first_line_column_ignores_the_mark(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("raw", "line", "message"),
     [
-        (BOM + b"# coding: latin-1\nx = 1\n", 1, "encoding problem"),
         (BOM + BOM + b"x = 1\n", 1, "invalid non-printable character U+FEFF"),
         (b"x = 1\n" + BOM + b"y = 2\n", 2, "invalid non-printable character U+FEFF"),
         (b"x = 1\ny = 2 " + BOM + b"\n", 2, "invalid non-printable character U+FEFF"),
     ],
-    ids=["bom-cookie-latin1", "two-marks", "mark-in-file", "mark-in-line"],
+    ids=["two-marks", "mark-in-file", "mark-in-line"],
 )
 def test_source_the_interpreter_rejects_stays_a_failure(
     tmp_path: Path, raw: bytes, line: int, message: str
@@ -147,12 +152,11 @@ def test_whole_pipeline_gives_the_same_verdict_with_and_without_a_mark(tmp_path:
         (BOM + b"name = 1\r\n", "name = 1\r\n"),
         (BOM + b"# coding: utf-8\nname = 1\n", "# coding: utf-8\nname = 1\n"),
         (b"name = 1\n", "name = 1\n"),
-        (BOM + b"# coding: latin-1\nname = 1\n", None),
     ],
-    ids=["bom", "bom-cookie-utf8", "no-bom", "bom-cookie-latin1"],
+    ids=["bom", "bom-cookie-utf8", "no-bom"],
 )
 def test_provider_source_is_captured_without_the_mark(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, raw: bytes, text: str | None
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, raw: bytes, text: str
 ) -> None:
     library = tmp_path / "library"
     library.mkdir()
@@ -160,14 +164,11 @@ def test_provider_source_is_captured_without_the_mark(
     monkeypatch.syspath_prepend(str(library))
     request = _request(tmp_path / "project", imported="bomprovider", binding="name")
     captured = _captured_sources(request)
-    if text is None:
-        assert captured == ()
-        return
     [provider] = captured
     assert provider.source == text
     # The protocol digest covers the transmitted text, which the request codec checks again.
     assert provider.digest == hashlib.sha256(text.encode()).hexdigest()
     facts = _native_facts(replace(request, resolver=PythonSettings(provider_sources=captured)))
     assert [
-        (item.path, item.digest) for item in facts.inputs if item.role.name == "RESOLUTION"
+        (item.path, item.digest) for item in facts.inputs if item.role is ResolutionRole.RESOLUTION
     ] == [(provider.path, provider.digest)]

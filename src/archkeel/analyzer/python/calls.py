@@ -1633,6 +1633,7 @@ class CallCollector(ast.NodeVisitor):
             source_path = Path(module_file).resolve()
             stdlib = Path(sysconfig.get_paths()["stdlib"]).resolve()
             source_path.relative_to(stdlib)
+            # Equals the provider text digest because datetime.py has no BOM.
             source_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
         except (AttributeError, ImportError, KeyError, OSError, ValueError):
             return None

@@ -359,7 +359,7 @@ def provider_sources(
             try:
                 content = path.read_bytes()
                 text: str = decode_source(content)
-            except (OSError, UnicodeDecodeError, SyntaxError):
+            except (OSError, UnicodeDecodeError):
                 continue
             label = ".archkeel-providers/" + relative.as_posix()
             label += "/__init__.py" if path.name == "__init__.py" else ".py"

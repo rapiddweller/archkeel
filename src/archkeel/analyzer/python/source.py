@@ -6,13 +6,10 @@
 from __future__ import annotations
 
 import ast
-import codecs
 import hashlib
-import io
 import re
 import sys
 import sysconfig
-import tokenize
 from collections import Counter
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from collections.abc import Set as AbstractSet
@@ -3034,15 +3031,10 @@ def _parse_bounded(source: str, filename: str) -> ast.Module:
 
 
 def decode_source(raw: bytes) -> str:
-    """Decode a source file the way the interpreter does for UTF-8 (#742).
+    """Decode a source file as UTF-8 and drop one leading byte order mark (BOM) (#742).
 
-    One leading byte order mark (BOM) is not source text, so line 1 starts after it. A BOM with
-    another coding cookie raises SyntaxError, as in the interpreter. Without a BOM the cookie is
-    not read.
+    Line 1 starts after the BOM, so columns equal the ones without a BOM.
     """
-    if raw[: len(codecs.BOM_UTF8)] != codecs.BOM_UTF8:
-        return raw.decode("utf-8")
-    tokenize.detect_encoding(io.BytesIO(raw).readline)
     return raw.decode("utf-8-sig")
 
 
