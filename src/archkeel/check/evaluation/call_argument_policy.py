@@ -537,34 +537,45 @@ def _catalog_ambiguous_imports(
 def _catalog_import_escapes(
     imports: Sequence[RawRecord], entries: dict[str, _CatalogEntry]
 ) -> list[RawRecord]:
-    """Find imports that re-export an owner where the reference collector cannot follow it.
+    """Find the imports that give the owner to code the reference collector cannot follow (#731).
 
-    A binding that is not unique, a star import and the owner module object (#731).
+    The collector follows a unique import of an enum class and a module path that names the
+    owner module. Every other way to the owner here is an escape.
     """
     owner_data = [parse_record(owner).data for owner, _, _ in entries.values()]
     owners = {name for data in owner_data if (name := _record_text(data, "qualified_name"))}
     modules = {name for data in owner_data if (name := _record_text(data, "module"))}
     datas = [(record, parse_record(record).data) for record in imports]
-    module_objects = {
-        f"{_record_text(data, 'source_module')}.{_record_text(data, 'binding')}"
+    # A holder imports the owner module as a module object, such as `from . import catalog`.
+    held = [
+        (_record_text(data, "source_module"), _record_text(data, "binding"))
         for _, data in datas
         if data.get("symbol") is None and data.get("target_module") in modules
-    }
-    # A star import of the owner module or of a module that imports the owner.
-    stars = {f"{module}.*" for module in modules} | {
-        f"{_record_text(data, 'source_module')}.*"
-        for _, data in datas
-        if data.get("origin_definition") in owners
-    }
+    ]
+    holders = {module for module, _ in held}
+    held_names = {f"{module}.{binding}" for module, binding in held}
+    starred = (
+        modules
+        | holders
+        | {
+            _record_text(data, "source_module")
+            for _, data in datas
+            if data.get("origin_definition") in owners
+        }
+    )
     return [
         record
         for record, data in datas
-        if (origin := data.get("origin_definition")) in module_objects
-        or origin in stars
-        or data.get("source_binding_unique") is False
+        if data.get("origin_definition") in held_names
+        or data.get("symbol") is None
+        and data.get("target_module") in holders
+        or data.get("symbol") == "*"
+        and data.get("target_module") in starred
+        # `collect_references` follows only a unique binding; this counts all the others.
+        or data.get("source_binding_unique") is not True
         and data.get("under_type_checking") is not True
-        and origin in owners
-    ][:1]
+        and data.get("origin_definition") in owners
+    ]
 
 
 def _catalog_source_records(
@@ -811,7 +822,9 @@ def _catalog_enum_escape_limit(
     if rule.target is not None and not _catalog_target_may_change(
         rule.target, all_calls, all_references
     ):
-        accounted = _catalog_target_argument_references(rule.target, reads, all_calls, evidence)
+        accounted = _catalog_target_argument_references(
+            rule.target, reads, reference_data, all_calls, evidence
+        )
     escaped = [reference for reference in reads if reference["id"] not in accounted]
     if not escaped:
         return None
@@ -837,6 +850,7 @@ def _catalog_target_may_change(
 def _catalog_target_argument_references(
     target: str,
     members: Sequence[RawRecord],
+    reference_data: dict[str, RecordData],
     all_calls: Sequence[RawRecord],
     evidence: dict[str, RawEvidence],
 ) -> set[str]:
@@ -869,7 +883,10 @@ def _catalog_target_argument_references(
     return {
         reference["id"]
         for reference in members
-        if {(item, reference["data"]["expression"]) for item in reference["evidence_ids"]}
+        if {
+            (item, _record_text(reference_data[reference["id"]], "expression"))
+            for item in reference["evidence_ids"]
+        }
         <= accounted
     }
 

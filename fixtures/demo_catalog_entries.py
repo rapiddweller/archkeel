@@ -42,6 +42,15 @@ _CATALOG_USE = Variant(
 )
 
 _APP_MAINTENANCE = (FIXTURE_DIR / "shop/app/maintenance.py").read_text()
+_SQLITE_IMPORT = "from shop.store.sqlite import"
+
+
+def _maintenance(import_line: str, code: str) -> str:
+    """The maintenance module with one more import line and more code at its end."""
+    return _APP_MAINTENANCE.replace(_SQLITE_IMPORT, f"{import_line}\n{_SQLITE_IMPORT}") + code
+
+
+_CATALOG_IMPORT = "from shop.app.catalog import OptionKey"
 _READ_OPTION_CALL = "read_option(OptionKey.PAGE_SIZE)"
 _READ_OPTION_KEYWORD = "read_option(key=OptionKey.PAGE_SIZE)"
 
@@ -97,11 +106,9 @@ _CATALOG_ARGUMENT_ESCAPE_OUTSIDE = Variant(
     item="catalog_argument:member_escape_outside_source",
     summary="Another application module passes the declared member to print, outside the source.",
     files={
-        "shop/app/maintenance.py": _APP_MAINTENANCE.replace(
-            "from shop.store.sqlite import",
-            "from shop.app.catalog import OptionKey\nfrom shop.store.sqlite import",
+        "shop/app/maintenance.py": _maintenance(
+            _CATALOG_IMPORT, "\n\ndef show_option() -> None:\n    print(OptionKey.PAGE_SIZE)\n"
         )
-        + "\n\ndef show_option() -> None:\n    print(OptionKey.PAGE_SIZE)\n"
     },
     expected_violations=(),
     expected_codes=(),
@@ -124,18 +131,14 @@ _CATALOG_ARGUMENT_UNICODE_ALIAS = Variant(
     absent_unknowns=(("catalog_limit", "shop.app.orders.read_catalog_option"),),
 )
 
+_PARSE_OPTION = "\n\ndef parse_option(raw: str) -> OptionKey:\n    return OptionKey(raw)\n"
+
 _CATALOG_ARGUMENT_VALUE_LOOKUP = Variant(
     id="class-a-catalog-argument-value-lookup",
     section="class_a",
     item="catalog_argument:member_from_value_lookup",
     summary="Another application module gets the member by value and returns it to any caller.",
-    files={
-        "shop/app/maintenance.py": _APP_MAINTENANCE.replace(
-            "from shop.store.sqlite import",
-            "from shop.app.catalog import OptionKey\nfrom shop.store.sqlite import",
-        )
-        + "\n\ndef parse_option(raw: str) -> OptionKey:\n    return OptionKey(raw)\n"
-    },
+    files={"shop/app/maintenance.py": _maintenance(_CATALOG_IMPORT, _PARSE_OPTION)},
     expected_violations=(),
     expected_codes=(),
     expected_unknowns=(("catalog_limit", "shop.app.orders.read_catalog_option"),),
@@ -168,11 +171,6 @@ _CATALOG_USE_MEMBER_VALUE = Variant(
     absent_unknowns=(("catalog_limit", "shop.app.orders.retired_option_value"),),
 )
 
-_MAINTENANCE_WITH_OPTION_KEY = _APP_MAINTENANCE.replace(
-    "from shop.store.sqlite import",
-    "from shop.app.catalog import OptionKey\nfrom shop.store.sqlite import",
-)
-
 _CATALOG_ARGUMENT_STAR_REEXPORT = Variant(
     id="class-a-catalog-argument-star-reexport",
     section="class_a",
@@ -180,11 +178,9 @@ _CATALOG_ARGUMENT_STAR_REEXPORT = Variant(
     summary="A module re-exports the catalog with a star import; another module calls the enum.",
     files={
         "shop/app/options.py": "from shop.app.catalog import *  # noqa: F403\n",
-        "shop/app/maintenance.py": _APP_MAINTENANCE.replace(
-            "from shop.store.sqlite import",
-            "from shop.app.options import OptionKey\nfrom shop.store.sqlite import",
-        )
-        + "\n\ndef parse_option(raw: str) -> OptionKey:\n    return OptionKey(raw)\n",
+        "shop/app/maintenance.py": _maintenance(
+            "from shop.app.options import OptionKey", _PARSE_OPTION
+        ),
     },
     expected_violations=(),
     expected_codes=(),
@@ -199,9 +195,46 @@ _CATALOG_ARGUMENT_WRAPPED_ANNOTATION = Variant(
     item="catalog_argument:wrapped_annotation_cost",
     summary="Known cost: an enum annotation on a wrapped signature line keeps the check UNKNOWN.",
     files={
-        "shop/app/maintenance.py": _MAINTENANCE_WITH_OPTION_KEY
-        + "\n\ndef handle_option(\n    request_id: int,\n    key: OptionKey,\n) -> None:\n"
-        "    del request_id, key\n"
+        "shop/app/maintenance.py": _maintenance(
+            _CATALOG_IMPORT,
+            "\n\ndef handle_option(\n    request_id: int,\n    key: OptionKey,\n) -> None:\n"
+            "    del request_id, key\n",
+        )
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("catalog_limit", "shop.app.orders.read_catalog_option"),),
+)
+
+_CATALOG_ARGUMENT_HELD_MODULE = Variant(
+    id="class-a-catalog-argument-held-module",
+    section="class_a",
+    item="catalog_argument:member_from_held_module_object",
+    summary="A module holds the catalog module object; another module calls the enum through it.",
+    files={
+        "shop/app/options.py": "from shop.app import catalog\n",
+        "shop/app/maintenance.py": _maintenance(
+            "from shop.app import options",
+            "\n\ndef parse_option(raw: str) -> object:\n"
+            "    return options.catalog.OptionKey(raw)\n",
+        ),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("catalog_limit", "shop.app.orders.read_catalog_option"),),
+)
+
+_CATALOG_ARGUMENT_ANNOTATION_CALL = Variant(
+    id="class-a-catalog-argument-annotation-call",
+    section="class_a",
+    item="catalog_argument:member_in_annotation_call",
+    summary="An annotation calls a function with the member; the call runs when Python reads it.",
+    files={
+        "shop/app/maintenance.py": _maintenance(
+            f"{_CATALOG_IMPORT}\nfrom typing import Annotated",
+            "\n\ndef keep(value: object) -> object:\n    return value\n\n\n"
+            'PAGE_SIZE_NOTE: Annotated[str, keep(OptionKey.PAGE_SIZE)] = "page size"\n',
+        )
     },
     expected_violations=(),
     expected_codes=(),
@@ -220,4 +253,6 @@ VARIANTS: tuple[Variant, ...] = (
     _CATALOG_USE_MEMBER_VALUE,
     _CATALOG_ARGUMENT_STAR_REEXPORT,
     _CATALOG_ARGUMENT_WRAPPED_ANNOTATION,
+    _CATALOG_ARGUMENT_HELD_MODULE,
+    _CATALOG_ARGUMENT_ANNOTATION_CALL,
 )

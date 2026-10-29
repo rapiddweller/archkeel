@@ -197,6 +197,7 @@ def test_catalog_use_by_member_reference_is_unaffected_by_escape(tmp_path, where
 # attribute chain or a write target, where no reference record named it before.
 # `f` returns its argument, so `f(member)` gives the member to its caller.
 PASS_THROUGH = "def f(value):\n    return value\n"
+KEEP = "from typing import Annotated\ndef keep(value):\n    return value\n"
 OWNER_ESCAPES = {
     # One row for each way to read the bare owner: in a write target, as an argument, and in
     # a comprehension scope.
@@ -219,6 +220,12 @@ OWNER_ESCAPES = {
     "owner-mapping-method": "def go():\n"
     "    OptionKey._value2member_map_.get('page_size')._value_ = 'x'\n",
     "owner-hook-call": "def go():\n    OptionKey._missing_('page_size')\n",
+    # Without `from __future__ import annotations`, a call in an annotation runs.
+    "member-in-annotation-call": KEEP + "X: Annotated[str, keep(OptionKey.PAGE_SIZE)] = 'a'\n",
+    "owner-call-in-parameter-annotation": KEEP
+    + "def f(v: Annotated[str, keep(OptionKey('page_size'))]) -> None: ...\n",
+    "owner-call-as-annotation": "def f(v: OptionKey('page_size').__setattr__('_value_', 'x')) "
+    "-> None: ...\n",
 }
 
 
@@ -246,6 +253,7 @@ def test_owner_read_that_is_not_a_member_read_keeps_argument_unknown(
 API = {"sample/api.py": "from .catalog import OptionKey\n"}
 PACKAGE = {"sample/__init__.py": "from .catalog import OptionKey\n"}
 STAR_API = {"sample/api.py": "from .catalog import *\n"}
+MODULE_API = {"sample/api.py": "from . import catalog\n"}
 WRITE = "('page_size')._value_ = 'x'\n"
 REEXPORT_ESCAPES = {
     "from-reexport": (API, "from .api import OptionKey\nOptionKey" + WRITE),
@@ -307,6 +315,33 @@ REEXPORT_ESCAPES = {
     "module-object-reexport": (
         {"sample/api.py": "from . import catalog\n"},
         "from .api import catalog\ncatalog.OptionKey" + WRITE,
+    ),
+    # The catalog module object as an attribute of a module that holds it.
+    "held-module-from-import": (MODULE_API, "from . import api\napi.catalog.OptionKey" + WRITE),
+    "held-module-dotted-import": (
+        MODULE_API,
+        "import sample.api\nsample.api.catalog.OptionKey" + WRITE,
+    ),
+    "held-module-import-alias": (MODULE_API, "import sample.api as a\na.catalog.OptionKey" + WRITE),
+    "held-module-under-alias": (
+        {"sample/api.py": "from . import catalog as cat\n"},
+        "from . import api\napi.cat.OptionKey" + WRITE,
+    ),
+    "held-package-of-module": (
+        {"sample/api.py": "import sample.catalog\n"},
+        "from . import api\napi.sample.catalog.OptionKey" + WRITE,
+    ),
+    "held-module-two-hops": (
+        {**MODULE_API, "sample/api2.py": "from . import api\n"},
+        "from . import api2\napi2.api.catalog.OptionKey" + WRITE,
+    ),
+    "star-of-a-holder": (
+        {**MODULE_API, "sample/api2.py": "from .api import *\n"},
+        "from .api2 import catalog\ncatalog.OptionKey" + WRITE,
+    ),
+    "held-module-in-package-init": (
+        {"sample/sub/__init__.py": "from .. import catalog\n"},
+        "from . import sub\nsub.catalog.OptionKey" + WRITE,
     ),
 }
 
@@ -581,3 +616,21 @@ def test_unicode_alias_member_passed_elsewhere_is_an_escape(tmp_path):
 def test_catalog_argument_proves_an_alias_the_parser_normalises(tmp_path, alias):
     # Python reads identifiers in NFKC form: a ligature, a combining mark and a styled letter.
     assert _alias_verdict(tmp_path, alias, f"read_option({alias}.PAGE_SIZE)") == ("PASS", True)
+
+
+@pytest.mark.parametrize(
+    "annotation",
+    ["Annotated[OptionKey, 'meta']", "list[OptionKey] | None", "'OptionKey'"],
+)
+def test_owner_in_an_annotation_without_a_call_still_passes(tmp_path, annotation):
+    verdict = _verdicts(
+        tmp_path,
+        caller=HEAD + CONSUME,
+        rules=[_argument_rule()],
+        extra_files={
+            "sample/other.py": HEAD
+            + "from typing import Annotated\n"
+            + f"def f(v: {annotation}) -> None: ...\n"
+        },
+    )
+    assert verdict == ("PASS", True)

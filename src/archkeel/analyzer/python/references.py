@@ -606,9 +606,15 @@ class ReferenceCollector(ast.NodeVisitor):
         source_context = source_reference_context(
             self.evidence[evidence_id]["excerpt"], column, text
         )
-        if source_context is None or (
-            declaration.get("reference_context") == SourceReferenceContext.ANNOTATION
-            and source_context is not SourceReferenceContext.ANNOTATION
+        if (
+            source_context is None
+            or (
+                declaration.get("reference_context") == SourceReferenceContext.ANNOTATION
+                and source_context is not SourceReferenceContext.ANNOTATION
+            )
+            # A call in an annotation runs, so its reads are not only an annotation (#731).
+            or source_context is SourceReferenceContext.ANNOTATION
+            and self._under_call(node)
         ):
             context = SourceReferenceContext.UNKNOWN
             declaration = {}
@@ -706,6 +712,14 @@ class ReferenceCollector(ast.NodeVisitor):
                     internal = [local_name]
         return local_source_binding, local_name, status, internal
 
+    def _under_call(self, node: ast.AST) -> bool:
+        current = self.scopes.parents.get(node)
+        while current is not None and not isinstance(current, ast.stmt | ast.arg):
+            if isinstance(current, ast.Call):
+                return True
+            current = self.scopes.parents.get(current)
+        return False
+
     def _annotation_declaration(self, node: ast.AST) -> dict[str, str]:
         current = node
         annotation = False
@@ -792,6 +806,7 @@ def collect_references(
     roots = {module.module: unique_direct_module_bindings(module) for module in parsed}
     enum_classes = _enum_member_classes(parsed, index, roots)
     # A module that imports an enum class gives it away again as its own attribute.
+    # `_catalog_import_escapes` counts each import of an owner that this map does not follow.
     # Subscripts, not `.get`: the record data has no declared type, so `.get` stays unresolved.
     enum_reexports = {
         f"{data['source_module']}.{data['binding']}": data["origin_definition"]
