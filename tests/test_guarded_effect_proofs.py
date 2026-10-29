@@ -331,7 +331,10 @@ HEADERS = {
     "kwarg_annotation": ("def local(**a: self.reset()):\n    return a", UNKNOWN),
     "harmless_annotation": ("def local(a: int) -> int:\n    return a", FAIL),
     "harmless_default": ("def local(a=1):\n    return a", FAIL),
-    "harmless_class_base": ("class Local(Base):\n    pass", FAIL),
+    "harmless_class_fields": ("class Local:\n    limit = 1\n    names = ('a', 'b')", FAIL),
+    "class_hook_base": ("class Local(Base):\n    pass", UNKNOWN),
+    "class_hook_metaclass": ("class Local(metaclass=Meta):\n    pass", UNKNOWN),
+    "class_hook_set_name": ("class Local:\n    field = shared", UNKNOWN),
 }
 
 
@@ -392,6 +395,31 @@ def test_a_class_field_with_the_member_name_gives_a_false_unknown(tmp_path):
         "        if self.seeded:\n"
         "            class Local:\n                seeded: bool = False\n"
         "            _effect()\n"
+    )
+    files = {"sample/core.py": source}
+    assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == UNKNOWN
+
+
+# After the body, a class statement runs hooks that have no call node in the source:
+# __init_subclass__ of a base, a metaclass __new__ or __init__, and __set_name__ of a body value.
+# Such a hook can set the member, so a value from before or inside the class is not safe.
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "class Local(Base):\n    pass",
+        "class Local(metaclass=Meta):\n    pass",
+        "class Local:\n    field = shared",
+    ],
+    ids=["base", "metaclass", "set_name"],
+)
+def test_a_class_hook_cannot_certify_the_effect_as_safe(tmp_path, statement):
+    body = textwrap.indent(statement, "            ")
+    source = (
+        "def _effect():\n    return None\n\n"
+        "class Generator:\n"
+        "    def __init__(self):\n        self.seeded: bool = False\n\n"
+        "    def generate(self):\n"
+        f"        if not self.seeded:\n{body}\n            _effect()\n"
     )
     files = {"sample/core.py": source}
     assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == UNKNOWN

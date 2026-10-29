@@ -833,7 +833,24 @@ HARMLESS_HEADER_FORMS = {
     "default": "def g(a=1):\n    pass",
     "annotation": "def g(a: int) -> int:\n    return a",
     "plain_class": "class G:\n    pass",
-    "class_base": "class G(Base):\n    pass",
+    "literal_class_fields": (
+        'class G:\n    """Doc."""\n    limit = -1\n    names = ("a", "b")\n    size: int\n'
+        "    def method(self):\n        return 1"
+    ),
+}
+# The class statement runs hooks after the body, with no call node in the source.
+HOOK_CLASS_FORMS = {
+    "base": "class G(Base):\n    pass",
+    "base_with_literal_fields": "class G(Base):\n    limit = 1",
+    "keyword_only": "class G(metaclass=Meta):\n    pass",
+    "name_value": "class G:\n    field = shared",
+    "attribute_value": "class G:\n    field = shared.descriptor",
+    "annotated_name_value": "class G:\n    field: object = shared",
+    "augmented_value": "class G:\n    field = 1\n    field += shared",
+    "decorated_method": "class G:\n    @shared\n    def method(self):\n        return 1",
+    "nested_class": "class G:\n    class Inner:\n        pass",
+    "control_flow": "class G:\n    if shared:\n        field = 1",
+    "attribute_target": "class G:\n    shared.field = 1",
 }
 OPAQUE = {(None, "opaque_call_mutation")}
 
@@ -889,3 +906,24 @@ def test_a_named_expression_in_an_annotation_rebinds_the_parameter_guard() -> No
 def test_two_calls_in_a_definition_header_leave_the_second_call_without_a_value() -> None:
     source = "def f(self):\n    if self.flag:\n        def g(a=c(), b=d()):\n            pass\n"
     assert _values(_guarded(source, True), "d") == OPAQUE
+
+
+@pytest.mark.parametrize("form", HOOK_CLASS_FORMS)
+def test_a_class_hook_without_a_call_node_is_an_opaque_mutation_of_the_member(form: str) -> None:
+    assert _member_after(HOOK_CLASS_FORMS[form])[1] == OPAQUE
+
+
+@pytest.mark.parametrize("form", HOOK_CLASS_FORMS)
+def test_a_class_hook_does_not_change_a_parameter_guard(form: str) -> None:
+    body = textwrap.indent(HOOK_CLASS_FORMS[form], "        ")
+    paths = _guarded(f"def f(flag):\n    if flag:\n{body}\n        after()\n", False)
+    assert _values(paths, "after") == {(True, None)}
+
+
+def test_a_class_hook_makes_a_false_value_from_the_class_body_unknown() -> None:
+    source = (
+        "def f(self):\n    if self.flag:\n        pass\n    else:\n"
+        "        class G(Base):\n            if self.flag:\n                raise ValueError\n"
+        "        after()\n"
+    )
+    assert _values(_guarded(source, True), "after") == OPAQUE

@@ -50,6 +50,42 @@ def _function_annotations(function: ast.FunctionDef | ast.AsyncFunctionDef) -> l
     ]
 
 
+def _class_runs_hooks(statement: ast.ClassDef) -> bool:
+    """Whether the class statement runs a hook after its body, with no call node in the source.
+
+    The hooks are `__init_subclass__` of a base, a metaclass `__new__` or `__init__`, and
+    `__set_name__` of a body value. Only a class without base and keyword, and with a body of
+    literal fields and undecorated methods, runs none.
+    """
+    if statement.bases or statement.keywords:
+        return True
+    return not all(_is_plain_class_field(item) for item in statement.body)
+
+
+def _is_plain_class_field(statement: ast.stmt) -> bool:
+    if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef):
+        return not statement.decorator_list
+    if isinstance(statement, ast.Expr):
+        return isinstance(statement.value, ast.Constant)
+    if isinstance(statement, ast.Assign):
+        return _is_literal(statement.value) and all(
+            isinstance(target, ast.Name) for target in statement.targets
+        )
+    if isinstance(statement, ast.AnnAssign):
+        return isinstance(statement.target, ast.Name) and (
+            statement.value is None or _is_literal(statement.value)
+        )
+    return isinstance(statement, ast.Pass)
+
+
+def _is_literal(expression: ast.expr) -> bool:
+    try:
+        ast.literal_eval(expression)
+    except (ValueError, TypeError):
+        return False
+    return True
+
+
 def _is_condition(expression: ast.expr, name: str, receiver: str | None) -> bool:
     return (isinstance(expression, ast.Name) and expression.id == name) or (
         receiver is not None
@@ -314,7 +350,16 @@ class _GuardPathWalker:
                 statement.name, header, [], applied, current, reason, path_nodes
             )
             # The body runs now, in order, so the code after the class starts from its end states.
-            return self.block(statement.body, state[0], path_nodes, state[1])
+            ends = self.block(statement.body, state[0], path_nodes, state[1])
+            if self.receiver_name is None or not _class_runs_hooks(statement):
+                return ends
+            # The hooks run after the body, so they can change the member after the body ends.
+            return list(
+                dict.fromkeys(
+                    (None, end_reason or "opaque_call_mutation", end_nodes)
+                    for _, end_reason, end_nodes in ends
+                )
+            )
         return self._ordinary_paths(statement, current, reason, path_nodes)
 
     def _call_states(
