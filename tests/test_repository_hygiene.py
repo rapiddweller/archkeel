@@ -169,6 +169,7 @@ ROOT_FILES = frozenset(
         ".gitattributes",
         ".gitignore",
         ".python-version",
+        "AGENTS.md",
         "CODE_OF_CONDUCT.md",
         "CONTRIBUTING.md",
         "LICENSE",

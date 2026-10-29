@@ -47,6 +47,7 @@ class ChangeClassificationTests(unittest.TestCase):
             ("src/archkeel/render/assets/archkeel-mark.png", Areas(core=True, report=True)),
             ("Makefile", Areas(core=True, report=True, mermaid=True, full=True)),
             (".github/workflows/ci.yml", Areas(core=True, report=True, mermaid=True, full=True)),
+            ("AGENTS.md", Areas(mermaid=True)),
             ("README.md", Areas(core=True, mermaid=True)),
             ("docs/architecture/archkeel.md", Areas(core=True, mermaid=True)),
             ("docs/architecture/decisions/README.md", Areas(core=True, mermaid=True)),
