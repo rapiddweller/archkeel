@@ -1407,3 +1407,29 @@ def test_local_enum_owner_alias_mutation_keeps_catalog_argument_unknown(
     replay = run_saved_report(saved)
     [replayed] = replay.rule_assessments
     assert replayed.status.value == "UNKNOWN" and not replayed.evaluation_proven
+
+
+# The reference collector reads the prefix of a chain it does not resolve (#731).
+@pytest.mark.parametrize("read", ["OptionKey.RETIRED.value", "OptionKey.RETIRED.__dict__"])
+def test_member_read_under_an_unresolved_attribute_counts_as_catalog_use(tmp_path, read):
+    _, rows = _run(
+        tmp_path,
+        caller=f"from .catalog import OptionKey\ndef consume():\n    return {read}\n",
+        rules=[_use(member="RETIRED")],
+    )
+    assert (rows[0].status, rows[0].evaluation_proven) == ("PASS", True)
+
+
+def test_prefix_read_on_a_continuation_line_keeps_catalog_use_absence_unknown(tmp_path):
+    # Cost of #731: the one-line excerpt of `"k": ExtraKey.NEW.value,` gives no context.
+    _, rows = _run(
+        tmp_path,
+        caller="from .catalog import OptionKey, ExtraKey\n"
+        "def consume():\n"
+        "    print(OptionKey.PAGE_SIZE)\n"
+        "    return {\n"
+        '        "k": ExtraKey.NEW.value,\n'
+        "    }\n",
+        rules=[_use(member="RETIRED")],
+    )
+    assert (rows[0].status, rows[0].evaluation_proven) == ("UNKNOWN", False)

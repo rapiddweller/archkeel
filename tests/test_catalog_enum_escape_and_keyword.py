@@ -195,6 +195,8 @@ def test_catalog_use_by_member_reference_is_unaffected_by_escape(tmp_path, where
 # `OptionKey('page_size')` returns the PAGE_SIZE member itself, so a call of the owner gives
 # the member away like `OptionKey['PAGE_SIZE']`. The other forms hide a member read inside an
 # attribute chain or a write target, where no reference record named it before.
+# `f` returns its argument, so `f(member)` gives the member to its caller.
+PASS_THROUGH = "def f(value):\n    return value\n"
 OWNER_ESCAPES = {
     "call-module-scope": "OptionKey('page_size')._value_ = 'x'\n",
     "call-in-function": "def go():\n    OptionKey('page_size')._value_ = 'x'\n",
@@ -208,20 +210,24 @@ OWNER_ESCAPES = {
     "call-through-import-alias": "import sample.catalog as c\n"
     "def go():\n    c.OptionKey('page_size')._value_ = 'x'\n",
     "type-of-member-call": "def go():\n    type(OptionKey.PAGE_SIZE)('page_size')._value_ = 'x'\n",
-    "member-in-write-target": "def go():\n    f(OptionKey.PAGE_SIZE).x = 1\n",
+    "member-in-write-target": PASS_THROUGH + "def go():\n    f(OptionKey.PAGE_SIZE).x = 1\n",
     # The excerpt of a continuation line does not parse, so the read has an unknown context.
     "call-on-continuation-line": "def go():\n    x = [1,\n         OptionKey('page_size')]\n",
-    "member-attribute-argument": "def go():\n    f(OptionKey.PAGE_SIZE.__dict__)\n",
-    "member-method-argument": "def go():\n    f(OptionKey.PAGE_SIZE.upper())\n",
+    "member-attribute-argument": PASS_THROUGH + "def go():\n    f(OptionKey.PAGE_SIZE.__dict__)\n",
+    "member-method-argument": PASS_THROUGH + "def go():\n    f(OptionKey.PAGE_SIZE.upper())\n",
+    "member-value-argument": "def go():\n    print(OptionKey.PAGE_SIZE.value)\n",
     "owner-mapping-method": "def go():\n"
     "    OptionKey._value2member_map_.get('page_size')._value_ = 'x'\n",
     "owner-hook-call": "def go():\n    OptionKey._missing_('page_size')\n",
 }
 
 
-@pytest.mark.parametrize("mounted", [False, True])
-@pytest.mark.parametrize("where", ["outside-source", "inside-source"])
-@pytest.mark.parametrize("form", OWNER_ESCAPES)
+# The policy reads the whole snapshot, so one form covers the source and mount variants.
+@pytest.mark.parametrize(
+    ("form", "where", "mounted"),
+    [(form, "outside-source", False) for form in OWNER_ESCAPES]
+    + [("call-in-function", "inside-source", False), ("call-in-function", "outside-source", True)],
+)
 def test_owner_read_that_is_not_a_member_read_keeps_argument_unknown(
     tmp_path, form, where, mounted
 ):
@@ -234,6 +240,75 @@ def test_owner_read_that_is_not_a_member_read_keeps_argument_unknown(
         tmp_path, caller=caller, rules=[_argument_rule()], extra_files=extra, mounted=mounted
     )
     assert verdict == ("UNKNOWN", False)
+
+
+# A module that imports the owner gives it away again as its own attribute.
+REEXPORT_FILES = {
+    "module": {"sample/api.py": "from .catalog import OptionKey\n"},
+    "package": {"sample/__init__.py": "from .catalog import OptionKey\n"},
+}
+REEXPORT_ESCAPES = {
+    "from-reexport": (
+        "module",
+        "from .api import OptionKey\nOptionKey('page_size')._value_ = 'x'\n",
+    ),
+    "from-reexport-alias": (
+        "module",
+        "from .api import OptionKey as K\nK('page_size')._value_ = 'x'\n",
+    ),
+    "reexport-attribute": (
+        "module",
+        "from . import api\napi.OptionKey('page_size')._value_ = 'x'\n",
+    ),
+    "from-package": (
+        "package",
+        "from sample import OptionKey\nOptionKey('page_size')._value_ = 'x'\n",
+    ),
+}
+
+
+@pytest.mark.parametrize("form", REEXPORT_ESCAPES)
+def test_owner_read_through_a_reexport_keeps_argument_unknown(tmp_path, form):
+    files, other = REEXPORT_ESCAPES[form]
+    verdict = _verdicts(
+        tmp_path,
+        caller=HEAD + CONSUME,
+        rules=[_argument_rule()],
+        extra_files={**REEXPORT_FILES[files], "sample/other.py": other},
+    )
+    assert verdict == ("UNKNOWN", False)
+
+
+def test_rebound_name_in_a_reexporting_module_is_not_the_owner(tmp_path):
+    verdict = _verdicts(
+        tmp_path,
+        caller=HEAD + CONSUME,
+        rules=[_argument_rule()],
+        extra_files={
+            "sample/api.py": "from .catalog import OptionKey, ExtraKey\nOptionKey = ExtraKey\n",
+            "sample/other.py": "from . import api\napi.OptionKey('new')._value_ = 'x'\n",
+        },
+    )
+    assert verdict == ("PASS", True)
+
+
+@pytest.mark.parametrize(
+    "other",
+    [
+        "from .api import OptionKey\ndef typed(value: OptionKey) -> None: ...\n",
+        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from .api import OptionKey\n"
+        "def typed(value: 'OptionKey') -> None: ...\n",
+    ],
+    ids=["annotation", "type-checking"],
+)
+def test_owner_named_through_a_reexport_only_in_annotations_still_passes(tmp_path, other):
+    verdict = _verdicts(
+        tmp_path,
+        caller=HEAD + CONSUME,
+        rules=[_argument_rule()],
+        extra_files={**REEXPORT_FILES["module"], "sample/other.py": other},
+    )
+    assert verdict == ("PASS", True)
 
 
 def test_owner_named_only_in_annotations_elsewhere_still_passes(tmp_path):

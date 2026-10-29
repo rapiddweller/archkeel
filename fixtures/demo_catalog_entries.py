@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from fixtures.demo_catalog_support import FIXTURE_DIR, Variant
+from fixtures.demo_catalog_support import FIXTURE_DIR, Variant, contract_with_rule
 
 _APP_ORDERS = (FIXTURE_DIR / "shop/app/orders.py").read_text()
 
@@ -141,6 +141,33 @@ _CATALOG_ARGUMENT_VALUE_LOOKUP = Variant(
     expected_unknowns=(("catalog_limit", "shop.app.orders.read_catalog_option"),),
 )
 
+_CATALOG_USE_MEMBER_VALUE = Variant(
+    id="class-a-catalog-use-member-value",
+    section="class_a",
+    item="catalog_use:member_value_read",
+    summary="The application returns the value of the RETIRED member; `.value` reads the member.",
+    files={
+        "shop/app/orders.py": _APP_ORDERS
+        + "\n\ndef retired_option_value() -> str:\n    return OptionKey.RETIRED.value\n",
+        "architecture-contract.json": contract_with_rule(
+            {
+                "id": "APP-RETIRED-OPTION-USED",
+                "kind": "catalog_use",
+                "source": "shop.app.orders.retired_option_value",
+                "catalog": "shop.app.catalog.OptionKey",
+                "member": "RETIRED",
+                "rationale": "The retired option stays readable for old orders.",
+                "provenance": ["docs/architecture/shop.md"],
+                "decided_by": "architect",
+                "source_match": "exact",
+            }
+        ),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    absent_unknowns=(("catalog_limit", "shop.app.orders.retired_option_value"),),
+)
+
 VARIANTS: tuple[Variant, ...] = (
     _CATALOG_ARGUMENT,
     _CATALOG_USE,
@@ -150,4 +177,5 @@ VARIANTS: tuple[Variant, ...] = (
     _CATALOG_ARGUMENT_ESCAPE_OUTSIDE,
     _CATALOG_ARGUMENT_UNICODE_ALIAS,
     _CATALOG_ARGUMENT_VALUE_LOOKUP,
+    _CATALOG_USE_MEMBER_VALUE,
 )

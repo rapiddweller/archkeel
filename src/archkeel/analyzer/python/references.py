@@ -95,9 +95,11 @@ class ReferenceCollector(ast.NodeVisitor):
         evidence: dict[str, RawEvidence],
         enum_member_roots: frozenset[str],
         enum_member_classes: frozenset[str],
+        enum_reexports: dict[str, str],
         include_source_roles: bool = True,
     ) -> None:
         self.include_source_roles = include_source_roles
+        self.enum_reexports = enum_reexports
         self.module = module
         self.index = index
         self.evidence = evidence
@@ -575,13 +577,11 @@ class ReferenceCollector(ast.NodeVisitor):
                     status=status,
                     transfer_kind="dictionary_value",
                 )
-        recorded = len(self.items)
-        self._record(node, dotted, "attribute")
-        if len(self.items) == recorded:
+        if not self._record(node, dotted, "attribute"):
             # An unresolved chain such as `OptionKey.PAGE_SIZE.__dict__` still reads its prefix.
             self.visit(node.value)
 
-    def _record(self, node: ast.expr, expression: str, use: str) -> None:
+    def _record(self, node: ast.expr, expression: str, use: str) -> bool:
         scope = self.scopes.by_node[node]
         enum_member = self._enum_member_class(node)
         if enum_member is None:
@@ -590,11 +590,13 @@ class ReferenceCollector(ast.NodeVisitor):
             )
         else:
             status, targets = SourceResolution.RESOLVED, [enum_member]
+        # `from .api import OptionKey` names the enum class that `api` imports (#731).
+        targets = [self.enum_reexports.get(target, target) for target in targets]
         local_source_binding, local_name, status, internal = self._local_reference_target(
             node, targets, status
         )
         if (status == SourceResolution.UNRESOLVED or not internal) and not local_source_binding:
-            return
+            return False
         if local_source_binding and status == SourceResolution.UNRESOLVED:
             status = SourceResolution.PARTIALLY_RESOLVED
         evidence_id = add_evidence(self.evidence, self.module, node)
@@ -644,6 +646,7 @@ class ReferenceCollector(ast.NodeVisitor):
                 },
             )
         )
+        return True
 
     def _local_reference_target(
         self,
@@ -782,14 +785,30 @@ def collect_references(
     evidence: dict[str, RawEvidence],
     *,
     include_source_roles: bool = True,
+    imports: Sequence[RawRecord] = (),
 ) -> list[RawRecord]:
     """Run the reference collector over every module and sort the records by id."""
     references: list[RawRecord] = []
     roots = {module.module: unique_direct_module_bindings(module) for module in parsed}
     enum_classes = _enum_member_classes(parsed, index, roots)
+    # A module that imports an enum class gives it away again as its own attribute.
+    enum_reexports = {
+        f"{data['source_module']}.{data['binding']}": data["origin_definition"]
+        for data in (item["data"] for item in imports)
+        if "origin_definition" in data
+        and data["origin_definition"] in index.enum_members
+        and "source_binding_unique" in data
+        and data["source_binding_unique"] is True
+    }
     for module in parsed:
         collector = ReferenceCollector(
-            module, index, evidence, roots[module.module], enum_classes, include_source_roles
+            module,
+            index,
+            evidence,
+            roots[module.module],
+            enum_classes,
+            enum_reexports,
+            include_source_roles,
         )
         collector.visit(module.tree)
         references.extend(_reuse_local_definition_references(collector.items))
