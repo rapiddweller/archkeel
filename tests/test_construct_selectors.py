@@ -2425,3 +2425,59 @@ def test_ambiguous_selector_receiver_is_unknown_live_and_in_saved_reports(
             native.status,
             native.evaluation_proven,
         )
+
+
+@pytest.mark.parametrize(
+    ("source", "role"),
+    [
+        (
+            "class Connection:\n    backend: str\n"
+            "def route(conn: Connection, other):\n"
+            "    match conn.backend:\n"
+            '        case "":\n            pass\n'
+            "        case other.x:\n            pass\n",
+            ConstructSelectorRole.MATCH,
+        ),
+        (
+            "class Connection:\n    backend: str\n"
+            "def route(conn: Connection, other):\n"
+            "    match conn.backend:\n"
+            "        case other.x:\n            pass\n",
+            ConstructSelectorRole.MATCH,
+        ),
+        (
+            "class Connection:\n    backend: str\n"
+            "def route(conn: Connection, other):\n"
+            "    match conn.backend:\n"
+            '        case "" | other.x:\n            pass\n',
+            ConstructSelectorRole.MATCH,
+        ),
+        (
+            "class Connection:\n    backend: str\n"
+            "def route(conn: Connection, other):\n"
+            '    return "" == conn.backend == other.x\n',
+            ConstructSelectorRole.EQUALITY,
+        ),
+    ],
+    ids=[
+        "empty-literal-then-unknown",
+        "unknown-only",
+        "empty-literal-or-unknown",
+        "chained-equality",
+    ],
+)
+def test_empty_literal_does_not_hide_an_unknown_selector(source: str, role: ConstructSelectorRole):
+    signals = collect_constructs([_parsed_module(source, module="sample.core")], {})
+    rule = ForbiddenConstructRule(
+        "SELECT",
+        ArchitectureRuleKind.FORBIDDEN_CONSTRUCT,
+        "sample.core",
+        (),
+        "Keep the selected receiver proven.",
+        ("test",),
+        DecisionMaker.ARCHITECT,
+        selector=ConstructSelector("sample.core.Connection", "backend", role, "flat"),
+    )
+    findings = _construct_violations(signals, [rule])
+    assert not any(row["evidence_class"] == "VIOLATION" for row in findings)
+    assert any(row["evidence_class"] == "UNKNOWN" for row in findings)

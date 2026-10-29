@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from archkeel.analyzer.python.constructs import _selector_item_id
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import _validate_saved_sources, run_report, run_saved_report
 from archkeel.cli.observe import observe
@@ -228,15 +229,14 @@ def _tamper_with_outer_receiver(
         and item["file"] == "sample/core.py"
         and "conn.backend" in item["excerpt"]
     )
-    target["id"] = stable_id(
-        "CONSTRUCT-SELECTOR",
+    target["id"] = _selector_item_id(
         "sample/core.py",
         own_evidence["line"],
         own_evidence["column"],
         target_data["selector_role"],
         target_data["receiver_type"],
-        target_data.get("member") or "",
-        target_data.get("literal") or "",
+        target_data.get("member"),
+        target_data.get("literal"),
         target_data["operation"],
     )
     return target["id"]

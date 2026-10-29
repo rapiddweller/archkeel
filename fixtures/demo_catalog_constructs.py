@@ -8,7 +8,13 @@ from __future__ import annotations
 import sys
 
 from archkeel.ir.model import ForbiddenConstructKind
-from fixtures.demo_catalog_support import FIXTURE_DIR, HEADER, Variant, contract_rule_field
+from fixtures.demo_catalog_support import (
+    FIXTURE_DIR,
+    HEADER,
+    Variant,
+    contract_rule_field,
+    contract_with_rule,
+)
 
 _CONSTRUCT_SOURCE: dict[ForbiddenConstructKind, str] = {
     ForbiddenConstructKind.GETATTR: HEADER
@@ -297,12 +303,59 @@ _TYPE_IGNORE_NEIGHBORS = Variant(
     expected_codes=("rule.violated",) * 5,
 )
 
+_SELECTOR_PROBE = HEADER + (
+    '"""An empty case literal beside a case the collector cannot prove."""\n\n'
+    "from __future__ import annotations\n\n\n"
+    "class Connection:\n"
+    "    backend: str\n\n\n"
+    "def route(conn: Connection, other: object) -> None:\n"
+    "    match conn.backend:\n"
+    '        case "":\n'
+    "            pass\n"
+    "        case other.x:\n"
+    "            pass\n"
+)
+_SELECTOR_EMPTY_LITERAL_UNKNOWN = Variant(
+    id="class-a-selector-empty-literal-unknown",
+    section="class_a",
+    item="forbidden_construct:selector_empty_literal",
+    summary='A rule forbids the literal "flat" in a match on Connection.backend. The probe has '
+    'case "" and a case the collector cannot prove. The empty literal does not hide the '
+    "unproven case, so the rule verdict is UNKNOWN and not PASS (#615). The run verdict is FAIL "
+    "because of CONSTRUCT-NO-STRING-LITERAL-COMPARE. A chained equality with an empty literal "
+    "takes the same path.",
+    files={
+        "shop/model/probe_selector.py": _SELECTOR_PROBE,
+        "architecture-contract.json": contract_with_rule(
+            {
+                "id": "CONSTRUCT-NO-FLAT-BACKEND",
+                "kind": "forbidden_construct",
+                "source": "shop.model.probe_selector",
+                "constructs": ["string_literal_compare"],
+                "selector": {
+                    "receiver": "shop.model.probe_selector.Connection",
+                    "member": "backend",
+                    "role": "match",
+                    "literal": "flat",
+                },
+                "rationale": "The flat backend is gone; route through the declared port.",
+                "provenance": ["docs/architecture/shop.md"],
+                "decided_by": "architect",
+            }
+        ),
+    },
+    expected_violations=("CONSTRUCT-NO-STRING-LITERAL-COMPARE",),
+    expected_codes=("rule.violated",),
+    expected_unknowns=(("construct_selector_unknown", "shop.model.probe_selector.route"),),
+)
+
 VARIANTS: tuple[Variant, ...] = (
     *_CONSTRUCT_VARIANTS,
     _BROAD_EXCEPT_EXACT,
     _BROAD_EXCEPT_PREFIX,
     _TYPE_IGNORE_EXACT,
     _TYPE_IGNORE_NEIGHBORS,
+    _SELECTOR_EMPTY_LITERAL_UNKNOWN,
     *(
         Variant(
             id=f"class-a-numeric-operand-{name}",

@@ -651,6 +651,36 @@ def _matches_literal(literals: _LiteralComparisons, node: ast.Match) -> bool:
     )
 
 
+def _selector_item_id(
+    rel_path: str,
+    line: int,
+    column: int,
+    role: str,
+    receiver: str | None,
+    member: str | None,
+    literal: str | None,
+    operation: str,
+) -> str:
+    # "" and None both join as "", so name each empty part; every other ID stays unchanged.
+    empty_parts = [
+        name
+        for name, part in (("receiver", receiver), ("member", member), ("literal", literal))
+        if part == ""
+    ]
+    return stable_id(
+        "CONSTRUCT-SELECTOR",
+        rel_path,
+        line,
+        column,
+        role,
+        receiver or "",
+        member or "",
+        literal or "",
+        operation,
+        *empty_parts,
+    )
+
+
 def _handled_types(caught: ast.expr) -> list[str]:
     elements = caught.elts if isinstance(caught, ast.Tuple) else [caught]
     return sorted(ast.unparse(element) for element in elements)
@@ -1248,16 +1278,8 @@ class ConstructCollector(ast.NodeVisitor):
                 else {}
             ),
         }
-        item_id = stable_id(
-            "CONSTRUCT-SELECTOR",
-            self.module.rel_path,
-            line,
-            column,
-            role,
-            receiver or "",
-            member or "",
-            literal or "",
-            operation,
+        item_id = _selector_item_id(
+            self.module.rel_path, line, column, role, receiver, member, literal, operation
         )
 
         if item_id in self.selector_ids:
