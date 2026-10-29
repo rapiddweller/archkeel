@@ -6,10 +6,13 @@
 from __future__ import annotations
 
 import ast
+import codecs
 import hashlib
+import io
 import re
 import sys
 import sysconfig
+import tokenize
 from collections import Counter
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from collections.abc import Set as AbstractSet
@@ -3030,6 +3033,19 @@ def _parse_bounded(source: str, filename: str) -> ast.Module:
     return tree
 
 
+def decode_source(raw: bytes) -> str:
+    """Decode a source file the way the interpreter does for UTF-8 (#742).
+
+    One leading byte order mark (BOM) is not source text, so line 1 starts after it. A BOM with
+    another coding cookie raises SyntaxError, as in the interpreter. Without a BOM the cookie is
+    not read.
+    """
+    if raw[: len(codecs.BOM_UTF8)] != codecs.BOM_UTF8:
+        return raw.decode("utf-8")
+    tokenize.detect_encoding(io.BytesIO(raw).readline)
+    return raw.decode("utf-8-sig")
+
+
 @dataclass(frozen=True)
 class ParsedSources:
     """Modules parsed from one scan pass, their coverage failures and source digest."""
@@ -3055,7 +3071,7 @@ def parse_sources(paths: Sequence[Path], *, root: Path, namespace: str) -> Parse
             digest.update(b"\0")
             digest.update(raw)
             digest.update(b"\0")
-            source = raw.decode("utf-8")
+            source = decode_source(raw)
             tree = _parse_bounded(source, rel)
             module_name = module_for(path, root=root, namespace=namespace)
         except (OSError, UnicodeDecodeError, SyntaxError, ValueError) as exc:

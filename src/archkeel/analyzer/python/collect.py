@@ -91,6 +91,7 @@ from .source import (
     ParsedModule,
     add_evidence,
     class_header_static,
+    decode_source,
     exposes_dynamic_namespace,
     file_evidence,
     is_stdlib_root,
@@ -357,13 +358,14 @@ def provider_sources(
             path: Path = origin
             try:
                 content = path.read_bytes()
-                text = content.decode("utf-8")
-            except (OSError, UnicodeDecodeError):
+                text: str = decode_source(content)
+            except (OSError, UnicodeDecodeError, SyntaxError):
                 continue
             label = ".archkeel-providers/" + relative.as_posix()
             label += "/__init__.py" if path.name == "__init__.py" else ".py"
+            # The protocol digest covers the transmitted text, which has no BOM (#742).
             sources[name] = PythonProviderSource(
-                name, label, text, hashlib.sha256(content).hexdigest()
+                name, label, text, hashlib.sha256(text.encode("utf-8")).hexdigest()
             )
             origins[name] = path
     return tuple(sources[name] for name in sorted(sources))
