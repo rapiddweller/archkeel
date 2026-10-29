@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
+import tomllib
 from collections import Counter
 from pathlib import Path
 from textwrap import dedent
@@ -689,6 +691,18 @@ def test_typescript_compatibility_reuses_fixtures_and_keeps_windows_path_check()
         "tests/test_browser_architecture.py::"
         "test_browser_runner_serializes_windows_config_as_a_posix_port"
     ) in command
+
+
+def test_python_classifiers_name_exactly_the_versions_the_full_workflow_tests() -> None:
+    """A classifier is a claim (#724): it needs a pinned job, and a pinned job needs its claim."""
+    classifiers = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["classifiers"]
+    claimed = {
+        classifier.rsplit(" ", 1)[1]
+        for classifier in classifiers
+        if re.fullmatch(r"Programming Language :: Python :: 3\.\d+", classifier)
+    }
+    workflow = (ROOT / ".github/workflows/full-verification.yml").read_text()
+    assert claimed == set(re.findall(r'"(3\.\d+)\.\d+"', workflow))
 
 
 def test_full_aggregate_requires_collector_compatibility_outside_prs() -> None:
