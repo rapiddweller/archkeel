@@ -2199,7 +2199,8 @@ def test_frozen_star_source_needs_matching_native_code_and_side_source(
     assert len(_route_records(facts)[0]) == (0 if change == "none" else 1)
 
 
-_REGISTRY = "import sys\nimport model\nsys.modules['json.leaf'] = model\n"
+# A real top-level stdlib name (sched) stands for the published module.
+_REGISTRY = "import sys\nimport sched\nsys.modules['json.leaf'] = sched\n"
 
 
 @pytest.mark.parametrize(
@@ -2207,43 +2208,43 @@ _REGISTRY = "import sys\nimport model\nsys.modules['json.leaf'] = model\n"
     [
         (_REGISTRY, True),
         (
-            "import model\nimport sys as _sys\n_sys.modules['json.leaf'] = model\nleaf = model\n",
+            "import sched\nimport sys as _sys\n_sys.modules['json.leaf'] = sched\nleaf = sched\n",
             True,
         ),
-        ("import sys\nimport model\nif flag:\n    sys.modules['json.leaf'] = model\n", False),
-        ("import sys\nimport model\nkey = 'json.leaf'\nsys.modules[key] = model\n", False),
-        ("import sys\nimport model\nsys.modules['json.leaf'] = model.inner\n", False),
-        ("import sys\nimport model\nsys.modules['other.leaf'] = model\n", False),
-        (_REGISTRY + "sys.modules['json.leaf'] = model\n", False),
+        ("import sys\nimport sched\nif flag:\n    sys.modules['json.leaf'] = sched\n", False),
+        ("import sys\nimport sched\nkey = 'json.leaf'\nsys.modules[key] = sched\n", False),
+        ("import sys\nimport sched\nsys.modules['json.leaf'] = sched.inner\n", False),
+        ("import sys\nimport sched\nsys.modules['other.leaf'] = sched\n", False),
+        (_REGISTRY + "sys.modules['json.leaf'] = sched\n", False),
         (_REGISTRY + "import other\nsys.modules['json.leaf'] = other\n", False),
         (_REGISTRY + "del sys.modules['json.leaf']\n", False),
         (_REGISTRY + "def reset():\n    sys.modules['json.leaf'] = None\n", False),
-        (_REGISTRY.replace("import model", "import other as model"), False),
-        (_REGISTRY.replace("import model", "from model import model"), False),
-        (_REGISTRY + "model = None\n", False),
+        (_REGISTRY.replace("import sched", "import other as sched"), False),
+        (_REGISTRY.replace("import sched", "from sched import sched"), False),
+        (_REGISTRY + "sched = None\n", False),
         (_REGISTRY + "leaf = None\n", False),
         (_REGISTRY + "leaf = sys\n", False),
         (_REGISTRY + "def reset():\n    global leaf\n    leaf = None\n", False),
         (_REGISTRY + "def __getattr__(name): return None\n", False),
-        ("import model\nimport sys\nsys.modules['json.leaf'] = model\n", True),
+        ("import sched\nimport sys\nsys.modules['json.leaf'] = sched\n", True),
         (
-            "import sys\nimport model\nfrom .model import x\nsys.modules['json.leaf'] = model\n",
+            "import sys\nimport sched\nfrom .sched import x\nsys.modules['json.leaf'] = sched\n",
             False,
         ),
-        ("import sys\nimport model\nimport json.model\nsys.modules['json.leaf'] = model\n", False),
+        ("import sys\nimport sched\nimport json.sched\nsys.modules['json.leaf'] = sched\n", False),
         (
-            "import sys\nimport model\nfrom . import model as _m\n"
-            "sys.modules['json.leaf'] = model\n",
+            "import sys\nimport sched\nfrom . import sched as _m\n"
+            "sys.modules['json.leaf'] = sched\n",
             False,
         ),
-        ("import sys\nimport model\nimport other\nsys.modules['json.leaf'] = model\n", False),
-        (_REGISTRY + "import other\nleaf = model\n", False),
+        ("import sys\nimport sched\nimport other\nsys.modules['json.leaf'] = sched\n", False),
+        (_REGISTRY + "import other\nleaf = sched\n", False),
         (_REGISTRY + "from .tools import helper\n", False),
-        (_REGISTRY + "import json.model\n", False),
-        (_REGISTRY + "import model as m\nm.Payload = None\n", False),
-        (_REGISTRY + "import importlib\nimportlib.import_module('model').Payload = None\n", False),
-        (_REGISTRY + "leaf = model\nleaf.Payload = None\n", False),
-        (_REGISTRY + "leaf = model\nvalue = leaf.Payload\n", True),
+        (_REGISTRY + "import json.sched\n", False),
+        (_REGISTRY + "import sched as m\nm.Payload = None\n", False),
+        (_REGISTRY + "import importlib\nimportlib.import_module('sched').Payload = None\n", False),
+        (_REGISTRY + "leaf = sched\nleaf.Payload = None\n", False),
+        (_REGISTRY + "leaf = sched\nvalue = leaf.Payload\n", True),
         (_REGISTRY + "import other\nsys.__dict__['modules']['json.leaf'] = other\n", False),
     ],
     ids=[
@@ -2285,7 +2286,7 @@ def test_registry_published_child_is_an_alias_of_its_module(tmp_path, parent, kn
             tmp_path,
             [
                 _provider("json", parent, package=True),
-                _provider("model", "class Payload: pass\n"),
+                _provider("sched", "class Payload: pass\n"),
             ],
             imported="json.leaf",
             binding="Payload",
@@ -2296,43 +2297,43 @@ def test_registry_published_child_is_an_alias_of_its_module(tmp_path, parent, kn
     assert ("json.leaf.Payload" in by_name) is known
     if known:
         alias = by_name["json.leaf.Payload"]
-        assert alias.kind is ProviderBindingKind.ALIAS and alias.target == "model.Payload"
+        assert alias.kind is ProviderBindingKind.ALIAS and alias.target == "sched.Payload"
         evidence = {item.id: item for item in facts.evidence}
         assert evidence[alias.evidence_id].file == ".archkeel-providers/json/__init__.py"
-        assert "sys.modules['json.leaf'] = model" in evidence[alias.evidence_id].excerpt
-        assert evidence[alias.supporting_evidence_ids[0]].file == ".archkeel-providers/model.py"
+        assert "sys.modules['json.leaf'] = sched" in evidence[alias.evidence_id].excerpt
+        assert evidence[alias.supporting_evidence_ids[0]].file == ".archkeel-providers/sched.py"
 
 
-_WRITE = "sys.modules['json.leaf'] = model\n"
+_WRITE = "sys.modules['json.leaf'] = sched\n"
 
 
 @pytest.mark.parametrize(
     ("parent", "known"),
     [
-        ("import sys\nimport model\n" + _WRITE, True),
-        ("import sys as registry\nimport model\nregistry.modules['json.leaf'] = model\n", True),
-        ("import sys\nimport model\n" + _WRITE + "def read(sys): return sys\n", True),
-        ("import model\n" + _WRITE, False),
-        ("from sys import modules\nimport model\nmodules['json.leaf'] = model\n", False),
-        ("import sys\nimport model\nsys = model\n" + _WRITE, False),
+        ("import sys\nimport sched\n" + _WRITE, True),
+        ("import sys as registry\nimport sched\nregistry.modules['json.leaf'] = sched\n", True),
+        ("import sys\nimport sched\n" + _WRITE + "def read(sys): return sys\n", True),
+        ("import sched\n" + _WRITE, False),
+        ("from sys import modules\nimport sched\nmodules['json.leaf'] = sched\n", False),
+        ("import sys\nimport sched\nsys = sched\n" + _WRITE, False),
         (
-            "from types import SimpleNamespace\nsys = SimpleNamespace(modules={})\nimport model\n"
+            "from types import SimpleNamespace\nsys = SimpleNamespace(modules={})\nimport sched\n"
             + _WRITE,
             False,
         ),
-        ("if flag:\n    import sys\nimport model\n" + _WRITE, False),
-        ("def load():\n    import sys\nimport model\n" + _WRITE, False),
-        ("import sys\nimport model\n" + _WRITE + "del sys\n", False),
-        ("import sys\nimport model\nfrom other import *\n" + _WRITE, False),
-        ("import sys\nimport sys\nimport model\n" + _WRITE, False),
+        ("if flag:\n    import sys\nimport sched\n" + _WRITE, False),
+        ("def load():\n    import sys\nimport sched\n" + _WRITE, False),
+        ("import sys\nimport sched\n" + _WRITE + "del sys\n", False),
+        ("import sys\nimport sched\nfrom other import *\n" + _WRITE, False),
+        ("import sys\nimport sys\nimport sched\n" + _WRITE, False),
         (
-            "import sys\nimport model\n"
+            "import sys\nimport sched\n"
             + _WRITE
             + "def reset():\n    global sys\n    sys = None\n",
             False,
         ),
-        ("import model\n" + _WRITE + "import sys\n", False),
-        ("import sys\n" + _WRITE + "import model\n", False),
+        ("import sched\n" + _WRITE + "import sys\n", False),
+        ("import sys\n" + _WRITE + "import sched\n", False),
     ],
     ids=[
         "plain-sys",
@@ -2358,7 +2359,7 @@ def test_registry_receiver_is_a_stable_sys_import(tmp_path, parent, known):
             tmp_path,
             [
                 _provider("json", parent, package=True),
-                _provider("model", "class Payload: pass\n"),
+                _provider("sched", "class Payload: pass\n"),
             ],
             imported="json.leaf",
             binding="Payload",
@@ -2373,12 +2374,12 @@ def test_registry_receiver_is_a_stable_sys_import(tmp_path, parent, known):
 @pytest.mark.parametrize(
     ("parent", "target", "expected"),
     [
-        (_REGISTRY + "leaf = model\n", "Payload = None\n", ProviderBindingKind.ALIAS),
+        (_REGISTRY + "leaf = sched\n", "Payload = None\n", ProviderBindingKind.ALIAS),
         (_REGISTRY, "class Payload: pass\n", ProviderBindingKind.ALIAS),
         (_REGISTRY + "def __getattr__(name): return None\n", "class Payload: pass\n", None),
-        ("import sys\nimport model\nfrom . import leaf\n" + _WRITE, "class Payload: pass\n", None),
+        ("import sys\nimport sched\nfrom . import leaf\n" + _WRITE, "class Payload: pass\n", None),
         (
-            "import sys\nimport model\nif flag:\n    " + _WRITE,
+            "import sys\nimport sched\nif flag:\n    " + _WRITE,
             "class Payload: pass\n",
             None,
         ),
@@ -2392,7 +2393,7 @@ def test_registry_publication_wins_over_a_captured_child_file(tmp_path, parent, 
             [
                 _provider("json", parent, package=True),
                 _provider("json.leaf", "class Payload: pass\n"),
-                _provider("model", target),
+                _provider("sched", target),
             ],
             imported="json.leaf",
             binding="Payload",
@@ -2407,7 +2408,7 @@ def test_registry_publication_wins_over_a_captured_child_file(tmp_path, parent, 
     binding = by_name.get("json.leaf.Payload")
     assert (binding.kind if binding is not None else None) is expected
     if binding is not None:
-        assert binding.target == "model.Payload"
+        assert binding.target == "sched.Payload"
 
 
 @pytest.mark.parametrize(
@@ -2471,32 +2472,32 @@ def test_child_file_yields_only_to_module_registry_access(tmp_path, parent, kept
     assert kinds == ({"json.leaf.Payload": ProviderBindingKind.CLASS} if kept else {})
 
 
-_PUBLISH = "sys.modules['json.leaf'] = model\n"
+_PUBLISH = "sys.modules['json.leaf'] = sched\n"
 
 
 @pytest.mark.parametrize(
     ("parent", "known"),
     [
-        ("import sys\nimport model\n" + _PUBLISH, True),
-        ("import sys\nimport model, other\n" + _PUBLISH, False),
-        ("import sys\nimport other, model\n" + _PUBLISH, False),
-        ("import sys\nimport other as alias, model\n" + _PUBLISH, False),
-        ("import sys, model\n" + _PUBLISH, False),
+        ("import sys\nimport sched\n" + _PUBLISH, True),
+        ("import sys\nimport sched, other\n" + _PUBLISH, False),
+        ("import sys\nimport other, sched\n" + _PUBLISH, False),
+        ("import sys\nimport other as alias, sched\n" + _PUBLISH, False),
+        ("import sys, sched\n" + _PUBLISH, False),
         (
-            "import sys as registry, other\nimport model\nregistry.modules['json.leaf'] = model\n",
+            "import sys as registry, other\nimport sched\nregistry.modules['json.leaf'] = sched\n",
             False,
         ),
-        ("import other\nimport sys\nimport model\n" + _PUBLISH, False),
-        ("from other import helper\nimport sys\nimport model\n" + _PUBLISH, False),
-        ("import sys\nimport model\n" + _PUBLISH + "import other\n", False),
-        ("import sys\nimport model\n" + _PUBLISH + "from other import first, second\n", False),
-        ("import sys\nimport model\n" + _PUBLISH + "def load():\n    import other\n", False),
-        ("import sys\nimport model\n" + _PUBLISH + "from json import other\n", False),
-        ("import sys\nimport model\n" + _PUBLISH + "from os.path import join\n", False),
-        ("import sys\nimport model\n" + _PUBLISH + "from .itertools import chain\n", False),
-        ("from itertools import chain\nimport sys\nimport model\n" + _PUBLISH, True),
-        ("import sys\nimport model\n" + _PUBLISH + "import itertools as tools, keyword\n", True),
-        ("import sys\nimport model\n" + _PUBLISH + "def load():\n    import heapq\n", True),
+        ("import other\nimport sys\nimport sched\n" + _PUBLISH, False),
+        ("from other import helper\nimport sys\nimport sched\n" + _PUBLISH, False),
+        ("import sys\nimport sched\n" + _PUBLISH + "import other\n", False),
+        ("import sys\nimport sched\n" + _PUBLISH + "from other import first, second\n", False),
+        ("import sys\nimport sched\n" + _PUBLISH + "def load():\n    import other\n", False),
+        ("import sys\nimport sched\n" + _PUBLISH + "from json import other\n", False),
+        ("import sys\nimport sched\n" + _PUBLISH + "from os.path import join\n", False),
+        ("import sys\nimport sched\n" + _PUBLISH + "from .itertools import chain\n", False),
+        ("from itertools import chain\nimport sys\nimport sched\n" + _PUBLISH, True),
+        ("import sys\nimport sched\n" + _PUBLISH + "import itertools as tools, keyword\n", True),
+        ("import sys\nimport sched\n" + _PUBLISH + "def load():\n    import heapq\n", True),
     ],
     ids=[
         "own-statement",
@@ -2525,8 +2526,39 @@ def test_registry_publication_allows_no_foreign_import(tmp_path, parent, known):
             tmp_path,
             [
                 _provider("json", parent, package=True),
-                _provider("model", "class Payload: pass\n"),
-                _provider("other", "import model\nmodel.Payload = None\n"),
+                _provider("sched", "class Payload: pass\n"),
+                _provider("other", "import sched\nmodel.Payload = None\n"),
+            ],
+            imported="json.leaf",
+            binding="Payload",
+        )
+    )
+    assert (
+        "json.leaf.Payload" in {item.qualified_name for item in facts.provider_bindings}
+    ) is known
+
+
+_RESET = "reset = {0}.reset\nreset()\n"
+
+
+@pytest.mark.parametrize(
+    ("target", "extra", "known"),
+    [("sched", "", True), ("model", "", False), ("model", _RESET, False)],
+    ids=["stdlib-target", "third-party-target", "third-party-stored-call"],
+)
+def test_registry_publication_needs_a_stdlib_target(tmp_path, target, extra, known):
+    # A stored member call runs code of the published module; only stdlib code is trusted.
+    parent = f"import sys\nimport {target}\nsys.modules['json.leaf'] = {target}\n"
+    facts = _native_facts(
+        _request(
+            tmp_path,
+            [
+                _provider("json", parent + extra.format(target), package=True),
+                _provider(
+                    target,
+                    "import sys\nclass Payload: pass\n"
+                    "def reset():\n    sys.modules[__name__].Payload = None\n",
+                ),
             ],
             imported="json.leaf",
             binding="Payload",
@@ -2554,7 +2586,7 @@ def test_registry_alias_needs_the_published_module_source(tmp_path):
     ("parent", "known"),
     [
         (_REGISTRY, True),
-        (_REGISTRY + "sys.modules['json.leaf'] = model\n", False),
+        (_REGISTRY + "sys.modules['json.leaf'] = sched\n", False),
         ("import sys\nsys.modules[__name__] = None\n", False),
     ],
     ids=["child-write", "child-written-twice", "own-write"],
@@ -2588,7 +2620,7 @@ def test_registry_alias_needs_a_static_target_module(tmp_path):
             tmp_path,
             [
                 _provider("json", _REGISTRY, package=True),
-                _provider("model", "class Payload: pass\nexec(source)\n"),
+                _provider("sched", "class Payload: pass\nexec(source)\n"),
             ],
             imported="json.leaf",
             binding="Payload",
@@ -2603,7 +2635,7 @@ def _registry_alias_case(tmp_path):
         tmp_path,
         [
             _provider("json", _REGISTRY, package=True),
-            _provider("model", "class Payload: pass\n"),
+            _provider("sched", "class Payload: pass\n"),
         ],
         imported="json.leaf",
         binding="Payload",
@@ -2658,7 +2690,7 @@ def test_requested_registry_alias_must_name_a_child_of_its_initializer(
     "parent",
     [
         _REGISTRY.replace("json", "vendor"),
-        "import sys\nimport model\nsys.modules['vendor.leaf'] = model\nleaf = model\n",
+        "import sys\nimport sched\nsys.modules['vendor.leaf'] = sched\nleaf = sched\n",
     ],
     ids=["exact", "with-attribute"],
 )
@@ -2668,7 +2700,7 @@ def test_third_party_registry_layout_stays_unknown(tmp_path, parent):
             tmp_path,
             [
                 _provider("vendor", parent, package=True),
-                _provider("model", "class Payload: pass\n"),
+                _provider("sched", "class Payload: pass\n"),
             ],
             imported="vendor.leaf",
             binding="Payload",
@@ -2682,18 +2714,18 @@ def test_third_party_registry_layout_stays_unknown(tmp_path, parent):
     ("change", "known"),
     [
         ("", True),
-        ("value = model.Payload\n", True),
-        ("class Local(model.Payload): pass\n", True),
-        ("model.Payload = None\n", False),
-        ("model.Other = None\n", False),
-        ("del model.Payload\n", False),
-        ("model.count += 1\n", False),
-        ("setattr(model, 'Payload', None)\n", False),
-        ("model.__dict__['Payload'] = None\n", False),
-        ("vars(model)['Payload'] = None\n", False),
-        ("alias = model\nalias.Payload = None\n", False),
-        ("def reset():\n    model.Payload = None\n", False),
-        ("model.reset()\n", False),
+        ("value = sched.Payload\n", True),
+        ("class Local(sched.Payload): pass\n", True),
+        ("sched.Payload = None\n", False),
+        ("sched.Other = None\n", False),
+        ("del sched.Payload\n", False),
+        ("sched.count += 1\n", False),
+        ("setattr(sched, 'Payload', None)\n", False),
+        ("sched.__dict__['Payload'] = None\n", False),
+        ("vars(sched)['Payload'] = None\n", False),
+        ("alias = sched\nalias.Payload = None\n", False),
+        ("def reset():\n    sched.Payload = None\n", False),
+        ("sched.reset()\n", False),
     ],
     ids=[
         "unchanged",
@@ -2713,11 +2745,11 @@ def test_third_party_registry_layout_stays_unknown(tmp_path, parent):
 )
 @pytest.mark.parametrize("before", [True, False], ids=["before-write", "after-write"])
 def test_registry_publication_needs_an_unchanged_module(tmp_path, change, known, before):
-    parent = "import sys\nimport model\n" + change + _WRITE if before else _REGISTRY + change
+    parent = "import sys\nimport sched\n" + change + _WRITE if before else _REGISTRY + change
     facts = _native_facts(
         _request(
             tmp_path,
-            [_provider("json", parent, package=True), _provider("model", "class Payload: pass\n")],
+            [_provider("json", parent, package=True), _provider("sched", "class Payload: pass\n")],
             imported="json.leaf",
             binding="Payload",
         )
@@ -2731,7 +2763,7 @@ def test_registry_publication_needs_an_unchanged_module(tmp_path, change, known,
 
 def _injected(facts, qualified, evidence_file):
     [evidence] = [item for item in facts.evidence if item.file == evidence_file][:1]
-    alias = ProviderBinding(qualified, ProviderBindingKind.ALIAS, evidence.id, "model.Payload")
+    alias = ProviderBinding(qualified, ProviderBindingKind.ALIAS, evidence.id, "sched.Payload")
     return replace(facts, provider_bindings=(*facts.provider_bindings, alias))
 
 
@@ -2741,7 +2773,7 @@ def test_requested_registry_alias_needs_its_published_target(tmp_path):
             tmp_path,
             [
                 _provider("json", _REGISTRY, package=True),
-                _provider("model", "class Payload: pass\n"),
+                _provider("sched", "class Payload: pass\n"),
                 _provider("other", "Payload = None\n"),
             ],
             imported="json.leaf",
@@ -2794,7 +2826,7 @@ def test_requested_registry_alias_needs_the_producer_proof(
             tmp_path,
             [
                 _provider(package, parent, package=True),
-                _provider("model", "class Payload: pass\n"),
+                _provider("sched", "class Payload: pass\n"),
                 *extra,
             ],
             imported=imported,
