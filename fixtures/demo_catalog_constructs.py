@@ -321,7 +321,9 @@ _SELECTOR_EMPTY_LITERAL_UNKNOWN = Variant(
     item="forbidden_construct:selector_empty_literal",
     summary='A rule forbids the literal "flat" in a match on Connection.backend. The probe has '
     'case "" and a case the collector cannot prove. The empty literal does not hide the '
-    "unproven case, so the verdict is UNKNOWN and not PASS (#615).",
+    "unproven case, so the rule verdict is UNKNOWN and not PASS (#615). The run verdict is FAIL "
+    "because of CONSTRUCT-NO-STRING-LITERAL-COMPARE. A chained equality with an empty literal "
+    "takes the same path.",
     files={
         "shop/model/probe_selector.py": _SELECTOR_PROBE,
         "architecture-contract.json": contract_with_rule(
