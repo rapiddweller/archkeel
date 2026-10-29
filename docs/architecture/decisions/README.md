@@ -283,3 +283,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-273 | [A namespace exposure withholds loader proof in its own module only](ad-273-namespace-exposure-is-local-to-its-module.md) |
 | AD-274 | [`types` adds globals, and a project declaration publishes its name](ad-274-types-add-and-project-declarations-publish.md) |
 | AD-275 | [A names-only `globals()` keeps the direct bindings of its module stable](ad-275-names-only-globals-keep-direct-bindings-stable.md) |
+| AD-276 | [A leading UTF-8 BOM is not source text](ad-276-a-leading-utf-8-bom-is-not-source-text.md) |

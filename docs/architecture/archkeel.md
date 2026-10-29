@@ -142,6 +142,7 @@ and canonical type identity; their exact and optional-union semantics are record
 | [AD-273](decisions/ad-273-namespace-exposure-is-local-to-its-module.md) | `globals()`, `eval` and `exec` withhold loader proof in their own module, not in the whole snapshot. |
 | [AD-274](decisions/ad-274-types-add-and-project-declarations-publish.md) | `types` adds globals instead of switching the catalog off; a project `declare` in a script file publishes its name. |
 | [AD-275](decisions/ad-275-names-only-globals-keep-direct-bindings-stable.md) | A `globals()` that only reads names keeps the direct bindings of its module stable, so a literal loader call there is proven. |
+| [AD-276](decisions/ad-276-a-leading-utf-8-bom-is-not-source-text.md) | A Python source starts with at most one UTF-8 BOM, which is not a character; a BOM provider's digest covers its text. |
 | [AD-246](decisions/ad-246-bounded-numeric-operand.md) | Bind selected modulo bounds to bounded source-derived integer proofs. |
 
 | [AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md) | Bind explicitly written actuals to proven formals before applying argument policies. |

@@ -61,6 +61,23 @@ _FORBIDDEN_DEPENDENCY_PAIR = Variant(
     expected_violations=("DEP-RENDER-NO-STORE",),
     expected_codes=("closed_world.observed_forbidden", "graph.drift", "rule.violated"),
 )
+# A byte order mark opens the violating file and the package initializer it imports through. The
+# mark is no source character, so the verdict equals the unmarked pair above (#742).
+_FORBIDDEN_DEPENDENCY_PAIR_BOM = Variant(
+    id="class-a-forbidden-dependency-pair-bom",
+    section="class_a",
+    item="forbidden_dependency:pair_bom",
+    summary="The same forbidden shop.render import, with a UTF-8 byte order mark at the start "
+    "of the importing file and of shop.store's package initializer. The interpreter accepts "
+    "both files, so the verdict equals the one without the marks.",
+    files={
+        "shop/render/text.py": "\ufeff" + _FORBIDDEN_DEPENDENCY_PAIR.files["shop/render/text.py"],
+        "shop/store/__init__.py": "\ufeff"
+        + (FIXTURE_DIR / "shop/store/__init__.py").read_text(encoding="utf-8"),
+    },
+    expected_violations=_FORBIDDEN_DEPENDENCY_PAIR.expected_violations,
+    expected_codes=_FORBIDDEN_DEPENDENCY_PAIR.expected_codes,
+)
 REPOSITORY_WITH_MONEY_IMPORT = HEADER + (
     '"""Persist orders as one JSON file per order id."""\n\n'
     "from __future__ import annotations\n\n"
@@ -1421,6 +1438,7 @@ VARIANTS: tuple[Variant, ...] = (
     ),
     _COMPLETE_EXTERNAL_SCOPE,
     _FORBIDDEN_DEPENDENCY_PAIR,
+    _FORBIDDEN_DEPENDENCY_PAIR_BOM,
     _FORBIDDEN_DEPENDENCY_TARGET_SYMBOL,
     _FORBIDDEN_DEPENDENCY_TYPE_CHECKING,
     _FORBIDDEN_DEPENDENCY_ALLOWED_SOURCES,

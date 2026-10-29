@@ -3030,6 +3030,14 @@ def _parse_bounded(source: str, filename: str) -> ast.Module:
     return tree
 
 
+def decode_source(raw: bytes) -> str:
+    """Decode a source file as UTF-8 and drop one leading byte order mark (BOM) (#742).
+
+    Line 1 starts after the BOM, so columns equal the ones without a BOM.
+    """
+    return raw.decode("utf-8-sig")
+
+
 @dataclass(frozen=True)
 class ParsedSources:
     """Modules parsed from one scan pass, their coverage failures and source digest."""
@@ -3055,7 +3063,7 @@ def parse_sources(paths: Sequence[Path], *, root: Path, namespace: str) -> Parse
             digest.update(b"\0")
             digest.update(raw)
             digest.update(b"\0")
-            source = raw.decode("utf-8")
+            source = decode_source(raw)
             tree = _parse_bounded(source, rel)
             module_name = module_for(path, root=root, namespace=namespace)
         except (OSError, UnicodeDecodeError, SyntaxError, ValueError) as exc:
