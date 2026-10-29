@@ -1716,3 +1716,32 @@ def test_src_layout_mounted_source_ownership_replays_as_proven(tmp_path):
             if row.id == "core:inside_ownership"
         ]
         assert replayed == assessment
+
+
+# The reference collector reads a write target and the prefix of an unresolved chain (#731).
+@pytest.mark.parametrize(
+    "use", ["def go():\n    CONFIG.x = 1\n", "def go():\n    return CONFIG.x\n"]
+)
+def test_retired_read_counts_the_root_of_an_attribute_chain(tmp_path, use):
+    from archkeel.ir.decisions import rule_assessments
+
+    contract = _contract(
+        {"mode": "retired", "symbols": ["sample.config.CONFIG"], "roles": ["read"]}
+    )
+    contract["components"] = [_component("all", ["sample"])]
+    result = _observe_tree(
+        tmp_path,
+        {
+            "sample/__init__.py": "",
+            "sample/config.py": "class Config:\n    x = 0\nCONFIG = Config()\n",
+            "sample/consumer.py": "from .config import CONFIG\n" + use,
+        },
+        contract,
+    )
+    assert result.observation is not None
+    [assessment] = [
+        item
+        for item in rule_assessments(result.observation, undecided_by_rule={})
+        if item.id == "ownership"
+    ]
+    assert assessment.status == "FAIL"

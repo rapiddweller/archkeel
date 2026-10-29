@@ -333,6 +333,11 @@ def _catalog_rule_result(
         not ambiguous_imports,
         references_measured,
     )
+    if isinstance(rule, CatalogArgumentRule) and (
+        escapes := _catalog_import_escapes(imports, entries)
+    ):
+        reason = "An import gives the enum owner to code the check cannot see"
+        limits = [*limits, _catalog_limit(rule, scope, reason, escapes)]
     receipt = (
         None if limits else _rule_evaluation_receipt(rule, scope, [*supporting, *selected_calls])
     )
@@ -527,6 +532,50 @@ def _catalog_ambiguous_imports(
         ):
             ambiguous.append(record)
     return ambiguous
+
+
+def _catalog_import_escapes(
+    imports: Sequence[RawRecord], entries: dict[str, _CatalogEntry]
+) -> list[RawRecord]:
+    """Find the imports that give the owner to code the reference collector cannot follow (#731).
+
+    The collector follows a unique import of an enum class and a module path that names the
+    owner module. Every other way to the owner here is an escape.
+    """
+    owner_data = [parse_record(owner).data for owner, _, _ in entries.values()]
+    owners = {name for data in owner_data if (name := _record_text(data, "qualified_name"))}
+    modules = {name for data in owner_data if (name := _record_text(data, "module"))}
+    datas = [(record, parse_record(record).data) for record in imports]
+    # A holder imports the owner module as a module object, such as `from . import catalog`.
+    held = [
+        (_record_text(data, "source_module"), _record_text(data, "binding"))
+        for _, data in datas
+        if data.get("symbol") is None and data.get("target_module") in modules
+    ]
+    holders = {module for module, _ in held}
+    held_names = {f"{module}.{binding}" for module, binding in held}
+    starred = (
+        modules
+        | holders
+        | {
+            _record_text(data, "source_module")
+            for _, data in datas
+            if data.get("origin_definition") in owners
+        }
+    )
+    return [
+        record
+        for record, data in datas
+        if data.get("origin_definition") in held_names
+        or data.get("symbol") is None
+        and data.get("target_module") in holders
+        or data.get("symbol") == "*"
+        and data.get("target_module") in starred
+        # `collect_references` follows only a unique binding; this counts all the others.
+        or data.get("source_binding_unique") is not True
+        and data.get("under_type_checking") is not True
+        and data.get("origin_definition") in owners
+    ]
 
 
 def _catalog_source_records(
@@ -753,30 +802,30 @@ def _catalog_enum_escape_limit(
     all_references: Sequence[RawRecord],
     evidence: dict[str, RawEvidence],
 ) -> RawRecord | None:
-    """Require every catalog member read in the snapshot to reach only the selected operation."""
+    """Require every non-annotation read of a catalog owner to reach only the selected operation.
+
+    Not only `OptionKey.PAGE_SIZE`: `OptionKey('page_size')` returns the member too (#731).
+    """
     owners = _catalog_entry_owners(entries)
-    members: list[RawRecord] = []
+    reads: list[RawRecord] = []
     for reference in all_references:
         data = reference_data.get(reference["id"])
-        expression = _record_text(data, "expression") if data is not None else None
         if (
             data is not None
-            and expression is not None
-            and _record_text(data, "reference_context") == "value"
-            and any(
-                f"{owner}.{last_name(expression)}" in entries
-                for owner in owners & set(_record_strings(data, "targets"))
-            )
+            and _record_text(data, "reference_context") != "annotation"
+            and owners & set(_record_strings(data, "targets"))
         ):
-            members.append(reference)
-    if not members:
+            reads.append(reference)
+    if not reads:
         return None
     accounted: set[str] = set()
     if rule.target is not None and not _catalog_target_may_change(
         rule.target, all_calls, all_references
     ):
-        accounted = _catalog_target_argument_references(rule.target, members, all_calls, evidence)
-    escaped = [reference for reference in members if reference["id"] not in accounted]
+        accounted = _catalog_target_argument_references(
+            rule.target, reads, reference_data, all_calls, evidence
+        )
+    escaped = [reference for reference in reads if reference["id"] not in accounted]
     if not escaped:
         return None
     return _catalog_limit(
@@ -801,6 +850,7 @@ def _catalog_target_may_change(
 def _catalog_target_argument_references(
     target: str,
     members: Sequence[RawRecord],
+    reference_data: dict[str, RecordData],
     all_calls: Sequence[RawRecord],
     evidence: dict[str, RawEvidence],
 ) -> set[str]:
@@ -811,7 +861,7 @@ def _catalog_target_argument_references(
         for identifier in starts
         if identifier in evidence
     }
-    accounted: set[str] = set()
+    accounted: set[tuple[str, str]] = set()
     for call in all_calls:
         # Only a call on the line of a member read can hold it, so most calls skip the decode.
         if not any(
@@ -828,8 +878,17 @@ def _catalog_target_argument_references(
         for actual in actuals:
             value = _actual_name(actual, evidence)
             if value is not None:
-                accounted |= {value[0]}
-    return {reference["id"] for reference in members if set(reference["evidence_ids"]) <= accounted}
+                accounted |= {value}
+    # `OptionKey.PAGE_SIZE.__dict__` starts at the member read but is not the member.
+    return {
+        reference["id"]
+        for reference in members
+        if {
+            (item, _record_text(reference_data[reference["id"]], "expression"))
+            for item in reference["evidence_ids"]
+        }
+        <= accounted
+    }
 
 
 def _actual_name(actual: CallArgument, evidence: dict[str, RawEvidence]) -> tuple[str, str] | None:
@@ -1144,7 +1203,9 @@ def _catalog_use_entry_results(
         owner_name = _record_text(parse_record(owner).data, "qualified_name")
         used = (
             any(
-                owner_name in _record_strings(reference_data[reference["id"]], "targets")
+                # `OptionKey as RETIRED` reads the class, not the member.
+                reference["kind"] == "attribute_reference"
+                and owner_name in _record_strings(reference_data[reference["id"]], "targets")
                 and last_name(_record_text(reference_data[reference["id"]], "expression") or "")
                 == last_name(identity)
                 for reference in value_refs

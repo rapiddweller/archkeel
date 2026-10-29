@@ -504,6 +504,7 @@ def collect(request: CollectionRequest) -> SourceFacts:
         symbol_index,
         evidence,
         include_source_roles=SOURCE_ROLES_FEATURE in collected_features,
+        imports=imports,
     )
     bindings = collect_bindings(modules, evidence)
     typing_signals = collect_typing_signals(modules, calls, symbols, imports, evidence)
