@@ -103,6 +103,9 @@
             "overloaded": {
               "type": "boolean"
             },
+            "parameters_contained": {
+              "type": "boolean"
+            },
             "reexport_candidates": {
               "type": "array",
               "items": {

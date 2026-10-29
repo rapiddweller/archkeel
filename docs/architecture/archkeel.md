@@ -144,6 +144,7 @@ and canonical type identity; their exact and optional-union semantics are record
 | [AD-275](decisions/ad-275-names-only-globals-keep-direct-bindings-stable.md) | A `globals()` that only reads names keeps the direct bindings of its module stable, so a literal loader call there is proven. |
 | [AD-276](decisions/ad-276-a-leading-utf-8-bom-is-not-source-text.md) | A Python source starts with at most one UTF-8 BOM, which is not a character; a BOM provider's digest covers its text. |
 | [AD-277](decisions/ad-277-references-record-write-targets-chain-prefixes-and-enum-reexports.md) | References record write targets, unresolved-chain prefixes and enum re-exports; `catalog_argument` counts each owner read and each import the collector cannot follow. |
+| [AD-279](decisions/ad-279-a-catalog-target-only-compares-or-indexes-its-arguments.md) | A `catalog_argument` target may only compare or index its parameters and store no subscript; a returned or kept argument stays UNKNOWN. |
 | [AD-246](decisions/ad-246-bounded-numeric-operand.md) | Bind selected modulo bounds to bounded source-derived integer proofs. |
 
 | [AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md) | Bind explicitly written actuals to proven formals before applying argument policies. |

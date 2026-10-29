@@ -53,7 +53,6 @@ same excerpt, so the collector alone cannot repair it.
 **Limits.** These still give PASS:
 - A runtime consumer of an annotation, such as a model field `k: Owner` that converts a value.
 - A module reached through a string: `sys.modules[...]`, `importlib.import_module(...)`.
-- A selected operation that returns or changes its argument.
 
 A consumer that reads members through a re-export stays UNKNOWN for `catalog_argument`, because
 the collector exposes the owner there. Under `from __future__ import annotations` a call in an
