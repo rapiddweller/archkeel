@@ -801,7 +801,8 @@ def test_the_same_checks_hold_in_an_async_function(menu, member) -> None:
     assert checked == (len(both) + len(both) ** 2) * 3
 
 
-HEADER_FORMS = {
+# Header forms with the call c(): c() runs under the guard, then the call can change the member.
+CALL_HEADER_FORMS = {
     "default": "def g(a=c()):\n    pass",
     "keyword_default": "def g(*, a=c()):\n    pass",
     "async_default": "async def g(a=c()):\n    pass",
@@ -811,38 +812,80 @@ HEADER_FORMS = {
     "class_base": "class G(c()):\n    pass",
     "class_keyword": "class G(metaclass=c()):\n    pass",
 }
-PLAIN_HEADER_FORMS = {
-    "default": "def g(a=1):\n    pass",
-    "def_decorator": "@d\ndef g():\n    pass",
-    "class_decorator": "@d\nclass G:\n    pass",
-    "class_base": "class G(Base):\n    pass",
-    "class_keyword": "class G(metaclass=Meta):\n    pass",
+# An annotation changes the state only: with a deferred annotation c() never runs.
+ANNOTATION_HEADER_FORMS = {
+    "annotation": "def g(a: c()):\n    pass",
+    "positional_only_annotation": "def g(a: c(), /):\n    pass",
+    "keyword_only_annotation": "def g(*, a: c()):\n    pass",
+    "vararg_annotation": "def g(*a: c()):\n    pass",
+    "kwarg_annotation": "def g(**a: c()):\n    pass",
+    "return_annotation": "def g() -> c():\n    pass",
 }
+# A decorator and a class keyword make a call without a call node: `@d` is `d(g)`.
+IMPLICIT_CALL_HEADER_FORMS = {
+    "bare_def_decorator": "@d\ndef g():\n    pass",
+    "bare_class_decorator": "@d\nclass G:\n    pass",
+    "bare_class_metaclass": "class G(metaclass=Meta):\n    pass",
+    "class_option": "class G(Base, option=1):\n    pass",
+}
+HARMLESS_HEADER_FORMS = {
+    "plain_def": "def g():\n    pass",
+    "default": "def g(a=1):\n    pass",
+    "annotation": "def g(a: int) -> int:\n    return a",
+    "plain_class": "class G:\n    pass",
+    "class_base": "class G(Base):\n    pass",
+}
+OPAQUE = {(None, "opaque_call_mutation")}
 
 
-@pytest.mark.parametrize("form", HEADER_FORMS)
-def test_a_call_in_a_definition_header_is_an_opaque_mutation_of_the_member(form: str) -> None:
-    body = textwrap.indent(HEADER_FORMS[form], "        ")
+def _member_after(form: str) -> tuple[Paths, set[tuple[bool | None, str | None]]]:
+    body = textwrap.indent(form, "        ")
     paths = _guarded(f"def f(self):\n    if self.flag:\n{body}\n        after()\n", True)
-    assert _values(paths, "after") == {(None, "opaque_call_mutation")}
+    return paths, _values(paths, "after")
+
+
+@pytest.mark.parametrize("form", CALL_HEADER_FORMS)
+def test_a_call_in_a_definition_header_is_an_opaque_mutation_of_the_member(form: str) -> None:
+    paths, after = _member_after(CALL_HEADER_FORMS[form])
+    assert after == OPAQUE
     # The one call of the header runs under the guard, before it can change anything.
     assert _values(paths, "c") == {(True, None)}
 
 
-@pytest.mark.parametrize("form", HEADER_FORMS)
+@pytest.mark.parametrize("form", ANNOTATION_HEADER_FORMS)
+def test_a_call_in_an_annotation_is_an_opaque_mutation_but_no_effect(form: str) -> None:
+    paths, after = _member_after(ANNOTATION_HEADER_FORMS[form])
+    assert after == OPAQUE
+    assert _values(paths, "c") == set()
+
+
+@pytest.mark.parametrize("form", IMPLICIT_CALL_HEADER_FORMS)
+def test_a_decorator_or_class_keyword_without_a_call_node_is_an_opaque_mutation(form: str) -> None:
+    assert _member_after(IMPLICIT_CALL_HEADER_FORMS[form])[1] == OPAQUE
+
+
+@pytest.mark.parametrize("form", HARMLESS_HEADER_FORMS)
+def test_a_header_without_decorator_call_or_keyword_keeps_the_member_guard(form: str) -> None:
+    assert _member_after(HARMLESS_HEADER_FORMS[form])[1] == {(True, None)}
+
+
+@pytest.mark.parametrize(
+    "form", [*CALL_HEADER_FORMS.values(), *ANNOTATION_HEADER_FORMS.values()], ids=lambda f: f[:30]
+)
 def test_a_call_in_a_definition_header_does_not_change_a_parameter_guard(form: str) -> None:
-    body = textwrap.indent(HEADER_FORMS[form], "        ")
+    body = textwrap.indent(form, "        ")
     paths = _guarded(f"def f(flag):\n    if flag:\n{body}\n        after()\n", False)
     assert _values(paths, "after") == {(True, None)}
 
 
-@pytest.mark.parametrize("form", PLAIN_HEADER_FORMS)
-def test_a_header_without_a_call_keeps_the_member_guard(form: str) -> None:
-    body = textwrap.indent(PLAIN_HEADER_FORMS[form], "        ")
-    paths = _guarded(f"def f(self):\n    if self.flag:\n{body}\n        after()\n", True)
-    assert _values(paths, "after") == {(True, None)}
+def test_a_named_expression_in_an_annotation_rebinds_the_parameter_guard() -> None:
+    source = (
+        "def f(flag):\n    if flag:\n        def g(a: (flag := False)):\n            pass\n"
+        "        after()\n"
+    )
+    assert _values(_guarded(source, False), "after") == {(None, "condition_mutation")}
 
 
 def test_two_calls_in_a_definition_header_leave_the_second_call_without_a_value() -> None:
     source = "def f(self):\n    if self.flag:\n        def g(a=c(), b=d()):\n            pass\n"
-    assert _values(_guarded(source, True), "d") == {(None, "opaque_call_mutation")}
+    assert _values(_guarded(source, True), "d") == OPAQUE

@@ -314,7 +314,10 @@ def test_a_class_body_that_rebinds_the_parameter_through_nonlocal_makes_the_guar
 
 # A definition header runs when the statement runs, before the body: a call there can change the
 # guard. A decorated definition or a metaclass keyword already gives UNKNOWN end to end for another
-# reason, so those forms are checked on the walker in test_guard_path_classes.py.
+# reason, so those forms (and the bare decorator and the `metaclass=` keyword, which are calls
+# without a call node) are checked on the walker in test_guard_path_classes.py. An annotation runs
+# at definition time only before Python 3.14 and without the `__future__` import; a deferred
+# annotation gives a false UNKNOWN, never a false proof.
 HEADERS = {
     "default": ("def local(a=self.reset()):\n    return a", UNKNOWN),
     "keyword_default": ("def local(*, a=self.reset()):\n    return a", UNKNOWN),
@@ -322,6 +325,11 @@ HEADERS = {
     "lambda_default": ("local = lambda a=self.reset(): a", UNKNOWN),
     "class_base": ("class Local(make(self.reset())):\n    pass", UNKNOWN),
     "two_calls_in_header": ("def local(a=self.reset(), b=other()):\n    return a", UNKNOWN),
+    "annotation": ("def local(a: self.reset()):\n    return a", UNKNOWN),
+    "return_annotation": ("def local() -> self.reset():\n    return 1", UNKNOWN),
+    "vararg_annotation": ("def local(*a: self.reset()):\n    return a", UNKNOWN),
+    "kwarg_annotation": ("def local(**a: self.reset()):\n    return a", UNKNOWN),
+    "harmless_annotation": ("def local(a: int) -> int:\n    return a", FAIL),
     "harmless_default": ("def local(a=1):\n    return a", FAIL),
     "harmless_class_base": ("class Local(Base):\n    pass", FAIL),
 }
@@ -341,3 +349,49 @@ def test_a_call_in_a_definition_header_makes_the_guarded_member_unknown(tmp_path
     )
     files = {"sample/core.py": source}
     assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == expected
+
+
+def test_a_named_expression_in_an_annotation_makes_the_parameter_guard_unknown(tmp_path):
+    source = """
+    def _effect():
+        return None
+
+    def generate(seeded: bool):
+        if seeded:
+            def local(a: (seeded := False)):
+                return a
+            _effect()
+    """
+    files = {"sample/core.py": source}
+    assert _verdict(tmp_path, files, target="sample.core._effect") == UNKNOWN
+
+
+# Accepted cost: a class-local store of the guard name does not change the guard in Python, but
+# the walker cannot tell it from a store in the enclosing scope, so the verdict is UNKNOWN.
+def test_a_class_local_store_of_the_parameter_name_gives_a_false_unknown(tmp_path):
+    source = """
+    def _effect():
+        return None
+
+    def generate(seeded: bool):
+        if seeded:
+            class Local:
+                seeded = False
+            _effect()
+    """
+    files = {"sample/core.py": source}
+    assert _verdict(tmp_path, files, target="sample.core._effect") == UNKNOWN
+
+
+def test_a_class_field_with_the_member_name_gives_a_false_unknown(tmp_path):
+    source = (
+        "def _effect():\n    return None\n\n"
+        "class Generator:\n"
+        "    def __init__(self):\n        self.seeded: bool = False\n\n"
+        "    def generate(self):\n"
+        "        if self.seeded:\n"
+        "            class Local:\n                seeded: bool = False\n"
+        "            _effect()\n"
+    )
+    files = {"sample/core.py": source}
+    assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == UNKNOWN

@@ -6,7 +6,11 @@
 from __future__ import annotations
 
 import ast
+from collections.abc import Sequence
 from dataclasses import dataclass
+
+# (condition value, unknown reason): what the walker knows about the guard at one point.
+_State = tuple[bool | None, str | None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,6 +22,32 @@ class GuardedCallPath:
     path_nodes: tuple[ast.AST, ...] = ()
     unknown_reason: str | None = None
     raised_exception_constructor: bool = False
+
+
+def _function_header_expressions(
+    function: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> list[ast.expr]:
+    """The decorators and default values of a `def`: they run when the statement runs."""
+    arguments = function.args
+    return [
+        *function.decorator_list,
+        *arguments.defaults,
+        *(item for item in arguments.kw_defaults if item is not None),
+    ]
+
+
+def _function_annotations(function: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.expr]:
+    """The annotations of a `def`. Python 3.13 and older run them when the statement runs."""
+    arguments = function.args
+    parameters = [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs]
+    if arguments.vararg:
+        parameters.append(arguments.vararg)
+    if arguments.kwarg:
+        parameters.append(arguments.kwarg)
+    return [
+        *(parameter.annotation for parameter in parameters if parameter.annotation is not None),
+        *([function.returns] if function.returns is not None else []),
+    ]
 
 
 def _is_condition(expression: ast.expr, name: str, receiver: str | None) -> bool:
@@ -261,13 +291,15 @@ class _GuardPathWalker:
             self._unsupported_flow(statement, path_nodes)
             return [(None, "unsupported_control_flow", path_nodes)]
         if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            arguments = statement.args
-            header = (
-                *statement.decorator_list,
-                *arguments.defaults,
-                *(item for item in arguments.kw_defaults if item is not None),
+            state = self._definition_state(
+                statement.name,
+                _function_header_expressions(statement),
+                _function_annotations(statement),
+                len(statement.decorator_list),
+                current,
+                reason,
+                path_nodes,
             )
-            state = self._definition_state(statement.name, header, current, reason, path_nodes)
             return [(*state, path_nodes)]
         if isinstance(statement, ast.ClassDef):
             header = (
@@ -275,42 +307,66 @@ class _GuardPathWalker:
                 *statement.bases,
                 *(keyword.value for keyword in statement.keywords),
             )
-            state = self._definition_state(statement.name, header, current, reason, path_nodes)
+            # A decorator and a class keyword are each one call: `@d` is `d(cls)`, and the
+            # keywords go to the metaclass or to `__init_subclass__`.
+            applied = len(statement.decorator_list) + len(statement.keywords)
+            state = self._definition_state(
+                statement.name, header, [], applied, current, reason, path_nodes
+            )
             # The body runs now, in order, so the code after the class starts from its end states.
             return self.block(statement.body, state[0], path_nodes, state[1])
         return self._ordinary_paths(statement, current, reason, path_nodes)
 
+    def _call_states(
+        self,
+        nodes: Sequence[ast.AST],
+        rebinds: bool,
+        applied: int,
+        current: bool | None,
+        reason: str | None,
+    ) -> tuple[_State, _State]:
+        """Return the state in which the calls of `nodes` are recorded, and the state after them.
+
+        With a receiver, any call can change the member. A second call runs after the first, so
+        it has no value. `applied` counts calls that the syntax makes without a call node, and
+        they run last, so they change only the state after.
+        """
+        current_state: _State = (current, reason)
+        opaque: _State = (None, "opaque_call_mutation")
+        calls = sum(isinstance(child, ast.Call) for node in nodes for child in ast.walk(node))
+        calls_mutate = self.receiver_name is not None
+        record: _State
+        after: _State
+        if rebinds or any(self.writes_name(node) for node in nodes):
+            record = (None, "condition_mutation")
+            after = record
+        else:
+            record = opaque if calls_mutate and calls > 1 else current_state
+            after = current_state
+        return record, (opaque if calls_mutate and calls + applied else after)
+
     def _definition_state(
         self,
         name: str,
-        header: tuple[ast.expr, ...],
+        header: Sequence[ast.expr],
+        annotations: Sequence[ast.expr],
+        applied: int,
         current: bool | None,
         reason: str | None,
         path_nodes: tuple[ast.AST, ...],
-    ) -> tuple[bool | None, str | None]:
+    ) -> _State:
         """Run the header of a `def` or `class`, record its calls, return the state after it.
 
-        The header runs when the statement runs, before the body. Like an ordinary statement,
-        it can rebind the guard, and with a receiver any call in it can change the member.
+        An annotation can rebind or call too, but it only changes the state: a deferred
+        annotation (Python 3.14, or the `__future__` import) never runs, so its call is no
+        effect. With such an annotation the walker reports a false UNKNOWN, never a false proof.
         """
-        if name in self.bound_names or any(self.writes_name(item) for item in header):
-            state: tuple[bool | None, str | None] = (None, "condition_mutation")
-            record = state
-        else:
-            calls = sum(isinstance(child, ast.Call) for item in header for child in ast.walk(item))
-            state = (
-                (None, "opaque_call_mutation")
-                if self.receiver_name is not None and calls
-                else (current, reason)
-            )
-            record = (
-                (None, "opaque_call_mutation")
-                if self.receiver_name is not None and calls > 1
-                else (current, reason)
-            )
+        record, after = self._call_states(
+            [*header, *annotations], name in self.bound_names, applied, current, reason
+        )
         for expression in header:
             self.expression(expression, record[0], path_nodes, record[1])
-        return state
+        return after
 
     def _if_paths(
         self,
@@ -368,31 +424,21 @@ class _GuardPathWalker:
         current_reason: str | None,
         path_nodes: tuple[ast.AST, ...],
     ) -> list[tuple[bool | None, str | None, tuple[ast.AST, ...]]]:
-        reason = (
-            "condition_mutation"
-            if self.writes_name(statement)
-            else "opaque_call_mutation"
-            if self.receiver_name is not None
-            and sum(isinstance(child, ast.Call) for child in ast.walk(statement)) > 1
-            else current_reason
-        )
+        record, after = self._call_states((statement,), False, 0, current, current_reason)
         expression = (
             statement.exc if isinstance(statement, ast.Raise) and statement.exc else statement
         )
         self.expression(
             expression,
-            None if reason in {"condition_mutation", "opaque_call_mutation"} else current,
+            record[0],
             path_nodes,
-            reason,
+            record[1],
             raised_exception_constructor=isinstance(statement, ast.Raise)
             and isinstance(statement.exc, ast.Call),
         )
         if isinstance(statement, ast.Return | ast.Raise):
             return []
-        if self.receiver_name is not None and self.has_calls(statement):
-            reason = "opaque_call_mutation"
-        next_value = None if reason in {"condition_mutation", "opaque_call_mutation"} else current
-        return [(next_value, reason, path_nodes)]
+        return [(*after, path_nodes)]
 
 
 def guarded_call_paths(

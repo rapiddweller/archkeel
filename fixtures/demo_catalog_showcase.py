@@ -330,9 +330,10 @@ _HEADER_CALL = Variant(
     section="class_a",
     item="forbidden_effect_under_condition:call in a definition header",
     summary="The rule guards the member self.seeded. The seeded branch declares a function "
-    "whose default value is self.reset(), then calls secrets.token_hex. A default value, a "
-    "decorator, a class base and a class keyword run when the statement runs, so the call can "
-    "change the member and the rule is UNKNOWN. Before #619 the walker kept the guard and "
+    "whose default value is self.reset(), then calls secrets.token_hex. A default value, an "
+    "annotation, a decorator, a class base and a class keyword run when the statement runs "
+    "(an annotation only before Python 3.14), so the call can change the member and the rule "
+    "is UNKNOWN. Before #619 the walker kept the guard and "
     "gave a false proven FAIL.",
     files={
         "shop/app/tokens.py": HEADER
