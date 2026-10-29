@@ -266,3 +266,47 @@ def test_rebinding_the_guarded_member_or_its_receiver_inside_the_branch(tmp_path
     )
     files = {"sample/core.py": source}
     assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == expected
+
+
+# A class body runs when the class statement runs, so it can change the guard like any statement.
+CLASS_BODY_REBINDINGS = {
+    "opaque_call": "self.reset()",
+    "assign_attribute": "self.seeded = False",
+    "plain_class_attribute": "limit = 1",
+}
+
+
+@pytest.mark.parametrize("name", CLASS_BODY_REBINDINGS)
+def test_a_class_body_that_can_change_the_guarded_member_makes_the_guard_unknown(tmp_path, name):
+    body = textwrap.indent(CLASS_BODY_REBINDINGS[name], "                ")
+    source = (
+        "def _effect():\n    return None\n\n"
+        "class Generator:\n"
+        "    def __init__(self):\n        self.seeded: bool = False\n\n"
+        "    def reset(self):\n        return None\n\n"
+        "    def generate(self):\n"
+        "        if self.seeded:\n"
+        f"            class Local:\n{body}\n"
+        "            _effect()\n"
+    )
+    files = {"sample/core.py": source}
+    expected = FAIL if name == "plain_class_attribute" else UNKNOWN
+    assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == expected
+
+
+def test_a_class_body_that_rebinds_the_parameter_through_nonlocal_makes_the_guard_unknown(
+    tmp_path,
+):
+    source = """
+    def _effect():
+        return None
+
+    def generate(seeded: bool):
+        if seeded:
+            class Local:
+                nonlocal seeded
+                seeded = False
+            _effect()
+    """
+    files = {"sample/core.py": source}
+    assert _verdict(tmp_path, files, target="sample.core._effect") == UNKNOWN

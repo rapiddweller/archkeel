@@ -257,7 +257,11 @@ MEMBER_EXPECTED = {
         [("a", None, "opaque_call_mutation"), ("b", None, "opaque_call_mutation")],
     ),
     "nested_def": ([(None, None)], [("c", None, None)]),
-    "nested_class": ([(None, None)], [("Base", None, None), ("c", None, None)]),
+    # The class body calls c(): that call can change the member before the code after the class.
+    "nested_class": (
+        [(None, "opaque_call_mutation")],
+        [("Base", None, None), ("c", None, None)],
+    ),
     "empty_branch": ([(None, None)], []),
     "setattr_write": ([(None, "opaque_call_mutation")], [("setattr", None, "condition_mutation")]),
     "dict_write": (

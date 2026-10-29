@@ -280,8 +280,8 @@ class _GuardPathWalker:
             state = self._definition_state(statement.name, header, current, reason)
             for expression in header:
                 self.expression(expression, state[0], path_nodes, state[1])
-            self.block(statement.body, state[0], path_nodes, state[1])
-            return [(*state, path_nodes)]
+            # The body runs now, in order, so the code after the class starts from its end states.
+            return self.block(statement.body, state[0], path_nodes, state[1])
         return self._ordinary_paths(statement, current, reason, path_nodes)
 
     def _definition_state(
