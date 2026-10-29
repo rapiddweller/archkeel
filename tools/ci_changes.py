@@ -85,6 +85,7 @@ _PRODUCT_MARKDOWN_ROOTS = (
     "tools/",
 )
 _DOC_MARKDOWN_FILES = {
+    "AGENTS.md",
     "CODE_OF_CONDUCT.md",
     "CONTRIBUTING.md",
     "README.md",

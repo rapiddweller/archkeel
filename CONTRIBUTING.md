@@ -117,7 +117,7 @@ when its rationale names the cause; never reshape code only to stay under a ratc
 Write issues, pull request text, commit messages, docs, decision records and code comments in
 [ASD-STE100](https://www.asd-ste100.org/) (Simplified Technical English). Aim for about 80 % of
 the spec. The full spec is very strict, and 80 % already makes text much easier to read. This
-applies to people and to coding agents. Put it in every brief you give to an agent.
+applies to people and to coding agents. Agents receive it through [AGENTS.md](AGENTS.md).
 
 - Write one idea in each sentence. Steps: up to 20 words. Descriptions: up to 25 words.
 - Write steps in the imperative, one action in each step, and number them.
