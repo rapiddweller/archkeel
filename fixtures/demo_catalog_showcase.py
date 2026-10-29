@@ -292,7 +292,7 @@ _CLASS_BODY_MUTATION = Variant(
     item="forbidden_effect_under_condition:class body changes the guard",
     summary="The rule guards the member self.seeded. The seeded branch declares a class whose "
     "body calls self.reset(), then calls secrets.token_hex. A class body runs when the class "
-    "statement runs, so the call can change the member and the rule is UNKNOWN. Before #619 "
+    "statement runs, so the call can change the member and the rule is UNKNOWN. Before #761 "
     "the walker dropped the body and gave a false proven FAIL.",
     files={
         "shop/app/tokens.py": HEADER
@@ -333,7 +333,7 @@ _HEADER_CALL = Variant(
     "whose default value is self.reset(), then calls secrets.token_hex. A default value, an "
     "annotation, a decorator, a class base and a class keyword run when the statement runs "
     "(an annotation only before Python 3.14), so the call can change the member and the rule "
-    "is UNKNOWN. Before #619 the walker kept the guard and "
+    "is UNKNOWN. Before #761 the walker kept the guard and "
     "gave a false proven FAIL.",
     files={
         "shop/app/tokens.py": HEADER
