@@ -3262,7 +3262,7 @@ def _child_published(
     write: tuple[ast.Assign, str],
     owners: Mapping[ast.AST, ast.AST],
 ) -> bool:
-    """The write publishes the one import of the module, and nothing can change that module."""
+    """A stdlib module that the write publishes; the AST checks below are defense in depth."""
     statement, value = write
     body: list[ast.stmt] = module.tree.body
     bindings = [
@@ -3305,7 +3305,7 @@ def _child_published(
         and len(imports) == 1
         and isinstance(first, ast.Import)
         and len(first.names) == 1
-        and _only_stdlib_imports(module, imports[0])
+        and _only_stdlib_imports(module)
         and not any(
             isinstance(node, ast.Constant) and node.value == value for node in module.all_nodes
         )
@@ -3318,11 +3318,12 @@ def _child_published(
     )
 
 
-def _only_stdlib_imports(module: ParsedModule, published: ast.alias) -> bool:
-    """Every other import loads a top-level stdlib module, also in functions."""
-    # A foreign or own-package module runs its code at import time and can change the published one.
+def _only_stdlib_imports(module: ParsedModule) -> bool:
+    """Every import, also of the published module, loads a top-level stdlib module."""
+    # Foreign code can change the published module, also through a stored member call that the
+    # AST checks cannot follow; stdlib code is trusted (D1 scope of issue #724).
     return all(
-        alias is published or alias.name in sys.stdlib_module_names
+        alias.name in sys.stdlib_module_names
         for node in module.all_nodes
         if isinstance(node, ast.Import)
         for alias in node.names

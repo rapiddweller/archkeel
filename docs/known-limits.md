@@ -128,6 +128,14 @@ providers. Arbitrary operators, class namespace redirects and opaque module/obje
 transfers can invalidate proof across the scanned closure. Captured provider source
 does not establish runtime immutability or arbitrary factory behavior.
 
+The 3.13+ standard library layouts (a module `__getattr__`, a star import, a
+`sys.modules` child publication) are proven only for top-level standard library
+modules, and a publication only when every import of the initializer is a
+top-level standard library module. A stdlib module that changes another stdlib
+module through a stored member call is not tracked (trusted). Code outside the
+scan, for example a project that patches a stdlib module at run time, is not
+tracked either.
+
 ## Source syntax newer than the interpreter
 
 ArchKeel reads Python source with the `ast` module of the interpreter that runs it. Code with newer
