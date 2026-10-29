@@ -333,6 +333,11 @@ def _catalog_rule_result(
         not ambiguous_imports,
         references_measured,
     )
+    if isinstance(rule, CatalogArgumentRule) and (
+        escapes := _catalog_import_escapes(imports, entries)
+    ):
+        reason = "An import gives the enum owner to code the check cannot see"
+        limits = [*limits, _catalog_limit(rule, scope, reason, escapes)]
     receipt = (
         None if limits else _rule_evaluation_receipt(rule, scope, [*supporting, *selected_calls])
     )
@@ -527,6 +532,39 @@ def _catalog_ambiguous_imports(
         ):
             ambiguous.append(record)
     return ambiguous
+
+
+def _catalog_import_escapes(
+    imports: Sequence[RawRecord], entries: dict[str, _CatalogEntry]
+) -> list[RawRecord]:
+    """Find imports that re-export an owner where the reference collector cannot follow it.
+
+    A binding that is not unique, a star import and the owner module object (#731).
+    """
+    owner_data = [parse_record(owner).data for owner, _, _ in entries.values()]
+    owners = {name for data in owner_data if (name := _record_text(data, "qualified_name"))}
+    modules = {name for data in owner_data if (name := _record_text(data, "module"))}
+    datas = [(record, parse_record(record).data) for record in imports]
+    module_objects = {
+        f"{_record_text(data, 'source_module')}.{_record_text(data, 'binding')}"
+        for _, data in datas
+        if data.get("symbol") is None and data.get("target_module") in modules
+    }
+    # A star import of the owner module or of a module that imports the owner.
+    stars = {f"{module}.*" for module in modules} | {
+        f"{_record_text(data, 'source_module')}.*"
+        for _, data in datas
+        if data.get("origin_definition") in owners
+    }
+    return [
+        record
+        for record, data in datas
+        if (origin := data.get("origin_definition")) in module_objects
+        or origin in stars
+        or data.get("source_binding_unique") is False
+        and data.get("under_type_checking") is not True
+        and origin in owners
+    ][:1]
 
 
 def _catalog_source_records(
@@ -809,7 +847,7 @@ def _catalog_target_argument_references(
         for identifier in starts
         if identifier in evidence
     }
-    accounted: set[str] = set()
+    accounted: set[tuple[str, str]] = set()
     for call in all_calls:
         # Only a call on the line of a member read can hold it, so most calls skip the decode.
         if not any(
@@ -826,8 +864,14 @@ def _catalog_target_argument_references(
         for actual in actuals:
             value = _actual_name(actual, evidence)
             if value is not None:
-                accounted |= {value[0]}
-    return {reference["id"] for reference in members if set(reference["evidence_ids"]) <= accounted}
+                accounted |= {value}
+    # `OptionKey.PAGE_SIZE.__dict__` starts at the member read but is not the member.
+    return {
+        reference["id"]
+        for reference in members
+        if {(item, reference["data"]["expression"]) for item in reference["evidence_ids"]}
+        <= accounted
+    }
 
 
 def _actual_name(actual: CallArgument, evidence: dict[str, RawEvidence]) -> tuple[str, str] | None:
@@ -1142,7 +1186,9 @@ def _catalog_use_entry_results(
         owner_name = _record_text(parse_record(owner).data, "qualified_name")
         used = (
             any(
-                owner_name in _record_strings(reference_data[reference["id"]], "targets")
+                # `OptionKey as RETIRED` reads the class, not the member.
+                reference["kind"] == "attribute_reference"
+                and owner_name in _record_strings(reference_data[reference["id"]], "targets")
                 and last_name(_record_text(reference_data[reference["id"]], "expression") or "")
                 == last_name(identity)
                 for reference in value_refs

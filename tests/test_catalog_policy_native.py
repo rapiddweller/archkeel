@@ -1433,3 +1433,33 @@ def test_prefix_read_on_a_continuation_line_keeps_catalog_use_absence_unknown(tm
         rules=[_use(member="RETIRED")],
     )
     assert (rows[0].status, rows[0].evaluation_proven) == ("UNKNOWN", False)
+
+
+# A class read is not a member read, also when its alias has the name of a member.
+@pytest.mark.parametrize(
+    "files",
+    [
+        {"sample/consumer.py": "from .catalog import OptionKey as RETIRED\n"},
+        {
+            "sample/api.py": "from .catalog import OptionKey\n",
+            "sample/consumer.py": "from .api import OptionKey as RETIRED\n",
+        },
+    ],
+    ids=["direct-alias", "reexport-alias"],
+)
+def test_owner_alias_named_like_a_member_is_no_catalog_use(tmp_path, files):
+    caller = files.pop("sample/consumer.py") + "def consume():\n    return RETIRED\n"
+    _, rows = _run(tmp_path, caller=caller, rules=[_use(member="RETIRED")], extra_files=files)
+    assert (rows[0].status, rows[0].evaluation_proven) == ("FAIL", True)
+
+
+# A member read through a module that imports the enum is a member read (#731).
+@pytest.mark.parametrize("read", ["OptionKey.RETIRED", "OptionKey.RETIRED.value"])
+def test_member_read_through_a_reexport_counts_as_catalog_use(tmp_path, read):
+    _, rows = _run(
+        tmp_path,
+        caller=f"from .api import OptionKey\ndef consume():\n    return {read}\n",
+        rules=[_use(member="RETIRED")],
+        extra_files={"sample/api.py": "from .catalog import OptionKey\n"},
+    )
+    assert (rows[0].status, rows[0].evaluation_proven) == ("PASS", True)

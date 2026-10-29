@@ -113,7 +113,7 @@ def test_five_collectors_share_one_index(monkeypatch):
     symbols = build_symbol_index([])
     calls = collect_calls([module], symbols, evidence)
     collect_dynamic_imports([module], calls, imports, evidence, namespace="sample")
-    collect_references([module], symbols, evidence)
+    collect_references([module], symbols, evidence, imports=())
     collect_constructs([module], evidence, imports=imports)
     assert constructions == [module]
 

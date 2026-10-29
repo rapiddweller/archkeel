@@ -760,7 +760,7 @@ class ReferenceCollector(ast.NodeVisitor):
         status, targets, _, _ = resolve_name(node.value, index=self.index, scopes=self.scopes)
         if status != SourceResolution.RESOLVED or len(targets) != 1:
             return None
-        enum_name = targets[0]
+        enum_name = self.enum_reexports.get(targets[0], targets[0])
         if enum_name not in self.enum_member_classes:
             return None
         members = self.index.enum_members.get(enum_name)
@@ -784,14 +784,15 @@ def collect_references(
     index: SymbolIndex,
     evidence: dict[str, RawEvidence],
     *,
+    imports: Sequence[RawRecord],
     include_source_roles: bool = True,
-    imports: Sequence[RawRecord] = (),
 ) -> list[RawRecord]:
     """Run the reference collector over every module and sort the records by id."""
     references: list[RawRecord] = []
     roots = {module.module: unique_direct_module_bindings(module) for module in parsed}
     enum_classes = _enum_member_classes(parsed, index, roots)
     # A module that imports an enum class gives it away again as its own attribute.
+    # Subscripts, not `.get`: the record data has no declared type, so `.get` stays unresolved.
     enum_reexports = {
         f"{data['source_module']}.{data['binding']}": data["origin_definition"]
         for data in (item["data"] for item in imports)

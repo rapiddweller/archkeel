@@ -14,3 +14,5 @@ Source-fact collection protocol 5.0.0 carries the same validated fact set as 4.0
 The shared `archkeel.ir.codec_strings` helper owns pure lossless string interning and expansion for source and observation IR encodings. Observation encoding keeps its existing profitability threshold and reserved-marker behavior, so saved report bytes remain stable.
 
 This uses lexical origins and source-bound syntax already collected by Archkeel. A second scanner, copied default inventory, or executing imported code would create drift or unsafe evidence. Native source-to-saved-report, mutation, mixed FAIL/UNKNOWN, mount, and replay tests are the proof boundary.
+
+[AD-277](ad-277-references-record-write-targets-chain-prefixes-and-enum-reexports.md) adds reads to the reference facts: a write target and the prefix of an unresolved attribute chain. A retired `read` therefore also counts `NAME.attr = x` and `NAME.attr`.

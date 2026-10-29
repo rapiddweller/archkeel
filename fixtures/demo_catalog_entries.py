@@ -168,6 +168,46 @@ _CATALOG_USE_MEMBER_VALUE = Variant(
     absent_unknowns=(("catalog_limit", "shop.app.orders.retired_option_value"),),
 )
 
+_MAINTENANCE_WITH_OPTION_KEY = _APP_MAINTENANCE.replace(
+    "from shop.store.sqlite import",
+    "from shop.app.catalog import OptionKey\nfrom shop.store.sqlite import",
+)
+
+_CATALOG_ARGUMENT_STAR_REEXPORT = Variant(
+    id="class-a-catalog-argument-star-reexport",
+    section="class_a",
+    item="catalog_argument:member_from_star_reexport",
+    summary="A module re-exports the catalog with a star import; another module calls the enum.",
+    files={
+        "shop/app/options.py": "from shop.app.catalog import *  # noqa: F403\n",
+        "shop/app/maintenance.py": _APP_MAINTENANCE.replace(
+            "from shop.store.sqlite import",
+            "from shop.app.options import OptionKey\nfrom shop.store.sqlite import",
+        )
+        + "\n\ndef parse_option(raw: str) -> OptionKey:\n    return OptionKey(raw)\n",
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("catalog_limit", "shop.app.orders.read_catalog_option"),),
+)
+
+# Known cost of #731: the one-line excerpt of a wrapped signature line does not parse, so the
+# collector cannot tell that `key: OptionKey,` is an annotation. The check stays UNKNOWN.
+_CATALOG_ARGUMENT_WRAPPED_ANNOTATION = Variant(
+    id="class-a-catalog-argument-wrapped-annotation",
+    section="class_a",
+    item="catalog_argument:wrapped_annotation_cost",
+    summary="Known cost: an enum annotation on a wrapped signature line keeps the check UNKNOWN.",
+    files={
+        "shop/app/maintenance.py": _MAINTENANCE_WITH_OPTION_KEY
+        + "\n\ndef handle_option(\n    request_id: int,\n    key: OptionKey,\n) -> None:\n"
+        "    del request_id, key\n"
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("catalog_limit", "shop.app.orders.read_catalog_option"),),
+)
+
 VARIANTS: tuple[Variant, ...] = (
     _CATALOG_ARGUMENT,
     _CATALOG_USE,
@@ -178,4 +218,6 @@ VARIANTS: tuple[Variant, ...] = (
     _CATALOG_ARGUMENT_UNICODE_ALIAS,
     _CATALOG_ARGUMENT_VALUE_LOOKUP,
     _CATALOG_USE_MEMBER_VALUE,
+    _CATALOG_ARGUMENT_STAR_REEXPORT,
+    _CATALOG_ARGUMENT_WRAPPED_ANNOTATION,
 )

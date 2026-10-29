@@ -198,12 +198,10 @@ def test_catalog_use_by_member_reference_is_unaffected_by_escape(tmp_path, where
 # `f` returns its argument, so `f(member)` gives the member to its caller.
 PASS_THROUGH = "def f(value):\n    return value\n"
 OWNER_ESCAPES = {
-    "call-module-scope": "OptionKey('page_size')._value_ = 'x'\n",
+    # One row for each way to read the bare owner: in a write target, as an argument, and in
+    # a comprehension scope.
     "call-in-function": "def go():\n    OptionKey('page_size')._value_ = 'x'\n",
-    "call-result-alias": "def go():\n    m = OptionKey('page_size')\n    m._value_ = 'x'\n",
-    "call-result-walrus": "def go():\n    (m := OptionKey('page_size'))._value_ = 'x'\n",
     "call-result-argument": "def go():\n    print(OptionKey('page_size'))\n",
-    "call-result-returned": "def get():\n    return OptionKey('page_size')\n",
     "call-in-comprehension": "def go():\n    return [OptionKey(v) for v in ('page_size',)]\n",
     "call-through-module": "from . import catalog\n"
     "def go():\n    catalog.OptionKey('page_size')._value_ = 'x'\n",
@@ -216,6 +214,8 @@ OWNER_ESCAPES = {
     "member-attribute-argument": PASS_THROUGH + "def go():\n    f(OptionKey.PAGE_SIZE.__dict__)\n",
     "member-method-argument": PASS_THROUGH + "def go():\n    f(OptionKey.PAGE_SIZE.upper())\n",
     "member-value-argument": "def go():\n    print(OptionKey.PAGE_SIZE.value)\n",
+    # A wider value that starts with the member is not the member, also for the operation.
+    "member-attribute-to-operation": "def go():\n    read_option(OptionKey.PAGE_SIZE.__dict__)\n",
     "owner-mapping-method": "def go():\n"
     "    OptionKey._value2member_map_.get('page_size')._value_ = 'x'\n",
     "owner-hook-call": "def go():\n    OptionKey._missing_('page_size')\n",
@@ -243,26 +243,70 @@ def test_owner_read_that_is_not_a_member_read_keeps_argument_unknown(
 
 
 # A module that imports the owner gives it away again as its own attribute.
-REEXPORT_FILES = {
-    "module": {"sample/api.py": "from .catalog import OptionKey\n"},
-    "package": {"sample/__init__.py": "from .catalog import OptionKey\n"},
-}
+API = {"sample/api.py": "from .catalog import OptionKey\n"}
+PACKAGE = {"sample/__init__.py": "from .catalog import OptionKey\n"}
+STAR_API = {"sample/api.py": "from .catalog import *\n"}
+WRITE = "('page_size')._value_ = 'x'\n"
 REEXPORT_ESCAPES = {
-    "from-reexport": (
-        "module",
-        "from .api import OptionKey\nOptionKey('page_size')._value_ = 'x'\n",
+    "from-reexport": (API, "from .api import OptionKey\nOptionKey" + WRITE),
+    "from-reexport-alias": (API, "from .api import OptionKey as K\nK" + WRITE),
+    "reexport-attribute": (API, "from . import api\napi.OptionKey" + WRITE),
+    "from-package": (PACKAGE, "from sample import OptionKey\nOptionKey" + WRITE),
+    # The re-exporting binding is not unique, so the reference collector does not map it.
+    "try-import": (
+        {
+            "sample/api.py": "try:\n    from .catalog import OptionKey\n"
+            "except ImportError:\n    OptionKey = None\n"
+        },
+        "from .api import OptionKey\nOptionKey" + WRITE,
     ),
-    "from-reexport-alias": (
-        "module",
-        "from .api import OptionKey as K\nK('page_size')._value_ = 'x'\n",
+    "conditional-import": (
+        {
+            "sample/api.py": "import sys\nif sys.version_info >= (3,):\n"
+            "    from .catalog import OptionKey\n"
+        },
+        "from .api import OptionKey\nOptionKey" + WRITE,
     ),
-    "reexport-attribute": (
-        "module",
-        "from . import api\napi.OptionKey('page_size')._value_ = 'x'\n",
+    "type-checking-else": (
+        {
+            "sample/api.py": "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n"
+            "    from .catalog import OptionKey\nelse:\n    from .catalog import OptionKey\n"
+        },
+        "from .api import OptionKey\nOptionKey" + WRITE,
     ),
-    "from-package": (
-        "package",
-        "from sample import OptionKey\nOptionKey('page_size')._value_ = 'x'\n",
+    "repeated-import": (
+        {"sample/api.py": "from .catalog import OptionKey\nfrom .catalog import OptionKey\n"},
+        "from .api import OptionKey\nOptionKey" + WRITE,
+    ),
+    "package-try-import": (
+        {
+            "sample/__init__.py": "try:\n    from .catalog import OptionKey\n"
+            "except ImportError:\n    pass\n"
+        },
+        "from sample import OptionKey\nOptionKey" + WRITE,
+    ),
+    # A star import of the catalog module re-exports the owner under its own name.
+    "star-reexport": (STAR_API, "from .api import OptionKey\nOptionKey" + WRITE),
+    "package-star": (
+        {"sample/__init__.py": "from .catalog import *\n"},
+        "from sample import OptionKey\nOptionKey" + WRITE,
+    ),
+    "package-star-attribute": (
+        {"sample/__init__.py": "from .catalog import *\n"},
+        "import sample\nsample.OptionKey" + WRITE,
+    ),
+    "star-of-a-reexport": (
+        {**API, "sample/api2.py": "from .api import *\n"},
+        "from .api2 import OptionKey\nOptionKey" + WRITE,
+    ),
+    "star-two-hops": (
+        {**STAR_API, "sample/api2.py": "from .api import *\n"},
+        "from .api2 import OptionKey\nOptionKey" + WRITE,
+    ),
+    # The catalog module object itself, imported from a module that imports it.
+    "module-object-reexport": (
+        {"sample/api.py": "from . import catalog\n"},
+        "from .api import catalog\ncatalog.OptionKey" + WRITE,
     ),
 }
 
@@ -274,12 +318,14 @@ def test_owner_read_through_a_reexport_keeps_argument_unknown(tmp_path, form):
         tmp_path,
         caller=HEAD + CONSUME,
         rules=[_argument_rule()],
-        extra_files={**REEXPORT_FILES[files], "sample/other.py": other},
+        extra_files={**files, "sample/other.py": other},
     )
     assert verdict == ("UNKNOWN", False)
 
 
-def test_rebound_name_in_a_reexporting_module_is_not_the_owner(tmp_path):
+def test_rebound_owner_import_in_a_reexporting_module_keeps_argument_unknown(tmp_path):
+    # Sound but strict: `OptionKey` in api is not unique, so the check cannot tell which
+    # value `api.OptionKey` holds and treats it as the owner.
     verdict = _verdicts(
         tmp_path,
         caller=HEAD + CONSUME,
@@ -289,7 +335,7 @@ def test_rebound_name_in_a_reexporting_module_is_not_the_owner(tmp_path):
             "sample/other.py": "from . import api\napi.OptionKey('new')._value_ = 'x'\n",
         },
     )
-    assert verdict == ("PASS", True)
+    assert verdict == ("UNKNOWN", False)
 
 
 @pytest.mark.parametrize(
@@ -306,7 +352,7 @@ def test_owner_named_through_a_reexport_only_in_annotations_still_passes(tmp_pat
         tmp_path,
         caller=HEAD + CONSUME,
         rules=[_argument_rule()],
-        extra_files={**REEXPORT_FILES["module"], "sample/other.py": other},
+        extra_files={**API, "sample/other.py": other},
     )
     assert verdict == ("PASS", True)
 

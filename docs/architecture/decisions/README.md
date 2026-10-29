@@ -284,3 +284,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-274 | [`types` adds globals, and a project declaration publishes its name](ad-274-types-add-and-project-declarations-publish.md) |
 | AD-275 | [A names-only `globals()` keeps the direct bindings of its module stable](ad-275-names-only-globals-keep-direct-bindings-stable.md) |
 | AD-276 | [A leading UTF-8 BOM is not source text](ad-276-a-leading-utf-8-bom-is-not-source-text.md) |
+| AD-277 | [References record the write target, the prefix of an unresolved chain and enum re-exports](ad-277-references-record-write-targets-chain-prefixes-and-enum-reexports.md) |

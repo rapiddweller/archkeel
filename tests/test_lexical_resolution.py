@@ -72,7 +72,7 @@ def _facts(source):
         module,
         imports,
         collect_calls([module], index, evidence),
-        collect_references([module], index, evidence),
+        collect_references([module], index, evidence, imports=()),
     )
 
 
