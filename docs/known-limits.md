@@ -142,7 +142,7 @@ ArchKeel reads Python source with the `ast` module of the interpreter that runs 
 syntax (for example `except A, B:` from Python 3.14, PEP 758) is a parse failure on an older
 interpreter. The report then shows a `runtime_mismatch` diagnostic. Run ArchKeel with the Python
 version of the project: `uvx --python 3.14 archkeel report`. The tool supports Python 3.11 and
-newer; the nightly job checks the newest versions (#724).
+newer. The nightly job checks 3.12 and 3.14 (#724). On 3.13, `pathlib.Path` stays UNKNOWN (#743).
 
 ## Other static blind spots
 
