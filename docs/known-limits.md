@@ -132,7 +132,7 @@ The 3.13+ standard library layouts (a module `__getattr__`, a star import, a
 `sys.modules` child publication) are proven only for top-level standard library
 modules, and a publication only when every import of the initializer is a
 top-level standard library module. A package of several star imports (`pathlib`
-on 3.13) binds a name only when exactly one star source lists it in a literal
+on 3.13) binds a name only when the last star source alone lists it in a literal
 `__all__` ([AD-278](architecture/decisions/ad-278-a-stdlib-star-facade-binds-the-names-of-its-sources.md)).
 A stdlib module that changes another stdlib module through a stored member call
 is not tracked (trusted). Code outside the scan, for example a project that

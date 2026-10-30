@@ -1230,6 +1230,56 @@ def test_provider_discovery_captures_every_star_source_of_pathlib(tmp_path):
     assert {f".archkeel-providers/pathlib/{name}.py" for name in ("_abc", "_local")} <= paths
 
 
+def _pathlib_star_providers():
+    """The real pathlib files of Python 3.13, or a skip: the facade stars two sources."""
+    stdlib = Path(sysconfig.get_path("stdlib"))
+    init = stdlib / "pathlib/__init__.py"
+    if not (init.is_file() and "from ._local import *" in init.read_text()):
+        pytest.skip("pathlib publishes Path only through two star imports (Python 3.13)")
+    return [
+        _provider("pathlib", init.read_text(), package=True),
+        *(
+            _provider(f"pathlib.{name}", (stdlib / f"pathlib/{name}.py").read_text())
+            for name in ("_abc", "_local")
+        ),
+    ]
+
+
+def test_pathlib_name_of_an_earlier_star_source_stays_unknown(tmp_path):
+    # A later star source can rebind a name, so only the last star source counts.
+    request = _request(
+        tmp_path, _pathlib_star_providers(), imported="pathlib", binding="UnsupportedOperation"
+    )
+    assert len(_route_records(_native_facts(request))[0]) == 1
+
+
+def test_pathlib_module_gets_a_receipt_when_its_star_sources_are_proven(tmp_path):
+    request = _request(tmp_path, _pathlib_star_providers())
+    (tmp_path / "src/sample/api.py").write_text("import pathlib\n")
+    bindings = {item.qualified_name: item for item in _native_facts(request).provider_bindings}
+    assert bindings["pathlib"].kind is ProviderBindingKind.MODULE
+
+
+def test_sqlite3_with_an_unproven_star_source_gets_no_module_receipt(tmp_path):
+    # sqlite3.dbapi2 stars a C module and has no `__all__`, so the namespace of sqlite3 is unknown.
+    stdlib = Path(sysconfig.get_path("stdlib")) / "sqlite3"
+    init = (stdlib / "__init__.py").read_text()
+    if "import *" not in init:
+        pytest.skip("sqlite3 does not star-import its implementation")
+    providers = [
+        _provider("sqlite3", init, package=True),
+        *(
+            _provider(f"sqlite3.{name}", (stdlib / f"{name}.py").read_text())
+            for name in ("dbapi2", "dump")
+        ),
+    ]
+    request = _request(tmp_path, providers, imported="sqlite3.dump", binding="_iterdump")
+    (tmp_path / "src/sample/api.py").write_text(
+        "import sqlite3\nfrom sqlite3.dump import _iterdump\n"
+    )
+    assert not _native_facts(request).provider_bindings
+
+
 def test_actual_typing_runtime_module_publication_has_no_declaration_receipt(tmp_path):
     source = (Path(sysconfig.get_path("stdlib")) / "typing.py").read_text()
     request = _request(tmp_path, [_provider("typing", source)], imported="typing", binding="io")
@@ -2180,7 +2230,19 @@ _EXPORTS_OTHER = "__all__ = ['Other']\nclass Other: pass\n"
             "json",
             "from ._a import *\nfrom ._b import *\n",
             {"_a": _EXPORTS_PAYLOAD, "_b": _EXPORTS_OTHER},
-            True,
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import *\n",
+            {"_a": _EXPORTS_PAYLOAD, "_b": _EXPORTS_OTHER + "import json\njson.Payload = 5\n"},
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\n",
+            {"_a": _EXPORTS_PAYLOAD, "Payload": "x = 1\n"},
+            False,
         ),
         (
             "json",
@@ -2273,6 +2335,8 @@ _EXPORTS_OTHER = "__all__ = ['Other']\nclass Other: pass\n"
         "one-star-without-the-name",
         "two-stars-name-in-second",
         "two-stars-name-in-first",
+        "later-star-writes-the-facade",
+        "child-module-named-like-the-export",
         "two-stars-name-in-both",
         "same-star-twice",
         "computed-all-in-other-source",
@@ -2309,12 +2373,28 @@ def test_star_facade_names_the_one_source_that_exports_the_name(
         assert bindings[alias.target].kind is ProviderBindingKind.CLASS
 
 
+def test_star_source_that_publishes_a_child_in_sys_modules_gives_no_class_receipt(tmp_path):
+    # CPython binds json.helper to the namespace that the star source stores, not to json/helper.py.
+    providers = [
+        _provider("json", "from ._a import *\n", package=True),
+        _provider(
+            "json._a",
+            "__all__ = ['Other']\nimport sys, types\nclass Other: pass\n"
+            "sys.modules['json.helper'] = types.SimpleNamespace(Payload=1)\n",
+        ),
+        _provider("json.helper", "class Payload: pass\n"),
+    ]
+    facts = _native_facts(_request(tmp_path, providers, imported="json.helper", binding="Payload"))
+    assert len(_route_records(facts)[0]) == 1
+    assert "json.helper.Payload" not in {item.qualified_name for item in facts.provider_bindings}
+
+
 @pytest.mark.parametrize(("facade", "known"), [("json", True), ("vendor.facade", False)])
 def test_only_a_stdlib_facade_holds_several_captured_stars(tmp_path, facade, known):
     providers = [
         _provider(facade, "from model import *\nfrom other import *\n", package="." not in facade),
-        _provider("model", _EXPORTS_PAYLOAD),
-        _provider("other", _EXPORTS_OTHER),
+        _provider("model", _EXPORTS_OTHER),
+        _provider("other", _EXPORTS_PAYLOAD),
     ]
     if "." in facade:
         providers.append(_provider("vendor", "", package=True))

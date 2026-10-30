@@ -201,7 +201,8 @@ PYTHON_COMPAT_TESTS = tests/test_analyzer.py tests/test_python_provider_sources.
 	tests/test_python_contextmanager_signatures.py tests/test_boundary_types_contextmanager.py \
 	tests/test_python_source_evidence_lines.py tests/test_typed_python_receivers.py \
 	tests/test_python_class_value_proofs.py tests/test_numeric_operand_observation.py \
-	tests/test_architecture_projection.py tests/test_validation.py
+	tests/test_architecture_projection.py tests/test_validation.py \
+	'tests/test_architecture_demo.py::test_variant_produces_the_catalogued_findings[class-a-boundary-types-stdlib-path-facade]'
 
 python-compat:
 	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=loadfile --max-worker-restart=0 \

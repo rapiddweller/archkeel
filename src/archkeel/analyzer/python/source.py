@@ -362,6 +362,8 @@ class ParsedModule:
         default=None, init=False, repr=False
     )
     registry_cache: ModuleRegistry | None = field(default=None, init=False, repr=False)
+    # Set by the provider collector: the star sources of this stdlib facade are proven (#743).
+    star_sources_proven: bool = field(default=False, init=False, repr=False)
 
     _lexical_scopes: tuple[ast.Module, str, str, str, ast.NodeVisitor] | None = field(
         default=None, init=False, repr=False, compare=False
@@ -3419,8 +3421,17 @@ def star_facade_static(module: ParsedModule) -> bool:
         and isinstance(node.targets[0], ast.Name)
         and node.targets[0].id == "__all__"
         and all(
-            isinstance(item, ast.Name | ast.Attribute | ast.BinOp | ast.Add | ast.Load)
-            or isinstance(item, ast.Tuple | ast.List | ast.Constant)
+            isinstance(
+                item,
+                ast.Name
+                | ast.Attribute
+                | ast.BinOp
+                | ast.Add
+                | ast.Load
+                | ast.Tuple
+                | ast.List
+                | ast.Constant,
+            )
             for item in ast.walk(node.value)
         )
         for node in module.tree.body
