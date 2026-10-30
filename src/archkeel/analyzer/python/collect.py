@@ -1013,6 +1013,10 @@ def _child_name(package: str, name: str) -> str:
     return "" if "." in child else child
 
 
+def _is_dunder(name: str) -> bool:
+    return _starts_with(name, "__") and name.endswith("__")
+
+
 def _star_sources(
     module: ParsedModule, stars: list[RawRecord], by_module: dict[str, ParsedModule]
 ) -> list[ParsedModule] | None:
@@ -1024,12 +1028,15 @@ def _star_sources(
     ]
     # A source with a computed, changed or missing `__all__` may export the name too. A source
     # that writes `sys.modules` can replace a child. A child name in `__all__` hides the module.
+    # A dunder name (`__package__`, `__name__`, `__path__`) steers the import system or the
+    # module, so a star import of it can change how the next star import resolves.
     children = {_child_name(module.module, name) for name in by_module} - {""}
     proven = len(sources) == len(stars) and all(
         source.all_literal
         and "__all__" in stable_direct_module_bindings(source)
         and _provider_identity_static(source)
         and not children & source.all_exports
+        and not any(_is_dunder(name) for name in source.all_exports)
         for source in sources
     )
     return sources if proven else None

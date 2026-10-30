@@ -2240,6 +2240,44 @@ _EXPORTS_OTHER = "__all__ = ['Other']\nclass Other: pass\n"
         ),
         (
             "json",
+            "from ._a import *\nfrom ._b import *\n",
+            {
+                "_a": "__all__ = ['__package__']\n__package__ = 'other'\n",
+                "_b": _EXPORTS_PAYLOAD,
+            },
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import *\n",
+            {
+                "_a": "__all__ = ['Other', '__spec__', '__builtins__']\n"
+                "class Other: pass\n__spec__ = __builtins__ = None\n",
+                "_b": _EXPORTS_PAYLOAD,
+            },
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import *\n",
+            {
+                "_a": "__all__ = ['Other', '__name__', '__file__', '__loader__']\n"
+                "class Other: pass\n__name__ = __file__ = __loader__ = 'x'\n",
+                "_b": _EXPORTS_PAYLOAD,
+            },
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\n",
+            {
+                "_a": "__all__ = ['Payload', '__getattr__']\nclass Payload: pass\n"
+                "__getattr__ = print\n"
+            },
+            False,
+        ),
+        (
+            "json",
             "from ._a import *\n",
             {"_a": _EXPORTS_PAYLOAD, "Payload": "x = 1\n"},
             False,
@@ -2336,6 +2374,10 @@ _EXPORTS_OTHER = "__all__ = ['Other']\nclass Other: pass\n"
         "two-stars-name-in-second",
         "two-stars-name-in-first",
         "later-star-writes-the-facade",
+        "star-source-exports-package",
+        "star-source-exports-import-steering-names",
+        "star-source-exports-module-identity-names",
+        "star-source-exports-hook",
         "child-module-named-like-the-export",
         "two-stars-name-in-both",
         "same-star-twice",

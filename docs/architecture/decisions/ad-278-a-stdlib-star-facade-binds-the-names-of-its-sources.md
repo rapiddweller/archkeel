@@ -11,6 +11,7 @@
    check of the facade. Every star source must be captured and have one literal, unchanged
    `__all__`. It must have a static identity, also without a `sys.modules` write. No child
    module of the facade may be named in the `__all__` of a source.
+   A source that names a dunder such as `__package__` or `__spec__` in `__all__` is not proven.
 3. Exactly one star source lists the name in `__all__`, and it is the last star of the facade.
    A later star source can rebind the name. A name in two sources, or a source starred twice,
    stays UNKNOWN. On 3.13 `UnsupportedOperation` (from `_abc`) is UNKNOWN for this reason.
