@@ -241,6 +241,50 @@ _CATALOG_ARGUMENT_ANNOTATION_CALL = Variant(
     expected_unknowns=(("catalog_limit", "shop.app.orders.read_catalog_option"),),
 )
 
+_APP_CATALOG = (FIXTURE_DIR / "shop/app/catalog.py").read_text()
+_READ_OPTION_BODY = "    return _OPTION_VALUES[key]\n"
+
+_CATALOG_ARGUMENT_TARGET_RETURNS_KEY = Variant(
+    id="class-a-catalog-argument-target-returns-key",
+    section="class_a",
+    item="catalog_argument:target_returns_argument",
+    summary="The store reader returns the key it gets, so a caller can change the member.",
+    files={"shop/app/catalog.py": _APP_CATALOG.replace(_READ_OPTION_BODY, "    return key\n")},
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("catalog_limit", "shop.app.orders.read_catalog_option"),),
+)
+
+_CATALOG_ARGUMENT_TARGET_SUBSCRIPT_STORE = Variant(
+    id="class-a-catalog-argument-target-subscript-store",
+    section="class_a",
+    item="catalog_argument:target_subscript_store",
+    summary="The store reader keeps the key it gets in a module dictionary through a subscript.",
+    files={
+        "shop/app/catalog.py": _APP_CATALOG.replace(
+            "\n\ndef read_option", "_READ_KEYS: dict[str, bool] = {}\n\n\ndef read_option"
+        ).replace(_READ_OPTION_BODY, "    _READ_KEYS[key] = True\n" + _READ_OPTION_BODY)
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("catalog_limit", "shop.app.orders.read_catalog_option"),),
+)
+
+_CATALOG_ARGUMENT_TARGET_COMPARISON = Variant(
+    id="class-a-catalog-argument-target-comparison",
+    section="class_a",
+    item="catalog_argument:target_compares_argument",
+    summary="The store reader only compares the key it gets, so the member cannot change.",
+    files={
+        "shop/app/catalog.py": _APP_CATALOG.replace(
+            _READ_OPTION_BODY, '    return "set" if key in _OPTION_VALUES else ""\n'
+        )
+    },
+    expected_violations=(),
+    expected_codes=(),
+    absent_unknowns=(("catalog_limit", "shop.app.orders.read_catalog_option"),),
+)
+
 VARIANTS: tuple[Variant, ...] = (
     _CATALOG_ARGUMENT,
     _CATALOG_USE,
@@ -255,4 +299,7 @@ VARIANTS: tuple[Variant, ...] = (
     _CATALOG_ARGUMENT_WRAPPED_ANNOTATION,
     _CATALOG_ARGUMENT_HELD_MODULE,
     _CATALOG_ARGUMENT_ANNOTATION_CALL,
+    _CATALOG_ARGUMENT_TARGET_RETURNS_KEY,
+    _CATALOG_ARGUMENT_TARGET_SUBSCRIPT_STORE,
+    _CATALOG_ARGUMENT_TARGET_COMPARISON,
 )

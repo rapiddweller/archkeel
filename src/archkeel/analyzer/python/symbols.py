@@ -335,6 +335,7 @@ def _symbol_data(
             data["property_members"] = sorted({method.name for method in properties})
     else:
         data.update(_function_signature(node))
+        data["parameters_contained"] = _parameters_contained(node)
         if node.name == "__init__":
             data["stored_field_writes"] = _stored_field_writes(node, module, evidence)
         if parent_node is None:
@@ -363,6 +364,36 @@ def _symbol_data(
         data["shape"] = shape
         data["shape_nodes"] = shape_nodes
     return data
+
+
+def _parameters_contained(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """Tell if the body only compares or indexes its parameters and stores no subscript (#751).
+
+    A returned, kept or subscript-changed argument has no call or write record. The walk
+    includes nested scopes, because a closure can give a parameter away.
+    """
+    arguments = node.args
+    names = {
+        argument.arg
+        for argument in (
+            *arguments.posonlyargs,
+            *arguments.args,
+            *arguments.kwonlyargs,
+            *(argument for argument in (arguments.vararg, arguments.kwarg) if argument),
+        )
+    }
+    children = [child for statement in node.body for child in ast.walk(statement)]
+    allowed: set[ast.AST] = set()
+    for child in children:
+        if isinstance(child, ast.Compare):
+            allowed.update((child.left, *child.comparators))
+        elif isinstance(child, ast.Subscript):
+            if not isinstance(child.ctx, ast.Load):
+                return False
+            allowed.add(child.slice)
+    return all(
+        child in allowed for child in children if isinstance(child, ast.Name) and child.id in names
+    )
 
 
 def _stored_field_writes(
