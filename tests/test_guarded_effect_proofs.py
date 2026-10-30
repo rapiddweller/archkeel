@@ -266,3 +266,227 @@ def test_rebinding_the_guarded_member_or_its_receiver_inside_the_branch(tmp_path
     )
     files = {"sample/core.py": source}
     assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == expected
+
+
+# A class body runs when the class statement runs, so it can change the guard like any statement.
+CLASS_BODY_REBINDINGS = {
+    "opaque_call": "self.reset()",
+    "assign_attribute": "self.seeded = False",
+    "plain_class_attribute": "limit = 1",
+}
+
+
+@pytest.mark.parametrize("name", CLASS_BODY_REBINDINGS)
+def test_a_class_body_that_can_change_the_guarded_member_makes_the_guard_unknown(tmp_path, name):
+    body = textwrap.indent(CLASS_BODY_REBINDINGS[name], "                ")
+    source = (
+        "def _effect():\n    return None\n\n"
+        "class Generator:\n"
+        "    def __init__(self):\n        self.seeded: bool = False\n\n"
+        "    def reset(self):\n        return None\n\n"
+        "    def generate(self):\n"
+        "        if self.seeded:\n"
+        f"            class Local:\n{body}\n"
+        "            _effect()\n"
+    )
+    files = {"sample/core.py": source}
+    expected = FAIL if name == "plain_class_attribute" else UNKNOWN
+    assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == expected
+
+
+def test_a_class_body_that_rebinds_the_parameter_through_nonlocal_makes_the_guard_unknown(
+    tmp_path,
+):
+    source = """
+    def _effect():
+        return None
+
+    def generate(seeded: bool):
+        if seeded:
+            class Local:
+                nonlocal seeded
+                seeded = False
+            _effect()
+    """
+    files = {"sample/core.py": source}
+    assert _verdict(tmp_path, files, target="sample.core._effect") == UNKNOWN
+
+
+# A definition header runs when the statement runs, before the body: a call there can change the
+# guard. A decorated definition or a metaclass keyword already gives UNKNOWN end to end for another
+# reason, so those forms (and the bare decorator and the `metaclass=` keyword, which are calls
+# without a call node) are checked on the walker in test_guard_path_classes.py. An annotation runs
+# at definition time only before Python 3.14 and without the `__future__` import; a deferred
+# annotation gives a false UNKNOWN, never a false proof.
+HEADERS = {
+    "default": ("def local(a=self.reset()):\n    return a", UNKNOWN),
+    "keyword_default": ("def local(*, a=self.reset()):\n    return a", UNKNOWN),
+    "async_default": ("async def local(a=self.reset()):\n    return a", UNKNOWN),
+    "lambda_default": ("local = lambda a=self.reset(): a", UNKNOWN),
+    "class_base": ("class Local(make(self.reset())):\n    pass", UNKNOWN),
+    "two_calls_in_header": ("def local(a=self.reset(), b=other()):\n    return a", UNKNOWN),
+    "annotation": ("def local(a: self.reset()):\n    return a", UNKNOWN),
+    "return_annotation": ("def local() -> self.reset():\n    return 1", UNKNOWN),
+    "vararg_annotation": ("def local(*a: self.reset()):\n    return a", UNKNOWN),
+    "kwarg_annotation": ("def local(**a: self.reset()):\n    return a", UNKNOWN),
+    "harmless_annotation": ("def local(a: int) -> int:\n    return a", FAIL),
+    "harmless_default": ("def local(a=1):\n    return a", FAIL),
+    "harmless_class_fields": ("class Local:\n    limit = 1\n    names = ('a', 'b')", FAIL),
+    "class_hook_base": ("class Local(Base):\n    pass", UNKNOWN),
+    "class_hook_metaclass": ("class Local(metaclass=Meta):\n    pass", UNKNOWN),
+    "class_hook_set_name": ("class Local:\n    field = shared", UNKNOWN),
+}
+
+
+@pytest.mark.parametrize("name", HEADERS)
+def test_a_call_in_a_definition_header_makes_the_guarded_member_unknown(tmp_path, name):
+    statement, expected = HEADERS[name]
+    body = textwrap.indent(statement, "            ")
+    source = (
+        "def _effect():\n    return None\n\n"
+        "class Generator:\n"
+        "    def __init__(self):\n        self.seeded: bool = False\n\n"
+        "    def reset(self):\n        return None\n\n"
+        "    def generate(self):\n"
+        f"        if self.seeded:\n{body}\n            _effect()\n"
+    )
+    files = {"sample/core.py": source}
+    assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == expected
+
+
+def test_a_named_expression_in_an_annotation_makes_the_parameter_guard_unknown(tmp_path):
+    source = """
+    def _effect():
+        return None
+
+    def generate(seeded: bool):
+        if seeded:
+            def local(a: (seeded := False)):
+                return a
+            _effect()
+    """
+    files = {"sample/core.py": source}
+    assert _verdict(tmp_path, files, target="sample.core._effect") == UNKNOWN
+
+
+# Accepted cost: a class-local store of the guard name does not change the guard in Python, but
+# the walker cannot tell it from a store in the enclosing scope, so the verdict is UNKNOWN.
+def test_a_class_local_store_of_the_parameter_name_gives_a_false_unknown(tmp_path):
+    source = """
+    def _effect():
+        return None
+
+    def generate(seeded: bool):
+        if seeded:
+            class Local:
+                seeded = False
+            _effect()
+    """
+    files = {"sample/core.py": source}
+    assert _verdict(tmp_path, files, target="sample.core._effect") == UNKNOWN
+
+
+def test_a_class_field_with_the_member_name_gives_a_false_unknown(tmp_path):
+    source = (
+        "def _effect():\n    return None\n\n"
+        "class Generator:\n"
+        "    def __init__(self):\n        self.seeded: bool = False\n\n"
+        "    def generate(self):\n"
+        "        if self.seeded:\n"
+        "            class Local:\n                seeded: bool = False\n"
+        "            _effect()\n"
+    )
+    files = {"sample/core.py": source}
+    assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == UNKNOWN
+
+
+# After the body, a class statement runs hooks that have no call node in the source:
+# __init_subclass__ of a base, a metaclass __new__ or __init__, and __set_name__ of a body value.
+# Such a hook can set the member, so a value from before or inside the class is not safe.
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "class Local(Base):\n    pass",
+        "class Local(metaclass=Meta):\n    pass",
+        "class Local:\n    field = shared",
+    ],
+    ids=["base", "metaclass", "set_name"],
+)
+def test_a_class_hook_cannot_certify_the_effect_as_safe(tmp_path, statement):
+    body = textwrap.indent(statement, "            ")
+    source = (
+        "def _effect():\n    return None\n\n"
+        "class Generator:\n"
+        "    def __init__(self):\n        self.seeded: bool = False\n\n"
+        "    def generate(self):\n"
+        f"        if not self.seeded:\n{body}\n            _effect()\n"
+    )
+    files = {"sample/core.py": source}
+    assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == UNKNOWN
+
+
+# The evaluator already gives UNKNOWN for a class body that holds a guard branch, so only the
+# `global` form shows a wrong value end to end; the forms with a later binding keep a mutation
+# reason on every path and stay UNKNOWN. The walker tests in test_guard_path_classes.py cover
+# the branch values inside the body.
+# A class body has its own name scope. A name that the body declares `global` or binds anywhere is
+# not the guard, so a branch on it in the body must not set the guard value after the class.
+PARAMETER_SCOPING = """
+    def _effect():
+        return None
+
+    def generate(seeded: bool, other=None):
+        if {outer}:
+            class Local:
+{body}
+            _effect()
+"""
+CLASS_SCOPING = {
+    # The read in the branch is the module global, not the parameter: a wrong PASS (false value).
+    "global_read": ("other", "global seeded\nif seeded:\n    raise ValueError", UNKNOWN),
+    # A later store makes the name class-local, so the earlier read is not the parameter either.
+    "store_after_read": ("seeded", "if seeded:\n    other = 1\nseeded = other", UNKNOWN),
+    "for_after_read": (
+        "seeded",
+        "if seeded:\n    other = 1\nfor seeded in range(3):\n    pass",
+        UNKNOWN,
+    ),
+    "import_after_read": ("seeded", "if seeded:\n    other = 1\nimport os as seeded", UNKNOWN),
+    "def_after_read": ("seeded", "if seeded:\n    other = 1\ndef seeded():\n    pass", UNKNOWN),
+    "nonlocal_read": ("seeded", "nonlocal seeded\nif seeded:\n    other = 1", UNKNOWN),
+    "plain_fields": ("seeded", "limit = 1", FAIL),
+}
+
+
+@pytest.mark.parametrize("name", CLASS_SCOPING)
+def test_a_class_body_scope_decides_if_its_branches_set_the_parameter_guard(tmp_path, name):
+    outer, body, expected = CLASS_SCOPING[name]
+    source = PARAMETER_SCOPING.format(outer=outer, body=textwrap.indent(body, " " * 16))
+    files = {"sample/core.py": source}
+    assert _verdict(tmp_path, files, target="sample.core._effect") == expected
+
+
+MEMBER_SCOPING = {
+    "rebound_after_read": ("other", "if self.seeded:\n    limit = 1\nself = other", UNKNOWN),
+    "global_receiver": (
+        "other",
+        "global self\nif self.seeded:\n    raise ValueError",
+        UNKNOWN,
+    ),
+}
+
+
+@pytest.mark.parametrize("name", MEMBER_SCOPING)
+def test_a_class_body_scope_decides_if_its_branches_set_the_member_guard(tmp_path, name):
+    outer, body, expected = MEMBER_SCOPING[name]
+    source = (
+        "def _effect():\n    return None\n\n"
+        "class Generator:\n"
+        "    def __init__(self):\n        self.seeded: bool = False\n\n"
+        "    def generate(self, other=None):\n"
+        f"        if {outer}:\n            class Local:\n"
+        f"{textwrap.indent(body, ' ' * 16)}\n"
+        "            _effect()\n"
+    )
+    files = {"sample/core.py": source}
+    assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == expected

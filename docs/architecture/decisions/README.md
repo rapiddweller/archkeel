@@ -286,3 +286,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-276 | [A leading UTF-8 BOM is not source text](ad-276-a-leading-utf-8-bom-is-not-source-text.md) |
 | AD-277 | [References record the write target, the prefix of an unresolved chain and enum re-exports](ad-277-references-record-write-targets-chain-prefixes-and-enum-reexports.md) |
 | AD-278 | [A stdlib star facade binds the names of its star sources](ad-278-a-stdlib-star-facade-binds-the-names-of-its-sources.md) |
+| AD-279 | [A catalog target only compares or indexes its arguments](ad-279-a-catalog-target-only-compares-or-indexes-its-arguments.md) |

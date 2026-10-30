@@ -747,16 +747,16 @@ def _catalog_argument_results(
             )
         )
     targets = _catalog_targets(rule, symbols)
-    escape_limit = _catalog_enum_escape_limit(
-        rule, scope, entries, reference_data, all_calls, all_references, evidence
-    )
-    if escape_limit is not None:
-        limits.append(escape_limit)
     signature = (
         parse_record(targets[0]).data
         if len(targets) == 1 and _target_binding_static(targets[0], symbols)
         else None
     )
+    escape_limit = _catalog_enum_escape_limit(
+        rule, scope, entries, reference_data, signature, all_calls, all_references, evidence
+    )
+    if escape_limit is not None:
+        limits.append(escape_limit)
     if not _catalog_signature_has_parameter(signature, rule.parameter):
         limits.append(
             _catalog_limit(
@@ -798,6 +798,7 @@ def _catalog_enum_escape_limit(
     scope: str,
     entries: dict[str, _CatalogEntry],
     reference_data: dict[str, RecordData],
+    signature: RecordData | None,
     all_calls: Sequence[RawRecord],
     all_references: Sequence[RawRecord],
     evidence: dict[str, RawEvidence],
@@ -820,7 +821,7 @@ def _catalog_enum_escape_limit(
         return None
     accounted: set[str] = set()
     if rule.target is not None and not _catalog_target_may_change(
-        rule.target, all_calls, all_references
+        rule.target, signature, all_calls, all_references
     ):
         accounted = _catalog_target_argument_references(
             rule.target, reads, reference_data, all_calls, evidence
@@ -837,8 +838,14 @@ def _catalog_enum_escape_limit(
 
 
 def _catalog_target_may_change(
-    target: str, all_calls: Sequence[RawRecord], all_references: Sequence[RawRecord]
+    target: str,
+    signature: RecordData | None,
+    all_calls: Sequence[RawRecord],
+    all_references: Sequence[RawRecord],
 ) -> bool:
+    # A returned or subscript-changed argument has no call or write record (#751).
+    if signature is None or signature.get("parameters_contained") is not True:
+        return True
     return any(call["data"]["source_scope"] == target for call in all_calls) or any(
         reference["kind"] == "source_role"
         and reference["data"]["source_scope"] == target

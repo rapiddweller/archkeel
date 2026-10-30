@@ -192,6 +192,7 @@ _PROOF_FLAGS = frozenset(
         "source_final_method_binding",
         "overload_signature",
         "overloaded",
+        "parameters_contained",
     }
 )
 _STRING_ARRAYS = frozenset(
