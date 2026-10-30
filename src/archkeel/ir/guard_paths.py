@@ -349,38 +349,22 @@ class _GuardPathWalker:
             state = self._definition_state(
                 statement.name, header, [], applied, current, reason, path_nodes
             )
-            if state[1] is None and self._class_body_rescopes(statement):
-                # The guard name in the body may be another binding: drop the branch values.
-                state = (None, "unsupported_condition")
-            # The body runs now, in order, so the code after the class starts from its end states.
-            ends = self.block(statement.body, state[0], path_nodes, state[1])
-            if self.receiver_name is None or not _class_runs_hooks(statement):
-                return ends
+            # The body has its own name scope, so its branch values never reach the guard. Walk it
+            # without values, only for its calls and mutations.
+            start = (None, state[1] or "unsupported_condition")
+            ends = self.block(statement.body, start[0], path_nodes, start[1])
             # The hooks run after the body, so they can change the member after the body ends.
-            return list(
-                dict.fromkeys(
-                    (None, end_reason or "opaque_call_mutation", end_nodes)
-                    for _, end_reason, end_nodes in ends
-                )
-            )
+            hooks = self.receiver_name is not None and _class_runs_hooks(statement)
+            mutated = [
+                (None, end_reason if end_reason != start[1] else "opaque_call_mutation", end_nodes)
+                for _, end_reason, end_nodes in ends
+                if hooks or end_reason != start[1]
+            ]
+            if mutated:
+                return list(dict.fromkeys(mutated))
+            # An empty `ends` stays empty: the body always raises.
+            return [(*state, path_nodes)] if ends else []
         return self._ordinary_paths(statement, current, reason, path_nodes)
-
-    def _class_body_rescopes(self, statement: ast.ClassDef) -> bool:
-        """Whether the guard name in the class body can be another binding than the guard.
-
-        A class body has its own name scope. A name that the body declares `global` or
-        `nonlocal`, or binds anywhere, is not the enclosing name at the read before the binding.
-        """
-        for node in (child for item in statement.body for child in ast.walk(item)):
-            if isinstance(node, ast.Global | ast.Nonlocal):
-                if any(name in self.bound_names for name in node.names):
-                    return True
-            elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
-                if node.name in self.bound_names:
-                    return True
-            elif self._rebinds(node):
-                return True
-        return False
 
     def _call_states(
         self,

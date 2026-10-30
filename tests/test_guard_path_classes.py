@@ -173,7 +173,11 @@ PARAM_EXPECTED = {
     "ifexp_guard": ([(None, None)], [("a", True, None), ("b", False, None)]),
     "ifexp_other": ([(None, None)], [("a", None, None), ("b", None, None)]),
     "nested_def": ([(None, None)], [("c", None, None)]),
-    "nested_class": ([(None, None)], [("Base", None, None), ("c", None, None)]),
+    # The class body is walked without values, only for its calls and mutations.
+    "nested_class": (
+        [(None, None)],
+        [("Base", None, None), ("c", None, "unsupported_condition")],
+    ),
     "empty_branch": ([(None, None)], []),
 }
 
@@ -759,7 +763,7 @@ def test_each_member_write_form_changes_or_keeps_the_value_as_expected(name: str
 @pytest.mark.parametrize(
     "header,expected",
     [
-        ("class G(base):", {(True, None)}),
+        ("class G(base):", {(None, "unsupported_condition")}),
         ("class G((flag := base)):", {(None, "condition_mutation")}),
         ("class G(metaclass=(flag := base)):", {(None, "condition_mutation")}),
         ("@(flag := deco)\n        class G:", {(None, "condition_mutation")}),
@@ -929,55 +933,53 @@ def test_a_class_hook_makes_a_false_value_from_the_class_body_unknown() -> None:
     assert _values(_guarded(source, True), "after") == OPAQUE
 
 
-# A class body has its own name scope: a name that it declares `global` or `nonlocal`, or binds
-# anywhere, can be another binding than the guard, so its branches must not set the guard value.
+# The branch values of a class body never reach the guard: the body has its own name scope, and
+# a name that it declares `global` or `nonlocal`, or binds anywhere, can be another binding.
 SCOPE_BODIES = {
-    "global": "global {name}\nif {read}:\n    c()",
-    "nonlocal": "nonlocal {name}\nif {read}:\n    c()",
-    "store_after_read": "if {read}:\n    c()\n{name} = 1",
-    "delete_after_read": "if {read}:\n    c()\ndel {name}",
-    "named_expression_after_read": "if {read}:\n    c()\n({name} := 1)",
-    "import_after_read": "if {read}:\n    c()\nimport os as {name}",
-    "def_after_read": "if {read}:\n    c()\ndef {name}():\n    pass",
-    "class_after_read": "if {read}:\n    c()\nclass {name}:\n    pass",
-    "for_after_read": "if {read}:\n    c()\nfor {name} in y:\n    pass",
-    "comprehension_after_read": "if {read}:\n    c()\nvalues = [1 for {name} in y]",
-    "conditional_expression": "{name} = 1 if {read} else 2\nc()",
+    "global": "global {name}\nif {read}:\n    raise ValueError",
+    "nonlocal": "nonlocal {name}\nif {read}:\n    raise ValueError",
+    "store_after_read": "if {read}:\n    raise ValueError\n{name} = 1",
+    "delete_after_read": "if {read}:\n    raise ValueError\ndel {name}",
+    "named_expression_after_read": "if {read}:\n    raise ValueError\n({name} := 1)",
+    "import_after_read": "if {read}:\n    raise ValueError\nimport os as {name}",
+    "def_after_read": "if {read}:\n    raise ValueError\ndef {name}():\n    pass",
+    "class_after_read": "if {read}:\n    raise ValueError\nclass {name}:\n    pass",
+    "for_after_read": "if {read}:\n    raise ValueError\nfor {name} in y:\n    pass",
+    "comprehension_after_read": "if {read}:\n    raise ValueError\nvalues = [1 for {name} in y]",
+    "conditional_expression": "{name} = 1 if {read} else 2",
+    "plain_read": "if {read}:\n    raise ValueError",
+    "other_global": "global other\nif {read}:\n    raise ValueError",
 }
-# What the body can leave alone: the name of another binding, or no binding at all.
-UNRELATED_SCOPE_BODIES = {
-    "plain_read": "if {read}:\n    c()",
-    "other_global": "global other\nif {read}:\n    c()",
-    "other_nonlocal": "nonlocal other\nif {read}:\n    c()",
-    "other_store": "other = 1\nif {read}:\n    c()",
-}
+# A body that mutates nothing leaves the state from before the class unchanged. A `nonlocal`
+# name is handled for the whole function by `guarded_call_paths`, not by the walker.
+SCOPE_FORMS_WITHOUT_MUTATION = {"global", "nonlocal", "plain_read", "other_global"}
 
 
-def _scoped_paths(body: str, member: bool) -> Paths:
+def _scoped_paths(body: str, member: bool, guarded: bool) -> Paths:
     name = "self" if member else "flag"
-    text = body.format(name=name, read="self.flag" if member else "flag")
-    class_text = "class G:\n" + textwrap.indent(text, "    ")
-    indented = textwrap.indent(class_text, "        ")
-    head = "def f(self):\n    if self.flag:\n" if member else "def f(flag):\n    if flag:\n"
-    return _guarded(f"{head}{indented}\n        after()\n", member)
+    read = "self.flag" if member else "flag"
+    text = "class G:\n" + textwrap.indent(body.format(name=name, read=read), "    ") + "\nafter()"
+    if guarded:
+        text = f"if {read}:\n" + textwrap.indent(text, "    ")
+    return _guarded(f"def f({name}):\n" + textwrap.indent(text, "    ") + "\n", member)
 
 
 @pytest.mark.parametrize("member", [False, True], ids=["parameter", "member"])
 @pytest.mark.parametrize("form", SCOPE_BODIES)
-def test_a_name_that_the_class_body_rebinds_does_not_set_a_guard_value(
-    form: str, member: bool
-) -> None:
-    paths = _scoped_paths(SCOPE_BODIES[form], member)
-    assert {p.condition_value for p in paths if p.call_name in {"c", "after"}} == {None}
+def test_the_branch_values_of_a_class_body_never_reach_the_guard(form: str, member: bool) -> None:
+    paths = _scoped_paths(SCOPE_BODIES[form], member, guarded=False)
+    assert {value for value, _ in _values(paths, "after")} == {None}
 
 
-@pytest.mark.parametrize("member", [False, True], ids=["parameter", "member"])
-@pytest.mark.parametrize("form", UNRELATED_SCOPE_BODIES)
-def test_a_class_body_that_reads_the_guard_without_rebinding_it_keeps_the_value(
-    form: str, member: bool
+@pytest.mark.parametrize("form", SCOPE_BODIES)
+def test_a_class_body_keeps_the_parameter_state_from_before_the_class_unless_it_mutates(
+    form: str,
 ) -> None:
-    paths = _scoped_paths(UNRELATED_SCOPE_BODIES[form], member)
-    assert _values(paths, "c") == {(True, None)}
+    after = _values(_scoped_paths(SCOPE_BODIES[form], False, guarded=True), "after")
+    if form in SCOPE_FORMS_WITHOUT_MUTATION:
+        assert after == {(True, None)}
+    else:
+        assert {value for value, _ in after} == {None}
 
 
 def test_the_global_class_body_of_the_review_does_not_prove_a_false_guard() -> None:
@@ -985,4 +987,9 @@ def test_the_global_class_body_of_the_review_does_not_prove_a_false_guard() -> N
         "def f(flag, other):\n    class G:\n        global flag\n        if flag:\n"
         "            raise ValueError\n    after()\n"
     )
-    assert {p.condition_value for p in _guarded(source, False) if p.call_name == "after"} == {None}
+    assert _values(_guarded(source, False), "after") == {(None, None)}
+
+
+def test_a_class_body_that_always_raises_leaves_no_code_after_it() -> None:
+    source = "def f(flag):\n    class G:\n        raise ValueError\n    after()\n"
+    assert _values(_guarded(source, False), "after") == set()
