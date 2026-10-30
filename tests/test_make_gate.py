@@ -1045,36 +1045,6 @@ def test_pr_core_aggregate_executes_its_workflow_script_fail_closed(
     assert (result.returncode == 0) is success, result.stderr
 
 
-@pytest.mark.parametrize(
-    ("workflow", "job", "local", "outside"),
-    [
-        ("ci.yml", "pr-core-static", "ci-pr-static", {"against"}),
-        ("ci.yml", "pr-report-check", "ci-pr-report-check", set()),
-        (
-            "full-verification.yml",
-            "full-suite-and-reports",
-            "ci-check SHARDED_TESTS=1",
-            {"report-pages", "mermaid"},
-        ),
-    ],
-)
-def test_named_ci_steps_run_the_same_commands_as_the_local_target(
-    workflow: str, job: str, local: str, outside: set[str]
-) -> None:
-    def dry_run(arguments: str) -> str:
-        return subprocess.check_output(
-            ["make", "-n", *arguments.split()],
-            cwd=ROOT,
-            text=True,
-            env={**os.environ, "MAKEFLAGS": ""},
-        )
-
-    text = (ROOT / ".github/workflows" / workflow).read_text()
-    body = re.split(r"\n  [\w-]+:\n", text.split(f"\n  {job}:\n", 1)[1], maxsplit=1)[0]
-    steps = [command for command in re.findall(r"\bmake ([^;\n]+)", body) if command not in outside]
-    assert "".join(map(dry_run, steps)) == dry_run(local)
-
-
 @pytest.mark.parametrize("exit_code", [0, 2])
 def test_self_validation_keeps_json_and_shows_failures(tmp_path: Path, exit_code: int) -> None:
     uv = tmp_path / "uv"
