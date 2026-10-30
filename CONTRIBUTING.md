@@ -33,8 +33,8 @@ Policy validation runs first. `BASE` also checks widenings and amendments; CI pi
 Without `BASE`, the local gate validates only the checked-out policy.
 PRs and Main pushes run the change-selected core and report regression checks; Mermaid checks
 follow Markdown changes. The report sample checks scene/projection data and renderer output.
-The selected Python tests include unit, integration and CLI tests; the shards split work by count.
-Saved-report tests run in the Python shards, so report changes also select the Python checks.
+The selected Python tests include unit, integration and CLI tests; each test job runs one area.
+Saved-report tests run in the area test jobs, so report changes also select the Python checks.
 Use `make report-browser` for the three local Chromium smokes. Samples do not replace testing the behavior
 you change. The normal core set uses one Dart CLI smoke, one UNKNOWN safety case and four Flutter
 Target guards; complete Dart and Flutter variant coverage stays in the full checks.
@@ -59,27 +59,29 @@ no transaction spanning the ref check and disable request.
 
 ## Where things run
 
-CI runs on each PR and each push to `main`. It selects checks from the changed files.
-Full verification runs each night, on manual dispatch and before each release. On a PR, it runs
-only when the PR changes the `Makefile`, a workflow or a CI tool file (`tools/ci_changes.py`).
+CI runs on each PR and each push to `main`. Full verification runs nightly, on dispatch, before a
+release, and on a PR that changes CI files; there its jobs show as `Full / <job>`.
 
-| Check | Local command | Job | PR | Push to `main` | Nightly |
-|---|---|---|---|---|---|
-| Architecture, lint and types | `make ci-pr-static` | Architecture, lint and types | if core | if core | in Full |
-| Selected unit, integration and CLI tests | `make pr-test` | Python tests / part 1-6 | if core | if core | no |
-| All Python tests | `make test` | All Python tests / part 1-8 | if Full | no | yes |
-| Report and renderer tests | `make ci-pr-report-check` | Report and renderer tests | if report | if report | no |
-| Build, generated assets, report timing | `make ci-check SHARDED_TESTS=1` | Architecture, build and report checks | if Full | no | yes |
-| Gallery demos | `make demos` | Demo analysis | if Full | no | yes |
-| Windows collector safety | `make collector-safety` | Collector safety / Windows | if Full | no | yes |
-| Python 3.12 and 3.14 compatibility | `make python-compat` | Python compatibility | no | no | yes |
-| Source collectors on Python 3.12 | `make typescript-native dart-test` | Source collectors | no | no | yes |
-| Gallery and Pages | `make report-pages` | Publish the verified report gallery | no | no | `main` only |
-| Release | tag push | `release.yml` runs Full, then publishes | no | no | no |
+| Job | Command to reproduce | PR | Push to `main` | Nightly |
+|---|---|---|---|---|
+| Lint and types | `make lint typecheck browser-architecture-check` | if core | if core | in Full |
+| Architecture self-check | `make against BASE=origin/main` | if core | if core | in Full |
+| Tests: `<area>` (CI) | `make pr-test AREA="<area>"` | if core | if core | no |
+| Report and renderer tests | `make ci-pr-report-check` | if report | if report | no |
+| Docs diagrams | `make mermaid` | if Markdown | if Markdown | in Full |
+| Collect GitHub order evidence (report only) | `make github-pr-report` | if core | no | no |
+| All checks passed | none: it needs every selected CI job | yes | yes | no |
+| Architecture, build and report checks | `make ci-check SHARDED_TESTS=1` | if Full | no | yes |
+| Tests: `<area>` (Full) | `make full-test AREA="<area>"` | if Full | no | yes |
+| Demos | `make demos` | if Full | no | yes |
+| Windows: collector safety | `make collector-safety` on Windows | if Full | no | yes |
+| Python 3.12.10 / 3.14.7 compatibility | `make python-compat` | no | no | yes |
+| Linux: source collectors | `make typescript-native dart-test build smoke` | no | no | yes |
+| Publish the verified report gallery | `make report-pages` | no | no | `main` only |
 
-"if core" and "if report" name the areas that `tools/ci_changes.py` selects. "if Full" means
-that Full verification runs on the PR. "Nightly" also covers manual dispatch. A release runs
-all Full jobs.
+A red job means its command failed: run the command in the second column to reproduce it.
+`tests/areas.py` puts each test file in exactly one area. CI runs the `make pr-test` selection;
+Full runs all tests. "if core", "if report" and "if Markdown" are what `tools/ci_changes.py` selects.
 
 The [published architecture report](https://rapiddweller.github.io/archkeel/) updates after a
 successful scheduled or manual full verification on Main. Reports retain FAIL and UNKNOWN
