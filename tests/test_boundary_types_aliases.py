@@ -15,7 +15,7 @@ from archkeel.analyzer.python.binding_types import ImportKind
 from archkeel.analyzer.python.source import AliasBinding, ParsedModule
 from archkeel.analyzer.python.symbols import collect_symbols
 from archkeel.analyzer.python.type_shapes import collect_type_shapes
-from archkeel.check.evaluation.rules import (
+from archkeel.check.evaluation.boundary_types import (
     _AMBIGUOUS,
     BindingIndex,
     _bare_type_verdict,

@@ -13,7 +13,8 @@ import pytest
 from test_architecture_demo import _prepare_repo
 from test_report_159_160 import _flow_data
 
-from archkeel.check.validation import COMPONENT_GRAPH_MARKER, TARGET_GRAPH_MARKER
+from archkeel.check.validation import COMPONENT_GRAPH_MARKER
+from archkeel.check.validation.graphs import TARGET_GRAPH_MARKER
 from archkeel.cli import main
 from archkeel.ir import decisions as decision_derivation
 from archkeel.ir.baseline import KnownViolation, ViolationFingerprint

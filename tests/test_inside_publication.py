@@ -15,12 +15,8 @@ from test_recursive_inside_independent_contracts import (
 )
 
 from archkeel.check.ports import ScanConfig
-from archkeel.check.validation import (
-    COMPONENT_GRAPH_MARKER,
-    inside_diagnostics,
-    interface_diagnostics,
-    run_validate,
-)
+from archkeel.check.validation import COMPONENT_GRAPH_MARKER, inside_diagnostics, run_validate
+from archkeel.check.validation.public_api import interface_diagnostics
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import (
     canonical_report_bytes,

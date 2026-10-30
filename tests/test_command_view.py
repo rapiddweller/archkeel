@@ -22,9 +22,9 @@ from archkeel.ir.architecture_projection import (
     UnknownProjection,
 )
 from archkeel.ir.codec import result_bytes
+from archkeel.ir.command_view import architecture_command_envelope
 from archkeel.ir.facts import SourceInfo
 from archkeel.ir.model import BaselineViolationComparison, ReportFilter, RunResult
-from archkeel.ir.report_projection import architecture_command_envelope
 
 
 def _recorded_result(*, full=False, selected=None):
@@ -176,7 +176,7 @@ def test_command_reasons_permissions_scopes_and_selector_negative_controls():
     "first",
     ["command_view", "report_projection", "codec", "model"],
 )
-def test_legacy_aliases_and_type_hints_survive_eager_import_orders(first):
+def test_type_hints_survive_eager_import_orders(first):
     script = """
 import importlib
 import sys
@@ -199,7 +199,6 @@ names = (
 )
 for name in names:
     current = getattr(command_view, name)
-    assert getattr(report_projection, name) is current, name
     if is_dataclass(current) or isfunction(current):
         get_type_hints(current)
 assert get_type_hints(command_view.architecture_command_envelope)["result"] is model.RunResult

@@ -12,7 +12,7 @@ from test_architecture_demo import _prepare_repo
 
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
-from archkeel.check.validation import closed_world_diagnostics
+from archkeel.check.validation.closed_world import closed_world_diagnostics
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
 from archkeel.ir.decisions import (

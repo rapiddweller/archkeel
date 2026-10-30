@@ -29,6 +29,7 @@ from archkeel.ir.codec import (
     parse_record,
     result_bytes,
 )
+from archkeel.ir.command_view import architecture_command_envelope, short_selector, unknown_groups
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.model import (
     FilteredViolation,
@@ -39,13 +40,7 @@ from archkeel.ir.model import (
     RunResult,
 )
 from archkeel.ir.report_graph import architecture_report
-from archkeel.ir.report_projection import (
-    _selected_projection,
-    architecture_command_envelope,
-    architecture_projection,
-    short_selector,
-    unknown_groups,
-)
+from archkeel.ir.report_projection import _selected_projection, architecture_projection
 from archkeel.render.summary import report_summary
 
 

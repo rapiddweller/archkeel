@@ -305,6 +305,26 @@ def test_decision_index_matches_decision_files() -> None:
     assert unindexed_files == [], f"the archive index omits decision files: {unindexed_files}"
 
 
+def test_plans_and_evidence_stay_out_of_the_repository() -> None:
+    """AD-282: a work record under docs/superpowers or docs/evidence needs a contract citation."""
+    contracts = (
+        ROOT / "architecture-contract.json",
+        *(ROOT / "docs/architecture/contracts").glob("*.json"),
+    )
+    cited = {
+        match
+        for contract in contracts
+        for match in re.findall(r"docs/(?:superpowers|evidence)/[^\"\s]+", contract.read_text())
+    }
+    kept = {
+        path.relative_to(ROOT).as_posix()
+        for path in TRACKED
+        if path.is_relative_to(ROOT / "docs/superpowers")
+        or path.is_relative_to(ROOT / "docs/evidence")
+    }
+    assert kept <= cited, f"Move these work records out of the repository: {sorted(kept - cited)}"
+
+
 def test_repository_root_holds_no_stray_file() -> None:
     """Generated output is invisible to every other guard: it is valid text at a plausible path."""
     tracked = frozenset(path.name for path in TRACKED if path.parent == ROOT)

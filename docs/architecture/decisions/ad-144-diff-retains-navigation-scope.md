@@ -9,4 +9,4 @@ ambiguous counterparts retain their location and offer explicit nearest-scope na
 Mounted declaration IDs recover Target routes; exact owners and file identities
 remain distinct.
 
-[Scope proof](../../../tests/test_report_interactions.py).
+**Checks.** None since #680 removed its tests.

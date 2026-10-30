@@ -730,7 +730,6 @@ class ConstructCollector(ast.NodeVisitor):
         self.receiver_scope_names: list[str] = []
         self.parameter_annotations: list[dict[str, tuple[str, ast.expr]]] = []
         self.local_classes: set[str] = set()
-        self.local_members: set[str] = set()
         self.selector_ids: set[str] = set()
 
     def _integer(
@@ -1896,21 +1895,6 @@ def _literal_import_origins(imports: Sequence[RawRecord]) -> dict[str, str]:
     return origins
 
 
-def _class_member_names(module: ParsedModule) -> set[str]:
-    names: set[str] = set()
-    for declaration in module.tree.body:
-        if not isinstance(declaration, ast.ClassDef):
-            continue
-        for member in declaration.body:
-            if isinstance(member, ast.FunctionDef | ast.AsyncFunctionDef):
-                names.add(member.name)
-            elif isinstance(member, ast.Assign):
-                names.update(target.id for target in member.targets if isinstance(target, ast.Name))
-            elif isinstance(member, ast.AnnAssign) and isinstance(member.target, ast.Name):
-                names.add(member.target.id)
-    return names
-
-
 def collect_constructs(
     parsed: Sequence[ParsedModule],
     evidence: dict[str, RawEvidence],
@@ -1977,7 +1961,6 @@ def collect_constructs(
             include_numeric_operands,
         )
         collector.local_classes = known_classes
-        collector.local_members = _class_member_names(module)
         collector.visit(module.tree)
         items.extend(collector.items)
     items.sort(key=lambda item: item["id"])

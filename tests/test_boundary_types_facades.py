@@ -17,7 +17,8 @@ from test_inside_publication import _child, _inside, _rule, _write_project
 
 from archkeel.check.evaluation.boundary_types import _declared_facade_positions
 from archkeel.check.ports import ScanConfig
-from archkeel.check.validation import inside_diagnostics, interface_diagnostics
+from archkeel.check.validation import inside_diagnostics
+from archkeel.check.validation.public_api import interface_diagnostics
 from archkeel.ir.codec import parse_contract
 from archkeel.ir.facts_codec import raw_record
 from archkeel.ir.trace import trace_valid_violations

@@ -109,46 +109,4 @@ and canonical type identity; their exact and optional-union semantics are record
 
 ## Decisions
 
-[Internal decision archive](decisions/README.md). Read individual records when reviewing a specific change.
-
-| Decision | Renderer behavior |
-| --- | --- |
-| [AD-237](decisions/ad-237-shared-dependency-proof-binding.md) | Dependency proof issuance and replay share the existing typed fingerprint recipe. |
-| [AD-236](decisions/ad-236-demand-driven-report-exploration.md) | Build the module matrix on Health check open and module links on native list expansion. |
-| [AD-239](decisions/ad-239-codec-format-owners.md) | Keep the codec facade while separate format owners preserve parsing and wire bytes. |
-| [AD-238](decisions/ad-238-command-view-preparation.md) | Prepare compact command views in a focused governance module while retaining legacy imports and wire output. |
-| [AD-242](decisions/ad-242-explicit-browser-module-ports.md) | Check named browser module ports and publish one verified offline bundle. |
-| [AD-254](decisions/ad-254-canonical-protocol-declarations.md) | Require exact canonical Protocol identities at selected API positions. |
-| [AD-256](decisions/ad-256-guarded-eager-declaration-expressions.md) | Check eager nested declaration expressions while preserving UNKNOWN for class-body calls without replayable path evidence. |
-| [AD-257](decisions/ad-257-rule-driven-fact-collection.md) | Collect a fact family only when a declared rule uses it; a rule whose family was not collected is a coverage failure, never PASS. |
-| [AD-258](decisions/ad-258-report-opens-with-ranked-findings.md) | Open the report with one verdict line and a ranked findings list computed once in the IR; a change field appears only with a comparison. |
-| [AD-259](decisions/ad-259-one-plain-wire-one-validation.md) | The native collector speaks a plain, zlib-compressed protocol 8 and validates once, at the main process. |
-| [AD-260](decisions/ad-260-typescript-bundler-mode.md) | Treat bundler-resolved TypeScript imports as known only when `[scan] bundler = true` and tsconfig uses `moduleResolution: bundler`. |
-| [AD-261](decisions/ad-261-typescript-standard-globals-from-lib-files.md) | TypeScript standard globals are generated from the compiler's lib files; JSX attribute names are not references. |
-| [AD-262](decisions/ad-262-configurable-collector-timeout.md) | Make the collector deadline a configured positive integer in `[scan]`, defaulting to 300 seconds. |
-| [AD-263](decisions/ad-263-cycle-findings-carry-a-concrete-path.md) | A cycle finding carries one concrete path: the shortest closed walk with a `file:line` site per edge. |
-| [AD-264](decisions/ad-264-the-explorer-opens-on-what-is-here.md) | While nothing is selected, the Explorer's fact sheet lists the largest components; the verdict line names a draft contract. |
-| [AD-265](decisions/ad-265-contract-guide.md) | `archkeel guide` renders the contract as a deterministic Markdown guide, separate from `architecture.md`. |
-| [AD-266](decisions/ad-266-the-first-hour.md) | `init` ends with next steps and a facts-only first look; `init --adopt` takes the current state into the contract as "adopted, not reviewed". |
-| [AD-267](decisions/ad-267-phase-timings-and-work-counters.md) | `report --timings` writes phase seconds and deterministic work counters beside the report, never inside it. |
-| [AD-268](decisions/ad-268-collector-stderr-tail.md) | A collector keeps the last 64 KiB of stderr; stderr size never fails a run, and a failed run reports the exit code and the last 20 lines. |
-| [AD-269](decisions/ad-269-python-module-depth-ceiling.md) | A Python module nested deeper than 5,000 AST levels becomes one coverage gap; the scan goes on. |
-| [AD-270](decisions/ad-270-merge-identical-guard-path-states.md) | The guarded-path walker merges equal states, so k sequential `if` blocks give k records, not 2^k. |
-| [AD-271](decisions/ad-271-guard-paths-through-all-unsupported-children.md) | The guarded-path walker records calls in except handlers, `with` items and `match` cases as `unsupported_control_flow`. |
-| [AD-272](decisions/ad-272-rank-what-an-incomplete-observation-proves.md) | An incomplete observation ranks the violations and cycles it proves, never hubs; the page names the reason. |
-| [AD-273](decisions/ad-273-namespace-exposure-is-local-to-its-module.md) | `globals()`, `eval` and `exec` withhold loader proof in their own module, not in the whole snapshot. |
-| [AD-274](decisions/ad-274-types-add-and-project-declarations-publish.md) | `types` adds globals instead of switching the catalog off; a project `declare` in a script file publishes its name. |
-| [AD-275](decisions/ad-275-names-only-globals-keep-direct-bindings-stable.md) | A `globals()` that only reads names keeps the direct bindings of its module stable, so a literal loader call there is proven. |
-| [AD-276](decisions/ad-276-a-leading-utf-8-bom-is-not-source-text.md) | A Python source starts with at most one UTF-8 BOM, which is not a character; a BOM provider's digest covers its text. |
-| [AD-277](decisions/ad-277-references-record-write-targets-chain-prefixes-and-enum-reexports.md) | References record write targets, unresolved-chain prefixes and enum re-exports; `catalog_argument` counts each owner read and each import the collector cannot follow. |
-| [AD-278](decisions/ad-278-a-stdlib-star-facade-binds-the-names-of-its-sources.md) | A top-level stdlib package of star imports binds a name when exactly one captured star source lists it in a literal `__all__` (Python 3.13 `pathlib.Path`). |
-| [AD-279](decisions/ad-279-a-catalog-target-only-compares-or-indexes-its-arguments.md) | A `catalog_argument` target may only compare or index its parameters and store no subscript; a returned argument stays UNKNOWN; an index can still give the member away (Limits). |
-| [AD-280](decisions/ad-280-simple-ci-steps-and-one-demo-runner.md) | CI runs one fixed set of named jobs on each PR with no skipped job; Full and Pages have their own workflows; `make demos` is the one demo runner. |
-| [AD-281](decisions/ad-281-retire-unused-tooling.md) | Rule yield, GitHub order receipts, the TypeScript differential, the SVG figure tools and dead maintenance tools are removed; the Git history keeps them. |
-| [AD-246](decisions/ad-246-bounded-numeric-operand.md) | Bind selected modulo bounds to bounded source-derived integer proofs. |
-
-| [AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md) | Bind explicitly written actuals to proven formals before applying argument policies. |
-| [AD-251](decisions/ad-251-catalog-arguments-and-source-usage.md) | Check catalog membership and genuine source reads through canonical declarations. |
-| [AD-248](decisions/ad-248-construct-selectors.md) | Select one nominal receiver, member and construct role without global spelling bans. |
-| [AD-249](decisions/ad-249-source-ownership-defaults.md) | Constrain source definitions, value transfers, defaults, and fallbacks to canonical owners. |
-| [AD-250](decisions/ad-250-bounded-guarded-effect-ownership.md) | Prove bounded Boolean paths and one call-site-specific private helper hop for canonical effects. |
+The [decision archive](decisions/README.md) lists every decision record. Read individual records when reviewing a specific change.

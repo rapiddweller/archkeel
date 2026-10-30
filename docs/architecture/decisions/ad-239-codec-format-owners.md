@@ -21,12 +21,10 @@ otherwise leave imported alias routes unproven, adding eight UNKNOWNs. This
 native declaration proves those routes and enumerates coupling without changing
 analyzer semantics or widening a budget. Exact publication entries would add
 unused-entry diagnostics for compatibility functions without production callers.
-Private payload aliases remain directly importable; implementation siblings
-are not published as whole modules.
+Implementation siblings are not published as whole modules.
 
 Retain the same functions, errors, value identities, version gates, validation
-order and wire bytes. Reexport the existing fact/value aliases and the two
-private payload helpers used by compatibility tests. Physical function/class
+order and wire bytes. Reexport the existing fact/value aliases. Physical function/class
 module identities and the checker source digest change with their owner.
 
 Move the existing named long-function reasons without increasing their count.

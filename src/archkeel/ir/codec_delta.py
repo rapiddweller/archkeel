@@ -24,7 +24,6 @@ from archkeel.ir.codec_wire import (
     _strings,
 )
 from archkeel.ir.facts import RuntimeRequirementState
-from archkeel.ir.model import DELTA_SCHEMA_VERSION as DELTA_SCHEMA_VERSION
 from archkeel.ir.model import (
     AnalyzerInfo,
     ArchitectureDelta,
