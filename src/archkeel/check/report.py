@@ -91,15 +91,11 @@ from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.report_projection import architecture_projection
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 
-# Retain the published report bindings while their implementation lives below commands.
-from .git import git_bytes as git_bytes
 from .observe import observation_diagnostics
 from .ports import Analyzer, ScanConfig
 from .ratchets import call_rows, calls_measured, unknown_positions_by_rule
 from .run import inspect_observation
 from .runtime import runtime_diagnostic
-from .snapshot import resolve_commit as resolve_commit
-from .uml import assemble_uml as assemble_uml
 from .uml import (
     observe_repository as _observe_repository,
 )
@@ -109,7 +105,6 @@ from .uml import (
 from .uml import (
     validated_member_inventory_result as _validated_member_inventory_result,
 )
-from .uml_evaluation import evaluate_uml as evaluate_uml
 
 _CALL_RECORD_KINDS = ("resolved_call", "partially_resolved_call", "unresolved_call")
 
