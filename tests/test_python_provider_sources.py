@@ -2431,12 +2431,24 @@ def test_star_source_that_publishes_a_child_in_sys_modules_gives_no_class_receip
     assert "json.helper.Payload" not in {item.qualified_name for item in facts.provider_bindings}
 
 
-@pytest.mark.parametrize(("facade", "known"), [("json", True), ("vendor.facade", False)])
-def test_only_a_stdlib_facade_holds_several_captured_stars(tmp_path, facade, known):
+@pytest.mark.parametrize(
+    ("facade", "sources", "known"),
+    [
+        ("json", ("sched", "heapq"), True),
+        ("json", ("sched", "model"), False),
+        ("json", ("model", "other"), False),
+        ("vendor.facade", ("sched", "heapq"), False),
+    ],
+    ids=["stdlib-sources", "one-outside-source", "outside-sources", "third-party-facade"],
+)
+def test_only_a_stdlib_facade_holds_several_captured_stars(tmp_path, facade, sources, known):
+    first, last = sources
     providers = [
-        _provider(facade, "from model import *\nfrom other import *\n", package="." not in facade),
-        _provider("model", _EXPORTS_OTHER),
-        _provider("other", _EXPORTS_PAYLOAD),
+        _provider(
+            facade, f"from {first} import *\nfrom {last} import *\n", package="." not in facade
+        ),
+        _provider(first, _EXPORTS_OTHER),
+        _provider(last, _EXPORTS_PAYLOAD),
     ]
     if "." in facade:
         providers.append(_provider("vendor", "", package=True))

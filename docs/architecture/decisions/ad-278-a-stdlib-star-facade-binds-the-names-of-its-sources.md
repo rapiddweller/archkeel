@@ -12,6 +12,7 @@
    `__all__`. It must have a static identity, also without a `sys.modules` write. No child
    module of the facade may be named in the `__all__` of a source.
    A source that names a dunder such as `__package__` or `__spec__` in `__all__` is not proven.
+   A source of a stdlib facade must have a top-level stdlib name.
 3. Exactly one star source lists the name in `__all__`, and it is the last star of the facade.
    A later star source can rebind the name. A name in two sources, or a source starred twice,
    stays UNKNOWN. On 3.13 `UnsupportedOperation` (from `_abc`) is UNKNOWN for this reason.
@@ -40,7 +41,7 @@ proofs of `Path` stayed UNKNOWN on 3.13 for almost every project (#743).
 
 **Limits.**
 - A star source with a star import of its own is UNKNOWN.
-- Stdlib code is trusted not to patch a module at run time (#746).
+- The proof reads stdlib files of the real interpreter and trusts them (#746, docs/known-limits.md): a package initializer, a computed `__all__` expression or an earlier star source that patches another module is not detected.
 
 **Check.**
 - `tests/test_python_provider_sources.py`:

@@ -1031,8 +1031,11 @@ def _star_sources(
     # A dunder name (`__package__`, `__name__`, `__path__`) steers the import system or the
     # module, so a star import of it can change how the next star import resolves.
     children = {_child_name(module.module, name) for name in by_module} - {""}
+    stdlib = is_stdlib_root(module.module)
     proven = len(sources) == len(stars) and all(
-        source.all_literal
+        # The stdlib trust of a facade does not reach a source outside the standard library.
+        (not stdlib or _first_part(source.module, ".") in sys.stdlib_module_names)
+        and source.all_literal
         and "__all__" in stable_direct_module_bindings(source)
         and _provider_identity_static(source)
         and not children & source.all_exports
