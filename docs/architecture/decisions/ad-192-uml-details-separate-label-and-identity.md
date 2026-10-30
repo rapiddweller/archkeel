@@ -6,5 +6,3 @@ without changing source text or indentation.
 
 IDs, navigation and report data remain unchanged. Relationship headings retain
 their meaning. Presentation labels cannot replace identity.
-
-[Inspector proof](../../../tests/test_uml_visual_acceptance.py).

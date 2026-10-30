@@ -8,5 +8,3 @@ Drilled scopes retain connected outside modules and recorded imports. Outside ca
 create no ownership, boundary or permission; they do not inflate local inventory.
 A violation applies only to contributing evidence. Absence of a finding proves
 no conformance. No second architecture model is persisted.
-
-[Interaction proof](../../../tests/test_uml_visual_acceptance.py).

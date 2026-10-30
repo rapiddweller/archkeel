@@ -27,6 +27,4 @@ This decision addresses [#518](https://github.com/rapiddweller/archkeel/issues/5
 [#384](https://github.com/rapiddweller/archkeel/issues/384) remains open for separate
 Used elsewhere/Hub hint review and calibration.
 
-Proof: [structure report tests](../../../tests/test_structure_report.py),
-[interaction coverage](../../../tests/test_report_interactions.py) and
-[secondary table accessibility](../../../tests/test_secondary_table_acceptance.py).
+Proof: [structure report tests](../../../tests/test_structure_report.py).
