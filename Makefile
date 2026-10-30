@@ -159,11 +159,28 @@ test:
 
 # The Python analyzer reads source with the `ast` of the running interpreter: these files cover what
 # differs between Python versions. The nightly job runs them on the newest versions (#724).
-PYTHON_COMPAT_TESTS = tests/test_analyzer.py tests/test_python_provider_sources.py \
-	tests/test_python_contextmanager_signatures.py tests/test_boundary_types_contextmanager.py \
-	tests/test_python_source_evidence_lines.py tests/test_typed_python_receivers.py \
-	tests/test_python_class_value_proofs.py tests/test_numeric_operand_observation.py \
-	tests/test_architecture_projection.py tests/test_validation.py
+# A test that needs Python 3.12 or later runs only here, so its file must be in this list.
+PYTHON_COMPAT_TESTS = \
+	tests/test_analyzer.py \
+	tests/test_annotation_carriers.py \
+	tests/test_architecture_projection.py \
+	tests/test_boundary_type_native_payloads.py \
+	tests/test_boundary_type_quoted_builtins.py \
+	tests/test_boundary_types_aliases.py \
+	tests/test_boundary_types_contextmanager.py \
+	tests/test_boundary_types_reexport_proofs.py \
+	tests/test_callable_boundaries.py \
+	tests/test_local_inherited_methods.py \
+	tests/test_numeric_generic_scopes.py \
+	tests/test_numeric_operand_observation.py \
+	tests/test_python_class_value_proofs.py \
+	tests/test_python_contextmanager_signatures.py \
+	tests/test_python_provider_sources.py \
+	tests/test_python_source_evidence_lines.py \
+	tests/test_shared_lexical_index.py \
+	tests/test_source_trust_boundary.py \
+	tests/test_typed_python_receivers.py \
+	tests/test_validation.py
 
 python-compat:
 	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=loadfile --max-worker-restart=0 \

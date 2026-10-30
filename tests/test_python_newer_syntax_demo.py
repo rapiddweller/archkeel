@@ -29,7 +29,7 @@ def test_demo_verdicts_do_not_depend_on_the_python_runtime(tmp_path: Path, minor
     try:
         _interpreter(minor)
     except subprocess.CalledProcessError:
-        # CI installs 3.11 and 3.12 only; a developer run with uv covers 3.13 and 3.14.
+        # Full installs 3.11, 3.12 and 3.14; a developer run with uv also covers 3.13.
         pytest.skip(f"Python 3.{minor} is not installed")
     root = _fixture(tmp_path)
     # The CR body after the LF license header is the input under test.

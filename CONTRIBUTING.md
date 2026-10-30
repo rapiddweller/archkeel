@@ -35,16 +35,16 @@ Each PR runs the same fixed set of checks. The report sample checks scene/projec
 renderer output. The selected Python tests include unit, integration and CLI tests; each test job
 runs one area. Saved-report tests run in the area test jobs, not again in the report job.
 The `pr-test` list in the `Makefile` names this fixed set file by file and test by test; there is no
-rule that selects it. Use `make report-browser-tests` for the nine local Chromium tests. Samples do not
+rule that selects it. `make report-browser-tests` runs the nine Chromium tests; Full also runs them. Samples do not
 replace testing the behavior you change. The core set runs eight whole Dart test files, one Dart
 CLI smoke, one UNKNOWN safety case and five Flutter Target guards; complete Dart and Flutter
 variant coverage stays in the full checks.
 
 The scheduled **Full verification** workflow runs `make ci-core-check SKIP_TESTS=1`, which
-includes the UML TypeScript compiler check. It also runs `make report-timing`, `make mermaid`
-and `make demos`. It runs the full suite in area jobs on Linux/Python 3.11, collector compatibility on Linux/Python 3.12, a thin Python compatibility
+includes the UML TypeScript compiler check. It also runs `make report-timing`, `make mermaid`,
+`make report-browser-tests` and `make demos`. It runs the full suite in area jobs on Linux/Python 3.11, collector compatibility on Linux/Python 3.12, the Python compatibility
 test set (`make python-compat`) on Python 3.12 and 3.14, and one Windows/Python 3.11
-safety check for process and path behavior. TypeScript's Python architecture and browser module
+safety check for process and path behavior. The compatibility set holds every test that needs Python 3.12 or later. TypeScript's Python architecture and browser module
 boundaries stay in the full suite. Manual dispatch uses the same checks.
 Release tags call that workflow before package build and
 publication. Use `make ci BASE=origin/main` locally for the complete gate.
@@ -68,7 +68,7 @@ aggregate would count as passed.
 | CI: Docs diagrams | each PR | `make mermaid`; the job also runs `tests/test_mermaid.py` |
 | CI: Demos | each PR | `make demos` |
 | CI: All checks passed | each PR | none: it needs every CI job |
-| Full: Architecture, build and report checks | nightly, dispatch, release, CI-change PR | `make ci SKIP_TESTS=1` |
+| Full: Architecture, build and report checks | nightly, dispatch, release, CI-change PR | `make ci SKIP_TESTS=1`, then `make report-browser-tests` |
 | Full: Tests: `<area>` | same as above | `make full-test AREA="<area>"` |
 | Full: Demos | same as above | `make demos` |
 | Full: Python 3.12.10 / 3.14.7 compatibility | same as above | `make python-compat` |

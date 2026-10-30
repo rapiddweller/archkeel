@@ -531,6 +531,25 @@ def test_python_classifiers_name_exactly_the_versions_the_full_workflow_tests() 
     assert claimed == set(re.findall(r'"(3\.\d+)\.\d+"', workflow))
 
 
+def test_every_test_that_needs_a_newer_python_runs_in_the_compatibility_job() -> None:
+    # The area jobs run Python 3.11, so such a test runs nowhere else.
+    command = subprocess.run(
+        ["make", "-n", "python-compat"],
+        cwd=ROOT,
+        env={**os.environ, "MAKEFLAGS": ""},
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    needs_newer = [
+        path.name
+        for path in sorted((ROOT / "tests").glob("test_*.py"))
+        if re.search(r"version_info < \(3, 1[2-9]\)", path.read_text())
+    ]
+    assert needs_newer
+    assert [name for name in needs_newer if f"tests/{name}" not in command] == []
+
+
 @pytest.mark.parametrize("renderer_exit", [0, 1])
 def test_mermaid_renders_every_block_and_propagates_renderer_failure(
     tmp_path: Path, renderer_exit: int
