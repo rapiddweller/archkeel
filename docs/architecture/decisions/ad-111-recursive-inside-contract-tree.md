@@ -13,4 +13,4 @@ Observations bind raw bytes, amendments bind canonical contracts. Legacy root-on
 amendments cannot approve newly included child policy.
 
 [Tree proof](../../../tests/test_recursive_inside_contracts.py) and
-[boundary proof](../../../tests/test_recursive_contract_boundaries_astra.py).
+[boundary proof](../../../tests/test_recursive_contract_closure.py).

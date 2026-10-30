@@ -87,7 +87,7 @@ def _invoke(root: Path, *args: str, env: dict[str, str] | None = None):
 
 
 def _allowlist(klass: str) -> dict[str, str]:
-    path = ROOT / "fixtures/typescript-differential-allowlist.json"
+    path = ROOT / "fixtures/typescript-hidden-loader-allowed-unknowns.json"
     return json.loads(path.read_text(encoding="utf-8"))[klass]
 
 
