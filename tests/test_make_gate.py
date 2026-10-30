@@ -368,6 +368,8 @@ def test_workflow_files_require_an_explicit_governance_change() -> None:
         "ci.yml",
         "full-verification.yml",
         "release.yml",
+        "github-opened.yml",
+        "github-opened-receipt.yml",
     }
 
 
@@ -467,7 +469,9 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     assert "Install Dart SDK" not in report_job
     assert "Prepare native Dart analyzer" not in report_job
 
-    cleanup = workflow.split("  prune-report-artifacts:\n", 1)[1].split("\n  mermaid:", 1)[0]
+    cleanup = workflow.split("  prune-report-artifacts:\n", 1)[1].split(
+        "\n  github-order-report:", 1
+    )[0]
     assert "needs: check" in cleanup
     assert "github.ref == 'refs/heads/main'" in cleanup
     assert "actions: write" in cleanup

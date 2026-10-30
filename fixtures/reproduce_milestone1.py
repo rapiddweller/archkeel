@@ -135,9 +135,7 @@ def reproduce(output: Path, *, initial_pr: bool = False) -> dict:
             ):
                 target = root / path
                 target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(
-                    Path(__file__).parent / "github-initial-pr" / (Path(path).name + ".txt"), target
-                )
+                shutil.copyfile(Path(__file__).parents[1] / path, target)
         _git(root, "add", ".")
         _git(root, "commit", "-q", "-m", "accepted code")
         accepted_commit = _git(root, "rev-parse", "HEAD")

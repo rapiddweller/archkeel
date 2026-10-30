@@ -246,3 +246,20 @@ def test_gh_failure_still_writes_usable_unknown_artifacts(
     assert (tmp_path / "result.json").exists()
     assert (tmp_path / "result.check.html").exists()
     assert any("denied" in item.unknown_claim for item in result.diagnostics)
+
+
+def test_ci_tolerates_unknown_collection_but_requires_usable_artifacts() -> None:
+    workflow = (Path(__file__).parents[1] / ".github/workflows/ci.yml").read_text()
+    job = workflow.split("  github-order-report:\n", 1)[1].split("\n  mermaid:", 1)[0]
+    setup, steps = job.split("    steps:\n", 1)
+    assert "continue-on-error" not in setup
+    assert "Collect GitHub order evidence (report only)" in setup
+    collection, verification = steps.split("      - name: Verify report artifacts\n", 1)
+    assert collection.count("continue-on-error: true") == 1
+    verification = verification.split("      - name: Upload", 1)[0]
+    assert "continue-on-error" not in verification and "if:" not in verification
+    assert (
+        "uv run --locked python -m json.tool test-artifacts/github-order/result.json >/dev/null"
+        in verification
+    )
+    assert "test -s test-artifacts/github-order/result.check.html" in verification
