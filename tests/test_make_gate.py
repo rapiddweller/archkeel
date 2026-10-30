@@ -244,7 +244,12 @@ def test_pr_report_sample_uses_two_loadfile_workers_and_keeps_selected_tests() -
     ):
         assert selector in command
     core = subprocess.run(
-        ["make", "-n", "pr-test"], cwd=ROOT, capture_output=True, text=True, check=True
+        ["make", "-n", "pr-test"],
+        cwd=ROOT,
+        env={**os.environ, "MAKEFLAGS": ""},
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
     for selector in ("tests/test_saved_report.py", "tests/test_report_agent_json.py"):
         assert selector in core and selector not in command
@@ -702,7 +707,7 @@ def test_full_aggregate_requires_collector_compatibility_outside_prs() -> None:
 
 def test_required_check_script_explicitly_fails_when_workflow_cancelled() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
-    check = workflow.split("  check:\n", 1)[1].split("\n  pr-core-check:", 1)[0]
+    check = workflow.split("  check:\n", 1)[1].split("\n  lint:", 1)[0]
     step = check.split("- name: Fail required check after workflow cancellation\n", 1)[1].split(
         "\n      - name:", 1
     )[0]
@@ -856,7 +861,12 @@ def test_every_test_file_belongs_to_one_area_and_ci_runs_every_area() -> None:
         assert listed is not None, workflow
         assert [line.split("- ", 1)[1].strip('"') for line in listed[1].splitlines()] == list(AREAS)
     pr_test = subprocess.run(
-        ["make", "-n", "pr-test"], cwd=ROOT, capture_output=True, text=True, check=True
+        ["make", "-n", "pr-test"],
+        cwd=ROOT,
+        env={**os.environ, "MAKEFLAGS": ""},
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
     assert {area_of(name) for name in re.findall(r"tests/(test_\w+\.py)", pr_test)} == set(AREAS)
 
