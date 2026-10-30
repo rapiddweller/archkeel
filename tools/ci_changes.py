@@ -25,6 +25,7 @@ ALL_AREAS = Areas(core=True, report=True, mermaid=True, full=True)
 _VERIFICATION_PATHS = {
     "pyproject.toml",
     "tests/conftest.py",
+    "tests/areas.py",
     "tests/test_browser_markers.py",
     "tests/test_make_gate.py",
     "tests/test_ci_changes.py",

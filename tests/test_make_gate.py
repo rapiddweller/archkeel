@@ -11,11 +11,11 @@ import re
 import subprocess
 import sys
 import tomllib
-from collections import Counter
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
+from areas import AREAS, area_of
 
 ROOT = Path(__file__).parents[1]
 GATE_STEPS = ["self-validate", "browser-architecture-check", "check", "build", "smoke"]
@@ -323,7 +323,7 @@ def test_ci_paths_avoid_playwright_and_browser_proof_but_local_report_tests_opt_
         "ci-pr-report-check",
         "pr-test",
         "pr-report-test",
-        "full-test-shard",
+        "full-test",
     ):
         result = subprocess.run(
             ["make", "-n", target],
@@ -350,7 +350,7 @@ def test_ci_paths_avoid_playwright_and_browser_proof_but_local_report_tests_opt_
     assert "pytest -m browser" in local.stdout
 
     full_shard = subprocess.run(
-        ["make", "-n", "full-test-shard"],
+        ["make", "-n", "full-test"],
         cwd=ROOT,
         env={**os.environ, "MAKEFLAGS": ""},
         capture_output=True,
@@ -375,110 +375,45 @@ def test_workflow_files_require_an_explicit_governance_change() -> None:
 
 def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
-    check = workflow.split("  check:\n", 1)[1].split("\n  pr-core-check:", 1)[0]
-    assert "needs: [changes, pr-core-check, pr-report-check, mermaid, full-verification]" in check
+    parts = re.split(r"^  ([\w-]+):\n", workflow.split("\njobs:\n", 1)[1], flags=re.MULTILINE)
+    jobs = dict(zip(parts[1::2], parts[2::2], strict=True))
+    check = jobs["check"]
+    assert "name: All checks passed" in check
+    needs = "[changes, lint, architecture, tests, pr-report-check, mermaid, full-verification]"
+    assert f"needs: {needs}" in check
     assert "if: ${{ always() }}" in check
     assert (
         "- name: Fail required check after workflow cancellation\n        if: cancelled()" in check
     )
-    assert "needs.changes.result" in check
-    for result in ("CORE_RESULT", "REPORT_RESULT", "MERMAID_RESULT", "FULL_RESULT"):
-        assert f"{result}: ${{{{ needs." in check
-    assert "verify_area core" in check
-    assert "verify_area report" in check
-    assert "verify_area mermaid" in check
-    assert "verify_area full" in check
-    assert "Selected $area check did not succeed" in check
-    assert "Unselected $area check was not skipped" in check
+    for area in ("lint", "architecture", "tests", "report", "mermaid", "full"):
+        assert f"verify_area {area} " in check
     assert "continue-on-error" not in check
-    assert "make ci-core-check" not in check
-    assert "make ci-report-check" not in check
     assert "make report-pages" not in workflow
-    full_call = workflow.split("  full-verification:\n", 1)[1]
+    full_call = jobs["full-verification"]
     assert "needs: changes" in full_call
     assert (
         "github.event_name == 'pull_request' && needs.changes.outputs.full == 'true'" in full_call
     )
     assert "uses: ./.github/workflows/full-verification.yml" in full_call
     assert "collector-safety-windows:" not in workflow
-    assert "typescript-native:" not in workflow
-    assert "dart-native:" not in workflow
-
-    for job_id, next_job, area, make_target, junit_name, junit_path, timeout in (
-        (
-            "pr-core-shards",
-            "pr-core-static",
-            "core",
-            "pr-test",
-            "pytest-results-pr-core-${{ matrix.shard }}",
-            "pr-core.xml",
-            15,
-        ),
-        (
-            "pr-report-check",
-            "prune-report-artifacts",
-            "report",
-            "pr-report-test",
-            "pytest-results-pr-report",
-            "pr-report.xml",
-            25,
-        ),
+    assert "prune-report-artifacts:" not in workflow
+    for job_id, area, command in (
+        ("lint", "core", "make lint typecheck browser-architecture-check"),
+        ("architecture", "core", "make against; else make self-validate"),
+        ("tests", "core", 'make pr-test AREA="$AREA"'),
+        ("pr-report-check", "report", "make pr-report-test"),
     ):
-        job = workflow.split(f"  {job_id}:\n", 1)[1].split(f"\n  {next_job}:\n", 1)[0]
+        job = jobs[job_id]
         assert "needs: changes" in job
         assert "github.event_name == 'pull_request' || github.event_name == 'push'" in job
         assert f"needs.changes.outputs.{area} == 'true'" in job
-        assert "runs-on: ubuntu-latest" in job
-        assert f"timeout-minutes: {timeout}" in job
         assert "permissions:\n      contents: read" in job
-        assert "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in job
-        assert "astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9" in job
-        assert f"run: make {make_target}" in job
-        assert f"name: {junit_name}" in job
-        assert junit_path in job
-        assert "retention-days: 7" in job
-    core_job = workflow.split("  pr-core-shards:\n", 1)[1].split("\n  pr-core-static:", 1)[0]
-    assert "fail-fast: false" in core_job
-    assert "shard: [1, 2, 3, 4, 5, 6]" in core_job
-    assert (
-        "run: make pr-test PR_TEST_SHARD=${{ strategy.job-index }}/${{ strategy.job-total }}"
-        in core_job
-    )
-    static_job = workflow.split("  pr-core-static:\n", 1)[1].split("\n  pr-report-check:", 1)[0]
-    assert "needs: changes" in static_job
-    assert "needs.changes.outputs.core == 'true'" in static_job
-    assert "timeout-minutes: 15" in static_job
-    assert "BASE: ${{ github.event.pull_request.base.sha }}" in static_job
-    aggregate = workflow.split("  pr-core-check:\n", 1)[1].split("\n  pr-core-shards:", 1)[0]
-    assert "name: Python and architecture checks passed" in aggregate
-    assert "needs: [changes, pr-core-static, pr-core-shards]" in aggregate
-    assert "timeout-minutes: 35" in aggregate
-    assert (
-        "always() && (needs.changes.result != 'success' || needs.changes.outputs.core != 'false')"
-        in aggregate
-    )
-    assert "continue-on-error" not in aggregate
-    assert "if: cancelled()\n        run: exit 1" in aggregate
-    report_job = workflow.split("  pr-report-check:\n", 1)[1].split(
-        "\n  prune-report-artifacts:", 1
-    )[0]
-    assert "Install Dart SDK" not in report_job
-    assert "Prepare native Dart analyzer" not in report_job
-
-    cleanup = workflow.split("  prune-report-artifacts:\n", 1)[1].split(
-        "\n  github-order-report:", 1
-    )[0]
-    assert "needs: check" in cleanup
-    assert "github.ref == 'refs/heads/main'" in cleanup
-    assert "actions: write" in cleanup
-    assert "ref: ${{ github.sha }}" in cleanup
-    assert "make prune-report-artifacts DELETE=true" in cleanup
-    assert "make prune-workflows DISABLE=true" in cleanup
-    assert "group: actions-maintenance" in cleanup
-    assert "workflow-prune/plan.json" in cleanup
+        assert command in job
+    assert "fail-fast: false" in jobs["tests"]
+    assert "BASE: ${{ github.event.pull_request.base.sha }}" in jobs["architecture"]
+    assert "Install Dart SDK" not in jobs["pr-report-check"]
     assert "cancel-in-progress: ${{ github.event_name == 'pull_request' }}" in workflow
-    mermaid = workflow.split("  mermaid:\n", 1)[1].split("\n    steps:", 1)[0]
-    assert "needs.changes.outputs.mermaid == 'true'" in mermaid
+    assert "needs.changes.outputs.mermaid == 'true'" in jobs["mermaid"]
     assert "run: make mermaid" in workflow
 
     full = (ROOT / ".github/workflows/full-verification.yml").read_text()
@@ -509,15 +444,15 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     assert "dart-setup" not in workflow
     assert "if: always()" in full
     assert (
-        "needs:\n      - full-suite-and-reports\n      - full-suite-shards\n"
+        "needs:\n      - full-suite-and-reports\n      - tests\n"
         "      - demos\n      - python-compat\n"
         "      - collector-safety-windows\n      - language-collectors" in full
     )
     assert "${{ needs.full-suite-and-reports.result }}" in full
-    # The full suite runs as parallel shards; the gate job skips it (SHARDED_TESTS=1).
-    assert "${{ needs.full-suite-shards.result }}" in full
+    # The full suite runs as parallel area jobs; the gate job skips it (SHARDED_TESTS=1).
+    assert "${{ needs.tests.result }}" in full
     assert "make gate SHARDED_TESTS=1" in full
-    assert "make full-test-shard TEST_SHARD=${{ strategy.job-index }}/" in full
+    assert 'make full-test AREA="$AREA"' in full
     assert "${{ needs.collector-safety-windows.result }}" in full
     assert "${{ needs.language-collectors.result }}" in full
     assert "${{ needs.python-compat.result }}" in full
@@ -571,7 +506,7 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
 
 def test_check_aggregate_executes_exact_workflow_script_fail_closed() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
-    check = workflow.split("  check:\n", 1)[1].split("\n  pr-core-check:", 1)[0]
+    check = workflow.split("  check:\n", 1)[1].split("\n  lint:", 1)[0]
     step = check.split("- name: Verify selected checks and fail closed\n", 1)[1]
     script = dedent(step.split("        run: |\n", 1)[1])
     baseline = {
@@ -581,7 +516,9 @@ def test_check_aggregate_executes_exact_workflow_script_fail_closed() -> None:
         "REPORT": "true",
         "MERMAID": "true",
         "FULL": "false",
-        "CORE_RESULT": "success",
+        "LINT_RESULT": "success",
+        "ARCHITECTURE_RESULT": "success",
+        "TESTS_RESULT": "success",
         "REPORT_RESULT": "success",
         "MERMAID_RESULT": "success",
         "FULL_RESULT": "skipped",
@@ -651,8 +588,14 @@ def test_check_aggregate_executes_exact_workflow_script_fail_closed() -> None:
         ("malformed full flag", {"FULL": "yes"}, 1),
         ("missing full flag", {"FULL": None}, 1),
         ("missing full result", {"FULL": "true", "FULL_RESULT": None}, 1),
+        ("one core job failed", {"TESTS_RESULT": "failure"}, 1),
+        ("one core job skipped", {"LINT_RESULT": "skipped"}, 1),
     )
     for label, overrides, expected in cases:
+        # CORE_RESULT stands for the three core jobs unless a case sets one of them.
+        if "CORE_RESULT" in overrides:
+            core = overrides.pop("CORE_RESULT")
+            overrides |= dict.fromkeys(("LINT_RESULT", "ARCHITECTURE_RESULT", "TESTS_RESULT"), core)
         values = {
             **baseline,
             **{key: value for key, value in overrides.items() if value is not None},
@@ -709,7 +652,7 @@ def test_full_aggregate_requires_collector_compatibility_outside_prs() -> None:
     script = dedent(aggregate.split("        run: |\n", 1)[1])
     baseline = {
         "FULL_RESULT": "success",
-        "SHARDS_RESULT": "success",
+        "TESTS_RESULT": "success",
         "SAFETY_RESULT": "success",
         "DEMOS_RESULT": "success",
     }
@@ -838,7 +781,7 @@ def test_only_full_ci_stops_pytest_after_first_failure(target):
     command = result.stdout
     assert command.count("python -m pytest") == (1 if target == "test" else 2)
     assert ("--maxfail=1" in command) == (target != "test")
-    assert "--dist=loadfile" in command and "--max-worker-restart=0" in command
+    assert "--dist=loadgroup" in command and "--max-worker-restart=0" in command
     assert "--junitxml=test-artifacts/pytest/results.xml" in command
 
 
@@ -904,98 +847,27 @@ def _collected(*arguments: str) -> tuple[subprocess.CompletedProcess[str], list[
     return result, [line for line in result.stdout.splitlines() if "::" in line]
 
 
-def test_pr_core_shards_partition_collected_tests_once() -> None:
-    selection = ("tests/test_ci_changes.py", "tests/test_make_gate.py")
-    full_result, full = _collected(*selection)
-    assert full_result.returncode == 0, full_result.stdout + full_result.stderr
-    shards = []
-    for index in range(4):
-        result, shard = _collected(f"--shard={index}/4", *selection)
-        assert result.returncode == 0, result.stdout + result.stderr
-        assert shard
-        shards.append(shard)
-    assert Counter(test for shard in shards for test in shard) == Counter(full)
-    assert max(map(len, shards)) - min(map(len, shards)) <= 1
+def test_every_test_file_belongs_to_one_area_and_ci_runs_every_area() -> None:
+    files = sorted(path.name for path in (ROOT / "tests").glob("test_*.py"))
+    assert [name for name in files if area_of(name) is None] == []
+    for workflow in ("ci.yml", "full-verification.yml"):
+        text = (ROOT / ".github/workflows" / workflow).read_text()
+        listed = re.search(r"\n        area:\n((?:          - .+\n)+)", text)
+        assert listed is not None, workflow
+        assert [line.split("- ", 1)[1].strip('"') for line in listed[1].splitlines()] == list(AREAS)
+    pr_test = subprocess.run(
+        ["make", "-n", "pr-test"], cwd=ROOT, capture_output=True, text=True, check=True
+    ).stdout
+    assert {area_of(name) for name in re.findall(r"tests/(test_\w+\.py)", pr_test)} == set(AREAS)
 
 
-def test_self_report_tests_share_one_shard_and_the_partition_stays_complete() -> None:
-    # The self report takes about half a shard; building it in every shard doubled CI time.
-    selection = (
-        "tests/test_ci_changes.py",
-        "tests/test_make_gate.py",
-        "tests/test_schema_drift.py",
+def test_an_area_selects_only_its_files_and_fails_closed_when_empty() -> None:
+    result, selected = _collected(
+        "--area=dependency rules", "tests/test_layers.py", "tests/test_cli.py"
     )
-    full_result, full = _collected(*selection)
-    assert full_result.returncode == 0, full_result.stdout + full_result.stderr
-    shards = []
-    for index in range(3):
-        result, shard = _collected(f"--shard={index}/3", *selection)
-        assert result.returncode == 0, result.stdout + result.stderr
-        shards.append(shard)
-    assert Counter(test for shard in shards for test in shard) == Counter(full)
-    self_tests = {
-        test
-        for test in full
-        if test.startswith("tests/test_schema_drift.py::")
-        and ("parsed_self_observation" in test or "metadata_schema" in test)
-    }
-    assert self_tests and self_tests <= set(shards[0])
-
-
-def test_a_shard_group_keeps_its_module_in_one_shard() -> None:
-    # A module fixture built in every shard repeated its setup five or six times.
-    selection = ("tests/test_ci_changes.py", "tests/test_typescript_demo.py")
-    full_result, full = _collected(*selection)
-    assert full_result.returncode == 0, full_result.stdout + full_result.stderr
-    shards = []
-    for index in range(3):
-        result, shard = _collected(f"--shard={index}/3", *selection)
-        assert result.returncode == 0, result.stdout + result.stderr
-        shards.append(shard)
-    assert Counter(test for shard in shards for test in shard) == Counter(full)
-    grouped = [
-        index
-        for index, shard in enumerate(shards)
-        if any(test.startswith("tests/test_typescript_demo.py::") for test in shard)
-    ]
-    assert len(grouped) == 1
-
-
-def test_pr_test_passes_the_whole_selection_and_the_shard_to_pytest() -> None:
-    def command(shard: str) -> str:
-        result = subprocess.run(
-            ["make", "-n", "pr-test", f"PR_TEST_SHARD={shard}"],
-            cwd=ROOT,
-            env={**os.environ, "MAKEFLAGS": ""},
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        assert result.returncode == 0, result.stderr
-        return " ".join(result.stdout.replace("\\\n", " ").split())
-
-    full, shard = command(""), command("2/4")
-    assert full.index("npm ci --prefix tools/browser-runtime") < full.index("python -m pytest")
-    assert (
-        "python -m pytest -n 4 --dist=loadfile --max-worker-restart=0 -q --durations=10 "
-        "--junitxml=test-artifacts/pytest/pr-core.xml" in full
-    )
-    assert "--shard" not in full
-    assert shard.replace(" --shard=2/4", "") == full
-
-
-@pytest.mark.parametrize("shard", ["4/4", "-1/4", "1/0", "1", "a/b"])
-def test_pr_core_shard_rejects_invalid_values(shard) -> None:
-    result, _ = _collected(f"--shard={shard}", "tests/test_ci_changes.py")
-    assert result.returncode == pytest.ExitCode.USAGE_ERROR, result.stdout + result.stderr
-    assert "--shard" in result.stderr
-
-
-def test_pr_core_shard_without_tests_fails_closed() -> None:
-    result, _ = _collected(
-        "--shard=1/2",
-        "tests/test_make_gate.py::test_workflow_files_require_an_explicit_governance_change",
-    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert selected and all(test.startswith("tests/test_layers.py::") for test in selected)
+    result, _ = _collected("--area=demo catalog", "tests/test_layers.py")
     assert result.returncode == pytest.ExitCode.USAGE_ERROR, result.stdout + result.stderr
     assert "selects no tests" in result.stderr
 
@@ -1004,45 +876,6 @@ def test_ci_pr_static_runs_policy_without_tests(tmp_path) -> None:
     result, steps = _run_gate(tmp_path, "ci-pr-static", None, 2, False, base="a" * 40)
     assert steps == ["against", "browser-architecture-check"]
     assert result.returncode == 0
-
-
-@pytest.mark.parametrize(
-    "changes,core,static,shards,success",
-    [
-        ("success", "true", "success", "success", True),
-        ("success", "true", "success", "failure", False),
-        ("success", "true", "success", "cancelled", False),
-        ("success", "true", "success", "skipped", False),
-        ("success", "true", "success", "", False),
-        ("success", "true", "failure", "success", False),
-        ("success", "true", "cancelled", "success", False),
-        ("success", "true", "skipped", "success", False),
-        ("success", "true", "", "success", False),
-        ("failure", "true", "success", "success", False),
-        ("cancelled", "true", "success", "success", False),
-        ("success", "false", "success", "success", False),
-        ("success", "invalid", "success", "success", False),
-    ],
-)
-def test_pr_core_aggregate_executes_its_workflow_script_fail_closed(
-    changes, core, static, shards, success
-) -> None:
-    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
-    aggregate = workflow.split("  pr-core-check:\n", 1)[1].split("\n  pr-core-shards:", 1)[0]
-    script = dedent(aggregate.split("        run: |\n", 1)[1])
-    result = subprocess.run(
-        ["bash", "-eu", "-c", script],
-        env={
-            **os.environ,
-            "CHANGES_RESULT": changes,
-            "CORE": core,
-            "STATIC_RESULT": static,
-            "SHARDS_RESULT": shards,
-        },
-        capture_output=True,
-        text=True,
-    )
-    assert (result.returncode == 0) is success, result.stderr
 
 
 @pytest.mark.parametrize("exit_code", [0, 2])

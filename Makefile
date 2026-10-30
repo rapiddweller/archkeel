@@ -3,13 +3,13 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: demos against gate full-test-shard ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts prune-workflows mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-browser-tests report-pages plugin plugin-directory plugin-release build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
+.PHONY: demos against gate full-test ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts prune-workflows mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-browser-tests report-pages plugin plugin-directory plugin-release build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
 
-# SHARDED_TESTS=1: the full suite runs in separate shard jobs (make test TEST_SHARD=I/N).
+# SHARDED_TESTS=1: the full suite runs in separate area jobs (make full-test AREA=<area>).
 check: lint typecheck browser-architecture-check $(if $(strip $(SHARDED_TESTS)),,test)
 
 # These stages consume the previous stage's success, even with make -j.
-.NOTPARALLEL: gate full-test-shard release-check ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check
+.NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check
 
 gate: $(if $(strip $(BASE)),against,self-validate) release-check
 
@@ -24,9 +24,9 @@ ci-core-check: gate typescript-compiler-check browser-graph-check ci-typescript 
 
 ci-report-check: report-timing
 
-# One shard of the full suite; Full verification runs every shard in parallel.
-full-test-shard: TEST_WORKERS = 4
-full-test-shard: browser-runtime-install test
+# One area of the full suite (tests/areas.py); Full verification runs every area in parallel.
+full-test: TEST_WORKERS = 4
+full-test: browser-runtime-install test
 
 ci-pr-check: ci-pr-static pr-test
 
@@ -35,8 +35,8 @@ ci-pr-static: $(if $(strip $(BASE)),against,self-validate) lint typecheck browse
 ci-pr-report-check: browser-runtime-check browser-graph-check pr-report-test
 
 pr-test: browser-runtime-install
-	$(UV) run --locked python -m pytest -n 4 --dist=loadfile --max-worker-restart=0 \
-		-q --durations=10 --junitxml=test-artifacts/pytest/pr-core.xml $(if $(PR_TEST_SHARD),--shard=$(PR_TEST_SHARD),) \
+	$(UV) run --locked python -m pytest -n 4 --dist=loadgroup --max-worker-restart=0 \
+		-q --durations=10 --junitxml=test-artifacts/pytest/pr-core.xml $(if $(AREA),--area="$(AREA)",) \
 		tests/test_workflow_registry.py tests/test_ci_changes.py tests/test_make_gate.py tests/test_browser_markers.py tests/test_publish_release.py tests/test_repository_hygiene.py \
 		tests/test_responsibility_validation.py tests/test_target_architecture.py tests/test_self.py tests/test_contract_maintenance.py tests/test_skill.py \
 		tests/test_contract_model.py tests/test_contract_version_types.py tests/test_dependency_selectors.py tests/test_requires_symbol_ports.py tests/test_typed_dependency_api.py tests/test_dependency_api_target.py tests/test_module_object_grants.py tests/test_dependency_typed_control.py tests/test_typed_state_protocol.py tests/test_typed_python_bindings.py tests/test_typed_python_receivers.py tests/test_typed_method_descriptors.py tests/test_typed_graph_vocabulary.py tests/test_typed_diagnostic_owner.py tests/test_state_facts.py tests/test_boundary_type_nested_mapping.py tests/test_typed_dict_bound_aliases.py tests/test_decisions.py tests/test_typed_python_properties.py tests/test_typed_contract_rule_grammar.py tests/test_typed_contract_rule_native.py tests/test_core_command_result.py tests/test_typed_measurement_controls.py tests/test_typed_parameter_kinds.py tests/test_atlas_deviation_target.py tests/test_definition_context_types.py tests/test_permission_status_types.py tests/test_snapshot_language_types.py tests/test_source_resolution_types.py tests/test_known_delta_action_types.py tests/test_typed_symbol_class_kinds.py tests/test_source_name_visibility.py tests/test_git_blob_types.py tests/test_typed_structure_levels.py tests/test_classifier_projections.py tests/test_unresolved_call_change_types.py \
@@ -192,9 +192,9 @@ self-validate:
 TEST_WORKERS ?= 2
 
 test:
-	$(UV) run --locked $(PYTEST_EXTRA) python -m pytest -n $(TEST_WORKERS) --dist=loadfile --max-worker-restart=0 \
+	$(UV) run --locked $(PYTEST_EXTRA) python -m pytest -n $(TEST_WORKERS) --dist=loadgroup --max-worker-restart=0 \
 		-q $(PYTEST_STOP) --durations=20 --junitxml=test-artifacts/pytest/results.xml \
-		$(if $(TEST_SHARD),--shard=$(TEST_SHARD),)
+		$(if $(AREA),--area="$(AREA)",)
 
 # The Python analyzer reads source with the `ast` of the running interpreter: these files cover what
 # differs between Python versions. The nightly job runs them on the newest versions (#724).

@@ -90,6 +90,7 @@ class ChangeClassificationTests(unittest.TestCase):
             ".github/workflows/ci.yml",
             "pyproject.toml",
             "tests/conftest.py",
+            "tests/areas.py",
             "tests/test_browser_markers.py",
             "tests/test_make_gate.py",
             "tests/test_ci_changes.py",

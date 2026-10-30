@@ -79,7 +79,7 @@ jobs:
           retention-days: 1
 
   demos:
-    name: Demo analysis
+    name: Demos
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -110,14 +110,27 @@ jobs:
           if-no-files-found: warn
           retention-days: 1
 
-  full-suite-shards:
-    name: All Python tests / part ${{ matrix.shard }}
+  tests:
+    name: "Tests: ${{ matrix.area }}"
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        # One entry for each area in tests/areas.py.
+        area:
+          - demo catalog
+          - TypeScript collector target
+          - boundary type aliases
+          - boundary types
+          - Python analysis
+          - CLI, contracts and changes
+          - type and wire guards
+          - collectors
+          - call and catalog rules
+          - dependency rules
+          - reports
+          - self-check and CI
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -143,20 +156,22 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
-      - name: Run full suite shard
-        run: make full-test-shard TEST_SHARD=${{ strategy.job-index }}/${{ strategy.job-total }}
+      - name: Run every test of this area
+        env:
+          AREA: ${{ matrix.area }}
+        run: make full-test AREA="$AREA"
 
       - name: Upload full suite JUnit results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: pytest-results-full-${{ matrix.shard }}
+          name: pytest-results-full-${{ strategy.job-index }}
           path: test-artifacts/pytest/results.xml
           if-no-files-found: warn
           retention-days: 1
 
   python-compat:
-    name: Python compatibility / Python ${{ matrix.python }}
+    name: Python ${{ matrix.python }} compatibility
     if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -187,7 +202,7 @@ jobs:
         run: make python-compat TEST_WORKERS=4
 
   collector-safety-windows:
-    name: Collector safety / Windows / Python 3.11.12
+    name: "Windows: collector safety"
     runs-on: windows-latest
     timeout-minutes: 10
     env:
@@ -220,7 +235,7 @@ jobs:
         run: make collector-safety SHELL=bash
 
   language-collectors:
-    name: Source collectors / Linux / Python 3.12.10
+    name: "Linux: source collectors"
     if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -255,11 +270,11 @@ jobs:
         run: make build smoke SHELL=bash
 
   verified:
-    name: Full verification aggregate
+    name: All Full checks passed
     if: always()
     needs:
       - full-suite-and-reports
-      - full-suite-shards
+      - tests
       - demos
       - python-compat
       - collector-safety-windows
@@ -270,14 +285,14 @@ jobs:
         env:
           EVENT: ${{ github.event_name }}
           FULL_RESULT: ${{ needs.full-suite-and-reports.result }}
-          SHARDS_RESULT: ${{ needs.full-suite-shards.result }}
+          TESTS_RESULT: ${{ needs.tests.result }}
           DEMOS_RESULT: ${{ needs.demos.result }}
           COMPAT_RESULT: ${{ needs.python-compat.result }}
           SAFETY_RESULT: ${{ needs.collector-safety-windows.result }}
           COLLECTORS_RESULT: ${{ needs.language-collectors.result }}
         run: |
           set -euo pipefail
-          for result in "$FULL_RESULT" "$SHARDS_RESULT" "$SAFETY_RESULT" "$DEMOS_RESULT"; do
+          for result in "$FULL_RESULT" "$TESTS_RESULT" "$SAFETY_RESULT" "$DEMOS_RESULT"; do
           [[ "$result" == success ]] || { echo "A required full-verification job did not succeed: $result" >&2; exit 1; }
           done
           expected=success
