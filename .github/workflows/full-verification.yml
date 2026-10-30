@@ -68,7 +68,6 @@ jobs:
           path: |
             test-artifacts/pytest/*.xml
             test-artifacts/report-timing/architecture.timing.json
-            test-artifacts/validation/result.json
           if-no-files-found: warn
           retention-days: 1
 
@@ -82,167 +81,34 @@ jobs:
   demos:
     name: Demo analysis
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 20
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
       - name: Install uv and Python
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
           python-version: "3.11.12"
           version: "0.12.13"
+
       - name: Install locked dependencies
-        id: install
         run: uv sync --locked
-      - name: Demo / uml-match
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-match" OUTPUT="test-artifacts/demos/uml-match"
-      - name: Demo / uml-complete
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-complete" OUTPUT="test-artifacts/demos/uml-complete"
-      - name: Demo / uml-dart-match
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-dart-match" OUTPUT="test-artifacts/demos/uml-dart-match"
-      - name: Demo / uml-dart-signature-fail
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-dart-signature-fail" OUTPUT="test-artifacts/demos/uml-dart-signature-fail"
-      - name: Demo / uml-dart-missing-member-fail
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-dart-missing-member-fail" OUTPUT="test-artifacts/demos/uml-dart-missing-member-fail"
-      - name: Demo / uml-dart-forbidden-dependency-fail
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-dart-forbidden-dependency-fail" OUTPUT="test-artifacts/demos/uml-dart-forbidden-dependency-fail"
-      - name: Demo / uml-dart-partial-unknown
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-dart-partial-unknown" OUTPUT="test-artifacts/demos/uml-dart-partial-unknown"
-      - name: Demo / uml-flutter-shop
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-flutter-shop" OUTPUT="test-artifacts/demos/uml-flutter-shop"
-      - name: Demo / uml-flutter-signature-fail
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-flutter-signature-fail" OUTPUT="test-artifacts/demos/uml-flutter-signature-fail"
-      - name: Demo / uml-flutter-missing-member-fail
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-flutter-missing-member-fail" OUTPUT="test-artifacts/demos/uml-flutter-missing-member-fail"
-      - name: Demo / uml-flutter-forbidden-dependency-fail
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-flutter-forbidden-dependency-fail" OUTPUT="test-artifacts/demos/uml-flutter-forbidden-dependency-fail"
-      - name: Demo / uml-flutter-dynamic-unknown
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-flutter-dynamic-unknown" OUTPUT="test-artifacts/demos/uml-flutter-dynamic-unknown"
-      - name: Demo / uml-flutter-unsupported-declaration
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-flutter-unsupported-declaration" OUTPUT="test-artifacts/demos/uml-flutter-unsupported-declaration"
-      - name: Demo / uml-compass-project
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-compass-project" OUTPUT="test-artifacts/demos/uml-compass-project"
-      - name: Demo / uml-compass-forbidden-edge
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-compass-forbidden-edge" OUTPUT="test-artifacts/demos/uml-compass-forbidden-edge"
-      - name: Demo / uml-compass-signature-fail
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-compass-signature-fail" OUTPUT="test-artifacts/demos/uml-compass-signature-fail"
-      - name: Demo / uml-compass-dynamic-unknown
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-compass-dynamic-unknown" OUTPUT="test-artifacts/demos/uml-compass-dynamic-unknown"
-      - name: Demo / uml-python-realworld-project
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-python-realworld-project" OUTPUT="test-artifacts/demos/uml-python-realworld-project"
-      - name: Demo / uml-python-realworld-forbidden-edge
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-python-realworld-forbidden-edge" OUTPUT="test-artifacts/demos/uml-python-realworld-forbidden-edge"
-      - name: Demo / uml-python-realworld-signature-fail
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-python-realworld-signature-fail" OUTPUT="test-artifacts/demos/uml-python-realworld-signature-fail"
-      - name: Demo / uml-python-realworld-dynamic-unknown
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-python-realworld-dynamic-unknown" OUTPUT="test-artifacts/demos/uml-python-realworld-dynamic-unknown"
-      - name: Demo / uml-nest-realworld-project
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-nest-realworld-project" OUTPUT="test-artifacts/demos/uml-nest-realworld-project"
-      - name: Demo / uml-nest-realworld-forbidden-edge
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-nest-realworld-forbidden-edge" OUTPUT="test-artifacts/demos/uml-nest-realworld-forbidden-edge"
-      - name: Demo / uml-nest-realworld-signature-fail
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-nest-realworld-signature-fail" OUTPUT="test-artifacts/demos/uml-nest-realworld-signature-fail"
-      - name: Demo / uml-nest-realworld-dynamic-unknown
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-nest-realworld-dynamic-unknown" OUTPUT="test-artifacts/demos/uml-nest-realworld-dynamic-unknown"
-      - name: Demo / uml-typescript
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-typescript" OUTPUT="test-artifacts/demos/uml-typescript"
-      - name: Demo / uml-typescript-match
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-typescript-match" OUTPUT="test-artifacts/demos/uml-typescript-match"
-      - name: Demo / uml-typescript-mismatch
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-typescript-mismatch" OUTPUT="test-artifacts/demos/uml-typescript-mismatch"
-      - name: Demo / uml-typescript-partial
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-typescript-partial" OUTPUT="test-artifacts/demos/uml-typescript-partial"
-      - name: Demo / uml-mismatch
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-mismatch" OUTPUT="test-artifacts/demos/uml-mismatch"
-      - name: Demo / uml-partial
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="uml-partial" OUTPUT="test-artifacts/demos/uml-partial"
-      - name: Demo / tour
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="tour" OUTPUT="test-artifacts/demos/tour"
-      - name: Demo / clean
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="clean" OUTPUT="test-artifacts/demos/clean"
-      - name: Demo / open
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="open" OUTPUT="test-artifacts/demos/open"
-      - name: Demo / wide
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="wide" OUTPUT="test-artifacts/demos/wide"
-      - name: Demo / deep
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="deep" OUTPUT="test-artifacts/demos/deep"
-      - name: Demo / mixed
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="mixed" OUTPUT="test-artifacts/demos/mixed"
-      - name: Demo / unknown
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="unknown" OUTPUT="test-artifacts/demos/unknown"
-      - name: Demo / known
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="known" OUTPUT="test-artifacts/demos/known"
-      - name: Demo / target-present
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="target-present" OUTPUT="test-artifacts/demos/target-present"
-      - name: Demo / target-absent
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="target-absent" OUTPUT="test-artifacts/demos/target-absent"
-      - name: Demo / target-store
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="target-store" OUTPUT="test-artifacts/demos/target-store"
-      - name: Demo / empty-responsibility
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="empty-responsibility" OUTPUT="test-artifacts/demos/empty-responsibility"
-      - name: Demo / dart-clean
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="dart-clean" OUTPUT="test-artifacts/demos/dart-clean"
-      - name: Demo / dart-tour
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="dart-tour" OUTPUT="test-artifacts/demos/dart-tour"
-      - name: Demo / typescript-clean
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: make demo-ci CASE="typescript-clean" OUTPUT="test-artifacts/demos/typescript-clean"
-      - name: Upload demo results and timings
+
+      - name: Run every gallery demo and check its expected result
+        run: make demos
+
+      - name: Upload demo HTML reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: demo-results
-          path: test-artifacts/demos/
+          name: demo-reports
+          path: test-artifacts/demos/**/*.html
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 1
 
   full-suite-shards:
     name: All Python tests / part ${{ matrix.shard }}

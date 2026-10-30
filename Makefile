@@ -3,7 +3,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: demo-ci against gate full-test-shard ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts prune-workflows mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-browser-tests report-pages plugin plugin-directory plugin-release build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
+.PHONY: demos against gate full-test-shard ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts prune-workflows mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-browser-tests report-pages plugin plugin-directory plugin-release build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
 
 # SHARDED_TESTS=1: the full suite runs in separate shard jobs (make test TEST_SHARD=I/N).
 check: lint typecheck browser-architecture-check $(if $(strip $(SHARDED_TESTS)),,test)
@@ -189,7 +189,6 @@ self-validate:
 	@$(UV) run --locked archkeel validate --root . --baseline architecture-baseline.json --json > test-artifacts/validation/result.json || { cat test-artifacts/validation/result.json; exit 1; }
 	@python3 -c 'import json; d=json.load(open("test-artifacts/validation/result.json")); print("Architecture rules: %s; diagnostics: %s; full result: test-artifacts/validation/result.json" % (d["declared_rules"], len(d["diagnostics"])))'
 
-
 TEST_WORKERS ?= 2
 
 test:
@@ -252,16 +251,16 @@ LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/r
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py fixtures/reproduce_github.py \
 	fixtures/reproduce_typescript.py fixtures/typescript_differential.py fixtures/typescript_scenarios.py fixtures/typescript_realworld.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
-	tools/architecture_graph_schema.py tools/report_timing.py tools/demo_ci.py tools/report_artifact_retention.py tools/workflow_registry.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py
+	tools/architecture_graph_schema.py tools/report_timing.py tools/report_artifact_retention.py tools/workflow_registry.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py
 
 # The same commit measured 80-96s on hosted runners; allow for runner noise.
 REPORT_MAX_SECONDS ?= 190
 report-timing:
 	$(UV) run --locked python -m tools.report_timing --max-seconds "$(REPORT_MAX_SECONDS)"
 
-demo-ci:
-	@test -n "$(CASE)" && test -n "$(OUTPUT)" || { echo "CASE and OUTPUT are required"; exit 2; }
-	$(UV) run --locked python -m tools.demo_ci --case "$(CASE)" --output "$(OUTPUT)"
+demos:
+	rm -rf test-artifacts/demos
+	$(UV) run --locked python -m tools.report_pages --demos-only
 
 report-pages: report-timing
 	rm -rf test-artifacts/pages

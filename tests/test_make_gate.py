@@ -449,10 +449,6 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     assert "needs.changes.outputs.core == 'true'" in static_job
     assert "timeout-minutes: 15" in static_job
     assert "BASE: ${{ github.event.pull_request.base.sha }}" in static_job
-    assert "make against; else make self-validate; fi" in static_job
-    assert "run: make lint" in static_job
-    assert "run: make typecheck" in static_job
-    assert "run: make browser-architecture-check" in static_job
     aggregate = workflow.split("  pr-core-check:\n", 1)[1].split("\n  pr-core-shards:", 1)[0]
     assert "name: Python and architecture checks passed" in aggregate
     assert "needs: [changes, pr-core-static, pr-core-shards]" in aggregate
@@ -488,19 +484,7 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     full = (ROOT / ".github/workflows/full-verification.yml").read_text()
     for trigger in ("workflow_call:", "workflow_dispatch:", "schedule:"):
         assert trigger in full
-    for target in (
-        "ci-artifacts-clean",
-        "gate SHARDED_TESTS=1",
-        "typescript-compiler-check",
-        "browser-graph-check",
-        "ci-typescript",
-        "browser-runtime-check",
-        "typescript-libs-check",
-        "report-timing",
-        "report-pages",
-        "mermaid",
-    ):
-        assert target in full
+    assert "run: make demos" in full
     assert "test-artifacts/report-timing/architecture.timing.json" in full
     assert "test-artifacts/report-browser/" not in full
     evidence = full.split("name: report-check-evidence", 1)[1].split("      - name:", 1)[0]
@@ -1061,43 +1045,34 @@ def test_pr_core_aggregate_executes_its_workflow_script_fail_closed(
     assert (result.returncode == 0) is success, result.stderr
 
 
-def test_full_workflow_steps_match_ci_check_commands() -> None:
-    def dry_run(*targets: str) -> str:
+@pytest.mark.parametrize(
+    ("workflow", "job", "local", "outside"),
+    [
+        ("ci.yml", "pr-core-static", "ci-pr-static", {"against"}),
+        ("ci.yml", "pr-report-check", "ci-pr-report-check", set()),
+        (
+            "full-verification.yml",
+            "full-suite-and-reports",
+            "ci-check SHARDED_TESTS=1",
+            {"report-pages", "mermaid"},
+        ),
+    ],
+)
+def test_named_ci_steps_run_the_same_commands_as_the_local_target(
+    workflow: str, job: str, local: str, outside: set[str]
+) -> None:
+    def dry_run(arguments: str) -> str:
         return subprocess.check_output(
-            ["make", "-n", *targets], cwd=ROOT, text=True, env={**os.environ, "MAKEFLAGS": ""}
+            ["make", "-n", *arguments.split()],
+            cwd=ROOT,
+            text=True,
+            env={**os.environ, "MAKEFLAGS": ""},
         )
 
-    workflow = (ROOT / ".github/workflows/full-verification.yml").read_text()
-    job = workflow.split("  full-suite-and-reports:\n", 1)[1].split("\n  demos:", 1)[0]
-    commands = re.findall(r"^        run: (make .+)$", job, re.MULTILINE)
-    assert commands == [
-        "make ci-artifacts-clean",
-        "make gate SHARDED_TESTS=1",
-        "make -o browser-runtime-install typescript-compiler-check browser-graph-check "
-        "ci-typescript browser-runtime-check typescript-libs-check",
-        "make report-timing",
-        "make report-pages",
-        "make mermaid",
-    ]
-    original = dry_run("ci-check", "SHARDED_TESTS=1")
-    steps = "".join(
-        dry_run(*targets)
-        for targets in (
-            ("ci-artifacts-clean",),
-            ("gate", "SHARDED_TESTS=1"),
-            (
-                "-o",
-                "browser-runtime-install",
-                "typescript-compiler-check",
-                "browser-graph-check",
-                "ci-typescript",
-                "browser-runtime-check",
-                "typescript-libs-check",
-            ),
-            ("report-timing",),
-        )
-    )
-    assert steps == original
+    text = (ROOT / ".github/workflows" / workflow).read_text()
+    body = re.split(r"\n  [\w-]+:\n", text.split(f"\n  {job}:\n", 1)[1], maxsplit=1)[0]
+    steps = [command for command in re.findall(r"\bmake ([^;\n]+)", body) if command not in outside]
+    assert "".join(map(dry_run, steps)) == dry_run(local)
 
 
 @pytest.mark.parametrize("exit_code", [0, 2])
@@ -1120,20 +1095,3 @@ def test_self_validation_keeps_json_and_shows_failures(tmp_path: Path, exit_code
     assert (result.returncode == 0) == (exit_code == 0)
     assert "UNKNOWN" in result.stdout
     assert "example" in result.stdout if exit_code else "example" not in result.stdout
-
-
-def test_visible_ci_steps_match_existing_make_checks() -> None:
-    def dry_run(*targets: str) -> str:
-        return subprocess.check_output(
-            ["make", "-n", *targets], cwd=ROOT, text=True, env={**os.environ, "MAKEFLAGS": ""}
-        )
-
-    assert dry_run("ci-pr-static") == "".join(
-        dry_run(target)
-        for target in ("self-validate", "lint", "typecheck", "browser-architecture-check")
-    )
-    assert dry_run("ci-pr-report-check") == (
-        dry_run("browser-runtime-check")
-        + dry_run("-o", "browser-runtime-install", "browser-graph-check")
-        + dry_run("pr-report-test")
-    )

@@ -29,10 +29,8 @@ _VERIFICATION_PATHS = {
     "tests/test_make_gate.py",
     "tests/test_ci_changes.py",
     "tests/test_report_pages.py",
-    "tests/test_demo_ci.py",
     "tools/ci_changes.py",
     "tools/report_timing.py",
-    "tools/demo_ci.py",
     "tools/report_pages.py",
 }
 _SCREENSHOT_PATHS = {
