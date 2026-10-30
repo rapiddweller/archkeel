@@ -16,14 +16,11 @@ from archkeel.check.onboarding import (
     interface_entries,
     module_all_exports,
 )
-from archkeel.check.validation import (
-    COMPONENT_GRAPH_MARKER,
-    TARGET_GRAPH_MARKER,
-    closed_world_diagnostics,
-    graph_diagnostics,
-    public_api_diagnostics,
-    rationale_diagnostics,
-)
+from archkeel.check.validation import COMPONENT_GRAPH_MARKER
+from archkeel.check.validation.closed_world import closed_world_diagnostics
+from archkeel.check.validation.graphs import TARGET_GRAPH_MARKER, graph_diagnostics
+from archkeel.check.validation.public_api import public_api_diagnostics
+from archkeel.check.validation.rationale import rationale_diagnostics
 from archkeel.ir.codec import decode_json, parse_contract
 from archkeel.ir.interfaces import interface_profile
 from archkeel.ir.levels import inside_levels

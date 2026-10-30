@@ -100,7 +100,6 @@ from ..ratchets import measure_python_ratchets, unknown_positions_by_rule, unres
 from ..run import inspect_observation, observe_revision
 from ..snapshot import SnapshotError
 from ..uml import observe_repository
-from .closed_world import closed_world_diagnostics as closed_world_diagnostics
 from .closed_world import observed_component_edges as observed_component_edges
 from .closed_world import target_component_edges as target_component_edges
 from .diagnostics import _diagnostic as _diagnostic
@@ -109,10 +108,6 @@ from .graphs import (
     COMPONENT_GRAPH_MARKER as COMPONENT_GRAPH_MARKER,
 )
 from .graphs import (
-    TARGET_GRAPH_MARKER as TARGET_GRAPH_MARKER,
-)
-from .graphs import graph_diagnostics as graph_diagnostics
-from .graphs import (
     mermaid_edges as mermaid_edges,
 )
 from .graphs import (
@@ -120,12 +115,8 @@ from .graphs import (
 )
 from .inside import inside_diagnostics as inside_diagnostics
 from .observation import observation_diagnostics as observation_diagnostics
-from .public_api import _imports_by_target as _imports_by_target
 from .public_api import _resolved_public_entries as _resolved_public_entries
 from .public_api import interface_budget_diagnostics as interface_budget_diagnostics
-from .public_api import interface_diagnostics as interface_diagnostics
-from .public_api import public_api_diagnostics as public_api_diagnostics
-from .rationale import rationale_diagnostics as rationale_diagnostics
 from .references import _inside_contract_tree as _inside_contract_tree
 from .references import reference_diagnostics as reference_diagnostics
 

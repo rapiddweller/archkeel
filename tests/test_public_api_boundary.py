@@ -18,7 +18,7 @@ from test_html_report import _native_details
 
 from archkeel.analyzer.python.type_shapes import collect_type_shapes, symbol_type_expressions
 from archkeel.check.evaluation.boundary_types import _public_api_symbol
-from archkeel.check.validation import public_api_diagnostics
+from archkeel.check.validation.public_api import public_api_diagnostics
 from archkeel.cli import main
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
 from archkeel.ir.facts_codec import classified
