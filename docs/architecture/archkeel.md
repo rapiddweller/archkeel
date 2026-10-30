@@ -62,10 +62,7 @@ every record ([AD-234](decisions/ad-234-contextual-boundary-permission-disclosur
 ## Host evidence
 
 The packaged CLI injects the GitLab [Host adapter](../../src/archkeel/host/gitlab.py).
-GitHub collection is repository CI tooling: [`make github-pr-report`](../../tools/github_pr_report.py)
-runs through `gh` in this repository's workflow. It is not a packaged GitHub Host adapter.
-Recent events remain UNKNOWN; only an authenticated initial-PR receipt can prove
-the scoped ordering described in [AD-143](decisions/ad-143-initial-pr-head-proves-scoped-order.md).
+The repository has no GitHub event collector.
 Caller-supplied `--host-records` require caller authentication.
 
 ## Evidence boundaries

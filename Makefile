@@ -3,7 +3,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: demos against gate full-test ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts prune-workflows mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-browser-tests report-pages plugin plugin-directory plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check
+.PHONY: demos against gate full-test ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts prune-workflows mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate fixtures self-observation demo demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-browser-tests report-pages plugin plugin-directory plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check
 
 # SKIP_TESTS=1: skip the test suite here; Full verification runs it in area jobs (make full-test).
 check: lint typecheck browser-architecture-check $(if $(strip $(SKIP_TESTS)),,test)
@@ -246,9 +246,9 @@ typescript-differential:
 		$(UV) run --locked python -m pytest -q tests/test_typescript_differential.py
 
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/mermaid_blocks.py \
-	tools/classify_unresolved.py tools/onboarding_svg.py tools/report_pages.py tools/package_plugin.py tools/github_pr_report.py tools/against.py \
+	tools/classify_unresolved.py tools/onboarding_svg.py tools/report_pages.py tools/package_plugin.py tools/against.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py \
-	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py fixtures/reproduce_github.py \
+	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py \
 	fixtures/reproduce_typescript.py fixtures/typescript_differential.py fixtures/typescript_scenarios.py fixtures/typescript_realworld.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
 	tools/architecture_graph_schema.py tools/report_timing.py tools/report_artifact_retention.py tools/workflow_registry.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py
@@ -275,7 +275,7 @@ lint:
 	$(UV) run --locked ruff check $(LINT_PATHS)
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/github_pr_report.py tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/report_artifact_retention.py tools/workflow_registry.py tools/browser_architecture.py tools/publish_release.py
+	$(UV) run --locked mypy src/archkeel tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/report_artifact_retention.py tools/workflow_registry.py tools/browser_architecture.py tools/publish_release.py
 
 fixtures:
 	$(UV) run --locked python fixtures/reproduce_milestone1.py $(if $(OUTPUT),--output "$(OUTPUT)")
@@ -285,18 +285,6 @@ self-observation:
 
 demo:
 	@$(UV) run --locked python fixtures/reproduce_milestone1.py $(if $(OUTPUT),--output "$(OUTPUT)") --summary
-
-demo-github:
-	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
-	@$(UV) run --locked python -m fixtures.reproduce_github --output "$(OUTPUT)"
-
-github-pr-report:
-	@$(UV) run --locked python -m tools.github_pr_report \
-		--repository "$(REPOSITORY)" --pull-request "$(PULL_REQUEST)" \
-		--base "$(BASE)" --head "$(HEAD)" --output "$(OUTPUT)" \
-		$(if $(ROOT),--root "$(ROOT)") $(if $(INITIAL_RUN),--initial-run "$(INITIAL_RUN)") \
-		$(if $(EXPECTATION_COMMIT),--expectation-commit "$(EXPECTATION_COMMIT)") \
-		$(if $(EXPECTED),--expected "$(EXPECTED)") $(if $(EXPECTED_DIGEST),--expected-digest "$(EXPECTED_DIGEST)")
 
 demo-onboarding:
 	@$(UV) run --locked python -m fixtures.reproduce_onboarding

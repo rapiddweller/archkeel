@@ -376,8 +376,6 @@ def test_workflow_files_require_an_explicit_governance_change() -> None:
         "pages.yml",
         "maintenance.yml",
         "release.yml",
-        "github-opened.yml",
-        "github-opened-receipt.yml",
     }
 
 
@@ -396,19 +394,17 @@ def test_no_job_is_skipped_by_a_condition() -> None:
 
 
 @pytest.mark.parametrize(
-    ("workflow", "aggregate", "report_only"),
-    [("ci.yml", "check", {"github-order-report"}), ("full-verification.yml", "verified", set())],
+    ("workflow", "aggregate"),
+    [("ci.yml", "check"), ("full-verification.yml", "verified")],
 )
-def test_each_aggregate_needs_every_job_and_fails_closed(
-    workflow: str, aggregate: str, report_only: set[str]
-) -> None:
+def test_each_aggregate_needs_every_job_and_fails_closed(workflow: str, aggregate: str) -> None:
     jobs = _jobs(workflow)
     body = jobs[aggregate]
     assert "if: always()" in body
     needs = re.search(r"needs: \[(.+)\]|needs:\n((?:      - .+\n)+)", body)
     assert needs is not None
     listed = re.findall(r"\w[\w-]*", needs[1] or needs[2])
-    assert set(listed) == set(jobs) - {aggregate} - report_only
+    assert set(listed) == set(jobs) - {aggregate}
     script = dedent(body.split("        run: |\n", 1)[1])
     ok = " ".join(["success"] * len(listed))
 
@@ -434,7 +430,6 @@ def test_pull_requests_run_one_fixed_job_set_and_full_runs_on_its_own_triggers()
     assert "make ci-pr-report-check" in jobs["pr-report-check"]
     assert "run: make mermaid" in jobs["mermaid"]
     assert "run: make demos" in jobs["demos"]
-    assert "continue-on-error: true" in jobs["github-order-report"]
 
     full = (ROOT / ".github/workflows/full-verification.yml").read_text()
     for trigger in ("workflow_call:", "workflow_dispatch:", "schedule:"):

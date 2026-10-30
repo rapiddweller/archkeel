@@ -47,8 +47,8 @@ boundaries stay in the full suite. Manual dispatch uses the same checks.
 Release tags call that workflow before package build and
 publication. Use `make ci BASE=origin/main` locally for the complete gate.
 
-Keep eight workflow files: CI, Full verification, Full verification for CI changes, Pages,
-Maintenance, release and the two initial-PR receipts. Use existing Make targets or dispatch Full verification for diagnostics;
+Keep six workflow files: CI, Full verification, Full verification for CI changes, Pages,
+Maintenance and release. Use existing Make targets or dispatch Full verification for diagnostics;
 do not add temporary workflows. The tested file inventory requires an explicit
 reviewed change for a new workflow. Trusted Main maintenance disables active
 file-backed registrations absent from live Main, retaining their run history.
@@ -68,8 +68,7 @@ aggregate would count as passed.
 | CI: Report and renderer tests | each PR | `make ci-pr-report-check` |
 | CI: Docs diagrams | each PR | `make mermaid`; the job also runs `tests/test_mermaid.py` |
 | CI: Demos | each PR | `make demos` |
-| CI: Collect GitHub order evidence (report only) | each PR | `make github-pr-report` |
-| CI: All checks passed | each PR | none: it needs every CI job except the report-only job |
+| CI: All checks passed | each PR | none: it needs every CI job |
 | Full: Architecture, build and report checks | nightly, dispatch, release, CI-change PR | `make ci SKIP_TESTS=1` |
 | Full: Tests: `<area>` | same as above | `make full-test AREA="<area>"` |
 | Full: Demos | same as above | `make demos` |

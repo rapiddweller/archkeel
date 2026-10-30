@@ -9,5 +9,4 @@ worker must account for the complete job list; skipped jobs still count. The rea
 runs from approved immutable source with its pinned checker. Worker provenance
 cannot prove caller SHA. A real check still needs an approved accepted lock.
 
-[Receipt proof](../../../tests/test_github_initial_pr.py) and
-[ordering proof](../../../tests/test_initial_pr_check.py).
+[Ordering proof](../../../tests/test_initial_pr_check.py).

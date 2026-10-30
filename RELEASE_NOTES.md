@@ -60,10 +60,9 @@ native source evidence and conservative UNKNOWNs.
   checksum. The release tag sets both exported manifest versions automatically;
   canonical skill content and the finished ZIP are checked independently. GitHub
   assets are downloaded and checked before publishing the Python package.
-- **Bounded Actions inventory.** Five reviewed workflow files cover CI, full
-  verification, release and initial-PR receipts. Main maintenance disables obsolete
-  file-backed registrations while preserving history; temporary workflows fail
-  the repository inventory check. Pages retains its Main-only deployment policy.
+- **Bounded Actions inventory.** Reviewed workflow files cover CI, full
+  verification, Pages and release; temporary workflows fail the repository
+  inventory check. Pages retains its Main-only deployment policy.
 
 ## Upgrade from 4.0.1
 
