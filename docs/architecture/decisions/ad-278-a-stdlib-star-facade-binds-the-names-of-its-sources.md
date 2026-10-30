@@ -9,12 +9,12 @@
    (`star_facade_static`, `source.py`). Python 3.13 `pathlib/__init__.py` has this shape.
 2. One helper (`_star_sources`) proves the star sources. It serves the alias and the namespace
    check of the facade. Every star source must be captured and have one literal, unchanged
-   `__all__`. It must have a static identity, also without a `sys.modules` write. No child
+   `__all__`. It must have a static identity, also without any `sys.modules` reference. No child
    module of the facade may be named in the `__all__` of a source.
    A source that names a dunder such as `__package__` or `__spec__` in `__all__` is not proven.
    A source of a stdlib facade must have a top-level stdlib name.
 3. Exactly one star source lists the name in `__all__`, and it is the last star of the facade.
-   A later star source can rebind the name. A name in two sources, or a source starred twice,
+   A later star source can rebind the name. This guard goes beyond the trust model below; it costs one name. A name in two sources, or a source starred twice,
    stays UNKNOWN. On 3.13 `UnsupportedOperation` (from `_abc`) is UNKNOWN for this reason.
 4. The alias carries the file evidence of every star source as support.
 5. A facade with a named import, a rebinding, a hook or a call in `__all__` stays UNKNOWN.
@@ -41,7 +41,8 @@ proofs of `Path` stayed UNKNOWN on 3.13 for almost every project (#743).
 
 **Limits.**
 - A star source with a star import of its own is UNKNOWN.
-- The proof reads stdlib files of the real interpreter and trusts them (#746, docs/known-limits.md): a package initializer, a computed `__all__` expression or an earlier star source that patches another module is not detected.
+- The proof reads stdlib files of the real interpreter and trusts them (#746, docs/known-limits.md).
+- It does not detect a package initializer, a computed `__all__` expression or an earlier star source that patches another module.
 
 **Check.**
 - `tests/test_python_provider_sources.py`:
@@ -53,8 +54,8 @@ proofs of `Path` stayed UNKNOWN on 3.13 for almost every project (#743).
   - `test_star_source_that_publishes_a_child_in_sys_modules_gives_no_class_receipt`.
   - `test_only_a_stdlib_facade_holds_several_captured_stars`: the same two stars under a
     package outside the standard library stay UNKNOWN.
-  - `test_sqlite3_with_an_unproven_star_source_gets_no_module_receipt`: fails on 3.14 before
-    this rule.
+  - `test_sqlite3_with_an_unproven_star_source_gets_no_module_receipt`: fails on 3.14 without
+    item 2.
   - Real files, 3.13 only: `test_actual_pathlib_path_has_a_class_receipt`,
     `test_pathlib_module_gets_a_receipt_when_its_star_sources_are_proven`,
     `test_pathlib_name_of_an_earlier_star_source_stays_unknown`,
@@ -62,6 +63,5 @@ proofs of `Path` stayed UNKNOWN on 3.13 for almost every project (#743).
 - `tests/test_python_stdlib_demo.py`: the demo facade exports `Path`. The verdict is PASS on
   3.11 to 3.14 in a local run. CI runs this file on the interpreters of the full suite only.
 - Demo catalog, `fixtures/demo_catalog_types.py`: `class-a-boundary-types-stdlib-path-facade`
-  has no route UNKNOWN for a `pathlib.Path` facade. The catalog runs on the default Python,
-  so it shows the verdict and not the 3.13 layout. The CI check of the 3.13 layout is
-  `test_actual_pathlib_path_has_a_class_receipt`. The catalog row is in `make python-compat`.
+  has no route UNKNOWN for a `pathlib.Path` facade. The row is in `make python-compat`, so it
+  runs on 3.12, 3.13 and 3.14. On 3.13 it checks the two-star layout of `pathlib` end to end.

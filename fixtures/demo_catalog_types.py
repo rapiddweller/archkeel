@@ -769,9 +769,9 @@ _PATH_FACADE = Variant(
     section="class_a",
     item="boundary_types:stdlib_path_facade",
     summary="A public shop.app.paths facade re-exports pathlib.Path. The binding of Path is "
-    "proven from the standard library source, so the facade route has no UNKNOWN. This row runs "
-    "on the default Python only. The 3.13 layout of pathlib (two star imports) is checked by "
-    "test_actual_pathlib_path_has_a_class_receipt (#743).",
+    "proven from the standard library source, so the facade route has no UNKNOWN. The row is "
+    "in make python-compat: it runs on Python 3.12, 3.13 and 3.14. On 3.13 it checks the two-star "
+    "layout of pathlib end to end (#743).",
     files={
         "shop/app/paths.py": HEADER
         + (
