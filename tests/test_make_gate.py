@@ -277,7 +277,7 @@ def test_local_browser_target_installs_and_runs_only_the_smokes(
     )
     runner.chmod(0o755)
     result = subprocess.run(
-        ["make", "report-browser"],
+        ["make", "report-browser-tests"],
         cwd=ROOT,
         env={
             **os.environ,
@@ -322,7 +322,6 @@ def test_ci_paths_avoid_playwright_and_browser_proof_but_local_report_tests_opt_
         "ci",
         "ci-check",
         "ci-core-check",
-        "ci-report-check",
         "ci-pr-check",
         "ci-pr-static",
         "ci-pr-report-check",
@@ -374,7 +373,6 @@ def test_workflow_files_require_an_explicit_governance_change() -> None:
         "full-verification.yml",
         "full-on-ci-change.yml",
         "pages.yml",
-        "maintenance.yml",
         "release.yml",
     }
 
@@ -487,10 +485,6 @@ def test_pages_publish_only_a_passed_full_run_of_the_current_main(tmp_path: Path
     ):
         body = pages.split(f"- name: {step_name}\n", 1)[1].split("\n\n", 1)[0]
         assert "if: steps.verified.outputs.publish == 'true'" in body
-    maintenance = (ROOT / ".github/workflows/maintenance.yml").read_text()
-    assert "on:\n  schedule:" in maintenance and "workflow_dispatch" not in maintenance
-    assert "make prune-workflows DISABLE=true" in maintenance
-    assert "make prune-report-artifacts DELETE=true" in maintenance
 
 
 def test_typescript_compatibility_reuses_fixtures_and_keeps_windows_path_check() -> None:

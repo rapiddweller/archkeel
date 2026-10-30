@@ -34,7 +34,7 @@ Without `BASE`, the local gate validates only the checked-out policy.
 Each PR runs the same fixed set of checks. The report sample checks scene/projection data and
 renderer output. The selected Python tests include unit, integration and CLI tests; each test job
 runs one area. Saved-report tests run in the area test jobs, not again in the report job.
-Use `make report-browser` for the three local Chromium smokes. Samples do not replace testing the behavior
+Use `make report-browser-tests` for the three local Chromium smokes. Samples do not replace testing the behavior
 you change. The normal core set uses one Dart CLI smoke, one UNKNOWN safety case and four Flutter
 Target guards; complete Dart and Flutter variant coverage stays in the full checks.
 
@@ -47,14 +47,10 @@ boundaries stay in the full suite. Manual dispatch uses the same checks.
 Release tags call that workflow before package build and
 publication. Use `make ci BASE=origin/main` locally for the complete gate.
 
-Keep six workflow files: CI, Full verification, Full verification for CI changes, Pages,
-Maintenance and release. Use existing Make targets or dispatch Full verification for diagnostics;
+Keep five workflow files: CI, Full verification, Full verification for CI changes, Pages
+and release. Use existing Make targets or dispatch Full verification for diagnostics;
 do not add temporary workflows. The tested file inventory requires an explicit
-reviewed change for a new workflow. Trusted Main maintenance disables active
-file-backed registrations absent from live Main, retaining their run history.
-Use `GITHUB_REPOSITORY=rapiddweller/archkeel make prune-workflows` to preview the
-plan; `DISABLE=true` applies it. A Main change aborts the operation; GitHub provides
-no transaction spanning the ref check and disable request.
+reviewed change for a new workflow.
 
 ## Where things run
 
@@ -77,7 +73,6 @@ aggregate would count as passed.
 | Full: Linux: source collectors | same as above | `make typescript-native dart-test build smoke` |
 | Full: All Full checks passed | same as above | none: it needs every Full job |
 | Pages: Publish the verified report gallery | after each Full run on `main` | `make report-pages` |
-| Maintenance: Maintain Actions and report artifacts | nightly | `make prune-workflows prune-report-artifacts` |
 
 A red job means its command failed: run the command in the third column to reproduce it.
 `tests/areas.py` puts each test file in exactly one area. CI runs the `make pr-test` selection;
