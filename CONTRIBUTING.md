@@ -34,8 +34,8 @@ Without `BASE`, the local gate validates only the checked-out policy.
 Each PR runs the same fixed set of checks. The report sample checks scene/projection data and
 renderer output. The selected Python tests include unit, integration and CLI tests; each test job
 runs one area. Saved-report tests run in the area test jobs, not again in the report job.
-The `pr-test` list in the `Makefile` names this fixed set file by file; there is no rule that
-selects it. Use `make report-browser-tests` for the nine local Chromium tests. Samples do not
+The `pr-test` list in the `Makefile` names this fixed set file by file and test by test; there is no
+rule that selects it. Use `make report-browser-tests` for the nine local Chromium tests. Samples do not
 replace testing the behavior you change. The core set runs eight whole Dart test files, one Dart
 CLI smoke, one UNKNOWN safety case and five Flutter Target guards; complete Dart and Flutter
 variant coverage stays in the full checks.

@@ -454,8 +454,8 @@ def test_hidden_loaders_cannot_prove_absence_of_module_cycles(
     )
     result = _invoke(root, "report")
     payload = json.loads(result.stdout)
-    # The frontend may leave UNKNOWN what the reference proved, but only where the checked-in
-    # differential allow-list says so; anywhere else it must agree with the reference.
+    # The frontend may leave a complete catalog case UNKNOWN only where the checked-in
+    # allow-list says so; anywhere else it must give the catalog's expected result.
     listed = f"hidden-loader/{example['name']}" in _allowlist("more_conservative")
     if example["complete"] and listed:
         assert payload["observation_complete"] in ("PASS", "UNKNOWN")
