@@ -14,7 +14,7 @@ from fixtures.demo_catalog_dependencies import (
     STORE_INSIDE_WITH_REPOSITORY_PEER_GRANT,
 )
 from fixtures.demo_catalog_interfaces import MAIN_WITH_UNDERSCORE_IMPORT
-from fixtures.demo_catalog_support import FIXTURE_DIR, HEADER, Variant
+from fixtures.demo_catalog_support import FIXTURE_DIR, HEADER, Variant, contract_rule_field
 from fixtures.demo_catalog_types import ROGUE_DATACLASS_MODULE
 
 _TOUR_RENDER_TEXT = HEADER + (
@@ -286,6 +286,86 @@ _DELETED_GUARD = Variant(
     expected_unknowns=_TOKEN_GUARD_LIMIT,
     expected_declared_rules="UNKNOWN",
 )
+_CLASS_BODY_MUTATION = Variant(
+    id="class-a-forbidden-effect-under-condition-class-body",
+    section="class_a",
+    item="forbidden_effect_under_condition:class body changes the guard",
+    summary="The rule guards the member self.seeded. The seeded branch declares a class whose "
+    "body calls self.reset(), then calls secrets.token_hex. A class body runs when the class "
+    "statement runs, so the call can change the member and the rule is UNKNOWN. Before #761 "
+    "the walker dropped the body and gave a false proven FAIL.",
+    files={
+        "shop/app/tokens.py": HEADER
+        + (
+            '"""Generate tokens after a class body that can reset the seeded member."""\n\n'
+            "import secrets\n\n\n"
+            "class TokenSource:\n"
+            "    def __init__(self) -> None:\n"
+            "        self.seeded: bool = False\n\n"
+            "    def reset(self) -> None:\n"
+            "        self.seeded = False\n\n"
+            "    def token_for_run(self) -> str:\n"
+            "        if self.seeded:\n"
+            "            class Local:\n"
+            "                self.reset()\n\n"
+            "            return secrets.token_hex(8)\n"
+            '        return "fixed-token"\n'
+        ),
+        "architecture-contract.json": contract_rule_field(
+            "EFFECT-NO-TOKEN-WHEN-SEEDED",
+            condition={
+                "kind": "member",
+                "owner": "shop.app.tokens.TokenSource",
+                "name": "seeded",
+            },
+        ),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("guarded_effect_limit", "shop.app.tokens.TokenSource"),),
+    expected_declared_rules="UNKNOWN",
+)
+_HEADER_CALL = Variant(
+    id="class-a-forbidden-effect-under-condition-definition-header",
+    section="class_a",
+    item="forbidden_effect_under_condition:call in a definition header",
+    summary="The rule guards the member self.seeded. The seeded branch declares a function "
+    "whose default value is self.reset(), then calls secrets.token_hex. A default value, an "
+    "annotation, a decorator, a class base and a class keyword run when the statement runs "
+    "(an annotation only before Python 3.14), so the call can change the member and the rule "
+    "is UNKNOWN. Before #761 the walker kept the guard and "
+    "gave a false proven FAIL.",
+    files={
+        "shop/app/tokens.py": HEADER
+        + (
+            '"""Generate tokens after a default value that can reset the seeded member."""\n\n'
+            "import secrets\n\n\n"
+            "class TokenSource:\n"
+            "    def __init__(self) -> None:\n"
+            "        self.seeded: bool = False\n\n"
+            "    def reset(self) -> None:\n"
+            "        self.seeded = False\n\n"
+            "    def token_for_run(self) -> str:\n"
+            "        if self.seeded:\n\n"
+            "            def local(reset_now=self.reset()) -> None:\n"
+            "                return None\n\n"
+            "            return secrets.token_hex(8)\n"
+            '        return "fixed-token"\n'
+        ),
+        "architecture-contract.json": contract_rule_field(
+            "EFFECT-NO-TOKEN-WHEN-SEEDED",
+            condition={
+                "kind": "member",
+                "owner": "shop.app.tokens.TokenSource",
+                "name": "seeded",
+            },
+        ),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("guarded_effect_limit", "shop.app.tokens.TokenSource"),),
+    expected_declared_rules="UNKNOWN",
+)
 _REPEATED_BLOCKS = Variant(
     id="class-a-forbidden-effect-under-condition-repeated-blocks",
     section="class_a",
@@ -482,6 +562,8 @@ VARIANTS: tuple[Variant, ...] = (
     _SEEDED_EFFECT,
     _HELPER_ELSEWHERE,
     _DELETED_GUARD,
+    _CLASS_BODY_MUTATION,
+    _HEADER_CALL,
     _REPEATED_BLOCKS,
     _WITH_ITEM,
     _CLEAN,

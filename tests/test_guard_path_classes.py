@@ -173,7 +173,11 @@ PARAM_EXPECTED = {
     "ifexp_guard": ([(None, None)], [("a", True, None), ("b", False, None)]),
     "ifexp_other": ([(None, None)], [("a", None, None), ("b", None, None)]),
     "nested_def": ([(None, None)], [("c", None, None)]),
-    "nested_class": ([(None, None)], [("Base", None, None), ("c", None, None)]),
+    # The class body is walked without values, only for its calls and mutations.
+    "nested_class": (
+        [(None, None)],
+        [("Base", None, None), ("c", None, "unsupported_condition")],
+    ),
     "empty_branch": ([(None, None)], []),
 }
 
@@ -256,8 +260,13 @@ MEMBER_EXPECTED = {
         [(None, "opaque_call_mutation")],
         [("a", None, "opaque_call_mutation"), ("b", None, "opaque_call_mutation")],
     ),
-    "nested_def": ([(None, None)], [("c", None, None)]),
-    "nested_class": ([(None, None)], [("Base", None, None), ("c", None, None)]),
+    # The header calls c(): that call can change the member before the code after the def.
+    "nested_def": ([(None, "opaque_call_mutation")], [("c", None, None)]),
+    # Base() runs first and can change the member, so the body call c() has no value.
+    "nested_class": (
+        [(None, "opaque_call_mutation")],
+        [("Base", None, None), ("c", None, "opaque_call_mutation")],
+    ),
     "empty_branch": ([(None, None)], []),
     "setattr_write": ([(None, "opaque_call_mutation")], [("setattr", None, "condition_mutation")]),
     "dict_write": (
@@ -754,7 +763,7 @@ def test_each_member_write_form_changes_or_keeps_the_value_as_expected(name: str
 @pytest.mark.parametrize(
     "header,expected",
     [
-        ("class G(base):", {(True, None)}),
+        ("class G(base):", {(None, "unsupported_condition")}),
         ("class G((flag := base)):", {(None, "condition_mutation")}),
         ("class G(metaclass=(flag := base)):", {(None, "condition_mutation")}),
         ("@(flag := deco)\n        class G:", {(None, "condition_mutation")}),
@@ -794,3 +803,193 @@ def test_the_same_checks_hold_in_an_async_function(menu, member) -> None:
                 assert not _calls_in_body(function) - recorded, (kinds, wrap)
             checked += 1
     assert checked == (len(both) + len(both) ** 2) * 3
+
+
+# Header forms with the call c(): c() runs under the guard, then the call can change the member.
+CALL_HEADER_FORMS = {
+    "default": "def g(a=c()):\n    pass",
+    "keyword_default": "def g(*, a=c()):\n    pass",
+    "async_default": "async def g(a=c()):\n    pass",
+    "lambda_default": "g = lambda a=c(): a",
+    "def_decorator": "@c()\ndef g():\n    pass",
+    "class_decorator": "@c()\nclass G:\n    pass",
+    "class_base": "class G(c()):\n    pass",
+    "class_keyword": "class G(metaclass=c()):\n    pass",
+}
+# An annotation changes the state only: with a deferred annotation c() never runs.
+ANNOTATION_HEADER_FORMS = {
+    "annotation": "def g(a: c()):\n    pass",
+    "positional_only_annotation": "def g(a: c(), /):\n    pass",
+    "keyword_only_annotation": "def g(*, a: c()):\n    pass",
+    "vararg_annotation": "def g(*a: c()):\n    pass",
+    "kwarg_annotation": "def g(**a: c()):\n    pass",
+    "return_annotation": "def g() -> c():\n    pass",
+}
+# A decorator and a class keyword make a call without a call node: `@d` is `d(g)`.
+IMPLICIT_CALL_HEADER_FORMS = {
+    "bare_def_decorator": "@d\ndef g():\n    pass",
+    "bare_class_decorator": "@d\nclass G:\n    pass",
+    "bare_class_metaclass": "class G(metaclass=Meta):\n    pass",
+    "class_option": "class G(Base, option=1):\n    pass",
+}
+HARMLESS_HEADER_FORMS = {
+    "plain_def": "def g():\n    pass",
+    "default": "def g(a=1):\n    pass",
+    "annotation": "def g(a: int) -> int:\n    return a",
+    "plain_class": "class G:\n    pass",
+    "literal_class_fields": (
+        'class G:\n    """Doc."""\n    limit = -1\n    names = ("a", "b")\n    size: int\n'
+        "    def method(self):\n        return 1"
+    ),
+}
+# The class statement runs hooks after the body, with no call node in the source.
+HOOK_CLASS_FORMS = {
+    "base": "class G(Base):\n    pass",
+    "base_with_literal_fields": "class G(Base):\n    limit = 1",
+    "keyword_only": "class G(metaclass=Meta):\n    pass",
+    "name_value": "class G:\n    field = shared",
+    "attribute_value": "class G:\n    field = shared.descriptor",
+    "annotated_name_value": "class G:\n    field: object = shared",
+    "augmented_value": "class G:\n    field = 1\n    field += shared",
+    "decorated_method": "class G:\n    @shared\n    def method(self):\n        return 1",
+    "nested_class": "class G:\n    class Inner:\n        pass",
+    "control_flow": "class G:\n    if shared:\n        field = 1",
+    "attribute_target": "class G:\n    shared.field = 1",
+}
+OPAQUE = {(None, "opaque_call_mutation")}
+
+
+def _member_after(form: str) -> tuple[Paths, set[tuple[bool | None, str | None]]]:
+    body = textwrap.indent(form, "        ")
+    paths = _guarded(f"def f(self):\n    if self.flag:\n{body}\n        after()\n", True)
+    return paths, _values(paths, "after")
+
+
+@pytest.mark.parametrize("form", CALL_HEADER_FORMS)
+def test_a_call_in_a_definition_header_is_an_opaque_mutation_of_the_member(form: str) -> None:
+    paths, after = _member_after(CALL_HEADER_FORMS[form])
+    assert after == OPAQUE
+    # The one call of the header runs under the guard, before it can change anything.
+    assert _values(paths, "c") == {(True, None)}
+
+
+@pytest.mark.parametrize("form", ANNOTATION_HEADER_FORMS)
+def test_a_call_in_an_annotation_is_an_opaque_mutation_but_no_effect(form: str) -> None:
+    paths, after = _member_after(ANNOTATION_HEADER_FORMS[form])
+    assert after == OPAQUE
+    assert _values(paths, "c") == set()
+
+
+@pytest.mark.parametrize("form", IMPLICIT_CALL_HEADER_FORMS)
+def test_a_decorator_or_class_keyword_without_a_call_node_is_an_opaque_mutation(form: str) -> None:
+    assert _member_after(IMPLICIT_CALL_HEADER_FORMS[form])[1] == OPAQUE
+
+
+@pytest.mark.parametrize("form", HARMLESS_HEADER_FORMS)
+def test_a_header_without_decorator_call_or_keyword_keeps_the_member_guard(form: str) -> None:
+    assert _member_after(HARMLESS_HEADER_FORMS[form])[1] == {(True, None)}
+
+
+@pytest.mark.parametrize(
+    "form", [*CALL_HEADER_FORMS.values(), *ANNOTATION_HEADER_FORMS.values()], ids=lambda f: f[:30]
+)
+def test_a_call_in_a_definition_header_does_not_change_a_parameter_guard(form: str) -> None:
+    body = textwrap.indent(form, "        ")
+    paths = _guarded(f"def f(flag):\n    if flag:\n{body}\n        after()\n", False)
+    assert _values(paths, "after") == {(True, None)}
+
+
+def test_a_named_expression_in_an_annotation_rebinds_the_parameter_guard() -> None:
+    source = (
+        "def f(flag):\n    if flag:\n        def g(a: (flag := False)):\n            pass\n"
+        "        after()\n"
+    )
+    assert _values(_guarded(source, False), "after") == {(None, "condition_mutation")}
+
+
+def test_two_calls_in_a_definition_header_leave_the_second_call_without_a_value() -> None:
+    source = "def f(self):\n    if self.flag:\n        def g(a=c(), b=d()):\n            pass\n"
+    assert _values(_guarded(source, True), "d") == OPAQUE
+
+
+@pytest.mark.parametrize("form", HOOK_CLASS_FORMS)
+def test_a_class_hook_without_a_call_node_is_an_opaque_mutation_of_the_member(form: str) -> None:
+    assert _member_after(HOOK_CLASS_FORMS[form])[1] == OPAQUE
+
+
+@pytest.mark.parametrize("form", HOOK_CLASS_FORMS)
+def test_a_class_hook_does_not_change_a_parameter_guard(form: str) -> None:
+    body = textwrap.indent(HOOK_CLASS_FORMS[form], "        ")
+    paths = _guarded(f"def f(flag):\n    if flag:\n{body}\n        after()\n", False)
+    assert _values(paths, "after") == {(True, None)}
+
+
+def test_a_class_hook_makes_a_false_value_from_the_class_body_unknown() -> None:
+    source = (
+        "def f(self):\n    if self.flag:\n        pass\n    else:\n"
+        "        class G(Base):\n            if self.flag:\n                raise ValueError\n"
+        "        after()\n"
+    )
+    assert _values(_guarded(source, True), "after") == OPAQUE
+
+
+# The branch values of a class body never reach the guard: the body has its own name scope, and
+# a name that it declares `global` or `nonlocal`, or binds anywhere, can be another binding.
+SCOPE_BODIES = {
+    "global": "global {name}\nif {read}:\n    raise ValueError",
+    "nonlocal": "nonlocal {name}\nif {read}:\n    raise ValueError",
+    "store_after_read": "if {read}:\n    raise ValueError\n{name} = 1",
+    "delete_after_read": "if {read}:\n    raise ValueError\ndel {name}",
+    "named_expression_after_read": "if {read}:\n    raise ValueError\n({name} := 1)",
+    "import_after_read": "if {read}:\n    raise ValueError\nimport os as {name}",
+    "def_after_read": "if {read}:\n    raise ValueError\ndef {name}():\n    pass",
+    "class_after_read": "if {read}:\n    raise ValueError\nclass {name}:\n    pass",
+    "for_after_read": "if {read}:\n    raise ValueError\nfor {name} in y:\n    pass",
+    "comprehension_after_read": "if {read}:\n    raise ValueError\nvalues = [1 for {name} in y]",
+    "conditional_expression": "{name} = 1 if {read} else 2",
+    "plain_read": "if {read}:\n    raise ValueError",
+    "other_global": "global other\nif {read}:\n    raise ValueError",
+}
+# A body that mutates nothing leaves the state from before the class unchanged. A `nonlocal`
+# name is handled for the whole function by `guarded_call_paths`, not by the walker.
+SCOPE_FORMS_WITHOUT_MUTATION = {"global", "nonlocal", "plain_read", "other_global"}
+
+
+def _scoped_paths(body: str, member: bool, guarded: bool) -> Paths:
+    name = "self" if member else "flag"
+    read = "self.flag" if member else "flag"
+    text = "class G:\n" + textwrap.indent(body.format(name=name, read=read), "    ") + "\nafter()"
+    if guarded:
+        text = f"if {read}:\n" + textwrap.indent(text, "    ")
+    return _guarded(f"def f({name}):\n" + textwrap.indent(text, "    ") + "\n", member)
+
+
+@pytest.mark.parametrize("member", [False, True], ids=["parameter", "member"])
+@pytest.mark.parametrize("form", SCOPE_BODIES)
+def test_the_branch_values_of_a_class_body_never_reach_the_guard(form: str, member: bool) -> None:
+    paths = _scoped_paths(SCOPE_BODIES[form], member, guarded=False)
+    assert {value for value, _ in _values(paths, "after")} == {None}
+
+
+@pytest.mark.parametrize("form", SCOPE_BODIES)
+def test_a_class_body_keeps_the_parameter_state_from_before_the_class_unless_it_mutates(
+    form: str,
+) -> None:
+    after = _values(_scoped_paths(SCOPE_BODIES[form], False, guarded=True), "after")
+    if form in SCOPE_FORMS_WITHOUT_MUTATION:
+        assert after == {(True, None)}
+    else:
+        assert {value for value, _ in after} == {None}
+
+
+def test_the_global_class_body_of_the_review_does_not_prove_a_false_guard() -> None:
+    source = (
+        "def f(flag, other):\n    class G:\n        global flag\n        if flag:\n"
+        "            raise ValueError\n    after()\n"
+    )
+    assert _values(_guarded(source, False), "after") == {(None, None)}
+
+
+def test_a_class_body_that_always_raises_leaves_no_code_after_it() -> None:
+    source = "def f(flag):\n    class G:\n        raise ValueError\n    after()\n"
+    assert _values(_guarded(source, False), "after") == set()
