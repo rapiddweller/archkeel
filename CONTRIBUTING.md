@@ -48,6 +48,8 @@ safety check for process and path behavior. TypeScript's Python architecture and
 boundaries stay in the full suite. Manual dispatch uses the same checks.
 Release tags call that workflow before package build and
 publication. Use `make ci BASE=origin/main` locally for the complete gate.
+Jobs run on pinned images (`ubuntu-24.04`, `windows-2025`). A move to a new image is a deliberate
+change: run Full on the branch before you merge it.
 
 Keep five workflow files: CI, Full verification, Full verification for CI changes, Pages
 and release. Use existing Make targets or dispatch Full verification for diagnostics;
@@ -75,6 +77,7 @@ aggregate would count as passed.
 | Full: Linux: source collectors | same as above | `make typescript-native dart-test build smoke` |
 | Full: All Full checks passed | same as above | none: it needs every Full job |
 | Pages: Publish the verified report gallery | after each Full run on `main` | `make report-pages` |
+| Release: Full, build, publish and gallery refresh | each version tag | `make build plugin-release VERSION=<version>` |
 
 A red job means its command failed: run the command in the third column to reproduce it.
 `tests/areas.py` puts each test file in exactly one area. CI runs the `make pr-test` selection;

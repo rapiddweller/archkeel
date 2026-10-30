@@ -16,7 +16,7 @@ concurrency:
 jobs:
   deploy:
     name: Publish the verified report gallery
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       actions: read
@@ -34,12 +34,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          EVENT: ${{ github.event.workflow_run.event }}
+          HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
         run: |
           main_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
-          if [[ "$CONCLUSION" == success && "$RUN_SHA" == "$main_sha" ]]; then
+          if [[ "$CONCLUSION" == success && "$RUN_SHA" == "$main_sha" \
+            && ( "$EVENT" == schedule || "$EVENT" == workflow_dispatch ) \
+            && "$HEAD_REPO" == "$GITHUB_REPOSITORY" ]]; then
             echo "publish=true" >> "$GITHUB_OUTPUT"
           else
-            echo "Nothing to publish: Full was $CONCLUSION on $RUN_SHA; Main is $main_sha."
+            echo "Nothing to publish: Full was $CONCLUSION ($EVENT, $HEAD_REPO) on $RUN_SHA; Main is $main_sha."
             echo "publish=false" >> "$GITHUB_OUTPUT"
           fi
 

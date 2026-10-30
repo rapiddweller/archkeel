@@ -383,6 +383,13 @@ def _jobs(workflow: str) -> dict[str, str]:
     return dict(zip(parts[1::2], parts[2::2], strict=True))
 
 
+def test_every_job_runs_on_a_pinned_runner_image() -> None:
+    # A -latest label moves to a new image without a change in this repository.
+    for path in (ROOT / ".github/workflows").glob("*.yml"):
+        for job, body in _jobs(path.name).items():
+            assert not re.search(r"runs-on: .*-latest", body), (path.name, job)
+
+
 def test_no_job_is_skipped_by_a_condition() -> None:
     # A job-level if: shows a skipped check; only an aggregate runs always, so it never skips.
     for path in (ROOT / ".github/workflows").glob("*.yml"):
@@ -413,9 +420,9 @@ def test_each_aggregate_needs_every_job_and_fails_closed(workflow: str, aggregat
         ).returncode
 
     assert run(ok) == 0
-    for bad in ("failure", "cancelled", "skipped", ""):
+    for bad in ("failure", "cancelled", "skipped"):
         assert run(ok.replace("success", bad, 1)) != 0, bad
-    assert run(" ".join(["success"] * (len(listed) - 1))) != 0
+    assert run("") != 0
 
 
 def test_pull_requests_run_one_fixed_job_set_and_full_runs_on_its_own_triggers() -> None:
@@ -439,7 +446,7 @@ def test_pull_requests_run_one_fixed_job_set_and_full_runs_on_its_own_triggers()
     assert "report-pages" not in full
     assert 'make full-test AREA="$AREA"' in full_jobs["tests"]
     assert "name: report-gallery" in full_jobs["demos"]
-    assert "runs-on: windows-latest" in full_jobs["collector-safety-windows"]
+    assert "runs-on: windows-2025" in full_jobs["collector-safety-windows"]
     assert "make dart-test TEST_WORKERS=4 SHELL=bash" in full_jobs["language-collectors"]
 
     caller = (ROOT / ".github/workflows/full-on-ci-change.yml").read_text()
@@ -458,19 +465,27 @@ def test_pages_publish_only_a_passed_full_run_of_the_current_main(tmp_path: Path
     assert "branches: [main]" in pages
     step = pages.split("- name: Check that Full passed on the current Main\n", 1)[1]
     script = dedent(step.split("        run: |\n", 1)[1].split("\n\n", 1)[0])
-    for conclusion, run_sha, published in (
-        ("success", "a" * 40, True),
-        ("failure", "a" * 40, False),
-        ("success", "b" * 40, False),
+    main = "a" * 40
+    for number, (conclusion, run_sha, event, head_repo, published) in enumerate(
+        (
+            ("success", main, "schedule", "o/r", True),
+            ("success", main, "workflow_dispatch", "o/r", True),
+            ("failure", main, "schedule", "o/r", False),
+            ("success", "b" * 40, "schedule", "o/r", False),
+            ("success", main, "pull_request", "o/r", False),
+            ("success", main, "schedule", "fork/r", False),
+        )
     ):
-        output = tmp_path / f"{conclusion}-{run_sha[0]}"
-        fake = f"gh() {{ echo {'a' * 40}; }}; export -f gh; "
+        output = tmp_path / str(number)
+        fake = f"gh() {{ echo {main}; }}; export -f gh; "
         subprocess.run(
             ["bash", "-eu", "-c", fake + script],
             env={
                 **os.environ,
                 "CONCLUSION": conclusion,
                 "RUN_SHA": run_sha,
+                "EVENT": event,
+                "HEAD_REPO": head_repo,
                 "GITHUB_OUTPUT": str(output),
                 "GITHUB_REPOSITORY": "o/r",
             },

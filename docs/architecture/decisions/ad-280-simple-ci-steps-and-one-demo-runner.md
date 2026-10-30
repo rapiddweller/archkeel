@@ -12,8 +12,8 @@
    calls it for a PR that changes a CI path. It runs all tests, the compatibility jobs and the demos.
 4. `pages.yml` publishes the gallery after a Full run on `main`. It publishes only when that run
    passed and its commit is the current `main`. It uses the report and the demo build of that run.
-5. `maintenance.yml` prunes workflow registrations and report artifacts nightly. CI no longer
-   prunes on each push to `main`, so old artifacts can stay up to 24 hours.
+5. No workflow prunes registrations or artifacts. AD-281 removed the maintenance workflow and its
+   tools. GitHub deletes each artifact when its retention period ends.
 6. `tests/areas.py` puts each test file in exactly one named area. Each test job runs one area
    (`Tests: <area>`), never a numbered shard.
 7. `make demos` runs every gallery demo through `build_demos`, the only demo runner. It checks the
@@ -32,6 +32,8 @@ Full: it needs a job condition, because a PR and a release also run Full.
 **Limits.** Measured on head 4ebae76f (run 41024475883, 10 areas): the slowest PR job took 9m48
 (`main`: 10.7 min). Four Full areas took more than 10 minutes, at most 14m46; Full is not a PR gate.
 PR runner minutes grow, because seven area jobs build the self report and each PR runs the demos.
-A CI-change PR runs the PR tests and Full.
+A CI-change PR runs the PR set and Full. 13 of the last 60 commits on `main` match the path filter
+(about 22 %); each such PR costs about 70 more runner minutes. Rejected: dispatch Full by hand for
+such a PR, because a break would then show only in the nightly run.
 
 **Checks.** `tests/test_report_pages.py` and `tests/test_make_gate.py`.
