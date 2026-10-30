@@ -12,14 +12,14 @@ the archive: restore a file from it when a real need comes back.
    two reference files and its helpers `fixtures/typescript_scenarios.py` and
    `fixtures/typescript_realworld.py`. That collector is gone, so the reference cannot change.
    AD-210 no longer names the frozen adapter reference.
-4. SVG figure tools: `tools/onboarding_svg.py`, `tools/terminal_svg.py` and their two SVG files.
-   No document, README or website shows them.
+4. SVG figure tools: `tools/onboarding_svg.py`, `tools/terminal_svg.py` and two unused SVG files.
 5. Dead maintenance tools: the artifact retention tool, the workflow registry tool, the
    unresolved-call classifier, the AD-9 interface profile tool and `maintenance.yml`. This
    replaces item 5 of AD-280. Four workflow files stay: CI, Full verification, Pages and release.
+6. The committed plugin copy `plugins/archkeel/` and `make plugin-directory`. The repository root
+   is the plugin; `make plugin-release` builds its ZIP. The icon moves to `docs/assets/`.
 
-**Reason.** This removes code that nobody reads, lints or types. The rule yield tool alone had
-800 lines and 1,184 lines of tests.
+**Reason.** Nobody reads, lints or types this code. Rule yield had 800 lines and 1,184 test lines.
 
 **Rejected.** Keep the tools outside CI: they still cost lint, type and test time. Move them to a
 separate repository: nobody uses them.

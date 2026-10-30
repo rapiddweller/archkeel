@@ -21,8 +21,8 @@
         "privacyPolicyURL": "https://rapiddweller.com/privacy-policy/",
         "termsOfServiceURL": "https://github.com/rapiddweller/archkeel/blob/main/LICENSE",
         "defaultPrompt": ["Use ArchKeel to review architecture boundaries in this repository."],
-        "composerIcon": "./assets/archkeel-mark.svg",
-        "logo": "./assets/archkeel-mark.svg",
+        "composerIcon": "./docs/assets/archkeel-mark.svg",
+        "logo": "./docs/assets/archkeel-mark.svg",
         "brandColor": "#7FA51A"
       }
     }
