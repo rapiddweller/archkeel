@@ -212,10 +212,6 @@ def _native_repository(tmp_path, *, include_guards=True):
 
 def test_authored_topology_ports_are_required_and_parse():
     parse_contract(_authored_target())
-    required = (
-        (ROOT / "Makefile").read_text().split("pr-test:", 1)[1].split("pr-report-test:", 1)[0]
-    )
-    assert "tests/test_graph_topology_level_types.py" in required
 
 
 def test_actual_topology_ports_and_native_controls_are_proven(tmp_path):

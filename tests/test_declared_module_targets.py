@@ -55,23 +55,6 @@ def _module(path: str, responsibility: str = "Own this module.") -> dict[str, st
     return {"path": path, "responsibility": responsibility}
 
 
-def _walk(nodes: list[dict[str, Any]]):
-    for node in nodes:
-        yield node
-        yield from _walk(node["children"])
-
-
-def _declared_file(node: dict[str, Any]) -> str | None:
-    return next(
-        (
-            item["value"]
-            for item in node["details"]
-            if item["label"] == "File" and isinstance(item["value"], str)
-        ),
-        None,
-    )
-
-
 def _report(
     tmp_path: Path,
     contract: dict[str, Any],
@@ -205,15 +188,6 @@ def _report(
         if isinstance(record.data.get("qualified_name"), str)
     }
     return result, page, payload, actual
-
-
-def _observed_files(nodes: list[dict[str, Any]]) -> set[str]:
-    return {
-        item["value"]
-        for node in _walk(nodes)
-        for item in node["details"]
-        if item["label"] == "File" and isinstance(item["value"], str)
-    }
 
 
 def test_module_declarations_round_trip_and_remain_optional() -> None:

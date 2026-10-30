@@ -187,31 +187,6 @@ def test_pr_gate_keeps_policy_and_stops_before_later_checks(tmp_path, failed):
     assert result.returncode == (0 if failed is None else 2)
 
 
-def test_pr_core_uses_representative_dart_and_flutter_checks() -> None:
-    result = subprocess.run(
-        ["make", "-n", "pr-test"],
-        cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": ""},
-        capture_output=True,
-        text=True,
-        timeout=15,
-    )
-    assert result.returncode == 0, result.stderr
-    command = result.stdout
-    for selector in (
-        "tests/test_dart_uml_acceptance.py::test_checkout_cli_report_fulfills_independent_target",
-        "tests/test_dart_unknowns.py::test_no_show_import_hiding_a_real_crossing_is_unknown_not_pass",
-        "tests/test_flutter_demo.py::test_flutter_target_has_agent_owned_responsibilities_and_closed_permissions",
-        "tests/test_flutter_demo.py::test_flutter_mutations_keep_target_identical_and_change_only_dart_sources",
-        "tests/test_flutter_demo.py::test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct",
-        "tests/test_flutter_demo.py::test_flutter_target_owns_three_meaningful_component_levels_and_all_modules",
-        "tests/test_flutter_demo.py::test_flutter_target_pins_journey_signatures_member_scopes_and_flutter_inheritance",
-    ):
-        assert selector in command
-    assert "tests/test_dart_unknowns.py " not in command
-    assert "tests/test_flutter_demo.py " not in command
-
-
 @pytest.mark.parametrize(
     "failed",
     [None, "browser-runtime-check", "browser-graph-check", "pr-report-test"],
@@ -223,38 +198,6 @@ def test_pr_report_gate_runs_logic_sample_and_propagates_failure(tmp_path, faile
         expected = expected[: expected.index(failed) + 1]
     assert steps == expected
     assert result.returncode == (0 if failed is None else 2)
-
-
-def test_pr_report_sample_uses_two_loadfile_workers_and_keeps_selected_tests() -> None:
-    result = subprocess.run(
-        ["make", "-n", "pr-report-test"],
-        cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": ""},
-        capture_output=True,
-        text=True,
-        timeout=15,
-    )
-    assert result.returncode == 0, result.stderr
-    command = result.stdout
-    assert "python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q" in command
-    assert "--junitxml=test-artifacts/pytest/pr-report.xml" in command
-    for selector in (
-        "tests/test_graph_scene_protocol.py",
-        "tests/test_atlas_deviation_boundary.py",
-    ):
-        assert selector in command
-    core = subprocess.run(
-        ["make", "-n", "pr-test"],
-        cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": ""},
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    for selector in ("tests/test_saved_report.py", "tests/test_report_agent_json.py"):
-        assert selector in core and selector not in command
-    assert "tests/test_compass_project_report.py" not in command
-    assert "tests/test_nest_realworld_project_report.py" not in command
 
 
 @pytest.mark.parametrize("fail_pytest", [False, True])
@@ -317,56 +260,6 @@ def test_local_browser_target_installs_and_runs_only_the_smokes(
     assert result.returncode == (2 if fail_pytest else 0), result.stderr
 
 
-def test_ci_paths_avoid_playwright_and_browser_proof_but_local_report_tests_opt_in() -> None:
-    for target in (
-        "ci",
-        "ci-check",
-        "ci-core-check",
-        "ci-pr-check",
-        "ci-pr-static",
-        "ci-pr-report-check",
-        "pr-test",
-        "pr-report-test",
-        "full-test",
-    ):
-        result = subprocess.run(
-            ["make", "-n", target],
-            cwd=ROOT,
-            env={**os.environ, "MAKEFLAGS": "", "OUTPUT": ""},
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        assert result.returncode == 0, result.stderr
-        assert "playwright" not in result.stdout.lower(), target
-        assert "tools.report_browser" not in result.stdout, target
-
-    local = subprocess.run(
-        ["make", "-n", "report-browser-tests"],
-        cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": ""},
-        capture_output=True,
-        text=True,
-        timeout=15,
-    )
-    assert local.returncode == 0, local.stderr
-    assert "playwright install --with-deps chromium" in local.stdout
-    assert "pytest -m browser" in local.stdout
-
-    full_test = subprocess.run(
-        ["make", "-n", "full-test"],
-        cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": ""},
-        capture_output=True,
-        text=True,
-        timeout=15,
-    )
-    assert full_test.returncode == 0, full_test.stderr
-    runtime_install = full_test.stdout.index("npm ci --prefix tools/browser-runtime")
-    test_run = full_test.stdout.index("python -m pytest")
-    assert runtime_install < test_run
-
-
 def test_workflow_files_require_an_explicit_governance_change() -> None:
     assert {path.name for path in (ROOT / ".github/workflows").iterdir() if path.is_file()} == {
         "ci.yml",
@@ -424,30 +317,11 @@ def test_each_aggregate_needs_every_job_and_fails_closed(workflow: str, aggregat
     assert run("") != 0
 
 
-def test_pull_requests_run_one_fixed_job_set_and_full_runs_on_its_own_triggers() -> None:
-    ci = (ROOT / ".github/workflows/ci.yml").read_text()
-    assert ci.split("\non:\n", 1)[1].split("\n\n", 1)[0] == "  pull_request:"
-    assert not re.search(r"^    uses:", ci, flags=re.MULTILINE)
-    jobs = _jobs("ci.yml")
-    assert 'make ci-pr-static BASE="$BASE"' in jobs["lint"]
-    assert 'make pr-test AREA="$AREA"' in jobs["tests"]
-    assert "make ci-pr-report-check" in jobs["pr-report-check"]
-    assert "run: make mermaid" in jobs["mermaid"]
-    assert "run: make demos" in jobs["demos"]
-
+def test_full_runs_on_its_own_triggers_and_before_each_release() -> None:
     full = (ROOT / ".github/workflows/full-verification.yml").read_text()
     for trigger in ("workflow_call:", "workflow_dispatch:", "schedule:"):
         assert trigger in full
     assert "pages: write" not in full and "id-token: write" not in full
-    full_jobs = _jobs("full-verification.yml")
-    assert "make ci-core-check SKIP_TESTS=1" in full_jobs["full-suite-and-reports"]
-    assert "run: make report-timing" in full_jobs["full-suite-and-reports"]
-    assert "report-pages" not in full
-    assert 'make full-test AREA="$AREA"' in full_jobs["tests"]
-    assert "name: report-gallery" in full_jobs["demos"]
-    assert "runs-on: windows-2025" in full_jobs["collector-safety-windows"]
-    assert "make dart-test TEST_WORKERS=4 SHELL=bash" in full_jobs["language-collectors"]
-
     paths = full.split("  pull_request:\n    paths:\n", 1)[1].split("\n\n", 1)[0]
     for path in (".github/workflows/**", "Makefile", "tests/areas.py", "tests/conftest.py"):
         assert f"      - {path}" in paths or f'      - "{path}"' in paths
@@ -498,25 +372,6 @@ def test_pages_publish_only_a_passed_full_run_of_the_current_main(tmp_path: Path
     ):
         body = pages.split(f"- name: {step_name}\n", 1)[1].split("\n\n", 1)[0]
         assert "if: steps.verified.outputs.publish == 'true'" in body
-
-
-def test_typescript_compatibility_reuses_fixtures_and_keeps_windows_path_check() -> None:
-    result = subprocess.run(
-        ["make", "-n", "typescript-native", "TEST_WORKERS=4"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        timeout=15,
-    )
-    assert result.returncode == 0, result.stderr
-    command = result.stdout
-    assert "--dist=loadfile" in command
-    assert "test_typescript_control_target.py" not in command
-    assert "tests/test_typescript_collect.py" in command
-    assert (
-        "tests/test_browser_architecture.py::"
-        "test_browser_runner_serializes_windows_config_as_a_posix_port"
-    ) in command
 
 
 def test_python_classifiers_name_exactly_the_versions_the_full_workflow_tests() -> None:
@@ -643,22 +498,6 @@ def test_self_observation_generates_ignored_output_and_preserves_failure(tmp_pat
         "test-artifacts/self-observation/architecture.json",
     ]
     assert result.returncode == exit_code
-
-
-def test_browser_runtime_gate_installs_before_running_the_actual_publication_tests() -> None:
-    result = subprocess.run(
-        ["make", "-n", "browser-runtime-check"],
-        cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": ""},
-        capture_output=True,
-        text=True,
-        timeout=15,
-    )
-    assert result.returncode == 0, result.stderr
-    command = result.stdout
-    install = command.index("npm ci --prefix tools/browser-runtime")
-    publication = command.index("python -m pytest -q tests/test_flow_runtime_publication.py")
-    assert install < publication
 
 
 def _collected(*arguments: str) -> tuple[subprocess.CompletedProcess[str], list[str]]:

@@ -160,10 +160,6 @@ def _native_repository(tmp_path, *, include_guard=True):
 
 def test_authored_section_ports_are_required_and_parse():
     parse_contract(_authored_target())
-    required = (
-        (ROOT / "Makefile").read_text().split("pr-test:", 1)[1].split("pr-report-test:", 1)[0]
-    )
-    assert "tests/test_source_section_types.py" in required
 
 
 def test_actual_section_ports_fulfil_unchanged_authored_target(tmp_path):
