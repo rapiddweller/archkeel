@@ -104,6 +104,9 @@ Supported annotation and re-export forms are defined by
 [boundary tests](../tests/test_boundary_types_facades.py) and [rules](rules.md).
 Unproved routes, missing annotations, ambiguous bindings and unsupported shapes
 remain UNKNOWN. An uncertain export cannot hide another private-type violation.
+A name that a class body binds at any place makes its class annotations UNKNOWN on every Python
+version, because 3.14 evaluates them lazily (PEP 649). A field `date: date` is one false UNKNOWN
+([AD-283](architecture/decisions/ad-283-a-later-class-binding-blocks-every-annotation.md)).
 
 Inherited boundary methods follow a uniquely resolved local single-base chain.
 Inherited fields and full MRO are unproved. External API closure has a separate

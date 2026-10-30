@@ -398,52 +398,58 @@ def test_shadowed_object_in_union_keeps_a_known_broad_mapping_neighbor(tmp_path:
     )
 
 
+@pytest.mark.parametrize("position", ["value", "return"])
 @pytest.mark.parametrize("deferred", [False, True])
-def test_a_later_class_binding_only_blocks_deferred_annotations(
-    tmp_path: Path, deferred: bool
+def test_a_later_class_binding_blocks_lazy_and_deferred_annotations(
+    tmp_path: Path, deferred: bool, position: str
 ) -> None:
+    signature = "value: object) -> str" if position == "value" else "value: str) -> object"
     source = (
         ("from __future__ import annotations\n" if deferred else "")
         + "class Hidden: pass\nclass Converter:\n"
-        "    def convert(self, value: object) -> str: return ''\n    object = Hidden\n"
+        f"    def convert(self, {signature}: return ''\n    object = Hidden\n"
     )
     _write_app(
         tmp_path,
         implementation=source,
         declared=("sample.app.impl:Converter",),
-        allowed_positions=(_ALLOWANCE,),
+        allowed_positions=({**_ALLOWANCE, "position": position},),
     )
     namespace: dict[str, object] = {}
     exec(source, namespace)
     if not deferred:
         converter = namespace["Converter"]
         assert isinstance(converter, type)
-        assert converter.convert.__annotations__["value"] is object
+        # PEP 649: Python 3.14 evaluates the annotation later, in the final class namespace.
+        lazy = sys.version_info >= (3, 14)
+        expected = namespace["Hidden"] if lazy else object
+        assert converter.convert.__annotations__[position] is expected
 
     result = _observe(tmp_path)
 
     assert result.observation is not None
-    facts = [
+    assert not [
         item
         for item in result.observation.records("typing_signals") or ()
         if item.kind == "boundary_type_allowance"
     ]
-    assert len(facts) == (0 if deferred else 1)
-    assert (
-        any(
-            item.kind == "boundary_type_position"
-            for item in result.observation.records("unknowns") or ()
-        )
-        is deferred
-    )
+    [unknown] = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_position"
+    ]
+    assert unknown.data.get("position") == position
 
 
-def test_class_field_scope_uncertainty_is_a_source_fact_for_any_name(tmp_path: Path) -> None:
+@pytest.mark.parametrize("binding_after", [False, True])
+def test_class_field_scope_uncertainty_is_a_source_fact_for_any_name(
+    tmp_path: Path, binding_after: bool
+) -> None:
+    fields = ["    datetime = Hidden\n", "    now: datetime\n"]
     _write_app(
         tmp_path,
-        implementation=(
-            "class Hidden: pass\nclass Payload:\n    datetime = Hidden\n    now: datetime\n"
-        ),
+        implementation="class Hidden: pass\nclass Payload:\n"
+        + "".join(reversed(fields) if binding_after else fields),
         declared=("sample.app.impl:Payload",),
     )
     result = _observe(tmp_path)
