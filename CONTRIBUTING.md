@@ -51,10 +51,9 @@ publication. Use `make ci BASE=origin/main` locally for the complete gate.
 Jobs run on pinned images (`ubuntu-24.04`, `windows-2025`). A move to a new image is a deliberate
 change: run Full on the branch before you merge it.
 
-Keep five workflow files: CI, Full verification, Full verification for CI changes, Pages
-and release. Use existing Make targets or dispatch Full verification for diagnostics;
-do not add temporary workflows. The tested file inventory requires an explicit
-reviewed change for a new workflow.
+Keep four workflow files: CI, Full verification, Pages and release. Use existing Make targets
+or dispatch Full verification for diagnostics; do not add temporary workflows. The tested file
+inventory requires an explicit reviewed change for a new workflow.
 
 ## Where things run
 
@@ -81,9 +80,10 @@ aggregate would count as passed.
 
 A red job means its command failed: run the command in the third column to reproduce it.
 `tests/areas.py` puts each test file in exactly one area. CI runs the `make pr-test` selection;
-Full runs all tests. A PR that changes a path in `full-on-ci-change.yml` also runs Full, as
-`Full / <job>`. Pages publishes only a passed Full run of the current `main`. It uses the
-`make demos` and `make report-timing` output of that run, so it builds nothing again.
+Full runs all tests. A PR that changes a path in the `pull_request` filter of
+`full-verification.yml` also runs Full. Pages publishes only a passed Full run of the current
+`main`. It uses the `make demos` and `make report-timing` output of that run, so it builds nothing
+again.
 
 The [published architecture report](https://rapiddweller.github.io/archkeel/) updates after a
 successful scheduled or manual full verification on Main. Reports retain FAIL and UNKNOWN

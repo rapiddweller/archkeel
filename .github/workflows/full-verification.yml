@@ -1,13 +1,32 @@
 name: Full verification
 
+# A PR that changes what Full runs also runs Full.
 on:
   workflow_call:
   workflow_dispatch:
   schedule:
     - cron: "17 2 * * *"
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+      - ".github/actions/**"
+      - Makefile
+      - .python-version
+      - pyproject.toml
+      - uv.lock
+      - tools/browser-runtime/package*.json
+      - tests/areas.py
+      - tests/conftest.py
+      - tests/test_report_pages.py
+      - tools/report_pages.py
+      - tools/report_timing.py
 
 permissions:
   contents: read
+
+concurrency:
+  group: full-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   full-suite-and-reports:

@@ -8,8 +8,9 @@
    counts a skipped aggregate as passed.
 2. CI runs on each pull request and runs the same fixed set: lint, types and architecture, the
    test areas, the report tests, the docs diagrams and the demos. No file classifier selects jobs.
-3. Full verification runs nightly, on dispatch and before a release. `full-on-ci-change.yml`
-   calls it for a PR that changes a CI path. It runs all tests, the compatibility jobs and the demos.
+3. Full verification runs nightly, on dispatch, before a release and on a PR that changes a CI
+   path (its own `pull_request` path filter). It runs all tests, the compatibility jobs and the
+   demos.
 4. `pages.yml` publishes the gallery after a Full run on `main`. It publishes only when that run
    passed and its commit is the current `main`. It uses the report and the demo build of that run.
 5. No workflow prunes registrations or artifacts. AD-281 removed the maintenance workflow and its

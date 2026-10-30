@@ -16,7 +16,7 @@ the archive: restore a file from it when a real need comes back.
    No document, README or website shows them.
 5. Dead maintenance tools: the artifact retention tool, the workflow registry tool, the
    unresolved-call classifier, the AD-9 interface profile tool and `maintenance.yml`. This
-   replaces item 5 of AD-280. Five workflow files stay.
+   replaces item 5 of AD-280. Four workflow files stay: CI, Full verification, Pages and release.
 
 **Reason.** This removes code that nobody reads, lints or types. The rule yield tool alone had
 800 lines and 1,184 lines of tests.
@@ -26,5 +26,5 @@ separate repository: nobody uses them.
 
 **Limits.** Until issue #767, `src` accepts `InitialPRHeadEvidence`, but nothing here produces it.
 
-**Checks.** `tests/test_make_gate.py` pins the five workflow files. `tests/test_initial_pr_check.py`
+**Checks.** `tests/test_make_gate.py` pins the four workflow files. `tests/test_initial_pr_check.py`
 keeps the ordering check of `src`.
