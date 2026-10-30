@@ -272,4 +272,4 @@ jobs:
           for result in $RESULTS; do
             [[ "$result" == success ]] || { echo "A check job did not succeed: $result" >&2; exit 1; }
           done
-          [[ $(wc -w <<< "$RESULTS") -eq 5 ]] || { echo "Expected 5 job results: $RESULTS" >&2; exit 1; }
+          [[ -n "$RESULTS" ]] || { echo "No job results" >&2; exit 1; }

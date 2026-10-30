@@ -32,6 +32,8 @@ Full: it needs a job condition, because a PR and a release also run Full.
 **Limits.** Measured on head 4ebae76f (run 41024475883, 10 areas): the slowest PR job took 9m48
 (`main`: 10.7 min). Four Full areas took more than 10 minutes, at most 14m46; Full is not a PR gate.
 PR runner minutes grow, because seven area jobs build the self report and each PR runs the demos.
-A CI-change PR runs the PR tests and Full.
+A CI-change PR runs the PR set and Full. 13 of the last 60 commits on `main` match the path filter
+(about 22 %); each such PR costs about 70 more runner minutes. Rejected: dispatch Full by hand for
+such a PR, because a break would then show only in the nightly run.
 
 **Checks.** `tests/test_report_pages.py` and `tests/test_make_gate.py`.

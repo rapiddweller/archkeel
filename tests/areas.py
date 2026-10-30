@@ -6,7 +6,7 @@
 from fnmatch import fnmatchcase
 
 # The first area with a matching pattern owns a file, so a specific name comes before its prefix.
-# Estimated from CI JUnit times: each job takes about 10 minutes. No CI run measured them yet.
+# Estimated from CI JUnit times: each job takes about 10 minutes.
 AREAS: dict[str, tuple[str, ...]] = {
     "demo catalog": ("test_architecture_demo.py",),
     "TypeScript collector target": ("test_typescript_control_target.py",),
