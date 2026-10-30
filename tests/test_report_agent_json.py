@@ -18,13 +18,13 @@ from archkeel.check.report import run_report
 from archkeel.cli import main
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import (
-    _architecture_component_payload,
     decode_canonical_model,
     parse_observation,
     result_bytes,
     result_payload,
 )
-from archkeel.ir.report_projection import architecture_command_envelope
+from archkeel.ir.codec_result import _architecture_component_payload
+from archkeel.ir.command_view import architecture_command_envelope
 from archkeel.render.html import render_architecture_html
 from fixtures.architecture_demo import CATALOG
 

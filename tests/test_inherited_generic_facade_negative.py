@@ -9,7 +9,7 @@ import pytest
 from test_analyzer import _component, _observe
 from test_inside_publication import _rule, _write_project
 
-from archkeel.check.validation import interface_diagnostics
+from archkeel.check.validation.public_api import interface_diagnostics
 from archkeel.ir.codec import parse_contract
 
 

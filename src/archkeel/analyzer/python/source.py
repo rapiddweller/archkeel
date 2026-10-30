@@ -18,7 +18,7 @@ from enum import StrEnum
 from importlib.machinery import BuiltinImporter, FrozenImporter
 from pathlib import Path
 from types import CodeType
-from typing import Final, Literal, NamedTuple, Protocol, TypedDict
+from typing import Final, Literal, NamedTuple, TypedDict
 
 from archkeel.ir.facts import (
     DefinitionBranchKind,
@@ -277,32 +277,6 @@ def own_scope(node: DefinitionNode) -> Iterator[ast.AST]:
         if isinstance(current, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Lambda):
             continue
         stack.extend(reversed(list(ast.iter_child_nodes(current))))
-
-
-class ScannedModule(Protocol):
-    """The plain facts the shared package and module records read of any scanned module.
-
-    Narrower than `ParsedModule` on purpose: a profile without a Python AST (AD-97) builds the
-    same records from these six fields instead of fabricating a tree it does not have.
-    """
-
-    @property
-    def rel_path(self) -> str: ...
-
-    @property
-    def module(self) -> str: ...
-
-    @property
-    def package(self) -> str: ...
-
-    @property
-    def all_exports(self) -> AbstractSet[str]: ...
-
-    @property
-    def all_literal(self) -> bool: ...
-
-    @property
-    def compatibility_logic_free(self) -> bool: ...
 
 
 @dataclass

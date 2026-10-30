@@ -21,10 +21,10 @@ from archkeel.ir.architecture_graph import (
     TargetDefinition,
 )
 from archkeel.ir.architecture_projection import ArchitectureProjection
+from archkeel.ir.command_view import ArchitectureCommandEnvelope
 from archkeel.ir.contract_version import ContractFeature, ContractVersion, supports_feature
 from archkeel.ir.facts import MemberInventory
 from archkeel.ir.model import Coverage, Diagnostic, FilteredViolation, Record
-from archkeel.ir.report_projection import ArchitectureCommandEnvelope
 
 
 def _schema(root: type, name: str, title: str) -> dict[str, object]:

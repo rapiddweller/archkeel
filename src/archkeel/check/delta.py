@@ -13,7 +13,6 @@ from typing import Final
 
 from archkeel.ir.codec import value_bytes
 from archkeel.ir.measurements import RatchetError
-from archkeel.ir.model import DELTA_SCHEMA_VERSION as DELTA_SCHEMA_VERSION
 from archkeel.ir.model import (
     SCHEMA_VERSION,
     ArchitectureDelta,

@@ -8,8 +8,8 @@ interning and result-envelope adaptation.
 Move the command DTOs and preparation helpers together to `ir.command_view`,
 inside the existing governance component. It consumes shared projection and
 result values; it does not construct reports or evaluate architecture policy.
-`ir.report_projection` retains explicit aliases to the same classes, type
-aliases and public functions. `ir.codec` imports the focused command owner directly
+Callers import them from `ir.command_view`; `ir.report_projection` keeps no
+aliases. `ir.codec` imports the focused command owner directly
 and owns JSON serialization. Private helpers stay private to their implementation.
 Runtime annotations remain resolvable in eager import orders.
 
@@ -27,7 +27,7 @@ amendment binds exactly this authorized ownership migration to the prior and
 current contract trees, with identical baseline digests; it grants no additional
 public interfaces, imports, through selectors, Any positions or budget debt.
 
-`tests/test_command_view.py` checks old/new import identity and eager type hints,
+`tests/test_command_view.py` checks eager type hints,
 frozen compact/full/selected bytes, reason interning, permission and selector
 negative controls, scoped uncertainty and missing-projection rejection.
 Existing architecture-projection, schema, agent-JSON, saved-report and native

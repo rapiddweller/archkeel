@@ -24,11 +24,11 @@ from archkeel.check.report import run_report
 from archkeel.check.run import _authenticate_inputs, materialize_declarations
 from archkeel.check.validation import (
     COMPONENT_GRAPH_MARKER,
-    TARGET_GRAPH_MARKER,
     _inside_contract_tree,
     inside_diagnostics,
     run_validate,
 )
+from archkeel.check.validation.graphs import TARGET_GRAPH_MARKER
 from archkeel.cli import main
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import (

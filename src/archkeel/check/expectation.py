@@ -21,7 +21,6 @@ from archkeel.ir.model import KnownSemanticChangeKind as _KnownSemanticChangeKin
 from archkeel.ir.model import supports_nullable_delta_counts as _supports_nullable_delta_counts
 from archkeel.ir.profiles import Profile, delta_dimension_applicable, profile_for
 
-from .delta import DELTA_SCHEMA_VERSION as DELTA_SCHEMA_VERSION
 from .delta import SUPPORTED_DIMENSIONS, require_comparable_runtime
 from .ratchets import compare_ratchets
 

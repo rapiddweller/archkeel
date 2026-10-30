@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import json
 
-from archkeel.check.validation import COMPONENT_GRAPH_MARKER, TARGET_GRAPH_MARKER
+from archkeel.check.validation import COMPONENT_GRAPH_MARKER
+from archkeel.check.validation.graphs import TARGET_GRAPH_MARKER
 from archkeel.ir.codec import baseline_bytes
 from archkeel.ir.measurements import MeasurementBudget
 from fixtures.demo_catalog_dependencies import REPOSITORY_WITH_MONEY_IMPORT
