@@ -33,7 +33,6 @@ OWNERS = {
         "contract_digest",
         "absent_contract_digest",
         "parse_required_component",
-        "_rule_payload",
     ),
     "inside": (
         "contract_provenance_locations",
@@ -53,7 +52,6 @@ OWNERS = {
         "result_payload",
         "result_bytes",
         "finding_payload",
-        "_architecture_component_payload",
     ),
 }
 

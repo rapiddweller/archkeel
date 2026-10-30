@@ -36,44 +36,6 @@ from archkeel.ir.architecture_projection import (
     UsageProjection,
 )
 from archkeel.ir.codec_contract import parse_dependency_selector
-
-# Preserve the established command-view imports while their implementation has one owner.
-from archkeel.ir.command_view import (
-    ArchitectureCommandEnvelope as ArchitectureCommandEnvelope,
-)
-from archkeel.ir.command_view import (
-    ArchitectureCommandView as ArchitectureCommandView,
-)
-from archkeel.ir.command_view import (
-    ArchitectureComponentView as ArchitectureComponentView,
-)
-from archkeel.ir.command_view import (
-    PermissionContextView as PermissionContextView,
-)
-from archkeel.ir.command_view import (
-    PermissionGroup as PermissionGroup,
-)
-from archkeel.ir.command_view import (
-    RequiredRelationshipSummary as RequiredRelationshipSummary,
-)
-from archkeel.ir.command_view import (
-    ScopeCount as ScopeCount,
-)
-from archkeel.ir.command_view import (
-    UnknownGroups as UnknownGroups,
-)
-from archkeel.ir.command_view import (
-    architecture_command_envelope as architecture_command_envelope,
-)
-from archkeel.ir.command_view import (
-    grouped_selectors as grouped_selectors,
-)
-from archkeel.ir.command_view import (
-    short_selector as short_selector,
-)
-from archkeel.ir.command_view import (
-    unknown_groups as unknown_groups,
-)
 from archkeel.ir.decisions import rule_assessment_applies_to_component
 from archkeel.ir.dependency import DependencyOwner, DependencySelector
 from archkeel.ir.facts import EvidenceClass as _EvidenceClass
