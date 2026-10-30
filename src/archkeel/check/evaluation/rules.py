@@ -74,25 +74,10 @@ from archkeel.ir.model import requires_import_assessment as _requires_import_ass
 from archkeel.ir.profiles import DeclarationField, Profile
 from archkeel.ir.type_shapes import TypeShapeIndex
 
-from .boundary_types import _AMBIGUOUS as _AMBIGUOUS
-from .boundary_types import _UNDECIDABLE_KINDS as _UNDECIDABLE_KINDS
-from .boundary_types import BindingIndex as BindingIndex
-from .boundary_types import _bare_type_verdict as _bare_type_verdict
 from .boundary_types import _boundary_rule_results as _boundary_rule_results
-from .boundary_types import _boundary_type_verdict as _boundary_type_verdict
-from .boundary_types import _boundary_type_violation_records as _boundary_type_violation_records
-from .boundary_types import _collection_parameters as _collection_parameters
 from .boundary_types import _facade_positions as _facade_positions
-from .boundary_types import _mapping_parameters as _mapping_parameters
-from .boundary_types import _Position as _Position
 from .boundary_types import _property_chains as _property_chains
-from .boundary_types import _public_api_generic_bindings as _public_api_generic_bindings
-from .boundary_types import _public_api_symbol as _public_api_symbol
-from .boundary_types import _reexport_facade_entries as _reexport_facade_entries
-from .boundary_types import _typing_wrapper_inner as _typing_wrapper_inner
-from .boundary_types import _union_parameters as _union_parameters
 from .boundary_types import _unresolved_public_alias_routes as _unresolved_public_alias_routes
-from .boundary_types import boundary_type_indexes as boundary_type_indexes
 from .boundary_types import boundary_type_limits as boundary_type_limits
 from .boundary_types import facade_signature_types as facade_signature_types
 from .boundary_types import public_api_exposed_types as public_api_exposed_types
