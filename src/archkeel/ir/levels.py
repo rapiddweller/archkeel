@@ -46,7 +46,6 @@ class InsideComponent:
     modules: tuple[str, ...]
     public: tuple[str, ...] | None
     requires: tuple[RecordData, ...]
-    has_inside: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,7 +202,6 @@ def inside_levels(observation: Observation) -> tuple[InsideLevel, ...]:
                         tuple(owned[record.title]),
                         _public(record),
                         _requires(record),
-                        isinstance(record.data.get("inside"), str),
                     )
                     for record in records
                 ),
