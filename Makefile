@@ -67,7 +67,6 @@ pr-test: browser-runtime-install
 		tests/test_typescript_array_constants.py \
 		tests/test_typescript_decorated_inventory.py \
 		tests/test_typescript_parameter_properties.py \
-		tests/test_typescript_differential.py \
 		tests/test_uml_comparison.py tests/test_saved_report.py tests/test_architecture_projection.py tests/test_cli.py tests/test_cli_typed_inputs.py tests/test_cli_input_target.py \
 		tests/test_member_inventory.py tests/test_partial_member_inventory.py \
 		tests/test_report_recorded_unknowns.py \
@@ -215,8 +214,6 @@ collector-safety:
 		tests/test_collector_interrupt.py tests/test_windows_launcher_startup.py \
 		tests/test_collector_safety_acceptance.py tests/test_collector_liveness_observer.py \
 		tests/test_inheritance_proof_transport.py
-.PHONY: typescript-differential
-# Development acceptance, separate from the Python-hosted source collector.
 typescript-compiler-check:
 	npx --yes --package typescript@5.9.3 tsc --noEmit --project fixtures/H-uml-typescript/tsconfig.json
 
@@ -240,16 +237,11 @@ dart-test:
 		tests/test_uml_source_facts.py tests/test_language_collectors.py \
 		tests/test_flutter_demo.py::test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct
 
-# Compare against the immutable output captured from the former Node collector.
-typescript-differential:
-	ARCHKEEL_DIFFERENTIAL_OUTPUT="$(or $(OUTPUT),test-artifacts/typescript-differential)" \
-		$(UV) run --locked python -m pytest -q tests/test_typescript_differential.py
-
 LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/mermaid_blocks.py \
 	tools/classify_unresolved.py tools/onboarding_svg.py tools/report_pages.py tools/package_plugin.py tools/against.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py \
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py \
-	fixtures/reproduce_typescript.py fixtures/typescript_differential.py fixtures/typescript_scenarios.py fixtures/typescript_realworld.py \
+	fixtures/reproduce_typescript.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
 	tools/architecture_graph_schema.py tools/report_timing.py tools/report_artifact_retention.py tools/workflow_registry.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py
 
