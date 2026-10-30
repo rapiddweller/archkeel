@@ -145,6 +145,7 @@ and canonical type identity; their exact and optional-union semantics are record
 | [AD-276](decisions/ad-276-a-leading-utf-8-bom-is-not-source-text.md) | A Python source starts with at most one UTF-8 BOM, which is not a character; a BOM provider's digest covers its text. |
 | [AD-277](decisions/ad-277-references-record-write-targets-chain-prefixes-and-enum-reexports.md) | References record write targets, unresolved-chain prefixes and enum re-exports; `catalog_argument` counts each owner read and each import the collector cannot follow. |
 | [AD-279](decisions/ad-279-a-catalog-target-only-compares-or-indexes-its-arguments.md) | A `catalog_argument` target may only compare or index its parameters and store no subscript; a returned argument stays UNKNOWN; an index can still give the member away (Limits). |
+| [AD-280](decisions/ad-280-simple-ci-steps-and-one-demo-runner.md) | Named CI steps run the local make targets; `make demos` runs every gallery demo through the one `build_demos` runner. |
 | [AD-246](decisions/ad-246-bounded-numeric-operand.md) | Bind selected modulo bounds to bounded source-derived integer proofs. |
 
 | [AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md) | Bind explicitly written actuals to proven formals before applying argument policies. |
@@ -152,7 +153,3 @@ and canonical type identity; their exact and optional-union semantics are record
 | [AD-248](decisions/ad-248-construct-selectors.md) | Select one nominal receiver, member and construct role without global spelling bans. |
 | [AD-249](decisions/ad-249-source-ownership-defaults.md) | Constrain source definitions, value transfers, defaults, and fallbacks to canonical owners. |
 | [AD-250](decisions/ad-250-bounded-guarded-effect-ownership.md) | Prove bounded Boolean paths and one call-site-specific private helper hop for canonical effects. |
-
-| [AD-278](decisions/ad-278-demo-verification-timings.md) | Verify each gallery demo in one job and retain its results and report timings. |
-
-| [AD-280](decisions/ad-280-clear-ci-steps.md) | Name CI checks, keep full results and avoid duplicate report tests. |

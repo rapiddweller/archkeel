@@ -45,17 +45,41 @@ on Linux/Python 3.11, collector compatibility on Linux/Python 3.12, a thin Pytho
 test set (`make python-compat`) on Python 3.12 and 3.14, and one Windows/Python 3.11
 safety check for process and path behavior. TypeScript's Python architecture and browser module
 boundaries stay in the full suite. Manual dispatch uses the same checks.
-Full verification shows architecture and build, generated assets, report timing and diagrams as separate steps.
 Release tags call that workflow before package build and
 publication. Use `make ci BASE=origin/main` locally for the complete gate.
 
-Keep three workflow files: CI, Full verification and release. Use existing Make targets or dispatch Full verification for diagnostics;
+Keep five workflow files: CI, Full verification, release, and the two initial-PR
+receipts. Use existing Make targets or dispatch Full verification for diagnostics;
 do not add temporary workflows. The tested file inventory requires an explicit
 reviewed change for a new workflow. Trusted Main maintenance disables active
 file-backed registrations absent from live Main, retaining their run history.
 Use `GITHUB_REPOSITORY=rapiddweller/archkeel make prune-workflows` to preview the
 plan; `DISABLE=true` applies it. A Main change aborts the operation; GitHub provides
 no transaction spanning the ref check and disable request.
+
+## Where things run
+
+CI runs on each PR and each push to `main`. It selects checks from the changed files.
+Full verification runs each night, on manual dispatch and before each release. On a PR, it runs
+only when the PR changes the `Makefile`, a workflow or a CI tool file (`tools/ci_changes.py`).
+
+| Check | Local command | Job | PR | Push to `main` | Nightly |
+|---|---|---|---|---|---|
+| Architecture, lint and types | `make ci-pr-static` | Architecture, lint and types | if core | if core | in Full |
+| Selected unit, integration and CLI tests | `make pr-test` | Python tests / part 1-6 | if core | if core | no |
+| All Python tests | `make test` | All Python tests / part 1-8 | if Full | no | yes |
+| Report and renderer tests | `make ci-pr-report-check` | Report and renderer tests | if report | if report | no |
+| Build, generated assets, report timing | `make ci-check SHARDED_TESTS=1` | Architecture, build and report checks | if Full | no | yes |
+| Gallery demos | `make demos` | Demo analysis | if Full | no | yes |
+| Windows collector safety | `make collector-safety` | Collector safety / Windows | if Full | no | yes |
+| Python 3.12 and 3.14 compatibility | `make python-compat` | Python compatibility | no | no | yes |
+| Source collectors on Python 3.12 | `make typescript-native dart-test` | Source collectors | no | no | yes |
+| Gallery and Pages | `make report-pages` | Publish the verified report gallery | no | no | `main` only |
+| Release | tag push | `release.yml` runs Full, then publishes | no | no | no |
+
+"if core" and "if report" name the areas that `tools/ci_changes.py` selects. "if Full" means
+that Full verification runs on the PR. "Nightly" also covers manual dispatch. A release runs
+all Full jobs.
 
 The [published architecture report](https://rapiddweller.github.io/archkeel/) updates after a
 successful scheduled or manual full verification on Main. Reports retain FAIL and UNKNOWN
@@ -65,14 +89,8 @@ Actions** as its publishing source.
 Run `make report-pages` to generate the same site in `test-artifacts/pages/`: an entry page,
 the current report and the Python, Dart and TypeScript demos with shared detail pages and canonical
 JSON. Demo links open in the dark theme; `/demos/` leads to the gallery.
-Full verification runs the gallery entries in the **Demo analysis** job. Each demo has
-its own named step. The job checks expected results and records coverage, rule results,
-output size and phase times. Download all results with
-`gh run download <run-id> --name demo-results`. The artifact contains one directory
-per demo, with `result.json`, `phases.json` and its report. The API lists artifacts at
-`GET /repos/{owner}/{repo}/actions/runs/{run_id}/artifacts`. Locally, use
-`make demo-ci CASE=<name> OUTPUT=<fresh-directory>`. List names with
-`uv run --locked python -m tools.demo_ci --list`.
+`make demos` runs every gallery demo with the same code, checks its expected result and
+prints one table. A failed demo does not stop the next one; the run fails at the end.
 
 `make demo-uml OUTPUT=<fresh-directory>` checks the TypeScript fixture with the same
 compiler before generating the Python, Dart and TypeScript UML reports.
