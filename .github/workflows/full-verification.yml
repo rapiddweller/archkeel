@@ -12,7 +12,7 @@ permissions:
 jobs:
   full-suite-and-reports:
     name: Architecture, build and report checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Check out source
@@ -72,7 +72,7 @@ jobs:
 
   demos:
     name: Demos
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Check out source
@@ -104,7 +104,7 @@ jobs:
 
   tests:
     name: "Tests: ${{ matrix.area }}"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -162,7 +162,7 @@ jobs:
 
   python-compat:
     name: Python ${{ matrix.python }} compatibility
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     # The analyzer reads source with the `ast` of the running interpreter (#724). The files in
     # `make python-compat` cover what differs between versions; the full suite runs on 3.11.
@@ -192,7 +192,7 @@ jobs:
 
   collector-safety-windows:
     name: "Windows: collector safety"
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 10
     env:
       UV_PYTHON: "3.11.12"
@@ -225,7 +225,7 @@ jobs:
 
   language-collectors:
     name: "Linux: source collectors"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     # Python 3.11 is covered by the full Linux suite; repeat compatibility on 3.12 only.
     env:
@@ -268,7 +268,7 @@ jobs:
       - language-collectors
     # always(): a skipped aggregate would count as passed, so it must also run when a job fails.
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Require every Full job
         env:

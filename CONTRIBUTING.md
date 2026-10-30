@@ -46,6 +46,8 @@ safety check for process and path behavior. TypeScript's Python architecture and
 boundaries stay in the full suite. Manual dispatch uses the same checks.
 Release tags call that workflow before package build and
 publication. Use `make ci BASE=origin/main` locally for the complete gate.
+Jobs run on pinned images (`ubuntu-24.04`, `windows-2025`). A move to a new image is a deliberate
+change: run Full on the branch before you merge it.
 
 Keep eight workflow files: CI, Full verification, Full verification for CI changes, Pages,
 Maintenance, release and the two initial-PR receipts. Use existing Make targets or dispatch Full verification for diagnostics;

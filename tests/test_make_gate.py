@@ -387,6 +387,17 @@ def _jobs(workflow: str) -> dict[str, str]:
     return dict(zip(parts[1::2], parts[2::2], strict=True))
 
 
+def test_every_job_runs_on_a_pinned_runner_image() -> None:
+    from tools.github_pr_report import COLLECTOR_DIGESTS
+
+    # A -latest label moves to a new image without a change in this repository.
+    for path in (ROOT / ".github/workflows").glob("*.yml"):
+        if f".github/workflows/{path.name}" in COLLECTOR_DIGESTS:
+            continue  # AD-143 pins the bytes of the receipt workflows.
+        for job, body in _jobs(path.name).items():
+            assert not re.search(r"runs-on: .*-latest", body), (path.name, job)
+
+
 def test_no_job_is_skipped_by_a_condition() -> None:
     # A job-level if: shows a skipped check; only an aggregate runs always, so it never skips.
     for path in (ROOT / ".github/workflows").glob("*.yml"):
@@ -446,7 +457,7 @@ def test_pull_requests_run_one_fixed_job_set_and_full_runs_on_its_own_triggers()
     assert "report-pages" not in full
     assert 'make full-test AREA="$AREA"' in full_jobs["tests"]
     assert "name: report-gallery" in full_jobs["demos"]
-    assert "runs-on: windows-latest" in full_jobs["collector-safety-windows"]
+    assert "runs-on: windows-2025" in full_jobs["collector-safety-windows"]
     assert "make dart-test TEST_WORKERS=4 SHELL=bash" in full_jobs["language-collectors"]
 
     caller = (ROOT / ".github/workflows/full-on-ci-change.yml").read_text()
