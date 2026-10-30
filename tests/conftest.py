@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
-from areas import AREAS, area_of
 from filelock import FileLock
 
 from archkeel.ir.codec import decode_canonical_model, parse_observation
@@ -104,7 +103,7 @@ def pytest_testnodedown(error: object | None) -> None:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    parser.addoption("--area", choices=AREAS, help="run only the test files of this area")
+    parser.addoption("--area", help="run only the test files of this area (tests/areas.py)")
 
 
 # These files are each longer than a quarter of their job; they have no module-scoped fixtures.
@@ -121,6 +120,11 @@ _SPREAD_PER_TEST = frozenset(
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     area = config.getoption("area")
     if area is not None:
+        # Imported here: some tests copy this file alone into a temporary project.
+        from areas import AREAS, area_of
+
+        if area not in AREAS:
+            raise pytest.UsageError(f"--area={area} is not an area in tests/areas.py")
         kept = [item for item in items if area_of(item.path.name) == area]
         if not kept:
             raise pytest.UsageError(f"--area={area} selects no tests")

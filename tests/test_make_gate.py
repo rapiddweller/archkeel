@@ -876,6 +876,9 @@ def test_an_area_selects_only_its_files_and_fails_closed_when_empty() -> None:
     result, _ = _collected("--area=demo catalog", "tests/test_layers.py")
     assert result.returncode == pytest.ExitCode.USAGE_ERROR, result.stdout + result.stderr
     assert "selects no tests" in result.stderr
+    result, _ = _collected("--area=no such area", "tests/test_layers.py")
+    assert result.returncode == pytest.ExitCode.USAGE_ERROR, result.stdout + result.stderr
+    assert "is not an area" in result.stderr
 
 
 def test_ci_pr_static_runs_policy_without_tests(tmp_path) -> None:
