@@ -75,118 +75,29 @@ from archkeel.ir.profiles import DeclarationField, Profile
 from archkeel.ir.type_shapes import TypeShapeIndex
 
 from .boundary_types import _AMBIGUOUS as _AMBIGUOUS
-from .boundary_types import _BROAD_BOUNDARY_REASON as _BROAD_BOUNDARY_REASON
-from .boundary_types import _BROAD_BOUNDARY_TYPES as _BROAD_BOUNDARY_TYPES
-from .boundary_types import _BUILTIN_NAMES as _BUILTIN_NAMES
-from .boundary_types import _COLLECTION_CONTAINERS as _COLLECTION_CONTAINERS
-from .boundary_types import _EXEMPT_CLASS_KINDS as _EXEMPT_CLASS_KINDS
-from .boundary_types import _OPAQUE_NATIVE_REASONS as _OPAQUE_NATIVE_REASONS
-from .boundary_types import _PROVEN_MAPPINGS as _PROVEN_MAPPINGS
-from .boundary_types import _PROVEN_SCALAR_LEAVES as _PROVEN_SCALAR_LEAVES
 from .boundary_types import _UNDECIDABLE_KINDS as _UNDECIDABLE_KINDS
 from .boundary_types import BindingIndex as BindingIndex
-from .boundary_types import _ambiguous_method_group as _ambiguous_method_group
-from .boundary_types import _AmbiguousBinding as _AmbiguousBinding
-from .boundary_types import _annotation_shape_verdict as _annotation_shape_verdict
-from .boundary_types import _apply_property_methods as _apply_property_methods
 from .boundary_types import _bare_type_verdict as _bare_type_verdict
-from .boundary_types import _base_route_member_static as _base_route_member_static
-from .boundary_types import _binding_index as _binding_index
-from .boundary_types import _binding_is_ambiguous as _binding_is_ambiguous
-from .boundary_types import _bound_method_positions as _bound_method_positions
-from .boundary_types import _boundary_rule_positions as _boundary_rule_positions
 from .boundary_types import _boundary_rule_results as _boundary_rule_results
-from .boundary_types import _boundary_type_allowance_fact as _boundary_type_allowance_fact
-from .boundary_types import (
-    _boundary_type_allowance_fact_record as _boundary_type_allowance_fact_record,
-)
-from .boundary_types import _boundary_type_limit_record as _boundary_type_limit_record
-from .boundary_types import _boundary_type_position_record as _boundary_type_position_record
 from .boundary_types import _boundary_type_verdict as _boundary_type_verdict
 from .boundary_types import _boundary_type_violation_records as _boundary_type_violation_records
-from .boundary_types import _boundary_types_violations as _boundary_types_violations
-from .boundary_types import _BoundMethod as _BoundMethod
 from .boundary_types import _collection_parameters as _collection_parameters
-from .boundary_types import _collection_verdict as _collection_verdict
-from .boundary_types import _combine_position_verdicts as _combine_position_verdicts
-from .boundary_types import _combined_annotation_verdict as _combined_annotation_verdict
-from .boundary_types import (
-    _contained_mapping_allowance_matches as _contained_mapping_allowance_matches,
-)
-from .boundary_types import _declared_chain_positions as _declared_chain_positions
-from .boundary_types import (
-    _declared_facade_inherited_positions as _declared_facade_inherited_positions,
-)
-from .boundary_types import _declared_facade_method_positions as _declared_facade_method_positions
-from .boundary_types import _declared_facade_positions as _declared_facade_positions
-from .boundary_types import _declared_field_verdict as _declared_field_verdict
-from .boundary_types import _direct_generic_candidate_types as _direct_generic_candidate_types
-from .boundary_types import _effective_method_surface as _effective_method_surface
-from .boundary_types import _enum_member_verdict as _enum_member_verdict
 from .boundary_types import _facade_positions as _facade_positions
-from .boundary_types import _field_position_verdict as _field_position_verdict
-from .boundary_types import _FieldPosition as _FieldPosition
-from .boundary_types import _has_star_import as _has_star_import
-from .boundary_types import _index_owner_facade_type_states as _index_owner_facade_type_states
-from .boundary_types import _inherited_facade_types as _inherited_facade_types
-from .boundary_types import _inherited_generic_candidate_types as _inherited_generic_candidate_types
-from .boundary_types import _is_broad_boundary_type as _is_broad_boundary_type
-from .boundary_types import _is_static_literal_constant as _is_static_literal_constant
-from .boundary_types import _mapping_container_verdict as _mapping_container_verdict
 from .boundary_types import _mapping_parameters as _mapping_parameters
-from .boundary_types import _MappingOccurrence as _MappingOccurrence
-from .boundary_types import _member_origin_static as _member_origin_static
-from .boundary_types import _method_signature_positions as _method_signature_positions
-from .boundary_types import _MethodSurface as _MethodSurface
-from .boundary_types import _named_type_verdict as _named_type_verdict
-from .boundary_types import _nested_field_allowance_matches as _nested_field_allowance_matches
-from .boundary_types import (
-    _opaque_mapping_value_allowance_matches as _opaque_mapping_value_allowance_matches,
-)
-from .boundary_types import _opaque_mapping_value_depth as _opaque_mapping_value_depth
-from .boundary_types import _owned_type_verdict as _owned_type_verdict
 from .boundary_types import _Position as _Position
 from .boundary_types import _property_chains as _property_chains
-from .boundary_types import _PropertyMethods as _PropertyMethods
-from .boundary_types import _proven_type_head as _proven_type_head
-from .boundary_types import (
-    _public_alias_route_has_unproven_hop as _public_alias_route_has_unproven_hop,
-)
-from .boundary_types import _public_api_base as _public_api_base
-from .boundary_types import _public_api_field_positions as _public_api_field_positions
 from .boundary_types import _public_api_generic_bindings as _public_api_generic_bindings
-from .boundary_types import _public_api_limit as _public_api_limit
-from .boundary_types import _public_api_positions as _public_api_positions
 from .boundary_types import _public_api_symbol as _public_api_symbol
-from .boundary_types import _record_boundary_evaluation as _record_boundary_evaluation
 from .boundary_types import _reexport_facade_entries as _reexport_facade_entries
-from .boundary_types import _resolved_position_types as _resolved_position_types
-from .boundary_types import _root_broad_count as _root_broad_count
-from .boundary_types import _scoped_facade_signature_types as _scoped_facade_signature_types
-from .boundary_types import _selected_facade as _selected_facade
-from .boundary_types import _substituted_type_bindings as _substituted_type_bindings
-from .boundary_types import _symbol_source_location as _symbol_source_location
-from .boundary_types import _type_alias_verdict as _type_alias_verdict
-from .boundary_types import _typing_module_binding as _typing_module_binding
 from .boundary_types import _typing_wrapper_inner as _typing_wrapper_inner
-from .boundary_types import _typing_wrapper_verdict as _typing_wrapper_verdict
-from .boundary_types import _uncertain_facade_position_records as _uncertain_facade_position_records
-from .boundary_types import _undecidable_declared_positions as _undecidable_declared_positions
 from .boundary_types import _union_parameters as _union_parameters
-from .boundary_types import _unresolvable_shape as _unresolvable_shape
-from .boundary_types import _unresolved_named_verdict as _unresolved_named_verdict
 from .boundary_types import _unresolved_public_alias_routes as _unresolved_public_alias_routes
 from .boundary_types import boundary_type_indexes as boundary_type_indexes
 from .boundary_types import boundary_type_limits as boundary_type_limits
 from .boundary_types import facade_signature_types as facade_signature_types
 from .boundary_types import public_api_exposed_types as public_api_exposed_types
-from .boundary_types import resolve_named_type as resolve_named_type
 from .protocol_declarations import protocol_declaration_results
-from .rule_support import DeclaredFacade as DeclaredFacade
-from .rule_support import FacadeEntry as FacadeEntry
-from .rule_support import ReexportIndex as ReexportIndex
 from .rule_support import UncertainReexportOrigins as UncertainReexportOrigins
-from .rule_support import _forbidden_dependency_matches as _forbidden_dependency_matches
 from .rule_support import _forbidden_dependency_verdicts as _forbidden_dependency_verdicts
 from .rule_support import _reexport_index as _reexport_index
 from .rule_support import _rule_evaluation_receipt as _rule_evaluation_receipt
