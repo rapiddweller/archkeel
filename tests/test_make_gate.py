@@ -372,248 +372,130 @@ def test_workflow_files_require_an_explicit_governance_change() -> None:
     assert {path.name for path in (ROOT / ".github/workflows").iterdir() if path.is_file()} == {
         "ci.yml",
         "full-verification.yml",
+        "full-on-ci-change.yml",
+        "pages.yml",
+        "maintenance.yml",
         "release.yml",
         "github-opened.yml",
         "github-opened-receipt.yml",
     }
 
 
-def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -> None:
-    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
-    parts = re.split(r"^  ([\w-]+):\n", workflow.split("\njobs:\n", 1)[1], flags=re.MULTILINE)
-    jobs = dict(zip(parts[1::2], parts[2::2], strict=True))
-    check = jobs["check"]
-    assert "name: All checks passed" in check
-    needs = "[changes, lint, tests, pr-report-check, mermaid, full-verification]"
-    assert f"needs: {needs}" in check
-    assert "if: ${{ always() }}" in check
-    assert (
-        "- name: Fail required check after workflow cancellation\n        if: cancelled()" in check
-    )
-    for job in ("lint", "tests", "report", "mermaid", "full"):
-        assert f"verify_job {job} " in check
-    assert "continue-on-error" not in check
-    assert "make report-pages" not in workflow
-    full_call = jobs["full-verification"]
-    assert "needs: changes" in full_call
-    assert (
-        "github.event_name == 'pull_request' && needs.changes.outputs.full == 'true'" in full_call
-    )
-    assert "uses: ./.github/workflows/full-verification.yml" in full_call
-    assert "collector-safety-windows:" not in workflow
-    assert "prune-report-artifacts:" not in workflow
-    for job_id, area, command in (
-        ("lint", "core", 'make ci-pr-static BASE="$BASE"'),
-        ("tests", "core", 'make pr-test AREA="$AREA"'),
-        ("pr-report-check", "report", "make ci-pr-report-check"),
-    ):
-        job = jobs[job_id]
-        assert "needs: changes" in job
-        assert "github.event_name == 'pull_request' || github.event_name == 'push'" in job
-        assert f"needs.changes.outputs.{area} == 'true'" in job
-        assert "permissions:\n      contents: read" in job
-        assert command in job
-    assert "fail-fast: false" in jobs["tests"]
-    assert "BASE: ${{ github.event.pull_request.base.sha }}" in jobs["lint"]
-    assert "Install Dart SDK" not in jobs["pr-report-check"]
-    assert "cancel-in-progress: ${{ github.event_name == 'pull_request' }}" in workflow
-    assert "needs.changes.outputs.mermaid == 'true'" in jobs["mermaid"]
-    assert "run: make mermaid" in workflow
+def _jobs(workflow: str) -> dict[str, str]:
+    text = (ROOT / ".github/workflows" / workflow).read_text()
+    parts = re.split(r"^  ([\w-]+):\n", text.split("\njobs:\n", 1)[1], flags=re.MULTILINE)
+    return dict(zip(parts[1::2], parts[2::2], strict=True))
+
+
+def test_no_job_is_skipped_by_a_condition() -> None:
+    # A job-level if: shows a skipped check; only an aggregate runs always, so it never skips.
+    for path in (ROOT / ".github/workflows").glob("*.yml"):
+        for job, body in _jobs(path.name).items():
+            conditions = re.findall(r"^    if: (.+)$", body, flags=re.MULTILINE)
+            assert conditions in ([], ["always()"]), (path.name, job, conditions)
+
+
+@pytest.mark.parametrize(
+    ("workflow", "aggregate", "report_only"),
+    [("ci.yml", "check", {"github-order-report"}), ("full-verification.yml", "verified", set())],
+)
+def test_each_aggregate_needs_every_job_and_fails_closed(
+    workflow: str, aggregate: str, report_only: set[str]
+) -> None:
+    jobs = _jobs(workflow)
+    body = jobs[aggregate]
+    assert "if: always()" in body
+    needs = re.search(r"needs: \[(.+)\]|needs:\n((?:      - .+\n)+)", body)
+    assert needs is not None
+    listed = re.findall(r"\w[\w-]*", needs[1] or needs[2])
+    assert set(listed) == set(jobs) - {aggregate} - report_only
+    script = dedent(body.split("        run: |\n", 1)[1])
+    ok = " ".join(["success"] * len(listed))
+
+    def run(results: str) -> int:
+        env = {**os.environ, "RESULTS": results}
+        return subprocess.run(
+            ["bash", "-eu", "-c", script], env=env, capture_output=True
+        ).returncode
+
+    assert run(ok) == 0
+    for bad in ("failure", "cancelled", "skipped", ""):
+        assert run(ok.replace("success", bad, 1)) != 0, bad
+    assert run(" ".join(["success"] * (len(listed) - 1))) != 0
+
+
+def test_pull_requests_run_one_fixed_job_set_and_full_runs_on_its_own_triggers() -> None:
+    ci = (ROOT / ".github/workflows/ci.yml").read_text()
+    assert ci.split("\non:\n", 1)[1].split("\n\n", 1)[0] == "  pull_request:"
+    assert not re.search(r"^    uses:", ci, flags=re.MULTILINE)
+    jobs = _jobs("ci.yml")
+    assert 'make ci-pr-static BASE="$BASE"' in jobs["lint"]
+    assert 'make pr-test AREA="$AREA"' in jobs["tests"]
+    assert "make ci-pr-report-check" in jobs["pr-report-check"]
+    assert "run: make mermaid" in jobs["mermaid"]
+    assert "run: make demos" in jobs["demos"]
+    assert "continue-on-error: true" in jobs["github-order-report"]
 
     full = (ROOT / ".github/workflows/full-verification.yml").read_text()
     for trigger in ("workflow_call:", "workflow_dispatch:", "schedule:"):
         assert trigger in full
-    assert "run: make demos" in full
-    assert "test-artifacts/report-timing/architecture.timing.json" in full
-    assert "test-artifacts/report-browser/" not in full
-    evidence = full.split("name: report-check-evidence", 1)[1].split("      - name:", 1)[0]
-    assert "retention-days: 1" in evidence
-    assert "test-artifacts/report-browser/" not in evidence
-    safety = full.split("  collector-safety-windows:\n", 1)[1].split("\n  language-collectors:", 1)[
-        0
-    ]
-    assert "runs-on: windows-latest" in safety
-    assert 'UV_PYTHON: "3.11.12"' in safety
-    assert "matrix:" not in safety
-    collectors = full.split("  language-collectors:\n", 1)[1].split("\n  verified:", 1)[0]
-    assert "runs-on: ubuntu-latest" in collectors
-    assert 'UV_PYTHON: "3.12.10"' in collectors
-    assert "matrix:" not in collectors
-    assert "windows" not in collectors.lower()
-    assert "setup-dart@" not in full
-    assert "dart-setup" not in full
-    assert "dart-native:" not in full
-    assert "make dart-test TEST_WORKERS=4 SHELL=bash" in full
-    assert "setup-dart@" not in workflow
-    assert "dart-setup" not in workflow
-    assert "if: always()" in full
-    assert (
-        "needs:\n      - full-suite-and-reports\n      - tests\n"
-        "      - demos\n      - python-compat\n"
-        "      - collector-safety-windows\n      - language-collectors" in full
-    )
-    assert "${{ needs.full-suite-and-reports.result }}" in full
-    # The full suite runs as parallel area jobs; the gate job skips it (SKIP_TESTS=1).
-    assert "${{ needs.tests.result }}" in full
-    assert "make ci-core-check SKIP_TESTS=1" in full
-    assert 'make full-test AREA="$AREA"' in full
-    assert "${{ needs.collector-safety-windows.result }}" in full
-    assert "${{ needs.language-collectors.result }}" in full
-    assert "${{ needs.python-compat.result }}" in full
-    prune = full.split("  prune-report-artifacts:\n", 1)[1].split("\n  deploy-report-pages:", 1)[0]
-    assert "needs: [verified, deploy-report-pages]" in prune
-    assert "make prune-report-artifacts DELETE=true" in prune
-    assert "make prune-workflows DISABLE=true" in prune
-    assert "group: actions-maintenance" in prune
-    assert "workflow-prune/plan.json" in prune
-    assert "needs: [full-suite-and-reports, verified]" in full
-    assert "github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'" in full
-    gallery_step = full.split("- name: Measure report and build gallery for Pages", 1)[1].split(
-        "      - name:", 1
-    )[0]
-    assert "report-pages" in gallery_step
-    assert "name: report-browser-evidence" not in full
-    assert "name: scheduled-report-site" not in full
-    pages_upload = full.split("- name: Upload report site for deployment\n", 1)[1].split(
-        "      - name:", 1
-    )[0]
-    assert "github.ref == 'refs/heads/main'" in pages_upload
-    assert "retention-days: 1" in pages_upload
-    assert "startsWith(github.ref, 'refs/tags/')" not in pages_upload
-    assert "actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9" in full
-    assert "name: scheduled-report-site" not in full
+    assert "pages: write" not in full and "id-token: write" not in full
+    full_jobs = _jobs("full-verification.yml")
+    assert "make ci-core-check SKIP_TESTS=1" in full_jobs["full-suite-and-reports"]
+    assert "run: make report-timing" in full_jobs["full-suite-and-reports"]
+    assert "report-pages" not in full
+    assert 'make full-test AREA="$AREA"' in full_jobs["tests"]
+    assert "name: report-gallery" in full_jobs["demos"]
+    assert "runs-on: windows-latest" in full_jobs["collector-safety-windows"]
+    assert "make dart-test TEST_WORKERS=4 SHELL=bash" in full_jobs["language-collectors"]
 
-    prune = full.split("  prune-report-artifacts:\n", 1)[1].split("\n  deploy-report-pages:", 1)[0]
-    assert "needs: [verified, deploy-report-pages]" in prune
-    assert "!cancelled()" in prune
-    assert "make prune-report-artifacts DELETE=true" in prune
-
-    release = (ROOT / ".github/workflows/release.yml").read_text()
-    assert "uses: ./.github/workflows/full-verification.yml" in release
-    verify = release.split("  verify:\n", 1)[1].split("\n  build:", 1)[0]
-    assert "actions: write" in verify
-    build = release.split("  build:\n", 1)[1].split("\n  publish:", 1)[0]
-    assert "needs: verify" in build
-    assert "run: make build" in build
-    assert "run: make release-check" not in build
-    publish = release.split("  publish:\n", 1)[1]
-    assert "needs: build" in publish
-    refreshed = release.split("  refresh-report-gallery:\n", 1)[1]
-    assert "needs: publish" in refreshed
-    assert "actions: write" in refreshed
-    assert 'main_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main"' in refreshed
-    assert '"$main_sha" != "$GITHUB_SHA"' in refreshed
-    assert (
-        'gh workflow run full-verification.yml --ref main --repo "$GITHUB_REPOSITORY"' in refreshed
-    )
+    caller = (ROOT / ".github/workflows/full-on-ci-change.yml").read_text()
+    assert "uses: ./.github/workflows/full-verification.yml" in caller
+    for path in (".github/workflows/**", "Makefile", "tests/areas.py", "tests/conftest.py"):
+        assert f"      - {path}\n" in caller or f'      - "{path}"\n' in caller
+    release = _jobs("release.yml")
+    assert "uses: ./.github/workflows/full-verification.yml" in release["verify"]
+    assert "needs: verify" in release["build"]
+    assert "gh workflow run full-verification.yml --ref main" in release["refresh-report-gallery"]
 
 
-def test_check_aggregate_executes_exact_workflow_script_fail_closed() -> None:
-    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
-    check = workflow.split("  check:\n", 1)[1].split("\n  lint:", 1)[0]
-    step = check.split("- name: Verify selected checks and fail closed\n", 1)[1]
-    script = dedent(step.split("        run: |\n", 1)[1])
-    baseline = {
-        "EVENT": "pull_request",
-        "CHANGES_RESULT": "success",
-        "CORE": "true",
-        "REPORT": "true",
-        "MERMAID": "true",
-        "FULL": "false",
-        "LINT_RESULT": "success",
-        "TESTS_RESULT": "success",
-        "REPORT_RESULT": "success",
-        "MERMAID_RESULT": "success",
-        "FULL_RESULT": "skipped",
-    }
-    cases = (
-        ("PR selected", {}, 0),
-        ("Main selected", {"EVENT": "push"}, 0),
-        ("Main full stays scheduled", {"EVENT": "push", "FULL": "true"}, 0),
-        (
-            "core only",
-            {
-                "REPORT": "false",
-                "REPORT_RESULT": "skipped",
-                "MERMAID": "false",
-                "MERMAID_RESULT": "skipped",
+def test_pages_publish_only_a_passed_full_run_of_the_current_main(tmp_path: Path) -> None:
+    pages = (ROOT / ".github/workflows/pages.yml").read_text()
+    assert "workflow_run:\n    workflows: [Full verification]" in pages
+    assert "branches: [main]" in pages
+    step = pages.split("- name: Check that Full passed on the current Main\n", 1)[1]
+    script = dedent(step.split("        run: |\n", 1)[1].split("\n\n", 1)[0])
+    for conclusion, run_sha, published in (
+        ("success", "a" * 40, True),
+        ("failure", "a" * 40, False),
+        ("success", "b" * 40, False),
+    ):
+        output = tmp_path / f"{conclusion}-{run_sha[0]}"
+        fake = f"gh() {{ echo {'a' * 40}; }}; export -f gh; "
+        subprocess.run(
+            ["bash", "-eu", "-c", fake + script],
+            env={
+                **os.environ,
+                "CONCLUSION": conclusion,
+                "RUN_SHA": run_sha,
+                "GITHUB_OUTPUT": str(output),
+                "GITHUB_REPOSITORY": "o/r",
             },
-            0,
-        ),
-        (
-            "report only",
-            {
-                "CORE": "false",
-                "CORE_RESULT": "skipped",
-                "MERMAID": "false",
-                "MERMAID_RESULT": "skipped",
-            },
-            0,
-        ),
-        (
-            "Mermaid only",
-            {
-                "CORE": "false",
-                "CORE_RESULT": "skipped",
-                "REPORT": "false",
-                "REPORT_RESULT": "skipped",
-            },
-            0,
-        ),
-        (
-            "nothing selected",
-            {
-                "CORE": "false",
-                "CORE_RESULT": "skipped",
-                "REPORT": "false",
-                "REPORT_RESULT": "skipped",
-                "MERMAID": "false",
-                "MERMAID_RESULT": "skipped",
-            },
-            0,
-        ),
-        ("classifier failed", {"CHANGES_RESULT": "failure"}, 1),
-        ("unexpected event", {"EVENT": "workflow_dispatch"}, 1),
-        ("malformed core flag", {"CORE": "yes"}, 1),
-        ("malformed report flag", {"REPORT": "TRUE"}, 1),
-        ("malformed Mermaid flag", {"MERMAID": "yes"}, 1),
-        ("missing report flag", {"REPORT": None}, 1),
-        ("required core failed", {"CORE_RESULT": "failure"}, 1),
-        ("required report cancelled", {"REPORT_RESULT": "cancelled"}, 1),
-        ("required Mermaid skipped", {"MERMAID_RESULT": "skipped"}, 1),
-        ("unselected child ran", {"CORE": "false", "CORE_RESULT": "success"}, 1),
-        ("missing child result", {"CORE_RESULT": None}, 1),
-        ("full selected", {"FULL": "true", "FULL_RESULT": "success"}, 0),
-        ("required full failed", {"FULL": "true", "FULL_RESULT": "failure"}, 1),
-        ("required full cancelled", {"FULL": "true", "FULL_RESULT": "cancelled"}, 1),
-        ("required full skipped", {"FULL": "true"}, 1),
-        ("unselected full ran", {"FULL_RESULT": "success"}, 1),
-        ("malformed full flag", {"FULL": "yes"}, 1),
-        ("missing full flag", {"FULL": None}, 1),
-        ("missing full result", {"FULL": "true", "FULL_RESULT": None}, 1),
-        ("one core job failed", {"TESTS_RESULT": "failure"}, 1),
-        ("one core job skipped", {"LINT_RESULT": "skipped"}, 1),
-    )
-    for label, overrides, expected in cases:
-        # CORE_RESULT stands for both core jobs unless a case sets one of them.
-        if "CORE_RESULT" in overrides:
-            core = overrides.pop("CORE_RESULT")
-            overrides |= dict.fromkeys(("LINT_RESULT", "TESTS_RESULT"), core)
-        values = {
-            **baseline,
-            **{key: value for key, value in overrides.items() if value is not None},
-        }
-        env = {**os.environ, **values}
-        for missing in (key for key, value in overrides.items() if value is None):
-            env.pop(missing, None)
-        result = subprocess.run(
-            ["bash", "-eu", "-c", script], cwd=ROOT, env=env, capture_output=True, text=True
+            check=True,
+            capture_output=True,
         )
-        assert (result.returncode == 0) == (expected == 0), (
-            label,
-            result.stdout,
-            result.stderr,
-        )
+        assert output.read_text() == f"publish={str(published).lower()}\n"
+    for step_name in (
+        "Download the current report",
+        "Download the demo gallery",
+        "Deploy the site",
+    ):
+        body = pages.split(f"- name: {step_name}\n", 1)[1].split("\n\n", 1)[0]
+        assert "if: steps.verified.outputs.publish == 'true'" in body
+    maintenance = (ROOT / ".github/workflows/maintenance.yml").read_text()
+    assert "on:\n  schedule:" in maintenance and "workflow_dispatch" not in maintenance
+    assert "make prune-workflows DISABLE=true" in maintenance
+    assert "make prune-report-artifacts DELETE=true" in maintenance
 
 
 def test_typescript_compatibility_reuses_fixtures_and_keeps_windows_path_check() -> None:
@@ -645,78 +527,6 @@ def test_python_classifiers_name_exactly_the_versions_the_full_workflow_tests() 
     }
     workflow = (ROOT / ".github/workflows/full-verification.yml").read_text()
     assert claimed == set(re.findall(r'"(3\.\d+)\.\d+"', workflow))
-
-
-def test_full_aggregate_requires_collector_compatibility_outside_prs() -> None:
-    workflow = (ROOT / ".github/workflows/full-verification.yml").read_text()
-    collectors = workflow.split("  language-collectors:\n", 1)[1].split("\n  verified:", 1)[0]
-    assert "if: ${{ github.event_name != 'pull_request' }}" in collectors
-    aggregate = workflow.split("  verified:\n", 1)[1].split("\n  prune-report-artifacts:", 1)[0]
-    script = dedent(aggregate.split("        run: |\n", 1)[1])
-    baseline = {
-        "FULL_RESULT": "success",
-        "TESTS_RESULT": "success",
-        "SAFETY_RESULT": "success",
-        "DEMOS_RESULT": "success",
-    }
-    for event in ("pull_request", "schedule", "workflow_dispatch", "push"):
-        expected = "skipped" if event == "pull_request" else "success"
-        for matrix in ("success", "skipped", "failure", "cancelled", ""):
-            result = subprocess.run(
-                ["bash", "-eu", "-c", script],
-                env={
-                    **os.environ,
-                    **baseline,
-                    "EVENT": event,
-                    "COLLECTORS_RESULT": matrix,
-                    "COMPAT_RESULT": expected,
-                },
-                capture_output=True,
-            )
-            assert (result.returncode == 0) == (matrix == expected), (event, matrix)
-            # The Python compatibility job follows the same rule as the collector job.
-            result = subprocess.run(
-                ["bash", "-eu", "-c", script],
-                env={
-                    **os.environ,
-                    **baseline,
-                    "EVENT": event,
-                    "COLLECTORS_RESULT": expected,
-                    "COMPAT_RESULT": matrix,
-                },
-                capture_output=True,
-            )
-            assert (result.returncode == 0) == (matrix == expected), (event, "compat", matrix)
-        for required in baseline:
-            result = subprocess.run(
-                ["bash", "-eu", "-c", script],
-                env={
-                    **os.environ,
-                    **baseline,
-                    required: "skipped",
-                    "EVENT": event,
-                    "COLLECTORS_RESULT": expected,
-                    "COMPAT_RESULT": expected,
-                },
-                capture_output=True,
-            )
-            assert result.returncode != 0, (event, required)
-
-
-def test_required_check_script_explicitly_fails_when_workflow_cancelled() -> None:
-    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
-    check = workflow.split("  check:\n", 1)[1].split("\n  lint:", 1)[0]
-    step = check.split("- name: Fail required check after workflow cancellation\n", 1)[1].split(
-        "\n      - name:", 1
-    )[0]
-    assert "if: cancelled()" in step
-    result = subprocess.run(
-        ["bash", "-eu", "-c", step.split("        run: ", 1)[1].strip()],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode != 0
 
 
 @pytest.mark.parametrize("renderer_exit", [0, 1])

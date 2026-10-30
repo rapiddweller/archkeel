@@ -2,110 +2,17 @@ name: CI
 
 on:
   pull_request:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
-  changes:
-    name: Select checks for changed files
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      core: ${{ steps.filter.outputs.core }}
-      report: ${{ steps.filter.outputs.report }}
-      mermaid: ${{ steps.filter.outputs.mermaid }}
-      full: ${{ steps.filter.outputs.full }}
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 2
-          persist-credentials: false
-
-      - name: Test change classifier
-        run: python3 -m unittest discover -s tests -p 'test_ci_changes.py'
-
-      - name: Classify changed files
-        id: filter
-        env:
-          EVENT: ${{ github.event_name }}
-          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          if [[ "$EVENT" == push || "$BASE" =~ ^0+$ ]]; then
-            python3 tools/ci_changes.py --all >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            git fetch --no-tags --depth=1 origin "$BASE"
-          fi
-          git cat-file -e "$HEAD^{commit}"
-          git diff --no-renames --name-only -z "$BASE" "$HEAD" | python3 tools/ci_changes.py >> "$GITHUB_OUTPUT"
-
-  check:
-    name: All checks passed
-    needs: [changes, lint, tests, pr-report-check, mermaid, full-verification]
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Fail required check after workflow cancellation
-        if: cancelled()
-        run: exit 1
-
-      - name: Verify selected checks and fail closed
-        if: ${{ !cancelled() }}
-        env:
-          EVENT: ${{ github.event_name }}
-          CHANGES_RESULT: ${{ needs.changes.result }}
-          CORE: ${{ needs.changes.outputs.core }}
-          REPORT: ${{ needs.changes.outputs.report }}
-          MERMAID: ${{ needs.changes.outputs.mermaid }}
-          FULL: ${{ needs.changes.outputs.full }}
-          LINT_RESULT: ${{ needs.lint.result }}
-          TESTS_RESULT: ${{ needs.tests.result }}
-          REPORT_RESULT: ${{ needs.pr-report-check.result }}
-          MERMAID_RESULT: ${{ needs.mermaid.result }}
-          FULL_RESULT: ${{ needs.full-verification.result }}
-        run: |
-          set -euo pipefail
-          if [[ "$EVENT" != pull_request && "$EVENT" != push ]]; then
-            echo "Unexpected CI event: $EVENT" >&2
-            exit 1
-          fi
-          [[ "$CHANGES_RESULT" == success ]] || { echo "Change classification did not succeed" >&2; exit 1; }
-
-          verify_job() {
-            local job="$1" selected="$2" result="$3"
-            case "$selected" in
-              true) [[ "$result" == success ]] || { echo "Selected $job job did not succeed: $result" >&2; exit 1; } ;;
-              false) [[ "$result" == skipped ]] || { echo "Unselected $job job was not skipped: $result" >&2; exit 1; } ;;
-              *) echo "Invalid $job selection: $selected" >&2; exit 1 ;;
-            esac
-          }
-          verify_job lint "$CORE" "$LINT_RESULT"
-          verify_job tests "$CORE" "$TESTS_RESULT"
-          verify_job report "$REPORT" "$REPORT_RESULT"
-          verify_job mermaid "$MERMAID" "$MERMAID_RESULT"
-          if [[ "$EVENT" == pull_request ]]; then
-            verify_job full "$FULL" "$FULL_RESULT"
-          else
-            # Protected Main already passed PR acceptance; scheduled Full publishes Pages.
-            verify_job full false "$FULL_RESULT"
-          fi
-
   lint:
     name: Lint, types and architecture
-    needs: changes
-    if: (github.event_name == 'pull_request' || github.event_name == 'push') && needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -142,8 +49,6 @@ jobs:
 
   tests:
     name: "Tests: ${{ matrix.area }}"
-    needs: changes
-    if: (github.event_name == 'pull_request' || github.event_name == 'push') && needs.changes.outputs.core == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -204,8 +109,6 @@ jobs:
 
   pr-report-check:
     name: Report and renderer tests
-    needs: changes
-    if: (github.event_name == 'pull_request' || github.event_name == 'push') && needs.changes.outputs.report == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -244,10 +147,68 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  mermaid:
+    name: Docs diagrams
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "22"
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.11.12"
+          version: "0.12.13"
+
+      - name: Check Mermaid source labels
+        run: PYTHONPATH=src uv run --isolated --no-project --with pytest==8.4.2 --with filelock==4.0.10 python -m pytest -q tests/test_mermaid.py
+
+      - name: Render every Mermaid block
+        run: make mermaid
+
+  demos:
+    name: Demos
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.11.12"
+          version: "0.12.13"
+
+      - name: Install locked dependencies
+        run: uv sync --locked
+
+      - name: Run every gallery demo and check its expected result
+        run: make demos
+
+      - name: Upload demo HTML reports
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: demo-reports
+          path: test-artifacts/pages/demos/**/*.html
+          if-no-files-found: warn
+          retention-days: 1
+
   github-order-report:
     name: Collect GitHub order evidence (report only)
-    needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -295,43 +256,20 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  mermaid:
-    name: Docs diagrams
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.mermaid == 'true' }}
+  check:
+    name: All checks passed
+    needs: [lint, tests, pr-report-check, mermaid, demos]
+    # always(): a skipped aggregate would count as passed, so it must also run when a job fails.
+    if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install Node
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
-        with:
-          node-version: "22"
-
-      - name: Install uv and Python
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          enable-cache: true
-          python-version: "3.11.12"
-          version: "0.12.13"
-
-      - name: Check Mermaid source labels
-        run: PYTHONPATH=src uv run --isolated --no-project --with pytest==8.4.2 --with filelock==4.0.10 python -m pytest -q tests/test_mermaid.py
-
-      - name: Render every Mermaid block
-        run: make mermaid
-
-  full-verification:
-    name: Full
-    needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.full == 'true'
-    uses: ./.github/workflows/full-verification.yml
-    permissions:
-      actions: write
-      contents: read
-      pages: write
-      id-token: write
+      - name: Require every check job
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          set -euo pipefail
+          for result in $RESULTS; do
+            [[ "$result" == success ]] || { echo "A check job did not succeed: $result" >&2; exit 1; }
+          done
+          [[ $(wc -w <<< "$RESULTS") -eq 5 ]] || { echo "Expected 5 job results: $RESULTS" >&2; exit 1; }

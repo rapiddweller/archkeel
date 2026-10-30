@@ -18,10 +18,7 @@ jobs:
   verify:
     uses: ./.github/workflows/full-verification.yml
     permissions:
-      actions: write
       contents: read
-      pages: write
-      id-token: write
 
   build:
     needs: verify

@@ -1,0 +1,29 @@
+name: Full verification for CI changes
+
+# A PR that changes what Full runs also runs Full; other PRs do not start this workflow.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+      - ".github/actions/**"
+      - Makefile
+      - pyproject.toml
+      - uv.lock
+      - tests/areas.py
+      - tests/conftest.py
+      - tests/test_make_gate.py
+      - tests/test_report_pages.py
+      - tools/report_pages.py
+      - tools/report_timing.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  full:
+    name: Full
+    uses: ./.github/workflows/full-verification.yml

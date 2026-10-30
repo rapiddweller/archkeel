@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import argparse
 import contextlib
 import io
 import json
@@ -335,14 +334,8 @@ runnable control, not a full-project demo.</p>
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--demos-only", action="store_true", help="skip the gallery index")
-    args = parser.parse_args()
+    output = Path("test-artifacts/pages/demos")
     try:
-        if args.demos_only:
-            build_demos(Path("test-artifacts/demos"))
-        else:
-            output = Path("test-artifacts/pages/demos")
-            _write_index(output, build_demos(output))
+        _write_index(output, build_demos(output))
     except ValueError as error:
         raise SystemExit(str(error)) from None
