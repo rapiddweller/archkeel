@@ -10,4 +10,4 @@ Projects without components retain a code overview. Layout bands declare no
 architecture layers. Prefer readable scale and panning; an overview cannot
 certify crossing-free routes.
 
-[Overview proof](../../../tests/test_uml_visual_acceptance.py).
+**Checks.** None since #680 removed its tests.

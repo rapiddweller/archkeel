@@ -288,3 +288,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-279 | [A catalog target only compares or indexes its arguments](ad-279-a-catalog-target-only-compares-or-indexes-its-arguments.md) |
 | AD-280 | [Named CI jobs, test areas and one demo runner](ad-280-simple-ci-steps-and-one-demo-runner.md) |
 | AD-281 | [Retire unused tooling](ad-281-retire-unused-tooling.md) |
+| AD-282 | [Keep plans and evidence out of the repository](ad-282-keep-plans-and-evidence-out-of-the-repository.md) |

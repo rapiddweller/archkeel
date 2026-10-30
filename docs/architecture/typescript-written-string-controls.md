@@ -18,6 +18,4 @@ There is no imported/constant/alias/mutation/closure value propagation, type-che
 
 Native JavaScript file selection uses existing allowJs/checkJs semantics; explicit allowJs=false wins. checkJs inclusion does not establish deep JSDoc type/member Target evidence. TypeScript 5.9.3 remains the pinned compiler reference.
 
-Independent Target intent names the lexical API and pins its Span/scope/tuple fields. Real source-widening mutations must fail against unchanged intent. The implementation sequence and exact RED/GREEN receipts are recorded in the linked [plan](../superpowers/plans/2026-10-16-typescript-written-string-constructs.md).
-
-The bounded wrapper follow-up and its evidence sequence are described in the [wrapper plan](../superpowers/plans/2026-10-17-typescript-literal-wrappers.md).
+Independent Target intent names the lexical API and pins its Span/scope/tuple fields. Real source-widening mutations must fail against unchanged intent.

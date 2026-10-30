@@ -334,8 +334,8 @@ reflection names, selected local constructors and type probes, literal equality
 in either direction, membership, `match`, and `startswith`/`endswith`.
 Dynamic names, unannotated or ambiguous receivers and missing selected subjects
 remain UNKNOWN. Other language profiles do not claim selector support. See
-[AD-248](../docs/architecture/decisions/ad-248-construct-selectors.md) and
-the [rule grammar](../docs/rules.md#forbidden-construct).
+[AD-248](../../docs/architecture/decisions/ad-248-construct-selectors.md) and
+the [rule grammar](../../docs/rules.md#interfaces-and-types).
 `forbidden_effect_under_condition` is a static ownership rule. It can prove a declared
 Boolean parameter/member through truth, negation, `if`/`else`, ternary and early
 `return`/`raise`, plus one unique private helper with signature-bound actuals. A known

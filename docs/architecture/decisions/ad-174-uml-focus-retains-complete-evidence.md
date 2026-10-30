@@ -8,4 +8,4 @@ This is a rendering filter. Graphs, evidence, Target intent and Core status rema
 complete, including Diff FAIL. Isolated entities have no connection hit areas.
 Readable zoom and scrolling do not prove global layout quality.
 
-[Focus proof](../../../tests/test_uml_visual_acceptance.py).
+**Checks.** None since #680 removed its tests.
