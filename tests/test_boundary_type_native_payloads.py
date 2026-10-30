@@ -442,6 +442,50 @@ def test_a_later_class_binding_blocks_lazy_and_deferred_annotations(
 
 
 @pytest.mark.parametrize(
+    "write",
+    [
+        "locals()['object'] = Hidden",
+        "vars()['object'] = Hidden",
+        "locals().update(object=Hidden)",
+        "exec('object = Hidden')",
+    ],
+)
+def test_a_dynamic_class_body_write_blocks_every_annotation(tmp_path: Path, write: str) -> None:
+    source = (
+        "class Hidden: pass\nclass Converter:\n"
+        f"    def convert(self, value: object) -> str: return ''\n    {write}\n"
+    )
+    _write_app(
+        tmp_path,
+        implementation=source,
+        declared=("sample.app.impl:Converter",),
+        allowed_positions=(_ALLOWANCE,),
+    )
+    namespace: dict[str, object] = {}
+    exec(source, namespace)
+    converter = namespace["Converter"]
+    assert isinstance(converter, type)
+    lazy = sys.version_info >= (3, 14)
+    expected = namespace["Hidden"] if lazy else object
+    assert converter.convert.__annotations__["value"] is expected
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert not [
+        item
+        for item in result.observation.records("typing_signals") or ()
+        if item.kind == "boundary_type_allowance"
+    ]
+    # A dynamic write can bind any name, so the `str` return is uncertain too.
+    assert {
+        item.data.get("position")
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_position"
+    } == {"value", "return"}
+
+
+@pytest.mark.parametrize(
     ("body", "field"),
     [
         ("    datetime = Hidden\n    now: datetime\n", "now"),

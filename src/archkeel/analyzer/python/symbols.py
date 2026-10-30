@@ -40,6 +40,7 @@ from .source import (
     add_evidence,
     admitted_type_alias_value,
     annotation_text,
+    class_body_exposes_namespace,
     class_definition_expressions,
     class_header_static,
     decorator_names,
@@ -588,6 +589,7 @@ def _annotation_binding_uncertainties(
         for name, value in ast.iter_fields(parameter)
         if name == "name"
     }
+    dynamic = scope is not None and class_body_exposes_namespace(module, scope)
     uncertain: dict[str, list[str]] = {}
     for position, annotation in annotations:
         if annotation is None:
@@ -595,7 +597,8 @@ def _annotation_binding_uncertainties(
         shadowed = sorted(
             name
             for name in _annotation_names(module, annotation)
-            if name in generic_names
+            if dynamic
+            or name in generic_names
             # A lazy (PEP 649) or deferred annotation sees every binding in the scope.
             or (scope is not None and _binding_may_exist_before(module, scope.body, None, name))
         )
