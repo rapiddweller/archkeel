@@ -16,5 +16,4 @@ uv run --locked python tools/interface_profile.py \
 The tool reports crossing surfaces, proposed public entries and signature limits.
 Use `--anonymize` for private repository output. The committed
 [internal-service evidence](internal-service/README.md) records the second profile.
-For current policy and measurements, use [rules](../rules.md) and
-[rule yield](../rule-yield.md).
+For current policy and measurements, use [rules](../rules.md).

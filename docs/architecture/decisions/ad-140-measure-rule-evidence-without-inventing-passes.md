@@ -9,5 +9,3 @@ import and scope units cannot be summed.
 Keep timings outside canonical IR. Publish independent replay runtime only when
 findings match; unavailable proof stays unavailable. Profiling overhead cannot invent
 exclusive time. The tool is Python-only and adds no metric gate.
-
-[Yield proof](../../../tests/test_rule_yield.py).
