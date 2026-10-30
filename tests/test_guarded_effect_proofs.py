@@ -423,3 +423,70 @@ def test_a_class_hook_cannot_certify_the_effect_as_safe(tmp_path, statement):
     )
     files = {"sample/core.py": source}
     assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == UNKNOWN
+
+
+# The evaluator already gives UNKNOWN for a class body that holds a guard branch, so only the
+# `global` form shows a wrong value end to end; the forms with a later binding keep a mutation
+# reason on every path and stay UNKNOWN. The walker tests in test_guard_path_classes.py cover
+# the branch values inside the body.
+# A class body has its own name scope. A name that the body declares `global` or binds anywhere is
+# not the guard, so a branch on it in the body must not set the guard value after the class.
+PARAMETER_SCOPING = """
+    def _effect():
+        return None
+
+    def generate(seeded: bool, other=None):
+        if {outer}:
+            class Local:
+{body}
+            _effect()
+"""
+CLASS_SCOPING = {
+    # The read in the branch is the module global, not the parameter: a wrong PASS (false value).
+    "global_read": ("other", "global seeded\nif seeded:\n    raise ValueError", UNKNOWN),
+    # A later store makes the name class-local, so the earlier read is not the parameter either.
+    "store_after_read": ("seeded", "if seeded:\n    other = 1\nseeded = other", UNKNOWN),
+    "for_after_read": (
+        "seeded",
+        "if seeded:\n    other = 1\nfor seeded in range(3):\n    pass",
+        UNKNOWN,
+    ),
+    "import_after_read": ("seeded", "if seeded:\n    other = 1\nimport os as seeded", UNKNOWN),
+    "def_after_read": ("seeded", "if seeded:\n    other = 1\ndef seeded():\n    pass", UNKNOWN),
+    "nonlocal_read": ("seeded", "nonlocal seeded\nif seeded:\n    other = 1", UNKNOWN),
+    "plain_fields": ("seeded", "limit = 1", FAIL),
+}
+
+
+@pytest.mark.parametrize("name", CLASS_SCOPING)
+def test_a_class_body_scope_decides_if_its_branches_set_the_parameter_guard(tmp_path, name):
+    outer, body, expected = CLASS_SCOPING[name]
+    source = PARAMETER_SCOPING.format(outer=outer, body=textwrap.indent(body, " " * 16))
+    files = {"sample/core.py": source}
+    assert _verdict(tmp_path, files, target="sample.core._effect") == expected
+
+
+MEMBER_SCOPING = {
+    "rebound_after_read": ("other", "if self.seeded:\n    limit = 1\nself = other", UNKNOWN),
+    "global_receiver": (
+        "other",
+        "global self\nif self.seeded:\n    raise ValueError",
+        UNKNOWN,
+    ),
+}
+
+
+@pytest.mark.parametrize("name", MEMBER_SCOPING)
+def test_a_class_body_scope_decides_if_its_branches_set_the_member_guard(tmp_path, name):
+    outer, body, expected = MEMBER_SCOPING[name]
+    source = (
+        "def _effect():\n    return None\n\n"
+        "class Generator:\n"
+        "    def __init__(self):\n        self.seeded: bool = False\n\n"
+        "    def generate(self, other=None):\n"
+        f"        if {outer}:\n            class Local:\n"
+        f"{textwrap.indent(body, ' ' * 16)}\n"
+        "            _effect()\n"
+    )
+    files = {"sample/core.py": source}
+    assert _verdict(tmp_path, files, target="sample.core._effect", condition=MEMBER) == expected

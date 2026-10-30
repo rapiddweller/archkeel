@@ -6,7 +6,7 @@ One unique private, undecorated helper may be followed when its actual arguments
 
 The limit is deliberate. Reassignment, named expressions, short-circuit Boolean operators, loops, exception/finally control flow, reflection, ambiguous declarations, helper chains and recursion cannot certify a path. They remain UNKNOWN, while any independently proven forbidden effect remains FAIL. This is not general control-flow analysis or cryptographic quality certification.
 
-A class body and a definition header (default value, annotation, decorator, class base and class keyword) run when their statement runs, so a call there makes a member guard UNKNOWN, and a store of the guard name in a class body makes any guard UNKNOWN, even when that store is class-local. A class statement also runs hooks after its body (`__init_subclass__`, a metaclass, `__set_name__`), so a class with a base, a keyword or a non-literal field makes a member guard UNKNOWN.
+A class body and a definition header (default value, annotation, decorator, class base and class keyword) run when their statement runs, so a call there makes a member guard UNKNOWN, and a store of the guard name in a class body makes any guard UNKNOWN, even when that store is class-local. A class statement also runs hooks after its body (`__init_subclass__`, a metaclass, `__set_name__`), so a class with a base, a keyword or a non-literal field makes a member guard UNKNOWN. A class body that declares the guard name `global` or `nonlocal`, or binds it anywhere, gives no branch value.
 
 The source facts, Core substitution and replay receipts are checked by `tests/test_guard_paths.py`, `tests/test_guarded_effect_source.py`, `tests/test_guarded_effect_evaluation.py`, and the guarded-effect codec and saved-report tests.
 

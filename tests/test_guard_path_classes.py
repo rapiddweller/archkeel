@@ -927,3 +927,62 @@ def test_a_class_hook_makes_a_false_value_from_the_class_body_unknown() -> None:
         "        after()\n"
     )
     assert _values(_guarded(source, True), "after") == OPAQUE
+
+
+# A class body has its own name scope: a name that it declares `global` or `nonlocal`, or binds
+# anywhere, can be another binding than the guard, so its branches must not set the guard value.
+SCOPE_BODIES = {
+    "global": "global {name}\nif {read}:\n    c()",
+    "nonlocal": "nonlocal {name}\nif {read}:\n    c()",
+    "store_after_read": "if {read}:\n    c()\n{name} = 1",
+    "delete_after_read": "if {read}:\n    c()\ndel {name}",
+    "named_expression_after_read": "if {read}:\n    c()\n({name} := 1)",
+    "import_after_read": "if {read}:\n    c()\nimport os as {name}",
+    "def_after_read": "if {read}:\n    c()\ndef {name}():\n    pass",
+    "class_after_read": "if {read}:\n    c()\nclass {name}:\n    pass",
+    "for_after_read": "if {read}:\n    c()\nfor {name} in y:\n    pass",
+    "comprehension_after_read": "if {read}:\n    c()\nvalues = [1 for {name} in y]",
+    "conditional_expression": "{name} = 1 if {read} else 2\nc()",
+}
+# What the body can leave alone: the name of another binding, or no binding at all.
+UNRELATED_SCOPE_BODIES = {
+    "plain_read": "if {read}:\n    c()",
+    "other_global": "global other\nif {read}:\n    c()",
+    "other_nonlocal": "nonlocal other\nif {read}:\n    c()",
+    "other_store": "other = 1\nif {read}:\n    c()",
+}
+
+
+def _scoped_paths(body: str, member: bool) -> Paths:
+    name = "self" if member else "flag"
+    text = body.format(name=name, read="self.flag" if member else "flag")
+    class_text = "class G:\n" + textwrap.indent(text, "    ")
+    indented = textwrap.indent(class_text, "        ")
+    head = "def f(self):\n    if self.flag:\n" if member else "def f(flag):\n    if flag:\n"
+    return _guarded(f"{head}{indented}\n        after()\n", member)
+
+
+@pytest.mark.parametrize("member", [False, True], ids=["parameter", "member"])
+@pytest.mark.parametrize("form", SCOPE_BODIES)
+def test_a_name_that_the_class_body_rebinds_does_not_set_a_guard_value(
+    form: str, member: bool
+) -> None:
+    paths = _scoped_paths(SCOPE_BODIES[form], member)
+    assert {p.condition_value for p in paths if p.call_name in {"c", "after"}} == {None}
+
+
+@pytest.mark.parametrize("member", [False, True], ids=["parameter", "member"])
+@pytest.mark.parametrize("form", UNRELATED_SCOPE_BODIES)
+def test_a_class_body_that_reads_the_guard_without_rebinding_it_keeps_the_value(
+    form: str, member: bool
+) -> None:
+    paths = _scoped_paths(UNRELATED_SCOPE_BODIES[form], member)
+    assert _values(paths, "c") == {(True, None)}
+
+
+def test_the_global_class_body_of_the_review_does_not_prove_a_false_guard() -> None:
+    source = (
+        "def f(flag, other):\n    class G:\n        global flag\n        if flag:\n"
+        "            raise ValueError\n    after()\n"
+    )
+    assert {p.condition_value for p in _guarded(source, False) if p.call_name == "after"} == {None}
