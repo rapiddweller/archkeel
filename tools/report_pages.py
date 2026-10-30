@@ -51,7 +51,6 @@ def build_demos(output: Path) -> list[dict[str, object]]:
         print(f"::group::demo {name}", flush=True)
         variant = variants[variant_id]
         artifact = (output / name / "architecture.json").resolve()
-        timings = artifact.with_name("phases.json")
         exit_code = coverage = rules = None
         started = time.perf_counter()
         try:
@@ -61,11 +60,10 @@ def build_demos(output: Path) -> list[dict[str, object]]:
                     with TemporaryDirectory(prefix="archkeel-pages-") as temporary:
                         root = repository(Path(temporary), variant)
                         exit_code = archkeel_main(
-                            ["report", "--root", str(root), "--output", str(artifact)]
-                            + ["--timings", str(timings), "--json"]
+                            ["report", "--root", str(root), "--output", str(artifact), "--json"]
                         )
                 else:
-                    exit_code = replay(variant_id, artifact, timings=timings)
+                    exit_code = replay(variant_id, artifact)
             results = [
                 json.loads(line)
                 for line in stdout.getvalue().splitlines()

@@ -133,8 +133,6 @@ def test_gallery_builds_real_reports_with_working_dark_links(tmp_path, monkeypat
     assert "| demo | expected exit | exit | coverage | rules | seconds |" in table
     assert "| uml-mismatch | 2 | 2 | " in table
     assert sum(line.startswith("| ") for line in table.splitlines()) == 1 + len(selected) + 3
-    for name in (*selected, "dart-clean", "dart-tour", "typescript-clean"):
-        assert json.loads((output / name / "phases.json").read_text())["phases"]
     index = json.loads((output / "index.json").read_text())
     projects = index["projects"]
     controls = index["controls"]

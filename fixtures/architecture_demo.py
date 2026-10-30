@@ -377,7 +377,7 @@ def main(argv: list[str]) -> int:
         return 2
 
 
-def replay(variant_id: str, output: Path, *, timings: Path | None = None) -> int:
+def replay(variant_id: str, output: Path) -> int:
     """Replay one sample overlay with the ordinary report command into new files."""
     variant = next((item for item in CATALOG if item.id == variant_id), None)
     if variant is None:
@@ -421,8 +421,6 @@ def replay(variant_id: str, output: Path, *, timings: Path | None = None) -> int
             ]
             if variant.baseline is not None:
                 report.extend(("--baseline", variant.baseline))
-            if timings is not None:
-                report.extend(("--timings", str(timings)))
             report_exit_code = archkeel_main([*report, "--json"])
             for path in reserved:
                 if path.is_file() and path.stat().st_size == 0:

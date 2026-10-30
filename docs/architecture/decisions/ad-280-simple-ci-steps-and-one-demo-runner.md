@@ -14,8 +14,7 @@
    demo. An expected exit never changes FAIL or UNKNOWN into PASS.
 6. Each demo writes one line in a log group and one row in a Markdown table (log and step
    summary). The job uploads only the HTML reports, for one day. JSON stays on the runner disk.
-7. `--timings` also writes phase times when the report has violations (exit 2).
-8. Saved-report tests run only in the area test jobs. These jobs hold unit, integration and CLI
+7. Saved-report tests run only in the area test jobs. These jobs hold unit, integration and CLI
    tests, so CI does not call them unit tests.
 
 **Reason.** Numbered shards, 46 hand-written demo steps, a second demo runner and YAML text tests
@@ -26,4 +25,4 @@ were hard to read and had to stay in sync.
 **Limits.** A nightly Pages run builds every demo twice. The demo catalog area takes about
 11 minutes, because one file holds it.
 
-**Checks.** `tests/test_report_pages.py`, `tests/test_make_gate.py`, `tests/test_phase_timings.py`.
+**Checks.** `tests/test_report_pages.py` and `tests/test_make_gate.py`.
