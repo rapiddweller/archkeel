@@ -145,7 +145,7 @@ and canonical type identity; their exact and optional-union semantics are record
 | [AD-276](decisions/ad-276-a-leading-utf-8-bom-is-not-source-text.md) | A Python source starts with at most one UTF-8 BOM, which is not a character; a BOM provider's digest covers its text. |
 | [AD-277](decisions/ad-277-references-record-write-targets-chain-prefixes-and-enum-reexports.md) | References record write targets, unresolved-chain prefixes and enum re-exports; `catalog_argument` counts each owner read and each import the collector cannot follow. |
 | [AD-279](decisions/ad-279-a-catalog-target-only-compares-or-indexes-its-arguments.md) | A `catalog_argument` target may only compare or index its parameters and store no subscript; a returned argument stays UNKNOWN; an index can still give the member away (Limits). |
-| [AD-280](decisions/ad-280-simple-ci-steps-and-one-demo-runner.md) | CI jobs are named by what they check; each test job runs one area of `tests/areas.py`; `make demos` runs every gallery demo through `build_demos`. |
+| [AD-280](decisions/ad-280-simple-ci-steps-and-one-demo-runner.md) | CI runs one fixed set of named jobs on each PR with no skipped job; Full, Pages and maintenance have their own workflows; `make demos` is the one demo runner. |
 | [AD-246](decisions/ad-246-bounded-numeric-operand.md) | Bind selected modulo bounds to bounded source-derived integer proofs. |
 
 | [AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md) | Bind explicitly written actuals to proven formals before applying argument policies. |

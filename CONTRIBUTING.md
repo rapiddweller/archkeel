@@ -31,10 +31,9 @@ make ci-pr-report-check                  # report data and JavaScript logic
 
 Policy validation runs first. `BASE` also checks widenings and amendments; CI pins the PR base SHA.
 Without `BASE`, the local gate validates only the checked-out policy.
-PRs and Main pushes run the change-selected core and report regression checks; Mermaid checks
-follow Markdown changes. The report sample checks scene/projection data and renderer output.
-The selected Python tests include unit, integration and CLI tests; each test job runs one area.
-Saved-report tests run in the area test jobs, so report changes also select the Python checks.
+Each PR runs the same fixed set of checks. The report sample checks scene/projection data and
+renderer output. The selected Python tests include unit, integration and CLI tests; each test job
+runs one area. Saved-report tests run in the area test jobs, not again in the report job.
 Use `make report-browser` for the three local Chromium smokes. Samples do not replace testing the behavior
 you change. The normal core set uses one Dart CLI smoke, one UNKNOWN safety case and four Flutter
 Target guards; complete Dart and Flutter variant coverage stays in the full checks.
@@ -48,8 +47,8 @@ boundaries stay in the full suite. Manual dispatch uses the same checks.
 Release tags call that workflow before package build and
 publication. Use `make ci BASE=origin/main` locally for the complete gate.
 
-Keep five workflow files: CI, Full verification, release, and the two initial-PR
-receipts. Use existing Make targets or dispatch Full verification for diagnostics;
+Keep eight workflow files: CI, Full verification, Full verification for CI changes, Pages,
+Maintenance, release and the two initial-PR receipts. Use existing Make targets or dispatch Full verification for diagnostics;
 do not add temporary workflows. The tested file inventory requires an explicit
 reviewed change for a new workflow. Trusted Main maintenance disables active
 file-backed registrations absent from live Main, retaining their run history.
@@ -59,31 +58,33 @@ no transaction spanning the ref check and disable request.
 
 ## Where things run
 
-CI runs on each PR and each push to `main`. Full verification runs nightly, on dispatch, before a
-release, and on a PR that changes CI files; there its jobs show as `Full / <job>`.
+No job has a condition, so no job shows as skipped. Each aggregate runs `always()`: a skipped
+aggregate would count as passed.
 
-| Job | Command to reproduce | PR | Push to `main` | Nightly |
-|---|---|---|---|---|
-| Select checks for changed files | none: it runs `tools/ci_changes.py` | yes | yes | no |
-| Lint, types and architecture | `make ci-pr-static BASE=origin/main` (a push runs it without `BASE`) | if core | if core | in Full |
-| Tests: `<area>` (CI) | `make pr-test AREA="<area>"` | if core | if core | no |
-| Report and renderer tests | `make ci-pr-report-check` | if report | if report | no |
-| Docs diagrams | `make mermaid`; the job also runs `tests/test_mermaid.py` | if Markdown | if Markdown | in Full |
-| Collect GitHub order evidence (report only) | `make github-pr-report` | if core | no | no |
-| All checks passed | none: it needs every selected CI job | yes | yes | no |
-| Architecture, build and report checks | `make ci SKIP_TESTS=1` | if Full | no | yes |
-| Tests: `<area>` (Full) | `make full-test AREA="<area>"` | if Full | no | yes |
-| Demos | `make demos` | if Full | no | yes |
-| Windows: collector safety | `make collector-safety` on Windows | if Full | no | yes |
-| Python 3.12.10 / 3.14.7 compatibility | `make python-compat` | no | no | yes |
-| Linux: source collectors | `make typescript-native dart-test build smoke` | no | no | yes |
-| All Full checks passed | none: it needs every Full job | if Full | no | yes |
-| Publish the verified report gallery | `make report-pages` | no | no | `main` only |
-| Maintain Actions and report artifacts | `make prune-workflows prune-report-artifacts` | no | no | `main` only |
+| Workflow and job | Runs on | Command to reproduce |
+|---|---|---|
+| CI: Lint, types and architecture | each PR | `make ci-pr-static BASE=origin/main` |
+| CI: Tests: `<area>` | each PR | `make pr-test AREA="<area>"` |
+| CI: Report and renderer tests | each PR | `make ci-pr-report-check` |
+| CI: Docs diagrams | each PR | `make mermaid`; the job also runs `tests/test_mermaid.py` |
+| CI: Demos | each PR | `make demos` |
+| CI: Collect GitHub order evidence (report only) | each PR | `make github-pr-report` |
+| CI: All checks passed | each PR | none: it needs every CI job except the report-only job |
+| Full: Architecture, build and report checks | nightly, dispatch, release, CI-change PR | `make ci SKIP_TESTS=1` |
+| Full: Tests: `<area>` | same as above | `make full-test AREA="<area>"` |
+| Full: Demos | same as above | `make demos` |
+| Full: Python 3.12.10 / 3.14.7 compatibility | same as above | `make python-compat` |
+| Full: Windows: collector safety | same as above | `make collector-safety` on Windows |
+| Full: Linux: source collectors | same as above | `make typescript-native dart-test build smoke` |
+| Full: All Full checks passed | same as above | none: it needs every Full job |
+| Pages: Publish the verified report gallery | after each Full run on `main` | `make report-pages` |
+| Maintenance: Maintain Actions and report artifacts | nightly | `make prune-workflows prune-report-artifacts` |
 
-A red job means its command failed: run the command in the second column to reproduce it.
+A red job means its command failed: run the command in the third column to reproduce it.
 `tests/areas.py` puts each test file in exactly one area. CI runs the `make pr-test` selection;
-Full runs all tests. "if core", "if report" and "if Markdown" are what `tools/ci_changes.py` selects.
+Full runs all tests. A PR that changes a path in `full-on-ci-change.yml` also runs Full, as
+`Full / <job>`. Pages publishes only a passed Full run of the current `main`. It uses the
+`make demos` and `make report-timing` output of that run, so it builds nothing again.
 
 The [published architecture report](https://rapiddweller.github.io/archkeel/) updates after a
 successful scheduled or manual full verification on Main. Reports retain FAIL and UNKNOWN
