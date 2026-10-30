@@ -16,10 +16,10 @@ two unused notes in `docs/architecture/`, `docs/release-1.0.0.md`, seven unused 
 
 **Reason.** No process read these files. They added 2 MB of text and images that readers must skip.
 
-**Rejected.** Ignore the folders in `.gitignore`: five files in `docs/superpowers/` stay tracked.
+**Rejected.** Ignore the folders in `.gitignore`: an ignored plan leaves `git status` and review
+without a sign, and a cleaned worktree loses it.
 
 **Limits.** The contracts cite five files in `docs/superpowers/` as provenance, and validation
 reads each cited path. They stay until the contracts cite a decision record instead.
 
-**Checks.** `tests/test_repository_hygiene.py` checks that the index lists each decision record.
-No test blocks a new plan file: review does.
+**Checks.** `test_decision_index_matches_decision_files` pins the index row. Review blocks a plan file.
