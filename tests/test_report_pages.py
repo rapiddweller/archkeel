@@ -125,8 +125,14 @@ def test_gallery_builds_real_reports_with_working_dark_links(tmp_path, monkeypat
         report_pages, "REPORT_CASES", {name: REPORT_CASES[name] for name in selected}
     )
     monkeypatch.setattr(report_pages, "PROJECT_REPORT_GROUPS", ())
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
     output = tmp_path / "demos"
-    build_demos(output)
+    _write_index(output, build_demos(output))
+    table = summary.read_text()
+    assert "| demo | expected exit | exit | coverage | rules | seconds |" in table
+    assert "| uml-mismatch | 2 | 2 | " in table
+    assert sum(line.startswith("| ") for line in table.splitlines()) == 1 + len(selected) + 3
     index = json.loads((output / "index.json").read_text())
     projects = index["projects"]
     controls = index["controls"]
@@ -167,3 +173,17 @@ def test_gallery_builds_real_reports_with_working_dark_links(tmp_path, monkeypat
         assert (tmp_path / link.path).is_file()
     assert not list(output.rglob(".git"))
     assert not list(output.rglob("node_modules"))
+
+
+def test_a_failed_demo_does_not_stop_the_next_and_fails_at_the_end(tmp_path, monkeypatch, capsys):
+    cases = {"uml-match": ("uml-match", 2), "uml-mismatch": REPORT_CASES["uml-mismatch"]}
+    monkeypatch.setattr(report_pages, "gallery_cases", lambda: cases)
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    with pytest.raises(ValueError, match="uml-match: expected exit 2, got 0") as failure:
+        build_demos(tmp_path / "demos")
+    assert "uml-mismatch" not in str(failure.value)
+    assert (tmp_path / "demos/uml-mismatch/architecture.report.html").is_file()
+    output = capsys.readouterr().out
+    assert "::group::demo uml-match\n" in output and "::endgroup::" in output
+    assert "| uml-match | 2 | 0 | PASS | PASS | " in output
+    assert "| uml-mismatch | 2 | 2 | " in output

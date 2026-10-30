@@ -137,7 +137,7 @@ def test_plugin_package_uses_the_canonical_skill_and_refuses_overwrite(tmp_path:
     assert codex_marketplace["plugins"][0]["source"] == {"source": "local", "path": "./"}
     with zipfile.ZipFile(Path(str(target) + ".zip")) as bundle:
         assert bundle.read("skills/archkeel/SKILL.md") == ASSET.read_bytes()
-        assert "assets/archkeel-mark.svg" in bundle.namelist()
+        assert "docs/assets/archkeel-mark.svg" in bundle.namelist()
     sentinel = target / "user-notes.txt"
     sentinel.write_text("Keep me")
     rerun = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
@@ -186,22 +186,17 @@ def test_directory_plugin_stays_current_regular_and_within_submission_limits(
         "plugin.json",
         ".claude-plugin/plugin.json",
         "skills/archkeel/SKILL.md",
-        "assets/archkeel-mark.svg",
+        "docs/assets/archkeel-mark.svg",
     }
-    snapshot = ROOT / "plugins/archkeel"
-    for directory in (target, snapshot):
-        assert not directory.is_symlink()
-        files = {path.relative_to(directory).as_posix(): path for path in directory.rglob("*")}
-        assert all(not path.is_symlink() for path in files.values())
-        files = {name: path for name, path in files.items() if path.is_file()}
-        assert set(files) == paths
-        assert len(files) <= 512
-        for name, path in files.items():
-            assert path.stat().st_size < 5 * 1024 * 1024, name
-            if path.suffix != ".svg":
-                assert path.stat().st_size < 256 * 1024, name
-    assert all((snapshot / name).read_bytes() == (target / name).read_bytes() for name in paths)
-    assert (snapshot / "skills/archkeel/SKILL.md").read_bytes() == ASSET.read_bytes()
+    files = {path.relative_to(target).as_posix(): path for path in target.rglob("*")}
+    assert all(not path.is_symlink() for path in files.values())
+    files = {name: path for name, path in files.items() if path.is_file()}
+    assert set(files) == paths
+    assert len(files) <= 512
+    for name, path in files.items():
+        assert path.stat().st_size < 5 * 1024 * 1024, name
+        if path.suffix != ".svg":
+            assert path.stat().st_size < 256 * 1024, name
     with zipfile.ZipFile(Path(str(target) + ".zip")) as bundle:
         assert {item.filename for item in bundle.infolist() if not item.is_dir()} == paths
         assert all(bundle.read(name) == (target / name).read_bytes() for name in paths)

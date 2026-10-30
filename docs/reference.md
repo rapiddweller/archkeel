@@ -408,5 +408,6 @@ and [host evidence boundaries](architecture/archkeel.md#host-evidence) define su
 Plugins reuse the CLI skill. New [GitHub releases](https://github.com/rapiddweller/archkeel/releases)
 include `archkeel-plugin-<version>.zip` and its SHA-256 checksum. The ZIP contains
 both plugin manifests and the canonical skill; install the CLI separately.
-See [plugin instructions](../plugins/archkeel/README.md); directory listing and
+The repository root is the plugin: `.claude-plugin/marketplace.json` and
+`.agents/plugins/marketplace.json` list it with `source ./`. Directory listing and
 host activation remain separate acceptance steps.

@@ -33,9 +33,6 @@ from tests.test_dart_profile import _observe
 from tests.test_exact_module_ownership import _contract, _observe_tree
 from tests.test_onboarding import _repository as _onboarding_repository
 
-# Its module fixture is costly; build it in one shard only.
-pytestmark = pytest.mark.shard_group("cli-demo-results")
-
 ROOT = Path(__file__).parents[1]
 VERDICTS = ("observation_complete", "declared_rules", "expectation_fulfilled")
 

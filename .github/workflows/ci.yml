@@ -2,132 +2,18 @@ name: CI
 
 on:
   pull_request:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      core: ${{ steps.filter.outputs.core }}
-      report: ${{ steps.filter.outputs.report }}
-      mermaid: ${{ steps.filter.outputs.mermaid }}
-      full: ${{ steps.filter.outputs.full }}
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 2
-          persist-credentials: false
-
-      - name: Test change classifier
-        run: python3 -m unittest discover -s tests -p 'test_ci_changes.py'
-
-      - name: Classify changed files
-        id: filter
-        env:
-          EVENT: ${{ github.event_name }}
-          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          if [[ "$EVENT" == push || "$BASE" =~ ^0+$ ]]; then
-            python3 tools/ci_changes.py --all >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            git fetch --no-tags --depth=1 origin "$BASE"
-          fi
-          git cat-file -e "$HEAD^{commit}"
-          git diff --no-renames --name-only -z "$BASE" "$HEAD" | python3 tools/ci_changes.py >> "$GITHUB_OUTPUT"
-
-  check:
-    needs: [changes, pr-core-check, pr-report-check, mermaid, full-verification]
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Fail required check after workflow cancellation
-        if: cancelled()
-        run: exit 1
-
-      - name: Verify selected checks and fail closed
-        if: ${{ !cancelled() }}
-        env:
-          EVENT: ${{ github.event_name }}
-          CHANGES_RESULT: ${{ needs.changes.result }}
-          CORE: ${{ needs.changes.outputs.core }}
-          REPORT: ${{ needs.changes.outputs.report }}
-          MERMAID: ${{ needs.changes.outputs.mermaid }}
-          FULL: ${{ needs.changes.outputs.full }}
-          CORE_RESULT: ${{ needs.pr-core-check.result }}
-          REPORT_RESULT: ${{ needs.pr-report-check.result }}
-          MERMAID_RESULT: ${{ needs.mermaid.result }}
-          FULL_RESULT: ${{ needs.full-verification.result }}
-        run: |
-          set -euo pipefail
-          if [[ "$EVENT" != pull_request && "$EVENT" != push ]]; then
-            echo "Unexpected CI event: $EVENT" >&2
-            exit 1
-          fi
-          [[ "$CHANGES_RESULT" == success ]] || { echo "Change classification did not succeed" >&2; exit 1; }
-
-          verify_area() {
-            local area="$1" selected="$2" result="$3"
-            case "$selected" in
-              true) [[ "$result" == success ]] || { echo "Selected $area check did not succeed: $result" >&2; exit 1; } ;;
-              false) [[ "$result" == skipped ]] || { echo "Unselected $area check was not skipped: $result" >&2; exit 1; } ;;
-              *) echo "Invalid $area selection: $selected" >&2; exit 1 ;;
-            esac
-          }
-          verify_area core "$CORE" "$CORE_RESULT"
-          verify_area report "$REPORT" "$REPORT_RESULT"
-          verify_area mermaid "$MERMAID" "$MERMAID_RESULT"
-          if [[ "$EVENT" == pull_request ]]; then
-            verify_area full "$FULL" "$FULL_RESULT"
-          else
-            # Protected Main already passed PR acceptance; scheduled Full publishes Pages.
-            verify_area full false "$FULL_RESULT"
-          fi
-
-  pr-core-check:
-    name: pr-core-check
-    needs: [changes, pr-core-static, pr-core-shards]
-    if: ${{ always() && (needs.changes.result != 'success' || needs.changes.outputs.core != 'false') }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    steps:
-      - name: Fail core check after workflow cancellation
-        if: cancelled()
-        run: exit 1
-
-      - name: Require every selected core shard
-        if: ${{ !cancelled() }}
-        env:
-          CHANGES_RESULT: ${{ needs.changes.result }}
-          CORE: ${{ needs.changes.outputs.core }}
-          STATIC_RESULT: ${{ needs.pr-core-static.result }}
-          SHARDS_RESULT: ${{ needs.pr-core-shards.result }}
-        run: |
-          set -euo pipefail
-          [[ "$CHANGES_RESULT" == success && "$CORE" == true && "$STATIC_RESULT" == success && "$SHARDS_RESULT" == success ]] || exit 1
-
-  pr-core-shards:
-    needs: changes
-    if: (github.event_name == 'pull_request' || github.event_name == 'push') && needs.changes.outputs.core == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [0, 1, 2, 3, 4, 5]
-    runs-on: ubuntu-latest
+  lint:
+    name: Lint, types and architecture
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -156,59 +42,74 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
-      - name: Run PR core test shard
-        run: make pr-test PR_TEST_SHARD=${{ strategy.job-index }}/${{ strategy.job-total }}
+      - name: Check architecture, format, lint, Python types and browser code
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: make ci-pr-static BASE="$BASE"
 
-      - name: Upload PR core JUnit results
+  tests:
+    name: "Tests: ${{ matrix.area }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        # One entry for each area in tests/areas.py.
+        area:
+          - demo catalog
+          - TypeScript collector target
+          - boundary types
+          - Python analysis
+          - CLI, contracts and dependency rules
+          - type and wire guards
+          - collectors
+          - call and catalog rules
+          - reports
+          - self-check and CI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "22"
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.11.12"
+          version: "0.12.13"
+
+      - name: Install supported runtimes
+        run: uv python install 3.11.12 3.12.10
+
+      - name: Install locked dependencies
+        run: uv sync --locked
+
+      - name: Run the selected tests of this area
+        env:
+          AREA: ${{ matrix.area }}
+        run: make pr-test AREA="$AREA"
+
+      - name: Upload JUnit results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: pytest-results-pr-core-${{ matrix.shard }}
+          name: pytest-results-pr-${{ matrix.area }}
           path: test-artifacts/pytest/pr-core.xml
           if-no-files-found: warn
           retention-days: 7
 
-  pr-core-static:
-    needs: changes
-    if: (github.event_name == 'pull_request' || github.event_name == 'push') && needs.changes.outputs.core == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Install Node
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
-        with:
-          node-version: "22"
-
-      - name: Install uv and Python
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          enable-cache: true
-          python-version: "3.11.12"
-          version: "0.12.13"
-
-      - name: Install supported runtimes
-        run: uv python install 3.11.12 3.12.10
-
-      - name: Install locked dependencies
-        run: uv sync --locked
-
-      - name: Run PR core policy, lint and type checks
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-        run: make ci-pr-static
-
   pr-report-check:
-    needs: changes
-    if: (github.event_name == 'pull_request' || github.event_name == 'push') && needs.changes.outputs.report == 'true'
-    runs-on: ubuntu-latest
+    name: Report and renderer tests
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
       contents: read
@@ -234,7 +135,7 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
-      - name: Run PR report checks
+      - name: Check browser runtime, graph protocol and report renderer
         run: make ci-pr-report-check
 
       - name: Upload PR report JUnit results
@@ -246,99 +147,9 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-  prune-report-artifacts:
-    name: Maintain Actions and report artifacts
-    needs: check
-    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      actions: write
-      contents: read
-    concurrency:
-      group: actions-maintenance
-      cancel-in-progress: false
-    steps:
-      - name: Check out trusted main workflow
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-
-      - name: Disable obsolete workflow registrations
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: make prune-workflows DISABLE=true WORKFLOW_PRUNE_DIR="$RUNNER_TEMP/workflow-prune"
-
-      - name: Prune old report artifacts
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: make prune-report-artifacts DELETE=true REPORT_ARTIFACT_PRUNE_DIR="$RUNNER_TEMP/report-artifact-prune"
-
-      - name: Upload workflow maintenance receipt
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: workflow-maintenance-${{ github.job }}
-          path: ${{ runner.temp }}/workflow-prune/plan.json
-          if-no-files-found: warn
-          retention-days: 7
-
-  github-order-report:
-    name: Collect GitHub order evidence (report only)
-    needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.core == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Install uv and Python
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-
-      - name: Install locked dependencies
-        run: uv sync --locked
-
-      - name: Save bounded host observations and UNKNOWN report
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          PULL_REQUEST: ${{ github.event.pull_request.number }}
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-        run: >-
-          make github-pr-report REPOSITORY="$REPOSITORY" PULL_REQUEST="$PULL_REQUEST"
-          BASE="$BASE" HEAD="$HEAD" OUTPUT=test-artifacts/github-order/result.json
-
-      - name: Verify report artifacts
-        run: |
-          uv run --locked python -m json.tool test-artifacts/github-order/result.json >/dev/null
-          test -s test-artifacts/github-order/result.check.html
-
-      - name: Upload publication observations and report
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: github-order-report
-          path: test-artifacts/github-order/
-          if-no-files-found: error
-          retention-days: 7
-
   mermaid:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.mermaid == 'true' }}
-    runs-on: ubuntu-latest
+    name: Docs diagrams
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Check out source
@@ -364,12 +175,52 @@ jobs:
       - name: Render every Mermaid block
         run: make mermaid
 
-  full-verification:
-    needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.full == 'true'
-    uses: ./.github/workflows/full-verification.yml
-    permissions:
-      actions: write
-      contents: read
-      pages: write
-      id-token: write
+  demos:
+    name: Demos
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.11.12"
+          version: "0.12.13"
+
+      - name: Install locked dependencies
+        run: uv sync --locked
+
+      - name: Run every gallery demo and check its expected result
+        run: make demos
+
+      - name: Upload demo HTML reports
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: demo-reports
+          path: test-artifacts/pages/demos/**/*.html
+          if-no-files-found: warn
+          retention-days: 1
+
+  check:
+    name: All checks passed
+    needs: [lint, tests, pr-report-check, mermaid, demos]
+    # always(): a skipped aggregate would count as passed, so it must also run when a job fails.
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every check job
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          set -euo pipefail
+          for result in $RESULTS; do
+            [[ "$result" == success ]] || { echo "A check job did not succeed: $result" >&2; exit 1; }
+          done
+          [[ -n "$RESULTS" ]] || { echo "No job results" >&2; exit 1; }
