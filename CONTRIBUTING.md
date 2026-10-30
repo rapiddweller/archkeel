@@ -25,7 +25,7 @@ Only `make flutter-demo-check`, which builds and runs the demo app, needs Flutte
 ## Before you push
 
 ```bash
-make ci-pr-check BASE=origin/main        # policy, lint, types and representative Core tests
+make ci-pr-check BASE=origin/main        # policy, lint, types and a fixed set of Core tests
 make ci-pr-report-check                  # report data and JavaScript logic
 ```
 
@@ -34,13 +34,15 @@ Without `BASE`, the local gate validates only the checked-out policy.
 Each PR runs the same fixed set of checks. The report sample checks scene/projection data and
 renderer output. The selected Python tests include unit, integration and CLI tests; each test job
 runs one area. Saved-report tests run in the area test jobs, not again in the report job.
-Use `make report-browser` for the three local Chromium smokes. Samples do not replace testing the behavior
-you change. The normal core set uses one Dart CLI smoke, one UNKNOWN safety case and four Flutter
-Target guards; complete Dart and Flutter variant coverage stays in the full checks.
+The `pr-test` list in the `Makefile` names this fixed set file by file and test by test; there is no
+rule that selects it. Use `make report-browser-tests` for the nine local Chromium tests. Samples do not
+replace testing the behavior you change. The core set runs eight whole Dart test files, one Dart
+CLI smoke, one UNKNOWN safety case and five Flutter Target guards; complete Dart and Flutter
+variant coverage stays in the full checks.
 
-The scheduled **Full verification** workflow runs the complete `make ci` gate, including
-the UML TypeScript compiler check, report timing and gallery generation. It runs the full suite
-on Linux/Python 3.11, collector compatibility on Linux/Python 3.12, a thin Python compatibility
+The scheduled **Full verification** workflow runs `make ci-core-check SKIP_TESTS=1`, which
+includes the UML TypeScript compiler check. It also runs `make report-timing`, `make mermaid`
+and `make demos`. It runs the full suite in area jobs on Linux/Python 3.11, collector compatibility on Linux/Python 3.12, a thin Python compatibility
 test set (`make python-compat`) on Python 3.12 and 3.14, and one Windows/Python 3.11
 safety check for process and path behavior. TypeScript's Python architecture and browser module
 boundaries stay in the full suite. Manual dispatch uses the same checks.
@@ -49,14 +51,9 @@ publication. Use `make ci BASE=origin/main` locally for the complete gate.
 Jobs run on pinned images (`ubuntu-24.04`, `windows-2025`). A move to a new image is a deliberate
 change: run Full on the branch before you merge it.
 
-Keep seven workflow files: CI, Full verification, Pages, Maintenance, release and the two
-initial-PR receipts. Use existing Make targets or dispatch Full verification for diagnostics;
-do not add temporary workflows. The tested file inventory requires an explicit
-reviewed change for a new workflow. Trusted Main maintenance disables active
-file-backed registrations absent from live Main, retaining their run history.
-Use `GITHUB_REPOSITORY=rapiddweller/archkeel make prune-workflows` to preview the
-plan; `DISABLE=true` applies it. A Main change aborts the operation; GitHub provides
-no transaction spanning the ref check and disable request.
+Keep four workflow files: CI, Full verification, Pages and release. Use existing Make targets
+or dispatch Full verification for diagnostics; do not add temporary workflows. The tested file
+inventory requires an explicit reviewed change for a new workflow.
 
 ## Where things run
 
@@ -70,8 +67,7 @@ aggregate would count as passed.
 | CI: Report and renderer tests | each PR | `make ci-pr-report-check` |
 | CI: Docs diagrams | each PR | `make mermaid`; the job also runs `tests/test_mermaid.py` |
 | CI: Demos | each PR | `make demos` |
-| CI: Collect GitHub order evidence (report only) | each PR | `make github-pr-report` |
-| CI: All checks passed | each PR | none: it needs every CI job except the report-only job |
+| CI: All checks passed | each PR | none: it needs every CI job |
 | Full: Architecture, build and report checks | nightly, dispatch, release, CI-change PR | `make ci SKIP_TESTS=1` |
 | Full: Tests: `<area>` | same as above | `make full-test AREA="<area>"` |
 | Full: Demos | same as above | `make demos` |
@@ -80,7 +76,7 @@ aggregate would count as passed.
 | Full: Linux: source collectors | same as above | `make typescript-native dart-test build smoke` |
 | Full: All Full checks passed | same as above | none: it needs every Full job |
 | Pages: Publish the verified report gallery | after each Full run on `main` | `make report-pages` |
-| Maintenance: Maintain Actions and report artifacts | nightly | `make prune-workflows prune-report-artifacts` |
+| Release: Full, build, publish and gallery refresh | each version tag | `make build plugin-release VERSION=<version>` |
 
 A red job means its command failed: run the command in the third column to reproduce it.
 `tests/areas.py` puts each test file in exactly one area. CI runs the `make pr-test` selection;

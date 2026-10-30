@@ -324,7 +324,7 @@ remain unchanged; proved reductions use the ordinary downward ratchet.
   original allowance and executable rule field.
   Bind ownership/port migration through native widening review; do not hide new
   findings in the debt baseline or increase its budgets.
-- Run `make target-contract-check`, relevant behavior/negative controls, native
+- Run `tests/test_target_architecture.py`, relevant behavior/negative controls, native
   validation/report, lint/type checks and installed-package smoke checks. Inspect
   diagnostics, coverage, violations and UNKNOWNs separately from exit status.
 - Update the existing draft PR with the final diff, rationale and exact evidence.

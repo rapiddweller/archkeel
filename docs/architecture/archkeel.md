@@ -62,10 +62,7 @@ every record ([AD-234](decisions/ad-234-contextual-boundary-permission-disclosur
 ## Host evidence
 
 The packaged CLI injects the GitLab [Host adapter](../../src/archkeel/host/gitlab.py).
-GitHub collection is repository CI tooling: [`make github-pr-report`](../../tools/github_pr_report.py)
-runs through `gh` in this repository's workflow. It is not a packaged GitHub Host adapter.
-Recent events remain UNKNOWN; only an authenticated initial-PR receipt can prove
-the scoped ordering described in [AD-143](decisions/ad-143-initial-pr-head-proves-scoped-order.md).
+The repository has no GitHub event collector.
 Caller-supplied `--host-records` require caller authentication.
 
 ## Evidence boundaries
@@ -145,7 +142,8 @@ and canonical type identity; their exact and optional-union semantics are record
 | [AD-276](decisions/ad-276-a-leading-utf-8-bom-is-not-source-text.md) | A Python source starts with at most one UTF-8 BOM, which is not a character; a BOM provider's digest covers its text. |
 | [AD-277](decisions/ad-277-references-record-write-targets-chain-prefixes-and-enum-reexports.md) | References record write targets, unresolved-chain prefixes and enum re-exports; `catalog_argument` counts each owner read and each import the collector cannot follow. |
 | [AD-279](decisions/ad-279-a-catalog-target-only-compares-or-indexes-its-arguments.md) | A `catalog_argument` target may only compare or index its parameters and store no subscript; a returned argument stays UNKNOWN; an index can still give the member away (Limits). |
-| [AD-280](decisions/ad-280-simple-ci-steps-and-one-demo-runner.md) | CI runs one fixed set of named jobs on each PR with no skipped job; Full, Pages and maintenance have their own workflows; `make demos` is the one demo runner. |
+| [AD-280](decisions/ad-280-simple-ci-steps-and-one-demo-runner.md) | CI runs one fixed set of named jobs on each PR with no skipped job; Full and Pages have their own workflows; `make demos` is the one demo runner. |
+| [AD-281](decisions/ad-281-retire-unused-tooling.md) | Rule yield, GitHub order receipts, the TypeScript differential, the SVG figure tools and dead maintenance tools are removed; the Git history keeps them. |
 | [AD-246](decisions/ad-246-bounded-numeric-operand.md) | Bind selected modulo bounds to bounded source-derived integer proofs. |
 
 | [AD-247](decisions/ad-247-written-call-arguments-bind-to-observed-formals.md) | Bind explicitly written actuals to proven formals before applying argument policies. |

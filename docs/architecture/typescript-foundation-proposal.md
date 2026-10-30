@@ -2,7 +2,7 @@
 
 Status: superseded by [AD-210](decisions/ad-210-typescript-frontend-ships-in-the-package.md).
 The frontend in `archkeel.analyzer.typescript` collects TypeScript; the old npm collector is
-removed. A frozen output from its pinned revision remains the differential reference.
+removed.
 
 The collector emits validated `SourceFacts`; Core owns policy and verdicts. See the
 [language-adapter target](language-adapter-target.md) for the boundary.
@@ -27,16 +27,11 @@ maps, project references and constructs its grammar cannot parse. See
 [runtime-alias](../../fixtures/typescript-runtime-aliases.json) and
 [hidden-loader](../../fixtures/typescript-hidden-loaders.json) acceptance catalogs.
 
-`make typescript-differential` compares the frontend with the 576-case frozen reference
-captured from the old Node collector (507 equivalent, 69 conservative, 0 defects). Each
-conservative case has a reason in `fixtures/typescript-differential-allowlist.json`; unexpected
-differences fail. The low-resolution real-world corpus remains a limit of this evidence.
-
-Core's aggregate UNKNOWN to FAIL is equivalent only when every individual rule status
-matches and at least one already reports FAIL. This preserves known failures under partial
-coverage ([AD-227](decisions/ad-227-scoped-dependency-proof.md)); it adds no frontend certainty.
-PASS promotions, individual rule changes and other metadata differences remain strict.
-Frozen producer metadata, input fingerprints and frontend facts remain unchanged.
+A comparison with the 576-case frozen output of the old Node collector found 507 equivalent
+cases, 69 conservative cases and 0 defects. That comparison is retired
+([AD-281](decisions/ad-281-retire-unused-tooling.md)); the Git history keeps it.
+`fixtures/typescript-differential-allowlist.json` keeps only the 44 hidden-loader cases, with
+their reasons, because the hidden-loader acceptance test reads them.
 
 [The demo](typescript-demo.md) replays import-rule and revision cases. Process,
 collector and snapshot tests cover executable replacement, malformed facts,

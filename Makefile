@@ -3,13 +3,13 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: demos against gate full-test ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts prune-workflows mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-browser-tests report-pages plugin plugin-directory plugin-release build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
+.PHONY: demos against gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate self-observation demo demo-onboarding demo-dart demo-typescript demo-architecture demo-uml demo-screenshots browser-install report-browser-tests report-pages plugin plugin-directory plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check
 
 # SKIP_TESTS=1: skip the test suite here; Full verification runs it in area jobs (make full-test).
 check: lint typecheck browser-architecture-check $(if $(strip $(SKIP_TESTS)),,test)
 
 # These stages consume the previous stage's success, even with make -j.
-.NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check
+.NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check
 
 gate: $(if $(strip $(BASE)),against,self-validate) release-check
 
@@ -17,12 +17,10 @@ release-check: check build smoke
 
 ci: ci-check mermaid
 
-ci-check: ci-artifacts-clean ci-core-check ci-report-check
+ci-check: ci-artifacts-clean ci-core-check report-timing
 
 ci-core-check: PYTEST_STOP := --maxfail=1
 ci-core-check: gate typescript-compiler-check browser-graph-check ci-typescript browser-runtime-check typescript-libs-check
-
-ci-report-check: report-timing
 
 # One area of the full suite (tests/areas.py); Full verification runs every area in parallel.
 full-test: TEST_WORKERS = 4
@@ -37,7 +35,7 @@ ci-pr-report-check: browser-runtime-check browser-graph-check pr-report-test
 pr-test: browser-runtime-install
 	$(UV) run --locked python -m pytest -n 4 --dist=loadgroup --max-worker-restart=0 \
 		-q --durations=10 --junitxml=test-artifacts/pytest/pr-core.xml $(if $(AREA),--area="$(AREA)",) \
-		tests/test_workflow_registry.py tests/test_make_gate.py tests/test_browser_markers.py tests/test_publish_release.py tests/test_repository_hygiene.py \
+		tests/test_make_gate.py tests/test_browser_markers.py tests/test_publish_release.py tests/test_repository_hygiene.py \
 		tests/test_responsibility_validation.py tests/test_target_architecture.py tests/test_self.py tests/test_contract_maintenance.py tests/test_skill.py \
 		tests/test_contract_model.py tests/test_contract_version_types.py tests/test_dependency_selectors.py tests/test_requires_symbol_ports.py tests/test_typed_dependency_api.py tests/test_dependency_api_target.py tests/test_module_object_grants.py tests/test_dependency_typed_control.py tests/test_typed_state_protocol.py tests/test_typed_python_bindings.py tests/test_typed_python_receivers.py tests/test_typed_method_descriptors.py tests/test_typed_graph_vocabulary.py tests/test_typed_diagnostic_owner.py tests/test_state_facts.py tests/test_boundary_type_nested_mapping.py tests/test_typed_dict_bound_aliases.py tests/test_decisions.py tests/test_typed_python_properties.py tests/test_typed_contract_rule_grammar.py tests/test_typed_contract_rule_native.py tests/test_core_command_result.py tests/test_typed_measurement_controls.py tests/test_typed_parameter_kinds.py tests/test_atlas_deviation_target.py tests/test_definition_context_types.py tests/test_permission_status_types.py tests/test_snapshot_language_types.py tests/test_source_resolution_types.py tests/test_known_delta_action_types.py tests/test_typed_symbol_class_kinds.py tests/test_source_name_visibility.py tests/test_git_blob_types.py tests/test_typed_structure_levels.py tests/test_classifier_projections.py tests/test_unresolved_call_change_types.py \
 		tests/test_target_graph.py::test_contract_corpus_preserves_version_and_uml_presence \
@@ -67,7 +65,6 @@ pr-test: browser-runtime-install
 		tests/test_typescript_array_constants.py \
 		tests/test_typescript_decorated_inventory.py \
 		tests/test_typescript_parameter_properties.py \
-		tests/test_typescript_differential.py \
 		tests/test_uml_comparison.py tests/test_saved_report.py tests/test_architecture_projection.py tests/test_cli.py tests/test_cli_typed_inputs.py tests/test_cli_input_target.py \
 		tests/test_member_inventory.py tests/test_partial_member_inventory.py \
 		tests/test_report_recorded_unknowns.py \
@@ -127,38 +124,6 @@ ci-typescript: demo-typescript
 ci-artifacts-clean:
 	rm -rf test-artifacts/typescript-demo test-artifacts/report-browser test-artifacts/report-timing
 
-REPORT_ARTIFACT_PRUNE_DIR ?= test-artifacts/report-artifact-prune
-DELETE ?= false
-prune-report-artifacts: SHELL := /bin/bash
-prune-report-artifacts: .SHELLFLAGS := -euo pipefail -c
-prune-report-artifacts:
-	@set -euo pipefail; \
-		case "$(DELETE)" in true|false) ;; *) echo "DELETE must be true or false" >&2; exit 2 ;; esac; \
-		: "$${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"; \
-		command -v gh >/dev/null; \
-		mkdir -p "$(REPORT_ARTIFACT_PRUNE_DIR)"; \
-		inventory="$(REPORT_ARTIFACT_PRUNE_DIR)/inventory.json"; \
-		plan="$(REPORT_ARTIFACT_PRUNE_DIR)/plan.json"; \
-		gh api --paginate --slurp "repos/$${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" > "$$inventory"; \
-		python3 -m tools.report_artifact_retention "$$inventory" --output "$$plan"; \
-		if [ "$(DELETE)" = "true" ]; then \
-			artifact_ids=$$(python3 -c 'import json,sys; print(" ".join(map(str, json.load(open(sys.argv[1], encoding="utf-8"))["delete_ids"])))' "$$plan"); \
-			for artifact_id in $$artifact_ids; do \
-				gh api --method DELETE "repos/$${GITHUB_REPOSITORY}/actions/artifacts/$$artifact_id" >/dev/null; \
-			done; \
-		else \
-			echo "Dry run: review $$plan; rerun with DELETE=true to delete selected IDs."; \
-		fi
-
-WORKFLOW_PRUNE_DIR ?= test-artifacts/workflow-prune
-DISABLE ?= false
-prune-workflows:
-	@set -eu; \
-		case "$(DISABLE)" in true|false) ;; *) echo "DISABLE must be true or false" >&2; exit 2 ;; esac; \
-		: "$${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"; \
-		python3 -m tools.workflow_registry --repository "$$GITHUB_REPOSITORY" \
-			--output "$(WORKFLOW_PRUNE_DIR)/plan.json" $(if $(filter true,$(DISABLE)),--disable,)
-
 mermaid:
 	@set -eu; mermaid_dir=$$(mktemp -d); \
 		trap 'rm -rf "$$mermaid_dir"' 0; \
@@ -179,10 +144,6 @@ mermaid:
 against: BASE ?= origin/main
 against:
 	$(UV) run --locked python -m tools.against --base "$(BASE)"
-
-.PHONY: target-contract-check
-target-contract-check:
-	$(UV) run --locked python -m pytest -q tests/test_target_architecture.py
 
 self-validate:
 	@mkdir -p test-artifacts/validation
@@ -215,8 +176,6 @@ collector-safety:
 		tests/test_collector_interrupt.py tests/test_windows_launcher_startup.py \
 		tests/test_collector_safety_acceptance.py tests/test_collector_liveness_observer.py \
 		tests/test_inheritance_proof_transport.py
-.PHONY: typescript-differential
-# Development acceptance, separate from the Python-hosted source collector.
 typescript-compiler-check:
 	npx --yes --package typescript@5.9.3 tsc --noEmit --project fixtures/H-uml-typescript/tsconfig.json
 
@@ -240,18 +199,13 @@ dart-test:
 		tests/test_uml_source_facts.py tests/test_language_collectors.py \
 		tests/test_flutter_demo.py::test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct
 
-# Compare against the immutable output captured from the former Node collector.
-typescript-differential:
-	ARCHKEEL_DIFFERENTIAL_OUTPUT="$(or $(OUTPUT),test-artifacts/typescript-differential)" \
-		$(UV) run --locked python -m pytest -q tests/test_typescript_differential.py
-
-LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/rule_yield.py tools/mermaid_blocks.py \
-	tools/classify_unresolved.py tools/onboarding_svg.py tools/report_pages.py tools/package_plugin.py tools/github_pr_report.py tools/against.py \
+LINT_PATHS := src tests tools/mermaid_blocks.py \
+	tools/report_pages.py tools/package_plugin.py tools/against.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py \
-	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py fixtures/reproduce_github.py \
-	fixtures/reproduce_typescript.py fixtures/typescript_differential.py fixtures/typescript_scenarios.py fixtures/typescript_realworld.py \
+	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py \
+	fixtures/reproduce_typescript.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
-	tools/architecture_graph_schema.py tools/report_timing.py tools/report_artifact_retention.py tools/workflow_registry.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py
+	tools/architecture_graph_schema.py tools/report_timing.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py
 
 # The same commit measured 80-96s on hosted runners; allow for runner noise.
 REPORT_MAX_SECONDS ?= 190
@@ -275,33 +229,13 @@ lint:
 	$(UV) run --locked ruff check $(LINT_PATHS)
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/github_pr_report.py tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/report_artifact_retention.py tools/workflow_registry.py tools/browser_architecture.py tools/publish_release.py
-
-fixtures:
-	$(UV) run --locked python fixtures/reproduce_milestone1.py $(if $(OUTPUT),--output "$(OUTPUT)")
+	$(UV) run --locked mypy src/archkeel tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/browser_architecture.py tools/publish_release.py
 
 self-observation:
 	$(UV) run --locked archkeel report --root . --output test-artifacts/self-observation/architecture.json
 
-rule-yield:
-	@test -n "$(ROOT)" || { echo "ROOT is required"; exit 2; }
-	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
-	$(UV) run --locked python -m tools.rule_yield --root "$(ROOT)" --output "$(OUTPUT)"
-
 demo:
 	@$(UV) run --locked python fixtures/reproduce_milestone1.py $(if $(OUTPUT),--output "$(OUTPUT)") --summary
-
-demo-github:
-	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
-	@$(UV) run --locked python -m fixtures.reproduce_github --output "$(OUTPUT)"
-
-github-pr-report:
-	@$(UV) run --locked python -m tools.github_pr_report \
-		--repository "$(REPOSITORY)" --pull-request "$(PULL_REQUEST)" \
-		--base "$(BASE)" --head "$(HEAD)" --output "$(OUTPUT)" \
-		$(if $(ROOT),--root "$(ROOT)") $(if $(INITIAL_RUN),--initial-run "$(INITIAL_RUN)") \
-		$(if $(EXPECTATION_COMMIT),--expectation-commit "$(EXPECTATION_COMMIT)") \
-		$(if $(EXPECTED),--expected "$(EXPECTED)") $(if $(EXPECTED_DIGEST),--expected-digest "$(EXPECTED_DIGEST)")
 
 demo-onboarding:
 	@$(UV) run --locked python -m fixtures.reproduce_onboarding
@@ -320,9 +254,6 @@ flutter-demo-check:
 	cd fixtures/I-flutter-shop && "$(FLUTTER_EXECUTABLE)" test
 	cd fixtures/I-flutter-shop && "$(FLUTTER_EXECUTABLE)" build web --output "$(abspath test-artifacts/flutter-demo/web)"
 
-demo-snapshot-check:
-	@$(UV) run --locked python -m fixtures.reproduce_snapshot_check
-
 demo-typescript:
 	@$(UV) run --locked python -m fixtures.reproduce_typescript $(if $(OUTPUT),--output "$(OUTPUT)")
 
@@ -335,10 +266,6 @@ demo-uml: typescript-compiler-check
 	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
 	@$(UV) run --locked python -m fixtures.architecture_demo --uml-suite --output "$(OUTPUT)"
 
-# The figure is derived from the run above, so a test compares it with a fresh render.
-loop-figure:
-	@$(UV) run --locked python -m tools.onboarding_svg docs/assets/archkeel-onboarding-loop.svg
-
 demo-screenshots:
 	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
 	@$(MAKE) demo OUTPUT="$(OUTPUT)"
@@ -350,7 +277,6 @@ demo-screenshots:
 	@firefox --headless --no-remote --window-size 375,2400 \
 	  --screenshot "$(OUTPUT)/A-check-375x2400.png" \
 	  "file://$(abspath $(OUTPUT))/A-check.stdout.check.html"
-	@$(UV) run --locked python -m tools.terminal_svg "$(OUTPUT)"
 	@printf 'Screenshots: %s\n' "$(abspath $(OUTPUT))"
 
 PLAYWRIGHT_VERSION ?= 1.62.0
@@ -373,8 +299,6 @@ plugin-directory:
 		$(MAKE) plugin OUTPUT="$$stage/archkeel" && \
 		cp -R "$$stage/archkeel/." plugins/archkeel/
 
-report-browser: report-browser-tests
-
 report-browser-tests: browser-install
 	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -m browser -n 2 --dist=loadfile --max-worker-restart=0 -q
 
@@ -388,7 +312,6 @@ smoke:
 	$(UV) run --isolated --no-project --with dist/*.tar.gz tests/smoke_test.py
 
 # Development publication only; reports and Python package builds load committed assets.
-.PHONY: browser-runtime-install browser-runtime-generate browser-runtime-check
 browser-runtime-install:
 	npm ci --prefix tools/browser-runtime --ignore-scripts --no-audit --no-fund
 	$(UV) run --locked python -m tools.browser_runtime --prepare-dependencies
@@ -401,13 +324,10 @@ browser-runtime-check: browser-runtime-install
 	uv run --locked python -m tools.browser_runtime --check
 	uv run --locked python -m pytest -q tests/test_flow_runtime_publication.py
 
-.PHONY: typescript-libs-check
 typescript-libs-check: browser-runtime-install
 	$(UV) run --locked mypy --strict tools/typescript_libs.py
 	$(UV) run --locked python -m tools.typescript_libs --check
 
-.PHONY: browser-graph-generate browser-graph-check
-.PHONY: browser-architecture-check
 browser-architecture-check: browser-runtime-install
 	$(UV) run --locked python -m tools.browser_architecture
 

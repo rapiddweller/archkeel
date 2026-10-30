@@ -92,7 +92,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# Tests import repository tools such as tools/interface_profile.py.
+# Tests import repository tools such as tools/against.py.
 pythonpath = ["."]
 addopts = "-p no:cacheprovider -m 'not browser'"
 markers = [

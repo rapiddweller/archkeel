@@ -1,7 +1,6 @@
 name: Full verification
 
-# A PR that changes what Full runs also runs Full. This file is on main, so the nightly prune of
-# registrations that main does not have keeps it active; a new caller file would be disabled.
+# A PR that changes what Full runs also runs Full.
 on:
   workflow_call:
   workflow_dispatch:

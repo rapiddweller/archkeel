@@ -277,7 +277,7 @@ def test_local_browser_target_installs_and_runs_only_the_smokes(
     )
     runner.chmod(0o755)
     result = subprocess.run(
-        ["make", "report-browser"],
+        ["make", "report-browser-tests"],
         cwd=ROOT,
         env={
             **os.environ,
@@ -322,7 +322,6 @@ def test_ci_paths_avoid_playwright_and_browser_proof_but_local_report_tests_opt_
         "ci",
         "ci-check",
         "ci-core-check",
-        "ci-report-check",
         "ci-pr-check",
         "ci-pr-static",
         "ci-pr-report-check",
@@ -373,10 +372,7 @@ def test_workflow_files_require_an_explicit_governance_change() -> None:
         "ci.yml",
         "full-verification.yml",
         "pages.yml",
-        "maintenance.yml",
         "release.yml",
-        "github-opened.yml",
-        "github-opened-receipt.yml",
     }
 
 
@@ -387,12 +383,8 @@ def _jobs(workflow: str) -> dict[str, str]:
 
 
 def test_every_job_runs_on_a_pinned_runner_image() -> None:
-    from tools.github_pr_report import COLLECTOR_DIGESTS
-
     # A -latest label moves to a new image without a change in this repository.
     for path in (ROOT / ".github/workflows").glob("*.yml"):
-        if f".github/workflows/{path.name}" in COLLECTOR_DIGESTS:
-            continue  # AD-143 pins the bytes of the receipt workflows.
         for job, body in _jobs(path.name).items():
             assert not re.search(r"runs-on: .*-latest", body), (path.name, job)
 
@@ -406,19 +398,17 @@ def test_no_job_is_skipped_by_a_condition() -> None:
 
 
 @pytest.mark.parametrize(
-    ("workflow", "aggregate", "report_only"),
-    [("ci.yml", "check", {"github-order-report"}), ("full-verification.yml", "verified", set())],
+    ("workflow", "aggregate"),
+    [("ci.yml", "check"), ("full-verification.yml", "verified")],
 )
-def test_each_aggregate_needs_every_job_and_fails_closed(
-    workflow: str, aggregate: str, report_only: set[str]
-) -> None:
+def test_each_aggregate_needs_every_job_and_fails_closed(workflow: str, aggregate: str) -> None:
     jobs = _jobs(workflow)
     body = jobs[aggregate]
     assert "if: always()" in body
     needs = re.search(r"needs: \[(.+)\]|needs:\n((?:      - .+\n)+)", body)
     assert needs is not None
     listed = re.findall(r"\w[\w-]*", needs[1] or needs[2])
-    assert set(listed) == set(jobs) - {aggregate} - report_only
+    assert set(listed) == set(jobs) - {aggregate}
     script = dedent(body.split("        run: |\n", 1)[1])
     ok = " ".join(["success"] * len(listed))
 
@@ -444,7 +434,6 @@ def test_pull_requests_run_one_fixed_job_set_and_full_runs_on_its_own_triggers()
     assert "make ci-pr-report-check" in jobs["pr-report-check"]
     assert "run: make mermaid" in jobs["mermaid"]
     assert "run: make demos" in jobs["demos"]
-    assert "continue-on-error: true" in jobs["github-order-report"]
 
     full = (ROOT / ".github/workflows/full-verification.yml").read_text()
     for trigger in ("workflow_call:", "workflow_dispatch:", "schedule:"):
@@ -459,7 +448,6 @@ def test_pull_requests_run_one_fixed_job_set_and_full_runs_on_its_own_triggers()
     assert "runs-on: windows-2025" in full_jobs["collector-safety-windows"]
     assert "make dart-test TEST_WORKERS=4 SHELL=bash" in full_jobs["language-collectors"]
 
-    # The PR trigger sits in this file: the nightly prune disables a caller file that main lacks.
     paths = full.split("  pull_request:\n    paths:\n", 1)[1].split("\n\n", 1)[0]
     for path in (".github/workflows/**", "Makefile", "tests/areas.py", "tests/conftest.py"):
         assert f"      - {path}" in paths or f'      - "{path}"' in paths
@@ -510,10 +498,6 @@ def test_pages_publish_only_a_passed_full_run_of_the_current_main(tmp_path: Path
     ):
         body = pages.split(f"- name: {step_name}\n", 1)[1].split("\n\n", 1)[0]
         assert "if: steps.verified.outputs.publish == 'true'" in body
-    maintenance = (ROOT / ".github/workflows/maintenance.yml").read_text()
-    assert "on:\n  schedule:" in maintenance and "workflow_dispatch" not in maintenance
-    assert "make prune-workflows DISABLE=true" in maintenance
-    assert "make prune-report-artifacts DELETE=true" in maintenance
 
 
 def test_typescript_compatibility_reuses_fixtures_and_keeps_windows_path_check() -> None:

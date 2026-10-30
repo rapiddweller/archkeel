@@ -22,7 +22,6 @@ from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.host_records import HostRecord, OrderingError, parse_records
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.trace import trace_valid_violations
-from tools.github_pr_report import _events
 
 ROOT = Path(__file__).parents[1]
 E, H = "e" * 40, "c" * 40
@@ -125,22 +124,6 @@ def test_real_gitlab_producer_reaches_the_typed_ordering_port(monkeypatch, tmp_p
     assert host_records.parse_event(records[1].event) is event.CANDIDATE_SUBMITTED
     assert json.dumps([asdict(item) for item in records]) == json.dumps(_wire())
     assert check_order(records, expectation_sha=E, candidate_sha=H) == ()
-
-
-def test_future_github_provider_event_remains_an_open_bounded_observation(tmp_path):
-    _event_type()
-    raw = [
-        [
-            {
-                "id": "123",
-                "type": "FutureProviderEvent",
-                "repo": {"name": "example/project"},
-                "created_at": PUBLISHED,
-                "payload": {"future": "open"},
-            }
-        ]
-    ]
-    assert _events(tmp_path, raw, "example/project") == 1
 
 
 def _repository(tmp_path, *, old=None, new=None, probe="", guard_source="archkeel.check.ordering"):
