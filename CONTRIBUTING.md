@@ -71,7 +71,7 @@ release, and on a PR that changes CI files; there its jobs show as `Full / <job>
 | Docs diagrams | `make mermaid`; the job also runs `tests/test_mermaid.py` | if Markdown | if Markdown | in Full |
 | Collect GitHub order evidence (report only) | `make github-pr-report` | if core | no | no |
 | All checks passed | none: it needs every selected CI job | yes | yes | no |
-| Architecture, build and report checks | `make ci SHARDED_TESTS=1` | if Full | no | yes |
+| Architecture, build and report checks | `make ci SKIP_TESTS=1` | if Full | no | yes |
 | Tests: `<area>` (Full) | `make full-test AREA="<area>"` | if Full | no | yes |
 | Demos | `make demos` | if Full | no | yes |
 | Windows: collector safety | `make collector-safety` on Windows | if Full | no | yes |

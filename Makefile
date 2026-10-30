@@ -5,8 +5,8 @@ FLUTTER_EXECUTABLE ?= flutter
 
 .PHONY: demos against gate full-test ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts prune-workflows mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate fixtures self-observation demo demo-github github-pr-report demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-browser-tests report-pages plugin plugin-directory plugin-release build smoke release-check rule-yield architecture-graph-schema report-timing flutter-demo-check
 
-# SHARDED_TESTS=1: the full suite runs in separate area jobs (make full-test AREA=<area>).
-check: lint typecheck browser-architecture-check $(if $(strip $(SHARDED_TESTS)),,test)
+# SKIP_TESTS=1: skip the test suite here; Full verification runs it in area jobs (make full-test).
+check: lint typecheck browser-architecture-check $(if $(strip $(SKIP_TESTS)),,test)
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check

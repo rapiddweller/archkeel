@@ -354,7 +354,7 @@ def test_ci_paths_avoid_playwright_and_browser_proof_but_local_report_tests_opt_
     assert "playwright install --with-deps chromium" in local.stdout
     assert "pytest -m browser" in local.stdout
 
-    full_shard = subprocess.run(
+    full_test = subprocess.run(
         ["make", "-n", "full-test"],
         cwd=ROOT,
         env={**os.environ, "MAKEFLAGS": ""},
@@ -362,9 +362,9 @@ def test_ci_paths_avoid_playwright_and_browser_proof_but_local_report_tests_opt_
         text=True,
         timeout=15,
     )
-    assert full_shard.returncode == 0, full_shard.stderr
-    runtime_install = full_shard.stdout.index("npm ci --prefix tools/browser-runtime")
-    test_run = full_shard.stdout.index("python -m pytest")
+    assert full_test.returncode == 0, full_test.stderr
+    runtime_install = full_test.stdout.index("npm ci --prefix tools/browser-runtime")
+    test_run = full_test.stdout.index("python -m pytest")
     assert runtime_install < test_run
 
 
@@ -453,9 +453,9 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
         "      - collector-safety-windows\n      - language-collectors" in full
     )
     assert "${{ needs.full-suite-and-reports.result }}" in full
-    # The full suite runs as parallel area jobs; the gate job skips it (SHARDED_TESTS=1).
+    # The full suite runs as parallel area jobs; the gate job skips it (SKIP_TESTS=1).
     assert "${{ needs.tests.result }}" in full
-    assert "make ci-core-check SHARDED_TESTS=1" in full
+    assert "make ci-core-check SKIP_TESTS=1" in full
     assert 'make full-test AREA="$AREA"' in full
     assert "${{ needs.collector-safety-windows.result }}" in full
     assert "${{ needs.language-collectors.result }}" in full
@@ -851,7 +851,7 @@ def _collected(*arguments: str) -> tuple[subprocess.CompletedProcess[str], list[
 
 
 def test_every_test_file_belongs_to_one_area_and_ci_runs_every_area() -> None:
-    files = sorted(path.name for path in (ROOT / "tests").glob("test_*.py"))
+    files = sorted(path.name for path in (ROOT / "tests").rglob("test_*.py"))
     assert [name for name in files if area_of(name) is None] == []
     for workflow in ("ci.yml", "full-verification.yml"):
         text = (ROOT / ".github/workflows" / workflow).read_text()

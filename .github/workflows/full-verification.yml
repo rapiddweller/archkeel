@@ -40,7 +40,7 @@ jobs:
         run: uv sync --locked
 
       - name: Check architecture, lint, types, build, installed CLI and generated assets
-        run: make ci-core-check SHARDED_TESTS=1
+        run: make ci-core-check SKIP_TESTS=1
 
       - name: Measure architecture report
         if: ${{ !((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') }}
@@ -95,7 +95,7 @@ jobs:
         run: make demos
 
       - name: Upload demo HTML reports
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: demo-reports

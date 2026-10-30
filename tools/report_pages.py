@@ -12,6 +12,7 @@ import json
 import os
 import re
 import time
+import traceback
 from html import escape
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -82,6 +83,7 @@ def build_demos(output: Path) -> list[dict[str, object]]:
                 )
             )
         except Exception as error:
+            traceback.print_exc()
             failures.append(f"{name}: {error}")
         seconds = time.perf_counter() - started
         print(
