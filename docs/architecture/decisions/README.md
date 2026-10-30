@@ -285,6 +285,7 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-275 | [A names-only `globals()` keeps the direct bindings of its module stable](ad-275-names-only-globals-keep-direct-bindings-stable.md) |
 | AD-276 | [A leading UTF-8 BOM is not source text](ad-276-a-leading-utf-8-bom-is-not-source-text.md) |
 | AD-277 | [References record the write target, the prefix of an unresolved chain and enum re-exports](ad-277-references-record-write-targets-chain-prefixes-and-enum-reexports.md) |
+| AD-278 | [A stdlib star facade binds the names of its star sources](ad-278-a-stdlib-star-facade-binds-the-names-of-its-sources.md) |
 | AD-279 | [A catalog target only compares or indexes its arguments](ad-279-a-catalog-target-only-compares-or-indexes-its-arguments.md) |
 | AD-280 | [Named CI jobs, test areas and one demo runner](ad-280-simple-ci-steps-and-one-demo-runner.md) |
 | AD-281 | [Retire unused tooling](ad-281-retire-unused-tooling.md) |

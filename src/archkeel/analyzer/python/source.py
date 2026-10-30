@@ -336,6 +336,8 @@ class ParsedModule:
         default=None, init=False, repr=False
     )
     registry_cache: ModuleRegistry | None = field(default=None, init=False, repr=False)
+    # Set by the provider collector: the star sources of this stdlib facade are proven (#743).
+    star_sources_proven: bool = field(default=False, init=False, repr=False)
 
     _lexical_scopes: tuple[ast.Module, str, str, str, ast.NodeVisitor] | None = field(
         default=None, init=False, repr=False, compare=False
@@ -3376,6 +3378,37 @@ def stdlib_member_static(module: ParsedModule, member: ast.stmt) -> bool:
             for node in stars
         )
         and "__getattr__" not in _bound_names(earlier)
+    )
+
+
+def star_facade_static(module: ParsedModule) -> bool:
+    """The body holds star imports, a docstring and an `__all__` built from names; it binds none."""
+    return all(
+        isinstance(node, ast.ImportFrom)
+        and [alias.name for alias in node.names] == ["*"]
+        or isinstance(node, ast.Expr)
+        and isinstance(node.value, ast.Constant)
+        and isinstance(node.value.value, str)
+        # The `__all__` of the facade only steers `from facade import *`, not an attribute read.
+        or isinstance(node, ast.Assign)
+        and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Name)
+        and node.targets[0].id == "__all__"
+        and all(
+            isinstance(
+                item,
+                ast.Name
+                | ast.Attribute
+                | ast.BinOp
+                | ast.Add
+                | ast.Load
+                | ast.Tuple
+                | ast.List
+                | ast.Constant,
+            )
+            for item in ast.walk(node.value)
+        )
+        for node in module.tree.body
     )
 
 

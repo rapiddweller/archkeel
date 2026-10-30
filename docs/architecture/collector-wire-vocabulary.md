@@ -23,7 +23,9 @@ collection; ordinary `imports` surveys and legacy protocols retain their scope.
 Provider `alias` carries its publishing import, target and supporting evidence.
 Missing or cyclic targets remain UNKNOWN. Provider facts never enlarge governed
 files, imports or coverage.
-A closed star alias additionally binds a unique literal export inventory. Frozen
+A closed star alias additionally binds a unique literal export inventory. A stdlib
+facade of several star imports (AD-278) carries the file evidence of each star source
+as support. Frozen
 stdlib source is accepted only when the actual stdlib side file matches the
 captured bytes and compiling it matches the native loader code, including typed
 constants and nested code metadata, under the collector interpreter optimization.
