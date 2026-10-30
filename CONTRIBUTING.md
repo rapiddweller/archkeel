@@ -64,20 +64,22 @@ release, and on a PR that changes CI files; there its jobs show as `Full / <job>
 
 | Job | Command to reproduce | PR | Push to `main` | Nightly |
 |---|---|---|---|---|
-| Lint and types | `make lint typecheck browser-architecture-check` | if core | if core | in Full |
-| Architecture self-check | `make against BASE=origin/main` | if core | if core | in Full |
+| Select checks for changed files | none: it runs `tools/ci_changes.py` | yes | yes | no |
+| Lint, types and architecture | `make ci-pr-static BASE=origin/main` (a push runs it without `BASE`) | if core | if core | in Full |
 | Tests: `<area>` (CI) | `make pr-test AREA="<area>"` | if core | if core | no |
 | Report and renderer tests | `make ci-pr-report-check` | if report | if report | no |
-| Docs diagrams | `make mermaid` | if Markdown | if Markdown | in Full |
+| Docs diagrams | `make mermaid`; the job also runs `tests/test_mermaid.py` | if Markdown | if Markdown | in Full |
 | Collect GitHub order evidence (report only) | `make github-pr-report` | if core | no | no |
 | All checks passed | none: it needs every selected CI job | yes | yes | no |
-| Architecture, build and report checks | `make ci-check SHARDED_TESTS=1` | if Full | no | yes |
+| Architecture, build and report checks | `make ci SHARDED_TESTS=1` | if Full | no | yes |
 | Tests: `<area>` (Full) | `make full-test AREA="<area>"` | if Full | no | yes |
 | Demos | `make demos` | if Full | no | yes |
 | Windows: collector safety | `make collector-safety` on Windows | if Full | no | yes |
 | Python 3.12.10 / 3.14.7 compatibility | `make python-compat` | no | no | yes |
 | Linux: source collectors | `make typescript-native dart-test build smoke` | no | no | yes |
+| All Full checks passed | none: it needs every Full job | if Full | no | yes |
 | Publish the verified report gallery | `make report-pages` | no | no | `main` only |
+| Maintain Actions and report artifacts | `make prune-workflows prune-report-artifacts` | no | no | `main` only |
 
 A red job means its command failed: run the command in the second column to reproduce it.
 `tests/areas.py` puts each test file in exactly one area. CI runs the `make pr-test` selection;

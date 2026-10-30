@@ -22,7 +22,8 @@ were hard to read and had to stay in sync.
 
 **Rejected.** One step or one job for each demo: more YAML to keep in sync.
 
-**Limits.** A nightly Pages run builds every demo twice. The demo catalog area takes about
+**Limits.** CI no longer prunes artifacts on each push to `main`; the nightly job does, so old
+artifacts can stay up to 24 hours. A nightly Pages run builds every demo twice. The demo catalog area takes about
 11 minutes, because one file holds it.
 
 **Checks.** `tests/test_report_pages.py` and `tests/test_make_gate.py`.
