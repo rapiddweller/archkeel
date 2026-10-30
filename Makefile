@@ -3,7 +3,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: demos against gate full-test ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts prune-workflows mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate fixtures self-observation demo demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml loop-figure demo-screenshots browser-install report-browser report-browser-tests report-pages plugin plugin-directory plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check
+.PHONY: demos against gate full-test ci ci-check ci-core-check ci-report-check ci-pr-check ci-pr-static ci-pr-report-check pr-test pr-report-test ci-typescript ci-artifacts-clean prune-report-artifacts prune-workflows mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate fixtures self-observation demo demo-onboarding demo-dart demo-typescript demo-snapshot-check demo-architecture demo-uml demo-screenshots browser-install report-browser report-browser-tests report-pages plugin plugin-directory plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check
 
 # SKIP_TESTS=1: skip the test suite here; Full verification runs it in area jobs (make full-test).
 check: lint typecheck browser-architecture-check $(if $(strip $(SKIP_TESTS)),,test)
@@ -237,8 +237,8 @@ dart-test:
 		tests/test_uml_source_facts.py tests/test_language_collectors.py \
 		tests/test_flutter_demo.py::test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct
 
-LINT_PATHS := src tests tools/terminal_svg.py tools/interface_profile.py tools/mermaid_blocks.py \
-	tools/classify_unresolved.py tools/onboarding_svg.py tools/report_pages.py tools/package_plugin.py tools/against.py \
+LINT_PATHS := src tests tools/interface_profile.py tools/mermaid_blocks.py \
+	tools/classify_unresolved.py tools/report_pages.py tools/package_plugin.py tools/against.py \
 	fixtures/reproduce_milestone1.py fixtures/reproduce_onboarding.py \
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py \
 	fixtures/reproduce_typescript.py \
@@ -310,10 +310,6 @@ demo-uml: typescript-compiler-check
 	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
 	@$(UV) run --locked python -m fixtures.architecture_demo --uml-suite --output "$(OUTPUT)"
 
-# The figure is derived from the run above, so a test compares it with a fresh render.
-loop-figure:
-	@$(UV) run --locked python -m tools.onboarding_svg docs/assets/archkeel-onboarding-loop.svg
-
 demo-screenshots:
 	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
 	@$(MAKE) demo OUTPUT="$(OUTPUT)"
@@ -325,7 +321,6 @@ demo-screenshots:
 	@firefox --headless --no-remote --window-size 375,2400 \
 	  --screenshot "$(OUTPUT)/A-check-375x2400.png" \
 	  "file://$(abspath $(OUTPUT))/A-check.stdout.check.html"
-	@$(UV) run --locked python -m tools.terminal_svg "$(OUTPUT)"
 	@printf 'Screenshots: %s\n' "$(abspath $(OUTPUT))"
 
 PLAYWRIGHT_VERSION ?= 1.62.0

@@ -11,7 +11,6 @@ import pytest
 from archkeel.check.onboarding import run_init
 from archkeel.cli.observe import observe
 from fixtures.reproduce_onboarding import Step, _repository, run_onboarding_demo
-from tools.onboarding_svg import render
 
 
 @pytest.fixture(scope="module")
@@ -121,9 +120,3 @@ def test_every_step_names_a_real_archkeel_command(steps: tuple[Step, ...]) -> No
 
 def test_the_demo_module_is_runnable_from_the_repository_root() -> None:
     assert (Path(__file__).parents[1] / "fixtures/reproduce_onboarding.py").is_file()
-
-
-def test_the_committed_loop_figure_is_the_one_this_run_draws(steps: tuple[Step, ...]) -> None:
-    """A figure nothing regenerates is a drawing of a past release. Run `make loop-figure`."""
-    figure = Path(__file__).parents[1] / "docs/assets/archkeel-onboarding-loop.svg"
-    assert figure.read_text() == render(steps)
