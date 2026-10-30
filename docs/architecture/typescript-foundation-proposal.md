@@ -28,8 +28,8 @@ maps, project references and constructs its grammar cannot parse. See
 [hidden-loader](../../fixtures/typescript-hidden-loaders.json) acceptance catalogs.
 
 A comparison with the 576-case frozen output of the old Node collector found 507 equivalent
-cases, 69 conservative cases and 0 defects. That comparison is retired; the Git history keeps
-it. `fixtures/typescript-differential-allowlist.json` still gives the reason for each
+cases, 69 conservative cases and 0 defects. That comparison is retired
+([AD-281](decisions/ad-281-retire-unused-tooling.md)); the Git history keeps it. `fixtures/typescript-differential-allowlist.json` still gives the reason for each
 conservative case, and the hidden-loader acceptance test reads it.
 
 [The demo](typescript-demo.md) replays import-rule and revision cases. Process,

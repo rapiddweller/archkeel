@@ -1,5 +1,7 @@
 # AD-141 GitHub events are bounded observations
 
+Retired by [AD-281](ad-281-retire-unused-tooling.md).
+
 Collect PR/base/head metadata and hashed GitHub Events through
 `gh`. Validate provider IDs, refs, hashes, timestamps and pagination; malformed or
 ambiguous evidence yields UNKNOWN. The job reports evidence without changing gates.

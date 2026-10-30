@@ -1,5 +1,7 @@
 # AD-140: Measure rule evidence without inventing passes
 
+Retired by [AD-281](ad-281-retire-unused-tooling.md).
+
 Measure rule yield from actual producer verdicts and reconciled population receipts.
 Absence of violations alone does not prove PASS. Keep allowances, violations and UNKNOWN separate;
 unreconciled or unsupported pass counts remain null. Population reconciliation does

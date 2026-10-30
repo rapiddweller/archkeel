@@ -15,7 +15,7 @@ UNKNOWN assessments; file coverage never proves a complete symbol inventory.
 Package-based `extends`, `exports`, `typesVersions`, project references and unsupported
 settings or syntax remain gaps. This frontend is not a type checker.
 
-Frozen adapter and compiler references guard the modeled cases, not compiler parity.
+Compiler references guard the modeled cases, not compiler parity.
 Demos and compatibility limits live in [the TypeScript guide](../typescript-demo.md).
 
 Alex accepted 715 unresolved self-calls on 2026-10-07 after a bounded sample fixed 12 of 727.

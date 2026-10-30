@@ -1,5 +1,7 @@
 # AD-143 Initial PR head proves scoped order
 
+Retired by [AD-281](ad-281-retire-unused-tooling.md).
+
 An authenticated original PR opened at E proves E precedes later H submissions
 to that same PR. Bind repository/PR IDs, approved worker B, original run/attempt and
 artifact digests. Missing, reopened or opened-at-H receipts remain UNKNOWN.
