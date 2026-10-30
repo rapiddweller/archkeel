@@ -52,7 +52,7 @@ def _plugin_files(
         "skills/archkeel/SKILL.md": (ROOT / "skills/archkeel/SKILL.md").read_bytes(),
         "LICENSE": (ROOT / "LICENSE").read_bytes(),
         "README.md": readme,
-        "assets/archkeel-mark.svg": (
+        "docs/assets/archkeel-mark.svg": (
             ROOT / "src/archkeel/render/assets/archkeel-mark.svg"
         ).read_bytes(),
     }

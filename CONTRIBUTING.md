@@ -172,7 +172,16 @@ Do not rewrite old text only for style. New and changed text follows this standa
 ## Update the agent skill
 
 Edit [skills/archkeel/SKILL.md](skills/archkeel/SKILL.md). The CLI asset links to this source.
-Run `make plugin-directory` to refresh the committed compact plugin; do not edit its copy.
+
+## Plugin files: what is where
+
+The repository root is the plugin. There is no second copy.
+- `plugin.json`: the Codex and agent-plugins manifest.
+- `.claude-plugin/plugin.json`: the Claude Code manifest. Packaging requires the same version.
+- `.claude-plugin/marketplace.json`, `.agents/plugins/marketplace.json`: catalogs with `source ./`.
+- `skills/archkeel/SKILL.md`: the skill source. The CLI asset is a link to it.
+- `docs/assets/archkeel-mark.svg`: the icon, a link to the report asset.
+- `make plugin-release` builds the plugin ZIP from the root for each release tag.
 
 ## Release assets
 
