@@ -25,7 +25,7 @@ Only `make flutter-demo-check`, which builds and runs the demo app, needs Flutte
 ## Before you push
 
 ```bash
-make ci-pr-check BASE=origin/main        # policy, lint, types and representative Core tests
+make ci-pr-check BASE=origin/main        # policy, lint, types and a fixed set of Core tests
 make ci-pr-report-check                  # report data and JavaScript logic
 ```
 
@@ -34,13 +34,15 @@ Without `BASE`, the local gate validates only the checked-out policy.
 Each PR runs the same fixed set of checks. The report sample checks scene/projection data and
 renderer output. The selected Python tests include unit, integration and CLI tests; each test job
 runs one area. Saved-report tests run in the area test jobs, not again in the report job.
-Use `make report-browser-tests` for the three local Chromium smokes. Samples do not replace testing the behavior
-you change. The normal core set uses one Dart CLI smoke, one UNKNOWN safety case and four Flutter
-Target guards; complete Dart and Flutter variant coverage stays in the full checks.
+The `pr-test` list in the `Makefile` names this fixed set file by file; there is no rule that
+selects it. Use `make report-browser-tests` for the nine local Chromium tests. Samples do not
+replace testing the behavior you change. The core set runs eight whole Dart test files, one Dart
+CLI smoke, one UNKNOWN safety case and five Flutter Target guards; complete Dart and Flutter
+variant coverage stays in the full checks.
 
-The scheduled **Full verification** workflow runs the complete `make ci` gate, including
-the UML TypeScript compiler check, report timing and gallery generation. It runs the full suite
-on Linux/Python 3.11, collector compatibility on Linux/Python 3.12, a thin Python compatibility
+The scheduled **Full verification** workflow runs `make ci-core-check SKIP_TESTS=1`, which
+includes the UML TypeScript compiler check. It also runs `make report-timing`, `make mermaid`
+and `make demos`. It runs the full suite in area jobs on Linux/Python 3.11, collector compatibility on Linux/Python 3.12, a thin Python compatibility
 test set (`make python-compat`) on Python 3.12 and 3.14, and one Windows/Python 3.11
 safety check for process and path behavior. TypeScript's Python architecture and browser module
 boundaries stay in the full suite. Manual dispatch uses the same checks.
