@@ -1,6 +1,7 @@
 # AD-143 Initial PR head proves scoped order
 
-Retired by [AD-281](ad-281-retire-unused-tooling.md).
+[AD-281](ad-281-retire-unused-tooling.md) retires the receipt producer. The ordering check in `src`
+stays until issue #767 removes `InitialPRHeadEvidence`.
 
 An authenticated original PR opened at E proves E precedes later H submissions
 to that same PR. Bind repository/PR IDs, approved worker B, original run/attempt and

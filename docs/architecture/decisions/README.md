@@ -149,7 +149,7 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-140 | [Rule evidence measurements (retired by AD-281)](ad-140-measure-rule-evidence-without-inventing-passes.md) |
 | AD-141 | [Bounded GitHub observations (retired by AD-281)](ad-141-github-events-are-bounded-observations.md) |
 | AD-142 | [Exact opaque-map values](ad-142-opaque-map-values-need-exact-decisions.md) |
-| AD-143 | [Initial PR causal receipt (retired by AD-281)](ad-143-initial-pr-head-proves-scoped-order.md) |
+| AD-143 | [Initial PR causal receipt (producer retired by AD-281; check stays until issue #767)](ad-143-initial-pr-head-proves-scoped-order.md) |
 | AD-144 | [Diff scope navigation](ad-144-diff-retains-navigation-scope.md) |
 | AD-145 | [Effective inherited methods](ad-145-local-inherited-methods-use-the-existing-base-proof.md) |
 | AD-146 | [Analyzer profile identity](ad-146-analyzer-identity-selects-observation-profile.md) |

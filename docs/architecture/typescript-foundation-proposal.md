@@ -29,8 +29,9 @@ maps, project references and constructs its grammar cannot parse. See
 
 A comparison with the 576-case frozen output of the old Node collector found 507 equivalent
 cases, 69 conservative cases and 0 defects. That comparison is retired
-([AD-281](decisions/ad-281-retire-unused-tooling.md)); the Git history keeps it. `fixtures/typescript-differential-allowlist.json` still gives the reason for each
-conservative case, and the hidden-loader acceptance test reads it.
+([AD-281](decisions/ad-281-retire-unused-tooling.md)); the Git history keeps it.
+`fixtures/typescript-differential-allowlist.json` keeps only the 44 hidden-loader cases, with
+their reasons, because the hidden-loader acceptance test reads them.
 
 [The demo](typescript-demo.md) replays import-rule and revision cases. Process,
 collector and snapshot tests cover executable replacement, malformed facts,
