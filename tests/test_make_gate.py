@@ -372,7 +372,6 @@ def test_workflow_files_require_an_explicit_governance_change() -> None:
     assert {path.name for path in (ROOT / ".github/workflows").iterdir() if path.is_file()} == {
         "ci.yml",
         "full-verification.yml",
-        "full-on-ci-change.yml",
         "pages.yml",
         "maintenance.yml",
         "release.yml",
@@ -460,10 +459,10 @@ def test_pull_requests_run_one_fixed_job_set_and_full_runs_on_its_own_triggers()
     assert "runs-on: windows-2025" in full_jobs["collector-safety-windows"]
     assert "make dart-test TEST_WORKERS=4 SHELL=bash" in full_jobs["language-collectors"]
 
-    caller = (ROOT / ".github/workflows/full-on-ci-change.yml").read_text()
-    assert "uses: ./.github/workflows/full-verification.yml" in caller
+    # The PR trigger sits in this file: the nightly prune disables a caller file that main lacks.
+    paths = full.split("  pull_request:\n    paths:\n", 1)[1].split("\n\n", 1)[0]
     for path in (".github/workflows/**", "Makefile", "tests/areas.py", "tests/conftest.py"):
-        assert f"      - {path}\n" in caller or f'      - "{path}"\n' in caller
+        assert f"      - {path}" in paths or f'      - "{path}"' in paths
     release = _jobs("release.yml")
     assert "uses: ./.github/workflows/full-verification.yml" in release["verify"]
     assert "needs: verify" in release["build"]
