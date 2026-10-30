@@ -14,6 +14,7 @@ concurrency:
 
 jobs:
   changes:
+    name: Select checks for changed files
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -99,7 +100,7 @@ jobs:
           fi
 
   pr-core-check:
-    name: pr-core-check
+    name: Python and architecture checks passed
     needs: [changes, pr-core-static, pr-core-shards]
     if: ${{ always() && (needs.changes.result != 'success' || needs.changes.outputs.core != 'false') }}
     runs-on: ubuntu-latest
@@ -121,12 +122,13 @@ jobs:
           [[ "$CHANGES_RESULT" == success && "$CORE" == true && "$STATIC_RESULT" == success && "$SHARDS_RESULT" == success ]] || exit 1
 
   pr-core-shards:
+    name: Python tests / part ${{ matrix.shard }}
     needs: changes
     if: (github.event_name == 'pull_request' || github.event_name == 'push') && needs.changes.outputs.core == 'true'
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5]
+        shard: [1, 2, 3, 4, 5, 6]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -156,7 +158,7 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
-      - name: Run PR core test shard
+      - name: Run Python tests (mixed unit, integration and CLI)
         run: make pr-test PR_TEST_SHARD=${{ strategy.job-index }}/${{ strategy.job-total }}
 
       - name: Upload PR core JUnit results
@@ -169,6 +171,7 @@ jobs:
           retention-days: 7
 
   pr-core-static:
+    name: Architecture, lint and types
     needs: changes
     if: (github.event_name == 'pull_request' || github.event_name == 'push') && needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
@@ -200,12 +203,32 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
-      - name: Run PR core policy, lint and type checks
+      - name: Check architecture contract and changes
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
-        run: make ci-pr-static
+        run: |
+          if [[ -n "$BASE" ]]; then make against; else make self-validate; fi
+
+      - name: Check formatting and lint
+        run: make lint
+
+      - name: Check Python types
+        run: make typecheck
+
+      - name: Check browser code architecture
+        run: make browser-architecture-check
+
+      - name: Upload architecture validation result
+        if: ${{ always() && github.event_name == 'push' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: architecture-validation
+          path: test-artifacts/validation/result.json
+          if-no-files-found: warn
+          retention-days: 7
 
   pr-report-check:
+    name: Report and renderer tests
     needs: changes
     if: (github.event_name == 'pull_request' || github.event_name == 'push') && needs.changes.outputs.report == 'true'
     runs-on: ubuntu-latest
@@ -234,8 +257,15 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
-      - name: Run PR report checks
-        run: make ci-pr-report-check
+      - name: Check browser runtime
+        run: make browser-runtime-check
+
+      - name: Check browser graph protocol
+        # The preceding step already installs the browser runtime.
+        run: make -o browser-runtime-install browser-graph-check
+
+      - name: Test report renderer
+        run: make pr-report-test
 
       - name: Upload PR report JUnit results
         if: always()
@@ -284,58 +314,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-  github-order-report:
-    name: Collect GitHub order evidence (report only)
-    needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.core == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Install uv and Python
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          python-version: "3.11.12"
-          version: "0.12.13"
-
-      - name: Install locked dependencies
-        run: uv sync --locked
-
-      - name: Save bounded host observations and UNKNOWN report
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          PULL_REQUEST: ${{ github.event.pull_request.number }}
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-        run: >-
-          make github-pr-report REPOSITORY="$REPOSITORY" PULL_REQUEST="$PULL_REQUEST"
-          BASE="$BASE" HEAD="$HEAD" OUTPUT=test-artifacts/github-order/result.json
-
-      - name: Verify report artifacts
-        run: |
-          uv run --locked python -m json.tool test-artifacts/github-order/result.json >/dev/null
-          test -s test-artifacts/github-order/result.check.html
-
-      - name: Upload publication observations and report
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: github-order-report
-          path: test-artifacts/github-order/
-          if-no-files-found: error
-          retention-days: 7
-
   mermaid:
+    name: Documentation diagrams
     needs: changes
     if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.mermaid == 'true' }}
     runs-on: ubuntu-latest

@@ -20,6 +20,15 @@ from fixtures.demo_catalog_typescript import VARIANTS
 from fixtures.reproduce_typescript import repository
 
 
+def gallery_cases() -> dict[str, tuple[str, int]]:
+    return {
+        **REPORT_CASES,
+        "dart-clean": ("dart-clean", 0),
+        "dart-tour": ("dart-tour", 2),
+        "typescript-clean": ("typescript-clean", 0),
+    }
+
+
 def build_demos(output: Path) -> None:
     output.mkdir(parents=True, exist_ok=True)
     variants = {variant.id: variant for variant in CATALOG}
@@ -29,8 +38,9 @@ def build_demos(output: Path) -> None:
         for group in PROJECT_REPORT_GROUPS
         for case_id in (group["baseline"], *group["variants"])
     }
-    cases = {**REPORT_CASES, "dart-clean": ("dart-clean", 0), "dart-tour": ("dart-tour", 2)}
-    for name, (variant_id, expected_exit) in cases.items():
+    for name, (variant_id, expected_exit) in gallery_cases().items():
+        if name == "typescript-clean":
+            continue
         print(f"Building demo: {name} ({variant_id})", flush=True)
         artifact = output / name / "architecture.json"
         stdout = io.StringIO()

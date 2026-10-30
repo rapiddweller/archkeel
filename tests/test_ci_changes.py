@@ -96,6 +96,8 @@ class ChangeClassificationTests(unittest.TestCase):
             "tools/ci_changes.py",
             "tools/report_timing.py",
             "tools/report_pages.py",
+            "tools/demo_ci.py",
+            "tests/test_demo_ci.py",
             "tests/test_report_pages.py",
         ):
             with self.subTest(path=path):

@@ -682,7 +682,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                             if re.fullmatch(obsolete, previous.name):
                                 previous.unlink()
                     artifacts.extend((artifact, report_html))
-                if clock is not None and args.timings is not None and result.exit_code == 0:
+                if clock is not None and args.timings is not None and architecture is not None:
                     _write_timings(args.timings, clock)
                     artifacts.append(args.timings)
             elif command is Command.VALIDATE:

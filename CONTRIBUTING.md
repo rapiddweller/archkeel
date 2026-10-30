@@ -33,6 +33,8 @@ Policy validation runs first. `BASE` also checks widenings and amendments; CI pi
 Without `BASE`, the local gate validates only the checked-out policy.
 PRs and Main pushes run the change-selected core and report regression checks; Mermaid checks
 follow Markdown changes. The report sample checks scene/projection data and renderer output.
+The selected Python tests include unit, integration and CLI tests; the shards split work by count.
+Saved-report tests run in the Python shards, so report changes also select the Python checks.
 Use `make report-browser` for the three local Chromium smokes. Samples do not replace testing the behavior
 you change. The normal core set uses one Dart CLI smoke, one UNKNOWN safety case and four Flutter
 Target guards; complete Dart and Flutter variant coverage stays in the full checks.
@@ -43,11 +45,11 @@ on Linux/Python 3.11, collector compatibility on Linux/Python 3.12, a thin Pytho
 test set (`make python-compat`) on Python 3.12 and 3.14, and one Windows/Python 3.11
 safety check for process and path behavior. TypeScript's Python architecture and browser module
 boundaries stay in the full suite. Manual dispatch uses the same checks.
+Full verification shows architecture and build, generated assets, report timing and diagrams as separate steps.
 Release tags call that workflow before package build and
 publication. Use `make ci BASE=origin/main` locally for the complete gate.
 
-Keep five workflow files: CI, Full verification, release, and the two initial-PR
-receipts. Use existing Make targets or dispatch Full verification for diagnostics;
+Keep three workflow files: CI, Full verification and release. Use existing Make targets or dispatch Full verification for diagnostics;
 do not add temporary workflows. The tested file inventory requires an explicit
 reviewed change for a new workflow. Trusted Main maintenance disables active
 file-backed registrations absent from live Main, retaining their run history.
@@ -63,6 +65,15 @@ Actions** as its publishing source.
 Run `make report-pages` to generate the same site in `test-artifacts/pages/`: an entry page,
 the current report and the Python, Dart and TypeScript demos with shared detail pages and canonical
 JSON. Demo links open in the dark theme; `/demos/` leads to the gallery.
+Full verification runs the gallery entries in the **Demo analysis** job. Each demo has
+its own named step. The job checks expected results and records coverage, rule results,
+output size and phase times. Download all results with
+`gh run download <run-id> --name demo-results`. The artifact contains one directory
+per demo, with `result.json`, `phases.json` and its report. The API lists artifacts at
+`GET /repos/{owner}/{repo}/actions/runs/{run_id}/artifacts`. Locally, use
+`make demo-ci CASE=<name> OUTPUT=<fresh-directory>`. List names with
+`uv run --locked python -m tools.demo_ci --list`.
+
 `make demo-uml OUTPUT=<fresh-directory>` checks the TypeScript fixture with the same
 compiler before generating the Python, Dart and TypeScript UML reports.
 

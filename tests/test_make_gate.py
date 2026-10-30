@@ -241,10 +241,13 @@ def test_pr_report_sample_uses_two_loadfile_workers_and_keeps_selected_tests() -
     for selector in (
         "tests/test_graph_scene_protocol.py",
         "tests/test_atlas_deviation_boundary.py",
-        "tests/test_saved_report.py",
-        "tests/test_report_agent_json.py",
     ):
         assert selector in command
+    core = subprocess.run(
+        ["make", "-n", "pr-test"], cwd=ROOT, capture_output=True, text=True, check=True
+    ).stdout
+    for selector in ("tests/test_saved_report.py", "tests/test_report_agent_json.py"):
+        assert selector in core and selector not in command
     assert "tests/test_compass_project_report.py" not in command
     assert "tests/test_nest_realworld_project_report.py" not in command
 
@@ -365,8 +368,6 @@ def test_workflow_files_require_an_explicit_governance_change() -> None:
         "ci.yml",
         "full-verification.yml",
         "release.yml",
-        "github-opened.yml",
-        "github-opened-receipt.yml",
     }
 
 
@@ -415,7 +416,7 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
             "pr-report-check",
             "prune-report-artifacts",
             "report",
-            "ci-pr-report-check",
+            "pr-report-test",
             "pytest-results-pr-report",
             "pr-report.xml",
             25,
@@ -436,7 +437,7 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
         assert "retention-days: 7" in job
     core_job = workflow.split("  pr-core-shards:\n", 1)[1].split("\n  pr-core-static:", 1)[0]
     assert "fail-fast: false" in core_job
-    assert "shard: [0, 1, 2, 3, 4, 5]" in core_job
+    assert "shard: [1, 2, 3, 4, 5, 6]" in core_job
     assert (
         "run: make pr-test PR_TEST_SHARD=${{ strategy.job-index }}/${{ strategy.job-total }}"
         in core_job
@@ -446,9 +447,12 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     assert "needs.changes.outputs.core == 'true'" in static_job
     assert "timeout-minutes: 15" in static_job
     assert "BASE: ${{ github.event.pull_request.base.sha }}" in static_job
-    assert "run: make ci-pr-static" in static_job
+    assert "make against; else make self-validate; fi" in static_job
+    assert "run: make lint" in static_job
+    assert "run: make typecheck" in static_job
+    assert "run: make browser-architecture-check" in static_job
     aggregate = workflow.split("  pr-core-check:\n", 1)[1].split("\n  pr-core-shards:", 1)[0]
-    assert "name: pr-core-check" in aggregate
+    assert "name: Python and architecture checks passed" in aggregate
     assert "needs: [changes, pr-core-static, pr-core-shards]" in aggregate
     assert "timeout-minutes: 35" in aggregate
     assert (
@@ -463,9 +467,7 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     assert "Install Dart SDK" not in report_job
     assert "Prepare native Dart analyzer" not in report_job
 
-    cleanup = workflow.split("  prune-report-artifacts:\n", 1)[1].split(
-        "\n  github-order-report:", 1
-    )[0]
+    cleanup = workflow.split("  prune-report-artifacts:\n", 1)[1].split("\n  mermaid:", 1)[0]
     assert "needs: check" in cleanup
     assert "github.ref == 'refs/heads/main'" in cleanup
     assert "actions: write" in cleanup
@@ -482,13 +484,19 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     full = (ROOT / ".github/workflows/full-verification.yml").read_text()
     for trigger in ("workflow_call:", "workflow_dispatch:", "schedule:"):
         assert trigger in full
-    assert "make ci-check" in full
-    scheduled_gallery_command = (
-        "make ci-check SHARDED_TESTS=1 mermaid ${{ (github.event_name == 'schedule' "
-        "|| github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' "
-        "&& 'report-pages' || '' }}"
-    )
-    assert scheduled_gallery_command in full
+    for target in (
+        "ci-artifacts-clean",
+        "gate SHARDED_TESTS=1",
+        "typescript-compiler-check",
+        "browser-graph-check",
+        "ci-typescript",
+        "browser-runtime-check",
+        "typescript-libs-check",
+        "report-timing",
+        "report-pages",
+        "mermaid",
+    ):
+        assert target in full
     assert "test-artifacts/report-timing/architecture.timing.json" in full
     assert "test-artifacts/report-browser/" not in full
     evidence = full.split("name: report-check-evidence", 1)[1].split("      - name:", 1)[0]
@@ -514,13 +522,13 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     assert "if: always()" in full
     assert (
         "needs:\n      - full-suite-and-reports\n      - full-suite-shards\n"
-        "      - python-compat\n      - collector-safety-windows\n      - language-collectors"
-        in full
+        "      - demos\n      - python-compat\n"
+        "      - collector-safety-windows\n      - language-collectors" in full
     )
     assert "${{ needs.full-suite-and-reports.result }}" in full
     # The full suite runs as parallel shards; the gate job skips it (SHARDED_TESTS=1).
     assert "${{ needs.full-suite-shards.result }}" in full
-    assert "make ci-check SHARDED_TESTS=1" in full
+    assert "make gate SHARDED_TESTS=1" in full
     assert "make full-test-shard TEST_SHARD=${{ strategy.job-index }}/" in full
     assert "${{ needs.collector-safety-windows.result }}" in full
     assert "${{ needs.language-collectors.result }}" in full
@@ -533,9 +541,9 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     assert "workflow-prune/plan.json" in prune
     assert "needs: [full-suite-and-reports, verified]" in full
     assert "github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'" in full
-    gallery_step = full.split("- name: Run logic gates and build the scheduled gallery", 1)[
-        1
-    ].split("      - name:", 1)[0]
+    gallery_step = full.split("- name: Measure report and build gallery for Pages", 1)[1].split(
+        "      - name:", 1
+    )[0]
     assert "report-pages" in gallery_step
     assert "name: report-browser-evidence" not in full
     assert "name: scheduled-report-site" not in full
@@ -711,7 +719,12 @@ def test_full_aggregate_requires_collector_compatibility_outside_prs() -> None:
     assert "if: ${{ github.event_name != 'pull_request' }}" in collectors
     aggregate = workflow.split("  verified:\n", 1)[1].split("\n  prune-report-artifacts:", 1)[0]
     script = dedent(aggregate.split("        run: |\n", 1)[1])
-    baseline = {"FULL_RESULT": "success", "SHARDS_RESULT": "success", "SAFETY_RESULT": "success"}
+    baseline = {
+        "FULL_RESULT": "success",
+        "SHARDS_RESULT": "success",
+        "SAFETY_RESULT": "success",
+        "DEMOS_RESULT": "success",
+    }
     for event in ("pull_request", "schedule", "workflow_dispatch", "push"):
         expected = "skipped" if event == "pull_request" else "success"
         for matrix in ("success", "skipped", "failure", "cancelled", ""):
@@ -1042,3 +1055,81 @@ def test_pr_core_aggregate_executes_its_workflow_script_fail_closed(
         text=True,
     )
     assert (result.returncode == 0) is success, result.stderr
+
+
+def test_full_workflow_steps_match_ci_check_commands() -> None:
+    def dry_run(*targets: str) -> str:
+        return subprocess.check_output(
+            ["make", "-n", *targets], cwd=ROOT, text=True, env={**os.environ, "MAKEFLAGS": ""}
+        )
+
+    workflow = (ROOT / ".github/workflows/full-verification.yml").read_text()
+    job = workflow.split("  full-suite-and-reports:\n", 1)[1].split("\n  demos:", 1)[0]
+    commands = re.findall(r"^        run: (make .+)$", job, re.MULTILINE)
+    assert commands == [
+        "make ci-artifacts-clean",
+        "make gate SHARDED_TESTS=1",
+        "make -o browser-runtime-install typescript-compiler-check browser-graph-check "
+        "ci-typescript browser-runtime-check typescript-libs-check",
+        "make report-timing",
+        "make report-pages",
+        "make mermaid",
+    ]
+    original = dry_run("ci-check", "SHARDED_TESTS=1")
+    steps = "".join(
+        dry_run(*targets)
+        for targets in (
+            ("ci-artifacts-clean",),
+            ("gate", "SHARDED_TESTS=1"),
+            (
+                "-o",
+                "browser-runtime-install",
+                "typescript-compiler-check",
+                "browser-graph-check",
+                "ci-typescript",
+                "browser-runtime-check",
+                "typescript-libs-check",
+            ),
+            ("report-timing",),
+        )
+    )
+    assert steps == original
+
+
+@pytest.mark.parametrize("exit_code", [0, 2])
+def test_self_validation_keeps_json_and_shows_failures(tmp_path: Path, exit_code: int) -> None:
+    uv = tmp_path / "uv"
+    uv.write_text(
+        "#!/bin/sh\n"
+        'printf \'%s\\n\' \'{"declared_rules":"UNKNOWN","diagnostics":[{"claim":"example"}]}\'\n'
+        f"exit {exit_code}\n"
+    )
+    uv.chmod(0o755)
+    result = subprocess.run(
+        ["make", "-f", str(ROOT / "Makefile"), "self-validate", f"UV={uv}"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads((tmp_path / "test-artifacts/validation/result.json").read_text())
+    assert payload["declared_rules"] == "UNKNOWN"
+    assert (result.returncode == 0) == (exit_code == 0)
+    assert "UNKNOWN" in result.stdout
+    assert "example" in result.stdout if exit_code else "example" not in result.stdout
+
+
+def test_visible_ci_steps_match_existing_make_checks() -> None:
+    def dry_run(*targets: str) -> str:
+        return subprocess.check_output(
+            ["make", "-n", *targets], cwd=ROOT, text=True, env={**os.environ, "MAKEFLAGS": ""}
+        )
+
+    assert dry_run("ci-pr-static") == "".join(
+        dry_run(target)
+        for target in ("self-validate", "lint", "typecheck", "browser-architecture-check")
+    )
+    assert dry_run("ci-pr-report-check") == (
+        dry_run("browser-runtime-check")
+        + dry_run("-o", "browser-runtime-install", "browser-graph-check")
+        + dry_run("pr-report-test")
+    )

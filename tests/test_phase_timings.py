@@ -118,6 +118,31 @@ def test_counters_are_equal_for_two_runs_on_the_same_input(
     assert counters["records"] > 0
 
 
+def test_timings_are_written_for_a_completed_report_with_violations(tmp_path: Path) -> None:
+    from fixtures.architecture_demo import CATALOG, materialized_fixture
+
+    variant = next(item for item in CATALOG if item.id == "flutter-unsupported-declaration")
+    timings = tmp_path / "timings.json"
+    with materialized_fixture(variant) as root:
+        result = main(
+            [
+                "report",
+                "--root",
+                str(root),
+                "--config",
+                variant.config,
+                "--output",
+                str(tmp_path / "architecture.json"),
+                "--timings",
+                str(timings),
+                "--json",
+            ]
+        )
+    assert result == 2
+    assert (tmp_path / "architecture.json").is_file()
+    assert json.loads(timings.read_text())["phases"]
+
+
 def test_failed_run_writes_no_timings_file(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

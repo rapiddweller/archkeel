@@ -52,7 +52,12 @@ def receipt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     for name in (CALLER, WORKER, "tools/github_pr_report.py"):
         target = tmp_path / name
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes((ROOT / name).read_bytes())
+        source = (
+            ROOT / name
+            if name.startswith("tools/")
+            else (ROOT / "fixtures/github-initial-pr" / (Path(name).name + ".txt"))
+        )
+        target.write_bytes(source.read_bytes())
     for args in (("init", "-qb", "main"), ("add", "."), ("commit", "-qm", "collector")):
         subprocess.run(
             ["git", "-c", "user.email=test@example.invalid", "-c", "user.name=Test", *args],
