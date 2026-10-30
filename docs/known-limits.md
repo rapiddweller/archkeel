@@ -131,10 +131,12 @@ does not establish runtime immutability or arbitrary factory behavior.
 The 3.13+ standard library layouts (a module `__getattr__`, a star import, a
 `sys.modules` child publication) are proven only for top-level standard library
 modules, and a publication only when every import of the initializer is a
-top-level standard library module. A stdlib module that changes another stdlib
-module through a stored member call is not tracked (trusted). Code outside the
-scan, for example a project that patches a stdlib module at run time, is not
-tracked either.
+top-level standard library module. A package of several star imports (`pathlib`
+on 3.13) binds a name only when exactly one star source lists it in a literal
+`__all__` ([AD-278](architecture/decisions/ad-278-a-stdlib-star-facade-binds-the-names-of-its-sources.md)).
+A stdlib module that changes another stdlib module through a stored member call
+is not tracked (trusted). Code outside the scan, for example a project that
+patches a stdlib module at run time, is not tracked either.
 
 ## Source syntax newer than the interpreter
 
@@ -142,7 +144,7 @@ ArchKeel reads Python source with the `ast` module of the interpreter that runs 
 syntax (for example `except A, B:` from Python 3.14, PEP 758) is a parse failure on an older
 interpreter. The report then shows a `runtime_mismatch` diagnostic. Run ArchKeel with the Python
 version of the project: `uvx --python 3.14 archkeel report`. The tool supports Python 3.11 and
-newer. The nightly job checks 3.12 and 3.14 (#724). On 3.13, `pathlib.Path` stays UNKNOWN (#743).
+newer. The nightly job checks 3.12, 3.13 and 3.14 (#724, #743).
 
 ## Other static blind spots
 

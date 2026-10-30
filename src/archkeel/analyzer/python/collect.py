@@ -101,6 +101,7 @@ from .source import (
     parse_sources,
     resolve_static_name,
     stable_direct_module_bindings,
+    star_facade_static,
     stdlib_member_static,
     unproven_member_bindings,
 )
@@ -997,43 +998,70 @@ def _provider_star_alias(
     *,
     discover: bool,
 ) -> ProviderBinding | None:
-    if (
-        binding in module.scope_bound_names
-        or binding in module.global_names
-        or not all(
-            isinstance(node, ast.ImportFrom)
-            or isinstance(node, ast.Expr)
-            and isinstance(node.value, ast.Constant)
-            and isinstance(node.value.value, str)
-            for node in module.tree.body
-        )
-    ):
+    """Alias a name to the one star source that exports it; any doubt about a source refuses."""
+    # Only a stdlib facade may hold several stars or a computed `__all__` (3.13+ layout, #743).
+    stdlib = is_stdlib_root(module.module)
+    if binding in module.scope_bound_names or binding in module.global_names:
+        return None
+    if not (star_facade_static(module) if stdlib else _single_star_body(module)):
         return None
     stars = [
         item
         for item in imports
         if item["data"]["source_module"] == module.module and item["data"]["symbol"] == "*"
     ]
-    if len(stars) != 1:
+    targets = [item["data"]["target_module"] for item in stars]
+    if (
+        not stars
+        or len(stars) > 1
+        and not stdlib
+        or module.module in targets
+        or not all(part.isidentifier() for target in targets for part in target.split("."))
+    ):
         return None
-    [star] = stars
+    sources = [by_module.get(target) for target in targets]
+    if None in sources:
+        # Discovery captures the star sources one by one; the final pass proves with all of them.
+        return _star_alias(module, binding, stars[sources.index(None)], ()) if discover else None
+    # A star source with a computed or changed `__all__` may export the name too: ambiguity.
+    if not all(
+        source is not None
+        and source.all_literal
+        and "__all__" in stable_direct_module_bindings(source)
+        and _provider_identity_static(source, registry_identity=False)
+        for source in sources
+    ):
+        return None
+    exporters = [
+        star
+        for star, source in zip(stars, sources, strict=True)
+        if source is not None and binding in source.all_exports
+    ]
+    if len(exporters) != 1:
+        return None
+    support = tuple(
+        file_evidence(evidence, source.rel_path, source.lines) for source in sources if source
+    )
+    return _star_alias(module, binding, exporters[0], support)
+
+
+def _single_star_body(module: ParsedModule) -> bool:
+    return all(
+        isinstance(node, ast.ImportFrom)
+        or isinstance(node, ast.Expr)
+        and isinstance(node.value, ast.Constant)
+        and isinstance(node.value.value, str)
+        for node in module.tree.body
+    )
+
+
+def _star_alias(
+    module: ParsedModule,
+    binding: str,
+    star: RawRecord,
+    support: tuple[str, ...],
+) -> ProviderBinding:
     target = star["data"]["target_module"]
-    if not all(part.isidentifier() for part in target.split(".")):
-        return None
-    provider = by_module.get(target)
-    support: tuple[str, ...] = ()
-    if provider is None:
-        if not discover:
-            return None
-    else:
-        if (
-            not provider.all_literal
-            or binding not in provider.all_exports
-            or "__all__" not in stable_direct_module_bindings(provider)
-            or not _provider_identity_static(provider, registry_identity=False)
-        ):
-            return None
-        support = (file_evidence(evidence, provider.rel_path, provider.lines),)
     return ProviderBinding(
         f"{module.module}.{binding}",
         ProviderBindingKind.ALIAS,
@@ -1093,12 +1121,12 @@ def _provider_identity_static(
         member_surface=False,
     )
     member_bound = member is not None and stdlib_member_static(module, member)
+    # A stdlib package of star imports (pathlib on Python 3.13) binds no name of its own.
+    names_known = module.binding_names is not None or (
+        is_stdlib_root(module.module) and star_facade_static(module)
+    )
     return (
-        (
-            member_bound
-            or module.binding_names is not None
-            and "__getattr__" not in module.scope_bound_names
-        )
+        (member_bound or names_known and "__getattr__" not in module.scope_bound_names)
         and "__path__" not in module.global_names
         and not any(
             exposes_dynamic_namespace(module, node)

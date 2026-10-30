@@ -764,6 +764,35 @@ _BOUNDARY_TYPES_ORDINARY_REEXPORT_CHAIN_UNKNOWN = Variant(
 )
 
 
+_PATH_FACADE = Variant(
+    id="class-a-boundary-types-stdlib-path-facade",
+    section="class_a",
+    item="boundary_types:stdlib_path_facade",
+    summary="A public shop.app.paths facade re-exports pathlib.Path. The binding of Path is "
+    "proven from the standard library source, so the facade route has no UNKNOWN. This row runs "
+    "on the default Python only. The 3.13 layout of pathlib (two star imports) is checked by "
+    "test_actual_pathlib_path_has_a_class_receipt (#743).",
+    files={
+        "shop/app/paths.py": HEADER
+        + (
+            '"""Public facade for the store path type."""\n\n'
+            "from __future__ import annotations\n\n"
+            "from pathlib import Path\n\n"
+            '__all__ = ["Path"]\n'
+        ),
+        "shop/cli/main.py": (FIXTURE_DIR / "shop/cli/main.py")
+        .read_text()
+        .replace("from pathlib import Path", "from shop.app.paths import Path"),
+        "architecture-contract.json": contract_component_field_appended(
+            "app", "public", "shop.app.paths:Path"
+        ),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    absent_unknowns=(("boundary_type_route", "shop.app.paths.Path"),),
+)
+
+
 def _owned_public_payload(value_type: str) -> dict[str, str]:
     contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
     app = next(item for item in contract["components"] if item["label"] == "app")
@@ -1251,6 +1280,7 @@ VARIANTS: tuple[Variant, ...] = (
     _BOUNDARY_TYPES_REEXPORT_ALIASES,
     _BOUNDARY_TYPES_ORDINARY_REEXPORT,
     _BOUNDARY_TYPES_ORDINARY_REEXPORT_CHAIN_UNKNOWN,
+    _PATH_FACADE,
     _BOUNDARY_TYPES_OWNED_PUBLIC_TYPE,
     _BOUNDARY_TYPES_OWNED_PUBLIC_BROAD_FIELD,
     _DATETIME_PAYLOAD,

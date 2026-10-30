@@ -3405,6 +3405,28 @@ def stdlib_member_static(module: ParsedModule, member: ast.stmt) -> bool:
     )
 
 
+def star_facade_static(module: ParsedModule) -> bool:
+    """The body holds star imports, a docstring and an `__all__` built from names; it binds none."""
+    return all(
+        isinstance(node, ast.ImportFrom)
+        and [alias.name for alias in node.names] == ["*"]
+        or isinstance(node, ast.Expr)
+        and isinstance(node.value, ast.Constant)
+        and isinstance(node.value.value, str)
+        # The `__all__` of the facade only steers `from facade import *`, not an attribute read.
+        or isinstance(node, ast.Assign)
+        and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Name)
+        and node.targets[0].id == "__all__"
+        and all(
+            isinstance(item, ast.Name | ast.Attribute | ast.BinOp | ast.Add | ast.Load)
+            or isinstance(item, ast.Tuple | ast.List | ast.Constant)
+            for item in ast.walk(node.value)
+        )
+        for node in module.tree.body
+    )
+
+
 def provider_source_eligible(module: ParsedModule) -> bool:
     if BuiltinImporter.find_spec(module.module) is not None:
         return False

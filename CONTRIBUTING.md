@@ -40,7 +40,7 @@ Target guards; complete Dart and Flutter variant coverage stays in the full chec
 The scheduled **Full verification** workflow runs the complete `make ci` gate, including
 the UML TypeScript compiler check, report timing and gallery generation. It runs the full suite
 on Linux/Python 3.11, collector compatibility on Linux/Python 3.12, a thin Python compatibility
-test set (`make python-compat`) on Python 3.12 and 3.14, and one Windows/Python 3.11
+test set (`make python-compat`) on Python 3.12, 3.13 and 3.14, and one Windows/Python 3.11
 safety check for process and path behavior. TypeScript's Python architecture and browser module
 boundaries stay in the full suite. Manual dispatch uses the same checks.
 Release tags call that workflow before package build and
