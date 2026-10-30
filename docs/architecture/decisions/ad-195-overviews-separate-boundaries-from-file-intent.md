@@ -9,3 +9,5 @@ Keep unassigned code reachable with unchanged identities, findings and UNKNOWN.
 Projects without components retain a code overview. Layout bands declare no
 architecture layers. Prefer readable scale and panning; an overview cannot
 certify crossing-free routes.
+
+**Checks.** None since #680 removed its tests.

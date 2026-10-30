@@ -6,3 +6,5 @@ without changing source text or indentation.
 
 IDs, navigation and report data remain unchanged. Relationship headings retain
 their meaning. Presentation labels cannot replace identity.
+
+**Checks.** None since #680 removed its tests.

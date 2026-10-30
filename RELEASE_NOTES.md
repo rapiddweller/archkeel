@@ -383,4 +383,6 @@ class and inheritance evidence; Nest retains unresolved dynamic imports and fram
 semantics. The demos show these limits, not compiler parity or verified Flutter execution.
 See [demo evidence](docs/architecture-demo.md) and [known limits](docs/known-limits.md).
 
-Older release notes: see the Git history and the GitHub releases.
+# Older releases
+
+See the Git history and the GitHub releases.

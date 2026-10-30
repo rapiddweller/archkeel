@@ -7,3 +7,5 @@ counts; Reset and navigation preserve the intended identities.
 This is a rendering filter. Graphs, evidence, Target intent and Core status remain
 complete, including Diff FAIL. Isolated entities have no connection hit areas.
 Readable zoom and scrolling do not prove global layout quality.
+
+**Checks.** None since #680 removed its tests.

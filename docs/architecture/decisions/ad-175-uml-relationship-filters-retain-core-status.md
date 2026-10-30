@@ -7,3 +7,5 @@ restore the recorded selection.
 
 Filtering changes no graph or Core verdict. Details retain all sites and Diff's
 complete status. Selecting a kind cannot prove clean routing in dense graphs.
+
+**Checks.** None since #680 removed its tests.

@@ -8,3 +8,5 @@ Show kinds in glyphs and breadcrumbs. Details separates view grouping, lexical
 container and recorded source file; observed components retain assigned modules.
 Missing Target file paths remain undeclared. Kind colors stay separate from verdict
 borders. Identities, facts and Core assessments do not change.
+
+**Checks.** None since #680 removed its tests.
