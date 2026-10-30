@@ -872,11 +872,9 @@ def test_every_test_file_belongs_to_one_area_and_ci_runs_every_area() -> None:
 
 
 def test_an_area_selects_only_its_files_and_fails_closed_when_empty() -> None:
-    result, selected = _collected(
-        "--area=dependency rules", "tests/test_layers.py", "tests/test_cli.py"
-    )
+    result, selected = _collected("--area=reports", "tests/test_trace.py", "tests/test_layers.py")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert selected and all(test.startswith("tests/test_layers.py::") for test in selected)
+    assert selected and all(test.startswith("tests/test_trace.py::") for test in selected)
     result, _ = _collected("--area=demo catalog", "tests/test_layers.py")
     assert result.returncode == pytest.ExitCode.USAGE_ERROR, result.stdout + result.stderr
     assert "selects no tests" in result.stderr

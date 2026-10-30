@@ -5,7 +5,7 @@
 **Decision.**
 1. Each CI job has a name that tells what it checks. `All checks passed` is the one CI aggregate.
 2. `tests/areas.py` puts each test file in exactly one named area. Each test job runs one area
-   (`Tests: <area>`), never a numbered shard. Areas are balanced by measured CI time.
+   (`Tests: <area>`), never a numbered shard. The job times are estimates until a CI run measures them.
 3. `make demos` runs every gallery demo in one step of the `Demos` job. The case list comes from
    `gallery_cases()`; no demo name is in a workflow file.
 4. `build_demos` is the only demo runner. The Pages gallery uses it and adds only the index. It

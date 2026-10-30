@@ -190,14 +190,12 @@ jobs:
         area:
           - demo catalog
           - TypeScript collector target
-          - boundary type aliases
           - boundary types
           - Python analysis
-          - CLI, contracts and changes
+          - CLI, contracts and dependency rules
           - type and wire guards
           - collectors
           - call and catalog rules
-          - dependency rules
           - reports
           - self-check and CI
     runs-on: ubuntu-latest

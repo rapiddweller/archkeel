@@ -6,16 +6,15 @@
 from fnmatch import fnmatchcase
 
 # The first area with a matching pattern owns a file, so a specific name comes before its prefix.
-# Areas are balanced by measured CI time: each job takes about 10 minutes or less.
+# Estimated from CI JUnit times: each job takes about 10 minutes. No CI run measured them yet.
 AREAS: dict[str, tuple[str, ...]] = {
     "demo catalog": ("test_architecture_demo.py",),
     "TypeScript collector target": ("test_typescript_control_target.py",),
-    "boundary type aliases": (
-        "test_boundary_type_bound_aliases.py",
+    "boundary types": (
+        "test_boundary_*.py",
         "test_typed_dict_bound_aliases.py",
-        "test_boundary_type_alternative_maps.py",
+        "test_callable_boundaries.py",
     ),
-    "boundary types": ("test_boundary_*.py", "test_callable_boundaries.py"),
     "Python analysis": (
         "test_python_*.py",
         "test_typed_python_*.py",
@@ -43,7 +42,7 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_namespace_scan_cost.py",
         "test_native_violation_filter.py",
     ),
-    "CLI, contracts and changes": (
+    "CLI, contracts and dependency rules": (
         "test_cli*.py",
         "test_onboarding*.py",
         "test_init_first_hour.py",
@@ -75,6 +74,28 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_host_gitlab.py",
         "test_github_*.py",
         "test_initial_pr_check.py",
+        "test_inside_*.py",
+        "test_recursive_*.py",
+        "test_requires_*.py",
+        "test_dependency_*.py",
+        "test_dynamic_dependency_policy.py",
+        "test_exact_*.py",
+        "test_public_api_boundary.py",
+        "test_private_crossings.py",
+        "test_module_object_grants.py",
+        "test_declared_module_targets.py",
+        "test_layers.py",
+        "test_cycle_levels.py",
+        "test_interfaces.py",
+        "test_facade_budgets.py",
+        "test_measurement_budgets.py",
+        "test_nested_*.py",
+        "test_duplication*.py",
+        "test_scoped_dependency_proof.py",
+        "test_selector_validation_performance.py",
+        "test_responsibility_validation.py",
+        "test_unknown_positions.py",
+        "test_type_fanin.py",
     ),
     "type and wire guards": ("test_typed_*.py", "test_*_types.py", "test_codec*.py"),
     "collectors": (
@@ -111,30 +132,6 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_construct_*.py",
         "test_protocol_*.py",
         "test_rule_*.py",
-    ),
-    "dependency rules": (
-        "test_inside_*.py",
-        "test_recursive_*.py",
-        "test_requires_*.py",
-        "test_dependency_*.py",
-        "test_dynamic_dependency_policy.py",
-        "test_exact_*.py",
-        "test_public_api_boundary.py",
-        "test_private_crossings.py",
-        "test_module_object_grants.py",
-        "test_declared_module_targets.py",
-        "test_layers.py",
-        "test_cycle_levels.py",
-        "test_interfaces.py",
-        "test_facade_budgets.py",
-        "test_measurement_budgets.py",
-        "test_nested_*.py",
-        "test_duplication*.py",
-        "test_scoped_dependency_proof.py",
-        "test_selector_validation_performance.py",
-        "test_responsibility_validation.py",
-        "test_unknown_positions.py",
-        "test_type_fanin.py",
     ),
     "reports": (
         "test_report*.py",
