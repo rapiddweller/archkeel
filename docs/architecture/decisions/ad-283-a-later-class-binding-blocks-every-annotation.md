@@ -11,7 +11,7 @@ class fields. The verdict is the same on every host and for every declared Pytho
 The analyzer read a module without the future import as eager: only a binding before the
 annotation counted. A later `object = Hidden` then gave a proven `object` allowance, but the
 3.14 runtime annotation is `Hidden`. The lookup range "whole body" contains the eager range
-"before the annotation", so one rule is correct for 3.11 to 3.14.
+"before the annotation", so one rule covers the class body for 3.11 to 3.14.
 
 **Rejected.**
 - Decide from `requires-python`: lazy only when the range admits 3.14. It changes a verdict only
@@ -22,10 +22,14 @@ annotation counted. A later `object = Hidden` then gave a proven `object` allowa
 **Limits.**
 - A project that never runs on 3.14 gets UNKNOWN where the eager value is provable, for example
   when a method annotation comes before `object = Hidden`, or a binding is deleted later.
-- An annotation-only field named as its type, for example `date: date`, stays UNKNOWN. This was
-  already true with the future import.
+- An annotation-only field named as its type, for example `date: date`, stays UNKNOWN. It does
+  not bind the name, but on 3.14 a `__slots__` entry `"date"` does.
 - Module-level rebindings and `TYPE_CHECKING` imports were already UNKNOWN; this rule does not
   change them. A nested class does not see the namespace of its outer class.
+- The rule reads the class body only. On 3.14 a lazy annotation also sees a write after
+  creation: `__slots__`, `setattr`, a class decorator, or a write to the class or module from
+  another module. Such a write still gives a wrong proof. `source_member_binding_static` is
+  not a fix: construction, `isinstance` and `@dataclass` also make it false.
 - The native creation check (`_deferred_creation_annotation`) keeps the eager rule for a module
   without the future import. That rule asks for an inert annotation, so it stays fail closed.
 

@@ -560,24 +560,24 @@ def _annotation_binding_uncertainties(
     parent: ast.ClassDef | None,
 ) -> dict[str, list[str]]:
     """Keep class/generic lookup uncertainty instead of assuming the module binding wins."""
-    annotations: list[tuple[str, ast.expr | None, ast.stmt]]
+    annotations: list[tuple[str, ast.expr | None]]
     scope: ast.ClassDef | None
     if isinstance(node, ast.ClassDef):
         scope = node
         annotations = [
-            (child.target.id, child.annotation, child)
+            (child.target.id, child.annotation)
             for child in node.body
             if isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name)
         ]
     else:
         scope = parent
         arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
-        annotations = [(argument.arg, argument.annotation, node) for argument in arguments]
+        annotations = [(argument.arg, argument.annotation) for argument in arguments]
         if node.args.vararg:
-            annotations.append((f"*{node.args.vararg.arg}", node.args.vararg.annotation, node))
+            annotations.append((f"*{node.args.vararg.arg}", node.args.vararg.annotation))
         if node.args.kwarg:
-            annotations.append((f"**{node.args.kwarg.arg}", node.args.kwarg.annotation, node))
-        annotations.append(("return", node.returns, node))
+            annotations.append((f"**{node.args.kwarg.arg}", node.args.kwarg.annotation))
+        annotations.append(("return", node.returns))
     generic_names = {
         value
         for owner in (node, scope)
@@ -589,26 +589,15 @@ def _annotation_binding_uncertainties(
         if name == "name"
     }
     uncertain: dict[str, list[str]] = {}
-    for position, annotation, statement in annotations:
+    for position, annotation in annotations:
         if annotation is None:
             continue
         shadowed = sorted(
             name
             for name in _annotation_names(module, annotation)
             if name in generic_names
-            or (
-                scope is not None
-                and (
-                    # A lazy (PEP 649) or deferred annotation sees every binding in the scope.
-                    _binding_may_exist_before(module, scope.body, None, name)
-                    or (
-                        isinstance(statement, ast.AnnAssign)
-                        and statement.value is not None
-                        and isinstance(statement.target, ast.Name)
-                        and statement.target.id == name
-                    )
-                )
-            )
+            # A lazy (PEP 649) or deferred annotation sees every binding in the scope.
+            or (scope is not None and _binding_may_exist_before(module, scope.body, None, name))
         )
         if shadowed:
             uncertain[position] = shadowed

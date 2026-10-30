@@ -105,7 +105,9 @@ Supported annotation and re-export forms are defined by
 Unproved routes, missing annotations, ambiguous bindings and unsupported shapes
 remain UNKNOWN. An uncertain export cannot hide another private-type violation.
 A name that a class body binds at any place makes its class annotations UNKNOWN on every Python
-version, because 3.14 evaluates them lazily (PEP 649). A field `date: date` is one false UNKNOWN
+version, because 3.14 evaluates them lazily (PEP 649). A field `date: date` is one false UNKNOWN.
+On 3.14 a write after creation (`__slots__`, `setattr`, a class decorator, a write from another
+module) also changes a lazy annotation; ArchKeel does not see it
 ([AD-283](architecture/decisions/ad-283-a-later-class-binding-blocks-every-annotation.md)).
 
 Inherited boundary methods follow a uniquely resolved local single-base chain.

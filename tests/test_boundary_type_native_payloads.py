@@ -441,15 +441,20 @@ def test_a_later_class_binding_blocks_lazy_and_deferred_annotations(
     assert unknown.data.get("position") == position
 
 
-@pytest.mark.parametrize("binding_after", [False, True])
+@pytest.mark.parametrize(
+    ("body", "field"),
+    [
+        ("    datetime = Hidden\n    now: datetime\n", "now"),
+        ("    now: datetime\n    datetime = Hidden\n", "now"),
+        ("    datetime: datetime = Hidden()\n", "datetime"),
+    ],
+)
 def test_class_field_scope_uncertainty_is_a_source_fact_for_any_name(
-    tmp_path: Path, binding_after: bool
+    tmp_path: Path, body: str, field: str
 ) -> None:
-    fields = ["    datetime = Hidden\n", "    now: datetime\n"]
     _write_app(
         tmp_path,
-        implementation="class Hidden: pass\nclass Payload:\n"
-        + "".join(reversed(fields) if binding_after else fields),
+        implementation="class Hidden: pass\nclass Payload:\n" + body,
         declared=("sample.app.impl:Payload",),
     )
     result = _observe(tmp_path)
@@ -462,7 +467,7 @@ def test_class_field_scope_uncertainty_is_a_source_fact_for_any_name(
     ]
     uncertainties = payload.data.get("annotation_binding_uncertainties")
     assert uncertainties is not None
-    assert uncertainties.get("now") == ("datetime",)
+    assert uncertainties.get(field) == ("datetime",)
     assert payload.data.get("annotation_scope") == "sample.app.impl.Payload"
 
 
