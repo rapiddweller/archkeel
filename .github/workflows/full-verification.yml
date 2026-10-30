@@ -1,18 +1,37 @@
 name: Full verification
 
+# A PR that changes what Full runs also runs Full.
 on:
   workflow_call:
   workflow_dispatch:
   schedule:
     - cron: "17 2 * * *"
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+      - ".github/actions/**"
+      - Makefile
+      - .python-version
+      - pyproject.toml
+      - uv.lock
+      - tools/browser-runtime/package*.json
+      - tests/areas.py
+      - tests/conftest.py
+      - tests/test_report_pages.py
+      - tools/report_pages.py
+      - tools/report_timing.py
 
 permissions:
   contents: read
 
+concurrency:
+  group: full-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   full-suite-and-reports:
-    name: Logic gates and report gallery
-    runs-on: ubuntu-latest
+    name: Architecture, build and report checks
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Check out source
@@ -39,9 +58,14 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
-      - name: Run logic gates and build the scheduled gallery
-        # Build the gallery only for publication; reuse the measured report in the same make run.
-        run: make ci-check SHARDED_TESTS=1 mermaid ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && 'report-pages' || '' }}
+      - name: Check architecture, lint, types, build, installed CLI and generated assets
+        run: make ci-core-check SKIP_TESTS=1
+
+      - name: Measure architecture report
+        run: make report-timing
+
+      - name: Check documentation diagrams
+        run: make mermaid
 
       - name: Upload latest report evidence
         if: always()
@@ -54,21 +78,68 @@ jobs:
           if-no-files-found: warn
           retention-days: 1
 
-      - name: Upload report site for deployment
-        if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
-        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+      - name: Upload the current report for Pages
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          path: test-artifacts/pages/
+          name: current-report
+          path: |
+            test-artifacts/report-timing/architecture.json
+            test-artifacts/report-timing/architecture.report.html
+            test-artifacts/report-timing/architecture.detail*.html
+          if-no-files-found: error
           retention-days: 1
 
-  full-suite-shards:
-    name: Full suite / shard ${{ matrix.shard }}
-    runs-on: ubuntu-latest
+  demos:
+    name: Demos
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.11.12"
+          version: "0.12.13"
+
+      - name: Install locked dependencies
+        run: uv sync --locked
+
+      - name: Run every gallery demo and check its expected result
+        run: make demos
+
+      - name: Upload the demo gallery for Pages
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: report-gallery
+          path: test-artifacts/pages/
+          if-no-files-found: warn
+          retention-days: 1
+
+  tests:
+    name: "Tests: ${{ matrix.area }}"
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+        # One entry for each area in tests/areas.py.
+        area:
+          - demo catalog
+          - TypeScript collector target
+          - boundary types
+          - Python analysis
+          - CLI, contracts and dependency rules
+          - type and wire guards
+          - collectors
+          - call and catalog rules
+          - reports
+          - self-check and CI
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -94,22 +165,23 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
-      - name: Run full suite shard
-        run: make full-test-shard TEST_SHARD=${{ strategy.job-index }}/${{ strategy.job-total }}
+      - name: Run every test of this area
+        env:
+          AREA: ${{ matrix.area }}
+        run: make full-test AREA="$AREA"
 
       - name: Upload full suite JUnit results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: pytest-results-full-${{ matrix.shard }}
+          name: pytest-results-full-${{ matrix.area }}
           path: test-artifacts/pytest/results.xml
           if-no-files-found: warn
           retention-days: 1
 
   python-compat:
-    name: Python compatibility / Python ${{ matrix.python }}
-    if: ${{ github.event_name != 'pull_request' }}
-    runs-on: ubuntu-latest
+    name: Python ${{ matrix.python }} compatibility
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     # The analyzer reads source with the `ast` of the running interpreter (#724). The files in
     # `make python-compat` cover what differs between versions; the full suite runs on 3.11.
@@ -138,8 +210,8 @@ jobs:
         run: make python-compat TEST_WORKERS=4
 
   collector-safety-windows:
-    name: Collector safety / Windows / Python 3.11.12
-    runs-on: windows-latest
+    name: "Windows: collector safety"
+    runs-on: windows-2025
     timeout-minutes: 10
     env:
       UV_PYTHON: "3.11.12"
@@ -171,9 +243,8 @@ jobs:
         run: make collector-safety SHELL=bash
 
   language-collectors:
-    name: Source collectors / Linux / Python 3.12.10
-    if: ${{ github.event_name != 'pull_request' }}
-    runs-on: ubuntu-latest
+    name: "Linux: source collectors"
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     # Python 3.11 is covered by the full Linux suite; repeat compatibility on 3.12 only.
     env:
@@ -206,102 +277,24 @@ jobs:
         run: make build smoke SHELL=bash
 
   verified:
-    name: Full verification aggregate
-    if: always()
+    name: All Full checks passed
     needs:
       - full-suite-and-reports
-      - full-suite-shards
+      - tests
+      - demos
       - python-compat
       - collector-safety-windows
       - language-collectors
-    runs-on: ubuntu-latest
+    # always(): a skipped aggregate would count as passed, so it must also run when a job fails.
+    if: always()
+    runs-on: ubuntu-24.04
     steps:
-      - name: Require the selected verification jobs
+      - name: Require every Full job
         env:
-          EVENT: ${{ github.event_name }}
-          FULL_RESULT: ${{ needs.full-suite-and-reports.result }}
-          SHARDS_RESULT: ${{ needs.full-suite-shards.result }}
-          COMPAT_RESULT: ${{ needs.python-compat.result }}
-          SAFETY_RESULT: ${{ needs.collector-safety-windows.result }}
-          COLLECTORS_RESULT: ${{ needs.language-collectors.result }}
+          RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
           set -euo pipefail
-          for result in "$FULL_RESULT" "$SHARDS_RESULT" "$SAFETY_RESULT"; do
-          [[ "$result" == success ]] || { echo "A required full-verification job did not succeed: $result" >&2; exit 1; }
+          for result in $RESULTS; do
+            [[ "$result" == success ]] || { echo "A Full job did not succeed: $result" >&2; exit 1; }
           done
-          expected=success
-          if [[ "$EVENT" == pull_request ]]; then expected=skipped; fi
-          [[ "$COMPAT_RESULT" == "$expected" ]] || { echo "Unexpected Python compatibility result: $COMPAT_RESULT (expected $expected)" >&2; exit 1; }
-          [[ "$COLLECTORS_RESULT" == "$expected" ]] || { echo "Unexpected collector compatibility result: $COLLECTORS_RESULT (expected $expected)" >&2; exit 1; }
-
-  prune-report-artifacts:
-    name: Maintain Actions and report artifacts
-    needs: [verified, deploy-report-pages]
-    if: ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      actions: write
-      contents: read
-    concurrency:
-      group: actions-maintenance
-      cancel-in-progress: false
-    steps:
-      - name: Check out trusted main workflow
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-
-      - name: Disable obsolete workflow registrations
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: make prune-workflows DISABLE=true WORKFLOW_PRUNE_DIR="$RUNNER_TEMP/workflow-prune"
-
-      - name: Prune old report artifacts
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: make prune-report-artifacts DELETE=true REPORT_ARTIFACT_PRUNE_DIR="$RUNNER_TEMP/report-artifact-prune"
-
-      - name: Upload workflow maintenance receipt
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: workflow-maintenance-${{ github.job }}
-          path: ${{ runner.temp }}/workflow-prune/plan.json
-          if-no-files-found: warn
-          retention-days: 7
-
-  deploy-report-pages:
-    name: Publish the verified report gallery
-    needs: [full-suite-and-reports, verified]
-    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    concurrency:
-      group: github-pages
-      cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
-
-      # An older rerun must not replace a newer Main report.
-      - name: Read current Main revision
-        id: main
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          head=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
-          echo "sha=$head" >> "$GITHUB_OUTPUT"
-
-      - name: Deploy report
-        if: steps.main.outputs.sha == github.sha
-        id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+          [[ -n "$RESULTS" ]] || { echo "No job results" >&2; exit 1; }

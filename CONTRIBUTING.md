@@ -25,35 +25,65 @@ Only `make flutter-demo-check`, which builds and runs the demo app, needs Flutte
 ## Before you push
 
 ```bash
-make ci-pr-check BASE=origin/main        # policy, lint, types and representative Core tests
+make ci-pr-check BASE=origin/main        # policy, lint, types and a fixed set of Core tests
 make ci-pr-report-check                  # report data and JavaScript logic
 ```
 
 Policy validation runs first. `BASE` also checks widenings and amendments; CI pins the PR base SHA.
 Without `BASE`, the local gate validates only the checked-out policy.
-PRs and Main pushes run the change-selected core and report regression checks; Mermaid checks
-follow Markdown changes. The report sample checks scene/projection data and renderer output.
-Use `make report-browser` for the three local Chromium smokes. Samples do not replace testing the behavior
-you change. The normal core set uses one Dart CLI smoke, one UNKNOWN safety case and four Flutter
-Target guards; complete Dart and Flutter variant coverage stays in the full checks.
+Each PR runs the same fixed set of checks. The report sample checks scene/projection data and
+renderer output. The selected Python tests include unit, integration and CLI tests; each test job
+runs one area. Saved-report tests run in the area test jobs, not again in the report job.
+The `pr-test` list in the `Makefile` names this fixed set file by file and test by test; there is no
+rule that selects it. Use `make report-browser-tests` for the nine local Chromium tests. Samples do not
+replace testing the behavior you change. The core set runs eight whole Dart test files, one Dart
+CLI smoke, one UNKNOWN safety case and five Flutter Target guards; complete Dart and Flutter
+variant coverage stays in the full checks.
 
-The scheduled **Full verification** workflow runs the complete `make ci` gate, including
-the UML TypeScript compiler check, report timing and gallery generation. It runs the full suite
-on Linux/Python 3.11, collector compatibility on Linux/Python 3.12, a thin Python compatibility
+The scheduled **Full verification** workflow runs `make ci-core-check SKIP_TESTS=1`, which
+includes the UML TypeScript compiler check. It also runs `make report-timing`, `make mermaid`
+and `make demos`. It runs the full suite in area jobs on Linux/Python 3.11, collector compatibility on Linux/Python 3.12, a thin Python compatibility
 test set (`make python-compat`) on Python 3.12, 3.13 and 3.14, and one Windows/Python 3.11
 safety check for process and path behavior. TypeScript's Python architecture and browser module
 boundaries stay in the full suite. Manual dispatch uses the same checks.
 Release tags call that workflow before package build and
 publication. Use `make ci BASE=origin/main` locally for the complete gate.
+Jobs run on pinned images (`ubuntu-24.04`, `windows-2025`). A move to a new image is a deliberate
+change: run Full on the branch before you merge it.
 
-Keep five workflow files: CI, Full verification, release, and the two initial-PR
-receipts. Use existing Make targets or dispatch Full verification for diagnostics;
-do not add temporary workflows. The tested file inventory requires an explicit
-reviewed change for a new workflow. Trusted Main maintenance disables active
-file-backed registrations absent from live Main, retaining their run history.
-Use `GITHUB_REPOSITORY=rapiddweller/archkeel make prune-workflows` to preview the
-plan; `DISABLE=true` applies it. A Main change aborts the operation; GitHub provides
-no transaction spanning the ref check and disable request.
+Keep four workflow files: CI, Full verification, Pages and release. Use existing Make targets
+or dispatch Full verification for diagnostics; do not add temporary workflows. The tested file
+inventory requires an explicit reviewed change for a new workflow.
+
+## Where things run
+
+No job has a condition, so no job shows as skipped. Each aggregate runs `always()`: a skipped
+aggregate would count as passed.
+
+| Workflow and job | Runs on | Command to reproduce |
+|---|---|---|
+| CI: Lint, types and architecture | each PR | `make ci-pr-static BASE=origin/main` |
+| CI: Tests: `<area>` | each PR | `make pr-test AREA="<area>"` |
+| CI: Report and renderer tests | each PR | `make ci-pr-report-check` |
+| CI: Docs diagrams | each PR | `make mermaid`; the job also runs `tests/test_mermaid.py` |
+| CI: Demos | each PR | `make demos` |
+| CI: All checks passed | each PR | none: it needs every CI job |
+| Full: Architecture, build and report checks | nightly, dispatch, release, CI-change PR | `make ci SKIP_TESTS=1` |
+| Full: Tests: `<area>` | same as above | `make full-test AREA="<area>"` |
+| Full: Demos | same as above | `make demos` |
+| Full: Python 3.12.10 / 3.14.7 compatibility | same as above | `make python-compat` |
+| Full: Windows: collector safety | same as above | `make collector-safety` on Windows |
+| Full: Linux: source collectors | same as above | `make typescript-native dart-test build smoke` |
+| Full: All Full checks passed | same as above | none: it needs every Full job |
+| Pages: Publish the verified report gallery | after each Full run on `main` | `make report-pages` |
+| Release: Full, build, publish and gallery refresh | each version tag | `make build plugin-release VERSION=<version>` |
+
+A red job means its command failed: run the command in the third column to reproduce it.
+`tests/areas.py` puts each test file in exactly one area. CI runs the `make pr-test` selection;
+Full runs all tests. A PR that changes a path in the `pull_request` filter of
+`full-verification.yml` also runs Full. Pages publishes only a passed Full run of the current
+`main`. It uses the `make demos` and `make report-timing` output of that run, so it builds nothing
+again.
 
 The [published architecture report](https://rapiddweller.github.io/archkeel/) updates after a
 successful scheduled or manual full verification on Main. Reports retain FAIL and UNKNOWN
@@ -63,6 +93,9 @@ Actions** as its publishing source.
 Run `make report-pages` to generate the same site in `test-artifacts/pages/`: an entry page,
 the current report and the Python, Dart and TypeScript demos with shared detail pages and canonical
 JSON. Demo links open in the dark theme; `/demos/` leads to the gallery.
+`make demos` runs every gallery demo with the same code, checks its expected result and
+prints one table. A failed demo does not stop the next one; the run fails at the end.
+
 `make demo-uml OUTPUT=<fresh-directory>` checks the TypeScript fixture with the same
 compiler before generating the Python, Dart and TypeScript UML reports.
 
@@ -139,7 +172,16 @@ Do not rewrite old text only for style. New and changed text follows this standa
 ## Update the agent skill
 
 Edit [skills/archkeel/SKILL.md](skills/archkeel/SKILL.md). The CLI asset links to this source.
-Run `make plugin-directory` to refresh the committed compact plugin; do not edit its copy.
+
+## Plugin files: what is where
+
+The repository root is the plugin. There is no second copy.
+- `plugin.json`: the Codex and agent-plugins manifest.
+- `.claude-plugin/plugin.json`: the Claude Code manifest. Packaging requires the same version.
+- `.claude-plugin/marketplace.json`, `.agents/plugins/marketplace.json`: catalogs with `source ./`.
+- `skills/archkeel/SKILL.md`: the skill source. The CLI asset is a link to it.
+- `docs/assets/archkeel-mark.svg`: the icon, a link to the report asset.
+- `make plugin-release` builds the plugin ZIP from the root for each release tag.
 
 ## Release assets
 

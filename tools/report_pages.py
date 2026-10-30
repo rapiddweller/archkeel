@@ -8,7 +8,10 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import os
 import re
+import time
+import traceback
 from html import escape
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -20,55 +23,86 @@ from fixtures.demo_catalog_typescript import VARIANTS
 from fixtures.reproduce_typescript import repository
 
 
-def build_demos(output: Path) -> None:
+def gallery_cases() -> dict[str, tuple[str, int]]:
+    return {
+        **REPORT_CASES,
+        "dart-clean": ("dart-clean", 0),
+        "dart-tour": ("dart-tour", 2),
+        "typescript-clean": ("typescript-clean", 0),
+    }
+
+
+def build_demos(output: Path) -> list[dict[str, object]]:
+    """Run and check every gallery demo; a failure stops the run only at the end."""
     output.mkdir(parents=True, exist_ok=True)
-    variants = {variant.id: variant for variant in CATALOG}
-    rows: list[dict[str, object]] = []
+    variants = {variant.id: variant for variant in (*CATALOG, *VARIANTS)}
     project_case_ids = {
         case_id
         for group in PROJECT_REPORT_GROUPS
         for case_id in (group["baseline"], *group["variants"])
     }
-    cases = {**REPORT_CASES, "dart-clean": ("dart-clean", 0), "dart-tour": ("dart-tour", 2)}
-    for name, (variant_id, expected_exit) in cases.items():
-        print(f"Building demo: {name} ({variant_id})", flush=True)
-        artifact = output / name / "architecture.json"
-        stdout = io.StringIO()
-        with contextlib.redirect_stdout(stdout):
-            actual = replay(variant_id, artifact)
-        if actual != expected_exit:
-            raise ValueError(f"{variant_id}: expected exit {expected_exit}, got {actual}")
-        results = [
-            json.loads(line)
-            for line in stdout.getvalue().splitlines()
-            if line.startswith("{") and line.endswith("}")
-        ]
-        report = next(item for item in results if item["command"] == "report")
-        rows.append(
-            _entry(
-                name,
-                variants[variant_id].summary,
-                report,
-                artifact,
-                requires_uml=name in project_case_ids,
+    rows: list[dict[str, object]] = []
+    failures: list[str] = []
+    table = [
+        "| demo | expected exit | exit | coverage | rules | seconds |",
+        "|---|---|---|---|---|---|",
+    ]
+    for name, (variant_id, expected_exit) in gallery_cases().items():
+        print(f"::group::demo {name}", flush=True)
+        variant = variants[variant_id]
+        artifact = (output / name / "architecture.json").resolve()
+        exit_code = coverage = rules = None
+        started = time.perf_counter()
+        try:
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                if variant in VARIANTS:
+                    with TemporaryDirectory(prefix="archkeel-pages-") as temporary:
+                        root = repository(Path(temporary), variant)
+                        exit_code = archkeel_main(
+                            ["report", "--root", str(root), "--output", str(artifact), "--json"]
+                        )
+                else:
+                    exit_code = replay(variant_id, artifact)
+            results = [
+                json.loads(line)
+                for line in stdout.getvalue().splitlines()
+                if line.startswith("{") and line.endswith("}")
+            ]
+            report = next(item for item in results if item["command"] == "report")
+            coverage, rules = report["coverage"]["status"], report["declared_rules"]
+            if exit_code != expected_exit:
+                raise ValueError(f"expected exit {expected_exit}, got {exit_code}")
+            expected_rules = variant.expected_declared_rules
+            if expected_rules is not None and rules != expected_rules:
+                raise ValueError(f"expected rules {expected_rules}, got {rules}")
+            rows.append(
+                _entry(
+                    name, variant.summary, report, artifact, requires_uml=name in project_case_ids
+                )
             )
+        except Exception as error:
+            traceback.print_exc()
+            failures.append(f"{name}: {error}")
+        seconds = time.perf_counter() - started
+        print(
+            f"{name}: exit {exit_code} (expected {expected_exit}), coverage {coverage}, "
+            f"rules {rules}, {seconds:.1f} s\n::endgroup::",
+            flush=True,
         )
-
-    variant = next(item for item in VARIANTS if item.id == "typescript-clean")
-    print(f"Building demo: {variant.id} ({variant.id})", flush=True)
-    artifact = (output / variant.id / "architecture.json").resolve()
-    with TemporaryDirectory(prefix="archkeel-pages-") as temporary:
-        root = repository(Path(temporary), variant)
-        stdout = io.StringIO()
-        with contextlib.redirect_stdout(stdout):
-            actual = archkeel_main(
-                ["report", "--root", str(root), "--output", str(artifact), "--json"]
-            )
-        result = json.loads(stdout.getvalue().splitlines()[-1])
-        if actual != 0 or result["declared_rules"] != variant.expected_declared_rules:
-            raise ValueError(f"{variant.id}: unexpected report result")
-    rows.append(_entry(variant.id, variant.summary, result, artifact, requires_uml=False))
-    _write_index(output, rows)
+        table.append(
+            f"| {name} | {expected_exit} | {exit_code} | {coverage} | {rules} | {seconds:.1f} |"
+        )
+    text = "\n".join(table) + "\n"
+    if failures:
+        text += "\nFailed demos:\n" + "".join(f"- {failure}\n" for failure in failures)
+    print(text, flush=True)
+    if summary := os.environ.get("GITHUB_STEP_SUMMARY"):
+        with Path(summary).open("a", encoding="utf-8") as stream:
+            stream.write(text)
+    if failures:
+        raise ValueError(f"{len(failures)} demo(s) failed: " + "; ".join(failures))
+    return rows
 
 
 def _entry(
@@ -300,4 +334,8 @@ runnable control, not a full-project demo.</p>
 
 
 if __name__ == "__main__":
-    build_demos(Path("test-artifacts/pages/demos"))
+    output = Path("test-artifacts/pages/demos")
+    try:
+        _write_index(output, build_demos(output))
+    except ValueError as error:
+        raise SystemExit(str(error)) from None

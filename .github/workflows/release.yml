@@ -18,14 +18,11 @@ jobs:
   verify:
     uses: ./.github/workflows/full-verification.yml
     permissions:
-      actions: write
       contents: read
-      pages: write
-      id-token: write
 
   build:
     needs: verify
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -68,7 +65,7 @@ jobs:
 
   publish:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: pypi
     permissions:
@@ -109,7 +106,7 @@ jobs:
   refresh-report-gallery:
     name: Verify and publish current Main reports
     needs: publish
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       actions: write

@@ -72,12 +72,11 @@ geometry. Use them rather than copying a second specification here.
 make report-browser-tests
 ```
 
-Three optional local Chromium smokes cover findings links, keyboard navigation
-and unsafe-content escaping. CI checks data, projection and layout logic directly with
+Nine optional local Chromium tests cover findings, keyboard navigation, boundary
+permissions with unsafe-content escaping, and the first screen. CI checks data, projection and layout logic directly with
 Python and Node. Review the Nightly gallery for visual changes; these logic
 checks do not prove browser rendering or interaction.
 
-Terminal captures use `make demo OUTPUT=<fresh-directory>` followed by
-`uv run --locked python -m tools.terminal_svg <fresh-directory>`.
-The older `make demo-screenshots` target requires Firefox and stays outside
-`make check`. Human review effectiveness needs the [pilot](review-pilot.md).
+`make demo-screenshots OUTPUT=<fresh-directory>` takes PNG screenshots of the demo
+reports. It requires Firefox and stays outside `make check`.
+Human review effectiveness needs the [pilot](review-pilot.md).
