@@ -28,19 +28,24 @@ the target also gave PASS, because a subscript store has no write record.
 | any subscript store or delete | `catalog_argument` | PASS | UNKNOWN | correct |
 | returns another parameter that got the member | `catalog_argument` | PASS | UNKNOWN | correct |
 | a slice bound, a truth test or `.value` of a parameter | `catalog_argument` | PASS | UNKNOWN | strict |
-| only comparisons and subscript indexes of the parameters | `catalog_argument` | PASS | PASS | correct |
+| only comparisons and subscript indexes of the parameters | `catalog_argument` | PASS | PASS | limit |
 
 An attribute store, a global store and a call to another function were UNKNOWN before. They stay
-UNKNOWN.
+UNKNOWN. A method that reads `self` stays UNKNOWN. The kind `limit` marks a PASS that the Limits
+below can make wrong.
 
 **Rejected.**
 - Record a fact for each parameter read. It adds many records, and the policy needs one answer.
 - Follow the returned value to its callers. It needs a data-flow analysis for one rule.
 - Check only the selected parameter. The policy accounts a member at any formal.
 
-**Limits.** A comparison or an index runs `__eq__`, `__contains__` or `__getitem__` of the other
-operand. The collector does not follow these methods, so a custom operand can change the member
-and still give PASS.
+**Limits.** These still give PASS:
+- A comparison or an index runs `__eq__`, `__contains__` or `__getitem__` of the other operand.
+  The collector does not follow these methods, so a custom operand can change the member.
+- Any subscript index can give the member away or keep it, also on a standard library operand:
+  - `dict`: a missing key raises `KeyError(member)`, and a caller that catches it gets the member.
+  - `defaultdict`: a read inserts the member as a key.
+  - `list[key]`: the `GenericAlias` keeps the member in `__args__`.
 
 **Check.**
 - Tests: `tests/test_catalog_target_parameters.py` (`test_target_that_gives_away_*`,
