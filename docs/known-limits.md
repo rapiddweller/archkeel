@@ -104,6 +104,16 @@ Supported annotation and re-export forms are defined by
 [boundary tests](../tests/test_boundary_types_facades.py) and [rules](rules.md).
 Unproved routes, missing annotations, ambiguous bindings and unsupported shapes
 remain UNKNOWN. An uncertain export cannot hide another private-type violation.
+A name that a class-body statement binds at any place makes its class annotations UNKNOWN on
+every Python version, because 3.14 evaluates them lazily (PEP 649). A `locals()`, `vars()`,
+`globals()`, `exec` or `eval` in the class body makes every class annotation UNKNOWN.
+A field `date: date` is one false UNKNOWN. ArchKeel does not see these writes outside the class
+body ([#775](https://github.com/rapiddweller/archkeel/issues/775)):
+- On 3.14: `__slots__`, `setattr`, a class decorator, a write from another module, a module-level
+  `globals()['object'] = Hidden`, and `global object; object = Hidden` in a method.
+- On every version: a metaclass `__prepare__` that puts the name in the class namespace.
+
+See [AD-283](architecture/decisions/ad-283-a-later-class-binding-blocks-every-annotation.md).
 
 Inherited boundary methods follow a uniquely resolved local single-base chain.
 Inherited fields and full MRO are unproved. External API closure has a separate

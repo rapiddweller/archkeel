@@ -40,6 +40,7 @@ from .source import (
     add_evidence,
     admitted_type_alias_value,
     annotation_text,
+    class_body_exposes_namespace,
     class_definition_expressions,
     class_header_static,
     decorator_names,
@@ -528,28 +529,26 @@ def _member_write_scope_evidence(
     return evidence_id
 
 
-def _annotation_name_lookups(
-    module: ParsedModule, annotation: ast.expr, *, deferred: bool
-) -> dict[str, bool]:
-    """Collect referenced names and whether any occurrence needs deferred lookup."""
-    names: dict[str, bool] = {}
-    pending = [(annotation, deferred, True)]
+def _annotation_names(module: ParsedModule, annotation: ast.expr) -> set[str]:
+    """Collect the names that an annotation, or a quoted type in it, references."""
+    names: set[str] = set()
+    pending = [(annotation, True)]
     while pending:
-        expression, lookup_deferred, decode_quoted = pending.pop()
+        expression, decode_quoted = pending.pop()
         if isinstance(expression, ast.Name):
-            names[expression.id] = names.get(expression.id, False) or lookup_deferred
+            names.add(expression.id)
         decoded = quoted_type_expression(expression) if decode_quoted else None
         if decoded is not None:
-            pending.append((decoded, True, True))
+            pending.append((decoded, True))
         elif isinstance(expression, ast.Subscript) and _resolve_static_name(
             module, expression.value
         ) in {"typing.Literal", "typing_extensions.Literal"}:
             # Literal values still bind names; string values are not quoted types.
-            pending.append((expression.value, lookup_deferred, decode_quoted))
-            pending.append((expression.slice, lookup_deferred, False))
+            pending.append((expression.value, decode_quoted))
+            pending.append((expression.slice, False))
         else:
             pending.extend(
-                (child, lookup_deferred, decode_quoted)
+                (child, decode_quoted)
                 for child in ast.iter_child_nodes(expression)
                 if isinstance(child, ast.expr)
             )
@@ -562,24 +561,24 @@ def _annotation_binding_uncertainties(
     parent: ast.ClassDef | None,
 ) -> dict[str, list[str]]:
     """Keep class/generic lookup uncertainty instead of assuming the module binding wins."""
-    annotations: list[tuple[str, ast.expr | None, ast.stmt]]
+    annotations: list[tuple[str, ast.expr | None]]
     scope: ast.ClassDef | None
     if isinstance(node, ast.ClassDef):
         scope = node
         annotations = [
-            (child.target.id, child.annotation, child)
+            (child.target.id, child.annotation)
             for child in node.body
             if isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name)
         ]
     else:
         scope = parent
         arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
-        annotations = [(argument.arg, argument.annotation, node) for argument in arguments]
+        annotations = [(argument.arg, argument.annotation) for argument in arguments]
         if node.args.vararg:
-            annotations.append((f"*{node.args.vararg.arg}", node.args.vararg.annotation, node))
+            annotations.append((f"*{node.args.vararg.arg}", node.args.vararg.annotation))
         if node.args.kwarg:
-            annotations.append((f"**{node.args.kwarg.arg}", node.args.kwarg.annotation, node))
-        annotations.append(("return", node.returns, node))
+            annotations.append((f"**{node.args.kwarg.arg}", node.args.kwarg.annotation))
+        annotations.append(("return", node.returns))
     generic_names = {
         value
         for owner in (node, scope)
@@ -590,35 +589,18 @@ def _annotation_binding_uncertainties(
         for name, value in ast.iter_fields(parameter)
         if name == "name"
     }
-    deferred = any(
-        isinstance(child, ast.ImportFrom)
-        and child.module == "__future__"
-        and any(alias.name == "annotations" for alias in child.names)
-        for child in module.tree.body
-    )
+    dynamic = scope is not None and class_body_exposes_namespace(module, scope)
     uncertain: dict[str, list[str]] = {}
-    for position, annotation, statement in annotations:
+    for position, annotation in annotations:
         if annotation is None:
             continue
-        names = _annotation_name_lookups(module, annotation, deferred=deferred)
         shadowed = sorted(
             name
-            for name in names
-            if name in generic_names
-            or (
-                scope is not None
-                and (
-                    _binding_may_exist_before(
-                        module, scope.body, None if names[name] else statement, name
-                    )
-                    or (
-                        isinstance(statement, ast.AnnAssign)
-                        and statement.value is not None
-                        and isinstance(statement.target, ast.Name)
-                        and statement.target.id == name
-                    )
-                )
-            )
+            for name in _annotation_names(module, annotation)
+            if dynamic
+            or name in generic_names
+            # A lazy (PEP 649) or deferred annotation sees every binding in the scope.
+            or (scope is not None and _binding_may_exist_before(module, scope.body, None, name))
         )
         if shadowed:
             uncertain[position] = shadowed

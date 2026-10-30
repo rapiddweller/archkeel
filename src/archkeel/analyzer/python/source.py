@@ -1096,10 +1096,18 @@ def class_header_static(node: ast.ClassDef) -> bool:
     return not node.decorator_list and not node.keywords
 
 
+def class_body_exposes_namespace(module: ParsedModule, owner: ast.ClassDef) -> bool:
+    """Whether the class body can bind a name that no statement spells (`locals()`, `exec`)."""
+    return any(
+        exposes_dynamic_namespace(module, node, local_namespace=True)
+        for node in _module_scope_nodes(ast.Module(body=owner.body, type_ignores=[]))
+    )
+
+
 def _class_members_receive_owner(module: ParsedModule, owner: ast.ClassDef) -> bool:
+    if class_body_exposes_namespace(module, owner):
+        return True
     for node in _module_scope_nodes(ast.Module(body=owner.body, type_ignores=[])):
-        if exposes_dynamic_namespace(module, node, local_namespace=True):
-            return True
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             _, signature_proven = _method_signature(module, node, owner)
             if signature_proven is not True and node not in property_bindings(module, owner):

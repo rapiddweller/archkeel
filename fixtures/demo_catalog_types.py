@@ -496,6 +496,28 @@ _NATIVE_PAYLOAD_NEIGHBORS = Variant(
     expected_codes=("rule.violated",) * 5,
 )
 
+_NATIVE_PAYLOAD_LAZY_SHADOW = Variant(
+    id="class-a-boundary-types-native-payload-lazy-shadow",
+    section="class_a",
+    item="boundary_types:lazy_annotation_shadow_unknown",
+    summary="A later class binding replaces object in the allowed payload annotation on Python "
+    "3.14 (PEP 649). The position stays UNKNOWN on every runtime (AD-283).",
+    files={
+        **_NATIVE_PAYLOAD_ALLOWED.files,
+        "shop/app/reports.py": HEADER
+        + (
+            "class _Hidden:\n    pass\n\n\n"
+            "class Converter:\n"
+            "    def convert(self, value: object) -> str: return str(value)\n"
+            "    object = _Hidden\n"
+        ),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("boundary_type_position", "shop.app.reports.Converter.convert"),),
+    expected_declared_rules="UNKNOWN",
+)
+
 _BOUNDARY_TYPES_MIXED_EVIDENCE = Variant(
     id="class-a-boundary-types-mixed-evidence",
     section="class_a",
@@ -1273,6 +1295,7 @@ VARIANTS: tuple[Variant, ...] = (
     _SHADOWED_DICT_ALLOWED,
     _NATIVE_PAYLOAD_ALLOWED,
     _NATIVE_PAYLOAD_NEIGHBORS,
+    _NATIVE_PAYLOAD_LAZY_SHADOW,
     _BOUNDARY_TYPES_MIXED_EVIDENCE,
     _BOUNDARY_TYPES_DECLARED,
     _BOUNDARY_TYPES_IN_COLLECTION,
