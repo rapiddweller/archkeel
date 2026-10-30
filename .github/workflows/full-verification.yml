@@ -39,15 +39,8 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
-      - name: Remove old local build outputs
-        run: make ci-artifacts-clean
-
-      - name: Check architecture, lint, types, package build and installed CLI
-        run: make gate SHARDED_TESTS=1
-
-      - name: Check TypeScript fixture and generated browser assets
-        # The preceding gate already installs the browser runtime.
-        run: make -o browser-runtime-install typescript-compiler-check browser-graph-check ci-typescript browser-runtime-check typescript-libs-check
+      - name: Check architecture, lint, types, build, installed CLI and generated assets
+        run: make ci-core-check SHARDED_TESTS=1
 
       - name: Measure architecture report
         if: ${{ !((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') }}
@@ -163,7 +156,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: pytest-results-full-${{ strategy.job-index }}
+          name: pytest-results-full-${{ matrix.area }}
           path: test-artifacts/pytest/results.xml
           if-no-files-found: warn
           retention-days: 1

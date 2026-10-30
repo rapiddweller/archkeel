@@ -384,14 +384,14 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     jobs = dict(zip(parts[1::2], parts[2::2], strict=True))
     check = jobs["check"]
     assert "name: All checks passed" in check
-    needs = "[changes, lint, architecture, tests, pr-report-check, mermaid, full-verification]"
+    needs = "[changes, lint, tests, pr-report-check, mermaid, full-verification]"
     assert f"needs: {needs}" in check
     assert "if: ${{ always() }}" in check
     assert (
         "- name: Fail required check after workflow cancellation\n        if: cancelled()" in check
     )
-    for area in ("lint", "architecture", "tests", "report", "mermaid", "full"):
-        assert f"verify_area {area} " in check
+    for job in ("lint", "tests", "report", "mermaid", "full"):
+        assert f"verify_job {job} " in check
     assert "continue-on-error" not in check
     assert "make report-pages" not in workflow
     full_call = jobs["full-verification"]
@@ -403,10 +403,9 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     assert "collector-safety-windows:" not in workflow
     assert "prune-report-artifacts:" not in workflow
     for job_id, area, command in (
-        ("lint", "core", "make lint typecheck browser-architecture-check"),
-        ("architecture", "core", "make against; else make self-validate"),
+        ("lint", "core", 'make ci-pr-static BASE="$BASE"'),
         ("tests", "core", 'make pr-test AREA="$AREA"'),
-        ("pr-report-check", "report", "make pr-report-test"),
+        ("pr-report-check", "report", "make ci-pr-report-check"),
     ):
         job = jobs[job_id]
         assert "needs: changes" in job
@@ -415,7 +414,7 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
         assert "permissions:\n      contents: read" in job
         assert command in job
     assert "fail-fast: false" in jobs["tests"]
-    assert "BASE: ${{ github.event.pull_request.base.sha }}" in jobs["architecture"]
+    assert "BASE: ${{ github.event.pull_request.base.sha }}" in jobs["lint"]
     assert "Install Dart SDK" not in jobs["pr-report-check"]
     assert "cancel-in-progress: ${{ github.event_name == 'pull_request' }}" in workflow
     assert "needs.changes.outputs.mermaid == 'true'" in jobs["mermaid"]
@@ -456,7 +455,7 @@ def test_ci_workflow_keeps_fast_required_checks_and_routes_full_verification() -
     assert "${{ needs.full-suite-and-reports.result }}" in full
     # The full suite runs as parallel area jobs; the gate job skips it (SHARDED_TESTS=1).
     assert "${{ needs.tests.result }}" in full
-    assert "make gate SHARDED_TESTS=1" in full
+    assert "make ci-core-check SHARDED_TESTS=1" in full
     assert 'make full-test AREA="$AREA"' in full
     assert "${{ needs.collector-safety-windows.result }}" in full
     assert "${{ needs.language-collectors.result }}" in full
@@ -522,7 +521,6 @@ def test_check_aggregate_executes_exact_workflow_script_fail_closed() -> None:
         "MERMAID": "true",
         "FULL": "false",
         "LINT_RESULT": "success",
-        "ARCHITECTURE_RESULT": "success",
         "TESTS_RESULT": "success",
         "REPORT_RESULT": "success",
         "MERMAID_RESULT": "success",
@@ -597,10 +595,10 @@ def test_check_aggregate_executes_exact_workflow_script_fail_closed() -> None:
         ("one core job skipped", {"LINT_RESULT": "skipped"}, 1),
     )
     for label, overrides, expected in cases:
-        # CORE_RESULT stands for the three core jobs unless a case sets one of them.
+        # CORE_RESULT stands for both core jobs unless a case sets one of them.
         if "CORE_RESULT" in overrides:
             core = overrides.pop("CORE_RESULT")
-            overrides |= dict.fromkeys(("LINT_RESULT", "ARCHITECTURE_RESULT", "TESTS_RESULT"), core)
+            overrides |= dict.fromkeys(("LINT_RESULT", "TESTS_RESULT"), core)
         values = {
             **baseline,
             **{key: value for key, value in overrides.items() if value is not None},
