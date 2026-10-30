@@ -982,8 +982,8 @@ from that target.
   violation (AD-18).
 - **Measured on a real service.** A 13-component internal service was onboarded by interview and,
   blind, in auto mode: 156 pair decisions each, first reports FAIL with 162 and 199 violations, and
-  the agent matched 140 of the architect's 156 decisions before review. Anonymized evidence and the
-  findings that did not work are in `docs/evidence/internal-service/`.
+  the agent matched 140 of the architect's 156 decisions before review. The anonymized evidence is
+  in the Git history.
 
 ## Breaking changes
 
