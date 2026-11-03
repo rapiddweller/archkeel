@@ -47,7 +47,8 @@ def run_view(
         pages = render_architecture_pages(
             report,
             snapshot,
-            repository=", ".join(observation.source.scope),
+            # The snapshot names no repository; the page heading names the view.
+            repository=result.title,
             architecture_href=_SNAPSHOT_NAME,
             view_check=text,
         )
