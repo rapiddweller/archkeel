@@ -873,9 +873,9 @@ def _atlas_inventory(observation: Observation) -> str:
         f"components · {len(observation.records('modules') or ())} modules · "
         f"{observation.coverage.files_parsed} files parsed · largest by modules: {largest}"
         f"{f' and {len(rest)} more' if rest else ''} · entry modules: {entry_text}.</p>"
-        '<details class="inventory-table"><summary>Inventory table: edges, entry modules and '
-        "names other components import. Incoming and outgoing count module import edges."
-        f'</summary><div class="table-wrap"><table class="data-table">{head}'
+        '<details class="inventory-table"><summary>Inventory table</summary><p>Incoming and '
+        "outgoing count module import edges; names are those other components import.</p>"
+        f'<div class="table-wrap"><table class="data-table">{head}'
         f"<tbody>{''.join(shown)}</tbody></table></div>{more}</details></section>"
     )
 
@@ -933,7 +933,7 @@ def _path_block(path: CyclePath | None) -> str:
     return f'<ol class="finding-path" aria-label="Cycle path">{steps}</ol>{omitted}'
 
 
-def _atlas_findings(result: RunResult, observation: Observation) -> str:
+def _atlas_findings(result: RunResult, observation: Observation, *, closed: bool = False) -> str:
     """The ranked list the report opens with, readable without JavaScript (AD-258)."""
     note = findings_note(result)
     if result.findings is None:
@@ -985,10 +985,16 @@ def _atlas_findings(result: RunResult, observation: Observation) -> str:
         if rest
         else ""
     )
-    return (
-        f'<section aria-labelledby="findings-heading">{heading}'
-        f'<ol class="findings-list">{"".join(shown)}</ol>{hidden}</section>'
-    )
+    listed = f'<ol class="findings-list">{"".join(shown)}</ol>{hidden}'
+    if closed:
+        # AD-285: the observed overview leads, so the Explorer fits an 800x600 first screen.
+        return (
+            '<details class="atlas-findings"><summary><h2 id="findings-heading" '
+            f'style="display:inline">Findings · {len(result.findings)}</h2></summary>'
+            + ("" if note is None else f'<p class="findings-note">{_text(note)}</p>')
+            + f"{listed}</details>"
+        )
+    return f'<section aria-labelledby="findings-heading">{heading}{listed}</section>'
 
 
 def _atlas_structure_overview(
@@ -1037,7 +1043,7 @@ def _atlas_content(
         if detail_page
         else _atlas_verdict_line(result, observation)
         + (_atlas_inventory(observation) if result.target is TargetStatus.UNAVAILABLE else "")
-        + _atlas_findings(result, observation)
+        + _atlas_findings(result, observation, closed=result.target is TargetStatus.UNAVAILABLE)
     )
     return f"""<section class="report-heading atlas-heading">
       <div><span class="eyebrow">ArchQ Explorer</span><h1>{_text(repository)}</h1>

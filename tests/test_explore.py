@@ -363,3 +363,22 @@ def test_explore_reads_a_typescript_project_through_the_init_options(
     assert code == 0, payload["diagnostics"]
     assert payload["target"] == "unavailable"
     assert architecture_report(_snapshot(tmp_path / "out" / "architecture.json")).memberships
+
+
+def test_explore_keeps_its_findings_one_click_away(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cyclic = {
+        **_SOURCES,
+        "shop/store/repository.py": "import shop.app.orders\n\n\ndef save(value: int) -> int:\n"
+        "    return value\n",
+    }
+    root = _repository(tmp_path / "repo", cyclic)
+
+    code, payload = _explore(capsys, "--root", str(root), "--output", str(tmp_path / "out"))
+
+    assert code == 0, payload["diagnostics"]
+    assert payload["findings"]
+    page = (tmp_path / "out" / "architecture.report.html").read_text()
+    # AD-285: closed findings keep the Explorer on an 800x600 first screen.
+    assert '<details class="atlas-findings"><summary><h2 id="findings-heading"' in page

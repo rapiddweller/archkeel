@@ -4,8 +4,8 @@
 
 **Decision.**
 1. `archkeel explore [--root PATH] [--output DIR] [--json]` needs no ArchKeel file and no setup.
-2. Scope: the `init` options `--language`, `--source`, `--namespace` and `--tsconfig` (one
-   definition), else the `init` detection (AD-47) of the one top-level Python package.
+2. Scope: the `init` options `--language`, `--source`, `--namespace`, `--tsconfig` (one
+   definition), else `init` detection (AD-47) of one Python package; TS and Dart need options.
 3. Grouping: a temporary contract `archkeel-explore-layout.json` outside the repository has one
    component for each top-level child (the `init` grouping); its provenance is that file. It has
    no rule, `public`, `requires` or decision. The collector runs once for both passes.
@@ -19,27 +19,27 @@
 6. Identity: `source.git_head`, `source.dirty`, `source.source_digest` (worktree content),
    `analyzer.version`, `analyzer.code_digest`; the result adds `root_name` (basename) and
    `root_digest` (sha256 of the resolved root, 16 hex), never the absolute path.
-7. In this mode one line comes above the findings: counts, the 8 largest components with their
-   module counts, and the `__main__` modules. A closed table adds edges and the count of names
-   other components import, with an "N more" part. This amends AD-264 for this mode only.
+7. In this mode one line comes first: counts, the 8 largest components with their module
+   counts, and the `__main__` modules. A closed table adds edges and names other components
+   import ("N more" for the rest); the findings start closed, so the Explorer fits at 800x600.
+   This amends AD-264 and AD-258 for this mode only.
 8. Exit 0: complete. Exit 2: no scope, no Git commit, output inside the root, incomplete coverage.
 
 **Graph for a view check.** `architecture_report(parse_observation(...))`: `observed` has
-entities with a stable `id` (`MOD-`, `SYM-`, ...) and a `kind`, and relationships with a `kind`
-(`imports`, `calls`, ...), `source_id` to `target_id`, a `resolution` and `evidence_ids` (file,
-line); `memberships` map each `COMP-` id to its `MOD-` ids.
+entities (stable `id` such as `MOD-`, `SYM-`; a `kind`) and relationships (`kind` such as
+`imports` or `calls`, `source_id` to `target_id`, `resolution`, `evidence_ids`); `memberships`
+map each `COMP-` id to its `MOD-` ids.
 
-**Reason.** `report` without `archkeel.toml` exits 2 and asks for `init`, which writes a draft. A
-newcomer must see what is there first. A contract with no rule decides nothing; PASS is false.
+**Reason.** `report` without `archkeel.toml` exits 2 and asks for `init`, which writes a draft.
+A newcomer must see what is there first. A contract with no rule decides nothing.
 
 **Rejected.** A second renderer or a server. An implicit `init` or a contract file in the
 repository. Components from a file walk (a second collector). A mark by contract file name.
 
 **Limits.**
-- TypeScript and Dart need the scope options; they are not detected.
 - `root_name` and `root_digest` are in the result, not in `architecture.json` (an exact header).
 - `--only architecture` gives `UNKNOWN` without `target`: its published schema is byte-exact.
-- Imports are not calls or a runtime order; an unresolved call stays a coverage gap.
-- Entry points are `__main__` modules only. Git can refresh its index file during a run.
+- Imports are not calls or a runtime order; an unresolved call stays a coverage gap. Entry points
+  are `__main__` modules only. Git can refresh its index file in a run.
 
 **Checks.** `tests/test_explore.py` and the demo row `explore-contract-free`.
