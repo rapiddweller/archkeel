@@ -38,7 +38,7 @@
    (AD-286); other spec nodes in a second column; «component» or «module» on each card. The
    layout engine routes the edges.
 7. No contract (`explore`, #791): the flow view prints no PASS and shows each status with its reason.
-   Target controls stay as `explore` sets them; `declared_rules` cannot mark "no contract".
+   Open: disabling Target and Diff needs a typed "target unavailable" field in the page data.
 8. Keyboard: Tab reaches each step card in order, Enter opens the inspector, Esc closes it.
 
 **Rejected.** `view check --html`: a check verb must not write files. A second renderer or a

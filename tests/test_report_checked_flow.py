@@ -101,6 +101,10 @@ def test_a_view_opens_with_each_step_edge_and_mark(pages):
         assert any("✕ not in the code" in text for text in labels)
         payments = page.get_by_role("button", name=re.compile(r"^shop\.app\.payments, "))
         assert "not in the code" in payments.text_content()
+        assert "no component or module has this id" in payments.get_attribute("aria-label")
+        payments.press("Enter")
+        assert "not a step" in page.locator(".flow-inspector").inner_text().lower()
+        page.keyboard.press("Escape")
         # Author notes carry an Author mark on the card.
         assert "Author" in _step(page, 1).text_content()
         assert "PASS" not in page.locator(".flow-layout").inner_text()

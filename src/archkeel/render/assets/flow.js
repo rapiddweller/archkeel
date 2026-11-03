@@ -2972,7 +2972,8 @@ export let flow;
   };
   const VIEW_DASHES = { proven: "none", declared: "12 4", claim: "6 4", unknown: "2 4", missing: "8 3 2 3" };
   const OBSERVATION_WORDS = { PASS: "complete", FAIL: "incomplete" };
-  const flowCardId = (selection) => selection.kind === "step" ? `step-${selection.index + 1}` : null;
+  const flowCardId = (selection) => selection.kind === "step" ? `step-${selection.index + 1}`
+    : selection.kind === "node" ? `node-${selection.index}` : null;
 
   function flowScene() {
     const checks = new Map(VIEW.nodes.map((node) => [node.id, node]));
@@ -3044,6 +3045,11 @@ export let flow;
         <h3>Node</h3><p class="view-mark" data-view-status="${esc(node.status)}">${esc(VIEW_MARKS[node.status])}</p><p>${esc(node.reason)}</p>
         <h3>${selection.index ? `From step ${selection.index}` : "First step"}</h3>${selection.index ? flowCheckMarkup(step)
           : step.note ? `<p class="view-author"><span class="view-author-mark">Author</span> ${esc(step.note)}</p>` : ""}${snapshot}`;
+    } else if (selection?.kind === "node") {
+      const node = VIEW.nodes[selection.index];
+      inspectorContent.innerHTML = `<div class="kicker">Checked flow · Node, not a step</div>
+        <h2 tabindex="-1">${esc(node.id)}</h2><p>«${esc(node.kind || "reference")}»${node.file ? ` · <code>${esc(node.file)}</code>` : ""}</p>
+        <p class="view-mark" data-view-status="${esc(node.status)}">${esc(VIEW_MARKS[node.status])}</p><p>${esc(node.reason)}</p>${snapshot}`;
     } else if (selection?.kind === "edge") {
       const edge = VIEW.edges[selection.index];
       inspectorContent.innerHTML = `<div class="kicker">Checked flow · Edge</div>
@@ -3106,11 +3112,12 @@ export let flow;
         group.setAttribute("aria-pressed", String(selected === node.id));
         group.setAttribute("aria-label", step
           ? `Step ${node.card.index + 1}: ${check.id}, ${VIEW_MARKS[check.status]}${node.card.index ? `; from step ${node.card.index}: ${VIEW_MARKS[step.status]}` : ""}`
-          : `${check.id}, ${VIEW_MARKS[check.status]}, not a step`);
-        const selection = step ? { kind: "step", index: node.card.index } : null;
-        group.addEventListener("click", (event) => { event.stopPropagation(); if (selection) selectFlow(selection, true); });
+          : `${check.id}, ${VIEW_MARKS[check.status]}, not a step: ${check.reason}`);
+        const selection = step ? { kind: "step", index: node.card.index }
+          : { kind: "node", index: VIEW.nodes.indexOf(check) };
+        group.addEventListener("click", (event) => { event.stopPropagation(); selectFlow(selection, true); });
         group.addEventListener("keydown", (event) => {
-          if (event.key === "Enter" && selection) { event.preventDefault(); selectFlow(selection, true); }
+          if (event.key === "Enter") { event.preventDefault(); selectFlow(selection, true); }
         });
       },
       edge(drawn, route) {
