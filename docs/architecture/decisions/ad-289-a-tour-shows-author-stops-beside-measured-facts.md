@@ -29,7 +29,8 @@
    marks the card of the stop and centres it. The Details panel shows "Stop n of N", the
    title, an "Author ✎" block and a "Measured" block, apart. The Measured block gives counts
    and record ids and never says PASS. Previous and Next, ArrowLeft and ArrowRight move; Esc
-   goes back to the checked flow.
+   goes back to the checked flow. With a Tour button the top bars use two rows up to an
+   Explorer width of 1460 px, so no bar covers another.
 7. URL: `tour=<n>` opens stop n. A page with stops and no `view`, `flow` or `tour` parameter
    opens the tour at stop 1, because the first contact comes before a flow. `flow=1` still
    opens the flow. This amends AD-287 item 3.
@@ -51,6 +52,7 @@ its text has no authority. Facts beside each stop let the reader check the stop 
 - `imports_in` is a lower bound when any other module has an import gap.
 - A stop on a large component lists each import site, so the page grows with it.
 - A stop order is author text: it is not runtime order.
+- The Details button can close the tour panel; the arrow keys still move between stops.
 
 **Checks.** `tests/test_cli_view.py` (`test_a_stop_*`); `test_view_spec_schema_matches_its_dataclasses`
 in `tests/test_schema_drift.py`; `tests/test_report_tour.py` (Chromium at 800x600, local until

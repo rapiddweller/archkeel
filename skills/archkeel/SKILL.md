@@ -41,13 +41,13 @@ After the draft, continue with "Onboarding" below.
 8. Run `archkeel report --output <tmp>/architecture.json --json`, with `<tmp>` outside the
    repository. The draft changed the contract digest: this file is now `<snapshot>`. Keep the
    `findings` and the `declared_rules` of the result.
-9. Write a "get started" view spec, as "Show a flow" steps 3 and 4 tell. Start at each entry
-   point: a `[project.scripts]` target (`pkg.mod:main` is the module node `pkg.mod`), a
-   `__main__` module or a `main()`. If you find no entry point, say so and ask the owner for the
-   start module.
+9. Write a "get started" view spec with steps and stops, as "Show a flow" steps 3, 4 and 6
+   tell. Start at each entry point: a `[project.scripts]` target (`pkg.mod:main` is the module
+   node `pkg.mod`), a `__main__` module or a `main()`. If you find no entry point, say so and
+   ask the owner for the start module.
 10. Add the first modules that the entry point imports or calls, one direct edge for each step.
 11. Run `archkeel view check <spec> --snapshot <snapshot> --json`.
-12. Run `archkeel view show <spec> --snapshot <snapshot>`. The page opens at the flow.
+12. Run `archkeel view show <spec> --snapshot <snapshot>`. The page opens at the tour.
 13. Give the owner an overview in chat:
     - each top-level component with its name and its sentence, or "unknown";
     - the start flow, each step with its status mark;

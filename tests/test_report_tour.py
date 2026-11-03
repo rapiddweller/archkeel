@@ -185,6 +185,21 @@ def test_the_stop_is_centred_and_the_panel_reads_unclipped(pages, size):
             and nav["x"] >= box["x"]
             and nav["x"] + nav["width"] <= box["x"] + box["width"] + 1
         )
+        # The Tour button widens the view bar: no top bar may cover another one.
+        bars = [
+            page.locator(name).bounding_box()
+            for name in (".ak-top-left", ".ak-top-center", ".ak-top-right")
+        ]
+        assert all(bars)
+        for index, first in enumerate(bars):
+            for second in bars[index + 1 :]:
+                apart_x = first["x"] + first["width"] <= second["x"] or (
+                    second["x"] + second["width"] <= first["x"]
+                )
+                apart_y = first["y"] + first["height"] <= second["y"] or (
+                    second["y"] + second["height"] <= first["y"]
+                )
+                assert apart_x or apart_y
     finally:
         _close(playwright, browser)
 

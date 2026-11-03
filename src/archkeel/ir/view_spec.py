@@ -43,9 +43,10 @@ LIMITS: Final = (
 
 
 class ViewSpecVersion(StrEnum):
-    V1_0_0 = "1.0.0"
-    # AD-289: stops need this version; a 1.0.0 spec keeps its meaning.
+    # Newest first: the schema `$id` names the first member, as for the graph versions.
+    # AD-289: stops need 1.1.0; a 1.0.0 spec keeps its meaning.
     V1_1_0 = "1.1.0"
+    V1_0_0 = "1.0.0"
 
 
 class ViewStatus(StrEnum):

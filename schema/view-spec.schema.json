@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:archkeel:view-spec:1.0.0",
+  "$id": "urn:archkeel:view-spec:1.1.0",
   "title": "Checked view spec",
   "$comment": "Generated from archkeel.ir.view_spec (AD-284). The spec cannot state proof: `archkeel view check` assigns proven, declared, unknown or missing; claim is author text. Edge, step and stop nodes must be listed in nodes; the first step takes no kind or claim. A stop is author text beside measured facts; it needs schema_version 1.1.0 (AD-289).",
   "$ref": "#/$defs/ViewSpec",
@@ -10,8 +10,8 @@
       "properties": {
         "schema_version": {
           "enum": [
-            "1.0.0",
-            "1.1.0"
+            "1.1.0",
+            "1.0.0"
           ]
         },
         "title": {
