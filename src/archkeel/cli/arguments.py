@@ -22,6 +22,11 @@ class SkillAction(StrEnum):
     INSTALL = "install"
 
 
+class ViewAction(StrEnum):
+    CHECK = "check"
+    SHOW = "show"
+
+
 class ConfigurationSource(StrEnum):
     DEFAULT = "default"
     CUSTOM = "custom"
@@ -33,6 +38,7 @@ class CLIArguments(argparse.Namespace):
     command: Command | None = None
     only: ReportMode | None = None
     action: SkillAction = SkillAction.INSTALL
+    view_action: ViewAction = ViewAction.CHECK
     agent: InstallationAgent = InstallationAgent.CODEX
     language: Language = Language.PYTHON
 
@@ -76,3 +82,10 @@ def skill_action(value: str) -> SkillAction:
         return SkillAction(value)
     except ValueError:
         _invalid_choice(value, tuple(item.value for item in SkillAction))
+
+
+def view_action(value: str) -> ViewAction:
+    try:
+        return ViewAction(value)
+    except ValueError:
+        _invalid_choice(value, tuple(item.value for item in ViewAction))

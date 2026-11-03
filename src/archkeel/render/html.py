@@ -734,15 +734,24 @@ def _flow_section_head(*, atlas: bool = False) -> str:
       <script id="flow-data" type="application/json">"""
 
 
-def _explorer_section(payload: str, *, atlas: bool = False) -> str:
+def _explorer_section(payload: str, *, atlas: bool = False, view_check: str | None = None) -> str:
     script_source: bytes = _asset("explorer.runtime.js")
     vendor_source: bytes = _asset("elkjs-0.12.0.bundled.js")
     script = script_source.decode("utf-8")
     vendor = vendor_source.decode("utf-8")
+    # AD-287: the check result JSON, unchanged, for the checked flow; flow.js reads it at start.
+    view = (
+        '      <script id="view-check-data" type="application/json">'
+        + view_check.replace("<", "\\u003c")
+        + "</script>\n"
+        if view_check is not None
+        else ""
+    )
     return (
         _flow_section_head(atlas=atlas)
         + payload
         + "</script>\n"
+        + view
         + f'      <script data-elkjs-version="0.12.0">{vendor}</script>'
         + f'      <script data-report-asset="explorer">{script}</script>'
         + "\n    </section>"
@@ -757,11 +766,11 @@ def _flow_section(observation: Observation) -> str:
     return _explorer_section(payload.replace("<", "\\u003c"))
 
 
-def _atlas_section(payload: dict[str, object]) -> str:
+def _atlas_section(payload: dict[str, object], view_check: str | None = None) -> str:
     encoded = json.dumps(
         payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     ).replace("<", "\\u003c")
-    return _explorer_section(encoded, atlas=True)
+    return _explorer_section(encoded, atlas=True, view_check=view_check)
 
 
 def _atlas_rule_counts(result: RunResult) -> str:
@@ -929,6 +938,7 @@ def _atlas_content(
     repository: str,
     architecture_href: str,
     detail_page: bool = False,
+    view_check: str | None = None,
 ) -> str:
     components = (
         len(result.architecture_projection.components) if result.architecture_projection else 0
@@ -959,7 +969,7 @@ def _atlas_content(
       <button class="theme-toggle" type="button" aria-label="Switch to light theme">☀</button>
       </section>
       {status_header}
-      {_atlas_section(data)}
+      {_atlas_section(data, view_check)}
       {
         _atlas_structure_overview(observation, result.architecture_projection)
         if not detail_page
@@ -992,6 +1002,7 @@ def _atlas_document(
     repository: str,
     architecture_href: str,
     levels: tuple[ModuleExploreLevel, ...] | None = None,
+    view_check: str | None = None,
 ) -> bytes:
     projection = _atlas_projection(result, observation)
     data: dict[str, object] = {"schema_version": report.schema_version}
@@ -1014,7 +1025,12 @@ def _atlas_document(
         kind="Architecture report",
         title="ArchQ Explorer",
         content=_atlas_content(
-            result, observation, data, repository=repository, architecture_href=architecture_href
+            result,
+            observation,
+            data,
+            repository=repository,
+            architecture_href=architecture_href,
+            view_check=view_check,
         ),
     )
 
@@ -1982,10 +1998,16 @@ def render_architecture_pages(
     *,
     repository: str,
     architecture_href: str,
+    view_check: str | None = None,
 ) -> tuple[tuple[str, bytes], ...]:
-    """Render the main and detail pages from one strictly decoded observation."""
+    """Render the main and detail pages from one strictly decoded observation.
+
+    `view_check` is a `view check` result for this snapshot; the main page draws it (AD-287).
+    """
     filename = f"{_PurePosixPath(architecture_href).stem}.report.html"
     if result.report_filter is not None or result.architecture_projection is None:
+        if view_check is not None:
+            raise ValueError("a checked view needs the Explorer of a complete report")
         return (
             (
                 filename,
@@ -2008,6 +2030,7 @@ def render_architecture_pages(
         repository=repository,
         architecture_href=architecture_href,
         levels=levels,
+        view_check=view_check,
     )
     pages = _architecture_details(
         result,
