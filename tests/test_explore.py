@@ -95,7 +95,7 @@ def test_explore_shows_a_repository_without_a_contract(
     assert memberships == {"COMP-APP", "COMP-CLI", "COMP-STORE"}
     page = artifact.with_name("architecture.report.html").read_text()
     assert page.index('id="inventory-heading"') < page.index('id="findings-heading"')
-    assert "Target unavailable" in page
+    assert "Target unavailable: no rule is declared, so no rule passes or fails" in page
     assert "3 layout components" in page
     assert "shop.cli.__main__" in page
     assert "PASS · Rules" not in page
@@ -137,6 +137,10 @@ def test_a_saved_explore_snapshot_gives_no_rule_verdict(
     assert [item["id"] for item in component["architecture_projection"]["components"]] == [
         "COMP-STORE"
     ]
+    query[-1] = "COMP-NOPE"
+    assert main([*query, "--json"]) == 2
+    fabricated = json.loads(capsys.readouterr().out)
+    assert [item["kind"] for item in fabricated["diagnostics"]] == ["filter_unknown"]
 
 
 def test_explore_records_the_worktree_state(

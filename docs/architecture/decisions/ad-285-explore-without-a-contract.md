@@ -13,8 +13,8 @@
    `$XDG_CACHE_HOME/archkeel/explore/<root hash>/` (default `~/.cache`). An output inside the
    root exits 2. Each run observes again and first removes its old files.
 5. No rule, no verdict: an observation with no declared rule and no UML target gives
-   `target: unavailable` and `declared_rules: UNKNOWN`, also in `report --input`. Observed facts
-   (findings, cycles, coverage) stay. The result is a `report` result with the optional `target`.
+   `target: unavailable` and `declared_rules: UNKNOWN`, also in `report --input`; `--only
+   architecture` gives `UNKNOWN` only. Observed facts stay. The result is a `report` result.
 6. Snapshot identity: `source.git_head`, `source.dirty`, `source.source_digest` (worktree
    content), `analyzer.version` and `analyzer.code_digest`; the root is the cache key.
 7. In this mode an inventory panel comes above the findings: the 8 largest components (modules,
