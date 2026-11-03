@@ -22,6 +22,7 @@ from ..check.git import read_blob
 from ..check.onboarding import run_init
 from ..check.ports import Language
 from ..check.report import (
+    read_saved_snapshot,
     render_result,
     run_report,
     run_saved_report,
@@ -31,7 +32,9 @@ from ..check.run import run_check
 from ..check.snapshot import resolve_commit
 from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
+from ..ir.codec import decode_json
 from ..ir.phases import Phase, PhaseClock, WorkCounter, measured
+from ..ir.view_spec import check_view, parse_view_spec, view_check_json, view_summary
 from ..render.html import render_architecture_pages, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
@@ -41,13 +44,11 @@ from .arguments import (
     ConfigurationSource,
     ReportMode,
     SkillAction,
-    ViewAction,
     configuration_source,
     installation_agent,
     report_mode,
     skill_action,
     source_language,
-    view_action,
 )
 from .config import (
     ADOPTED_BASELINE_PATH,
@@ -61,10 +62,10 @@ from .config import (
 from .guide import GUIDE_PATH, run_guide
 from .observe import observer_for
 from .skill import InstallationAgent, install_skill
-from .view import run_view
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
 _SNAPSHOT_PATH: Final = Path("test-artifacts/architecture/architecture.json")
+_VIEW_SNAPSHOT_NAME: Final = "architecture.json"
 
 
 def _sha(value: str) -> str:
@@ -95,6 +96,59 @@ def _write_files(root: Path, files: tuple[tuple[str, bytes], ...], artifacts: li
 def _write_timings(path: Path, clock: PhaseClock) -> None:
     os.makedirs(path.parent, exist_ok=True)
     path.write_text(json.dumps(clock.to_dict(), indent=2) + "\n")
+
+
+def _view_cache_directory(source_digest: str) -> Path:
+    # ponytail: repeats the explore cache rule (#791); merge both into one helper.
+    cache = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
+    return Path(cache) / "archkeel/view" / source_digest[:16]
+
+
+def _run_view(
+    spec_path: Path,
+    snapshot_path: Path,
+    output: Path | None,
+    *,
+    show: bool,
+    strict: bool,
+    interactive: bool,
+) -> int:
+    """Print the check; with `show`, also write the Explorer pages of the checked snapshot."""
+    spec = parse_view_spec(decode_json(spec_path.read_bytes()))
+    observation = read_saved_snapshot(snapshot_path)
+    result = check_view(spec, observation, strict=strict)
+    text = view_check_json(result)
+    page: Path | None = None
+    if show and result.exit_code != 2:  # 2: the check did not run
+        snapshot = snapshot_path.read_bytes()
+        report = run_saved_report(snapshot_path)
+        if report.exit_code != 0:
+            reasons = "; ".join(item.unknown_claim for item in report.diagnostics)
+            raise ValueError(f"the snapshot report cannot be drawn: {reasons}")
+        pages = render_architecture_pages(
+            report,
+            snapshot,
+            # The snapshot names no repository; the page heading names the view.
+            repository=result.title,
+            architecture_href=_VIEW_SNAPSHOT_NAME,
+            view_check=text,
+        )
+        directory = output or _view_cache_directory(observation.source.source_digest)
+        directory.mkdir(parents=True, exist_ok=True)
+        written = {name for name, _ in pages}
+        # A detail page of an earlier snapshot must not stay linked beside the new report.
+        for previous in directory.glob("architecture.detail*.html"):
+            if previous.name not in written:
+                previous.unlink()
+        for name, payload in pages:
+            (directory / name).write_bytes(payload)
+        if (directory / _VIEW_SNAPSHOT_NAME).resolve() != snapshot_path.resolve():
+            (directory / _VIEW_SNAPSHOT_NAME).write_bytes(snapshot)
+        page = directory / f"{Path(_VIEW_SNAPSHOT_NAME).stem}.report.html"
+    sys.stdout.write(view_summary(result) + "\n" if interactive else text)
+    if page is not None:
+        sys.stderr.write(f"archkeel view show: wrote {page}\n")
+    return result.exit_code
 
 
 def html_path(output: Path, command: str) -> Path:
@@ -141,7 +195,7 @@ def build_parser() -> _Parser:
         # A source checkout on PYTHONPATH has no distribution metadata.
         installed = "from source without package metadata"
     parser.add_argument("--version", action="version", version=f"archkeel {installed}")
-    parser.set_defaults(command=None, json=False, config=CONFIG_PATH)
+    parser.set_defaults(command=None, json=False, config=CONFIG_PATH, show=False)
     commands = parser.add_subparsers(dest="command", title="commands", metavar="<command>")
     # The two commands that read a scan configuration from the working tree share one option.
     configured = _Parser(add_help=False)
@@ -548,31 +602,32 @@ def build_parser() -> _Parser:
             f"Reference: {_DOCS}/reference.md#checked-views"
         ),
     )
-    view.add_argument(
-        "view_action",
-        metavar="action",
-        choices=list(ViewAction),
-        type=view_action,
-        help="check: print the result. show: also write the Explorer report with the view.",
-    )
-    view.add_argument("spec", type=Path, help="View spec JSON (schema/view-spec.schema.json).")
-    view.add_argument(
+    # The checked options are shared; only show writes files, so only show takes --output.
+    viewed = _Parser(add_help=False)
+    viewed.add_argument("spec", type=Path, help="View spec JSON (schema/view-spec.schema.json).")
+    viewed.add_argument(
         "--snapshot",
         type=Path,
         default=_SNAPSHOT_PATH,
         help="Saved architecture.json. Default: test-artifacts/architecture/architecture.json.",
     )
-    view.add_argument(
-        "--output",
-        type=Path,
-        help="With show: the folder for the report pages and a copy of the snapshot. Default: "
-        "$XDG_CACHE_HOME/archkeel/view/<source digest>/.",
-    )
     for option, help_text in (
         ("--strict", "Also reject each unknown reference."),
         ("--json", "Print the JSON result even in an interactive terminal."),
     ):
-        view.add_argument(option, action="store_true", help=help_text)
+        viewed.add_argument(option, action="store_true", help=help_text)
+    actions = view.add_subparsers(dest="view_action", required=True, metavar="action")
+    actions.add_parser("check", parents=[viewed], help="Print the check result.")
+    show = actions.add_parser(
+        "show", parents=[viewed], help="Print the check result and draw it in the Explorer."
+    )
+    show.add_argument(
+        "--output",
+        type=Path,
+        help="Folder for the report pages and a copy of the snapshot. Default: "
+        "$XDG_CACHE_HOME/archkeel/view/<source digest>/.",
+    )
+    show.set_defaults(show=True)
 
     return parser
 
@@ -616,14 +671,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             return run_guide(args.root.resolve(), args.config, args.output, args.check)
         if command is Command.VIEW:
             subject = str(args.spec)
-            show = args.view_action is ViewAction.SHOW
-            if args.output is not None and not show:
-                parser.error("--output needs show: view check writes nothing")
-            return run_view(
+            return _run_view(
                 args.spec,
                 args.snapshot,
-                args.output,
-                show=show,
+                args.output if args.show else None,
+                show=args.show,
                 strict=args.strict,
                 interactive=interactive,
             )
