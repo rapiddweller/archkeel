@@ -80,6 +80,7 @@ from archkeel.ir.model import (
     ReportFilter,
     RunResult,
     TargetStatus,
+    Verdict,
 )
 from archkeel.ir.model import (
     AssessmentStatus as _AssessmentStatus,
@@ -712,37 +713,28 @@ _UNDECLARED_RANGE = frozenset(
 )
 
 
-def _noted_report(
-    result: ObservationResult,
-    report_filter: ReportFilter | None,
-    *,
-    baseline_root: Path | None = None,
-    baseline: Path | None = None,
-    require_source_graph: bool = False,
-) -> RunResult:
-    """AD-285: a report whose undeclared Python range is a coverage note, not a block."""
+def _range_notes(result: ObservationResult) -> tuple[ObservationResult, tuple[Diagnostic, ...]]:
+    """AD-285, explore only: an undeclared Python range becomes a note on a complete scan.
+
+    A source failure is reported with the same runtime diagnostic, so a scan with any coverage
+    failure keeps every diagnostic and still exits 2.
+    """
     model = result.observation
-    notes: tuple[Diagnostic, ...] = ()
     runtime = model.runtime if model is not None else None
     if (
-        model is not None
-        and runtime is not None
-        and runtime.name == Language.PYTHON
-        and not _declares_a_target(model)
-        and (runtime.requirement_state in _UNDECLARED_RANGE or runtime.required is None)
+        model is None
+        or runtime is None
+        or runtime.name != Language.PYTHON
+        or _declares_a_target(model)
+        or model.coverage.status != Verdict.PASS
+        or model.coverage.failures
+        or not (runtime.requirement_state in _UNDECLARED_RANGE or runtime.required is None)
     ):
-        notes = tuple(item for item in result.diagnostics if item == runtime_diagnostic(runtime))
-        result = replace(
-            result, diagnostics=tuple(item for item in result.diagnostics if item not in notes)
-        )
-    report = _report_result(
-        result,
-        report_filter,
-        baseline_root=baseline_root,
-        baseline=baseline,
-        require_source_graph=require_source_graph,
-    )
-    return replace(report, notes=notes)
+        return result, ()
+    note = runtime_diagnostic(runtime)
+    notes = tuple(item for item in result.diagnostics if item == note)
+    kept = tuple(item for item in result.diagnostics if item != note)
+    return replace(result, diagnostics=kept), notes
 
 
 def run_report(
@@ -793,7 +785,7 @@ def _observed_report(
         if clock is not None:
             _count_work(clock, result.observation, len(architecture))
     with measured(clock, Phase.RESULT):
-        report = _noted_report(result, report_filter, baseline_root=root, baseline=baseline)
+        report = _report_result(result, report_filter, baseline_root=root, baseline=baseline)
     return report, architecture
 
 
@@ -868,9 +860,10 @@ def run_explore(
                     "Create a Git commit in the repository, then retry archkeel explore.",
                 )
             ) from error
+    observed, notes = _range_notes(observed)
     result, architecture = _observed_report(observed, None, root=root)
     # No contract, so no pair of components waits for a decision.
-    return replace(result, open_decisions=(), scan_roots=config.roots), architecture
+    return replace(result, open_decisions=(), scan_roots=config.roots, notes=notes), architecture
 
 
 def _count_work(clock: PhaseClock, observation: Observation, architecture_bytes: int) -> None:
@@ -918,7 +911,7 @@ def run_saved_report(
         )
 
         diagnostics = observation_diagnostics(model, runtime, language)
-        return _noted_report(
+        return _report_result(
             ObservationResult(model, model.coverage, diagnostics),
             report_filter,
             require_source_graph=True,

@@ -174,7 +174,8 @@ imports and gives no verdicts.
 top-level Python package as `init` does, or reads the `init` options `--language`, `--source`,
 `--namespace` and `--tsconfig`, and groups the modules by the package layout. A Python component
 of more than 40 modules opens one level deeper, one child per direct subpackage, down to four
-levels. With no rule, an undeclared Python range is a coverage note in `notes`, not exit 2. It writes
+levels. On a complete scan, an undeclared Python range is a coverage note in `notes`, not exit 2
+(`report` still exits 2). It writes
 `architecture.json` and the report pages to `DIR`, or else to
 `$XDG_CACHE_HOME/archkeel/explore/<root_digest>/` (`~/.cache` when the variable is not set). It
 writes nothing into the repository, and an `--output` inside it exits 2. The result is a

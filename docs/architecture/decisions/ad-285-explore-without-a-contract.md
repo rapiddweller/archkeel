@@ -31,10 +31,10 @@
    import ("N more" for the rest); the findings start closed, so the Explorer fits at 800x600.
    No level shows deviations. This amends AD-264 and AD-258 for this mode only.
 8. Exit 0: complete. Exit 2: no scope, no Git commit, output inside the root, incomplete coverage.
-9. Notes: with no rule and no UML target, an undeclared or unreadable Python range
-   (`runtime_mismatch`) cannot change a fact: it goes to `notes` and shows as a coverage note.
-   A Python outside a declared range, a source failure, an empty scope and a missing rule
-   coverage still exit 2: they can change or hide facts.
+9. Notes (explore only): on a complete scan with no rule and no UML target, an undeclared or
+   unreadable Python range (`runtime_mismatch`) goes to `notes` and shows as a coverage note.
+   Any coverage failure keeps every diagnostic and exit 2, and so do a Python outside a declared
+   range and an empty scope. `report` and `report --input` keep exit 2 for the range.
 
 **Graph for a view check.** `architecture_report(parse_observation(...))`: `observed` entities
 (`id` such as `MOD-`, `SYM-`; `kind`) and relationships (`kind`, `source_id` to `target_id`,

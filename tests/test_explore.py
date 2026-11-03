@@ -498,3 +498,23 @@ def test_explore_leaves_the_git_index_of_a_read_only_snapshot_alone(
 
     assert code == 0, payload["diagnostics"]
     assert (root / ".git/index").read_bytes() == index
+
+
+@pytest.mark.parametrize("requires", ["", 'requires-python = ">=3.11"\n'])
+def test_a_source_failure_still_blocks_with_or_without_a_python_range(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], requires: str
+) -> None:
+    sources = {
+        **_SOURCES,
+        "pyproject.toml": f'[project]\nname = "shop"\n{requires}',
+        "shop/app/broken.py": "def broken(:\n    pass\n",
+    }
+    root = _repository(tmp_path / "repo", sources)
+
+    code, payload = _explore(capsys, "--root", str(root), "--output", str(tmp_path / "out"))
+
+    # AD-285: the note never hides a source failure; the result names the failing file.
+    assert code == 2
+    assert payload["diagnostics"]
+    assert "notes" not in payload
+    assert "shop/app/broken.py" in json.dumps(payload["coverage"]["failures"])
