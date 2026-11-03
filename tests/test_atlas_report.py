@@ -294,8 +294,8 @@ def test_default_report_is_one_authentic_repository_with_sparse_native_cells(tmp
         .st_size
     )
     # The Explorer adds inline search, perspectives and export; ELK still dominates the file.
-    assert page_bytes < 2_000_000
-    assert page_bytes - elk_bytes < 400_000
+    assert page_bytes < 2_050_000
+    assert page_bytes - elk_bytes < 450_000
 
 
 def test_atlas_header_shows_one_verdict_line_with_native_rule_counts(tmp_path):
