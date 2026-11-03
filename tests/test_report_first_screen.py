@@ -227,3 +227,20 @@ def test_mixed_decisions_keep_the_agent_fraction(tmp_path):
     text = _verdict(_html(result, encoded))
     assert f" · Agent decisions {agent}/{total}" in text
     assert "Draft contract" not in text
+
+
+@pytest.mark.browser
+def test_without_a_rule_the_inventory_line_and_the_explorer_share_the_first_screen(tmp_path):
+    """AD-285: no rule, so one server-side line comes first; Details stays closed (AD-286)."""
+    components = [("hub", 1), *[(f"peer{index}", 1) for index in range(5)]]
+    api, html = _open(tmp_path, components, hub_imports=True)
+    playwright, browser, page = _browser_page(api, html, width=800, height=600)
+    try:
+        assert page.locator("#inventory-heading").is_visible()
+        assert not page.locator(".findings-list").first.is_visible()
+        assert page.locator("[data-flow-details-toggle]").get_attribute("aria-expanded") != "true"
+        top = page.locator(".flow").bounding_box()["y"]
+        assert 0 <= top <= 480
+    finally:
+        browser.close()
+        playwright.stop()
