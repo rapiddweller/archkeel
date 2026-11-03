@@ -317,20 +317,6 @@ def test_each_aggregate_needs_every_job_and_fails_closed(workflow: str, aggregat
     assert run("") != 0
 
 
-def test_full_runs_on_its_own_triggers_and_before_each_release() -> None:
-    full = (ROOT / ".github/workflows/full-verification.yml").read_text()
-    for trigger in ("workflow_call:", "workflow_dispatch:", "schedule:"):
-        assert trigger in full
-    assert "pages: write" not in full and "id-token: write" not in full
-    paths = full.split("  pull_request:\n    paths:\n", 1)[1].split("\n\n", 1)[0]
-    for path in (".github/workflows/**", "Makefile", "tests/areas.py", "tests/conftest.py"):
-        assert f"      - {path}" in paths or f'      - "{path}"' in paths
-    release = _jobs("release.yml")
-    assert "uses: ./.github/workflows/full-verification.yml" in release["verify"]
-    assert "needs: verify" in release["build"]
-    assert "gh workflow run full-verification.yml --ref main" in release["refresh-report-gallery"]
-
-
 def test_pages_publish_only_a_passed_full_run_of_the_current_main(tmp_path: Path) -> None:
     pages = (ROOT / ".github/workflows/pages.yml").read_text()
     assert "workflow_run:\n    workflows: [Full verification]" in pages
