@@ -18,15 +18,15 @@
 6. Snapshot identity: `source.git_head`, `source.dirty`, `source.source_digest` (worktree
    content), `analyzer.version` and `analyzer.code_digest`; the root is the cache key.
 7. In this mode an inventory panel comes above the findings: the 8 largest components (modules,
-   edges inside, incoming, outgoing), their `__main__` modules and the interface names other
+   edges inside, incoming, outgoing), their `__main__` modules and the count of names other
    components import from them. This amends AD-264 for this mode only.
 8. Exit 0: complete. Exit 2: no single Python package, no Git commit, output inside the root, or
    incomplete coverage; the diagnostic names the reason.
 
-**Graph for a view check.** `architecture_report(parse_observation(...)).observed`: entities with
-a stable `id` (`COMP-`, `MOD-`, `SYM-`) and a `kind`; relationships with a `kind` (`imports`,
-`calls`, `references`, ...), `source_id` to `target_id`, a `resolution` and `evidence_ids` (file,
-line). `report --input X --only architecture --component COMP-ID --json` gives one component.
+**Graph for a view check.** `architecture_report(parse_observation(...))`: `observed` has
+entities with a stable `id` (`MOD-`, `SYM-`, ...) and a `kind`, and relationships with a `kind`
+(`imports`, `calls`, `references`, ...), `source_id` to `target_id`, a `resolution` and
+`evidence_ids` (file, line); `memberships` map each `COMP-` id to its `MOD-` ids.
 
 **Reason.** `report` without `archkeel.toml` exits 2 and asks for `init`, which writes a draft. A
 newcomer must see what is there first. A contract with no rule decides nothing; PASS is false.

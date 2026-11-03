@@ -53,6 +53,17 @@ _NEXT_STEPS: Final = (
 )
 
 
+# AD-285: with no rule and no UML target, a report states observed facts and no rule verdict.
+_NO_TARGET_SENTENCE: Final = (
+    "No rule is declared, so the target is unavailable: these are observed facts, "
+    "and no rule passes or fails."
+)
+_RULES_UNKNOWN_REASON: Final = {
+    None: "Available evidence does not establish the rule outcome.",
+    TargetStatus.UNAVAILABLE: "No rule is declared; the target is unavailable.",
+}
+
+
 @dataclass(frozen=True, slots=True)
 class VerdictRow:
     label: str
@@ -366,11 +377,7 @@ def report_summary(result: RunResult) -> Summary:
             "evaluated completely."
         )
     if result.target is TargetStatus.UNAVAILABLE:
-        sentence = (
-            "No rule is declared, so the target is unavailable: these are observed facts, "
-            "and no rule passes or fails."
-            + ("" if result.exit_code == 0 else " Some observations could not complete.")
-        )
+        sentence = _NO_TARGET_SENTENCE
     for status in ("FAIL", "UNKNOWN"):
         rules = [item.id for item in result.rule_assessments or () if item.status == status]
         if rules:
@@ -380,9 +387,7 @@ def report_summary(result: RunResult) -> Summary:
     rules_reason = {
         "PASS": "Required evaluator evidence is complete; decided positions have no violations.",
         "FAIL": "At least one rule violation was recorded; undecided positions may remain.",
-        "UNKNOWN": "Available evidence does not establish the rule outcome."
-        if result.target is None
-        else "No rule is declared; the target is unavailable.",
+        "UNKNOWN": _RULES_UNKNOWN_REASON[result.target],
     }[result.declared_rules]
     verdicts = (
         VerdictRow(

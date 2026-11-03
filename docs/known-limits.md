@@ -4,6 +4,15 @@ Archkeel observes one static snapshot, not runtime behavior, data flow, performa
 or responsibility fulfillment. A rationale proves recorded intent, not truth.
 Determinism is measured for a machine/runtime, not across every platform.
 
+## Explore without a contract
+
+`archkeel explore` detects one top-level Python package only. TypeScript and Dart are not
+detected yet, and a mixed repository gives its Python package only. Its components follow the
+package layout; they are not decisions. Entry modules are `__main__` modules only. An import
+edge is not a call edge or a runtime order. A contract with components but no rule gives
+`target: unavailable` and no rule verdict
+([AD-285](architecture/decisions/ad-285-explore-without-a-contract.md)).
+
 ## Before claiming PASS
 
 A rule needs applicable subjects, complete relevant coverage and sufficient evidence.

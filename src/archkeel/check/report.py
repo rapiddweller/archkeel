@@ -516,6 +516,7 @@ def _architecture_result(
     *,
     require_source_graph: bool = False,
 ) -> RunResult:
+    command_result = _target_result(model, command_result)
     only_violations = report_filter is not None and report_filter.only_violations
     only_architecture = report_filter is not None and report_filter.only_architecture
     component = report_filter.component if report_filter is not None else None
@@ -671,10 +672,7 @@ def _report_result(
             )
     if model is not None:
         command_result = _architecture_result(
-            model,
-            _target_result(model, command_result),
-            report_filter,
-            require_source_graph=require_source_graph,
+            model, command_result, report_filter, require_source_graph=require_source_graph
         )
     return command_result
 

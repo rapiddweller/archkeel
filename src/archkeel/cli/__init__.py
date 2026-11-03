@@ -277,7 +277,7 @@ def build_parser() -> _Parser:
             "verdict. TypeScript and Dart are not detected yet (AD-285).\n\n"
             "Examples:\n"
             "  archkeel explore\n"
-            "  archkeel explore --root ../service --output /tmp/service-explore\n\n"
+            "  archkeel explore --root ../service --output ../service-explore\n\n"
             "Exit codes:\n"
             "  0  the observation is complete\n"
             "  2  not checked: no single Python package, no Git commit, an output inside the\n"
