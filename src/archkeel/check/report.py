@@ -8,6 +8,8 @@ import subprocess
 from collections import Counter as _Counter
 from dataclasses import replace
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import Final
 from typing import Literal as _Literal
 
 from archkeel.ir.architecture_graph import (
@@ -26,6 +28,7 @@ from archkeel.ir.baseline import (
 )
 from archkeel.ir.codec import (
     canonical_report_bytes,
+    contract_bytes,
     decode_canonical_model,
     decode_json,
     parse_observation,
@@ -61,11 +64,11 @@ from archkeel.ir.facts_codec import (
 from archkeel.ir.facts_validation import validate_source_bindings
 from archkeel.ir.findings import findings
 from archkeel.ir.model import (
-    AssessmentStatus as _AssessmentStatus,
-)
-from archkeel.ir.model import (
+    UML_TARGET_KIND,
+    ArchitectureContract,
     BaselineViolationComparison,
     CallRow,
+    ContractVersion,
     EvidenceClass,
     FilteredViolation,
     Finding,
@@ -73,6 +76,10 @@ from archkeel.ir.model import (
     ObservationResult,
     ReportFilter,
     RunResult,
+    TargetStatus,
+)
+from archkeel.ir.model import (
+    AssessmentStatus as _AssessmentStatus,
 )
 from archkeel.ir.model import (
     Command as _Command,
@@ -92,10 +99,12 @@ from archkeel.ir.report_projection import architecture_projection
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 
 from .observe import observation_diagnostics
+from .onboarding import detect_source, layout_components
 from .ports import Analyzer, ScanConfig
 from .ratchets import call_rows, calls_measured, unknown_positions_by_rule
 from .run import inspect_observation
 from .runtime import runtime_diagnostic
+from .snapshot import SnapshotError
 from .uml import (
     observe_repository as _observe_repository,
 )
@@ -105,10 +114,12 @@ from .uml import (
 from .uml import (
     validated_member_inventory_result as _validated_member_inventory_result,
 )
+from .validation.observation import VIOLATION_REMEDY
 
+# AD-285: the temporary layout contract of `run_explore`; the name is a label, never a mark.
+EXPLORE_CONTRACT: Final = "archkeel-explore-layout.json"
+_UNDETECTED_MARKERS: Final = ("tsconfig.json", "pubspec.yaml")
 _CALL_RECORD_KINDS = ("resolved_call", "partially_resolved_call", "unresolved_call")
-
-VIOLATION_REMEDY = "Change the code or amend the contract with owner approval."
 
 
 def _baseline_report(
@@ -658,9 +669,23 @@ def _report_result(
             )
     if model is not None:
         command_result = _architecture_result(
-            model, command_result, report_filter, require_source_graph=require_source_graph
+            model,
+            _target_result(model, command_result),
+            report_filter,
+            require_source_graph=require_source_graph,
         )
     return command_result
+
+
+def _target_result(model: Observation, result: RunResult) -> RunResult:
+    """AD-285: no declared rule and no UML target leave nothing to check, so no rule passes."""
+    if result.rule_assessments != () or any(
+        item.kind == UML_TARGET_KIND for item in model.records("declarations") or ()
+    ):
+        return result
+    return replace(
+        result, declared_rules=_AssessmentStatus.UNKNOWN, target=TargetStatus.UNAVAILABLE
+    )
 
 
 def run_report(
@@ -686,8 +711,24 @@ def run_report(
         only_architecture,
         full_architecture,
     )
-    result = _projection_result(observe_repository(root, config, analyzer, clock=clock))
-    result = _validated_member_inventory_result(result)
+    return _observed_report(
+        observe_repository(root, config, analyzer, clock=clock),
+        report_filter,
+        root=root,
+        baseline=baseline,
+        clock=clock,
+    )
+
+
+def _observed_report(
+    observed: ObservationResult,
+    report_filter: ReportFilter | None,
+    *,
+    root: Path,
+    baseline: Path | None = None,
+    clock: PhaseClock | None = None,
+) -> tuple[RunResult, bytes | None]:
+    result = _validated_member_inventory_result(_projection_result(observed))
     architecture: bytes | None = None
     if result.observation is not None:
         with measured(clock, Phase.ENCODE):
@@ -697,6 +738,55 @@ def run_report(
     with measured(clock, Phase.RESULT):
         report = _report_result(result, report_filter, baseline_root=root, baseline=baseline)
     return report, architecture
+
+
+def run_explore(root: Path, *, analyzer: Analyzer) -> tuple[RunResult, bytes | None]:
+    """AD-285: observe a repository with no contract; the caller writes outside the root.
+
+    The first pass finds the modules, the second records their layout grouping as components.
+    The temporary contract has no rule, so the result has no rule verdict.
+    """
+    try:
+        source, namespace = detect_source(root)
+    except DiagnosticError as error:
+        markers = [name for name in _UNDETECTED_MARKERS if (root / name).is_file()]
+        found = (
+            f" Found {', '.join(markers)}: TypeScript and Dart are not detected yet."
+            if markers
+            else ""
+        )
+        raise DiagnosticError(
+            replace(
+                error.diagnostic,
+                unknown_claim=error.diagnostic.unknown_claim + found,
+                remedy="Run archkeel explore on a repository with one top-level Python package.",
+            )
+        ) from error
+    config = ScanConfig((source,), namespace, EXPLORE_CONTRACT, "")
+    with TemporaryDirectory(prefix="archkeel-explore-") as temporary:
+        scaffold = Path(temporary)
+        contract = scaffold / EXPLORE_CONTRACT
+        contract.write_bytes(contract_bytes(ArchitectureContract(ContractVersion.V2_1, (), ())))
+        try:
+            observed = observe_repository(root, config, analyzer, contract_root=scaffold)
+            if observed.observation is not None:
+                _, components = layout_components(observed.observation, namespace)
+                contract.write_bytes(
+                    contract_bytes(ArchitectureContract(ContractVersion.V2_1, components, ()))
+                )
+                observed = observe_repository(root, config, analyzer, contract_root=scaffold)
+        except SnapshotError as error:
+            raise DiagnosticError(
+                Diagnostic(
+                    _DiagnosticKind.PARSE_ERROR,
+                    str(root),
+                    f"The worktree state needs a resolvable Git HEAD: {error}",
+                    "Create a Git commit in the repository, then retry archkeel explore.",
+                )
+            ) from error
+    result, architecture = _observed_report(observed, None, root=root)
+    # No contract, so no pair of components waits for a decision.
+    return replace(result, open_decisions=(), scan_roots=config.roots), architecture
 
 
 def _count_work(clock: PhaseClock, observation: Observation, architecture_bytes: int) -> None:

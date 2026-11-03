@@ -266,6 +266,37 @@ def _typescript_components(
     return labels, tuple(components)
 
 
+def layout_components(
+    observation: Observation,
+    namespace: str,
+    roots: tuple[str, ...] = (),
+    language: Language = Language.PYTHON,
+) -> tuple[dict[str, str], tuple[ContractComponent, ...]]:
+    """Group modules by the top-level children of the namespace: a layout fact, no decision."""
+    if language == Language.TYPESCRIPT:
+        return _typescript_components(observation, namespace, roots)
+    depth = len(namespace.split("."))
+    module_labels = {
+        name: name.split(".")[depth]
+        for record in observation.records("modules") or ()
+        if isinstance((name := record.data.get("qualified_name")), str)
+        and name != namespace
+        and in_scope(name, namespace)
+    }
+    return module_labels, tuple(
+        ContractComponent(
+            f"COMP-{identifier(label)}",
+            label,
+            ComponentRole.COMPONENT,
+            (f"{namespace}.{label}",),
+            (),
+            (),
+            (DOCUMENT_PATH,),
+        )
+        for label in sorted(set(module_labels.values()))
+    )
+
+
 def draft_contract(
     observation: Observation,
     namespace: str,
@@ -280,30 +311,7 @@ def draft_contract(
     AD-38: sizes come from `scope_metrics`, the same aggregation `structure_metrics` uses for
     a declared component, applied here to the draft grouping before any component exists.
     """
-    if language == Language.TYPESCRIPT:
-        module_labels, draft_components = _typescript_components(observation, namespace, roots)
-    else:
-        depth = len(namespace.split("."))
-        module_labels = {
-            name: name.split(".")[depth]
-            for record in observation.records("modules") or ()
-            if isinstance((name := record.data.get("qualified_name")), str)
-            and name != namespace
-            and in_scope(name, namespace)
-        }
-        labels = tuple(sorted(set(module_labels.values())))
-        draft_components = tuple(
-            ContractComponent(
-                f"COMP-{identifier(label)}",
-                label,
-                ComponentRole.COMPONENT,
-                (f"{namespace}.{label}",),
-                (),
-                (),
-                (DOCUMENT_PATH,),
-            )
-            for label in labels
-        )
+    module_labels, draft_components = layout_components(observation, namespace, roots, language)
     labels = tuple(component.label for component in draft_components)
     scaffold = ArchitectureContract(ContractVersion.V2_1, draft_components, ())
     edges = observed_component_edges(scaffold, observation)

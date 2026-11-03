@@ -4,6 +4,7 @@
 """Run repository observations and declaration checks."""
 
 import argparse
+import hashlib
 import io
 import json
 import os
@@ -21,11 +22,18 @@ from rich_argparse import RawDescriptionRichHelpFormatter
 from ..check.git import read_blob
 from ..check.onboarding import run_init
 from ..check.ports import Language
-from ..check.report import render_result, run_report, run_saved_report, unknown_result
+from ..check.report import (
+    render_result,
+    run_explore,
+    run_report,
+    run_saved_report,
+    unknown_result,
+)
 from ..check.run import run_check
 from ..check.snapshot import resolve_commit
 from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
+from ..ir.model import RunResult
 from ..ir.phases import Phase, PhaseClock, WorkCounter, measured
 from ..render.html import render_architecture_pages, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
@@ -52,7 +60,7 @@ from .config import (
     project_name,
 )
 from .guide import GUIDE_PATH, run_guide
-from .observe import observer_for
+from .observe import explore_observer, observer_for
 from .skill import InstallationAgent, install_skill
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
@@ -93,6 +101,49 @@ def html_path(output: Path, command: str) -> Path:
     return output.parent / f"{output.stem}.{command}.html"
 
 
+def _explore_folder(root: Path) -> Path:
+    """AD-285: one cache folder for each analyzed root, outside the repository."""
+    cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
+    return cache / "archkeel" / "explore" / hashlib.sha256(str(root).encode()).hexdigest()[:16]
+
+
+def _publish_report(
+    result: RunResult,
+    architecture: bytes,
+    artifact: Path,
+    *,
+    repository: str,
+    clock: PhaseClock | None,
+    artifacts: list[Path],
+) -> Path:
+    """Write architecture.json and its report pages; return the resolved JSON path."""
+    artifact.parent.mkdir(parents=True, exist_ok=True)
+    artifact.write_bytes(architecture)
+    report_html = html_path(artifact, Command.REPORT)
+    # A render failure must not publish a partial HTML set.
+    with measured(clock, Phase.RENDER):
+        pages = render_architecture_pages(
+            result,
+            architecture,
+            repository=repository,
+            architecture_href=artifact.name,
+        )
+    if clock is not None:
+        clock.count(WorkCounter.REPORT_PAGE_BYTES, sum(len(payload) for _, payload in pages))
+    for name, payload in pages:
+        detail = artifact.parent / name
+        detail.write_bytes(payload)
+        if detail != report_html:
+            artifacts.append(detail)
+    if any(name != report_html.name for name, _ in pages):
+        obsolete = rf"{re.escape(artifact.stem)}\.detail-(?:component-[0-9a-f]{{16}}|unknown)\.html"
+        for previous in artifact.parent.glob(f"{artifact.stem}.detail-*.html"):
+            if re.fullmatch(obsolete, previous.name):
+                previous.unlink()
+    artifacts.extend((artifact, report_html))
+    return artifact.resolve()
+
+
 def _observing(parser: _Parser, output_help: str | None) -> None:
     parser.add_argument(
         "--root",
@@ -119,6 +170,7 @@ def build_parser() -> _Parser:
         ),
         epilog=(
             "Start here:\n"
+            "  archkeel explore    see the code as it is, with no contract\n"
             "  archkeel init       draft the contract from the observed imports\n"
             "  archkeel validate   check the contract against this repository\n"
             "  archkeel report     observe the repository and write evidence\n\n"
@@ -227,6 +279,31 @@ def build_parser() -> _Parser:
         "and descendants. With violations, top-level labels take precedence. Otherwise, "
         "use a top-level label for crossing endpoints or --only calls. "
         "Unknown to this contract: exit 2.",
+    )
+
+    explore = commands.add_parser(
+        Command.EXPLORE.value,
+        help="See the code as it is: an observed overview that needs no contract.",
+        formatter_class=RawDescriptionRichHelpFormatter,
+        description=(
+            "Observes the one top-level Python package and groups its modules by layout. It\n"
+            "needs no archkeel.toml and no contract, and it writes nothing into the repository.\n"
+            "No rule is declared, so the result says target: unavailable and gives no rule\n"
+            "verdict. TypeScript and Dart are not detected yet (AD-285).\n\n"
+            "Examples:\n"
+            "  archkeel explore\n"
+            "  archkeel explore --root ../service --output /tmp/service-explore\n\n"
+            "Exit codes:\n"
+            "  0  the observation is complete\n"
+            "  2  not checked: no single Python package, no Git commit, an output inside the\n"
+            "     repository, or incomplete coverage\n\n"
+            f"Start here: {_DOCS}/getting-started.md"
+        ),
+    )
+    _observing(
+        explore,
+        "Folder for architecture.json and the report pages, outside the repository. "
+        "Default: $XDG_CACHE_HOME/archkeel/explore/<root hash> (~/.cache by default).",
     )
 
     validate = commands.add_parser(
@@ -589,6 +666,29 @@ def main(argv: Sequence[str] | None = None) -> int:
                     collector_timeout_seconds=args.collector_timeout_seconds,
                 )
                 files = requested_files.entries
+            elif command is Command.EXPLORE:
+                subject = str(root)
+                folder = (args.output or _explore_folder(root)).resolve()
+                if folder.is_relative_to(root):
+                    parser.error(
+                        f"--output {folder} is inside the analyzed repository; "
+                        "choose a folder outside it"
+                    )
+                artifact = folder / "architecture.json"
+                # AD-285: a failed run must not leave an earlier snapshot that looks current.
+                for previous in (artifact, *folder.glob(f"{artifact.stem}.*.html")):
+                    previous.unlink(missing_ok=True)
+                result, architecture = run_explore(root, analyzer=explore_observer())
+                if architecture is not None:
+                    result = replace(result, artifact=str(artifact))
+                    _publish_report(
+                        result,
+                        architecture,
+                        artifact,
+                        repository=root.name,
+                        clock=None,
+                        artifacts=artifacts,
+                    )
             elif command is Command.REPORT and args.input is not None:
                 subject = str(args.input)
                 conflicts = tuple(
@@ -641,8 +741,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 result = replace(result, scan_roots=config.roots)
                 if architecture is not None:
                     artifact = args.output or root / "test-artifacts/architecture/architecture.json"
-                    artifact.parent.mkdir(parents=True, exist_ok=True)
-                    artifact.write_bytes(architecture)
+                    # The pages show the artifact path, so it is set before they render.
                     resolved = artifact.resolve()
                     result = replace(
                         result,
@@ -654,34 +753,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                             else str(resolved)
                         ),
                     )
-                    report_html = html_path(artifact, Command.REPORT)
-                    repository = project_name(root, config)
-                    # A render failure must not publish a partial HTML set.
-                    with measured(clock, Phase.RENDER):
-                        pages = render_architecture_pages(
-                            result,
-                            architecture,
-                            repository=repository,
-                            architecture_href=artifact.name,
-                        )
-                    if clock is not None:
-                        clock.count(
-                            WorkCounter.REPORT_PAGE_BYTES, sum(len(payload) for _, payload in pages)
-                        )
-                    for name, payload in pages:
-                        detail = artifact.parent / name
-                        detail.write_bytes(payload)
-                        if detail != report_html:
-                            artifacts.append(detail)
-                    if any(name != report_html.name for name, _ in pages):
-                        obsolete = (
-                            rf"{re.escape(artifact.stem)}\.detail-"
-                            r"(?:component-[0-9a-f]{16}|unknown)\.html"
-                        )
-                        for previous in artifact.parent.glob(f"{artifact.stem}.detail-*.html"):
-                            if re.fullmatch(obsolete, previous.name):
-                                previous.unlink()
-                    artifacts.extend((artifact, report_html))
+                    _publish_report(
+                        result,
+                        architecture,
+                        artifact,
+                        repository=project_name(root, config),
+                        clock=clock,
+                        artifacts=artifacts,
+                    )
                 if clock is not None and args.timings is not None and result.exit_code == 0:
                     _write_timings(args.timings, clock)
                     artifacts.append(args.timings)
@@ -824,7 +903,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = (
             invalid_result(subject, error)
             if command is Command.VALIDATE
-            else unknown_result(command, subject, error)
+            # AD-285: explore writes a report result, so its failure is one too.
+            else unknown_result(
+                Command.REPORT if command is Command.EXPLORE else command, subject, error
+            )
         )
     if interactive:
         summary = (

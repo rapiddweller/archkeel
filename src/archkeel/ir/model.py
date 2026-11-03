@@ -130,7 +130,14 @@ class Command(StrEnum):
     INIT = "init"
     SKILL = "skill"
     GUIDE = "guide"
+    EXPLORE = "explore"
     ARGUMENTS = "arguments"
+
+
+class TargetStatus(StrEnum):
+    """AD-285: a run whose observation declares no rule and no UML target has nothing to check."""
+
+    UNAVAILABLE = "unavailable"
 
 
 class ExpectationOutcome(StrEnum):
@@ -2010,6 +2017,8 @@ class RunResult:
     # AD-258: the ranked findings a report opens with, from `ir.findings.findings`; None where
     # no report computed them, so an absent list never reads as "no findings".
     findings: tuple[Finding, ...] | None = None
+    # AD-285: unavailable when no rule and no UML target is declared; None when one is.
+    target: TargetStatus | None = None
 
     def __post_init__(self) -> None:
         if self.amendment_status is not None:

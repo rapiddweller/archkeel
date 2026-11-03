@@ -255,6 +255,9 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
     if result.first_look is None:
         # AD-266: absent on every result but init's, so the other results keep their shape.
         del payload["first_look"]
+    if result.target is None:
+        # AD-285: absent while a rule or UML target is declared, so those results keep their shape.
+        del payload["target"]
     if result.report_filter is not None:
         payload["report_filter"] = _report_filter_payload(result.report_filter)
     if result.provenance is not None and result.provenance.initial_pr is None:

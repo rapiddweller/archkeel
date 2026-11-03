@@ -26,6 +26,7 @@ from archkeel.ir.model import (
     FirstLook,
     ReportLocation,
     RunResult,
+    TargetStatus,
 )
 from archkeel.ir.model import (
     ExpectationOutcome as _ExpectationOutcome,
@@ -108,6 +109,8 @@ def report_leaves_rules_undecided(result: RunResult) -> bool:
 
 
 def _decision_badge(result: RunResult) -> Badge:
+    if result.target is TargetStatus.UNAVAILABLE:
+        return Badge(BadgeState.INFO, "i", "OBSERVED")
     if result.command is _Command.REPORT and (
         result.exit_code == 0 or result.rule_assessments is not None
     ):
@@ -362,6 +365,12 @@ def report_summary(result: RunResult) -> Summary:
             "The requested deterministic checks completed, but declared rules could not be "
             "evaluated completely."
         )
+    if result.target is TargetStatus.UNAVAILABLE:
+        sentence = (
+            "No rule is declared, so the target is unavailable: these are observed facts, "
+            "and no rule passes or fails."
+            + ("" if result.exit_code == 0 else " Some observations could not complete.")
+        )
     for status in ("FAIL", "UNKNOWN"):
         rules = [item.id for item in result.rule_assessments or () if item.status == status]
         if rules:
@@ -371,7 +380,9 @@ def report_summary(result: RunResult) -> Summary:
     rules_reason = {
         "PASS": "Required evaluator evidence is complete; decided positions have no violations.",
         "FAIL": "At least one rule violation was recorded; undecided positions may remain.",
-        "UNKNOWN": "Available evidence does not establish the rule outcome.",
+        "UNKNOWN": "Available evidence does not establish the rule outcome."
+        if result.target is None
+        else "No rule is declared; the target is unavailable.",
     }[result.declared_rules]
     verdicts = (
         VerdictRow(

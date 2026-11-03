@@ -55,6 +55,7 @@ from archkeel.ir.model import (
     Observation,
     Record,
     RunResult,
+    TargetStatus,
     stable_id,
     text_value,
 )
@@ -91,6 +92,10 @@ _SIZE_LABELS: Final = {
 _GIT_HASH_SHOWN: Final = 7
 # The explorer must stay on the first screen; the rest of the list opens on request.
 _FINDINGS_SHOWN: Final = 5
+# AD-285: the inventory shows as many components as the Explorer's AD-264 list.
+_INVENTORY_SHOWN: Final = 8
+# Python runs a package's `__main__` module for `python -m`: the one observed entry point.
+_ENTRY_MODULE: Final = "__main__"
 
 
 def _asset(name: str) -> bytes:
@@ -776,6 +781,16 @@ def _atlas_rule_counts(result: RunResult) -> str:
 
 def _atlas_verdict_line(result: RunResult, observation: Observation) -> str:
     decision = report_summary(result).decision
+    head = f" · <code>{_text(observation.source.git_head[:_GIT_HASH_SHOWN])}</code></p>"
+    if result.target is TargetStatus.UNAVAILABLE:
+        return (
+            f'<p class="verdict-line" data-decision="{decision.state}" '
+            f'aria-label="Decision: {_text(decision.label)}">'
+            f'<span class="decision-symbol" aria-hidden="true">{decision.symbol}</span>'
+            f"<strong>{_text(decision.label)}</strong>"
+            " · Target unavailable: no rule is declared, so no rule passes or fails"
+            f" · Source observation {_text(result.observation_complete)}{head}"
+        )
     agent, total = agent_decisions(observation)
     # Every decision by the agent is a draft until the architect reviews it; say so, not a count.
     decisions = (
@@ -790,8 +805,67 @@ def _atlas_verdict_line(result: RunResult, observation: Observation) -> str:
         f"<strong>{_text(decision.label)}</strong>"
         f" · Rules {_text(result.declared_rules)} · {_atlas_rule_counts(result)}"
         f"{decisions}"
-        f" · Source observation {_text(result.observation_complete)}"
-        f" · <code>{_text(observation.source.git_head[:_GIT_HASH_SHOWN])}</code></p>"
+        f" · Source observation {_text(result.observation_complete)}{head}"
+    )
+
+
+def _inventory_row(
+    metric: StructureMetric, entries: Mapping[str, list[str]], interface: Mapping[str, set[str]]
+) -> str:
+    modules = entries.get(metric.scope)
+    return (
+        f"<tr><td><code>{_text(metric.scope)}</code></td>"
+        + "".join(
+            f'<td class="numeric">{value}</td>'
+            for value in (metric.modules, metric.inner_edges, metric.fan_in, metric.fan_out)
+        )
+        + f"<td>{', '.join(f'<code>{_text(name)}</code>' for name in modules or ()) or 'none'}</td>"
+        + f'<td class="numeric">{len(interface.get(metric.scope, ()))}</td></tr>'
+    )
+
+
+def _atlas_inventory(observation: Observation) -> str:
+    """AD-285: what the code consists of, before any finding; observed facts, never a verdict."""
+    owners = component_owners(observation)
+    entries: dict[str, list[str]] = {}
+    for record in observation.records("modules") or ():
+        name = text_value(record.data.get("qualified_name"))
+        owner = owner_of(name, owners)
+        if owner is not None and name.rpartition(".")[2] == _ENTRY_MODULE:
+            entries.setdefault(owner, []).append(name)
+    interface: dict[str, set[str]] = {}
+    for edge in interface_edges(observation):
+        interface.setdefault(edge.target, set()).update(item.name for item in edge.names)
+    metrics = sorted(
+        (
+            item
+            for item in structure_metrics(observation)
+            if item.level is _StructureLevel.COMPONENT
+        ),
+        key=lambda item: (-item.modules, item.scope),
+    )
+    head = (
+        '<thead><tr><th>Component</th><th class="numeric">Modules</th>'
+        '<th class="numeric">Edges inside</th><th class="numeric">Incoming</th>'
+        '<th class="numeric">Outgoing</th><th>Entry modules</th>'
+        '<th class="numeric">Names used by others</th></tr></thead>'
+    )
+    rows = [_inventory_row(item, entries, interface) for item in metrics]
+    shown, rest = rows[:_INVENTORY_SHOWN], rows[_INVENTORY_SHOWN:]
+    more = (
+        f'<details class="inventory-more"><summary>Show all {len(rows)} components</summary>'
+        f'<div class="table-wrap"><table class="data-table">{head}<tbody>{"".join(rest)}'
+        "</tbody></table></div></details>"
+        if rest
+        else ""
+    )
+    return (
+        '<section aria-labelledby="inventory-heading"><h2 id="inventory-heading">What is here</h2>'
+        f"<p>{len(metrics)} components · {len(observation.records('modules') or ())} modules · "
+        f"{observation.coverage.files_parsed} files parsed. Observed from the code; components "
+        "follow the package layout. Incoming and outgoing count module import edges.</p>"
+        f'<div class="table-wrap"><table class="data-table">{head}<tbody>{"".join(shown)}'
+        f"</tbody></table></div>{more}</section>"
     )
 
 
@@ -950,7 +1024,9 @@ def _atlas_content(
         f" · Symbol inventory: {_text(inventory_status)}"
         f' · <a href="{_text(overview_href)}">Architecture overview</a></p>'
         if detail_page
-        else _atlas_verdict_line(result, observation) + _atlas_findings(result, observation)
+        else _atlas_verdict_line(result, observation)
+        + (_atlas_inventory(observation) if result.target is TargetStatus.UNAVAILABLE else "")
+        + _atlas_findings(result, observation)
     )
     return f"""<section class="report-heading atlas-heading">
       <div><span class="eyebrow">ArchQ Explorer</span><h1>{_text(repository)}</h1>

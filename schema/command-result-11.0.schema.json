@@ -142,6 +142,9 @@
         },
         "first_look": {
           "$ref": "#/$defs/first_look"
+        },
+        "target": {
+          "$ref": "#/$defs/target"
         }
       },
       "allOf": [
@@ -301,6 +304,9 @@
         },
         "first_look": {
           "$ref": "#/$defs/first_look"
+        },
+        "target": {
+          "$ref": "#/$defs/target"
         }
       },
       "additionalProperties": false,
@@ -498,6 +504,23 @@
         },
         "first_look": {
           "$ref": "#/$defs/first_look"
+        }
+      }
+    },
+    "target": {
+      "required": [
+        "command",
+        "declared_rules"
+      ],
+      "properties": {
+        "command": {
+          "const": "report"
+        },
+        "declared_rules": {
+          "const": "UNKNOWN"
+        },
+        "target": {
+          "$ref": "#/$defs/target"
         }
       }
     }
@@ -728,8 +751,13 @@
         }
       },
       "additionalProperties": false
+    },
+    "target": {
+      "enum": [
+        "unavailable"
+      ]
     }
   },
   "title": "Archkeel command JSON results",
-  "$comment": "AD-258. Ranked findings on a report. AD-272: also on an incomplete report, which keeps its 8.0 shape. AD-266. first_look on init. Reuse 10.0 by reference without widening published resources."
+  "$comment": "AD-258. Ranked findings on a report. AD-272: also on an incomplete report, which keeps its 8.0 shape. AD-266. first_look on init. AD-285: target unavailable on a report that declares no rule; its declared_rules is UNKNOWN. Reuse 10.0 by reference without widening published resources."
 }
