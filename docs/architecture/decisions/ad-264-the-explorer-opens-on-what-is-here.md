@@ -1,5 +1,7 @@
 # AD-264 The Explorer opens on what is here
 
+**Amended by AD-286.** Details starts closed, so the inventory shows after the Details button or a first-screen panel (#791).
+
 **Decision.**
 - While nothing is selected, the Explorer's fact sheet shows an inventory instead of an empty
   prompt: the counts (components and modules) and the components with the most

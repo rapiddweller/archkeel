@@ -17,8 +17,10 @@ findings. The static rule cards and the reading guide are gone from this page.
 
 ArchQ Explorer is embedded in the report. Fullscreen expands the same explorer;
 Restore returns to the report without losing the current view. Search (`Ctrl/⌘+K` or `/`) finds
-components, modules and rules. Hover traces dependencies; `Ctrl/⌘`+wheel zooms
-at the pointer. Health check opens findings and the import matrix. Snapshot provenance
+components, modules and rules; a component result opens that component in the current view, and the
+URL keeps its `scope` and `view` ([AD-286](architecture/decisions/ad-286-the-explorer-opens-a-component-in-one-step-and-fits-readably.md)).
+Fit never scales the Atlas below 90 %, so a large level scrolls. Details starts closed and opens
+on a selection. Hover traces dependencies; `Ctrl/⌘`+wheel zooms at the pointer. Health check opens findings and the import matrix. Snapshot provenance
 and the complete JSON link remain in the report and in Health check.
 Perspectives show recorded authorship, layer or evidence without changing verdicts.
 Share copies the current link or Mermaid, or downloads a standalone SVG.
@@ -72,8 +74,8 @@ geometry. Use them rather than copying a second specification here.
 make report-browser-tests
 ```
 
-Nine optional local Chromium tests cover findings, keyboard navigation, boundary
-permissions with unsafe-content escaping, and the first screen. CI checks data, projection and layout logic directly with
+Optional local Chromium tests cover findings, keyboard navigation, boundary
+permissions with unsafe-content escaping, the first screen, and reaching a component. CI checks data, projection and layout logic directly with
 Python and Node. Review the Nightly gallery for visual changes; these logic
 checks do not prove browser rendering or interaction.
 

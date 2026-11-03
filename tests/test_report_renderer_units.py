@@ -32,6 +32,18 @@ def test_explorer_search_ranks_exact_prefix_token_and_substring_without_mutation
     }
 
 
+def test_explorer_search_ranks_the_exact_component_path_before_its_children():
+    result = evaluate_scene("""() => {
+      const scene = window.ArchkeelReportScene;
+      const row = (id, label, slashPath) => ({kind:'component', id, label, slashPath,
+        text: `${label} ${slashPath}`});
+      const index = [row('child', 'child', 'io/loaders/rdbms/child'),
+        row('rdbms', 'rdbms', 'io/loaders/rdbms')];
+      return scene.search(index, 'io/loaders/rdbms').map(item => item.id);
+    }""")
+    assert result == ["rdbms", "child"]
+
+
 def test_explorer_exports_recorded_status_and_escapes_mermaid_labels():
     result = evaluate_scene("""() => {
       const model = window.ArchkeelReportScene;

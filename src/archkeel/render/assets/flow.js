@@ -1752,6 +1752,8 @@ export let flow;
   }
 
   let maxFitScale = 1.4;
+  // The smallest Atlas card text is 13 px tall (bounding box) at 100 %; at 0.9 it stays above 11 px.
+  const ATLAS_MIN_FIT_SCALE = 0.9;
   function fit(overview = false) {
     cancelPointerTap();
     if (layoutPending) {
@@ -1762,8 +1764,9 @@ export let flow;
     const bounds = viewport.getBBox();
     if (!bounds.width || !bounds.height || !canvas.clientWidth || !canvas.clientHeight) return;
     // Member compartments need readable text; oversized content stays pannable.
-    const minimumScale = ATLAS && overview ? 0
-      : ATLAS ? 1 : focusLabel || memberPreviews || umlSelection?.type === "node" ? 1 : overview ? 0 : 0.85;
+    // The Atlas never fits below ATLAS_MIN_FIT_SCALE: a large level scrolls instead of shrinking its text.
+    const minimumScale = ATLAS ? ATLAS_MIN_FIT_SCALE
+      : focusLabel || memberPreviews || umlSelection?.type === "node" ? 1 : overview ? 0 : 0.85;
     const widthScale = canvas.clientWidth / (bounds.width + 48);
     transform.k = renderedScene?.moduleOverview && !overview ? Math.max(1, Math.min(maxFitScale, widthScale))
       : Math.max(minimumScale, Math.min(maxFitScale, widthScale, canvas.clientHeight / (bounds.height + 48)));
@@ -3160,8 +3163,9 @@ export let flow;
 
   detailsToggle.addEventListener("click", () => { setTargetDetails(!targetDetailsOpen); render(); fit(); });
   if (NAV) {
-    setTargetDetails(true);
     readRoute();
+    // A selection in the URL opens Details; a plain first load leaves the diagram the full width.
+    setTargetDetails(umlSelection !== null || atlasModule !== null || atlasCell !== null);
     document.querySelector(".theme-toggle").addEventListener("click", () => {
       applyTheme(document.documentElement.dataset.theme !== "light"); render();
     });

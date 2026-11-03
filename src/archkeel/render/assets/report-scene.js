@@ -159,11 +159,13 @@ import { create as createDeviations } from "./report-atlas-deviations.js";
     function searchIndex(viewMode) {
       if (!ATLAS) return [];
       const path = (item) => componentRoute(item.id).map((parent) => parent.label).join(" / ");
+      const slashPath = (item) => path(item).replace(/ \/ /g, "/");
       const modules = viewMode === "target" ? ATLAS.declared_modules : ATLAS.modules;
       return [
         ...ATLAS.components.map((item) => ({ kind: "component", id: item.id, label: item.label,
           sub: [path(item), item.layer].filter(Boolean).join(" · "), status: item.status,
-          text: `${item.label} ${item.path || ""} ${item.id} ${path(item)}`.toLowerCase() })),
+          slashPath: slashPath(item).toLowerCase(),
+          text: `${item.label} ${item.path || ""} ${item.id} ${path(item)} ${slashPath(item)}`.toLowerCase() })),
         ...modules.map((item) => ({ kind: "module", id: item.id, label: item.name.split(".").at(-1),
           sub: item.path || item.name, text: `${item.name} ${item.path || ""}`.toLowerCase(), module: item })),
         ...ATLAS.rule_assessments.map((item) => ({ kind: "rule", id: item.id, label: item.id,
@@ -211,7 +213,7 @@ import { create as createDeviations } from "./report-atlas-deviations.js";
     return index.map((row) => {
       const label = row.label.toLowerCase();
       const score = !needle ? visible.has(row.id) ? 0 : null
-        : label === needle ? 0 : label.startsWith(needle) ? 1
+        : label === needle || row.slashPath === needle ? 0 : label.startsWith(needle) ? 1
           : row.text.split(/[\s./:_-]+/).some((token) => token.startsWith(needle)) ? 2
             : row.text.includes(needle) ? 3 : null;
       return { row, score };
