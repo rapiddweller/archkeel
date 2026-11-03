@@ -101,7 +101,11 @@ def test_a_view_opens_with_each_step_edge_and_mark(pages):
         assert any("✕ not in the code" in text for text in labels)
         payments = page.get_by_role("button", name=re.compile(r"^shop\.app\.payments, "))
         assert "not in the code" in payments.text_content()
-        assert "no component or module has this id" in payments.get_attribute("aria-label")
+        reason = page.evaluate(
+            """() => JSON.parse(document.getElementById('view-check-data').textContent)
+            .nodes.find((node) => node.id === 'shop.app.payments').reason"""
+        )
+        assert payments.get_attribute("aria-label").endswith(reason)
         payments.press("Enter")
         assert "not a step" in page.locator(".flow-inspector").inner_text().lower()
         page.keyboard.press("Escape")
