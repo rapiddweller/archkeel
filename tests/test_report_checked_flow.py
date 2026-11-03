@@ -22,6 +22,8 @@ _EXTRA_EDGES = [
     {"source": "shop.render.text", "target": "shop.app.orders", "kind": "imports"},
     {"source": "shop.cli.main", "target": "shop.store.repository", "kind": "calls"},
     {"source": "shop.cli.main", "target": "shop.app.payments", "kind": "imports"},
+    # The same node at both ends: no route to draw, but the edge must still show.
+    {"source": "shop.render.text", "target": "shop.render.text", "kind": "imports"},
 ]
 
 
@@ -245,5 +247,68 @@ def test_the_page_works_offline(pages):
         assert [url for url in requests if not url.startswith(_URL)] == []
         assert page.errors == []
         assert _step(page, 1).count() == 1
+    finally:
+        _close(playwright, browser)
+
+
+def _search(page, text):
+    page.get_by_role("button", name="Search", exact=True).click()
+    page.keyboard.type(text)
+    page.keyboard.press("Enter")
+    _wait_for_layout(page)
+
+
+@pytest.mark.browser
+@pytest.mark.parametrize("size", [(800, 600), (1440, 900)], ids=["800x600", "1440x900"])
+def test_no_pass_word_shows_beside_the_flow(pages, size):
+    """One fact, one word: the flow says the observation is complete, never PASS."""
+    playwright, browser, page = _open(pages, width=size[0], height=size[1])
+    try:
+        assert "PASS" not in page.locator("#flow").inner_text()
+        header = page.locator(".verdict-line")
+        assert not header.is_visible() or "PASS" not in header.inner_text()
+        _step(page, 2).click()
+        assert "PASS" not in page.locator("#flow").inner_text()
+    finally:
+        _close(playwright, browser)
+
+
+@pytest.mark.browser
+def test_a_step_card_shows_its_step_status_not_its_node_status(pages):
+    playwright, browser, page = _open(pages)
+    try:
+        claimed = _step(page, 3)
+        assert "✎ author claim" in claimed.text_content()
+        assert "✓ proven" not in claimed.text_content()
+        assert "✎ author claim" in claimed.get_attribute("aria-label")
+    finally:
+        _close(playwright, browser)
+
+
+@pytest.mark.browser
+def test_search_leaves_the_flow_and_opens_the_component(pages):
+    playwright, browser, page = _open(pages, width=1440, height=900)
+    try:
+        _search(page, "store")
+        assert page.locator(".flow[data-view='checked']").count() == 0
+        route = _route(page)
+        assert "flow" not in route and route.get("scope") == "COMP-STORE"
+        assert "Checked flow" not in page.locator("#flow-heading").text_content()
+    finally:
+        _close(playwright, browser)
+
+
+@pytest.mark.browser
+def test_the_summary_counts_every_status_and_a_self_edge_shows(pages):
+    playwright, browser, page = _open(pages)
+    try:
+        summary = page.locator(".atlas-summary").inner_text()
+        assert "Steps" in summary and "Edges" in summary and "Nodes" in summary
+        assert summary.count("✕ not in the code") >= 2  # missing edges and the missing node
+        text = page.get_by_role("button", name=re.compile(r"^shop\.render\.text, "))
+        assert "imports · ✕ not in the code" in text.text_content()
+        page.locator("[data-flow-details-toggle]").click()
+        listed = page.locator(".flow-inspector").inner_text()
+        assert "shop.render.text → shop.render.text" in listed
     finally:
         _close(playwright, browser)

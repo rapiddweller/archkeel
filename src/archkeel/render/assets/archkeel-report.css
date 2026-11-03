@@ -2684,6 +2684,7 @@ body:has(.atlas-heading) .report-logo {
 .node.uml-card.view-missing .card { stroke: var(--view-missing); stroke-dasharray: 8 3 2 3; }
 .node.uml-card.view-unknown .card { stroke: var(--view-unknown); stroke-dasharray: 2 4; }
 .node.uml-card.view-declared .card { stroke: var(--view-declared); stroke-dasharray: 12 4; }
+.node.uml-card.view-claim .card { stroke: var(--view-claim); stroke-dasharray: 6 4; }
 .view-mark[data-view-status="proven"] { color: var(--view-proven); }
 .view-mark[data-view-status="claim"] { color: var(--view-claim); }
 .view-mark[data-view-status="missing"] { color: var(--view-missing); }

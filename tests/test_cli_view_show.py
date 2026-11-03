@@ -5,6 +5,7 @@
 
 import json
 import re
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -104,10 +105,13 @@ def test_show_writes_nothing_into_the_analyzed_repository(
     monkeypatch.setenv("XDG_CACHE_HOME", str(cache))
     assert main(["view", "show", str(spec), "--snapshot", str(snapshot), "--json"]) == 0
     assert sorted(path for path in root.rglob("*") if ".git" not in path.parts) == before
-    digest = _observation(packet).source.source_digest
-    page = cache / "archkeel/view" / digest[:16] / _PAGE
-    assert capsys.readouterr().err == f"archkeel view show: wrote {page}\n"
-    assert page.is_file()
+    page = Path(capsys.readouterr().err.removeprefix("archkeel view show: wrote ").strip())
+    assert page.is_file() and page.parent.parent == cache / "archkeel/view"
+    # A second view of the same snapshot gets its own folder: it overwrites nothing.
+    spec.write_text(json.dumps(_spec(_observation(packet), title="Another view")))
+    assert main(["view", "show", str(spec), "--snapshot", str(snapshot), "--json"]) == 0
+    other = Path(capsys.readouterr().err.removeprefix("archkeel view show: wrote ").strip())
+    assert other.parent != page.parent and page.is_file()
 
 
 def test_show_on_a_contract_without_rules_draws_no_verdict(
@@ -153,3 +157,58 @@ def test_check_takes_no_output(
     assert main(arguments) == 2
     assert not output.exists()
     assert "--output" in capsys.readouterr().out
+
+
+def test_show_draws_an_incomplete_snapshot_with_the_result_of_check(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """AD-284 item 4: a file the analyzer cannot read makes a gap, so its absence is unknown."""
+    packet = _snapshot(
+        tmp_path / "broken", {"shop/app/broken.py": "def broken(:\n"}, complete=False
+    )
+    spec = _spec(_observation(packet), nodes=["shop.app.broken", "shop.cli.main"])
+    view, snapshot = _files(tmp_path, packet, spec)
+    arguments = [str(view), "--snapshot", str(snapshot), "--json"]
+    assert main(["view", "check", *arguments]) == 0
+    checked = capsys.readouterr().out
+    output = tmp_path / "out"
+    assert main(["view", "show", *arguments, "--output", str(output)]) == 0
+    assert capsys.readouterr().out == checked
+    embedded = _embedded(output / _PAGE)
+    assert isinstance(embedded, dict) and embedded["nodes"][0]["status"] == "unknown"
+
+
+def test_show_replaces_a_symlinked_snapshot_copy_and_never_follows_it(
+    tmp_path: Path, packet: bytes, capsys: pytest.CaptureFixture
+) -> None:
+    view, snapshot = _files(tmp_path, packet, _spec(_observation(packet)))
+    output, victim = tmp_path / "out", tmp_path / "victim.json"
+    output.mkdir()
+    victim.write_text("keep")
+    (output / "architecture.json").symlink_to(victim)
+    assert (
+        main(["view", "show", str(view), "--snapshot", str(snapshot), "--output", str(output)]) == 0
+    )
+    assert victim.read_text() == "keep"
+    copy = output / "architecture.json"
+    assert not copy.is_symlink() and copy.read_bytes() == packet
+
+
+def test_a_snapshot_without_an_explorer_prints_the_check_and_exits_2(
+    tmp_path: Path, packet: bytes, capsys: pytest.CaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The check ran, so its result prints; only the page is missing, and stderr says so."""
+    import archkeel.cli as cli
+
+    saved = cli.run_saved_report
+    monkeypatch.setattr(
+        cli, "run_saved_report", lambda path: replace(saved(path), architecture_projection=None)
+    )
+    view, snapshot = _files(tmp_path, packet, _spec(_observation(packet)))
+    output = tmp_path / "out"
+    arguments = [str(view), "--snapshot", str(snapshot), "--json"]
+    assert main(["view", "show", *arguments, "--output", str(output)]) == 2
+    shown = capsys.readouterr()
+    assert json.loads(shown.out)["exit_code"] == 0 and "cannot be established" not in shown.out
+    assert shown.err == "archkeel view show: not drawn: the snapshot has no Explorer\n"
+    assert not (output / _PAGE).exists()

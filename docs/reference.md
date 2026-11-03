@@ -219,10 +219,13 @@ Exit 2 prints one of two JSON documents:
 prints the same result and draws it in the Explorer
 ([AD-287](architecture/decisions/ad-287-the-explorer-draws-a-checked-view.md)). It writes
 `architecture.report.html`, its detail pages and a copy of the snapshot to `DIR`, by default
-`$XDG_CACHE_HOME/archkeel/view/<first 16 hex of the source digest>/`. Stderr names the page.
+`$XDG_CACHE_HOME/archkeel/view/<16 hex of the hash of both snapshot digests and the spec>/`.
+Stderr names the page. A run first removes the files it writes in `DIR`; Archkeel owns them.
 The page opens on the checked flow: numbered steps, each edge with its status as text and icon,
 and the evidence in Details. `?flow=1&step=2` in the URL opens the same picture; `view=diagram`
-without `flow` opens As-Is. When the check does not run (exit 2), the command writes nothing.
+without `flow` opens As-Is. An incomplete scan is drawn too: its gaps show as unknown. When the
+check does not run (exit 2), the command writes nothing. A snapshot without an Explorer prints
+the check result, writes nothing, says "not drawn" on stderr and exits 2.
 
 ## Results
 
@@ -243,7 +246,7 @@ expectations are n/a. Filtering and baseline display do not change canonical fac
 | `skill install` | Instructions written | — | Target could not be updated |
 | `guide` | Guide written, or `--check` up to date | `--check`: missing or different | No contract, or it cannot be read |
 | `view check` | No reference is missing (`--strict`: or unknown) | A reference is missing (`--strict`: or unknown) | Invalid spec or snapshot, or another snapshot |
-| `view show` | As `view check`; pages written | As `view check`; pages written | As `view check`; nothing written |
+| `view show` | As `view check`; pages written | As `view check`; pages written | As `view check`, or no Explorer for the snapshot; nothing written |
 
 Exit 0 is not architecture approval. Exit 2 carries diagnostics with `kind`,
 `subject`, `unknown_claim` and `remedy`; inspected evidence may remain available.

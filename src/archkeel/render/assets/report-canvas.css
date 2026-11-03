@@ -348,3 +348,6 @@ html.ak-canvas .flow[data-view="checked"] .flow-map-column > .ak-scene-summary {
   background: var(--ak-panel); border: 1px solid var(--ak-line); border-radius: 8px;
 }
 html.ak-canvas .flow[data-view="checked"] .flow-canvas { flex: 1 1 0; height: auto; }
+/* One fact, one word: beside the flow the observation says "complete" in Details, never PASS. */
+html.ak-canvas .flow[data-view="checked"] .ak-run-status,
+html.ak-canvas:has(.flow[data-view="checked"]) .verdict-line { display: none; }

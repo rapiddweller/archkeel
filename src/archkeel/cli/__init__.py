@@ -72,8 +72,8 @@ from .observe import observer_for
 from .skill import InstallationAgent, install_skill
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
-_SNAPSHOT_PATH: Final = Path("test-artifacts/architecture/architecture.json")
-_VIEW_SNAPSHOT_NAME: Final = "architecture.json"
+_ARCHITECTURE_JSON: Final = "architecture.json"
+_SNAPSHOT_PATH: Final = Path("test-artifacts/architecture") / _ARCHITECTURE_JSON
 
 
 def _sha(value: str) -> str:
@@ -159,16 +159,30 @@ def _report_pages(artifact: Path) -> list[Path]:
     ]
 
 
-def _show_view(view: ViewCheck, text: str, snapshot_path: Path, output: Path | None) -> Path:
-    """AD-287: write the Explorer of the checked snapshot with the check result in it."""
+def _clear_report(artifact: Path) -> None:
+    """Remove the files a run writes, so a link in their place is never followed."""
+    for previous in (artifact, *_report_pages(artifact)):
+        previous.unlink(missing_ok=True)
+
+
+def _show_view(
+    view: ViewCheck, text: str, spec: bytes, snapshot_path: Path, output: Path | None
+) -> Path | None:
+    """AD-287: write the Explorer of the checked snapshot with the check result in it.
+
+    An incomplete scan still has its Explorer: its gaps show as unknown references. Without
+    an Explorer projection there is no page to draw, and the result is None.
+    """
     snapshot = snapshot_path.read_bytes()
     report = run_saved_report(snapshot_path)
-    if report.exit_code != 0:
-        reasons = "; ".join(item.unknown_claim for item in report.diagnostics)
-        raise ValueError(f"the snapshot report cannot be drawn: {reasons}")
-    artifact = (output or _cache_folder(Command.VIEW, view.snapshot.source_digest[:16])) / (
-        _VIEW_SNAPSHOT_NAME
-    )
+    if report.architecture_projection is None:
+        return None
+    # Each view of each snapshot gets its own folder, so no view overwrites another.
+    key = hashlib.sha256(
+        f"{view.snapshot.source_digest}:{view.snapshot.contract_digest}:".encode() + spec
+    ).hexdigest()[:16]
+    artifact = (output or _cache_folder(Command.VIEW, key)) / _ARCHITECTURE_JSON
+    _clear_report(artifact)
     _write_json(artifact, snapshot)
     pages = render_architecture_pages(
         report,
@@ -730,17 +744,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         if command is Command.VIEW:
             spec_path: Path = args.spec
             subject = str(spec_path)
-            spec = parse_view_spec(decode_json(spec_path.read_bytes()))
+            spec_bytes = spec_path.read_bytes()
+            spec = parse_view_spec(decode_json(spec_bytes))
             subject = str(args.snapshot)
             view = check_view(spec, read_saved_snapshot(args.snapshot), strict=args.strict)
             text = view_check_json(view)
             # Exit 2: the check did not run, so there is no picture to write.
-            page = (
-                _show_view(view, text, args.snapshot, args.output)
-                if args.show and (view.exit_code != 2)
-                else None
-            )
+            drawn = args.show and view.exit_code != 2
+            page = _show_view(view, text, spec_bytes, args.snapshot, args.output) if drawn else None
             sys.stdout.write(view_summary(view) + "\n" if interactive else text)
+            if drawn and page is None:
+                sys.stderr.write("archkeel view show: not drawn: the snapshot has no Explorer\n")
+                return 2
             if page is not None:
                 sys.stderr.write(f"archkeel view show: wrote {page}\n")
             return view.exit_code
@@ -788,7 +803,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     parser.error(
                         "--output is inside the analyzed repository; choose a folder outside it"
                     )
-                artifact: Path = folder / "architecture.json"
+                artifact: Path = folder / _ARCHITECTURE_JSON
                 result, architecture = run_explore(
                     root,
                     observer=observer_for(args.language, tsconfig=args.tsconfig or "tsconfig.json"),
@@ -799,8 +814,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 result = replace(result, root_name=root.name, root_digest=digest)
                 # The scope and HEAD passed: no earlier snapshot of ours may look current now.
-                for previous in (artifact, *_report_pages(artifact)):
-                    previous.unlink(missing_ok=True)
+                _clear_report(artifact)
                 if architecture is not None:
                     result = replace(result, artifact=str(artifact))
                     _write_json(artifact, architecture)

@@ -1967,10 +1967,7 @@ export let flow;
     if (ATLAS) {
       viewMode = nextView;
       atlasCell = null; atlasModule = null; atlasHint = null;
-      if (flowMode) {
-        flowMode = false; flowSelection = null; setTargetDetails(false);
-        root.querySelector(".flow-layout").before(root.querySelector(".atlas-summary"));
-      }
+      leaveFlow();
       render(); return;
     }
     if (nextView === viewMode) return;
@@ -2283,6 +2280,7 @@ export let flow;
 
   function openAtlasComponent(id, content = null) {
     if (!ATLAS.levels.some((level) => level.parent_id === id)) return;
+    leaveFlow();
     if (atlasLevel().parent_id !== id) rememberNavigationState();
     umlPath = REPORT_SCENE.componentRoute(id).map((item) => ({ id: item.id, origin: "observed" }));
     atlasContent = content;
@@ -2971,7 +2969,14 @@ export let flow;
     unknown: "? unknown", missing: "✕ not in the code",
   };
   const VIEW_DASHES = { proven: "none", declared: "12 4", claim: "6 4", unknown: "2 4", missing: "8 3 2 3" };
+  // A node is observed or not; "proven" names a relationship, so a node never says it.
+  const NODE_MARKS = { ...VIEW_MARKS, proven: "observed" };
+  const nodeMark = (check) => check.status === "proven" ? `${check.kind || "node"} observed` : VIEW_MARKS[check.status];
   const OBSERVATION_WORDS = { PASS: "complete", FAIL: "incomplete" };
+  function leaveFlow() {
+    if (!flowMode) return;
+    flowMode = false; flowSelection = null; setTargetDetails(false);
+  }
   const flowCardId = (selection) => selection.kind === "step" ? `step-${selection.index + 1}`
     : selection.kind === "node" ? `node-${selection.index}` : null;
 
@@ -2981,14 +2986,27 @@ export let flow;
     const inSteps = new Set(VIEW.steps.map((step) => step.target));
     const others = VIEW.nodes.filter((node) => !inSteps.has(node.id)).map((check) => ({ check }));
     const cardOf = new Map();
+    for (const card of [...cards, ...others]) {
+      card.id = card.step ? `step-${card.index + 1}` : `node-${VIEW.nodes.indexOf(card.check)}`;
+      if (!cardOf.has(card.check.id)) cardOf.set(card.check.id, card.id);
+    }
     const nodes = [...cards, ...others].map((card) => {
-      const id = card.step ? `step-${card.index + 1}` : `node-${VIEW.nodes.indexOf(card.check)}`;
-      if (!cardOf.has(card.check.id)) cardOf.set(card.check.id, id);
       const number = card.step ? `${card.index + 1}. ` : "";
+      // A step card shows how the step was checked; only the first step is its node alone.
+      card.status = card.step && card.index ? card.step.status : card.check.status;
+      const meta = card.step && card.index
+        ? `${VIEW_MARKS[card.step.status]} from step ${card.index} · ${nodeMark(card.check)}`
+        : `${nodeMark(card.check)}${card.check.status === "proven" ? "" : ` · ${card.check.reason}`}`;
+      // An edge with the same node at both ends has no route: the card of that node shows it.
+      const selfEdges = cardOf.get(card.check.id) === card.id
+        ? VIEW.edges.filter((edge) => edge.source === card.check.id && edge.target === card.check.id) : [];
       return {
-        id, kind: card.check.kind || "reference", label: `${number}${card.check.id}`, card,
-        meta: `${VIEW_MARKS[card.check.status]} · ${card.check.reason}`,
-        sections: card.step?.note ? [{ label: "Author", lines: [{ text: card.step.note }] }] : [],
+        id: card.id, kind: card.check.kind || "reference", label: `${number}${card.check.id}`, card, meta,
+        sections: [
+          ...card.step?.note ? [{ label: "Author", lines: [{ text: card.step.note }] }] : [],
+          ...selfEdges.length ? [{ label: "Edge to itself", lines: selfEdges.map((edge) =>
+            ({ text: `${edge.kind ? `${edge.kind} · ` : ""}${VIEW_MARKS[edge.status]}` })) }] : [],
+        ],
         tooltip: card.step?.note ? `Author: ${card.step.note}` : card.check.reason,
       };
     });
@@ -3042,14 +3060,14 @@ export let flow;
       const node = VIEW.nodes.find((item) => item.id === step.target);
       inspectorContent.innerHTML = `<div class="kicker">Checked flow · Step ${selection.index + 1} of ${VIEW.steps.length}</div>
         <h2 tabindex="-1">${esc(node.id)}</h2><p>«${esc(node.kind || "reference")}»${node.file ? ` · <code>${esc(node.file)}</code>` : ""}${node.entity_id ? ` · <code>${esc(node.entity_id)}</code>` : ""}</p>
-        <h3>Node</h3><p class="view-mark" data-view-status="${esc(node.status)}">${esc(VIEW_MARKS[node.status])}</p><p>${esc(node.reason)}</p>
+        <h3>Node</h3><p class="view-mark" data-view-status="${esc(node.status)}">${esc(nodeMark(node))}</p><p>${esc(node.reason)}</p>
         <h3>${selection.index ? `From step ${selection.index}` : "First step"}</h3>${selection.index ? flowCheckMarkup(step)
           : step.note ? `<p class="view-author"><span class="view-author-mark">Author</span> ${esc(step.note)}</p>` : ""}${snapshot}`;
     } else if (selection?.kind === "node") {
       const node = VIEW.nodes[selection.index];
       inspectorContent.innerHTML = `<div class="kicker">Checked flow · Node, not a step</div>
         <h2 tabindex="-1">${esc(node.id)}</h2><p>«${esc(node.kind || "reference")}»${node.file ? ` · <code>${esc(node.file)}</code>` : ""}</p>
-        <p class="view-mark" data-view-status="${esc(node.status)}">${esc(VIEW_MARKS[node.status])}</p><p>${esc(node.reason)}</p>${snapshot}`;
+        <p class="view-mark" data-view-status="${esc(node.status)}">${esc(nodeMark(node))}</p><p>${esc(node.reason)}</p>${snapshot}`;
     } else if (selection?.kind === "edge") {
       const edge = VIEW.edges[selection.index];
       inspectorContent.innerHTML = `<div class="kicker">Checked flow · Edge</div>
@@ -3058,9 +3076,13 @@ export let flow;
       inspectorContent.innerHTML = `<div class="kicker">Checked flow</div><h2 tabindex="-1">${esc(VIEW.title)}</h2>
         <ol class="view-steps">${VIEW.steps.map((step, index) => `<li><button type="button" data-view-step="${index}">${esc(step.target)}</button>
           ${esc(VIEW_MARKS[step.status])}${step.note ? ` <span class="view-author"><span class="view-author-mark">Author</span> ${esc(step.note)}</span>` : ""}</li>`).join("")}</ol>
+        ${VIEW.edges.length ? `<h3>Edges</h3><ul class="plain">${VIEW.edges.map((edge, index) => `<li><button type="button" data-view-edge="${index}">${esc(edge.source)} → ${esc(edge.target)}</button>
+          ${edge.kind ? `${esc(edge.kind)} · ` : ""}${esc(VIEW_MARKS[edge.status])}</li>`).join("")}</ul>` : ""}
         ${VIEW.author_notes.map((note) => `<p class="view-author"><span class="view-author-mark">Author</span> ${esc(note)}</p>`).join("")}${snapshot}`;
       inspectorContent.querySelectorAll("[data-view-step]").forEach((button) => button.addEventListener("click", () =>
         selectFlow({ kind: "step", index: Number(button.dataset.viewStep) }, true)));
+      inspectorContent.querySelectorAll("[data-view-edge]").forEach((button) => button.addEventListener("click", () =>
+        selectFlow({ kind: "edge", index: Number(button.dataset.viewEdge) }, true)));
     }
   }
 
@@ -3081,12 +3103,14 @@ export let flow;
     if (choice) choice.hidden = true;
     flowHeading.textContent = `Checked flow · ${VIEW.title}`;
     breadcrumb.textContent = "Checked flow";
-    const counts = Object.keys(VIEW_MARKS).map((status) => [status, VIEW.steps.filter((step) => step.status === status).length])
-      .filter(([, count]) => count).map(([status, count]) => `${count} ${VIEW_MARKS[status]}`);
+    const tally = (items, mark) => Object.keys(VIEW_MARKS).map((status) => [status, items.filter((item) => item.status === status).length])
+      .filter(([, count]) => count).map(([status, count]) => `${count} ${mark(status)}`).join(", ") || "none";
+    const counts = [["Steps", VIEW.steps, (status) => VIEW_MARKS[status]], ["Edges", VIEW.edges, (status) => VIEW_MARKS[status]],
+      ["Nodes", VIEW.nodes, (status) => NODE_MARKS[status]]].map(([label, items, mark]) => `${label}: ${tally(items, mark)}`).join(" · ");
     const summary = root.querySelector(".atlas-summary");
     // Above the diagram, below the chrome at every width: the sentence stays in view.
     canvas.before(summary);
-    summary.textContent = `${VIEW.steps.length} steps: ${counts.join(", ") || "none"} · ${VIEW.limits[0]}`;
+    summary.textContent = `${counts} · ${VIEW.limits[0]}`;
     legend.textContent = Object.entries(VIEW_MARKS).map(([status, mark]) =>
       `${mark}: ${{ proven: "solid, coloured by kind", declared: "long dash", claim: "short dash, amber",
         unknown: "dotted, with its reason", missing: "dash-dot" }[status]}`).join(" · ");
@@ -3106,13 +3130,13 @@ export let flow;
       frame() {},
       node(group, node) {
         const check = node.card.check, step = node.card.step;
-        group.classList.add(`view-${check.status}`);
-        group.dataset.viewStatus = check.status;
+        group.classList.add(`view-${node.card.status}`);
+        group.dataset.viewStatus = node.card.status;
         group.classList.toggle("selected", selected === node.id);
         group.setAttribute("aria-pressed", String(selected === node.id));
         group.setAttribute("aria-label", step
-          ? `Step ${node.card.index + 1}: ${check.id}, ${VIEW_MARKS[check.status]}${node.card.index ? `; from step ${node.card.index}: ${VIEW_MARKS[step.status]}` : ""}`
-          : `${check.id}, ${VIEW_MARKS[check.status]}, not a step: ${check.reason}`);
+          ? `Step ${node.card.index + 1}: ${check.id}, ${node.card.index ? `${VIEW_MARKS[step.status]} from step ${node.card.index}; node: ` : ""}${nodeMark(check)}`
+          : `${check.id}, ${nodeMark(check)}, not a step: ${check.reason}`);
         const selection = step ? { kind: "step", index: node.card.index }
           : { kind: "node", index: VIEW.nodes.indexOf(check) };
         group.addEventListener("click", (event) => { event.stopPropagation(); selectFlow(selection, true); });
@@ -3168,6 +3192,9 @@ export let flow;
     if (routeNotice) { renderRouteNotice(); return; }
     if (SIDECAR) { renderSidecar(); return; }
     checkedButton?.setAttribute("aria-pressed", String(flowMode));
+    // The flow keeps its summary above the diagram; every other view gets it back in place.
+    const summary = root.querySelector(".atlas-summary");
+    if (summary && !flowMode && summary.parentElement === canvas.parentElement) root.querySelector(".flow-layout").before(summary);
     if (flowMode) { renderCheckedFlow(); return; }
     if (ATLAS) { renderAtlas(); return; }
     const context = architectureGraphContext();
