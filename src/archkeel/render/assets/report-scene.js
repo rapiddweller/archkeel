@@ -164,7 +164,7 @@ import { create as createDeviations } from "./report-atlas-deviations.js";
           const labels = componentRoute(item.id).map((parent) => parent.label);
           const path = labels.join(" / "), slashPath = labels.join("/");
           return { kind: "component", id: item.id, label: item.label,
-            sub: [path, item.layer].filter(Boolean).join(" · "), status: item.status,
+            sub: [path, item.layer].filter(Boolean).join(" · "), status: item.status, depth: labels.length,
             exact: [slashPath, item.path].filter(Boolean).map((name) => name.toLowerCase()),
             text: `${item.label} ${item.path || ""} ${item.id} ${path} ${slashPath}`.toLowerCase() };
         }),
@@ -221,7 +221,7 @@ import { create as createDeviations } from "./report-atlas-deviations.js";
       return { row, score };
     }).filter((hit) => hit.score !== null)
       .sort((a, b) => a.score - b.score || order[a.row.kind] - order[b.row.kind]
-        || compare(a.row.label, b.row.label) || compare(a.row.id, b.row.id))
+        || (a.row.depth ?? 0) - (b.row.depth ?? 0) || compare(a.row.label, b.row.label) || compare(a.row.id, b.row.id))
       .slice(0, limit).map((hit) => hit.row);
   }
   function sceneToMermaid(scene) {

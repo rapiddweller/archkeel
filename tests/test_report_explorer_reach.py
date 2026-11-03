@@ -51,8 +51,19 @@ def _contract(components):
 def _deep_pages(tmp_path):
     files = {"sample/__init__.py": "", "sample/io/__init__.py": "", "docs/target.md": "target\n"}
     files["architecture-contract.json"] = json.dumps(
-        _contract([_component(_PATH[:1], "contracts/io.json")])
+        _contract(
+            [
+                _component(_PATH[:1], "contracts/io.json"),
+                _component(("render",), "contracts/render.json"),
+            ]
+        )
     )
+    # A child on the package of its parent shares its source path; the parent must rank first.
+    files["contracts/render.json"] = json.dumps(
+        _contract([{**_component(("render",)), "id": "render-atlas", "label": "atlas"}])
+    )
+    files["sample/render/__init__.py"] = ""
+    files["sample/render/m0.py"] = "VALUE = 1\n"
     for depth in range(1, len(_PATH)):
         parent = _PATH[:depth]
         mounted = depth + 1 < len(_PATH)
@@ -204,6 +215,19 @@ def test_search_accepts_the_source_path_and_ranks_the_component_before_its_child
 
 
 @pytest.mark.browser
+def test_search_by_a_source_path_shared_with_a_child_opens_the_parent(pages):
+    components = {item["label"]: item for item in _payload(pages)["components"]}
+    assert components["render"]["path"] == components["atlas"]["path"]
+    playwright, browser, page = _open(pages)
+    try:
+        _search(page, components["render"]["path"])
+        assert _route(page)["scope"] == "render"
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+@pytest.mark.browser
 def test_search_accepts_the_full_component_path(pages):
     playwright, browser, page = _open(pages)
     try:
@@ -238,10 +262,10 @@ def test_reset_zoom_keeps_card_font_at_11px_and_scrolls_a_large_level_at_800x600
 
 
 @pytest.mark.browser
-def test_reset_zoom_still_shows_a_whole_module_map(pages):
+def test_show_whole_map_still_shows_a_whole_module_map(pages):
     playwright, browser, page = _open(pages, "?scope=io&content=modules")
     try:
-        page.get_by_role("button", name="Reset zoom", exact=True).click()
+        page.get_by_role("button", name="Show whole map", exact=True).click()
         assert min(_font_sizes(page)) < 11
         canvas = page.locator(".flow-canvas")
         assert canvas.evaluate("(node) => node.scrollWidth <= node.clientWidth + 1")
