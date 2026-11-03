@@ -17,18 +17,27 @@ import pytest
 from jsonschema import Draft202012Validator
 from test_explore import _repository, _tree_digest
 
-from archkeel.cli import main, studio_workspace
+from archkeel.cli import build_parser, main, studio_workspace
 from archkeel.cli.config import load_config
 from archkeel.studio.api import API_VERSION, ContractState
 from archkeel.studio.server import Studio
 from archkeel.studio.workspace import Workspace
+from fixtures.demo_catalog_typescript import VARIANTS as TYPESCRIPT_VARIANTS
+from fixtures.reproduce_typescript import repository as typescript_repository
 
 _SCHEMA = json.loads((Path(__file__).parents[1] / "schema/studio-api-1.0.schema.json").read_bytes())
 _EXPLORE_SECONDS = 120
 
 
-def _start(root: Path) -> Studio:
-    server = Studio(studio_workspace(root))
+def _workspace(root: Path, cache: Path, *options: str) -> Workspace:
+    """The workspace that `archkeel studio --root ROOT OPTIONS` makes, with its cache in `cache`."""
+    return studio_workspace(
+        build_parser().parse_cli_args(["studio", "--root", str(root), *options]), cache
+    )
+
+
+def _start(root: Path, cache: Path, *options: str) -> Studio:
+    server = Studio(_workspace(root, cache, *options))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server
 
@@ -39,9 +48,8 @@ def _stop(server: Studio) -> None:
 
 
 @pytest.fixture
-def studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Studio]:
-    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
-    server = _start(_repository(tmp_path / "shop"))
+def studio(tmp_path: Path) -> Iterator[Studio]:
+    server = _start(_repository(tmp_path / "shop"), tmp_path / "cache")
     yield server
     _stop(server)
 
@@ -152,10 +160,7 @@ def test_two_servers_do_not_share_a_cookie(studio: Studio) -> None:
         other.server_close()
 
 
-def test_the_contract_state_comes_from_the_root(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+def test_the_contract_state_comes_from_the_root(tmp_path: Path) -> None:
     configured = _repository(tmp_path / "configured")
     assert main(["init", "--root", str(configured), "--json"]) == 0
     invalid = tmp_path / "invalid"
@@ -174,7 +179,7 @@ def test_the_contract_state_comes_from_the_root(
         (broken["json"], "invalid"),
         (broken["schema"], "invalid"),
     ):
-        server = _start(folder)
+        server = _start(folder, tmp_path / "cache")
         try:
             assert state(server, login(server))["contract"] == expected
         finally:
@@ -203,12 +208,9 @@ def test_explore_writes_only_the_cache_and_the_repository_stays_unchanged(
     assert b"ArchKeel" in body
 
 
-def test_a_failed_explore_shows_its_diagnostic(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+def test_a_failed_explore_shows_its_diagnostic(tmp_path: Path) -> None:
     # No commit: explore exits 2 and names the reason.
-    server = _start(_repository(tmp_path / "shop", commit=False))
+    server = _start(_repository(tmp_path / "shop", commit=False), tmp_path / "cache")
     try:
         result = explore(server, login(server))
     finally:
@@ -249,12 +251,9 @@ def test_the_root_of_the_file_system_has_a_name() -> None:
     assert workspace.state().root_name == "/"
 
 
-def test_each_studio_run_has_its_own_private_cache_folder(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+def test_each_studio_run_has_its_own_private_cache_folder(tmp_path: Path) -> None:
     root = _repository(tmp_path / "shop")
-    first, second = studio_workspace(root), studio_workspace(root)
+    first, second = _workspace(root, tmp_path / "cache"), _workspace(root, tmp_path / "cache")
     assert first.folder != second.folder
     assert first.folder.parent == second.folder.parent
     assert first.folder.is_relative_to(tmp_path / "cache")
@@ -262,3 +261,18 @@ def test_each_studio_run_has_its_own_private_cache_folder(
     first.close()
     assert not first.folder.exists()
     assert second.folder.is_dir()
+
+
+def test_studio_forwards_the_scope_options_to_explore(tmp_path: Path) -> None:
+    clean = next(item for item in TYPESCRIPT_VARIANTS if item.id == "typescript-clean")
+    root = typescript_repository(tmp_path, clean)
+    options = ("--language", "typescript", "--source", "src", "--namespace", "shop")
+    server = _start(root, tmp_path / "cache", *options, "--tsconfig", "tsconfig.json")
+    try:
+        cookie = login(server)
+        result = explore(server, cookie)
+        page, _ = request(server, "/files/architecture.report.html", cookie=cookie)
+    finally:
+        _stop(server)
+    assert result["explore"] == "done", result
+    assert page.status == 200

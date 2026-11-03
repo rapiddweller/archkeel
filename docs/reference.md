@@ -189,7 +189,7 @@ the contract is valid, and no rule was checked.
 ## Studio
 
 `archkeel studio [--root PATH] [--no-open]` serves ArchKeel Studio, a local web app, on
-127.0.0.1 and opens it in the browser
+127.0.0.1 and opens it in the browser. It takes the scope options of `explore` and passes them on
 ([AD-290](architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md)). The
 printed URL carries a token for this run; a request without it gets 403. At start, Studio runs
 `archkeel explore` on the root into a private folder of this run below the explore cache; Overview shows the progress and

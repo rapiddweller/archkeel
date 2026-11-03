@@ -139,17 +139,25 @@ def _contract_state(root: Path) -> ContractState:
     return ContractState.CONFIGURED
 
 
-def studio_workspace(root: Path) -> Workspace:
-    """AD-290: each Studio run explores into its own private folder below the explore cache."""
-    root = root.resolve()
-    cache = _cache_folder(Command.EXPLORE, _root_digest(root))
+def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:
+    """AD-290: each run explores with the scope options into a private folder of `cache`."""
+    root = args.root.resolve()
     cache.mkdir(parents=True, exist_ok=True)
     folder = Path(tempfile.mkdtemp(prefix="studio-", dir=cache))
+    scope = [
+        f"--language={args.language.value}",
+        *(f"--source={item}" for item in args.source or ()),
+    ]
+    scope += [
+        f"--{name}={value}"
+        for name, value in (("namespace", args.namespace), ("tsconfig", args.tsconfig))
+        if value is not None
+    ]
     explore = (sys.executable, "-m", "archkeel.cli", Command.EXPLORE.value, "--root", str(root))
     return Workspace(
         root,
         folder,
-        (*explore, "--output", str(folder), "--json"),
+        (*explore, *scope, "--output", str(folder), "--json"),
         lambda: _contract_state(root),
     )
 
@@ -735,16 +743,20 @@ def build_parser() -> _Parser:
 
     studio = commands.add_parser(
         Command.STUDIO.value,
+        parents=[scoped],
         help="Open ArchKeel Studio: the local web app for the code as it is.",
         formatter_class=RawDescriptionRichHelpFormatter,
         description=(
             "Serves the Studio on 127.0.0.1 and opens it in the browser. The printed URL carries\n"
-            "a token for this run; without it each request gets 403. Studio runs explore into\n"
-            "the cache folder of explore and writes nothing into the repository. The static\n"
-            "report stays the CI and Pages artifact (AD-290).\n\n"
+            "a token for this run; without it each request gets 403. Studio runs explore, with\n"
+            "the scope options of explore, into a private cache folder of this run and writes\n"
+            "nothing into the repository. The static report stays the CI and Pages artifact\n"
+            "(AD-290).\n\n"
             "Examples:\n"
             "  archkeel studio\n"
-            "  archkeel studio --root ../service --no-open\n\n"
+            "  archkeel studio --root ../service --no-open\n"
+            "  archkeel studio --language typescript --source src --namespace shop \\\n"
+            "    --tsconfig tsconfig.json\n\n"
             "Stop it with Ctrl-C."
         ),
     )
@@ -794,7 +806,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         if command is Command.STUDIO:
             subject = str(args.root)
             return run_studio(
-                studio_workspace(args.root),
+                studio_workspace(
+                    args, _cache_folder(Command.EXPLORE, _root_digest(args.root.resolve()))
+                ),
                 ready=(lambda _: None) if args.no_open else webbrowser.open,
             )
         if args.config is None and (command is not Command.REPORT or args.input is None):

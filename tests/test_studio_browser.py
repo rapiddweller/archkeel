@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """AD-290: the Studio shell loads, navigates by keyboard and asks only its own server."""
 
+import os
 from collections.abc import Iterator
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -20,15 +21,17 @@ _LEGEND = ("Observed = code evidence", "Claim = agent hypothesis", "Target = arc
 _LOCAL_SCHEMES = {"data", "blob", "about"}
 
 
+_ENVIRONMENT = {name: os.environ.get(name) for name in ("XDG_CACHE_HOME", "HOME")}
+
+
 @pytest.fixture(scope="module")
 def studio(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Studio]:
     tmp_path = tmp_path_factory.mktemp("studio")
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
-        server = _start(_repository(tmp_path / "shop"))
-        assert explore(server, login(server))["explore"] == "done"
-        yield server
-        _stop(server)
+    # The cache folder goes to the server only: Playwright on Linux reads XDG_CACHE_HOME.
+    server = _start(_repository(tmp_path / "shop"), tmp_path / "cache")
+    assert explore(server, login(server))["explore"] == "done"
+    yield server
+    _stop(server)
 
 
 def _check_the_embedded_explorer(page, width: int, height: int) -> None:
@@ -139,14 +142,13 @@ def test_the_shell_navigates_and_stays_on_its_server(
 
 @pytest.mark.browser
 def test_the_shell_shows_an_invalid_contract_and_refuses_another_api_version(
-    studio: Studio, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    studio: Studio, tmp_path: Path
 ) -> None:
     api = pytest.importorskip("playwright.sync_api")
-    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     broken = _repository(tmp_path / "broken")
     assert main(["init", "--root", str(broken), "--json"]) == 0
     (broken / load_config(broken).contract).write_text("{not json")
-    server = _start(broken)
+    server = _start(broken, tmp_path / "cache")
     with api.sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         try:
@@ -166,3 +168,8 @@ def test_the_shell_shows_an_invalid_contract_and_refuses_another_api_version(
         finally:
             browser.close()
             _stop(server)
+
+
+@pytest.mark.browser
+def test_the_fixture_leaves_the_environment_of_the_test_process_unchanged(studio: Studio) -> None:
+    assert {name: os.environ.get(name) for name in _ENVIRONMENT} == _ENVIRONMENT

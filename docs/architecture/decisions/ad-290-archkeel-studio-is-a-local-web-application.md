@@ -4,7 +4,8 @@
 rejected lines of AD-284 and AD-285. The Explorer stays the only architecture renderer.
 
 **Decision.**
-1. `archkeel studio [--root PATH] [--no-open]` serves a local app; the CLI opens the browser.
+1. `archkeel studio [--root PATH] [--no-open]` with the scope options of explore (`--language`,
+   `--source`, `--namespace`, `--tsconfig`) serves a local app; the CLI opens the browser.
    Studio is parallel to the static report, which stays the first-class CI and Pages artifact.
 2. Three jobs, simple mode first: explain the as-is code with the agent; start a target with
    the agent (proposals read "PROPOSED - NOT APPLIED"); adopt the code through `init` and
@@ -54,9 +55,8 @@ bundle is 20,227 B (8,152 B gzip). Preact 11 is 5 weeks old; 10.x is mature.
 | Preact 10.29.8 + hooks | 13,580 B | 5,668 B | 1 (MIT) | One pinned package; React-like API |
 | Web components | 417 B | 291 B | 0 | Hand-made rendering and state for each view |
 
-**Rejected.** A Python web framework, React Flow or a state library. An MCP server. 0.0.0.0 or
-a fixed port. A server-rendered embed page. A demo-catalog row: a row runs a command to its
-end, and `studio` runs until Ctrl-C.
+**Rejected.** A web framework, React Flow, a state library, an MCP server, 0.0.0.0, a fixed
+port, a server-rendered embed page. No demo-catalog row: `studio` runs until Ctrl-C.
 
 **Limits.**
 - Explore runs at each start (95 to 124 s on 1185 files); cache reuse is issue #814.
