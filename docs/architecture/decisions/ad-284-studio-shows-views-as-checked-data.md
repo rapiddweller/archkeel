@@ -24,22 +24,33 @@ spec. `archkeel view check` checks each reference in it against one saved `archi
    sentence with each proven step. No `kind` tries `imports`, then `calls`, never a mix.
 5. `snapshot` names the `source_digest` and `contract_digest` the view describes. When they
    differ from the snapshot, the check does not run: each reference is `unknown`, exit 2.
+   The Explorer matches a spec to its embedded report by the same two digests; the
+   contract-free explore snapshot carries them too. The check first runs the saved-report
+   validation of `report --input`: a record with missing evidence makes the snapshot invalid.
 6. The spec cannot state proof: an unknown field, for example `status` or `evidence`, makes it
    invalid in every mode. `--strict` also rejects each `unknown` reference.
 7. Exit codes: 0 when no reference is `missing` (with `--strict`: and none is `unknown`);
    1 when one is; 2 when the check did not run: invalid input, or another snapshot.
-8. `archkeel.ir.view_spec` is the one source; `make architecture-graph-schema` writes the schema.
+8. `archkeel.ir.view_spec` is the one source. `make architecture-graph-schema` writes
+   `schema/view-spec.schema.json` and `schema/view-check.schema.json` (the result).
 
 **Rejected.** A server or a second renderer: the Explorer stays the only renderer (#786). Free
 drawing and file descriptions: a second source of truth that ages. Proof by name prefix or by
 reachability: a re-export or a dynamic call gives a wrong proof. A stale view checked against
-other code: its notes describe the old code. A binding to the analyzer digest: each Archkeel
-change makes each saved view stale, and the check proves each reference again anyway.
+other code: its notes describe the old code.
 
-**Limits.** Each Python snapshot has a `dynamic_call_limit`, so a call edge is `unknown`, never
-`missing`. A call through a re-export, for example `shop.store.OrderRepository`, proves no call
-edge. Symbols and inside components are not nodes; an inside component id is `unknown`. A saved
-flow in the contract that CI checks (#784, item 4) needs its own decision. Demo: planned.
+**Limits.**
+- The view binds no analyzer digest. A saved view stays valid across Archkeel commits, because
+  the check proves each reference again against the snapshot it reads.
+- A `TYPE_CHECKING` import stays a `proven` import. Its reason says "type-only import: not
+  executed at runtime", and its evidence has `type_only: true`.
+- The snapshot is not authenticated. A forged record with its own consistent evidence passes;
+  run `archkeel report` again for a snapshot you did not make.
+- Each Python snapshot has a `dynamic_call_limit`: a call edge is `unknown`, never `missing`. A
+  call through a re-export, for example `shop.store.OrderRepository`, proves no call edge.
+- Symbols and inside components are not nodes; an inside component id is `unknown`. A saved
+  flow in the contract that CI checks (#784, item 4) needs its own decision.
 
 **Checks.** `tests/test_cli_view.py`; `test_view_spec_schema_matches_its_dataclasses` in
-`tests/test_schema_drift.py`. Example spec: `fixtures/F-architecture-view/place-order.json`.
+`tests/test_schema_drift.py`. Demo row `protocol-view-check` checks the example spec
+`fixtures/F-architecture-view/place-order.json` (`test_view_variant_produces_the_catalogued_statuses`).

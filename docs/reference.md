@@ -185,7 +185,9 @@ The result gives each node, edge and step one status: `proven` (observed, with r
 evidence ids and source lines), `declared` (a component or a `requires` entry of the contract),
 `claim` (author text, not checked), `unknown` (the snapshot cannot decide) or `missing`. A
 proven step is a static path of one relationship kind: structure, not runtime order. A spec
-with another snapshot identity is not checked.
+with another snapshot identity is not checked. The check runs the same snapshot validation as
+`report --input`. [`schema/view-check.schema.json`](../schema/view-check.schema.json) defines
+the result.
 
 ## Results
 

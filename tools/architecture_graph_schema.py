@@ -25,7 +25,7 @@ from archkeel.ir.command_view import ArchitectureCommandEnvelope
 from archkeel.ir.contract_version import ContractFeature, ContractVersion, supports_feature
 from archkeel.ir.facts import MemberInventory
 from archkeel.ir.model import Coverage, Diagnostic, FilteredViolation, Record
-from archkeel.ir.view_spec import ViewSpec
+from archkeel.ir.view_spec import ViewCheck, ViewSpec
 
 
 def _schema(root: type, name: str, title: str) -> dict[str, object]:
@@ -346,6 +346,16 @@ def view_spec_schema() -> dict[str, object]:
         "Generated from archkeel.ir.view_spec (AD-284). The spec cannot state proof: "
         "`archkeel view check` assigns proven, declared, unknown or missing; claim is author text. "
         "Edge and step nodes must be listed in nodes; the first step takes no kind or claim."
+    )
+    return schema
+
+
+def view_check_schema() -> dict[str, object]:
+    schema = _schema(ViewCheck, "view-check", "View check result")
+    schema["$comment"] = (
+        "Generated from archkeel.ir.view_spec (AD-284). The result is self-contained: each node, "
+        "edge and step carries its status, reason, kind, path and evidence. A proven step is "
+        "static structure, not runtime order; title, notes and claims are author text."
     )
     return schema
 
@@ -794,6 +804,7 @@ def main() -> None:
     parser.add_argument("--source-inventory", type=Path)
     parser.add_argument("--source-profile", type=Path)
     parser.add_argument("--view-spec", type=Path)
+    parser.add_argument("--view-check", type=Path)
     args = parser.parse_args()
     output = args.output
     output.write_text(json.dumps(graph_schema(), indent=2) + "\n", encoding="utf-8")
@@ -820,6 +831,10 @@ def main() -> None:
         _update_source_profile_schema(args.source_profile)
     if args.view_spec is not None:
         args.view_spec.write_text(json.dumps(view_spec_schema(), indent=2) + "\n", encoding="utf-8")
+    if args.view_check is not None:
+        args.view_check.write_text(
+            json.dumps(view_check_schema(), indent=2) + "\n", encoding="utf-8"
+        )
 
 
 if __name__ == "__main__":

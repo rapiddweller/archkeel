@@ -21,12 +21,18 @@ from rich_argparse import RawDescriptionRichHelpFormatter
 from ..check.git import read_blob
 from ..check.onboarding import run_init
 from ..check.ports import Language
-from ..check.report import render_result, run_report, run_saved_report, unknown_result
+from ..check.report import (
+    read_saved_snapshot,
+    render_result,
+    run_report,
+    run_saved_report,
+    unknown_result,
+)
 from ..check.run import run_check
 from ..check.snapshot import resolve_commit
 from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
-from ..ir.codec import decode_canonical_model, decode_json, parse_observation
+from ..ir.codec import decode_json
 from ..ir.phases import Phase, PhaseClock, WorkCounter, measured
 from ..ir.view_spec import check_view, parse_view_spec, view_check_json, view_summary
 from ..render.html import render_architecture_pages, render_check_html
@@ -96,10 +102,7 @@ def _run_view_check(
 ) -> int:
     """Read a view spec and a saved snapshot; `ir.view_spec` checks it (AD-284)."""
     spec = parse_view_spec(decode_json(spec_path.read_bytes()))
-    raw = decode_json(snapshot_path.read_bytes())
-    if not isinstance(raw, dict):
-        raise ValueError("architecture.json must be an object")
-    result = check_view(spec, parse_observation(decode_canonical_model(raw)), strict=strict)
+    result = check_view(spec, read_saved_snapshot(snapshot_path), strict=strict)
     sys.stdout.write(view_summary(result) + "\n" if interactive else view_check_json(result))
     return result.exit_code
 

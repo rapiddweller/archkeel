@@ -27,6 +27,15 @@ from archkeel.ir.view_spec import (
 
 ROOT = Path(__file__).parents[1]
 EXAMPLE = ROOT / "fixtures/F-architecture-view/place-order.json"
+_HINTS = (
+    '"""Name the order type for annotations only."""\n\n'
+    "from __future__ import annotations\n\n"
+    "from typing import TYPE_CHECKING\n\n"
+    "if TYPE_CHECKING:\n"
+    "    from shop.model.entities import Order\n\n\n"
+    "def label(order: Order) -> str:\n"
+    "    return str(order)\n"
+)
 _LOADER = (
     '"""Load a renderer by a name known only at run time."""\n\n'
     "import importlib\n\n\n"
@@ -55,15 +64,14 @@ def shop(tmp_path_factory: pytest.TempPathFactory) -> Observation:
 
 @pytest.fixture(scope="module")
 def changed(tmp_path_factory: pytest.TempPathFactory) -> Observation:
-    """The shop with a dynamic loader in render and a declared app -> store requires entry."""
+    """The shop with a dynamic loader, a type-only import and an app -> store requires entry."""
     contract = json.loads((ROOT / "fixtures/F-architecture/architecture-contract.json").read_text())
     app = next(item for item in contract["components"] if item["id"] == "COMP-APP")
     app["requires"] = [{"component": "store", "rationale": "Use cases persist orders."}]
+    header = (ROOT / "fixtures/F-architecture/shop/render/text.py").read_text().split('"""')[0]
     overlay = {
-        "shop/render/loader.py": (ROOT / "fixtures/F-architecture/shop/render/text.py")
-        .read_text()
-        .split('"""')[0]
-        + _LOADER,
+        "shop/render/loader.py": header + _LOADER,
+        "shop/render/hints.py": header + _HINTS,
         "architecture-contract.json": json.dumps(contract, indent=2) + "\n",
     }
     return _observation(_snapshot(tmp_path_factory.mktemp("changed"), overlay))
@@ -182,6 +190,10 @@ def test_a_stale_snapshot_checks_nothing(shop: Observation) -> None:
     spec["snapshot"] = snapshot
     result = check_view(parse_view_spec(spec), shop, strict=False)
     assert result.exit_code == 2 and not result.snapshot_current
+    assert (
+        result.snapshot == snapshot_identity(shop)
+        and result.view_snapshot.source_digest == "0" * 64
+    )
     statuses = {item.status for item in (*result.nodes, *result.edges, *result.steps)}
     assert statuses == {ViewStatus.UNKNOWN}
 
@@ -288,3 +300,46 @@ def test_cli_view_check_prints_json_and_returns_the_exit_code(
     spec.write_text("{}")
     assert main(arguments) == 2
     assert json.loads(capsys.readouterr().out)["command"] == "view"
+
+
+def test_a_type_only_import_is_proven_and_labelled(changed: Observation) -> None:
+    nodes = ["shop.render.hints", "shop.model.entities", "shop.render.text"]
+    edges = [_edge(*nodes[:2]), _edge(nodes[2], nodes[1])]
+    result = _check(changed, nodes=nodes, edges=edges)
+    hint, text = result.edges
+    assert hint.status is ViewStatus.PROVEN and all(site.type_only for site in hint.evidence)
+    assert hint.reason.endswith("type-only import: not executed at runtime")
+    assert text.status is ViewStatus.PROVEN and "type-only" not in text.reason
+
+
+def test_the_result_matches_its_schema(shop: Observation) -> None:
+    from jsonschema import Draft202012Validator
+
+    raw = json.loads(EXAMPLE.read_text())
+    result = check_view(parse_view_spec(raw), shop, strict=False)
+    schema = json.loads((ROOT / "schema/view-check.schema.json").read_text())
+    assert not list(Draft202012Validator(schema).iter_errors(json.loads(view_check_json(result))))
+
+
+def _tampered(packet: bytes) -> str:
+    """Add a fabricated render.text -> store import whose evidence is not in the snapshot."""
+    raw = json.loads(packet)
+    fields = raw["encoding"]["section_data_fields"]["imports"]
+    record = json.loads(json.dumps(raw["imports"][0]))
+    record[0], record[6] = "IMP-00000000deadbeef", ["EVD-00000000deadbeef"]
+    for name, value in (("source_module", "shop.render.text"), ("target_module", "shop.store")):
+        record[10][fields.index(name)] = value
+    raw["imports"].append(record)
+    return json.dumps(raw)
+
+
+def test_a_tampered_snapshot_is_not_checked(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    packet = _snapshot(tmp_path / "tampered")
+    snapshot, spec = tmp_path / "architecture.json", tmp_path / "view.json"
+    snapshot.write_text(_tampered(packet))
+    nodes = ["shop.render.text", "shop.store"]
+    edges = [_edge(*nodes)]
+    spec.write_text(json.dumps(_spec(_observation(packet), nodes=nodes, edges=edges)))
+    assert main(["view", "check", str(spec), "--snapshot", str(snapshot), "--json"]) == 2
+    out = json.loads(capsys.readouterr().out)
+    assert out["command"] == "view" and "missing evidence" in out["diagnostics"][0]["unknown_claim"]

@@ -788,8 +788,9 @@ def test_contract_schema_key_alias_version_gate(version):
 
 def test_view_spec_schema_matches_its_dataclasses() -> None:
     """AD-284: the dataclasses are the one source; a field that states proof is invalid."""
-    from tools.architecture_graph_schema import view_spec_schema
+    from tools.architecture_graph_schema import view_check_schema, view_spec_schema
 
+    assert _schema("view-check.schema.json") == view_check_schema()
     schema = _schema("view-spec.schema.json")
     assert schema == view_spec_schema()
     example = json.loads((ROOT / "fixtures/F-architecture-view/place-order.json").read_bytes())
