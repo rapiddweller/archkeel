@@ -293,3 +293,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-283 | [A later class binding blocks every annotation](ad-283-a-later-class-binding-blocks-every-annotation.md) |
 | AD-284 | [Studio shows views as checked data](ad-284-studio-shows-views-as-checked-data.md) |
 | AD-286 | [The Explorer opens a component in one step and reads at 100 %](ad-286-the-explorer-opens-a-component-in-one-step-and-fits-readably.md) |
+| AD-287 | [The Explorer draws a checked view](ad-287-the-explorer-draws-a-checked-view.md) |
