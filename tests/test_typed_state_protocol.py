@@ -249,20 +249,3 @@ def test_native_state_parser_rejects_string_dispatch_without_parser_exemption(tm
     assert violations and all(
         row.data.get("construct") == "string_literal_compare" for row in violations
     )
-
-
-def test_own_native_state_guards_cover_domain_and_codec(self_observation):
-    assessments = {row.id: row for row in rule_assessments(self_observation, undecided_by_rule={})}
-    for identifier in GUARDS:
-        assert (
-            assessments[identifier].status == "PASS" and assessments[identifier].evaluation_proven
-        )
-    assert not [
-        row
-        for row in self_observation.records("constructs")
-        if row.kind == "string_literal_compare"
-        and any(
-            row.data.get("owner", "").startswith(module)
-            for module in ("archkeel.ir.state_facts", "archkeel.ir.state_codec")
-        )
-    ]

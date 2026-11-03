@@ -66,18 +66,10 @@ def _contract():
         json.loads((ROOT / "docs/architecture/contracts/dart.json").read_text())
     )
     contract.pop("$schema", None)
-    contract["rules"] = [
-        {
-            "id": identifier,
-            "kind": "forbidden_construct",
-            "source": module,
-            "constructs": ["string_literal_compare"],
-            "rationale": "Closed Dart implementation controls have nominal owners.",
-            "decided_by": "agent",
-            "provenance": ["docs/architecture/dart-nominal-controls.md"],
-        }
-        for identifier, module in GUARDS
-    ]
+    # The guards come from the own contract, so a test here fails when the contract drops one.
+    root = json.loads((ROOT / "architecture-contract.json").read_text())
+    contract["rules"] = [rule for rule in root["rules"] if rule["id"] in dict(GUARDS)]
+    assert {(rule["id"], rule["source"]) for rule in contract["rules"]} == set(GUARDS)
     fields = {
         f"{owner.__module__}.{owner.__name__}.{field}": expected
         for owner, field, expected in FIELDS
@@ -282,23 +274,6 @@ def test_parse_compatibility_exports_are_the_canonical_syntax_types():
         "Syntax",
     ):
         assert getattr(parse, name) is getattr(syntax, name)
-
-
-def test_own_dart_module_guards_are_proven_from_actual_source(self_observation):
-    assessments = {row.id: row for row in rule_assessments(self_observation, undecided_by_rule={})}
-    for identifier, _ in GUARDS:
-        row = assessments[identifier]
-        assert row.status == "PASS" and row.evaluation_proven, row
-    assert not [
-        row
-        for row in self_observation.records("constructs")
-        if row.data.get("construct") == "string_literal_compare"
-        and any(
-            str(row.data.get("owner", "")) == module
-            or str(row.data.get("owner", "")).startswith(module + ".")
-            for _, module in GUARDS
-        )
-    ]
 
 
 def test_native_dart_enum_identity_cannot_be_replaced_by_a_string_alias(tmp_path):

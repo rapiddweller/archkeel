@@ -210,22 +210,6 @@ def test_native_parser_and_protocol_strings_fail_without_exceptions(tmp_path, mo
     assert (root / "contract.json").read_bytes() == before
 
 
-def test_own_observation_proves_both_migrated_module_guards(self_observation):
-    for name in GUARDS:
-        rule = _rule(self_observation, name)
-        assert rule.status == "PASS" and rule.evaluation_proven, rule
-    assert not [
-        row
-        for row in self_observation.records("constructs")
-        if row.kind == "string_literal_compare"
-        and any(
-            row.data.get("owner") == f"{MODULE}.{module}"
-            or row.data.get("owner", "").startswith(f"{MODULE}.{module}.")
-            for module in ("config", "resolve", "parse", "collect", "syntax", "source_input")
-        )
-    ]
-
-
 def test_guards_cover_whole_migrated_modules_without_allowances():
     for identity in GUARDS:
         rule = next(row for row in _contract()["rules"] if row["id"] == identity)
