@@ -621,3 +621,26 @@ def test_agent_flow_show_writes_the_page_with_the_checked_result(
         r'<script id="view-check-data" type="application/json">(.*?)</script>', page, re.S
     )
     assert embedded is not None and json.loads(embedded.group(1)) == checked
+
+
+@pytest.mark.skipif(not _parses(_PENDING["explore"]), reason="explore (#791) is not merged yet")
+def test_agent_flow_without_a_contract_uses_explore(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """Step 2 without `archkeel.toml`: explore, then the same check; no rule means no PASS."""
+    from test_architecture_demo import _prepare_repo
+
+    contract_files = ("archkeel.toml", "archkeel-tests.toml", "architecture-contract.json")
+    root = _prepare_repo(tmp_path, dict.fromkeys(contract_files))
+    assert main(["explore", "--root", str(root), "--output", str(tmp_path / "x"), "--json"]) == 2
+    assert json.loads(capsys.readouterr().out)["diagnostics"][0]["kind"] == "scope_empty"
+    scope = ["--source", "shop", "--namespace", "shop", "--output", str(tmp_path / "explore")]
+    assert main(["explore", "--root", str(root), *scope, "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["declared_rules"] == "UNKNOWN"
+    snapshot = Path(result["artifact"])
+    spec = _agent_spec(snapshot, _PLACE_ORDER[:2], [])
+    spec["nodes"].append("COMP-APP")
+    code, checked = _view("check", tmp_path, snapshot, spec, capsys)
+    assert code == 0 and checked["steps"][1]["status"] == "proven"
+    assert {node["id"]: node["status"] for node in checked["nodes"]}["COMP-APP"] == "declared"

@@ -413,22 +413,24 @@ A view spec is author text; the check in step 5 decides what the code proves (AD
    The snapshot path is `artifact` in the result.
 3. Query before you write. `archkeel report --input <snapshot> --only architecture --json` lists
    the component ids. `archkeel report --input <snapshot> --only architecture --component <id> --full --json`
-   lists its `modules`; prefix a key that starts with `.` with the top-level component `namespace`.
-   A component with an `inside` contract lists the other modules under its child ids (`<id>:<child>`).
+   lists its `modules`; a key `''` or a key that starts with `.` gets the top-level component
+   `namespace` as prefix. A component with an `inside` contract lists most modules under the child ids
+   of the first command. Use module names as nodes: a child component is `unknown` as a node.
    Source imports and calls name candidates, not proof. Check a direct edge to ask for it (step 5).
 4. Write the spec in a new temporary folder: never in the repository, never in an output folder
    (`explore` and `view show` clear theirs). Follow the [schema](https://github.com/rapiddweller/archkeel/blob/main/schema/view-spec.schema.json)
    and the [example](https://github.com/rapiddweller/archkeel/blob/main/fixtures/F-architecture-view/place-order.json).
    Copy `source.source_digest` and `contract.digest` of the snapshot into `snapshot`. Give each
-   step and edge a `kind` (`imports` or `calls`). Never add a node or edge that the graph did not
-   return, except as a claim: `"claim": true` and a `note` that says why.
+   step and edge a `kind` (`imports` or `calls`). Keep no node or edge that the check makes
+   `missing`, except as a claim: `"claim": true` and a `note` that says why.
    Never write `status` or `evidence`: the check decides, and such a spec is rejected (exit 2).
 5. Run `archkeel view check <spec> --snapshot <snapshot> --json` and read each status:
    - `proven`: observed, with `evidence` (`file`, `line`). Read those lines: a module edge can
      come from another function. A step `path` of more than two entries skips modules: add them as steps.
    - `missing`: not in the code. Fix the node or `kind`, remove it, or keep it as a claim.
-   - `unknown`: the snapshot cannot decide; a Python call is never `missing`. Keep it without
-     `claim`, so its reason stays visible.
+   - `unknown`: the snapshot cannot decide; a Python call is never `missing`. Keep it with your
+     note, without `claim`, so its reason stays visible. Check the same pair as `imports` too:
+     `missing` there means no static link (a parameter, a port or a child process). Say so.
    - `declared`: a contract component or `requires` entry; after `explore`, only the layout group.
 6. Run `archkeel view show <spec> --snapshot <snapshot>`. Stderr names the page with the view.
    Tell the user to open it: `open <page>` on macOS, `xdg-open <page>` on Linux.
