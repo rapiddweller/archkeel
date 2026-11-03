@@ -239,7 +239,8 @@ def test_on_a_phone_the_top_bars_stay_apart_and_each_control_is_reachable(pages)
             .filter((button) => button.offsetParent)
             .filter((button) => {
               const r = button.getBoundingClientRect();
-              return !button.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+              const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+              return !button.contains(hit);
             }).map((button) => button.getAttribute('aria-label') || button.textContent.trim())"""
         )
         assert covered == []
