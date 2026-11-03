@@ -12,11 +12,12 @@
 [Install](#install) · [Quick start](#quick-start) · [Why](#why-archkeel) · [Compared](#archkeel-floorplan-or-understand-anything) · [Features](#features) · [Live demo](https://rapiddweller.github.io/archkeel/demos/) · [FAQ](#faq)
 
 <p>
-  <img src="docs/assets/archkeel-studio-explore.png" alt="ArchKeel Studio showing ArchKeel itself: eight components and their import counts, with the evidence model in the sidebar" width="1000">
+  <img src="docs/assets/archkeel-self-check.png" alt="ArchKeel's report of its own code: 126 rules PASS, 0 UNKNOWN, findings with source lines, and the Target view with component responsibilities" width="1000">
 </p>
 
-ArchKeel Studio, run on ArchKeel itself: 8 components, 165 modules, every arrow counted from the
-code. Observed facts, agent claims and architect decisions carry different labels.
+ArchKeel checks itself: 126 rules `PASS`, 0 `UNKNOWN`, every finding with its source line, and the
+declared Target with the responsibility of each component.
+[Open the live report](https://rapiddweller.github.io/archkeel/architecture.report.html?content=components&view=target&theme=dark).
 
 ArchKeel reads your code and shows how it is built: the parts, the imports between them and the
 evidence for each. You or your coding agent then declare the boundaries you want. ArchKeel checks
