@@ -41,7 +41,7 @@
 
 **Reason.** A newcomer must see what is there before `init` writes a draft; no rule decides nothing.
 
-**Rejected.** A second renderer or server, an implicit `init`, a file walk, a mark by file name.
+**Rejected.** A second renderer or server (server: amended by AD-290), an implicit `init`, a file walk, a mark by file name.
 
 **Limits.**
 - `root_name` and `root_digest` are in the result, not yet in `architecture.json` (exact header).

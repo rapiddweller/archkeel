@@ -887,6 +887,7 @@ export let flow;
     }
     const presentation = new URLSearchParams(location.search);
     if (presentation.has("perspective")) query.set("perspective", presentation.get("perspective"));
+    if (presentation.has("embed")) query.set("embed", "");
     const selected = atlasModule || (umlSelection?.type === "node" ? umlSelection.id : null);
     if (selected) query.set("selected", selected);
     if (ATLAS && atlasCell !== null) query.set("cell", String(atlasCell));
@@ -1931,9 +1932,19 @@ export let flow;
     }, { once: true });
   }
 
+  // AD-290: an embedding Studio shows the selected component beside the canvas.
+  let announcedComponent;
+  function announceSelection(id) {
+    if (!document.documentElement.hasAttribute("data-embed") || id === announcedComponent) return;
+    announcedComponent = id;
+    const label = id === null ? null : REPORT_SCENE.atlasComponent(id)?.label ?? null;
+    window.parent.postMessage({ kind: "component-selected", id, label }, location.origin);
+  }
+
   function updateOpenSelected() {
     if (ATLAS) {
       const module = umlSelection && selectedAtlasModule(umlSelection.id);
+      announceSelection(!module && umlSelection?.type === "node" ? umlSelection.id : null);
       openSelectedButton.disabled = !module && (!umlSelection || !ATLAS.levels.some((level) => level.parent_id === umlSelection.id));
       openSelectedButton.textContent = module ? `Open ${module.path?.split("/").at(-1) || module.name}` : umlSelection ? `Open ${REPORT_SCENE.atlasComponent(umlSelection.id)?.label || "component"}` : "Open selected";
       return;

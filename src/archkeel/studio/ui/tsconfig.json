@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["es2022", "dom"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "strict": true,
+    "noEmit": true,
+    "paths": {
+      "preact": ["../../../../tools/browser-runtime/node_modules/preact/src/index.d.ts"],
+      "preact/hooks": ["../../../../tools/browser-runtime/node_modules/preact/hooks/src/index.d.ts"],
+      "preact/jsx-runtime": [
+        "../../../../tools/browser-runtime/node_modules/preact/jsx-runtime/src/index.d.ts"
+      ]
+    }
+  },
+  "include": ["*.ts", "*.tsx", "views/*.tsx"]
+}

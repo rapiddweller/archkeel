@@ -10,6 +10,8 @@ import json
 import os
 import re
 import sys
+import tempfile
+import webbrowser
 from collections.abc import Sequence
 from contextlib import redirect_stdout
 from dataclasses import replace
@@ -34,7 +36,7 @@ from ..check.run import run_check
 from ..check.snapshot import resolve_commit
 from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
-from ..ir.codec import decode_json
+from ..ir.codec import decode_json, parse_contract
 from ..ir.phases import Phase, PhaseClock, WorkCounter, measured
 from ..ir.view_spec import (
     ViewCheck,
@@ -46,6 +48,9 @@ from ..ir.view_spec import (
 from ..render.html import render_architecture_pages, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
+from ..studio.api import ContractState
+from ..studio.server import run_studio
+from ..studio.workspace import Workspace
 from .arguments import (
     CLIArguments,
     Command,
@@ -120,6 +125,41 @@ def _cache_folder(command: Command, digest: str) -> Path:
     """AD-285, AD-287: one cache folder for each command and digest, outside the repository."""
     cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
     return cache / "archkeel" / command.value / digest
+
+
+def _contract_state(root: Path) -> ContractState:
+    """AD-290: the contract as `report` loads it: missing, invalid or configured."""
+    try:
+        config = load_config(root)
+        parse_contract(decode_json((root / config.contract).read_bytes()))
+    except ConfigFileMissingError:
+        return ContractState.NOT_CONFIGURED
+    except (OSError, ValueError):
+        return ContractState.INVALID
+    return ContractState.CONFIGURED
+
+
+def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:
+    """AD-290: each run explores with the scope options into a private folder of `cache`."""
+    root = args.root.resolve()
+    cache.mkdir(parents=True, exist_ok=True)
+    folder = Path(tempfile.mkdtemp(prefix="studio-", dir=cache))
+    scope = [
+        f"--language={args.language.value}",
+        *(f"--source={item}" for item in args.source or ()),
+    ]
+    scope += [
+        f"--{name}={value}"
+        for name, value in (("namespace", args.namespace), ("tsconfig", args.tsconfig))
+        if value is not None
+    ]
+    explore = (sys.executable, "-m", "archkeel.cli", Command.EXPLORE.value, "--root", str(root))
+    return Workspace(
+        root,
+        folder,
+        (*explore, *scope, "--output", str(folder), "--json"),
+        lambda: _contract_state(root),
+    )
 
 
 def _write_json(artifact: Path, architecture: bytes) -> None:
@@ -701,6 +741,32 @@ def build_parser() -> _Parser:
     )
     show.set_defaults(show=True)
 
+    studio = commands.add_parser(
+        Command.STUDIO.value,
+        parents=[scoped],
+        help="Open ArchKeel Studio: the local web app for the code as it is.",
+        formatter_class=RawDescriptionRichHelpFormatter,
+        description=(
+            "Serves the Studio on 127.0.0.1 and opens it in the browser. The printed URL carries\n"
+            "a token for this run; without it each request gets 403. Studio runs explore, with\n"
+            "the scope options of explore, into a private cache folder of this run and writes\n"
+            "nothing into the repository. The static report stays the CI and Pages artifact\n"
+            "(AD-290).\n\n"
+            "Examples:\n"
+            "  archkeel studio\n"
+            "  archkeel studio --root ../service --no-open\n"
+            "  archkeel studio --language typescript --source src --namespace shop \\\n"
+            "    --tsconfig tsconfig.json\n\n"
+            "Stop it with Ctrl-C."
+        ),
+    )
+    studio.add_argument(
+        "--root", type=Path, default=Path.cwd(), help="Repository root. Default: this folder."
+    )
+    studio.add_argument(
+        "--no-open", action="store_true", help="Print the URL; do not open a browser."
+    )
+
     return parser
 
 
@@ -737,6 +803,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 else json.dumps({"command": Command.SKILL, "exit_code": 0, "path": str(path)})
             )
             return 0
+        if command is Command.STUDIO:
+            subject = str(args.root)
+            return run_studio(
+                studio_workspace(
+                    args, _cache_folder(Command.EXPLORE, _root_digest(args.root.resolve()))
+                ),
+                ready=(lambda _: None) if args.no_open else webbrowser.open,
+            )
         if args.config is None and (command is not Command.REPORT or args.input is None):
             args.config = CONFIG_PATH
         if command is Command.GUIDE:

@@ -1,0 +1,32 @@
+/* AD-290: the one tokens file of the Studio. Dark values come from the Figma screens.
+   Slice 1 is always dark; the light values wait for a theme toggle on <html data-theme>. */
+:root {
+  color-scheme: dark;
+  --bg: #0a1218;
+  --panel: #0c1820;
+  --raised: #1b2d37;
+  --line: #314650;
+  --text: #e8f3f3;
+  --muted: #99b3b9;
+  --observed: #80c9e8;
+  --claim: #f8bd78;
+  --target: #aedc78;
+  --focus: #80c9e8;
+  --radius: 10px;
+  --gap: 16px;
+  --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f6f8f9;
+  --panel: #ffffff;
+  --raised: #eaf0f2;
+  --line: #c9d5da;
+  --text: #0c1820;
+  --muted: #4d6168;
+  --observed: #1f6f94;
+  --claim: #9a5b12;
+  --target: #4f7a1f;
+  --focus: #1f6f94;
+}

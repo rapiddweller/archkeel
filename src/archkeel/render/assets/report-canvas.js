@@ -13,6 +13,8 @@ import { search as searchScene, sceneToMermaid, decider as DECIDER, perspectives
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
   const MOD = isMac ? "⌘" : "Ctrl";
   html.classList.add("ak-canvas");
+  // AD-290: ?embed shows only the canvas; Studio owns the page around it.
+  html.toggleAttribute("data-embed", query().has("embed"));
   root.classList.toggle("ak-detail", !A);
 
   // ---------- small DOM helpers ----------

@@ -65,7 +65,7 @@ pr-test: browser-runtime-install
 		tests/test_typescript_array_constants.py \
 		tests/test_typescript_decorated_inventory.py \
 		tests/test_typescript_parameter_properties.py \
-		tests/test_uml_comparison.py tests/test_saved_report.py tests/test_architecture_projection.py tests/test_cli.py tests/test_cli_view.py tests/test_cli_view_show.py tests/test_cli_typed_inputs.py tests/test_cli_input_target.py \
+		tests/test_uml_comparison.py tests/test_saved_report.py tests/test_architecture_projection.py tests/test_cli.py tests/test_cli_view.py tests/test_cli_view_show.py tests/test_studio.py tests/test_cli_typed_inputs.py tests/test_cli_input_target.py \
 		tests/test_member_inventory.py tests/test_partial_member_inventory.py \
 		tests/test_report_recorded_unknowns.py \
 		tests/test_report_agent_json.py \
@@ -317,6 +317,9 @@ typescript-libs-check: browser-runtime-install
 
 browser-architecture-check: browser-runtime-install
 	$(UV) run --locked python -m tools.browser_architecture
+	@mkdir -p test-artifacts/validation
+	@$(UV) run --locked archkeel validate --root . --config docs/architecture/studio-ui.toml --json > test-artifacts/validation/studio-ui.json || { cat test-artifacts/validation/studio-ui.json; exit 1; }
+	@echo "Studio UI architecture: PASS (AD-290)"
 
 BROWSER_GRAPH_PROTOCOL := src/archkeel/render/assets/report-graph-vocabulary.ts src/archkeel/render/assets/report-graph-schema.ts
 BROWSER_GRAPH_COMPILER := node tools/browser-runtime/node_modules/typescript/bin/tsc --strict --target ES2022 --module none --newLine lf

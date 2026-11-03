@@ -1,0 +1,190 @@
+{
+  "$schema": "../../../schema/architecture-contract.schema.json",
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "STUDIO-API",
+      "label": "api",
+      "role": "component",
+      "public": [
+        "archkeel.studio.api:ApiPath",
+        "archkeel.studio.api:ContractState",
+        "archkeel.studio.api:ExploreState",
+        "archkeel.studio.api:Route",
+        "archkeel.studio.api:StudioState",
+        "archkeel.studio.api:UiAsset",
+        "archkeel.studio.api:state_json"
+      ],
+      "responsibilities": [
+        "Declare the versioned HTTP API: its routes, the served UI files and the typed state with its JSON form."
+      ],
+      "forbidden_responsibilities": [
+        "Network, process or file access.",
+        "A route that writes: only a planned proposals component may take a write, after an explicit architect action."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
+      ],
+      "decided_by": "agent",
+      "requires": [],
+      "exact_modules": [
+        "archkeel.studio.api"
+      ],
+      "packages": []
+    },
+    {
+      "id": "STUDIO-WORKSPACE",
+      "label": "workspace",
+      "role": "component",
+      "public": [
+        "archkeel.studio.workspace:Workspace"
+      ],
+      "responsibilities": [
+        "Make the explore snapshot of the root in a private folder of this run below the cache, read its files by exact name and delete the folder at the end."
+      ],
+      "forbidden_responsibilities": [
+        "HTTP, tokens or browser pages.",
+        "Writing into the repository or a contract."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "api",
+          "through": [
+            "archkeel.studio.api:ContractState",
+            "archkeel.studio.api:ExploreState",
+            "archkeel.studio.api:StudioState"
+          ],
+          "rationale": "Report the run and the contract as the typed state of the API."
+        }
+      ],
+      "exact_modules": [
+        "archkeel.studio.workspace"
+      ],
+      "packages": []
+    },
+    {
+      "id": "STUDIO-SERVER",
+      "label": "server",
+      "role": "component",
+      "public": [
+        "archkeel.studio.server:run_studio"
+      ],
+      "responsibilities": [
+        "Serve the shell, the API and the snapshot files on 127.0.0.1 behind a per-run token."
+      ],
+      "forbidden_responsibilities": [
+        "Starting processes, analyzing source or writing files."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "api",
+          "through": [
+            "archkeel.studio.api:ApiPath",
+            "archkeel.studio.api:Route",
+            "archkeel.studio.api:UiAsset",
+            "archkeel.studio.api:state_json"
+          ],
+          "rationale": "Route requests by the typed API vocabulary and send its JSON form."
+        },
+        {
+          "component": "workspace",
+          "through": [
+            "archkeel.studio.workspace:Workspace"
+          ],
+          "rationale": "Read the state and the snapshot files of the one workspace it serves."
+        }
+      ],
+      "exact_modules": [
+        "archkeel.studio",
+        "archkeel.studio.server"
+      ],
+      "packages": []
+    }
+  ],
+  "rules": [
+    {
+      "id": "STUDIO-REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "Studio owners cross only the edges they ask for: views of the API never reach the process or the network.",
+      "provenance": [
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "STUDIO-ASSIGNMENT",
+      "kind": "complete_assignment",
+      "source": "archkeel.studio",
+      "rationale": "Every Studio module belongs to the API, the workspace or the server.",
+      "provenance": [
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "STUDIO-NO-CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "The API stays a leaf below the workspace and the server.",
+      "provenance": [
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "STUDIO-INTERFACE-BOUNDARY",
+      "kind": "interface_boundary",
+      "rationale": "Studio owners talk only through their declared public names.",
+      "provenance": [
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "STUDIO-TYPED-CONTROL",
+      "kind": "forbidden_construct",
+      "source": "archkeel.studio",
+      "constructs": [
+        "string_literal_compare"
+      ],
+      "rationale": "URL segments and states are decoded into the API enums before a decision.",
+      "provenance": [
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "STUDIO-PROCESS-IN-WORKSPACE",
+      "kind": "external_dependency_scope",
+      "dependency": "subprocess",
+      "exact_sources": [
+        "archkeel.studio.workspace"
+      ],
+      "rationale": "Only the workspace starts a child process, so only its explore child writes, and only into the cache folder.",
+      "provenance": [
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "STUDIO-HTTP-IN-SERVER",
+      "kind": "external_dependency_scope",
+      "dependency": "http",
+      "exact_sources": [
+        "archkeel.studio.server"
+      ],
+      "rationale": "Only the server speaks HTTP; the API and the workspace stay testable without a socket.",
+      "provenance": [
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
+      ],
+      "decided_by": "agent"
+    }
+  ]
+}

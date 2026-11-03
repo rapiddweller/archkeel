@@ -364,3 +364,16 @@ html.ak-canvas .flow[data-view="checked"] .flow-canvas { flex: 1 1 0; height: au
 /* One fact, one word: beside the flow the observation says "complete" in Details, never PASS. */
 html.ak-canvas .flow[data-view="checked"] .ak-run-status,
 html.ak-canvas:has(.flow[data-view="checked"]) .verdict-line { display: none; }
+
+/* AD-290: ?embed shows only the canvas, filling the frame; Studio owns brand, theme and window. */
+html.ak-canvas[data-embed] body { overflow: hidden; }
+html.ak-canvas[data-embed] .report-header,
+html.ak-canvas[data-embed] .report-shell > :not(.flow-section),
+html.ak-canvas[data-embed] .ak-logo,
+html.ak-canvas[data-embed] .ak-brand,
+html.ak-canvas[data-embed] .flow-open-selected,
+html.ak-canvas[data-embed] .theme-toggle,
+html.ak-canvas[data-embed] .flow-fullscreen { display: none !important; }
+html.ak-canvas[data-embed] .flow {
+  position: fixed; inset: 0; width: 100%; height: 100dvh; border: 0; border-radius: 0;
+}

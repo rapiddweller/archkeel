@@ -14,7 +14,10 @@ contracts; nothing is enforced by convention alone.
 
 Use this procedure when a repository has no `archkeel.toml`. The first run gives the owner content
 from the measured code: how the system starts, an overview, and one sentence for each component.
-After the draft, continue with "Onboarding" below.
+After the draft, continue with "Onboarding" below. When the owner wants to see the map in the
+browser, start `archkeel studio --root <root>` in the background, with the same `--language`,
+`--source`, `--namespace` and `--tsconfig` as `explore`, and give the owner the printed URL.
+Studio is local and writes nothing into the repository (AD-290).
 
 1. Run `archkeel explore --json`. It writes nothing into the repository. Check `scan_roots` as
    "Show a flow" step 2 tells. Keep the `findings` of the result.

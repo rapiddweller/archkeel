@@ -1,0 +1,6 @@
+[scan]
+language = "typescript"
+namespace = "studio_ui"
+contract = "docs/architecture/target/studio-ui-contract.json"
+tsconfig = "src/archkeel/studio/ui/tsconfig.json"
+roots = ["src/archkeel/studio/ui"]

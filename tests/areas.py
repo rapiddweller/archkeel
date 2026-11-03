@@ -47,6 +47,7 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_onboarding*.py",
         "test_init_first_hour.py",
         "test_explore.py",
+        "test_studio*.py",
         "test_command_view.py",
         "test_core_command_result.py",
         "test_demo.py",
