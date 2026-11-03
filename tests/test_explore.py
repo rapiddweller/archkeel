@@ -96,6 +96,7 @@ def test_explore_shows_a_repository_without_a_contract(
     page = artifact.with_name("architecture.report.html").read_text()
     assert page.index('id="inventory-heading"') < page.index('id="findings-heading"')
     assert "Target unavailable" in page
+    assert "3 layout components" in page
     assert "shop.cli.__main__" in page
     assert "PASS · Rules" not in page
 

@@ -1033,7 +1033,9 @@ def _atlas_content(
     return f"""<section class="report-heading atlas-heading">
       <div><span class="eyebrow">ArchQ Explorer</span><h1>{_text(repository)}</h1>
       <p>{observation.coverage.files_parsed} observed files
-      · {components} whole-contract components</p></div>
+      · {components} {
+        "layout" if result.target is TargetStatus.UNAVAILABLE else "whole-contract"
+    } components</p></div>
       <button class="theme-toggle" type="button" aria-label="Switch to light theme">☀</button>
       </section>
       {status_header}
