@@ -179,14 +179,18 @@ newer. The nightly job checks 3.12, 3.13 and 3.14 (#724, #743).
 - Package roll-up cycles need not be module cycles. Read their backing SCC evidence.
 - Physical folders, filters and renderer routes prove no ownership or conformance.
   Dense layouts may warn; the verdict does not change.
-- `archkeel view check` proves structure, not runtime order: a path of imports or calls is
-  not an execution trace. A Python snapshot records a `dynamic_call_limit`, so a call edge is
-  `unknown`, never `missing`. A call through a re-export, such as `shop.store.OrderRepository`,
-  proves no call edge. Symbols and inside components are not view nodes; an inside component
-  id is `unknown`. A claim is author text, also when the graph has the same edge. A
-  `TYPE_CHECKING` import stays a proven import with the reason "type-only import: not executed
-  at runtime". The saved snapshot is not authenticated: the check rejects a record with missing
-  evidence, but a forged record with consistent evidence passes
+- `archkeel view check` proves structure, not runtime order: an import or a call is not an
+  execution trace, and a step needs one direct edge. A Python snapshot records a
+  `dynamic_call_limit`, so a call edge is `unknown`, never `missing`. A call through a
+  re-export, such as `shop.store.OrderRepository`, proves no call edge. `from p import sub`
+  records only `p.sub`, so an absent import of `p` is `unknown`. Symbols, inside components,
+  paths and names outside the scanned roots are not view nodes: they are `unknown`. A claim
+  is author text, also when the graph has the same edge. A `TYPE_CHECKING` import stays a
+  proven import with the reason "type-only import: not executed at runtime". The saved
+  snapshot is not authenticated: the check rejects a record with missing evidence, but a
+  forged record with consistent evidence passes (#796). A snapshot from `archkeel explore`
+  marks its layout contract without a typed marker yet: its `declared` and `requires`
+  statuses are not reliable
   ([AD-284](architecture/decisions/ad-284-studio-shows-views-as-checked-data.md)).
 
 ## TypeScript profile

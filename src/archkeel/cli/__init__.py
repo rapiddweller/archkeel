@@ -99,16 +99,6 @@ def _write_timings(path: Path, clock: PhaseClock) -> None:
     path.write_text(json.dumps(clock.to_dict(), indent=2) + "\n")
 
 
-def _run_view_check(
-    spec_path: Path, snapshot_path: Path, *, strict: bool, interactive: bool
-) -> int:
-    """Read a view spec and a saved snapshot; `ir.view_spec` checks it (AD-284)."""
-    spec = parse_view_spec(decode_json(spec_path.read_bytes()))
-    result = check_view(spec, read_saved_snapshot(snapshot_path), strict=strict)
-    sys.stdout.write(view_summary(result) + "\n" if interactive else view_check_json(result))
-    return result.exit_code
-
-
 def html_path(output: Path, command: str) -> Path:
     """Name an HTML sidecar by JSON stem and command."""
     return output.parent / f"{output.stem}.{command}.html"
@@ -253,7 +243,7 @@ def build_parser() -> _Parser:
     _observing(
         report,
         "Path of architecture.json; the HTML report is written next to it. "
-        "Default: test-artifacts/architecture/architecture.json.",
+        f"Default: {_SNAPSHOT_PATH}.",
     )
     report.set_defaults(root=None, config=None, timings=None)
     report.add_argument(
@@ -610,7 +600,7 @@ def build_parser() -> _Parser:
             "Checks each node, edge and step of a view spec against one saved snapshot. Each\n"
             "reference is proven (observed, with evidence), declared (contract), claim (author\n"
             "text, not checked), unknown (the snapshot cannot decide) or missing. A proven step\n"
-            "is a static path of one relationship kind: structure, not runtime order. The spec\n"
+            "is one direct edge of its kind: structure, not runtime order. The spec\n"
             "names the digests of the snapshot it was written for (AD-284).\n\n"
             "Examples:\n"
             "  archkeel view check flow.json\n"
@@ -629,7 +619,7 @@ def build_parser() -> _Parser:
         "--snapshot",
         type=Path,
         default=_SNAPSHOT_PATH,
-        help="Saved architecture.json. Default: test-artifacts/architecture/architecture.json.",
+        help=f"Saved architecture.json. Default: {_SNAPSHOT_PATH}.",
     )
     for option, help_text in (
         ("--strict", "Also reject each unknown reference."),
@@ -678,10 +668,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         if command is Command.GUIDE:
             return run_guide(args.root.resolve(), args.config, args.output, args.check)
         if command is Command.VIEW:
-            subject = str(args.spec)
-            return _run_view_check(
-                args.spec, args.snapshot, strict=args.strict, interactive=interactive
-            )
+            spec_path: Path = args.spec
+            subject = str(spec_path)
+            spec = parse_view_spec(decode_json(spec_path.read_bytes()))
+            subject = str(args.snapshot)
+            view = check_view(spec, read_saved_snapshot(args.snapshot), strict=args.strict)
+            sys.stdout.write(view_summary(view) + "\n" if interactive else view_check_json(view))
+            return view.exit_code
         root = (args.root or Path.cwd()).resolve()
         subject = str(root / (args.config or CONFIG_PATH))
         activity = (
@@ -801,7 +794,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 result = replace(result, scan_roots=config.roots)
                 if architecture is not None:
-                    artifact = args.output or root / "test-artifacts/architecture/architecture.json"
+                    artifact = args.output or root / _SNAPSHOT_PATH
                     # The pages show the artifact path, so it is set before they render.
                     resolved = artifact.resolve()
                     result = replace(
@@ -975,6 +968,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 Command.REPORT if command is Command.EXPLORE else command, subject, error
             )
         )
+    if interactive and command is Command.VIEW:
+        # A view check that did not run has no scan or rule verdicts to show.
+        for item in result.diagnostics:
+            print(f"archkeel view check did not run on {item.subject}: {item.unknown_claim}")
+            print(item.remedy)
+        return result.exit_code
     if interactive:
         summary = (
             check_summary(result)
