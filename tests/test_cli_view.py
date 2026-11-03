@@ -44,10 +44,12 @@ _LOADER = (
 )
 
 
-def _snapshot(tmp_path: Path, overlay: dict[str, str | None] | None = None) -> bytes:
+def _snapshot(
+    tmp_path: Path, overlay: dict[str, str | None] | None = None, *, complete: bool = True
+) -> bytes:
     root = _prepare_repo(tmp_path, overlay or {})
     result, packet = run_report(root, config=load_config(root), analyzer=observe)
-    assert result.exit_code == 0 and packet is not None
+    assert result.exit_code == (0 if complete else 2) and packet is not None
     return packet
 
 
@@ -343,3 +345,31 @@ def test_a_tampered_snapshot_is_not_checked(tmp_path: Path, capsys: pytest.Captu
     assert main(["view", "check", str(spec), "--snapshot", str(snapshot), "--json"]) == 2
     out = json.loads(capsys.readouterr().out)
     assert out["command"] == "view" and "missing evidence" in out["diagnostics"][0]["unknown_claim"]
+
+
+def test_a_module_the_snapshot_could_not_parse_is_unknown_not_missing(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """A coverage failure skips the module: its absence is not proven."""
+    packet = _snapshot(
+        tmp_path / "broken", {"shop/app/broken.py": "def broken(:\n"}, complete=False
+    )
+    snapshot, spec = tmp_path / "architecture.json", tmp_path / "view.json"
+    snapshot.write_bytes(packet)
+    nodes = ["shop.app.broken", "shop.app.payments", "shop.render.text", "shop.model.entities"]
+    nodes.append("shop.app.orders")
+    edges = [
+        _edge(nodes[0], nodes[3]),  # an end node is unknown
+        _edge(nodes[2], nodes[1]),
+        _edge(nodes[2], nodes[4]),  # absent, but the coverage cannot exclude it
+        _edge(nodes[2], nodes[3]),  # present: an observed edge stays proven
+    ]
+    spec.write_text(json.dumps(_spec(_observation(packet), nodes=nodes, edges=edges)))
+    arguments = ["view", "check", str(spec), "--snapshot", str(snapshot), "--json"]
+    assert main(arguments) == 0
+    result = json.loads(capsys.readouterr().out)
+    statuses = [node["status"] for node in result["nodes"]]
+    assert statuses == ["unknown", "unknown", "proven", "proven", "proven"]
+    assert "incomplete source coverage" in result["nodes"][0]["reason"]
+    assert [edge["status"] for edge in result["edges"]] == ["unknown"] * 3 + ["proven"]
+    assert main([*arguments, "--strict"]) == 1

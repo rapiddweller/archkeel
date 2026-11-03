@@ -17,7 +17,7 @@ spec. `archkeel view check` checks each reference in it against one saved `archi
    | `declared` | Contract: a component, or a `requires` entry between two components. |
    | `claim` | Author text. The check does not look for it, also when the graph has the edge. |
    | `unknown` | The snapshot cannot decide: a coverage gap, a dynamic dependency, an unsupported node or kind. |
-   | `missing` | Not in the snapshot, and the coverage of that kind is complete. |
+   | `missing` | Not in the snapshot, and the source coverage and the coverage of that kind are complete. |
 4. Only a resolved relationship to a defined entity proves an edge. A step pair is proven by
    the shortest directed path of one kind. This is static structure, not runtime order: an
    import is not a call, and a path is not an execution trace. The Explorer must show that

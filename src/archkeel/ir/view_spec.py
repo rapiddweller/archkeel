@@ -294,6 +294,8 @@ class _Graph:
     inside: frozenset[str]
     members: Mapping[str, tuple[str, ...]]
     layers: Mapping[RelationshipKind, _Layer]
+    # A file the analyzer could not read or parse has no module record: its absence is not proven.
+    complete: bool
 
 
 def _module_names(entities: Mapping[str, Entity]) -> dict[str, str]:
@@ -468,6 +470,7 @@ def _view_graph(observation: Observation) -> _Graph:
             for identity, record in components.items()
         },
         layers,
+        observation.coverage.status == Verdict.PASS and not observation.coverage.failures,
     )
 
 
@@ -498,6 +501,11 @@ def _node(graph: _Graph, node: str) -> NodeCheck:
         )
     if node in graph.inside:
         return NodeCheck(node, ViewStatus.UNKNOWN, "an inside component is not a view node yet")
+    if not graph.complete:
+        reason = (
+            "no component or module has this id, but the snapshot has incomplete source coverage"
+        )
+        return NodeCheck(node, ViewStatus.UNKNOWN, reason)
     return NodeCheck(node, ViewStatus.MISSING, "no component or module has this id")
 
 
@@ -528,8 +536,10 @@ def _one_kind(
     sources, targets = _keys(graph, source, kind), frozenset(_keys(graph, target, kind))
     found = ViewStatus.DECLARED if kind == RelationshipKind.REQUIRES else ViewStatus.PROVEN
     if not sources or not targets:
+        # A component whose modules all failed to parse has no ends, but they can exist.
+        status = ViewStatus.UNKNOWN if layer.everywhere else ViewStatus.MISSING
         reason = f"{source} or {target} has no {kind} end in the snapshot"
-        return LinkCheck(source, target, ViewStatus.MISSING, reason, kind)
+        return LinkCheck(source, target, status, layer.everywhere or reason, kind)
     reached: tuple[str, ...] = sources
     if one_hop:
         evidence = tuple(
