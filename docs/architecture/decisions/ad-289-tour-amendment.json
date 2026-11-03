@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "a25f9a568e20676f77a9e5baaf1595f460a184e95bfe8e9c92bc93f5f04cab1a",
+  "after_digest": "ac3006f47a925e0df8297dc1896cc6eaf7603a3100c326a3862919c0e35bda22",
+  "before_baseline_digest": "62788e735ff64aed04d571303799b6e2256dfa75017daed45ea3cefac16bf09f",
+  "before_digest": "ac3006f47a925e0df8297dc1896cc6eaf7603a3100c326a3862919c0e35bda22",
+  "decided_by": "Alexander Kell (architect), AD-289; delegated to the manager 2026-11-03",
+  "rationale": "AD-289 adds tour stops to archkeel view check. The calls_unresolved budget rises from 829 to 830 for one call the analyzer cannot resolve: touched.setdefault(module, []).append in archkeel.ir.view_spec._touched, which groups the violation and unknown records by module.",
+  "schema_version": "2.0.0"
+}
