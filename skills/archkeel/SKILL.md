@@ -21,13 +21,15 @@ from the measured code: how the system starts, an overview, and one sentence for
    `<snapshot>` is `artifact` in the explore result.
 3. Keep the `findings` of the explore result. A filtered report has no `findings`.
 4. Ask the owner once: "Create a draft contract?"
-5. Without a clear yes, stop. Give the overview of step 12 in chat only, with no view.
+5. Without a clear yes, skip steps 6 to 9 and `view show`. Use the explore snapshot.
+   The repository stays unchanged, and the overview stays in chat.
 6. With a yes, run `archkeel init --json`. Each rule it drafts has `decided_by: "agent"`:
    it waits for the architect.
 7. For each top-level component (about 10 at most), write one sentence into `responsibilities`.
    Base it on the package docstring, the entry points and the imports of its modules.
    Cite `file:line` in the sentence, not in `provenance` (it takes paths only). Without evidence,
    write "unknown"; never invent a responsibility. Set `decided_by: "agent"` on the component.
+   Put the same sentence in place of its TODO in `docs/architecture/architecture.md`.
 8. Optionally, replace a drafted `label` with a short speaking name. Do this only in the new draft.
    `label` is the name that `requires`, `--component` and nested scopes use. Then run
    `archkeel validate --write-graph`, which updates the graph in the architecture page.
@@ -50,7 +52,8 @@ Rules for the first run:
 
 - A view shows structure, not runtime order. A claim stays a claim; the check does not prove it.
 - Never write `status` or `evidence` into a view spec.
-- No rule reads `label` or `responsibilities` (AD-285): agent text never changes a verdict.
+- In the `init` draft, no rule reads `responsibilities` (AD-285 §5): your sentence never changes
+  a rule verdict.
 - Contract text wins over agent text. When a component already has a sentence, keep it. Show your
   sentence and the difference in chat; the architect decides.
 
