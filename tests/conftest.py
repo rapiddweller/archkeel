@@ -117,33 +117,67 @@ _SPREAD_PER_TEST = frozenset(
 )
 
 
-def _select(name: str, items: list[pytest.Item]) -> list[pytest.Item]:
-    from areas import PYTHON_COMPAT, SELECTIONS, selects
+def _entries(name: str) -> tuple[str, ...]:
+    # Imported here: some tests copy this file alone into a temporary project.
+    from areas import SELECTIONS
 
     if name not in SELECTIONS:
         raise pytest.UsageError(f"--selection={name} is not a selection in tests/areas.py")
-    entries = SELECTIONS[name]
+    return SELECTIONS[name]
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    if config.getoption("selection") is not None:
+        _entries(config.getoption("selection"))
+
+
+def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> bool | None:
+    name = config.getoption("selection")
+    if name is None:
+        return None
+    from areas import PYTHON_COMPAT, selects
+
+    # The marker rule needs every file. Other selections import only their files, unless the
+    # command line names the paths.
+    if (
+        name == PYTHON_COMPAT
+        or config.args_source is pytest.Config.ArgsSource.ARGS
+        or not collection_path.name.startswith("test_")
+    ):
+        return None
+    return not any(
+        selects(entry.partition("::")[0], collection_path.name) for entry in _entries(name)
+    )
+
+
+def _select(session: pytest.Session, name: str, items: list[pytest.Item]) -> list[pytest.Item]:
+    from areas import PYTHON_COMPAT, selects
+    from xdist import is_xdist_worker
+
+    entries = _entries(name)
     ids = [f"{item.path.name}::{item.nodeid.partition('::')[2]}" for item in items]
-    files = {item.path.name for item in items}
-    # A stale entry must fail: an explicit path on the command line failed as "not found".
-    stale = [
-        entry
-        for entry in entries
-        if not (ROOT / "tests" / entry.partition("::")[0]).is_file()
-        or (entry.partition("::")[0] in files and not any(selects(entry, i) for i in ids))
-    ]
-    if stale:
-        raise pytest.UsageError(f"--selection={name} names no test: {stale}")
-    return [
+    kept = [
         item
         for item, test_id in zip(items, ids, strict=True)
         if any(selects(entry, test_id) for entry in entries)
         or (name == PYTHON_COMPAT and item.get_closest_marker("requires_python") is not None)
     ]
+    # A stale entry must fail, as a stale path on the command line did; explicit paths narrow it.
+    if session.config.args_source is not pytest.Config.ArgsSource.ARGS:
+        stale = [entry for entry in entries if not any(selects(entry, i) for i in ids)]
+        if stale and is_xdist_worker(session):
+            # xdist hides a worker's UsageError; it stops the run with this message instead.
+            session.shouldfail = f"--selection={name} names no test: {stale}"
+            return []
+        if stale:
+            raise pytest.UsageError(f"--selection={name} names no test: {stale}")
+    return kept
 
 
 @pytest.hookimpl(tryfirst=True)
-def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+def pytest_collection_modifyitems(
+    session: pytest.Session, config: pytest.Config, items: list[pytest.Item]
+) -> None:
     for item in items:
         # The area jobs run the oldest Python; make python-compat runs these tests (tests/areas.py).
         for mark in item.iter_markers("requires_python"):
@@ -151,7 +185,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
                 item.add_marker(pytest.mark.skip(reason=f"needs Python 3.{mark.args[0]}"))
     selection = config.getoption("selection")
     if selection is not None:
-        kept = _select(selection, items)
+        kept = _select(session, selection, items)
         chosen = set(kept)
         config.hook.pytest_deselected(items=[item for item in items if item not in chosen])
         items[:] = kept

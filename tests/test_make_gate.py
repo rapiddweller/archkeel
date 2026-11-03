@@ -15,7 +15,7 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
-from areas import AREAS, area_of
+from areas import AREAS, SELECTIONS, area_of, selects
 
 ROOT = Path(__file__).parents[1]
 GATE_STEPS = ["self-validate", "browser-architecture-check", "check", "build", "smoke"]
@@ -402,14 +402,23 @@ def test_python_compat_selects_marked_tests_and_listed_files_and_fails_closed(
     assert "is not a selection" in result.stderr
     # A renamed test must not leave a selection entry that silently selects nothing.
     (tmp_path / "stale_entry.py").write_text(
-        'import areas\nareas.SELECTIONS["python-compat"] += ("test_layers.py::test_renamed",)\n'
+        'import areas\nareas.SELECTIONS["dart"] += ("test_layers.py::test_renamed",)\n'
     )
     path = os.pathsep.join([str(tmp_path), str(ROOT / "tests")])
-    result, _ = _collected(
-        "-p", "stale_entry", "--selection=python-compat", "tests/test_layers.py", path=path
-    )
+    result, _ = _collected("-p", "stale_entry", "--selection=dart", path=path)
     assert result.returncode == pytest.ExitCode.USAGE_ERROR, result.stdout + result.stderr
     assert "test_layers.py::test_renamed" in result.stderr
+    # With xdist only the workers collect; the run must stop there too.
+    run = subprocess.run(
+        [sys.executable, "-m", "pytest", "-n", "2", "-q", "-p", "stale_entry", "--selection=dart"],
+        cwd=ROOT,
+        env={**os.environ, "PYTHONPATH": path},
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert run.returncode == pytest.ExitCode.INTERRUPTED, run.stdout + run.stderr
+    assert "test_layers.py::test_renamed" in run.stdout
 
 
 @pytest.mark.parametrize("renderer_exit", [0, 1])
@@ -530,6 +539,14 @@ def _collected(
     return result, [line for line in result.stdout.splitlines() if "::" in line]
 
 
+def test_a_selection_without_the_marker_rule_collects_only_its_files() -> None:
+    result, selected = _collected("--selection=dart")
+    assert result.returncode == 0, result.stdout + result.stderr
+    files = {test.split("::")[0].removeprefix("tests/") for test in selected}
+    entries = SELECTIONS["dart"]
+    assert files and all(any(selects(e.partition("::")[0], f) for e in entries) for f in files)
+
+
 def test_every_test_file_belongs_to_one_area_and_ci_runs_every_area() -> None:
     files = sorted(path.name for path in (ROOT / "tests").rglob("test_*.py"))
     assert [name for name in files if area_of(name) is None] == []
@@ -538,15 +555,7 @@ def test_every_test_file_belongs_to_one_area_and_ci_runs_every_area() -> None:
         listed = re.search(r"\n        area:\n((?:          - .+\n)+)", text)
         assert listed is not None, workflow
         assert [line.split("- ", 1)[1].strip('"') for line in listed[1].splitlines()] == list(AREAS)
-    pr_test = subprocess.run(
-        ["make", "-n", "pr-test"],
-        cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": ""},
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    assert {area_of(name) for name in re.findall(r"tests/(test_\w+\.py)", pr_test)} == set(AREAS)
+    assert {area_of(entry.partition("::")[0]) for entry in SELECTIONS["pr"]} == set(AREAS)
 
 
 def test_an_area_selects_only_its_files_and_fails_closed_when_empty() -> None:
