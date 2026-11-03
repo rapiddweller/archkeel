@@ -10,6 +10,8 @@ import json
 import os
 import re
 import sys
+import tempfile
+import webbrowser
 from collections.abc import Sequence
 from contextlib import redirect_stdout
 from dataclasses import replace
@@ -34,7 +36,7 @@ from ..check.run import run_check
 from ..check.snapshot import resolve_commit
 from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
-from ..ir.codec import decode_json
+from ..ir.codec import decode_json, parse_contract
 from ..ir.phases import Phase, PhaseClock, WorkCounter, measured
 from ..ir.view_spec import (
     ViewCheck,
@@ -128,18 +130,21 @@ def _cache_folder(command: Command, digest: str) -> Path:
 def _contract_state(root: Path) -> ContractState:
     """AD-290: the contract as `report` loads it: missing, invalid or configured."""
     try:
-        load_config(root)
+        config = load_config(root)
+        parse_contract(decode_json((root / config.contract).read_bytes()))
     except ConfigFileMissingError:
         return ContractState.NOT_CONFIGURED
-    except ValueError:
+    except (OSError, ValueError):
         return ContractState.INVALID
     return ContractState.CONFIGURED
 
 
 def studio_workspace(root: Path) -> Workspace:
-    """AD-290: Studio and `archkeel explore` share one cache folder for each root."""
+    """AD-290: each Studio run explores into its own private folder below the explore cache."""
     root = root.resolve()
-    folder = _cache_folder(Command.EXPLORE, _root_digest(root))
+    cache = _cache_folder(Command.EXPLORE, _root_digest(root))
+    cache.mkdir(parents=True, exist_ok=True)
+    folder = Path(tempfile.mkdtemp(prefix="studio-", dir=cache))
     explore = (sys.executable, "-m", "archkeel.cli", Command.EXPLORE.value, "--root", str(root))
     return Workspace(
         root,
@@ -788,7 +793,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if command is Command.STUDIO:
             subject = str(args.root)
-            return run_studio(studio_workspace(args.root), open_browser=not args.no_open)
+            return run_studio(
+                studio_workspace(args.root),
+                ready=(lambda _: None) if args.no_open else webbrowser.open,
+            )
         if args.config is None and (command is not Command.REPORT or args.input is None):
             args.config = CONFIG_PATH
         if command is Command.GUIDE:

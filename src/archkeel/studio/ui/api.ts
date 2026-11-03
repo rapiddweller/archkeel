@@ -18,5 +18,12 @@ export async function readState(): Promise<StudioState> {
   if (!response.ok) {
     throw new Error(`GET /api/v1/state: ${response.status}`);
   }
-  return await response.json();
+  const state: StudioState = await response.json();
+  // One wheel ships both sides; a mismatch means a page of another Studio run.
+  if (state.api_version !== API_VERSION) {
+    throw new Error(
+      `The Studio API is ${state.api_version}; this page needs ${API_VERSION}. Reload the page.`,
+    );
+  }
+  return state;
 }

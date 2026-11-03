@@ -7,7 +7,7 @@ import mimetypes
 import secrets
 import socket
 import socketserver
-import webbrowser
+from collections.abc import Callable
 from enum import StrEnum
 from functools import partial
 from http import HTTPStatus
@@ -157,13 +157,12 @@ class _Handler(BaseHTTPRequestHandler):
     do_POST = do_PUT = do_DELETE = do_PATCH = _read_only
 
 
-def run_studio(workspace: Workspace, *, open_browser: bool) -> int:
-    """Make the snapshot and serve until Ctrl-C; the start URL carries the token of this run."""
+def run_studio(workspace: Workspace, *, ready: Callable[[str], object]) -> int:
+    """Make the snapshot and serve until Ctrl-C; `ready` gets the start URL with the token."""
     server = Studio(workspace)
     workspace.start()
     print(f"ArchKeel Studio: {server.url}\nPress Ctrl-C to stop.", flush=True)
-    if open_browser:
-        webbrowser.open(server.url)
+    ready(server.url)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

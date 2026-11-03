@@ -40,7 +40,7 @@
         "archkeel.studio.workspace:Workspace"
       ],
       "responsibilities": [
-        "Make the explore snapshot of the root on demand in the cache folder and read its files by exact name."
+        "Make the explore snapshot of the root in a private folder of this run below the cache, read its files by exact name and delete the folder at the end."
       ],
       "forbidden_responsibilities": [
         "HTTP, tokens or browser pages.",

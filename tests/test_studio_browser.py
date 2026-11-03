@@ -11,6 +11,8 @@ import pytest
 from test_explore import _repository
 from test_studio import _start, _stop, explore, login
 
+from archkeel.cli import main
+from archkeel.cli.config import load_config
 from archkeel.studio.server import Studio
 
 _LEGEND = ("Observed = code evidence", "Claim = agent hypothesis", "Target = architect decision")
@@ -133,3 +135,34 @@ def test_the_shell_navigates_and_stays_on_its_server(
     assert outside == []
     assert any(urlsplit(url).path == "/api/v1/state" for url in requests)
     assert any(urlsplit(url).path == "/files/architecture.report.html" for url in requests)
+
+
+@pytest.mark.browser
+def test_the_shell_shows_an_invalid_contract_and_refuses_another_api_version(
+    studio: Studio, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    broken = _repository(tmp_path / "broken")
+    assert main(["init", "--root", str(broken), "--json"]) == 0
+    (broken / load_config(broken).contract).write_text("{not json")
+    server = _start(broken)
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page()
+            page.goto(server.url)
+            page.get_by_text("Contract: INVALID", exact=True).wait_for()
+
+            other = browser.new_page()
+            other.route(
+                "**/api/v1/state",
+                lambda route: route.fulfill(json={"api_version": "2.0.0"}),
+            )
+            other.goto(studio.url)
+            alert = other.get_by_role("alert")
+            alert.wait_for()
+            assert "2.0.0" in alert.inner_text() and "1.0.0" in alert.inner_text()
+        finally:
+            browser.close()
+            _stop(server)

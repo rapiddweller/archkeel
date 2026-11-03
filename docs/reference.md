@@ -192,7 +192,7 @@ the contract is valid, and no rule was checked.
 127.0.0.1 and opens it in the browser
 ([AD-290](architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md)). The
 printed URL carries a token for this run; a request without it gets 403. At start, Studio runs
-`archkeel explore` on the root into the explore cache folder; Overview shows the progress and
+`archkeel explore` on the root into a private folder of this run below the explore cache; Overview shows the progress and
 Explore shows the Explorer. The read-only API `GET /api/v1/state` follows
 [studio-api-1.0](../schema/studio-api-1.0.schema.json). Studio writes nothing into the
 repository. It is parallel to the static report, which stays the CI and Pages artifact. Stop it

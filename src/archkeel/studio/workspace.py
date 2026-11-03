@@ -4,6 +4,7 @@
 """AD-290: the explore snapshot of one root, made on demand in the cache folder."""
 
 import json
+import shutil
 import subprocess
 import threading
 import time
@@ -46,7 +47,9 @@ class Workspace:
         self._explore = explore
         self._contract = contract
         self._lock = threading.Lock()
-        self._run = StudioState(root_name=self.root.name, contract=ContractState.NOT_CONFIGURED)
+        # The root of the file system has no name of its own.
+        name = self.root.name or str(self.root)
+        self._run = StudioState(root_name=name, contract=ContractState.NOT_CONFIGURED)
         self._started = 0.0
         self._child: subprocess.Popen[bytes] | None = None
 
@@ -94,6 +97,9 @@ class Workspace:
         return target
 
     def close(self) -> None:
+        """Stop the explore child and delete the folder of this run; no other run uses it."""
         with self._lock:
             if self._child is not None and self._child.poll() is None:
                 self._child.kill()
+                self._child.wait()
+        shutil.rmtree(self.folder, ignore_errors=True)

@@ -65,7 +65,15 @@ replacement = '](https://github.com/rapiddweller/archkeel/blob/main/\1)'
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/archkeel"]
-exclude = ["src/archkeel/cli/assets/SKILL.md"]
+# AD-290: the Studio sources build studio.js; the wheel ships only what the server serves.
+exclude = [
+  "src/archkeel/cli/assets/SKILL.md",
+  "src/archkeel/studio/ui/*.ts",
+  "src/archkeel/studio/ui/*.tsx",
+  "src/archkeel/studio/ui/views",
+  "src/archkeel/studio/ui/tsconfig.json",
+  "src/archkeel/studio/ui/AGENTS.md",
+]
 
 [tool.hatch.build.targets.wheel.force-include]
 "schema" = "archkeel/schema"

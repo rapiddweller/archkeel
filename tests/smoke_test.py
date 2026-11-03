@@ -22,11 +22,18 @@ def main() -> None:
     assets = files("archkeel.render").joinpath("assets")
     for name in ("report-graph-protocol.js", "report-graph-scene.js", "report-atlas-deviations.js"):
         assert "Archkeel" in assets.joinpath(name).read_text(encoding="utf-8")
+    # AD-290: the wheel ships what the Studio server serves, not the sources of the bundle.
+    studio = files("archkeel.studio").joinpath("ui")
+    shipped = {item.name for item in studio.iterdir()}
+    served = {"index.html", "studio.js", "tokens.css", "studio.css", "PREACT-LICENSE.md"}
+    assert shipped == served, shipped
     schemas = files("archkeel").joinpath("schema")
     result_schema = json.loads(
         schemas.joinpath("command-result.schema.json").read_text(encoding="utf-8")
     )
     assert result_schema["$id"] == "urn:archkeel:command-result:6.0.0"
+    studio_api = json.loads(schemas.joinpath("studio-api-1.0.schema.json").read_text("utf-8"))
+    assert studio_api["$id"] == "urn:archkeel:studio-api:1.0.0"
     assert "expectation_fulfilled" in result_schema["required"]
     source_facts_5 = json.loads(
         schemas.joinpath("source-facts-5.0.schema.json").read_text(encoding="utf-8")

@@ -44,7 +44,11 @@ class ContractState(StrEnum):
 
 
 class ExploreState(StrEnum):
-    """The explore run that makes the snapshot in the cache folder."""
+    """The explore run that makes the snapshot in the cache folder.
+
+    IDLE is the state between a new workspace and its start: `run_studio` starts the run before
+    it serves, so a browser does not see IDLE, but a workspace does report it.
+    """
 
     IDLE = "idle"
     RUNNING = "running"

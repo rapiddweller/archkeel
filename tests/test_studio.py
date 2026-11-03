@@ -18,8 +18,10 @@ from jsonschema import Draft202012Validator
 from test_explore import _repository, _tree_digest
 
 from archkeel.cli import main, studio_workspace
-from archkeel.studio.api import API_VERSION
+from archkeel.cli.config import load_config
+from archkeel.studio.api import API_VERSION, ContractState
 from archkeel.studio.server import Studio
+from archkeel.studio.workspace import Workspace
 
 _SCHEMA = json.loads((Path(__file__).parents[1] / "schema/studio-api-1.0.schema.json").read_bytes())
 _EXPLORE_SECONDS = 120
@@ -159,10 +161,18 @@ def test_the_contract_state_comes_from_the_root(
     invalid = tmp_path / "invalid"
     invalid.mkdir()
     (invalid / "archkeel.toml").write_text("[scan\n")
+    # A valid archkeel.toml with a contract that does not parse, or that the parser refuses.
+    broken = {}
+    for name, text in (("json", "{not json"), ("schema", '{"schema_version": "2.2.0"}')):
+        broken[name] = _repository(tmp_path / f"broken-{name}")
+        assert main(["init", "--root", str(broken[name]), "--json"]) == 0
+        (broken[name] / load_config(broken[name]).contract).write_text(text)
     for folder, expected in (
         (_repository(tmp_path / "shop"), "not_configured"),
         (configured, "configured"),
         (invalid, "invalid"),
+        (broken["json"], "invalid"),
+        (broken["schema"], "invalid"),
     ):
         server = _start(folder)
         try:
@@ -212,7 +222,6 @@ def test_a_failed_explore_shows_its_diagnostic(
     "name", ["../shop/pyproject.toml", "..%2Fshop%2Fpyproject.toml", "nothing.html", ""]
 )
 def test_files_serves_only_a_file_of_the_snapshot_folder(studio: Studio, name: str) -> None:
-    studio.workspace.folder.mkdir(parents=True)
     assert request(studio, f"/files/{name}", cookie=login(studio))[0].status == 404
 
 
@@ -222,7 +231,8 @@ def test_the_studio_package_does_not_import_the_cli() -> None:
             sys.executable,
             "-c",
             "import sys, archkeel.studio.server; "
-            "print(sorted(m for m in sys.modules if m.startswith('archkeel.')))",
+            "print(sorted(m for m in sys.modules"
+            " if m.startswith('archkeel.') or m == 'webbrowser'))",
         ],
         capture_output=True,
         text=True,
@@ -230,3 +240,25 @@ def test_the_studio_package_does_not_import_the_cli() -> None:
     ).stdout
     assert "archkeel.studio.server" in loaded
     assert "archkeel.cli" not in loaded
+    # The CLI opens the browser; the server starts no process.
+    assert "'webbrowser'" not in loaded
+
+
+def test_the_root_of_the_file_system_has_a_name() -> None:
+    workspace = Workspace(Path("/"), Path("/nothing"), (), lambda: ContractState.NOT_CONFIGURED)
+    assert workspace.state().root_name == "/"
+
+
+def test_each_studio_run_has_its_own_private_cache_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    root = _repository(tmp_path / "shop")
+    first, second = studio_workspace(root), studio_workspace(root)
+    assert first.folder != second.folder
+    assert first.folder.parent == second.folder.parent
+    assert first.folder.is_relative_to(tmp_path / "cache")
+    assert first.folder.stat().st_mode & 0o777 == 0o700
+    first.close()
+    assert not first.folder.exists()
+    assert second.folder.is_dir()
