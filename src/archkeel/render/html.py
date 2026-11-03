@@ -30,7 +30,7 @@ from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.baseline import ViolationFingerprint, canonical_fingerprint, violation_fingerprint
 from archkeel.ir.bindings import BindingReads, unread_bindings
 from archkeel.ir.codec import decode_canonical_model, parse_observation
-from archkeel.ir.decisions import agent_decisions, open_decisions
+from archkeel.ir.decisions import agent_decisions, declares_a_target, open_decisions
 from archkeel.ir.diagnostics import Diagnostic as Diagnostic
 from archkeel.ir.duplication import MINIMUM_SHAPE_NODES, OwnedLogic, repeated_logic
 from archkeel.ir.findings import findings_note
@@ -55,6 +55,7 @@ from archkeel.ir.model import (
     Observation,
     Record,
     RunResult,
+    TargetStatus,
     stable_id,
     text_value,
 )
@@ -91,6 +92,16 @@ _SIZE_LABELS: Final = {
 _GIT_HASH_SHOWN: Final = 7
 # The explorer must stay on the first screen; the rest of the list opens on request.
 _FINDINGS_SHOWN: Final = 5
+# AD-285: the inventory shows as many components as the Explorer's AD-264 list.
+_INVENTORY_SHOWN: Final = 8
+# AD-285: with no target there is no Target view, Diff or violating edge to show. The runtime
+# unhides these controls, so a page rule keeps them hidden.
+_NO_TARGET_STYLE: Final = (
+    '<style>[data-flow-view="target"],[data-flow-view="diff"],.flow-violation-focus'
+    "{display:none!important}</style>"
+)
+# Python runs a package's `__main__` module for `python -m`: the one observed entry point.
+_ENTRY_MODULE: Final = "__main__"
 
 
 def _asset(name: str) -> bytes:
@@ -734,15 +745,24 @@ def _flow_section_head(*, atlas: bool = False) -> str:
       <script id="flow-data" type="application/json">"""
 
 
-def _explorer_section(payload: str, *, atlas: bool = False) -> str:
+def _explorer_section(payload: str, *, atlas: bool = False, view_check: str | None = None) -> str:
     script_source: bytes = _asset("explorer.runtime.js")
     vendor_source: bytes = _asset("elkjs-0.12.0.bundled.js")
     script = script_source.decode("utf-8")
     vendor = vendor_source.decode("utf-8")
+    # AD-287: the check result JSON, unchanged, for the checked flow; flow.js reads it at start.
+    view = (
+        '      <script id="view-check-data" type="application/json">'
+        + view_check.replace("<", "\\u003c")
+        + "</script>\n"
+        if view_check is not None
+        else ""
+    )
     return (
         _flow_section_head(atlas=atlas)
         + payload
         + "</script>\n"
+        + view
         + f'      <script data-elkjs-version="0.12.0">{vendor}</script>'
         + f'      <script data-report-asset="explorer">{script}</script>'
         + "\n    </section>"
@@ -757,11 +777,11 @@ def _flow_section(observation: Observation) -> str:
     return _explorer_section(payload.replace("<", "\\u003c"))
 
 
-def _atlas_section(payload: dict[str, object]) -> str:
+def _atlas_section(payload: dict[str, object], view_check: str | None = None) -> str:
     encoded = json.dumps(
         payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     ).replace("<", "\\u003c")
-    return _explorer_section(encoded, atlas=True)
+    return _explorer_section(encoded, atlas=True, view_check=view_check)
 
 
 def _atlas_rule_counts(result: RunResult) -> str:
@@ -774,8 +794,33 @@ def _atlas_rule_counts(result: RunResult) -> str:
     )
 
 
+def _root_line(result: RunResult) -> str:
+    # Only explore sets root_digest: it names the root without the absolute path.
+    if result.root_digest is None:
+        return ""
+    return f"<p>Root {_text(result.root_name)} · <code>{_text(result.root_digest)}</code></p>"
+
+
+def _no_target_status(result: RunResult) -> str:
+    """AD-285: with nothing declared, no rule passes, so the observation is not called PASS."""
+    observed = "complete" if result.observation_complete == "PASS" else "incomplete"
+    return (
+        "Target unavailable: no rule is declared, so no rule passes or fails"
+        f" · Source observation {observed}"
+    )
+
+
 def _atlas_verdict_line(result: RunResult, observation: Observation) -> str:
     decision = report_summary(result).decision
+    head = f" · <code>{_text(observation.source.git_head[:_GIT_HASH_SHOWN])}</code></p>"
+    if result.target is TargetStatus.UNAVAILABLE:
+        return (
+            f'<p class="verdict-line" data-decision="{decision.state}" '
+            f'aria-label="Decision: {_text(decision.label)}">'
+            f'<span class="decision-symbol" aria-hidden="true">{decision.symbol}</span>'
+            f"<strong>{_text(decision.label)}</strong>"
+            f" · {_no_target_status(result)}{head}"
+        )
     agent, total = agent_decisions(observation)
     # Every decision by the agent is a draft until the architect reviews it; say so, not a count.
     decisions = (
@@ -790,8 +835,83 @@ def _atlas_verdict_line(result: RunResult, observation: Observation) -> str:
         f"<strong>{_text(decision.label)}</strong>"
         f" · Rules {_text(result.declared_rules)} · {_atlas_rule_counts(result)}"
         f"{decisions}"
-        f" · Source observation {_text(result.observation_complete)}"
-        f" · <code>{_text(observation.source.git_head[:_GIT_HASH_SHOWN])}</code></p>"
+        f" · Source observation {_text(result.observation_complete)}{head}"
+    )
+
+
+def _inventory_row(
+    metric: StructureMetric, entries: Mapping[str, list[str]], interface: Mapping[str, set[str]]
+) -> str:
+    modules = entries.get(metric.scope)
+    return (
+        f"<tr><td><code>{_text(metric.scope)}</code></td>"
+        + "".join(
+            f'<td class="numeric">{value}</td>'
+            for value in (metric.modules, metric.inner_edges, metric.fan_in, metric.fan_out)
+        )
+        + f"<td>{', '.join(f'<code>{_text(name)}</code>' for name in modules or ()) or 'none'}</td>"
+        + f'<td class="numeric">{len(interface.get(metric.scope, ()))}</td></tr>'
+    )
+
+
+def _atlas_inventory(observation: Observation, notes: tuple[Diagnostic, ...]) -> str:
+    """AD-285: what the code consists of, before any finding; observed facts, never a verdict."""
+    owners = component_owners(observation)
+    entries: dict[str, list[str]] = {}
+    for record in observation.records("modules") or ():
+        name: str = text_value(record.data.get("qualified_name"))
+        owner = owner_of(name, owners)
+        if owner is not None and name.rpartition(".")[2] == _ENTRY_MODULE:
+            entries[owner] = [*entries.get(owner, []), name]
+    interface: dict[str, set[str]] = {}
+    for edge in interface_edges(observation):
+        interface[edge.target] = interface.get(edge.target, set()) | {
+            item.name for item in edge.names
+        }
+    metrics = sorted(
+        (
+            item
+            for item in structure_metrics(observation)
+            if item.level is _StructureLevel.COMPONENT
+        ),
+        key=lambda item: (-item.modules, item.scope),
+    )
+    head = (
+        '<thead><tr><th>Component</th><th class="numeric">Modules</th>'
+        '<th class="numeric">Edges inside</th><th class="numeric">Incoming</th>'
+        '<th class="numeric">Outgoing</th><th>Entry modules</th>'
+        '<th class="numeric">Names used by others</th></tr></thead>'
+    )
+    rows = [_inventory_row(item, entries, interface) for item in metrics]
+    shown, rest = rows[:_INVENTORY_SHOWN], rows[_INVENTORY_SHOWN:]
+    more = (
+        f'<details class="inventory-more"><summary>{len(rest)} more components</summary>'
+        f'<div class="table-wrap"><table class="data-table">{head}<tbody>{"".join(rest)}'
+        "</tbody></table></div></details>"
+        if rest
+        else ""
+    )
+    largest = ", ".join(
+        f"<code>{_text(item.scope)}</code> ({item.modules})" for item in metrics[:_INVENTORY_SHOWN]
+    )
+    named = sorted(name for names in entries.values() for name in names)
+    entry_text = ", ".join(f"<code>{_text(name)}</code>" for name in named) or "none observed"
+    # AD-285: one open line and a closed table keep the Explorer on an 800x600 first screen.
+    return (
+        '<section class="atlas-inventory" aria-labelledby="inventory-heading">'
+        f'<p><strong id="inventory-heading">What is here</strong> · {len(metrics)} layout '
+        f"components · {len(observation.records('modules') or ())} modules · "
+        f"{observation.coverage.files_parsed} files parsed · largest by modules: {largest}"
+        f"{f' and {len(rest)} more' if rest else ''} · entry modules: {entry_text}.</p>"
+        + "".join(
+            f'<p class="coverage-note">Coverage note: {_text(item.unknown_claim)} '
+            f"({_text(item.subject)}).</p>"
+            for item in notes
+        )
+        + '<details class="inventory-table"><summary>Inventory table</summary><p>Incoming and '
+        "outgoing count module import edges; names are those other components import.</p>"
+        f'<div class="table-wrap"><table class="data-table">{head}'
+        f"<tbody>{''.join(shown)}</tbody></table></div>{more}</details></section>"
     )
 
 
@@ -848,7 +968,7 @@ def _path_block(path: CyclePath | None) -> str:
     return f'<ol class="finding-path" aria-label="Cycle path">{steps}</ol>{omitted}'
 
 
-def _atlas_findings(result: RunResult, observation: Observation) -> str:
+def _atlas_findings(result: RunResult, observation: Observation, *, closed: bool = False) -> str:
     """The ranked list the report opens with, readable without JavaScript (AD-258)."""
     note = findings_note(result)
     if result.findings is None:
@@ -863,7 +983,7 @@ def _atlas_findings(result: RunResult, observation: Observation) -> str:
     if not result.findings:
         return (
             f'<section aria-labelledby="findings-heading">{heading}'
-            "<p>No violation, dependency cycle or hub.</p></section>"
+            f"<p>No {'' if closed else 'violation, '}dependency cycle or hub.</p></section>"
         )
     violation_ids: dict[ViolationFingerprint, str] = {}
     for record in observation.records("violations") or ():
@@ -900,10 +1020,16 @@ def _atlas_findings(result: RunResult, observation: Observation) -> str:
         if rest
         else ""
     )
-    return (
-        f'<section aria-labelledby="findings-heading">{heading}'
-        f'<ol class="findings-list">{"".join(shown)}</ol>{hidden}</section>'
-    )
+    listed = f'<ol class="findings-list">{"".join(shown)}</ol>{hidden}'
+    if closed:
+        # AD-285: the observed overview leads, so the Explorer fits an 800x600 first screen.
+        return (
+            '<details class="atlas-findings"><summary><h2 id="findings-heading" '
+            f'style="display:inline">Findings · {len(result.findings)}</h2></summary>'
+            + ("" if note is None else f'<p class="findings-note">{_text(note)}</p>')
+            + f"{listed}</details>"
+        )
+    return f'<section aria-labelledby="findings-heading">{heading}{listed}</section>'
 
 
 def _atlas_structure_overview(
@@ -929,9 +1055,17 @@ def _atlas_content(
     repository: str,
     architecture_href: str,
     detail_page: bool = False,
+    view_check: str | None = None,
 ) -> str:
+    projected = result.architecture_projection.components if result.architecture_projection else ()
+    top = sum(1 for item in projected if item.parent_id is None)
+    # AD-285: layout levels nest, so the heading names the top level and the whole tree.
     components = (
-        len(result.architecture_projection.components) if result.architecture_projection else 0
+        f"{len(projected)} whole-contract components"
+        if result.target is not TargetStatus.UNAVAILABLE
+        else f"{top} top-level components ({len(projected)} with all levels)"
+        if len(projected) > top
+        else f"{top} layout components"
     )
     atlas = data.get("atlas")
     navigation = data.get("navigation")
@@ -944,22 +1078,35 @@ def _atlas_content(
     overview_href = (
         navigation.get("main_href") if isinstance(navigation, dict) else None
     ) or "architecture.report.html"
-    status_header = (
-        f'<p class="atlas-detail-status">Whole-run rules: {_text(result.declared_rules)}'
+    # AD-285: the detail page says what the main verdict line says when nothing is declared.
+    rules = (
+        _no_target_status(result)
+        if result.target is TargetStatus.UNAVAILABLE
+        else f"Whole-run rules: {_text(result.declared_rules)}"
         f" · Source observation: {_text(result.observation_complete)}"
+    )
+    status_header = (
+        f'<p class="atlas-detail-status">{rules}'
         f" · Symbol inventory: {_text(inventory_status)}"
         f' · <a href="{_text(overview_href)}">Architecture overview</a></p>'
         if detail_page
-        else _atlas_verdict_line(result, observation) + _atlas_findings(result, observation)
+        else _atlas_verdict_line(result, observation)
+        + (
+            _atlas_inventory(observation, result.notes)
+            if result.target is TargetStatus.UNAVAILABLE
+            else ""
+        )
+        + _atlas_findings(result, observation, closed=result.target is TargetStatus.UNAVAILABLE)
     )
     return f"""<section class="report-heading atlas-heading">
       <div><span class="eyebrow">ArchQ Explorer</span><h1>{_text(repository)}</h1>
       <p>{observation.coverage.files_parsed} observed files
-      · {components} whole-contract components</p></div>
+      · {components}</p></div>
       <button class="theme-toggle" type="button" aria-label="Switch to light theme">☀</button>
       </section>
       {status_header}
-      {_atlas_section(data)}
+      {_NO_TARGET_STYLE if result.target is TargetStatus.UNAVAILABLE else ""}
+      {_atlas_section(data, view_check)}
       {
         _atlas_structure_overview(observation, result.architecture_projection)
         if not detail_page
@@ -970,6 +1117,7 @@ def _atlas_content(
       · Source digest <code>{_text(observation.source.source_digest)}</code>
       · Dirty {_text(observation.source.dirty)}.</p>
       <p>Scope: {_text(", ".join(observation.source.scope))}</p>
+      {_root_line(result)}
       <p>Contract <code>{_text(observation.contract.path)}</code>
       · {_text(observation.contract.digest)}</p>
       <p><a href="{_text(architecture_href)}">Complete architecture JSON and recorded evidence
@@ -992,6 +1140,7 @@ def _atlas_document(
     repository: str,
     architecture_href: str,
     levels: tuple[ModuleExploreLevel, ...] | None = None,
+    view_check: str | None = None,
 ) -> bytes:
     projection = _atlas_projection(result, observation)
     data: dict[str, object] = {"schema_version": report.schema_version}
@@ -1014,7 +1163,12 @@ def _atlas_document(
         kind="Architecture report",
         title="ArchQ Explorer",
         content=_atlas_content(
-            result, observation, data, repository=repository, architecture_href=architecture_href
+            result,
+            observation,
+            data,
+            repository=repository,
+            architecture_href=architecture_href,
+            view_check=view_check,
         ),
     )
 
@@ -1869,13 +2023,14 @@ def _structure_overview_body(
 ) -> str:
     sizes = oversized_insides(observation)
     components = len(component_owners(observation))
+    # AD-285: bare layout groups are components, not declarations.
+    declared = "declared components" if declares_a_target(observation) else "components"
     context = (
-        f"Top-level context: {components} declared components and "
+        f"Top-level context: {components} {declared} and "
         f"{sizes.component_edges} observed cross-component "
         f"edge{'s' if sizes.component_edges != 1 else ''}."
         if sizes.status is not _ComparisonStatus.UNKNOWN
-        else f"Top-level context: {components} declared components; "
-        "observed cross-component edges: n/a."
+        else f"Top-level context: {components} {declared}; observed cross-component edges: n/a."
     )
     if observation.records("modules") is None:
         return f"<p>{context}</p><p>Not available: this observation records no modules.</p>"
@@ -1982,10 +2137,16 @@ def render_architecture_pages(
     *,
     repository: str,
     architecture_href: str,
+    view_check: str | None = None,
 ) -> tuple[tuple[str, bytes], ...]:
-    """Render the main and detail pages from one strictly decoded observation."""
+    """Render the main and detail pages from one strictly decoded observation.
+
+    `view_check` is a `view check` result for this snapshot; the main page draws it (AD-287).
+    """
     filename = f"{_PurePosixPath(architecture_href).stem}.report.html"
     if result.report_filter is not None or result.architecture_projection is None:
+        if view_check is not None:
+            raise ValueError("a checked view needs the Explorer of a complete report")
         return (
             (
                 filename,
@@ -2008,6 +2169,7 @@ def render_architecture_pages(
         repository=repository,
         architecture_href=architecture_href,
         levels=levels,
+        view_check=view_check,
     )
     pages = _architecture_details(
         result,

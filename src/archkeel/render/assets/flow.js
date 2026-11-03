@@ -13,6 +13,10 @@ export let flow;
   const REPORT_SCENE = createScene(DATA);
   const REPORT_LAYOUT = { layoutUml, layoutAtlas, routeUmlRelationships, hasCompleteManualPositions };
   const ATLAS = REPORT_SCENE.atlas;
+  // AD-287: a `view check` result embedded by `archkeel view show`; the main page only.
+  const viewNode = document.getElementById("view-check-data");
+  const VIEW = ATLAS && viewNode ? JSON.parse(viewNode.textContent) : null;
+  let flowMode = false, flowSelection = null;
   const NAV = DATA.navigation || null;
   const SIDECAR = Boolean(NAV?.module_ids);
   let routeReady = false, returnScope = null, returnView = "diagram", returnSelection = null, returnCell = null, returnContent = null, routeNotice = null;
@@ -56,6 +60,12 @@ export let flow;
     const marker = svg.querySelector("#flow-arrow-declared").cloneNode(true);
     marker.id = `flow-arrow-uml-${kind}`;
     marker.querySelector("path").style.stroke = `var(--uml-${kind})`;
+    svg.querySelector("defs").appendChild(marker);
+  }
+  for (const status of ["proven", "declared", "claim", "unknown", "missing"]) {
+    const marker = svg.querySelector("#flow-arrow-declared").cloneNode(true);
+    marker.id = `flow-arrow-view-${status}`;
+    marker.querySelector("path").style.stroke = `var(--view-${status})`;
     svg.querySelector("defs").appendChild(marker);
   }
   const canvas = root.querySelector(".flow-canvas");
@@ -115,6 +125,16 @@ export let flow;
   const backButton = root.querySelector(".flow-back");
   const breadcrumb = root.querySelector(".flow-breadcrumb");
   const viewButtons = root.querySelectorAll("[data-flow-view]");
+  const checkedButton = VIEW ? document.createElement("button") : null;
+  if (checkedButton) {
+    checkedButton.type = "button";
+    checkedButton.textContent = "Checked flow";
+    checkedButton.dataset.flowChecked = "";
+    viewButtons[0].before(checkedButton);
+    checkedButton.addEventListener("click", () => {
+      flowMode = true; flowSelection = null; umlSelection = null; render(); fit();
+    });
+  }
   const alternative = root.querySelector(".flow-alternative");
   const openSelectedButton = root.querySelector(".flow-open-selected");
   const fullscreenButton = root.querySelector(".flow-fullscreen");
@@ -818,6 +838,11 @@ export let flow;
       if (viewMode !== "target" && level.modules.some((item) => item.id === requestedSelection)) atlasModule = requestedSelection;
       const cell = Number(query.get("cell"));
       if (query.has("cell") && viewMode !== "target" && level.cells.includes(cell)) atlasCell = cell;
+      // AD-287: a page with a view opens it unless the URL names an architecture view.
+      flowMode = Boolean(VIEW) && (query.get("flow") === "1" || !query.has("view"));
+      const step = Number(query.get("step"));
+      flowSelection = flowMode && Number.isSafeInteger(step) && step >= 1 && step <= VIEW.steps.length
+        ? { kind: "step", index: step - 1 } : null;
     }
   }
 
@@ -841,6 +866,10 @@ export let flow;
       if (ATLAS && atlasHasChoice(atlasLevel()) && atlasContent) query.set("content", atlasContent);
     }
     query.set("view", viewMode);
+    if (flowMode) {
+      query.set("flow", "1");
+      if (flowSelection?.kind === "step") query.set("step", String(flowSelection.index + 1));
+    }
     const presentation = new URLSearchParams(location.search);
     if (presentation.has("perspective")) query.set("perspective", presentation.get("perspective"));
     const selected = atlasModule || (umlSelection?.type === "node" ? umlSelection.id : null);
@@ -1938,6 +1967,7 @@ export let flow;
     if (ATLAS) {
       viewMode = nextView;
       atlasCell = null; atlasModule = null; atlasHint = null;
+      leaveFlow();
       render(); return;
     }
     if (nextView === viewMode) return;
@@ -2250,6 +2280,7 @@ export let flow;
 
   function openAtlasComponent(id, content = null) {
     if (!ATLAS.levels.some((level) => level.parent_id === id)) return;
+    leaveFlow();
     if (atlasLevel().parent_id !== id) rememberNavigationState();
     umlPath = REPORT_SCENE.componentRoute(id).map((item) => ({ id: item.id, origin: "observed" }));
     atlasContent = content;
@@ -2931,6 +2962,226 @@ export let flow;
     updateOpenSelected(); sizeDiagram();
   }
 
+  // ---------- AD-287: the checked flow, drawn from the embedded `view check` result ----------
+  // Status is always text and icon; colour only repeats it. A claim never takes a proven style.
+  const VIEW_MARKS = {
+    proven: "✓ proven", declared: "◆ declared", claim: "✎ author claim",
+    unknown: "? unknown", missing: "✕ not in the code",
+  };
+  const VIEW_DASHES = { proven: "none", declared: "12 4", claim: "6 4", unknown: "2 4", missing: "8 3 2 3" };
+  // A node is observed or not; "proven" names a relationship, so a node never says it.
+  const NODE_MARKS = { ...VIEW_MARKS, proven: "observed" };
+  const nodeMark = (check) => check.status === "proven" ? `${check.kind || "node"} observed` : VIEW_MARKS[check.status];
+  const OBSERVATION_WORDS = { PASS: "complete", FAIL: "incomplete" };
+  function leaveFlow() {
+    if (!flowMode) return;
+    flowMode = false; flowSelection = null; setTargetDetails(false);
+  }
+  const flowCardId = (selection) => selection.kind === "step" ? `step-${selection.index + 1}`
+    : selection.kind === "node" ? `node-${selection.index}` : null;
+
+  function flowScene() {
+    const checks = new Map(VIEW.nodes.map((node) => [node.id, node]));
+    const cards = VIEW.steps.map((step, index) => ({ check: checks.get(step.target), step, index }));
+    const inSteps = new Set(VIEW.steps.map((step) => step.target));
+    const others = VIEW.nodes.filter((node) => !inSteps.has(node.id)).map((check) => ({ check }));
+    const cardOf = new Map();
+    for (const card of [...cards, ...others]) {
+      card.id = card.step ? `step-${card.index + 1}` : `node-${VIEW.nodes.indexOf(card.check)}`;
+      if (!cardOf.has(card.check.id)) cardOf.set(card.check.id, card.id);
+    }
+    const nodes = [...cards, ...others].map((card) => {
+      const number = card.step ? `${card.index + 1}. ` : "";
+      // A step card shows how the step was checked; only the first step is its node alone.
+      card.status = card.step && card.index ? card.step.status : card.check.status;
+      const meta = card.step && card.index
+        ? `${VIEW_MARKS[card.step.status]} from step ${card.index} · ${nodeMark(card.check)}`
+        : `${nodeMark(card.check)}${card.check.status === "proven" ? "" : ` · ${card.check.reason}`}`;
+      // An edge with the same node at both ends has no route: the card of that node shows it.
+      const selfEdges = cardOf.get(card.check.id) === card.id
+        ? VIEW.edges.filter((edge) => edge.source === card.check.id && edge.target === card.check.id) : [];
+      return {
+        id: card.id, kind: card.check.kind || "reference", label: `${number}${card.check.id}`, card, meta,
+        sections: [
+          ...card.step?.note ? [{ label: "Author", lines: [{ text: card.step.note }] }] : [],
+          ...selfEdges.length ? [{ label: "Edge to itself", lines: selfEdges.map((edge) =>
+            ({ text: `${edge.kind ? `${edge.kind} · ` : ""}${VIEW_MARKS[edge.status]}` })) }] : [],
+        ],
+        tooltip: card.step?.note ? `Author: ${card.step.note}` : card.check.reason,
+      };
+    });
+    const link = (check, id, source, target, extra) => ({
+      id, source, target, check, state: `view-${check.status}`, ...extra,
+      tooltip: `${check.source} → ${check.target}: ${VIEW_MARKS[check.status]}${check.kind ? ` · ${check.kind}` : ""}`,
+    });
+    const edges = [
+      ...VIEW.steps.slice(1).map((check, offset) =>
+        link(check, `link-${offset + 2}`, `step-${offset + 1}`, `step-${offset + 2}`, { stepIndex: offset + 1 })),
+      ...VIEW.edges.map((check, index) => link(check, `edge-${index}`, cardOf.get(check.source), cardOf.get(check.target), { edgeIndex: index }))
+        .filter((edge) => edge.source !== edge.target),
+    ];
+    return { nodes, edges, frames: [], declared: [], checkedFlow: true };
+  }
+
+  function flowPositions(scene) {
+    const placed = Object.create(null), columns = [0, 0];
+    for (const node of scene.nodes) {
+      const column = node.card.step || !VIEW.steps.length ? 0 : 1;
+      placed[node.id] = { x: column * (CARD.w + 160), y: columns[column] };
+      columns[column] += cardHeight(node.id) + ROW_GAP;
+    }
+    return placed;
+  }
+
+  function flowEvidence(check) {
+    if (!check.evidence.length) return "<p>No evidence: the check found no observed relationship.</p>";
+    return `<ul class="plain view-evidence">${check.evidence.map((site) => `<li><code>${esc(site.file && site.line
+      ? `${site.file}:${site.line}` : "location not recorded")}</code> · ${esc(site.kind)} · record <code>${esc(site.record_id)}</code>${site.evidence_id
+      ? ` · evidence <code>${esc(site.evidence_id)}</code>` : ""}${site.type_only ? " · type-only import" : ""}</li>`).join("")}</ul>`;
+  }
+
+  function flowCheckMarkup(check) {
+    return `<p class="view-mark" data-view-status="${esc(check.status)}">${esc(VIEW_MARKS[check.status])}${check.kind ? ` · ${esc(check.kind)}` : ""}</p>
+      <p>${esc(check.reason)}</p>
+      ${check.path.length ? `<p>Path (structure, not order): ${check.path.map((item) => `<code>${esc(item)}</code>`).join(" → ")}</p>` : ""}
+      ${check.status === "claim" ? "" : flowEvidence(check)}
+      ${check.note ? `<p class="view-author"><span class="view-author-mark">Author</span> ${esc(check.note)}</p>` : ""}`;
+  }
+
+  function flowInspector() {
+    const snapshot = `<h3>Snapshot</h3><p>Source digest <code>${esc(VIEW.snapshot.source_digest)}</code><br>
+      Contract digest <code>${esc(VIEW.snapshot.contract_digest)}</code><br>
+      Snapshot current: ${VIEW.snapshot_current ? "yes" : "no"} · Source observation:
+      ${esc(OBSERVATION_WORDS[ATLAS.observation_complete] || "UNKNOWN")}</p>
+      <ul class="plain">${VIEW.limits.map((limit) => `<li>${esc(limit)}</li>`).join("")}</ul>`;
+    const selection = flowSelection;
+    if (selection?.kind === "step") {
+      const step = VIEW.steps[selection.index];
+      const node = VIEW.nodes.find((item) => item.id === step.target);
+      inspectorContent.innerHTML = `<div class="kicker">Checked flow · Step ${selection.index + 1} of ${VIEW.steps.length}</div>
+        <h2 tabindex="-1">${esc(node.id)}</h2><p>«${esc(node.kind || "reference")}»${node.file ? ` · <code>${esc(node.file)}</code>` : ""}${node.entity_id ? ` · <code>${esc(node.entity_id)}</code>` : ""}</p>
+        <h3>Node</h3><p class="view-mark" data-view-status="${esc(node.status)}">${esc(nodeMark(node))}</p><p>${esc(node.reason)}</p>
+        <h3>${selection.index ? `From step ${selection.index}` : "First step"}</h3>${selection.index ? flowCheckMarkup(step)
+          : step.note ? `<p class="view-author"><span class="view-author-mark">Author</span> ${esc(step.note)}</p>` : ""}${snapshot}`;
+    } else if (selection?.kind === "node") {
+      const node = VIEW.nodes[selection.index];
+      inspectorContent.innerHTML = `<div class="kicker">Checked flow · Node, not a step</div>
+        <h2 tabindex="-1">${esc(node.id)}</h2><p>«${esc(node.kind || "reference")}»${node.file ? ` · <code>${esc(node.file)}</code>` : ""}</p>
+        <p class="view-mark" data-view-status="${esc(node.status)}">${esc(nodeMark(node))}</p><p>${esc(node.reason)}</p>${snapshot}`;
+    } else if (selection?.kind === "edge") {
+      const edge = VIEW.edges[selection.index];
+      inspectorContent.innerHTML = `<div class="kicker">Checked flow · Edge</div>
+        <h2 tabindex="-1">${esc(edge.source)} → ${esc(edge.target)}</h2>${flowCheckMarkup(edge)}${snapshot}`;
+    } else {
+      inspectorContent.innerHTML = `<div class="kicker">Checked flow</div><h2 tabindex="-1">${esc(VIEW.title)}</h2>
+        <ol class="view-steps">${VIEW.steps.map((step, index) => `<li><button type="button" data-view-step="${index}">${esc(step.target)}</button>
+          ${esc(VIEW_MARKS[step.status])}${step.note ? ` <span class="view-author"><span class="view-author-mark">Author</span> ${esc(step.note)}</span>` : ""}</li>`).join("")}</ol>
+        ${VIEW.edges.length ? `<h3>Edges</h3><ul class="plain">${VIEW.edges.map((edge, index) => `<li><button type="button" data-view-edge="${index}">${esc(edge.source)} → ${esc(edge.target)}</button>
+          ${edge.kind ? `${esc(edge.kind)} · ` : ""}${esc(VIEW_MARKS[edge.status])}</li>`).join("")}</ul>` : ""}
+        ${VIEW.author_notes.map((note) => `<p class="view-author"><span class="view-author-mark">Author</span> ${esc(note)}</p>`).join("")}${snapshot}`;
+      inspectorContent.querySelectorAll("[data-view-step]").forEach((button) => button.addEventListener("click", () =>
+        selectFlow({ kind: "step", index: Number(button.dataset.viewStep) }, true)));
+      inspectorContent.querySelectorAll("[data-view-edge]").forEach((button) => button.addEventListener("click", () =>
+        selectFlow({ kind: "edge", index: Number(button.dataset.viewEdge) }, true)));
+    }
+  }
+
+  function selectFlow(selection, inspect) {
+    flowSelection = selection;
+    if (inspect) setTargetDetails(true);
+    render();
+    if (inspect) inspectorContent.querySelector("h2")?.focus({ preventScroll: true });
+  }
+
+  function renderCheckedFlow() {
+    root.dataset.view = "checked"; root.dataset.umlGraph = "true"; root.dataset.componentOverview = "false";
+    viewButtons.forEach((button) => button.setAttribute("aria-pressed", "false"));
+    elementKindControl.hidden = true; focusInput.closest("label").hidden = true; violationFocus.hidden = true;
+    fitButton.hidden = true; memberPreviewsButton.hidden = true; unassignedCodeButton.hidden = true;
+    filters.hidden = true; openSelectedButton.disabled = true; backButton.hidden = true;
+    const choice = root.querySelector(".atlas-content-choice");
+    if (choice) choice.hidden = true;
+    flowHeading.textContent = `Checked flow · ${VIEW.title}`;
+    breadcrumb.textContent = "Checked flow";
+    const tally = (items, mark) => Object.keys(VIEW_MARKS).map((status) => [status, items.filter((item) => item.status === status).length])
+      .filter(([, count]) => count).map(([status, count]) => `${count} ${mark(status)}`).join(", ") || "none";
+    const counts = [["Steps", VIEW.steps, (status) => VIEW_MARKS[status]], ["Edges", VIEW.edges, (status) => VIEW_MARKS[status]],
+      ["Nodes", VIEW.nodes, (status) => NODE_MARKS[status]]].map(([label, items, mark]) => `${label}: ${tally(items, mark)}`).join(" · ");
+    const summary = root.querySelector(".atlas-summary");
+    // Above the diagram, below the chrome at every width: the sentence stays in view.
+    canvas.before(summary);
+    summary.textContent = `${counts} · ${VIEW.limits[0]}`;
+    legend.textContent = Object.entries(VIEW_MARKS).map(([status, mark]) =>
+      `${mark}: ${{ proven: "solid, coloured by kind", declared: "long dash", claim: "short dash, amber",
+        unknown: "dotted, with its reason", missing: "dash-dot" }[status]}`).join(" · ");
+    flowInspector();
+    if (VIEW.snapshot.source_digest !== ATLAS.source.source_digest) {
+      canvas.hidden = true; alternative.hidden = false;
+      alternative.innerHTML = '<div class="flow-scope-notice" role="status"><h3>View not drawn</h3><p>The view was checked against another snapshot.</p></div>';
+      root.dataset.layoutState = "ready";
+      return;
+    }
+    canvas.hidden = false; alternative.hidden = true;
+    const scene = flowScene();
+    measureUmlCards(scene.nodes);
+    positions = flowPositions(scene);
+    const selected = flowSelection && (flowCardId(flowSelection) || `edge-${flowSelection.index}`);
+    renderUmlScene(scene, {
+      frame() {},
+      node(group, node) {
+        const check = node.card.check, step = node.card.step;
+        group.classList.add(`view-${node.card.status}`);
+        group.dataset.viewStatus = node.card.status;
+        group.classList.toggle("selected", selected === node.id);
+        group.setAttribute("aria-pressed", String(selected === node.id));
+        group.setAttribute("aria-label", step
+          ? `Step ${node.card.index + 1}: ${check.id}, ${node.card.index ? `${VIEW_MARKS[step.status]} from step ${node.card.index}; node: ` : ""}${nodeMark(check)}`
+          : `${check.id}, ${nodeMark(check)}, not a step: ${check.reason}`);
+        const selection = step ? { kind: "step", index: node.card.index }
+          : { kind: "node", index: VIEW.nodes.indexOf(check) };
+        group.addEventListener("click", (event) => { event.stopPropagation(); selectFlow(selection, true); });
+        group.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") { event.preventDefault(); selectFlow(selection, true); }
+        });
+      },
+      edge(drawn, route) {
+        const check = route.edge.check;
+        drawn.group.classList.add(`view-${check.status}`);
+        drawn.group.dataset.viewStatus = check.status;
+        drawn.group.dataset.viewSource = check.source;
+        drawn.group.dataset.viewTarget = check.target;
+        drawn.group.classList.toggle("selected", selected === route.edge.id);
+        drawn.line.style.strokeDasharray = VIEW_DASHES[check.status];
+        drawn.line.style.stroke = check.status === "proven" && check.kind ? `var(--uml-${check.kind}, var(--view-proven))` : `var(--view-${check.status})`;
+        drawn.line.style.markerEnd = `url(#flow-arrow-view-${check.status})`;
+        // Beside the line, so a vertical step link never hides its own label.
+        const label = el("text", { class: "view-edge-label", x: String(route.mid[0] + 8), y: String(route.mid[1] + 4) });
+        label.textContent = `${route.edge.stepIndex ? `${route.edge.stepIndex + 1} · ` : ""}${check.kind ? `${check.kind} · ` : ""}${VIEW_MARKS[check.status]}`;
+        drawn.group.appendChild(label);
+        const selection = route.edge.stepIndex ? { kind: "step", index: route.edge.stepIndex } : { kind: "edge", index: route.edge.edgeIndex };
+        // A step link opens with its step card; the card is the keyboard stop.
+        if (route.edge.stepIndex) drawn.hit.setAttribute("tabindex", "-1");
+        drawn.hit.addEventListener("click", (event) => { event.stopPropagation(); selectFlow(selection, true); });
+        drawn.hit.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") { event.preventDefault(); selectFlow(selection, true); }
+        });
+      },
+    });
+    root.dataset.layoutState = "ready";
+    sizeDiagram();
+  }
+
+  // Esc closes the flow inspector and returns to the card it came from.
+  root.addEventListener("keydown", (event) => {
+    if (!flowMode || event.key !== "Escape" || !flowSelection || event.target.closest?.("dialog")
+      || root.querySelector(".ak-pop, .ak-drawer")) return;
+    event.preventDefault(); event.stopPropagation();
+    const id = flowCardId(flowSelection) || `edge-${flowSelection.index}`;
+    flowSelection = null; setTargetDetails(false); render();
+    const target = svg.querySelector(`[data-uml-id="${CSS.escape(id)}"]`);
+    (target?.matches(".edge") ? target.querySelector(".hit") : target)?.focus({ preventScroll: true });
+  }, true);
+
   function render() {
     cancelPointerTap();
     layoutGeneration += 1;
@@ -2940,6 +3191,11 @@ export let flow;
     syncRoute();
     if (routeNotice) { renderRouteNotice(); return; }
     if (SIDECAR) { renderSidecar(); return; }
+    checkedButton?.setAttribute("aria-pressed", String(flowMode));
+    // The flow keeps its summary above the diagram; every other view gets it back in place.
+    const summary = root.querySelector(".atlas-summary");
+    if (summary && !flowMode && summary.parentElement === canvas.parentElement) root.querySelector(".flow-layout").before(summary);
+    if (flowMode) { renderCheckedFlow(); return; }
     if (ATLAS) { renderAtlas(); return; }
     const context = architectureGraphContext();
     root.dataset.umlGraph = "true";
@@ -3175,7 +3431,8 @@ export let flow;
   if (NAV) {
     readRoute();
     // A selection in the URL opens Details; a plain first load leaves the diagram the full width.
-    setTargetDetails(umlSelection !== null || atlasModule !== null || atlasCell !== null || sidecarModuleRequested);
+    setTargetDetails(umlSelection !== null || atlasModule !== null || atlasCell !== null
+      || flowSelection !== null || sidecarModuleRequested);
     document.querySelector(".theme-toggle").addEventListener("click", () => {
       applyTheme(document.documentElement.dataset.theme !== "light"); render();
     });
@@ -3215,6 +3472,8 @@ export let flow;
   }
   routeReady = true; syncRoute(true);
   fit();
+  // A page that opens on a checked flow exists for that flow: show it first.
+  if (flowMode) root.scrollIntoView({ block: "start" });
   window.addEventListener("resize", () => {
     if (ATLAS && root.dataset.content === "modules") { render(); fit(); }
     else sizeDiagram();

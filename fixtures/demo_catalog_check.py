@@ -310,4 +310,21 @@ VARIANTS: tuple[Variant, ...] = (
             ("proven", "proven", "claim", "proven"),
         ),
     ),
+    Variant(
+        id="protocol-view-show",
+        section="protocol",
+        item="view_show",
+        summary="archkeel view show draws the same checked flow in the Explorer: the report of "
+        "the clean sample embeds the check result, with the claim kept apart from proof.",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        view=ViewExpectation(
+            FIXTURE_DIR.parent / "F-architecture-view/place-order.json",
+            0,
+            ("proven", "claim"),
+            ("proven", "proven", "claim", "proven"),
+            show=True,
+        ),
+    ),
 )

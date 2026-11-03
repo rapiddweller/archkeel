@@ -292,4 +292,6 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-282 | [Keep plans and evidence out of the repository](ad-282-keep-plans-and-evidence-out-of-the-repository.md) |
 | AD-283 | [A later class binding blocks every annotation](ad-283-a-later-class-binding-blocks-every-annotation.md) |
 | AD-284 | [Studio shows views as checked data](ad-284-studio-shows-views-as-checked-data.md) |
+| AD-285 | [`archkeel explore` shows the code as it is, with no contract](ad-285-explore-without-a-contract.md) |
 | AD-286 | [The Explorer opens a component in one step and reads at 100 %](ad-286-the-explorer-opens-a-component-in-one-step-and-fits-readably.md) |
+| AD-287 | [The Explorer draws a checked view](ad-287-the-explorer-draws-a-checked-view.md) |

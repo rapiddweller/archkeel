@@ -1176,6 +1176,13 @@
                 "kind": "keyword_only",
                 "default": null,
                 "default_known": true
+              },
+              {
+                "name": "view_check",
+                "annotation": "str | None",
+                "kind": "keyword_only",
+                "default": "None",
+                "default_known": true
               }
             ],
             "returns": "tuple[tuple[str, bytes], ...]"

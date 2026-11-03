@@ -94,12 +94,16 @@ class AgainstExpectation:
 
 @dataclass(frozen=True, slots=True)
 class ViewExpectation:
-    """AD-284: `archkeel view check` of `spec` against the clean sample's own report."""
+    """AD-284: `archkeel view check` of `spec` against the clean sample's own report.
+
+    With `show`, the row runs `archkeel view show` and checks the embedded result (AD-287).
+    """
 
     spec: Path
     exit_code: Literal[0, 1, 2]
     edges: tuple[str, ...]
     steps: tuple[str, ...]
+    show: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,6 +143,8 @@ class Variant:
     # report's declared_rules verdict, checked when set: the only place an UNKNOWN that is
     # neither a violation nor a diagnostic becomes visible, so a row demonstrating one says so.
     expected_declared_rules: Literal["PASS", "FAIL", "UNKNOWN"] | None = None
+    # AD-285: the row runs `archkeel explore` on a fixture with no ArchKeel file.
+    explore: bool = False
 
 
 def apply_overlay(root: Path, files: Mapping[str, str | None]) -> None:
