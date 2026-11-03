@@ -1,0 +1,657 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""Check a view spec against one observed snapshot (AD-284); author text never becomes proof."""
+
+from __future__ import annotations
+
+import json
+from collections import Counter
+from collections.abc import Mapping, Sequence
+from dataclasses import asdict, dataclass, replace
+from enum import StrEnum
+from itertools import groupby, pairwise
+from operator import itemgetter
+from typing import Final
+
+from archkeel.ir.architecture_graph import (
+    ArchitectureGraph,
+    CoverageStatus,
+    Entity,
+    EntityKind,
+    PresenceKind,
+    Relationship,
+    RelationshipKind,
+    ResolutionKind,
+)
+from archkeel.ir.facts import Evidence
+from archkeel.ir.interfaces import component_owners, owner_of
+from archkeel.ir.model import Observation, RawJson, Record, RecordData, Verdict
+from archkeel.ir.source_graph import observed_graph
+
+_COMPONENT: Final = "component_responsibility"
+_INSIDE_COMPONENT: Final = "inside_component_responsibility"
+_DYNAMIC_IMPORT: Final = "dynamic_import_limit"
+_DYNAMIC_CALLS: Final = "dynamic_call_limit"
+# Without a stated kind, a reference is checked as an import, then as a call; never as a mix.
+_DEFAULT_KINDS: Final = (RelationshipKind.IMPORTS, RelationshipKind.CALLS)
+LIMITS: Final = (
+    "A proven step is a static path of one relationship kind: structure, not runtime order.",
+    "An unknown reference is a coverage gap, never a proven absence.",
+    "A claim is author text: the check does not look for it in the graph.",
+)
+
+
+class ViewSpecVersion(StrEnum):
+    V1_0_0 = "1.0.0"
+
+
+class ViewStatus(StrEnum):
+    PROVEN = "proven"
+    DECLARED = "declared"
+    CLAIM = "claim"
+    UNKNOWN = "unknown"
+    MISSING = "missing"
+
+
+@dataclass(frozen=True, slots=True)
+class ViewSnapshot:
+    """The source and contract a view describes; a newer analyzer proves each reference again."""
+
+    source_digest: str
+    contract_digest: str
+
+
+@dataclass(frozen=True, slots=True)
+class ViewEdge:
+    source: str
+    target: str
+    kind: RelationshipKind | None = None
+    claim: bool = False
+    note: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ViewStep:
+    node: str
+    note: str | None = None
+    kind: RelationshipKind | None = None
+    claim: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class ViewSpec:
+    schema_version: ViewSpecVersion
+    title: str
+    snapshot: ViewSnapshot
+    nodes: tuple[str, ...]
+    edges: tuple[ViewEdge, ...] = ()
+    steps: tuple[ViewStep, ...] = ()
+    notes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ViewEvidence:
+    """One observed relationship, or the component declaration that holds a requires entry."""
+
+    record_id: str
+    kind: RelationshipKind
+    source: str
+    target: str
+    evidence_id: str | None = None
+    file: str | None = None
+    line: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class NodeCheck:
+    id: str
+    status: ViewStatus
+    reason: str
+    kind: EntityKind | None = None
+    entity_id: str | None = None
+    file: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class LinkCheck:
+    """An edge, or a step and the pair it closes with the step before it (none for the first)."""
+
+    source: str | None
+    target: str
+    status: ViewStatus
+    reason: str
+    kind: RelationshipKind | None = None
+    path: tuple[str, ...] = ()
+    evidence: tuple[ViewEvidence, ...] = ()
+    note: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ViewCheck:
+    schema_version: ViewSpecVersion
+    title: str
+    exit_code: int
+    strict: bool
+    snapshot: ViewSnapshot
+    snapshot_current: bool
+    nodes: tuple[NodeCheck, ...]
+    edges: tuple[LinkCheck, ...]
+    steps: tuple[LinkCheck, ...]
+    author_notes: tuple[str, ...]
+    limits: tuple[str, ...] = LIMITS
+
+
+def _fields(
+    raw: RawJson, label: str, required: set[str], optional: set[str]
+) -> Mapping[str, RawJson]:
+    if not isinstance(raw, Mapping):
+        raise ValueError(f"{label} must be an object")
+    keys = set(raw)
+    if not required <= keys or keys - required - optional:
+        allowed = sorted(required | optional)
+        raise ValueError(f"{label} needs {sorted(required)} and allows only {allowed}")
+    return raw
+
+
+def _text(raw: RawJson, label: str) -> str:
+    if not isinstance(raw, str):
+        raise ValueError(f"{label} must be non-empty text")
+    text: str = raw
+    if not text.strip():
+        raise ValueError(f"{label} must be non-empty text")
+    return text
+
+
+def _texts(raw: RawJson, label: str) -> tuple[str, ...]:
+    if not isinstance(raw, Sequence) or isinstance(raw, str):
+        raise ValueError(f"{label} must be an array")
+    return tuple(_text(item, label) for item in raw)
+
+
+def _items(raw: RawJson, label: str) -> tuple[RawJson, ...]:
+    if not isinstance(raw, Sequence) or isinstance(raw, str):
+        raise ValueError(f"{label} must be an array")
+    return tuple(raw)
+
+
+def _claim(raw: RawJson, label: str) -> bool:
+    if not isinstance(raw, bool):
+        raise ValueError(f"{label}.claim must be true or false")
+    return raw
+
+
+def _kind(raw: RawJson, label: str) -> RelationshipKind | None:
+    return None if raw is None else RelationshipKind(_text(raw, f"{label}.kind"))
+
+
+def _note(raw: RawJson, label: str) -> str | None:
+    return None if raw is None else _text(raw, f"{label}.note")
+
+
+def _edge(raw: RawJson, label: str) -> ViewEdge:
+    item = _fields(raw, label, {"source", "target"}, {"kind", "claim", "note"})
+    return ViewEdge(
+        _text(item["source"], f"{label}.source"),
+        _text(item["target"], f"{label}.target"),
+        _kind(item.get("kind"), label),
+        _claim(item.get("claim", False), label),
+        _note(item.get("note"), label),
+    )
+
+
+def _step(raw: RawJson, label: str) -> ViewStep:
+    item = _fields(raw, label, {"node"}, {"note", "kind", "claim"})
+    return ViewStep(
+        _text(item["node"], f"{label}.node"),
+        _note(item.get("note"), label),
+        _kind(item.get("kind"), label),
+        _claim(item.get("claim", False), label),
+    )
+
+
+def parse_view_spec(raw: RawJson) -> ViewSpec:
+    """Decode a closed view spec; a field that states proof is not part of the format."""
+    item = _fields(
+        raw,
+        "view spec",
+        {"schema_version", "title", "snapshot", "nodes"},
+        {"edges", "steps", "notes"},
+    )
+    snapshot = _fields(
+        item["snapshot"],
+        "snapshot",
+        {"source_digest", "contract_digest"},
+        set(),
+    )
+    nodes = _texts(item["nodes"], "nodes")
+    edges = tuple(
+        _edge(entry, f"edges[{index}]")
+        for index, entry in enumerate(_items(item.get("edges", ()), "edges"))
+    )
+    steps = tuple(
+        _step(entry, f"steps[{index}]")
+        for index, entry in enumerate(_items(item.get("steps", ()), "steps"))
+    )
+    if len(set(nodes)) != len(nodes):
+        raise ValueError("nodes must be unique")
+    named = {edge.source for edge in edges} | {edge.target for edge in edges}
+    named |= {step.node for step in steps}
+    if named - set(nodes):
+        raise ValueError(
+            f"edges and steps name ids that are not in nodes: {sorted(named - set(nodes))}"
+        )
+    if steps and (steps[0].kind is not None or steps[0].claim):
+        raise ValueError("the first step has no step before it, so it takes no kind or claim")
+    return ViewSpec(
+        ViewSpecVersion(_text(item["schema_version"], "schema_version")),
+        _text(item["title"], "title"),
+        ViewSnapshot(
+            _text(snapshot["source_digest"], "snapshot.source_digest"),
+            _text(snapshot["contract_digest"], "snapshot.contract_digest"),
+        ),
+        nodes,
+        edges,
+        steps,
+        _texts(item.get("notes", ()), "notes"),
+    )
+
+
+def snapshot_identity(observation: Observation) -> ViewSnapshot:
+    return ViewSnapshot(observation.source.source_digest, observation.contract.digest)
+
+
+@dataclass(frozen=True, slots=True)
+class _Layer:
+    """One relationship kind between node keys, and why an absence cannot be decided."""
+
+    edges: Mapping[tuple[str, str], tuple[ViewEvidence, ...]]
+    following: Mapping[str, tuple[str, ...]]
+    gaps: Mapping[str, str]
+    everywhere: str | None = None
+
+
+def _layer(
+    edges: Mapping[tuple[str, str], tuple[ViewEvidence, ...]],
+    gaps: Mapping[str, str],
+    everywhere: str | None,
+) -> _Layer:
+    pairs = sorted(edges)
+    following = {
+        source: tuple(target for _, target in group)
+        for source, group in groupby(pairs, key=itemgetter(0))
+    }
+    return _Layer(edges, following, gaps, everywhere)
+
+
+@dataclass(frozen=True, slots=True)
+class _Graph:
+    modules: Mapping[str, Entity]
+    components: Mapping[str, Record]
+    inside: frozenset[str]
+    members: Mapping[str, tuple[str, ...]]
+    layers: Mapping[RelationshipKind, _Layer]
+
+
+def _module_names(entities: Mapping[str, Entity]) -> dict[str, str]:
+    """Map each entity id to the name of the module that contains it."""
+    result: dict[str, str] = {}
+    for identity, entity in entities.items():
+        current: Entity | None = entity
+        while current is not None and current.kind != EntityKind.MODULE:
+            current = entities.get(current.parent_id) if current.parent_id else None
+        if current is not None:
+            result[identity] = current.qualified_name
+    return result
+
+
+def _sites(
+    item: Relationship, source: str, target: str, evidence: Mapping[str, Evidence]
+) -> tuple[ViewEvidence, ...]:
+    sites = tuple(evidence[identity] for identity in item.evidence_ids if identity in evidence)
+    return tuple(
+        ViewEvidence(item.id, item.kind, source, target, site.id, site.file, site.line)
+        for site in sites
+    ) or (ViewEvidence(item.id, item.kind, source, target),)
+
+
+def _observed_layers(
+    observation: Observation, graph: ArchitectureGraph
+) -> dict[RelationshipKind, _Layer]:
+    """Lift each resolved relationship to a defined entity onto its source and target modules."""
+    entities = {entity.id: entity for entity in graph.entities}
+    evidence = {item.id: item for item in graph.evidence}
+    module_of = _module_names(entities)
+    kinds = tuple(kind for kind in RelationshipKind if kind != RelationshipKind.REQUIRES)
+    edges: dict[tuple[RelationshipKind, str, str], tuple[ViewEvidence, ...]] = {}
+    gaps: dict[tuple[RelationshipKind, str], str] = {}
+    everywhere: dict[RelationshipKind, str] = {}
+    for item in graph.relationships:
+        target = entities.get(item.target_id) if item.target_id else None
+        resolved = item.resolution == ResolutionKind.RESOLVED and target is not None
+        presence = target.presence if target is not None else None
+        # Importing a name no module defines leaves the project; calling one can be a re-export.
+        if item.kind not in kinds or (
+            resolved
+            and item.kind == RelationshipKind.IMPORTS
+            and presence == PresenceKind.REFERENCED
+        ):
+            continue
+        source = module_of.get(item.source_id)
+        target_module = (
+            module_of.get(target.id)
+            if target is not None and resolved and presence == PresenceKind.DEFINED
+            else None
+        )
+        if source is None:
+            if item.kind not in everywhere:
+                everywhere[item.kind] = f"a {item.kind} relationship has no source module"
+        elif target_module is None:
+            if (item.kind, source) not in gaps:
+                reason = f"{source} has an unresolved or re-exported {item.kind} target"
+                gaps[(item.kind, source)] = reason
+        elif target_module != source:
+            key = (item.kind, source, target_module)
+            edges[key] = (*edges.get(key, ()), *_sites(item, source, target_module, evidence))
+    complete = {
+        (coverage.scope_id, kind)
+        for coverage in graph.coverage
+        if coverage.status == CoverageStatus.COMPLETE
+        for kind in coverage.relationship_kinds
+    }
+    for identity, entity in entities.items():
+        if entity.kind != EntityKind.MODULE or entity.presence != PresenceKind.DEFINED:
+            continue
+        for kind in kinds:
+            name = entity.qualified_name
+            if (identity, kind) not in complete and (kind, name) not in gaps:
+                gaps[(kind, name)] = f"the snapshot does not cover each {kind} of {name}"
+    for record in observation.records("unknowns") or ():
+        module = record.data.get("source_module")
+        if record.kind == _DYNAMIC_IMPORT and isinstance(module, str):
+            gaps[(RelationshipKind.IMPORTS, module)] = f"{module} has a dynamic import"
+        elif record.kind == _DYNAMIC_CALLS:
+            everywhere[RelationshipKind.CALLS] = f"{record.title}: a call edge is never absent"
+    incomplete = (
+        "the source observation is incomplete"
+        if observation.coverage.status != Verdict.PASS
+        else None
+    )
+    return {
+        kind: _layer(
+            {
+                (source, target): sites
+                for (each, source, target), sites in edges.items()
+                if each == kind
+            },
+            {module: reason for (each, module), reason in gaps.items() if each == kind},
+            incomplete or everywhere.get(kind),
+        )
+        for kind in kinds
+    }
+
+
+def _requires(components: Mapping[str, Record]) -> dict[tuple[str, str], tuple[ViewEvidence, ...]]:
+    labels = {record.title: identity for identity, record in components.items()}
+    result: dict[tuple[str, str], tuple[ViewEvidence, ...]] = {}
+    for identity, record in components.items():
+        entries = record.data.get("requires", ())
+        for entry in entries if isinstance(entries, tuple) else ():
+            label = entry.get("component") if isinstance(entry, RecordData) else None
+            if isinstance(label, str) and label in labels:
+                target = labels[label]
+                result[(identity, target)] = (
+                    ViewEvidence(identity, RelationshipKind.REQUIRES, identity, target),
+                )
+    return result
+
+
+def _view_graph(observation: Observation) -> _Graph:
+    """The one graph loader: a snapshot with or without a contract gives the same shape."""
+    graph = observed_graph(observation)
+    declarations = observation.records("declarations") or ()
+    components = {record.id: record for record in declarations if record.kind == _COMPONENT}
+    owners = component_owners(observation)
+    modules = {
+        entity.qualified_name: entity
+        for entity in graph.entities
+        if entity.kind == EntityKind.MODULE and entity.presence == PresenceKind.DEFINED
+    }
+    owned = {name: owner_of(name, owners) for name in sorted(modules)}
+    layers = _observed_layers(observation, graph)
+    layers[RelationshipKind.REQUIRES] = _layer(_requires(components), {}, None)
+    return _Graph(
+        modules,
+        components,
+        frozenset(record.id for record in declarations if record.kind == _INSIDE_COMPONENT),
+        {
+            identity: tuple(name for name, owner in owned.items() if owner == record.title)
+            for identity, record in components.items()
+        },
+        layers,
+    )
+
+
+def _keys(graph: _Graph, node: str, kind: RelationshipKind) -> tuple[str, ...]:
+    if kind == RelationshipKind.REQUIRES:
+        return (node,) if node in graph.components else ()
+    return (node,) if node in graph.modules else graph.members.get(node, ())
+
+
+def _node(graph: _Graph, node: str) -> NodeCheck:
+    module = graph.modules.get(node)
+    if module is not None:
+        return NodeCheck(
+            node,
+            ViewStatus.PROVEN,
+            "an observed module",
+            EntityKind.MODULE,
+            module.id,
+            module.file_path,
+        )
+    if node in graph.components:
+        owned = len(graph.members[node])
+        return NodeCheck(
+            node,
+            ViewStatus.DECLARED,
+            f"a contract component; observed modules it owns: {owned}",
+            EntityKind.COMPONENT,
+        )
+    if node in graph.inside:
+        return NodeCheck(node, ViewStatus.UNKNOWN, "an inside component is not a view node yet")
+    return NodeCheck(node, ViewStatus.MISSING, "no component or module has this id")
+
+
+def _path(
+    layer: _Layer, sources: tuple[str, ...], targets: frozenset[str]
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Return the shortest path of one kind (BFS, sorted neighbours) and every key it reached."""
+    parents: dict[str, str | None] = dict.fromkeys(sources)
+    queue: list[str] = list(sources)
+    # A for loop over a list also visits the keys appended during the loop: breadth first.
+    for key in queue:
+        for following in layer.following.get(key, ()):
+            if following in targets:
+                path: list[str] = [following, key]
+                while (parent := parents[path[-1]]) is not None:
+                    path.append(parent)
+                return tuple(reversed(path)), tuple(parents)
+            if following not in parents:
+                parents[following] = key
+                queue.append(following)
+    return (), tuple(parents)
+
+
+def _one_kind(
+    graph: _Graph, source: str, target: str, kind: RelationshipKind, *, one_hop: bool
+) -> LinkCheck:
+    layer = graph.layers[kind]
+    sources, targets = _keys(graph, source, kind), frozenset(_keys(graph, target, kind))
+    found = ViewStatus.DECLARED if kind == RelationshipKind.REQUIRES else ViewStatus.PROVEN
+    if not sources or not targets:
+        reason = f"{source} or {target} has no {kind} end in the snapshot"
+        return LinkCheck(source, target, ViewStatus.MISSING, reason, kind)
+    reached: tuple[str, ...] = sources
+    if one_hop:
+        evidence = tuple(
+            site
+            for key in sources
+            for following in sorted(targets)
+            for site in layer.edges.get((key, following), ())
+        )
+        if evidence:
+            return LinkCheck(
+                source, target, found, f"an observed {kind} relationship", kind, (), evidence
+            )
+    else:
+        path, reached = _path(layer, sources, targets)
+        if path:
+            evidence = tuple(site for pair in pairwise(path) for site in layer.edges[pair])
+            reason = f"an observed {kind} path of {len(path) - 1} relationships"
+            return LinkCheck(source, target, found, reason, kind, path, evidence)
+    gaps = [layer.everywhere] if layer.everywhere else []
+    gaps += [layer.gaps[key] for key in sorted(reached) if key in layer.gaps]
+    if gaps:
+        return LinkCheck(source, target, ViewStatus.UNKNOWN, gaps[0], kind)
+    reverse = one_hop and any((other, key) in layer.edges for other in targets for key in sources)
+    reason = (
+        f"only the reverse {kind} direction {target} -> {source} is observed"
+        if reverse
+        else f"no {kind} {'relationship' if one_hop else 'path'}, and the coverage is complete"
+    )
+    return LinkCheck(source, target, ViewStatus.MISSING, reason, kind)
+
+
+def _link(
+    graph: _Graph,
+    nodes: Mapping[str, NodeCheck],
+    source: str,
+    target: str,
+    kind: RelationshipKind | None,
+    *,
+    claim: bool,
+    note: str | None,
+    one_hop: bool,
+) -> LinkCheck:
+    if claim:
+        reason = "author claim: not checked against the graph"
+        return LinkCheck(source, target, ViewStatus.CLAIM, reason, kind, note=note)
+    ends = {nodes[source].status, nodes[target].status}
+    for status in (ViewStatus.MISSING, ViewStatus.UNKNOWN):
+        if status in ends:
+            return LinkCheck(source, target, status, f"an end node is {status}", kind, note=note)
+    results = [
+        _one_kind(graph, source, target, item, one_hop=one_hop)
+        for item in ((kind,) if kind is not None else _DEFAULT_KINDS)
+    ]
+    proof = next(
+        (item for item in results if item.status in {ViewStatus.PROVEN, ViewStatus.DECLARED}), None
+    )
+    if proof is not None:
+        return replace(proof, note=note)
+    unknown = any(item.status is ViewStatus.UNKNOWN for item in results)
+    status = ViewStatus.UNKNOWN if unknown else ViewStatus.MISSING
+    reason = "; ".join(item.reason for item in results)
+    return LinkCheck(source, target, status, reason, kind, note=note)
+
+
+def check_view(spec: ViewSpec, observation: Observation, *, strict: bool) -> ViewCheck:
+    """Check each reference against the snapshot the spec names; a claim stays author text."""
+    identity = snapshot_identity(observation)
+    current = identity == spec.snapshot
+    befores = (None, *(step.node for step in spec.steps[:-1])) if spec.steps else ()
+    pairs = tuple(zip(befores, spec.steps, strict=True))
+    nodes: tuple[NodeCheck, ...]
+    edges: tuple[LinkCheck, ...]
+    steps: tuple[LinkCheck, ...]
+    if not current:
+        stale = "the view names another snapshot: check it against that snapshot"
+        nodes = tuple(NodeCheck(node, ViewStatus.UNKNOWN, stale) for node in spec.nodes)
+        edges = tuple(
+            LinkCheck(
+                edge.source, edge.target, ViewStatus.UNKNOWN, stale, edge.kind, note=edge.note
+            )
+            for edge in spec.edges
+        )
+        steps = tuple(
+            LinkCheck(before, step.node, ViewStatus.UNKNOWN, stale, step.kind, note=step.note)
+            for before, step in pairs
+        )
+    else:
+        graph = _view_graph(observation)
+        checked = {node: _node(graph, node) for node in spec.nodes}
+        nodes = tuple(checked.values())
+        edges = tuple(
+            _link(
+                graph,
+                checked,
+                edge.source,
+                edge.target,
+                edge.kind,
+                claim=edge.claim,
+                note=edge.note,
+                one_hop=True,
+            )
+            for edge in spec.edges
+        )
+        steps = tuple(
+            LinkCheck(
+                None,
+                step.node,
+                checked[step.node].status,
+                checked[step.node].reason,
+                note=step.note,
+            )
+            if before is None
+            else _link(
+                graph,
+                checked,
+                before,
+                step.node,
+                step.kind,
+                claim=step.claim,
+                note=step.note,
+                one_hop=False,
+            )
+            for before, step in pairs
+        )
+    statuses = {node.status for node in nodes} | {link.status for link in (*edges, *steps)}
+    failed = ViewStatus.MISSING in statuses or (strict and ViewStatus.UNKNOWN in statuses)
+    return ViewCheck(
+        spec.schema_version,
+        spec.title,
+        2 if not current else 1 if failed else 0,
+        strict,
+        identity,
+        current,
+        nodes,
+        edges,
+        steps,
+        spec.notes,
+    )
+
+
+def view_check_json(check: ViewCheck) -> str:
+    """The same check gives the same text."""
+    return json.dumps(asdict(check), indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+
+
+def view_summary(check: ViewCheck) -> str:
+    verdicts = {
+        0: "no reference is missing",
+        1: "a reference is missing" + (" or unknown (--strict)" if check.strict else ""),
+        2: "not checked: the view names another snapshot",
+    }
+    lines = [f"View check {check.title!r}: exit {check.exit_code}, {verdicts[check.exit_code]}."]
+    for label, items in (("Nodes", check.nodes), ("Edges", check.edges), ("Steps", check.steps)):
+        counts = Counter(item.status for item in items)
+        found = ", ".join(f"{counts[status]} {status}" for status in ViewStatus if counts[status])
+        lines.append(f"{label}: {found or 'none'}")
+    lines.append(check.limits[0])
+    for node in check.nodes:
+        if node.status in {ViewStatus.MISSING, ViewStatus.UNKNOWN}:
+            lines.append(f"{node.status}: node {node.id}: {node.reason}")
+    for link in (*check.edges, *check.steps):
+        if link.status in {ViewStatus.MISSING, ViewStatus.UNKNOWN} and link.source is not None:
+            lines.append(f"{link.status}: {link.source} -> {link.target}: {link.reason}")
+    return "\n".join(lines)

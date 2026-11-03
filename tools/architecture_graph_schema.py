@@ -25,6 +25,7 @@ from archkeel.ir.command_view import ArchitectureCommandEnvelope
 from archkeel.ir.contract_version import ContractFeature, ContractVersion, supports_feature
 from archkeel.ir.facts import MemberInventory
 from archkeel.ir.model import Coverage, Diagnostic, FilteredViolation, Record
+from archkeel.ir.view_spec import ViewSpec
 
 
 def _schema(root: type, name: str, title: str) -> dict[str, object]:
@@ -336,6 +337,16 @@ def command_schema() -> dict[str, object]:
             },
         }
     ]
+    return schema
+
+
+def view_spec_schema() -> dict[str, object]:
+    schema = _schema(ViewSpec, "view-spec", "Checked view spec")
+    schema["$comment"] = (
+        "Generated from archkeel.ir.view_spec (AD-284). The spec cannot state proof: "
+        "`archkeel view check` assigns proven, declared, unknown or missing; claim is author text. "
+        "Edge and step nodes must be listed in nodes; the first step takes no kind or claim."
+    )
     return schema
 
 
@@ -782,6 +793,7 @@ def main() -> None:
     parser.add_argument("--command", type=Path)
     parser.add_argument("--source-inventory", type=Path)
     parser.add_argument("--source-profile", type=Path)
+    parser.add_argument("--view-spec", type=Path)
     args = parser.parse_args()
     output = args.output
     output.write_text(json.dumps(graph_schema(), indent=2) + "\n", encoding="utf-8")
@@ -806,6 +818,8 @@ def main() -> None:
         )
     if args.source_profile is not None:
         _update_source_profile_schema(args.source_profile)
+    if args.view_spec is not None:
+        args.view_spec.write_text(json.dumps(view_spec_schema(), indent=2) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
