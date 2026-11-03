@@ -5,7 +5,6 @@
 
 import json
 import re
-from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -38,7 +37,9 @@ def pages(tmp_path_factory: pytest.TempPathFactory) -> dict[str, str]:
     view.write_text(json.dumps(spec))
     output = tmp_path / "out"
     # A made-up node is missing: exit 1, and the page still draws it.
-    assert main(["view", "show", str(view), "--snapshot", str(snapshot), "--output", str(output)]) == 1
+    assert (
+        main(["view", "show", str(view), "--snapshot", str(snapshot), "--output", str(output)]) == 1
+    )
     return {path.name: path.read_text() for path in output.glob("*.html")}
 
 
@@ -117,7 +118,9 @@ def test_a_made_up_edge_is_a_claim_or_not_in_the_code_never_proven(pages):
         for index in range(claims.count()):
             claim = claims.nth(index)
             assert "view-proven" not in claim.get_attribute("class")
-            dash = claim.locator(".line").evaluate("(line) => getComputedStyle(line).strokeDasharray")
+            dash = claim.locator(".line").evaluate(
+                "(line) => getComputedStyle(line).strokeDasharray"
+            )
             assert dash not in ("none", "")
         made_up = page.locator(
             ".flow-edges [data-view-status='missing'][data-view-source='shop.render.text']"
@@ -162,7 +165,9 @@ def test_keyboard_reaches_each_step_enter_opens_and_escape_closes(pages):
         page.keyboard.press("Enter")
         inspector = page.locator(".flow-inspector")
         assert inspector.is_visible() and "step 4 of 4" in inspector.inner_text().lower()
-        assert page.evaluate("document.querySelector('.flow-inspector').contains(document.activeElement)")
+        assert page.evaluate(
+            "document.querySelector('.flow-inspector').contains(document.activeElement)"
+        )
         page.keyboard.press("Escape")
         assert not inspector.is_visible()
         assert page.evaluate("document.activeElement.getAttribute('aria-label')").startswith(
@@ -189,7 +194,9 @@ def test_the_url_opens_the_same_picture(pages):
         assert _step(page, 3).get_attribute("aria-pressed") == "true"
         page.get_by_role("button", name="As-Is", exact=True).click()
         _wait_for_layout(page)
-        assert page.locator(".flow[data-view='diagram']").count() == 1 and "flow" not in _route(page)
+        assert page.locator(".flow[data-view='diagram']").count() == 1 and "flow" not in _route(
+            page
+        )
         page.get_by_role("button", name="Checked flow", exact=True).click()
         assert page.locator(".flow[data-view='checked']").count() == 1
     finally:
@@ -232,4 +239,3 @@ def test_the_page_works_offline(pages):
         assert _step(page, 1).count() == 1
     finally:
         _close(playwright, browser)
-

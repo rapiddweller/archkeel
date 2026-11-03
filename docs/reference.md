@@ -189,6 +189,15 @@ with another snapshot identity is not checked. The check runs the same snapshot 
 `report --input`. [`schema/view-check.schema.json`](../schema/view-check.schema.json) defines
 the result.
 
+`archkeel view show <spec> [--snapshot architecture.json] [--output DIR] [--json] [--strict]`
+prints the same result and draws it in the Explorer
+([AD-287](architecture/decisions/ad-287-the-explorer-draws-a-checked-view.md)). It writes
+`architecture.report.html`, its detail pages and a copy of the snapshot to `DIR`, by default
+`$XDG_CACHE_HOME/archkeel/view/<first 16 hex of the source digest>/`. Stderr names the page.
+The page opens on the checked flow: numbered steps, each edge with its status as text and icon,
+and the evidence in Details. `?flow=1&step=2` in the URL opens the same picture; `view=diagram`
+without `flow` opens As-Is. When the check does not run (exit 2), the command writes nothing.
+
 ## Results
 
 Read `observation_complete`, `declared_rules` and `expectation_fulfilled` separately.
@@ -207,6 +216,7 @@ expectations are n/a. Filtering and baseline display do not change canonical fac
 | `skill install` | Instructions written | — | Target could not be updated |
 | `guide` | Guide written, or `--check` up to date | `--check`: missing or different | No contract, or it cannot be read |
 | `view check` | No reference is missing (`--strict`: or unknown) | A reference is missing (`--strict`: or unknown) | Invalid spec or snapshot, or another snapshot |
+| `view show` | As `view check`; pages written | As `view check`; pages written | As `view check`; nothing written |
 
 Exit 0 is not architecture approval. Exit 2 carries diagnostics with `kind`,
 `subject`, `unknown_claim` and `remedy`; inspected evidence may remain available.

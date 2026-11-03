@@ -94,12 +94,16 @@ class AgainstExpectation:
 
 @dataclass(frozen=True, slots=True)
 class ViewExpectation:
-    """AD-284: `archkeel view check` of `spec` against the clean sample's own report."""
+    """AD-284: `archkeel view check` of `spec` against the clean sample's own report.
+
+    With `show`, the row runs `archkeel view show` and checks the embedded result (AD-287).
+    """
 
     spec: Path
     exit_code: Literal[0, 1, 2]
     edges: tuple[str, ...]
     steps: tuple[str, ...]
+    show: bool = False
 
 
 @dataclass(frozen=True, slots=True)

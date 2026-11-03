@@ -1217,7 +1217,7 @@ def test_check_variant_produces_the_catalogued_verdicts(tmp_path: Path, variant:
 def test_view_variant_produces_the_catalogued_statuses(
     tmp_path: Path, variant: Variant, capsys: pytest.CaptureFixture
 ) -> None:
-    """AD-284: the row runs the real command on the clean sample's own saved report."""
+    """AD-284, AD-287: the row runs the real command on the clean sample's own saved report."""
     view = variant.view
     assert view is not None
     _, architecture = run_report(
@@ -1226,11 +1226,16 @@ def test_view_variant_produces_the_catalogued_statuses(
     assert architecture is not None
     snapshot = tmp_path / "architecture.json"
     snapshot.write_bytes(architecture)
-    arguments = ["view", "check", str(view.spec), "--snapshot", str(snapshot), "--json"]
+    action, output = ("show", ["--output", str(tmp_path / "view")]) if view.show else ("check", [])
+    arguments = ["view", action, str(view.spec), "--snapshot", str(snapshot), "--json", *output]
     assert main(arguments) == view.exit_code
     result = json.loads(capsys.readouterr().out)
     assert tuple(item["status"] for item in result["edges"]) == view.edges
     assert tuple(item["status"] for item in result["steps"]) == view.steps
+    if view.show:
+        page = (tmp_path / "view/architecture.report.html").read_text()
+        embedded = page.split('<script id="view-check-data" type="application/json">')[1]
+        assert json.loads(embedded.split("</script>")[0]) == result
 
 
 @pytest.mark.parametrize("variant", _AGAINST_VARIANTS, ids=lambda v: v.id)

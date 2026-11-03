@@ -61,7 +61,9 @@ def test_a_missing_reference_is_drawn_and_exits_1(
     spec = _spec(_observation(packet), edges=[_edge("shop.render.text", "shop.cli.main")])
     view, snapshot = _files(tmp_path, packet, spec)
     output = tmp_path / "out"
-    assert main(["view", "show", str(view), "--snapshot", str(snapshot), "--output", str(output)]) == 1
+    assert (
+        main(["view", "show", str(view), "--snapshot", str(snapshot), "--output", str(output)]) == 1
+    )
     embedded = _embedded(output / _PAGE)
     assert isinstance(embedded, dict) and embedded["edges"][0]["status"] == "missing"
 
@@ -79,7 +81,9 @@ def test_a_check_that_did_not_run_writes_nothing(
     if broken == "tampered":
         snapshot.write_text(_tampered(packet))
     output = tmp_path / "out"
-    assert main(["view", "show", str(view), "--snapshot", str(snapshot), "--output", str(output)]) == 2
+    assert (
+        main(["view", "show", str(view), "--snapshot", str(snapshot), "--output", str(output)]) == 2
+    )
     assert not output.exists()
     assert json.loads(capsys.readouterr().out)["exit_code"] == 2
 
@@ -131,18 +135,21 @@ def test_show_on_a_contract_without_rules_draws_no_verdict(
     steps = [{"node": "shop.cli.main"}, {"node": "shop.app.orders", "kind": "imports"}]
     view, snapshot = _files(tmp_path, packet, _spec(_observation(packet), nodes=nodes, steps=steps))
     output = tmp_path / "out"
-    assert main(["view", "show", str(view), "--snapshot", str(snapshot), "--output", str(output)]) == 0
+    assert (
+        main(["view", "show", str(view), "--snapshot", str(snapshot), "--output", str(output)]) == 0
+    )
     embedded = _embedded(output / _PAGE)
     assert isinstance(embedded, dict)
     assert [step["status"] for step in embedded["steps"]] == ["proven", "proven"]
     assert "PASS" not in json.dumps(embedded)
 
 
-def test_check_takes_no_output(tmp_path: Path, packet: bytes, capsys: pytest.CaptureFixture) -> None:
+def test_check_takes_no_output(
+    tmp_path: Path, packet: bytes, capsys: pytest.CaptureFixture
+) -> None:
     view, snapshot = _files(tmp_path, packet, _spec(_observation(packet)))
     output = tmp_path / "out"
     arguments = ["view", "check", str(view), "--snapshot", str(snapshot), "--output", str(output)]
     assert main(arguments) == 2
     assert not output.exists()
     assert "--output" in capsys.readouterr().out
-
