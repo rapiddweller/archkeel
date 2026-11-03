@@ -7,7 +7,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from test_html_report import _start_tags
-from test_report_159_160 import _flow_data, _linked_audit, _report
+from test_report_rule_evidence import _flow_data, _linked_audit, _report
 
 from archkeel.ir.model import Diagnostic, RunResult
 from archkeel.ir.report_graph import architecture_report

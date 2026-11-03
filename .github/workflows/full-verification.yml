@@ -67,6 +67,9 @@ jobs:
       - name: Check documentation diagrams
         run: make mermaid
 
+      - name: Check the rendered report in Chromium
+        run: make report-browser-tests
+
       - name: Upload latest report evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -160,7 +163,7 @@ jobs:
           version: "0.12.13"
 
       - name: Install supported runtimes
-        run: uv python install 3.11.12 3.12.10
+        run: uv python install 3.11.12 3.12.10 3.13.15 3.14.7
 
       - name: Install locked dependencies
         run: uv sync --locked
@@ -183,8 +186,8 @@ jobs:
     name: Python ${{ matrix.python }} compatibility
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    # The analyzer reads source with the `ast` of the running interpreter (#724). The files in
-    # `make python-compat` cover what differs between versions; the full suite runs on 3.11.
+    # The analyzer reads source with the `ast` of the running interpreter (#724). The full suite
+    # runs on 3.11; `make python-compat` runs each test that needs a newer version (tests/areas.py).
     strategy:
       fail-fast: false
       matrix:

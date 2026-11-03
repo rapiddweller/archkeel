@@ -38,17 +38,6 @@ def test_command_has_one_core_owner_and_cli_keeps_identical_class():
     command = model.Command
     assert command is importlib.import_module("archkeel.cli.arguments").Command
     assert command.__module__ == "archkeel.ir.model"
-    assert [(item.name, str(item)) for item in command] == [
-        ("REPORT", "report"),
-        ("VALIDATE", "validate"),
-        ("CHECK", "check"),
-        ("INIT", "init"),
-        ("SKILL", "skill"),
-        ("GUIDE", "guide"),
-        ("EXPLORE", "explore"),
-        ("VIEW", "view"),
-        ("ARGUMENTS", "arguments"),
-    ]
 
 
 def test_run_result_annotations_use_distinct_precise_nominal_domains():

@@ -3,13 +3,13 @@
 # SPDX-License-Identifier: MIT
 import ast
 import json
-import sys
 from collections import Counter
 from hashlib import sha256
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from conftest import by_python
 
 from archkeel.analyzer.python.calls import collect_calls
 from archkeel.analyzer.python.constructs import collect_constructs
@@ -1460,8 +1460,8 @@ def test_sorted_rebinding_preserves_list_only_for_the_builtin(
 
 
 def test_every_source_failure_uses_runtime_mismatch_with_an_older_parser(tmp_path: Path) -> None:
-    required = f">={sys.version_info.major}.{sys.version_info.minor + 1}"
-    (tmp_path / "pyproject.toml").write_text(f'[project]\nrequires-python = "{required}"\n')
+    # No running Python meets this range, so each source failure is a runtime mismatch.
+    (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.99"\n')
     for name, source in (
         ("syntax.py", "def :\n"),
         ("indent.py", "  value = 1\n"),
@@ -1475,7 +1475,10 @@ def test_every_source_failure_uses_runtime_mismatch_with_an_older_parser(tmp_pat
     assert {item.kind for item in result.diagnostics} == {"runtime_mismatch"}
 
 
-def test_unparenthesized_except_types_parse_only_on_python_3_14_or_newer(tmp_path: Path) -> None:
+@pytest.mark.parametrize("pep758", by_python(14))
+def test_unparenthesized_except_types_parse_only_on_python_3_14_or_newer(
+    tmp_path: Path, pep758: bool
+) -> None:
     # PEP 758: `except A, B:` is valid from 3.14. An older parser must say that the runtime differs.
     (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.14"\n')
     (tmp_path / "sample").mkdir()
@@ -1483,7 +1486,7 @@ def test_unparenthesized_except_types_parse_only_on_python_3_14_or_newer(tmp_pat
         "try:\n    pass\nexcept ImportError, ValueError:\n    pass\n"
     )
     result = _observe(tmp_path)
-    if sys.version_info >= (3, 14):
+    if pep758:
         assert result.exit_code == 0 and not result.observation.coverage.failures
     else:
         assert result.exit_code == 2

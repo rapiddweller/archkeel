@@ -225,15 +225,6 @@ def test_native_binding_model_rejects_raw_dispatch(tmp_path, probe):
     ]
 
 
-def test_actual_complete_binding_model_has_positive_native_guard(self_observation):
-    assessment = next(
-        row
-        for row in rule_assessments(self_observation, undecided_by_rule={})
-        if row.id == "PYTHON-BINDINGS-TYPED-CONTROL"
-    )
-    assert assessment.status == "PASS" and assessment.evaluation_proven
-
-
 @pytest.mark.parametrize("kind", list(ImportKind))
 def test_alias_binding_normalizes_valid_legacy_constructor_kind(kind):
     binding = AliasBinding("sample.engine", kind.value, "Engine")

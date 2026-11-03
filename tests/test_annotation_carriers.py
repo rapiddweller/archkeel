@@ -1,7 +1,6 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-import sys
 
 import pytest
 from test_analyzer import _parsed_module
@@ -188,7 +187,7 @@ def test_origin_refresh_replaces_occurrence_protection() -> None:
     assert "SexKey" in unproven_member_bindings(module)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 syntax requires Python 3.12")
+@pytest.mark.requires_python(12)
 def test_pep695_carrier_value_is_not_a_new_annotation_site() -> None:
     module = _parsed_module(
         "from collections.abc import Mapping\nSexKey=str|None\n"

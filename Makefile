@@ -49,7 +49,7 @@ pr-test: browser-runtime-install
 		'tests/test_architecture_demo.py::test_variant_produces_the_catalogued_findings[public-api-alias-missing]' \
 		'tests/test_architecture_demo.py::test_variant_produces_the_catalogued_findings[public-api-alias-declared]' \
 		tests/test_architecture_demo.py::test_stable_ordinary_reexport_proves_source_violation_in_cli_json \
-		tests/test_report_159_160_e2e_oracle.py::test_unknown_position_is_associated_with_its_rule_not_every_boundary_rule \
+		tests/test_report_rule_evidence_oracle.py::test_unknown_position_is_associated_with_its_rule_not_every_boundary_rule \
 		tests/test_typescript_script_globals.py tests/test_typescript_standard_globals.py tests/test_typescript_umd_providers.py tests/test_browser_architecture.py tests/test_source_graph.py tests/test_binding_proof_reuse.py tests/test_shared_lexical_index.py tests/test_namespace_scan_cost.py \
 		tests/test_member_escape_prefix_index.py tests/test_collection_boundary_regressions.py tests/test_recursive_boundary_index_work.py tests/test_lexical_resolution.py tests/test_static_instances.py tests/test_module_explore.py tests/test_projection_ownership_reuse.py tests/test_dependency_profile_selection.py tests/test_python_crossing_policy.py tests/test_duplication.py tests/test_duplication_call_evidence.py \
 		tests/test_boundary_types_chain_proof.py tests/test_boundary_types_reexport_proofs.py tests/test_boundary_types_facades.py tests/test_boundary_types_aliases.py tests/test_boundary_type_recursive_aliases.py \
@@ -107,7 +107,7 @@ pr-test: browser-runtime-install
 		tests/test_references.py tests/test_levels.py tests/test_recursive_inside_contracts.py tests/test_widening.py tests/test_measurement_budgets.py tests/test_typed_amendment_artifact.py \
 		tests/test_onboarding.py tests/test_terminal.py tests/test_summary_badge_types.py tests/test_summary_badge_target.py \
 		tests/test_onboarding_demo.py tests/test_pypi_description.py tests/test_typescript_onboarding.py \
-		tests/test_unknown_positions.py tests/test_inside_rule_coverage.py tests/test_inside_rule_parity.py tests/test_report_159_160.py \
+		tests/test_unknown_positions.py tests/test_inside_rule_coverage.py tests/test_inside_rule_parity.py tests/test_report_rule_evidence.py \
 		tests/test_target_navigation_graph.py \
 		tests/test_annotation_carriers.py \
 		tests/test_absent_import_namespace.py tests/test_dynamic_dependency_policy.py tests/test_string_comparison_observation.py tests/test_local_string_comparisons.py tests/test_string_predicate_observation.py tests/test_python_string_predicate_target.py tests/test_typed_host_events.py \
@@ -157,18 +157,10 @@ test:
 		-q $(PYTEST_STOP) --durations=20 --junitxml=test-artifacts/pytest/results.xml \
 		$(if $(AREA),--area="$(AREA)",)
 
-# The Python analyzer reads source with the `ast` of the running interpreter: these files cover what
-# differs between Python versions. The nightly job runs them on the newest versions (#724).
-PYTHON_COMPAT_TESTS = tests/test_analyzer.py tests/test_python_provider_sources.py \
-	tests/test_python_contextmanager_signatures.py tests/test_boundary_types_contextmanager.py \
-	tests/test_python_source_evidence_lines.py tests/test_typed_python_receivers.py \
-	tests/test_python_class_value_proofs.py tests/test_numeric_operand_observation.py \
-	tests/test_architecture_projection.py tests/test_validation.py \
-	'tests/test_architecture_demo.py::test_variant_produces_the_catalogued_findings[class-a-boundary-types-stdlib-path-facade]'
-
+# Each test that needs Python 3.12 or later, and the files that cover version differences (#724).
 python-compat:
 	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=loadfile --max-worker-restart=0 \
-		-q --durations=10 $(PYTHON_COMPAT_TESTS)
+		-q --durations=10 --selection=python-compat
 
 collector-safety:
 	$(UV) run --locked python -m pytest -q tests/test_collection_protocol.py tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py \

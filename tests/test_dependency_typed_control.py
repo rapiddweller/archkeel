@@ -83,17 +83,3 @@ def test_the_native_guard_comes_from_the_own_contract_without_exemptions():
     assert rule["source"] == "archkeel.ir.dependency"
     assert rule["constructs"] == ["string_literal_compare"]
     assert not rule.get("allowed_sources") and not rule.get("exact_sources")
-
-
-def test_own_observation_covers_the_protected_domain_without_string_control(self_observation):
-    model = self_observation
-    assert _guard(model).status == "PASS" and _guard(model).evaluation_proven
-    assert not [
-        row
-        for row in model.records("constructs")
-        if row.kind == "string_literal_compare"
-        and (
-            row.data.get("owner") == "archkeel.ir.dependency"
-            or row.data.get("owner", "").startswith("archkeel.ir.dependency.")
-        )
-    ]

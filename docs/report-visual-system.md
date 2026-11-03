@@ -75,8 +75,9 @@ geometry. Use them rather than copying a second specification here.
 make report-browser-tests
 ```
 
-Optional local Chromium tests cover findings, keyboard navigation, boundary
-permissions with unsafe-content escaping, the first screen, and reaching a component. CI checks data, projection and layout logic directly with
+Chromium tests cover findings, keyboard navigation, boundary
+permissions with unsafe-content escaping, the first screen, and reaching a component. Full verification runs them.
+PR CI checks data, projection and layout logic directly with
 Python and Node. Review the Nightly gallery for visual changes; these logic
 checks do not prove browser rendering or interaction.
 

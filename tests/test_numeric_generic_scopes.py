@@ -4,7 +4,6 @@
 """Numeric alias proofs in PEP 695 scopes agree between collector and saved-facts reader (#618)."""
 
 import json
-import sys
 
 import pytest
 
@@ -18,13 +17,9 @@ from archkeel.ir.facts_codec import (
 )
 from archkeel.ir.protocol import CollectionRequest, PythonSettings, SnapshotInput, SourceScope
 
-pytestmark = pytest.mark.skipif(
-    sys.version_info < (3, 12), reason="PEP 695 syntax requires Python 3.12"
-)
+pytestmark = pytest.mark.requires_python(12)
 
-_PEP_696 = pytest.mark.skipif(
-    sys.version_info < (3, 13), reason="type parameter defaults require Python 3.13"
-)
+_PEP_696 = pytest.mark.requires_python(13)
 
 
 def _payload(tmp_path, source):

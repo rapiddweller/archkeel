@@ -87,12 +87,29 @@ def _invoke(root: Path, *args: str, env: dict[str, str] | None = None):
 
 
 def _allowlist(klass: str) -> dict[str, str]:
-    path = ROOT / "fixtures/typescript-differential-allowlist.json"
+    path = ROOT / "fixtures/typescript-hidden-loader-allowed-unknowns.json"
     return json.loads(path.read_text(encoding="utf-8"))[klass]
 
 
 def _catalog_cases(catalog: str) -> list[dict]:
     return json.loads((ROOT / "fixtures" / catalog).read_text())
+
+
+def _one_hidden_loader_per_class() -> list[dict]:
+    # test_typescript_collect runs every case; the CLI needs one case per expected result and input.
+    allowed = _allowlist("more_conservative")
+    cases: dict[tuple[object, ...], dict] = {}
+    for case in _catalog_cases("typescript-hidden-loaders.json"):
+        shape = (
+            case["complete"],
+            case["cycle"],
+            f"hidden-loader/{case['name']}" in allowed,
+            len(case.get("observed_files", ())),
+            "manifest" in case,
+            "files" in case,
+        )
+        cases.setdefault(shape, case)
+    return list(cases.values())
 
 
 def _init(root: Path, *, source="src", namespace="shop", env=None):
@@ -393,7 +410,7 @@ def test_hidden_compiler_closure_refuses_init_and_binds_report_digest(
 
 @pytest.mark.parametrize(
     "example",
-    _catalog_cases("typescript-hidden-loaders.json"),
+    _one_hidden_loader_per_class(),
     ids=lambda value: value["name"] if isinstance(value, dict) else value,
 )
 def test_hidden_loaders_cannot_prove_absence_of_module_cycles(

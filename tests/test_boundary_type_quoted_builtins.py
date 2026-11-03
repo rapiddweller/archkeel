@@ -185,7 +185,7 @@ def test_literal_string_does_not_invent_class_binding_uncertainty(tmp_path: Path
     _assert_verdict(observation, "", "PASS")
 
 
-@pytest.mark.skipif(__import__("sys").version_info < (3, 12), reason="PEP 695 requires Python 3.12")
+@pytest.mark.requires_python(12)
 def test_quoted_builtin_generic_parameter_stays_uncertain(tmp_path: Path) -> None:
     _write_app(
         tmp_path,

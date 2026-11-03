@@ -58,13 +58,14 @@ def test_metric_ingress_rejects_values_outside_its_own_level_domain(raw):
         structure.StructureMetric("app", raw, 2, 1, 0, 0, None, None)
 
 
-def test_scope_port_normalizes_supported_legacy_levels_and_checks_empty_groups(self_observation):
+def test_scope_port_normalizes_supported_legacy_levels_and_checks_empty_groups(tmp_path):
     level = _levels()
+    model = _model(*_repository(tmp_path))
     for raw in ("component", "package"):
-        measured = structure.scope_metrics(self_observation, raw, {"archkeel.ir.model": "core"})
+        measured = structure.scope_metrics(model, raw, {"archkeel.ir.structure": "core"})
         assert measured and all(item.level is level(raw) for item in measured)
     with pytest.raises(ValueError):
-        structure.scope_metrics(self_observation, "module", {})
+        structure.scope_metrics(model, "module", {})
 
 
 def _repository(tmp_path, *, mutation=None, relocate=False):

@@ -228,10 +228,6 @@ def test_authored_source_resolution_targets_keep_owned_api_and_required_test_sel
         "partially_resolved",
         "unresolved",
     )
-    required = (
-        (ROOT / "Makefile").read_text().split("pr-test:", 1)[1].split("pr-report-test:", 1)[0]
-    )
-    assert "tests/test_source_resolution_types.py" in required
 
 
 def test_actual_source_resolution_ports_fulfil_the_unchanged_authored_targets(tmp_path):

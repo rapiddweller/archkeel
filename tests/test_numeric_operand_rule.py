@@ -5,11 +5,11 @@
 
 import ast
 import json
-import sys
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from conftest import by_python
 from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 from test_analyzer import _component, _observe
@@ -816,8 +816,9 @@ def test_anonymous_scopes_in_class_bodies_keep_lexical_alias_resolution(
         ("(job_nonce % WIDTH for job_nonce in (1,))", ast.GeneratorExp),
     ],
 )
+@pytest.mark.parametrize("pep709", by_python(12))
 def test_class_comprehension_scope_keeps_module_free_names_and_local_targets(
-    expression, scope_type
+    expression, scope_type, pep709
 ):
     from archkeel.analyzer.python.scopes import LexicalScopes
 
@@ -839,9 +840,7 @@ def test_class_comprehension_scope_keeps_module_free_names_and_local_targets(
     comprehension = scopes.by_node[width]
 
     assert isinstance(comprehension.node, scope_type)
-    assert comprehension.inlined is (
-        sys.version_info >= (3, 12) and scope_type is not ast.GeneratorExp
-    )
+    assert comprehension.inlined is (pep709 and scope_type is not ast.GeneratorExp)
     assert (comprehension.table is None) is comprehension.inlined
     assert scopes.lookup(width, "WIDTH").owner is scopes.root
     assert scopes.lookup(job_nonce_read, "job_nonce").owner is comprehension

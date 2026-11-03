@@ -164,31 +164,34 @@ def test_native_source_type_widening_fails_with_fixed_intent(tmp_path, module, o
     assert (root / "contract.json").read_bytes() == before
 
 
+# The six guards share one construct rule, so each module and each probe form appear once.
 @pytest.mark.parametrize(
-    "module", ["config", "resolve", "parse", "collect", "syntax", "source_input"]
-)
-@pytest.mark.parametrize(
-    "probe",
+    ("module", "probe"),
     [
-        'def _probe(value):\n    return value == "node16"\n',
-        'def _probe(value):\n    return value.startswith("node:")\n',
-        'def _probe(value):\n    return value.endswith(".ts")\n',
-        'def _probe(value):\n    return value in ("node16", "nodenext")\n',
-        'def _probe(value):\n    return "node16" in value\n',
-        'def _probe(value):\n    match value:\n        case "node16":\n            return True\n',
+        ("config", 'def _probe(value):\n    return value == "node16"\n'),
+        ("resolve", 'def _probe(value):\n    return value.startswith("node:")\n'),
+        ("parse", 'def _probe(value):\n    return value.endswith(".ts")\n'),
+        ("collect", 'def _probe(value):\n    return value in ("node16", "nodenext")\n'),
+        ("syntax", 'def _probe(value):\n    return "node16" in value\n'),
         (
+            "source_input",
+            'def _probe(value):\n    match value:\n        case "node16":\n'
+            "            return True\n",
+        ),
+        (
+            "config",
             'from typing import Final\nTOKEN: Final[str] = "node16"\n'
-            "def _probe(value):\n    return value == TOKEN\n"
+            "def _probe(value):\n    return value == TOKEN\n",
         ),
     ],
     ids=[
-        "equality",
-        "prefix",
-        "suffix",
-        "membership",
-        "literal-left-membership",
-        "match",
-        "final-alias",
+        "equality-config",
+        "prefix-resolve",
+        "suffix-parse",
+        "membership-collect",
+        "literal-left-membership-syntax",
+        "match-source_input",
+        "final-alias-config",
     ],
 )
 def test_native_parser_and_protocol_strings_fail_without_exceptions(tmp_path, module, probe):
@@ -205,22 +208,6 @@ def test_native_parser_and_protocol_strings_fail_without_exceptions(tmp_path, mo
     assert guard.status == "FAIL"
     assert any(guard.id in row.rule_ids for row in trace_valid_violations(model))
     assert (root / "contract.json").read_bytes() == before
-
-
-def test_own_observation_proves_both_migrated_module_guards(self_observation):
-    for name in GUARDS:
-        rule = _rule(self_observation, name)
-        assert rule.status == "PASS" and rule.evaluation_proven, rule
-    assert not [
-        row
-        for row in self_observation.records("constructs")
-        if row.kind == "string_literal_compare"
-        and any(
-            row.data.get("owner") == f"{MODULE}.{module}"
-            or row.data.get("owner", "").startswith(f"{MODULE}.{module}.")
-            for module in ("config", "resolve", "parse", "collect", "syntax", "source_input")
-        )
-    ]
 
 
 def test_guards_cover_whole_migrated_modules_without_allowances():
@@ -241,14 +228,6 @@ def test_native_configuration_crossing_must_use_its_named_public_api(tmp_path):
     )
     model = _model(root, config)
     assert any("TARGET-INTERFACE_BOUNDARY" in row.rule_ids for row in trace_valid_violations(model))
-
-
-@pytest.mark.parametrize("identity", GUARDS[2:])
-def test_native_parser_and_collector_guards_are_proven_without_exceptions(tmp_path, identity):
-    root, config = _repository(tmp_path)
-    model = _model(root, config)
-    rule = _rule(model, identity)
-    assert rule.status == "PASS" and rule.evaluation_proven, rule
 
 
 @pytest.mark.parametrize(

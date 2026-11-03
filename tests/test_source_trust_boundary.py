@@ -554,9 +554,7 @@ def test_reference_context_rejects_an_incomplete_multiline_witness(tmp_path: Pat
         pytest.param(
             "type Alias = Keys.PAGE_SIZE",
             True,
-            marks=pytest.mark.skipif(
-                sys.version_info < (3, 12), reason="PEP 695 requires Python 3.12"
-            ),
+            marks=pytest.mark.requires_python(12),
         ),
         ("    arg: Keys.PAGE_SIZE,", None),
     ),
