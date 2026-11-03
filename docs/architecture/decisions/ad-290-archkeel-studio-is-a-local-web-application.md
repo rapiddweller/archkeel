@@ -20,8 +20,8 @@ rejected lines of AD-284 and AD-285. The Explorer stays the only architecture re
    state (`load_config`: no file, a failed load, a load). Planned: `agent` (a port; the adapter
    starts the CLI of the owner, `claude -p` or `codex exec`, read-only; no key stored) and
    `proposals` (the only writer, after an architect click, through the amendment path).
-5. API: `GET /api/v1/state`, pinned by `schema/studio-api-1.0.schema.json`; each other method
-   gets 405. The workspace starts explore when the server starts, so slice 1 needs no write
+5. API: `GET /api/v1/state`, pinned by `schema/studio-api-1.0.schema.json`; POST, PUT, PATCH
+   and DELETE get 405. The workspace starts explore when the server starts, so slice 1 needs no write
    route. The proposals endpoint will be the one write route. `GET /files/<name>` serves the
    snapshot pages; `/ui/<name>` serves only the four shell files.
 6. Security: 127.0.0.1 on a free port, no host option. A `secrets.token_urlsafe(32)` token in

@@ -37,6 +37,8 @@ flowchart LR
 ```
 
 A view never imports another view. Components never import the client or the store.
+Planned from the Figma inventory: panel, discussion message (PROPOSED - NOT APPLIED). Build them
+when a view needs them.
 
 ## Naming and typed values
 

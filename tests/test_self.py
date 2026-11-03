@@ -292,7 +292,8 @@ def test_self_oversized_components_claim_still_counts_analyzer(
     count against the top level's own, not against whether it has a declared inside, so
     `analyzer` joins `check` on this claim instead of leaving it once its inside is declared."""
     sizes = oversized_insides(self_observation)
-    assert {item.scope for item in sizes.candidates} == {"analyzer", "check", "ir", "render"}
+    # AD-290: studio adds a top-level component and an edge, so render no longer outgrows them.
+    assert {item.scope for item in sizes.candidates} == {"analyzer", "check", "ir"}
 
 
 def test_self_contract_closes_every_component_pair(self_observation: Observation) -> None:
