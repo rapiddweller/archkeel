@@ -518,7 +518,9 @@ def test_flow_section_teaches_the_whole_loop() -> None:
 
 
 @pytest.mark.parametrize(
-    "argv", _commands(_flow_section() + _section("First run on a codebase")), ids=" ".join
+    "argv",
+    _commands(_flow_section() + _section("First run on a codebase"), language="python"),
+    ids=" ".join,
 )
 def test_skill_command_parses_with_the_real_cli(argv: list[str]) -> None:
     """#787: each command line the flow and first-run sections teach exists in the CLI."""
@@ -639,6 +641,28 @@ def test_agent_flow_without_a_contract_uses_explore(
     assert _view("check", tmp_path, snapshot, spec, capsys)[0] == 2
 
 
+_SCOPE = ("--source", "--namespace", "--language", "--tsconfig")
+_NAMES = {name: f"<{name}>" for name in ("dir", "package", "language", "file")}
+
+
+def test_first_run_init_takes_the_scope_options_of_the_scoped_explore() -> None:
+    """#804: a TypeScript or Dart scope must reach `init`, or init uses the Python collector."""
+
+    def scope(argv: list[str]) -> dict[str, str]:
+        return {word: argv[n + 1] for n, word in enumerate(argv) if word in _SCOPE}
+
+    explore = [scope(argv) for argv in _commands(_flow_section(), **_NAMES) if argv[0] == "explore"]
+    init = [
+        scope(argv)
+        for step in _FIRST_RUN_STEPS
+        for argv in _commands(step, **_NAMES)
+        if argv[0] == "init"
+    ]
+    scoped = [options for options in explore if options]
+    assert len(init) == len(scoped) == 1 and "--language" in init[0]
+    assert init[0] == scoped[0]
+
+
 def test_first_run_init_drafts_the_scope_that_explore_showed(
     tmp_path: Path, capsys: pytest.CaptureFixture
 ) -> None:
@@ -647,7 +671,7 @@ def test_first_run_init_drafts_the_scope_that_explore_showed(
     scoped = [
         argv
         for step in _FIRST_RUN_STEPS
-        for argv in _commands(step, dir="shop", package="shop")
+        for argv in _commands(step, dir="shop", package="shop", language="python")
         if argv[0] == "init"
     ]
     assert len(scoped) == 1

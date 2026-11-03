@@ -24,9 +24,10 @@ After the draft, continue with "Onboarding" below.
    the yes: go to step 5.
 4. Without a clear yes, skip steps 5 to 8 and use the explore snapshot. Never write a contract or
    another file into the repository. The views of steps 11 and 12 write only to the user cache.
-5. With a yes, run `archkeel init --source <dir> --namespace <package> --json`. Use the scope of
-   step 1; omit both options when `explore` needed none. Each rule it drafts has
-   `decided_by: "agent"` and waits for the architect.
+5. With a yes, run `archkeel init --source <dir> --namespace <package> --language <language> --json`.
+   Use the scope options of step 1 with the same values, also `--tsconfig` for TypeScript. Omit
+   them when `explore` needed none. Each rule it drafts has `decided_by: "agent"` and waits for
+   the architect.
 6. For each top-level component (about 10 at most), write one sentence as one list item in
    `responsibilities`. Base it on the package docstring, the entry points and the imports of its
    modules. Cite `file:line` in the sentence, not in `provenance` (it takes paths only). Set
@@ -51,8 +52,10 @@ After the draft, continue with "Onboarding" below.
     - each top-level component with its name and its sentence, or "unknown";
     - the start flow, each step with its status mark;
     - up to 3 weak spots from the latest `findings` (step 8 after a yes, else step 1), with their
-      `locations`. With none, say that there are none. A `package_cycle` couples components, a
-      `module_cycle` is inside one component, a `fan_in_hub` or `fan_out_hub` is a hub;
+      `locations`. With none, say that there are none. The kind does not give the scope of a
+      cycle: a `module_cycle` can cross components. Read its `subjects` (the members),
+      `component_ids` and the evidence lines in `path.steps`, and say which components it touches.
+      A `fan_in_hub` or `fan_out_hub` is a hub;
     - after a yes, the `declared_rules` of the draft.
 14. Offer the next step: define a target together, then compare it in the Target and Diff views.
 
@@ -65,7 +68,8 @@ A view spec is author text; the check in step 5 decides what the code proves (AD
 2. Get a snapshot. With `archkeel.toml`, run `archkeel report --output <dir>/architecture.json --json`.
    Without it, run `archkeel explore --json`: no contract, no setup, output only in the user cache.
    On `scope_empty`, or when `scan_roots` is not the code in question, run
-   `archkeel explore --source <dir> --namespace <package> --json`.
+   `archkeel explore --source <dir> --namespace <package> --language <language> --json`.
+   `<language>` is `python`, `typescript` or `dart`. For TypeScript, also pass `--tsconfig <file>`.
    The snapshot path is `artifact` in the result.
 3. Query before you write. `archkeel report --input <snapshot> --only architecture --json` lists
    the component ids. `archkeel report --input <snapshot> --only architecture --component <id> --full --json`
