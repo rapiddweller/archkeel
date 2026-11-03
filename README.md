@@ -1,71 +1,183 @@
 # ArchKeel
 
-**Architecture checks for coding agents.**
+**See what your code really does. Check it against what you decided.**
 
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-5EEAD4?labelColor=141414)
 [![CI](https://github.com/rapiddweller/archkeel/actions/workflows/ci.yml/badge.svg)](https://github.com/rapiddweller/archkeel/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/archkeel)](https://pypi.org/project/archkeel/)
+[![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-D97757?labelColor=141414)](#claude-code)
+[![Codex plugin](https://img.shields.io/badge/Codex-plugin-8A8A8A?labelColor=141414)](#codex)
 [![MIT](https://img.shields.io/badge/license-MIT-C5F82A?labelColor=141414)](https://github.com/rapiddweller/archkeel/blob/main/LICENSE)
 
-ArchKeel checks code against declared boundaries. It reports forbidden imports,
-misplaced types and gaps in static analysis, with source evidence for review.
+[Install](#install) · [Quick start](#quick-start) · [Why](#why-archkeel) · [Compared](#archkeel-floorplan-or-understand-anything) · [Features](#features) · [Live demo](https://rapiddweller.github.io/archkeel/demos/) · [FAQ](#faq)
 
-Use it in your coding-agent harness or CI. Checks run locally and deterministically,
-without an LLM. They complement tests of runtime behavior.
+<p>
+  <img src="docs/assets/archkeel-studio-explore.png" alt="ArchKeel Studio showing ArchKeel itself: eight components and their import counts, with the evidence model in the sidebar" width="1000">
+</p>
+
+ArchKeel Studio, run on ArchKeel itself: 8 components, 165 modules, every arrow counted from the
+code. Observed facts, agent claims and architect decisions carry different labels.
+
+ArchKeel reads your code and shows how it is built: the parts, the imports between them and the
+evidence for each. You or your coding agent then declare the boundaries you want. ArchKeel checks
+the code against them and reports forbidden imports, misplaced types and gaps in the analysis, with
+source evidence for review.
+
+The checks run on your machine and use no LLM. The agent explains and proposes; ArchKeel measures.
+
+## Why ArchKeel?
+
+An agent can change a hundred files in an hour. Tests tell you the behavior still works. They do
+not tell you that the `render` package now imports the `store`, or that a call became harder to
+resolve. Asking the agent "is the architecture still fine?" gets you an opinion.
+
+ArchKeel gives you a measurement instead:
+
+- **For builders:** see the code you did not write, as a map you can click through.
+- **For teams:** declare the boundaries once; CI rejects the change that crosses them.
+- **For working with agents:** the agent reads the same facts you do. Its text stays a claim until
+  the code proves it. Missing evidence is `UNKNOWN`, never a quiet `PASS`.
+
+## ArchKeel, Floorplan or Understand Anything?
+
+All three turn code into something you can see. They answer different questions.
+
+| | **ArchKeel** | **[Floorplan](https://github.com/haydenschmitty/floorplan)** | **[Understand Anything](https://github.com/Egonex-AI/Understand-Anything)** |
+|---|---|---|---|
+| **Question** | Does the code still match the architecture we decided? | How does the app I built work, and what should I worry about? | How does this large codebase work, down to the functions? |
+| **How the map is made** | Static analysis of Python, TypeScript and Dart; no LLM | Scripts scan the code; the AI names and explains the parts | A multi-agent LLM pipeline builds a knowledge graph |
+| **Verdicts** | `PASS`, `FAIL`, `UNKNOWN` per rule, with source locations | A health check for common mistakes | Summaries, layers, guided tours |
+| **Only here** | Declared contract, Target and Diff views, a baseline for known violations, a CI gate | Recent work, blueprints from a PRD | Diff impact, persona-adaptive dashboard |
+| **Runs in** | Claude Code, Codex, any shell, CI | Claude Code, Codex | Claude Code, Codex and more |
+
+Pick **ArchKeel** to keep an architecture honest. Pick **Floorplan** or **Understand Anything** to
+learn a codebase quickly. They combine well: learn first, then declare what you want to keep.
+
+## Features
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**🗺️ Studio, a local web app**<br>
+`archkeel studio` serves the map on `127.0.0.1` with a token for each run. It writes nothing
+into your repository and works offline.
+
+</td>
+<td width="50%" valign="top">
+
+**🔎 Evidence on every edge**<br>
+Every import count comes from the code. Each import keeps its evidence record and source line.
+No model estimates a number.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**🧭 A tour from measured facts**<br>
+A tour walks the code in order ("start here, then here"). The author writes the title and note of a stop. The
+numbers beside it are measured and shown apart.
+
+</td>
+<td valign="top">
+
+**🎯 As-Is, Target and Diff**<br>
+Compare the observed code with the declared architecture. Cycles, violations and hubs stay visible.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**🚦 PASS, FAIL, UNKNOWN**<br>
+A rule passes only with complete evidence. A gap in the analysis shows as `UNKNOWN`.
+
+</td>
+<td valign="top">
+
+**🤖 Made for coding agents**<br>
+A skill for Claude Code and Codex, focused JSON reports, and a check that compares a submitted
+change with its published expectation.
+
+</td>
+</tr>
+</table>
+
+## Install
+
+ArchKeel needs Python 3.11+ and a Git repository with at least one commit.
+
+```bash
+uv tool install git+https://github.com/rapiddweller/archkeel
+archkeel --version
+```
+
+This installs the current `main`, which includes Studio. The release on PyPI (`uv tool install archkeel`)
+does not have `archkeel studio` yet. Run it once without installing: `uvx --from git+https://github.com/rapiddweller/archkeel archkeel studio`.
+
+### Claude Code
+
+```bash
+claude plugin marketplace add rapiddweller/archkeel
+claude plugin install archkeel@archkeel
+```
+
+### Codex
+
+```bash
+codex plugin marketplace add rapiddweller/archkeel
+codex plugin add archkeel@archkeel
+```
+
+No plugin? `archkeel skill install claude` (or `codex`) writes the same instructions into your repository.
+The plugin needs the CLI above; it adds the agent skill.
+
+## Quick start
+
+1. See the code as it is. No contract needed:
+
+   ```bash
+   archkeel studio          # opens the map in your browser
+   archkeel explore         # the same observation as files, no browser
+   ```
+
+2. Ask your coding agent to draft the boundaries:
+
+   ```text
+   Set up ArchKeel for this repository. Read the architecture documents,
+   propose the boundaries, and let me decide which dependencies are allowed.
+   ```
+
+   `init` drafts components and interfaces; you decide the target architecture. Existing imports
+   are evidence, not permission. You can delegate decisions to the agent; its authorship is recorded separately.
+
+3. Keep it green:
+
+   ```bash
+   archkeel validate        # check the contract
+   archkeel report          # write architecture.json and the offline HTML report
+   ```
+
+Start with the [first-hour guide](docs/getting-started.md) or the [onboarding guide](docs/onboarding.md).
+Read the verdicts: a report can exit `0` with failed or undecided rules. `validate` checks the
+contract; `check` also compares a submitted change with its published expectation. Use
+`archkeel <command> --help` for command options. Validation diagnoses absent or placeholder-only
+responsibilities on components marked `decided_by: "architect"`; substantive prose is not proof that
+the stated responsibility is correct. See the [exact marker syntax and exit behavior](docs/reference.md#exit-codes).
+
+## See it in action
 
 <p>
   <img src="docs/assets/archkeel-compass-target.png" alt="ArchQ Explorer embedded in the report: Compass Flutter Target with components, responsibilities and declared dependencies" width="1000">
 </p>
 
-ArchQ Explorer in the report: Compass Flutter's declared architecture.
-[Explore this Target](https://rapiddweller.github.io/archkeel/demos/uml-compass-project/architecture.report.html?content=components&view=target&theme=dark).
+The static report is still the artifact for CI and Pages: one offline file, the same Explorer.
+[Explore Compass Flutter's declared architecture](https://rapiddweller.github.io/archkeel/demos/uml-compass-project/architecture.report.html?content=components&view=target&theme=dark),
+see [ArchKeel's current Main report](https://rapiddweller.github.io/archkeel/), or browse the
+[Python, Dart and TypeScript demo reports](https://rapiddweller.github.io/archkeel/demos/) with UML PASS, FAIL and UNKNOWN examples.
 
-Explore observed code, declared architecture and their differences in one offline report.
-See [ArchKeel's current Main report](https://rapiddweller.github.io/archkeel/), updated by CI.
-Browse the [Python, Dart and TypeScript demo reports](https://rapiddweller.github.io/archkeel/demos/),
-including UML PASS, FAIL and UNKNOWN examples.
-
-The gallery leads with three complete source projects: [Compass booking](https://github.com/flutter/samples/tree/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c) (111 Dart files), [Python RealWorld](https://github.com/nsidnev/fastapi-realworld-example-app/tree/029eb7781c60d5f563ee8990a0cbfb79b244538c) (72 Python modules), and [Nest RealWorld](https://github.com/mikro-orm/nestjs-realworld-example-app/tree/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9) (41 prepared TypeScript inputs). Each links its authored Target, baseline and three source-only variants. Coverage, rule findings and UML results remain separate; the smaller runnable Flutter shop stays a control.
-
-## Start here
-
-Start with the [first-hour guide](docs/getting-started.md): install, `init`,
-read the overview, read the first verdict, then choose how to keep it green.
-
-Requires Python 3.11+ and a Git repository with at least one commit.
-Run ArchKeel with a Python version that meets your project's requirements.
-
-```bash
-uv tool install archkeel
-archkeel skill install codex    # or claude
-```
-
-Then ask your coding agent:
-
-```text
-Set up ArchKeel for this repository. Read the architecture documents,
-propose the boundaries, and let me decide which dependencies are allowed.
-```
-
-The skill guides the setup. `init` drafts components and interfaces;
-you decide the target architecture. Existing imports are evidence, not permission.
-You can delegate decisions to the agent, but its authorship is recorded separately.
-See the [onboarding guide](docs/onboarding.md) for setup and plugin installation.
-
-For an existing setup:
-
-```bash
-archkeel report      # inspect code and evidence
-archkeel validate    # check the contract
-```
-
-`report` writes `architecture.json` and an offline `architecture.report.html`.
-Read the verdicts: a report can exit `0` with failed or undecided rules.
-`validate` checks the contract; `check` also compares a submitted change with its
-published expectation. Use `archkeel <command> --help` for command options.
-Validation diagnoses absent or placeholder-only responsibilities on components explicitly marked
-`decided_by: "architect"`; substantive prose is not proof that the stated responsibility is correct.
-See the [exact marker syntax and exit behavior](docs/reference.md#exit-codes).
+The gallery leads with three complete source projects: [Compass booking](https://github.com/flutter/samples/tree/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c) (111 Dart files), [Python RealWorld](https://github.com/nsidnev/fastapi-realworld-example-app/tree/029eb7781c60d5f563ee8990a0cbfb79b244538c) (72 Python modules), and [Nest RealWorld](https://github.com/mikro-orm/nestjs-realworld-example-app/tree/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9) (41 prepared TypeScript inputs). Each links its authored Target, baseline and three source-only variants. Coverage, rule findings and UML results remain separate.
 
 ## Review the evidence
 
@@ -177,6 +289,20 @@ make demo-onboarding
 `make demo` rejects a coverage regression and a late expectation, then shows a passing candidate.
 `make demo-onboarding` replays setup on a two-level shop using committed decision fixtures;
 it performs no live approvals. More cases are in the [demo catalog](docs/architecture-demo.md).
+
+## FAQ
+
+**Does ArchKeel use an LLM to check my code?** No. Checks are deterministic static analysis and run
+locally. The agent in your harness explains and proposes; its text is a claim, never a proof.
+
+**Does Studio change my repository?** No. It runs `explore` into a private cache folder and deletes
+the folder when it stops. Only `init` writes a contract, and only when you ask for it.
+
+**Does a clean graph mean a good design?** No. `PASS` means the required rules have complete evidence
+and no decided violation. It does not prove runtime behavior or the quality of a design decision.
+
+**Which languages?** Python, TypeScript and Dart. Ambiguous bindings and unsupported constructs stay `UNKNOWN`.
+
 
 ## Scope and limits
 
