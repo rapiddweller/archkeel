@@ -19,10 +19,10 @@ spec. `archkeel view check` checks each reference in it against one saved `archi
    | `unknown` | The snapshot cannot decide: a coverage gap, a dynamic dependency, an unsupported node or kind. |
    | `missing` | Not in the snapshot, and the source coverage and the coverage of that kind are complete. |
 4. Only a resolved relationship to a defined entity proves an edge. A step pair is proven only
-   by one direct edge of its kind; without one the step is `unknown`, and the author adds the
-   nodes between as steps. This is static structure, not runtime order: an import is not a
-   call. The Explorer must show that sentence with each proven step. No `kind` tries
-   `imports`, then `calls`, never a mix.
+   by one direct edge of its kind; without one the step is `missing` (`unknown` under a coverage
+   gap), and the author adds the nodes between as steps. This is static structure, not runtime
+   order: an import is not a call. The Explorer must show that sentence with each proven step.
+   No `kind` tries `imports`, then `calls`, never a mix.
 5. `snapshot` names the `source_digest` and `contract_digest` the view describes. When they
    differ from the snapshot, the check does not run: each reference is `unknown`, exit 2.
    The Explorer matches a spec to its embedded report by the same two digests. A snapshot

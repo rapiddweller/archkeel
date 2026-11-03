@@ -16,7 +16,7 @@ from archkeel.cli import main
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_observation
-from archkeel.ir.model import Observation, Section
+from archkeel.ir.model import Observation, Section, Verdict
 from archkeel.ir.view_spec import (
     ViewStatus,
     check_view,
@@ -182,7 +182,7 @@ def test_a_step_is_proven_only_by_one_direct_edge(shop: Observation) -> None:
     steps = [{"node": nodes[0]}, {"node": nodes[2], "kind": "imports"}]
     far = _check(shop, nodes=nodes, steps=steps).steps[1]
     # cli.main reaches repository only through app.orders and shop.store: a path is no step.
-    assert far.status is ViewStatus.UNKNOWN and "no direct imports edge" in far.reason
+    assert far.status is ViewStatus.MISSING and "no direct imports edge" in far.reason
     assert far.evidence == () and far.path == ()
     steps = [{"node": nodes[0]}, {"node": nodes[1], "kind": "imports"}]
     near = _check(shop, nodes=nodes, steps=steps).steps[1]
@@ -401,6 +401,8 @@ def test_an_unsupported_or_unscanned_id_is_unknown_not_missing(shop: Observation
     result = _check(shop, nodes=nodes)
     assert [node.status for node in result.nodes] == [ViewStatus.UNKNOWN] * 3 + [ViewStatus.MISSING]
     assert "symbol" in result.nodes[0].reason
+    package = _check(shop, nodes=["shop.render"]).nodes[0]
+    assert package.status is ViewStatus.UNKNOWN and package.reason.startswith("a package")
     assert all("shop/**/*.py" in node.reason for node in result.nodes[1:])
 
 
@@ -425,3 +427,19 @@ def test_a_snapshot_error_names_the_snapshot_and_no_report_panel(
     assert main(["view", "check", str(spec), "--snapshot", str(missing)]) == 2
     shown = capsys.readouterr()
     assert "Scan complete" not in shown.out + shown.err and "view spec" in shown.out + shown.err
+    assert str(spec) in shown.out
+
+
+def test_an_invented_step_is_missing_unless_the_snapshot_has_a_gap(
+    shop: Observation, changed: Observation
+) -> None:
+    nodes = ["shop.store.codec", "shop.render.text"]
+    steps = [{"node": nodes[0]}, {"node": nodes[1], "kind": "imports"}]
+    invented = _check(shop, nodes=nodes, steps=steps)
+    assert invented.steps[1].status is ViewStatus.MISSING and invented.exit_code == 1
+    incomplete = replace(shop, coverage=replace(shop.coverage, status=Verdict.FAIL))
+    assert _check(incomplete, nodes=nodes, steps=steps).steps[1].status is ViewStatus.UNKNOWN
+    loader = ["shop.render.loader", "shop.render.text"]
+    dynamic = [{"node": loader[0]}, {"node": loader[1], "kind": "imports"}]
+    gap = _check(changed, nodes=loader, steps=dynamic).steps[1]
+    assert gap.status is ViewStatus.UNKNOWN and "dynamic" in gap.reason

@@ -185,8 +185,9 @@ The result gives each node, edge and step one status: `proven` (observed, with r
 evidence ids and source lines), `declared` (a component or a `requires` entry of the contract),
 `claim` (author text, not checked), `unknown` (the snapshot cannot decide) or `missing`. A
 step is proven only by one direct edge of its kind: structure, not runtime order. Without a
-direct edge the step is `unknown`; add the nodes between as steps. A spec with another snapshot
-identity is not checked. The check runs the same snapshot validation as `report --input`.
+direct edge the step is `missing`, or `unknown` under a coverage gap; add the nodes between
+as steps. A spec with another snapshot identity is not checked. The check runs the same
+snapshot validation as `report --input`.
 
 Exit 2 prints one of two JSON documents:
 - The spec names another snapshot: the check result, with `snapshot_current: false` and each

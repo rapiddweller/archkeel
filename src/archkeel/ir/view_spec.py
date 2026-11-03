@@ -272,6 +272,7 @@ class _Layer:
 @dataclass(frozen=True, slots=True)
 class _Graph:
     modules: Mapping[str, Entity]
+    packages: frozenset[str]
     names: frozenset[str]
     roots: tuple[str, ...]
     components: Mapping[str, Record]
@@ -422,6 +423,9 @@ def _view_graph(observation: Observation) -> _Graph:
     return _Graph(
         modules,
         frozenset(
+            entity.qualified_name for entity in graph.entities if entity.kind == EntityKind.PACKAGE
+        ),
+        frozenset(
             entity.qualified_name
             for entity in graph.entities
             if entity.presence == PresenceKind.DEFINED
@@ -465,6 +469,9 @@ def _node(graph: _Graph, node: str) -> NodeCheck:
         )
     if node in graph.inside:
         return NodeCheck(node, ViewStatus.UNKNOWN, "an inside component is not a view node yet")
+    if node in graph.packages:
+        reason = "a package: name a module or a component"
+        return NodeCheck(node, ViewStatus.UNKNOWN, reason)
     if node in graph.names:
         reason = "a symbol of the snapshot, not a view node: name its module or component"
         return NodeCheck(node, ViewStatus.UNKNOWN, reason)
@@ -519,7 +526,7 @@ def _one_kind(
         return LinkCheck(source, target, ViewStatus.UNKNOWN, reason, kind)
     if step:
         reason = f"no direct {kind} edge: a step needs one; add the nodes between as steps"
-        return LinkCheck(source, target, ViewStatus.UNKNOWN, reason, kind)
+        return LinkCheck(source, target, ViewStatus.MISSING, reason, kind)
     reverse = any((other, key) in layer.edges for other in targets for key in sources)
     reason = (
         f"only the reverse {kind} direction {target} -> {source} is observed"

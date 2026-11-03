@@ -177,10 +177,11 @@ newer. The nightly job checks 3.12, 3.13 and 3.14 (#724, #743).
   records only `p.sub`, so an absent import of `p` is `unknown`. Symbols, inside components,
   paths and names outside the scanned roots are not view nodes: they are `unknown`. A claim
   is author text, also when the graph has the same edge. A `TYPE_CHECKING` import stays a
-  proven import with the reason "type-only import: not executed at runtime". The saved snapshot is not authenticated: the check rejects a record with missing
-  evidence, but a forged record with consistent evidence passes (#796). A snapshot from
-  `archkeel explore` marks its layout contract without a typed marker yet: its `declared` and
-  `requires` statuses are not reliable
+  proven import with the reason "type-only import: not executed at runtime". The saved
+  snapshot is not authenticated: the check rejects a record with missing evidence, but a
+  forged record with consistent evidence passes (#796). A snapshot from `archkeel explore`
+  marks its layout contract without a typed marker yet: its `declared` and `requires`
+  statuses are not reliable
   ([AD-284](architecture/decisions/ad-284-studio-shows-views-as-checked-data.md)).
 
 ## TypeScript profile

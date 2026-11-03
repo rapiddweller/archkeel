@@ -881,7 +881,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if interactive and command is Command.VIEW:
         # A view check that did not run has no scan or rule verdicts to show.
         for item in result.diagnostics:
-            print(f"archkeel view check did not run: {item.unknown_claim}\n{item.remedy}")
+            print(f"archkeel view check did not run on {item.subject}: {item.unknown_claim}")
+            print(item.remedy)
         return result.exit_code
     if interactive:
         summary = (
