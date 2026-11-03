@@ -1,9 +1,9 @@
 {
-  "after_baseline_digest": "25c79191599747e11dcfc5a6ff3d89a2fb3f72bbd4ae9e3adc6eab2dd9c36335",
+  "after_baseline_digest": "6dd20476584e928e634b6ba0a105e3c63fa70c239d5497daea3768c1d3f522d4",
   "after_digest": "58385cd460b2fa7d96e0fef1ac3a86d21a7e4e2e04d35547c8a6f2c3a2857fa4",
   "before_baseline_digest": "a25f9a568e20676f77a9e5baaf1595f460a184e95bfe8e9c92bc93f5f04cab1a",
   "before_digest": "ac3006f47a925e0df8297dc1896cc6eaf7603a3100c326a3862919c0e35bda22",
   "decided_by": "Alexander Kell (architect), AD-290; delegated to the manager 2026-11-03",
-  "rationale": "AD-290 adds the archkeel.studio package with its api, workspace and server components, the cli requirement on studio, archkeel.studio in ROOT-LAYOUT and archkeel.studio.api as an enum owner in TYPES-ENUM-IN-MODEL. validate --against origin/main measures calls_unresolved 830 before and 845 after, net +15: 17 new unresolved calls in archkeel.studio (stdlib receivers: the inherited ThreadingHTTPServer and BaseHTTPRequestHandler methods, Popen, cookie and query parsing, bytes and str methods), 5 in the cli wiring of studio (_contract_state, studio_workspace and the studio parser), and 7 calls in archkeel.analyzer that leave the unresolved list (start and close receivers in dart.parse, dart.resolve, process and typescript.config).",
+  "rationale": "AD-290 adds the archkeel.studio package with its api, workspace and server components, the cli requirement on studio, archkeel.studio in ROOT-LAYOUT and archkeel.studio.api as an enum owner in TYPES-ENUM-IN-MODEL. validate --against origin/main measures calls_unresolved 830 before and 844 after, net +14: 17 new unresolved calls in archkeel.studio (stdlib receivers: the inherited ThreadingHTTPServer and BaseHTTPRequestHandler methods, Popen, cookie and query parsing, bytes and str methods), 4 in the cli wiring of studio (_contract_state, studio_workspace and the studio parser), and 7 calls in archkeel.analyzer that leave the unresolved list (start and close receivers in dart.parse, dart.resolve, process and typescript.config).",
   "schema_version": "2.0.0"
 }
