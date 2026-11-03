@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 import pytest
 from test_cli_view import TOUR, _snapshot
-from test_report_checked_flow import _URL, _close, _open, _route
+from test_report_checked_flow import _SIZES, _URL, _close, _open, _route, _top_bars
 from test_uml_rendering import _wait_for_layout
 
 from archkeel.cli import main
@@ -185,21 +185,6 @@ def test_the_stop_is_centred_and_the_panel_reads_unclipped(pages, size):
             and nav["x"] >= box["x"]
             and nav["x"] + nav["width"] <= box["x"] + box["width"] + 1
         )
-        # The Tour button widens the view bar: no top bar may cover another one.
-        bars = [
-            page.locator(name).bounding_box()
-            for name in (".ak-top-left", ".ak-top-center", ".ak-top-right")
-        ]
-        assert all(bars)
-        for index, first in enumerate(bars):
-            for second in bars[index + 1 :]:
-                apart_x = first["x"] + first["width"] <= second["x"] or (
-                    second["x"] + second["width"] <= first["x"]
-                )
-                apart_y = first["y"] + first["height"] <= second["y"] or (
-                    second["y"] + second["height"] <= first["y"]
-                )
-                assert apart_x or apart_y
     finally:
         _close(playwright, browser)
 
@@ -216,35 +201,45 @@ def test_the_tour_works_offline(pages):
         _close(playwright, browser)
 
 
-_BARS = (".ak-top-left", ".ak-top-center", ".ak-top-right")
+@pytest.mark.browser
+@pytest.mark.parametrize("query", ["", "?view=diagram"], ids=["tour", "as-is"])
+@pytest.mark.parametrize("size", _SIZES, ids=lambda size: f"{size[0]}x{size[1]}")
+def test_the_top_bars_stay_apart_and_each_control_is_reachable(pages, size, query):
+    playwright, browser, page = _open(pages, query, width=size[0], height=size[1])
+    try:
+        assert _top_bars(page) == [[], []]
+        page.get_by_role("button", name="Tour", exact=True).click()
+        page.get_by_role("button", name="Next stop").click()
+        assert _counter(page).startswith("Stop 2 of 5")
+    finally:
+        _close(playwright, browser)
 
 
 @pytest.mark.browser
-def test_on_a_phone_the_top_bars_stay_apart_and_each_control_is_reachable(pages):
-    """The two-row rule for the Tour button must not override the phone layout."""
-    playwright, browser, page = _open(pages, width=390, height=844)
+def test_an_import_site_is_one_source_line_not_one_record(pages):
+    """`from x import a, b, c` gives three records on one line: that is one site."""
+    playwright, browser, page = _open(pages, "?tour=2")
     try:
-        boxes = [page.locator(name).bounding_box() for name in _BARS]
-        assert all(boxes)
-        for index, first in enumerate(boxes):
-            for second in boxes[index + 1 :]:
-                assert (
-                    first["y"] + first["height"] <= second["y"]
-                    or second["y"] + second["height"] <= first["y"]
-                    or first["x"] + first["width"] <= second["x"]
-                    or second["x"] + second["width"] <= first["x"]
-                )
-        covered = page.evaluate(
-            """() => [...document.querySelectorAll('.ak-top-center button, .ak-top-right button')]
-            .filter((button) => button.offsetParent)
-            .filter((button) => {
-              const r = button.getBoundingClientRect();
-              const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
-              return !button.contains(hit);
-            }).map((button) => button.getAttribute('aria-label') || button.textContent.trim())"""
+        evidence = page.evaluate(
+            """() => JSON.parse(document.getElementById('view-check-data').textContent)
+            .stops[1].facts.imports_out.evidence"""
         )
-        assert covered == []
-        page.get_by_role("button", name="Next stop").click()
-        assert _counter(page) == "Stop 2 of 5"
+        sites = {(site["file"], site["line"]) for site in evidence}
+        assert len({site["evidence_id"] for site in evidence}) == len(sites) < len(evidence)
+        summary = _panel(page).locator(".tour-sites summary").first.inner_text()
+        assert summary == f"{len(sites)} import sites"
+        assert "none recorded" not in _panel(page).inner_text()
+    finally:
+        _close(playwright, browser)
+
+
+@pytest.mark.browser
+def test_the_tour_button_resumes_at_the_stop_it_left(pages):
+    playwright, browser, page = _open(pages, "?tour=3")
+    try:
+        page.keyboard.press("Escape")
+        assert page.locator(".flow[data-tour='true']").count() == 0
+        page.get_by_role("button", name="Tour", exact=True).click()
+        assert _counter(page) == "Stop 3 of 5"
     finally:
         _close(playwright, browser)

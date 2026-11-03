@@ -466,9 +466,13 @@ def _observed_layers(
 
 
 def _touched(
-    observation: Observation, graph: ArchitectureGraph, section: str
-) -> dict[str, tuple[Record, ...]]:
-    """Map each module to the records of a section that name it or a symbol in it."""
+    observation: Observation, graph: ArchitectureGraph
+) -> dict[str, dict[str, tuple[Record, ...]]]:
+    """For violations and unknowns: map each module to the records that name it or a symbol in it.
+
+    A fact id of an import or call record touches both its modules: a forbidden import also
+    touches its target, a re-export included.
+    """
     entities = {entity.id: entity for entity in graph.entities}
     module_of = _module_names(entities)
     names = {
@@ -476,15 +480,27 @@ def _touched(
         for entity in graph.entities
         if entity.presence == PresenceKind.DEFINED and entity.id in module_of
     }
-    touched: dict[str, list[Record]] = {}
-    for record in observation.records(section) or ():
-        modules = {
-            names.get(reference) or module_of.get(reference)
-            for reference in (*record.subjects, *record.fact_ids)
+    ends = {
+        item.id: {
+            value
+            for key in ("source_module", "target_module")
+            if isinstance(value := item.data.get(key), str)
         }
-        for module in sorted(name for name in modules if name is not None):
-            touched.setdefault(module, []).append(record)
-    return {module: tuple(records) for module, records in touched.items()}
+        for kind in ("imports", "calls")
+        for item in observation.records(kind) or ()
+    }
+    result: dict[str, dict[str, tuple[Record, ...]]] = {}
+    for section in ("violations", "unknowns"):
+        touched: dict[str, list[Record]] = {}
+        for record in observation.records(section) or ():
+            modules: set[str] = set()
+            for reference in (*record.subjects, *record.fact_ids):
+                found = names.get(reference) or module_of.get(reference)
+                modules |= {found} if found is not None else ends.get(reference, set())
+            for module in sorted(modules):
+                touched.setdefault(module, []).append(record)
+        result[section] = {module: tuple(records) for module, records in touched.items()}
+    return result
 
 
 def _requires(components: Mapping[str, Record]) -> _Layer:
@@ -519,6 +535,7 @@ def _view_graph(observation: Observation) -> _Graph:
     owned = {name: owner_of(name, owners) for name in sorted(modules)}
     layers = _observed_layers(observation, graph)
     layers[RelationshipKind.REQUIRES] = _requires(components)
+    touched = _touched(observation, graph)
     return _Graph(
         modules,
         frozenset(
@@ -539,8 +556,8 @@ def _view_graph(observation: Observation) -> _Graph:
         layers,
         observation.coverage.status == Verdict.PASS and not observation.coverage.failures,
         declares_a_target(observation),
-        _touched(observation, graph, "violations"),
-        _touched(observation, graph, "unknowns"),
+        touched["violations"],
+        touched["unknowns"],
     )
 
 
@@ -820,6 +837,9 @@ def view_summary(check: ViewCheck) -> str:
         found = ", ".join(f"{counts[status]} {status}" for status in ViewStatus if counts[status])
         lines.append(f"{label}: {found or 'none'}")
     lines.append(check.limits[0])
+    if check.stops:
+        measured = sum(stop.facts is not None for stop in check.stops)
+        lines.append(f"Stops: {len(check.stops)}, {measured} with measured facts")
     for node in check.nodes:
         if node.status in {ViewStatus.MISSING, ViewStatus.UNKNOWN}:
             lines.append(f"{node.status}: node {node.id}: {node.reason}")

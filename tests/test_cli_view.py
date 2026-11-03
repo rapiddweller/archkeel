@@ -537,13 +537,17 @@ def test_a_stop_lists_the_violations_that_touch_its_module(tmp_path: Path) -> No
     _, packet = run_report(root, config=load_config(root), analyzer=observe)
     assert packet is not None
     observation = _observation(packet)
-    nodes = ["shop.render.text", "shop.cli.main"]
-    text, cli = _tour(observation, [{"node": node} for node in nodes], nodes).stops
-    assert text.facts is not None and cli.facts is not None
-    assert [(item.kind, item.record_id[:4]) for item in text.facts.violations] == [
-        ("forbidden_dependency", "VIO-")
-    ]
-    assert cli.facts.violations == ()
+    nodes = ["shop.render.text", "shop.store", "COMP-STORE", "shop.cli.main"]
+    result = _tour(observation, [{"node": node} for node in nodes], nodes)
+    *touched, cli = result.stops
+    # The importing module and the import target: the fact id is the import record.
+    for stop in touched:
+        assert stop.facts is not None
+        assert [(item.kind, item.record_id[:4]) for item in stop.facts.violations] == [
+            ("forbidden_dependency", "VIO-")
+        ]
+    assert cli.facts is not None and cli.facts.violations == ()
+    assert "Stops: 4, 4 with measured facts" in view_summary(result)
 
 
 def test_a_stale_snapshot_gives_a_stop_no_facts(shop: Observation) -> None:

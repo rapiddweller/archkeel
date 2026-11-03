@@ -18,7 +18,7 @@ export let flow;
   const VIEW = ATLAS && viewNode ? JSON.parse(viewNode.textContent) : null;
   // AD-289: a tour is a state of the checked flow; `tourIndex` is the open stop, else null.
   const STOPS = VIEW ? VIEW.stops : [];
-  let flowMode = false, flowSelection = null, tourIndex = null;
+  let flowMode = false, flowSelection = null, tourIndex = null, resumeStop = 0;
   const NAV = DATA.navigation || null;
   const SIDECAR = Boolean(NAV?.module_ids);
   let routeReady = false, returnScope = null, returnView = "diagram", returnSelection = null, returnCell = null, returnContent = null, routeNotice = null;
@@ -143,7 +143,7 @@ export let flow;
     tourButton.textContent = "Tour";
     tourButton.dataset.flowTour = "";
     checkedButton.after(tourButton);
-    tourButton.addEventListener("click", () => openStop(tourIndex ?? 0));
+    tourButton.addEventListener("click", () => openStop(resumeStop));
   }
   const alternative = root.querySelector(".flow-alternative");
   const openSelectedButton = root.querySelector(".flow-open-selected");
@@ -3107,11 +3107,11 @@ export let flow;
   function tourImports(label, imports) {
     const count = `${imports.gap ? "at least " : ""}${plural(imports.pairs, "module pair")}`;
     return `<dt>${label}</dt><dd>${esc(count)}${imports.gap ? `<p class="tour-gap">? ${esc(imports.gap)}</p>` : ""}</dd>
-      ${imports.evidence.length ? `<dd class="tour-sites"><details${imports.evidence.length <= 5 ? " open" : ""}><summary>${esc(plural(imports.evidence.length, "import site"))}</summary>${flowEvidence(imports)}</details></dd>` : ""}`;
+      ${imports.evidence.length ? `<dd class="tour-sites"><details${imports.evidence.length <= 5 ? " open" : ""}><summary>${esc(plural(new Set(imports.evidence.map((site) => site.evidence_id ?? site.record_id)).size, "import site"))}</summary>${flowEvidence(imports)}</details></dd>` : ""}`;
   }
   function tourFindings(label, findings) {
     return `<dt>${label}</dt><dd>${findings.length ? `<ul class="plain tour-findings">${findings.map((item) =>
-      `<li><code>${esc(item.record_id)}</code> · ${esc(item.kind)}<br>${esc(item.title)}</li>`).join("")}</ul>` : "none recorded"}</dd>`;
+      `<li><code>${esc(item.record_id)}</code> · ${esc(item.kind)}<br>${esc(item.title)}</li>`).join("")}</ul>` : "none found"}</dd>`;
   }
   function tourInspector() {
     const stop = STOPS[tourIndex];
@@ -3175,6 +3175,8 @@ export let flow;
     const choice = root.querySelector(".atlas-content-choice");
     if (choice) choice.hidden = true;
     const touring = tourIndex !== null;
+    // The Tour button opens the stop the reader left last.
+    if (touring) resumeStop = tourIndex;
     if (touring) root.dataset.tour = "true"; else delete root.dataset.tour;
     flowHeading.textContent = `${touring ? "Tour" : "Checked flow"} · ${VIEW.title}`;
     breadcrumb.textContent = touring ? "Tour" : "Checked flow";
