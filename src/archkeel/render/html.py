@@ -785,6 +785,13 @@ def _atlas_rule_counts(result: RunResult) -> str:
     )
 
 
+def _root_line(result: RunResult) -> str:
+    # Only explore sets root_digest: it names the root without the absolute path.
+    if result.root_digest is None:
+        return ""
+    return f"<p>Root {_text(result.root_name)} · <code>{_text(result.root_digest)}</code></p>"
+
+
 def _no_target_status(result: RunResult) -> str:
     """AD-285: with nothing declared, no rule passes, so the observation is not called PASS."""
     observed = "complete" if result.observation_complete == "PASS" else "incomplete"
@@ -1068,12 +1075,6 @@ def _atlas_content(
         else f"Whole-run rules: {_text(result.declared_rules)}"
         f" · Source observation: {_text(result.observation_complete)}"
     )
-    # Only explore sets root_digest: it names the root without the absolute path.
-    root_line = (
-        f"<p>Root {_text(result.root_name)} · <code>{_text(result.root_digest)}</code></p>"
-        if result.root_digest is not None
-        else ""
-    )
     status_header = (
         f'<p class="atlas-detail-status">{rules}'
         f" · Symbol inventory: {_text(inventory_status)}"
@@ -1106,7 +1107,7 @@ def _atlas_content(
       · Source digest <code>{_text(observation.source.source_digest)}</code>
       · Dirty {_text(observation.source.dirty)}.</p>
       <p>Scope: {_text(", ".join(observation.source.scope))}</p>
-      {root_line}
+      {_root_line(result)}
       <p>Contract <code>{_text(observation.contract.path)}</code>
       · {_text(observation.contract.digest)}</p>
       <p><a href="{_text(architecture_href)}">Complete architecture JSON and recorded evidence
