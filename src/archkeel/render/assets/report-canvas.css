@@ -340,3 +340,14 @@ html.ak-canvas .ak-bar details.flow-legend-panel[open] .flow-legend {
   }
   html.ak-canvas .ak-detail .ak-bottom-left { bottom: 12px; max-width: calc(100% - 180px); }
 }
+/* AD-287: the checked flow keeps its summary and the "not runtime order" sentence in view. */
+html.ak-canvas .flow[data-view="checked"] .flow-map-column { display: flex; flex-direction: column; }
+html.ak-canvas .flow[data-view="checked"] .flow-map-column > .ak-scene-summary {
+  display: block; flex: none; margin: 4px 12px 4px 4px; padding: 4px 10px;
+  font-size: 12px; line-height: 16px;
+  background: var(--ak-panel); border: 1px solid var(--ak-line); border-radius: 8px;
+}
+html.ak-canvas .flow[data-view="checked"] .flow-canvas { flex: 1 1 0; height: auto; }
+/* One fact, one word: beside the flow the observation says "complete" in Details, never PASS. */
+html.ak-canvas .flow[data-view="checked"] .ak-run-status,
+html.ak-canvas:has(.flow[data-view="checked"]) .verdict-line { display: none; }

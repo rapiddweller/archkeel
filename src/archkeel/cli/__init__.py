@@ -36,7 +36,13 @@ from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
 from ..ir.codec import decode_json
 from ..ir.phases import Phase, PhaseClock, WorkCounter, measured
-from ..ir.view_spec import check_view, parse_view_spec, view_check_json, view_summary
+from ..ir.view_spec import (
+    ViewCheck,
+    check_view,
+    parse_view_spec,
+    view_check_json,
+    view_summary,
+)
 from ..render.html import render_architecture_pages, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
@@ -66,7 +72,8 @@ from .observe import observer_for
 from .skill import InstallationAgent, install_skill
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
-_SNAPSHOT_PATH: Final = Path("test-artifacts/architecture/architecture.json")
+_ARCHITECTURE_JSON: Final = "architecture.json"
+_SNAPSHOT_PATH: Final = Path("test-artifacts/architecture") / _ARCHITECTURE_JSON
 
 
 def _sha(value: str) -> str:
@@ -109,10 +116,10 @@ def _root_digest(root: Path) -> str:
     return hashlib.sha256(os.fsencode(root)).hexdigest()[:16]
 
 
-def _explore_folder(digest: str) -> Path:
-    """AD-285: one cache folder for each analyzed root, outside the repository."""
+def _cache_folder(command: Command, digest: str) -> Path:
+    """AD-285, AD-287: one cache folder for each command and digest, outside the repository."""
     cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
-    return cache / "archkeel" / "explore" / digest
+    return cache / "archkeel" / command.value / digest
 
 
 def _write_json(artifact: Path, architecture: bytes) -> None:
@@ -150,6 +157,43 @@ def _report_pages(artifact: Path) -> list[Path]:
         for previous in artifact.parent.glob(f"{artifact.stem}.*.html")
         if re.fullmatch(pages, previous.name)
     ]
+
+
+def _clear_report(artifact: Path) -> None:
+    """Remove the files a run writes, so a link in their place is never followed."""
+    for previous in (artifact, *_report_pages(artifact)):
+        previous.unlink(missing_ok=True)
+
+
+def _show_view(
+    view: ViewCheck, text: str, spec: bytes, snapshot_path: Path, output: Path | None
+) -> Path | None:
+    """AD-287: write the Explorer of the checked snapshot with the check result in it.
+
+    An incomplete scan still has its Explorer: its gaps show as unknown references. Without
+    an Explorer projection there is no page to draw, and the result is None.
+    """
+    snapshot = snapshot_path.read_bytes()
+    report = run_saved_report(snapshot_path)
+    if report.architecture_projection is None:
+        return None
+    # Each view of each snapshot gets its own folder, so no view overwrites another.
+    key = hashlib.sha256(
+        f"{view.snapshot.source_digest}:{view.snapshot.contract_digest}:".encode() + spec
+    ).hexdigest()[:16]
+    artifact = (output or _cache_folder(Command.VIEW, key)) / _ARCHITECTURE_JSON
+    _clear_report(artifact)
+    _write_json(artifact, snapshot)
+    pages = render_architecture_pages(
+        report,
+        snapshot,
+        # The snapshot names no repository; the page heading names the view.
+        repository=view.title,
+        architecture_href=artifact.name,
+        view_check=text,
+    )
+    _write_pages(artifact, pages, [])
+    return html_path(artifact, Command.REPORT)
 
 
 def _observing(parser: _Parser, output_help: str | None) -> None:
@@ -192,7 +236,7 @@ def build_parser() -> _Parser:
         # A source checkout on PYTHONPATH has no distribution metadata.
         installed = "from source without package metadata"
     parser.add_argument("--version", action="version", version=f"archkeel {installed}")
-    parser.set_defaults(command=None, json=False, config=CONFIG_PATH)
+    parser.set_defaults(command=None, json=False, config=CONFIG_PATH, show=False)
     commands = parser.add_subparsers(dest="command", title="commands", metavar="<command>")
     # The two commands that read a scan configuration from the working tree share one option.
     configured = _Parser(add_help=False)
@@ -607,7 +651,7 @@ def build_parser() -> _Parser:
 
     view = commands.add_parser(
         Command.VIEW.value,
-        help="Check a view spec against a saved architecture.json.",
+        help="Check a view spec against a saved architecture.json, or draw it in the Explorer.",
         formatter_class=RawDescriptionRichHelpFormatter,
         description=(
             "Checks each node, edge and step of a view spec against one saved snapshot. Each\n"
@@ -615,10 +659,14 @@ def build_parser() -> _Parser:
             "text, not checked), unknown (the snapshot cannot decide) or missing. A proven step\n"
             "is one direct edge of its kind: structure, not runtime order. The spec\n"
             "names the digests of the snapshot it was written for (AD-284).\n\n"
+            "show prints the same result and writes the Explorer report of the snapshot with\n"
+            "the checked view drawn in it, to --output or a cache folder (AD-287). It writes\n"
+            "nothing when the check did not run (exit 2). Stderr names the written page.\n\n"
             "Examples:\n"
             "  archkeel view check flow.json\n"
             "  archkeel view check flow.json --snapshot build/architecture.json --json\n"
-            "  archkeel view check flow.json --strict\n\n"
+            "  archkeel view check flow.json --strict\n"
+            "  archkeel view show flow.json --output build/flow\n\n"
             "Exit codes:\n"
             "  0  no reference is missing (with --strict: and none is unknown)\n"
             "  1  a reference is missing, or unknown with --strict\n"
@@ -626,9 +674,10 @@ def build_parser() -> _Parser:
             f"Reference: {_DOCS}/reference.md#checked-views"
         ),
     )
-    view.add_argument("view_action", metavar="action", choices=["check"], help="The only action.")
-    view.add_argument("spec", type=Path, help="View spec JSON (schema/view-spec.schema.json).")
-    view.add_argument(
+    # The checked options are shared; only show writes files, so only show takes --output.
+    viewed = _Parser(add_help=False)
+    viewed.add_argument("spec", type=Path, help="View spec JSON (schema/view-spec.schema.json).")
+    viewed.add_argument(
         "--snapshot",
         type=Path,
         default=_SNAPSHOT_PATH,
@@ -638,7 +687,19 @@ def build_parser() -> _Parser:
         ("--strict", "Also reject each unknown reference."),
         ("--json", "Print the JSON result even in an interactive terminal."),
     ):
-        view.add_argument(option, action="store_true", help=help_text)
+        viewed.add_argument(option, action="store_true", help=help_text)
+    actions = view.add_subparsers(dest="view_action", required=True, metavar="action")
+    actions.add_parser("check", parents=[viewed], help="Print the check result.")
+    show = actions.add_parser(
+        "show", parents=[viewed], help="Print the check result and draw it in the Explorer."
+    )
+    show.add_argument(
+        "--output",
+        type=Path,
+        help="Folder for the report pages and a copy of the snapshot. Default: "
+        "$XDG_CACHE_HOME/archkeel/view/<source digest>/.",
+    )
+    show.set_defaults(show=True)
 
     return parser
 
@@ -683,10 +744,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         if command is Command.VIEW:
             spec_path: Path = args.spec
             subject = str(spec_path)
-            spec = parse_view_spec(decode_json(spec_path.read_bytes()))
+            spec_bytes = spec_path.read_bytes()
+            spec = parse_view_spec(decode_json(spec_bytes))
             subject = str(args.snapshot)
             view = check_view(spec, read_saved_snapshot(args.snapshot), strict=args.strict)
-            sys.stdout.write(view_summary(view) + "\n" if interactive else view_check_json(view))
+            text = view_check_json(view)
+            # Exit 2: the check did not run, so there is no picture to write.
+            drawn = args.show and view.exit_code != 2
+            page = _show_view(view, text, spec_bytes, args.snapshot, args.output) if drawn else None
+            sys.stdout.write(view_summary(view) + "\n" if interactive else text)
+            if drawn and page is None:
+                sys.stderr.write("archkeel view show: not drawn: the snapshot has no Explorer\n")
+                return 2
+            if page is not None:
+                sys.stderr.write(f"archkeel view show: wrote {page}\n")
             return view.exit_code
         root = (args.root or Path.cwd()).resolve()
         subject = str(root / (args.config or CONFIG_PATH))
@@ -727,12 +798,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 # AD-285: a result names the root by its basename, never by its path.
                 subject = root.name
                 digest = _root_digest(root)
-                folder: Path = Path(args.output or _explore_folder(digest)).resolve()
+                folder: Path = Path(args.output or _cache_folder(Command.EXPLORE, digest)).resolve()
                 if folder.is_relative_to(root):
                     parser.error(
                         "--output is inside the analyzed repository; choose a folder outside it"
                     )
-                artifact: Path = folder / "architecture.json"
+                artifact: Path = folder / _ARCHITECTURE_JSON
                 result, architecture = run_explore(
                     root,
                     observer=observer_for(args.language, tsconfig=args.tsconfig or "tsconfig.json"),
@@ -743,8 +814,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 result = replace(result, root_name=root.name, root_digest=digest)
                 # The scope and HEAD passed: no earlier snapshot of ours may look current now.
-                for previous in (artifact, *_report_pages(artifact)):
-                    previous.unlink(missing_ok=True)
+                _clear_report(artifact)
                 if architecture is not None:
                     result = replace(result, artifact=str(artifact))
                     _write_json(artifact, architecture)
