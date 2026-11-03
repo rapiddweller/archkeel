@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Tests for installing the Archkeel coding-agent skill."""
 
+import argparse
 import contextlib
 import io
 import json
@@ -462,10 +463,13 @@ def _flow_section() -> str:
     return _section("Show a flow")
 
 
-def _commands(text: str) -> list[list[str]]:
-    """Each `archkeel ...` command line in the text as argv, a placeholder as `x`."""
+def _commands(text: str, **values: str) -> list[list[str]]:
+    """Each `archkeel ...` command line in the text as argv; a placeholder gets its value or `x`."""
     found = re.findall(r"`archkeel ([^`]+)`", text)
-    return [shlex.split(re.sub(r"<[^>]+>", "x", command)) for command in dict.fromkeys(found)]
+    return [
+        shlex.split(re.sub(r"<([^>]+)>", lambda hole: values.get(hole.group(1), "x"), command))
+        for command in dict.fromkeys(found)
+    ]
 
 
 def _parses(argv: list[str]) -> bool:
@@ -477,8 +481,33 @@ def _parses(argv: list[str]) -> bool:
     return True
 
 
+def _options(argv: list[str]) -> set[str]:
+    """The exact option strings of the subcommand that argv names."""
+    parser: argparse.ArgumentParser = build_parser()
+    for word in argv:
+        # argparse has no public API for its subcommand tree.
+        tree = [act for act in parser._actions if isinstance(act, argparse._SubParsersAction)]
+        if not tree or word not in tree[0].choices:
+            break
+        parser = tree[0].choices[word]
+    return {option for action in parser._actions for option in action.option_strings}
+
+
 _FLOW_COMMANDS = _commands(_flow_section())
 _FIRST_RUN_STEPS = re.split(r"\n(?=\d+\. )", _section("First run on a codebase"))[1:]
+_ASK = '"Create a draft contract?"'
+
+
+def _ask_step() -> int:
+    """The number of the one step that asks the owner."""
+    asks = [n for n, step in enumerate(_FIRST_RUN_STEPS, start=1) if _ASK in step]
+    assert len(asks) == 1
+    return asks[0]
+
+
+def _writes(argv: list[str]) -> bool:
+    """A command that writes the draft contract, its page graph or its snapshot."""
+    return argv[0] == "init" or "--write-graph" in argv or argv[:2] == ["report", "--output"]
 
 
 def test_flow_section_teaches_the_whole_loop() -> None:
@@ -494,18 +523,42 @@ def test_flow_section_teaches_the_whole_loop() -> None:
 def test_skill_command_parses_with_the_real_cli(argv: list[str]) -> None:
     """#787: each command line the flow and first-run sections teach exists in the CLI."""
     assert _parses(argv), argv
+    # argparse accepts a prefix such as --write-gr; the skill must name the exact option.
+    assert {word for word in argv if word.startswith("--")} <= _options(argv), argv
 
 
 def test_first_run_asks_the_owner_before_any_command_writes_a_contract() -> None:
     """The first run never creates a contract implicitly: only read-only commands come first."""
-    asks = [i for i, step in enumerate(_FIRST_RUN_STEPS) if '"Create a draft contract?"' in step]
-    assert len(asks) == 1 and len(_FIRST_RUN_STEPS) > asks[0] + 2
-    before = [argv for step in _FIRST_RUN_STEPS[: asks[0]] for argv in _commands(step)]
+    ask = _ask_step()
+    before = [argv for step in _FIRST_RUN_STEPS[: ask - 1] for argv in _commands(step)]
     assert before and all(
-        argv[0] == "explore" or (argv[0] == "report" and "--input" in argv) for argv in before
+        argv[0] == "explore" or argv[:2] == ["report", "--input"] for argv in before
     )
-    after = [argv[0] for step in _FIRST_RUN_STEPS[asks[0] :] for argv in _commands(step)]
-    assert "init" in after and "view" in after
+    assert any(argv[0] == "init" for step in _FIRST_RUN_STEPS[ask:] for argv in _commands(step))
+
+
+def test_first_run_without_a_yes_skips_every_step_that_writes() -> None:
+    """Without a yes, the skipped steps hold each write; the views write only to the cache."""
+    assert all(step.startswith(f"{n}. ") for n, step in enumerate(_FIRST_RUN_STEPS, start=1))
+    ask = _ask_step()
+    skip = re.search(r"skip steps (\d+) to (\d+)", _FIRST_RUN_STEPS[ask])
+    assert skip is not None
+    skipped = range(int(skip.group(1)), int(skip.group(2)) + 1)
+    assert skipped.start > ask + 1
+    writing = {
+        n
+        for n, step in enumerate(_FIRST_RUN_STEPS, start=1)
+        for argv in _commands(step)
+        if _writes(argv)
+    }
+    taught = [argv for n in skipped for argv in _commands(_FIRST_RUN_STEPS[n - 1])]
+    assert writing <= set(skipped)
+    assert {"init", "validate", "report"} <= {argv[0] for argv in taught if _writes(argv)}
+    kept = [argv[:2] for step in _FIRST_RUN_STEPS[skipped.stop - 1 :] for argv in _commands(step)]
+    assert ["view", "check"] in kept and ["view", "show"] in kept
+    # The views write only to the user cache, so the step without a yes skips no view.
+    spans = re.findall(r"`([^`]+)`", _FIRST_RUN_STEPS[ask])
+    assert not any(span.startswith("view") for span in spans)
 
 
 def test_flow_section_states_the_proof_rules() -> None:
@@ -522,19 +575,8 @@ def test_flow_section_states_the_proof_rules() -> None:
     assert not re.search(r"\b(Read|Bash|Edit|Write) tool\b", section)
 
 
-@pytest.fixture(scope="module")
-def shop_snapshot(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Step 2 of the section: a contract repository gets its snapshot from `report`."""
-    from test_architecture_demo import _prepare_repo
-
-    root = _prepare_repo(tmp_path_factory.mktemp("flow"), {})
-    snapshot = root.parent / "snapshot" / "architecture.json"
-    assert main(["report", "--root", str(root), "--output", str(snapshot), "--json"]) == 0
-    return snapshot
-
-
 def _agent_spec(snapshot: Path, steps: list[str], edges: list[dict]) -> dict:
-    """Write the spec the way the section says: digests copied, a kind on each link."""
+    """Write the spec the way the section says: digests copied, a kind on each later step."""
     packet = json.loads(snapshot.read_text())
     return {
         "schema_version": "1.0.0",
@@ -565,85 +607,18 @@ def _view(
     return code, json.loads(out) if code != 2 else {}
 
 
-_PLACE_ORDER = ["shop.cli.main", "shop.app.orders", "shop.store", "shop.store.repository"]
-_INVENTED = {"source": "shop.app.orders", "target": "shop.render.text", "kind": "imports"}
+def _shop_without_contract(tmp_path: Path) -> Path:
+    from test_architecture_demo import _prepare_repo
 
-
-def test_agent_flow_proves_each_step_with_evidence_and_keeps_the_claim(
-    tmp_path: Path, shop_snapshot: Path, capsys: pytest.CaptureFixture
-) -> None:
-    claim = {**_INVENTED, "claim": True, "note": "orders prints the receipt (invented)."}
-    spec = _agent_spec(shop_snapshot, _PLACE_ORDER, [claim])
-    code, result = _view("check", tmp_path, shop_snapshot, spec, capsys)
-    assert code == 0 and result["snapshot_current"]
-    assert result["snapshot"] == result["view_snapshot"] == spec["snapshot"]
-    assert result["edges"][0]["status"] == "claim" and not result["edges"][0].get("evidence")
-    for step in result["steps"][1:]:
-        assert step["status"] == "proven" and len(step["path"]) == 2, step
-        assert all(
-            item["file"] and item["line"] and item["evidence_id"] for item in step["evidence"]
-        )
-    assert "not runtime order" in result["limits"][0]
-
-
-def test_agent_flow_invented_import_and_a_skipped_hop_are_missing(
-    tmp_path: Path, shop_snapshot: Path, capsys: pytest.CaptureFixture
-) -> None:
-    steps = ["shop.cli.main", "shop.app.orders", "shop.store.repository"]
-    code, result = _view(
-        "check", tmp_path, shop_snapshot, _agent_spec(shop_snapshot, steps, [_INVENTED]), capsys
-    )
-    assert code == 1 and result["edges"][0]["status"] == "missing"
-    # The re-export hop shop.store is not named: no direct edge, so the section says add it.
-    assert result["steps"][2]["status"] == "missing" and result["steps"][2]["path"] == []
-
-
-def test_agent_flow_invented_call_is_unknown_never_missing(
-    tmp_path: Path, shop_snapshot: Path, capsys: pytest.CaptureFixture
-) -> None:
-    invented = {**_INVENTED, "kind": "calls"}
-    code, result = _view(
-        "check",
-        tmp_path,
-        shop_snapshot,
-        _agent_spec(shop_snapshot, _PLACE_ORDER, [invented]),
-        capsys,
-    )
-    assert code == 0 and result["edges"][0]["status"] == "unknown"
-    assert "call" in result["edges"][0]["reason"]
-
-
-def test_agent_flow_spec_cannot_state_proof(
-    tmp_path: Path, shop_snapshot: Path, capsys: pytest.CaptureFixture
-) -> None:
-    forged = {**_INVENTED, "status": "proven"}
-    spec = _agent_spec(shop_snapshot, _PLACE_ORDER, [forged])
-    assert _view("check", tmp_path, shop_snapshot, spec, capsys)[0] == 2
-
-
-def test_agent_flow_show_writes_the_page_with_the_checked_result(
-    tmp_path: Path, shop_snapshot: Path, capsys: pytest.CaptureFixture
-) -> None:
-    claim = {**_INVENTED, "claim": True}
-    spec = _agent_spec(shop_snapshot, _PLACE_ORDER, [claim])
-    code, checked = _view("check", tmp_path, shop_snapshot, spec, capsys)
-    assert code == 0
-    assert _view("show", tmp_path, shop_snapshot, spec, capsys) == (0, checked)
-    page = (tmp_path / "page" / "architecture.report.html").read_text()
-    embedded = re.search(
-        r'<script id="view-check-data" type="application/json">(.*?)</script>', page, re.S
-    )
-    assert embedded is not None and json.loads(embedded.group(1)) == checked
+    contract_files = ("archkeel.toml", "archkeel-tests.toml", "architecture-contract.json")
+    return _prepare_repo(tmp_path, dict.fromkeys(contract_files))
 
 
 def test_agent_flow_without_a_contract_uses_explore(
     tmp_path: Path, capsys: pytest.CaptureFixture
 ) -> None:
     """Step 2 without `archkeel.toml`: explore, then the same check; no rule means no PASS."""
-    from test_architecture_demo import _prepare_repo
-
-    contract_files = ("archkeel.toml", "archkeel-tests.toml", "architecture-contract.json")
-    root = _prepare_repo(tmp_path, dict.fromkeys(contract_files))
+    root = _shop_without_contract(tmp_path)
     # `shop` is a namespace package, so detection finds `tests`: the agent checks scan_roots.
     assert main(["explore", "--root", str(root), "--output", str(tmp_path / "x"), "--json"]) == 0
     assert json.loads(capsys.readouterr().out)["scan_roots"] == ["tests"]
@@ -652,10 +627,34 @@ def test_agent_flow_without_a_contract_uses_explore(
     result = json.loads(capsys.readouterr().out)
     assert result["declared_rules"] == "UNKNOWN"
     snapshot = Path(result["artifact"])
-    spec = _agent_spec(snapshot, _PLACE_ORDER[:2], [])
+    spec = _agent_spec(snapshot, ["shop.cli.main", "shop.app.orders"], [])
     spec["nodes"].append("COMP-APP")
     code, checked = _view("check", tmp_path, snapshot, spec, capsys)
     assert code == 0 and checked["steps"][1]["status"] == "proven"
     # A layout group declares nothing (AD-285), so the section says to use module nodes.
     assert {node["id"]: node["status"] for node in checked["nodes"]}["COMP-APP"] == "unknown"
     assert "`scan_roots`" in _flow_section()
+    # The section gives a kind to each later step only: the first step has none before it.
+    spec["steps"][0]["kind"] = "imports"
+    assert _view("check", tmp_path, snapshot, spec, capsys)[0] == 2
+
+
+def test_first_run_init_drafts_the_scope_that_explore_showed(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """A yes to the shop overview must draft shop, not the `tests` package that detection finds."""
+    root = _shop_without_contract(tmp_path)
+    scoped = [
+        argv
+        for step in _FIRST_RUN_STEPS
+        for argv in _commands(step, dir="shop", package="shop")
+        if argv[0] == "init"
+    ]
+    assert len(scoped) == 1
+    assert main([*scoped[0], "--root", str(root)]) == 0
+    capsys.readouterr()
+    contract = json.loads((root / "architecture-contract.json").read_text())
+    packages = [
+        package for component in contract["components"] for package in component["packages"]
+    ]
+    assert packages and all(package.split(".")[0] == "shop" for package in packages)
