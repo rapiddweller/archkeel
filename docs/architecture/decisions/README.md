@@ -297,3 +297,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-287 | [The Explorer draws a checked view](ad-287-the-explorer-draws-a-checked-view.md) |
 | AD-288 | [A component card shows its label and its first responsibility](ad-288-a-component-card-shows-its-first-responsibility.md) |
 | AD-289 | [A tour shows author stops beside measured facts](ad-289-a-tour-shows-author-stops-beside-measured-facts.md) |
+| AD-290 | [ArchKeel Studio is a local web application](ad-290-archkeel-studio-is-a-local-web-application.md) |

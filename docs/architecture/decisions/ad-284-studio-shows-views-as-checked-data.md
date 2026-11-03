@@ -36,7 +36,7 @@ spec. `archkeel view check` checks each reference in it against one saved `archi
 8. `archkeel.ir.view_spec` is the one source. `make architecture-graph-schema` writes
    `schema/view-spec.schema.json` and `schema/view-check.schema.json` (the result).
 
-**Rejected.** A server or a second renderer: the Explorer stays the only renderer (#786). Free
+**Rejected.** A server (amended by AD-290) or a second renderer: the Explorer stays the only renderer (#786). Free
 drawing and file descriptions: a second source of truth that ages. Proof by name prefix or by
 reachability: a re-export or a dynamic call gives a wrong proof. A stale view checked against
 other code: its notes describe the old code.
