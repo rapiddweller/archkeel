@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Verify the Flow derivative and publish the offline browser module bundle."""
+"""Verify the Flow derivative and publish the offline Explorer and Studio bundles."""
 
 from __future__ import annotations
 
@@ -20,6 +20,8 @@ _TOOLS = _ROOT / "tools/browser-runtime"
 _COMPILER = _TOOLS / "node_modules/terser/bin/terser"
 _OPTIONS = _TOOLS / "options.json"
 _BUNDLE = _ASSETS / "explorer.runtime.js"
+_STUDIO_UI = _ROOT / "src/archkeel/studio/ui"
+_STUDIO = _STUDIO_UI / "studio.js"
 
 
 def runtime_bytes() -> bytes:
@@ -79,16 +81,31 @@ def bundle_bytes() -> bytes:
     return published + b"\n// Includes the verified Flow derivative.\n" + witness.encode()
 
 
+def studio_bytes() -> bytes:
+    """AD-290: type-check the Studio sources, then bundle them with Preact."""
+    node = shutil.which("node")
+    if node is None:
+        raise SystemExit("Studio publication requires Node; the installed Studio does not.")
+    compiler = _TOOLS / "node_modules/typescript/bin/tsc"
+    subprocess.run([node, str(compiler), "-p", str(_STUDIO_UI / "tsconfig.json")], check=True)
+    return subprocess.run(
+        [node, str(_TOOLS / "studio.cjs")], capture_output=True, check=True
+    ).stdout
+
+
 def check() -> None:
     if _OUTPUT.read_bytes() != runtime_bytes():
         raise SystemExit("Flow runtime is stale; run make browser-runtime-generate.")
     if _BUNDLE.read_bytes() != bundle_bytes():
         raise SystemExit("Explorer bundle is stale; run make browser-runtime-generate.")
+    if _STUDIO.read_bytes() != studio_bytes():
+        raise SystemExit("Studio bundle is stale; run make browser-runtime-generate.")
 
 
 def generate() -> None:
     _OUTPUT.write_bytes(runtime_bytes())
     _BUNDLE.write_bytes(bundle_bytes())
+    _STUDIO.write_bytes(studio_bytes())
 
 
 class _Arguments(argparse.Namespace):

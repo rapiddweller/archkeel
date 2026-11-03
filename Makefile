@@ -317,6 +317,9 @@ typescript-libs-check: browser-runtime-install
 
 browser-architecture-check: browser-runtime-install
 	$(UV) run --locked python -m tools.browser_architecture
+	@mkdir -p test-artifacts/validation
+	@$(UV) run --locked archkeel validate --root . --config docs/architecture/studio-ui.toml --json > test-artifacts/validation/studio-ui.json || { cat test-artifacts/validation/studio-ui.json; exit 1; }
+	@echo "Studio UI architecture: PASS (AD-290)"
 
 BROWSER_GRAPH_PROTOCOL := src/archkeel/render/assets/report-graph-vocabulary.ts src/archkeel/render/assets/report-graph-schema.ts
 BROWSER_GRAPH_COMPILER := node tools/browser-runtime/node_modules/typescript/bin/tsc --strict --target ES2022 --module none --newLine lf

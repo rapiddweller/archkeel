@@ -1,0 +1,331 @@
+{
+  "$schema": "../../../schema/architecture-contract.schema.json",
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "UI-EVIDENCE",
+      "label": "evidence",
+      "role": "component",
+      "packages": [],
+      "exact_modules": [
+        "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts"
+      ],
+      "public": [
+        "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Evidence",
+        "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:EVIDENCE"
+      ],
+      "responsibilities": [
+        "Own the evidence model: Observed, Claim and Target as typed values with their legend text."
+      ],
+      "forbidden_responsibilities": [
+        "Render, fetch or decide on label text."
+      ],
+      "provenance": [
+        "src/archkeel/studio/ui/AGENTS.md"
+      ],
+      "decided_by": "agent",
+      "requires": []
+    },
+    {
+      "id": "UI-API-CLIENT",
+      "label": "client",
+      "role": "component",
+      "packages": [],
+      "exact_modules": [
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts"
+      ],
+      "public": [
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:ContractState",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:ExploreState",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StudioState",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:EXPLORER_PAGE",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readState"
+      ],
+      "responsibilities": [
+        "Read the Studio API of the own server and type its answers as schema studio-api-1.0 defines them."
+      ],
+      "forbidden_responsibilities": [
+        "Render, keep state or ask another origin."
+      ],
+      "provenance": [
+        "src/archkeel/studio/ui/AGENTS.md"
+      ],
+      "decided_by": "agent",
+      "requires": []
+    },
+    {
+      "id": "UI-STORE",
+      "label": "store",
+      "role": "component",
+      "packages": [],
+      "exact_modules": [
+        "studio_ui.src.archkeel.studio.ui.store_x2e_ts"
+      ],
+      "public": [
+        "studio_ui.src.archkeel.studio.ui.store_x2e_ts:startStore",
+        "studio_ui.src.archkeel.studio.ui.store_x2e_ts:useStudio"
+      ],
+      "responsibilities": [
+        "Keep the one shared state: the last API answer, polled while the snapshot is not ready."
+      ],
+      "forbidden_responsibilities": [
+        "Render or decide what a view shows."
+      ],
+      "provenance": [
+        "src/archkeel/studio/ui/AGENTS.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "client",
+          "rationale": "Poll the API state through the client."
+        }
+      ]
+    },
+    {
+      "id": "UI-COMPONENTS",
+      "label": "components",
+      "role": "component",
+      "packages": [],
+      "exact_modules": [
+        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx"
+      ],
+      "public": [
+        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:NavItem",
+        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Legend",
+        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Tabs",
+        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Card",
+        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Page"
+      ],
+      "responsibilities": [
+        "Draw the shared parts of a page from their props only."
+      ],
+      "forbidden_responsibilities": [
+        "Call the API, read the store or know a view."
+      ],
+      "provenance": [
+        "src/archkeel/studio/ui/AGENTS.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "evidence",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Evidence",
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:EVIDENCE"
+          ],
+          "rationale": "Show the evidence kind of a badge, a card and the legend."
+        }
+      ]
+    },
+    {
+      "id": "UI-CANVAS",
+      "label": "canvas",
+      "role": "component",
+      "packages": [],
+      "exact_modules": [
+        "studio_ui.src.archkeel.studio.ui.canvas_x2e_tsx"
+      ],
+      "public": [
+        "studio_ui.src.archkeel.studio.ui.canvas_x2e_tsx:ExplorerCanvas"
+      ],
+      "responsibilities": [
+        "Mount the offline Explorer page as an island."
+      ],
+      "forbidden_responsibilities": [
+        "Change the Explorer or read its data."
+      ],
+      "provenance": [
+        "src/archkeel/studio/ui/AGENTS.md"
+      ],
+      "decided_by": "agent",
+      "requires": []
+    },
+    {
+      "id": "UI-VIEWS",
+      "label": "views",
+      "role": "component",
+      "packages": [],
+      "exact_modules": [
+        "studio_ui.src.archkeel.studio.ui.views.overview_x2e_tsx",
+        "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx",
+        "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx"
+      ],
+      "public": [
+        "studio_ui.src.archkeel.studio.ui.views.overview_x2e_tsx:Overview",
+        "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx:Explore",
+        "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx:NotBuilt"
+      ],
+      "responsibilities": [
+        "Draw one page each from the API state, with the shared components."
+      ],
+      "forbidden_responsibilities": [
+        "Import another view, poll the API or keep shared state."
+      ],
+      "provenance": [
+        "src/archkeel/studio/ui/AGENTS.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "client",
+          "rationale": "Decide what a page shows from the typed API state."
+        },
+        {
+          "component": "components",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Card",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Page",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Tabs"
+          ],
+          "rationale": "Draw pages with the shared components."
+        },
+        {
+          "component": "evidence",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Evidence"
+          ],
+          "rationale": "Mark each card and tab with its evidence kind."
+        },
+        {
+          "component": "canvas",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.canvas_x2e_tsx:ExplorerCanvas"
+          ],
+          "rationale": "Explore mounts the Explorer island."
+        }
+      ]
+    },
+    {
+      "id": "UI-SHELL",
+      "label": "shell",
+      "role": "component",
+      "packages": [],
+      "exact_modules": [
+        "studio_ui.src.archkeel.studio.ui.shell_x2e_tsx"
+      ],
+      "public": [],
+      "responsibilities": [
+        "Start the store, route by the URL hash and frame the current view with navigation, legend and contract state."
+      ],
+      "forbidden_responsibilities": [
+        "Fetch directly or draw page content itself."
+      ],
+      "provenance": [
+        "src/archkeel/studio/ui/AGENTS.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "client",
+          "rationale": "Show the contract state of the API."
+        },
+        {
+          "component": "components",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Legend",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:NavItem"
+          ],
+          "rationale": "Draw the navigation and the legend."
+        },
+        {
+          "component": "store",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.store_x2e_ts:startStore",
+            "studio_ui.src.archkeel.studio.ui.store_x2e_ts:useStudio"
+          ],
+          "rationale": "Read the one shared state."
+        },
+        {
+          "component": "views",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.views.overview_x2e_tsx:Overview",
+            "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx:Explore",
+            "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx:NotBuilt"
+          ],
+          "rationale": "Mount the view of the current route."
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "UI-REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "A UI owner crosses only the edges it asks for: components never reach the API client.",
+      "provenance": [
+        "src/archkeel/studio/ui/AGENTS.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "UI-ASSIGNMENT",
+      "kind": "complete_assignment",
+      "source": "studio_ui",
+      "rationale": "Every UI source file belongs to one owner, so a new file cannot escape the rules.",
+      "provenance": [
+        "src/archkeel/studio/ui/AGENTS.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "UI-NO-CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "The evidence model, the API client and the canvas stay leaves.",
+      "provenance": [
+        "src/archkeel/studio/ui/AGENTS.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "UI-VIEWS-ISOLATED",
+      "kind": "sibling_isolation",
+      "members": [
+        "studio_ui.src.archkeel.studio.ui.views.overview_x2e_tsx",
+        "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx",
+        "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx"
+      ],
+      "rationale": "A view never imports another view, so each view changes alone.",
+      "provenance": [
+        "src/archkeel/studio/ui/AGENTS.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "UI-NETWORK-IN-CLIENT",
+      "kind": "external_dependency_scope",
+      "dependency": "fetch",
+      "exact_sources": [
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts"
+      ],
+      "rationale": "Only the API client asks the network; the CSP header limits it to the own server.",
+      "provenance": [
+        "src/archkeel/studio/ui/AGENTS.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "UI-EXTERNAL-COMPLETE",
+      "kind": "complete_external_scope",
+      "source": "studio_ui",
+      "rationale": "A package no rule names is a package nobody chose.",
+      "provenance": [
+        "src/archkeel/studio/ui/AGENTS.md"
+      ],
+      "decided_by": "agent"
+    },
+    {
+      "id": "UI-PREACT-ONLY",
+      "kind": "external_dependency_scope",
+      "dependency": "preact",
+      "allowed_sources": [
+        "studio_ui"
+      ],
+      "rationale": "Preact is the one UI package (AD-290); a second package needs a contract change.",
+      "provenance": [
+        "src/archkeel/studio/ui/AGENTS.md"
+      ],
+      "decided_by": "agent"
+    }
+  ]
+}
