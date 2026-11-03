@@ -14,7 +14,13 @@ from fixtures.demo_catalog_dependencies import (
     STORE_INSIDE_WITH_REPOSITORY_PEER_GRANT,
 )
 from fixtures.demo_catalog_interfaces import MAIN_WITH_UNDERSCORE_IMPORT
-from fixtures.demo_catalog_support import FIXTURE_DIR, HEADER, Variant, contract_rule_field
+from fixtures.demo_catalog_support import (
+    FIXTURE_DIR,
+    HEADER,
+    Variant,
+    contract_component_field_set,
+    contract_rule_field,
+)
 from fixtures.demo_catalog_types import ROGUE_DATACLASS_MODULE
 
 _TOUR_RENDER_TEXT = HEADER + (
@@ -557,6 +563,27 @@ _SOURCE_OWNERSHIP_ESCAPE = Variant(
     expected_declared_rules="FAIL",
 )
 
+# AD-288: a component card shows its label and its first responsibility; Details shows all.
+_CARD_TEXT = Variant(
+    id="showcase-card-first-responsibility",
+    section="showcase",
+    item="report:component card text",
+    summary="The app component declares two responsibilities. Its card shows the label and the "
+    "first one in snapshot order, which is sorted; Details lists both.",
+    files={
+        "architecture-contract.json": contract_component_field_set(
+            "app",
+            "responsibilities",
+            [
+                "Use cases: place and summarise orders.",
+                "Keep the order rules out of the command line.",
+            ],
+        )
+    },
+    expected_violations=(),
+    expected_codes=(),
+)
+
 VARIANTS: tuple[Variant, ...] = (
     _TOUR,
     _SEEDED_EFFECT,
@@ -568,4 +595,5 @@ VARIANTS: tuple[Variant, ...] = (
     _WITH_ITEM,
     _CLEAN,
     _SOURCE_OWNERSHIP_ESCAPE,
+    _CARD_TEXT,
 )

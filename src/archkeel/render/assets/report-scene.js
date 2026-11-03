@@ -112,7 +112,8 @@ import { create as createDeviations } from "./report-atlas-deviations.js";
       const nodes = children.map((component) => ({
         id: component.id, label: component.label, kind: "component",
         entity: null, sourceGraph: null,
-        meta: component.responsibilities.join(" ").slice(0, 126) || "Not declared",
+        // AD-288: the first responsibility, or no line; Details lists them all.
+        meta: component.responsibilities[0] ?? "",
         sections: [], outside: false, component,
         tooltip: `${component.label}: ${component.responsibilities.join(" ")}.${viewMode === "target" ? "" : ` ${component.reason}`}`,
       }));
