@@ -16,7 +16,9 @@ export let flow;
   // AD-287: a `view check` result embedded by `archkeel view show`; the main page only.
   const viewNode = document.getElementById("view-check-data");
   const VIEW = ATLAS && viewNode ? JSON.parse(viewNode.textContent) : null;
-  let flowMode = false, flowSelection = null;
+  // AD-289: a tour is a state of the checked flow; `tourIndex` is the open stop, else null.
+  const STOPS = VIEW ? VIEW.stops : [];
+  let flowMode = false, flowSelection = null, tourIndex = null;
   const NAV = DATA.navigation || null;
   const SIDECAR = Boolean(NAV?.module_ids);
   let routeReady = false, returnScope = null, returnView = "diagram", returnSelection = null, returnCell = null, returnContent = null, routeNotice = null;
@@ -132,8 +134,16 @@ export let flow;
     checkedButton.dataset.flowChecked = "";
     viewButtons[0].before(checkedButton);
     checkedButton.addEventListener("click", () => {
-      flowMode = true; flowSelection = null; umlSelection = null; render(); fit();
+      flowMode = true; flowSelection = null; umlSelection = null; tourIndex = null; render(); fit();
     });
+  }
+  const tourButton = STOPS.length ? document.createElement("button") : null;
+  if (tourButton) {
+    tourButton.type = "button";
+    tourButton.textContent = "Tour";
+    tourButton.dataset.flowTour = "";
+    checkedButton.after(tourButton);
+    tourButton.addEventListener("click", () => openStop(tourIndex ?? 0));
   }
   const alternative = root.querySelector(".flow-alternative");
   const openSelectedButton = root.querySelector(".flow-open-selected");
@@ -839,9 +849,13 @@ export let flow;
       const cell = Number(query.get("cell"));
       if (query.has("cell") && viewMode !== "target" && level.cells.includes(cell)) atlasCell = cell;
       // AD-287: a page with a view opens it unless the URL names an architecture view.
-      flowMode = Boolean(VIEW) && (query.get("flow") === "1" || !query.has("view"));
+      // AD-289: a page with stops opens the tour first; `flow=1` still opens the flow.
+      const touring = STOPS.length > 0 && (query.has("tour") || !query.has("view") && !query.has("flow"));
+      flowMode = Boolean(VIEW) && (query.get("flow") === "1" || touring || !query.has("view"));
+      const stop = Number(query.get("tour"));
+      tourIndex = touring ? Number.isSafeInteger(stop) && stop >= 1 && stop <= STOPS.length ? stop - 1 : 0 : null;
       const step = Number(query.get("step"));
-      flowSelection = flowMode && Number.isSafeInteger(step) && step >= 1 && step <= VIEW.steps.length
+      flowSelection = flowMode && !touring && Number.isSafeInteger(step) && step >= 1 && step <= VIEW.steps.length
         ? { kind: "step", index: step - 1 } : null;
     }
   }
@@ -866,7 +880,8 @@ export let flow;
       if (ATLAS && atlasHasChoice(atlasLevel()) && atlasContent) query.set("content", atlasContent);
     }
     query.set("view", viewMode);
-    if (flowMode) {
+    if (flowMode && tourIndex !== null) query.set("tour", String(tourIndex + 1));
+    else if (flowMode) {
       query.set("flow", "1");
       if (flowSelection?.kind === "step") query.set("step", String(flowSelection.index + 1));
     }
@@ -1806,12 +1821,13 @@ export let flow;
     sizeDiagram();
     canvas.scrollLeft = 0;
     canvas.scrollTop = 0;
-    const selectedPosition = architectureGraphContext() && umlSelection?.type === "node"
-      ? positions[umlSelection.id] : null;
+    const centred = flowMode && tourIndex !== null ? renderedScene?.cardOf?.get(STOPS[tourIndex].node)
+      : architectureGraphContext() && umlSelection?.type === "node" ? umlSelection.id : null;
+    const selectedPosition = centred ? positions[centred] : null;
     if (selectedPosition) {
       canvas.scrollLeft = (selectedPosition.x - diagramOrigin.x + CARD.w / 2) * transform.k
         - canvas.clientWidth / 2;
-      canvas.scrollTop = (selectedPosition.y - diagramOrigin.y + cardHeight(umlSelection.id) / 2) * transform.k
+      canvas.scrollTop = (selectedPosition.y - diagramOrigin.y + cardHeight(centred) / 2) * transform.k
         - canvas.clientHeight / 2;
     } else if (ATLAS && renderedScene?.componentOverview && !overview) {
       const canvasBounds = canvas.getBoundingClientRect();
@@ -2975,7 +2991,7 @@ export let flow;
   const OBSERVATION_WORDS = { PASS: "complete", FAIL: "incomplete" };
   function leaveFlow() {
     if (!flowMode) return;
-    flowMode = false; flowSelection = null; setTargetDetails(false);
+    flowMode = false; flowSelection = null; tourIndex = null; setTargetDetails(false);
   }
   const flowCardId = (selection) => selection.kind === "step" ? `step-${selection.index + 1}`
     : selection.kind === "node" ? `node-${selection.index}` : null;
@@ -3020,7 +3036,7 @@ export let flow;
       ...VIEW.edges.map((check, index) => link(check, `edge-${index}`, cardOf.get(check.source), cardOf.get(check.target), { edgeIndex: index }))
         .filter((edge) => edge.source !== edge.target),
     ];
-    return { nodes, edges, frames: [], declared: [], checkedFlow: true };
+    return { nodes, edges, frames: [], declared: [], checkedFlow: true, cardOf };
   }
 
   function flowPositions(scene) {
@@ -3086,8 +3102,65 @@ export let flow;
     }
   }
 
+  // AD-289: the Author block holds only the agent's text; the Measured block only the check's.
+  const plural = (count, noun) => `${count} ${noun}${count === 1 ? "" : "s"}`;
+  function tourImports(label, imports) {
+    const count = `${imports.gap ? "at least " : ""}${plural(imports.pairs, "module pair")}`;
+    return `<dt>${label}</dt><dd>${esc(count)}${imports.gap ? `<p class="tour-gap">? ${esc(imports.gap)}</p>` : ""}</dd>
+      ${imports.evidence.length ? `<dd class="tour-sites"><details${imports.evidence.length <= 5 ? " open" : ""}><summary>${esc(plural(imports.evidence.length, "import site"))}</summary>${flowEvidence(imports)}</details></dd>` : ""}`;
+  }
+  function tourFindings(label, findings) {
+    return `<dt>${label}</dt><dd>${findings.length ? `<ul class="plain tour-findings">${findings.map((item) =>
+      `<li><code>${esc(item.record_id)}</code> · ${esc(item.kind)}<br>${esc(item.title)}</li>`).join("")}</ul>` : "none recorded"}</dd>`;
+  }
+  function tourInspector() {
+    const stop = STOPS[tourIndex];
+    const node = VIEW.nodes.find((item) => item.id === stop.node);
+    const facts = stop.facts;
+    const measured = facts ? `<dl class="tour-facts">
+        <dt>Modules</dt><dd>${esc(plural(facts.modules, "observed module"))}</dd>
+        ${tourImports("Imports out", facts.imports_out)}${tourImports("Imports in", facts.imports_in)}
+        ${tourFindings("Violations", facts.violations)}${tourFindings("Unknowns", facts.unknowns)}</dl>`
+      : `<p>No measured fact: the check gives facts only for an observed module or a declared component.</p>`;
+    inspectorContent.innerHTML = `<div class="kicker">Tour · <span class="tour-count">Stop ${tourIndex + 1} of ${STOPS.length}</span></div>
+      <h2 tabindex="-1">${esc(stop.title || stop.node)}</h2>
+      <p><code>${esc(stop.node)}</code> «${esc(node?.kind || "reference")}»</p>
+      <nav class="tour-nav" aria-label="Tour stops">
+        <button type="button" class="flow-fit" data-tour-move="-1" aria-label="Previous stop"${tourIndex ? "" : " disabled"}>← Previous</button>
+        <button type="button" class="flow-fit" data-tour-move="1" aria-label="Next stop"${tourIndex < STOPS.length - 1 ? "" : " disabled"}>Next →</button>
+      </nav>
+      <section class="tour-author" aria-label="Author text">
+        <h3><span class="view-author-mark">✎ Author</span> not checked</h3>
+        <p>${stop.note ? esc(stop.note) : "No note."}</p>
+      </section>
+      <section class="tour-measured" aria-label="Measured from the snapshot">
+        <h3>Measured from the snapshot</h3>
+        <p class="view-mark" data-view-status="${esc(stop.status)}">${esc(nodeMark({ ...stop, kind: node?.kind }))}</p>
+        <p>${esc(stop.reason)}</p>${measured}
+      </section>
+      <p class="tour-help">Arrow keys move between stops. Esc leaves the tour. A stop is a reading order, not a proof.</p>`;
+    inspectorContent.querySelectorAll("[data-tour-move]").forEach((button) => button.addEventListener("click", () =>
+      openStop(tourIndex + Number(button.dataset.tourMove), button.dataset.tourMove)));
+  }
+
+  function openStop(index, keep = null) {
+    if (!STOPS.length) return;
+    flowMode = true; flowSelection = null; umlSelection = null;
+    tourIndex = Math.max(0, Math.min(STOPS.length - 1, index));
+    setTargetDetails(true);
+    render(); fit();
+    // Keep focus on the pressed control, so the next key press moves again.
+    const control = keep && inspectorContent.querySelector(`[data-tour-move="${keep}"]`);
+    (control && !control.disabled ? control : inspectorContent.querySelector("h2"))?.focus({ preventScroll: true });
+  }
+
+  function leaveTour() {
+    tourIndex = null; setTargetDetails(false); render(); fit();
+    tourButton.focus({ preventScroll: true });
+  }
+
   function selectFlow(selection, inspect) {
-    flowSelection = selection;
+    flowSelection = selection; tourIndex = null;
     if (inspect) setTargetDetails(true);
     render();
     if (inspect) inspectorContent.querySelector("h2")?.focus({ preventScroll: true });
@@ -3101,8 +3174,10 @@ export let flow;
     filters.hidden = true; openSelectedButton.disabled = true; backButton.hidden = true;
     const choice = root.querySelector(".atlas-content-choice");
     if (choice) choice.hidden = true;
-    flowHeading.textContent = `Checked flow · ${VIEW.title}`;
-    breadcrumb.textContent = "Checked flow";
+    const touring = tourIndex !== null;
+    if (touring) root.dataset.tour = "true"; else delete root.dataset.tour;
+    flowHeading.textContent = `${touring ? "Tour" : "Checked flow"} · ${VIEW.title}`;
+    breadcrumb.textContent = touring ? "Tour" : "Checked flow";
     const tally = (items, mark) => Object.keys(VIEW_MARKS).map((status) => [status, items.filter((item) => item.status === status).length])
       .filter(([, count]) => count).map(([status, count]) => `${count} ${mark(status)}`).join(", ") || "none";
     const counts = [["Steps", VIEW.steps, (status) => VIEW_MARKS[status]], ["Edges", VIEW.edges, (status) => VIEW_MARKS[status]],
@@ -3110,11 +3185,11 @@ export let flow;
     const summary = root.querySelector(".atlas-summary");
     // Above the diagram, below the chrome at every width: the sentence stays in view.
     canvas.before(summary);
-    summary.textContent = `${counts} · ${VIEW.limits[0]}`;
+    summary.textContent = `${touring ? `Tour: ${plural(STOPS.length, "stop")} · ` : ""}${counts} · ${VIEW.limits[0]}`;
     legend.textContent = Object.entries(VIEW_MARKS).map(([status, mark]) =>
       `${mark}: ${{ proven: "solid, coloured by kind", declared: "long dash", claim: "short dash, amber",
         unknown: "dotted, with its reason", missing: "dash-dot" }[status]}`).join(" · ");
-    flowInspector();
+    if (touring) tourInspector(); else flowInspector();
     if (VIEW.snapshot.source_digest !== ATLAS.source.source_digest) {
       canvas.hidden = true; alternative.hidden = false;
       alternative.innerHTML = '<div class="flow-scope-notice" role="status"><h3>View not drawn</h3><p>The view was checked against another snapshot.</p></div>';
@@ -3125,7 +3200,8 @@ export let flow;
     const scene = flowScene();
     measureUmlCards(scene.nodes);
     positions = flowPositions(scene);
-    const selected = flowSelection && (flowCardId(flowSelection) || `edge-${flowSelection.index}`);
+    const current = touring ? scene.cardOf.get(STOPS[tourIndex].node) : null;
+    const selected = current || flowSelection && (flowCardId(flowSelection) || `edge-${flowSelection.index}`);
     renderUmlScene(scene, {
       frame() {},
       node(group, node) {
@@ -3133,15 +3209,19 @@ export let flow;
         group.classList.add(`view-${node.card.status}`);
         group.dataset.viewStatus = node.card.status;
         group.classList.toggle("selected", selected === node.id);
+        group.classList.toggle("tour-current", current === node.id);
         group.setAttribute("aria-pressed", String(selected === node.id));
         group.setAttribute("aria-label", step
           ? `Step ${node.card.index + 1}: ${check.id}, ${node.card.index ? `${VIEW_MARKS[step.status]} from step ${node.card.index}; node: ` : ""}${nodeMark(check)}`
           : `${check.id}, ${nodeMark(check)}, not a step: ${check.reason}`);
         const selection = step ? { kind: "step", index: node.card.index }
           : { kind: "node", index: VIEW.nodes.indexOf(check) };
-        group.addEventListener("click", (event) => { event.stopPropagation(); selectFlow(selection, true); });
+        // In the tour, a card of a stop opens that stop; any other card leaves the tour for its details.
+        const stop = touring ? STOPS.findIndex((item) => scene.cardOf.get(item.node) === node.id) : -1;
+        const open = () => stop >= 0 ? openStop(stop) : selectFlow(selection, true);
+        group.addEventListener("click", (event) => { event.stopPropagation(); open(); });
         group.addEventListener("keydown", (event) => {
-          if (event.key === "Enter") { event.preventDefault(); selectFlow(selection, true); }
+          if (event.key === "Enter") { event.preventDefault(); open(); }
         });
       },
       edge(drawn, route) {
@@ -3167,9 +3247,20 @@ export let flow;
         });
       },
     });
+    if (current) emphasizeUmlScene({ type: "node", id: current });
     root.dataset.layoutState = "ready";
     sizeDiagram();
   }
+
+  // AD-289: arrow keys move between stops; Esc goes back to the checked flow.
+  document.addEventListener("keydown", (event) => {
+    if (!flowMode || tourIndex === null || event.altKey || event.ctrlKey || event.metaKey
+      || event.target.closest?.("input, select, textarea, dialog, [contenteditable]")
+      || document.querySelector("dialog[open], .ak-pop, .ak-drawer")) return;
+    const move = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+    if (move) { event.preventDefault(); openStop(tourIndex + move); }
+    else if (event.key === "Escape") { event.preventDefault(); leaveTour(); }
+  });
 
   // Esc closes the flow inspector and returns to the card it came from.
   root.addEventListener("keydown", (event) => {
@@ -3191,7 +3282,8 @@ export let flow;
     syncRoute();
     if (routeNotice) { renderRouteNotice(); return; }
     if (SIDECAR) { renderSidecar(); return; }
-    checkedButton?.setAttribute("aria-pressed", String(flowMode));
+    checkedButton?.setAttribute("aria-pressed", String(flowMode && tourIndex === null));
+    tourButton?.setAttribute("aria-pressed", String(flowMode && tourIndex !== null));
     // The flow keeps its summary above the diagram; every other view gets it back in place.
     const summary = root.querySelector(".atlas-summary");
     if (summary && !flowMode && summary.parentElement === canvas.parentElement) root.querySelector(".flow-layout").before(summary);
@@ -3432,12 +3524,13 @@ export let flow;
     readRoute();
     // A selection in the URL opens Details; a plain first load leaves the diagram the full width.
     setTargetDetails(umlSelection !== null || atlasModule !== null || atlasCell !== null
-      || flowSelection !== null || sidecarModuleRequested);
+      || flowSelection !== null || tourIndex !== null || sidecarModuleRequested);
     document.querySelector(".theme-toggle").addEventListener("click", () => {
       applyTheme(document.documentElement.dataset.theme !== "light"); render();
     });
     window.addEventListener("popstate", () => {
-      routeReady = false; readRoute(); render(); fit(); routeReady = true; syncRoute(true);
+      routeReady = false; readRoute(); if (tourIndex !== null) setTargetDetails(true);
+      render(); fit(); routeReady = true; syncRoute(true);
     });
   }
   // Seam for presentation controllers (report-canvas.js). No verdict logic crosses it.
