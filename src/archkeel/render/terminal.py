@@ -17,7 +17,7 @@ from rich.table import Table
 from rich.text import Text
 
 from archkeel.ir.diagnostics import Diagnostic as Diagnostic
-from archkeel.ir.model import ContractChangeDirection, RunResult
+from archkeel.ir.model import Command, ContractChangeDirection, RunResult
 from archkeel.ir.model import RuleAssessmentStatus as _RuleAssessmentStatus
 
 from .summary import Summary
@@ -86,7 +86,11 @@ def print_result(
     output.print(
         Panel(
             Text.assemble(_badge(summary.decision), "  ", summary.sentence),
-            title=Text(f"archkeel {result.command}", style="bold"),
+            # AD-285: only explore names its root, and it writes a report result.
+            title=Text(
+                f"archkeel {Command.EXPLORE if result.root_digest is not None else result.command}",
+                style="bold",
+            ),
             title_align="left",
             border_style=_COLORS[summary.decision.state],
             box=box.ROUNDED,

@@ -63,8 +63,16 @@ native source evidence and conservative UNKNOWNs.
 - **Bounded Actions inventory.** Reviewed workflow files cover CI, full
   verification, Pages and release; temporary workflows fail the repository
   inventory check. Pages retains its Main-only deployment policy.
+- **`archkeel explore`.** A repository with no ArchKeel file gets an observed overview: layout
+  components, levels for large packages, an inventory line and the Explorer. Explore writes
+  nothing into the repository and gives no rule verdict
+  ([AD-285](docs/architecture/decisions/ad-285-explore-without-a-contract.md)).
 
 ## Upgrade from 4.0.1
+
+`report` on a contract that declares nothing to check (no rule, UML target or component
+intent) now gives `declared_rules: UNKNOWN` and `target: unavailable`; before, it gave PASS
+(AD-285). `validate` on the same contract still gives PASS.
 
 Upgrade CLI, collectors and strict JSON consumers together. Native Python provider
 collection adds **SourceFacts/protocol 4.0.0** for captured source, provider bindings

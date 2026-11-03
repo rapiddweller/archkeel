@@ -114,10 +114,6 @@ ALLOWED_LONG_FUNCTIONS = {
     ("src/archkeel/check/observation.py::assemble_observation"): (
         "One assembly keeps coverage, declarations and evaluator results on one source snapshot."
     ),
-    ("src/archkeel/check/onboarding.py::draft_contract"): (
-        "One draft derives ownership, measured size, interfaces and rules "
-        "from the same observation."
-    ),
     ("src/archkeel/check/onboarding.py::run_init"): (
         "One onboarding flow observes inputs, drafts the three files and "
         "returns its open decisions."

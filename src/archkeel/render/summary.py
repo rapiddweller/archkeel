@@ -26,6 +26,7 @@ from archkeel.ir.model import (
     FirstLook,
     ReportLocation,
     RunResult,
+    TargetStatus,
 )
 from archkeel.ir.model import (
     ExpectationOutcome as _ExpectationOutcome,
@@ -50,6 +51,19 @@ _NEXT_STEPS: Final = (
     "3. archkeel init --force --adopt   # or write the target yourself "
     "(see docs/getting-started.md)",
 )
+
+
+# AD-285: with no rule and no UML target, a report states observed facts and no rule verdict.
+_NO_TARGET_SENTENCE: Final = (
+    "No rule is declared, so the target is unavailable: these are observed facts, "
+    "and no rule passes or fails."
+)
+# AD-285: validate checks the contract; with no rule its PASS says nothing about the code.
+_VALID_WITHOUT_RULES: Final = "The contract is valid and declares no rule; no rule was checked."
+_RULES_UNKNOWN_REASON: Final = {
+    None: "Available evidence does not establish the rule outcome.",
+    TargetStatus.UNAVAILABLE: "No rule is declared; the target is unavailable.",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +122,8 @@ def report_leaves_rules_undecided(result: RunResult) -> bool:
 
 
 def _decision_badge(result: RunResult) -> Badge:
+    if result.target is TargetStatus.UNAVAILABLE:
+        return Badge(BadgeState.INFO, "i", "OBSERVED")
     if result.command is _Command.REPORT and (
         result.exit_code == 0 or result.rule_assessments is not None
     ):
@@ -362,6 +378,10 @@ def report_summary(result: RunResult) -> Summary:
             "The requested deterministic checks completed, but declared rules could not be "
             "evaluated completely."
         )
+    if result.target is TargetStatus.UNAVAILABLE:
+        sentence = _NO_TARGET_SENTENCE + "".join(
+            f"\n\nCoverage note: {item.unknown_claim}" for item in result.notes
+        )
     for status in ("FAIL", "UNKNOWN"):
         rules = [item.id for item in result.rule_assessments or () if item.status == status]
         if rules:
@@ -369,9 +389,11 @@ def report_summary(result: RunResult) -> Summary:
             more = f" (+{len(rules) - 3} more)" if len(rules) > 3 else ""
             sentence += f"\n\n{status} rules: {shown}{more}."
     rules_reason = {
-        "PASS": "Required evaluator evidence is complete; decided positions have no violations.",
+        "PASS": _VALID_WITHOUT_RULES
+        if result.command is _Command.VALIDATE and result.rule_assessments == ()
+        else "Required evaluator evidence is complete; decided positions have no violations.",
         "FAIL": "At least one rule violation was recorded; undecided positions may remain.",
-        "UNKNOWN": "Available evidence does not establish the rule outcome.",
+        "UNKNOWN": _RULES_UNKNOWN_REASON[result.target],
     }[result.declared_rules]
     verdicts = (
         VerdictRow(

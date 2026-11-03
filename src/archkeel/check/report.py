@@ -6,8 +6,10 @@
 import ast
 import subprocess
 from collections import Counter as _Counter
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import Final
 from typing import Literal as _Literal
 
 from archkeel.ir.architecture_graph import (
@@ -26,6 +28,7 @@ from archkeel.ir.baseline import (
 )
 from archkeel.ir.codec import (
     canonical_report_bytes,
+    contract_bytes,
     decode_canonical_model,
     decode_json,
     parse_observation,
@@ -36,6 +39,7 @@ from archkeel.ir.decisions import (
     agent_decisions,
     baseline_fingerprint_covered,
     cycle_scope_receipt_covers,
+    declares_a_target,
     open_decisions,
     review_claims,
     rule_assessment_applies_to_component,
@@ -52,6 +56,8 @@ from archkeel.ir.facts import (
     JsonValue,
     Record,
     RecordData,
+    RuntimeRequirementState,
+    SourceFacts,
     SourceSectionName,
     call_binding,
 )
@@ -61,11 +67,10 @@ from archkeel.ir.facts_codec import (
 from archkeel.ir.facts_validation import validate_source_bindings
 from archkeel.ir.findings import findings
 from archkeel.ir.model import (
-    AssessmentStatus as _AssessmentStatus,
-)
-from archkeel.ir.model import (
+    ArchitectureContract,
     BaselineViolationComparison,
     CallRow,
+    ContractVersion,
     EvidenceClass,
     FilteredViolation,
     Finding,
@@ -73,6 +78,11 @@ from archkeel.ir.model import (
     ObservationResult,
     ReportFilter,
     RunResult,
+    TargetStatus,
+    Verdict,
+)
+from archkeel.ir.model import (
+    AssessmentStatus as _AssessmentStatus,
 )
 from archkeel.ir.model import (
     Command as _Command,
@@ -87,15 +97,18 @@ from archkeel.ir.model import (
 from archkeel.ir.module_explore import module_exploration
 from archkeel.ir.phases import Phase, PhaseClock, WorkCounter, measured, observation_counters
 from archkeel.ir.profiles import PROFILES
+from archkeel.ir.protocol import CollectionError, CollectionRequest
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.report_projection import architecture_projection
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 
-from .observe import observation_diagnostics
-from .ports import Analyzer, ScanConfig
+from .observe import Observer, observation_diagnostics
+from .onboarding import layout_contracts, scan_scope
+from .ports import Analyzer, Language, ScanConfig, SourceCollector
 from .ratchets import call_rows, calls_measured, unknown_positions_by_rule
 from .run import inspect_observation
 from .runtime import runtime_diagnostic
+from .snapshot import SnapshotError
 from .uml import (
     observe_repository as _observe_repository,
 )
@@ -105,10 +118,14 @@ from .uml import (
 from .uml import (
     validated_member_inventory_result as _validated_member_inventory_result,
 )
+from .validation.observation import VIOLATION_REMEDY
 
+# AD-285: the temporary layout contract of `run_explore`; the name is a label, never a mark.
+EXPLORE_CONTRACT: Final = "archkeel-explore-layout.json"
+# AD-285: the folder of the inside contracts that open a large layout component.
+EXPLORE_LEVELS: Final = "archkeel-explore-levels"
+_UNDETECTED_MARKERS: Final = ("tsconfig.json", "pubspec.yaml")
 _CALL_RECORD_KINDS = ("resolved_call", "partially_resolved_call", "unresolved_call")
-
-VIOLATION_REMEDY = "Change the code or amend the contract with owner approval."
 
 
 def _baseline_report(
@@ -503,6 +520,7 @@ def _architecture_result(
     *,
     require_source_graph: bool = False,
 ) -> RunResult:
+    command_result = _target_result(model, command_result)
     only_violations = report_filter is not None and report_filter.only_violations
     only_architecture = report_filter is not None and report_filter.only_architecture
     component = report_filter.component if report_filter is not None else None
@@ -663,6 +681,60 @@ def _report_result(
     return command_result
 
 
+def _target_result(model: Observation, result: RunResult) -> RunResult:
+    """AD-285: a contract that declares nothing has no target, so a vacuous PASS is UNKNOWN.
+
+    An observed violation keeps its FAIL: a contract with no rule can still be broken, for example
+    by a module outside its component's namespace.
+    """
+    # An invalid contract or runtime revokes the proofs; its diagnostics say why, no label.
+    if (
+        declares_a_target(model)
+        or result.declared_rules is _AssessmentStatus.FAIL
+        or bool(model.records("violations"))
+        or any(item.kind in _REVOKING_DIAGNOSTICS for item in result.diagnostics)
+    ):
+        return result
+    return replace(
+        result, declared_rules=_AssessmentStatus.UNKNOWN, target=TargetStatus.UNAVAILABLE
+    )
+
+
+# AD-285: with no target, an undeclared Python range cannot change an observed fact.
+_UNDECLARED_RANGE = frozenset(
+    {
+        RuntimeRequirementState.METADATA_MISSING,
+        RuntimeRequirementState.METADATA_INVALID,
+        RuntimeRequirementState.REQUIREMENT_MISSING,
+        RuntimeRequirementState.REQUIREMENT_INVALID,
+    }
+)
+
+
+def _range_notes(result: ObservationResult) -> tuple[ObservationResult, tuple[Diagnostic, ...]]:
+    """AD-285, explore only: an undeclared Python range becomes a note on a complete scan.
+
+    A source failure is reported with the same runtime diagnostic, so a scan with any coverage
+    failure keeps every diagnostic and still exits 2.
+    """
+    model = result.observation
+    runtime = model.runtime if model is not None else None
+    if (
+        model is None
+        or runtime is None
+        or runtime.name != Language.PYTHON
+        or declares_a_target(model)
+        or model.coverage.status != Verdict.PASS
+        or model.coverage.failures
+        or not (runtime.requirement_state in _UNDECLARED_RANGE or runtime.required is None)
+    ):
+        return result, ()
+    note = runtime_diagnostic(runtime)
+    notes = tuple(item for item in result.diagnostics if item == note)
+    kept = tuple(item for item in result.diagnostics if item != note)
+    return replace(result, diagnostics=kept), notes
+
+
 def run_report(
     root: Path,
     *,
@@ -686,8 +758,24 @@ def run_report(
         only_architecture,
         full_architecture,
     )
-    result = _projection_result(observe_repository(root, config, analyzer, clock=clock))
-    result = _validated_member_inventory_result(result)
+    return _observed_report(
+        observe_repository(root, config, analyzer, clock=clock),
+        report_filter,
+        root=root,
+        baseline=baseline,
+        clock=clock,
+    )
+
+
+def _observed_report(
+    observed: ObservationResult,
+    report_filter: ReportFilter | None,
+    *,
+    root: Path,
+    baseline: Path | None = None,
+    clock: PhaseClock | None = None,
+) -> tuple[RunResult, bytes | None]:
+    result = _validated_member_inventory_result(_projection_result(observed))
     architecture: bytes | None = None
     if result.observation is not None:
         with measured(clock, Phase.ENCODE):
@@ -697,6 +785,88 @@ def run_report(
     with measured(clock, Phase.RESULT):
         report = _report_result(result, report_filter, baseline_root=root, baseline=baseline)
     return report, architecture
+
+
+@dataclass(slots=True)
+class _CollectOnce:
+    """AD-285: explore observes twice; an equal request reuses the facts of the first pass."""
+
+    collector: SourceCollector
+    request: CollectionRequest | None = None
+    facts: SourceFacts | CollectionError | None = None
+
+    def collect(self, request: CollectionRequest) -> SourceFacts | CollectionError:
+        if self.facts is None or request != self.request:
+            self.request, self.facts = request, self.collector.collect(request)
+        return self.facts
+
+
+def run_explore(
+    root: Path,
+    *,
+    observer: Observer,
+    source: str | tuple[str, ...] | None = None,
+    namespace: str | None = None,
+    language: Language = Language.PYTHON,
+    tsconfig: str | None = None,
+) -> tuple[RunResult, bytes | None]:
+    """AD-285: observe a repository with no contract; the caller writes outside the root.
+
+    The first pass finds the modules, the second records their layout grouping as components.
+    The temporary contract has no rule, so the result has no rule verdict.
+    """
+    analyzer = replace(observer, collector=_CollectOnce(observer.collector))
+    try:
+        roots, namespace = scan_scope(
+            root, source=source, namespace=namespace, language=language, tsconfig=tsconfig
+        )
+    except DiagnosticError as error:
+        markers = [name for name in _UNDETECTED_MARKERS if Path(root, name).is_file()]
+        found = f" Found {', '.join(markers)}: pass --language and the scope." if markers else ""
+        # The result names the root by its basename, never by its absolute path.
+        raise DiagnosticError(
+            replace(
+                error.diagnostic,
+                subject=root.name,
+                unknown_claim=error.diagnostic.unknown_claim + found,
+            )
+        ) from error
+    config = ScanConfig(roots, namespace, EXPLORE_CONTRACT, "", language, tsconfig)
+    with TemporaryDirectory(prefix="archkeel-explore-") as temporary:
+        scaffold = Path(temporary)
+        contract: Path = scaffold / EXPLORE_CONTRACT
+        contract.write_bytes(contract_bytes(ArchitectureContract(ContractVersion.V2_1, (), ())))
+        try:
+            observed = observe_repository(root, config, analyzer, contract_root=scaffold)
+            if observed.observation is not None:
+                # The provenance is the layout contract itself: explore observed the grouping.
+                layout, insides = layout_contracts(
+                    observed.observation,
+                    namespace,
+                    roots,
+                    language,
+                    (EXPLORE_CONTRACT,),
+                    EXPLORE_LEVELS,
+                )
+                contract.write_bytes(contract_bytes(layout))
+                for path, inside in insides:
+                    level: Path = scaffold / path
+                    level.parent.mkdir(parents=True, exist_ok=True)
+                    level.write_bytes(contract_bytes(inside))
+                observed = observe_repository(root, config, analyzer, contract_root=scaffold)
+        except SnapshotError as error:
+            raise DiagnosticError(
+                Diagnostic(
+                    _DiagnosticKind.PARSE_ERROR,
+                    root.name,
+                    f"The worktree state needs a resolvable Git HEAD: {error}",
+                    "Create a Git commit in the repository, then retry archkeel explore.",
+                )
+            ) from error
+    observed, notes = _range_notes(observed)
+    result, architecture = _observed_report(observed, None, root=root)
+    # No contract, so no pair of components waits for a decision.
+    return replace(result, open_decisions=(), scan_roots=config.roots, notes=notes), architecture
 
 
 def _count_work(clock: PhaseClock, observation: Observation, architecture_bytes: int) -> None:

@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath as _PurePosixPath
 from typing import Final as _Final
 
+from .architecture_graph import ComponentRole
 from .baseline import ViolationFingerprint as _ViolationFingerprint
 from .baseline import violation_rows
 from .bindings import unread_bindings
@@ -31,6 +32,7 @@ from .facts_validation import validate_source_bindings
 from .interfaces import component_owners, owner_of
 from .measurements import RatchetError
 from .model import (
+    ARCHITECTURE_TARGET_KIND,
     RULE_RECORD_KINDS,
     AllowedDependencyRule,
     ArchitectureRuleKind,
@@ -70,6 +72,29 @@ _DECIDING_KINDS = frozenset({"forbidden_dependency", "allowed_dependency"})
 
 # The two kinds a component declaration reaches the observation under, one per level (AD-34).
 _COMPONENT_KINDS = frozenset({"component_responsibility", "inside_component_responsibility"})
+
+# AD-285: a grouping record declares no intent unless one of these fields holds an entry.
+_GROUPING_KINDS = _COMPONENT_KINDS | {ARCHITECTURE_TARGET_KIND}
+# `public` and `planned` are optional: a present list, even empty, is a decision, as
+# `_component_deciders` counts it. The other fields are always written, so only entries count.
+_DECLARED_FIELDS = ("public", "planned")
+_ENTRY_FIELDS = ("responsibilities", "forbidden_responsibilities", "requires")
+
+
+def declares_a_target(observation: Observation) -> bool:
+    """AD-285: a rule, a UML target or any declared intent is something to check code against.
+
+    A contract of bare component groups, such as the layout contract of `archkeel explore`,
+    declares nothing: its components only name where modules live.
+    """
+    return any(
+        record.kind not in _GROUPING_KINDS
+        or record.data.get("role") not in {None, ComponentRole.COMPONENT}
+        or any(record.data.get(field) is not None for field in _DECLARED_FIELDS)
+        or any(record.data.get(field) for field in _ENTRY_FIELDS)
+        for record in observation.records("declarations") or ()
+    )
+
 
 # The provenance every drafted dependency option cites; init writes this file alongside
 # the contract, so the path already exists by the time an architect copies an option in.

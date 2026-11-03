@@ -143,6 +143,8 @@ class Variant:
     # report's declared_rules verdict, checked when set: the only place an UNKNOWN that is
     # neither a violation nor a diagnostic becomes visible, so a row demonstrating one says so.
     expected_declared_rules: Literal["PASS", "FAIL", "UNKNOWN"] | None = None
+    # AD-285: the row runs `archkeel explore` on a fixture with no ArchKeel file.
+    explore: bool = False
 
 
 def apply_overlay(root: Path, files: Mapping[str, str | None]) -> None:

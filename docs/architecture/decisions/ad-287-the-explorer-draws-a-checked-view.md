@@ -37,14 +37,14 @@
 6. Layout: one card for each step, keyed by its index, in one column in step order, at 100 %
    (AD-286); other spec nodes in a second column; «component» or «module» on each card. The
    layout engine routes the edges.
-7. No contract (`explore`, #791): the flow view prints no PASS and shows each status with its reason.
-   Open: disabling Target and Diff needs a typed "target unavailable" field in the page data.
+7. No contract (AD-285): no PASS, each status with its reason. AD-285 hides Target and Diff by a
+   style rule. Open: a typed target field in the page data would replace that rule.
 8. Keyboard: Tab reaches each step card in order, Enter opens the inspector, Esc closes it.
 
 **Rejected.** `view check --html`: a check verb must not write files. A second renderer or a
 new JavaScript source owner. ELK layout: it can reorder steps. An absolute path in the HTML.
 
-**Limits.** One view a page. The cache folder repeats `explore` (#791): merge them. A path is not order.
+**Limits.** One view a page; `explore` and `view show` share the cache and page-name rules.
 
 **Checks.** `tests/test_cli_view_show.py`; `tests/test_report_checked_flow.py` (Chromium, local
 until Full runs it); demo row `protocol-view-show` (`test_view_variant_produces_the_catalogued_statuses`).
