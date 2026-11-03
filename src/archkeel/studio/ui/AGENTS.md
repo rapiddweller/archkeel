@@ -10,8 +10,8 @@ Rules for the Studio frontend (AD-290). They add to the root [AGENTS.md](../../.
 |---|---|---|
 | `shell.tsx` | shell | Entry. Starts the store, routes by `#/<view>`, draws nav, legend, contract state. |
 | `views/*.tsx` | views | One page each. Gets the API state as props. |
-| `components.tsx` | components | Nav item, legend, badge, tabs, card, page frame. Props only. |
-| `canvas.tsx` | canvas | The Explorer island: an `<iframe>` of the offline Explorer page. |
+| `components.tsx` | components | Nav item, legend, badge, tabs, card, panel, page frame. Props only. |
+| `canvas.tsx` | canvas | The Explorer island: the Explorer page with `?embed`; passes on its selection. |
 | `store.ts` | store | The one store: polls `GET /api/v1/state`. |
 | `api.ts` | client | The only `fetch`. Types of `schema/studio-api-1.0.schema.json`. |
 | `vocabulary.ts` | client | Generated from the enums of `archkeel.studio.api`. Never edit it. |
@@ -38,7 +38,7 @@ flowchart LR
 ```
 
 A view never imports another view. Components never import the client or the store.
-Planned Figma parts: panel, discussion message (PROPOSED - NOT APPLIED). Build them when needed.
+Planned Figma part: discussion message (PROPOSED - NOT APPLIED). Build it when a view needs it.
 
 ## Naming and typed values
 

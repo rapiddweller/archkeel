@@ -1,10 +1,10 @@
 /* Layout and components; every colour is a token of tokens.css. */
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 var(--font); }
-#app { min-height: 100vh; display: grid; grid-template-columns: 220px minmax(0, 1fr); }
+#app { height: 100vh; display: grid; grid-template-columns: 220px minmax(0, 1fr); }
 a { color: var(--observed); }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-aside { background: var(--panel); border-right: 1px solid var(--line); padding: 20px 12px; }
+#app > aside { background: var(--panel); border-right: 1px solid var(--line); padding: 20px 12px; }
 .brand { font-weight: 700; padding: 0 8px 20px; letter-spacing: .02em; }
 .brand small { display: block; color: var(--target); font-size: 11px; }
 .label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
@@ -18,7 +18,8 @@ nav a[aria-current="page"] { background: var(--raised); color: var(--text); font
 .target { color: var(--target); }
 .contract { font-weight: 600; font-size: 12px; padding: 0 8px; margin: 0; color: var(--claim);
   white-space: nowrap; }
-main { padding: 24px 32px; min-width: 0; }
+main { padding: 24px 32px; min-width: 0; min-height: 0; overflow: auto; display: flex;
+  flex-direction: column; }
 h1 { margin: 0 0 4px; font-size: 26px; }
 .lead { color: var(--muted); margin: 0; }
 .tabs { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
@@ -31,19 +32,25 @@ h1 { margin: 0 0 4px; font-size: 26px; }
 .card p { margin: 0 0 8px; }
 .card .badge { display: inline-block; margin-top: 4px; }
 code { color: var(--observed); }
-iframe { width: 100%; height: max(420px, calc(100vh - 190px)); border: 1px solid var(--line);
-  border-radius: var(--radius); background: var(--bg); }
+.explore { flex: 1; min-height: 0; display: grid; gap: var(--gap); margin-top: 16px;
+  grid-template-columns: minmax(0, 1fr) 240px; }
+iframe { width: 100%; height: 100%; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--bg); visibility: hidden; }
+iframe.ready { visibility: visible; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 4px 16px; overflow: auto; }
+.panel .label { margin: 12px 0 8px; }
 @media (max-width: 900px) {
-  #app { grid-template-columns: minmax(0, 1fr); }
-  aside { border-right: 0; border-bottom: 1px solid var(--line); padding: 10px 12px;
+  #app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .explore { grid-template-columns: minmax(0, 1fr) 180px; gap: 8px; margin-top: 8px; }
+  #app > aside { border-right: 0; border-bottom: 1px solid var(--line); padding: 10px 12px;
     display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; }
   .brand { padding: 0; }
   nav { flex-direction: row; flex-wrap: wrap; }
   nav a { padding: 4px 8px; }
-  aside .label { display: none; }
+  #app > aside .label { display: none; }
   .legend { display: flex; gap: 12px; padding: 0; }
   .contract { padding: 0; }
   main { padding: 12px 16px; }
   h1 { font-size: 20px; }
-  iframe { height: max(320px, calc(100vh - 250px)); }
 }

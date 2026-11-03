@@ -97,7 +97,8 @@
         "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Legend",
         "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Tabs",
         "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Card",
-        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Page"
+        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Page",
+        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Panel"
       ],
       "responsibilities": [
         "Draw the shared parts of a page from their props only."
@@ -129,10 +130,11 @@
         "studio_ui.src.archkeel.studio.ui.canvas_x2e_tsx"
       ],
       "public": [
-        "studio_ui.src.archkeel.studio.ui.canvas_x2e_tsx:ExplorerCanvas"
+        "studio_ui.src.archkeel.studio.ui.canvas_x2e_tsx:ExplorerCanvas",
+        "studio_ui.src.archkeel.studio.ui.canvas_x2e_tsx:SelectedComponent"
       ],
       "responsibilities": [
-        "Mount the offline Explorer page as an island."
+        "Mount the offline Explorer page in embed mode, give it the shell tokens and pass on its typed selection message."
       ],
       "forbidden_responsibilities": [
         "Change the Explorer or read its data."
@@ -178,7 +180,8 @@
           "through": [
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Card",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Page",
-            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Tabs"
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Tabs",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Panel"
           ],
           "rationale": "Draw pages with the shared components."
         },
@@ -191,10 +194,7 @@
         },
         {
           "component": "canvas",
-          "through": [
-            "studio_ui.src.archkeel.studio.ui.canvas_x2e_tsx:ExplorerCanvas"
-          ],
-          "rationale": "Explore mounts the Explorer island."
+          "rationale": "Explore mounts the Explorer island and shows its selection."
         }
       ]
     },

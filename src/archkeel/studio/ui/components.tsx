@@ -49,6 +49,15 @@ export function Card(props: { title: string; evidence: Evidence; children: Compo
   );
 }
 
+export function Panel(props: { title: string; children: ComponentChildren }) {
+  return (
+    <aside class="panel" aria-label={props.title}>
+      <p class="label">{props.title}</p>
+      {props.children}
+    </aside>
+  );
+}
+
 export function Page(props: { title: string; lead: string; children: ComponentChildren }) {
   return (
     <>

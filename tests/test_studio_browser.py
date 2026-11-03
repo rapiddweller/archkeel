@@ -29,6 +29,50 @@ def studio(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Studio]:
         _stop(server)
 
 
+def _check_the_embedded_explorer(page, width: int, height: int) -> None:
+    """Only the Explorer canvas, dark from the start, filling the main area; selection shows."""
+    element = page.locator("iframe[title='Explorer']")
+    element.wait_for()
+    page.frame_locator("iframe[title='Explorer']").locator(
+        "#flow[data-layout-state='ready']"
+    ).wait_for()
+    page.locator("iframe[title='Explorer'].ready").wait_for()
+    inner = element.element_handle().content_frame()
+    # No light flash: an Explorer frame stays hidden until it has loaded and taken the tokens.
+    unloaded = (
+        "(() => { const frame = document.createElement('iframe'); document.body.append(frame);"
+        " const visibility = getComputedStyle(frame).visibility; frame.remove();"
+        " return visibility; })()"
+    )
+    assert page.evaluate(unloaded) == "hidden"
+    assert inner.get_by_role("banner").count() == 0
+    assert inner.evaluate(
+        "[...document.querySelectorAll('.report-shell > :not(.flow-section)')]"
+        ".every((item) => getComputedStyle(item).display === 'none')"
+    )
+    assert (
+        inner.locator(".ak-brand, .flow-fullscreen, .flow-open-selected, .theme-toggle").count()
+        == 4
+    )
+    assert inner.evaluate(
+        "[...document.querySelectorAll('.ak-brand, .flow-fullscreen, .flow-open-selected,"
+        " .theme-toggle')].every((item) => !item.checkVisibility())"
+    )
+    assert inner.get_by_role("button", name="Search").is_visible()
+    assert inner.evaluate("getComputedStyle(flow).backgroundColor") == "rgb(10, 18, 24)"
+    assert inner.evaluate("document.documentElement.scrollHeight <= innerHeight")
+    box = element.bounding_box()
+    assert box["y"] + box["height"] >= height - 32, box
+    assert box["width"] >= (width - 260) / 2, box
+    assert page.evaluate("document.documentElement.scrollHeight") <= height
+
+    card = inner.locator("g.node[data-uml-id]").first
+    component = card.get_attribute("data-uml-id")
+    card.click()
+    panel = page.get_by_role("complementary", name="Selected component")
+    panel.get_by_text(component, exact=True).wait_for()
+
+
 @pytest.mark.browser
 @pytest.mark.parametrize(("width", "height"), [(1440, 900), (800, 600)])
 def test_the_shell_navigates_and_stays_on_its_server(
@@ -62,9 +106,7 @@ def test_the_shell_navigates_and_stays_on_its_server(
             page.get_by_role("link", name="Explore", exact=True).focus()
             page.keyboard.press("Enter")
             assert urlsplit(page.url).fragment == "/explore"
-            frame = page.frame_locator("iframe[title='Explorer']")
-            frame.locator("#flow[data-layout-state='ready']").wait_for()
-            assert page.locator("iframe[title='Explorer']").bounding_box()["height"] > 300
+            _check_the_embedded_explorer(page, width, height)
             page.screenshot(path=tmp_path / f"explore-{width}.png")
 
             for name, fragment, heading in (
