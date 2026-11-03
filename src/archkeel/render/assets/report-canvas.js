@@ -108,14 +108,9 @@ import { search as searchScene, sceneToMermaid, decider as DECIDER, perspectives
     return searchScene(indexes.get(view), text,
       (F.state().scene?.nodes || []).map((node) => node.id));
   }
-  // The opened level lays out asynchronously, so focus waits for its render.
-  function focusAfterRender() {
-    root.addEventListener("archkeel:rendered", () => (F.nodeLayer.querySelector(".node")
-      || root.querySelector(".flow-breadcrumb > button:last-child"))?.focus({ preventScroll: true }), { once: true });
-  }
   function openResult(row) {
     if (row.kind === "element") F.selectElement(row.id);
-    else if (row.kind === "component") { focusAfterRender(); enterScope(row.id); root.scrollIntoView({ block: "start" }); }
+    else if (row.kind === "component") { enterScope(row.id); root.scrollIntoView({ block: "start" }); }
     else if (row.kind === "module") showModule(row.module);
     else showRule(row.rule);
   }
@@ -460,7 +455,7 @@ import { search as searchScene, sceneToMermaid, decider as DECIDER, perspectives
   const SHORTCUTS = [
     { keys: [`${MOD} K`, "/"], label: "Search everything", match: (e) => (e.key.toLowerCase() === "k" && (e.metaKey || e.ctrlKey)) || (e.key === "/" && !e.metaKey && !e.ctrlKey), run: openPalette },
     { keys: ["Shift C"], label: "Zoom to selection", match: (e) => e.shiftKey && !e.metaKey && !e.ctrlKey && e.code === "KeyC", run: () => F.fit() },
-    { keys: ["Shift 1"], label: "Fit diagram to the window", match: (e) => e.shiftKey && e.code === "Digit1", run: () => fitDiagram() },
+    { keys: ["Shift 1"], label: "Reset zoom", match: (e) => e.shiftKey && e.code === "Digit1", run: () => fitDiagram() },
     { keys: ["1", "2", "3"], label: "As-Is · Target · Diff", match: (e) => !e.shiftKey && !e.metaKey && !e.ctrlKey && ["1", "2", "3"].includes(e.key),
       run: (e) => view({ 1: "diagram", 2: "target", 3: "diff" }[e.key]) },
     ...(A ? [
@@ -536,8 +531,8 @@ import { search as searchScene, sceneToMermaid, decider as DECIDER, perspectives
   const tagBar = h("div", { class: "ak-bar ak-bottom-center", role: "toolbar", "aria-label": "Perspectives" });
   const zoom = move(".flow-zoom-controls");
   zoom?.querySelector(".flow-fit-overview")?.replaceChildren(icon("fit"));
-  zoom?.querySelector(".flow-fit-overview")?.setAttribute("aria-label", "Fit to window");
-  zoom?.querySelector(".flow-fit-overview")?.setAttribute("title", "Fit to window (Shift 1)");
+  zoom?.querySelector(".flow-fit-overview")?.setAttribute("aria-label", "Reset zoom");
+  zoom?.querySelector(".flow-fit-overview")?.setAttribute("title", "Reset zoom (Shift 1)");
   const bottomRight = h("div", { class: "ak-bar ak-bottom-right" },
     h("button", { class: "ak-icon-only", title: "Zoom to selection (Shift C)", "aria-label": "Zoom to selection", onclick: () => F.fit() }, icon("focus")),
     zoom);

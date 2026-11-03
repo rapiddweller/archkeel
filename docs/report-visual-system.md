@@ -19,7 +19,8 @@ ArchQ Explorer is embedded in the report. Fullscreen expands the same explorer;
 Restore returns to the report without losing the current view. Search (`Ctrl/⌘+K` or `/`) finds
 components, modules and rules; a component result opens that component in the current view, and the
 URL keeps its `scope` and `view` ([AD-286](architecture/decisions/ad-286-the-explorer-opens-a-component-in-one-step-and-fits-readably.md)).
-Fit never scales the Atlas below 90 %, so a large level scrolls. Details starts closed and opens
+A component diagram never scales below 100 %, so a large level scrolls; Reset zoom (Shift 1)
+shows a whole module map. Details starts closed and opens
 on a selection. Hover traces dependencies; `Ctrl/⌘`+wheel zooms at the pointer. Health check opens findings and the import matrix. Snapshot provenance
 and the complete JSON link remain in the report and in Health check.
 Perspectives show recorded authorship, layer or evidence without changing verdicts.

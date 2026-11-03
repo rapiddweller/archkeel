@@ -16,6 +16,7 @@ export let flow;
   const NAV = DATA.navigation || null;
   const SIDECAR = Boolean(NAV?.module_ids);
   let routeReady = false, returnScope = null, returnView = "diagram", returnSelection = null, returnCell = null, returnContent = null, routeNotice = null;
+  let sidecarModuleRequested = false;
   let atlasModule = null, atlasCell = null, atlasHint = null, atlasAllHints = false, atlasContent = null;
   let pendingAtlasFindingHash = null;
   if (!["1.0.0", "1.2.0"].includes(DATA.schema_version)) {
@@ -763,6 +764,7 @@ export let flow;
           : requestedComponent ? NAV.component_module_ids?.[requestedComponent] || []
           : moduleIds;
       const requestedModule = query.get("module");
+      sidecarModuleRequested = Boolean(requestedModule);
       const componentScope = !requestedModule && REPORT_SCENE.componentRoute(requestedComponent).length
         && (origin === "declared" || viewMode === "target");
       const module = requestedModule || componentModules[0];
@@ -960,7 +962,7 @@ export let flow;
         + umlPath.map((entry, index) => `<span> / </span><button type="button" data-atlas-depth="${index + 1}">${esc(REPORT_SCENE.atlasComponent(entry.id)?.label || entry.id)}</button>`).join("");
       breadcrumb.querySelectorAll("button").forEach((button) => button.onclick = () => {
         umlPath = umlPath.slice(0, Number(button.dataset.atlasDepth)); umlSelection = null; routeNotice = null;
-        atlasModule = null; atlasCell = null; atlasHint = null; atlasContent = null; positions = Object.create(null); render(); fit();
+        atlasModule = null; atlasCell = null; atlasHint = null; atlasContent = null; positions = Object.create(null); render(); fit(); focusNextRender();
       });
       backButton.hidden = !umlPath.length; backButton.textContent = "Back to components"; return;
     }
@@ -1752,8 +1754,6 @@ export let flow;
   }
 
   let maxFitScale = 1.4;
-  // The smallest Atlas card text is 13 px tall (bounding box) at 100 %; at 0.9 it stays above 11 px.
-  const ATLAS_MIN_FIT_SCALE = 0.9;
   function fit(overview = false) {
     cancelPointerTap();
     if (layoutPending) {
@@ -1764,8 +1764,9 @@ export let flow;
     const bounds = viewport.getBBox();
     if (!bounds.width || !bounds.height || !canvas.clientWidth || !canvas.clientHeight) return;
     // Member compartments need readable text; oversized content stays pannable.
-    // The Atlas never fits below ATLAS_MIN_FIT_SCALE: a large level scrolls instead of shrinking its text.
-    const minimumScale = ATLAS ? ATLAS_MIN_FIT_SCALE
+    // Atlas card text is 11 px at 100 %: a component level scrolls instead of shrinking it.
+    // Only the one-click overview of a module map goes below 100 %.
+    const minimumScale = ATLAS ? (overview && renderedScene?.moduleOverview ? 0 : 1)
       : focusLabel || memberPreviews || umlSelection?.type === "node" ? 1 : overview ? 0 : 0.85;
     const widthScale = canvas.clientWidth / (bounds.width + 48);
     transform.k = renderedScene?.moduleOverview && !overview ? Math.max(1, Math.min(maxFitScale, widthScale))
@@ -1872,8 +1873,17 @@ export let flow;
 
   function focusCurrentLevel() {
     const subject = umlSelection && svg.querySelector(`[data-uml-id="${CSS.escape(umlSelection.id)}"]`);
-    (subject?.querySelector(".hit") || subject || nodeLayer.querySelector(".node") || flowHeading)
+    (subject?.querySelector(".hit") || subject || nodeLayer.querySelector(".node")
+      || breadcrumb.querySelector("button:not(:disabled):last-child") || flowHeading)
       .focus({ preventScroll: true });
+  }
+
+  // The new level draws asynchronously: focus its first card once it is drawn, if no later render replaced it.
+  function focusNextRender() {
+    const generation = layoutGeneration;
+    root.addEventListener("archkeel:rendered", () => {
+      if (generation === layoutGeneration) focusCurrentLevel();
+    }, { once: true });
   }
 
   function updateOpenSelected() {
@@ -2245,7 +2255,7 @@ export let flow;
     atlasContent = content;
     umlSelection = null;
     atlasModule = null; atlasCell = null; atlasHint = null; atlasAllHints = false;
-    positions = Object.create(null); render(); fit(); focusCurrentLevel();
+    positions = Object.create(null); render(); fit(); focusNextRender();
   }
 
   function atlasLayoutKey(scene, level) {
@@ -3165,7 +3175,7 @@ export let flow;
   if (NAV) {
     readRoute();
     // A selection in the URL opens Details; a plain first load leaves the diagram the full width.
-    setTargetDetails(umlSelection !== null || atlasModule !== null || atlasCell !== null);
+    setTargetDetails(umlSelection !== null || atlasModule !== null || atlasCell !== null || sidecarModuleRequested);
     document.querySelector(".theme-toggle").addEventListener("click", () => {
       applyTheme(document.documentElement.dataset.theme !== "light"); render();
     });
