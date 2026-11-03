@@ -12,10 +12,21 @@ import pytest
 from test_result_schema import _validator
 
 from archkeel.analyzer.python.collect import PythonProviderCollector
+from archkeel.check.ports import ScanConfig
+from archkeel.check.report import run_report
+from archkeel.check.validation import run_validate
 from archkeel.cli import main
+from archkeel.cli.config import load_config
+from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_observation
+from archkeel.ir.diagnostics import Diagnostic
+from archkeel.ir.model import DiagnosticCode, DiagnosticKind, ObservationResult
 from archkeel.ir.report_graph import architecture_report
+from archkeel.render.summary import report_summary
 from fixtures.architecture_demo import CATALOG, replay
+from fixtures.demo_catalog_dart import DART_FIXTURE_DIR
+from fixtures.demo_catalog_typescript import VARIANTS as TYPESCRIPT_VARIANTS
+from fixtures.reproduce_typescript import repository as typescript_repository
 
 _SOURCES = {
     "shop/__init__.py": "",
@@ -89,6 +100,11 @@ def test_explore_shows_a_repository_without_a_contract(
     key = hashlib.sha256(str(root.resolve()).encode()).hexdigest()[:16]
     artifact = tmp_path / "cache" / "archkeel" / "explore" / key / "architecture.json"
     assert payload["artifact"] == str(artifact)
+    assert (payload["root_name"], payload["root_digest"]) == ("repo", key)
+    raw = artifact.read_bytes()
+    assert str(root.resolve()).encode() not in raw
+    # The layout is observed by explore; no architecture page exists to cite.
+    assert b"docs/architecture/architecture.md" not in raw
     model = _snapshot(artifact)
     assert model.contract.path == "archkeel-explore-layout.json"
     memberships = {item.component_id for item in architecture_report(model).memberships}
@@ -97,6 +113,10 @@ def test_explore_shows_a_repository_without_a_contract(
     assert page.index('id="inventory-heading"') < page.index('id="findings-heading"')
     assert "Target unavailable: no rule is declared, so no rule passes or fails" in page
     assert "3 layout components" in page
+    inventory = page[page.index('id="inventory-heading"') : page.index('id="findings-heading"')]
+    # AD-285: only one line is open, so the Explorer stays on the first screen.
+    assert "<code>store</code> (2)" in inventory
+    assert inventory.index("<details") < inventory.index("<table")
     assert "shop.cli.__main__" in page
     assert "PASS · Rules" not in page
 
@@ -212,29 +232,7 @@ def test_explore_collects_the_source_once(
 def test_report_on_a_contract_without_a_rule_gives_no_verdict(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    contract = {
-        "schema_version": "2.1.0",
-        "components": [
-            {
-                "id": "COMP-SHOP",
-                "label": "shop",
-                "role": "component",
-                "packages": ["shop"],
-                "responsibilities": [],
-                "forbidden_responsibilities": [],
-                "provenance": ["docs/architecture.md"],
-            }
-        ],
-        "rules": [],
-    }
-    files = {
-        **_SOURCES,
-        "docs/architecture.md": "# Architecture\n",
-        "architecture-contract.json": json.dumps(contract),
-        "archkeel.toml": '[scan]\nroots = ["shop"]\nnamespace = "shop"\n'
-        'contract = "architecture-contract.json"\n',
-    }
-    root = _repository(tmp_path / "repo", files)
+    root = _zero_rule_repository(tmp_path / "repo")
 
     code = main(["report", "--root", str(root), "--output", str(tmp_path / "a.json"), "--json"])
     payload = json.loads(capsys.readouterr().out)
@@ -256,3 +254,112 @@ def test_the_explore_demo_row_replays_without_a_contract(
     assert payload["target"] == "unavailable"
     assert 'id="inventory-heading"' in artifact.with_name("architecture.report.html").read_text()
     assert not (variant.fixture / "archkeel.toml").exists()
+
+
+def _zero_rule_repository(root: Path) -> Path:
+    contract = {
+        "schema_version": "2.1.0",
+        "components": [
+            {
+                "id": "COMP-SHOP",
+                "label": "shop",
+                "role": "component",
+                "packages": ["shop"],
+                "responsibilities": [],
+                "forbidden_responsibilities": [],
+                "provenance": ["docs/architecture.md"],
+            }
+        ],
+        "rules": [],
+    }
+    files = {
+        **_SOURCES,
+        "docs/architecture.md": "# Architecture\n\n<!-- archkeel-component-graph -->\n"
+        "```mermaid\ngraph TD\n```\n",
+        "architecture-contract.json": json.dumps(contract),
+        "archkeel.toml": '[scan]\nroots = ["shop"]\nnamespace = "shop"\n'
+        'contract = "architecture-contract.json"\n',
+    }
+    return _repository(root, files)
+
+
+def test_an_invalid_contract_shows_its_diagnostics_and_no_target_label(tmp_path: Path) -> None:
+    root = _repository(tmp_path / "repo")
+    assert main(["explore", "--root", str(root), "--output", str(tmp_path / "out"), "--json"]) == 0
+    model = _snapshot(tmp_path / "out" / "architecture.json")
+    invalid = Diagnostic(
+        DiagnosticKind.CONTRACT_INVALID,
+        "contract.json",
+        "Target intent is invalid.",
+        "Repair it.",
+        code=DiagnosticCode.CONTRACT_INVALID,
+    )
+
+    result, _ = run_report(
+        root,
+        config=ScanConfig(("shop",), "shop", "architecture-contract.json", ""),
+        analyzer=lambda *args, **kwargs: ObservationResult(model, model.coverage, (invalid,)),
+    )
+
+    assert result.exit_code == 2
+    assert result.target is None
+    assert invalid in result.diagnostics
+
+
+def test_validate_on_a_contract_without_a_rule_says_no_rule_was_checked(tmp_path: Path) -> None:
+    root = _zero_rule_repository(tmp_path / "repo")
+
+    result, _ = run_validate(root, load_config(root), observe)
+
+    assert (result.exit_code, result.declared_rules) == (0, "PASS")
+    reason = next(
+        row.reason for row in report_summary(result).verdicts if row.key == "declared_rules"
+    )
+    assert reason == "The contract is valid and declares no rule; no rule was checked."
+
+
+def test_explore_reads_a_dart_package_through_the_init_options(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path / "dart"
+    root.mkdir()
+    for name in ("lib", "pubspec.yaml"):
+        source = DART_FIXTURE_DIR / name
+        target = root / name
+        if source.is_dir():
+            subprocess.run(["cp", "-R", str(source), str(target)], check=True)
+        else:
+            target.write_bytes(source.read_bytes())
+    _repository(root, {})
+    options = ["--language", "dart", "--source", "lib", "--namespace", "shop"]
+
+    code, payload = _explore(
+        capsys, "--root", str(root), "--output", str(tmp_path / "out"), *options
+    )
+
+    assert code == 0, payload["diagnostics"]
+    assert (payload["target"], payload["scan_roots"]) == ("unavailable", ["lib"])
+    assert architecture_report(_snapshot(tmp_path / "out" / "architecture.json")).memberships
+
+
+def test_explore_reads_a_typescript_project_through_the_init_options(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    clean = next(item for item in TYPESCRIPT_VARIANTS if item.id == "typescript-clean")
+    root = typescript_repository(tmp_path, clean)
+    options = ["--language", "typescript", "--source", "src", "--namespace", "shop"]
+
+    code, payload = _explore(
+        capsys,
+        "--root",
+        str(root),
+        "--output",
+        str(tmp_path / "out"),
+        *options,
+        "--tsconfig",
+        "tsconfig.json",
+    )
+
+    assert code == 0, payload["diagnostics"]
+    assert payload["target"] == "unavailable"
+    assert architecture_report(_snapshot(tmp_path / "out" / "architecture.json")).memberships

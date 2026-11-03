@@ -855,19 +855,28 @@ def _atlas_inventory(observation: Observation) -> str:
     rows = [_inventory_row(item, entries, interface) for item in metrics]
     shown, rest = rows[:_INVENTORY_SHOWN], rows[_INVENTORY_SHOWN:]
     more = (
-        f'<details class="inventory-more"><summary>Show all {len(rows)} components</summary>'
+        f'<details class="inventory-more"><summary>{len(rest)} more components</summary>'
         f'<div class="table-wrap"><table class="data-table">{head}<tbody>{"".join(rest)}'
         "</tbody></table></div></details>"
         if rest
         else ""
     )
+    largest = ", ".join(
+        f"<code>{_text(item.scope)}</code> ({item.modules})" for item in metrics[:_INVENTORY_SHOWN]
+    )
+    named = sorted(name for names in entries.values() for name in names)
+    entry_text = ", ".join(f"<code>{_text(name)}</code>" for name in named) or "none observed"
+    # AD-285: one open line and a closed table keep the Explorer on an 800x600 first screen.
     return (
-        '<section aria-labelledby="inventory-heading"><h2 id="inventory-heading">What is here</h2>'
-        f"<p>{len(metrics)} components · {len(observation.records('modules') or ())} modules · "
-        f"{observation.coverage.files_parsed} files parsed. Observed from the code; components "
-        "follow the package layout. Incoming and outgoing count module import edges.</p>"
-        f'<div class="table-wrap"><table class="data-table">{head}<tbody>{"".join(shown)}'
-        f"</tbody></table></div>{more}</section>"
+        '<section class="atlas-inventory" aria-labelledby="inventory-heading">'
+        f'<p><strong id="inventory-heading">What is here</strong> · {len(metrics)} layout '
+        f"components · {len(observation.records('modules') or ())} modules · "
+        f"{observation.coverage.files_parsed} files parsed · largest by modules: {largest}"
+        f"{f' and {len(rest)} more' if rest else ''} · entry modules: {entry_text}.</p>"
+        '<details class="inventory-table"><summary>Inventory table: edges, entry modules and '
+        "names other components import. Incoming and outgoing count module import edges."
+        f'</summary><div class="table-wrap"><table class="data-table">{head}'
+        f"<tbody>{''.join(shown)}</tbody></table></div>{more}</details></section>"
     )
 
 
@@ -1050,6 +1059,11 @@ def _atlas_content(
       · Source digest <code>{_text(observation.source.source_digest)}</code>
       · Dirty {_text(observation.source.dirty)}.</p>
       <p>Scope: {_text(", ".join(observation.source.scope))}</p>
+      {
+        f"<p>Root {_text(result.root_name)} · <code>{_text(result.root_digest)}</code></p>"
+        if result.root_digest is not None
+        else ""
+    }
       <p>Contract <code>{_text(observation.contract.path)}</code>
       · {_text(observation.contract.digest)}</p>
       <p><a href="{_text(architecture_href)}">Complete architecture JSON and recorded evidence

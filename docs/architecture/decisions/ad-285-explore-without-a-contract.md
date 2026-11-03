@@ -4,29 +4,30 @@
 
 **Decision.**
 1. `archkeel explore [--root PATH] [--output DIR] [--json]` needs no ArchKeel file and no setup.
-2. Scope: the `init` detection (AD-47) finds the one top-level Python package. A mixed
-   repository gives its Python package only; `scan_roots` names what was read.
+2. Scope: the `init` options `--language`, `--source`, `--namespace` and `--tsconfig` (one
+   definition), else the `init` detection (AD-47) of the one top-level Python package.
 3. Grouping: a temporary contract `archkeel-explore-layout.json` outside the repository has one
-   component for each top-level child of the package (the `init` grouping). It has no rule,
-   `public`, `requires` or decision. The collector runs once for both passes.
+   component for each top-level child (the `init` grouping); its provenance is that file. It has
+   no rule, `public`, `requires` or decision. The collector runs once for both passes.
 4. Output: `architecture.json` and the report pages go to `DIR`, else to
-   `$XDG_CACHE_HOME/archkeel/explore/<root hash>/` (default `~/.cache`). An output inside the
+   `$XDG_CACHE_HOME/archkeel/explore/<root_digest>/` (default `~/.cache`). An output inside the
    root exits 2. Each run observes again and first removes its old files.
-5. No rule, no verdict: an observation with no declared rule and no UML target gives
-   `target: unavailable` and `declared_rules: UNKNOWN`, also in `report --input`; `--only
-   architecture` gives `UNKNOWN` only. Observed facts stay. The result is a `report` result.
-6. Snapshot identity: `source.git_head`, `source.dirty`, `source.source_digest` (worktree
-   content), `analyzer.version` and `analyzer.code_digest`; the root is the cache key.
-7. In this mode an inventory panel comes above the findings: the 8 largest components (modules,
-   edges inside, incoming, outgoing), their `__main__` modules and the count of names other
-   components import from them. This amends AD-264 for this mode only.
-8. Exit 0: complete. Exit 2: no single Python package, no Git commit, output inside the root, or
-   incomplete coverage; the diagnostic names the reason.
+5. No rule, no verdict: a valid observation with no declared rule and no UML target gives
+   `target: unavailable` and `declared_rules: UNKNOWN`, also in `report --input`. An invalid
+   contract shows its diagnostics only. `validate` keeps PASS: it says the contract is valid and
+   that no rule was checked. The result is a `report` result.
+6. Identity: `source.git_head`, `source.dirty`, `source.source_digest` (worktree content),
+   `analyzer.version`, `analyzer.code_digest`; the result adds `root_name` (basename) and
+   `root_digest` (sha256 of the resolved root, 16 hex), never the absolute path.
+7. In this mode one line comes above the findings: counts, the 8 largest components with their
+   module counts, and the `__main__` modules. A closed table adds edges and the count of names
+   other components import, with an "N more" part. This amends AD-264 for this mode only.
+8. Exit 0: complete. Exit 2: no scope, no Git commit, output inside the root, incomplete coverage.
 
 **Graph for a view check.** `architecture_report(parse_observation(...))`: `observed` has
 entities with a stable `id` (`MOD-`, `SYM-`, ...) and a `kind`, and relationships with a `kind`
-(`imports`, `calls`, `references`, ...), `source_id` to `target_id`, a `resolution` and
-`evidence_ids` (file, line); `memberships` map each `COMP-` id to its `MOD-` ids.
+(`imports`, `calls`, ...), `source_id` to `target_id`, a `resolution` and `evidence_ids` (file,
+line); `memberships` map each `COMP-` id to its `MOD-` ids.
 
 **Reason.** `report` without `archkeel.toml` exits 2 and asks for `init`, which writes a draft. A
 newcomer must see what is there first. A contract with no rule decides nothing; PASS is false.
@@ -35,11 +36,10 @@ newcomer must see what is there first. A contract with no rule decides nothing; 
 repository. Components from a file walk (a second collector). A mark by contract file name.
 
 **Limits.**
-- TypeScript and Dart are not detected: explore exits 2 and names `tsconfig.json` or `pubspec.yaml`.
-- An import edge is not a call edge or a runtime order. No order comes from reachability.
-- An unresolved call stays an unresolved relationship and a coverage gap, not a missing edge.
-- Entry points are `__main__` modules only; `pyproject.toml` scripts are not read.
-- `report` on a contract with components but no rule now gives UNKNOWN, not PASS.
-- Git can refresh its own index file when explore reads the worktree state.
+- TypeScript and Dart need the scope options; they are not detected.
+- `root_name` and `root_digest` are in the result, not in `architecture.json` (an exact header).
+- `--only architecture` gives `UNKNOWN` without `target`: its published schema is byte-exact.
+- Imports are not calls or a runtime order; an unresolved call stays a coverage gap.
+- Entry points are `__main__` modules only. Git can refresh its index file during a run.
 
 **Checks.** `tests/test_explore.py` and the demo row `explore-contract-free`.

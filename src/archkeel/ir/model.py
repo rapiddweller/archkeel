@@ -2019,6 +2019,9 @@ class RunResult:
     findings: tuple[Finding, ...] | None = None
     # AD-285: unavailable when no rule and no UML target is declared; None when one is.
     target: TargetStatus | None = None
+    # AD-285: explore's root without its absolute path: the basename and sha256(root)[:16].
+    root_name: str | None = None
+    root_digest: str | None = None
 
     def __post_init__(self) -> None:
         if self.amendment_status is not None:

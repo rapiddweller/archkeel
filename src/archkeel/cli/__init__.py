@@ -100,10 +100,15 @@ def html_path(output: Path, command: str) -> Path:
     return output.parent / f"{output.stem}.{command}.html"
 
 
-def _explore_folder(root: Path) -> Path:
+def _root_digest(root: Path) -> str:
+    """AD-285: the root of an explore run, named without its absolute path."""
+    return hashlib.sha256(os.fsencode(root)).hexdigest()[:16]
+
+
+def _explore_folder(digest: str) -> Path:
     """AD-285: one cache folder for each analyzed root, outside the repository."""
     cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
-    return cache / "archkeel" / "explore" / hashlib.sha256(os.fsencode(root)).hexdigest()[:16]
+    return cache / "archkeel" / "explore" / digest
 
 
 def _write_report(
@@ -178,6 +183,26 @@ def build_parser() -> _Parser:
         default=CONFIG_PATH,
         help="Scan configuration, relative to --root. Default: archkeel.toml. A second file "
         "scans a second namespace, such as tests, against its own contract (AD-101).",
+    )
+    # AD-285: init and explore read the same scope options; without them, Python is detected.
+    scoped = _Parser(add_help=False)
+    scoped.add_argument(
+        "--source",
+        action="append",
+        help="Source directory or TypeScript file relative to --root; repeat for more roots.",
+    )
+    for option, help_text in (
+        ("--namespace", "Dotted namespace for the observed source modules."),
+        ("--tsconfig", "TypeScript project config relative to --root."),
+    ):
+        scoped.add_argument(option, help=help_text)
+    scoped.add_argument(
+        "--language",
+        choices=list(Language),
+        type=source_language,
+        default=Language.PYTHON,
+        help="Source language of --source. Dart needs --source and --namespace (the pubspec "
+        "name). TypeScript also needs --tsconfig. Default: python.",
     )
 
     report = commands.add_parser(
@@ -268,16 +293,19 @@ def build_parser() -> _Parser:
 
     explore = commands.add_parser(
         Command.EXPLORE.value,
+        parents=[scoped],
         help="See the code as it is: an observed overview that needs no contract.",
         formatter_class=RawDescriptionRichHelpFormatter,
         description=(
-            "Observes the one top-level Python package and groups its modules by layout. It\n"
-            "needs no archkeel.toml and no contract, and it writes nothing into the repository.\n"
-            "No rule is declared, so the result says target: unavailable and gives no rule\n"
-            "verdict. TypeScript and Dart are not detected yet (AD-285).\n\n"
+            "Observes the one top-level Python package, or the --source and --namespace you pass,\n"
+            "and groups its modules by layout. It needs no archkeel.toml and no contract, and it\n"
+            "writes nothing into the repository. No rule is declared, so the result says target:\n"
+            "unavailable and gives no rule verdict. TypeScript and Dart need the scope options\n"
+            "because they are not detected (AD-285).\n\n"
             "Examples:\n"
             "  archkeel explore\n"
-            "  archkeel explore --root ../service --output ../service-explore\n\n"
+            "  archkeel explore --root ../service --output ../service-explore\n"
+            "  archkeel explore --language dart --source lib --namespace my_app\n\n"
             "Exit codes:\n"
             "  0  the observation is complete\n"
             "  2  not checked: no single Python package, no Git commit, an output inside the\n"
@@ -434,6 +462,7 @@ def build_parser() -> _Parser:
 
     init = commands.add_parser(
         Command.INIT.value,
+        parents=[scoped],
         help="Draft archkeel.toml, a closed contract and its architecture page.",
         formatter_class=RawDescriptionRichHelpFormatter,
         description=(
@@ -460,24 +489,6 @@ def build_parser() -> _Parser:
         "--full",
         action="store_true",
         help="Include every open component pair in JSON, including unobserved pairs.",
-    )
-    init.add_argument(
-        "--source",
-        action="append",
-        help="Source directory or TypeScript file relative to --root; repeat for more roots.",
-    )
-    for option, help_text in (
-        ("--namespace", "Dotted namespace for the observed source modules."),
-        ("--tsconfig", "TypeScript project config relative to --root."),
-    ):
-        init.add_argument(option, help=help_text)
-    init.add_argument(
-        "--language",
-        choices=list(Language),
-        type=source_language,
-        default=Language.PYTHON,
-        help="Source language of --source. Dart needs --source and --namespace (the pubspec "
-        "name). TypeScript also needs --tsconfig. Default: python.",
     )
     init.add_argument(
         "--collector-output-limit-bytes",
@@ -653,7 +664,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 files = requested_files.entries
             elif command is Command.EXPLORE:
                 subject = str(root)
-                folder: Path = Path(args.output or _explore_folder(root)).resolve()
+                digest = _root_digest(root)
+                folder: Path = Path(args.output or _explore_folder(digest)).resolve()
                 if folder.is_relative_to(root):
                     parser.error(
                         f"--output {folder} is inside the analyzed repository; "
@@ -664,7 +676,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 for previous in (artifact, *folder.glob(f"{artifact.stem}.*.html")):
                     if os.path.isfile(previous):
                         os.remove(previous)
-                result, architecture = run_explore(root, observer=observer_for(Language.PYTHON))
+                result, architecture = run_explore(
+                    root,
+                    observer=observer_for(args.language, tsconfig=args.tsconfig or "tsconfig.json"),
+                    source=tuple(args.source) if args.source is not None else None,
+                    namespace=args.namespace,
+                    language=args.language,
+                    tsconfig=args.tsconfig,
+                )
+                result = replace(result, root_name=root.name, root_digest=digest)
                 if architecture is not None:
                     result = replace(result, artifact=str(artifact))
                     pages = render_architecture_pages(

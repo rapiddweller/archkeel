@@ -101,8 +101,8 @@ from archkeel.ir.report_projection import architecture_projection
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 
 from .observe import Observer, observation_diagnostics
-from .onboarding import detect_source, layout_components
-from .ports import Analyzer, ScanConfig, SourceCollector
+from .onboarding import layout_components, scan_scope
+from .ports import Analyzer, Language, ScanConfig, SourceCollector
 from .ratchets import call_rows, calls_measured, unknown_positions_by_rule
 from .run import inspect_observation
 from .runtime import runtime_diagnostic
@@ -679,8 +679,11 @@ def _report_result(
 
 def _target_result(model: Observation, result: RunResult) -> RunResult:
     """AD-285: no declared rule and no UML target leave nothing to check, so no rule passes."""
-    if result.rule_assessments != () or any(
-        item.kind == UML_TARGET_KIND for item in model.records("declarations") or ()
+    # An invalid contract or runtime revokes the proofs; its diagnostics say why, no label.
+    if (
+        result.rule_assessments != ()
+        or any(item.kind in _REVOKING_DIAGNOSTICS for item in result.diagnostics)
+        or any(item.kind == UML_TARGET_KIND for item in model.records("declarations") or ())
     ):
         return result
     return replace(
@@ -754,7 +757,15 @@ class _CollectOnce:
         return self.facts
 
 
-def run_explore(root: Path, *, observer: Observer) -> tuple[RunResult, bytes | None]:
+def run_explore(
+    root: Path,
+    *,
+    observer: Observer,
+    source: str | tuple[str, ...] | None = None,
+    namespace: str | None = None,
+    language: Language = Language.PYTHON,
+    tsconfig: str | None = None,
+) -> tuple[RunResult, bytes | None]:
     """AD-285: observe a repository with no contract; the caller writes outside the root.
 
     The first pass finds the modules, the second records their layout grouping as components.
@@ -762,22 +773,16 @@ def run_explore(root: Path, *, observer: Observer) -> tuple[RunResult, bytes | N
     """
     analyzer = replace(observer, collector=_CollectOnce(observer.collector))
     try:
-        source, namespace = detect_source(root)
+        roots, namespace = scan_scope(
+            root, source=source, namespace=namespace, language=language, tsconfig=tsconfig
+        )
     except DiagnosticError as error:
         markers = [name for name in _UNDETECTED_MARKERS if Path(root, name).is_file()]
-        found = (
-            f" Found {', '.join(markers)}: TypeScript and Dart are not detected yet."
-            if markers
-            else ""
-        )
+        found = f" Found {', '.join(markers)}: pass --language and the scope." if markers else ""
         raise DiagnosticError(
-            replace(
-                error.diagnostic,
-                unknown_claim=error.diagnostic.unknown_claim + found,
-                remedy="Run archkeel explore on a repository with one top-level Python package.",
-            )
+            replace(error.diagnostic, unknown_claim=error.diagnostic.unknown_claim + found)
         ) from error
-    config = ScanConfig((source,), namespace, EXPLORE_CONTRACT, "")
+    config = ScanConfig(roots, namespace, EXPLORE_CONTRACT, "", language, tsconfig)
     with TemporaryDirectory(prefix="archkeel-explore-") as temporary:
         scaffold = Path(temporary)
         contract: Path = scaffold / EXPLORE_CONTRACT
@@ -785,7 +790,10 @@ def run_explore(root: Path, *, observer: Observer) -> tuple[RunResult, bytes | N
         try:
             observed = observe_repository(root, config, analyzer, contract_root=scaffold)
             if observed.observation is not None:
-                _, components = layout_components(observed.observation, namespace)
+                # The provenance is the layout contract itself: explore observed the grouping.
+                _, components = layout_components(
+                    observed.observation, namespace, roots, language, (EXPLORE_CONTRACT,)
+                )
                 contract.write_bytes(
                     contract_bytes(ArchitectureContract(ContractVersion.V2_1, components, ()))
                 )

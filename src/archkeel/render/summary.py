@@ -58,6 +58,8 @@ _NO_TARGET_SENTENCE: Final = (
     "No rule is declared, so the target is unavailable: these are observed facts, "
     "and no rule passes or fails."
 )
+# AD-285: validate checks the contract; with no rule its PASS says nothing about the code.
+_VALID_WITHOUT_RULES: Final = "The contract is valid and declares no rule; no rule was checked."
 _RULES_UNKNOWN_REASON: Final = {
     None: "Available evidence does not establish the rule outcome.",
     TargetStatus.UNAVAILABLE: "No rule is declared; the target is unavailable.",
@@ -385,7 +387,9 @@ def report_summary(result: RunResult) -> Summary:
             more = f" (+{len(rules) - 3} more)" if len(rules) > 3 else ""
             sentence += f"\n\n{status} rules: {shown}{more}."
     rules_reason = {
-        "PASS": "Required evaluator evidence is complete; decided positions have no violations.",
+        "PASS": _VALID_WITHOUT_RULES
+        if result.command is _Command.VALIDATE and result.rule_assessments == ()
+        else "Required evaluator evidence is complete; decided positions have no violations.",
         "FAIL": "At least one rule violation was recorded; undecided positions may remain.",
         "UNKNOWN": _RULES_UNKNOWN_REASON[result.target],
     }[result.declared_rules]

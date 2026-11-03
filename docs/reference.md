@@ -171,14 +171,17 @@ imports and gives no verdicts.
 
 `archkeel explore [--root PATH] [--output DIR]` shows a repository that has no ArchKeel file
 ([AD-285](architecture/decisions/ad-285-explore-without-a-contract.md)). It finds the one
-top-level Python package as `init` does and groups its modules by the package layout. It writes
+top-level Python package as `init` does, or reads the `init` options `--language`, `--source`,
+`--namespace` and `--tsconfig`, and groups the modules by the package layout. It writes
 `architecture.json` and the report pages to `DIR`, or else to
-`$XDG_CACHE_HOME/archkeel/explore/<root hash>/` (`~/.cache` when the variable is not set). It
+`$XDG_CACHE_HOME/archkeel/explore/<root_digest>/` (`~/.cache` when the variable is not set). It
 writes nothing into the repository, and an `--output` inside it exits 2. The result is a
-`report` result with `target: unavailable` and `declared_rules: UNKNOWN`. The report page opens
+`report` result with `target: unavailable`, `declared_rules: UNKNOWN`, `root_name` and
+`root_digest`. The report page opens
 with an inventory of the components before the findings. Query the snapshot like any other:
 `archkeel report --input DIR/architecture.json --only architecture --component COMP-APP --json`.
-TypeScript and Dart are not detected yet.
+TypeScript and Dart need the scope options. `validate` on a contract with no rule keeps PASS:
+the contract is valid, and no rule was checked.
 
 ## Results
 

@@ -258,6 +258,10 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
     if result.target is None:
         # AD-285: absent while a rule or UML target is declared, so those results keep their shape.
         del payload["target"]
+    for name in ("root_name", "root_digest"):
+        if payload[name] is None:
+            # AD-285: only explore names its root.
+            del payload[name]
     if result.report_filter is not None:
         payload["report_filter"] = _report_filter_payload(result.report_filter)
     if result.provenance is not None and result.provenance.initial_pr is None:

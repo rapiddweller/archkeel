@@ -106,10 +106,40 @@ def detect_source(root: Path) -> tuple[str, str]:
                 str(base),
                 "Expected one top-level Python package, or one matching pyproject.toml's "
                 f"[project] name ({name or 'missing'}); found {found}.",
-                "Pass --source <directory> and --namespace <package> to archkeel init.",
+                "Pass --source <directory> and --namespace <package>.",
             )
         )
     return chosen[0].relative_to(root).as_posix(), chosen[0].name
+
+
+def scan_scope(
+    root: Path,
+    *,
+    source: str | tuple[str, ...] | None,
+    namespace: str | None,
+    language: Language,
+    tsconfig: str | None,
+) -> tuple[tuple[str, ...], str]:
+    """The scan roots and namespace of `init` and `explore`: the options, else the one package."""
+    if language == Language.TYPESCRIPT and (not source or not namespace or not tsconfig):
+        raise ValueError("TypeScript requires --source, --namespace and --tsconfig")
+    if language != Language.TYPESCRIPT and tsconfig is not None:
+        raise ValueError("--tsconfig requires --language typescript")
+    if source is None or namespace is None:
+        if source is not None or namespace is not None:
+            raise ValueError("pass both --source and --namespace, or neither")
+        if language == Language.DART:
+            # Detection reads Python package markers; a Dart package names its own root.
+            raise DiagnosticError(
+                Diagnostic(
+                    _DiagnosticKind.SCOPE_EMPTY,
+                    str(root),
+                    "A Dart package's source directory and name are not detected yet.",
+                    "Pass --source lib and --namespace <pubspec name>.",
+                )
+            )
+        source, namespace = detect_source(root)
+    return ((source,) if isinstance(source, str) else source), namespace
 
 
 def _has_cycle(labels: tuple[str, ...], edges: frozenset[tuple[str, str]]) -> bool:
@@ -221,7 +251,7 @@ def _drafted_public(
 
 
 def _typescript_components(
-    observation: Observation, namespace: str, roots: tuple[str, ...]
+    observation: Observation, namespace: str, roots: tuple[str, ...], provenance: tuple[str, ...]
 ) -> tuple[dict[str, str], tuple[ContractComponent, ...]]:
     groups: dict[PurePosixPath, list[str]] = {}
     directories: set[PurePosixPath] = set()
@@ -258,7 +288,7 @@ def _typescript_components(
                 (selector,) if directory else (),
                 (),
                 (),
-                (DOCUMENT_PATH,),
+                provenance,
                 namespace=selector if directory else None,
                 exact_modules=None if directory else tuple(sorted(names)),
             )
@@ -271,10 +301,11 @@ def layout_components(
     namespace: str,
     roots: tuple[str, ...] = (),
     language: Language = Language.PYTHON,
+    provenance: tuple[str, ...] = (DOCUMENT_PATH,),
 ) -> tuple[dict[str, str], tuple[ContractComponent, ...]]:
     """Group modules by the top-level children of the namespace: a layout fact, no decision."""
     if language == Language.TYPESCRIPT:
-        return _typescript_components(observation, namespace, roots)
+        return _typescript_components(observation, namespace, roots, provenance)
     depth = len(namespace.split("."))
     module_labels = {
         name: name.split(".")[depth]
@@ -291,7 +322,7 @@ def layout_components(
             (f"{namespace}.{label}",),
             (),
             (),
-            (DOCUMENT_PATH,),
+            provenance,
         )
         for label in sorted(set(module_labels.values()))
     )
@@ -547,24 +578,9 @@ def run_init(
     collector_timeout_seconds: int | None = None,
 ) -> tuple[RunResult, FilesToWrite]:
     """Observe the repository and return the onboarding files without writing them."""
-    if language == Language.TYPESCRIPT and (not source or not namespace or not tsconfig):
-        raise ValueError("TypeScript init requires --source, --namespace and --tsconfig")
-    if language != Language.TYPESCRIPT and tsconfig is not None:
-        raise ValueError("--tsconfig requires --language typescript")
-    if source is None or namespace is None:
-        if source is not None or namespace is not None:
-            raise ValueError("pass both --source and --namespace, or neither")
-        if language == Language.DART:
-            # Detection reads Python package markers; a Dart package names its own root.
-            raise DiagnosticError(
-                Diagnostic(
-                    _DiagnosticKind.SCOPE_EMPTY,
-                    str(root),
-                    "A Dart package's source directory and name are not detected yet.",
-                    "Pass --source lib and --namespace <pubspec name> to archkeel init.",
-                )
-            )
-        source, namespace = detect_source(root)
+    roots, namespace = scan_scope(
+        root, source=source, namespace=namespace, language=language, tsconfig=tsconfig
+    )
     # AD-266: an adoption also replaces the baseline it writes, so that file is guarded too.
     guarded = (
         CONFIG_PATH,
@@ -583,7 +599,6 @@ def run_init(
                 "Rerun archkeel init with --force to replace them.",
             )
         )
-    roots = (source,) if isinstance(source, str) else source
     config = ScanConfig(
         roots,
         namespace,

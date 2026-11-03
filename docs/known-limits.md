@@ -6,8 +6,8 @@ Determinism is measured for a machine/runtime, not across every platform.
 
 ## Explore without a contract
 
-`archkeel explore` detects one top-level Python package only. TypeScript and Dart are not
-detected yet, and a mixed repository gives its Python package only. Its components follow the
+`archkeel explore` detects one top-level Python package only. TypeScript and Dart need
+`--language`, `--source` and `--namespace` (and `--tsconfig`). Its components follow the
 package layout; they are not decisions. Entry modules are `__main__` modules only. An import
 edge is not a call edge or a runtime order. A contract with components but no rule gives
 `target: unavailable` and no rule verdict
