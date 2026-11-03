@@ -3,7 +3,7 @@
   "after_digest": "64ed3f62812ff289e110014a783002fc0c3515d9ecf30cc3f27773d4dbd83ba6",
   "before_baseline_digest": "a25f9a568e20676f77a9e5baaf1595f460a184e95bfe8e9c92bc93f5f04cab1a",
   "before_digest": "ac3006f47a925e0df8297dc1896cc6eaf7603a3100c326a3862919c0e35bda22",
-  "decided_by": "Alexander Kell (architect), AD-290; owner brief of 2026-11-03, written by the agent",
+  "decided_by": "Alexander Kell (architect), AD-290; delegated to the manager 2026-11-03",
   "rationale": "AD-290 adds the archkeel.studio package with its api, workspace and server components, the cli requirement on studio, archkeel.studio in ROOT-LAYOUT and archkeel.studio.api as an enum owner in TYPES-ENUM-IN-MODEL. The calls_unresolved budget rises from 830 to 842 for twelve calls on stdlib receivers the analyzer cannot resolve: the inherited ThreadingHTTPServer and BaseHTTPRequestHandler methods, Popen.communicate, cookie and query parsing, and bytes and str methods in archkeel.studio.server, api and workspace.",
   "schema_version": "2.0.0"
 }

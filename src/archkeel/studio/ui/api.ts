@@ -1,21 +1,8 @@
 /** AD-290: the client of schema/studio-api-1.0; it asks only its own server. */
-export const ContractState = {
-  NotConfigured: "not_configured",
-  Invalid: "invalid",
-  Configured: "configured",
-} as const;
-export type ContractState = (typeof ContractState)[keyof typeof ContractState];
-
-export const ExploreState = {
-  Idle: "idle",
-  Running: "running",
-  Done: "done",
-  Failed: "failed",
-} as const;
-export type ExploreState = (typeof ExploreState)[keyof typeof ExploreState];
+import { API_VERSION, ContractState, ExploreState } from "./vocabulary";
 
 export type StudioState = {
-  readonly api_version: "1.0.0";
+  readonly api_version: typeof API_VERSION;
   readonly root_name: string;
   readonly contract: ContractState;
   readonly explore: ExploreState;

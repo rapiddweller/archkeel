@@ -1,18 +1,19 @@
 /** AD-290: Overview: the state of the snapshot and of the contract, from the API only. */
-import { ContractState, ExploreState, StudioState } from "../api";
+import { StudioState } from "../api";
 import { Card, Page, Tabs } from "../components";
 import { Evidence } from "../evidence";
+import { ContractState, ExploreState } from "../vocabulary";
 
 function Snapshot(props: { state: StudioState }) {
   const { explore, seconds, exit_code, notes } = props.state;
-  if (explore === ExploreState.Done) {
+  if (explore === ExploreState.DONE) {
     return (
       <p>
         Map ready in {seconds} s. <a href="#/explore">Open Explore</a>.
       </p>
     );
   }
-  if (explore === ExploreState.Failed) {
+  if (explore === ExploreState.FAILED) {
     return (
       <>
         <p>archkeel explore stopped with exit code {exit_code}.</p>
@@ -29,16 +30,16 @@ function Snapshot(props: { state: StudioState }) {
 }
 
 const CONTRACT_TEXT: Record<ContractState, string> = {
-  [ContractState.NotConfigured]:
+  [ContractState.NOT_CONFIGURED]:
     "No contract: a policy verdict does not apply. archkeel init drafts one; " +
     "archkeel init --adopt adopts the code as it is.",
-  [ContractState.Invalid]: "archkeel.toml does not load. archkeel validate names the reason.",
-  [ContractState.Configured]:
+  [ContractState.INVALID]: "archkeel.toml does not load. archkeel validate names the reason.",
+  [ContractState.CONFIGURED]:
     "archkeel report shows the contract, the deviations and PASS or FAIL.",
 };
 
 export function Overview(props: { state: StudioState }) {
-  const configured = props.state.contract === ContractState.Configured;
+  const configured = props.state.contract === ContractState.CONFIGURED;
   return (
     <Page
       title="Understand the codebase"

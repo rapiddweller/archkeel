@@ -1,9 +1,10 @@
 /** AD-290: the app shell: navigation, the legend, the contract state and the current view. */
 import { render } from "preact";
 import { useEffect, useState } from "preact/hooks";
-import { ContractState, StudioState } from "./api";
+import { StudioState } from "./api";
 import { Legend, NavItem } from "./components";
 import { startStore, useStudio } from "./store";
+import { ContractState } from "./vocabulary";
 import { Explore } from "./views/explore";
 import { NotBuilt } from "./views/not-built";
 import { Overview } from "./views/overview";
@@ -27,9 +28,9 @@ const NAV: readonly { view: View; name: string }[] = [
 const VIEWS = new Map(NAV.map((item) => [`#/${item.view}`, item.view]));
 
 const CONTRACT: Record<ContractState, string> = {
-  [ContractState.NotConfigured]: "Contract: NOT CONFIGURED",
-  [ContractState.Invalid]: "Contract: INVALID",
-  [ContractState.Configured]: "Contract: CONFIGURED",
+  [ContractState.NOT_CONFIGURED]: "Contract: NOT CONFIGURED",
+  [ContractState.INVALID]: "Contract: INVALID",
+  [ContractState.CONFIGURED]: "Contract: CONFIGURED",
 };
 
 function content(view: View, state: StudioState) {

@@ -39,7 +39,8 @@ def test_the_shell_navigates_and_stays_on_its_server(
     errors: list[str] = []
     with api.sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
-        page = browser.new_page(viewport={"width": width, "height": height})
+        # Slice 1 is always dark, also when the system prefers light.
+        page = browser.new_page(viewport={"width": width, "height": height}, color_scheme="light")
         page.set_default_timeout(20000)
         page.on("request", lambda item: requests.append(item.url))
         page.on("pageerror", lambda error: errors.append(str(error)))
@@ -52,6 +53,10 @@ def test_the_shell_navigates_and_stays_on_its_server(
             for text in (*_LEGEND, "Contract: NOT CONFIGURED", "As-Is / Observed"):
                 assert page.get_by_text(text, exact=True).is_visible(), text
             assert page.get_by_text("Target unavailable", exact=True).is_visible()
+            background = "getComputedStyle(document.body).backgroundColor"
+            assert page.evaluate(background) == "rgb(10, 18, 24)"
+            contract = page.get_by_text("Contract: NOT CONFIGURED", exact=True)
+            assert contract.bounding_box()["height"] < 24, "the contract state wraps"
             assert page.get_by_text("Open Explore").is_visible()
 
             page.get_by_role("link", name="Explore", exact=True).focus()

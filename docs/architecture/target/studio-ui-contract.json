@@ -32,17 +32,19 @@
       "role": "component",
       "packages": [],
       "exact_modules": [
-        "studio_ui.src.archkeel.studio.ui.api_x2e_ts"
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts",
+        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts"
       ],
       "public": [
-        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:ContractState",
-        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:ExploreState",
         "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StudioState",
         "studio_ui.src.archkeel.studio.ui.api_x2e_ts:EXPLORER_PAGE",
-        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readState"
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readState",
+        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:API_VERSION",
+        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ContractState",
+        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ExploreState"
       ],
       "responsibilities": [
-        "Read the Studio API of the own server and type its answers as schema studio-api-1.0 defines them."
+        "Read the Studio API of the own server, typed by the vocabulary that tools/browser_runtime.py generates from archkeel.studio.api."
       ],
       "forbidden_responsibilities": [
         "Render, keep state or ask another origin."

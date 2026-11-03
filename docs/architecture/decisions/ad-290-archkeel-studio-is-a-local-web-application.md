@@ -21,8 +21,8 @@ rejected lines of AD-284 and AD-285. The Explorer stays the only architecture re
    starts the CLI of the owner, `claude -p` or `codex exec`, read-only; no key stored) and
    `proposals` (the only writer, after an architect click, through the amendment path).
 5. API: `GET /api/v1/state`, pinned by `schema/studio-api-1.0.schema.json`; POST, PUT, PATCH
-   and DELETE get 405. The workspace starts explore when the server starts, so slice 1 needs no write
-   route. The proposals endpoint will be the one write route. `GET /files/<name>` serves the
+   and DELETE get 405. The workspace starts explore when the server starts, so slice 1 needs
+   no write route. The proposals endpoint will be the one write route. `GET /files/<name>` serves the
    snapshot pages; `/ui/<name>` serves only the four shell files.
 6. Security: 127.0.0.1 on a free port, no host option. A `secrets.token_urlsafe(32)` token in
    the start URL, then an HttpOnly SameSite=Strict cookie for each port. Another `Host` header
@@ -30,18 +30,17 @@ rejected lines of AD-284 and AD-285. The Explorer stays the only architecture re
    script and style, and no other origin.
 7. Frontend: TypeScript and Preact 10.29.8 (MIT, no dependency, pinned exact), built by the
    esbuild 0.28.2 of `tools/browser-runtime` into the committed `studio/ui/studio.js` that
-   ships in the wheel; users need no Node. The Explorer is an `<iframe>` island, not
-   rewritten. One small store, no state library, no Markdown, no network but the own server.
-   `docs/architecture/studio-ui.toml` checks the UI with the TypeScript collector.
+   ships in the wheel; users need no Node. `tools/browser_runtime.py` generates `vocabulary.ts`
+   from the enums of `studio.api` and checks it. The Explorer is an `<iframe>` island. One
+   small store, no state library, no Markdown, no network but the own server. Always dark.
 8. Enforced: `studio` requires nothing, so an import of `cli`, an analyzer or `check` fails
    `REQUIRES-COMPLETE`; only `workspace` imports `subprocess` and only `server` imports
-   `http`. In the UI only `api.ts` calls `fetch`, views never import views, components never
-   import the client, Preact is the only package. Tests enforce what no rule kind sees: the
-   repository stays unchanged, and only the explore child writes, into the cache folder.
+   `http`. `docs/architecture/studio-ui.toml` checks the UI: only `api.ts` calls `fetch`, views
+   never import views, components never import the client, Preact is the only package. Tests
+   check what no rule kind sees: the repository stays unchanged, and only the cache is written.
 
-**Edits outside the package.** `ir/model.py` gains `Command.STUDIO`, because `Command` is the
-one command vocabulary of the CLI. `render/html.py` is unchanged: the Preact shell replaced the
-server-rendered shell.
+**Edits outside the package.** `ir/model.py` gains `Command.STUDIO`, the command vocabulary of
+the CLI. `render/html.py` is unchanged: the Preact shell replaced the server-rendered shell.
 
 **Stack comparison.** A counter button, minified by esbuild 0.28.2, measured 2026-11-03:
 
@@ -51,17 +50,21 @@ server-rendered shell.
 | Preact 10.29.8 + hooks | 13,580 B | 5,668 B | 1 (MIT) | One pinned package; React-like API |
 | Web components | 417 B | 291 B | 0 | Hand-made rendering and state for each view |
 
-The Studio bundle of slice 1 is 18,844 B (7,680 B gzip). Preact 11 is 5 weeks old; 10.29.8 is
-the mature line.
+The slice-1 bundle is 18,778 B (7,636 B gzip). Preact 11 is 5 weeks old; 10.x is mature.
 
 **Rejected.** A Python web framework: a dependency for one GET route. React Flow or a state
-library: the Explorer already draws the graph. An MCP server for the agent: a second session
-to connect. A copy-prompt button: no answer comes back to check. 0.0.0.0 or a fixed port.
+library: the Explorer draws the graph. An MCP server: a second session. A copy-prompt button:
+no answer comes back. 0.0.0.0 or a fixed port. A demo-catalog row: a catalog row runs a
+command to its end, and `studio` is a server that runs until Ctrl-C; the tests below are the
+evidence.
 
-**Limits.** One root, one explore run at each start, no cache reuse yet. Progress is elapsed
-seconds. Type-only imports are undecided for symbol-level rules, so the UI contract has no
-`interface_boundary` rule and allows the whole client.
+**Limits.**
+- Explore runs at each start (about 95 s on 1185 files); cache reuse by repository state is an
+  open issue. Progress is elapsed seconds: explore reports no phase while it runs.
+- Flows says "Not built". The next slice lists the view specs and plays the tour of AD-289.
+- Slice 2 builds the system-map cards and the selected-component panel of Overview, the top
+  bar, an Explore canvas that fills the viewport, and the Discussion panel.
+- Type-only imports are undecided for symbol rules: no UI `interface_boundary` rule.
 
-**Checks.** `tests/test_studio.py` (API, schema, security, writes, imports),
-`tests/test_studio_browser.py` (Chromium at 1440x900 and 800x600),
-`make browser-architecture-check` and `make self-validate`.
+**Checks.** `tests/test_studio.py`, `tests/test_studio_browser.py` (Chromium at 1440x900 and
+800x600), `make browser-architecture-check`, `make self-validate`.

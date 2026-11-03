@@ -16,7 +16,8 @@ nav a[aria-current="page"] { background: var(--raised); color: var(--text); font
 .observed { color: var(--observed); }
 .claim { color: var(--claim); }
 .target { color: var(--target); }
-.contract { font-weight: 600; font-size: 13px; padding: 0 8px; margin: 0; color: var(--claim); }
+.contract { font-weight: 600; font-size: 12px; padding: 0 8px; margin: 0; color: var(--claim);
+  white-space: nowrap; }
 main { padding: 24px 32px; min-width: 0; }
 h1 { margin: 0 0 4px; font-size: 26px; }
 .lead { color: var(--muted); margin: 0; }

@@ -1,6 +1,7 @@
 /** AD-290: the one store: the last API state, polled while the snapshot is not ready. */
 import { useEffect, useState } from "preact/hooks";
-import { ExploreState, readState, StudioState } from "./api";
+import { readState, StudioState } from "./api";
+import { ExploreState } from "./vocabulary";
 
 export interface Snapshot {
   readonly state: StudioState | null;
@@ -19,7 +20,7 @@ async function poll(): Promise<void> {
     current = { state: current.state, error: String(error) };
   }
   listeners.forEach((listener) => listener());
-  const waiting = current.state?.explore !== ExploreState.Done;
+  const waiting = current.state?.explore !== ExploreState.DONE;
   setTimeout(poll, waiting ? RUNNING_MS : READY_MS);
 }
 

@@ -14,6 +14,7 @@ Rules for the Studio frontend (AD-290). They add to the root [AGENTS.md](../../.
 | `canvas.tsx` | canvas | The Explorer island: an `<iframe>` of the offline Explorer page. |
 | `store.ts` | store | The one store: polls `GET /api/v1/state`. |
 | `api.ts` | client | The only `fetch`. Types of `schema/studio-api-1.0.schema.json`. |
+| `vocabulary.ts` | client | Generated from the enums of `archkeel.studio.api`. Never edit it. |
 | `evidence.ts` | evidence | The evidence model. |
 | `tokens.css` | — | The one tokens file: colours, radius, font; dark and light. A leaf. |
 | `studio.css` | — | Layout. Uses only `var(--token)` colours. |
@@ -37,12 +38,11 @@ flowchart LR
 ```
 
 A view never imports another view. Components never import the client or the store.
-Planned from the Figma inventory: panel, discussion message (PROPOSED - NOT APPLIED). Build them
-when a view needs them.
+Planned Figma parts: panel, discussion message (PROPOSED - NOT APPLIED). Build them when needed.
 
 ## Naming and typed values
 
-- Files: kebab-case. Components: PascalCase functions. One default theme: dark.
+- Files: kebab-case. Components: PascalCase functions. Slice 1 is always dark.
 - A closed set is a `const` object with `as const` and a type of the same name, as in
   `evidence.ts`. Do not use `enum`: the collector cannot decide an enum in its own module.
 - Decide on a typed value (`Evidence.Claim`), never on a label or a string literal.
