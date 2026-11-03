@@ -10,6 +10,8 @@ archkeel skill install codex    # or claude
 Use `$archkeel` in Codex or `/archkeel` in Claude Code. Start a new session if the
 skill is unavailable. Reinstalling updates its file while preserving unrelated
 instructions. The CLI is required even when using a plugin.
+On a new codebase, the agent starts with `archkeel explore`. It asks before it writes a draft
+contract.
 Ask "show me the flow of X": the agent checks a view with `archkeel view check`, opens it with
 `archkeel view show` and names each claim and each unknown.
 

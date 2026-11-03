@@ -451,11 +451,21 @@ def test_plugin_release_zip_is_identical_when_local_time_changes(
         assert all(entry.external_attr >> 16 == 0o100644 for entry in bundle.infolist())
 
 
-def _flow_section() -> str:
+def _section(heading: str) -> str:
     body = ASSET.read_text(encoding="utf-8")
-    start = body.find("## Show a flow\n")
+    start = body.find(f"## {heading}\n")
     end = body.find("\n## ", start + 1)
     return body[start:end] if start != -1 else ""
+
+
+def _flow_section() -> str:
+    return _section("Show a flow")
+
+
+def _commands(text: str) -> list[list[str]]:
+    """Each `archkeel ...` command line in the text as argv, a placeholder as `x`."""
+    found = re.findall(r"`archkeel ([^`]+)`", text)
+    return [shlex.split(re.sub(r"<[^>]+>", "x", command)) for command in dict.fromkeys(found)]
 
 
 def _parses(argv: list[str]) -> bool:
@@ -467,26 +477,35 @@ def _parses(argv: list[str]) -> bool:
     return True
 
 
-_FLOW_COMMANDS = re.findall(r"`(archkeel [^`]+)`", _flow_section())
-# Commands of strands that are not on main yet, with a minimal valid call. Delete each after merge.
-_PENDING = {"explore": ["explore"], "view show": ["view", "show", "flow.json"]}
+_FLOW_COMMANDS = _commands(_flow_section())
+_FIRST_RUN_STEPS = re.split(r"\n(?=\d+\. )", _section("First run on a codebase"))[1:]
 
 
 def test_flow_section_teaches_the_whole_loop() -> None:
     assert len(_FLOW_COMMANDS) >= 6
-    taught = {" ".join(command.split()[1:3]) for command in _FLOW_COMMANDS}
+    taught = {" ".join(argv[:2]) for argv in _FLOW_COMMANDS}
     assert {"report --input", "view check", "view show"} <= taught
-    assert any(command.startswith("archkeel explore") for command in _FLOW_COMMANDS)
+    assert any(argv[0] == "explore" for argv in _FLOW_COMMANDS)
 
 
-@pytest.mark.parametrize("command", _FLOW_COMMANDS)
-def test_flow_section_command_parses_with_the_real_cli(command: str) -> None:
-    """#787: each command line the skill teaches exists in the CLI with these options."""
-    argv = shlex.split(re.sub(r"<[^>]+>", "x", command))[1:]
-    pending = next((call for name, call in _PENDING.items() if command[9:].startswith(name)), None)
-    if pending is not None and not _parses(pending):
-        pytest.skip(f"{command[9:]} is not merged into this branch yet")
-    assert _parses(argv), command
+@pytest.mark.parametrize(
+    "argv", _commands(_flow_section() + _section("First run on a codebase")), ids=" ".join
+)
+def test_skill_command_parses_with_the_real_cli(argv: list[str]) -> None:
+    """#787: each command line the flow and first-run sections teach exists in the CLI."""
+    assert _parses(argv), argv
+
+
+def test_first_run_asks_the_owner_before_any_command_writes_a_contract() -> None:
+    """The first run never creates a contract implicitly: only read-only commands come first."""
+    asks = [i for i, step in enumerate(_FIRST_RUN_STEPS) if '"Create a draft contract?"' in step]
+    assert len(asks) == 1 and len(_FIRST_RUN_STEPS) > asks[0] + 2
+    before = [argv for step in _FIRST_RUN_STEPS[: asks[0]] for argv in _commands(step)]
+    assert before and all(
+        argv[0] == "explore" or (argv[0] == "report" and "--input" in argv) for argv in before
+    )
+    after = [argv[0] for step in _FIRST_RUN_STEPS[asks[0] :] for argv in _commands(step)]
+    assert "init" in after and "view" in after
 
 
 def test_flow_section_states_the_proof_rules() -> None:
@@ -495,17 +514,12 @@ def test_flow_section_states_the_proof_rules() -> None:
     assert "`unknown`" in section and "`missing`" in section
     assert "not runtime order" in section
     assert "except as a claim" in section
-    assert "`path`" in section
     assert "`status` or `evidence`" in section
     assert "not an execution trace" in section
     assert "`target: unavailable`" in section
+    assert "one direct edge" in section and "opens at the flow" in section
     # The same file serves Codex and Claude Code: name commands, not one agent's tools.
     assert not re.search(r"\b(Read|Bash|Edit|Write) tool\b", section)
-
-
-_VIEW_SHOW = pytest.mark.skipif(
-    not _parses(_PENDING["view show"]), reason="view show (#786) is not merged yet"
-)
 
 
 @pytest.fixture(scope="module")
@@ -572,7 +586,7 @@ def test_agent_flow_proves_each_step_with_evidence_and_keeps_the_claim(
     assert "not runtime order" in result["limits"][0]
 
 
-def test_agent_flow_invented_import_is_missing_and_a_skipped_hop_shows_in_path(
+def test_agent_flow_invented_import_and_a_skipped_hop_are_missing(
     tmp_path: Path, shop_snapshot: Path, capsys: pytest.CaptureFixture
 ) -> None:
     steps = ["shop.cli.main", "shop.app.orders", "shop.store.repository"]
@@ -580,8 +594,8 @@ def test_agent_flow_invented_import_is_missing_and_a_skipped_hop_shows_in_path(
         "check", tmp_path, shop_snapshot, _agent_spec(shop_snapshot, steps, [_INVENTED]), capsys
     )
     assert code == 1 and result["edges"][0]["status"] == "missing"
-    # The re-export hop the author did not name: the section says to add it as a step.
-    assert result["steps"][2]["path"] == ["shop.app.orders", "shop.store", "shop.store.repository"]
+    # The re-export hop shop.store is not named: no direct edge, so the section says add it.
+    assert result["steps"][2]["status"] == "missing" and result["steps"][2]["path"] == []
 
 
 def test_agent_flow_invented_call_is_unknown_never_missing(
@@ -607,7 +621,6 @@ def test_agent_flow_spec_cannot_state_proof(
     assert _view("check", tmp_path, shop_snapshot, spec, capsys)[0] == 2
 
 
-@_VIEW_SHOW
 def test_agent_flow_show_writes_the_page_with_the_checked_result(
     tmp_path: Path, shop_snapshot: Path, capsys: pytest.CaptureFixture
 ) -> None:
@@ -623,7 +636,6 @@ def test_agent_flow_show_writes_the_page_with_the_checked_result(
     assert embedded is not None and json.loads(embedded.group(1)) == checked
 
 
-@pytest.mark.skipif(not _parses(_PENDING["explore"]), reason="explore (#791) is not merged yet")
 def test_agent_flow_without_a_contract_uses_explore(
     tmp_path: Path, capsys: pytest.CaptureFixture
 ) -> None:
@@ -644,5 +656,6 @@ def test_agent_flow_without_a_contract_uses_explore(
     spec["nodes"].append("COMP-APP")
     code, checked = _view("check", tmp_path, snapshot, spec, capsys)
     assert code == 0 and checked["steps"][1]["status"] == "proven"
-    assert {node["id"]: node["status"] for node in checked["nodes"]}["COMP-APP"] == "declared"
+    # A layout group declares nothing (AD-285), so the section says to use module nodes.
+    assert {node["id"]: node["status"] for node in checked["nodes"]}["COMP-APP"] == "unknown"
     assert "`scan_roots`" in _flow_section()

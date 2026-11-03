@@ -10,6 +10,50 @@ declared contract of components and rules against that observation, and distingu
 PASS, FAIL and UNKNOWN. Rules live in `architecture-contract.json` and its explicit nested
 contracts; nothing is enforced by convention alone.
 
+## First run on a codebase
+
+Use this procedure when a repository has no `archkeel.toml`. The first run gives the owner content
+from the measured code: how the system starts, an overview, and one sentence for each component.
+
+1. Run `archkeel explore --json`. It writes nothing into the repository.
+   Check `scan_roots` as "Show a flow" step 2 tells.
+2. Run `archkeel report --input <snapshot> --only architecture --json`.
+   `<snapshot>` is `artifact` in the explore result.
+3. Keep the `findings` of the explore result. A filtered report has no `findings`.
+4. Ask the owner once: "Create a draft contract?"
+5. Without a clear yes, stop. Give the overview of step 12 in chat only, with no view.
+6. With a yes, run `archkeel init --json`. Each rule it drafts has `decided_by: "agent"`:
+   it waits for the architect.
+7. For each top-level component (about 10 at most), write one sentence into `responsibilities`.
+   Base it on the package docstring, the entry points and the imports of its modules.
+   Cite `file:line` in the sentence, not in `provenance` (it takes paths only). Without evidence,
+   write "unknown"; never invent a responsibility. Set `decided_by: "agent"` on the component.
+8. Optionally, replace a drafted `label` with a short speaking name. Do this only in the new draft.
+   `label` is the name that `requires`, `--component` and nested scopes use. Then run
+   `archkeel validate --write-graph`, which updates the graph in the architecture page.
+9. Run `archkeel report --output <tmp>/architecture.json --json`, with `<tmp>` outside the
+   repository. The draft changed the contract digest: this file is now `<snapshot>`.
+10. Write a "get started" view spec, as "Show a flow" steps 3 and 4 tell. Start at each entry
+    point: a `[project.scripts]` target (`pkg.mod:main` is the module node `pkg.mod`), a
+    `__main__` module or a `main()`. Add the first modules it imports or calls, one direct edge
+    for each step.
+11. Run `archkeel view check <spec> --snapshot <snapshot> --json`, then
+    `archkeel view show <spec> --snapshot <snapshot>`. The page opens at the flow.
+12. Give the owner an overview in chat:
+    - each top-level component with its name and its sentence;
+    - the start flow, each step with its status mark;
+    - 3 weak spots from `findings`, with their `locations`: a `package_cycle` couples components,
+      a `module_cycle` is inside one component, a `fan_in_hub` or `fan_out_hub` is a hub.
+13. Offer the next step: define a target together, then compare it in the Target and Diff views.
+
+Rules for the first run:
+
+- A view shows structure, not runtime order. A claim stays a claim; the check does not prove it.
+- Never write `status` or `evidence` into a view spec.
+- No rule reads `label` or `responsibilities` (AD-285): agent text never changes a verdict.
+- Contract text wins over agent text. When a component already has a sentence, keep it. Show your
+  sentence and the difference in chat; the architect decides.
+
 ## Onboarding (first time in this repository): a target, not a description
 
 `architecture-contract.json` is the target architecture — where the system should be, not
@@ -427,13 +471,15 @@ A view spec is author text; the check in step 5 decides what the code proves (AD
    Never write `status` or `evidence`: the check decides, and such a spec is rejected (exit 2).
 5. Run `archkeel view check <spec> --snapshot <snapshot> --json` and read each status:
    - `proven`: observed, with `evidence` (`file`, `line`). Read those lines: a module edge can
-     come from another function. A step `path` of more than two entries skips modules: add them as steps.
-   - `missing`: not in the code. Fix the node or `kind`, remove it, or keep it as a claim.
+     come from another function. Only one direct edge of its kind proves a step.
+   - `missing`: not in the code. Fix the node or `kind`, remove it, or keep it as a claim. A step
+     with no direct edge is `missing` too: add the modules between as steps.
    - `unknown`: the snapshot cannot decide; a Python call is never `missing`. Keep it with your
      note, without `claim`, so its reason stays visible. Check the same pair as `imports` too:
      `missing` there means no static link (a parameter, a port or a child process). Say so.
-   - `declared`: a contract component or `requires` entry; after `explore`, only the layout group.
-6. Run `archkeel view show <spec> --snapshot <snapshot>`. Stderr names the page with the view.
+   - `declared`: a contract component or `requires` entry. After `explore`, a layout group
+     declares nothing and is `unknown`: use module nodes.
+6. Run `archkeel view show <spec> --snapshot <snapshot>`. Stderr names the page; it opens at the flow.
    Tell the user to open it: `open <page>` on macOS, `xdg-open <page>` on Linux.
 7. Tell the user the count for each status, each claim, each `unknown` with its reason, each
    `missing` and each change after the first check. Say: "proven means structure of the code (an
