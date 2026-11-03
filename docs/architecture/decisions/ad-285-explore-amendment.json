@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "60f6d1eb075a22354e366f846caceee210e00f8d3d903fcef374004394ec5a73",
+  "after_digest": "140e1e0a930902b70ae791f544615bd439bab4fb09bf4ca22443974b7ce3fcd3",
+  "before_baseline_digest": "60f6d1eb075a22354e366f846caceee210e00f8d3d903fcef374004394ec5a73",
+  "before_digest": "f17b4ed38769e43bef637a3c3be92b0f3f67a6842da37df558363451e7177551",
+  "decided_by": "Alexander Kell (architect), AD-285; delegated to the manager 2026-11-03",
+  "rationale": "AD-285 adds archkeel explore. The CLI calls one new check name, archkeel.check.report:run_explore, so the cli to check coupling budget rises from 15 to 16 names.",
+  "schema_version": "2.0.0"
+}
