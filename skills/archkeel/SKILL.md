@@ -98,8 +98,8 @@ A view spec is author text; the check in step 5 decides what the code proves (AD
 6. For a first contact ("how does it start?"), also add `stops`: 4 to 8 nodes in reading order,
    each with a `title` and a `note`, and set `"schema_version": "1.1.0"`. A stop takes no `kind`:
    it is a reading order, not a claim. The check adds measured facts to each stop (AD-289).
-   Run `archkeel view show <spec> --snapshot <snapshot>`. Stderr names the page; it opens at the
-   tour when the spec has stops, else at the flow.
+   Run `archkeel view show <spec> --snapshot <snapshot>`. Stderr names the page. Without stops
+   it opens at the flow; with stops it opens at the tour.
    Tell the user to open it: `open <page>` on macOS, `xdg-open <page>` on Linux.
 7. Tell the user the count for each status, each claim, each `unknown` with its reason, each
    `missing` and each change after the first check. Say: "proven means structure of the code (an

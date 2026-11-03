@@ -297,7 +297,9 @@ html.ak-canvas .ak-bar details.flow-legend-panel[open] .flow-legend {
   html.ak-canvas .flow[data-atlas] .flow-inspector { top: 112px; }
   .ak-drawer { top: 112px; }
 }
-/* AD-289: the Tour button widens the view bar, so it needs the second row up to this width. */
+/* AD-289: the Tour button widens the view bar, so it needs the second row up to this width.
+   Above the phone width only: the phone layout below keeps its own rows. */
+@media (min-width: 901px) {
 @container (max-width: 1460px) {
   html.ak-canvas:has([data-flow-tour]) .ak-top-left { right: 12px; max-width: none; }
   html.ak-canvas:has([data-flow-tour]) .ak-top-center { top: 62px; left: 12px; transform: none; }
@@ -306,6 +308,7 @@ html.ak-canvas .ak-bar details.flow-legend-panel[open] .flow-legend {
   html.ak-canvas:has([data-flow-tour]) .flow-map-column { top: 110px; }
   html.ak-canvas:has([data-flow-tour]) .flow[data-atlas] .flow-inspector { top: 112px; }
   html.ak-canvas:has([data-flow-tour]) .ak-drawer { top: 112px; }
+}
 }
 @media (max-width: 900px) {
   /* Phone: two rows of chrome on top, details as a bottom sheet, no side rail. */

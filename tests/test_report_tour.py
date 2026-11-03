@@ -214,3 +214,36 @@ def test_the_tour_works_offline(pages):
         assert page.errors == []
     finally:
         _close(playwright, browser)
+
+
+_BARS = (".ak-top-left", ".ak-top-center", ".ak-top-right")
+
+
+@pytest.mark.browser
+def test_on_a_phone_the_top_bars_stay_apart_and_each_control_is_reachable(pages):
+    """The two-row rule for the Tour button must not override the phone layout."""
+    playwright, browser, page = _open(pages, width=390, height=844)
+    try:
+        boxes = [page.locator(name).bounding_box() for name in _BARS]
+        assert all(boxes)
+        for index, first in enumerate(boxes):
+            for second in boxes[index + 1 :]:
+                assert (
+                    first["y"] + first["height"] <= second["y"]
+                    or second["y"] + second["height"] <= first["y"]
+                    or first["x"] + first["width"] <= second["x"]
+                    or second["x"] + second["width"] <= first["x"]
+                )
+        covered = page.evaluate(
+            """() => [...document.querySelectorAll('.ak-top-center button, .ak-top-right button')]
+            .filter((button) => button.offsetParent)
+            .filter((button) => {
+              const r = button.getBoundingClientRect();
+              return !button.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+            }).map((button) => button.getAttribute('aria-label') || button.textContent.trim())"""
+        )
+        assert covered == []
+        page.get_by_role("button", name="Next stop").click()
+        assert _counter(page) == "Stop 2 of 5"
+    finally:
+        _close(playwright, browser)
