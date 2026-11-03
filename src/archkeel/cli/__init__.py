@@ -599,8 +599,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         if command is Command.GUIDE:
             return run_guide(args.root.resolve(), args.config, args.output, args.check)
         if command is Command.VIEW:
-            subject = str(args.spec)
-            spec = parse_view_spec(decode_json(args.spec.read_bytes()))
+            spec_path: Path = args.spec
+            subject = str(spec_path)
+            spec = parse_view_spec(decode_json(spec_path.read_bytes()))
             subject = str(args.snapshot)
             view = check_view(spec, read_saved_snapshot(args.snapshot), strict=args.strict)
             sys.stdout.write(view_summary(view) + "\n" if interactive else view_check_json(view))

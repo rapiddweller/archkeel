@@ -469,7 +469,7 @@ def _node(graph: _Graph, node: str) -> NodeCheck:
         reason = "a symbol of the snapshot, not a view node: name its module or component"
         return NodeCheck(node, ViewStatus.UNKNOWN, reason)
     roots = ", ".join(graph.roots)
-    namespaces = {name.partition(".")[0] for name in graph.modules}
+    namespaces = {str.partition(name, ".")[0] for name in graph.modules}
     if not graph.complete:
         reason = f"not in the snapshot, which has incomplete source coverage of {roots}"
         return NodeCheck(node, ViewStatus.UNKNOWN, reason)
@@ -511,7 +511,7 @@ def _one_kind(
         return LinkCheck(source, target, ViewStatus.UNKNOWN, gaps[0], kind)
     # `from p import sub` records only p.sub, but Python also runs p/__init__.py.
     if kind == RelationshipKind.IMPORTS and any(
-        key in sources and other.startswith(f"{end}.")
+        key in sources and str.startswith(other, f"{end}.")
         for key, other in layer.edges
         for end in targets
     ):
