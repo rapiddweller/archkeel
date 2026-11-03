@@ -682,3 +682,47 @@ def test_first_run_init_drafts_the_scope_that_explore_showed(
         package for component in contract["components"] for package in component["packages"]
     ]
     assert packages and all(package.split(".")[0] == "shop" for package in packages)
+
+
+def test_flow_section_module_prefix_rule_gives_the_nested_child_modules(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """Step 3: a short module key gets `selector_prefix`, else the component's own `namespace`."""
+    from test_architecture_projection import _repository
+
+    root, config = _repository(tmp_path)
+    contract = json.loads((root / config.contract).read_bytes())
+    contract["components"][0]["inside"] = "core.json"
+    (root / "sample/core.py").unlink()
+    (root / "sample/core").mkdir()
+    for name in ("__init__", "left", "right"):
+        (root / f"sample/core/{name}.py").write_text("")
+    children = []
+    for label in ("left", "right"):
+        child = {**contract["components"][0], "id": label.upper(), "label": label}
+        child.update(packages=[f"sample.core.{label}"], public=[f"sample.core.{label}"])
+        child.update(namespace=f"sample.core.{label}", requires=[])
+        child.pop("inside")
+        children.append(child)
+    del children[1]["namespace"]  # its keys then take the parent's namespace as selector_prefix
+    rules = [contract["rules"][-1]]
+    (root / "core.json").write_text(
+        json.dumps({"schema_version": "2.1.0", "components": children, "rules": rules})
+    )
+    (root / config.contract).write_text(json.dumps(contract))
+    snapshot = tmp_path / "snapshot" / "architecture.json"
+    assert main(["report", "--root", str(root), "--output", str(snapshot), "--json"]) == 0
+    expected = {"core:LEFT": {"sample.core.left"}, "core:RIGHT": {"sample.core.right"}}
+    for identity, modules in expected.items():
+        query = ["--only", "architecture", "--component", identity, "--full", "--json"]
+        capsys.readouterr()
+        assert main(["report", "--input", str(snapshot), *query]) == 0
+        projection = json.loads(capsys.readouterr().out)["architecture_projection"]
+        component = next(item for item in projection["components"] if item["id"] == identity)
+        prefix = component.get("selector_prefix", component.get("namespace"))
+        names = {
+            prefix + key if key == "" or key.startswith(".") else key
+            for key in component["modules"]
+        }
+        assert names == modules, component
+    assert "`selector_prefix`" in _flow_section()

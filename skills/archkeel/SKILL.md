@@ -73,8 +73,8 @@ A view spec is author text; the check in step 5 decides what the code proves (AD
    The snapshot path is `artifact` in the result.
 3. Query before you write. `archkeel report --input <snapshot> --only architecture --json` lists
    the component ids. `archkeel report --input <snapshot> --only architecture --component <id> --full --json`
-   lists its `modules`; a key `''` or a key that starts with `.` gets the top-level component
-   `namespace` as prefix. A component with an `inside` contract lists most modules under the child ids
+   lists its `modules`. A key `''` or a key that starts with `.` gets a prefix: the
+   `selector_prefix` of that component when present, else its own `namespace`. A component with an `inside` contract lists most modules under the child ids
    of the first command. Use module names as nodes: a child component is `unknown` as a node.
    Source imports and calls name candidates, not proof. Check a direct edge to ask for it (step 5).
 4. Write the spec in a new temporary folder: never in the repository, never in an output folder
