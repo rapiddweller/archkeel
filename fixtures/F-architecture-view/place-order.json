@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0.0",
+  "title": "Place an order from the command line",
+  "snapshot": {
+    "source_digest": "a2b33780fb9cdaa921addace8cfba2580d9e53563493204bcc4af0f4d119d7c1",
+    "contract_digest": "184c5ba894f680a0b501a2bce14ac297000a4aba51e19511e2711a0aa696dfdb"
+  },
+  "nodes": [
+    "COMP-CLI",
+    "COMP-APP",
+    "shop.cli.main",
+    "shop.app.orders",
+    "shop.store.repository",
+    "shop.store.codec"
+  ],
+  "edges": [
+    {"source": "COMP-CLI", "target": "COMP-APP", "kind": "imports"},
+    {
+      "source": "shop.app.orders",
+      "target": "shop.store.repository",
+      "kind": "calls",
+      "claim": true,
+      "note": "place_order saves the order through OrderRepository.save."
+    }
+  ],
+  "steps": [
+    {"node": "shop.cli.main", "note": "main parses the arguments."},
+    {"node": "shop.app.orders", "kind": "calls", "note": "main calls place_order."},
+    {
+      "node": "shop.store.repository",
+      "claim": true,
+      "note": "place_order saves the order; the call goes through the shop.store re-export."
+    },
+    {"node": "shop.store.codec", "kind": "calls", "note": "OrderRepository.save encodes the order."}
+  ],
+  "notes": ["Author text: this view explains one use case. The check proves structure, not order."]
+}

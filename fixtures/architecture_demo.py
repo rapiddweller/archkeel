@@ -387,7 +387,7 @@ def replay(variant_id: str, output: Path) -> int:
         raise ValueError(f"unknown catalog variant: {variant_id}")
     if variant.evidence is not None:
         raise ValueError(f"{variant_id} cites evidence and has no runnable fixture")
-    if variant.check is not None:
+    if variant.check is not None or variant.view is not None:
         raise ValueError(f"{variant_id} is a check-protocol row, not a report-capable variant")
     if variant.against is not None and (
         variant.against.scenario != "deepest_inside_changed" or variant.against.root != "."

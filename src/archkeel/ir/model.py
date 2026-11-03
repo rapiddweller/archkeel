@@ -131,6 +131,7 @@ class Command(StrEnum):
     SKILL = "skill"
     GUIDE = "guide"
     EXPLORE = "explore"
+    VIEW = "view"
     ARGUMENTS = "arguments"
 
 

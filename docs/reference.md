@@ -185,6 +185,28 @@ with an inventory of the components before the findings. Query the snapshot like
 TypeScript and Dart need the scope options. `validate` on a contract with no rule keeps PASS:
 the contract is valid, and no rule was checked.
 
+## Checked views
+
+`archkeel view check <spec> [--snapshot architecture.json] [--json] [--strict]` checks a view
+spec against one saved report ([AD-284](architecture/decisions/ad-284-studio-shows-views-as-checked-data.md)).
+It reads two files and writes nothing. [`schema/view-spec.schema.json`](../schema/view-spec.schema.json)
+defines the spec; [`fixtures/F-architecture-view/place-order.json`](../fixtures/F-architecture-view/place-order.json)
+is an example.
+
+1. Run `archkeel report` to write the snapshot.
+2. Copy `source.source_digest` and `contract.digest` from it into the spec `snapshot`.
+3. List each node: a top-level component id, such as `COMP-APP`, or a module name.
+4. Add edges and steps. Set `"claim": true` on each one you cannot prove from the snapshot.
+5. Run `archkeel view check flow.json --snapshot build/architecture.json`.
+
+The result gives each node, edge and step one status: `proven` (observed, with record ids,
+evidence ids and source lines), `declared` (a component or a `requires` entry of the contract),
+`claim` (author text, not checked), `unknown` (the snapshot cannot decide) or `missing`. A
+proven step is a static path of one relationship kind: structure, not runtime order. A spec
+with another snapshot identity is not checked. The check runs the same snapshot validation as
+`report --input`. [`schema/view-check.schema.json`](../schema/view-check.schema.json) defines
+the result.
+
 ## Results
 
 Read `observation_complete`, `declared_rules` and `expectation_fulfilled` separately.
@@ -203,6 +225,7 @@ expectations are n/a. Filtering and baseline display do not change canonical fac
 | `init` | Draft written | — | Draft unavailable |
 | `skill install` | Instructions written | — | Target could not be updated |
 | `guide` | Guide written, or `--check` up to date | `--check`: missing or different | No contract, or it cannot be read |
+| `view check` | No reference is missing (`--strict`: or unknown) | A reference is missing (`--strict`: or unknown) | Invalid spec or snapshot, or another snapshot |
 
 Exit 0 is not architecture approval. Exit 2 carries diagnostics with `kind`,
 `subject`, `unknown_claim` and `remedy`; inspected evidence may remain available.

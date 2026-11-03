@@ -1,0 +1,319 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archkeel:view-check:1.0.0",
+  "title": "View check result",
+  "$comment": "Generated from archkeel.ir.view_spec (AD-284). The result is self-contained: each node, edge and step carries its status, reason, kind, path and evidence. A proven step is static structure, not runtime order; title, notes and claims are author text.",
+  "$ref": "#/$defs/ViewCheck",
+  "$defs": {
+    "ViewCheck": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "enum": [
+            "1.0.0"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "exit_code": {
+          "type": "integer"
+        },
+        "strict": {
+          "type": "boolean"
+        },
+        "snapshot": {
+          "$ref": "#/$defs/ViewSnapshot"
+        },
+        "view_snapshot": {
+          "$ref": "#/$defs/ViewSnapshot"
+        },
+        "snapshot_current": {
+          "type": "boolean"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeCheck"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LinkCheck"
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LinkCheck"
+          }
+        },
+        "author_notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "limits": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "schema_version",
+        "title",
+        "exit_code",
+        "strict",
+        "snapshot",
+        "view_snapshot",
+        "snapshot_current",
+        "nodes",
+        "edges",
+        "steps",
+        "author_notes"
+      ],
+      "additionalProperties": false
+    },
+    "ViewSnapshot": {
+      "type": "object",
+      "properties": {
+        "source_digest": {
+          "type": "string"
+        },
+        "contract_digest": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_digest",
+        "contract_digest"
+      ],
+      "additionalProperties": false
+    },
+    "NodeCheck": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "proven",
+            "declared",
+            "claim",
+            "unknown",
+            "missing"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "component",
+                "package",
+                "module",
+                "class",
+                "interface",
+                "enum",
+                "mixin",
+                "enum_literal",
+                "method",
+                "function",
+                "attribute",
+                "type_alias",
+                "constant",
+                "binding",
+                "symbol"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "status",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "LinkCheck": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "proven",
+            "declared",
+            "claim",
+            "unknown",
+            "missing"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "imports",
+                "calls",
+                "references",
+                "inherits",
+                "realizes",
+                "mixes_in",
+                "creates",
+                "instance_of",
+                "owns",
+                "requires",
+                "publishes"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "path": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViewEvidence"
+          }
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "source",
+        "target",
+        "status",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "ViewEvidence": {
+      "type": "object",
+      "properties": {
+        "record_id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "imports",
+            "calls",
+            "references",
+            "inherits",
+            "realizes",
+            "mixes_in",
+            "creates",
+            "instance_of",
+            "owns",
+            "requires",
+            "publishes"
+          ]
+        },
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "evidence_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "line": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type_only": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "record_id",
+        "kind",
+        "source",
+        "target"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

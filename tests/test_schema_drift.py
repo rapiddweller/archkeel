@@ -26,6 +26,7 @@ from archkeel.ir.codec import (
 )
 from archkeel.ir.model import SCHEMA_VERSION
 from archkeel.ir.profiles import PROFILES
+from archkeel.ir.view_spec import parse_view_spec
 from archkeel.ir.widening import Amendment
 
 ROOT = Path(__file__).parents[1]
@@ -783,3 +784,22 @@ def test_contract_schema_key_alias_version_gate(version):
     else:
         with pytest.raises(ValueError, match="key_alias_body.*3.1.0"):
             parse_contract(raw)
+
+
+def test_view_spec_schema_matches_its_dataclasses() -> None:
+    """AD-284: the dataclasses are the one source; a field that states proof is invalid."""
+    from tools.architecture_graph_schema import view_check_schema, view_spec_schema
+
+    assert _schema("view-check.schema.json") == view_check_schema()
+    schema = _schema("view-spec.schema.json")
+    assert schema == view_spec_schema()
+    example = json.loads((ROOT / "fixtures/F-architecture-view/place-order.json").read_bytes())
+    validator = Draft202012Validator(schema)
+    assert not list(validator.iter_errors(example))
+    assert parse_view_spec(example).edges[1].claim
+    for field, value in (("status", "proven"), ("evidence", ["EVD-1"]), ("claim", "proven")):
+        styled = deepcopy(example)
+        styled["edges"][1][field] = value
+        assert not validator.is_valid(styled)
+        with pytest.raises(ValueError):
+            parse_view_spec(styled)

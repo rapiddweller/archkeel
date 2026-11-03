@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "43aa4b5b8ea59f2a2870451c28958ba7a9ce999235207b9b26f6dc6534ed36ec",
+  "after_digest": "6c172266973b65619416734078ba4645556e7bd32cc72d67fd7c410ba1085346",
+  "before_baseline_digest": "60f6d1eb075a22354e366f846caceee210e00f8d3d903fcef374004394ec5a73",
+  "before_digest": "f17b4ed38769e43bef637a3c3be92b0f3f67a6842da37df558363451e7177551",
+  "decided_by": "Alexander Kell (architect), AD-284; delegated to the manager 2026-11-03",
+  "rationale": "AD-284 adds archkeel view check. The ir component publishes archkeel.ir.view_spec, its governance inside component owns the module, the cli to ir requires entry gains it, and TYPES-ENUM-IN-MODEL admits its format version and reference statuses. The calls_unresolved budget rises from 818 to 823 for five argparse calls the analyzer cannot resolve (the view subcommand and its options). The cli to check coupling gains one name, read_saved_snapshot, so view check validates a saved snapshot like report --input.",
+  "schema_version": "2.0.0"
+}
