@@ -21,12 +21,20 @@ from rich_argparse import RawDescriptionRichHelpFormatter
 from ..check.git import read_blob
 from ..check.onboarding import run_init
 from ..check.ports import Language
-from ..check.report import render_result, run_report, run_saved_report, unknown_result
+from ..check.report import (
+    read_saved_snapshot,
+    render_result,
+    run_report,
+    run_saved_report,
+    unknown_result,
+)
 from ..check.run import run_check
 from ..check.snapshot import resolve_commit
 from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
+from ..ir.codec import decode_json
 from ..ir.phases import Phase, PhaseClock, WorkCounter, measured
+from ..ir.view_spec import check_view, parse_view_spec, view_check_json, view_summary
 from ..render.html import render_architecture_pages, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
@@ -56,6 +64,7 @@ from .observe import observer_for
 from .skill import InstallationAgent, install_skill
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
+_SNAPSHOT_PATH: Final = Path("test-artifacts/architecture/architecture.json")
 
 
 def _sha(value: str) -> str:
@@ -86,6 +95,16 @@ def _write_files(root: Path, files: tuple[tuple[str, bytes], ...], artifacts: li
 def _write_timings(path: Path, clock: PhaseClock) -> None:
     os.makedirs(path.parent, exist_ok=True)
     path.write_text(json.dumps(clock.to_dict(), indent=2) + "\n")
+
+
+def _run_view_check(
+    spec_path: Path, snapshot_path: Path, *, strict: bool, interactive: bool
+) -> int:
+    """Read a view spec and a saved snapshot; `ir.view_spec` checks it (AD-284)."""
+    spec = parse_view_spec(decode_json(spec_path.read_bytes()))
+    result = check_view(spec, read_saved_snapshot(snapshot_path), strict=strict)
+    sys.stdout.write(view_summary(result) + "\n" if interactive else view_check_json(result))
+    return result.exit_code
 
 
 def html_path(output: Path, command: str) -> Path:
@@ -514,6 +533,41 @@ def build_parser() -> _Parser:
         help="Write nothing; exit 1 when the guide file is missing or differs from the contract.",
     )
 
+    view = commands.add_parser(
+        Command.VIEW.value,
+        help="Check a view spec against a saved architecture.json.",
+        formatter_class=RawDescriptionRichHelpFormatter,
+        description=(
+            "Checks each node, edge and step of a view spec against one saved snapshot. Each\n"
+            "reference is proven (observed, with evidence), declared (contract), claim (author\n"
+            "text, not checked), unknown (the snapshot cannot decide) or missing. A proven step\n"
+            "is a static path of one relationship kind: structure, not runtime order. The spec\n"
+            "names the digests of the snapshot it was written for (AD-284).\n\n"
+            "Examples:\n"
+            "  archkeel view check flow.json\n"
+            "  archkeel view check flow.json --snapshot build/architecture.json --json\n"
+            "  archkeel view check flow.json --strict\n\n"
+            "Exit codes:\n"
+            "  0  no reference is missing (with --strict: and none is unknown)\n"
+            "  1  a reference is missing, or unknown with --strict\n"
+            "  2  not checked: invalid spec or snapshot, or the spec names another snapshot\n\n"
+            f"Reference: {_DOCS}/reference.md#checked-views"
+        ),
+    )
+    view.add_argument("view_action", metavar="action", choices=["check"], help="The only action.")
+    view.add_argument("spec", type=Path, help="View spec JSON (schema/view-spec.schema.json).")
+    view.add_argument(
+        "--snapshot",
+        type=Path,
+        default=_SNAPSHOT_PATH,
+        help="Saved architecture.json. Default: test-artifacts/architecture/architecture.json.",
+    )
+    for option, help_text in (
+        ("--strict", "Also reject each unknown reference."),
+        ("--json", "Print the JSON result even in an interactive terminal."),
+    ):
+        view.add_argument(option, action="store_true", help=help_text)
+
     return parser
 
 
@@ -554,6 +608,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.config = CONFIG_PATH
         if command is Command.GUIDE:
             return run_guide(args.root.resolve(), args.config, args.output, args.check)
+        if command is Command.VIEW:
+            subject = str(args.spec)
+            return _run_view_check(
+                args.spec, args.snapshot, strict=args.strict, interactive=interactive
+            )
         root = (args.root or Path.cwd()).resolve()
         subject = str(root / (args.config or CONFIG_PATH))
         activity = (

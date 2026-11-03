@@ -132,7 +132,7 @@ def test_cli_check_measure_counts_named_shared_type_reexports(
         "archkeel.check.ports:Language",
         "archkeel.check.ports:ObservationResult",
     } <= set(width.names)
-    assert len(width.names) == 15
+    assert len(width.names) == 16
     assert width.uncounted == ()
     assert "archkeel.check.ports" not in (check.public or ())
     assert "archkeel.check.observe" not in (check.public or ())

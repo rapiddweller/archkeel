@@ -93,6 +93,16 @@ class AgainstExpectation:
 
 
 @dataclass(frozen=True, slots=True)
+class ViewExpectation:
+    """AD-284: `archkeel view check` of `spec` against the clean sample's own report."""
+
+    spec: Path
+    exit_code: Literal[0, 1, 2]
+    edges: tuple[str, ...]
+    steps: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class Variant:
     """One catalogued demonstration: an overlay on the clean sample, or cited evidence."""
 
@@ -119,6 +129,7 @@ class Variant:
     absent_unknowns: tuple[tuple[str, str], ...] = ()
     evidence: str | None = None
     check: CheckExpectation | None = None
+    view: ViewExpectation | None = None
     against: AgainstExpectation | None = None
     # The scan configuration the row runs, relative to the sample root (AD-101): the product's
     # own file, or a second one that governs another scope, such as tests, beside it.

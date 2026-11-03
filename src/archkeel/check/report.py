@@ -704,6 +704,17 @@ def _count_work(clock: PhaseClock, observation: Observation, architecture_bytes:
     clock.count(WorkCounter.ARCHITECTURE_BYTES, architecture_bytes)
 
 
+def read_saved_snapshot(path: Path) -> Observation:
+    """Decode a saved architecture.json and check its evidence and source records."""
+    raw = decode_json(path.read_bytes())
+    if not isinstance(raw, dict):
+        raise ValueError("architecture.json must be an object")
+    model = parse_observation(decode_canonical_model(raw))
+    validate_evidence_classes(model)
+    _validate_saved_sources(model)
+    return model
+
+
 def run_saved_report(
     path: Path,
     *,
@@ -724,12 +735,7 @@ def run_saved_report(
         full_architecture,
     )
     try:
-        raw = decode_json(path.read_bytes())
-        if not isinstance(raw, dict):
-            raise ValueError("architecture.json must be an object")
-        model = parse_observation(decode_canonical_model(raw))
-        validate_evidence_classes(model)
-        _validate_saved_sources(model)
+        model = read_saved_snapshot(path)
         runtime = runtime_diagnostic(model.runtime) if model.runtime is not None else None
         language = next(
             language

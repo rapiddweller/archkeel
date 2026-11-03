@@ -47,7 +47,10 @@ CONFIG = ScanConfig(("shop",), "shop", "architecture-contract.json", "0" * 64)
 _SAMPLE_VARIANTS = [
     variant
     for variant in CATALOG
-    if variant.evidence is None and variant.check is None and variant.against is None
+    if variant.evidence is None
+    and variant.check is None
+    and variant.against is None
+    and variant.view is None
 ]
 _CHECK_VARIANTS = [variant for variant in CATALOG if variant.check is not None]
 _AGAINST_VARIANTS = [variant for variant in CATALOG if variant.against is not None]
@@ -1206,6 +1209,28 @@ def test_check_variant_produces_the_catalogued_verdicts(tmp_path: Path, variant:
         if dimensions[name].after_count > dimensions[name].before_count
     }
     assert actual_dimensions == set(check.regressed_dimensions)
+
+
+@pytest.mark.parametrize(
+    "variant", [item for item in CATALOG if item.view is not None], ids=lambda v: v.id
+)
+def test_view_variant_produces_the_catalogued_statuses(
+    tmp_path: Path, variant: Variant, capsys: pytest.CaptureFixture
+) -> None:
+    """AD-284: the row runs the real command on the clean sample's own saved report."""
+    view = variant.view
+    assert view is not None
+    _, architecture = run_report(
+        _prepare_repo(tmp_path, dict(variant.files)), config=CONFIG, analyzer=observe
+    )
+    assert architecture is not None
+    snapshot = tmp_path / "architecture.json"
+    snapshot.write_bytes(architecture)
+    arguments = ["view", "check", str(view.spec), "--snapshot", str(snapshot), "--json"]
+    assert main(arguments) == view.exit_code
+    result = json.loads(capsys.readouterr().out)
+    assert tuple(item["status"] for item in result["edges"]) == view.edges
+    assert tuple(item["status"] for item in result["steps"]) == view.steps
 
 
 @pytest.mark.parametrize("variant", _AGAINST_VARIANTS, ids=lambda v: v.id)

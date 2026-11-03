@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archkeel:view-spec:1.0.0",
+  "title": "Checked view spec",
+  "$comment": "Generated from archkeel.ir.view_spec (AD-284). The spec cannot state proof: `archkeel view check` assigns proven, declared, unknown or missing; claim is author text. Edge and step nodes must be listed in nodes; the first step takes no kind or claim.",
+  "$ref": "#/$defs/ViewSpec",
+  "$defs": {
+    "ViewSpec": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "enum": [
+            "1.0.0"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "snapshot": {
+          "$ref": "#/$defs/ViewSnapshot"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViewEdge"
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViewStep"
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "schema_version",
+        "title",
+        "snapshot",
+        "nodes"
+      ],
+      "additionalProperties": false
+    },
+    "ViewSnapshot": {
+      "type": "object",
+      "properties": {
+        "source_digest": {
+          "type": "string"
+        },
+        "contract_digest": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_digest",
+        "contract_digest"
+      ],
+      "additionalProperties": false
+    },
+    "ViewEdge": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "imports",
+                "calls",
+                "references",
+                "inherits",
+                "realizes",
+                "mixes_in",
+                "creates",
+                "instance_of",
+                "owns",
+                "requires",
+                "publishes"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "claim": {
+          "type": "boolean"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "source",
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "ViewStep": {
+      "type": "object",
+      "properties": {
+        "node": {
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "imports",
+                "calls",
+                "references",
+                "inherits",
+                "realizes",
+                "mixes_in",
+                "creates",
+                "instance_of",
+                "owns",
+                "requires",
+                "publishes"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "claim": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "node"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
