@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:archkeel:view-spec:1.0.0",
   "title": "Checked view spec",
-  "$comment": "Generated from archkeel.ir.view_spec (AD-284). The spec cannot state proof: `archkeel view check` assigns proven, declared, unknown or missing; claim is author text. Edge and step nodes must be listed in nodes; the first step takes no kind or claim.",
+  "$comment": "Generated from archkeel.ir.view_spec (AD-284). The spec cannot state proof: `archkeel view check` assigns proven, declared, unknown or missing; claim is author text. Edge, step and stop nodes must be listed in nodes; the first step takes no kind or claim. A stop is author text beside measured facts; it needs schema_version 1.1.0 (AD-289).",
   "$ref": "#/$defs/ViewSpec",
   "$defs": {
     "ViewSpec": {
@@ -10,7 +10,8 @@
       "properties": {
         "schema_version": {
           "enum": [
-            "1.0.0"
+            "1.0.0",
+            "1.1.0"
           ]
         },
         "title": {
@@ -42,6 +43,12 @@
           "items": {
             "type": "string"
           }
+        },
+        "stops": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViewStop"
+          }
         }
       },
       "required": [
@@ -50,7 +57,25 @@
         "snapshot",
         "nodes"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "schema_version": {
+                "const": "1.0.0"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "stops"
+              ]
+            }
+          }
+        }
+      ]
     },
     "ViewSnapshot": {
       "type": "object",
@@ -159,6 +184,38 @@
         },
         "claim": {
           "type": "boolean"
+        }
+      },
+      "required": [
+        "node"
+      ],
+      "additionalProperties": false
+    },
+    "ViewStop": {
+      "type": "object",
+      "properties": {
+        "node": {
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [

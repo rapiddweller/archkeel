@@ -44,6 +44,8 @@ LIMITS: Final = (
 
 class ViewSpecVersion(StrEnum):
     V1_0_0 = "1.0.0"
+    # AD-289: stops need this version; a 1.0.0 spec keeps its meaning.
+    V1_1_0 = "1.1.0"
 
 
 class ViewStatus(StrEnum):
@@ -80,6 +82,15 @@ class ViewStep:
 
 
 @dataclass(frozen=True, slots=True)
+class ViewStop:
+    """A tour stop: a node and author text; it claims no relation, so it takes no kind."""
+
+    node: str
+    title: str | None = None
+    note: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ViewSpec:
     schema_version: ViewSpecVersion
     title: str
@@ -88,6 +99,7 @@ class ViewSpec:
     edges: tuple[ViewEdge, ...] = ()
     steps: tuple[ViewStep, ...] = ()
     notes: tuple[str, ...] = ()
+    stops: tuple[ViewStop, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,6 +141,45 @@ class LinkCheck:
 
 
 @dataclass(frozen=True, slots=True)
+class StopImports:
+    """Distinct observed module pairs of one direction; with a gap the count is a lower bound."""
+
+    pairs: int
+    evidence: tuple[ViewEvidence, ...]
+    gap: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class StopFinding:
+    record_id: str
+    kind: str
+    title: str
+
+
+@dataclass(frozen=True, slots=True)
+class StopFacts:
+    """Measured from the snapshot only; the spec cannot state any of it."""
+
+    modules: int
+    imports_out: StopImports
+    imports_in: StopImports
+    violations: tuple[StopFinding, ...]
+    unknowns: tuple[StopFinding, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class StopCheck:
+    """A stop is never a proof: its node status comes from the node, its facts from the graph."""
+
+    node: str
+    status: ViewStatus
+    reason: str
+    title: str | None = None
+    note: str | None = None
+    facts: StopFacts | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ViewCheck:
     schema_version: ViewSpecVersion
     title: str
@@ -141,6 +192,7 @@ class ViewCheck:
     edges: tuple[LinkCheck, ...]
     steps: tuple[LinkCheck, ...]
     author_notes: tuple[str, ...]
+    stops: tuple[StopCheck, ...]
     limits: tuple[str, ...] = LIMITS
 
 
@@ -210,13 +262,23 @@ def _step(raw: RawJson, label: str) -> ViewStep:
     )
 
 
+def _stop(raw: RawJson, label: str) -> ViewStop:
+    item = _fields(raw, label, {"node"}, {"title", "note"})
+    title = item.get("title")
+    return ViewStop(
+        _text(item["node"], f"{label}.node"),
+        None if title is None else _text(title, f"{label}.title"),
+        _note(item.get("note"), label),
+    )
+
+
 def parse_view_spec(raw: RawJson) -> ViewSpec:
     """Decode a closed view spec; a field that states proof is not part of the format."""
     item = _fields(
         raw,
         "view spec",
         {"schema_version", "title", "snapshot", "nodes"},
-        {"edges", "steps", "notes"},
+        {"edges", "steps", "notes", "stops"},
     )
     snapshot = _fields(
         item["snapshot"],
@@ -233,18 +295,25 @@ def parse_view_spec(raw: RawJson) -> ViewSpec:
         _step(entry, f"steps[{index}]")
         for index, entry in enumerate(_items(item.get("steps", ()), "steps"))
     )
+    stops = tuple(
+        _stop(entry, f"stops[{index}]")
+        for index, entry in enumerate(_items(item.get("stops", ()), "stops"))
+    )
+    version = ViewSpecVersion(_text(item["schema_version"], "schema_version"))
+    if "stops" in item and version is ViewSpecVersion.V1_0_0:
+        raise ValueError("stops need schema_version 1.1.0")
     if len(set(nodes)) != len(nodes):
         raise ValueError("nodes must be unique")
     named = {edge.source for edge in edges} | {edge.target for edge in edges}
-    named |= {step.node for step in steps}
+    named |= {step.node for step in steps} | {stop.node for stop in stops}
     if named - set(nodes):
         raise ValueError(
-            f"edges and steps name ids that are not in nodes: {sorted(named - set(nodes))}"
+            f"edges, steps and stops name ids that are not in nodes: {sorted(named - set(nodes))}"
         )
     if steps and (steps[0].kind is not None or steps[0].claim):
         raise ValueError("the first step has no step before it, so it takes no kind or claim")
     return ViewSpec(
-        ViewSpecVersion(_text(item["schema_version"], "schema_version")),
+        version,
         _text(item["title"], "title"),
         ViewSnapshot(
             _text(snapshot["source_digest"], "snapshot.source_digest"),
@@ -254,6 +323,7 @@ def parse_view_spec(raw: RawJson) -> ViewSpec:
         edges,
         steps,
         _texts(item.get("notes", ()), "notes"),
+        stops,
     )
 
 
@@ -284,6 +354,9 @@ class _Graph:
     complete: bool
     # AD-285: bare component groups, such as the explore layout, declare nothing.
     declared: bool
+    # AD-289: the violation and unknown records whose subject or fact lies in each module.
+    violations: Mapping[str, tuple[Record, ...]]
+    unknowns: Mapping[str, tuple[Record, ...]]
 
 
 def _module_names(entities: Mapping[str, Entity]) -> dict[str, str]:
@@ -391,6 +464,28 @@ def _observed_layers(
     }
 
 
+def _touched(
+    observation: Observation, graph: ArchitectureGraph, section: str
+) -> dict[str, tuple[Record, ...]]:
+    """Map each module to the records of a section that name it or a symbol in it."""
+    entities = {entity.id: entity for entity in graph.entities}
+    module_of = _module_names(entities)
+    names = {
+        entity.qualified_name: module_of[entity.id]
+        for entity in graph.entities
+        if entity.presence == PresenceKind.DEFINED and entity.id in module_of
+    }
+    touched: dict[str, list[Record]] = {}
+    for record in observation.records(section) or ():
+        modules = {
+            names.get(reference) or module_of.get(reference)
+            for reference in (*record.subjects, *record.fact_ids)
+        }
+        for module in sorted(name for name in modules if name is not None):
+            touched.setdefault(module, []).append(record)
+    return {module: tuple(records) for module, records in touched.items()}
+
+
 def _requires(components: Mapping[str, Record]) -> _Layer:
     labels = {record.title: identity for identity, record in components.items()}
     edges: dict[tuple[str, str], tuple[ViewEvidence, ...]] = {}
@@ -443,6 +538,8 @@ def _view_graph(observation: Observation) -> _Graph:
         layers,
         observation.coverage.status == Verdict.PASS and not observation.coverage.failures,
         declares_a_target(observation),
+        _touched(observation, graph, "violations"),
+        _touched(observation, graph, "unknowns"),
     )
 
 
@@ -494,6 +591,43 @@ def _node(graph: _Graph, node: str) -> NodeCheck:
         return NodeCheck(node, ViewStatus.UNKNOWN, reason)
     reason = f"no component, module or symbol has this id in the scanned roots {roots}"
     return NodeCheck(node, ViewStatus.MISSING, reason)
+
+
+def _imports(layer: _Layer, keys: frozenset[str], *, out: bool) -> StopImports:
+    end = 0 if out else 1
+    pairs = sorted(pair for pair in layer.edges if pair[end] in keys and pair[1 - end] not in keys)
+    gap = layer.everywhere
+    if gap is None and out:
+        gap = next((layer.gaps[key] for key in sorted(keys) if key in layer.gaps), None)
+    elif gap is None:
+        # An import from any other module can hide behind that module's gap.
+        others = sorted(set(layer.gaps) - keys)
+        if others:
+            gap = (
+                f"{len(others)} other modules have an import gap, such as: {layer.gaps[others[0]]}"
+            )
+    return StopImports(len(pairs), tuple(site for pair in pairs for site in layer.edges[pair]), gap)
+
+
+def _findings(
+    records: Mapping[str, tuple[Record, ...]], keys: frozenset[str]
+) -> tuple[StopFinding, ...]:
+    found = {record.id: record for key in keys for record in records.get(key, ())}
+    return tuple(
+        StopFinding(record.id, record.kind, record.title) for _, record in sorted(found.items())
+    )
+
+
+def _facts(graph: _Graph, node: str) -> StopFacts:
+    keys = frozenset(_keys(graph, node, RelationshipKind.IMPORTS))
+    layer = graph.layers[RelationshipKind.IMPORTS]
+    return StopFacts(
+        len(keys),
+        _imports(layer, keys, out=True),
+        _imports(layer, keys, out=False),
+        _findings(graph.violations, keys),
+        _findings(graph.unknowns, keys),
+    )
 
 
 def _one_kind(
@@ -586,6 +720,7 @@ def check_view(spec: ViewSpec, observation: Observation, *, strict: bool) -> Vie
     nodes: tuple[NodeCheck, ...]
     edges: tuple[LinkCheck, ...]
     steps: tuple[LinkCheck, ...]
+    stops: tuple[StopCheck, ...]
     if not current:
         stale = "the view names another snapshot: check it against that snapshot"
         nodes = tuple(NodeCheck(node, ViewStatus.UNKNOWN, stale) for node in spec.nodes)
@@ -598,6 +733,10 @@ def check_view(spec: ViewSpec, observation: Observation, *, strict: bool) -> Vie
         steps = tuple(
             LinkCheck(before, step.node, ViewStatus.UNKNOWN, stale, step.kind, note=step.note)
             for before, step in pairs
+        )
+        stops = tuple(
+            StopCheck(stop.node, ViewStatus.UNKNOWN, stale, stop.title, stop.note)
+            for stop in spec.stops
         )
     else:
         graph = _view_graph(observation)
@@ -637,6 +776,18 @@ def check_view(spec: ViewSpec, observation: Observation, *, strict: bool) -> Vie
             )
             for before, step in pairs
         )
+        measured = {ViewStatus.PROVEN, ViewStatus.DECLARED}
+        stops = tuple(
+            StopCheck(
+                stop.node,
+                checked[stop.node].status,
+                checked[stop.node].reason,
+                stop.title,
+                stop.note,
+                _facts(graph, stop.node) if checked[stop.node].status in measured else None,
+            )
+            for stop in spec.stops
+        )
     statuses = {node.status for node in nodes} | {link.status for link in (*edges, *steps)}
     failed = ViewStatus.MISSING in statuses or (strict and ViewStatus.UNKNOWN in statuses)
     return ViewCheck(
@@ -651,6 +802,7 @@ def check_view(spec: ViewSpec, observation: Observation, *, strict: bool) -> Vie
         edges,
         steps,
         spec.notes,
+        stops,
     )
 
 

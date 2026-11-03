@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:archkeel:view-check:1.0.0",
   "title": "View check result",
-  "$comment": "Generated from archkeel.ir.view_spec (AD-284). The result is self-contained: each node, edge and step carries its status, reason, kind, path and evidence. A proven step is static structure, not runtime order; title, notes and claims are author text.",
+  "$comment": "Generated from archkeel.ir.view_spec (AD-284). The result is self-contained: each node, edge and step carries its status, reason, kind, path and evidence. A proven step is static structure, not runtime order; title, notes and claims are author text. A stop carries its node status and facts measured from the snapshot; its title and note are author text (AD-289).",
   "$ref": "#/$defs/ViewCheck",
   "$defs": {
     "ViewCheck": {
@@ -10,7 +10,8 @@
       "properties": {
         "schema_version": {
           "enum": [
-            "1.0.0"
+            "1.0.0",
+            "1.1.0"
           ]
         },
         "title": {
@@ -55,6 +56,12 @@
             "type": "string"
           }
         },
+        "stops": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StopCheck"
+          }
+        },
         "limits": {
           "type": "array",
           "items": {
@@ -73,7 +80,8 @@
         "nodes",
         "edges",
         "steps",
-        "author_notes"
+        "author_notes",
+        "stops"
       ],
       "additionalProperties": false
     },
@@ -312,6 +320,145 @@
         "kind",
         "source",
         "target"
+      ],
+      "additionalProperties": false
+    },
+    "StopCheck": {
+      "type": "object",
+      "properties": {
+        "node": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "proven",
+            "declared",
+            "claim",
+            "unknown",
+            "missing"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "facts": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StopFacts"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "node",
+        "status",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "StopFacts": {
+      "type": "object",
+      "properties": {
+        "modules": {
+          "type": "integer"
+        },
+        "imports_out": {
+          "$ref": "#/$defs/StopImports"
+        },
+        "imports_in": {
+          "$ref": "#/$defs/StopImports"
+        },
+        "violations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StopFinding"
+          }
+        },
+        "unknowns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StopFinding"
+          }
+        }
+      },
+      "required": [
+        "modules",
+        "imports_out",
+        "imports_in",
+        "violations",
+        "unknowns"
+      ],
+      "additionalProperties": false
+    },
+    "StopImports": {
+      "type": "object",
+      "properties": {
+        "pairs": {
+          "type": "integer"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViewEvidence"
+          }
+        },
+        "gap": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "pairs",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "StopFinding": {
+      "type": "object",
+      "properties": {
+        "record_id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "record_id",
+        "kind",
+        "title"
       ],
       "additionalProperties": false
     }

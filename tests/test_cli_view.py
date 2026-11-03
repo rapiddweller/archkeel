@@ -443,3 +443,150 @@ def test_an_invented_step_is_missing_unless_the_snapshot_has_a_gap(
     dynamic = [{"node": loader[0]}, {"node": loader[1], "kind": "imports"}]
     gap = _check(changed, nodes=loader, steps=dynamic).steps[1]
     assert gap.status is ViewStatus.UNKNOWN and "dynamic" in gap.reason
+
+
+# ---------- AD-289: a tour stop is author text beside facts measured from the snapshot ----------
+TOUR = ROOT / "fixtures/F-architecture-view/first-contact-tour.json"
+
+
+def _tour(observation: Observation, stops: list[dict], nodes: list[str]):
+    raw = _spec(observation, schema_version="1.1.0", nodes=nodes, stops=stops)
+    return check_view(parse_view_spec(raw), observation, strict=False)
+
+
+def _oracle(observation: Observation, inside: set[str]) -> tuple[set, set]:
+    """Count from the raw import records, not through the code under test."""
+    modules = {record.title for record in observation.records("modules") or ()}
+    pairs = {
+        (str(record.data.get("source_module")), str(record.data.get("target_module")))
+        for record in observation.records("imports") or ()
+    }
+    pairs = {(source, target) for source, target in pairs if target in modules}
+    out = {pair for pair in pairs if pair[0] in inside and pair[1] not in inside}
+    into = {pair for pair in pairs if pair[1] in inside and pair[0] not in inside}
+    return out, into
+
+
+def test_a_stop_on_a_module_carries_measured_facts_with_ids(shop: Observation) -> None:
+    stop = {"node": "shop.app.orders", "title": "Place an order", "note": "Read this first."}
+    (result,) = _tour(shop, [stop], ["shop.app.orders"]).stops
+    assert (result.node, result.status, result.title, result.note) == (
+        "shop.app.orders",
+        ViewStatus.PROVEN,
+        "Place an order",
+        "Read this first.",
+    )
+    facts = result.facts
+    assert facts is not None and facts.modules == 1
+    out, into = _oracle(shop, {"shop.app.orders"})
+    assert {(site.source, site.target) for site in facts.imports_out.evidence} == out
+    assert {(site.source, site.target) for site in facts.imports_in.evidence} == into
+    assert (facts.imports_out.pairs, facts.imports_in.pairs) == (len(out), len(into))
+    assert all(
+        site.record_id.startswith("IMP-") and site.evidence_id and site.line
+        for site in (*facts.imports_out.evidence, *facts.imports_in.evidence)
+    )
+    # The snapshot records an unknown with this module as a subject.
+    assert "boundary_type_position" in {finding.kind for finding in facts.unknowns}
+    assert all(finding.record_id.startswith("UNKNOWN-") for finding in facts.unknowns)
+    assert facts.violations == ()
+
+
+def test_a_stop_on_a_component_counts_its_modules_and_its_boundary(shop: Observation) -> None:
+    (result,) = _tour(shop, [{"node": "COMP-APP"}], ["COMP-APP"]).stops
+    assert result.status is ViewStatus.DECLARED and result.facts is not None
+    modules = {
+        record.title
+        for record in shop.records("modules") or ()
+        if record.title.startswith("shop.app.")
+    }
+    assert result.facts.modules == len(modules)
+    out, into = _oracle(shop, modules)
+    assert {(site.source, site.target) for site in result.facts.imports_out.evidence} == out
+    assert {(site.source, site.target) for site in result.facts.imports_in.evidence} == into
+    assert result.facts.imports_out.pairs == len(out) > 0
+
+
+def test_a_stop_on_an_unknown_or_missing_node_has_no_facts(shop: Observation) -> None:
+    nodes = ["shop.render", "shop.app.payments"]
+    result = _tour(shop, [{"node": node} for node in nodes], nodes)
+    assert [(stop.status, stop.facts) for stop in result.stops] == [
+        (ViewStatus.UNKNOWN, None),
+        (ViewStatus.MISSING, None),
+    ]
+    assert result.stops[0].reason == result.nodes[0].reason
+    assert result.exit_code == 1
+
+
+def test_a_stop_counts_are_a_lower_bound_under_an_import_gap(changed: Observation) -> None:
+    nodes = ["shop.render.loader", "shop.model.entities"]
+    loader, entities = _tour(changed, [{"node": node} for node in nodes], nodes).stops
+    assert loader.facts is not None and entities.facts is not None
+    assert "dynamic" in (loader.facts.imports_out.gap or "")
+    assert "dynamic_import_limit" in {finding.kind for finding in loader.facts.unknowns}
+    # The loader can import any module, so each other module's imports in are a lower bound.
+    assert loader.facts.imports_in.gap is None
+    assert "shop.render.loader has a dynamic import" in (entities.facts.imports_in.gap or "")
+    assert entities.facts.imports_out.gap is None
+
+
+def test_a_stop_lists_the_violations_that_touch_its_module(tmp_path: Path) -> None:
+    from fixtures.demo_catalog_dependencies import _FORBIDDEN_DEPENDENCY_PAIR
+
+    root = _prepare_repo(tmp_path, dict(_FORBIDDEN_DEPENDENCY_PAIR.files))
+    _, packet = run_report(root, config=load_config(root), analyzer=observe)
+    assert packet is not None
+    observation = _observation(packet)
+    nodes = ["shop.render.text", "shop.cli.main"]
+    text, cli = _tour(observation, [{"node": node} for node in nodes], nodes).stops
+    assert text.facts is not None and cli.facts is not None
+    assert [(item.kind, item.record_id[:4]) for item in text.facts.violations] == [
+        ("forbidden_dependency", "VIO-")
+    ]
+    assert cli.facts.violations == ()
+
+
+def test_a_stale_snapshot_gives_a_stop_no_facts(shop: Observation) -> None:
+    spec = _spec(shop, schema_version="1.1.0", stops=[{"node": "shop.cli.main"}])
+    spec["snapshot"] = {"source_digest": "0" * 64, "contract_digest": "0" * 64}
+    (stop,) = check_view(parse_view_spec(spec), shop, strict=False).stops
+    assert stop.status is ViewStatus.UNKNOWN and stop.facts is None
+
+
+@pytest.mark.parametrize(
+    "styled",
+    [{"kind": "imports"}, {"claim": True}, {"status": "proven"}, {"facts": {"modules": 1}}],
+)
+def test_a_stop_that_states_a_relation_or_proof_is_rejected(
+    shop: Observation, styled: dict
+) -> None:
+    spec = _spec(shop, schema_version="1.1.0", stops=[{"node": "shop.cli.main", **styled}])
+    with pytest.raises(ValueError):
+        parse_view_spec(spec)
+
+
+def test_a_stop_names_a_listed_node_and_needs_version_1_1_0(shop: Observation) -> None:
+    with pytest.raises(ValueError, match="nodes"):
+        parse_view_spec(_spec(shop, schema_version="1.1.0", stops=[{"node": "shop.store"}]))
+    with pytest.raises(ValueError, match="1.1.0"):
+        parse_view_spec(_spec(shop, stops=[{"node": "shop.cli.main"}]))
+
+
+def test_a_spec_without_stops_keeps_its_result(shop: Observation) -> None:
+    raw = json.loads(EXAMPLE.read_text())
+    old = check_view(parse_view_spec(raw), shop, strict=False)
+    new = check_view(parse_view_spec({**raw, "schema_version": "1.1.0"}), shop, strict=False)
+    assert old.stops == () and replace(new, schema_version=old.schema_version) == old
+    assert json.loads(view_check_json(old))["stops"] == []
+
+
+def test_the_tour_example_checks_clean_and_matches_its_schema(shop: Observation) -> None:
+    from jsonschema import Draft202012Validator
+
+    raw = json.loads(TOUR.read_text())
+    assert raw["snapshot"] == asdict(snapshot_identity(shop))
+    result = check_view(parse_view_spec(raw), shop, strict=False)
+    assert result.exit_code == 0 and len(result.stops) >= 4
+    assert all(stop.facts is not None for stop in result.stops)
+    schema = json.loads((ROOT / "schema/view-check.schema.json").read_text())
+    assert not list(Draft202012Validator(schema).iter_errors(json.loads(view_check_json(result))))

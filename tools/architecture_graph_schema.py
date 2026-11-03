@@ -117,6 +117,14 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                             },
                         }
                     ]
+                if annotation is ViewSpec:
+                    # AD-289: a 1.0.0 spec has no stops.
+                    definition["allOf"] = [
+                        {
+                            "if": {"properties": {"schema_version": {"const": "1.0.0"}}},
+                            "then": {"not": {"required": ["stops"]}},
+                        }
+                    ]
                 definitions[name] = definition
             return {"$ref": f"#/$defs/{name}"}
         raise TypeError(f"unsupported schema type: {annotation}")
@@ -345,7 +353,8 @@ def view_spec_schema() -> dict[str, object]:
     schema["$comment"] = (
         "Generated from archkeel.ir.view_spec (AD-284). The spec cannot state proof: "
         "`archkeel view check` assigns proven, declared, unknown or missing; claim is author text. "
-        "Edge and step nodes must be listed in nodes; the first step takes no kind or claim."
+        "Edge, step and stop nodes must be listed in nodes; the first step takes no kind or claim. "
+        "A stop is author text beside measured facts; it needs schema_version 1.1.0 (AD-289)."
     )
     return schema
 
@@ -355,7 +364,9 @@ def view_check_schema() -> dict[str, object]:
     schema["$comment"] = (
         "Generated from archkeel.ir.view_spec (AD-284). The result is self-contained: each node, "
         "edge and step carries its status, reason, kind, path and evidence. A proven step is "
-        "static structure, not runtime order; title, notes and claims are author text."
+        "static structure, not runtime order; title, notes and claims are author text. A stop "
+        "carries its node status and facts measured from the snapshot; its title and note are "
+        "author text (AD-289)."
     )
     return schema
 
