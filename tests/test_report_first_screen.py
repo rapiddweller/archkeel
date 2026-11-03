@@ -24,7 +24,7 @@ from archkeel.render.html import render_architecture_html
 _TARGET = "The target is authored independently of source facts.\n"
 
 
-def _report(tmp_path: Path, components, *, rule_deciders=(), hub_imports=False):
+def _report(tmp_path: Path, components, *, rule_deciders=(), hub_imports=False, intent=True):
     """Each component is (name, module count); a component's modules live in its own package.
 
     Each entry of `rule_deciders` is one complete_requires rule; the rules are the decisions
@@ -43,7 +43,7 @@ def _report(tmp_path: Path, components, *, rule_deciders=(), hub_imports=False):
                 "role": "component",
                 "packages": [f"sample.{name}"],
                 "namespace": f"sample.{name}",
-                "responsibilities": [f"Own the {name}."],
+                "responsibilities": [f"Own the {name}."] if intent else [],
                 "forbidden_responsibilities": [],
                 "requires": [],
                 "provenance": ["docs/target.md"],
@@ -231,9 +231,9 @@ def test_mixed_decisions_keep_the_agent_fraction(tmp_path):
 
 @pytest.mark.browser
 def test_without_a_rule_the_inventory_line_and_the_explorer_share_the_first_screen(tmp_path):
-    """AD-285: no rule, so one server-side line comes first; Details stays closed (AD-286)."""
+    """AD-285: nothing declared, so one server-side line comes first; Details stays closed."""
     components = [("hub", 1), *[(f"peer{index}", 1) for index in range(5)]]
-    api, html = _open(tmp_path, components, hub_imports=True)
+    api, html = _open(tmp_path, components, hub_imports=True, intent=False)
     playwright, browser, page = _browser_page(api, html, width=800, height=600)
     try:
         assert page.locator("#inventory-heading").is_visible()
