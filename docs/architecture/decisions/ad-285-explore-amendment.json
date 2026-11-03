@@ -1,9 +1,9 @@
 {
-  "after_baseline_digest": "60f6d1eb075a22354e366f846caceee210e00f8d3d903fcef374004394ec5a73",
-  "after_digest": "140e1e0a930902b70ae791f544615bd439bab4fb09bf4ca22443974b7ce3fcd3",
-  "before_baseline_digest": "60f6d1eb075a22354e366f846caceee210e00f8d3d903fcef374004394ec5a73",
-  "before_digest": "f17b4ed38769e43bef637a3c3be92b0f3f67a6842da37df558363451e7177551",
+  "after_baseline_digest": "1209b8195bba24fb20a814098943def890bd29dce5079a9dc83f624b10edd5d5",
+  "after_digest": "fca33e883e84e686edb94a235ac0ee95ea91921a0984514048256c154a04efce",
+  "before_baseline_digest": "43aa4b5b8ea59f2a2870451c28958ba7a9ce999235207b9b26f6dc6534ed36ec",
+  "before_digest": "6c172266973b65619416734078ba4645556e7bd32cc72d67fd7c410ba1085346",
   "decided_by": "Alexander Kell (architect), AD-285; delegated to the manager 2026-11-03",
-  "rationale": "AD-285 adds archkeel explore. The CLI calls one new check name, archkeel.check.report:run_explore, so the cli to check coupling budget rises from 15 to 16 names.",
+  "rationale": "AD-285 adds archkeel explore. The CLI already calls 16 check names on main (AD-284 added read_saved_snapshot), and explore adds archkeel.check.report:run_explore, so the cli to check coupling budget rises from 15 to 17 names.",
   "schema_version": "2.0.0"
 }
