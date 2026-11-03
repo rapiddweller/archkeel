@@ -18,15 +18,17 @@ spec. `archkeel view check` checks each reference in it against one saved `archi
    | `claim` | Author text. The check does not look for it, also when the graph has the edge. |
    | `unknown` | The snapshot cannot decide: a coverage gap, a dynamic dependency, an unsupported node or kind. |
    | `missing` | Not in the snapshot, and the source coverage and the coverage of that kind are complete. |
-4. Only a resolved relationship to a defined entity proves an edge. A step pair is proven by
-   the shortest directed path of one kind. This is static structure, not runtime order: an
-   import is not a call, and a path is not an execution trace. The Explorer must show that
-   sentence with each proven step. No `kind` tries `imports`, then `calls`, never a mix.
+4. Only a resolved relationship to a defined entity proves an edge. A step pair is proven only
+   by one direct edge of its kind; without one the step is `unknown`, and the author adds the
+   nodes between as steps. This is static structure, not runtime order: an import is not a
+   call. The Explorer must show that sentence with each proven step. No `kind` tries
+   `imports`, then `calls`, never a mix.
 5. `snapshot` names the `source_digest` and `contract_digest` the view describes. When they
    differ from the snapshot, the check does not run: each reference is `unknown`, exit 2.
-   The Explorer matches a spec to its embedded report by the same two digests; the
-   contract-free explore snapshot carries them too. The check first runs the saved-report
-   validation of `report --input`: a record with missing evidence makes the snapshot invalid.
+   The Explorer matches a spec to its embedded report by the same two digests. A snapshot
+   from `archkeel explore` needs a typed layout-contract marker (planned with the explore
+   merge); until then its `declared` and `requires` statuses are not reliable. The check
+   runs the validation of `report --input`: a record with missing evidence makes it invalid.
 6. The spec cannot state proof: an unknown field, for example `status` or `evidence`, makes it
    invalid in every mode. `--strict` also rejects each `unknown` reference.
 7. Exit codes: 0 when no reference is `missing` (with `--strict`: and none is `unknown`);
@@ -44,8 +46,11 @@ other code: its notes describe the old code.
   the check proves each reference again against the snapshot it reads.
 - A `TYPE_CHECKING` import stays a `proven` import. Its reason says "type-only import: not
   executed at runtime", and its evidence has `type_only: true`.
-- The snapshot is not authenticated. A forged record with its own consistent evidence passes;
-  run `archkeel report` again for a snapshot you did not make.
+- The snapshot is not authenticated (#796). A forged record with its own consistent evidence
+  passes; run `archkeel report` again for a snapshot you did not make.
+- `missing` needs a decidable question. A symbol id, a path, a name outside the scanned roots,
+  a `requires` edge with a module end or in a contract without requires, and an absent import
+  of a package whose submodule is imported are `unknown`.
 - Each Python snapshot has a `dynamic_call_limit`: a call edge is `unknown`, never `missing`. A
   call through a re-export, for example `shop.store.OrderRepository`, proves no call edge.
 - Symbols and inside components are not nodes; an inside component id is `unknown`. A saved

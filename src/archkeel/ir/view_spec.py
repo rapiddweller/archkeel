@@ -10,8 +10,6 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from enum import StrEnum
-from itertools import groupby, pairwise
-from operator import itemgetter
 from typing import Final
 
 from archkeel.ir.architecture_graph import (
@@ -37,7 +35,7 @@ _DYNAMIC_CALLS: Final = "dynamic_call_limit"
 _DEFAULT_KINDS: Final = (RelationshipKind.IMPORTS, RelationshipKind.CALLS)
 _TYPE_ONLY: Final = "type-only import: not executed at runtime"
 LIMITS: Final = (
-    "A proven step is a static path of one relationship kind: structure, not runtime order.",
+    "A proven step is one direct edge of its kind: structure, not runtime order.",
     "An unknown reference is a coverage gap, never a proven absence.",
     "A claim is author text: the check does not look for it in the graph.",
 )
@@ -167,9 +165,7 @@ def _text(raw: RawJson, label: str) -> str:
 
 
 def _texts(raw: RawJson, label: str) -> tuple[str, ...]:
-    if not isinstance(raw, Sequence) or isinstance(raw, str):
-        raise ValueError(f"{label} must be an array")
-    return tuple(_text(item, label) for item in raw)
+    return tuple(_text(item, label) for item in _items(raw, label))
 
 
 def _items(raw: RawJson, label: str) -> tuple[RawJson, ...]:
@@ -269,27 +265,15 @@ class _Layer:
     """One relationship kind between node keys, and why an absence cannot be decided."""
 
     edges: Mapping[tuple[str, str], tuple[ViewEvidence, ...]]
-    following: Mapping[str, tuple[str, ...]]
     gaps: Mapping[str, str]
     everywhere: str | None = None
-
-
-def _layer(
-    edges: Mapping[tuple[str, str], tuple[ViewEvidence, ...]],
-    gaps: Mapping[str, str],
-    everywhere: str | None,
-) -> _Layer:
-    pairs = sorted(edges)
-    following = {
-        source: tuple(target for _, target in group)
-        for source, group in groupby(pairs, key=itemgetter(0))
-    }
-    return _Layer(edges, following, gaps, everywhere)
 
 
 @dataclass(frozen=True, slots=True)
 class _Graph:
     modules: Mapping[str, Entity]
+    names: frozenset[str]
+    roots: tuple[str, ...]
     components: Mapping[str, Record]
     inside: frozenset[str]
     members: Mapping[str, tuple[str, ...]]
@@ -325,45 +309,6 @@ def _sites(
     ) or (ViewEvidence(item.id, item.kind, source, target, type_only=marked),)
 
 
-def _proof_reason(base: str, hops: tuple[tuple[ViewEvidence, ...], ...]) -> str:
-    if any(hop and all(site.type_only for site in hop) for hop in hops):
-        return f"{base}; {_TYPE_ONLY}"
-    return base
-
-
-def _absence_gaps(
-    observation: Observation, graph: ArchitectureGraph, kinds: tuple[RelationshipKind, ...]
-) -> tuple[
-    dict[tuple[RelationshipKind, str], str],
-    dict[tuple[RelationshipKind, str], str],
-    dict[RelationshipKind, str],
-]:
-    """Return where an absence is not decided: incomplete coverage and dynamic dependencies."""
-    complete = {
-        (coverage.scope_id, kind)
-        for coverage in graph.coverage
-        if coverage.status == CoverageStatus.COMPLETE
-        for kind in coverage.relationship_kinds
-    }
-    coverage = {
-        (kind, entity.qualified_name): f"the snapshot does not cover each {kind} of "
-        f"{entity.qualified_name}"
-        for entity in graph.entities
-        if entity.kind == EntityKind.MODULE and entity.presence == PresenceKind.DEFINED
-        for kind in kinds
-        if (entity.id, kind) not in complete
-    }
-    dynamic: dict[tuple[RelationshipKind, str], str] = {}
-    everywhere: dict[RelationshipKind, str] = {}
-    for record in observation.records("unknowns") or ():
-        module = record.data.get("source_module")
-        if record.kind == _DYNAMIC_IMPORT and isinstance(module, str):
-            dynamic[(RelationshipKind.IMPORTS, module)] = f"{module} has a dynamic import"
-        elif record.kind == _DYNAMIC_CALLS:
-            everywhere[RelationshipKind.CALLS] = f"{record.title}: a call edge is never absent"
-    return coverage, dynamic, everywhere
-
-
 def _observed_layers(
     observation: Observation, graph: ArchitectureGraph
 ) -> dict[RelationshipKind, _Layer]:
@@ -377,15 +322,32 @@ def _observed_layers(
     )
     module_of = _module_names(entities)
     kinds = tuple(kind for kind in RelationshipKind if kind != RelationshipKind.REQUIRES)
-    edges: dict[tuple[RelationshipKind, str, str], tuple[ViewEvidence, ...]] = {}
-    gaps: dict[tuple[RelationshipKind, str], str] = {}
+    complete = {
+        (coverage.scope_id, kind)
+        for coverage in graph.coverage
+        if coverage.status == CoverageStatus.COMPLETE
+        for kind in coverage.relationship_kinds
+    }
+    edges: dict[RelationshipKind, dict[tuple[str, str], tuple[ViewEvidence, ...]]] = {
+        kind: {} for kind in kinds
+    }
+    gaps: dict[RelationshipKind, dict[str, str]] = {
+        kind: {
+            entity.qualified_name: f"the snapshot does not cover each {kind} of "
+            f"{entity.qualified_name}"
+            for entity in graph.entities
+            if entity.kind == EntityKind.MODULE and entity.presence == PresenceKind.DEFINED
+            if (entity.id, kind) not in complete
+        }
+        for kind in kinds
+    }
     everywhere: dict[RelationshipKind, str] = {}
     for item in graph.relationships:
         target = entities.get(item.target_id) if item.target_id else None
         resolved = item.resolution == ResolutionKind.RESOLVED and target is not None
         presence = target.presence if target is not None else None
         # Importing a name no module defines leaves the project; calling one can be a re-export.
-        if item.kind not in kinds or (
+        if item.kind not in edges or (
             resolved
             and item.kind == RelationshipKind.IMPORTS
             and presence == PresenceKind.REFERENCED
@@ -397,54 +359,50 @@ def _observed_layers(
             if target is not None and resolved and presence == PresenceKind.DEFINED
             else None
         )
+        kind_edges: dict[tuple[str, str], tuple[ViewEvidence, ...]] = edges[item.kind]
+        kind_gaps: dict[str, str] = gaps[item.kind]
         if source is None:
             if item.kind not in everywhere:
                 everywhere[item.kind] = f"a {item.kind} relationship has no source module"
         elif target_module is None:
-            if (item.kind, source) not in gaps:
-                reason = f"{source} has an unresolved or re-exported {item.kind} target"
-                gaps[(item.kind, source)] = reason
+            if source not in kind_gaps:
+                kind_gaps[source] = f"{source} has an unresolved or re-exported {item.kind} target"
         elif target_module != source:
-            key = (item.kind, source, target_module)
-            edges[key] = (
-                *edges.get(key, ()),
-                *_sites(item, source, target_module, evidence, type_only),
-            )
-    coverage, dynamic, limits = _absence_gaps(observation, graph, kinds)
-    gaps = {**coverage, **gaps, **dynamic}
-    everywhere = {**everywhere, **limits}
+            key = (source, target_module)
+            sites = _sites(item, source, target_module, evidence, type_only)
+            kind_edges[key] = (*kind_edges.get(key, ()), *sites)
+    for record in observation.records("unknowns") or ():
+        module = record.data.get("source_module")
+        if record.kind == _DYNAMIC_IMPORT and isinstance(module, str):
+            gaps[RelationshipKind.IMPORTS][module] = f"{module} has a dynamic import"
+        elif record.kind == _DYNAMIC_CALLS:
+            everywhere[RelationshipKind.CALLS] = f"{record.title}: a call edge is never absent"
     incomplete = (
         "the source observation is incomplete"
         if observation.coverage.status != Verdict.PASS
         else None
     )
     return {
-        kind: _layer(
-            {
-                (source, target): sites
-                for (each, source, target), sites in edges.items()
-                if each == kind
-            },
-            {module: reason for (each, module), reason in gaps.items() if each == kind},
-            incomplete or everywhere.get(kind),
-        )
-        for kind in kinds
+        kind: _Layer(edges[kind], gaps[kind], incomplete or everywhere.get(kind)) for kind in kinds
     }
 
 
-def _requires(components: Mapping[str, Record]) -> dict[tuple[str, str], tuple[ViewEvidence, ...]]:
+def _requires(components: Mapping[str, Record]) -> _Layer:
     labels = {record.title: identity for identity, record in components.items()}
-    result: dict[tuple[str, str], tuple[ViewEvidence, ...]] = {}
+    edges: dict[tuple[str, str], tuple[ViewEvidence, ...]] = {}
+    declared = False
     for identity, record in components.items():
         entries = record.data.get("requires", ())
         for entry in entries if isinstance(entries, tuple) else ():
+            declared = True
             label = entry.get("component") if isinstance(entry, RecordData) else None
             if isinstance(label, str) and label in labels:
                 target = labels[label]
-                result[(identity, target)] = (
+                edges[(identity, target)] = (
                     ViewEvidence(identity, RelationshipKind.REQUIRES, identity, target),
                 )
-    return result
+    # Without a single requires entry, the contract does not use requires: absence is not decided.
+    return _Layer(edges, {}, None if declared else "the contract declares no requires entry")
 
 
 def _view_graph(observation: Observation) -> _Graph:
@@ -460,9 +418,15 @@ def _view_graph(observation: Observation) -> _Graph:
     }
     owned = {name: owner_of(name, owners) for name in sorted(modules)}
     layers = _observed_layers(observation, graph)
-    layers[RelationshipKind.REQUIRES] = _layer(_requires(components), {}, None)
+    layers[RelationshipKind.REQUIRES] = _requires(components)
     return _Graph(
         modules,
+        frozenset(
+            entity.qualified_name
+            for entity in graph.entities
+            if entity.presence == PresenceKind.DEFINED
+        ),
+        observation.source.scope,
         components,
         frozenset(record.id for record in declarations if record.kind == _INSIDE_COMPONENT),
         {
@@ -501,74 +465,66 @@ def _node(graph: _Graph, node: str) -> NodeCheck:
         )
     if node in graph.inside:
         return NodeCheck(node, ViewStatus.UNKNOWN, "an inside component is not a view node yet")
-    if not graph.complete:
-        reason = (
-            "no component or module has this id, but the snapshot has incomplete source coverage"
-        )
+    if node in graph.names:
+        reason = "a symbol of the snapshot, not a view node: name its module or component"
         return NodeCheck(node, ViewStatus.UNKNOWN, reason)
-    return NodeCheck(node, ViewStatus.MISSING, "no component or module has this id")
-
-
-def _path(
-    layer: _Layer, sources: tuple[str, ...], targets: frozenset[str]
-) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """Return the shortest path of one kind (BFS, sorted neighbours) and every key it reached."""
-    parents: dict[str, str | None] = dict.fromkeys(sources)
-    queue: list[str] = list(sources)
-    # A for loop over a list also visits the keys appended during the loop: breadth first.
-    for key in queue:
-        for following in layer.following.get(key, ()):
-            if following in targets:
-                path: list[str] = [following, key]
-                while (parent := parents[path[-1]]) is not None:
-                    path.append(parent)
-                return tuple(reversed(path)), tuple(parents)
-            if following not in parents:
-                parents[following] = key
-                queue.append(following)
-    return (), tuple(parents)
+    roots = ", ".join(graph.roots)
+    namespaces = {name.partition(".")[0] for name in graph.modules}
+    if not graph.complete:
+        reason = f"not in the snapshot, which has incomplete source coverage of {roots}"
+        return NodeCheck(node, ViewStatus.UNKNOWN, reason)
+    # A path, or a dotted name outside the scanned namespaces: the scan cannot answer it.
+    if "/" in node or ("." in node and node.partition(".")[0] not in namespaces):
+        reason = f"not a module name in the scanned roots {roots}"
+        return NodeCheck(node, ViewStatus.UNKNOWN, reason)
+    reason = f"no component, module or symbol has this id in the scanned roots {roots}"
+    return NodeCheck(node, ViewStatus.MISSING, reason)
 
 
 def _one_kind(
-    graph: _Graph, source: str, target: str, kind: RelationshipKind, *, one_hop: bool
+    graph: _Graph, source: str, target: str, kind: RelationshipKind, *, step: bool
 ) -> LinkCheck:
+    """Prove one direct edge of one kind; a longer path proves neither an edge nor a step."""
     layer = graph.layers[kind]
-    sources, targets = _keys(graph, source, kind), frozenset(_keys(graph, target, kind))
-    found = ViewStatus.DECLARED if kind == RelationshipKind.REQUIRES else ViewStatus.PROVEN
+    sources, targets = _keys(graph, source, kind), _keys(graph, target, kind)
     if not sources or not targets:
         # A component whose modules all failed to parse has no ends, but they can exist.
-        status = ViewStatus.UNKNOWN if layer.everywhere else ViewStatus.MISSING
-        reason = f"{source} or {target} has no {kind} end in the snapshot"
-        return LinkCheck(source, target, status, layer.everywhere or reason, kind)
-    reached: tuple[str, ...] = sources
-    if one_hop:
-        evidence = tuple(
-            site
-            for key in sources
-            for following in sorted(targets)
-            for site in layer.edges.get((key, following), ())
-        )
-        if evidence:
-            reason = _proof_reason(f"an observed {kind} relationship", (evidence,))
-            return LinkCheck(source, target, found, reason, kind, (), evidence)
-    else:
-        path, reached = _path(layer, sources, targets)
-        if path:
-            hops = tuple(layer.edges[pair] for pair in pairwise(path))
-            evidence = tuple(site for hop in hops for site in hop)
-            reason = _proof_reason(
-                f"an observed {kind} path of {len(path) - 1} relationships", hops
-            )
-            return LinkCheck(source, target, found, reason, kind, path, evidence)
+        unsupported = kind == RelationshipKind.REQUIRES or layer.everywhere is not None
+        reason = layer.everywhere or f"{source} or {target} has no {kind} end in the snapshot"
+        if kind == RelationshipKind.REQUIRES:
+            reason = "requires relates two contract components"
+        status = ViewStatus.UNKNOWN if unsupported else ViewStatus.MISSING
+        return LinkCheck(source, target, status, reason, kind)
+    pairs = [(key, other) for key in sources for other in targets if (key, other) in layer.edges]
+    if pairs:
+        evidence = tuple(site for pair in pairs for site in layer.edges[pair])
+        if kind == RelationshipKind.REQUIRES:
+            reason, found = "a requires entry of the contract", ViewStatus.DECLARED
+        elif evidence and all(site.type_only for site in evidence):
+            reason, found = f"an observed {kind} relationship; {_TYPE_ONLY}", ViewStatus.PROVEN
+        else:
+            reason, found = f"an observed {kind} relationship", ViewStatus.PROVEN
+        return LinkCheck(source, target, found, reason, kind, pairs[0] if step else (), evidence)
     gaps = [layer.everywhere] if layer.everywhere else []
-    gaps += [layer.gaps[key] for key in sorted(reached) if key in layer.gaps]
+    gaps += [layer.gaps[key] for key in sources if key in layer.gaps]
     if gaps:
         return LinkCheck(source, target, ViewStatus.UNKNOWN, gaps[0], kind)
-    reverse = one_hop and any((other, key) in layer.edges for other in targets for key in sources)
+    # `from p import sub` records only p.sub, but Python also runs p/__init__.py.
+    if kind == RelationshipKind.IMPORTS and any(
+        key in sources and other.startswith(f"{end}.")
+        for key, other in layer.edges
+        for end in targets
+    ):
+        reason = f"{source} imports a submodule of {target}; the package import is not recorded"
+        return LinkCheck(source, target, ViewStatus.UNKNOWN, reason, kind)
+    if step:
+        reason = f"no direct {kind} edge: a step needs one; add the nodes between as steps"
+        return LinkCheck(source, target, ViewStatus.UNKNOWN, reason, kind)
+    reverse = any((other, key) in layer.edges for other in targets for key in sources)
     reason = (
         f"only the reverse {kind} direction {target} -> {source} is observed"
         if reverse
-        else f"no {kind} {'relationship' if one_hop else 'path'}, and the coverage is complete"
+        else f"no {kind} relationship, and the coverage is complete"
     )
     return LinkCheck(source, target, ViewStatus.MISSING, reason, kind)
 
@@ -582,7 +538,7 @@ def _link(
     *,
     claim: bool,
     note: str | None,
-    one_hop: bool,
+    step: bool,
 ) -> LinkCheck:
     if claim:
         reason = "author claim: not checked against the graph"
@@ -592,7 +548,7 @@ def _link(
         if status in ends:
             return LinkCheck(source, target, status, f"an end node is {status}", kind, note=note)
     results = [
-        _one_kind(graph, source, target, item, one_hop=one_hop)
+        _one_kind(graph, source, target, item, step=step)
         for item in ((kind,) if kind is not None else _DEFAULT_KINDS)
     ]
     proof = next(
@@ -641,7 +597,7 @@ def check_view(spec: ViewSpec, observation: Observation, *, strict: bool) -> Vie
                 edge.kind,
                 claim=edge.claim,
                 note=edge.note,
-                one_hop=True,
+                step=False,
             )
             for edge in spec.edges
         )
@@ -662,7 +618,7 @@ def check_view(spec: ViewSpec, observation: Observation, *, strict: bool) -> Vie
                 step.kind,
                 claim=step.claim,
                 note=step.note,
-                one_hop=False,
+                step=True,
             )
             for before, step in pairs
         )
