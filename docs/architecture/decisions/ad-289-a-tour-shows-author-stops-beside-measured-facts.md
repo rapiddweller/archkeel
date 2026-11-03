@@ -55,5 +55,6 @@ its text has no authority. Facts beside each stop let the reader check the stop 
 - The Details button can close the tour panel; the arrow keys still move between stops.
 
 **Checks.** `tests/test_cli_view.py` (`test_a_stop_*`); `test_view_spec_schema_matches_its_dataclasses`
-in `tests/test_schema_drift.py`; `tests/test_report_tour.py` (Chromium at 800x600, local until
-Full runs it); demo row `protocol-view-tour` checks `fixtures/F-architecture-view/first-contact-tour.json`.
+in `tests/test_schema_drift.py`; `tests/test_report_tour.py` (Chromium at 800x600 and 1440x900,
+local until Full runs it); demo row `protocol-view-tour` checks
+`fixtures/F-architecture-view/first-contact-tour.json`.
