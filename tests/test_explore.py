@@ -629,3 +629,28 @@ def test_an_empty_public_list_is_a_declared_interface(
 
     assert code == 0, payload
     assert "target" not in payload
+
+
+@pytest.mark.browser
+def test_an_explore_card_shows_its_label_and_no_placeholder(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # AD-288: the layout declares no responsibility, so a card shows only its label.
+    api = pytest.importorskip("playwright.sync_api")
+    from browser_report_support import _browser_page
+
+    root = _repository(tmp_path / "repo")
+    assert _explore(capsys, "--root", str(root), "--output", str(tmp_path / "out"))[0] == 0
+    html = (tmp_path / "out" / "architecture.report.html").read_text()
+    playwright, browser, page = _browser_page(api, html, width=800, height=600)
+    try:
+        card = page.locator('.flow-nodes [data-uml-id="COMP-STORE"]')
+        card.wait_for()
+        assert (card.locator(".label").text_content(), card.locator(".meta").text_content()) == (
+            "store",
+            "",
+        )
+        assert "Not declared" not in page.locator(".flow-nodes").text_content()
+    finally:
+        browser.close()
+        playwright.stop()

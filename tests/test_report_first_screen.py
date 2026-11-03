@@ -20,6 +20,7 @@ from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.decisions import agent_decisions
 from archkeel.render.html import render_architecture_html
+from fixtures.architecture_demo import replay
 
 _TARGET = "The target is authored independently of source facts.\n"
 
@@ -241,6 +242,46 @@ def test_without_a_rule_the_inventory_line_and_the_explorer_share_the_first_scre
         assert page.locator("[data-flow-details-toggle]").get_attribute("aria-expanded") != "true"
         top = page.locator(".flow").bounding_box()["y"]
         assert 0 <= top <= 480
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+def _card_text(page, component: str) -> tuple[str, str]:
+    card = page.locator(f'.flow-nodes [data-uml-id="{component}"]')
+    card.wait_for()
+    return card.locator(".label").text_content(), card.locator(".meta").text_content()
+
+
+@pytest.mark.browser
+def test_a_card_shows_the_label_and_the_first_responsibility_only(tmp_path):
+    """AD-288: the card shows one line of author text; Details lists every responsibility."""
+    api = pytest.importorskip("playwright.sync_api")
+    output = tmp_path / "out" / "architecture.json"
+    assert replay("showcase-card-first-responsibility", output) == 0
+    html = output.with_suffix(".report.html").read_text()
+    playwright, browser, page = _browser_page(api, html, width=800, height=600)
+    try:
+        # The snapshot keeps responsibilities sorted, so the first entry is the sorted first.
+        label, line = _card_text(page, "COMP-APP")
+        assert (label, line) == ("app", "Keep the order rules out of the command line.")
+        page.locator('.flow-nodes [data-uml-id="COMP-APP"]').click()
+        details = page.locator(".flow-inspector").inner_text()
+        assert "Use cases: place and summarise orders." in details
+        assert "Keep the order rules out of the command line." in details
+    finally:
+        browser.close()
+        playwright.stop()
+
+
+@pytest.mark.browser
+def test_a_card_without_a_responsibility_shows_no_placeholder(tmp_path):
+    """AD-288: no author text, no line: the card never invents one."""
+    api, html = _open(tmp_path, [("alpha", 1), ("beta", 1)], intent=False)
+    playwright, browser, page = _browser_page(api, html, width=800, height=600)
+    try:
+        assert _card_text(page, "alpha") == ("alpha", "")
+        assert "Not declared" not in page.locator(".flow-nodes").text_content()
     finally:
         browser.close()
         playwright.stop()
