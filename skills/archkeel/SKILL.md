@@ -306,7 +306,7 @@ or collision freedom. Empty/missing selected scope is UNKNOWN. See
 [AD-246](../../docs/architecture/decisions/ad-246-bounded-numeric-operand.md)
 and [rule limits](../../docs/known-limits.md).
 
-call scope. Use `forbidden_call_argument` to select one written-literal policy
+Use `forbidden_call_argument` to select one written-literal policy
 for a canonical target's formal parameter. It binds explicit source actuals to
 the observed signature; spreads, invalid bindings, missing signatures and
 unproven targets leave UNKNOWN. Calls without canonical binding carry null
