@@ -299,8 +299,8 @@ def _typescript_components(
 def layout_components(
     observation: Observation,
     namespace: str,
-    roots: tuple[str, ...] = (),
-    language: Language = Language.PYTHON,
+    roots: tuple[str, ...],
+    language: Language,
     provenance: tuple[str, ...] = (DOCUMENT_PATH,),
 ) -> tuple[dict[str, str], tuple[ContractComponent, ...]]:
     """Group modules by the top-level children of the namespace: a layout fact, no decision."""

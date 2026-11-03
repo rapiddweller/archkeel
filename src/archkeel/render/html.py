@@ -30,7 +30,7 @@ from archkeel.ir.architecture_projection import ArchitectureProjection
 from archkeel.ir.baseline import ViolationFingerprint, canonical_fingerprint, violation_fingerprint
 from archkeel.ir.bindings import BindingReads, unread_bindings
 from archkeel.ir.codec import decode_canonical_model, parse_observation
-from archkeel.ir.decisions import agent_decisions, open_decisions
+from archkeel.ir.decisions import agent_decisions, declares_a_target, open_decisions
 from archkeel.ir.diagnostics import Diagnostic as Diagnostic
 from archkeel.ir.duplication import MINIMUM_SHAPE_NODES, OwnedLogic, repeated_logic
 from archkeel.ir.findings import findings_note
@@ -94,6 +94,12 @@ _GIT_HASH_SHOWN: Final = 7
 _FINDINGS_SHOWN: Final = 5
 # AD-285: the inventory shows as many components as the Explorer's AD-264 list.
 _INVENTORY_SHOWN: Final = 8
+# AD-285: with no target there is no Target view, Diff or violating edge to show. The runtime
+# unhides these controls, so a page rule keeps them hidden.
+_NO_TARGET_STYLE: Final = (
+    '<style>[data-flow-view="target"],[data-flow-view="diff"],.flow-violation-focus'
+    "{display:none!important}</style>"
+)
 # Python runs a package's `__main__` module for `python -m`: the one observed entry point.
 _ENTRY_MODULE: Final = "__main__"
 
@@ -789,7 +795,8 @@ def _atlas_verdict_line(result: RunResult, observation: Observation) -> str:
             f'<span class="decision-symbol" aria-hidden="true">{decision.symbol}</span>'
             f"<strong>{_text(decision.label)}</strong>"
             " · Target unavailable: no rule is declared, so no rule passes or fails"
-            f" · Source observation {_text(result.observation_complete)}{head}"
+            " · Source observation "
+            f"{'complete' if result.observation_complete == 'PASS' else 'incomplete'}{head}"
         )
     agent, total = agent_decisions(observation)
     # Every decision by the agent is a draft until the architect reviews it; say so, not a count.
@@ -953,7 +960,7 @@ def _atlas_findings(result: RunResult, observation: Observation, *, closed: bool
     if not result.findings:
         return (
             f'<section aria-labelledby="findings-heading">{heading}'
-            "<p>No violation, dependency cycle or hub.</p></section>"
+            f"<p>No {'' if closed else 'violation, '}dependency cycle or hub.</p></section>"
         )
     violation_ids: dict[ViolationFingerprint, str] = {}
     for record in observation.records("violations") or ():
@@ -1068,6 +1075,7 @@ def _atlas_content(
       <button class="theme-toggle" type="button" aria-label="Switch to light theme">☀</button>
       </section>
       {status_header}
+      {_NO_TARGET_STYLE if result.target is TargetStatus.UNAVAILABLE else ""}
       {_atlas_section(data)}
       {
         _atlas_structure_overview(observation, result.architecture_projection)
@@ -1983,13 +1991,14 @@ def _structure_overview_body(
 ) -> str:
     sizes = oversized_insides(observation)
     components = len(component_owners(observation))
+    # AD-285: bare layout groups are components, not declarations.
+    declared = "declared components" if declares_a_target(observation) else "components"
     context = (
-        f"Top-level context: {components} declared components and "
+        f"Top-level context: {components} {declared} and "
         f"{sizes.component_edges} observed cross-component "
         f"edge{'s' if sizes.component_edges != 1 else ''}."
         if sizes.status is not _ComparisonStatus.UNKNOWN
-        else f"Top-level context: {components} declared components; "
-        "observed cross-component edges: n/a."
+        else f"Top-level context: {components} {declared}; observed cross-component edges: n/a."
     )
     if observation.records("modules") is None:
         return f"<p>{context}</p><p>Not available: this observation records no modules.</p>"

@@ -11,6 +11,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from rich.console import Console
 from test_result_schema import _validator
 
 from archkeel.analyzer.python.collect import PythonProviderCollector
@@ -22,9 +23,10 @@ from archkeel.cli.config import load_config
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_observation
 from archkeel.ir.diagnostics import Diagnostic
-from archkeel.ir.model import DiagnosticCode, DiagnosticKind, ObservationResult
+from archkeel.ir.model import Command, DiagnosticCode, DiagnosticKind, ObservationResult, RunResult
 from archkeel.ir.report_graph import architecture_report
 from archkeel.render.summary import report_summary
+from archkeel.render.terminal import print_result
 from fixtures.architecture_demo import CATALOG, replay
 from fixtures.demo_catalog_dart import DART_FIXTURE_DIR
 from fixtures.demo_catalog_explore import EXPLORE_FIXTURE_DIR, nested_engine_files
@@ -122,6 +124,10 @@ def test_explore_shows_a_repository_without_a_contract(
     assert inventory.index("<details") < inventory.index("<table")
     assert "shop.cli.__main__" in page
     assert "PASS · Rules" not in page
+    # AD-285: no PASS beside "no rule passes", no violation and no Target view without a target.
+    assert "Source observation complete" in page
+    assert "<p>No dependency cycle or hub.</p>" in page
+    assert '[data-flow-view="target"],[data-flow-view="diff"],.flow-violation-focus' in page
 
 
 def test_explore_never_writes_into_the_repository(
@@ -580,3 +586,12 @@ def test_explore_deletes_only_its_own_files_in_the_output_folder(
 
     assert (output / "architecture.notes.html").read_text() == "kept?"
     assert not (output / "architecture.detail-component-0123456789abcdef.html").exists()
+
+
+def test_the_terminal_names_the_explore_command() -> None:
+    console = Console(record=True, width=120)
+    result = RunResult(Command.REPORT, 0, root_name="repo", root_digest="0" * 16)
+
+    print_result(result, report_summary(result), artifacts=(), console=console)
+
+    assert "archkeel explore" in console.export_text()
