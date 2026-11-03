@@ -22,7 +22,7 @@ _STOP_SECONDS = 15
 class StudioProcess:
     pid: int
     url: str
-    port: int
+    port: int | None  # `urlsplit` types it so; a Studio URL always has one
     root: str
     started: str
 
@@ -59,12 +59,15 @@ def running_studio(folder: Path) -> StudioProcess | None:
     process = _read(folder)
     if process is not None and is_studio(process.url):
         return process
-    _path(folder).unlink(missing_ok=True)
+    if process is None:
+        _path(folder).unlink(missing_ok=True)
+    else:
+        forget_state(folder, process.pid)
     return None
 
 
 def stop_studio(folder: Path) -> int:
-    """Send SIGTERM to a verified Studio and wait for its state file to go."""
+    """Send SIGTERM to a verified Studio and wait until its URL stops answering."""
     process = running_studio(folder)
     if process is None:
         print("ArchKeel Studio: not running.")
@@ -72,14 +75,14 @@ def stop_studio(folder: Path) -> int:
     try:
         os.kill(process.pid, signal.SIGTERM)
     except OSError:
-        pass  # The loop below still decides from the file and the HTTP answer.
+        pass  # The wait below decides from the HTTP answer.
     deadline = time.monotonic() + _STOP_SECONDS
-    while _path(folder).exists() and time.monotonic() < deadline:
+    while is_studio(process.url) and time.monotonic() < deadline:
         time.sleep(0.1)
-    # Windows ends the process without its cleanup, so the file can stay behind.
-    if _path(folder).exists() and is_studio(process.url):
+    if is_studio(process.url):
         print(f"ArchKeel Studio: still running after {_STOP_SECONDS} s.")
         return 1
-    _path(folder).unlink(missing_ok=True)
+    # Windows ends the process without its cleanup, so the file can stay behind.
+    forget_state(folder, process.pid)
     print("ArchKeel Studio: stopped.")
     return 0

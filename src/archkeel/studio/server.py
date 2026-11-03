@@ -206,8 +206,8 @@ def run_studio(
     `ready` gets the start URL with the token.
     """
     server = Studio(workspace, idle_seconds)
-    workspace.start()
     try:
+        workspace.start()
         # The caller has written its state file before the URL appears: a reader can stop us.
         ready(server.url)
         print(f"ArchKeel Studio: {server.url}\nPress Ctrl-C to stop.", flush=True)

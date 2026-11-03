@@ -13,7 +13,7 @@ For the first-run procedure (overview, flows, a draft contract), use the `archke
 
 ## 1. Find the CLI
 
-Never assume that the installed CLI has the `studio` command. PyPI has 4.0.1 only, and it has none.
+Never assume that the installed CLI has the `studio` command. A PyPI release before 5.0 has no `studio`.
 Try these probes in order. Use the first one that exits 0. Call it `<archkeel>` below.
 
 1. `archkeel studio --help`

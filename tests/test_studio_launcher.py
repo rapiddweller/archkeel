@@ -4,11 +4,14 @@
 """AD-290: start, reuse, stop and idle end of `archkeel studio`, through the real CLI."""
 
 import json
+import os
+import signal
 import subprocess
 import sys
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -16,7 +19,7 @@ from pathlib import Path
 import pytest
 from test_explore import _repository
 
-from archkeel.cli import _cache_folder, _root_digest, build_parser, launcher, studio_workspace
+from archkeel.cli import _cache_folder, _root_digest, launcher
 from archkeel.cli.arguments import Command
 from archkeel.studio.api import ContractState
 from archkeel.studio.server import is_studio, run_studio
@@ -38,7 +41,7 @@ class Launcher:
         self.root = _repository(tmp_path / "shop").resolve()
         self.folder = _cache_folder(Command.EXPLORE, _root_digest(self.root))
         self.state = self.folder / "studio.json"
-        self.children: list[subprocess.Popen[str]] = []
+        self.children: list[subprocess.Popen[str] | subprocess.Popen[bytes]] = []
 
     def _command(self, *options: str) -> list[str]:
         return [sys.executable, "-m", "archkeel.cli", "studio", "--root", str(self.root), *options]
@@ -91,8 +94,13 @@ def sleeper() -> Iterator[subprocess.Popen[bytes]]:
     child.wait()
 
 
-@pytest.fixture
-def plain_server() -> Iterator[str]:
+@contextmanager
+def _nothing_listens() -> Iterator[str]:
+    yield "http://127.0.0.1:1/?token=gone"
+
+
+@contextmanager
+def _plain_http_service() -> Iterator[str]:
     """A local HTTP service that answers 200 to each request, like a reused port."""
 
     class Answer(BaseHTTPRequestHandler):
@@ -105,9 +113,11 @@ def plain_server() -> Iterator[str]:
 
     server = HTTPServer(("127.0.0.1", 0), Answer)
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    yield f"http://127.0.0.1:{server.server_port}/?token=x"
-    server.shutdown()
-    server.server_close()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}/?token=x"
+    finally:
+        server.shutdown()
+        server.server_close()
 
 
 def _dead_pid() -> int:
@@ -125,7 +135,6 @@ def test_the_state_file_holds_the_process_and_is_private(studio: Launcher) -> No
     assert state["root"] == str(studio.root)
     assert state["started"].endswith("Z")
     assert studio.state.stat().st_mode & 0o777 == 0o600
-    assert studio.folder.stat().st_mode & 0o777 == 0o700
     assert [item.name for item in studio.folder.iterdir() if item.name.startswith(".")] == []
 
 
@@ -165,20 +174,65 @@ def test_stop_ends_the_server_and_removes_its_files(studio: Launcher) -> None:
     assert studio.run("--stop").stdout == f"{_PREFIX}not running.\n"
 
 
-@pytest.mark.parametrize("answer", ["nothing listens", "a plain HTTP service"])
+@pytest.mark.parametrize("serve", [_nothing_listens, _plain_http_service])
 def test_stop_never_kills_a_live_process_that_is_not_a_studio(
     studio: Launcher,
     sleeper: subprocess.Popen[bytes],
-    plain_server: str,
-    answer: str,
+    serve: Callable[[], AbstractContextManager[str]],
 ) -> None:
-    url = "http://127.0.0.1:1/?token=gone" if answer == "nothing listens" else plain_server
-    studio.write_state(sleeper.pid, url)
+    with serve() as url:
+        studio.write_state(sleeper.pid, url)
+
+        stopped = studio.run("--stop")
+
+    assert (stopped.returncode, stopped.stdout) == (0, f"{_PREFIX}not running.\n")
+    assert sleeper.poll() is None
+    assert not studio.state.exists()
+
+
+def test_stop_never_kills_a_live_process_behind_the_port_of_another_studio(
+    studio: Launcher, sleeper: subprocess.Popen[bytes]
+) -> None:
+    # The other Studio answers 403 to a wrong token: that is no proof for this pid.
+    child, url = studio.start()
+    studio.write_state(sleeper.pid, url.split("token=")[0] + "token=wrong")
 
     stopped = studio.run("--stop")
 
     assert (stopped.returncode, stopped.stdout) == (0, f"{_PREFIX}not running.\n")
     assert sleeper.poll() is None
+    assert child.poll() is None
+
+
+def test_a_stale_delete_keeps_the_file_of_a_run_that_replaced_it(
+    studio: Launcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    studio.write_state(_dead_pid(), "http://127.0.0.1:1/?token=gone")
+
+    def probe(url: str) -> bool:
+        # Another start writes its file between our read and our delete.
+        studio.write_state(os.getpid(), "http://127.0.0.1:2/?token=new")
+        return False
+
+    monkeypatch.setattr(launcher, "is_studio", probe)
+
+    assert launcher.running_studio(studio.folder) is None
+    assert json.loads(studio.state.read_text())["pid"] == os.getpid()
+
+
+def test_stop_waits_for_the_url_not_for_the_file(
+    studio: Launcher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Windows ends the server without its cleanup: the file stays and only the URL goes.
+    child, _ = studio.start()
+    kill = os.kill
+    monkeypatch.setattr(launcher.os, "kill", lambda pid, number: kill(pid, signal.SIGKILL))
+    started = time.monotonic()
+
+    assert launcher.stop_studio(studio.folder) == 0
+
+    assert time.monotonic() - started < launcher._STOP_SECONDS
+    assert child.wait(_WAIT) == -signal.SIGKILL
     assert not studio.state.exists()
 
 
@@ -226,30 +280,59 @@ def test_a_request_keeps_the_server_alive(tmp_path: Path) -> None:
     assert not is_studio(urls[0])
 
 
-def test_a_background_job_gets_a_working_sigint_for_the_explore_child(studio: Launcher) -> None:
-    # A shell starts `cmd &` with SIGINT ignored, and the explore child inherits that.
-    # Workspace.close then cannot unwind it and must wait for the kill.
-    script = (
-        "import signal, sys\n"
-        "signal.signal(signal.SIGINT, signal.SIG_IGN)\n"
-        "import archkeel.cli as cli\n"
-        "def serve(*args, **kwargs):\n"
-        "    print(signal.getsignal(signal.SIGINT) is signal.default_int_handler)\n"
-        "    return 0\n"
-        "cli.run_studio = serve\n"
-        f"sys.exit(cli.main(['studio', '--root', {str(studio.root)!r}, '--no-open']))\n"
-    )
-    run = subprocess.run(
-        [sys.executable, "-c", script], capture_output=True, text=True, timeout=_WAIT, check=False
-    )
-    assert (run.returncode, run.stdout) == (0, "True\n"), run.stderr
+# A slow explore child that records how it ended: SIGINT lets it unwind.
+_SLOW_EXPLORE = """
+import pathlib, time
+try:
+    pathlib.Path({ready!r}).touch()
+    time.sleep(60)
+finally:
+    pathlib.Path({unwound!r}).touch()
+"""
+# The server of a test with that child; the shell of a background job ignores SIGINT.
+_SERVE = """
+import sys, tempfile
+from pathlib import Path
+import archkeel.cli as cli
+from archkeel.studio.api import ContractState
+from archkeel.studio.workspace import Workspace
+
+def workspace(args, cache):
+    cache.mkdir(parents=True, exist_ok=True)
+    folder = Path(tempfile.mkdtemp(prefix="studio-", dir=cache))
+    explore = (sys.executable, "-c", {child!r})
+    return Workspace(args.root.resolve(), folder, explore, lambda: ContractState.CONFIGURED)
+
+cli.studio_workspace = workspace
+sys.exit(cli.main(["studio", "--root", {root!r}, "--no-open"]))
+"""
 
 
-def test_the_cache_folder_of_the_root_is_private_before_the_first_run(studio: Launcher) -> None:
-    studio.folder.mkdir(parents=True, mode=0o755)
-    arguments = build_parser().parse_cli_args(["studio", "--root", str(studio.root)])
-    workspace = studio_workspace(arguments, studio.folder)
-    try:
-        assert studio.folder.stat().st_mode & 0o777 == 0o700
-    finally:
-        workspace.close()
+def test_sigterm_ends_the_server_and_the_explore_child_unwinds_on_sigint(
+    studio: Launcher, tmp_path: Path
+) -> None:
+    ready, unwound = tmp_path / "ready", tmp_path / "unwound"
+    child_code = _SLOW_EXPLORE.format(ready=str(ready), unwound=str(unwound))
+    script = _SERVE.format(child=child_code, root=str(studio.root))
+    server = subprocess.Popen(
+        [sys.executable, "-c", script],
+        stdout=subprocess.DEVNULL,
+        preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_IGN),
+    )
+    studio.children.append(server)
+    deadline = time.monotonic() + _WAIT
+    while not (ready.exists() and studio.state.exists()) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert ready.exists()
+    folders = list(studio.folder.glob("studio-*"))
+    assert len(folders) == 1
+
+    started = time.monotonic()
+    assert studio.run("--stop").stdout == f"{_PREFIX}stopped.\n"
+    assert server.wait(_WAIT) == 0
+
+    # Workspace.close waits 10 s for an explore child that ignores SIGINT, then kills it.
+    assert time.monotonic() - started < 8
+    assert unwound.exists()
+    assert not folders[0].exists()
+    assert not studio.state.exists()

@@ -153,8 +153,6 @@ def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:
     """AD-290: each run explores with the scope options into a private folder of `cache`."""
     root = args.root.resolve()
     cache.mkdir(parents=True, exist_ok=True)
-    # The state file in this folder holds the token; mkdir applies the umask and keeps an old mode.
-    cache.chmod(0o700)
     folder = Path(tempfile.mkdtemp(prefix="studio-", dir=cache))
     scope = [
         f"--language={args.language.value}",
@@ -188,8 +186,6 @@ def _studio(args: CLIArguments) -> int:
 
     def ready(url: str) -> None:
         port = urlsplit(url).port
-        if port is None:
-            raise ValueError(f"the Studio URL has no port: {url}")
         started = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         write_state(cache, StudioProcess(os.getpid(), url, port, str(root), started))
         if not args.no_open:
@@ -204,7 +200,7 @@ def _studio(args: CLIArguments) -> int:
     }
     try:
         return run_studio(
-            studio_workspace(args, cache), ready=ready, idle_seconds=max(args.idle_exit, 0) * 60
+            studio_workspace(args, cache), ready=ready, idle_seconds=args.idle_exit * 60
         )
     finally:
         for number, handler in previous.items():

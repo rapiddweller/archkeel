@@ -206,9 +206,13 @@ explore cache folder of the root, with mode 0600. It removes the file when it st
   Studio login redirect (303 with the cookie `archkeel_studio_<port>`). A live pid is not enough.
   The scope options of the first start stay in force.
 - `archkeel studio --stop [--root PATH]` sends SIGTERM to a server that passed the same check,
-  waits up to 15 seconds for the file to go and prints `ArchKeel Studio: stopped.`. Without a
-  verified server it deletes a stale file and prints `ArchKeel Studio: not running.`.
+  waits up to 15 seconds until its URL stops answering and prints `ArchKeel Studio: stopped.`.
+  Without a verified server it deletes a stale file (only if it still holds the pid that it read)
+  and prints `ArchKeel Studio: not running.`. The command can return while the server still
+  unwinds its explore child.
 - SIGTERM and Ctrl-C stop the server the same way: the explore child unwinds and the file goes.
+  Windows ends the process at once on `--stop`, with no cleanup: the file is deleted by `--stop`,
+  but the explore child and the `studio-*` folder of the run can stay behind.
 - `--idle-exit MINUTES` stops the server when no HTTP request came for that time. The default 0
   means never. Only requests count. A running Explore does not keep the server alive; the open
   page polls the state, and each poll is a request.
