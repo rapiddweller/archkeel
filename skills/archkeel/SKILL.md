@@ -401,6 +401,44 @@ usable and incomplete until the architect decides it.
   `oversized_components` is a compatibility count, not a claim (AD-235); read component
   sizes in the Structure overview instead.
 
+## Show a flow
+
+When the user asks "show me the flow of X", answer with a checked view, not with text only.
+A view spec is author text; the check in step 5 decides what the code proves (AD-284).
+
+1. Confirm the start point and the goal. Ask one short question only when the request is ambiguous.
+2. Get a snapshot. With `archkeel.toml`, run `archkeel report --output <dir>/architecture.json --json`.
+   Without it, run `archkeel explore --json`: no contract, no setup, output only in the user cache.
+   On `scope_empty`, run `archkeel explore --source <dir> --namespace <package> --json`.
+   The snapshot path is `artifact` in the result.
+3. Query before you write. `archkeel report --input <snapshot> --only architecture --json` lists
+   the component ids. `archkeel report --input <snapshot> --only architecture --component <id> --full --json`
+   lists its `modules`; prefix a key that starts with `.` with the component `namespace`. Source
+   imports and calls name candidates, not proof. To ask if a direct edge exists, check it (step 5).
+4. Write the spec in a new temporary folder: never in the repository, never in an output folder
+   (`explore` and `view show` clear theirs). Follow the [schema](https://github.com/rapiddweller/archkeel/blob/main/schema/view-spec.schema.json)
+   and the [example](https://github.com/rapiddweller/archkeel/blob/main/fixtures/F-architecture-view/place-order.json).
+   Copy `source.source_digest` and `contract.digest` of the snapshot into `snapshot`. Give each
+   step and edge a `kind` (`imports` or `calls`). Never add a node or edge that the graph did not
+   return, except as a claim: `"claim": true` and a `note` that says why.
+   Never write `status` or `evidence`: the check decides, and such a spec is rejected (exit 2).
+5. Run `archkeel view check <spec> --snapshot <snapshot> --json` and read each status:
+   - `proven`: observed, with `evidence` (`file`, `line`). A step `path` of more than two
+     entries skips modules: add them as steps.
+   - `missing`: not in the code. Fix the node or `kind`, remove it, or keep it as a claim.
+   - `unknown`: the snapshot cannot decide; a Python call is never `missing`. Keep it without
+     `claim`, so its reason stays visible.
+   - `declared`: a contract component or `requires` entry; after `explore`, only the layout group.
+6. Run `archkeel view show <spec> --snapshot <snapshot>`. Stderr names the page; the page opens at the flow.
+   Tell the user to open it: `open <page>` on macOS, `xdg-open <page>` on Linux.
+7. Tell the user the count for each status, each claim, each `unknown` with its reason, each
+   `missing` and each change after the first check. Say: "proven means structure of the code (an
+   observed import or call), not runtime order."
+
+A graph path is not an execution trace. An import proves only that one module imports the other.
+Without a contract the result has `target: unavailable` and `declared_rules: UNKNOWN`, never PASS.
+Your explanation is your own text, without authority. Never change source or contract for a view.
+
 ## Nested contracts: the inside of a component
 
 A component may name a contract of its own, which becomes a second level of the same

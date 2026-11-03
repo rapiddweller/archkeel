@@ -3,7 +3,11 @@
 # SPDX-License-Identifier: MIT
 """Tests for installing the Archkeel coding-agent skill."""
 
+import contextlib
+import io
 import json
+import re
+import shlex
 import subprocess
 import sys
 import zipfile
@@ -11,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from archkeel.cli import build_parser, main
 from archkeel.cli.skill import install_skill
 
 ROOT = Path(__file__).parents[1]
@@ -444,3 +449,175 @@ def test_plugin_release_zip_is_identical_when_local_time_changes(
         assert bundle.namelist() == sorted(package_plugin._plugin_files(None))
         assert all(entry.date_time == (1980, 1, 1, 0, 0, 0) for entry in bundle.infolist())
         assert all(entry.external_attr >> 16 == 0o100644 for entry in bundle.infolist())
+
+
+def _flow_section() -> str:
+    body = ASSET.read_text(encoding="utf-8")
+    start = body.find("## Show a flow\n")
+    end = body.find("\n## ", start + 1)
+    return body[start:end] if start != -1 else ""
+
+
+def _parses(argv: list[str]) -> bool:
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            build_parser().parse_args(argv)
+    except ValueError:  # _Parser.error raises it instead of exiting
+        return False
+    return True
+
+
+_FLOW_COMMANDS = re.findall(r"`(archkeel [^`]+)`", _flow_section())
+# Commands of strands that are not on main yet, with a minimal valid call. Delete each after merge.
+_PENDING = {"explore": ["explore"], "view show": ["view", "show", "flow.json"]}
+
+
+def test_flow_section_teaches_the_whole_loop() -> None:
+    assert len(_FLOW_COMMANDS) >= 6
+    taught = {" ".join(command.split()[1:3]) for command in _FLOW_COMMANDS}
+    assert {"report --input", "view check", "view show"} <= taught
+    assert any(command.startswith("archkeel explore") for command in _FLOW_COMMANDS)
+
+
+@pytest.mark.parametrize("command", _FLOW_COMMANDS)
+def test_flow_section_command_parses_with_the_real_cli(command: str) -> None:
+    """#787: each command line the skill teaches exists in the CLI with these options."""
+    argv = shlex.split(re.sub(r"<[^>]+>", "x", command))[1:]
+    pending = next((call for name, call in _PENDING.items() if command[9:].startswith(name)), None)
+    if pending is not None and not _parses(pending):
+        pytest.skip(f"{command[9:]} is not merged into this branch yet")
+    assert _parses(argv), command
+
+
+def test_flow_section_states_the_proof_rules() -> None:
+    section = _flow_section()
+    assert '"claim": true' in section
+    assert "`unknown`" in section and "`missing`" in section
+    assert "not runtime order" in section
+    assert "except as a claim" in section
+    assert "`path`" in section
+    assert "`status` or `evidence`" in section
+    assert "not an execution trace" in section
+    assert "`target: unavailable`" in section
+    # The same file serves Codex and Claude Code: name commands, not one agent's tools.
+    assert not re.search(r"\b(Read|Bash|Edit|Write) tool\b", section)
+
+
+_VIEW_SHOW = pytest.mark.skipif(
+    not _parses(_PENDING["view show"]), reason="view show (#786) is not merged yet"
+)
+
+
+@pytest.fixture(scope="module")
+def shop_snapshot(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Step 2 of the section: a contract repository gets its snapshot from `report`."""
+    from test_architecture_demo import _prepare_repo
+
+    root = _prepare_repo(tmp_path_factory.mktemp("flow"), {})
+    snapshot = root.parent / "snapshot" / "architecture.json"
+    assert main(["report", "--root", str(root), "--output", str(snapshot), "--json"]) == 0
+    return snapshot
+
+
+def _agent_spec(snapshot: Path, steps: list[str], edges: list[dict]) -> dict:
+    """Write the spec the way the section says: digests copied, a kind on each link."""
+    packet = json.loads(snapshot.read_text())
+    return {
+        "schema_version": "1.0.0",
+        "title": "How does the CLI place an order?",
+        "snapshot": {
+            "source_digest": packet["source"]["source_digest"],
+            "contract_digest": packet["contract"]["digest"],
+        },
+        "nodes": sorted({*steps, *(e[end] for e in edges for end in ("source", "target"))}),
+        "steps": [
+            {"node": steps[0]},
+            *({"node": node, "kind": "imports"} for node in steps[1:]),
+        ],
+        "edges": edges,
+        "notes": ["Author text: the agent explains the flow; the check proves structure."],
+    }
+
+
+def _view(
+    command: str, tmp_path: Path, snapshot: Path, spec: dict, capsys: pytest.CaptureFixture
+) -> tuple[int, dict]:
+    path = tmp_path / "views" / "flow.json"
+    path.parent.mkdir(exist_ok=True)
+    path.write_text(json.dumps(spec))
+    extra = ["--output", str(tmp_path / "page")] if command == "show" else []
+    code = main(["view", command, str(path), "--snapshot", str(snapshot), "--json", *extra])
+    out = capsys.readouterr().out
+    return code, json.loads(out) if code != 2 else {}
+
+
+_PLACE_ORDER = ["shop.cli.main", "shop.app.orders", "shop.store", "shop.store.repository"]
+_INVENTED = {"source": "shop.app.orders", "target": "shop.render.text", "kind": "imports"}
+
+
+def test_agent_flow_proves_each_step_with_evidence_and_keeps_the_claim(
+    tmp_path: Path, shop_snapshot: Path, capsys: pytest.CaptureFixture
+) -> None:
+    claim = {**_INVENTED, "claim": True, "note": "orders prints the receipt (invented)."}
+    spec = _agent_spec(shop_snapshot, _PLACE_ORDER, [claim])
+    code, result = _view("check", tmp_path, shop_snapshot, spec, capsys)
+    assert code == 0 and result["snapshot_current"]
+    assert result["snapshot"] == result["view_snapshot"] == spec["snapshot"]
+    assert result["edges"][0]["status"] == "claim" and not result["edges"][0].get("evidence")
+    for step in result["steps"][1:]:
+        assert step["status"] == "proven" and len(step["path"]) == 2, step
+        assert all(
+            item["file"] and item["line"] and item["evidence_id"] for item in step["evidence"]
+        )
+    assert "not runtime order" in result["limits"][0]
+
+
+def test_agent_flow_invented_import_is_missing_and_a_skipped_hop_shows_in_path(
+    tmp_path: Path, shop_snapshot: Path, capsys: pytest.CaptureFixture
+) -> None:
+    steps = ["shop.cli.main", "shop.app.orders", "shop.store.repository"]
+    code, result = _view(
+        "check", tmp_path, shop_snapshot, _agent_spec(shop_snapshot, steps, [_INVENTED]), capsys
+    )
+    assert code == 1 and result["edges"][0]["status"] == "missing"
+    # The re-export hop the author did not name: the section says to add it as a step.
+    assert result["steps"][2]["path"] == ["shop.app.orders", "shop.store", "shop.store.repository"]
+
+
+def test_agent_flow_invented_call_is_unknown_never_missing(
+    tmp_path: Path, shop_snapshot: Path, capsys: pytest.CaptureFixture
+) -> None:
+    invented = {**_INVENTED, "kind": "calls"}
+    code, result = _view(
+        "check",
+        tmp_path,
+        shop_snapshot,
+        _agent_spec(shop_snapshot, _PLACE_ORDER, [invented]),
+        capsys,
+    )
+    assert code == 0 and result["edges"][0]["status"] == "unknown"
+    assert "call" in result["edges"][0]["reason"]
+
+
+def test_agent_flow_spec_cannot_state_proof(
+    tmp_path: Path, shop_snapshot: Path, capsys: pytest.CaptureFixture
+) -> None:
+    forged = {**_INVENTED, "status": "proven"}
+    spec = _agent_spec(shop_snapshot, _PLACE_ORDER, [forged])
+    assert _view("check", tmp_path, shop_snapshot, spec, capsys)[0] == 2
+
+
+@_VIEW_SHOW
+def test_agent_flow_show_writes_the_page_with_the_checked_result(
+    tmp_path: Path, shop_snapshot: Path, capsys: pytest.CaptureFixture
+) -> None:
+    claim = {**_INVENTED, "claim": True}
+    spec = _agent_spec(shop_snapshot, _PLACE_ORDER, [claim])
+    code, checked = _view("check", tmp_path, shop_snapshot, spec, capsys)
+    assert code == 0
+    assert _view("show", tmp_path, shop_snapshot, spec, capsys) == (0, checked)
+    page = (tmp_path / "page" / "architecture.report.html").read_text()
+    embedded = re.search(
+        r'<script id="view-check-data" type="application/json">(.*?)</script>', page, re.S
+    )
+    assert embedded is not None and json.loads(embedded.group(1)) == checked
