@@ -5,6 +5,7 @@
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -422,6 +423,8 @@ def test_explore_opens_a_large_component_level_by_level(
         "engine:COMP-IO",
         "COMP-ENGINE",
     ]
+    page = (output / "architecture.report.html").read_text()
+    assert "4 top-level components (9 with all levels)" in page
     # 20 modules stay one leaf; the 5-module core is not split.
     assert {"engine:io:clients:COMP-MONGO", "engine:COMP-CORE"} <= parents.keys()
     assert leaf == 0
@@ -470,3 +473,28 @@ def test_explore_shows_no_deviation_without_a_target(
     # AD-285: an observed crossing deviates from nothing when nothing is declared.
     assert payload["atlas"]["deviations"] == []
     assert all(not level["deviation_ids"] for level in payload["atlas"]["levels"])
+
+
+def test_explore_leaves_the_git_index_of_a_read_only_snapshot_alone(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _repository(tmp_path / "repo")
+    # A new mtime with the same bytes makes a plain `git status` rewrite its index cache.
+    source = root / "shop/store/repository.py"
+    source.write_text(source.read_text())
+    os.utime(source, (1, 1))
+    index = (root / ".git/index").read_bytes()
+
+    assert _explore(capsys, "--root", str(root), "--output", str(tmp_path / "out"))[0] == 0
+    assert (root / ".git/index").read_bytes() == index
+    paths = [root / ".git", *(root / ".git").rglob("*")]
+    for path in paths:
+        path.chmod(path.stat().st_mode & ~0o222)
+    try:
+        code, payload = _explore(capsys, "--root", str(root), "--output", str(tmp_path / "out"))
+    finally:
+        for path in paths:
+            path.chmod(path.stat().st_mode | 0o200)
+
+    assert code == 0, payload["diagnostics"]
+    assert (root / ".git/index").read_bytes() == index

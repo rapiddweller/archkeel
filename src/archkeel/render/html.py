@@ -1026,8 +1026,15 @@ def _atlas_content(
     architecture_href: str,
     detail_page: bool = False,
 ) -> str:
+    projected = result.architecture_projection.components if result.architecture_projection else ()
+    top = sum(1 for item in projected if item.parent_id is None)
+    # AD-285: layout levels nest, so the heading names the top level and the whole tree.
     components = (
-        len(result.architecture_projection.components) if result.architecture_projection else 0
+        f"{len(projected)} whole-contract components"
+        if result.target is not TargetStatus.UNAVAILABLE
+        else f"{top} top-level components ({len(projected)} with all levels)"
+        if len(projected) > top
+        else f"{top} layout components"
     )
     atlas = data.get("atlas")
     navigation = data.get("navigation")
@@ -1057,9 +1064,7 @@ def _atlas_content(
     return f"""<section class="report-heading atlas-heading">
       <div><span class="eyebrow">ArchQ Explorer</span><h1>{_text(repository)}</h1>
       <p>{observation.coverage.files_parsed} observed files
-      · {components} {
-        "layout" if result.target is TargetStatus.UNAVAILABLE else "whole-contract"
-    } components</p></div>
+      · {components}</p></div>
       <button class="theme-toggle" type="button" aria-label="Switch to light theme">☀</button>
       </section>
       {status_header}

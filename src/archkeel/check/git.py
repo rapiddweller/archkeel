@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Read immutable Git inputs and check the declaration commit's shape."""
 
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -27,7 +28,14 @@ class MissingBlobError(GitError):
 
 def git_bytes(root: Path, *args: str) -> bytes:
     try:
-        return subprocess.check_output(["git", *args], cwd=root, stderr=subprocess.PIPE)
+        # AD-285: `status` refreshes the index unless optional locks are off; reading a
+        # repository must not write into it, not even into `.git`.
+        return subprocess.check_output(
+            ["git", *args],
+            cwd=root,
+            stderr=subprocess.PIPE,
+            env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"},
+        )
     except (OSError, subprocess.CalledProcessError) as exc:
         raise GitError(f"Git evidence unavailable: {' '.join(args[:2])}") from exc
 

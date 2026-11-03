@@ -13,10 +13,12 @@
    `archkeel-explore-levels/` with one child component for each direct subpackage, named after
    it; at most 4 levels. Its direct module files stay its own, and a child of 40 modules or
    fewer stays one leaf. The split is deterministic and has no rule or `requires`. A level
-   with many children shows all of them; the Explorer lays them out as on any level.
+   with many children shows all of them. The heading names both counts, e.g. "7 top-level
+   components (97 with all levels)".
 4. Output: `architecture.json` and the report pages go to `DIR`, else to
    `$XDG_CACHE_HOME/archkeel/explore/<root_digest>/` (default `~/.cache`). An output inside the
-   root exits 2. Each run observes again and first removes its old files.
+   root exits 2. Each run observes again and first removes its old files. Git runs with
+   `GIT_OPTIONAL_LOCKS=0`, so `git status` does not rewrite the index: nothing in `.git` changes.
 5. No rule, no verdict: a valid observation with no declared rule and no UML target gives
    `target: unavailable` and `declared_rules: UNKNOWN`, also in `report --input`. An invalid
    contract shows its diagnostics only. `validate` keeps PASS: it says the contract is valid and
@@ -29,27 +31,25 @@
    import ("N more" for the rest); the findings start closed, so the Explorer fits at 800x600.
    No level shows deviations. This amends AD-264 and AD-258 for this mode only.
 8. Exit 0: complete. Exit 2: no scope, no Git commit, output inside the root, incomplete coverage.
-9. Notes: with no declared rule and no UML target, a diagnostic that cannot change an observed
-   fact does not block. Today this is one case: an undeclared or unreadable Python range
-   (`runtime_mismatch` from a missing `pyproject.toml` or `requires-python`). It goes to `notes`,
-   and the page shows a coverage note. A Python outside a declared range, a source failure, an
-   empty scope and a missing rule coverage still exit 2: they can change or hide facts.
+9. Notes: with no rule and no UML target, an undeclared or unreadable Python range
+   (`runtime_mismatch`) cannot change a fact: it goes to `notes` and shows as a coverage note.
+   A Python outside a declared range, a source failure, an empty scope and a missing rule
+   coverage still exit 2: they can change or hide facts.
 
-**Graph for a view check.** `architecture_report(parse_observation(...))`: `observed` has
-entities (stable `id` such as `MOD-`, `SYM-`; a `kind`) and relationships (`kind` such as
-`imports` or `calls`, `source_id` to `target_id`, `resolution`, `evidence_ids`); `memberships`
-map each `COMP-` id to its `MOD-` ids.
+**Graph for a view check.** `architecture_report(parse_observation(...))`: `observed` entities
+(`id` such as `MOD-`, `SYM-`; `kind`) and relationships (`kind`, `source_id` to `target_id`,
+`resolution`, `evidence_ids`); `memberships` map each `COMP-` id to its `MOD-` ids.
 
-**Reason.** `report` without `archkeel.toml` exits 2 and asks for `init`, which writes a draft.
-A newcomer must see what is there first. A contract with no rule decides nothing.
+**Reason.** A newcomer must see what is there before `init` writes a draft; no rule decides nothing.
 
 **Rejected.** A second renderer or a server. An implicit `init` or a contract file in the
 repository. Components from a file walk (a second collector). A mark by contract file name.
 
 **Limits.**
-- `root_name` and `root_digest` are in the result, not in `architecture.json` (an exact header).
+- `root_name` and `root_digest` are in the result, not yet in `architecture.json` (exact header).
 - `--only architecture` gives `UNKNOWN` without `target`: its published schema is byte-exact.
+- The split threshold is the constant 40, with no option.
 - Imports are not calls or a runtime order; an unresolved call stays a coverage gap. Entry points
-  are `__main__` modules only. Git can refresh its index file in a run.
+  are `__main__` modules only.
 
 **Checks.** `tests/test_explore.py` and the demo row `explore-contract-free`.
