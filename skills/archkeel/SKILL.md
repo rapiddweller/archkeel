@@ -95,7 +95,11 @@ A view spec is author text; the check in step 5 decides what the code proves (AD
      `missing` there means no static link (a parameter, a port or a child process). Say so.
    - `declared`: a contract component or `requires` entry. After `explore`, a layout group
      declares nothing and is `unknown`: use module nodes.
-6. Run `archkeel view show <spec> --snapshot <snapshot>`. Stderr names the page; it opens at the flow.
+6. For a first contact ("how does it start?"), also add `stops`: 4 to 8 nodes in reading order,
+   each with a `title` and a `note`, and set `"schema_version": "1.1.0"`. A stop takes no `kind`:
+   it is a reading order, not a claim. The check adds measured facts to each stop (AD-289).
+   Run `archkeel view show <spec> --snapshot <snapshot>`. Stderr names the page; it opens at the
+   tour when the spec has stops, else at the flow.
    Tell the user to open it: `open <page>` on macOS, `xdg-open <page>` on Linux.
 7. Tell the user the count for each status, each claim, each `unknown` with its reason, each
    `missing` and each change after the first check. Say: "proven means structure of the code (an

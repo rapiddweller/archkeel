@@ -711,6 +711,16 @@ def _link(
     return LinkCheck(source, target, status, reason, kind, note=note)
 
 
+def _stop_check(stop: ViewStop, node: NodeCheck, graph: _Graph | None) -> StopCheck:
+    """A stop repeats its node check; only an observed module or a declared component has facts."""
+    facts = (
+        _facts(graph, stop.node)
+        if graph is not None and node.status in {ViewStatus.PROVEN, ViewStatus.DECLARED}
+        else None
+    )
+    return StopCheck(stop.node, node.status, node.reason, stop.title, stop.note, facts)
+
+
 def check_view(spec: ViewSpec, observation: Observation, *, strict: bool) -> ViewCheck:
     """Check each reference against the snapshot the spec names; a claim stays author text."""
     identity = snapshot_identity(observation)
@@ -720,7 +730,7 @@ def check_view(spec: ViewSpec, observation: Observation, *, strict: bool) -> Vie
     nodes: tuple[NodeCheck, ...]
     edges: tuple[LinkCheck, ...]
     steps: tuple[LinkCheck, ...]
-    stops: tuple[StopCheck, ...]
+    graph: _Graph | None = None
     if not current:
         stale = "the view names another snapshot: check it against that snapshot"
         nodes = tuple(NodeCheck(node, ViewStatus.UNKNOWN, stale) for node in spec.nodes)
@@ -733,10 +743,6 @@ def check_view(spec: ViewSpec, observation: Observation, *, strict: bool) -> Vie
         steps = tuple(
             LinkCheck(before, step.node, ViewStatus.UNKNOWN, stale, step.kind, note=step.note)
             for before, step in pairs
-        )
-        stops = tuple(
-            StopCheck(stop.node, ViewStatus.UNKNOWN, stale, stop.title, stop.note)
-            for stop in spec.stops
         )
     else:
         graph = _view_graph(observation)
@@ -776,18 +782,8 @@ def check_view(spec: ViewSpec, observation: Observation, *, strict: bool) -> Vie
             )
             for before, step in pairs
         )
-        measured = {ViewStatus.PROVEN, ViewStatus.DECLARED}
-        stops = tuple(
-            StopCheck(
-                stop.node,
-                checked[stop.node].status,
-                checked[stop.node].reason,
-                stop.title,
-                stop.note,
-                _facts(graph, stop.node) if checked[stop.node].status in measured else None,
-            )
-            for stop in spec.stops
-        )
+    by_id = {node.id: node for node in nodes}
+    stops = tuple(_stop_check(stop, by_id[stop.node], graph) for stop in spec.stops)
     statuses = {node.status for node in nodes} | {link.status for link in (*edges, *steps)}
     failed = ViewStatus.MISSING in statuses or (strict and ViewStatus.UNKNOWN in statuses)
     return ViewCheck(
