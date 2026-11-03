@@ -285,6 +285,13 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-275 | [A names-only `globals()` keeps the direct bindings of its module stable](ad-275-names-only-globals-keep-direct-bindings-stable.md) |
 | AD-276 | [A leading UTF-8 BOM is not source text](ad-276-a-leading-utf-8-bom-is-not-source-text.md) |
 | AD-277 | [References record the write target, the prefix of an unresolved chain and enum re-exports](ad-277-references-record-write-targets-chain-prefixes-and-enum-reexports.md) |
+| AD-278 | [A stdlib star facade binds the names of its star sources](ad-278-a-stdlib-star-facade-binds-the-names-of-its-sources.md) |
 | AD-279 | [A catalog target only compares or indexes its arguments](ad-279-a-catalog-target-only-compares-or-indexes-its-arguments.md) |
 | AD-280 | [Named CI jobs, test areas and one demo runner](ad-280-simple-ci-steps-and-one-demo-runner.md) |
 | AD-281 | [Retire unused tooling](ad-281-retire-unused-tooling.md) |
+| AD-282 | [Keep plans and evidence out of the repository](ad-282-keep-plans-and-evidence-out-of-the-repository.md) |
+| AD-283 | [A later class binding blocks every annotation](ad-283-a-later-class-binding-blocks-every-annotation.md) |
+| AD-284 | [Studio shows views as checked data](ad-284-studio-shows-views-as-checked-data.md) |
+| AD-285 | [`archkeel explore` shows the code as it is, with no contract](ad-285-explore-without-a-contract.md) |
+| AD-286 | [The Explorer opens a component in one step and reads at 100 %](ad-286-the-explorer-opens-a-component-in-one-step-and-fits-readably.md) |
+| AD-287 | [The Explorer draws a checked view](ad-287-the-explorer-draws-a-checked-view.md) |

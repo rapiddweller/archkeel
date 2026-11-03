@@ -167,6 +167,66 @@ which dependency permissions are declared, and it counts decisions by `decided_b
 That count is recorded metadata, not verified approval; the guide does not observe
 imports and gives no verdicts.
 
+## Explore without a contract
+
+`archkeel explore [--root PATH] [--output DIR]` shows a repository that has no ArchKeel file
+([AD-285](architecture/decisions/ad-285-explore-without-a-contract.md)). It finds the one
+top-level Python package as `init` does, or reads the `init` options `--language`, `--source`,
+`--namespace` and `--tsconfig`, and groups the modules by the package layout. A Python component
+of more than 40 modules opens one level deeper, one child per direct subpackage, down to four
+levels. On a complete scan, an undeclared Python range is a coverage note in `notes`, not exit 2
+(`report` still exits 2). It writes
+`architecture.json` and the report pages to `DIR`, or else to
+`$XDG_CACHE_HOME/archkeel/explore/<root_digest>/` (`~/.cache` when the variable is not set). It
+writes nothing into the repository, and an `--output` inside it exits 2. The result is a
+`report` result with `target: unavailable`, `declared_rules: UNKNOWN`, `root_name` and
+`root_digest`. The report page opens
+with an inventory of the components before the findings. Query the snapshot like any other:
+`archkeel report --input DIR/architecture.json --only architecture --component COMP-APP --json`.
+TypeScript and Dart need the scope options. `validate` on a contract with no rule keeps PASS:
+the contract is valid, and no rule was checked.
+
+## Checked views
+
+`archkeel view check <spec> [--snapshot architecture.json] [--json] [--strict]` checks a view
+spec against one saved report ([AD-284](architecture/decisions/ad-284-studio-shows-views-as-checked-data.md)).
+It reads two files and writes nothing. [`schema/view-spec.schema.json`](../schema/view-spec.schema.json)
+defines the spec; [`fixtures/F-architecture-view/place-order.json`](../fixtures/F-architecture-view/place-order.json)
+is an example.
+
+1. Run `archkeel report` to write the snapshot.
+2. Copy `source.source_digest` and `contract.digest` from it into the spec `snapshot`.
+3. List each node: a top-level component id, such as `COMP-APP`, or a module name.
+4. Add edges and steps. Set `"claim": true` on each one you cannot prove from the snapshot.
+5. Run `archkeel view check flow.json --snapshot build/architecture.json`.
+
+The result gives each node, edge and step one status: `proven` (observed, with record ids,
+evidence ids and source lines), `declared` (a component or a `requires` entry of the contract),
+`claim` (author text, not checked), `unknown` (the snapshot cannot decide) or `missing`. A
+step is proven only by one direct edge of its kind: structure, not runtime order. Without a
+direct edge the step is `missing`, or `unknown` under a coverage gap; add the nodes between
+as steps. A spec with another snapshot identity is not checked. The check runs the same
+snapshot validation as `report --input`.
+
+Exit 2 prints one of two JSON documents:
+- The spec names another snapshot: the check result, with `snapshot_current: false` and each
+  reference `unknown`. [`schema/view-check.schema.json`](../schema/view-check.schema.json)
+  defines it, as for exit 0 and 1.
+- The spec or the snapshot cannot be read or is invalid: a command result with
+  `"command": "view"` and one diagnostic. Its `subject` names the file that failed.
+
+`archkeel view show <spec> [--snapshot architecture.json] [--output DIR] [--json] [--strict]`
+prints the same result and draws it in the Explorer
+([AD-287](architecture/decisions/ad-287-the-explorer-draws-a-checked-view.md)). It writes
+`architecture.report.html`, its detail pages and a copy of the snapshot to `DIR`, by default
+`$XDG_CACHE_HOME/archkeel/view/<16 hex of the hash of both snapshot digests and the spec>/`.
+Stderr names the page. A run first removes the files it writes in `DIR`; Archkeel owns them.
+The page opens on the checked flow: numbered steps, each edge with its status as text and icon,
+and the evidence in Details. `?flow=1&step=2` in the URL opens the same picture; `view=diagram`
+without `flow` opens As-Is. An incomplete scan is drawn too: its gaps show as unknown. When the
+check does not run (exit 2), the command writes nothing. A snapshot without an Explorer prints
+the check result, writes nothing, says "not drawn" on stderr and exits 2.
+
 ## Results
 
 Read `observation_complete`, `declared_rules` and `expectation_fulfilled` separately.
@@ -181,9 +241,12 @@ expectations are n/a. Filtering and baseline display do not change canonical fac
 | `check` | Accepted | Rejected | Input/evidence unverifiable |
 | `validate` | Validation accepted | Baseline/budget/widening rejected | Validation diagnostics |
 | `report` | Observation complete; read verdicts | — | Input/evidence unverifiable |
+| `explore` | Observation complete; no rule verdict | — | No single Python package, no Git commit, output inside the root, or incomplete coverage |
 | `init` | Draft written | — | Draft unavailable |
 | `skill install` | Instructions written | — | Target could not be updated |
 | `guide` | Guide written, or `--check` up to date | `--check`: missing or different | No contract, or it cannot be read |
+| `view check` | No reference is missing (`--strict`: or unknown) | A reference is missing (`--strict`: or unknown) | Invalid spec or snapshot, or another snapshot |
+| `view show` | As `view check`; pages written | As `view check`; pages written | As `view check`, or no Explorer for the snapshot; nothing written |
 
 Exit 0 is not architecture approval. Exit 2 carries diagnostics with `kind`,
 `subject`, `unknown_claim` and `remedy`; inspected evidence may remain available.
@@ -205,7 +268,8 @@ apply to root and mounted contracts; a mounted diagnostic carries its contract p
 
 JSON null means unavailable/inapplicable; an empty list means measured empty.
 Pin CLI and [command schema](../schema/command-result-11.0.schema.json) together.
-Version 11 adds `findings` to an unfiltered `report` (see below) and retains 10.0, which
+Version 11 adds `findings` to an unfiltered `report` (see below) and `target: unavailable`
+to a report whose observation declares no rule and no UML target. It retains 10.0, which
 adds `contract_changes`. Version 9 accepts ArchitectureIR 2.1 observations with strict call-binding shapes
 and retains supported version 6/7/8 results. Incomplete reports may preserve a
 traceable FAIL while

@@ -16,14 +16,11 @@ from archkeel.check.onboarding import (
     interface_entries,
     module_all_exports,
 )
-from archkeel.check.validation import (
-    COMPONENT_GRAPH_MARKER,
-    TARGET_GRAPH_MARKER,
-    closed_world_diagnostics,
-    graph_diagnostics,
-    public_api_diagnostics,
-    rationale_diagnostics,
-)
+from archkeel.check.validation import COMPONENT_GRAPH_MARKER
+from archkeel.check.validation.closed_world import closed_world_diagnostics
+from archkeel.check.validation.graphs import TARGET_GRAPH_MARKER, graph_diagnostics
+from archkeel.check.validation.public_api import public_api_diagnostics
+from archkeel.check.validation.rationale import rationale_diagnostics
 from archkeel.ir.codec import decode_json, parse_contract
 from archkeel.ir.interfaces import interface_profile
 from archkeel.ir.levels import inside_levels
@@ -85,8 +82,9 @@ def _assert_cli_resolver_publication(inside: ArchitectureContract) -> None:
     baseline = json.loads((ROOT / "architecture-baseline.json").read_bytes())
 
     assert public in (check.public or ()) and public in (owners[0].public or ())
-    # AD-207 adds the saved-query workflow to the existing typed CLI seam.
-    assert coupling.max_names == 15
+    # AD-207 adds the saved-query workflow to the existing typed CLI seam; AD-284 adds
+    # read_saved_snapshot and AD-285 adds run_explore.
+    assert coupling.max_names == 17
     assert public in baseline["budgets"]["coupling_names"]["cli -> check"]
     assert (
         "archkeel.check.report:run_saved_report"
@@ -135,7 +133,8 @@ def test_cli_check_measure_counts_named_shared_type_reexports(
         "archkeel.check.ports:Language",
         "archkeel.check.ports:ObservationResult",
     } <= set(width.names)
-    assert len(width.names) == 15
+    # AD-285 adds archkeel.check.report:run_explore.
+    assert len(width.names) == 17
     assert width.uncounted == ()
     assert "archkeel.check.ports" not in (check.public or ())
     assert "archkeel.check.observe" not in (check.public or ())

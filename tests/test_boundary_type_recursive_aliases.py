@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from archkeel.analyzer.python.collect import collect
-from archkeel.check.evaluation.rules import _boundary_type_verdict, boundary_type_indexes
+from archkeel.check.evaluation.boundary_types import _boundary_type_verdict, boundary_type_indexes
 from archkeel.ir.codec import parse_contract
 from archkeel.ir.facts_codec import decode_response, encode_response, raw_record
 from archkeel.ir.protocol import (

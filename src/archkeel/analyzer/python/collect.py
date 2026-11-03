@@ -101,6 +101,7 @@ from .source import (
     parse_sources,
     resolve_static_name,
     stable_direct_module_bindings,
+    star_facade_static,
     stdlib_member_static,
     unproven_member_bindings,
 )
@@ -715,6 +716,7 @@ def _provider_bindings(
         return ()
     by_module = {module.module: module for module in providers}
     provider_imports = collect_imports(providers, set(by_module), evidence, namespace="")
+    _mark_star_facades(providers, by_module, provider_imports, evidence)
     wanted = {
         f"{item['data']['target_module']}.{item['data']['symbol']}"
         for item in imports
@@ -988,6 +990,81 @@ def _provider_registry_alias(
     )
 
 
+def _star_records(
+    module: ParsedModule, imports: list[RawRecord], evidence: dict[str, RawEvidence]
+) -> list[RawRecord]:
+    """The star imports of a module in source order; the import records are sorted by id."""
+    return sorted(
+        (
+            item
+            for item in imports
+            if item["data"]["source_module"] == module.module and item["data"]["symbol"] == "*"
+        ),
+        key=lambda item: (
+            evidence[item["evidence_ids"][0]]["line"],
+            evidence[item["evidence_ids"][0]]["column"],
+        ),
+    )
+
+
+def _child_name(package: str, name: str) -> str:
+    """The last part of `name` when it is a direct child module of `package`, else empty."""
+    child = name.removeprefix(package + ".") if _starts_with(name, package + ".") else ""
+    return "" if "." in child else child
+
+
+def _is_dunder(name: str) -> bool:
+    return _starts_with(name, "__") and name.endswith("__")
+
+
+def _star_sources(
+    module: ParsedModule, stars: list[RawRecord], by_module: dict[str, ParsedModule]
+) -> list[ParsedModule] | None:
+    """The star sources of a facade, only when each one proves the names that it binds."""
+    sources = [
+        by_module[item["data"]["target_module"]]
+        for item in stars
+        if item["data"]["target_module"] in by_module
+    ]
+    # A source with a computed, changed or missing `__all__` may export the name too. A source
+    # that writes `sys.modules` can replace a child. A child name in `__all__` hides the module.
+    # A dunder name (`__package__`, `__name__`, `__path__`) steers the import system or the
+    # module, so a star import of it can change how the next star import resolves.
+    children = {_child_name(module.module, name) for name in by_module} - {""}
+    stdlib = is_stdlib_root(module.module)
+    proven = len(sources) == len(stars) and all(
+        # The stdlib trust of a facade does not reach a source outside the standard library.
+        (not stdlib or _first_part(source.module, ".") in sys.stdlib_module_names)
+        and source.all_literal
+        and "__all__" in stable_direct_module_bindings(source)
+        and _provider_identity_static(source)
+        and not children & source.all_exports
+        and not any(_is_dunder(name) for name in source.all_exports)
+        for source in sources
+    )
+    return sources if proven else None
+
+
+def _mark_star_facades(
+    providers: list[ParsedModule],
+    by_module: dict[str, ParsedModule],
+    imports: list[RawRecord],
+    evidence: dict[str, RawEvidence],
+) -> None:
+    """A stdlib package of star imports has a known namespace when its star sources are proven."""
+    # Decide all facades before any flag changes, so the result does not depend on the order.
+    known = [
+        module
+        for module in providers
+        if is_stdlib_root(module.module)
+        and star_facade_static(module)
+        and (stars := _star_records(module, imports, evidence))
+        and _star_sources(module, stars, by_module) is not None
+    ]
+    for module in known:
+        module.star_sources_proven = True
+
+
 def _provider_star_alias(
     module: ParsedModule,
     binding: str,
@@ -997,43 +1074,55 @@ def _provider_star_alias(
     *,
     discover: bool,
 ) -> ProviderBinding | None:
+    """Alias a name to the last star source when it alone exports the name; doubt refuses."""
+    # Only a stdlib facade may hold several stars or a computed `__all__` (3.13+ layout, #743).
+    stdlib = is_stdlib_root(module.module)
+    if binding in module.scope_bound_names or binding in module.global_names:
+        return None
+    if not (star_facade_static(module) if stdlib else _single_star_body(module)):
+        return None
+    stars = _star_records(module, imports, evidence)
+    targets = [item["data"]["target_module"] for item in stars]
     if (
-        binding in module.scope_bound_names
-        or binding in module.global_names
-        or not all(
-            isinstance(node, ast.ImportFrom)
-            or isinstance(node, ast.Expr)
-            and isinstance(node.value, ast.Constant)
-            and isinstance(node.value.value, str)
-            for node in module.tree.body
-        )
+        not stars
+        or len(stars) > 1
+        and not stdlib
+        or module.module in targets
+        or not all(part.isidentifier() for target in targets for part in target.split("."))
     ):
         return None
-    stars = [
-        item
-        for item in imports
-        if item["data"]["source_module"] == module.module and item["data"]["symbol"] == "*"
-    ]
-    if len(stars) != 1:
+    missing = [item for item in stars if item["data"]["target_module"] not in by_module]
+    if missing:
+        # Discovery captures the star sources one by one; the final pass proves with all of them.
+        return _star_alias(module, binding, missing[0], ()) if discover else None
+    sources = _star_sources(module, stars, by_module)
+    if sources is None:
         return None
-    [star] = stars
+    exporters = [index for index, source in enumerate(sources) if binding in source.all_exports]
+    # A later star source can rebind the name through the facade, so only the last one counts.
+    if exporters != [len(stars) - 1]:
+        return None
+    support = tuple(file_evidence(evidence, source.rel_path, source.lines) for source in sources)
+    return _star_alias(module, binding, stars[-1], support)
+
+
+def _single_star_body(module: ParsedModule) -> bool:
+    return all(
+        isinstance(node, ast.ImportFrom)
+        or isinstance(node, ast.Expr)
+        and isinstance(node.value, ast.Constant)
+        and isinstance(node.value.value, str)
+        for node in module.tree.body
+    )
+
+
+def _star_alias(
+    module: ParsedModule,
+    binding: str,
+    star: RawRecord,
+    support: tuple[str, ...],
+) -> ProviderBinding:
     target = star["data"]["target_module"]
-    if not all(part.isidentifier() for part in target.split(".")):
-        return None
-    provider = by_module.get(target)
-    support: tuple[str, ...] = ()
-    if provider is None:
-        if not discover:
-            return None
-    else:
-        if (
-            not provider.all_literal
-            or binding not in provider.all_exports
-            or "__all__" not in stable_direct_module_bindings(provider)
-            or not _provider_identity_static(provider, registry_identity=False)
-        ):
-            return None
-        support = (file_evidence(evidence, provider.rel_path, provider.lines),)
     return ProviderBinding(
         f"{module.module}.{binding}",
         ProviderBindingKind.ALIAS,
@@ -1093,12 +1182,10 @@ def _provider_identity_static(
         member_surface=False,
     )
     member_bound = member is not None and stdlib_member_static(module, member)
+    # A stdlib package of star imports (pathlib on Python 3.13) binds no name of its own.
+    names_known = module.binding_names is not None or module.star_sources_proven
     return (
-        (
-            member_bound
-            or module.binding_names is not None
-            and "__getattr__" not in module.scope_bound_names
-        )
+        (member_bound or names_known and "__getattr__" not in module.scope_bound_names)
         and "__path__" not in module.global_names
         and not any(
             exposes_dynamic_namespace(module, node)

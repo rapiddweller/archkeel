@@ -2656,3 +2656,46 @@ body:has(.atlas-heading) .report-logo {
 .atlas-content-choice[hidden] {
   display: none;
 }
+
+/* AD-287: the checked flow. Each status also shows as text and icon; colour only repeats it. */
+:root {
+  --view-proven: var(--ck-teal);
+  --view-declared: var(--ck-declared);
+  --view-claim: #f5a524;
+  --view-unknown: var(--ck-muted);
+  --view-missing: var(--ck-fail);
+}
+:root[data-theme="light"] {
+  --view-claim: #b45309;
+}
+.view-edge-label {
+  fill: var(--ck-text);
+  font: 12px var(--ck-font-sans);
+  paint-order: stroke;
+  stroke: var(--ck-black);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+.edge.view-claim .view-edge-label { fill: var(--view-claim); }
+.edge.view-missing .view-edge-label { fill: var(--view-missing); }
+.edge.view-unknown .view-edge-label { fill: var(--ck-dim-text); }
+.edge[class*="view-"] .line { stroke-width: 2.4px; }
+.edge.selected .line { stroke-width: 3.4px; }
+.node.uml-card.view-missing .card { stroke: var(--view-missing); stroke-dasharray: 8 3 2 3; }
+.node.uml-card.view-unknown .card { stroke: var(--view-unknown); stroke-dasharray: 2 4; }
+.node.uml-card.view-declared .card { stroke: var(--view-declared); stroke-dasharray: 12 4; }
+.node.uml-card.view-claim .card { stroke: var(--view-claim); stroke-dasharray: 6 4; }
+.view-mark[data-view-status="proven"] { color: var(--view-proven); }
+.view-mark[data-view-status="claim"] { color: var(--view-claim); }
+.view-mark[data-view-status="missing"] { color: var(--view-missing); }
+.view-mark { font-weight: 600; }
+.view-author-mark {
+  border: 1px solid var(--ck-border);
+  border-radius: 4px;
+  font-size: 11px;
+  margin-right: 4px;
+  padding: 0 4px;
+  text-transform: uppercase;
+}
+.view-steps button { font: inherit; }
+.view-evidence code { overflow-wrap: anywhere; }

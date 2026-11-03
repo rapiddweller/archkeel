@@ -20,11 +20,8 @@ from archkeel.analyzer.python.symbols import collect_symbols
 from archkeel.analyzer.python.type_shapes import collect_type_shapes
 from archkeel.analyzer.python.typing_signals import collect_typing_signals
 from archkeel.check.delta import build_architecture_delta
-from archkeel.check.evaluation.rules import (
-    _construct_violations,
-    _union_parameters,
-    requires_violations,
-)
+from archkeel.check.evaluation.boundary_types import _union_parameters
+from archkeel.check.evaluation.rules import _construct_violations, requires_violations
 from archkeel.check.ratchets import unknown_positions
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER, observation_diagnostics
 from archkeel.cli.observe import observe

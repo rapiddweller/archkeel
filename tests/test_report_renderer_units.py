@@ -32,6 +32,21 @@ def test_explorer_search_ranks_exact_prefix_token_and_substring_without_mutation
     }
 
 
+def test_explorer_search_ranks_the_exact_label_or_source_path_before_its_children():
+    result = evaluate_scene("""() => {
+      const scene = window.ArchkeelReportScene;
+      const row = (id, label, depth, exact) => ({kind:'component', id, label, depth, exact,
+        text: `${label} ${exact.join(' ')}`});
+      const index = [
+        row('atlas', 'atlas', 2, ['render/atlas', 'src/render']),
+        row('child', 'child', 3, ['render/atlas/child', 'src/render/child']),
+        row('render', 'render', 1, ['render', 'src/render'])];
+      return ['render/atlas', 'src/render'].map(
+        (query) => scene.search(index, query).map(item => item.id));
+    }""")
+    assert result == [["atlas", "child"], ["render", "atlas", "child"]]
+
+
 def test_explorer_exports_recorded_status_and_escapes_mermaid_labels():
     result = evaluate_scene("""() => {
       const model = window.ArchkeelReportScene;

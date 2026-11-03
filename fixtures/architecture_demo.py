@@ -34,6 +34,7 @@ from fixtures.demo_catalog_dependencies import VARIANTS as _DEPENDENCY_VARIANTS
 from fixtures.demo_catalog_entries import VARIANTS as _CATALOG_ENTRY_VARIANTS
 from fixtures.demo_catalog_evidence import VARIANTS as _EVIDENCE_VARIANTS
 from fixtures.demo_catalog_exact_ownership import VARIANTS as _EXACT_OWNERSHIP_VARIANTS
+from fixtures.demo_catalog_explore import VARIANTS as _EXPLORE_VARIANTS
 from fixtures.demo_catalog_flutter import FLUTTER_FIXTURE_DIR
 from fixtures.demo_catalog_flutter import VARIANTS as _FLUTTER_VARIANTS
 from fixtures.demo_catalog_interfaces import VARIANTS as _INTERFACE_VARIANTS
@@ -70,6 +71,7 @@ CATALOG: tuple[Variant, ...] = (
     *_COMPASS_VARIANTS,
     *_PYTHON_REALWORLD_VARIANTS,
     *_NEST_REALWORLD_VARIANTS,
+    *_EXPLORE_VARIANTS,
 )
 
 
@@ -117,6 +119,7 @@ REPORT_CASES = {
     "target-absent": ("target-module-absent", 0),
     "target-store": ("target-hierarchy-positive", 0),
     "empty-responsibility": ("target-empty-responsibilities", 2),
+    "explore": ("explore-contract-free", 0),
 }
 PROJECT_REPORT_GROUPS = (
     {
@@ -384,7 +387,7 @@ def replay(variant_id: str, output: Path) -> int:
         raise ValueError(f"unknown catalog variant: {variant_id}")
     if variant.evidence is not None:
         raise ValueError(f"{variant_id} cites evidence and has no runnable fixture")
-    if variant.check is not None:
+    if variant.check is not None or variant.view is not None:
         raise ValueError(f"{variant_id} is a check-protocol row, not a report-capable variant")
     if variant.against is not None and (
         variant.against.scenario != "deepest_inside_changed" or variant.against.root != "."
@@ -402,6 +405,12 @@ def replay(variant_id: str, output: Path) -> int:
             with path.open("xb"):
                 reserved.append(path)
         with materialized_fixture(variant) as root:
+            if variant.explore:
+                if output.name != "architecture.json":
+                    raise ValueError("explore writes architecture.json; name the output so")
+                return archkeel_main(
+                    ["explore", "--root", str(root), "--output", str(output.parent), "--json"]
+                )
             validate = ["validate", "--root", str(root), "--config", variant.config]
             if variant.baseline is not None:
                 validate.extend(("--baseline", variant.baseline))

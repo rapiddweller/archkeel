@@ -21,4 +21,4 @@ def opened(path: Path) -> Iterator[Path]:
     yield path
 
 
-__all__ = ["LIMIT", "Final", "Iterator", "first_lines", "opened"]
+__all__ = ["LIMIT", "Final", "Iterator", "Path", "first_lines", "opened"]

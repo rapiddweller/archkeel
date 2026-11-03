@@ -4,6 +4,15 @@ Archkeel observes one static snapshot, not runtime behavior, data flow, performa
 or responsibility fulfillment. A rationale proves recorded intent, not truth.
 Determinism is measured for a machine/runtime, not across every platform.
 
+## Explore without a contract
+
+`archkeel explore` detects one top-level Python package only. TypeScript and Dart need
+`--language`, `--source` and `--namespace` (and `--tsconfig`). Its components follow the
+package layout; they are not decisions. Entry modules are `__main__` modules only. An import
+edge is not a call edge or a runtime order. A contract with components but no rule gives
+`target: unavailable` and no rule verdict
+([AD-285](architecture/decisions/ad-285-explore-without-a-contract.md)).
+
 ## Before claiming PASS
 
 A rule needs applicable subjects, complete relevant coverage and sufficient evidence.
@@ -104,6 +113,16 @@ Supported annotation and re-export forms are defined by
 [boundary tests](../tests/test_boundary_types_facades.py) and [rules](rules.md).
 Unproved routes, missing annotations, ambiguous bindings and unsupported shapes
 remain UNKNOWN. An uncertain export cannot hide another private-type violation.
+A name that a class-body statement binds at any place makes its class annotations UNKNOWN on
+every Python version, because 3.14 evaluates them lazily (PEP 649). A `locals()`, `vars()`,
+`globals()`, `exec` or `eval` in the class body makes every class annotation UNKNOWN.
+A field `date: date` is one false UNKNOWN. ArchKeel does not see these writes outside the class
+body ([#775](https://github.com/rapiddweller/archkeel/issues/775)):
+- On 3.14: `__slots__`, `setattr`, a class decorator, a write from another module, a module-level
+  `globals()['object'] = Hidden`, and `global object; object = Hidden` in a method.
+- On every version: a metaclass `__prepare__` that puts the name in the class namespace.
+
+See [AD-283](architecture/decisions/ad-283-a-later-class-binding-blocks-every-annotation.md).
 
 Inherited boundary methods follow a uniquely resolved local single-base chain.
 Inherited fields and full MRO are unproved. External API closure has a separate
@@ -131,10 +150,12 @@ does not establish runtime immutability or arbitrary factory behavior.
 The 3.13+ standard library layouts (a module `__getattr__`, a star import, a
 `sys.modules` child publication) are proven only for top-level standard library
 modules, and a publication only when every import of the initializer is a
-top-level standard library module. A stdlib module that changes another stdlib
-module through a stored member call is not tracked (trusted). Code outside the
-scan, for example a project that patches a stdlib module at run time, is not
-tracked either.
+top-level standard library module. A package of several star imports (`pathlib`
+on 3.13) binds a name only when the last star source alone lists it in a literal
+`__all__` ([AD-278](architecture/decisions/ad-278-a-stdlib-star-facade-binds-the-names-of-its-sources.md)).
+A stdlib module that changes another stdlib module through a stored member call
+is not tracked (trusted). Code outside the scan, for example a project that
+patches a stdlib module at run time, is not tracked either.
 
 ## Source syntax newer than the interpreter
 
@@ -142,7 +163,7 @@ ArchKeel reads Python source with the `ast` module of the interpreter that runs 
 syntax (for example `except A, B:` from Python 3.14, PEP 758) is a parse failure on an older
 interpreter. The report then shows a `runtime_mismatch` diagnostic. Run ArchKeel with the Python
 version of the project: `uvx --python 3.14 archkeel report`. The tool supports Python 3.11 and
-newer. The nightly job checks 3.12 and 3.14 (#724). On 3.13, `pathlib.Path` stays UNKNOWN (#743).
+newer. The nightly job checks 3.12, 3.13 and 3.14 (#724, #743).
 
 ## Other static blind spots
 
@@ -158,6 +179,19 @@ newer. The nightly job checks 3.12 and 3.14 (#724). On 3.13, `pathlib.Path` stay
 - Package roll-up cycles need not be module cycles. Read their backing SCC evidence.
 - Physical folders, filters and renderer routes prove no ownership or conformance.
   Dense layouts may warn; the verdict does not change.
+- `archkeel view check` proves structure, not runtime order: an import or a call is not an
+  execution trace, and a step needs one direct edge. A Python snapshot records a
+  `dynamic_call_limit`, so a call edge is `unknown`, never `missing`. A call through a
+  re-export, such as `shop.store.OrderRepository`, proves no call edge. `from p import sub`
+  records only `p.sub`, so an absent import of `p` is `unknown`. Symbols, inside components,
+  paths and names outside the scanned roots are not view nodes: they are `unknown`. A claim
+  is author text, also when the graph has the same edge. A `TYPE_CHECKING` import stays a
+  proven import with the reason "type-only import: not executed at runtime". The saved
+  snapshot is not authenticated: the check rejects a record with missing evidence, but a
+  forged record with consistent evidence passes (#796). A snapshot from `archkeel explore`
+  marks its layout contract without a typed marker yet: its `declared` and `requires`
+  statuses are not reliable
+  ([AD-284](architecture/decisions/ad-284-studio-shows-views-as-checked-data.md)).
 
 ## TypeScript profile
 

@@ -17,7 +17,6 @@ from test_widening import _boundary_types
 from archkeel.check.declarations import load_contract, project_rule_declaration
 from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
-    _rule_payload,
     contract_bytes,
     contract_digest,
     decode_canonical_model,
@@ -26,6 +25,7 @@ from archkeel.ir.codec import (
     parse_contract,
     parse_observation,
 )
+from archkeel.ir.codec_contract import _rule_payload
 from archkeel.ir.model import BoundaryTypeAllowance, module_references
 from archkeel.ir.widening import Amendment, contract_widenings, verify_amendment
 

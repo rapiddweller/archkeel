@@ -398,14 +398,62 @@ def test_shadowed_object_in_union_keeps_a_known_broad_mapping_neighbor(tmp_path:
     )
 
 
+@pytest.mark.parametrize("position", ["value", "return"])
 @pytest.mark.parametrize("deferred", [False, True])
-def test_a_later_class_binding_only_blocks_deferred_annotations(
-    tmp_path: Path, deferred: bool
+def test_a_later_class_binding_blocks_lazy_and_deferred_annotations(
+    tmp_path: Path, deferred: bool, position: str
 ) -> None:
+    signature = "value: object) -> str" if position == "value" else "value: str) -> object"
     source = (
         ("from __future__ import annotations\n" if deferred else "")
         + "class Hidden: pass\nclass Converter:\n"
-        "    def convert(self, value: object) -> str: return ''\n    object = Hidden\n"
+        f"    def convert(self, {signature}: return ''\n    object = Hidden\n"
+    )
+    _write_app(
+        tmp_path,
+        implementation=source,
+        declared=("sample.app.impl:Converter",),
+        allowed_positions=({**_ALLOWANCE, "position": position},),
+    )
+    namespace: dict[str, object] = {}
+    exec(source, namespace)
+    if not deferred:
+        converter = namespace["Converter"]
+        assert isinstance(converter, type)
+        # PEP 649: Python 3.14 evaluates the annotation later, in the final class namespace.
+        lazy = sys.version_info >= (3, 14)
+        expected = namespace["Hidden"] if lazy else object
+        assert converter.convert.__annotations__[position] is expected
+
+    result = _observe(tmp_path)
+
+    assert result.observation is not None
+    assert not [
+        item
+        for item in result.observation.records("typing_signals") or ()
+        if item.kind == "boundary_type_allowance"
+    ]
+    [unknown] = [
+        item
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_position"
+    ]
+    assert unknown.data.get("position") == position
+
+
+@pytest.mark.parametrize(
+    "write",
+    [
+        "locals()['object'] = Hidden",
+        "vars()['object'] = Hidden",
+        "locals().update(object=Hidden)",
+        "exec('object = Hidden')",
+    ],
+)
+def test_a_dynamic_class_body_write_blocks_every_annotation(tmp_path: Path, write: str) -> None:
+    source = (
+        "class Hidden: pass\nclass Converter:\n"
+        f"    def convert(self, value: object) -> str: return ''\n    {write}\n"
     )
     _write_app(
         tmp_path,
@@ -415,35 +463,42 @@ def test_a_later_class_binding_only_blocks_deferred_annotations(
     )
     namespace: dict[str, object] = {}
     exec(source, namespace)
-    if not deferred:
-        converter = namespace["Converter"]
-        assert isinstance(converter, type)
-        assert converter.convert.__annotations__["value"] is object
+    converter = namespace["Converter"]
+    assert isinstance(converter, type)
+    lazy = sys.version_info >= (3, 14)
+    expected = namespace["Hidden"] if lazy else object
+    assert converter.convert.__annotations__["value"] is expected
 
     result = _observe(tmp_path)
 
     assert result.observation is not None
-    facts = [
+    assert not [
         item
         for item in result.observation.records("typing_signals") or ()
         if item.kind == "boundary_type_allowance"
     ]
-    assert len(facts) == (0 if deferred else 1)
-    assert (
-        any(
-            item.kind == "boundary_type_position"
-            for item in result.observation.records("unknowns") or ()
-        )
-        is deferred
-    )
+    # A dynamic write can bind any name, so the `str` return is uncertain too.
+    assert {
+        item.data.get("position")
+        for item in result.observation.records("unknowns") or ()
+        if item.kind == "boundary_type_position"
+    } == {"value", "return"}
 
 
-def test_class_field_scope_uncertainty_is_a_source_fact_for_any_name(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("body", "field"),
+    [
+        ("    datetime = Hidden\n    now: datetime\n", "now"),
+        ("    now: datetime\n    datetime = Hidden\n", "now"),
+        ("    datetime: datetime = Hidden()\n", "datetime"),
+    ],
+)
+def test_class_field_scope_uncertainty_is_a_source_fact_for_any_name(
+    tmp_path: Path, body: str, field: str
+) -> None:
     _write_app(
         tmp_path,
-        implementation=(
-            "class Hidden: pass\nclass Payload:\n    datetime = Hidden\n    now: datetime\n"
-        ),
+        implementation="class Hidden: pass\nclass Payload:\n" + body,
         declared=("sample.app.impl:Payload",),
     )
     result = _observe(tmp_path)
@@ -456,7 +511,7 @@ def test_class_field_scope_uncertainty_is_a_source_fact_for_any_name(tmp_path: P
     ]
     uncertainties = payload.data.get("annotation_binding_uncertainties")
     assert uncertainties is not None
-    assert uncertainties.get("now") == ("datetime",)
+    assert uncertainties.get(field) == ("datetime",)
     assert payload.data.get("annotation_scope") == "sample.app.impl.Payload"
 
 

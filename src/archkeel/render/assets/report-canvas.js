@@ -110,7 +110,7 @@ import { search as searchScene, sceneToMermaid, decider as DECIDER, perspectives
   }
   function openResult(row) {
     if (row.kind === "element") F.selectElement(row.id);
-    else if (row.kind === "component") showComponent(componentById.get(row.id));
+    else if (row.kind === "component") { enterScope(row.id); root.scrollIntoView({ block: "start" }); }
     else if (row.kind === "module") showModule(row.module);
     else showRule(row.rule);
   }
@@ -452,10 +452,12 @@ import { search as searchScene, sceneToMermaid, decider as DECIDER, perspectives
 
   // ---------- shortcuts: one table drives handlers and help ----------
   const view = (name) => root.querySelector(`[data-flow-view="${name}"]`)?.click();
+  // A module map has no readable 100 % view, so its button says what it does: show the whole map.
+  let zoomLabel = "Reset zoom";
   const SHORTCUTS = [
     { keys: [`${MOD} K`, "/"], label: "Search everything", match: (e) => (e.key.toLowerCase() === "k" && (e.metaKey || e.ctrlKey)) || (e.key === "/" && !e.metaKey && !e.ctrlKey), run: openPalette },
     { keys: ["Shift C"], label: "Zoom to selection", match: (e) => e.shiftKey && !e.metaKey && !e.ctrlKey && e.code === "KeyC", run: () => F.fit() },
-    { keys: ["Shift 1"], label: "Fit whole diagram", match: (e) => e.shiftKey && e.code === "Digit1", run: () => fitDiagram() },
+    { keys: ["Shift 1"], get label() { return zoomLabel; }, match: (e) => e.shiftKey && e.code === "Digit1", run: () => fitDiagram() },
     { keys: ["1", "2", "3"], label: "As-Is · Target · Diff", match: (e) => !e.shiftKey && !e.metaKey && !e.ctrlKey && ["1", "2", "3"].includes(e.key),
       run: (e) => view({ 1: "diagram", 2: "target", 3: "diff" }[e.key]) },
     ...(A ? [
@@ -530,13 +532,17 @@ import { search as searchScene, sceneToMermaid, decider as DECIDER, perspectives
   if (summary) summary.classList.add("ak-scene-summary");
   const tagBar = h("div", { class: "ak-bar ak-bottom-center", role: "toolbar", "aria-label": "Perspectives" });
   const zoom = move(".flow-zoom-controls");
-  zoom?.querySelector(".flow-fit-overview")?.replaceChildren(icon("fit"));
-  zoom?.querySelector(".flow-fit-overview")?.setAttribute("aria-label", "Fit overview");
-  zoom?.querySelector(".flow-fit-overview")?.setAttribute("title", "Fit whole diagram (Shift 1)");
+  const fitButton = zoom?.querySelector(".flow-fit-overview");
+  fitButton?.replaceChildren(icon("fit"));
+  fitButton?.setAttribute("aria-label", zoomLabel);
+  fitButton?.setAttribute("title", `${zoomLabel} (Shift 1)`);
   const bottomRight = h("div", { class: "ak-bar ak-bottom-right" },
     h("button", { class: "ak-icon-only", title: "Zoom to selection (Shift C)", "aria-label": "Zoom to selection", onclick: () => F.fit() }, icon("focus")),
     zoom);
   root.append(topLeft, topCenter, topRight, rail, bottomLeft, tagBar, bottomRight);
+  // A deep path overflows its bar; keep the current level in view and let the ancestors scroll back.
+  const showCurrentCrumb = () => { const trail = move(".flow-breadcrumb"); if (trail) trail.scrollLeft = trail.scrollWidth; };
+  showCurrentCrumb();
 
   // ---------- keep the chrome in sync with every rendered scene ----------
   // Open each diagram fitted without magnifying small graphs.
@@ -545,12 +551,16 @@ import { search as searchScene, sceneToMermaid, decider as DECIDER, perspectives
   const fitDiagram = () => F.fit(true);
   root.addEventListener("archkeel:rendered", () => {
     back?.setAttribute("aria-label", back.textContent);
+    showCurrentCrumb();
     if (!A) return;
     if (["file:", "http:", "https:"].includes(location.protocol))
       perspective = Object.hasOwn(PERSPECTIVES, query().get("perspective")) ? query().get("perspective") : null;
     applyPerspective();
     if (drawerName === "objects") { const same = drawerName; closeDrawer(); toggleDrawer(same, objectsDrawer); }
     const { scope, viewMode } = F.state();
+    zoomLabel = F.state().scene?.moduleOverview ? "Show whole map" : "Reset zoom";
+    fitButton?.setAttribute("aria-label", zoomLabel);
+    fitButton?.setAttribute("title", `${zoomLabel} (Shift 1)`);
     const key = `${viewMode}|${scope}|${query().get("content") || ""}`;
     if (key !== fittedKey) {
       fittedKey = key;

@@ -18,7 +18,7 @@ from enum import StrEnum
 from importlib.machinery import BuiltinImporter, FrozenImporter
 from pathlib import Path
 from types import CodeType
-from typing import Final, Literal, NamedTuple, Protocol, TypedDict
+from typing import Final, Literal, NamedTuple, TypedDict
 
 from archkeel.ir.facts import (
     DefinitionBranchKind,
@@ -279,32 +279,6 @@ def own_scope(node: DefinitionNode) -> Iterator[ast.AST]:
         stack.extend(reversed(list(ast.iter_child_nodes(current))))
 
 
-class ScannedModule(Protocol):
-    """The plain facts the shared package and module records read of any scanned module.
-
-    Narrower than `ParsedModule` on purpose: a profile without a Python AST (AD-97) builds the
-    same records from these six fields instead of fabricating a tree it does not have.
-    """
-
-    @property
-    def rel_path(self) -> str: ...
-
-    @property
-    def module(self) -> str: ...
-
-    @property
-    def package(self) -> str: ...
-
-    @property
-    def all_exports(self) -> AbstractSet[str]: ...
-
-    @property
-    def all_literal(self) -> bool: ...
-
-    @property
-    def compatibility_logic_free(self) -> bool: ...
-
-
 @dataclass
 class ParsedModule:
     """The AST stays fixed for one snapshot; import and escape state can still change."""
@@ -362,6 +336,8 @@ class ParsedModule:
         default=None, init=False, repr=False
     )
     registry_cache: ModuleRegistry | None = field(default=None, init=False, repr=False)
+    # Set by the provider collector: the star sources of this stdlib facade are proven (#743).
+    star_sources_proven: bool = field(default=False, init=False, repr=False)
 
     _lexical_scopes: tuple[ast.Module, str, str, str, ast.NodeVisitor] | None = field(
         default=None, init=False, repr=False, compare=False
@@ -1120,10 +1096,18 @@ def class_header_static(node: ast.ClassDef) -> bool:
     return not node.decorator_list and not node.keywords
 
 
+def class_body_exposes_namespace(module: ParsedModule, owner: ast.ClassDef) -> bool:
+    """Whether the class body can bind a name that no statement spells (`locals()`, `exec`)."""
+    return any(
+        exposes_dynamic_namespace(module, node, local_namespace=True)
+        for node in _module_scope_nodes(ast.Module(body=owner.body, type_ignores=[]))
+    )
+
+
 def _class_members_receive_owner(module: ParsedModule, owner: ast.ClassDef) -> bool:
+    if class_body_exposes_namespace(module, owner):
+        return True
     for node in _module_scope_nodes(ast.Module(body=owner.body, type_ignores=[])):
-        if exposes_dynamic_namespace(module, node, local_namespace=True):
-            return True
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             _, signature_proven = _method_signature(module, node, owner)
             if signature_proven is not True and node not in property_bindings(module, owner):
@@ -3402,6 +3386,37 @@ def stdlib_member_static(module: ParsedModule, member: ast.stmt) -> bool:
             for node in stars
         )
         and "__getattr__" not in _bound_names(earlier)
+    )
+
+
+def star_facade_static(module: ParsedModule) -> bool:
+    """The body holds star imports, a docstring and an `__all__` built from names; it binds none."""
+    return all(
+        isinstance(node, ast.ImportFrom)
+        and [alias.name for alias in node.names] == ["*"]
+        or isinstance(node, ast.Expr)
+        and isinstance(node.value, ast.Constant)
+        and isinstance(node.value.value, str)
+        # The `__all__` of the facade only steers `from facade import *`, not an attribute read.
+        or isinstance(node, ast.Assign)
+        and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Name)
+        and node.targets[0].id == "__all__"
+        and all(
+            isinstance(
+                item,
+                ast.Name
+                | ast.Attribute
+                | ast.BinOp
+                | ast.Add
+                | ast.Load
+                | ast.Tuple
+                | ast.List
+                | ast.Constant,
+            )
+            for item in ast.walk(node.value)
+        )
+        for node in module.tree.body
     )
 
 

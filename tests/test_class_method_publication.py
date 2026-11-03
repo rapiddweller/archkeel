@@ -11,7 +11,8 @@ from test_analyzer import _component, _observe
 from test_inside_publication import _child, _inside, _rule, _write_project
 
 from archkeel.check.ports import ScanConfig
-from archkeel.check.validation import inside_diagnostics, interface_diagnostics
+from archkeel.check.validation import inside_diagnostics
+from archkeel.check.validation.public_api import interface_diagnostics
 from archkeel.ir.codec import parse_contract
 
 

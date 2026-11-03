@@ -1193,14 +1193,91 @@ def test_actual_pathlib_path_has_a_class_receipt(tmp_path):
     stdlib = Path(sysconfig.get_path("stdlib"))
     package = (stdlib / "pathlib/__init__.py").is_file()
     source = (stdlib / ("pathlib/__init__.py" if package else "pathlib.py")).read_text()
-    if "\nclass Path(" not in source:
-        pytest.skip("pathlib publishes Path only through two star imports (Python 3.13)")
-    provider = _provider("pathlib", source, package=package)
-    facts = _native_facts(_request(tmp_path, [provider], imported="pathlib", binding="Path"))
-    [binding] = facts.provider_bindings
-    assert binding.qualified_name == "pathlib.Path"
-    assert binding.kind is ProviderBindingKind.CLASS
+    providers = [_provider("pathlib", source, package=package)]
+    # Python 3.13 publishes Path only through two star imports of pathlib._abc and pathlib._local.
+    stars = "from ._local import *" in source
+    if stars:
+        providers += [
+            _provider(f"pathlib.{name}", (stdlib / f"pathlib/{name}.py").read_text())
+            for name in ("_abc", "_local")
+        ]
+    facts = _native_facts(_request(tmp_path, providers, imported="pathlib", binding="Path"))
+    bindings = {item.qualified_name: item for item in facts.provider_bindings}
+    if stars:
+        assert bindings["pathlib.Path"].kind is ProviderBindingKind.ALIAS
+        assert bindings["pathlib.Path"].target == "pathlib._local.Path"
+        assert len(bindings["pathlib.Path"].supporting_evidence_ids) == 2
+        assert len(bindings) == 2
+    else:
+        assert len(bindings) == 1
+    terminal = bindings["pathlib._local.Path" if stars else "pathlib.Path"]
+    assert terminal.kind is ProviderBindingKind.CLASS
     assert not _route_records(facts)[0]
+
+
+def test_provider_discovery_captures_every_star_source_of_pathlib(tmp_path):
+    stdlib = Path(sysconfig.get_path("stdlib"))
+    init = stdlib / "pathlib/__init__.py"
+    if not (init.is_file() and "from ._local import *" in init.read_text()):
+        pytest.skip("pathlib publishes Path only through two star imports (Python 3.13)")
+    request = replace(
+        _request(tmp_path, imported="pathlib", binding="Path"),
+        resolver=PythonSettings(phase=PythonCollectionPhase.PROVIDERS),
+        protocol_version=ProtocolVersion.V4,
+    )
+    facts = collect(request)
+    paths = {item.path for item in provider_sources(request, facts)}
+    assert {f".archkeel-providers/pathlib/{name}.py" for name in ("_abc", "_local")} <= paths
+
+
+def _pathlib_star_providers():
+    """The real pathlib files of Python 3.13, or a skip: the facade stars two sources."""
+    stdlib = Path(sysconfig.get_path("stdlib"))
+    init = stdlib / "pathlib/__init__.py"
+    if not (init.is_file() and "from ._local import *" in init.read_text()):
+        pytest.skip("pathlib publishes Path only through two star imports (Python 3.13)")
+    return [
+        _provider("pathlib", init.read_text(), package=True),
+        *(
+            _provider(f"pathlib.{name}", (stdlib / f"pathlib/{name}.py").read_text())
+            for name in ("_abc", "_local")
+        ),
+    ]
+
+
+def test_pathlib_name_of_an_earlier_star_source_stays_unknown(tmp_path):
+    # A later star source can rebind a name, so only the last star source counts.
+    request = _request(
+        tmp_path, _pathlib_star_providers(), imported="pathlib", binding="UnsupportedOperation"
+    )
+    assert len(_route_records(_native_facts(request))[0]) == 1
+
+
+def test_pathlib_module_gets_a_receipt_when_its_star_sources_are_proven(tmp_path):
+    request = _request(tmp_path, _pathlib_star_providers())
+    (tmp_path / "src/sample/api.py").write_text("import pathlib\n")
+    bindings = {item.qualified_name: item for item in _native_facts(request).provider_bindings}
+    assert bindings["pathlib"].kind is ProviderBindingKind.MODULE
+
+
+def test_sqlite3_with_an_unproven_star_source_gets_no_module_receipt(tmp_path):
+    # sqlite3.dbapi2 stars a C module and has no `__all__`, so the namespace of sqlite3 is unknown.
+    stdlib = Path(sysconfig.get_path("stdlib")) / "sqlite3"
+    init = (stdlib / "__init__.py").read_text()
+    if "import *" not in init:
+        pytest.skip("sqlite3 does not star-import its implementation")
+    providers = [
+        _provider("sqlite3", init, package=True),
+        *(
+            _provider(f"sqlite3.{name}", (stdlib / f"{name}.py").read_text())
+            for name in ("dbapi2", "dump")
+        ),
+    ]
+    request = _request(tmp_path, providers, imported="sqlite3.dump", binding="_iterdump")
+    (tmp_path / "src/sample/api.py").write_text(
+        "import sqlite3\nfrom sqlite3.dump import _iterdump\n"
+    )
+    assert not _native_facts(request).provider_bindings
 
 
 def test_actual_typing_runtime_module_publication_has_no_declaration_receipt(tmp_path):
@@ -2132,6 +2209,251 @@ def test_closed_star_alias_requires_its_complete_export_and_unique_terminal(
         assert alias.target == "model.Payload" and alias.supporting_evidence_ids
         evidence = {item.id: item for item in facts.evidence}
         assert evidence[alias.supporting_evidence_ids[0]].file == ".archkeel-providers/model.py"
+
+
+_EXPORTS_PAYLOAD = "__all__ = ['Payload']\nclass Payload: pass\n"
+_EXPORTS_OTHER = "__all__ = ['Other']\nclass Other: pass\n"
+
+
+@pytest.mark.parametrize(
+    ("package", "facade", "sources", "known"),
+    [
+        ("json", "from ._a import *\n", {"_a": _EXPORTS_PAYLOAD}, True),
+        ("json", "from ._a import *\n", {"_a": _EXPORTS_OTHER}, False),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import *\n",
+            {"_a": _EXPORTS_OTHER, "_b": _EXPORTS_PAYLOAD},
+            True,
+        ),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import *\n",
+            {"_a": _EXPORTS_PAYLOAD, "_b": _EXPORTS_OTHER},
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import *\n",
+            {"_a": _EXPORTS_PAYLOAD, "_b": _EXPORTS_OTHER + "import json\njson.Payload = 5\n"},
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import *\n",
+            {
+                "_a": "__all__ = ['__package__']\n__package__ = 'other'\n",
+                "_b": _EXPORTS_PAYLOAD,
+            },
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import *\n",
+            {
+                "_a": "__all__ = ['Other', '__spec__', '__builtins__']\n"
+                "class Other: pass\n__spec__ = __builtins__ = None\n",
+                "_b": _EXPORTS_PAYLOAD,
+            },
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import *\n",
+            {
+                "_a": "__all__ = ['Other', '__name__', '__file__', '__loader__']\n"
+                "class Other: pass\n__name__ = __file__ = __loader__ = 'x'\n",
+                "_b": _EXPORTS_PAYLOAD,
+            },
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\n",
+            {
+                "_a": "__all__ = ['Payload', '__getattr__']\nclass Payload: pass\n"
+                "__getattr__ = print\n"
+            },
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\n",
+            {"_a": _EXPORTS_PAYLOAD, "Payload": "x = 1\n"},
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import *\n",
+            {"_a": _EXPORTS_PAYLOAD, "_b": _EXPORTS_PAYLOAD},
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\nfrom ._a import *\n",
+            {"_a": _EXPORTS_PAYLOAD},
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import *\n",
+            {"_a": "__all__ = ['O' + 'ther']\nclass Other: pass\n", "_b": _EXPORTS_PAYLOAD},
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import *\n",
+            {"_a": _EXPORTS_OTHER, "_b": "class Payload: pass\n"},
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import *\n",
+            {"_a": "class Other: pass\n", "_b": _EXPORTS_PAYLOAD},
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import *\n",
+            {"_a": _EXPORTS_OTHER, "_b": _EXPORTS_PAYLOAD + "Payload = 1\n"},
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import *\n",
+            {"_a": _EXPORTS_OTHER, "_b": "from ._c import *\n__all__ = ['Payload']\n"},
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import *\n",
+            {"_a": "from ._c import *\n" + _EXPORTS_OTHER, "_b": _EXPORTS_PAYLOAD},
+            False,
+        ),
+        ("json", "from ._a import *\nPayload = 1\n", {"_a": _EXPORTS_PAYLOAD}, False),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import Payload\n",
+            {"_a": _EXPORTS_OTHER, "_b": _EXPORTS_PAYLOAD},
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import helper\n",
+            {"_a": _EXPORTS_PAYLOAD, "_b": "def helper(): pass\n"},
+            False,
+        ),
+        (
+            "json",
+            "from ._b import Payload\nfrom ._a import *\n",
+            {"_a": _EXPORTS_PAYLOAD, "_b": _EXPORTS_PAYLOAD},
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\ndef __getattr__(name): return None\n",
+            {"_a": _EXPORTS_PAYLOAD},
+            False,
+        ),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import *\n__all__ = (_a.__all__ + _b.__all__)\n",
+            {"_a": _EXPORTS_OTHER, "_b": _EXPORTS_PAYLOAD},
+            True,
+        ),
+        (
+            "json",
+            "from ._a import *\nfrom ._b import *\n__all__ = list(_a.__all__)\n",
+            {"_a": _EXPORTS_OTHER, "_b": _EXPORTS_PAYLOAD},
+            False,
+        ),
+    ],
+    ids=[
+        "one-star",
+        "one-star-without-the-name",
+        "two-stars-name-in-second",
+        "two-stars-name-in-first",
+        "later-star-writes-the-facade",
+        "star-source-exports-package",
+        "star-source-exports-import-steering-names",
+        "star-source-exports-module-identity-names",
+        "star-source-exports-hook",
+        "child-module-named-like-the-export",
+        "two-stars-name-in-both",
+        "same-star-twice",
+        "computed-all-in-other-source",
+        "no-all-in-exporting-source",
+        "no-all-in-other-source",
+        "rebinding-in-exporting-source",
+        "starred-exporting-source",
+        "starred-other-source",
+        "rebinding-in-facade",
+        "named-import-after-stars",
+        "named-import-of-another-name",
+        "named-import-before-stars",
+        "facade-hook",
+        "facade-computed-all",
+        "facade-all-with-call",
+    ],
+)
+def test_star_facade_names_the_one_source_that_exports_the_name(
+    tmp_path, package, facade, sources, known
+):
+    providers = [
+        _provider(package, facade, package=True),
+        *(_provider(f"{package}.{name}", text) for name, text in sources.items()),
+    ]
+    facts = _native_facts(_request(tmp_path, providers, imported=package, binding="Payload"))
+    assert len(_route_records(facts)[0]) == (0 if known else 1)
+    bindings = {item.qualified_name: item for item in facts.provider_bindings}
+    if known:
+        exporter = next(name for name, text in sources.items() if text == _EXPORTS_PAYLOAD)
+        alias = bindings[f"{package}.Payload"]
+        assert alias.kind is ProviderBindingKind.ALIAS
+        assert alias.target == f"{package}.{exporter}.Payload"
+        assert len(alias.supporting_evidence_ids) == len(sources)
+        assert bindings[alias.target].kind is ProviderBindingKind.CLASS
+
+
+def test_star_source_that_publishes_a_child_in_sys_modules_gives_no_class_receipt(tmp_path):
+    # CPython binds json.helper to the namespace that the star source stores, not to json/helper.py.
+    providers = [
+        _provider("json", "from ._a import *\n", package=True),
+        _provider(
+            "json._a",
+            "__all__ = ['Other']\nimport sys, types\nclass Other: pass\n"
+            "sys.modules['json.helper'] = types.SimpleNamespace(Payload=1)\n",
+        ),
+        _provider("json.helper", "class Payload: pass\n"),
+    ]
+    facts = _native_facts(_request(tmp_path, providers, imported="json.helper", binding="Payload"))
+    assert len(_route_records(facts)[0]) == 1
+    assert "json.helper.Payload" not in {item.qualified_name for item in facts.provider_bindings}
+
+
+@pytest.mark.parametrize(
+    ("facade", "sources", "known"),
+    [
+        ("json", ("sched", "heapq"), True),
+        ("json", ("sched", "model"), False),
+        ("json", ("model", "other"), False),
+        ("vendor.facade", ("sched", "heapq"), False),
+    ],
+    ids=["stdlib-sources", "one-outside-source", "outside-sources", "third-party-facade"],
+)
+def test_only_a_stdlib_facade_holds_several_captured_stars(tmp_path, facade, sources, known):
+    first, last = sources
+    providers = [
+        _provider(
+            facade, f"from {first} import *\nfrom {last} import *\n", package="." not in facade
+        ),
+        _provider(first, _EXPORTS_OTHER),
+        _provider(last, _EXPORTS_PAYLOAD),
+    ]
+    if "." in facade:
+        providers.append(_provider("vendor", "", package=True))
+    facts = _native_facts(_request(tmp_path, providers, imported=facade, binding="Payload"))
+    assert len(_route_records(facts)[0]) == (0 if known else 1)
 
 
 @pytest.mark.parametrize(

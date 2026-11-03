@@ -13,9 +13,6 @@ from archkeel.ir.codec_contract import (
     parse_dependency_selector,
     parse_required_component,
 )
-from archkeel.ir.codec_contract import (
-    _rule_payload as _rule_payload,
-)
 from archkeel.ir.codec_delta import (
     delta_payload,
     parse_delta,
@@ -43,9 +40,6 @@ from archkeel.ir.codec_observation import (
     encode_canonical_model,
     observation_payload,
     parse_observation,
-)
-from archkeel.ir.codec_result import (
-    _architecture_component_payload as _architecture_component_payload,
 )
 from archkeel.ir.codec_result import (
     finding_payload,

@@ -35,7 +35,7 @@ Each PR runs the same fixed set of checks. The report sample checks scene/projec
 renderer output. The selected Python tests include unit, integration and CLI tests; each test job
 runs one area. Saved-report tests run in the area test jobs, not again in the report job.
 The `pr-test` list in the `Makefile` names this fixed set file by file and test by test; there is no
-rule that selects it. `make report-browser-tests` runs the nine Chromium tests; Full also runs them. Samples do not
+rule that selects it. `make report-browser-tests` runs the local Chromium tests; Full also runs them. Samples do not
 replace testing the behavior you change. The core set runs eight whole Dart test files, one Dart
 CLI smoke, one UNKNOWN safety case and five Flutter Target guards; complete Dart and Flutter
 variant coverage stays in the full checks.
@@ -43,7 +43,7 @@ variant coverage stays in the full checks.
 The scheduled **Full verification** workflow runs `make ci-core-check SKIP_TESTS=1`, which
 includes the UML TypeScript compiler check. It also runs `make report-timing`, `make mermaid`,
 `make report-browser-tests` and `make demos`. It runs the full suite in area jobs on Linux/Python 3.11, collector compatibility on Linux/Python 3.12, the Python compatibility
-test set (`make python-compat`) on Python 3.12 and 3.14, and one Windows/Python 3.11
+test set (`make python-compat`) on Python 3.12, 3.13 and 3.14, and one Windows/Python 3.11
 safety check for process and path behavior. The compatibility set holds every test that needs Python 3.12 or later. TypeScript's Python architecture and browser module
 boundaries stay in the full suite. Manual dispatch uses the same checks.
 Release tags call that workflow before package build and
@@ -132,7 +132,7 @@ Architecture contracts, baselines and amendments remain reviewed source files.
 - **Record the decision.** A change in behaviour gets an `AD-<n>` file under
   [docs/architecture/decisions/](docs/architecture/decisions/) with its reason, the rejected
   alternatives, its limit and the tests that check it, an index row in
-  [docs/architecture/archkeel.md](docs/architecture/archkeel.md). Update documents that describe
+  [docs/architecture/decisions/README.md](docs/architecture/decisions/README.md). Update documents that describe
   the old behaviour. Keep the decision under the tested 70-line limit. The
   [roadmap](docs/roadmap.md) lists open work only.
 - **Keep the contract true.** A new module needs a component in `architecture-contract.json`, and a

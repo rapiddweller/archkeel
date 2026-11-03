@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "eea707ec912aedf9f179a308fd18d8003cdac4d0eb8dfa11f395af4b15ce62c9",
+  "after_digest": "fca33e883e84e686edb94a235ac0ee95ea91921a0984514048256c154a04efce",
+  "before_baseline_digest": "43aa4b5b8ea59f2a2870451c28958ba7a9ce999235207b9b26f6dc6534ed36ec",
+  "before_digest": "6c172266973b65619416734078ba4645556e7bd32cc72d67fd7c410ba1085346",
+  "decided_by": "Alexander Kell (architect), AD-285; delegated to the manager 2026-11-03",
+  "rationale": "AD-285 adds archkeel explore. The CLI already calls 16 check names on main (AD-284 added read_saved_snapshot), and explore adds archkeel.check.report:run_explore, so the cli to check coupling budget rises from 15 to 17 names.",
+  "schema_version": "2.0.0"
+}

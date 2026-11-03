@@ -100,81 +100,25 @@ from ..ratchets import measure_python_ratchets, unknown_positions_by_rule, unres
 from ..run import inspect_observation, observe_revision
 from ..snapshot import SnapshotError
 from ..uml import observe_repository
-from .closed_world import _decided_pairs as _decided_pairs
-from .closed_world import _open_decision_diagnostics as _open_decision_diagnostics
-from .closed_world import _pair_diagnostics as _pair_diagnostics
-from .closed_world import closed_world_diagnostics as closed_world_diagnostics
 from .closed_world import observed_component_edges as observed_component_edges
 from .closed_world import target_component_edges as target_component_edges
 from .diagnostics import _diagnostic as _diagnostic
 from .diagnostics import _sorted as _sorted
 from .graphs import (
-    _GRAPH_EDGE as _GRAPH_EDGE,
-)
-from .graphs import (
     COMPONENT_GRAPH_MARKER as COMPONENT_GRAPH_MARKER,
 )
-from .graphs import (
-    TARGET_GRAPH_MARKER as TARGET_GRAPH_MARKER,
-)
-from .graphs import (
-    _marked_bodies as _marked_bodies,
-)
-from .graphs import _marker_diagnostics as _marker_diagnostics
-from .graphs import (
-    _unwritable_line as _unwritable_line,
-)
-from .graphs import graph_diagnostics as graph_diagnostics
 from .graphs import (
     mermaid_edges as mermaid_edges,
 )
 from .graphs import (
     rewrite_component_graph as rewrite_component_graph,
 )
-from .inside import _denied_by_absence as _denied_by_absence
-from .inside import _forbidden_targets as _forbidden_targets
-from .inside import _import_published_through_ancestors as _import_published_through_ancestors
-from .inside import _inside_imports_by_target as _inside_imports_by_target
-from .inside import (
-    _inside_interface_lifecycle_diagnostics as _inside_interface_lifecycle_diagnostics,
-)
-from .inside import _inside_parent_policy_diagnostics as _inside_parent_policy_diagnostics
-from .inside import _inside_source_domain_diagnostics as _inside_source_domain_diagnostics
 from .inside import inside_diagnostics as inside_diagnostics
-from .observation import _inside_pointers as _inside_pointers
 from .observation import observation_diagnostics as observation_diagnostics
-from .public_api import _BUDGET_NOUNS as _BUDGET_NOUNS
-from .public_api import _clip_contract as _clip_contract
-from .public_api import _compatibility_import_diagnostics as _compatibility_import_diagnostics
-from .public_api import _entry_module as _entry_module
-from .public_api import _entry_reached_by as _entry_reached_by
-from .public_api import _entry_used as _entry_used
-from .public_api import _facade_covers_import as _facade_covers_import
-from .public_api import _facade_types as _facade_types
-from .public_api import _imports_by_target as _imports_by_target
-from .public_api import _inherited_facade_candidates as _inherited_facade_candidates
-from .public_api import _missing_public_entry as _missing_public_entry
-from .public_api import _parent_reexport_proven as _parent_reexport_proven
-from .public_api import _planned_entry_diagnostics as _planned_entry_diagnostics
-from .public_api import _public_api_entry_diagnostics as _public_api_entry_diagnostics
-from .public_api import _public_entry_diagnostics as _public_entry_diagnostics
-from .public_api import _published_api_types as _published_api_types
-from .public_api import _published_parent_components as _published_parent_components
-from .public_api import _reexport_owners as _reexport_owners
 from .public_api import _resolved_public_entries as _resolved_public_entries
-from .public_api import _scanned_modules as _scanned_modules
-from .public_api import _scoped_facade_types as _scoped_facade_types
-from .public_api import compatibility_diagnostics as compatibility_diagnostics
 from .public_api import interface_budget_diagnostics as interface_budget_diagnostics
-from .public_api import interface_diagnostics as interface_diagnostics
-from .public_api import public_api_diagnostics as public_api_diagnostics
-from .rationale import rationale_diagnostics as rationale_diagnostics
-from .references import _entry_ownership_diagnostics as _entry_ownership_diagnostics
 from .references import _inside_contract_tree as _inside_contract_tree
-from .references import _namespace_references as _namespace_references
-from .references import _public_diagnostics as _public_diagnostics
 from .references import reference_diagnostics as reference_diagnostics
-from .references import repository_file as repository_file
 
 # AD-106: the last failure of a refused --write-baseline, after every other line of the run.
 _WRITE_REFUSED = (

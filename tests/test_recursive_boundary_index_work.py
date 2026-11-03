@@ -16,6 +16,8 @@ from archkeel.cli.observe import analyze_snapshot
 def test_recursive_boundary_indexes_do_not_scale_with_public_function_count(
     tmp_path: Path,
 ) -> None:
+    import archkeel.check.evaluation.boundary_types as boundary
+
     import_lines = [
         "from sample.layer.target.api import Payload",
         *(f"import sample.layer.target.api as dep_{index}" for index in range(20)),
@@ -42,7 +44,7 @@ def test_recursive_boundary_indexes_do_not_scale_with_public_function_count(
         ]
         path.write_text(json.dumps(contract))
 
-    original = boundary_violations._reexport_facade_entries
+    original = boundary._reexport_facade_entries
     fallback_rows = 0
     indexed_rows = 0
 
@@ -62,9 +64,7 @@ def test_recursive_boundary_indexes_do_not_scale_with_public_function_count(
         return index(imports, uncertain_reexport_origins)
 
     with (
-        patch.object(
-            boundary_violations, "_reexport_facade_entries", side_effect=count_fallback_rows
-        ),
+        patch.object(boundary, "_reexport_facade_entries", side_effect=count_fallback_rows),
         patch.object(boundary_violations, "_reexport_index", side_effect=count_index_rows),
     ):
         model, exit_code = analyze_snapshot(

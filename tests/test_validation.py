@@ -19,20 +19,20 @@ from archkeel.check.ports import ScanConfig
 from archkeel.check.report import observe_repository
 from archkeel.check.validation import (
     COMPONENT_GRAPH_MARKER,
-    TARGET_GRAPH_MARKER,
-    _imports_by_target,
     _observed_result,
     _resolved_public_entries,
-    graph_diagnostics,
     inside_diagnostics,
-    interface_diagnostics,
-    public_api_diagnostics,
     reference_diagnostics,
     rewrite_component_graph,
     run_validate,
 )
-from archkeel.check.validation.graphs import mermaid_edges
+from archkeel.check.validation.graphs import TARGET_GRAPH_MARKER, graph_diagnostics, mermaid_edges
 from archkeel.check.validation.observation import observation_diagnostics
+from archkeel.check.validation.public_api import (
+    _imports_by_target,
+    interface_diagnostics,
+    public_api_diagnostics,
+)
 from archkeel.cli.config import load_config
 from archkeel.cli.observe import observe
 from archkeel.ir.baseline import KnownViolation, ViolationFingerprint, violation_fingerprint

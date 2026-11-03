@@ -40,6 +40,7 @@ from fixtures.demo_catalog_support import (
     CheckExpectation,
     CheckScenario,
     Variant,
+    ViewExpectation,
     apply_overlay,
 )
 
@@ -291,4 +292,39 @@ _PROTOCOL_ROWS: tuple[Variant, ...] = (
     ),
 )
 
-VARIANTS: tuple[Variant, ...] = _PROTOCOL_ROWS
+VARIANTS: tuple[Variant, ...] = (
+    *_PROTOCOL_ROWS,
+    Variant(
+        id="protocol-view-check",
+        section="protocol",
+        item="view_check",
+        summary="archkeel view check proves the drawn edges and steps of a flow on the clean "
+        "sample, with evidence, and keeps the re-exported call as a claim.",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        view=ViewExpectation(
+            FIXTURE_DIR.parent / "F-architecture-view/place-order.json",
+            0,
+            ("proven", "claim"),
+            ("proven", "proven", "claim", "proven"),
+        ),
+    ),
+    Variant(
+        id="protocol-view-show",
+        section="protocol",
+        item="view_show",
+        summary="archkeel view show draws the same checked flow in the Explorer: the report of "
+        "the clean sample embeds the check result, with the claim kept apart from proof.",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        view=ViewExpectation(
+            FIXTURE_DIR.parent / "F-architecture-view/place-order.json",
+            0,
+            ("proven", "claim"),
+            ("proven", "proven", "claim", "proven"),
+            show=True,
+        ),
+    ),
+)

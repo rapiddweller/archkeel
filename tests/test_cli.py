@@ -13,7 +13,8 @@ import pytest
 from test_architecture_demo import _prepare_repo
 from test_report_rule_evidence import _flow_data
 
-from archkeel.check.validation import COMPONENT_GRAPH_MARKER, TARGET_GRAPH_MARKER
+from archkeel.check.validation import COMPONENT_GRAPH_MARKER
+from archkeel.check.validation.graphs import TARGET_GRAPH_MARKER
 from archkeel.cli import main
 from archkeel.ir import decisions as decision_derivation
 from archkeel.ir.baseline import KnownViolation, ViolationFingerprint
@@ -281,7 +282,9 @@ def test_skill_install_writes_the_packaged_instructions(
     assert "archkeel validate --json" in path.read_text()
 
 
-@pytest.mark.parametrize("command", ["init", "report", "validate", "check", "skill", "guide"])
+@pytest.mark.parametrize(
+    "command", ["init", "report", "validate", "check", "skill", "guide", "view"]
+)
 def test_every_command_help_explains_purpose_and_exit_codes(command: str) -> None:
     result = subprocess.run(
         [sys.executable, "-m", "archkeel.cli", command, "--help"],

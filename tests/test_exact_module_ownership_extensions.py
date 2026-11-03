@@ -18,10 +18,8 @@ from test_exact_module_ownership import (
     _target_contract,
 )
 
-from archkeel.check.validation import (
-    closed_world_diagnostics,
-    target_component_edges,
-)
+from archkeel.check.validation import target_component_edges
+from archkeel.check.validation.closed_world import closed_world_diagnostics
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import (
     canonical_report_bytes,

@@ -11,7 +11,7 @@ from test_delta import _model, _record
 from test_inside_publication import _rule, _write_project
 
 from archkeel.check.evaluation.evaluate import api_surface_limits
-from archkeel.check.validation import public_api_diagnostics
+from archkeel.check.validation.public_api import public_api_diagnostics
 from archkeel.ir.codec import parse_contract, parse_observation
 from archkeel.ir.model import ContractDeclarations
 from archkeel.ir.trace import trace_valid_violations

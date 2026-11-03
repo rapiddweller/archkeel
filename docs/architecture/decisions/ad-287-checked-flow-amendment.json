@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "62788e735ff64aed04d571303799b6e2256dfa75017daed45ea3cefac16bf09f",
+  "after_digest": "ac3006f47a925e0df8297dc1896cc6eaf7603a3100c326a3862919c0e35bda22",
+  "before_baseline_digest": "eea707ec912aedf9f179a308fd18d8003cdac4d0eb8dfa11f395af4b15ce62c9",
+  "before_digest": "fca33e883e84e686edb94a235ac0ee95ea91921a0984514048256c154a04efce",
+  "decided_by": "Alexander Kell (architect), AD-287; delegated to the manager 2026-11-03",
+  "rationale": "AD-287 adds archkeel view show. The UML target of render_architecture_pages gains the keyword view_check, so the main page can embed the view check result. The calls_unresolved budget rises from 824 to 829: the check and show subcommands add four argparse calls the analyzer cannot resolve (eight new, four removed), and the embedded result adds one str.replace on an optional text.",
+  "schema_version": "2.0.0"
+}

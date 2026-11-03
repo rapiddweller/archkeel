@@ -16,7 +16,6 @@ from test_delta import _model as wire_model
 from test_delta import _record
 
 from archkeel.check.evaluation import boundary_types as boundary
-from archkeel.check.evaluation import rules
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.check.run import inspect_observation
@@ -92,8 +91,6 @@ def test_none_frozen_slots_and_open_diagnostic_text_keep_existing_meaning():
 def test_legacy_facade_keys_are_plain_strings_in_the_existing_order():
     assert boundary._UNDECIDABLE_KINDS == REASONS
     assert all(type(key) is str for key in boundary._UNDECIDABLE_KINDS)
-    assert rules._UNDECIDABLE_KINDS is boundary._UNDECIDABLE_KINDS
-    assert rules._Position is boundary._Position
 
 
 def test_unknown_future_wire_reason_keeps_exact_text_and_conservative_verdict():

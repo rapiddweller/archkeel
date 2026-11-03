@@ -496,6 +496,28 @@ _NATIVE_PAYLOAD_NEIGHBORS = Variant(
     expected_codes=("rule.violated",) * 5,
 )
 
+_NATIVE_PAYLOAD_LAZY_SHADOW = Variant(
+    id="class-a-boundary-types-native-payload-lazy-shadow",
+    section="class_a",
+    item="boundary_types:lazy_annotation_shadow_unknown",
+    summary="A later class binding replaces object in the allowed payload annotation on Python "
+    "3.14 (PEP 649). The position stays UNKNOWN on every runtime (AD-283).",
+    files={
+        **_NATIVE_PAYLOAD_ALLOWED.files,
+        "shop/app/reports.py": HEADER
+        + (
+            "class _Hidden:\n    pass\n\n\n"
+            "class Converter:\n"
+            "    def convert(self, value: object) -> str: return str(value)\n"
+            "    object = _Hidden\n"
+        ),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    expected_unknowns=(("boundary_type_position", "shop.app.reports.Converter.convert"),),
+    expected_declared_rules="UNKNOWN",
+)
+
 _BOUNDARY_TYPES_MIXED_EVIDENCE = Variant(
     id="class-a-boundary-types-mixed-evidence",
     section="class_a",
@@ -761,6 +783,35 @@ _BOUNDARY_TYPES_ORDINARY_REEXPORT_CHAIN_UNKNOWN = Variant(
     expected_violations=("RENDER-TYPES-NOT-DICT",),
     expected_codes=("rule.violated",),
     expected_declared_rules="FAIL",
+)
+
+
+_PATH_FACADE = Variant(
+    id="class-a-boundary-types-stdlib-path-facade",
+    section="class_a",
+    item="boundary_types:stdlib_path_facade",
+    summary="A public shop.app.paths facade re-exports pathlib.Path. The binding of Path is "
+    "proven from the standard library source, so the facade route has no UNKNOWN. The row is "
+    "in make python-compat: it runs on Python 3.12, 3.13 and 3.14. On 3.13 it checks the two-star "
+    "layout of pathlib end to end (#743).",
+    files={
+        "shop/app/paths.py": HEADER
+        + (
+            '"""Public facade for the store path type."""\n\n'
+            "from __future__ import annotations\n\n"
+            "from pathlib import Path\n\n"
+            '__all__ = ["Path"]\n'
+        ),
+        "shop/cli/main.py": (FIXTURE_DIR / "shop/cli/main.py")
+        .read_text()
+        .replace("from pathlib import Path", "from shop.app.paths import Path"),
+        "architecture-contract.json": contract_component_field_appended(
+            "app", "public", "shop.app.paths:Path"
+        ),
+    },
+    expected_violations=(),
+    expected_codes=(),
+    absent_unknowns=(("boundary_type_route", "shop.app.paths.Path"),),
 )
 
 
@@ -1244,6 +1295,7 @@ VARIANTS: tuple[Variant, ...] = (
     _SHADOWED_DICT_ALLOWED,
     _NATIVE_PAYLOAD_ALLOWED,
     _NATIVE_PAYLOAD_NEIGHBORS,
+    _NATIVE_PAYLOAD_LAZY_SHADOW,
     _BOUNDARY_TYPES_MIXED_EVIDENCE,
     _BOUNDARY_TYPES_DECLARED,
     _BOUNDARY_TYPES_IN_COLLECTION,
@@ -1251,6 +1303,7 @@ VARIANTS: tuple[Variant, ...] = (
     _BOUNDARY_TYPES_REEXPORT_ALIASES,
     _BOUNDARY_TYPES_ORDINARY_REEXPORT,
     _BOUNDARY_TYPES_ORDINARY_REEXPORT_CHAIN_UNKNOWN,
+    _PATH_FACADE,
     _BOUNDARY_TYPES_OWNED_PUBLIC_TYPE,
     _BOUNDARY_TYPES_OWNED_PUBLIC_BROAD_FIELD,
     _DATETIME_PAYLOAD,
