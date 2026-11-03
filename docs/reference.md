@@ -186,6 +186,18 @@ with an inventory of the components before the findings. Query the snapshot like
 TypeScript and Dart need the scope options. `validate` on a contract with no rule keeps PASS:
 the contract is valid, and no rule was checked.
 
+## Studio
+
+`archkeel studio [--root PATH] [--no-open]` serves ArchKeel Studio, a local web app, on
+127.0.0.1 and opens it in the browser
+([AD-290](architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md)). The
+printed URL carries a token for this run; a request without it gets 403. At start, Studio runs
+`archkeel explore` on the root into the explore cache folder; Overview shows the progress and
+Explore shows the Explorer. The read-only API `GET /api/v1/state` follows
+[studio-api-1.0](../schema/studio-api-1.0.schema.json). Studio writes nothing into the
+repository. It is parallel to the static report, which stays the CI and Pages artifact. Stop it
+with Ctrl-C.
+
 ## Checked views
 
 `archkeel view check <spec> [--snapshot architecture.json] [--json] [--strict]` checks a view
@@ -256,6 +268,7 @@ expectations are n/a. Filtering and baseline display do not change canonical fac
 | `guide` | Guide written, or `--check` up to date | `--check`: missing or different | No contract, or it cannot be read |
 | `view check` | No reference is missing (`--strict`: or unknown) | A reference is missing (`--strict`: or unknown) | Invalid spec or snapshot, or another snapshot |
 | `view show` | As `view check`; pages written | As `view check`; pages written | As `view check`, or no Explorer for the snapshot; nothing written |
+| `studio` | Stopped with Ctrl-C | — | The server could not start |
 
 Exit 0 is not architecture approval. Exit 2 carries diagnostics with `kind`,
 `subject`, `unknown_claim` and `remedy`; inspected evidence may remain available.
