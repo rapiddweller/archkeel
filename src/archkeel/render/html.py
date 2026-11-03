@@ -785,6 +785,15 @@ def _atlas_rule_counts(result: RunResult) -> str:
     )
 
 
+def _no_target_status(result: RunResult) -> str:
+    """AD-285: with nothing declared, no rule passes, so the observation is not called PASS."""
+    observed = "complete" if result.observation_complete == "PASS" else "incomplete"
+    return (
+        "Target unavailable: no rule is declared, so no rule passes or fails"
+        f" · Source observation {observed}"
+    )
+
+
 def _atlas_verdict_line(result: RunResult, observation: Observation) -> str:
     decision = report_summary(result).decision
     head = f" · <code>{_text(observation.source.git_head[:_GIT_HASH_SHOWN])}</code></p>"
@@ -794,9 +803,7 @@ def _atlas_verdict_line(result: RunResult, observation: Observation) -> str:
             f'aria-label="Decision: {_text(decision.label)}">'
             f'<span class="decision-symbol" aria-hidden="true">{decision.symbol}</span>'
             f"<strong>{_text(decision.label)}</strong>"
-            " · Target unavailable: no rule is declared, so no rule passes or fails"
-            " · Source observation "
-            f"{'complete' if result.observation_complete == 'PASS' else 'incomplete'}{head}"
+            f" · {_no_target_status(result)}{head}"
         )
     agent, total = agent_decisions(observation)
     # Every decision by the agent is a draft until the architect reviews it; say so, not a count.
@@ -1054,9 +1061,21 @@ def _atlas_content(
     overview_href = (
         navigation.get("main_href") if isinstance(navigation, dict) else None
     ) or "architecture.report.html"
-    status_header = (
-        f'<p class="atlas-detail-status">Whole-run rules: {_text(result.declared_rules)}'
+    # AD-285: the detail page says what the main verdict line says when nothing is declared.
+    rules = (
+        _no_target_status(result)
+        if result.target is TargetStatus.UNAVAILABLE
+        else f"Whole-run rules: {_text(result.declared_rules)}"
         f" · Source observation: {_text(result.observation_complete)}"
+    )
+    # Only explore sets root_digest: it names the root without the absolute path.
+    root_line = (
+        f"<p>Root {_text(result.root_name)} · <code>{_text(result.root_digest)}</code></p>"
+        if result.root_digest is not None
+        else ""
+    )
+    status_header = (
+        f'<p class="atlas-detail-status">{rules}'
         f" · Symbol inventory: {_text(inventory_status)}"
         f' · <a href="{_text(overview_href)}">Architecture overview</a></p>'
         if detail_page
@@ -1087,11 +1106,7 @@ def _atlas_content(
       · Source digest <code>{_text(observation.source.source_digest)}</code>
       · Dirty {_text(observation.source.dirty)}.</p>
       <p>Scope: {_text(", ".join(observation.source.scope))}</p>
-      {
-        f"<p>Root {_text(result.root_name)} · <code>{_text(result.root_digest)}</code></p>"
-        if result.root_digest is not None
-        else ""
-    }
+      {root_line}
       <p>Contract <code>{_text(observation.contract.path)}</code>
       · {_text(observation.contract.digest)}</p>
       <p><a href="{_text(architecture_href)}">Complete architecture JSON and recorded evidence

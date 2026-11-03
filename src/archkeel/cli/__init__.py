@@ -131,19 +131,24 @@ def _write_pages(
         detail.write_bytes(payload)
         if detail != report_html:
             artifacts.append(detail)
-    if any(name != report_html.name for name, _ in pages):
-        for previous in _obsolete_details(artifact):
-            previous.unlink()
+    written = {name for name, _ in pages}
+    if written != {report_html.name}:
+        for previous in _report_pages(artifact):
+            if previous.name not in written:
+                previous.unlink()
     artifacts.extend((artifact, report_html))
 
 
-def _obsolete_details(artifact: Path) -> list[Path]:
-    """The per-component detail pages an earlier report wrote beside this architecture.json."""
-    obsolete = rf"{re.escape(artifact.stem)}\.detail-(?:component-[0-9a-f]{{16}}|unknown)\.html"
+def _report_pages(artifact: Path) -> list[Path]:
+    """The report pages a run writes beside architecture.json: main, detail and per component."""
+    pages = (
+        rf"{re.escape(artifact.stem)}\."
+        r"(?:report|detail(?:-(?:component-[0-9a-f]{16}|unknown))?)\.html"
+    )
     return [
         previous
-        for previous in artifact.parent.glob(f"{artifact.stem}.detail-*.html")
-        if re.fullmatch(obsolete, previous.name)
+        for previous in artifact.parent.glob(f"{artifact.stem}.*.html")
+        if re.fullmatch(pages, previous.name)
     ]
 
 
@@ -738,12 +743,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 result = replace(result, root_name=root.name, root_digest=digest)
                 # The scope and HEAD passed: no earlier snapshot of ours may look current now.
-                for previous in (
-                    artifact,
-                    html_path(artifact, Command.REPORT),
-                    folder / "architecture.detail.html",
-                    *_obsolete_details(artifact),
-                ):
+                for previous in (artifact, *_report_pages(artifact)):
                     previous.unlink(missing_ok=True)
                 if architecture is not None:
                     result = replace(result, artifact=str(artifact))

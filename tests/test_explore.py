@@ -126,6 +126,9 @@ def test_explore_shows_a_repository_without_a_contract(
     assert "PASS · Rules" not in page
     # AD-285: no PASS beside "no rule passes", no violation and no Target view without a target.
     assert "Source observation complete" in page
+    detail = artifact.with_name("architecture.detail.html").read_text().split('id="flow-data"')[0]
+    assert "Target unavailable: no rule is declared" in detail
+    assert "Whole-run rules" not in detail
     assert "<p>No dependency cycle or hub.</p>" in page
     assert '[data-flow-view="target"],[data-flow-view="diff"],.flow-violation-focus' in page
 

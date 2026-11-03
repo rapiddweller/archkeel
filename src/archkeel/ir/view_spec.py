@@ -501,9 +501,6 @@ def _one_kind(
 ) -> LinkCheck:
     """Prove one direct edge of one kind; a longer path proves neither an edge nor a step."""
     layer = graph.layers[kind]
-    if kind == RelationshipKind.REQUIRES and not graph.declared:
-        reason = "the component groups declare no requires entry and no target"
-        return LinkCheck(source, target, ViewStatus.UNKNOWN, reason, kind)
     sources, targets = _keys(graph, source, kind), _keys(graph, target, kind)
     if not sources or not targets:
         # A component whose modules all failed to parse has no ends, but they can exist.
