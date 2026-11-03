@@ -374,7 +374,7 @@ def test_explore_reads_a_typescript_project_through_the_init_options(
     )
 
     assert code == 0, payload["diagnostics"]
-    assert payload["target"] == "unavailable"
+    assert (payload["target"], payload["declared_rules"]) == ("unavailable", "UNKNOWN")
     assert architecture_report(_snapshot(tmp_path / "out" / "architecture.json")).memberships
 
 
@@ -595,3 +595,21 @@ def test_the_terminal_names_the_explore_command() -> None:
     print_result(result, report_summary(result), artifacts=(), console=console)
 
     assert "archkeel explore" in console.export_text()
+
+
+def test_a_violation_keeps_its_fail_without_a_rule(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # AD-285: only a vacuous PASS loses its verdict; an observed violation stays FAIL.
+    root = _zero_rule_repository(
+        tmp_path / "repo", packages=["shop.app", "shop.store"], namespace="shop.app"
+    )
+
+    code = main(["report", "--root", str(root), "--output", str(tmp_path / "a.json"), "--json"])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert code == 0, payload
+    assert payload["declared_rules"] == "FAIL"
+    assert "target" not in payload
+    page = (tmp_path / "a.report.html").read_text()
+    assert "no rule passes or fails" not in page

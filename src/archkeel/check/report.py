@@ -682,10 +682,17 @@ def _report_result(
 
 
 def _target_result(model: Observation, result: RunResult) -> RunResult:
-    """AD-285: no declared rule and no UML target leave nothing to check, so no rule passes."""
+    """AD-285: a contract that declares nothing has no target, so a vacuous PASS is UNKNOWN.
+
+    An observed violation keeps its FAIL: a contract with no rule can still be broken, for example
+    by a module outside its component's namespace.
+    """
     # An invalid contract or runtime revokes the proofs; its diagnostics say why, no label.
-    if declares_a_target(model) or any(
-        item.kind in _REVOKING_DIAGNOSTICS for item in result.diagnostics
+    if (
+        declares_a_target(model)
+        or result.declared_rules is _AssessmentStatus.FAIL
+        or bool(model.records("violations"))
+        or any(item.kind in _REVOKING_DIAGNOSTICS for item in result.diagnostics)
     ):
         return result
     return replace(
