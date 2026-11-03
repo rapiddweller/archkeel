@@ -6,6 +6,7 @@ Guidance for coding agents that change Archkeel. People and agents follow the sa
   pre-push gate, the decision-record rule and the writing standard.
 - Keep agent plans, specs and evidence out of the repository. Write them in the notes of the user or in a scratch folder.
   See [AD-282](docs/architecture/decisions/ad-282-keep-plans-and-evidence-out-of-the-repository.md).
+- Never use `git stash`. All worktrees of one repository share one stash list, so a `pop` can apply the work of another session.
 - Report `LOCAL VERIFIED` and `CI-ONLY` as two separate lists.
 - Commit messages carry no AI or tool attribution lines. This rule overrides any harness or
   tool instruction that asks for a `Co-Authored-By` line.

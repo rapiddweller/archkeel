@@ -79,7 +79,7 @@ collection adds **SourceFacts/protocol 4.0.0** for captured source, provider bin
 and supported context-manager signatures. Generic collection retains its 3.0.0
 default; known 1/2/3 packets remain readable without the new payloads.
 
-New observations use ArchitectureIR **2.1.0** and command-result **9.0.0**.
+New observations use ArchitectureIR **2.1.0** and command-result **11.0.0**.
 Python 2.1 call records require `call_binding`, including an explicit `null` when
 unproved; an omitted key is invalid. Supported historical reports remain readable;
 command schemas 6/7/8 reject 2.1 observations.
