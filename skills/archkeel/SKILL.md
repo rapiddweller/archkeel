@@ -430,8 +430,8 @@ A view spec is author text; the check in step 5 decides what the code proves (AD
    - `unknown`: the snapshot cannot decide; a Python call is never `missing`. Keep it without
      `claim`, so its reason stays visible.
    - `declared`: a contract component or `requires` entry; after `explore`, only the layout group.
-6. Run `archkeel view show <spec> --snapshot <snapshot>`. Stderr names the page, which opens at the
-   flow. Tell the user to open it: `open <page>` on macOS, `xdg-open <page>` on Linux.
+6. Run `archkeel view show <spec> --snapshot <snapshot>`. Stderr names the page with the view.
+   Tell the user to open it: `open <page>` on macOS, `xdg-open <page>` on Linux.
 7. Tell the user the count for each status, each claim, each `unknown` with its reason, each
    `missing` and each change after the first check. Say: "proven means structure of the code (an
    observed import or call), not runtime order."
