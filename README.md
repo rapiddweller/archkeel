@@ -23,7 +23,7 @@ evidence for each. You or your coding agent then declare the boundaries you want
 the code against them and reports forbidden imports, misplaced types and gaps in the analysis, with
 source evidence for review.
 
-The checks run on your machine and use no LLM. The agent explains and proposes; ArchKeel measures.
+The checks run on your machine and use no LLM. The agent explains and proposes; ArchKeel measures and enforces.
 
 ## Why ArchKeel?
 
@@ -31,27 +31,42 @@ An agent can change a hundred files in an hour. Tests tell you the behavior stil
 not tell you that the `render` package now imports the `store`, or that a call became harder to
 resolve. Asking the agent "is the architecture still fine?" gets you an opinion.
 
-ArchKeel gives you a measurement instead:
+ArchKeel goes from understanding to a decided architecture, and keeps it:
 
-- **For builders:** see the code you did not write, as a map you can click through.
-- **For teams:** declare the boundaries once; CI rejects the change that crosses them.
-- **For working with agents:** the agent reads the same facts you do. Its text stays a claim until
-  the code proves it. Missing evidence is `UNKNOWN`, never a quiet `PASS`.
+```text
+ Observe              Decide                  Enforce
+ how the code         the boundaries you      the code is checked
+ really works    ->   want, from that    ->   against them: PASS,
+ (measured)           evidence (you decide)   FAIL or UNKNOWN
+```
+
+1. **Observe.** Static analysis resolves imports and calls. Each fact keeps its evidence: the
+   record and the source line. What the analysis cannot resolve is counted, not hidden.
+2. **Decide.** Your agent explains the map and proposes components, responsibilities and a target.
+   You decide. Existing imports are evidence, not permission.
+3. **Enforce.** The contract becomes rules. A rule passes only with complete evidence. Missing
+   evidence is `UNKNOWN`, never a quiet `PASS`. CI rejects the change that crosses a boundary.
+
+The agent explains and proposes. It never decides a verdict, and its text stays a claim until the
+code proves it.
 
 ## ArchKeel, Floorplan or Understand Anything?
 
-All three turn code into something you can see. They answer different questions.
+All three turn code into something you can see. They answer different questions, and they get
+their facts in different ways.
 
 | | **ArchKeel** | **[Floorplan](https://github.com/haydenschmitty/floorplan)** | **[Understand Anything](https://github.com/Egonex-AI/Understand-Anything)** |
 |---|---|---|---|
-| **Question** | Does the code still match the architecture we decided? | How does the app I built work, and what should I worry about? | How does this large codebase work, down to the functions? |
-| **How the map is made** | Static analysis of Python, TypeScript and Dart; no LLM | Scripts scan the code; the AI names and explains the parts | A multi-agent LLM pipeline builds a knowledge graph |
-| **Verdicts** | `PASS`, `FAIL`, `UNKNOWN` per rule, with source locations | A health check for common mistakes | Summaries, layers, guided tours |
-| **Only here** | Declared contract, Target and Diff views, a baseline for known violations, a CI gate | Recent work, blueprints from a PRD | Diff impact, persona-adaptive dashboard |
+| **Question** | How does our code work, which architecture do we want, and does the code keep to it? | How does the app I built work, and what should I worry about? | How does this large codebase work, down to the functions? |
+| **Where the facts come from** | Static analysis of Python, TypeScript and Dart: resolved imports and calls, each with an evidence record and a source line | Scripts scan files, imports and web requests by pattern matching ("not a compiler", in its docs); the AI names and describes the parts | Deterministic scripts plus a multi-agent LLM pipeline that builds the knowledge graph |
+| **What is unknown** | Counted and shown as `UNKNOWN` | Missed links can be added by asking the AI | Relationships can come from LLM judgment |
+| **Role of the LLM** | Explains and proposes. No part of a check or verdict uses it | Writes the architecture description and the names | Summarizes, finds relationships, writes tours |
+| **What you end with** | A declared contract with rules, verdicts, Target and Diff views, a baseline, a CI gate | A map, a health check, recent work | A knowledge graph, layers, guided tours |
 | **Runs in** | Claude Code, Codex, any shell, CI | Claude Code, Codex | Claude Code, Codex and more |
 
-Pick **ArchKeel** to keep an architecture honest. Pick **Floorplan** or **Understand Anything** to
-learn a codebase quickly. They combine well: learn first, then declare what you want to keep.
+Pick **ArchKeel** to turn what the code does into an architecture you can enforce. Pick **Floorplan**
+or **Understand Anything** to learn a codebase quickly and in plain words. They combine well: learn
+first, then declare what you want to keep.
 
 ## Features
 
