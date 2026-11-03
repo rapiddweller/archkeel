@@ -21,6 +21,7 @@ from archkeel.cli.skill import install_skill
 
 ROOT = Path(__file__).parents[1]
 ASSET = ROOT / "src" / "archkeel" / "cli" / "assets" / "SKILL.md"
+EXPLORE_FILES = ("skills/explore/SKILL.md", "skills/explore/agents/openai.yaml")
 
 
 def test_claude_writes_the_asset_unchanged(tmp_path: Path) -> None:
@@ -123,6 +124,28 @@ def test_skill_asks_why_on_a_deviation_from_its_recommendation() -> None:
     assert "ask why before writing the rule" in body
 
 
+def test_explore_skill_starts_studio_for_an_agent() -> None:
+    """AD-290: the skill names the CLI probes, the start command and the stop command."""
+    body = (ROOT / EXPLORE_FILES[0]).read_text(encoding="utf-8")
+    assert body.startswith("---\nname: explore\ndescription: Use when the owner wants to see")
+    assert len(body.splitlines()) < 60
+    for text in (
+        "uvx archkeel studio --help",
+        "uvx --from git+https://github.com/rapiddweller/archkeel archkeel studio",
+        "studio --root <root> --no-open --idle-exit 60",
+        "studio --stop --root <root>",
+        "outside the sandbox",
+        "run_in_background",
+    ):
+        assert text in body, text
+    keys = [
+        line.split(":")[0].strip()
+        for line in (ROOT / EXPLORE_FILES[1]).read_text(encoding="utf-8").splitlines()
+    ]
+    assert keys == ["interface", "display_name", "short_description", "default_prompt"]
+    assert "`explore` skill" in (ROOT / "skills/archkeel/SKILL.md").read_text(encoding="utf-8")
+
+
 def test_plugin_package_uses_the_canonical_skill_and_refuses_overwrite(tmp_path: Path) -> None:
     # Codex's plugin loader skips linked SKILL.md files.
     assert not (ROOT / "skills/archkeel/SKILL.md").is_symlink()
@@ -134,6 +157,8 @@ def test_plugin_package_uses_the_canonical_skill_and_refuses_overwrite(tmp_path:
     portable = json.loads((target / "plugin.json").read_text())
     claude = json.loads((target / ".claude-plugin/plugin.json").read_text())
     assert portable["name"] == claude["name"] == "archkeel"
+    assert portable["version"] == claude["version"]
+    assert portable["description"] == claude["description"]
     assert portable["$schema"] == "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
     assert "mcpServers" not in portable and "hooks" not in portable
     assert (ROOT / "skills/archkeel/SKILL.md").read_bytes() == ASSET.read_bytes()
@@ -144,6 +169,8 @@ def test_plugin_package_uses_the_canonical_skill_and_refuses_overwrite(tmp_path:
     with zipfile.ZipFile(Path(str(target) + ".zip")) as bundle:
         assert bundle.read("skills/archkeel/SKILL.md") == ASSET.read_bytes()
         assert "docs/assets/archkeel-mark.svg" in bundle.namelist()
+        for name in EXPLORE_FILES:
+            assert bundle.read(name) == (ROOT / name).read_bytes()
     sentinel = target / "user-notes.txt"
     sentinel.write_text("Keep me")
     rerun = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
@@ -192,6 +219,7 @@ def test_directory_plugin_stays_current_regular_and_within_submission_limits(
         "plugin.json",
         ".claude-plugin/plugin.json",
         "skills/archkeel/SKILL.md",
+        *EXPLORE_FILES,
         "docs/assets/archkeel-mark.svg",
     }
     files = {path.relative_to(target).as_posix(): path for path in target.rglob("*")}
@@ -312,6 +340,7 @@ def test_plugin_release_stamps_only_exported_manifests(
         "plugin.json",
         ".claude-plugin/plugin.json",
         "skills/archkeel/SKILL.md",
+        *EXPLORE_FILES,
         "LICENSE",
         "src/archkeel/render/assets/archkeel-mark.svg",
     )

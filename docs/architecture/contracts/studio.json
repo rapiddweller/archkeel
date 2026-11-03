@@ -71,10 +71,11 @@
       "label": "server",
       "role": "component",
       "public": [
+        "archkeel.studio.server:is_studio",
         "archkeel.studio.server:run_studio"
       ],
       "responsibilities": [
-        "Serve the shell, the API and the snapshot files on 127.0.0.1 behind a per-run token."
+        "Serve the shell, the API and the snapshot files on 127.0.0.1 behind a per-run token, end after an idle time and tell whether a URL is a Studio."
       ],
       "forbidden_responsibilities": [
         "Starting processes, analyzing source or writing files."

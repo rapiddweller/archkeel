@@ -49,7 +49,14 @@ def _plugin_files(
             if release_version is not None
             else (ROOT / ".claude-plugin/plugin.json").read_bytes()
         ),
-        "skills/archkeel/SKILL.md": (ROOT / "skills/archkeel/SKILL.md").read_bytes(),
+        **{
+            name: (ROOT / name).read_bytes()
+            for name in (
+                "skills/archkeel/SKILL.md",
+                "skills/explore/SKILL.md",
+                "skills/explore/agents/openai.yaml",
+            )
+        },
         "LICENSE": (ROOT / "LICENSE").read_bytes(),
         "README.md": readme,
         "docs/assets/archkeel-mark.svg": (
