@@ -27,6 +27,7 @@ flowchart LR
     cli --> host
     cli --> ir
     cli --> render
+    cli --> studio
     host --> ir
     render --> ir
 ```
@@ -44,6 +45,7 @@ flowchart LR
     cli --> host
     cli --> ir
     cli --> render
+    cli --> studio
     host --> ir
     render --> ir
 ```

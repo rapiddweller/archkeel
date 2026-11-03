@@ -46,6 +46,9 @@ from ..ir.view_spec import (
 from ..render.html import render_architecture_pages, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
+from ..studio.api import ContractState
+from ..studio.server import run_studio
+from ..studio.workspace import Workspace
 from .arguments import (
     CLIArguments,
     Command,
@@ -120,6 +123,30 @@ def _cache_folder(command: Command, digest: str) -> Path:
     """AD-285, AD-287: one cache folder for each command and digest, outside the repository."""
     cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
     return cache / "archkeel" / command.value / digest
+
+
+def _contract_state(root: Path) -> ContractState:
+    """AD-290: the contract as `report` loads it: missing, invalid or configured."""
+    try:
+        load_config(root)
+    except ConfigFileMissingError:
+        return ContractState.NOT_CONFIGURED
+    except ValueError:
+        return ContractState.INVALID
+    return ContractState.CONFIGURED
+
+
+def studio_workspace(root: Path) -> Workspace:
+    """AD-290: Studio and `archkeel explore` share one cache folder for each root."""
+    root = root.resolve()
+    folder = _cache_folder(Command.EXPLORE, _root_digest(root))
+    explore = (sys.executable, "-m", "archkeel.cli", Command.EXPLORE.value, "--root", str(root))
+    return Workspace(
+        root,
+        folder,
+        (*explore, "--output", str(folder), "--json"),
+        lambda: _contract_state(root),
+    )
 
 
 def _write_json(artifact: Path, architecture: bytes) -> None:
@@ -701,6 +728,28 @@ def build_parser() -> _Parser:
     )
     show.set_defaults(show=True)
 
+    studio = commands.add_parser(
+        Command.STUDIO.value,
+        help="Open ArchKeel Studio: the local web app for the code as it is.",
+        formatter_class=RawDescriptionRichHelpFormatter,
+        description=(
+            "Serves the Studio on 127.0.0.1 and opens it in the browser. The printed URL carries\n"
+            "a token for this run; without it each request gets 403. Studio runs explore into\n"
+            "the cache folder of explore and writes nothing into the repository. The static\n"
+            "report stays the CI and Pages artifact (AD-290).\n\n"
+            "Examples:\n"
+            "  archkeel studio\n"
+            "  archkeel studio --root ../service --no-open\n\n"
+            "Stop it with Ctrl-C."
+        ),
+    )
+    studio.add_argument(
+        "--root", type=Path, default=Path.cwd(), help="Repository root. Default: this folder."
+    )
+    studio.add_argument(
+        "--no-open", action="store_true", help="Print the URL; do not open a browser."
+    )
+
     return parser
 
 
@@ -737,6 +786,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 else json.dumps({"command": Command.SKILL, "exit_code": 0, "path": str(path)})
             )
             return 0
+        if command is Command.STUDIO:
+            subject = str(args.root)
+            return run_studio(studio_workspace(args.root), open_browser=not args.no_open)
         if args.config is None and (command is not Command.REPORT or args.input is None):
             args.config = CONFIG_PATH
         if command is Command.GUIDE:

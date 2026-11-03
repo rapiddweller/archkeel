@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archkeel:studio-api:1.0.0",
+  "title": "ArchKeel Studio API 1.0: GET /api/v1/state",
+  "description": "AD-290. The state of one Studio server. The API is read-only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["api_version", "root_name", "contract", "explore", "seconds", "exit_code", "notes"],
+  "properties": {
+    "api_version": {"const": "1.0.0"},
+    "root_name": {"type": "string", "minLength": 1},
+    "contract": {
+      "description": "What archkeel.toml at the root gives: no file, a file that does not load, or a loaded file.",
+      "enum": ["not_configured", "invalid", "configured"]
+    },
+    "explore": {
+      "description": "The explore run that makes the snapshot in the cache folder.",
+      "enum": ["idle", "running", "done", "failed"]
+    },
+    "seconds": {"type": "integer", "minimum": 0},
+    "exit_code": {"type": ["integer", "null"]},
+    "notes": {
+      "description": "The diagnostics of a failed run; else empty.",
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

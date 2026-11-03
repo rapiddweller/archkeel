@@ -132,6 +132,7 @@ class Command(StrEnum):
     GUIDE = "guide"
     EXPLORE = "explore"
     VIEW = "view"
+    STUDIO = "studio"
     ARGUMENTS = "arguments"
 
 
