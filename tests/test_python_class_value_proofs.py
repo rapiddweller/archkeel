@@ -375,7 +375,7 @@ def test_constructor_return_proof_retracts_when_its_function_namespace_is_expose
     assert not module._proven_constructor_returns
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 syntax requires Python 3.12")
+@pytest.mark.requires_python(12)
 @pytest.mark.parametrize(
     "source",
     [

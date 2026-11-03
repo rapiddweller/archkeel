@@ -515,7 +515,7 @@ def test_class_field_scope_uncertainty_is_a_source_fact_for_any_name(
     assert payload.data.get("annotation_scope") == "sample.app.impl.Payload"
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 requires Python 3.12")
+@pytest.mark.requires_python(12)
 @pytest.mark.parametrize("generic", ["class", "method"])
 def test_generic_object_parameter_cannot_be_a_native_builtin_payload(
     tmp_path: Path, generic: str

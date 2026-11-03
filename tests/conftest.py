@@ -104,6 +104,7 @@ def pytest_testnodedown(error: object | None) -> None:
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--area", help="run only the test files of this area (tests/areas.py)")
+    parser.addoption("--selection", help="run only the tests of this selection (tests/areas.py)")
 
 
 # These files are each longer than a quarter of their job; they have no module-scoped fixtures.
@@ -116,8 +117,44 @@ _SPREAD_PER_TEST = frozenset(
 )
 
 
+def _select(name: str, items: list[pytest.Item]) -> list[pytest.Item]:
+    from areas import PYTHON_COMPAT, SELECTIONS, selects
+
+    if name not in SELECTIONS:
+        raise pytest.UsageError(f"--selection={name} is not a selection in tests/areas.py")
+    entries = SELECTIONS[name]
+    ids = [f"{item.path.name}::{item.nodeid.partition('::')[2]}" for item in items]
+    files = {item.path.name for item in items}
+    # A stale entry must fail: an explicit path on the command line failed as "not found".
+    stale = [
+        entry
+        for entry in entries
+        if not (ROOT / "tests" / entry.partition("::")[0]).is_file()
+        or (entry.partition("::")[0] in files and not any(selects(entry, i) for i in ids))
+    ]
+    if stale:
+        raise pytest.UsageError(f"--selection={name} names no test: {stale}")
+    return [
+        item
+        for item, test_id in zip(items, ids, strict=True)
+        if any(selects(entry, test_id) for entry in entries)
+        or (name == PYTHON_COMPAT and item.get_closest_marker("requires_python") is not None)
+    ]
+
+
 @pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    for item in items:
+        # The area jobs run the oldest Python; make python-compat runs these tests (tests/areas.py).
+        for mark in item.iter_markers("requires_python"):
+            if sys.version_info < (3, mark.args[0]):
+                item.add_marker(pytest.mark.skip(reason=f"needs Python 3.{mark.args[0]}"))
+    selection = config.getoption("selection")
+    if selection is not None:
+        kept = _select(selection, items)
+        chosen = set(kept)
+        config.hook.pytest_deselected(items=[item for item in items if item not in chosen])
+        items[:] = kept
     area = config.getoption("area")
     if area is not None:
         # Imported here: some tests copy this file alone into a temporary project.

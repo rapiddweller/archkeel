@@ -44,7 +44,10 @@ The scheduled **Full verification** workflow runs `make ci-core-check SKIP_TESTS
 includes the UML TypeScript compiler check. It also runs `make report-timing`, `make mermaid`,
 `make report-browser-tests` and `make demos`. It runs the full suite in area jobs on Linux/Python 3.11, collector compatibility on Linux/Python 3.12, the Python compatibility
 test set (`make python-compat`) on Python 3.12, 3.13 and 3.14, and one Windows/Python 3.11
-safety check for process and path behavior. The compatibility set holds every test that needs Python 3.12 or later. TypeScript's Python architecture and browser module
+safety check for process and path behavior. The compatibility set is `--selection=python-compat`
+in `tests/areas.py`: each test marked `@pytest.mark.requires_python(<minor>)` and the listed files.
+Use this marker, not a `skipif` on `sys.version_info`, for a test that needs Python 3.12 or later.
+TypeScript's Python architecture and browser module
 boundaries stay in the full suite. Manual dispatch uses the same checks.
 Release tags call that workflow before package build and
 publication. Use `make ci BASE=origin/main` locally for the complete gate.
@@ -71,7 +74,7 @@ aggregate would count as passed.
 | Full: Architecture, build and report checks | nightly, dispatch, release, CI-change PR | `make ci SKIP_TESTS=1`, then `make report-browser-tests` |
 | Full: Tests: `<area>` | same as above | `make full-test AREA="<area>"` |
 | Full: Demos | same as above | `make demos` |
-| Full: Python 3.12.10 / 3.14.7 compatibility | same as above | `make python-compat` |
+| Full: Python 3.12.10 / 3.13.15 / 3.14.7 compatibility | same as above | `make python-compat` |
 | Full: Windows: collector safety | same as above | `make collector-safety` on Windows |
 | Full: Linux: source collectors | same as above | `make typescript-native dart-test build smoke` |
 | Full: All Full checks passed | same as above | none: it needs every Full job |

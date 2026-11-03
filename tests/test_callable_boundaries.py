@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 """Explicit callback signatures use the existing boundary policy at each leaf."""
 
-import sys
 from pathlib import Path
 
 import pytest
@@ -345,7 +344,7 @@ def test_inherited_callback_unknown_keeps_diagnostic_context(tmp_path: Path) -> 
     assert positions[0].data.get("reason") == "unresolved_name"
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 requires Python 3.12")
+@pytest.mark.requires_python(12)
 @pytest.mark.parametrize("parameters", ["", "[T]"])
 def test_pep695_callback_alias_keeps_generic_aliases_out_of_scope(
     tmp_path: Path, parameters: str

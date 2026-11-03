@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import pytest
@@ -792,7 +791,7 @@ def test_static_overload_route_does_not_prove_an_unsupported_annotation(tmp_path
     assert not any(item.kind == "boundary_type_route" for item in unknowns)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 syntax requires Python 3.12")
+@pytest.mark.requires_python(12)
 def test_generic_overload_group_remains_outside_static_origin_proof(tmp_path: Path) -> None:
     observation = _observe_facade(
         tmp_path,

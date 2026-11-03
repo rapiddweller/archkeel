@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import ast
-import sys
 from pathlib import Path
 
 import pytest
@@ -114,7 +113,7 @@ def test_conditional_builtin_type_alias_is_a_dynamic_binding() -> None:
     assert binding["data"].get("record_kind") == "dynamic_binding"
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 requires Python 3.12")
+@pytest.mark.requires_python(12)
 def test_pep695_builtin_type_aliases_keep_direct_and_conditional_bindings_distinct() -> None:
     symbols, _, _ = collect_symbols(
         [_module("type dict = Hidden\nif condition:\n    type int = Hidden\n")], {}
@@ -125,7 +124,7 @@ def test_pep695_builtin_type_aliases_keep_direct_and_conditional_bindings_distin
     assert bindings["int"] == "dynamic_binding"
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 requires Python 3.12")
+@pytest.mark.requires_python(12)
 @pytest.mark.parametrize(
     ("source", "annotation", "record_kind"),
     (
@@ -155,7 +154,7 @@ def test_pep695_builtin_aliases_are_unknown_not_builtin_proof(
     assert verdict.undecidable is not None
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 requires Python 3.12")
+@pytest.mark.requires_python(12)
 @pytest.mark.parametrize(
     ("source", "annotation"),
     (

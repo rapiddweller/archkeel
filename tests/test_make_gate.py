@@ -372,23 +372,44 @@ def test_python_classifiers_name_exactly_the_versions_the_full_workflow_tests() 
     assert claimed == set(re.findall(r'"(3\.\d+)\.\d+"', workflow))
 
 
-def test_every_test_that_needs_a_newer_python_runs_in_the_compatibility_job() -> None:
-    # The area jobs run Python 3.11, so such a test runs nowhere else.
-    command = subprocess.run(
-        ["make", "-n", "python-compat"],
-        cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": ""},
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    needs_newer = [
-        path.name
-        for path in sorted((ROOT / "tests").glob("test_*.py"))
-        if re.search(r"version_info < \(3, 1[2-9]\)", path.read_text())
+def test_each_newer_python_gate_uses_the_marker_that_python_compat_selects() -> None:
+    # The area jobs run Python 3.11, so a plain version skipif hides a test from each CI job.
+    gate = re.compile(r'skipif\(\s*(?:sys|__import__\("sys"\))\.version_info <')
+    files = sorted((ROOT / "tests").glob("test_*.py"))
+    assert [path.name for path in files if gate.search(path.read_text())] == []
+
+
+def test_python_compat_selects_marked_tests_and_listed_files_and_fails_closed(
+    tmp_path: Path,
+) -> None:
+    marked = (
+        "tests/test_annotation_carriers.py::test_pep695_carrier_value_is_not_a_new_annotation_site"
+    )
+    result, selected = _collected(
+        "--selection=python-compat",
+        "tests/test_annotation_carriers.py",
+        "tests/test_analyzer.py",
+        "tests/test_layers.py",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert [test for test in selected if test.startswith("tests/test_annotation_carriers.py")] == [
+        marked
     ]
-    assert needs_newer
-    assert [name for name in needs_newer if f"tests/{name}" not in command] == []
+    assert any(test.startswith("tests/test_analyzer.py::") for test in selected)
+    assert not any(test.startswith("tests/test_layers.py::") for test in selected)
+    result, _ = _collected("--selection=no such selection", "tests/test_layers.py")
+    assert result.returncode == pytest.ExitCode.USAGE_ERROR, result.stdout + result.stderr
+    assert "is not a selection" in result.stderr
+    # A renamed test must not leave a selection entry that silently selects nothing.
+    (tmp_path / "stale_entry.py").write_text(
+        'import areas\nareas.SELECTIONS["python-compat"] += ("test_layers.py::test_renamed",)\n'
+    )
+    path = os.pathsep.join([str(tmp_path), str(ROOT / "tests")])
+    result, _ = _collected(
+        "-p", "stale_entry", "--selection=python-compat", "tests/test_layers.py", path=path
+    )
+    assert result.returncode == pytest.ExitCode.USAGE_ERROR, result.stdout + result.stderr
+    assert "test_layers.py::test_renamed" in result.stderr
 
 
 @pytest.mark.parametrize("renderer_exit", [0, 1])
@@ -486,7 +507,9 @@ def test_self_observation_generates_ignored_output_and_preserves_failure(tmp_pat
     assert result.returncode == exit_code
 
 
-def _collected(*arguments: str) -> tuple[subprocess.CompletedProcess[str], list[str]]:
+def _collected(
+    *arguments: str, path: str | None = None
+) -> tuple[subprocess.CompletedProcess[str], list[str]]:
     result = subprocess.run(
         [
             sys.executable,
@@ -499,6 +522,7 @@ def _collected(*arguments: str) -> tuple[subprocess.CompletedProcess[str], list[
             *arguments,
         ],
         cwd=ROOT,
+        env=os.environ if path is None else {**os.environ, "PYTHONPATH": path},
         capture_output=True,
         text=True,
         timeout=60,

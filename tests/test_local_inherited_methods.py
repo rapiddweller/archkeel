@@ -1918,7 +1918,7 @@ def test_unexposed_native_annotation_metadata_preserves_member_proof(
     _assert_decided(result, observation)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 requires Python 3.12")
+@pytest.mark.requires_python(12)
 @pytest.mark.parametrize("escaped", [False, True], ids=["inert", "escaped"])
 def test_native_alias_value_requires_unexposed_metadata(tmp_path: Path, escaped: bool) -> None:
     result, observation = _report(
@@ -2146,7 +2146,7 @@ def test_deferred_native_type_references_preserve_local_inherited_methods(
     _assert_decided(result, observation)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 requires Python 3.12")
+@pytest.mark.requires_python(12)
 @pytest.mark.parametrize(
     "value,use,decided",
     [

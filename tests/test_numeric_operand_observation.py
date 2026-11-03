@@ -13,7 +13,7 @@ from test_analyzer import _component, _observe, _parsed_module
 from archkeel.analyzer.python.constructs import collect_constructs
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type aliases require Python 3.12")
+@pytest.mark.requires_python(12)
 @pytest.mark.parametrize(
     ("source", "expected"),
     [
@@ -59,7 +59,7 @@ def test_type_alias_syntax_is_unsupported_before_python_312():
         _parsed_module("WIDTH = 4\ntype Alias[WIDTH] = job_nonce % WIDTH\n")
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type aliases require Python 3.12")
+@pytest.mark.requires_python(12)
 def test_generic_type_alias_type_parameter_bounds_stay_unknown(tmp_path):
     from archkeel.analyzer.python.collect import collect
     from archkeel.ir.facts_validation import validate_source_facts
@@ -86,7 +86,7 @@ def test_generic_type_alias_type_parameter_bounds_stay_unknown(tmp_path):
     validate_source_facts(facts)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type aliases require Python 3.12")
+@pytest.mark.requires_python(12)
 def test_dangling_type_alias_evidence_is_a_validation_error(tmp_path):
     from archkeel.analyzer.python.collect import collect
     from archkeel.ir.facts_validation import validate_source_facts
@@ -120,7 +120,7 @@ def test_dangling_type_alias_evidence_is_a_validation_error(tmp_path):
         validate_source_facts(malformed)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type aliases require Python 3.12")
+@pytest.mark.requires_python(12)
 @pytest.mark.parametrize(
     ("source", "expected_proof"),
     [
@@ -156,7 +156,7 @@ def test_multiline_type_alias_witnesses_only_prove_replayable_names(
     decode_response(encode_response(CollectionResponse(facts)))
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 syntax requires Python 3.12")
+@pytest.mark.requires_python(12)
 @pytest.mark.parametrize(
     ("source", "expected_proof"),
     [
@@ -225,7 +225,7 @@ def test_generic_definition_headers_use_type_parameter_scope(tmp_path, source, e
     decode_response(encode_response(CollectionResponse(facts)))
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 syntax requires Python 3.12")
+@pytest.mark.requires_python(12)
 @pytest.mark.parametrize(
     "source",
     [
@@ -296,7 +296,7 @@ def test_saved_facts_reject_forged_generic_header_proofs(tmp_path, source):
         decode_response(json.dumps(payload).encode())
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 type aliases require Python 3.12")
+@pytest.mark.requires_python(12)
 @pytest.mark.parametrize(
     (
         "source",

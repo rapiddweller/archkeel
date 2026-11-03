@@ -4,7 +4,6 @@
 """Lexical reuse belongs to one exact parsed snapshot, never to binding proofs."""
 
 import ast
-import sys
 from dataclasses import fields, replace
 
 import pytest
@@ -118,7 +117,7 @@ def test_five_collectors_share_one_index(monkeypatch):
     assert constructions == [module]
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP695 requires Python3.12")
+@pytest.mark.requires_python(12)
 def test_pep695_scope_remains_unproven_after_reuse():
     module = _parsed_module("def use[T](value: T): return value\n")
     index = LexicalScopes.for_module(module)

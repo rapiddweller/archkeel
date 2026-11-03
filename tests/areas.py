@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Test areas: each CI test job runs one area. A new test file must match one area."""
+"""Test areas and selections. Each CI test job runs one area; a Make target names a selection."""
 
 from fnmatch import fnmatchcase
 
@@ -178,3 +178,31 @@ def area_of(file_name: str) -> str | None:
         (area for area, patterns in AREAS.items() for p in patterns if fnmatchcase(file_name, p)),
         None,
     )
+
+
+PYTHON_COMPAT = "python-compat"
+
+# An entry is a test file or a test id in tests/. Each entry must select a test.
+SELECTIONS: dict[str, tuple[str, ...]] = {
+    # Each test marked requires_python, plus these files: the analyzer reads source with the `ast`
+    # of the running interpreter, and these files cover what differs between versions (#724).
+    PYTHON_COMPAT: (
+        "test_analyzer.py",
+        "test_architecture_projection.py",
+        "test_boundary_types_contextmanager.py",
+        "test_numeric_operand_observation.py",
+        "test_python_class_value_proofs.py",
+        "test_python_contextmanager_signatures.py",
+        "test_python_provider_sources.py",
+        "test_python_source_evidence_lines.py",
+        "test_typed_python_receivers.py",
+        "test_validation.py",
+        "test_architecture_demo.py::test_variant_produces_the_catalogued_findings"
+        "[class-a-boundary-types-stdlib-path-facade]",
+    ),
+}
+
+
+def selects(entry: str, test_id: str) -> bool:
+    """`test_id` is the node id below tests/, for example `test_x.py::test_y[case]`."""
+    return test_id == entry or test_id.startswith((f"{entry}::", f"{entry}["))
