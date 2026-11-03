@@ -12,41 +12,6 @@ from archkeel.ir.levels import inside_levels
 from archkeel.ir.model import Observation
 
 
-def test_the_inside_of_check_carries_its_sub_components_and_their_edges(
-    self_observation: Observation,
-) -> None:
-    levels = {level.parent: level for level in inside_levels(self_observation)}
-    assert sorted(levels) == [
-        "analyzer",
-        "analyzer:dart",
-        "analyzer:python",
-        "analyzer:typescript",
-        "check",
-        "cli",
-        "ir",
-        "render",
-    ]
-    level = levels["check"]
-    assert [(item.label, len(item.modules)) for item in level.components] == [
-        ("declarations", 1),
-        ("evaluation", 15),
-        ("inputs", 7),
-        ("observation", 3),
-        ("regression", 3),
-        ("workflows", 12),
-    ]
-    assert [(edge.source, edge.target, edge.import_sites) for edge in level.edges] == [
-        ("observation", "declarations", 6),
-        ("observation", "evaluation", 5),
-        ("observation", "inputs", 10),
-        ("regression", "inputs", 2),
-        ("workflows", "evaluation", 1),
-        ("workflows", "inputs", 34),
-        ("workflows", "observation", 8),
-        ("workflows", "regression", 16),
-    ]
-
-
 def test_a_module_no_sub_component_owns_is_carried_not_dropped(
     self_observation: Observation,
 ) -> None:

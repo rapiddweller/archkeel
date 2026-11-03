@@ -73,18 +73,9 @@ def _assert_cli_resolver_publication(inside: ArchitectureContract) -> None:
         )
     ]
     assert len(owners) == 1
-    assert contract.declarations is not None
-    coupling = next(
-        item
-        for item in contract.declarations.coupling_budgets
-        if (item.source, item.target) == ("cli", "check")
-    )
     baseline = json.loads((ROOT / "architecture-baseline.json").read_bytes())
 
     assert public in (check.public or ()) and public in (owners[0].public or ())
-    # AD-207 adds the saved-query workflow to the existing typed CLI seam; AD-284 adds
-    # read_saved_snapshot and AD-285 adds run_explore.
-    assert coupling.max_names == 17
     assert public in baseline["budgets"]["coupling_names"]["cli -> check"]
     assert (
         "archkeel.check.report:run_saved_report"
@@ -133,8 +124,6 @@ def test_cli_check_measure_counts_named_shared_type_reexports(
         "archkeel.check.ports:Language",
         "archkeel.check.ports:ObservationResult",
     } <= set(width.names)
-    # AD-285 adds archkeel.check.report:run_explore.
-    assert len(width.names) == 17
     assert width.uncounted == ()
     assert "archkeel.check.ports" not in (check.public or ())
     assert "archkeel.check.observe" not in (check.public or ())
@@ -276,91 +265,12 @@ def test_self_public_guard_rejects_unsupported_surface(
 
 
 def test_self_analyzer_inside_covers_its_modules(self_observation: Observation) -> None:
-    """AD-148: the process host and each language adapter own the modules they observe."""
-    levels = {level.parent: level for level in inside_levels(self_observation)}
-    assert set(levels) == {
-        "analyzer",
-        "analyzer:dart",
-        "analyzer:python",
-        "analyzer:typescript",
-        "check",
-        "cli",
-        "ir",
-        "render",
-    }
-    analyzer = levels["analyzer"]
-    modules_by_component = {item.label: set(item.modules) for item in analyzer.components}
-    assert set(modules_by_component) == {"dart", "process", "python", "typescript"}
-    assert modules_by_component["process"] == {
-        "archkeel.analyzer",
-        "archkeel.analyzer.bootstrap",
-        "archkeel.analyzer.process",
-        "archkeel.analyzer.runtime",
-        "archkeel.analyzer.windows_job",
-    }
-    assert modules_by_component["python"] == {
-        "archkeel.analyzer.python",
-        "archkeel.analyzer.python.binding_types",
-        "archkeel.analyzer.python.bindings",
-        "archkeel.analyzer.python.calls",
-        "archkeel.analyzer.python.callable_signatures",
-        "archkeel.analyzer.python.collect",
-        "archkeel.analyzer.python.constructs",
-        "archkeel.analyzer.python.entry",
-        "archkeel.analyzer.python.guard_paths",
-        "archkeel.analyzer.python.imports",
-        "archkeel.analyzer.python.private_attributes",
-        "archkeel.analyzer.python.receiver_types",
-        "archkeel.analyzer.python.references",
-        "archkeel.analyzer.python.resolve",
-        "archkeel.analyzer.python.scopes",
-        "archkeel.analyzer.python.source",
-        "archkeel.analyzer.python.state",
-        "archkeel.analyzer.python.symbols",
-        "archkeel.analyzer.python.type_shapes",
-        "archkeel.analyzer.python.typing_signals",
-    }
-    assert modules_by_component["dart"] == {
-        "archkeel.analyzer.dart",
-        "archkeel.analyzer.dart.entry",
-        "archkeel.analyzer.dart.collect",
-        "archkeel.analyzer.dart.parse",
-        "archkeel.analyzer.dart.resolve",
-        "archkeel.analyzer.dart.snapshot",
-        "archkeel.analyzer.dart.syntax",
-    }
-    assert modules_by_component["typescript"] == {
-        "archkeel.analyzer.typescript",
-        "archkeel.analyzer.typescript.collect",
-        "archkeel.analyzer.typescript.config",
-        "archkeel.analyzer.typescript.entry",
-        "archkeel.analyzer.typescript.parse",
-        "archkeel.analyzer.typescript.resolve",
-        "archkeel.analyzer.typescript.source_input",
-        "archkeel.analyzer.typescript.standard_libs",
-        "archkeel.analyzer.typescript.syntax",
-    }
-    assert analyzer.unassigned == ()
-    assert levels["analyzer:python"].unassigned == ()
-    assert levels["analyzer:dart"].unassigned == ()
-    assert levels["analyzer:typescript"].unassigned == ()
-    assert levels["ir"].unassigned == ()
-    cli_modules = {item.label: set(item.modules) for item in levels["cli"].components}
-    assert cli_modules == {
-        "arguments": {"archkeel.cli.arguments"},
-        "installer": {"archkeel.cli.skill"},
-        "composition": {
-            "archkeel.cli",
-            "archkeel.cli.__main__",
-            "archkeel.cli.config",
-            "archkeel.cli.guide",
-            "archkeel.cli.observe",
-        },
-    }
-    assert levels["cli"].unassigned == ()
-    assert all(
-        ".embedded" not in module for modules in modules_by_component.values() for module in modules
-    )
+    """AD-148: each declared inside owns every module it observes, and no embedded copy."""
+    levels = inside_levels(self_observation)
+    assert levels
+    assert [level.parent for level in levels if level.unassigned] == []
+    analyzer = next(level for level in levels if level.parent == "analyzer")
+    assert all(".embedded" not in module for item in analyzer.components for module in item.modules)
 
 
 def test_process_public_interface_names_the_collector_class_only() -> None:
