@@ -5,6 +5,7 @@
 
 import json
 import shutil
+import signal
 import subprocess
 import threading
 import time
@@ -15,6 +16,8 @@ from pathlib import Path
 from .api import ContractState, ExploreState, StudioState
 
 _NOTE_LIMIT = 2000
+# Explore needs this long to stop its collector, which runs in a session of its own.
+_UNWIND_SECONDS = 10
 
 
 def _notes(stdout: bytes, stderr: bytes) -> tuple[str, ...]:
@@ -97,9 +100,17 @@ class Workspace:
         return target
 
     def close(self) -> None:
-        """Stop the explore child and delete the folder of this run; no other run uses it."""
+        """Stop the explore child within a bound and delete the folder of this run."""
         with self._lock:
             if self._child is not None and self._child.poll() is None:
-                self._child.kill()
-                self._child.wait()
+                # Ctrl-C lets explore unwind; SIGKILL would leave its collector running (POSIX).
+                try:
+                    self._child.send_signal(signal.SIGINT)
+                except ValueError:  # Windows cannot send SIGINT to a process
+                    self._child.terminate()
+                try:
+                    self._child.wait(_UNWIND_SECONDS)
+                except subprocess.TimeoutExpired:
+                    self._child.kill()
+                    self._child.wait()
         shutil.rmtree(self.folder, ignore_errors=True)

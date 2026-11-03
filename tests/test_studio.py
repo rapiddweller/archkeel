@@ -276,3 +276,50 @@ def test_studio_forwards_the_scope_options_to_explore(tmp_path: Path) -> None:
         _stop(server)
     assert result["explore"] == "done", result
     assert page.status == 200
+
+
+def _running_child(tmp_path: Path, script: str) -> Workspace:
+    """A workspace whose explore child runs `script` and touches `ready` when it is set up."""
+    workspace = Workspace(
+        tmp_path, tmp_path / "run", (sys.executable, "-c", script), lambda: ContractState.CONFIGURED
+    )
+    workspace.start()
+    deadline = time.monotonic() + 30
+    while not (tmp_path / "ready").exists() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert (tmp_path / "ready").exists()
+    return workspace
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX signals")
+def test_close_lets_explore_unwind_before_it_kills(tmp_path: Path) -> None:
+    unwound = tmp_path / "unwound"
+    workspace = _running_child(
+        tmp_path,
+        "import pathlib, time\n"
+        "try:\n"
+        f"    pathlib.Path({str(tmp_path / 'ready')!r}).touch()\n"
+        "    time.sleep(60)\n"
+        "finally:\n"
+        f"    pathlib.Path({str(unwound)!r}).touch()\n",
+    )
+    workspace.close()
+    assert unwound.exists()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX signals")
+def test_close_kills_an_explore_that_ignores_the_interrupt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("archkeel.studio.workspace._UNWIND_SECONDS", 0.5)
+    workspace = _running_child(
+        tmp_path,
+        "import pathlib, signal, time\n"
+        "signal.signal(signal.SIGINT, signal.SIG_IGN)\n"
+        f"pathlib.Path({str(tmp_path / 'ready')!r}).touch()\n"
+        "time.sleep(60)\n",
+    )
+    child = workspace._child
+    assert child is not None
+    workspace.close()
+    assert child.poll() is not None
