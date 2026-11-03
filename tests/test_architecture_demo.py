@@ -1233,6 +1233,7 @@ def test_view_variant_produces_the_catalogued_statuses(
     result = json.loads(capsys.readouterr().out)
     assert tuple(item["status"] for item in result["edges"]) == view.edges
     assert tuple(item["status"] for item in result["steps"]) == view.steps
+    assert tuple(item["status"] for item in result["stops"]) == view.stops
     if view.show:
         page = (tmp_path / "view/architecture.report.html").read_text()
         embedded = page.split('<script id="view-check-data" type="application/json">')[1]

@@ -803,3 +803,17 @@ def test_view_spec_schema_matches_its_dataclasses() -> None:
         assert not validator.is_valid(styled)
         with pytest.raises(ValueError):
             parse_view_spec(styled)
+    # AD-289: a stop is author text; a relation or a fact on it is invalid, and 1.0.0 has none.
+    tour = json.loads((ROOT / "fixtures/F-architecture-view/first-contact-tour.json").read_bytes())
+    assert not list(validator.iter_errors(tour))
+    assert parse_view_spec(tour).stops[0].title == "Start here"
+    for field, value in (("kind", "imports"), ("claim", True), ("status", "proven")):
+        styled = deepcopy(tour)
+        styled["stops"][0][field] = value
+        assert not validator.is_valid(styled)
+        with pytest.raises(ValueError):
+            parse_view_spec(styled)
+    old = {**tour, "schema_version": "1.0.0"}
+    assert not validator.is_valid(old)
+    with pytest.raises(ValueError, match="1.1.0"):
+        parse_view_spec(old)

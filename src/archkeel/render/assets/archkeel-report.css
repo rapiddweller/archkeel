@@ -2699,3 +2699,29 @@ body:has(.atlas-heading) .report-logo {
 }
 .view-steps button { font: inherit; }
 .view-evidence code { overflow-wrap: anywhere; }
+
+/* AD-289: the tour. The Author block and the Measured block stay visibly apart. */
+.tour-count { color: var(--ck-text); font-size: 14px; font-variant-numeric: tabular-nums; font-weight: 700; text-transform: none; }
+.tour-author,
+.tour-measured {
+  border: 1px solid var(--ck-border);
+  border-radius: 8px;
+  margin: 12px 0;
+  padding: 8px 12px;
+  overflow-wrap: anywhere;
+}
+.tour-author { border-left: 4px solid var(--view-claim); }
+.tour-measured { border-left: 4px solid var(--ck-muted); }
+.tour-author h3,
+.tour-measured h3 { font-size: 13px; margin: 0 0 6px; }
+.tour-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; margin: 8px 0 0; }
+.tour-facts dt { font-weight: 600; }
+.tour-facts dd { margin: 0; min-width: 0; }
+.tour-facts summary { cursor: pointer; }
+.tour-facts .tour-sites { grid-column: 1 / -1; padding-left: 12px; }
+.tour-findings li + li { margin-top: 4px; }
+.tour-gap { color: var(--ck-dim-text); margin: 2px 0 0; }
+.tour-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.tour-nav button { flex: 1 1 8em; min-height: 36px; }
+.tour-help { color: var(--ck-dim-text); font-size: 12px; }
+.node.uml-card.tour-current .card { stroke-width: 3.5px; }

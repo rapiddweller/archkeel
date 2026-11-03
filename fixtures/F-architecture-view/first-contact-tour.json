@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.1.0",
+  "title": "First contact with the shop",
+  "snapshot": {
+    "source_digest": "a2b33780fb9cdaa921addace8cfba2580d9e53563493204bcc4af0f4d119d7c1",
+    "contract_digest": "184c5ba894f680a0b501a2bce14ac297000a4aba51e19511e2711a0aa696dfdb"
+  },
+  "nodes": [
+    "shop.cli.main",
+    "COMP-APP",
+    "shop.app.orders",
+    "shop.store.repository"
+  ],
+  "steps": [
+    {"node": "shop.cli.main", "note": "main parses the arguments."},
+    {"node": "shop.app.orders", "kind": "calls", "note": "main calls place_order."}
+  ],
+  "stops": [
+    {
+      "node": "shop.cli.main",
+      "title": "Start here",
+      "note": "The command line starts here. main reads the arguments and calls one use case."
+    },
+    {
+      "node": "COMP-APP",
+      "title": "The use cases",
+      "note": "The app component holds the use cases. Each module is one task of the shop."
+    },
+    {
+      "node": "shop.app.orders",
+      "title": "Place an order",
+      "note": "place_order checks the order lines and gives the order to the store."
+    },
+    {
+      "node": "shop.store.repository",
+      "title": "Save the order",
+      "note": "OrderRepository writes the order. Read this module last."
+    }
+  ],
+  "notes": ["Author text: this tour gives a reading order. It is not runtime order."]
+}

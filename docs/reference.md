@@ -223,7 +223,16 @@ prints the same result and draws it in the Explorer
 Stderr names the page. A run first removes the files it writes in `DIR`; Archkeel owns them.
 The page opens on the checked flow: numbered steps, each edge with its status as text and icon,
 and the evidence in Details. `?flow=1&step=2` in the URL opens the same picture; `view=diagram`
-without `flow` opens As-Is. An incomplete scan is drawn too: its gaps show as unknown. When the
+without `flow` opens As-Is.
+
+A spec with `"schema_version": "1.1.0"` can list `stops`: a tour for the first contact with a
+codebase ([AD-289](architecture/decisions/ad-289-a-tour-shows-author-stops-beside-measured-facts.md)).
+A stop has `node` (one of `nodes`), and an optional `title` and `note`; it takes no `kind`. The
+check gives each stop its node status and `facts` from the snapshot: the module count, the
+import pairs out and in with evidence, a `gap` when a count is a lower bound, and the violation
+and unknown records of the node. An `unknown` or `missing` node has no facts. A page with stops
+opens the tour at stop 1: an Author block and a Measured block side by side, with Previous and
+Next. `?tour=3` opens stop 3; `?flow=1` opens the flow. An incomplete scan is drawn too: its gaps show as unknown. When the
 check does not run (exit 2), the command writes nothing. A snapshot without an Explorer prints
 the check result, writes nothing, says "not drawn" on stderr and exits 2.
 

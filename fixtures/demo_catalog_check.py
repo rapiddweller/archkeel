@@ -327,4 +327,22 @@ VARIANTS: tuple[Variant, ...] = (
             show=True,
         ),
     ),
+    Variant(
+        id="protocol-view-tour",
+        section="protocol",
+        item="view_tour",
+        summary="archkeel view show plays a tour of the clean sample: each stop shows its author "
+        "note beside the facts the check measured, with record ids, and the page opens at stop 1.",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        view=ViewExpectation(
+            FIXTURE_DIR.parent / "F-architecture-view/first-contact-tour.json",
+            0,
+            (),
+            ("proven", "proven"),
+            show=True,
+            stops=("proven", "declared", "proven", "proven"),
+        ),
+    ),
 )

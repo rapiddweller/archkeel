@@ -104,6 +104,8 @@ class ViewExpectation:
     edges: tuple[str, ...]
     steps: tuple[str, ...]
     show: bool = False
+    # AD-289: the node status of each tour stop.
+    stops: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

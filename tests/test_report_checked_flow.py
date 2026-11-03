@@ -67,6 +67,35 @@ def _open(pages, query="", width=800, height=600, requests=None):
     return playwright, browser, page
 
 
+# AD-289: below 1460 px a view needs two rows of top bars; the phone keeps its own rows.
+_SIZES = [(1440, 900), (1470, 900), (390, 844)]
+
+
+def _top_bars(page):
+    """The pairs of top bars that overlap, and the view and tool buttons that something covers."""
+    return page.evaluate(
+        """() => {
+          const names = ['.ak-top-left', '.ak-top-center', '.ak-top-right'];
+          const boxes = names.map((name) => document.querySelector(name).getBoundingClientRect());
+          const overlaps = [];
+          boxes.forEach((a, i) => boxes.slice(i + 1).forEach((b, j) => {
+            if (a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom)
+              overlaps.push(`${names[i]} ${names[i + j + 1]}`);
+          }));
+          // The top-left crumb can scroll past a phone edge (older limit): check the other bars.
+          const tools = '.ak-top-center button, .ak-top-right button';
+          const covered = [...document.querySelectorAll(tools)]
+            .filter((button) => button.offsetParent).filter((button) => {
+              button.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+              const r = button.getBoundingClientRect();
+              const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+              return !button.contains(hit);
+            }).map((button) => button.getAttribute('aria-label') || button.textContent.trim());
+          return [overlaps, covered];
+        }"""
+    )
+
+
 def _close(playwright, browser):
     browser.close()
     playwright.stop()
@@ -310,5 +339,17 @@ def test_the_summary_counts_every_status_and_a_self_edge_shows(pages):
         page.locator("[data-flow-details-toggle]").click()
         listed = page.locator(".flow-inspector").inner_text()
         assert "shop.render.text → shop.render.text" in listed
+    finally:
+        _close(playwright, browser)
+
+
+@pytest.mark.browser
+@pytest.mark.parametrize("query", ["", "?view=diagram"], ids=["flow", "as-is"])
+@pytest.mark.parametrize("size", _SIZES, ids=lambda size: f"{size[0]}x{size[1]}")
+def test_a_page_with_a_view_keeps_its_top_bars_apart(pages, size, query):
+    """The Checked flow button widens the view bar; at 1440x900 it ran under the search bar."""
+    playwright, browser, page = _open(pages, query, width=size[0], height=size[1])
+    try:
+        assert _top_bars(page) == [[], []]
     finally:
         _close(playwright, browser)
