@@ -9,6 +9,7 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
+from conftest import by_python
 from test_local_inherited_methods import _assert_decided, _report
 
 from archkeel.analyzer.python.imports import collect_imports, resolve_reexports
@@ -154,8 +155,14 @@ def test_unexposed_plain_constructor_return_preserves_class_members(
     ],
 )
 @pytest.mark.parametrize("future", [False, True], ids=["eager", "future"])
+@pytest.mark.parametrize("lazy", by_python(14))
 def test_constructor_return_headers_follow_their_execution_time(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, header: str, annotation: bool, future: bool
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    header: str,
+    annotation: bool,
+    future: bool,
+    lazy: bool,
 ) -> None:
     provider = ModuleType("ctor_review_provider")
 
@@ -174,7 +181,7 @@ def test_constructor_return_headers_follow_their_execution_time(
     exec(source, runtime)
     # The analyzer keeps the eager reading of annotations; Python 3.14 defers them (PEP 649).
     executed = not future or not annotation
-    ran = executed and not (annotation and sys.version_info >= (3, 14))
+    ran = executed and not (annotation and lazy)
     assert (runtime["Owner"].__annotations__["value"] is dict) is ran
 
     module = _resolve(tmp_path, source)
@@ -193,12 +200,13 @@ def test_constructor_return_headers_follow_their_execution_time(
         ("() -> Missing | str", True),
     ],
 )
+@pytest.mark.parametrize("lazy", by_python(14))
 def test_constructor_return_header_requires_name_binding_evidence(
-    tmp_path: Path, header: str, annotation: bool
+    tmp_path: Path, header: str, annotation: bool, lazy: bool
 ) -> None:
     source = f"class Owner:\n    value: str\ndef make{header}:\n    return Owner()\n"
     # Python 3.14 defers annotations (PEP 649), so only a default value fails at definition time.
-    if not annotation or sys.version_info < (3, 14):
+    if not annotation or not lazy:
         with pytest.raises(NameError):
             exec(source, {"__name__": "sample.owner"})
     module = _resolve(tmp_path, source)

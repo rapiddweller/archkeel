@@ -4,10 +4,10 @@
 """Issue #229: exact native payload decisions retain opaque neighboring controls."""
 
 import json
-import sys
 from pathlib import Path
 
 import pytest
+from conftest import by_python
 from test_analyzer import _observe
 from test_boundary_types_nested_dtos import _write_app
 from test_contract_model import VALIDATOR
@@ -400,8 +400,9 @@ def test_shadowed_object_in_union_keeps_a_known_broad_mapping_neighbor(tmp_path:
 
 @pytest.mark.parametrize("position", ["value", "return"])
 @pytest.mark.parametrize("deferred", [False, True])
+@pytest.mark.parametrize("lazy", by_python(14))
 def test_a_later_class_binding_blocks_lazy_and_deferred_annotations(
-    tmp_path: Path, deferred: bool, position: str
+    tmp_path: Path, deferred: bool, position: str, lazy: bool
 ) -> None:
     signature = "value: object) -> str" if position == "value" else "value: str) -> object"
     source = (
@@ -421,7 +422,6 @@ def test_a_later_class_binding_blocks_lazy_and_deferred_annotations(
         converter = namespace["Converter"]
         assert isinstance(converter, type)
         # PEP 649: Python 3.14 evaluates the annotation later, in the final class namespace.
-        lazy = sys.version_info >= (3, 14)
         expected = namespace["Hidden"] if lazy else object
         assert converter.convert.__annotations__[position] is expected
 
@@ -450,7 +450,10 @@ def test_a_later_class_binding_blocks_lazy_and_deferred_annotations(
         "exec('object = Hidden')",
     ],
 )
-def test_a_dynamic_class_body_write_blocks_every_annotation(tmp_path: Path, write: str) -> None:
+@pytest.mark.parametrize("lazy", by_python(14))
+def test_a_dynamic_class_body_write_blocks_every_annotation(
+    tmp_path: Path, write: str, lazy: bool
+) -> None:
     source = (
         "class Hidden: pass\nclass Converter:\n"
         f"    def convert(self, value: object) -> str: return ''\n    {write}\n"
@@ -465,7 +468,6 @@ def test_a_dynamic_class_body_write_blocks_every_annotation(tmp_path: Path, writ
     exec(source, namespace)
     converter = namespace["Converter"]
     assert isinstance(converter, type)
-    lazy = sys.version_info >= (3, 14)
     expected = namespace["Hidden"] if lazy else object
     assert converter.convert.__annotations__["value"] is expected
 

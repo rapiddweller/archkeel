@@ -693,10 +693,10 @@ def test_provider_declaration_kind_and_runtime_replacement_are_separate(
     namespace = {}
     exec(source, namespace)
     # Python 3.14 defers annotations (PEP 649): an annotation call replaces ABC when code reads it.
-    if sys.version_info >= (3, 14):
-        for value in list(namespace.values()):
-            if isinstance(value, type | FunctionType):
-                value.__annotations__  # noqa: B018
+    # An older Python ran that call at definition time, so this read changes nothing there.
+    for value in list(namespace.values()):
+        if isinstance(value, type | FunctionType):
+            value.__annotations__  # noqa: B018
     assert namespace["ABC"] == 7
     assert not callable(namespace["ABC"]) and not isinstance(namespace["ABC"], type)
     (tmp_path / "pyproject.toml").write_text("[project]\nrequires-python = '>=3.11'\n")

@@ -4,7 +4,6 @@
 """Bounded modulo operands retain source identity and exact alias derivations."""
 
 import json
-import sys
 from dataclasses import replace
 
 import pytest
@@ -53,7 +52,7 @@ def test_generic_type_alias_respects_type_parameter_binding(source, expected):
     assert operation["data"]["proof"] == expected
 
 
-@pytest.mark.skipif(sys.version_info >= (3, 12), reason="PEP 695 syntax is unsupported")
+@pytest.mark.requires_python(below=12)
 def test_type_alias_syntax_is_unsupported_before_python_312():
     with pytest.raises(SyntaxError):
         _parsed_module("WIDTH = 4\ntype Alias[WIDTH] = job_nonce % WIDTH\n")
@@ -1620,9 +1619,7 @@ def test_numeric_module_alias_cannot_drop_an_enclosing_shadow_scope(tmp_path):
 
 
 # Python 3.14 refuses a named expression in an annotation when it compiles the source.
-_NO_WALRUS_IN_ANNOTATION = pytest.mark.skipif(
-    sys.version_info >= (3, 14), reason="named expression in an annotation is a SyntaxError"
-)
+_NO_WALRUS_IN_ANNOTATION = pytest.mark.requires_python(below=14)
 
 
 @pytest.mark.parametrize(

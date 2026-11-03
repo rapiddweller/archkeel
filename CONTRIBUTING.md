@@ -45,8 +45,10 @@ includes the UML TypeScript compiler check. It also runs `make report-timing`, `
 `make report-browser-tests` and `make demos`. It runs the full suite in area jobs on Linux/Python 3.11, collector compatibility on Linux/Python 3.12, the Python compatibility
 test set (`make python-compat`) on Python 3.12, 3.13 and 3.14, and one Windows/Python 3.11
 safety check for process and path behavior. The compatibility set is `--selection=python-compat`
-in `tests/areas.py`: each test marked `@pytest.mark.requires_python(<minor>)` and the listed files.
-Use this marker, not a `skipif` on `sys.version_info`, for a test that needs Python 3.12 or later.
+in `tests/areas.py`: each test marked `requires_python` and the listed files. A test must not read
+`sys.version_info`. Mark it `@pytest.mark.requires_python(<minor>)` or `requires_python(below=<minor>)`.
+If it expects one result before a version and another from that version, parametrize it with
+`by_python(<minor>)` from `tests/conftest.py`. `<minor>` must be a version that Full tests.
 TypeScript's Python architecture and browser module
 boundaries stay in the full suite. Manual dispatch uses the same checks.
 Release tags call that workflow before package build and

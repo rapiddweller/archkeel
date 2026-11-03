@@ -2,8 +2,10 @@
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import json
+import re
 import subprocess
 import sys
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -142,13 +144,46 @@ def _select(name: str, items: list[pytest.Item]) -> list[pytest.Item]:
     ]
 
 
+def by_python(minor: int) -> list[object]:
+    """Split a version-dependent test: False runs below Python 3.<minor>, True from 3.<minor>."""
+    return [
+        pytest.param(False, marks=pytest.mark.requires_python(below=minor), id=f"below-3.{minor}"),
+        pytest.param(True, marks=pytest.mark.requires_python(minor), id=f"3.{minor}"),
+    ]
+
+
+def _gated_minors() -> set[int]:
+    # The classifiers name the versions that Full tests; a gate at the oldest one gates nothing.
+    classifiers = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["classifiers"]
+    minors = {
+        int(found[1])
+        for classifier in classifiers
+        if (found := re.fullmatch(r"Programming Language :: Python :: 3\.(\d+)", classifier))
+    }
+    return minors - {min(minors)}
+
+
+def _python_gate(mark: pytest.Mark, minors: set[int]) -> str | None:
+    minimum = mark.args[0] if mark.args else None
+    below = mark.kwargs.get("below")
+    for minor in (minimum, below):
+        if minor is not None and minor not in minors:
+            raise pytest.UsageError(f"requires_python: Full verification tests no Python 3.{minor}")
+    if minimum is not None and sys.version_info < (3, minimum):
+        return f"needs Python 3.{minimum}"
+    if below is not None and sys.version_info >= (3, below):
+        return f"needs Python below 3.{below}"
+    return None
+
+
 @pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    for item in items:
-        # The area jobs run the oldest Python; make python-compat runs these tests (tests/areas.py).
-        for mark in item.iter_markers("requires_python"):
-            if sys.version_info < (3, mark.args[0]):
-                item.add_marker(pytest.mark.skip(reason=f"needs Python 3.{mark.args[0]}"))
+    marked = [(item, mark) for item in items for mark in item.iter_markers("requires_python")]
+    minors = _gated_minors() if marked else set()
+    # The area jobs run the oldest Python; make python-compat runs these tests (tests/areas.py).
+    for item, mark in marked:
+        if (reason := _python_gate(mark, minors)) is not None:
+            item.add_marker(pytest.mark.skip(reason=reason))
     selection = config.getoption("selection")
     if selection is not None:
         kept = _select(selection, items)

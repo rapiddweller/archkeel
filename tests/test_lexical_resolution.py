@@ -5,10 +5,10 @@
 
 import ast
 import symtable
-import sys
 from pathlib import Path
 
 import pytest
+from conftest import by_python
 from test_analyzer import _observe, _parsed_module
 
 from archkeel.analyzer.python.binding_types import BindingKind
@@ -176,11 +176,12 @@ def test_comprehension_outer_iterator_uses_the_enclosing_scope():
     ],
     ids=["direct", "generator", "list", "set", "dict"],
 )
-def test_deferred_calls_follow_available_compiler_scope(expression, inlined_comprehension):
+@pytest.mark.parametrize("pep709", by_python(12))
+def test_deferred_calls_follow_available_compiler_scope(expression, inlined_comprehension, pep709):
     source = f"def caller(items):\n return {expression}\ndef helper(item): return True\n"
     _, _, calls, _ = _facts(source)
     [call] = [item["data"] for item in calls if item["data"]["expression"] == "helper"]
-    if inlined_comprehension and sys.version_info >= (3, 12):
+    if inlined_comprehension and pep709:
         # PEP 709 removes the child table, but the inlined scope preserves its parent binding.
         caller = symtable.symtable(source, "sample.py", "exec").get_children()[0]
         assert caller.get_children() == []

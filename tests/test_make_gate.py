@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -317,6 +318,28 @@ def test_each_aggregate_needs_every_job_and_fails_closed(workflow: str, aggregat
     assert run("") != 0
 
 
+def _needs(body: str) -> set[str]:
+    found = re.search(
+        r"^    needs: \[(.+)\]$|^    needs: (\S+)$|^    needs:\n((?:      - .+\n)+)", body, re.M
+    )
+    return (
+        set(re.findall(r"\w[\w-]*", "".join(part or "" for part in found.groups())))
+        if found
+        else set()
+    )
+
+
+def test_each_release_job_runs_after_full_verification() -> None:
+    """AD-280 decision 3: a release runs Full first."""
+    jobs = _jobs("release.yml")
+    assert "uses: ./.github/workflows/full-verification.yml" in jobs["verify"]
+
+    def after_verify(job: str) -> bool:
+        return any(need == "verify" or after_verify(need) for need in _needs(jobs[job]))
+
+    assert [job for job in jobs if job != "verify" and not after_verify(job)] == []
+
+
 def test_pages_publish_only_a_passed_full_run_of_the_current_main(tmp_path: Path) -> None:
     pages = (ROOT / ".github/workflows/pages.yml").read_text()
     assert "workflow_run:\n    workflows: [Full verification]" in pages
@@ -372,11 +395,38 @@ def test_python_classifiers_name_exactly_the_versions_the_full_workflow_tests() 
     assert claimed == set(re.findall(r'"(3\.\d+)\.\d+"', workflow))
 
 
-def test_each_newer_python_gate_uses_the_marker_that_python_compat_selects() -> None:
-    # The area jobs run Python 3.11, so a plain version skipif hides a test from each CI job.
-    gate = re.compile(r'skipif\(\s*(?:sys|__import__\("sys"\))\.version_info <')
-    files = sorted((ROOT / "tests").glob("test_*.py"))
-    assert [path.name for path in files if gate.search(path.read_text())] == []
+def test_no_test_branches_on_the_python_version() -> None:
+    # The area jobs run Python 3.11, so a version branch hides its newer branch from each CI job.
+    # requires_python makes python-compat run it. test_runtime only finds an interpreter.
+    readers = [
+        path.name
+        for path in sorted((ROOT / "tests").glob("*.py"))
+        if path.name not in {"conftest.py", "test_runtime.py"}
+        and any(
+            isinstance(node, ast.Attribute) and node.attr == "version_info"
+            for node in ast.walk(ast.parse(path.read_text()))
+        )
+    ]
+    assert readers == []
+
+
+@pytest.mark.parametrize("gate", ["15", "11", "below=15"])
+def test_a_python_gate_outside_the_full_versions_fails_collection(
+    tmp_path: Path, gate: str
+) -> None:
+    (tmp_path / "test_gate.py").write_text(
+        f"import pytest\n\n@pytest.mark.requires_python({gate})\ndef test_x():\n    pass\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "conftest", "-p", "no:cacheprovider"],
+        cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": str(ROOT / "tests")},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == pytest.ExitCode.USAGE_ERROR, result.stdout + result.stderr
+    assert "Full verification tests no Python 3." in result.stderr
 
 
 def test_python_compat_selects_marked_tests_and_listed_files_and_fails_closed(
