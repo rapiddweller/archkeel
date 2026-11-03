@@ -333,6 +333,15 @@ LAYOUT_SPLIT_MODULES: Final = 40
 LAYOUT_DEPTH: Final = 4
 
 
+def _child_package(name: str, package: str) -> str:
+    """The direct child of `package` that holds the module `name`."""
+    return f"{package}.{name.removeprefix(f'{package}.').partition('.')[0]}"
+
+
+def _last_name(name: str) -> str:
+    return name.rpartition(".")[2]
+
+
 def layout_contracts(
     observation: Observation,
     namespace: str,
@@ -358,14 +367,14 @@ def layout_contracts(
     insides: list[tuple[str, ArchitectureContract]] = []
 
     def size(package: str) -> int:
-        return sum(1 for name in files if name == package or name.startswith(f"{package}."))
+        return sum(1 for name in files if in_scope(name, package))
 
     def split(component: ContractComponent, package: str, depth: int) -> ContractComponent:
         children = sorted(
             {
-                f"{package}.{name[len(package) + 1 :].split('.')[0]}"
+                _child_package(name, package)
                 for name in files
-                if name.startswith(f"{package}.")
+                if name != package and in_scope(name, package)
             }
         )
         subpackages = [
@@ -379,8 +388,8 @@ def layout_contracts(
         nested = tuple(
             split(
                 ContractComponent(
-                    f"COMP-{identifier(child.rpartition('.')[2])}",
-                    child.rpartition(".")[2],
+                    f"COMP-{identifier(_last_name(child))}",
+                    _last_name(child),
                     ComponentRole.COMPONENT,
                     (child,),
                     (),

@@ -4,6 +4,7 @@
 """Build typed report results and canonical observation bytes."""
 
 import ast
+import os
 import subprocess
 from collections import Counter as _Counter
 from dataclasses import dataclass, replace
@@ -855,7 +856,7 @@ def run_explore(
                 contract.write_bytes(contract_bytes(layout))
                 for path, inside in insides:
                     level: Path = scaffold / path
-                    level.parent.mkdir(parents=True, exist_ok=True)
+                    os.makedirs(level.parent, exist_ok=True)
                     level.write_bytes(contract_bytes(inside))
                 observed = observe_repository(root, config, analyzer, contract_root=scaffold)
         except SnapshotError as error:
