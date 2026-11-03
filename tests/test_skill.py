@@ -632,8 +632,9 @@ def test_agent_flow_without_a_contract_uses_explore(
 
     contract_files = ("archkeel.toml", "archkeel-tests.toml", "architecture-contract.json")
     root = _prepare_repo(tmp_path, dict.fromkeys(contract_files))
-    assert main(["explore", "--root", str(root), "--output", str(tmp_path / "x"), "--json"]) == 2
-    assert json.loads(capsys.readouterr().out)["diagnostics"][0]["kind"] == "scope_empty"
+    # `shop` is a namespace package, so detection finds `tests`: the agent checks scan_roots.
+    assert main(["explore", "--root", str(root), "--output", str(tmp_path / "x"), "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["scan_roots"] == ["tests"]
     scope = ["--source", "shop", "--namespace", "shop", "--output", str(tmp_path / "explore")]
     assert main(["explore", "--root", str(root), *scope, "--json"]) == 0
     result = json.loads(capsys.readouterr().out)
@@ -644,3 +645,4 @@ def test_agent_flow_without_a_contract_uses_explore(
     code, checked = _view("check", tmp_path, snapshot, spec, capsys)
     assert code == 0 and checked["steps"][1]["status"] == "proven"
     assert {node["id"]: node["status"] for node in checked["nodes"]}["COMP-APP"] == "declared"
+    assert "`scan_roots`" in _flow_section()

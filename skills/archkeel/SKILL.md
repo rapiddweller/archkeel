@@ -409,7 +409,8 @@ A view spec is author text; the check in step 5 decides what the code proves (AD
 1. Confirm the start point and the goal. Ask one short question only when the request is ambiguous.
 2. Get a snapshot. With `archkeel.toml`, run `archkeel report --output <dir>/architecture.json --json`.
    Without it, run `archkeel explore --json`: no contract, no setup, output only in the user cache.
-   On `scope_empty`, run `archkeel explore --source <dir> --namespace <package> --json`.
+   On `scope_empty`, or when `scan_roots` is not the code in question, run
+   `archkeel explore --source <dir> --namespace <package> --json`.
    The snapshot path is `artifact` in the result.
 3. Query before you write. `archkeel report --input <snapshot> --only architecture --json` lists
    the component ids. `archkeel report --input <snapshot> --only architecture --component <id> --full --json`
