@@ -741,7 +741,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 for previous in (
                     artifact,
                     html_path(artifact, Command.REPORT),
-                    artifact.with_name(f"{artifact.stem}.detail.html"),
+                    folder / "architecture.detail.html",
                     *_obsolete_details(artifact),
                 ):
                     previous.unlink(missing_ok=True)
