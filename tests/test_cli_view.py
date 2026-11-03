@@ -4,7 +4,7 @@
 """AD-284: a view spec is checked data; each reference is proven, declared, claim or unknown."""
 
 import json
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 
 import pytest
@@ -95,6 +95,8 @@ def _edge(source: str, target: str, kind: str | None = "imports", **extra: objec
 def test_example_spec_mixes_proven_and_claim_and_is_deterministic(shop: Observation) -> None:
     raw = json.loads(EXAMPLE.read_text())
     identity = snapshot_identity(shop)
+    # The Explorer team loads this file: a change to the F source or contract must update it.
+    assert raw["snapshot"] == asdict(identity)
     raw["snapshot"] = {
         "source_digest": identity.source_digest,
         "contract_digest": identity.contract_digest,
