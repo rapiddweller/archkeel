@@ -2022,6 +2022,9 @@ class RunResult:
     # AD-285: explore's root without its absolute path: the basename and sha256(root)[:16].
     root_name: str | None = None
     root_digest: str | None = None
+    # AD-285: diagnostics that do not block a report with no target, such as an undeclared
+    # Python range; they stay visible and keep the exit at 0.
+    notes: tuple[Diagnostic, ...] = ()
 
     def __post_init__(self) -> None:
         if self.amendment_status is not None:

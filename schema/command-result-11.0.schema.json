@@ -153,6 +153,13 @@
         "root_digest": {
           "type": "string",
           "pattern": "^[0-9a-f]{16}$"
+        },
+        "notes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "urn:archkeel:command-result:6.0.0#/$defs/diagnostic"
+          }
         }
       },
       "allOf": [
@@ -323,6 +330,13 @@
         "root_digest": {
           "type": "string",
           "pattern": "^[0-9a-f]{16}$"
+        },
+        "notes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "urn:archkeel:command-result:6.0.0#/$defs/diagnostic"
+          }
         }
       },
       "additionalProperties": false,
@@ -775,5 +789,5 @@
     }
   },
   "title": "Archkeel command JSON results",
-  "$comment": "AD-258. Ranked findings on a report. AD-272: also on an incomplete report, which keeps its 8.0 shape. AD-266. first_look on init. AD-285: target unavailable on a report that declares no rule; its declared_rules is UNKNOWN. root_name and root_digest name the root of an explore run. Reuse 10.0 by reference without widening published resources."
+  "$comment": "AD-258. Ranked findings on a report. AD-272: also on an incomplete report, which keeps its 8.0 shape. AD-266. first_look on init. AD-285: target unavailable on a report that declares no rule; its declared_rules is UNKNOWN. root_name and root_digest name the root of an explore run. notes keep diagnostics that do not block a report with no target. Reuse 10.0 by reference without widening published resources."
 }

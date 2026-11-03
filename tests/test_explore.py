@@ -25,6 +25,7 @@ from archkeel.ir.report_graph import architecture_report
 from archkeel.render.summary import report_summary
 from fixtures.architecture_demo import CATALOG, replay
 from fixtures.demo_catalog_dart import DART_FIXTURE_DIR
+from fixtures.demo_catalog_explore import EXPLORE_FIXTURE_DIR, nested_engine_files
 from fixtures.demo_catalog_typescript import VARIANTS as TYPESCRIPT_VARIANTS
 from fixtures.reproduce_typescript import repository as typescript_repository
 
@@ -215,7 +216,8 @@ def test_explore_without_a_commit_exits_2(
 def test_explore_collects_the_source_once(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    root = _repository(tmp_path / "repo")
+    # The nested levels add inside contracts; the second pass must still reuse the facts.
+    root = _repository(tmp_path / "repo", {**_SOURCES, **nested_engine_files()})
     collect = PythonProviderCollector.collect
     calls: list[object] = []
 
@@ -382,3 +384,74 @@ def test_explore_keeps_its_findings_one_click_away(
     page = (tmp_path / "out" / "architecture.report.html").read_text()
     # AD-285: closed findings keep the Explorer on an 800x600 first screen.
     assert '<details class="atlas-findings"><summary><h2 id="findings-heading"' in page
+
+
+def test_explore_opens_a_large_component_level_by_level(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fixture = {
+        path.relative_to(EXPLORE_FIXTURE_DIR).as_posix(): path.read_text()
+        for path in EXPLORE_FIXTURE_DIR.rglob("*")
+        if path.is_file()
+    }
+    root = _repository(tmp_path / "repo", {**fixture, **nested_engine_files()})
+    output = tmp_path / "out"
+    assert _explore(capsys, "--root", str(root), "--output", str(output))[0] == 0
+    snapshot = str(output / "architecture.json")
+
+    assert main(["report", "--input", snapshot, "--only", "architecture", "--json"]) == 0
+    components = json.loads(capsys.readouterr().out)["architecture_projection"]["components"]
+    query = ["report", "--input", snapshot, "--only", "architecture"]
+    leaf = main([*query, "--component", "engine:io:clients:COMP-RDBMS", "--json"])
+
+    parents = {item["id"]: item.get("parent_id") for item in components}
+    assert sorted(key for key, parent in parents.items() if parent is None) == [
+        "COMP-APP",
+        "COMP-CLI",
+        "COMP-ENGINE",
+        "COMP-STORE",
+    ]
+    chain, node = [], "engine:io:clients:COMP-RDBMS"
+    while node is not None:
+        chain.append(node)
+        node = parents[node]
+    assert chain == [
+        "engine:io:clients:COMP-RDBMS",
+        "engine:io:COMP-CLIENTS",
+        "engine:COMP-IO",
+        "COMP-ENGINE",
+    ]
+    # 20 modules stay one leaf; the 5-module core is not split.
+    assert {"engine:io:clients:COMP-MONGO", "engine:COMP-CORE"} <= parents.keys()
+    assert leaf == 0
+
+
+def test_an_undeclared_python_range_is_a_coverage_note(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    sources = {**_SOURCES, "pyproject.toml": '[project]\nname = "shop"\n'}
+    root = _repository(tmp_path / "repo", sources)
+
+    code, payload = _explore(capsys, "--root", str(root), "--output", str(tmp_path / "out"))
+
+    assert code == 0, payload["diagnostics"]
+    assert payload["observation_complete"] == "PASS"
+    assert [item["kind"] for item in payload["notes"]] == ["runtime_mismatch"]
+    page = (tmp_path / "out" / "architecture.report.html").read_text()
+    assert "Coverage note: The supported Python range is not declared." in page
+
+
+def test_a_python_outside_the_declared_range_still_blocks(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    sources = {
+        **_SOURCES,
+        "pyproject.toml": '[project]\nname = "shop"\nrequires-python = ">=3.99"\n',
+    }
+    root = _repository(tmp_path / "repo", sources)
+
+    code, payload = _explore(capsys, "--root", str(root), "--output", str(tmp_path / "out"))
+
+    assert code == 2
+    assert [item["kind"] for item in payload["diagnostics"]] == ["runtime_mismatch"]
+    assert "notes" not in payload

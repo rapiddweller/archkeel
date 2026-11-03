@@ -55,6 +55,7 @@ from archkeel.ir.facts import (
     JsonValue,
     Record,
     RecordData,
+    RuntimeRequirementState,
     SourceFacts,
     SourceSectionName,
     call_binding,
@@ -65,7 +66,7 @@ from archkeel.ir.facts_codec import (
 from archkeel.ir.facts_validation import validate_source_bindings
 from archkeel.ir.findings import findings
 from archkeel.ir.model import (
-    UML_TARGET_KIND,
+    RULE_RECORD_KINDS,
     ArchitectureContract,
     BaselineViolationComparison,
     CallRow,
@@ -101,7 +102,7 @@ from archkeel.ir.report_projection import architecture_projection
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 
 from .observe import Observer, observation_diagnostics
-from .onboarding import layout_components, scan_scope
+from .onboarding import layout_contracts, scan_scope
 from .ports import Analyzer, Language, ScanConfig, SourceCollector
 from .ratchets import call_rows, calls_measured, unknown_positions_by_rule
 from .run import inspect_observation
@@ -120,6 +121,8 @@ from .validation.observation import VIOLATION_REMEDY
 
 # AD-285: the temporary layout contract of `run_explore`; the name is a label, never a mark.
 EXPLORE_CONTRACT: Final = "archkeel-explore-layout.json"
+# AD-285: the folder of the inside contracts that open a large layout component.
+EXPLORE_LEVELS: Final = "archkeel-explore-levels"
 _UNDETECTED_MARKERS: Final = ("tsconfig.json", "pubspec.yaml")
 _CALL_RECORD_KINDS = ("resolved_call", "partially_resolved_call", "unresolved_call")
 
@@ -677,18 +680,68 @@ def _report_result(
     return command_result
 
 
+def _declares_a_target(model: Observation) -> bool:
+    """AD-285: a declared rule or UML target is something a report can check the code against."""
+    return any(
+        record.evidence_class == EvidenceClass.DECLARED_RULE and record.kind in RULE_RECORD_KINDS
+        for record in model.records("declarations") or ()
+    )
+
+
 def _target_result(model: Observation, result: RunResult) -> RunResult:
     """AD-285: no declared rule and no UML target leave nothing to check, so no rule passes."""
     # An invalid contract or runtime revokes the proofs; its diagnostics say why, no label.
-    if (
-        result.rule_assessments != ()
-        or any(item.kind in _REVOKING_DIAGNOSTICS for item in result.diagnostics)
-        or any(item.kind == UML_TARGET_KIND for item in model.records("declarations") or ())
+    if _declares_a_target(model) or any(
+        item.kind in _REVOKING_DIAGNOSTICS for item in result.diagnostics
     ):
         return result
     return replace(
         result, declared_rules=_AssessmentStatus.UNKNOWN, target=TargetStatus.UNAVAILABLE
     )
+
+
+# AD-285: with no target, an undeclared Python range cannot change an observed fact.
+_UNDECLARED_RANGE = frozenset(
+    {
+        RuntimeRequirementState.METADATA_MISSING,
+        RuntimeRequirementState.METADATA_INVALID,
+        RuntimeRequirementState.REQUIREMENT_MISSING,
+        RuntimeRequirementState.REQUIREMENT_INVALID,
+    }
+)
+
+
+def _noted_report(
+    result: ObservationResult,
+    report_filter: ReportFilter | None,
+    *,
+    baseline_root: Path | None = None,
+    baseline: Path | None = None,
+    require_source_graph: bool = False,
+) -> RunResult:
+    """AD-285: a report whose undeclared Python range is a coverage note, not a block."""
+    model = result.observation
+    notes: tuple[Diagnostic, ...] = ()
+    runtime = model.runtime if model is not None else None
+    if (
+        model is not None
+        and runtime is not None
+        and runtime.name == Language.PYTHON
+        and not _declares_a_target(model)
+        and (runtime.requirement_state in _UNDECLARED_RANGE or runtime.required is None)
+    ):
+        notes = tuple(item for item in result.diagnostics if item == runtime_diagnostic(runtime))
+        result = replace(
+            result, diagnostics=tuple(item for item in result.diagnostics if item not in notes)
+        )
+    report = _report_result(
+        result,
+        report_filter,
+        baseline_root=baseline_root,
+        baseline=baseline,
+        require_source_graph=require_source_graph,
+    )
+    return replace(report, notes=notes)
 
 
 def run_report(
@@ -739,7 +792,7 @@ def _observed_report(
         if clock is not None:
             _count_work(clock, result.observation, len(architecture))
     with measured(clock, Phase.RESULT):
-        report = _report_result(result, report_filter, baseline_root=root, baseline=baseline)
+        report = _noted_report(result, report_filter, baseline_root=root, baseline=baseline)
     return report, architecture
 
 
@@ -791,12 +844,19 @@ def run_explore(
             observed = observe_repository(root, config, analyzer, contract_root=scaffold)
             if observed.observation is not None:
                 # The provenance is the layout contract itself: explore observed the grouping.
-                _, components = layout_components(
-                    observed.observation, namespace, roots, language, (EXPLORE_CONTRACT,)
+                layout, insides = layout_contracts(
+                    observed.observation,
+                    namespace,
+                    roots,
+                    language,
+                    (EXPLORE_CONTRACT,),
+                    EXPLORE_LEVELS,
                 )
-                contract.write_bytes(
-                    contract_bytes(ArchitectureContract(ContractVersion.V2_1, components, ()))
-                )
+                contract.write_bytes(contract_bytes(layout))
+                for path, inside in insides:
+                    level: Path = scaffold / path
+                    level.parent.mkdir(parents=True, exist_ok=True)
+                    level.write_bytes(contract_bytes(inside))
                 observed = observe_repository(root, config, analyzer, contract_root=scaffold)
         except SnapshotError as error:
             raise DiagnosticError(
@@ -851,7 +911,7 @@ def run_saved_report(
         )
 
         diagnostics = observation_diagnostics(model, runtime, language)
-        return _report_result(
+        return _noted_report(
             ObservationResult(model, model.coverage, diagnostics),
             report_filter,
             require_source_graph=True,

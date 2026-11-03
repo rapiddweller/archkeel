@@ -16,7 +16,14 @@ from archkeel.ir.codec_wire import _raw_object, canonical_json_bytes
 from archkeel.ir.command_view import ArchitectureComponentView, architecture_command_envelope
 from archkeel.ir.facts_codec import record_payload as _record_payload
 from archkeel.ir.model import Command as _Command
-from archkeel.ir.model import FilteredViolation, Finding, OpenDecision, ReportFilter, RunResult
+from archkeel.ir.model import (
+    Diagnostic,
+    FilteredViolation,
+    Finding,
+    OpenDecision,
+    ReportFilter,
+    RunResult,
+)
 from archkeel.ir.model import RawJson as RawJson
 
 
@@ -268,15 +275,12 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
         provenance = _raw_object(asdict(result.provenance))
         del provenance["initial_pr"]
         payload["provenance"] = provenance
-    payload["diagnostics"] = [
-        {
-            key: value
-            for key, value in _raw_object(asdict(diagnostic)).items()
-            if (key not in {"pointer", "code", "contract_path"} or value is not None)
-            and (key != "locations" or value)
-        }
-        for diagnostic in result.diagnostics
-    ]
+    payload["diagnostics"] = [_diagnostic_payload(item) for item in result.diagnostics]
+    if result.notes:
+        payload["notes"] = [_diagnostic_payload(item) for item in result.notes]
+    else:
+        # AD-285: absent unless a report with no target downgraded a diagnostic.
+        del payload["notes"]
     payload["open_decisions"] = [
         _open_decision_payload(decision) for decision in result.open_decisions
     ]
@@ -293,6 +297,15 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
     if result.delta is not None:
         payload["delta"] = delta_payload(result.delta)
     return payload
+
+
+def _diagnostic_payload(diagnostic: Diagnostic) -> dict[str, RawJson]:
+    return {
+        key: value
+        for key, value in _raw_object(asdict(diagnostic)).items()
+        if (key not in {"pointer", "code", "contract_path"} or value is not None)
+        and (key != "locations" or value)
+    }
 
 
 def finding_payload(finding: Finding) -> dict[str, RawJson]:

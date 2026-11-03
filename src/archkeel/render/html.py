@@ -824,7 +824,7 @@ def _inventory_row(
     )
 
 
-def _atlas_inventory(observation: Observation) -> str:
+def _atlas_inventory(observation: Observation, notes: tuple[Diagnostic, ...]) -> str:
     """AD-285: what the code consists of, before any finding; observed facts, never a verdict."""
     owners = component_owners(observation)
     entries: dict[str, list[str]] = {}
@@ -873,7 +873,12 @@ def _atlas_inventory(observation: Observation) -> str:
         f"components · {len(observation.records('modules') or ())} modules · "
         f"{observation.coverage.files_parsed} files parsed · largest by modules: {largest}"
         f"{f' and {len(rest)} more' if rest else ''} · entry modules: {entry_text}.</p>"
-        '<details class="inventory-table"><summary>Inventory table</summary><p>Incoming and '
+        + "".join(
+            f'<p class="coverage-note">Coverage note: {_text(item.unknown_claim)} '
+            f"({_text(item.subject)}).</p>"
+            for item in notes
+        )
+        + '<details class="inventory-table"><summary>Inventory table</summary><p>Incoming and '
         "outgoing count module import edges; names are those other components import.</p>"
         f'<div class="table-wrap"><table class="data-table">{head}'
         f"<tbody>{''.join(shown)}</tbody></table></div>{more}</details></section>"
@@ -1042,7 +1047,11 @@ def _atlas_content(
         f' · <a href="{_text(overview_href)}">Architecture overview</a></p>'
         if detail_page
         else _atlas_verdict_line(result, observation)
-        + (_atlas_inventory(observation) if result.target is TargetStatus.UNAVAILABLE else "")
+        + (
+            _atlas_inventory(observation, result.notes)
+            if result.target is TargetStatus.UNAVAILABLE
+            else ""
+        )
         + _atlas_findings(result, observation, closed=result.target is TargetStatus.UNAVAILABLE)
     )
     return f"""<section class="report-heading atlas-heading">

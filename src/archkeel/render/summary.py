@@ -379,7 +379,9 @@ def report_summary(result: RunResult) -> Summary:
             "evaluated completely."
         )
     if result.target is TargetStatus.UNAVAILABLE:
-        sentence = _NO_TARGET_SENTENCE
+        sentence = _NO_TARGET_SENTENCE + "".join(
+            f"\n\nCoverage note: {item.unknown_claim}" for item in result.notes
+        )
     for status in ("FAIL", "UNKNOWN"):
         rules = [item.id for item in result.rule_assessments or () if item.status == status]
         if rules:

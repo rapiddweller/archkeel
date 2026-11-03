@@ -328,6 +328,77 @@ def layout_components(
     )
 
 
+# AD-285: a layout component above this many modules opens one level deeper, by subpackage.
+LAYOUT_SPLIT_MODULES: Final = 40
+LAYOUT_DEPTH: Final = 4
+
+
+def layout_contracts(
+    observation: Observation,
+    namespace: str,
+    roots: tuple[str, ...],
+    language: Language,
+    provenance: tuple[str, ...],
+    folder: str,
+) -> tuple[ArchitectureContract, tuple[tuple[str, ArchitectureContract], ...]]:
+    """The layout contract and an inside contract for each split component, by path.
+
+    A Python component of more than LAYOUT_SPLIT_MODULES modules gets one child component for
+    each direct subpackage, down to LAYOUT_DEPTH levels. Its direct module files stay its own.
+    """
+    _, components = layout_components(observation, namespace, roots, language, provenance)
+    if language != Language.PYTHON:
+        return ArchitectureContract(ContractVersion.V2_1, components, ()), ()
+    files: dict[str, str] = {
+        name: file
+        for record in observation.records("modules") or ()
+        if isinstance((name := record.data.get("qualified_name")), str)
+        and isinstance((file := record.data.get("file")), str)
+    }
+    insides: list[tuple[str, ArchitectureContract]] = []
+
+    def size(package: str) -> int:
+        return sum(1 for name in files if name == package or name.startswith(f"{package}."))
+
+    def split(component: ContractComponent, package: str, depth: int) -> ContractComponent:
+        children = sorted(
+            {
+                f"{package}.{name[len(package) + 1 :].split('.')[0]}"
+                for name in files
+                if name.startswith(f"{package}.")
+            }
+        )
+        subpackages = [
+            child
+            for child in children
+            if PurePosixPath(files.get(child, "")).name == "__init__.py" or size(child) > 1
+        ]
+        if depth >= LAYOUT_DEPTH or size(package) <= LAYOUT_SPLIT_MODULES or not subpackages:
+            return component
+        path = f"{folder}/{package}.json"
+        nested = tuple(
+            split(
+                ContractComponent(
+                    f"COMP-{identifier(child.rpartition('.')[2])}",
+                    child.rpartition(".")[2],
+                    ComponentRole.COMPONENT,
+                    (child,),
+                    (),
+                    (),
+                    provenance,
+                ),
+                child,
+                depth + 1,
+            )
+            for child in subpackages
+        )
+        insides.append((path, ArchitectureContract(ContractVersion.V2_1, nested, ())))
+        return replace(component, inside=path, namespace=package)
+
+    root = tuple(split(item, item.packages[0], 1) for item in components)
+    return ArchitectureContract(ContractVersion.V2_1, root, ()), tuple(sorted(insides))
+
+
 def draft_contract(
     observation: Observation,
     namespace: str,
