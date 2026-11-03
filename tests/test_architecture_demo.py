@@ -51,6 +51,7 @@ _SAMPLE_VARIANTS = [
     and variant.check is None
     and variant.against is None
     and variant.view is None
+    and not variant.explore
 ]
 _CHECK_VARIANTS = [variant for variant in CATALOG if variant.check is not None]
 _AGAINST_VARIANTS = [variant for variant in CATALOG if variant.against is not None]

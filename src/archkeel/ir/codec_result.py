@@ -16,7 +16,14 @@ from archkeel.ir.codec_wire import _raw_object, canonical_json_bytes
 from archkeel.ir.command_view import ArchitectureComponentView, architecture_command_envelope
 from archkeel.ir.facts_codec import record_payload as _record_payload
 from archkeel.ir.model import Command as _Command
-from archkeel.ir.model import FilteredViolation, Finding, OpenDecision, ReportFilter, RunResult
+from archkeel.ir.model import (
+    Diagnostic,
+    FilteredViolation,
+    Finding,
+    OpenDecision,
+    ReportFilter,
+    RunResult,
+)
 from archkeel.ir.model import RawJson as RawJson
 
 
@@ -255,21 +262,25 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
     if result.first_look is None:
         # AD-266: absent on every result but init's, so the other results keep their shape.
         del payload["first_look"]
+    if result.target is None:
+        # AD-285: absent while a rule or UML target is declared, so those results keep their shape.
+        del payload["target"]
+    for name in ("root_name", "root_digest"):
+        if payload[name] is None:
+            # AD-285: only explore names its root.
+            del payload[name]
     if result.report_filter is not None:
         payload["report_filter"] = _report_filter_payload(result.report_filter)
     if result.provenance is not None and result.provenance.initial_pr is None:
         provenance = _raw_object(asdict(result.provenance))
         del provenance["initial_pr"]
         payload["provenance"] = provenance
-    payload["diagnostics"] = [
-        {
-            key: value
-            for key, value in _raw_object(asdict(diagnostic)).items()
-            if (key not in {"pointer", "code", "contract_path"} or value is not None)
-            and (key != "locations" or value)
-        }
-        for diagnostic in result.diagnostics
-    ]
+    payload["diagnostics"] = [_diagnostic_payload(item) for item in result.diagnostics]
+    if result.notes:
+        payload["notes"] = [_diagnostic_payload(item) for item in result.notes]
+    else:
+        # AD-285: absent unless a report with no target downgraded a diagnostic.
+        del payload["notes"]
     payload["open_decisions"] = [
         _open_decision_payload(decision) for decision in result.open_decisions
     ]
@@ -286,6 +297,15 @@ def result_payload(result: RunResult) -> dict[str, RawJson]:
     if result.delta is not None:
         payload["delta"] = delta_payload(result.delta)
     return payload
+
+
+def _diagnostic_payload(diagnostic: Diagnostic) -> dict[str, RawJson]:
+    return {
+        key: value
+        for key, value in _raw_object(asdict(diagnostic)).items()
+        if (key not in {"pointer", "code", "contract_path"} or value is not None)
+        and (key != "locations" or value)
+    }
 
 
 def finding_payload(finding: Finding) -> dict[str, RawJson]:

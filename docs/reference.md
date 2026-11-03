@@ -167,6 +167,25 @@ which dependency permissions are declared, and it counts decisions by `decided_b
 That count is recorded metadata, not verified approval; the guide does not observe
 imports and gives no verdicts.
 
+## Explore without a contract
+
+`archkeel explore [--root PATH] [--output DIR]` shows a repository that has no ArchKeel file
+([AD-285](architecture/decisions/ad-285-explore-without-a-contract.md)). It finds the one
+top-level Python package as `init` does, or reads the `init` options `--language`, `--source`,
+`--namespace` and `--tsconfig`, and groups the modules by the package layout. A Python component
+of more than 40 modules opens one level deeper, one child per direct subpackage, down to four
+levels. On a complete scan, an undeclared Python range is a coverage note in `notes`, not exit 2
+(`report` still exits 2). It writes
+`architecture.json` and the report pages to `DIR`, or else to
+`$XDG_CACHE_HOME/archkeel/explore/<root_digest>/` (`~/.cache` when the variable is not set). It
+writes nothing into the repository, and an `--output` inside it exits 2. The result is a
+`report` result with `target: unavailable`, `declared_rules: UNKNOWN`, `root_name` and
+`root_digest`. The report page opens
+with an inventory of the components before the findings. Query the snapshot like any other:
+`archkeel report --input DIR/architecture.json --only architecture --component COMP-APP --json`.
+TypeScript and Dart need the scope options. `validate` on a contract with no rule keeps PASS:
+the contract is valid, and no rule was checked.
+
 ## Checked views
 
 `archkeel view check <spec> [--snapshot architecture.json] [--json] [--strict]` checks a view
@@ -210,6 +229,7 @@ expectations are n/a. Filtering and baseline display do not change canonical fac
 | `check` | Accepted | Rejected | Input/evidence unverifiable |
 | `validate` | Validation accepted | Baseline/budget/widening rejected | Validation diagnostics |
 | `report` | Observation complete; read verdicts | — | Input/evidence unverifiable |
+| `explore` | Observation complete; no rule verdict | — | No single Python package, no Git commit, output inside the root, or incomplete coverage |
 | `init` | Draft written | — | Draft unavailable |
 | `skill install` | Instructions written | — | Target could not be updated |
 | `guide` | Guide written, or `--check` up to date | `--check`: missing or different | No contract, or it cannot be read |
@@ -235,7 +255,8 @@ apply to root and mounted contracts; a mounted diagnostic carries its contract p
 
 JSON null means unavailable/inapplicable; an empty list means measured empty.
 Pin CLI and [command schema](../schema/command-result-11.0.schema.json) together.
-Version 11 adds `findings` to an unfiltered `report` (see below) and retains 10.0, which
+Version 11 adds `findings` to an unfiltered `report` (see below) and `target: unavailable`
+to a report whose observation declares no rule and no UML target. It retains 10.0, which
 adds `contract_changes`. Version 9 accepts ArchitectureIR 2.1 observations with strict call-binding shapes
 and retains supported version 6/7/8 results. Incomplete reports may preserve a
 traceable FAIL while

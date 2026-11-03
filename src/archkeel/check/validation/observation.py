@@ -15,12 +15,14 @@ from archkeel.ir.model import (
 )
 from archkeel.ir.model import DiagnosticCode as _DiagnosticCode
 
-from ..report import VIOLATION_REMEDY
 from .closed_world import closed_world_diagnostics
 from .diagnostics import _diagnostic, _sorted
 from .graphs import graph_diagnostics
 from .public_api import compatibility_diagnostics, interface_diagnostics, public_api_diagnostics
 from .rationale import _PLACEHOLDER_RATIONALE, rationale_diagnostics
+
+# Validation owns this remedy, so the report workflow can reuse onboarding without a cycle.
+VIOLATION_REMEDY = "Change the code or amend the contract with owner approval."
 
 
 def _inside_pointers(contract: ArchitectureContract, observation: Observation) -> dict[str, str]:

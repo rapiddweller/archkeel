@@ -2,6 +2,9 @@
 
 **Amended by AD-286.** Details starts closed, so the inventory shows after the Details button. A first-screen panel is planned (#791).
 
+**Amended by AD-285.** With no declared rule, a server-side inventory line comes before the findings,
+and the findings start closed. The Details inventory stays as decided here.
+
 **Decision.**
 - While nothing is selected, the Explorer's fact sheet shows an inventory instead of an empty
   prompt: the counts (components and modules) and the components with the most

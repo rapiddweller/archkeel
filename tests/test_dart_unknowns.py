@@ -572,6 +572,8 @@ def test_python_result_json_changes_only_by_the_additive_fields(tmp_path: Path) 
         "unresolved_call_note",
         # AD-258: the ranked findings an unfiltered report opens with.
         "findings",
+        # AD-285: this contract declares no rule, so the target is unavailable.
+        "target",
     }
     assert (
         payload["filtered_calls"],

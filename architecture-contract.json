@@ -538,7 +538,7 @@
       {
         "source": "cli",
         "target": "check",
-        "max_names": 15,
+        "max_names": 17,
         "provenance": [
           "docs/architecture/decisions/ad-99-facade-and-coupling-budgets-are-contract-ceilings.md",
           "docs/architecture/decisions/ad-148-source-facts-and-core-evaluation-have-separate-owners.md",

@@ -106,10 +106,40 @@ def detect_source(root: Path) -> tuple[str, str]:
                 str(base),
                 "Expected one top-level Python package, or one matching pyproject.toml's "
                 f"[project] name ({name or 'missing'}); found {found}.",
-                "Pass --source <directory> and --namespace <package> to archkeel init.",
+                "Pass --source <directory> and --namespace <package>.",
             )
         )
     return chosen[0].relative_to(root).as_posix(), chosen[0].name
+
+
+def scan_scope(
+    root: Path,
+    *,
+    source: str | tuple[str, ...] | None,
+    namespace: str | None,
+    language: Language,
+    tsconfig: str | None,
+) -> tuple[tuple[str, ...], str]:
+    """The scan roots and namespace of `init` and `explore`: the options, else the one package."""
+    if language == Language.TYPESCRIPT and (not source or not namespace or not tsconfig):
+        raise ValueError("TypeScript requires --source, --namespace and --tsconfig")
+    if language != Language.TYPESCRIPT and tsconfig is not None:
+        raise ValueError("--tsconfig requires --language typescript")
+    if source is None or namespace is None:
+        if source is not None or namespace is not None:
+            raise ValueError("pass both --source and --namespace, or neither")
+        if language == Language.DART:
+            # Detection reads Python package markers; a Dart package names its own root.
+            raise DiagnosticError(
+                Diagnostic(
+                    _DiagnosticKind.SCOPE_EMPTY,
+                    str(root),
+                    "A Dart package's source directory and name are not detected yet.",
+                    "Pass --source lib and --namespace <pubspec name>.",
+                )
+            )
+        source, namespace = detect_source(root)
+    return ((source,) if isinstance(source, str) else source), namespace
 
 
 def _has_cycle(labels: tuple[str, ...], edges: frozenset[tuple[str, str]]) -> bool:
@@ -221,7 +251,7 @@ def _drafted_public(
 
 
 def _typescript_components(
-    observation: Observation, namespace: str, roots: tuple[str, ...]
+    observation: Observation, namespace: str, roots: tuple[str, ...], provenance: tuple[str, ...]
 ) -> tuple[dict[str, str], tuple[ContractComponent, ...]]:
     groups: dict[PurePosixPath, list[str]] = {}
     directories: set[PurePosixPath] = set()
@@ -258,12 +288,125 @@ def _typescript_components(
                 (selector,) if directory else (),
                 (),
                 (),
-                (DOCUMENT_PATH,),
+                provenance,
                 namespace=selector if directory else None,
                 exact_modules=None if directory else tuple(sorted(names)),
             )
         )
     return labels, tuple(components)
+
+
+def layout_components(
+    observation: Observation,
+    namespace: str,
+    roots: tuple[str, ...],
+    language: Language,
+    provenance: tuple[str, ...] = (DOCUMENT_PATH,),
+) -> tuple[dict[str, str], tuple[ContractComponent, ...]]:
+    """Group modules by the top-level children of the namespace: a layout fact, no decision."""
+    if language == Language.TYPESCRIPT:
+        return _typescript_components(observation, namespace, roots, provenance)
+    depth = len(namespace.split("."))
+    module_labels = {
+        name: name.split(".")[depth]
+        for record in observation.records("modules") or ()
+        if isinstance((name := record.data.get("qualified_name")), str)
+        and name != namespace
+        and in_scope(name, namespace)
+    }
+    return module_labels, tuple(
+        ContractComponent(
+            f"COMP-{identifier(label)}",
+            label,
+            ComponentRole.COMPONENT,
+            (f"{namespace}.{label}",),
+            (),
+            (),
+            provenance,
+        )
+        for label in sorted(set(module_labels.values()))
+    )
+
+
+# AD-285: a layout component above this many modules opens one level deeper, by subpackage.
+LAYOUT_SPLIT_MODULES: Final = 40
+LAYOUT_DEPTH: Final = 4
+
+
+def _child_package(name: str, package: str) -> str:
+    """The direct child of `package` that holds the module `name`."""
+    below: str = name.removeprefix(f"{package}.")
+    return f"{package}.{below.partition('.')[0]}"
+
+
+def _last_name(name: str) -> str:
+    return name.rpartition(".")[2]
+
+
+def layout_contracts(
+    observation: Observation,
+    namespace: str,
+    roots: tuple[str, ...],
+    language: Language,
+    provenance: tuple[str, ...],
+    folder: str,
+) -> tuple[ArchitectureContract, tuple[tuple[str, ArchitectureContract], ...]]:
+    """The layout contract and an inside contract for each split component, by path.
+
+    A Python component of more than LAYOUT_SPLIT_MODULES modules gets one child component for
+    each direct subpackage, down to LAYOUT_DEPTH levels. Its direct module files stay its own.
+    """
+    _, components = layout_components(observation, namespace, roots, language, provenance)
+    if language != Language.PYTHON:
+        return ArchitectureContract(ContractVersion.V2_1, components, ()), ()
+    files: dict[str, str] = {
+        name: file
+        for record in observation.records("modules") or ()
+        if isinstance((name := record.data.get("qualified_name")), str)
+        and isinstance((file := record.data.get("file")), str)
+    }
+    insides: list[tuple[str, ArchitectureContract]] = []
+
+    def size(package: str) -> int:
+        return sum(1 for name in files if in_scope(name, package))
+
+    def split(component: ContractComponent, package: str, depth: int) -> ContractComponent:
+        children = sorted(
+            {
+                _child_package(name, package)
+                for name in files
+                if name != package and in_scope(name, package)
+            }
+        )
+        subpackages = [
+            child
+            for child in children
+            if PurePosixPath(files.get(child, "")).name == "__init__.py" or size(child) > 1
+        ]
+        if depth >= LAYOUT_DEPTH or size(package) <= LAYOUT_SPLIT_MODULES or not subpackages:
+            return component
+        path = f"{folder}/{package}.json"
+        nested = tuple(
+            split(
+                ContractComponent(
+                    f"COMP-{identifier(_last_name(child))}",
+                    _last_name(child),
+                    ComponentRole.COMPONENT,
+                    (child,),
+                    (),
+                    (),
+                    provenance,
+                ),
+                child,
+                depth + 1,
+            )
+            for child in subpackages
+        )
+        insides.append((path, ArchitectureContract(ContractVersion.V2_1, nested, ())))
+        return replace(component, inside=path, namespace=package)
+
+    root = tuple(split(item, item.packages[0], 1) for item in components)
+    return ArchitectureContract(ContractVersion.V2_1, root, ()), tuple(sorted(insides))
 
 
 def draft_contract(
@@ -280,30 +423,7 @@ def draft_contract(
     AD-38: sizes come from `scope_metrics`, the same aggregation `structure_metrics` uses for
     a declared component, applied here to the draft grouping before any component exists.
     """
-    if language == Language.TYPESCRIPT:
-        module_labels, draft_components = _typescript_components(observation, namespace, roots)
-    else:
-        depth = len(namespace.split("."))
-        module_labels = {
-            name: name.split(".")[depth]
-            for record in observation.records("modules") or ()
-            if isinstance((name := record.data.get("qualified_name")), str)
-            and name != namespace
-            and in_scope(name, namespace)
-        }
-        labels = tuple(sorted(set(module_labels.values())))
-        draft_components = tuple(
-            ContractComponent(
-                f"COMP-{identifier(label)}",
-                label,
-                ComponentRole.COMPONENT,
-                (f"{namespace}.{label}",),
-                (),
-                (),
-                (DOCUMENT_PATH,),
-            )
-            for label in labels
-        )
+    module_labels, draft_components = layout_components(observation, namespace, roots, language)
     labels = tuple(component.label for component in draft_components)
     scaffold = ArchitectureContract(ContractVersion.V2_1, draft_components, ())
     edges = observed_component_edges(scaffold, observation)
@@ -539,24 +659,9 @@ def run_init(
     collector_timeout_seconds: int | None = None,
 ) -> tuple[RunResult, FilesToWrite]:
     """Observe the repository and return the onboarding files without writing them."""
-    if language == Language.TYPESCRIPT and (not source or not namespace or not tsconfig):
-        raise ValueError("TypeScript init requires --source, --namespace and --tsconfig")
-    if language != Language.TYPESCRIPT and tsconfig is not None:
-        raise ValueError("--tsconfig requires --language typescript")
-    if source is None or namespace is None:
-        if source is not None or namespace is not None:
-            raise ValueError("pass both --source and --namespace, or neither")
-        if language == Language.DART:
-            # Detection reads Python package markers; a Dart package names its own root.
-            raise DiagnosticError(
-                Diagnostic(
-                    _DiagnosticKind.SCOPE_EMPTY,
-                    str(root),
-                    "A Dart package's source directory and name are not detected yet.",
-                    "Pass --source lib and --namespace <pubspec name> to archkeel init.",
-                )
-            )
-        source, namespace = detect_source(root)
+    roots, namespace = scan_scope(
+        root, source=source, namespace=namespace, language=language, tsconfig=tsconfig
+    )
     # AD-266: an adoption also replaces the baseline it writes, so that file is guarded too.
     guarded = (
         CONFIG_PATH,
@@ -575,7 +680,6 @@ def run_init(
                 "Rerun archkeel init with --force to replace them.",
             )
         )
-    roots = (source,) if isinstance(source, str) else source
     config = ScanConfig(
         roots,
         namespace,
