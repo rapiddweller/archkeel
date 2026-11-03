@@ -204,7 +204,8 @@ make report-browser-tests # Chromium tests of the rendered report
 ```
 
 PR CI checks report data and JavaScript logic without Chromium. Full verification also runs
-nine Chromium tests: findings, keyboard navigation, unsafe-content escaping and the first screen.
+the Chromium tests: findings, keyboard navigation, unsafe-content escaping, the first screen and
+reaching a component.
 Use the Nightly gallery for manual visual review.
 
 ArchKeel checks its own [architecture contract](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json) using fresh
