@@ -9,6 +9,11 @@
 3. Grouping: a temporary contract `archkeel-explore-layout.json` outside the repository has one
    component for each top-level child (the `init` grouping); its provenance is that file. It has
    no rule, `public`, `requires` or decision. The collector runs once for both passes.
+   Levels (Python): a component of more than 40 modules gets an `inside` contract in
+   `archkeel-explore-levels/` with one child component for each direct subpackage, named after
+   it; at most 4 levels. Its direct module files stay its own, and a child of 40 modules or
+   fewer stays one leaf. The split is deterministic and has no rule or `requires`. A level
+   with many children shows all of them; the Explorer lays them out as on any level.
 4. Output: `architecture.json` and the report pages go to `DIR`, else to
    `$XDG_CACHE_HOME/archkeel/explore/<root_digest>/` (default `~/.cache`). An output inside the
    root exits 2. Each run observes again and first removes its old files.
@@ -22,8 +27,13 @@
 7. In this mode one line comes first: counts, the 8 largest components with their module
    counts, and the `__main__` modules. A closed table adds edges and names other components
    import ("N more" for the rest); the findings start closed, so the Explorer fits at 800x600.
-   This amends AD-264 and AD-258 for this mode only.
+   No level shows deviations. This amends AD-264 and AD-258 for this mode only.
 8. Exit 0: complete. Exit 2: no scope, no Git commit, output inside the root, incomplete coverage.
+9. Notes: with no declared rule and no UML target, a diagnostic that cannot change an observed
+   fact does not block. Today this is one case: an undeclared or unreadable Python range
+   (`runtime_mismatch` from a missing `pyproject.toml` or `requires-python`). It goes to `notes`,
+   and the page shows a coverage note. A Python outside a declared range, a source failure, an
+   empty scope and a missing rule coverage still exit 2: they can change or hide facts.
 
 **Graph for a view check.** `architecture_report(parse_observation(...))`: `observed` has
 entities (stable `id` such as `MOD-`, `SYM-`; a `kind`) and relationships (`kind` such as

@@ -5,6 +5,7 @@
 
 import hashlib
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -455,3 +456,17 @@ def test_a_python_outside_the_declared_range_still_blocks(
     assert code == 2
     assert [item["kind"] for item in payload["diagnostics"]] == ["runtime_mismatch"]
     assert "notes" not in payload
+
+
+def test_explore_shows_no_deviation_without_a_target(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _repository(tmp_path / "repo", {**_SOURCES, **nested_engine_files()})
+
+    assert _explore(capsys, "--root", str(root), "--output", str(tmp_path / "out"))[0] == 0
+
+    page = (tmp_path / "out" / "architecture.report.html").read_text()
+    payload = json.loads(re.search(r'id="flow-data"[^>]*>(.*?)</script>', page, re.S)[1])
+    # AD-285: an observed crossing deviates from nothing when nothing is declared.
+    assert payload["atlas"]["deviations"] == []
+    assert all(not level["deviation_ids"] for level in payload["atlas"]["levels"])
