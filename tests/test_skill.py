@@ -3,7 +3,12 @@
 # SPDX-License-Identifier: MIT
 """Tests for installing the Archkeel coding-agent skill."""
 
+import argparse
+import contextlib
+import io
 import json
+import re
+import shlex
 import subprocess
 import sys
 import zipfile
@@ -11,6 +16,7 @@ from pathlib import Path
 
 import pytest
 
+from archkeel.cli import build_parser, main
 from archkeel.cli.skill import install_skill
 
 ROOT = Path(__file__).parents[1]
@@ -444,3 +450,279 @@ def test_plugin_release_zip_is_identical_when_local_time_changes(
         assert bundle.namelist() == sorted(package_plugin._plugin_files(None))
         assert all(entry.date_time == (1980, 1, 1, 0, 0, 0) for entry in bundle.infolist())
         assert all(entry.external_attr >> 16 == 0o100644 for entry in bundle.infolist())
+
+
+def _section(heading: str) -> str:
+    body = ASSET.read_text(encoding="utf-8")
+    start = body.find(f"## {heading}\n")
+    end = body.find("\n## ", start + 1)
+    return body[start:end] if start != -1 else ""
+
+
+def _flow_section() -> str:
+    return _section("Show a flow")
+
+
+def _commands(text: str, **values: str) -> list[list[str]]:
+    """Each `archkeel ...` command line in the text as argv; a placeholder gets its value or `x`."""
+    found = re.findall(r"`archkeel ([^`]+)`", text)
+    return [
+        shlex.split(re.sub(r"<([^>]+)>", lambda hole: values.get(hole.group(1), "x"), command))
+        for command in dict.fromkeys(found)
+    ]
+
+
+def _parses(argv: list[str]) -> bool:
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            build_parser().parse_args(argv)
+    except ValueError:  # _Parser.error raises it instead of exiting
+        return False
+    return True
+
+
+def _options(argv: list[str]) -> set[str]:
+    """The exact option strings of the subcommand that argv names."""
+    parser: argparse.ArgumentParser = build_parser()
+    for word in argv:
+        # argparse has no public API for its subcommand tree.
+        tree = [act for act in parser._actions if isinstance(act, argparse._SubParsersAction)]
+        if not tree or word not in tree[0].choices:
+            break
+        parser = tree[0].choices[word]
+    return {option for action in parser._actions for option in action.option_strings}
+
+
+_FLOW_COMMANDS = _commands(_flow_section())
+_FIRST_RUN_STEPS = re.split(r"\n(?=\d+\. )", _section("First run on a codebase"))[1:]
+_ASK = '"Create a draft contract?"'
+
+
+def _ask_step() -> int:
+    """The number of the one step that asks the owner."""
+    asks = [n for n, step in enumerate(_FIRST_RUN_STEPS, start=1) if _ASK in step]
+    assert len(asks) == 1
+    return asks[0]
+
+
+def _writes(argv: list[str]) -> bool:
+    """A command that writes the draft contract, its page graph or its snapshot."""
+    return argv[0] == "init" or "--write-graph" in argv or argv[:2] == ["report", "--output"]
+
+
+def test_flow_section_teaches_the_whole_loop() -> None:
+    assert len(_FLOW_COMMANDS) >= 6
+    taught = {" ".join(argv[:2]) for argv in _FLOW_COMMANDS}
+    assert {"report --input", "view check", "view show"} <= taught
+    assert any(argv[0] == "explore" for argv in _FLOW_COMMANDS)
+
+
+@pytest.mark.parametrize(
+    "argv",
+    _commands(_flow_section() + _section("First run on a codebase"), language="python"),
+    ids=" ".join,
+)
+def test_skill_command_parses_with_the_real_cli(argv: list[str]) -> None:
+    """#787: each command line the flow and first-run sections teach exists in the CLI."""
+    assert _parses(argv), argv
+    # argparse accepts a prefix such as --write-gr; the skill must name the exact option.
+    assert {word for word in argv if word.startswith("--")} <= _options(argv), argv
+
+
+def test_first_run_asks_the_owner_before_any_command_writes_a_contract() -> None:
+    """The first run never creates a contract implicitly: only read-only commands come first."""
+    ask = _ask_step()
+    before = [argv for step in _FIRST_RUN_STEPS[: ask - 1] for argv in _commands(step)]
+    assert before and all(
+        argv[0] == "explore" or argv[:2] == ["report", "--input"] for argv in before
+    )
+    assert any(argv[0] == "init" for step in _FIRST_RUN_STEPS[ask:] for argv in _commands(step))
+
+
+def test_first_run_without_a_yes_skips_every_step_that_writes() -> None:
+    """Without a yes, the skipped steps hold each write; the views write only to the cache."""
+    assert all(step.startswith(f"{n}. ") for n, step in enumerate(_FIRST_RUN_STEPS, start=1))
+    ask = _ask_step()
+    skip = re.search(r"skip steps (\d+) to (\d+)", _FIRST_RUN_STEPS[ask])
+    assert skip is not None
+    skipped = range(int(skip.group(1)), int(skip.group(2)) + 1)
+    assert skipped.start > ask + 1
+    writing = {
+        n
+        for n, step in enumerate(_FIRST_RUN_STEPS, start=1)
+        for argv in _commands(step)
+        if _writes(argv)
+    }
+    taught = [argv for n in skipped for argv in _commands(_FIRST_RUN_STEPS[n - 1])]
+    assert writing <= set(skipped)
+    assert {"init", "validate", "report"} <= {argv[0] for argv in taught if _writes(argv)}
+    kept = [argv[:2] for step in _FIRST_RUN_STEPS[skipped.stop - 1 :] for argv in _commands(step)]
+    assert ["view", "check"] in kept and ["view", "show"] in kept
+    # The views write only to the user cache, so the step without a yes skips no view.
+    spans = re.findall(r"`([^`]+)`", _FIRST_RUN_STEPS[ask])
+    assert not any(span.startswith("view") for span in spans)
+
+
+def test_flow_section_states_the_proof_rules() -> None:
+    section = _flow_section()
+    assert '"claim": true' in section
+    assert "`unknown`" in section and "`missing`" in section
+    assert "not runtime order" in section
+    assert "except as a claim" in section
+    assert "`status` or `evidence`" in section
+    assert "not an execution trace" in section
+    assert "`target: unavailable`" in section
+    assert "one direct edge" in section and "opens at the flow" in section
+    # The same file serves Codex and Claude Code: name commands, not one agent's tools.
+    assert not re.search(r"\b(Read|Bash|Edit|Write) tool\b", section)
+
+
+def _agent_spec(snapshot: Path, steps: list[str], edges: list[dict]) -> dict:
+    """Write the spec the way the section says: digests copied, a kind on each later step."""
+    packet = json.loads(snapshot.read_text())
+    return {
+        "schema_version": "1.0.0",
+        "title": "How does the CLI place an order?",
+        "snapshot": {
+            "source_digest": packet["source"]["source_digest"],
+            "contract_digest": packet["contract"]["digest"],
+        },
+        "nodes": sorted({*steps, *(e[end] for e in edges for end in ("source", "target"))}),
+        "steps": [
+            {"node": steps[0]},
+            *({"node": node, "kind": "imports"} for node in steps[1:]),
+        ],
+        "edges": edges,
+        "notes": ["Author text: the agent explains the flow; the check proves structure."],
+    }
+
+
+def _view(
+    command: str, tmp_path: Path, snapshot: Path, spec: dict, capsys: pytest.CaptureFixture
+) -> tuple[int, dict]:
+    path = tmp_path / "views" / "flow.json"
+    path.parent.mkdir(exist_ok=True)
+    path.write_text(json.dumps(spec))
+    extra = ["--output", str(tmp_path / "page")] if command == "show" else []
+    code = main(["view", command, str(path), "--snapshot", str(snapshot), "--json", *extra])
+    out = capsys.readouterr().out
+    return code, json.loads(out) if code != 2 else {}
+
+
+def _shop_without_contract(tmp_path: Path) -> Path:
+    from test_architecture_demo import _prepare_repo
+
+    contract_files = ("archkeel.toml", "archkeel-tests.toml", "architecture-contract.json")
+    return _prepare_repo(tmp_path, dict.fromkeys(contract_files))
+
+
+def test_agent_flow_without_a_contract_uses_explore(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """Step 2 without `archkeel.toml`: explore, then the same check; no rule means no PASS."""
+    root = _shop_without_contract(tmp_path)
+    # `shop` is a namespace package, so detection finds `tests`: the agent checks scan_roots.
+    assert main(["explore", "--root", str(root), "--output", str(tmp_path / "x"), "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["scan_roots"] == ["tests"]
+    scope = ["--source", "shop", "--namespace", "shop", "--output", str(tmp_path / "explore")]
+    assert main(["explore", "--root", str(root), *scope, "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["declared_rules"] == "UNKNOWN"
+    snapshot = Path(result["artifact"])
+    spec = _agent_spec(snapshot, ["shop.cli.main", "shop.app.orders"], [])
+    spec["nodes"].append("COMP-APP")
+    code, checked = _view("check", tmp_path, snapshot, spec, capsys)
+    assert code == 0 and checked["steps"][1]["status"] == "proven"
+    # A layout group declares nothing (AD-285), so the section says to use module nodes.
+    assert {node["id"]: node["status"] for node in checked["nodes"]}["COMP-APP"] == "unknown"
+    assert "`scan_roots`" in _flow_section()
+    # The section gives a kind to each later step only: the first step has none before it.
+    spec["steps"][0]["kind"] = "imports"
+    assert _view("check", tmp_path, snapshot, spec, capsys)[0] == 2
+
+
+_SCOPE = ("--source", "--namespace", "--language", "--tsconfig")
+_NAMES = {name: f"<{name}>" for name in ("dir", "package", "language", "file")}
+
+
+def test_first_run_init_takes_the_scope_options_of_the_scoped_explore() -> None:
+    """#804: a TypeScript or Dart scope must reach `init`, or init uses the Python collector."""
+
+    def scope(argv: list[str]) -> dict[str, str]:
+        return {word: argv[n + 1] for n, word in enumerate(argv) if word in _SCOPE}
+
+    explore = [scope(argv) for argv in _commands(_flow_section(), **_NAMES) if argv[0] == "explore"]
+    init = [
+        scope(argv)
+        for step in _FIRST_RUN_STEPS
+        for argv in _commands(step, **_NAMES)
+        if argv[0] == "init"
+    ]
+    scoped = [options for options in explore if options]
+    assert len(init) == len(scoped) == 1 and "--language" in init[0]
+    assert init[0] == scoped[0]
+
+
+def test_first_run_init_drafts_the_scope_that_explore_showed(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """A yes to the shop overview must draft shop, not the `tests` package that detection finds."""
+    root = _shop_without_contract(tmp_path)
+    scoped = [
+        argv
+        for step in _FIRST_RUN_STEPS
+        for argv in _commands(step, dir="shop", package="shop", language="python")
+        if argv[0] == "init"
+    ]
+    assert len(scoped) == 1
+    assert main([*scoped[0], "--root", str(root)]) == 0
+    capsys.readouterr()
+    contract = json.loads((root / "architecture-contract.json").read_text())
+    packages = [
+        package for component in contract["components"] for package in component["packages"]
+    ]
+    assert packages and all(package.split(".")[0] == "shop" for package in packages)
+
+
+def test_flow_section_module_prefix_rule_gives_the_nested_child_modules(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """Step 3: a short module key gets `selector_prefix`, else the component's own `namespace`."""
+    from test_architecture_projection import _repository
+
+    root, config = _repository(tmp_path)
+    contract = json.loads((root / config.contract).read_bytes())
+    contract["components"][0]["inside"] = "core.json"
+    (root / "sample/core.py").unlink()
+    (root / "sample/core").mkdir()
+    for name in ("__init__", "left", "right"):
+        (root / f"sample/core/{name}.py").write_text("")
+    children = []
+    for label in ("left", "right"):
+        child = {**contract["components"][0], "id": label.upper(), "label": label}
+        child.update(packages=[f"sample.core.{label}"], public=[f"sample.core.{label}"])
+        child.update(namespace=f"sample.core.{label}", requires=[])
+        child.pop("inside")
+        children.append(child)
+    del children[1]["namespace"]  # its keys then take the parent's namespace as selector_prefix
+    rules = [contract["rules"][-1]]
+    (root / "core.json").write_text(
+        json.dumps({"schema_version": "2.1.0", "components": children, "rules": rules})
+    )
+    (root / config.contract).write_text(json.dumps(contract))
+    snapshot = tmp_path / "snapshot" / "architecture.json"
+    assert main(["report", "--root", str(root), "--output", str(snapshot), "--json"]) == 0
+    expected = {"core:LEFT": {"sample.core.left"}, "core:RIGHT": {"sample.core.right"}}
+    for identity, modules in expected.items():
+        query = ["--only", "architecture", "--component", identity, "--full", "--json"]
+        capsys.readouterr()
+        assert main(["report", "--input", str(snapshot), *query]) == 0
+        projection = json.loads(capsys.readouterr().out)["architecture_projection"]
+        component = next(item for item in projection["components"] if item["id"] == identity)
+        prefix = component.get("selector_prefix", component.get("namespace"))
+        names = {
+            prefix + key if key == "" or key.startswith(".") else key
+            for key in component["modules"]
+        }
+        assert names == modules, component
+    assert "`selector_prefix`" in _flow_section()

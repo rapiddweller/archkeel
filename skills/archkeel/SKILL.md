@@ -1,6 +1,6 @@
 ---
 name: archkeel
-description: Use when defining or reviewing architecture, maintaining nested contracts, or checking an Archkeel repository before submitting code.
+description: Use when meeting a new or unknown codebase ("explain this codebase", "how does it start", "show me the flow of X"), defining or reviewing architecture, maintaining nested contracts, or checking an Archkeel repository before submitting code.
 ---
 
 # Archkeel
@@ -9,6 +9,101 @@ Archkeel is a deterministic architecture checker. It observes Python, TypeScript
 declared contract of components and rules against that observation, and distinguishes
 PASS, FAIL and UNKNOWN. Rules live in `architecture-contract.json` and its explicit nested
 contracts; nothing is enforced by convention alone.
+
+## First run on a codebase
+
+Use this procedure when a repository has no `archkeel.toml`. The first run gives the owner content
+from the measured code: how the system starts, an overview, and one sentence for each component.
+After the draft, continue with "Onboarding" below.
+
+1. Run `archkeel explore --json`. It writes nothing into the repository. Check `scan_roots` as
+   "Show a flow" step 2 tells. Keep the `findings` of the result.
+2. Run `archkeel report --input <snapshot> --only architecture --json`.
+   `<snapshot>` is `artifact` in the explore result.
+3. Ask the owner once: "Create a draft contract?" A request to onboard or to set up Archkeel is
+   the yes: go to step 5.
+4. Without a clear yes, skip steps 5 to 8 and use the explore snapshot. Never write a contract or
+   another file into the repository. The views of steps 11 and 12 write only to the user cache.
+5. With a yes, run `archkeel init --source <dir> --namespace <package> --language <language> --json`.
+   Use the scope options of step 1 with the same values, also `--tsconfig` for TypeScript. Omit
+   them when `explore` needed none. Each rule it drafts has `decided_by: "agent"` and waits for
+   the architect.
+6. For each top-level component (about 10 at most), write one sentence as one list item in
+   `responsibilities`. Base it on the package docstring, the entry points and the imports of its
+   modules. Cite `file:line` in the sentence, not in `provenance` (it takes paths only). Set
+   `decided_by: "agent"` on the component. Without evidence, keep `responsibilities: []` and say
+   "unknown" in chat only. Never invent a responsibility.
+7. Optionally, replace a drafted `label` with a short speaking name, only in the new draft.
+   `label` is the name that `requires`, `--component` and nested scopes use. Then run
+   `archkeel validate --write-graph` to update the graph in the architecture page. For a draft,
+   exit 2 with `decision.open` and `rationale.placeholder` is expected. Do not fix them: the
+   architect closes them in "Interview mode".
+8. Run `archkeel report --output <tmp>/architecture.json --json`, with `<tmp>` outside the
+   repository. The draft changed the contract digest: this file is now `<snapshot>`. Keep the
+   `findings` and the `declared_rules` of the result.
+9. Write a "get started" view spec, as "Show a flow" steps 3 and 4 tell. Start at each entry
+   point: a `[project.scripts]` target (`pkg.mod:main` is the module node `pkg.mod`), a
+   `__main__` module or a `main()`. If you find no entry point, say so and ask the owner for the
+   start module.
+10. Add the first modules that the entry point imports or calls, one direct edge for each step.
+11. Run `archkeel view check <spec> --snapshot <snapshot> --json`.
+12. Run `archkeel view show <spec> --snapshot <snapshot>`. The page opens at the flow.
+13. Give the owner an overview in chat:
+    - each top-level component with its name and its sentence, or "unknown";
+    - the start flow, each step with its status mark;
+    - up to 3 weak spots from the latest `findings` (step 8 after a yes, else step 1), with their
+      `locations`. With none, say that there are none. The kind does not give the scope of a
+      cycle: a `module_cycle` can cross components. Read its `subjects` (the members),
+      `component_ids` and the evidence lines in `path.steps`, and say which components it touches.
+      A `fan_in_hub` or `fan_out_hub` is a hub;
+    - after a yes, the `declared_rules` of the draft.
+14. Offer the next step: define a target together, then compare it in the Target and Diff views.
+
+## Show a flow
+
+When the user asks "show me the flow of X", answer with a checked view, not with text only.
+A view spec is author text; the check in step 5 decides what the code proves (AD-284).
+
+1. Confirm the start point and the goal. Ask one short question only when the request is ambiguous.
+2. Get a snapshot. With `archkeel.toml`, run `archkeel report --output <dir>/architecture.json --json`.
+   Without it, run `archkeel explore --json`: no contract, no setup, output only in the user cache.
+   On `scope_empty`, or when `scan_roots` is not the code in question, run
+   `archkeel explore --source <dir> --namespace <package> --language <language> --json`.
+   `<language>` is `python`, `typescript` or `dart`. For TypeScript, also pass `--tsconfig <file>`.
+   The snapshot path is `artifact` in the result.
+3. Query before you write. `archkeel report --input <snapshot> --only architecture --json` lists
+   the component ids. `archkeel report --input <snapshot> --only architecture --component <id> --full --json`
+   lists its `modules`. A key `''` or a key that starts with `.` gets a prefix: the
+   `selector_prefix` of that component when present, else its own `namespace`. A component with an `inside` contract lists most modules under the child ids
+   of the first command. Use module names as nodes: a child component is `unknown` as a node.
+   Source imports and calls name candidates, not proof. Check a direct edge to ask for it (step 5).
+4. Write the spec in a new temporary folder: never in the repository, never in an output folder
+   (`explore` and `view show` clear theirs). Follow the [schema](https://github.com/rapiddweller/archkeel/blob/main/schema/view-spec.schema.json)
+   and the [example](https://github.com/rapiddweller/archkeel/blob/main/fixtures/F-architecture-view/place-order.json).
+   Copy `source.source_digest` and `contract.digest` of the snapshot into `snapshot`. Give each
+   later step and each edge a `kind` (`imports` or `calls`); the first step takes none.
+   Keep no node or edge that the check makes `missing`, except as a claim: `"claim": true`
+   and a `note` that says why.
+   Never write `status` or `evidence`: the check decides, and such a spec is rejected (exit 2).
+5. Run `archkeel view check <spec> --snapshot <snapshot> --json` and read each status:
+   - `proven`: observed, with `evidence` (`file`, `line`). Read those lines: a module edge can
+     come from another function. Only one direct edge of its kind proves a step.
+   - `missing`: not in the code. Fix the node or `kind`, remove it, or keep it as a claim. A step
+     with no direct edge is `missing` too: add the modules between as steps.
+   - `unknown`: the snapshot cannot decide; a Python call is never `missing`. Keep it with your
+     note, without `claim`, so its reason stays visible. Check the same pair as `imports` too:
+     `missing` there means no static link (a parameter, a port or a child process). Say so.
+   - `declared`: a contract component or `requires` entry. After `explore`, a layout group
+     declares nothing and is `unknown`: use module nodes.
+6. Run `archkeel view show <spec> --snapshot <snapshot>`. Stderr names the page; it opens at the flow.
+   Tell the user to open it: `open <page>` on macOS, `xdg-open <page>` on Linux.
+7. Tell the user the count for each status, each claim, each `unknown` with its reason, each
+   `missing` and each change after the first check. Say: "proven means structure of the code (an
+   observed import or call), not runtime order."
+
+A graph path is not an execution trace. An import proves only that one module imports the other.
+Without a contract the result has `target: unavailable` and `declared_rules: UNKNOWN`, never PASS.
+Your explanation is your own text, without authority. Never change source or contract for a view.
 
 ## Onboarding (first time in this repository): a target, not a description
 
@@ -24,6 +119,8 @@ recommendation and every rationale cites the goal it rests on. There is no contr
 for a quality goal: record it next to the rule it justifies, following the chosen decision
 mode below.
 
+On a repository without `archkeel.toml`, start with "First run on a codebase": a request to
+onboard is its yes, so `explore` comes first and `init` follows at its step 5.
 For requested first-time onboarding, inspect existing files, then run
 `archkeel init [--root DIR] [--source DIR] [--namespace NAME] [--force] [--json]` once.
 A read-only assessment uses existing contracts, reports and source; it does not authorize
@@ -306,7 +403,7 @@ or collision freedom. Empty/missing selected scope is UNKNOWN. See
 [AD-246](../../docs/architecture/decisions/ad-246-bounded-numeric-operand.md)
 and [rule limits](../../docs/known-limits.md).
 
-call scope. Use `forbidden_call_argument` to select one written-literal policy
+Use `forbidden_call_argument` to select one written-literal policy
 for a canonical target's formal parameter. It binds explicit source actuals to
 the observed signature; spreads, invalid bindings, missing signatures and
 unproven targets leave UNKNOWN. Calls without canonical binding carry null
@@ -350,6 +447,8 @@ Validation reports `responsibility.missing` only for components explicitly marke
 `decided_by: "architect"` with no non-whitespace responsibility text. It checks declaration
 presence, not prose quality or complete coverage of cross-cutting concerns; an agent draft stays
 usable and incomplete until the architect decides it.
+Contract text with `decided_by: "architect"` wins over agent text. Text with `decided_by: "agent"`
+is a draft: revise it only on request, and show the difference in chat.
 
 - Start with `archkeel report --only architecture --json`. It projects authenticated intent,
   ownership, dependency permissions, observed use and required Target relationships. Use
