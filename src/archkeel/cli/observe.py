@@ -4,7 +4,7 @@
 """Compose configured language processes with the Core observer."""
 
 import sys
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from pathlib import Path
 from typing import Literal
 
@@ -12,11 +12,9 @@ from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.python.collect import PythonProviderCollector
 from archkeel.check.observation import analyze_source_snapshot
 from archkeel.check.observe import Observer
-from archkeel.check.ports import Language, ObservationResult, SourceCollector
+from archkeel.check.ports import Language, ObservationResult
 from archkeel.ir.codec import RawJson, observation_payload
-from archkeel.ir.facts import SourceFacts
 from archkeel.ir.phases import PhaseClock
-from archkeel.ir.protocol import CollectionError, CollectionRequest
 
 
 def observer_for(
@@ -43,26 +41,6 @@ def observer_for(
         bundler,
         clock,
     )
-
-
-@dataclass(slots=True)
-class _CollectOnce:
-    """AD-285: explore observes twice; an equal request reuses the facts of the first pass."""
-
-    collector: SourceCollector
-    request: CollectionRequest | None = None
-    facts: SourceFacts | CollectionError | None = None
-
-    def collect(self, request: CollectionRequest) -> SourceFacts | CollectionError:
-        if self.facts is None or request != self.request:
-            self.request, self.facts = request, self.collector.collect(request)
-        return self.facts
-
-
-def explore_observer() -> Observer:
-    """The Python observer of `archkeel explore`, which collects the source once."""
-    observer = observer_for(Language.PYTHON)
-    return replace(observer, collector=_CollectOnce(observer.collector))
 
 
 def observe(

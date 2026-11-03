@@ -47,7 +47,10 @@ CONFIG = ScanConfig(("shop",), "shop", "architecture-contract.json", "0" * 64)
 _SAMPLE_VARIANTS = [
     variant
     for variant in CATALOG
-    if variant.evidence is None and variant.check is None and variant.against is None
+    if variant.evidence is None
+    and variant.check is None
+    and variant.against is None
+    and not variant.explore
 ]
 _CHECK_VARIANTS = [variant for variant in CATALOG if variant.check is not None]
 _AGAINST_VARIANTS = [variant for variant in CATALOG if variant.against is not None]

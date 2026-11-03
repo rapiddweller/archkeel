@@ -6,7 +6,7 @@
 import ast
 import subprocess
 from collections import Counter as _Counter
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Final
@@ -55,6 +55,7 @@ from archkeel.ir.facts import (
     JsonValue,
     Record,
     RecordData,
+    SourceFacts,
     SourceSectionName,
     call_binding,
 )
@@ -94,13 +95,14 @@ from archkeel.ir.model import (
 from archkeel.ir.module_explore import module_exploration
 from archkeel.ir.phases import Phase, PhaseClock, WorkCounter, measured, observation_counters
 from archkeel.ir.profiles import PROFILES
+from archkeel.ir.protocol import CollectionError, CollectionRequest
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.report_projection import architecture_projection
 from archkeel.ir.trace import trace_valid_violations, validate_evidence_classes
 
-from .observe import observation_diagnostics
+from .observe import Observer, observation_diagnostics
 from .onboarding import detect_source, layout_components
-from .ports import Analyzer, ScanConfig
+from .ports import Analyzer, ScanConfig, SourceCollector
 from .ratchets import call_rows, calls_measured, unknown_positions_by_rule
 from .run import inspect_observation
 from .runtime import runtime_diagnostic
@@ -740,16 +742,31 @@ def _observed_report(
     return report, architecture
 
 
-def run_explore(root: Path, *, analyzer: Analyzer) -> tuple[RunResult, bytes | None]:
+@dataclass(slots=True)
+class _CollectOnce:
+    """AD-285: explore observes twice; an equal request reuses the facts of the first pass."""
+
+    collector: SourceCollector
+    request: CollectionRequest | None = None
+    facts: SourceFacts | CollectionError | None = None
+
+    def collect(self, request: CollectionRequest) -> SourceFacts | CollectionError:
+        if self.facts is None or request != self.request:
+            self.request, self.facts = request, self.collector.collect(request)
+        return self.facts
+
+
+def run_explore(root: Path, *, observer: Observer) -> tuple[RunResult, bytes | None]:
     """AD-285: observe a repository with no contract; the caller writes outside the root.
 
     The first pass finds the modules, the second records their layout grouping as components.
     The temporary contract has no rule, so the result has no rule verdict.
     """
+    analyzer = replace(observer, collector=_CollectOnce(observer.collector))
     try:
         source, namespace = detect_source(root)
     except DiagnosticError as error:
-        markers = [name for name in _UNDETECTED_MARKERS if (root / name).is_file()]
+        markers = [name for name in _UNDETECTED_MARKERS if Path(root, name).is_file()]
         found = (
             f" Found {', '.join(markers)}: TypeScript and Dart are not detected yet."
             if markers
@@ -765,7 +782,7 @@ def run_explore(root: Path, *, analyzer: Analyzer) -> tuple[RunResult, bytes | N
     config = ScanConfig((source,), namespace, EXPLORE_CONTRACT, "")
     with TemporaryDirectory(prefix="archkeel-explore-") as temporary:
         scaffold = Path(temporary)
-        contract = scaffold / EXPLORE_CONTRACT
+        contract: Path = scaffold / EXPLORE_CONTRACT
         contract.write_bytes(contract_bytes(ArchitectureContract(ContractVersion.V2_1, (), ())))
         try:
             observed = observe_repository(root, config, analyzer, contract_root=scaffold)

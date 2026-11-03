@@ -141,7 +141,8 @@ def main() -> None:
         result = json.loads(run.stdout)
         assert run.returncode == 0, (run.stdout, run.stderr)
         assert result["observation_complete"] == "PASS"
-        assert result["declared_rules"] == "PASS"
+        # AD-285: the smoke contract declares no rule, so no rule passes or fails.
+        assert (result["declared_rules"], result["target"]) == ("UNKNOWN", "unavailable")
         assert result["diagnostics"] == []
         assert output.is_file()
         validate = subprocess.run(

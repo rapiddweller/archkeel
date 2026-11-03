@@ -33,7 +33,6 @@ from ..check.run import run_check
 from ..check.snapshot import resolve_commit
 from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
-from ..ir.model import RunResult
 from ..ir.phases import Phase, PhaseClock, WorkCounter, measured
 from ..render.html import render_architecture_pages, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
@@ -60,7 +59,7 @@ from .config import (
     project_name,
 )
 from .guide import GUIDE_PATH, run_guide
-from .observe import explore_observer, observer_for
+from .observe import observer_for
 from .skill import InstallationAgent, install_skill
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
@@ -104,32 +103,19 @@ def html_path(output: Path, command: str) -> Path:
 def _explore_folder(root: Path) -> Path:
     """AD-285: one cache folder for each analyzed root, outside the repository."""
     cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
-    return cache / "archkeel" / "explore" / hashlib.sha256(str(root).encode()).hexdigest()[:16]
+    return cache / "archkeel" / "explore" / hashlib.sha256(os.fsencode(root)).hexdigest()[:16]
 
 
-def _publish_report(
-    result: RunResult,
-    architecture: bytes,
+def _write_report(
     artifact: Path,
-    *,
-    repository: str,
-    clock: PhaseClock | None,
+    architecture: bytes,
+    pages: tuple[tuple[str, bytes], ...],
     artifacts: list[Path],
-) -> Path:
-    """Write architecture.json and its report pages; return the resolved JSON path."""
+) -> None:
+    """Write architecture.json beside its rendered report pages and drop obsolete details."""
     artifact.parent.mkdir(parents=True, exist_ok=True)
     artifact.write_bytes(architecture)
     report_html = html_path(artifact, Command.REPORT)
-    # A render failure must not publish a partial HTML set.
-    with measured(clock, Phase.RENDER):
-        pages = render_architecture_pages(
-            result,
-            architecture,
-            repository=repository,
-            architecture_href=artifact.name,
-        )
-    if clock is not None:
-        clock.count(WorkCounter.REPORT_PAGE_BYTES, sum(len(payload) for _, payload in pages))
     for name, payload in pages:
         detail = artifact.parent / name
         detail.write_bytes(payload)
@@ -139,9 +125,8 @@ def _publish_report(
         obsolete = rf"{re.escape(artifact.stem)}\.detail-(?:component-[0-9a-f]{{16}}|unknown)\.html"
         for previous in artifact.parent.glob(f"{artifact.stem}.detail-*.html"):
             if re.fullmatch(obsolete, previous.name):
-                previous.unlink()
+                os.remove(previous)
     artifacts.extend((artifact, report_html))
-    return artifact.resolve()
 
 
 def _observing(parser: _Parser, output_help: str | None) -> None:
@@ -668,27 +653,27 @@ def main(argv: Sequence[str] | None = None) -> int:
                 files = requested_files.entries
             elif command is Command.EXPLORE:
                 subject = str(root)
-                folder = (args.output or _explore_folder(root)).resolve()
+                folder: Path = Path(args.output or _explore_folder(root)).resolve()
                 if folder.is_relative_to(root):
                     parser.error(
                         f"--output {folder} is inside the analyzed repository; "
                         "choose a folder outside it"
                     )
-                artifact = folder / "architecture.json"
+                artifact: Path = folder / "architecture.json"
                 # AD-285: a failed run must not leave an earlier snapshot that looks current.
                 for previous in (artifact, *folder.glob(f"{artifact.stem}.*.html")):
-                    previous.unlink(missing_ok=True)
-                result, architecture = run_explore(root, analyzer=explore_observer())
+                    if os.path.isfile(previous):
+                        os.remove(previous)
+                result, architecture = run_explore(root, observer=observer_for(Language.PYTHON))
                 if architecture is not None:
                     result = replace(result, artifact=str(artifact))
-                    _publish_report(
+                    pages = render_architecture_pages(
                         result,
                         architecture,
-                        artifact,
                         repository=root.name,
-                        clock=None,
-                        artifacts=artifacts,
+                        architecture_href=artifact.name,
                     )
+                    _write_report(artifact, architecture, pages, artifacts)
             elif command is Command.REPORT and args.input is not None:
                 subject = str(args.input)
                 conflicts = tuple(
@@ -753,14 +738,19 @@ def main(argv: Sequence[str] | None = None) -> int:
                             else str(resolved)
                         ),
                     )
-                    _publish_report(
-                        result,
-                        architecture,
-                        artifact,
-                        repository=project_name(root, config),
-                        clock=clock,
-                        artifacts=artifacts,
-                    )
+                    # A render failure must not publish a partial HTML set.
+                    with measured(clock, Phase.RENDER):
+                        pages = render_architecture_pages(
+                            result,
+                            architecture,
+                            repository=project_name(root, config),
+                            architecture_href=artifact.name,
+                        )
+                    if clock is not None:
+                        clock.count(
+                            WorkCounter.REPORT_PAGE_BYTES, sum(len(payload) for _, payload in pages)
+                        )
+                    _write_report(artifact, architecture, pages, artifacts)
                 if clock is not None and args.timings is not None and result.exit_code == 0:
                     _write_timings(args.timings, clock)
                     artifacts.append(args.timings)

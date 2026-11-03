@@ -829,13 +829,15 @@ def _atlas_inventory(observation: Observation) -> str:
     owners = component_owners(observation)
     entries: dict[str, list[str]] = {}
     for record in observation.records("modules") or ():
-        name = text_value(record.data.get("qualified_name"))
+        name: str = text_value(record.data.get("qualified_name"))
         owner = owner_of(name, owners)
         if owner is not None and name.rpartition(".")[2] == _ENTRY_MODULE:
-            entries.setdefault(owner, []).append(name)
+            entries[owner] = [*entries.get(owner, []), name]
     interface: dict[str, set[str]] = {}
     for edge in interface_edges(observation):
-        interface.setdefault(edge.target, set()).update(item.name for item in edge.names)
+        interface[edge.target] = interface.get(edge.target, set()) | {
+            item.name for item in edge.names
+        }
     metrics = sorted(
         (
             item

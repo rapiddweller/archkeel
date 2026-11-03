@@ -15,6 +15,7 @@ from archkeel.analyzer.python.collect import PythonProviderCollector
 from archkeel.cli import main
 from archkeel.ir.codec import decode_canonical_model, decode_json, parse_observation
 from archkeel.ir.report_graph import architecture_report
+from fixtures.architecture_demo import CATALOG, replay
 
 _SOURCES = {
     "shop/__init__.py": "",
@@ -235,3 +236,18 @@ def test_report_on_a_contract_without_a_rule_gives_no_verdict(
 
     assert code == 0, payload
     assert (payload["target"], payload["declared_rules"]) == ("unavailable", "UNKNOWN")
+
+
+def test_the_explore_demo_row_replays_without_a_contract(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    variant = next(item for item in CATALOG if item.id == "explore-contract-free")
+    artifact = tmp_path / "explore" / "architecture.json"
+
+    assert replay(variant.id, artifact) == 0
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["declared_rules"] == variant.expected_declared_rules
+    assert payload["target"] == "unavailable"
+    assert 'id="inventory-heading"' in artifact.with_name("architecture.report.html").read_text()
+    assert not (variant.fixture / "archkeel.toml").exists()

@@ -317,7 +317,9 @@ def test_external_type_only_aggregate_stays_neutral(command: str, tmp_path: Path
             result, _ = run_validate(tmp_path, _validate_root(tmp_path), analyzer)
 
     assert result.diagnostics == ()
-    assert result.declared_rules == "PASS"
+    # AD-285: this contract declares no rule, so a report has no target and no rule verdict.
+    expected = ("UNKNOWN", "unavailable") if command == "report" else ("PASS", None)
+    assert (result.declared_rules, result.target) == expected
 
 
 def test_a_proven_violation_outranks_an_undecidable_boundary_position() -> None:
