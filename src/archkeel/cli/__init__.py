@@ -132,11 +132,19 @@ def _write_pages(
         if detail != report_html:
             artifacts.append(detail)
     if any(name != report_html.name for name, _ in pages):
-        obsolete = rf"{re.escape(artifact.stem)}\.detail-(?:component-[0-9a-f]{{16}}|unknown)\.html"
-        for previous in artifact.parent.glob(f"{artifact.stem}.detail-*.html"):
-            if re.fullmatch(obsolete, previous.name):
-                os.remove(previous)
+        for previous in _obsolete_details(artifact):
+            previous.unlink()
     artifacts.extend((artifact, report_html))
+
+
+def _obsolete_details(artifact: Path) -> list[Path]:
+    """The per-component detail pages an earlier report wrote beside this architecture.json."""
+    obsolete = rf"{re.escape(artifact.stem)}\.detail-(?:component-[0-9a-f]{{16}}|unknown)\.html"
+    return [
+        previous
+        for previous in artifact.parent.glob(f"{artifact.stem}.detail-*.html")
+        if re.fullmatch(obsolete, previous.name)
+    ]
 
 
 def _observing(parser: _Parser, output_help: str | None) -> None:
@@ -711,19 +719,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 files = requested_files.entries
             elif command is Command.EXPLORE:
-                subject = str(root)
+                # AD-285: a result names the root by its basename, never by its path.
+                subject = root.name
                 digest = _root_digest(root)
                 folder: Path = Path(args.output or _explore_folder(digest)).resolve()
                 if folder.is_relative_to(root):
                     parser.error(
-                        f"--output {folder} is inside the analyzed repository; "
-                        "choose a folder outside it"
+                        "--output is inside the analyzed repository; choose a folder outside it"
                     )
                 artifact: Path = folder / "architecture.json"
-                # AD-285: a failed run must not leave an earlier snapshot that looks current.
-                for previous in (artifact, *folder.glob(f"{artifact.stem}.*.html")):
-                    if os.path.isfile(previous):
-                        os.remove(previous)
                 result, architecture = run_explore(
                     root,
                     observer=observer_for(args.language, tsconfig=args.tsconfig or "tsconfig.json"),
@@ -733,6 +737,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                     tsconfig=args.tsconfig,
                 )
                 result = replace(result, root_name=root.name, root_digest=digest)
+                # The scope and HEAD passed: no earlier snapshot of ours may look current now.
+                for previous in (
+                    artifact,
+                    html_path(artifact, Command.REPORT),
+                    artifact.with_name(f"{artifact.stem}.detail.html"),
+                    *_obsolete_details(artifact),
+                ):
+                    previous.unlink(missing_ok=True)
                 if architecture is not None:
                     result = replace(result, artifact=str(artifact))
                     _write_json(artifact, architecture)

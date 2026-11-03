@@ -201,7 +201,9 @@ def test_explore_without_a_python_package_exits_2(
     [diagnostic] = payload["diagnostics"]
     assert diagnostic["kind"] == "scope_empty"
     assert named in diagnostic["unknown_claim"]
-    assert not (output / "architecture.json").exists()
+    # AD-285: a failed scope check deletes nothing, and the result names no absolute path.
+    assert (output / "architecture.json").read_text() == "{}"
+    assert str(tmp_path) not in json.dumps(payload)
 
 
 def test_explore_without_a_commit_exits_2(
@@ -260,7 +262,7 @@ def test_the_explore_demo_row_replays_without_a_contract(
     assert not (variant.fixture / "archkeel.toml").exists()
 
 
-def _zero_rule_repository(root: Path) -> Path:
+def _zero_rule_repository(root: Path, **intent: object) -> Path:
     contract = {
         "schema_version": "2.1.0",
         "components": [
@@ -272,6 +274,7 @@ def _zero_rule_repository(root: Path) -> Path:
                 "responsibilities": [],
                 "forbidden_responsibilities": [],
                 "provenance": ["docs/architecture.md"],
+                **intent,
             }
         ],
         "rules": [],
@@ -518,3 +521,62 @@ def test_a_source_failure_still_blocks_with_or_without_a_python_range(
     assert payload["diagnostics"]
     assert "notes" not in payload
     assert "shop/app/broken.py" in json.dumps(payload["coverage"]["failures"])
+
+
+def test_a_public_list_without_a_rule_is_a_target(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # AD-285: a declared interface is something to check the code against.
+    root = _zero_rule_repository(tmp_path / "repo", public=["shop.store.repository:save"])
+
+    code = main(["report", "--root", str(root), "--output", str(tmp_path / "a.json"), "--json"])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert code == 0, payload
+    assert "target" not in payload
+    page = (tmp_path / "a.report.html").read_text()
+    assert "Target unavailable" not in page.split('id="flow-data"')[0]
+
+
+def test_a_view_check_does_not_call_a_layout_group_declared(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _repository(tmp_path / "repo")
+    snapshot = tmp_path / "out" / "architecture.json"
+    assert _explore(capsys, "--root", str(root), "--output", str(snapshot.parent))[0] == 0
+    raw = json.loads(snapshot.read_bytes())
+    spec = {
+        "schema_version": "1.0.0",
+        "title": "Layout",
+        "snapshot": {
+            "source_digest": raw["source"]["source_digest"],
+            "contract_digest": raw["contract"]["digest"],
+        },
+        "nodes": ["COMP-APP", "COMP-STORE"],
+        "edges": [{"source": "COMP-APP", "target": "COMP-STORE", "kind": "requires"}],
+    }
+    (tmp_path / "view.json").write_text(json.dumps(spec))
+
+    main(["view", "check", str(tmp_path / "view.json"), "--snapshot", str(snapshot), "--json"])
+    result = json.loads(capsys.readouterr().out)
+
+    assert {item["status"] for item in result["nodes"]} == {"unknown"}
+    assert [item["status"] for item in result["edges"]] == ["unknown"]
+
+
+def test_explore_deletes_only_its_own_files_in_the_output_folder(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output = tmp_path / "out"
+    output.mkdir()
+    for name in ("architecture.notes.html", "architecture.detail-component-0123456789abcdef.html"):
+        (output / name).write_text("kept?")
+    empty = _repository(tmp_path / "empty", {})
+    root = _repository(tmp_path / "repo")
+
+    assert _explore(capsys, "--root", str(empty), "--output", str(output))[0] == 2
+    assert (output / "architecture.notes.html").exists()
+    assert _explore(capsys, "--root", str(root), "--output", str(output))[0] == 0
+
+    assert (output / "architecture.notes.html").read_text() == "kept?"
+    assert not (output / "architecture.detail-component-0123456789abcdef.html").exists()

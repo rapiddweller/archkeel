@@ -4,7 +4,6 @@
 """Build typed report results and canonical observation bytes."""
 
 import ast
-import os
 import subprocess
 from collections import Counter as _Counter
 from dataclasses import dataclass, replace
@@ -40,6 +39,7 @@ from archkeel.ir.decisions import (
     agent_decisions,
     baseline_fingerprint_covered,
     cycle_scope_receipt_covers,
+    declares_a_target,
     open_decisions,
     review_claims,
     rule_assessment_applies_to_component,
@@ -67,7 +67,6 @@ from archkeel.ir.facts_codec import (
 from archkeel.ir.facts_validation import validate_source_bindings
 from archkeel.ir.findings import findings
 from archkeel.ir.model import (
-    RULE_RECORD_KINDS,
     ArchitectureContract,
     BaselineViolationComparison,
     CallRow,
@@ -682,18 +681,10 @@ def _report_result(
     return command_result
 
 
-def _declares_a_target(model: Observation) -> bool:
-    """AD-285: a declared rule or UML target is something a report can check the code against."""
-    return any(
-        record.evidence_class == EvidenceClass.DECLARED_RULE and record.kind in RULE_RECORD_KINDS
-        for record in model.records("declarations") or ()
-    )
-
-
 def _target_result(model: Observation, result: RunResult) -> RunResult:
     """AD-285: no declared rule and no UML target leave nothing to check, so no rule passes."""
     # An invalid contract or runtime revokes the proofs; its diagnostics say why, no label.
-    if _declares_a_target(model) or any(
+    if declares_a_target(model) or any(
         item.kind in _REVOKING_DIAGNOSTICS for item in result.diagnostics
     ):
         return result
@@ -725,7 +716,7 @@ def _range_notes(result: ObservationResult) -> tuple[ObservationResult, tuple[Di
         model is None
         or runtime is None
         or runtime.name != Language.PYTHON
-        or _declares_a_target(model)
+        or declares_a_target(model)
         or model.coverage.status != Verdict.PASS
         or model.coverage.failures
         or not (runtime.requirement_state in _UNDECLARED_RANGE or runtime.required is None)
@@ -825,8 +816,13 @@ def run_explore(
     except DiagnosticError as error:
         markers = [name for name in _UNDETECTED_MARKERS if Path(root, name).is_file()]
         found = f" Found {', '.join(markers)}: pass --language and the scope." if markers else ""
+        # The result names the root by its basename, never by its absolute path.
         raise DiagnosticError(
-            replace(error.diagnostic, unknown_claim=error.diagnostic.unknown_claim + found)
+            replace(
+                error.diagnostic,
+                subject=root.name,
+                unknown_claim=error.diagnostic.unknown_claim + found,
+            )
         ) from error
     config = ScanConfig(roots, namespace, EXPLORE_CONTRACT, "", language, tsconfig)
     with TemporaryDirectory(prefix="archkeel-explore-") as temporary:
@@ -848,14 +844,14 @@ def run_explore(
                 contract.write_bytes(contract_bytes(layout))
                 for path, inside in insides:
                     level: Path = scaffold / path
-                    os.makedirs(level.parent, exist_ok=True)
+                    level.parent.mkdir(parents=True, exist_ok=True)
                     level.write_bytes(contract_bytes(inside))
                 observed = observe_repository(root, config, analyzer, contract_root=scaffold)
         except SnapshotError as error:
             raise DiagnosticError(
                 Diagnostic(
                     _DiagnosticKind.PARSE_ERROR,
-                    str(root),
+                    root.name,
                     f"The worktree state needs a resolvable Git HEAD: {error}",
                     "Create a Git commit in the repository, then retry archkeel explore.",
                 )

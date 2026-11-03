@@ -22,6 +22,7 @@ from archkeel.ir.architecture_graph import (
     RelationshipKind,
     ResolutionKind,
 )
+from archkeel.ir.decisions import declares_a_target
 from archkeel.ir.facts import Evidence
 from archkeel.ir.interfaces import component_owners, owner_of
 from archkeel.ir.model import Observation, RawJson, Record, RecordData, Verdict
@@ -281,6 +282,8 @@ class _Graph:
     layers: Mapping[RelationshipKind, _Layer]
     # A file the analyzer could not read or parse has no module record: its absence is not proven.
     complete: bool
+    # AD-285: bare component groups, such as the explore layout, declare nothing.
+    declared: bool
 
 
 def _module_names(entities: Mapping[str, Entity]) -> dict[str, str]:
@@ -439,6 +442,7 @@ def _view_graph(observation: Observation) -> _Graph:
         },
         layers,
         observation.coverage.status == Verdict.PASS and not observation.coverage.failures,
+        declares_a_target(observation),
     )
 
 
@@ -459,6 +463,10 @@ def _node(graph: _Graph, node: str) -> NodeCheck:
             module.id,
             module.file_path,
         )
+    if node in graph.components and not graph.declared:
+        owned = len(graph.members[node])
+        reason = f"a component group that declares nothing; observed modules it holds: {owned}"
+        return NodeCheck(node, ViewStatus.UNKNOWN, reason, EntityKind.COMPONENT)
     if node in graph.components:
         owned = len(graph.members[node])
         return NodeCheck(
@@ -493,6 +501,9 @@ def _one_kind(
 ) -> LinkCheck:
     """Prove one direct edge of one kind; a longer path proves neither an edge nor a step."""
     layer = graph.layers[kind]
+    if kind == RelationshipKind.REQUIRES and not graph.declared:
+        reason = "the component groups declare no requires entry and no target"
+        return LinkCheck(source, target, ViewStatus.UNKNOWN, reason, kind)
     sources, targets = _keys(graph, source, kind), _keys(graph, target, kind)
     if not sources or not targets:
         # A component whose modules all failed to parse has no ends, but they can exist.
