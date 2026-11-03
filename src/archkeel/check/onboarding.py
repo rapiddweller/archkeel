@@ -335,7 +335,8 @@ LAYOUT_DEPTH: Final = 4
 
 def _child_package(name: str, package: str) -> str:
     """The direct child of `package` that holds the module `name`."""
-    return f"{package}.{name.removeprefix(f'{package}.').partition('.')[0]}"
+    below: str = name.removeprefix(f"{package}.")
+    return f"{package}.{below.partition('.')[0]}"
 
 
 def _last_name(name: str) -> str:
