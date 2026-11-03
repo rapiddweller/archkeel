@@ -111,15 +111,16 @@ def _explore_folder(digest: str) -> Path:
     return cache / "archkeel" / "explore" / digest
 
 
-def _write_report(
-    artifact: Path,
-    architecture: bytes,
-    pages: tuple[tuple[str, bytes], ...],
-    artifacts: list[Path],
-) -> None:
-    """Write architecture.json beside its rendered report pages and drop obsolete details."""
+def _write_json(artifact: Path, architecture: bytes) -> None:
+    """Write architecture.json first, so a render failure still leaves the evidence."""
     artifact.parent.mkdir(parents=True, exist_ok=True)
     artifact.write_bytes(architecture)
+
+
+def _write_pages(
+    artifact: Path, pages: tuple[tuple[str, bytes], ...], artifacts: list[Path]
+) -> None:
+    """Write the report pages beside architecture.json and drop obsolete details."""
     report_html = html_path(artifact, Command.REPORT)
     for name, payload in pages:
         detail = artifact.parent / name
@@ -687,13 +688,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 result = replace(result, root_name=root.name, root_digest=digest)
                 if architecture is not None:
                     result = replace(result, artifact=str(artifact))
+                    _write_json(artifact, architecture)
                     pages = render_architecture_pages(
                         result,
                         architecture,
                         repository=root.name,
                         architecture_href=artifact.name,
                     )
-                    _write_report(artifact, architecture, pages, artifacts)
+                    _write_pages(artifact, pages, artifacts)
             elif command is Command.REPORT and args.input is not None:
                 subject = str(args.input)
                 conflicts = tuple(
@@ -758,6 +760,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                             else str(resolved)
                         ),
                     )
+                    _write_json(artifact, architecture)
                     # A render failure must not publish a partial HTML set.
                     with measured(clock, Phase.RENDER):
                         pages = render_architecture_pages(
@@ -770,7 +773,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         clock.count(
                             WorkCounter.REPORT_PAGE_BYTES, sum(len(payload) for _, payload in pages)
                         )
-                    _write_report(artifact, architecture, pages, artifacts)
+                    _write_pages(artifact, pages, artifacts)
                 if clock is not None and args.timings is not None and result.exit_code == 0:
                     _write_timings(args.timings, clock)
                     artifacts.append(args.timings)

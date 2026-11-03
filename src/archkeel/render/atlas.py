@@ -403,7 +403,7 @@ def _atlas_levels(
     model: Observation,
     references: dict[str, int],
     cell_indices: dict[tuple[str, str], int],
-    declared: bool = True,
+    target: TargetStatus | None = None,
 ) -> tuple[
     list[dict[str, object]],
     list[dict[str, object]],
@@ -433,7 +433,7 @@ def _atlas_levels(
         payload["balance"] = balance
         balances[level.parent_id] = balance
         # AD-285: with no target, an observed crossing deviates from nothing.
-        for item in items if declared else ():
+        for item in items if target is not TargetStatus.UNAVAILABLE else ():
             level_deviations[level.parent_id] += [item.id]
             deviations.append(item)
         payload["deviation_ids"] = level_deviations[level.parent_id]
@@ -550,13 +550,7 @@ def atlas_payload(
     references: dict[str, int] = {}
     cells, indices, module_indices = _cell_payload(root, references)
     levels, findings, balances, deviations, questions, assignments = _atlas_levels(
-        exploration,
-        report,
-        projection,
-        model,
-        references,
-        indices,
-        declared=result.target is not TargetStatus.UNAVAILABLE,
+        exploration, report, projection, model, references, indices, result.target
     )
     modules, symbol_coverages = _modules_payload(root, references)
     return {
