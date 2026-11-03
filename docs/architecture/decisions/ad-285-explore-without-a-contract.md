@@ -19,7 +19,7 @@
    root exits 2. After the scope and HEAD checks, it removes only its own earlier files. Git runs
    with `GIT_OPTIONAL_LOCKS=0`, so `git status` does not rewrite the index: `.git` stays as it is.
 5. Nothing declared, no PASS: a valid contract with no rule, UML target or component intent
-   (`responsibilities`, `forbidden_responsibilities`, `public`, `planned`, `requires`) changes a
+   (a `public` or `planned` list, even empty; any `responsibilities`, `requires` entry) changes a
    vacuous PASS to UNKNOWN with `target: unavailable`, also in `report --input`; a FAIL and its
    violations stay. No evaluator reads `responsibilities`, `forbidden_responsibilities` or
    `planned`, so a contract with only such text keeps PASS with 0 rule assessments. `validate`

@@ -616,3 +616,16 @@ def test_a_violation_keeps_its_fail_without_a_rule(
     assert "target" not in payload
     page = (tmp_path / "a.report.html").read_text()
     assert "no rule passes or fails" not in page
+
+
+def test_an_empty_public_list_is_a_declared_interface(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # AD-285: `public: []` declares no public surface; that is an interface decision.
+    root = _zero_rule_repository(tmp_path / "repo", public=[])
+
+    code = main(["report", "--root", str(root), "--output", str(tmp_path / "a.json"), "--json"])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert code == 0, payload
+    assert "target" not in payload

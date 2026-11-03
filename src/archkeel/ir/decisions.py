@@ -75,7 +75,10 @@ _COMPONENT_KINDS = frozenset({"component_responsibility", "inside_component_resp
 
 # AD-285: a grouping record declares no intent unless one of these fields holds an entry.
 _GROUPING_KINDS = _COMPONENT_KINDS | {ARCHITECTURE_TARGET_KIND}
-_INTENT_FIELDS = ("responsibilities", "forbidden_responsibilities", "requires", "public", "planned")
+# `public` and `planned` are optional: a present list, even empty, is a decision, as
+# `_component_deciders` counts it. The other fields are always written, so only entries count.
+_DECLARED_FIELDS = ("public", "planned")
+_ENTRY_FIELDS = ("responsibilities", "forbidden_responsibilities", "requires")
 
 
 def declares_a_target(observation: Observation) -> bool:
@@ -87,7 +90,8 @@ def declares_a_target(observation: Observation) -> bool:
     return any(
         record.kind not in _GROUPING_KINDS
         or record.data.get("role") not in {None, ComponentRole.COMPONENT}
-        or any(record.data.get(field) for field in _INTENT_FIELDS)
+        or any(record.data.get(field) is not None for field in _DECLARED_FIELDS)
+        or any(record.data.get(field) for field in _ENTRY_FIELDS)
         for record in observation.records("declarations") or ()
     )
 
