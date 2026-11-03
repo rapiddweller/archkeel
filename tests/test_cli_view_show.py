@@ -113,7 +113,7 @@ def test_show_writes_nothing_into_the_analyzed_repository(
 def test_show_on_a_contract_without_rules_draws_no_verdict(
     tmp_path: Path, capsys: pytest.CaptureFixture
 ) -> None:
-    """The AD-285 shape: layout components, no rule, no requires; the view keeps every status."""
+    """The explore shape (#791): layout components, no rule; the view keeps every status."""
     components = [
         {
             "id": f"COMP-{name.upper()}",

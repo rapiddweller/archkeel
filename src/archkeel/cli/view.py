@@ -18,7 +18,7 @@ _NOT_CHECKED: Final = 2
 
 
 def _cache_directory(source_digest: str) -> Path:
-    # ponytail: repeats the AD-285 explore cache rule; merge both into one helper with strand A.
+    # ponytail: repeats the explore cache rule (#791); merge both into one helper.
     cache = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
     return Path(cache) / "archkeel/view" / source_digest[:16]
 
