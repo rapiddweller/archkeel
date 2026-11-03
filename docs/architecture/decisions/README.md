@@ -296,3 +296,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-286 | [The Explorer opens a component in one step and reads at 100 %](ad-286-the-explorer-opens-a-component-in-one-step-and-fits-readably.md) |
 | AD-287 | [The Explorer draws a checked view](ad-287-the-explorer-draws-a-checked-view.md) |
 | AD-288 | [A component card shows its label and its first responsibility](ad-288-a-component-card-shows-its-first-responsibility.md) |
+| AD-289 | [A tour shows author stops beside measured facts](ad-289-a-tour-shows-author-stops-beside-measured-facts.md) |
