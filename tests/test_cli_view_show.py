@@ -69,6 +69,23 @@ def test_a_missing_reference_is_drawn_and_exits_1(
     assert isinstance(embedded, dict) and embedded["edges"][0]["status"] == "missing"
 
 
+def test_show_keeps_the_incomplete_snapshot_status_for_the_explorer(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    packet = _snapshot(tmp_path / "incomplete", {"shop/app/broken.py": "def broken(:\n"}, complete=False)
+    observation = _observation(packet)
+    spec = _spec(observation)
+    view, snapshot = _files(tmp_path, packet, spec)
+    output = tmp_path / "out"
+
+    assert main(["view", "show", str(view), "--snapshot", str(snapshot), "--output", str(output)]) == 0
+    assert json.loads(capsys.readouterr().out)["snapshot_completeness"] == "incomplete"
+    embedded = _embedded(output / _PAGE)
+    assert isinstance(embedded, dict)
+    assert embedded["result_schema_version"] == "1.3.0"
+    assert embedded["snapshot_completeness"] == "incomplete"
+
+
 @pytest.mark.parametrize("broken", ["stale", "tampered", "invalid"])
 def test_a_check_that_did_not_run_writes_nothing(
     tmp_path: Path, packet: bytes, broken: str, capsys: pytest.CaptureFixture

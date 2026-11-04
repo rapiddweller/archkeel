@@ -44,6 +44,7 @@ from ..ir.phases import Phase, PhaseClock, WorkCounter, measured
 from ..ir.story import trace_flow, trace_json, trace_summary
 from ..ir.view_spec import (
     ViewCheck,
+    ViewCheckSession,
     check_view,
     parse_view_spec,
     snapshot_identity,
@@ -191,18 +192,25 @@ def _decode_snapshot(raw: bytes) -> dict[str, RawJson]:
         raise ValueError(f"architecture.json is damaged: {error!r}") from error
 
 
-def _check_story(spec: bytes, snapshot: Path) -> CheckResult:
+def _check_story(
+    spec: bytes,
+    snapshot: Path,
+    session: ViewCheckSession | None = None,
+) -> CheckResult:
     """AD-291: `archkeel view check SPEC --snapshot SNAPSHOT`, bound to this snapshot.
 
     A stored spec names the digests of the snapshot it was written on. Studio checks it against
     the current snapshot by node name: the digests are replaced in memory, never in the file.
     """
-    observation = read_saved_snapshot(snapshot)
+    observation = session.observation if session is not None else read_saved_snapshot(snapshot)
     parsed = parse_view_spec(decode_json(spec))
     identity = snapshot_identity(observation)
     rebound = parsed.snapshot != identity
-    checked = check_view(
-        replace(parsed, snapshot=identity) if rebound else parsed, observation, strict=False
+    checked_spec = replace(parsed, snapshot=identity) if rebound else parsed
+    checked = (
+        session.check(checked_spec, strict=False)
+        if session is not None
+        else check_view(checked_spec, observation, strict=False)
     )
     decoded = decode_json(view_check_json(checked).encode())
     if not isinstance(decoded, dict):
@@ -237,6 +245,26 @@ def _draft_story(snapshot: Path, source: str) -> dict[str, RawJson]:
     }
 
 
+def _story_checker():
+    """Reuse a Workspace snapshot session; Workspace clears it before every new run."""
+    cached_snapshot: Path | None = None
+    cached_session: ViewCheckSession | None = None
+
+    def check(spec: bytes, snapshot: Path) -> CheckResult:
+        nonlocal cached_snapshot, cached_session
+        if cached_snapshot != snapshot or cached_session is None:
+            cached_snapshot = snapshot
+            cached_session = ViewCheckSession(read_saved_snapshot(snapshot))
+        return _check_story(spec, snapshot, session=cached_session)
+
+    def clear() -> None:
+        nonlocal cached_snapshot, cached_session
+        cached_snapshot = None
+        cached_session = None
+
+    return check, clear
+
+
 def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:
     """AD-290: each run explores with the scope options into a private folder of `cache`."""
     root = args.root.resolve()
@@ -252,6 +280,7 @@ def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:
         if value is not None
     ]
     explore = (sys.executable, "-m", "archkeel.cli", Command.EXPLORE.value, "--root", str(root))
+    check_story, clear_story_check = _story_checker()
     return Workspace(
         root,
         folder,
@@ -265,9 +294,10 @@ def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:
                 (StorySource.REPOSITORY, root / _REPOSITORY_STORIES),
                 (StorySource.LOCAL, cache / "stories"),
             ],
-            _check_story,
+            check_story,
             _draft_story,
             lambda: _head_of(root),
+            clear_story_check,
         ),
     )
 

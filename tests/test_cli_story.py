@@ -14,8 +14,9 @@ import pytest
 from jsonschema import Draft202012Validator
 from test_cli_view import ROOT, _observation, _snapshot
 
+from archkeel import cli
 from archkeel.cli import main
-from archkeel.ir import flow_graph
+from archkeel.ir import flow_graph, view_spec
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     Entity,
@@ -40,15 +41,17 @@ from archkeel.ir.flow_graph import (
     touchpoints,
 )
 from archkeel.ir.model import EvidenceClass, Observation, Record, RecordData, Section
-from archkeel.ir.story import trace_flow, trace_json
+from archkeel.ir.story import trace_flow, trace_json, trace_summary
 from archkeel.ir.view_spec import (
     CandidateEvidence,
     ViewStatus,
+    ViewCheckSession,
     call_evidence,
     check_view,
     parse_view_spec,
     snapshot_identity,
     view_check_json,
+    view_summary,
 )
 
 EXAMPLE = ROOT / "fixtures/F-architecture-view/place-order.json"
@@ -231,6 +234,39 @@ def test_a_resolved_call_proves_the_step_with_its_call_site(shop: Observation) -
     assert end.seam is None
     verdict = result.story.verdict
     assert (verdict.proven, verdict.claim, verdict.unknown, verdict.modules) == (2, 0, 0, 2)
+
+
+def test_a_claim_may_bridge_existing_nodes_but_cannot_invent_one(shop: Observation) -> None:
+    existing = _check(shop, [{"node": MAIN}, {"node": PLACE, "claim": True, "note": "boundary"}])
+    assert existing.nodes[1].status is ViewStatus.PROVEN
+    assert existing.steps[1].status is ViewStatus.CLAIM
+
+    invented = _check(
+        shop,
+        [{"node": MAIN}, {"node": "shop.cli.main.made_up", "claim": True, "note": "boundary"}],
+    )
+    assert invented.nodes[1].status is ViewStatus.MISSING
+    assert invented.steps[1].status is ViewStatus.MISSING
+
+
+def test_an_incomplete_snapshot_does_not_claim_a_missing_node(shop: Observation) -> None:
+    from archkeel.ir.model import Verdict
+
+    incomplete = replace(shop, coverage=replace(shop.coverage, status=Verdict.FAIL))
+    result = _check(
+        incomplete,
+        [{"node": MAIN}, {"node": "shop.cli.main.made_up", "claim": True, "note": "boundary"}],
+    )
+    assert result.nodes[1].status is ViewStatus.UNKNOWN
+    assert result.steps[1].status is ViewStatus.UNKNOWN
+    assert result.snapshot_completeness == "incomplete"
+    assert "snapshot is incomplete" in view_summary(result)
+
+
+def test_view_check_reports_complete_snapshot(shop: Observation) -> None:
+    result = _check(shop, [{"node": MAIN}])
+    assert result.snapshot_completeness == "complete"
+    assert json.loads(view_check_json(result))["snapshot_completeness"] == "complete"
 
 
 def test_a_partial_call_is_a_claim_with_its_candidate_count_never_proven(shop: Observation) -> None:
@@ -484,6 +520,58 @@ def test_the_trace_lists_a_proven_path_with_lanes_and_lines(shop: Observation) -
     assert (path.start.lane, path.hops[0].node.lane) == ("cli", "render")
     assert path.hops[0].evidence[0].line == 20 and path.hops[0].node.defined_at.line == 11
     assert path.seams == ()
+
+
+def test_trace_display_labels_use_source_paths_without_changing_canonical_names(
+    shop: Observation,
+) -> None:
+    result = _trace(shop, MAIN, INDENT)
+    path = result.paths[0]
+    assert path.start.name == MAIN
+    assert path.start.label == "shop/cli/main.py:14 · main"
+    assert "shop/cli/main.py:14 · main" in trace_json(result)
+    assert "shop/cli/main.py:14 · main" in trace_summary(result)
+
+
+def test_a_view_check_session_builds_the_snapshot_graph_once(
+    shop: Observation, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original = view_spec._view_graph
+    calls = 0
+
+    def counted(observation: Observation, *, story: bool):
+        nonlocal calls
+        calls += 1
+        return original(observation, story=story)
+
+    monkeypatch.setattr(view_spec, "_view_graph", counted)
+    session = ViewCheckSession(shop)
+    spec = parse_view_spec(_spec(shop, [{"node": MAIN}, {"node": PLACE}]))
+    session.check(spec, strict=False)
+    session.check(spec, strict=False)
+    assert calls == 1
+
+
+def test_story_checker_cache_is_cleared_for_a_new_snapshot_run(
+    shop: Observation, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    loaded: list[Path] = []
+
+    def read(path: Path) -> Observation:
+        loaded.append(path)
+        return shop
+
+    monkeypatch.setattr(cli, "read_saved_snapshot", read)
+    snapshot = tmp_path / "architecture.json"
+    snapshot.touch()
+    spec = json.dumps(_spec(shop, [{"node": MAIN}])).encode()
+    check, clear = cli._story_checker()
+    check(spec, snapshot)
+    check(spec, snapshot)
+    assert loaded == [snapshot]
+    clear()
+    check(spec, snapshot)
+    assert loaded == [snapshot, snapshot]
 
 
 def test_a_path_through_a_partial_call_is_a_claim_with_a_seam(shop: Observation) -> None:

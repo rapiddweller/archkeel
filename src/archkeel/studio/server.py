@@ -237,10 +237,25 @@ class _Handler(BaseHTTPRequestHandler):
         if stories is None:
             self._send(HTTPStatus.NOT_FOUND, b"not found\n")
         elif path is ApiPath.STORIES and story_id is None:
-            self._send(HTTPStatus.OK, stories_json(stories.rows()), "application/json")
+            state = workspace.state()
+            snapshot = (
+                workspace.file("architecture.json")
+                if state.explore is ExploreState.DONE
+                else None
+            )
+            self._send(HTTPStatus.OK, stories_json(stories.rows(snapshot)), "application/json")
         else:
             snapshot = workspace.file("architecture.json")
-            if workspace.state().explore is not ExploreState.DONE or snapshot is None:
+            state = workspace.state()
+            if state.explore is ExploreState.FAILED:
+                detail = "\n".join(state.notes)
+                message = f"explore failed (exit code {state.exit_code})"
+                self._send(
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    f"{message}\n{detail}\n".encode(),
+                )
+                return
+            if state.explore is not ExploreState.DONE or snapshot is None:
                 self._send(HTTPStatus.SERVICE_UNAVAILABLE, b"explore has not finished\n")
                 return
             try:

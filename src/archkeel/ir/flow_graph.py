@@ -117,6 +117,14 @@ class Function:
     defined_at: Site | None
 
 
+def function_label(function: Function) -> str:
+    """Readable source label; the qualified function name remains the stable identity."""
+    symbol = function.name.removeprefix(f"{function.module}.")
+    if function.defined_at is None:
+        return function.name
+    return f"{function.defined_at.file}:{function.defined_at.line} · {symbol}"
+
+
 @dataclass(frozen=True, slots=True)
 class Touch:
     """A module that imports a client library of an external system."""

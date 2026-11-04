@@ -3092,7 +3092,7 @@ export let flow;
   function flowInspector() {
     const snapshot = `<h3>Snapshot</h3><p>Source digest <code>${esc(VIEW.snapshot.source_digest)}</code><br>
       Contract digest <code>${esc(VIEW.snapshot.contract_digest)}</code><br>
-      Snapshot current: ${VIEW.snapshot_current ? "yes" : "no"} · Source observation:
+      Snapshot current: ${VIEW.snapshot_current ? "yes" : "no"} · Snapshot completeness: ${VIEW.snapshot_completeness} · Source observation:
       ${esc(OBSERVATION_WORDS[ATLAS.observation_complete] || "UNKNOWN")}</p>
       <ul class="plain">${VIEW.limits.map((limit) => `<li>${esc(limit)}</li>`).join("")}</ul>`;
     const selection = flowSelection;
@@ -3212,7 +3212,7 @@ export let flow;
     const summary = root.querySelector(".atlas-summary");
     // Above the diagram, below the chrome at every width: the sentence stays in view.
     canvas.before(summary);
-    summary.textContent = `${touring ? `Tour: ${plural(STOPS.length, "stop")} · ` : ""}${counts} · ${VIEW.limits[0]}`;
+    summary.textContent = `${VIEW.snapshot_completeness === "incomplete" ? "Warning: source snapshot incomplete; UNKNOWN means evidence is missing. · " : ""}${touring ? `Tour: ${plural(STOPS.length, "stop")} · ` : ""}${counts} · ${VIEW.limits[0]}`;
     legend.textContent = Object.entries(VIEW_MARKS).map(([status, mark]) =>
       `${mark}: ${{ proven: "solid, coloured by kind", declared: "long dash", claim: "short dash, amber",
         unknown: "dotted, with its reason", missing: "dash-dot" }[status]}`).join(" · ");

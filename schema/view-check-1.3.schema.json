@@ -1,0 +1,932 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archkeel:view-check:1.3.0",
+  "title": "View check result",
+  "$comment": "Generated from archkeel.ir.view_spec (AD-284, result schema 1.3.0). The result is self-contained: each node, edge and step carries its status, reason, kind, path and evidence. A proven step is static structure, not runtime order; title, notes and claims are author text. A stop carries its node status and facts measured from the snapshot; its title and note are author text (AD-289). A 1.2.0 spec with a story adds `story`: for each step, by index into `steps`, its lane, definition, seam and external systems, and a verdict that counts statuses and never says PASS (AD-291). Snapshot completeness is measured from source coverage, never inferred from the exit code. The call site of a partial call carries `candidates`, so a claim never has the shape of proof. A claimed relation cannot create a node (AD-294).",
+  "$ref": "#/$defs/ViewCheck",
+  "$defs": {
+    "ViewCheck": {
+      "type": "object",
+      "properties": {
+        "result_schema_version": {
+          "enum": [
+            "1.3.0"
+          ]
+        },
+        "schema_version": {
+          "enum": [
+            "1.2.0",
+            "1.1.0",
+            "1.0.0"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "exit_code": {
+          "type": "integer"
+        },
+        "strict": {
+          "type": "boolean"
+        },
+        "snapshot": {
+          "$ref": "#/$defs/ViewSnapshot"
+        },
+        "view_snapshot": {
+          "$ref": "#/$defs/ViewSnapshot"
+        },
+        "snapshot_current": {
+          "type": "boolean"
+        },
+        "snapshot_completeness": {
+          "enum": [
+            "complete",
+            "incomplete"
+          ]
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeCheck"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LinkCheck"
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LinkCheck"
+          }
+        },
+        "author_notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "stops": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StopCheck"
+          }
+        },
+        "limits": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "story": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StoryCheck"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "result_schema_version",
+        "schema_version",
+        "title",
+        "exit_code",
+        "strict",
+        "snapshot",
+        "view_snapshot",
+        "snapshot_current",
+        "snapshot_completeness",
+        "nodes",
+        "edges",
+        "steps",
+        "author_notes",
+        "stops"
+      ],
+      "additionalProperties": false
+    },
+    "ViewSnapshot": {
+      "type": "object",
+      "properties": {
+        "source_digest": {
+          "type": "string"
+        },
+        "contract_digest": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_digest",
+        "contract_digest"
+      ],
+      "additionalProperties": false
+    },
+    "NodeCheck": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "proven",
+            "declared",
+            "claim",
+            "unknown",
+            "missing"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "component",
+                "package",
+                "module",
+                "class",
+                "interface",
+                "enum",
+                "mixin",
+                "enum_literal",
+                "method",
+                "function",
+                "attribute",
+                "type_alias",
+                "constant",
+                "binding",
+                "symbol"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "status",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "LinkCheck": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "proven",
+            "declared",
+            "claim",
+            "unknown",
+            "missing"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "imports",
+                "calls",
+                "references",
+                "inherits",
+                "realizes",
+                "mixes_in",
+                "creates",
+                "instance_of",
+                "owns",
+                "requires",
+                "publishes"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "path": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ViewEvidence"
+              },
+              {
+                "$ref": "#/$defs/CandidateEvidence"
+              }
+            ]
+          }
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "source",
+        "target",
+        "status",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "ViewEvidence": {
+      "type": "object",
+      "properties": {
+        "record_id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "imports",
+            "calls",
+            "references",
+            "inherits",
+            "realizes",
+            "mixes_in",
+            "creates",
+            "instance_of",
+            "owns",
+            "requires",
+            "publishes"
+          ]
+        },
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "evidence_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "line": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type_only": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "record_id",
+        "kind",
+        "source",
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "CandidateEvidence": {
+      "type": "object",
+      "properties": {
+        "record_id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "imports",
+            "calls",
+            "references",
+            "inherits",
+            "realizes",
+            "mixes_in",
+            "creates",
+            "instance_of",
+            "owns",
+            "requires",
+            "publishes"
+          ]
+        },
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "evidence_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "line": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type_only": {
+          "type": "boolean"
+        },
+        "candidates": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "record_id",
+        "kind",
+        "source",
+        "target",
+        "candidates"
+      ],
+      "additionalProperties": false
+    },
+    "StopCheck": {
+      "type": "object",
+      "properties": {
+        "node": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "proven",
+            "declared",
+            "claim",
+            "unknown",
+            "missing"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "facts": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StopFacts"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "node",
+        "status",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "StopFacts": {
+      "type": "object",
+      "properties": {
+        "modules": {
+          "type": "integer"
+        },
+        "imports_out": {
+          "$ref": "#/$defs/StopImports"
+        },
+        "imports_in": {
+          "$ref": "#/$defs/StopImports"
+        },
+        "violations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StopFinding"
+          }
+        },
+        "unknowns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StopFinding"
+          }
+        }
+      },
+      "required": [
+        "modules",
+        "imports_out",
+        "imports_in",
+        "violations",
+        "unknowns"
+      ],
+      "additionalProperties": false
+    },
+    "StopImports": {
+      "type": "object",
+      "properties": {
+        "pairs": {
+          "type": "integer"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViewEvidence"
+          }
+        },
+        "gap": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "pairs",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "StopFinding": {
+      "type": "object",
+      "properties": {
+        "record_id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "record_id",
+        "kind",
+        "title"
+      ],
+      "additionalProperties": false
+    },
+    "StoryCheck": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "chapters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViewChapter"
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StoryStepCheck"
+          }
+        },
+        "verdict": {
+          "$ref": "#/$defs/StoryVerdict"
+        },
+        "limits": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "chapters",
+        "steps",
+        "verdict"
+      ],
+      "additionalProperties": false
+    },
+    "ViewChapter": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "additionalProperties": false
+    },
+    "StoryStepCheck": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "integer"
+        },
+        "node": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "chapter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "question": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lane": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "defined_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Site"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "seam": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Seam"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "external": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExternalCheck"
+          }
+        }
+      },
+      "required": [
+        "index",
+        "node",
+        "label",
+        "chapter",
+        "title",
+        "question",
+        "lane",
+        "defined_at",
+        "seam",
+        "external"
+      ],
+      "additionalProperties": false
+    },
+    "Site": {
+      "type": "object",
+      "properties": {
+        "record_id": {
+          "type": "string"
+        },
+        "evidence_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "line": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "record_id"
+      ],
+      "additionalProperties": false
+    },
+    "Seam": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "partial_call",
+            "unresolved_call"
+          ]
+        },
+        "node": {
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "candidates": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "calls": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "node",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "ExternalCheck": {
+      "type": "object",
+      "properties": {
+        "system": {
+          "enum": [
+            "redis",
+            "relational_database",
+            "mongodb",
+            "object_storage",
+            "kafka",
+            "rabbitmq"
+          ]
+        },
+        "touched": {
+          "type": "boolean"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Touch"
+          }
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "enum": [
+                "reads",
+                "writes",
+                "reads_writes",
+                "touches"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "system",
+        "touched"
+      ],
+      "additionalProperties": false
+    },
+    "Touch": {
+      "type": "object",
+      "properties": {
+        "system": {
+          "enum": [
+            "redis",
+            "relational_database",
+            "mongodb",
+            "object_storage",
+            "kafka",
+            "rabbitmq"
+          ]
+        },
+        "module": {
+          "type": "string"
+        },
+        "library": {
+          "type": "string"
+        },
+        "site": {
+          "$ref": "#/$defs/Site"
+        }
+      },
+      "required": [
+        "system",
+        "module",
+        "library",
+        "site"
+      ],
+      "additionalProperties": false
+    },
+    "StoryVerdict": {
+      "type": "object",
+      "properties": {
+        "proven": {
+          "type": "integer"
+        },
+        "declared": {
+          "type": "integer"
+        },
+        "claim": {
+          "type": "integer"
+        },
+        "unknown": {
+          "type": "integer"
+        },
+        "missing": {
+          "type": "integer"
+        },
+        "systems": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "redis",
+              "relational_database",
+              "mongodb",
+              "object_storage",
+              "kafka",
+              "rabbitmq"
+            ]
+          }
+        },
+        "modules": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "proven",
+        "declared",
+        "claim",
+        "unknown",
+        "missing",
+        "systems",
+        "modules"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

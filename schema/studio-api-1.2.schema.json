@@ -1,0 +1,688 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archkeel:studio-api:1.2.0",
+  "title": "ArchKeel Studio API 1.2: state, graph, stories, draft and chat",
+  "description": "AD-290, AD-291, AD-292. Each definition pins one JSON body. Version 1.2 adds the graph, the stories routes and the chat. The chat route never writes: a proposal is not applied. No route writes.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/state"
+    },
+    {
+      "$ref": "#/$defs/graph"
+    }
+  ],
+  "$defs": {
+    "explore": {
+      "description": "The explore run that makes the snapshot in the cache folder.",
+      "enum": [
+        "idle",
+        "running",
+        "done",
+        "failed"
+      ]
+    },
+    "state": {
+      "title": "GET /api/v1/state",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api_version",
+        "root_name",
+        "contract",
+        "explore",
+        "seconds",
+        "exit_code",
+        "notes"
+      ],
+      "properties": {
+        "api_version": {
+          "const": "1.2.0"
+        },
+        "root_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contract": {
+          "description": "What archkeel.toml at the root gives: no file, a file that does not load, or a loaded file.",
+          "enum": [
+            "not_configured",
+            "invalid",
+            "configured"
+          ]
+        },
+        "explore": {
+          "$ref": "#/$defs/explore"
+        },
+        "seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "notes": {
+          "description": "The diagnostics of a failed run; else empty.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "graph": {
+      "title": "GET /api/v1/graph",
+      "description": "The measured call graph of the snapshot. `graph` is null until `explore` is done. Every row is an array; a number that names a row of another list is its index.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api_version",
+        "explore",
+        "graph"
+      ],
+      "properties": {
+        "api_version": {
+          "const": "1.2.0"
+        },
+        "explore": {
+          "$ref": "#/$defs/explore"
+        },
+        "graph": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "components_from",
+                "components",
+                "modules",
+                "symbols",
+                "edges",
+                "unknown",
+                "totals",
+                "snapshot"
+              ],
+              "properties": {
+                "components_from": {
+                  "description": "Where the components come from: the contract at the root, or the top-level packages of the explore layout. A contract that does not load gives the layout.",
+                  "enum": [
+                    "contract",
+                    "layout"
+                  ]
+                },
+                "components": {
+                  "description": "[id, responsibility]. The id is a label of the contract, else a top-level package of the explore layout, else \"(unowned)\". The responsibility is the first one of the contract; else empty.",
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ],
+                    "items": false,
+                    "minItems": 2
+                  }
+                },
+                "modules": {
+                  "description": "[name, file, component, relative]. component indexes components; relative is the name below the shared prefix of the component.",
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    ],
+                    "items": false,
+                    "minItems": 4
+                  }
+                },
+                "symbols": {
+                  "description": "[module, name, line, kind, text, unknown, outside]. module indexes modules; name is the qualified name below the module; text is the first source line, 80 characters at most; unknown is the true number of unresolved calls of the function (the unknown list keeps the first 4); outside counts the resolved or partly resolved calls whose targets lie outside the scan.",
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "enum": [
+                          "function",
+                          "method",
+                          "class"
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "maxLength": 80
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    ],
+                    "items": false,
+                    "minItems": 7
+                  }
+                },
+                "edges": {
+                  "description": "[source, target, partial, line, site]. source and target index symbols. false = resolved (proven); true = partially resolved (claim). line is the line of the call in the file of the source. site numbers the call sites: a partly resolved call can give two edges with one site, so count sites, not edges.",
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    ],
+                    "items": false,
+                    "minItems": 5
+                  }
+                },
+                "unknown": {
+                  "description": "[symbol, expression, reason, line]. A sample of the calls that the analysis cannot resolve: the first 4 for each symbol; the symbol row holds the true number.",
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    ],
+                    "items": false,
+                    "minItems": 4
+                  }
+                },
+                "totals": {
+                  "description": "The call counts of the whole snapshot as explore measured them: analyzed, resolved (proven), partially resolved (claim) and unresolved (unknown).",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "analyzed",
+                    "resolved",
+                    "partial",
+                    "unresolved"
+                  ],
+                  "properties": {
+                    "analyzed": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "resolved": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "partial": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "unresolved": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                },
+                "snapshot": {
+                  "description": "The revision of the snapshot: git_head is empty without Git.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "git_head",
+                    "source_digest",
+                    "dirty"
+                  ],
+                  "properties": {
+                    "git_head": {
+                      "type": "string"
+                    },
+                    "source_digest": {
+                      "type": "string"
+                    },
+                    "dirty": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "chat_request": {
+      "description": "POST /api/v1/chat: Content-Type application/json, header X-Archkeel-Studio, Origin of the server. At most 16 KiB.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question"
+      ],
+      "properties": {
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "context": {
+          "description": "The selected node: the qualified name of a symbol of the snapshot.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 300
+        }
+      }
+    },
+    "chat_response": {
+      "description": "200. Block text is agent text: show it as plain text. Facts are computed by Studio from the snapshot.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api_version",
+        "agent",
+        "blocks",
+        "facts",
+        "dropped_refs",
+        "applied"
+      ],
+      "properties": {
+        "api_version": {
+          "const": "1.2.0"
+        },
+        "agent": {
+          "description": "The agent that answered.",
+          "enum": [
+            "claude",
+            "codex"
+          ]
+        },
+        "blocks": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "text",
+              "refs",
+              "label"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "claim",
+                  "proposal"
+                ]
+              },
+              "text": {
+                "type": "string",
+                "maxLength": 2000
+              },
+              "refs": {
+                "description": "Only refs that exist in the snapshot.",
+                "type": "array",
+                "maxItems": 20,
+                "items": {
+                  "type": "string"
+                }
+              },
+              "label": {
+                "description": "Set by Studio: PROPOSED - NOT APPLIED for a proposal; else null.",
+                "enum": [
+                  "PROPOSED - NOT APPLIED",
+                  null
+                ]
+              }
+            }
+          }
+        },
+        "facts": {
+          "description": "OBSERVED: one record for each valid ref, in the order of first use.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "qualified_name",
+              "file",
+              "line",
+              "resolved_callers",
+              "resolved_callees",
+              "unknown_calls"
+            ],
+            "properties": {
+              "qualified_name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "file": {
+                "description": "Empty when the snapshot holds no place.",
+                "type": "string"
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "resolved_callers": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "resolved_callees": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "unknown_calls": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "dropped_refs": {
+          "description": "Refs of the agent that the snapshot does not hold; each cut to 300 characters.",
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "applied": {
+          "description": "A proposal is never applied.",
+          "const": false
+        }
+      }
+    },
+    "chat_error": {
+      "description": "400, 409, 411, 413, 415, 502, 503, 504 of the chat route. A failed Origin, header or token check gets 403 with a text body.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api_version",
+        "error",
+        "detail"
+      ],
+      "properties": {
+        "api_version": {
+          "const": "1.2.0"
+        },
+        "error": {
+          "enum": [
+            "invalid_request",
+            "unsupported_media_type",
+            "length_required",
+            "body_too_large",
+            "snapshot_not_ready",
+            "busy",
+            "agent_not_installed",
+            "agent_failed",
+            "agent_timeout",
+            "output_too_large",
+            "repository_changed",
+            "invalid_answer"
+          ]
+        },
+        "detail": {
+          "type": "string"
+        }
+      }
+    },
+    "stories": {
+      "description": "GET /api/v1/stories: the story specs in the stories folder of the root.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api_version",
+        "stories"
+      ],
+      "properties": {
+        "api_version": {
+          "const": "1.2.0"
+        },
+        "stories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "title",
+              "steps",
+              "source",
+              "created",
+              "checked_counts"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+              },
+              "title": {
+                "type": "string"
+              },
+              "steps": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "source": {
+                "description": "repository: committed in <root>/.archkeel/stories; local: the cache folder of the root. The repository wins on an equal id.",
+                "enum": [
+                  "repository",
+                  "local"
+                ]
+              },
+              "created": {
+                "description": "The `created` field of the spec, null when absent.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "checked_counts": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "proven",
+                      "declared",
+                      "claim",
+                      "unknown",
+                      "missing"
+                    ],
+                    "properties": {
+                      "proven": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "declared": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "claim": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "unknown": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "missing": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "story": {
+      "description": "GET /api/v1/stories/<id>: the result of archkeel view check, against the snapshot of this run; its shape is schema/view-check-1.3.schema.json. A spec that names another snapshot is checked by node name (rebound).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api_version",
+        "id",
+        "source",
+        "checked",
+        "rebound",
+        "created",
+        "head"
+      ],
+      "properties": {
+        "api_version": {
+          "const": "1.2.0"
+        },
+        "id": {
+          "type": "string"
+        },
+        "checked": {
+          "$ref": "urn:archkeel:view-check:1.3.0"
+        },
+        "source": {
+          "enum": [
+            "repository",
+            "local"
+          ]
+        },
+        "rebound": {
+          "description": "True when the digests of the spec differ from the snapshot of this run; they are replaced in memory, never in the file.",
+          "type": "boolean"
+        },
+        "created": {
+          "description": "The optional fields of the spec that say where it comes from; author text, null when absent.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "created",
+            "git_head",
+            "author_kind",
+            "agent"
+          ],
+          "properties": {
+            "created": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "git_head": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "author_kind": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "agent": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "head": {
+          "description": "The commit of the root now, null without Git.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "draft": {
+      "description": "GET /api/v1/draft?from=NAME: a spec 1.2 along the traced path, with no text. Nothing is written; its shape is schema/view-spec.schema.json.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api_version",
+        "spec"
+      ],
+      "properties": {
+        "api_version": {
+          "const": "1.2.0"
+        },
+        "spec": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

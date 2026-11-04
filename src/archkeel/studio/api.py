@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass
 from enum import StrEnum
 from typing import Final, NamedTuple, TypeAlias, TypeVar
 
-API_VERSION: Final = "1.1.0"
+API_VERSION: Final = "1.2.0"
 QUESTION_LIMIT: Final = 2000
 CONTEXT_LIMIT: Final = 300
 
@@ -325,6 +325,15 @@ class StorySource(StrEnum):
 
 
 @dataclass(frozen=True)
+class StoryCounts:
+    proven: int
+    declared: int
+    claim: int
+    unknown: int
+    missing: int
+
+
+@dataclass(frozen=True)
 class StoryRow:
     """One spec file of a stories folder."""
 
@@ -333,6 +342,7 @@ class StoryRow:
     steps: int
     source: StorySource
     created: str | None
+    checked_counts: StoryCounts | None
 
 
 def stories_json(rows: Sequence[StoryRow]) -> bytes:

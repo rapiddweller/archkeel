@@ -57,7 +57,7 @@ export function layoutStory(checked: CheckedStory): StoryLayout {
   const centre = (lane: number): number => lane * (STORY.lane + STORY.gap) + STORY.lane / 2;
   let top: number = STORY.top;
   const cards = steps.map((step, index): StoryCard => {
-    const height = Math.max(STORY.card.height, cardHeight(STORY.card.width, step.node, ["✓ proven · module_name.py"]));
+    const height = Math.max(STORY.card.height, cardHeight(STORY.card.width, step.label, ["✓ proven · module_name.py"]));
     const card = { x: centre(laneOf[index]) - STORY.card.width / 2, y: top, lane: laneOf[index], height };
     top += height + STORY.row - STORY.card.height;
     return card;

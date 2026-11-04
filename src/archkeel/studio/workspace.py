@@ -83,6 +83,8 @@ class Workspace:
         with self._graph_lock, self._lock:
             if self._run.explore is ExploreState.RUNNING:
                 return
+            if self.stories is not None:
+                self.stories.invalidate_check()
             self._run = replace(
                 self._run, explore=ExploreState.RUNNING, seconds=0, exit_code=None, notes=()
             )
