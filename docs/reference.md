@@ -188,15 +188,35 @@ the contract is valid, and no rule was checked.
 
 ## Studio
 
-`archkeel studio [--root PATH] [--no-open]` serves ArchKeel Studio, a local web app, on
-127.0.0.1 and opens it in the browser. It takes the scope options of `explore` and passes them on
+`archkeel studio [--root PATH] [--no-open] [--stop] [--idle-exit MINUTES]` serves ArchKeel Studio,
+a local web app, on 127.0.0.1 and opens it in the browser. It takes the scope options of `explore`
+and passes them on
 ([AD-290](architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md)). The
 printed URL carries a token for this run; a request without it gets 403. At start, Studio runs
 `archkeel explore` on the root into a private folder of this run below the explore cache; Overview shows the progress and
 Explore shows the Explorer. The read-only API `GET /api/v1/state` follows
 [studio-api-1.0](../schema/studio-api-1.0.schema.json). Studio writes nothing into the
-repository. It is parallel to the static report, which stays the CI and Pages artifact. Stop it
-with Ctrl-C.
+repository. It is parallel to the static report, which stays the CI and Pages artifact.
+
+A running server writes `studio.json` (pid, URL with token, port, root, start time) into the
+explore cache folder of the root, with mode 0600. It removes the file when it stops.
+
+- A second `archkeel studio` for the same root prints `ArchKeel Studio: <URL> (already running)`
+  and starts no second server. It reuses the server only if a request to the stored URL gets the
+  Studio login redirect (303 with the cookie `archkeel_studio_<port>`). A live pid is not enough.
+  The scope options of the first start stay in force.
+- `archkeel studio --stop [--root PATH]` sends SIGTERM to a server that passed the same check,
+  waits up to 15 seconds until its URL stops answering and prints `ArchKeel Studio: stopped.`.
+  Without a verified server it deletes a stale file (only if it still holds the pid that it read)
+  and prints `ArchKeel Studio: not running.`. The command can return while the server still
+  unwinds its explore child.
+- SIGTERM and Ctrl-C stop the server the same way: the explore child unwinds and the file goes.
+  Windows ends the process at once on `--stop`, with no cleanup: the file is deleted by `--stop`,
+  but the explore child and the `studio-*` folder of the run can stay behind.
+- `--idle-exit MINUTES` stops the server when no HTTP request came for that time. The default 0
+  means never. Only requests count. A running Explore does not keep the server alive; the open
+  page polls the state, and each poll is a request.
+- An agent starts it with `--no-open --idle-exit 60` in the background; see the `explore` skill.
 
 ## Checked views
 
@@ -268,7 +288,7 @@ expectations are n/a. Filtering and baseline display do not change canonical fac
 | `guide` | Guide written, or `--check` up to date | `--check`: missing or different | No contract, or it cannot be read |
 | `view check` | No reference is missing (`--strict`: or unknown) | A reference is missing (`--strict`: or unknown) | Invalid spec or snapshot, or another snapshot |
 | `view show` | As `view check`; pages written | As `view check`; pages written | As `view check`, or no Explorer for the snapshot; nothing written |
-| `studio` | Stopped with Ctrl-C | — | The server could not start |
+| `studio` | Stopped (Ctrl-C, SIGTERM, `--idle-exit`), reused, or `--stop` done | `--stop`: still running after 15 s | The server could not start |
 
 Exit 0 is not architecture approval. Exit 2 carries diagnostics with `kind`,
 `subject`, `unknown_claim` and `remedy`; inspected evidence may remain available.

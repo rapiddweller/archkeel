@@ -1,0 +1,4 @@
+interface:
+  display_name: "ArchKeel Explore"
+  short_description: "Open the measured architecture map of this repository in the browser"
+  default_prompt: "Use $explore to start ArchKeel Studio for this repository and give me the URL."

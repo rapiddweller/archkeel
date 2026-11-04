@@ -3,10 +3,12 @@
 # SPDX-License-Identifier: MIT
 """AD-290: serve the shell, the read-only API and the snapshot files on 127.0.0.1."""
 
+import http.client
 import mimetypes
 import secrets
 import socket
 import socketserver
+import time
 from collections.abc import Callable
 from enum import StrEnum
 from functools import partial
@@ -21,6 +23,8 @@ from .api import ApiPath, Route, UiAsset, state_json
 from .workspace import Workspace
 
 _UI = Path(__file__).parent / "ui"
+_LOOPBACK = "127.0.0.1"
+_PROBE_SECONDS = 2
 _Member = TypeVar("_Member", bound=StrEnum)
 # The shell loads only its own files and asks only its own server.
 _SHELL_CSP = (
@@ -33,6 +37,15 @@ _FILES_CSP = (
     "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
     "img-src 'self' data:; frame-ancestors 'self'; base-uri 'none'"
 )
+
+
+def _cookie_name(port: int) -> str:
+    # Cookies ignore the port: each server needs its own cookie name.
+    return f"archkeel_studio_{port}"
+
+
+class _Idle(Exception):
+    """No request arrived within the idle time."""
 
 
 def _decode(kind: type[_Member], value: str) -> _Member | None:
@@ -48,15 +61,21 @@ class Studio(ThreadingHTTPServer):
 
     daemon_threads = True
 
-    def __init__(self, workspace: Workspace) -> None:
+    def __init__(self, workspace: Workspace, idle_seconds: float = 0.0) -> None:
         self.workspace = workspace
         self.token = secrets.token_urlsafe(32)
-        super().__init__(("127.0.0.1", 0), partial(_Handler, self))
+        self.idle_seconds = idle_seconds
+        self.last_request = time.monotonic()
+        super().__init__((_LOOPBACK, 0), partial(_Handler, self))
         self.port: int = self.socket.getsockname()[1]
-        self.host = f"127.0.0.1:{self.port}"
-        # Cookies ignore the port: each server needs its own cookie name.
-        self.cookie = f"archkeel_studio_{self.port}"
+        self.host = f"{_LOOPBACK}:{self.port}"
+        self.cookie = _cookie_name(self.port)
         self.url = f"http://{self.host}/?token={self.token}"
+
+    def service_actions(self) -> None:
+        """Called by `serve_forever` after each poll: end the loop when no request came."""
+        if self.idle_seconds > 0 and time.monotonic() - self.last_request > self.idle_seconds:
+            raise _Idle
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -83,6 +102,7 @@ class _Handler(BaseHTTPRequestHandler):
         headers: tuple[tuple[str, str], ...] = (),
         csp: str = _SHELL_CSP,
     ) -> None:
+        self.studio.last_request = time.monotonic()
         self.send_response(status)
         for name, value in (
             ("Content-Type", content_type),
@@ -157,15 +177,42 @@ class _Handler(BaseHTTPRequestHandler):
     do_POST = do_PUT = do_DELETE = do_PATCH = _read_only
 
 
-def run_studio(workspace: Workspace, *, ready: Callable[[str], object]) -> int:
-    """Make the snapshot and serve until Ctrl-C; `ready` gets the start URL with the token."""
-    server = Studio(workspace)
-    workspace.start()
-    print(f"ArchKeel Studio: {server.url}\nPress Ctrl-C to stop.", flush=True)
-    ready(server.url)
+def is_studio(url: str) -> bool:
+    """True when a Studio answers its start URL with the login redirect; a live pid is no proof."""
     try:
+        start = urlsplit(url)
+        port = start.port
+    except ValueError:
+        return False
+    if port is None:
+        return False
+    connection = http.client.HTTPConnection(_LOOPBACK, port, timeout=_PROBE_SECONDS)
+    try:
+        connection.request("GET", f"{start.path}?{start.query}")
+        response = connection.getresponse()
+        cookie = response.getheader("Set-Cookie", "")
+    except (OSError, http.client.HTTPException):
+        return False
+    finally:
+        connection.close()
+    return response.status == HTTPStatus.SEE_OTHER and cookie.startswith(f"{_cookie_name(port)}=")
+
+
+def run_studio(
+    workspace: Workspace, *, ready: Callable[[str], object], idle_seconds: float = 0.0
+) -> int:
+    """Make the snapshot and serve until Ctrl-C or `idle_seconds` without a request (0 = never).
+
+    `ready` gets the start URL with the token.
+    """
+    server = Studio(workspace, idle_seconds)
+    try:
+        workspace.start()
+        # The caller has written its state file before the URL appears: a reader can stop us.
+        ready(server.url)
+        print(f"ArchKeel Studio: {server.url}\nPress Ctrl-C to stop.", flush=True)
         server.serve_forever()
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, _Idle):
         print("ArchKeel Studio: stopped.")
     finally:
         server.server_close()

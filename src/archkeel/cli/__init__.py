@@ -9,15 +9,18 @@ import io
 import json
 import os
 import re
+import signal
 import sys
 import tempfile
 import webbrowser
 from collections.abc import Sequence
 from contextlib import redirect_stdout
 from dataclasses import replace
+from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Final, NoReturn
+from urllib.parse import urlsplit
 
 from rich_argparse import RawDescriptionRichHelpFormatter
 
@@ -73,6 +76,13 @@ from .config import (
     project_name,
 )
 from .guide import GUIDE_PATH, run_guide
+from .launcher import (
+    StudioProcess,
+    forget_state,
+    running_studio,
+    stop_studio,
+    write_state,
+)
 from .observe import observer_for
 from .skill import InstallationAgent, install_skill
 
@@ -160,6 +170,42 @@ def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:
         (*explore, *scope, "--output", str(folder), "--json"),
         lambda: _contract_state(root),
     )
+
+
+def _studio(args: CLIArguments) -> int:
+    """AD-290: reuse the running Studio of the root, stop it, or serve a new one."""
+    root = args.root.resolve()
+    cache = _cache_folder(Command.EXPLORE, _root_digest(root))
+    if args.stop:
+        return stop_studio(cache)
+    if (live := running_studio(cache)) is not None:
+        print(f"ArchKeel Studio: {live.url} (already running)", flush=True)
+        if not args.no_open:
+            webbrowser.open(live.url)
+        return 0
+
+    def ready(url: str) -> None:
+        port = urlsplit(url).port
+        started = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        write_state(cache, StudioProcess(os.getpid(), url, port, str(root), started))
+        if not args.no_open:
+            webbrowser.open(url)
+
+    # SIGTERM stops the server like Ctrl-C: the workspace and the state file are cleaned up.
+    # A shell starts a background job with SIGINT ignored; the explore child would inherit that
+    # and could not unwind on the SIGINT of `Workspace.close`. A Python handler resets on exec.
+    previous = {
+        number: signal.signal(number, signal.default_int_handler)
+        for number in (signal.SIGTERM, signal.SIGINT)
+    }
+    try:
+        return run_studio(
+            studio_workspace(args, cache), ready=ready, idle_seconds=args.idle_exit * 60
+        )
+    finally:
+        for number, handler in previous.items():
+            signal.signal(number, handler)
+        forget_state(cache, os.getpid())
 
 
 def _write_json(artifact: Path, architecture: bytes) -> None:
@@ -752,12 +798,20 @@ def build_parser() -> _Parser:
             "the scope options of explore, into a private cache folder of this run and writes\n"
             "nothing into the repository. The static report stays the CI and Pages artifact\n"
             "(AD-290).\n\n"
+            "A running server writes studio.json (pid, URL, port) into the explore cache folder\n"
+            "of the root, readable by you only. A second start for the same root prints the same\n"
+            "URL and starts no second server. The scope options of the first start stay in force.\n"
+            "An agent starts it in the background with --no-open and --idle-exit.\n\n"
             "Examples:\n"
             "  archkeel studio\n"
-            "  archkeel studio --root ../service --no-open\n"
+            "  archkeel studio --root ../service --no-open --idle-exit 60\n"
+            "  archkeel studio --stop --root ../service\n"
             "  archkeel studio --language typescript --source src --namespace shop \\\n"
             "    --tsconfig tsconfig.json\n\n"
-            "Stop it with Ctrl-C."
+            "Exit codes:\n"
+            "  0  stopped by Ctrl-C, SIGTERM or --idle-exit; --stop done; or server reused\n"
+            "  1  --stop: the server still runs after 15 seconds\n"
+            "  2  the server could not start"
         ),
     )
     studio.add_argument(
@@ -765,6 +819,19 @@ def build_parser() -> _Parser:
     )
     studio.add_argument(
         "--no-open", action="store_true", help="Print the URL; do not open a browser."
+    )
+    studio.add_argument(
+        "--stop",
+        action="store_true",
+        help="Stop the running Studio of --root (SIGTERM) and exit. It checks first that the "
+        "server answers as a Studio.",
+    )
+    studio.add_argument(
+        "--idle-exit",
+        type=float,
+        default=0.0,
+        metavar="MINUTES",
+        help="Stop when no request came for MINUTES. Default: 0 (never).",
     )
 
     return parser
@@ -805,12 +872,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if command is Command.STUDIO:
             subject = str(args.root)
-            return run_studio(
-                studio_workspace(
-                    args, _cache_folder(Command.EXPLORE, _root_digest(args.root.resolve()))
-                ),
-                ready=(lambda _: None) if args.no_open else webbrowser.open,
-            )
+            return _studio(args)
         if args.config is None and (command is not Command.REPORT or args.input is None):
             args.config = CONFIG_PATH
         if command is Command.GUIDE:
