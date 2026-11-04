@@ -1606,3 +1606,25 @@ def test_a_late_answer_of_another_route_never_replaces_the_story_on_screen(
             assert page.get_by_role("alert").count() == 0
         finally:
             browser.close()
+
+
+@pytest.mark.browser
+def test_a_question_from_the_briefing_shows_its_answer_on_a_narrow_screen(studio: Studio) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    reply = {**_ANSWER, "blocks": [_ANSWER["blocks"][0] | {"refs": []}], "facts": []}
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1000, "height": 700})
+            page.set_default_timeout(10000)
+            page.route("**/api/v1/chat", lambda route: route.fulfill(json=reply))
+            page.goto(studio.url + "#/overview")
+            page.get_by_role("textbox", name="Question").fill("What does place do?")
+            page.get_by_role("button", name="Ask", exact=True).click()
+            page.get_by_role("heading", name="Map", exact=True).wait_for()
+            # Below 1300 px the side panel starts closed; the chat the question opened must be seen.
+            chat = page.get_by_role("complementary", name="Ask the agent")
+            chat.get_by_text("place saves the order.").wait_for()
+            assert chat.get_by_text("place saves the order.").is_visible()
+        finally:
+            browser.close()

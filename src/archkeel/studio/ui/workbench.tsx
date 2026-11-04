@@ -82,7 +82,8 @@ export function Workbench(props: {
   const asking = props.chat.shown;
   const setAsking = props.chat.show;
   const [tree, setTree] = useState(treeOpen);
-  const [side, setSide] = useState(detailsOpen);
+  // A narrow screen hides the side panel, and the chat lives in it: a chat that is already open shows it.
+  const [side, setSide] = useState(() => detailsOpen() || props.chat.shown);
   const [open, setOpen] = useState<ReadonlySet<string>>(() => opened(model, where));
   const canvas = useRef<HTMLElement>(null);
   const first = useRef(true);
