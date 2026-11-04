@@ -1,11 +1,14 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+import contextlib
 import json
 import re
 import subprocess
 import sys
+import threading
 import tomllib
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -80,11 +83,35 @@ def _load_self_run(directory: Path) -> SelfRun:
 
 
 @pytest.fixture(scope="session")
-def self_run(tmp_path_factory: pytest.TempPathFactory, worker_id: str) -> SelfRun:
+def _self_report_directory(tmp_path_factory: pytest.TempPathFactory, worker_id: str) -> Path:
     base = tmp_path_factory.getbasetemp()
     if worker_id != "master":
         base = base.parent
-    return _load_self_run(base / "self-report")
+    return base / "self-report"
+
+
+def _warm_self_run(directory: Path) -> None:
+    # A failure is shown by the first consumer test, which runs the report again.
+    with contextlib.suppress(Exception):
+        _load_self_run(directory)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _start_self_run(request: pytest.FixtureRequest, _self_report_directory: Path) -> Iterator[None]:
+    """Start the self-run before the first test, so no worker idles in its first consumer."""
+    consumers = any("self_run" in item.fixturenames for item in request.session.items)
+    warm = threading.Thread(target=_warm_self_run, args=(_self_report_directory,), daemon=True)
+    if consumers:
+        warm.start()
+    yield
+    # A worker must not exit while its run still writes the shared output.
+    if consumers:
+        warm.join()
+
+
+@pytest.fixture(scope="session")
+def self_run(_self_report_directory: Path) -> SelfRun:
+    return _load_self_run(_self_report_directory)
 
 
 @pytest.fixture(scope="session")
