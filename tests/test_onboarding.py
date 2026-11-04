@@ -455,6 +455,38 @@ def test_detect_source_matches_the_project_name_in_wheel_file_name_form(
     assert detect_source(root) == ("archkeel_core", "archkeel_core")
 
 
+def test_detect_source_uses_root_package_when_src_has_no_python_package(tmp_path: Path) -> None:
+    root = tmp_path
+    (root / "shop").mkdir()
+    (root / "shop" / "__init__.py").touch()
+    (root / "pyproject.toml").write_text('[project]\nname = "shop"\n')
+    (root / "src" / "rust_crate" / "src").mkdir(parents=True)
+    (root / "src" / "rust_crate" / "Cargo.toml").touch()
+
+    assert detect_source(root) == ("shop", "shop")
+
+
+def test_detect_source_keeps_src_when_it_has_a_python_package(tmp_path: Path) -> None:
+    root = tmp_path
+    (root / "shop").mkdir()
+    (root / "shop" / "__init__.py").touch()
+    (root / "src" / "shop").mkdir(parents=True)
+    (root / "src" / "shop" / "__init__.py").touch()
+    (root / "pyproject.toml").write_text('[project]\nname = "shop"\n')
+
+    assert detect_source(root) == ("src/shop", "shop")
+
+
+def test_detect_source_names_root_search_when_src_has_no_python_package(tmp_path: Path) -> None:
+    (tmp_path / "src" / "rust_crate").mkdir(parents=True)
+    (tmp_path / "src" / "rust_crate" / "Cargo.toml").touch()
+
+    with pytest.raises(DiagnosticError) as raised:
+        detect_source(tmp_path)
+
+    assert "found none. Searched directories `src`, `.`." in raised.value.diagnostic.unknown_claim
+
+
 @pytest.mark.parametrize("pyproject", [None, "[project\n", '[project]\nversion = "1"\n'])
 def test_detect_source_fails_closed_without_a_readable_project_name(
     tmp_path: Path, pyproject: str | None
@@ -465,6 +497,7 @@ def test_detect_source_fails_closed_without_a_readable_project_name(
     assert "[project] name (missing); found archkeel_core, tests_pkg." in (
         raised.value.diagnostic.unknown_claim
     )
+    assert raised.value.diagnostic.unknown_claim.endswith("Searched directories `.`.")
 
 
 def test_interface_entries_applies_the_ad9_module_entry_rule() -> None:

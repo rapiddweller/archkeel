@@ -31,6 +31,21 @@ def nested_engine_files() -> dict[str, str]:
 
 VARIANTS: tuple[Variant, ...] = (
     Variant(
+        id="explore-root-package-with-rust-src",
+        section="showcase",
+        item="explore:root-package-with-rust-src",
+        summary="explore selects the root Python package when src contains only a Rust crate.",
+        files={
+            "src/rust_crate/Cargo.toml": '[package]\nname = "rust-crate"\nversion = "0.1.0"\n',
+            "src/rust_crate/src/main.rs": "fn main() {}\n",
+        },
+        expected_violations=(),
+        expected_codes=(),
+        fixture=EXPLORE_FIXTURE_DIR,
+        expected_declared_rules="UNKNOWN",
+        explore=True,
+    ),
+    Variant(
         id="explore-contract-free",
         section="showcase",
         item="explore:contract-free",

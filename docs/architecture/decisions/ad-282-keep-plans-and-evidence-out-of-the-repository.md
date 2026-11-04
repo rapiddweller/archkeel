@@ -4,8 +4,9 @@
 
 **Decision.** The repository holds files that the product, a test or a reader needs. It does not
 hold work records.
-1. An agent plan or spec lives outside the repository, in a scratch folder or in the notes of the
-   user. Do not add it under `docs/`.
+1. An agent plan or working spec lives outside the repository, in a scratch folder or in the notes
+   of the user. Do not add it under `docs/`. AD-291 permits one narrow exception: a final checked
+   story is reviewed documentation at `.archkeel/stories/<id>.story.json`, not a working spec.
 2. Evidence for a release goes into the GitHub release or into the Git history. Do not add it
    under `docs/`.
 3. The Git history is the archive. Restore a removed file from it when a real need comes back.
