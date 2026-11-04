@@ -389,7 +389,8 @@ def view_check_schema() -> dict[str, object]:
         "carries its node status and facts measured from the snapshot; its title and note are "
         "author text (AD-289). A 1.2.0 spec with a story adds `story`: for each step, by index "
         "into `steps`, its lane, definition, seam and external systems, and a verdict that counts "
-        "statuses and never says PASS (AD-291)."
+        "statuses and never says PASS (AD-291). The call site of a partial call carries "
+        "`candidates`, so a claim never has the shape of proof."
     )
     return schema
 
@@ -399,7 +400,9 @@ def story_trace_schema() -> dict[str, object]:
     schema["$comment"] = (
         "Generated from archkeel.ir.story (AD-291). Candidate paths over the call graph of one "
         "snapshot. A hop is proven (a resolved call) or a claim (a partial call, with its seam). "
-        "An unresolved call is a seam of its function. Author text is not part of this result."
+        "An unresolved call is a seam of its function. Author text is not part of this result. "
+        "`complete` is false only when the path search stopped at its work limit; it says "
+        "nothing about the call analysis."
     )
     return schema
 

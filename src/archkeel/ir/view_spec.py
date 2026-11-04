@@ -114,14 +114,6 @@ class ViewStep:
     question: str | None = None
     external: tuple[ViewExternal, ...] = ()
 
-    def has_story_fields(self) -> bool:
-        return (
-            self.chapter is not None
-            or self.title is not None
-            or self.question is not None
-            or bool(self.external)
-        )
-
 
 @dataclass(frozen=True, slots=True)
 class ViewStop:
@@ -172,6 +164,13 @@ class ViewEvidence:
     type_only: bool = False
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CandidateEvidence(ViewEvidence):
+    """AD-291: a call site of a partial call. `candidates` marks it, so it is never proof."""
+
+    candidates: int
+
+
 @dataclass(frozen=True, slots=True)
 class NodeCheck:
     id: str
@@ -192,7 +191,7 @@ class LinkCheck:
     reason: str
     kind: RelationshipKind | None = None
     path: tuple[str, ...] = ()
-    evidence: tuple[ViewEvidence, ...] = ()
+    evidence: tuple[ViewEvidence | CandidateEvidence, ...] = ()
     note: str | None = None
 
 
@@ -348,6 +347,7 @@ def _note(raw: RawJson, label: str) -> str | None:
 
 
 _E = TypeVar("_E", bound=StrEnum)
+_STORY_KEYS: Final = frozenset({"chapter", "title", "question", "external"})
 
 
 def _member(kind: type[_E], raw: RawJson, label: str) -> _E:
@@ -459,7 +459,11 @@ def parse_view_spec(raw: RawJson) -> ViewSpec:
     if "stops" in item and version is ViewSpecVersion.V1_0_0:
         raise ValueError("stops need schema_version 1.1.0")
     story = _story(item["story"]) if "story" in item else None
-    _check_story_fields(version, story, steps)
+    keyed = any(
+        isinstance(entry, Mapping) and not _STORY_KEYS.isdisjoint(entry)
+        for entry in _items(item.get("steps", ()), "steps")
+    )
+    _check_story_fields(version, story, steps, keyed=keyed)
     if len(set(nodes)) != len(nodes):
         raise ValueError("nodes must be unique")
     named = {edge.source for edge in edges} | {edge.target for edge in edges}
@@ -487,13 +491,13 @@ def parse_view_spec(raw: RawJson) -> ViewSpec:
 
 
 def _check_story_fields(
-    version: ViewSpecVersion, story: ViewStory | None, steps: tuple[ViewStep, ...]
+    version: ViewSpecVersion, story: ViewStory | None, steps: tuple[ViewStep, ...], *, keyed: bool
 ) -> None:
-    used = any(step.has_story_fields() for step in steps)
-    if (story is not None or used) and version is not ViewSpecVersion.V1_2_0:
+    # A key counts also with a null value, as in the schema: only 1.2.0 knows these keys.
+    if (story is not None or keyed) and version is not ViewSpecVersion.V1_2_0:
         raise ValueError("a story needs schema_version 1.2.0")
     if story is None:
-        if used:
+        if keyed:
             raise ValueError("chapter, title, question and external need a story")
         return
     known = {chapter.id for chapter in story.chapters}
@@ -870,7 +874,23 @@ def _one_kind(
     return LinkCheck(source, target, ViewStatus.MISSING, reason, kind)
 
 
-def call_evidence(edge: CallEdge) -> tuple[ViewEvidence, ...]:
+def call_evidence(edge: CallEdge) -> tuple[ViewEvidence | CandidateEvidence, ...]:
+    """Each call site. A partial call carries `candidates`, so it differs in shape from proof."""
+    if edge.seam is not None:
+        count = edge.seam.candidates or 0
+        return tuple(
+            CandidateEvidence(
+                site.record_id,
+                RelationshipKind.CALLS,
+                edge.source,
+                edge.target,
+                site.evidence_id,
+                site.file,
+                site.line,
+                candidates=count,
+            )
+            for site in edge.sites
+        )
     return tuple(
         ViewEvidence(
             site.record_id,
@@ -916,15 +936,15 @@ def _function_link(
     calling = RelationshipKind.CALLS
     edge = calls.edges.get(source, {}).get(target)
     if edge is None:
+        # The same rule as `_one_kind`: a module gap or a dynamic call limit hides the call.
+        layer = graph.layers[calling]
         seam = calls.unresolved.get(source)
-        everywhere = graph.layers[calling].everywhere
+        gap = layer.everywhere or layer.gaps.get(calls.functions[source].module)
         if seam is not None:
             reason = f"{seam.calls} calls of {source} have no named target: {seam.reason}"
         else:
-            reason = (
-                everywhere or f"no call from {source} to {target}, and the coverage is complete"
-            )
-        status = ViewStatus.UNKNOWN if seam is not None or everywhere else ViewStatus.MISSING
+            reason = gap or f"no call from {source} to {target}, and the coverage is complete"
+        status = ViewStatus.UNKNOWN if seam is not None or gap else ViewStatus.MISSING
         return LinkCheck(source, target, status, reason, calling, note=note)
     status, reason = call_status(edge)
     path = (source, target) if step else ()

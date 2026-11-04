@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:archkeel:story-trace:1.0.0",
   "title": "Story trace result",
-  "$comment": "Generated from archkeel.ir.story (AD-291). Candidate paths over the call graph of one snapshot. A hop is proven (a resolved call) or a claim (a partial call, with its seam). An unresolved call is a seam of its function. Author text is not part of this result.",
+  "$comment": "Generated from archkeel.ir.story (AD-291). Candidate paths over the call graph of one snapshot. A hop is proven (a resolved call) or a claim (a partial call, with its seam). An unresolved call is a seam of its function. Author text is not part of this result. `complete` is false only when the path search stopped at its work limit; it says nothing about the call analysis.",
   "$ref": "#/$defs/TraceResult",
   "$defs": {
     "TraceResult": {
@@ -308,7 +308,14 @@
         "evidence": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ViewEvidence"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ViewEvidence"
+              },
+              {
+                "$ref": "#/$defs/CandidateEvidence"
+              }
+            ]
           }
         }
       },
@@ -437,6 +444,79 @@
         "kind",
         "source",
         "target"
+      ],
+      "additionalProperties": false
+    },
+    "CandidateEvidence": {
+      "type": "object",
+      "properties": {
+        "record_id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "imports",
+            "calls",
+            "references",
+            "inherits",
+            "realizes",
+            "mixes_in",
+            "creates",
+            "instance_of",
+            "owns",
+            "requires",
+            "publishes"
+          ]
+        },
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "evidence_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "line": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type_only": {
+          "type": "boolean"
+        },
+        "candidates": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "record_id",
+        "kind",
+        "source",
+        "target",
+        "candidates"
       ],
       "additionalProperties": false
     }
