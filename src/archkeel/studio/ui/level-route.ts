@@ -7,10 +7,10 @@ const NEAR = 2;
 const RADIUS = 9;
 const HEAD = 30;
 
-export type Point = readonly [number, number];
+type Point = readonly [number, number];
 
 /** The boxes that a line must not cross: cards, stubs, tiles and the label strip of each plate. */
-export function obstaclesOf(layout: LevelLayout): LevelBox[] {
+function obstaclesOf(layout: LevelLayout): LevelBox[] {
   return [
     ...layout.cards,
     ...layout.stubs,

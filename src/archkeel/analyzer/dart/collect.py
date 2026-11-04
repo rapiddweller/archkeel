@@ -22,7 +22,6 @@ from archkeel.ir.facts import (
     FileFact,
     InventoryStatus,
     InventoryVersion,
-    JsonValue,
     Language,
     LocalTarget,
     Record,
@@ -39,6 +38,7 @@ from archkeel.ir.facts import (
 from archkeel.ir.facts import (
     MemberKind as InventoryMemberKind,
 )
+from archkeel.ir.facts import member as enum_member
 from archkeel.ir.facts_codec import RawEvidence, RawRecord, parse_evidence, parse_record
 from archkeel.ir.protocol import CollectionRequest, DartSettings
 from archkeel.ir.source_records import RawData, classified, file_evidence, record_evidence
@@ -91,15 +91,6 @@ class _ClassKind(StrEnum):
     PROTOCOL = "protocol"
     MIXIN = DefinitionKind.MIXIN
     ENUM = DefinitionKind.ENUM
-
-
-def _class_kind(value: JsonValue) -> _ClassKind | None:
-    if not isinstance(value, str):
-        return None
-    try:
-        return _ClassKind(value)
-    except ValueError:
-        return None
 
 
 class _BaseKind(StrEnum):
@@ -911,7 +902,7 @@ class _Collection:
                         mixin_target = bool(
                             target_record is not None
                             and (
-                                _class_kind(target_record["data"].get("class_kind"))
+                                enum_member(_ClassKind, target_record["data"].get("class_kind"))
                                 == _ClassKind.MIXIN
                                 or target_record["data"].get("mixin_capable") is True
                             )

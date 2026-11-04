@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 
 /** The messages between the shell and the embedded Explorer; they must stay equal to flow.js. */
-export const ExplorerMessage = { COMPONENT_SELECTED: "component-selected", STUDIO_TOKENS: "studio-tokens" } as const;
+const ExplorerMessage = { COMPONENT_SELECTED: "component-selected", STUDIO_TOKENS: "studio-tokens" } as const;
 
 export type SelectedComponent = { readonly id: string; readonly label: string | null };
 

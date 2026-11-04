@@ -1,5 +1,6 @@
 /** AD-290: the indexed call graph of the snapshot. Pure functions; no DOM, no network. */
 import type { Graph, UnknownRow } from "./api";
+import { better, proofOf } from "./evidence";
 
 /** One distinct neighbor of a function. */
 export interface Link {
@@ -15,14 +16,14 @@ export interface Tally {
 }
 
 /** The call sites from one component to another. */
-export interface Flow extends Tally {
+interface Flow extends Tally {
   readonly from: number;
   readonly to: number;
   /** The edges behind the line, as indexes into the edge list of the graph. */
   readonly edges: readonly number[];
 }
 
-export interface ComponentStats {
+interface ComponentStats {
   readonly modules: number;
   readonly symbols: number;
   readonly callsIn: Tally;
@@ -69,7 +70,7 @@ export interface Where {
   readonly pkg: string | null;
 }
 
-export interface PlacePart {
+interface PlacePart {
   readonly label: string;
   /** The tree keys that open down to this part. */
   readonly keys: readonly string[];
@@ -80,13 +81,9 @@ const SEARCH_MIN = 2;
 const SEARCH_SCAN = 400;
 const SEARCH_SHOWN = 12;
 
-export const componentKey = (component: number): string => `c${component}`;
+const componentKey = (component: number): string => `c${component}`;
 export const moduleKey = (module: number): string => `m${module}`;
 export const symbolKey = (symbol: number): string => `f${symbol}`;
-
-/** The one rule for two calls between the same functions: a resolved call wins over a partial one. */
-const better = (known: { readonly partial: boolean } | undefined, call: { readonly partial: boolean }): boolean =>
-  known === undefined || (known.partial && !call.partial);
 
 function indexLinks(graph: Graph): { outgoing: Link[][]; incoming: Link[][] } {
   const out = graph.symbols.map(() => new Map<number, Link>());
@@ -139,7 +136,7 @@ function countSites(graph: Graph): Counting {
     if (from === to) return;
     const key = from * count + to;
     const flow = found.get(key) ?? { from, to, proven: new Set<number>(), claim: new Set<number>(), edges: [] };
-    const kind = partial ? "claim" : "proven";
+    const kind = proofOf(partial);
     flow[kind].add(site);
     out[from][kind].add(site);
     crossing[kind].add(site);
@@ -291,16 +288,20 @@ export function findSymbol(model: Model, name: string): number | null {
   return index.get(name) ?? null;
 }
 
+/** One call as a tally: proven when resolved, a claim when partly resolved. */
+export const tallyOf = (partial: boolean): Tally => ({ proven: 0, claim: 0, [proofOf(partial)]: 1 });
+
 export const fileName = (model: Model, symbol: number): string =>
   model.graph.modules[moduleIndex(model, symbol)][1];
 
+/** The last part of a path: the file. */
+export const baseName = (path: string): string => path.split("/").pop() ?? "";
+
+/** The file name of a module, without its folders. */
+export const fileOf = (model: Model, module: number): string => baseName(model.graph.modules[module][1]);
+
 /** The last two parts of a path: the folder and the file. */
 export const tailPath = (path: string): string => path.split("/").slice(-2).join("/");
-
-/** The end of a dotted name; the end tells modules apart. */
-export function tailName(name: string, limit: number): string {
-  return name.length <= limit ? name : `…${name.slice(name.length - limit + 1)}`;
-}
 
 /** The group that a large neighborhood folds into: the component and its first package. */
 export function groupOf(model: Model, symbol: number): string {
@@ -321,7 +322,7 @@ export function locate(model: Model, symbol: number): readonly PlacePart[] {
     keys = [...keys, `${keys[keys.length - 1]}/${name}`];
     parts.push({ label: name, keys });
   }
-  parts.push({ label: file.split("/").pop() ?? file, keys: [...keys, moduleKey(module)] });
+  parts.push({ label: baseName(file), keys: [...keys, moduleKey(module)] });
   return parts;
 }
 
@@ -346,7 +347,7 @@ export function trail(model: Model, where: Where): { parts: readonly PlacePart[]
     const last = parts.pop();
     return { parts, current: last?.label ?? "" };
   }
-  return { parts, current: model.graph.modules[module][1].split("/").pop() ?? "" };
+  return { parts, current: fileOf(model, module) };
 }
 
 /** The place of part `index` of `locate(symbol)`: component, packages, then the module. */
@@ -375,7 +376,7 @@ const trailKeys = (model: Model, module: number): readonly string[] => {
 };
 
 /** The tree keys that show a function: all its ancestors, so only this branch is open. */
-export function branch(model: Model, symbol: number): ReadonlySet<string> {
+function branch(model: Model, symbol: number): ReadonlySet<string> {
   const parts = locate(model, symbol);
   return new Set(parts[parts.length - 1].keys);
 }

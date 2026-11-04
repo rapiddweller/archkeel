@@ -7,7 +7,7 @@ import { Proof, proofKind, proofOf } from "./evidence";
 import { LevelBox, LevelLayout, LevelLink, LevelStub, cardKey, stubKey, tileKey } from "./level-layout";
 import { makeRouter, midOf, roundedPath } from "./level-route";
 import { Side } from "./lens-layout";
-import { Level, Model, Tally, Where, compact, fileName, fullName, opened, shortName } from "./model";
+import { Level, Model, Tally, Where, baseName, compact, fileName, fileOf, fullName, opened, shortName, tallyOf } from "./model";
 import { SearchBox, StructureTree } from "./navigation";
 import { Viewport } from "./viewport";
 
@@ -41,7 +41,7 @@ export function Glyphs(props: { tally: Tally }) {
 }
 
 /** What the reader needs to place a level: its name, its numbers, what a card means, and the way up. */
-export interface Here {
+interface Here {
   readonly name: string;
   readonly counts: string;
   readonly meaning: string;
@@ -198,19 +198,19 @@ export function Workbench(props: {
 }
 
 /** What a card says: its name, the full text for the tooltip, and a line of numbers. */
-export interface CardInfo {
+interface CardInfo {
   readonly href: string;
   readonly name: string;
   readonly meta: ComponentChildren;
 }
 
-export interface StubInfo {
+interface StubInfo {
   readonly href: string;
   readonly name: string;
 }
 
 /** The focus of a level: a pinned card (click) or a hovered one, and a row of the side panel that lights one line. */
-export interface Focus {
+interface Focus {
   readonly pinned: string | null;
   readonly hover: string | null;
   readonly line: string | null;
@@ -242,7 +242,7 @@ export function useFocus(): Focus {
   };
 }
 
-export const lineKey = (link: LevelLink): string => `${link.a}|${link.b}`;
+const lineKey = (link: LevelLink): string => `${link.a}|${link.b}`;
 
 const place = (box: LevelBox): Record<string, string> => ({
   left: `${box.x}px`,
@@ -254,7 +254,7 @@ const place = (box: LevelBox): Record<string, string> => ({
 const CHIPS = 4;
 
 /** The links of the focused card; the other end of each. */
-export function linksOf(layout: LevelLayout, key: string | null): readonly { link: LevelLink; other: string; outgoing: boolean }[] {
+function linksOf(layout: LevelLayout, key: string | null): readonly { link: LevelLink; other: string; outgoing: boolean }[] {
   if (key === null) return [];
   return layout.links
     .filter((link) => link.a === key || link.b === key)
@@ -484,7 +484,7 @@ export function LevelCanvas(props: {
   );
 }
 
-export interface FocusItem {
+interface FocusItem {
   readonly name: string;
   readonly href: string;
   readonly where: string;
@@ -492,7 +492,7 @@ export interface FocusItem {
   /** `calls`, `called by` or `both`: the caller is the one that the dots start from. */
   readonly direction: string;
 }
-export interface FocusRow {
+interface FocusRow {
   /** The key of the far end; a row lights its line by it. */
   readonly key: string;
   readonly name: string;
@@ -506,7 +506,7 @@ export interface FocusRow {
 }
 
 /** A path that wraps at its separators, so a name never breaks in the middle of a word. */
-export function Breakable(props: { text: string }) {
+function Breakable(props: { text: string }) {
   return (
     <>
       {props.text.split(/(?<=[./:·])/).map((part, index) => (
@@ -626,7 +626,7 @@ export function focusRows(
       return {
         name: shortName(model, symbol),
         href: viewHref(View.Explore, symbol),
-        where: `${fileName(model, symbol).split("/").pop()}:${model.graph.symbols[symbol][2]} · ${fullName(model, symbol)}`,
+        where: `${baseName(fileName(model, symbol))}:${model.graph.symbols[symbol][2]} · ${fullName(model, symbol)}`,
         partial: pair.partial,
         direction: outgoing ? "called" : "calls it",
       };
@@ -647,22 +647,23 @@ export function functionRows(model: Model, symbol: number, module: number): Focu
   const groups = new Map<number, FocusItem[]>();
   const tallies = new Map<number, { proven: number; claim: number }>();
   for (const [other, entry] of found) {
-    const where = `${fileName(model, other).split("/").pop()}:${model.graph.symbols[other][2]}`;
+    const where = `${baseName(fileName(model, other))}:${model.graph.symbols[other][2]}`;
     const home = model.graph.symbols[other][0];
     const item: FocusItem = { name: shortName(model, other), href: viewHref(View.Explore, other), where, partial: entry.partial, direction: direction(entry) };
     if (home === module) {
-      rows.push({ key: cardKey(Level.Function, other), name: item.name, href: item.href, where: `${item.direction} · ${where}`, tally: entry.partial ? { proven: 0, claim: 1 } : { proven: 1, claim: 0 }, neighbor: true, items: [] });
+      rows.push({ key: cardKey(Level.Function, other), name: item.name, href: item.href, where: `${item.direction} · ${where}`, tally: tallyOf(entry.partial), neighbor: true, items: [] });
     } else {
       groups.set(home, [...(groups.get(home) ?? []), item]);
       const now = tallies.get(home) ?? { proven: 0, claim: 0 };
-      tallies.set(home, { proven: now.proven + (entry.partial ? 0 : 1), claim: now.claim + (entry.partial ? 1 : 0) });
+      const one = tallyOf(entry.partial);
+      tallies.set(home, { proven: now.proven + one.proven, claim: now.claim + one.claim });
     }
   }
   groups.forEach((items, home) => {
     const side = items.some((item) => item.direction !== "is called by this") ? Side.In : Side.Out;
     rows.push({
       key: stubKey(side, `${home}`),
-      name: model.graph.modules[home][1].split("/").pop() ?? "",
+      name: fileOf(model, home),
       href: viewHref(View.Module, home),
       where: model.graph.modules[home][0],
       tally: tallies.get(home) as Tally,

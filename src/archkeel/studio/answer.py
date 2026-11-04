@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 """AD-292: the snapshot index that decides what is OBSERVED, and the strict check of an answer."""
 
-import json
 import re
 from collections import defaultdict
 from collections.abc import Mapping
@@ -18,6 +17,15 @@ from .api import (
     ChatError,
     ChatFailure,
     Fact,
+    Json,
+    Place,
+    data_of,
+    decoded,
+    first_place,
+    places,
+    rows,
+    text_of,
+    texts_of,
 )
 
 PROPOSAL_LABEL: Final = "PROPOSED - NOT APPLIED"
@@ -33,26 +41,6 @@ _FENCE = re.compile(r"\A```(?:json)?[ \t]*\n(.*)\n```\s*\Z", re.DOTALL)
 _BLOCK_KEYS = {"kind", "text", "refs"}
 
 
-def _records(model: Mapping[str, object], section: str) -> list[Mapping[str, object]]:
-    value = model.get(section)
-    return [item for item in value if isinstance(item, Mapping)] if isinstance(value, list) else []
-
-
-def _data(record: Mapping[str, object]) -> Mapping[str, object]:
-    data = record.get("data")
-    return data if isinstance(data, Mapping) else {}
-
-
-def _text(record: Mapping[str, object], key: str) -> str:
-    value = record.get(key)
-    return value if isinstance(value, str) else ""
-
-
-def _names(record: Mapping[str, object], key: str) -> list[str]:
-    value = record.get(key)
-    return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
-
-
 def _listing(label: str, names: list[str], cap: int) -> str:
     """`label: a, b, and 3 more`, or `label: none`."""
     shown = names[:cap]
@@ -65,15 +53,12 @@ def _invalid(why: str) -> ChatFailure:
     return ChatFailure(ChatError.INVALID_ANSWER, f"The agent answer is not accepted: {why}")
 
 
-def _object(text: str) -> dict[str, object]:
+def _object(text: str) -> Mapping[str, Json]:
     stripped = text.strip()
     if fenced := _FENCE.match(stripped):
         stripped = fenced.group(1)
-    try:
-        body = json.loads(stripped)
-    except (ValueError, RecursionError) as error:
-        raise _invalid("it is not one JSON object") from error
-    if not isinstance(body, dict):
+    body = decoded(stripped)
+    if body is None:
         raise _invalid("it is not one JSON object")
     return body
 
@@ -81,44 +66,35 @@ def _object(text: str) -> dict[str, object]:
 class Snapshot:
     """The symbols and calls of the explore snapshot; the only source of a fact."""
 
-    def __init__(self, model: Mapping[str, object]) -> None:
-        places = {
-            _text(item, "id"): (_text(item, "file"), item.get("line"))
-            for item in _records(model, "evidence")
-        }
-        self._symbols: dict[str, tuple[str, str, int]] = {}
-        for record in _records(model, "symbols"):
-            name = _text(_data(record), "qualified_name")
-            ids = _names(record, "evidence_ids")
-            file, line = places.get(ids[0], ("", 0)) if ids else ("", 0)
+    def __init__(self, model: Mapping[str, Json]) -> None:
+        found = places(model)
+        self._symbols: dict[str, tuple[str, Place]] = {}
+        for record in rows(model, "symbols"):
+            name = text_of(data_of(record).get("qualified_name"))
             if name:
-                self._symbols[name] = (
-                    _text(record, "kind"),
-                    file,
-                    line if isinstance(line, int) else 0,
-                )
+                self._symbols[name] = (text_of(record.get("kind")), first_place(record, found))
         self._callers: dict[str, set[str]] = defaultdict(set)
         self._callees: dict[str, set[str]] = defaultdict(set)
         self._unknown: dict[str, list[str]] = defaultdict(list)
-        for record in _records(model, "calls"):
-            data = _data(record)
-            scope = _text(data, "source_scope")
-            if _text(data, "status") == CallStatus.RESOLVED:
-                for target in _names(data, "targets"):
+        for record in rows(model, "calls"):
+            data = data_of(record)
+            scope = text_of(data.get("source_scope"))
+            if text_of(data.get("status")) == CallStatus.RESOLVED:
+                for target in texts_of(data.get("targets")):
                     self._callers[target].add(scope)
                     self._callees[scope].add(target)
             else:
-                self._unknown[scope].append(_text(data, "expression")[:_EXPRESSION_LIMIT])
+                self._unknown[scope].append(text_of(data.get("expression"))[:_EXPRESSION_LIMIT])
 
     def has(self, name: str) -> bool:
         return name in self._symbols
 
     def fact(self, name: str) -> Fact:
-        _, file, line = self._symbols[name]
+        _, place = self._symbols[name]
         return Fact(
             name,
-            file,
-            line,
+            place.file,
+            place.line,
             len(self._callers.get(name, ())),
             len(self._callees.get(name, ())),
             len(self._unknown.get(name, ())),
@@ -126,11 +102,11 @@ class Snapshot:
 
     def neighborhood(self, name: str) -> str:
         """The lines of the prompt about one symbol and its direct callers and callees."""
-        kind, file, line = self._symbols[name]
+        kind, place = self._symbols[name]
         unknown = self._unknown.get(name, [])
         return "\n".join(
             (
-                f"{name} ({kind}) {file}:{line}" if file else f"{name} ({kind})",
+                f"{name} ({kind}) {place.file}:{place.line}" if place.file else f"{name} ({kind})",
                 _listing("callers", sorted(self._callers.get(name, ())), _LISTED),
                 _listing("callees", sorted(self._callees.get(name, ())), _LISTED),
                 _listing(f"unknown calls ({len(unknown)})", unknown, _UNKNOWN_LISTED),

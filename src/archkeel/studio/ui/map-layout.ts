@@ -21,7 +21,7 @@ export interface MapLine extends Tally {
   readonly middle: readonly [number, number];
 }
 
-export interface MapLayout {
+interface MapLayout {
   readonly bandNames: readonly string[];
   readonly band: readonly number[];
   readonly positions: readonly (readonly [number, number])[];

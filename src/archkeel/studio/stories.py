@@ -3,14 +3,13 @@
 # SPDX-License-Identifier: MIT
 """AD-290, AD-291: the story specs of one root, checked on demand against the explore snapshot."""
 
-import json
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from .api import Json, StoryRow, StorySource
+from .api import Json, StoryRow, StorySource, decoded
 
 SUFFIX: Final = ".story.json"
 # A name that cannot leave the folder: no dot, no slash.
@@ -94,25 +93,16 @@ class Stories:
         return sorted(rows.values(), key=lambda row: row.id)
 
 
-def _decoded(raw: bytes) -> Mapping[str, Json] | None:
-    """The top-level object of a spec, or None when it is not JSON or not an object."""
-    try:
-        body: Json = json.loads(raw)
-    except ValueError:
-        return None
-    return body if isinstance(body, Mapping) else None
-
-
 def _read(path: Path) -> Mapping[str, Json] | None:
     try:
-        return _decoded(path.read_bytes())
+        return decoded(path.read_bytes())
     except OSError:
         return None
 
 
 def provenance(spec: bytes) -> dict[str, str | None]:
     """The optional fields that say where a spec comes from; absent or not text gives None."""
-    found = _decoded(spec) or {}
+    found = decoded(spec) or {}
     result: dict[str, str | None] = {}
     for name in PROVENANCE:
         value = found.get(name)

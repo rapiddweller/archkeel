@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { CheckStatus, CheckedStory, StepLink, StoryAnswer, StoryRow, StorySource, StoryStep, readStories, readStory } from "../api";
 import { Badge, Box, Page, ProofMark, View, viewHref } from "../components";
 import { Evidence, Proof, proofKind } from "../evidence";
+import { baseName } from "../model";
 import { STORY, layoutStory } from "../story-layout";
 
 const STEP_MS = 4000;
@@ -246,7 +247,7 @@ function Player(props: { answer: StoryAnswer }) {
                 <span class="meta">
                   <ProofMark proof={proof} /> ·{" "}
                   {candidatesOf(step, link(index)) === null
-                    ? (step.defined_at?.file?.split("/").pop() ?? "no file")
+                    ? (step.defined_at?.file ? baseName(step.defined_at.file) : "no file")
                     : `${candidatesOf(step, link(index))} candidates`}
                 </span>
               </button>

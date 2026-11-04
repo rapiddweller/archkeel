@@ -29,6 +29,7 @@
         "archkeel.studio.api:Json",
         "archkeel.studio.api:MediaType",
         "archkeel.studio.api:ModuleRow",
+        "archkeel.studio.api:Place",
         "archkeel.studio.api:Route",
         "archkeel.studio.api:ScopeKind",
         "archkeel.studio.api:SnapshotInfo",
@@ -41,14 +42,22 @@
         "archkeel.studio.api:UiAsset",
         "archkeel.studio.api:UnknownRow",
         "archkeel.studio.api:chat_json",
+        "archkeel.studio.api:data_of",
+        "archkeel.studio.api:decoded",
         "archkeel.studio.api:draft_json",
         "archkeel.studio.api:failure_json",
+        "archkeel.studio.api:first_place",
         "archkeel.studio.api:graph_json",
         "archkeel.studio.api:member",
+        "archkeel.studio.api:number_of",
         "archkeel.studio.api:parse_chat_request",
+        "archkeel.studio.api:places",
+        "archkeel.studio.api:rows",
         "archkeel.studio.api:state_json",
         "archkeel.studio.api:stories_json",
-        "archkeel.studio.api:story_json"
+        "archkeel.studio.api:story_json",
+        "archkeel.studio.api:text_of",
+        "archkeel.studio.api:texts_of"
       ],
       "responsibilities": [
         "Declare the versioned HTTP API: its routes, the served UI files, the typed state, graph, story and chat bodies with their JSON forms, and the closed vocabularies that decode the snapshot."
@@ -100,13 +109,21 @@
             "archkeel.studio.api:Graph",
             "archkeel.studio.api:Json",
             "archkeel.studio.api:ModuleRow",
+            "archkeel.studio.api:Place",
             "archkeel.studio.api:ScopeKind",
             "archkeel.studio.api:SnapshotInfo",
             "archkeel.studio.api:SymbolKind",
             "archkeel.studio.api:SymbolRow",
             "archkeel.studio.api:Totals",
             "archkeel.studio.api:UnknownRow",
-            "archkeel.studio.api:member"
+            "archkeel.studio.api:data_of",
+            "archkeel.studio.api:first_place",
+            "archkeel.studio.api:member",
+            "archkeel.studio.api:number_of",
+            "archkeel.studio.api:places",
+            "archkeel.studio.api:rows",
+            "archkeel.studio.api:text_of",
+            "archkeel.studio.api:texts_of"
           ],
           "rationale": "Read the snapshot by its closed vocabularies and return typed rows."
         }
@@ -148,7 +165,8 @@
           "through": [
             "archkeel.studio.api:Json",
             "archkeel.studio.api:StoryRow",
-            "archkeel.studio.api:StorySource"
+            "archkeel.studio.api:StorySource",
+            "archkeel.studio.api:decoded"
           ],
           "rationale": "Return the typed rows of the API and name the JSON shape of a checked result."
         }
@@ -283,7 +301,16 @@
             "archkeel.studio.api:ChatBlockKind",
             "archkeel.studio.api:ChatError",
             "archkeel.studio.api:ChatFailure",
-            "archkeel.studio.api:Fact"
+            "archkeel.studio.api:Fact",
+            "archkeel.studio.api:Json",
+            "archkeel.studio.api:Place",
+            "archkeel.studio.api:data_of",
+            "archkeel.studio.api:decoded",
+            "archkeel.studio.api:first_place",
+            "archkeel.studio.api:places",
+            "archkeel.studio.api:rows",
+            "archkeel.studio.api:text_of",
+            "archkeel.studio.api:texts_of"
           ],
           "rationale": "Build the typed answer and name each break with the typed vocabulary of the API."
         }

@@ -11,25 +11,25 @@ export const STORY = {
   external: 200,
 } as const;
 
-export interface StoryCard {
+interface StoryCard {
   readonly x: number;
   readonly y: number;
   readonly lane: number;
   /** A card grows with its name: the whole qualified name shows, over as many lines as it needs. */
   readonly height: number;
 }
-export interface StoryRoute {
+interface StoryRoute {
   /** The path from the card before to this card; null for the first step. */
   readonly path: string | null;
   readonly x: number;
   readonly y: number;
 }
-export interface StoryChapter {
+interface StoryChapter {
   readonly id: string;
   readonly title: string;
   readonly y: number;
 }
-export interface StoryLayout {
+interface StoryLayout {
   readonly lanes: readonly string[];
   readonly cards: readonly StoryCard[];
   readonly routes: readonly StoryRoute[];

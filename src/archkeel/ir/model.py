@@ -964,16 +964,6 @@ RULE_RECORD_KINDS: Final = RULE_KINDS | {UML_TARGET_KIND}
 FUNCTION_KINDS = frozenset({"function", "method"})
 
 
-def parse_graph_topology_level(value: JsonValue | RawJson) -> GraphTopologyLevel | None:
-    """Recognize the owned topology domain while leaving other record metadata opaque."""
-    if not isinstance(value, str):
-        return None
-    try:
-        return GraphTopologyLevel(value)
-    except ValueError:
-        return None
-
-
 def text_value(value: object) -> str:
     """Read a string out of open record data, or the empty string when it is not one.
 

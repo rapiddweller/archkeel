@@ -6,7 +6,7 @@ export const Evidence = {
 } as const;
 export type Evidence = (typeof Evidence)[keyof typeof Evidence];
 
-export interface EvidenceKind {
+interface EvidenceKind {
   readonly evidence: Evidence;
   readonly name: string;
   readonly meaning: string;
@@ -27,7 +27,7 @@ export const Proof = {
 } as const;
 export type Proof = (typeof Proof)[keyof typeof Proof];
 
-export interface ProofKind {
+interface ProofKind {
   readonly proof: Proof;
   readonly glyph: string;
   readonly word: string;
@@ -42,6 +42,10 @@ export const PROOF: readonly ProofKind[] = [
 ];
 
 /** A resolved call is proven; a partly resolved call is a claim. */
-export const proofOf = (partial: boolean): Proof => (partial ? Proof.Claim : Proof.Proven);
+export const proofOf = (partial: boolean): typeof Proof.Proven | typeof Proof.Claim => (partial ? Proof.Claim : Proof.Proven);
+
+/** The one rule for two calls between the same functions: a resolved call wins over a partial one. */
+export const better = (known: { readonly partial: boolean } | undefined, now: { readonly partial: boolean }): boolean =>
+  known === undefined || (known.partial && !now.partial);
 
 export const proofKind = (proof: Proof): ProofKind => PROOF.find((kind) => kind.proof === proof) ?? PROOF[0];

@@ -11793,35 +11793,6 @@
           "language": "python",
           "presence": "planned",
           "provenance": [
-            "docs/architecture/graph-topology-level-types.md"
-          ],
-          "id": "GRAPH-TOPOLOGY-reader",
-          "kind": "function",
-          "qualified_name": "archkeel.ir.model.parse_graph_topology_level",
-          "parent_id": "IR-DEPENDENCY-model",
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
-          "signature": {
-            "parameters": [
-              {
-                "name": "value",
-                "annotation": "JsonValue | RawJson",
-                "kind": "positional",
-                "default_known": true
-              }
-            ],
-            "returns": "GraphTopologyLevel | None"
-          },
-          "responsibilities": [
-            "Recognize known topology levels without closing or rewriting open record data."
-          ]
-        },
-        {
-          "language": "python",
-          "presence": "planned",
-          "provenance": [
             "docs/architecture/structure-level-types.md"
           ],
           "id": "IR-STRUCTURE-level",

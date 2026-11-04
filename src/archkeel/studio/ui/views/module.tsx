@@ -4,10 +4,8 @@ import type { ChatState } from "../chat";
 import { View, viewHref } from "../components";
 import { Side } from "../lens-layout";
 import { KeyKind, LevelText, layoutModule, parseKey } from "../level-layout";
-import { Level, Model, counted, neighbors, shortName } from "../model";
+import { Level, Model, counted, fileOf, neighbors, shortName } from "../model";
 import { FocusList, LevelCanvas, Selection, Workbench, focusRows, functionRows, useFocus } from "../workbench";
-
-const fileOf = (model: Model, module: number): string => model.graph.modules[module][1].split("/").pop() ?? "";
 
 export function ModuleLevel(props: { model: Model; module: number; chat: ChatState }) {
   const { model, module } = props;

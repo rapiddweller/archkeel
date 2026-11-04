@@ -7,9 +7,9 @@ import { Model, findSymbol, fullName, shortName, tailPath } from "./model";
 import { ChatBlockKind, ChatError } from "./vocabulary";
 
 /** What the conversation holds, in order. */
-export const TurnKind = { Ask: "ask", Answer: "answer", Failed: "failed" } as const;
-export type TurnKind = (typeof TurnKind)[keyof typeof TurnKind];
-export type Turn =
+const TurnKind = { Ask: "ask", Answer: "answer", Failed: "failed" } as const;
+type TurnKind = (typeof TurnKind)[keyof typeof TurnKind];
+type Turn =
   | { readonly kind: typeof TurnKind.Ask; readonly text: string }
   | { readonly kind: typeof TurnKind.Answer; readonly answer: ChatAnswer }
   | { readonly kind: typeof TurnKind.Failed; readonly text: string };

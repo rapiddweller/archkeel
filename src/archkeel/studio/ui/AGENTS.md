@@ -35,6 +35,7 @@ flowchart LR
     chat --> model
     components --> evidence
     model --> client
+    model --> evidence
     navigation --> components
     navigation --> model
     shell --> chat

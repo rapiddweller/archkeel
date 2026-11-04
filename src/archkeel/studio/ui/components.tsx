@@ -67,29 +67,6 @@ export function Badge(props: { evidence: Evidence; children: ComponentChildren }
   return <span class={`badge ${props.evidence}`}>{props.children}</span>;
 }
 
-export function Tabs(props: { tabs: readonly { evidence: Evidence; text: string }[] }) {
-  return (
-    <div class="tabs">
-      {props.tabs.map((tab) => (
-        <span class={tab.evidence} key={tab.text}>
-          {tab.text}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-export function Card(props: { title: string; evidence: Evidence; children: ComponentChildren }) {
-  const kind = EVIDENCE.find((item) => item.evidence === props.evidence);
-  return (
-    <section class="card">
-      <h2>{props.title}</h2>
-      {props.children}
-      <Badge evidence={props.evidence}>{kind?.name}</Badge>
-    </section>
-  );
-}
-
 export function Panel(props: { title: string; children: ComponentChildren }) {
   return (
     <aside class="panel" aria-label={props.title}>

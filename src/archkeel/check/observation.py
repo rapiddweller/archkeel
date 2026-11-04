@@ -34,6 +34,7 @@ from archkeel.ir.facts import (
     SourceResolution,
     SourceSectionName,
     dart_module_name,
+    member,
     parse_source_resolution,
 )
 from archkeel.ir.facts_codec import (
@@ -54,7 +55,6 @@ from archkeel.ir.model import (
     Observation,
     Section,
     contract_relative_path,
-    parse_graph_topology_level,
     stable_id,
 )
 from archkeel.ir.profiles import PROFILES, Language, Profile, UnmeasurableScalar
@@ -176,12 +176,12 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract, profile: Profile)
     package_cycles = [
         item
         for item in scan.cycles
-        if parse_graph_topology_level(item["data"]["level"]) is GraphTopologyLevel.PACKAGE
+        if member(GraphTopologyLevel, item["data"]["level"]) is GraphTopologyLevel.PACKAGE
     ]
     module_cycles = [
         item
         for item in scan.cycles
-        if parse_graph_topology_level(item["data"]["level"]) is GraphTopologyLevel.MODULE
+        if member(GraphTopologyLevel, item["data"]["level"]) is GraphTopologyLevel.MODULE
     ]
     rollup_only = [item for item in package_cycles if not item["data"]["backed_by"]]
     unresolved_calls = [
@@ -344,7 +344,7 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract, profile: Profile)
                 fact_ids=[
                     item["id"]
                     for item in scan.dependency_edges
-                    if parse_graph_topology_level(item["data"]["level"])
+                    if member(GraphTopologyLevel, item["data"]["level"])
                     is GraphTopologyLevel.PACKAGE
                     and (item["data"]["source"], item["data"]["target"]) in forbidden_package_edges
                 ],

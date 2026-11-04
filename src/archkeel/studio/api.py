@@ -26,12 +26,69 @@ _Member = TypeVar("_Member", bound=StrEnum)
 
 def member(kind: type[_Member], value: Json) -> _Member | None:
     """The member for a value, or None; `in` on an enum needs Python 3.12."""
-    if not isinstance(value, str):
-        return None
+    return next((item for item in kind if item.value == value), None)
+
+
+def text_of(value: Json) -> str:
+    """The text, or the empty string. Studio requires no component (AD-290): no `text_value`."""
+    match value:
+        case str():
+            return value
+        case _:
+            return ""
+
+
+def texts_of(value: Json) -> list[str]:
+    return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
+
+
+def number_of(value: Json) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
+def rows(model: Mapping[str, Json], section: str) -> list[Mapping[str, Json]]:
+    found = model.get(section)
+    return [row for row in found if isinstance(row, Mapping)] if isinstance(found, list) else []
+
+
+def data_of(row: Mapping[str, Json]) -> Mapping[str, Json]:
+    found = row.get("data")
+    return found if isinstance(found, Mapping) else {}
+
+
+def decoded(raw: str | bytes) -> Mapping[str, Json] | None:
+    """The top-level object of a JSON text, or None when it is not JSON or not an object."""
     try:
-        return kind(value)
-    except ValueError:
+        body: Json = json.loads(raw)
+    except (ValueError, RecursionError):
         return None
+    return body if isinstance(body, Mapping) else None
+
+
+class Place(NamedTuple):
+    """Where the snapshot found a record: the file, the line and the trimmed source line."""
+
+    file: str
+    line: int
+    excerpt: str
+
+
+def places(model: Mapping[str, Json]) -> dict[str, Place]:
+    """The evidence of the snapshot by id; explore keeps the file and line of every fact."""
+    return {
+        text_of(row.get("id")): Place(
+            text_of(row.get("file")),
+            number_of(row.get("line")),
+            text_of(row.get("excerpt")).strip(),
+        )
+        for row in rows(model, "evidence")
+    }
+
+
+def first_place(row: Mapping[str, Json], found: Mapping[str, Place]) -> Place:
+    """The place of the first evidence id of a record, or an empty place."""
+    ids = texts_of(row.get("evidence_ids"))
+    return found.get(ids[0], Place("", 0, "")) if ids else Place("", 0, "")
 
 
 class Route(StrEnum):

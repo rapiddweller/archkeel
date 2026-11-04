@@ -1,4 +1,5 @@
 /** AD-290: the layout of the Explore lens: callers left, callees right, unknown calls below. */
+import { Proof, proofOf } from "./evidence";
 import { cardHeight } from "./measure";
 import { Link, Model, groupOf, links, moduleIndex, shortName } from "./model";
 import type { UnknownRow } from "./api";
@@ -25,18 +26,18 @@ export interface Rect {
   readonly height: number;
 }
 
-export interface PlacedItem extends Rect {
+interface PlacedItem extends Rect {
   readonly item: LensItem;
   readonly side: Side;
 }
 
-export interface Plate extends Rect {
+interface Plate extends Rect {
   readonly module: number;
 }
 
-export interface LensLine {
+interface LensLine {
   readonly path: string;
-  readonly kind: "proven" | "claim" | "neutral" | "unknown";
+  readonly kind: Proof | "neutral";
   /** The neighbor card of this line (index into `items`); null for an unknown call. The path runs caller to callee. */
   readonly item: number | null;
   readonly from: readonly [number, number];
@@ -196,7 +197,7 @@ export function layoutLens(model: Model, center: number, open: OpenGroup | null)
       items.push({ item: row.item, side, x, y, width: CARD_WIDTH, height: row.height });
       if (row.item.kind === "node" || row.item.kind === "group") {
         const own = items.length - 1;
-        const kind = row.item.kind === "group" ? "neutral" : row.item.partial ? "claim" : "proven";
+        const kind = row.item.kind === "group" ? "neutral" : proofOf(row.item.partial);
         const mid = y + row.height / 2;
         const path =
           side === Side.In

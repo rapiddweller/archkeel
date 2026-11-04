@@ -4,7 +4,7 @@ import { StudioState, readGraph, readState } from "./api";
 import { Model, buildModel } from "./model";
 import { ExploreState } from "./vocabulary";
 
-export interface Snapshot {
+interface Snapshot {
   readonly state: StudioState | null;
   readonly error: string | null;
   /** The indexed call graph; null until the explore run is done. */

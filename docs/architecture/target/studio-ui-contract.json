@@ -16,7 +16,8 @@
         "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Proof",
         "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:PROOF",
         "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofOf",
-        "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofKind"
+        "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofKind",
+        "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:better"
       ],
       "responsibilities": [
         "Own the evidence model and the call proof: Observed, Claim and Target, and proven, claim and unknown, as typed values with their legend text."
@@ -99,7 +100,6 @@
       "public": [
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Model",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Link",
-        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:PlacePart",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:TreeNode",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:buildModel",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:compact",
@@ -110,9 +110,7 @@
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fullName",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:shortName",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:locate",
-        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:branch",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:search",
-        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tailName",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tailPath",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:moduleKey",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:moduleIndex",
@@ -131,8 +129,6 @@
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:findSymbol",
         "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:STORY",
         "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:layoutStory",
-        "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:midCut",
-        "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:StoryLayout",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Level",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Where",
         "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelStub",
@@ -143,7 +139,6 @@
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:trail",
         "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:layoutModule",
         "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:layoutComponent",
-        "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:cardName",
         "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelLink",
         "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelBox",
         "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:parseKey",
@@ -159,7 +154,10 @@
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:seams",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:unknownByComponent",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:entry",
-        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:hubs"
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:hubs",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fileOf",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tallyOf",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:baseName"
       ],
       "responsibilities": [
         "Index the call graph and compute the layouts of the Map and the lens: pure functions with no DOM and no network."
@@ -180,6 +178,15 @@
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:UnknownRow"
           ],
           "rationale": "Read the typed rows of the graph."
+        },
+        {
+          "component": "evidence",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Proof",
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:better",
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofOf"
+          ],
+          "rationale": "Tell a resolved call from a partly resolved one and let the resolved one win."
         }
       ]
     },
@@ -238,8 +245,6 @@
       "public": [
         "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:NavItem",
         "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Legend",
-        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Tabs",
-        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Card",
         "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Page",
         "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Panel",
         "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:View",
@@ -313,10 +318,10 @@
           "through": [
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Level",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Model",
-            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:PlacePart",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:TreeNode",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Where",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fileName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fileOf",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fullName",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:moduleIndex",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:moduleKey",
@@ -414,13 +419,11 @@
           "through": [
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Badge",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Box",
-            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Card",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Legend",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Page",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Panel",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ProofLegend",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ProofMark",
-            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Tabs",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:View",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:viewHref",
             "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx:Viewport"
@@ -470,7 +473,7 @@
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Link",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Model",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Tally",
-            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:branch",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:baseName",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:buildModel",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:compact",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:componentOf",
@@ -478,6 +481,7 @@
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:cycles",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:entry",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fileName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fileOf",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fullName",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:hubs",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:links",
@@ -487,13 +491,10 @@
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:pairs",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:seams",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:shortName",
-            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tailName",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tailPath",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:unknownByComponent",
             "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:STORY",
-            "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:cardName",
-            "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:layoutStory",
-            "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:midCut"
+            "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:layoutStory"
           ],
           "rationale": "Draw the Map and the lens from the indexed graph and their layouts."
         },
@@ -625,9 +626,7 @@
       "public": [
         "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:ChatPanel",
         "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:ChatState",
-        "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:useChat",
-        "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:Turn",
-        "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:TurnKind"
+        "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:useChat"
       ],
       "responsibilities": [
         "Draw the chat panel and keep the one conversation: agent text is a claim, a proposal is not applied, and only Studio facts read OBSERVED."
@@ -763,12 +762,14 @@
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Model",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Tally",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Where",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:baseName",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:compact",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fileName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fileOf",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fullName",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:opened",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:shortName",
-            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tailName"
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tallyOf"
           ],
           "rationale": "Use model."
         },

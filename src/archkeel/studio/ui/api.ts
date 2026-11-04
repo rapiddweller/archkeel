@@ -21,9 +21,9 @@ export type StudioState = {
 };
 
 /** A row is an array; a number that names a row of another list is its index. */
-export type ComponentRow = readonly [id: string, responsibility: string];
-export type ModuleRow = readonly [name: string, file: string, component: number, relative: string];
-export type SymbolRow = readonly [
+type ComponentRow = readonly [id: string, responsibility: string];
+type ModuleRow = readonly [name: string, file: string, component: number, relative: string];
+type SymbolRow = readonly [
   module: number,
   name: string,
   line: number,
@@ -32,11 +32,11 @@ export type SymbolRow = readonly [
   unresolved: number,
   outside: number,
 ];
-export type EdgeRow = readonly [source: number, target: number, partial: boolean, line: number, site: number];
+type EdgeRow = readonly [source: number, target: number, partial: boolean, line: number, site: number];
 export type UnknownRow = readonly [owner: number, expression: string, reason: string, line: number];
 
 /** The call counts of the whole snapshot, as explore measured them. */
-export type Totals = {
+type Totals = {
   readonly analyzed: number;
   readonly resolved: number;
   readonly partial: number;
@@ -75,16 +75,16 @@ export const StorySource = { Repository: "repository", Local: "local" } as const
 export type StorySource = (typeof StorySource)[keyof typeof StorySource];
 
 export type StoryRow = { readonly id: string; readonly title: string; readonly steps: number; readonly source: StorySource; readonly created: string | null };
-export type Site = { readonly file: string | null; readonly line: number | null };
-export type Seam = {
+type Site = { readonly file: string | null; readonly line: number | null };
+type Seam = {
   readonly kind: "partial_call" | "unresolved_call";
   readonly node: string;
   readonly reason: string | null;
   readonly candidates?: number | null;
   readonly calls?: number | null;
 };
-export type Touch = { readonly system: string; readonly module: string; readonly library: string; readonly site: Site };
-export type ExternalCheck = {
+type Touch = { readonly system: string; readonly module: string; readonly library: string; readonly site: Site };
+type ExternalCheck = {
   readonly system: string;
   readonly touched: boolean;
   readonly evidence?: readonly Touch[];
@@ -110,7 +110,7 @@ export type StepLink = {
   readonly note?: string | null;
   readonly evidence?: readonly { readonly file: string | null; readonly line: number | null; readonly candidates?: number }[];
 };
-export type StoryVerdict = Readonly<Record<CheckStatus, number>> & {
+type StoryVerdict = Readonly<Record<CheckStatus, number>> & {
   readonly systems: readonly string[];
   readonly modules: number;
 };

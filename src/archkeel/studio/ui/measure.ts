@@ -8,7 +8,7 @@ const PAD = 16;
 /** The left border and the padding of a card. */
 const INSET = 28;
 
-export const linesOf = (text: string, width: number, char: number): number =>
+const linesOf = (text: string, width: number, char: number): number =>
   Math.max(1, Math.ceil((text.length * char) / Math.max(1, width - INSET)));
 
 /** The height of a card: its name over as many lines as needed, then the facts. */

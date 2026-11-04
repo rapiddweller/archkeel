@@ -16,13 +16,21 @@ from .api import (
     Graph,
     Json,
     ModuleRow,
+    Place,
     ScopeKind,
     SnapshotInfo,
     SymbolKind,
     SymbolRow,
     Totals,
     UnknownRow,
+    data_of,
+    first_place,
     member,
+    number_of,
+    places,
+    rows,
+    text_of,
+    texts_of,
 )
 
 UNOWNED = "(unowned)"
@@ -32,42 +40,19 @@ _EXPRESSION_LENGTH = 60
 _UNKNOWN_PER_SYMBOL = 4
 _PARTIAL_TARGETS = 2
 
-_Row = Mapping[str, Json]
 _Component = tuple[str, str, Sequence[str]]
-
-
-def _rows(model: Mapping[str, Json], section: str) -> list[_Row]:
-    rows = model.get(section)
-    return [row for row in rows if isinstance(row, Mapping)] if isinstance(rows, list) else []
-
-
-def _text(value: Json) -> str:
-    return value if isinstance(value, str) else ""
-
-
-def _number(value: Json) -> int:
-    return value if isinstance(value, int) and not isinstance(value, bool) else 0
-
-
-def _texts(value: Json) -> list[str]:
-    return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
-
-
-def _data(row: _Row) -> _Row:
-    data = row.get("data")
-    return data if isinstance(data, Mapping) else {}
 
 
 def _layout(model: Mapping[str, Json]) -> list[_Component]:
     """The top-level components that explore declared in its own layout, with their modules."""
     owned = {
-        _text(_data(row).get("component_id")): _texts(_data(row).get("modules"))
-        for row in _rows(model, "scope_observations")
+        text_of(data_of(row).get("component_id")): texts_of(data_of(row).get("modules"))
+        for row in rows(model, "scope_observations")
         if member(ScopeKind, row.get("kind")) is ScopeKind.DECLARED
     }
     return [
-        (_text(row.get("title")), "", owned.get(_text(row.get("id")), []))
-        for row in _rows(model, "declarations")
+        (text_of(row.get("title")), "", owned.get(text_of(row.get("id")), []))
+        for row in rows(model, "declarations")
         if member(DeclarationKind, row.get("kind")) is DeclarationKind.COMPONENT
     ]
 
@@ -94,7 +79,8 @@ def _modules(
     model: Mapping[str, Json], declare: Declare
 ) -> tuple[ComponentSource, tuple[ComponentRow, ...], tuple[ModuleRow, ...], dict[str, int]]:
     files = {
-        _text(row.get("title")): _text(_data(row).get("file")) for row in _rows(model, "modules")
+        text_of(row.get("title")): text_of(data_of(row).get("file"))
+        for row in rows(model, "modules")
     }
     names = sorted(files)
     source, components = _components(model, names, declare)
@@ -113,37 +99,28 @@ def _modules(
     )
 
 
-def _evidence(model: Mapping[str, Json]) -> dict[str, tuple[int, str]]:
-    return {
-        _text(row.get("id")): (_number(row.get("line")), _text(row.get("excerpt")).strip())
-        for row in _rows(model, "evidence")
-    }
-
-
-def _first(ids: Json, evidence: dict[str, tuple[int, str]]) -> tuple[int, str]:
-    return evidence.get(_texts(ids)[0], (0, "")) if _texts(ids) else (0, "")
-
-
 def _symbols(
-    model: Mapping[str, Json], position: dict[str, int], evidence: dict[str, tuple[int, str]]
+    model: Mapping[str, Json], position: dict[str, int], evidence: Mapping[str, Place]
 ) -> tuple[tuple[SymbolRow, ...], dict[str, int]]:
     symbols: list[SymbolRow] = []
     index: dict[str, int] = {}
-    for row in _rows(model, "symbols"):
-        data = _data(row)
+    for row in rows(model, "symbols"):
+        data = data_of(row)
         kind = member(SymbolKind, row.get("kind"))
-        module, qualified = _text(data.get("module")), _text(data.get("qualified_name"))
+        module, qualified = text_of(data.get("module")), text_of(data.get("qualified_name"))
         if kind is None or module not in position or not qualified or qualified in index:
             continue
-        line, text = _first(row.get("evidence_ids"), evidence)
+        place = first_place(row, evidence)
         name = qualified.removeprefix(f"{module}.")
         index[qualified] = len(symbols)
-        symbols.append(SymbolRow(position[module], name, line, kind, text[:_TEXT_LENGTH], 0, 0))
+        symbols.append(
+            SymbolRow(position[module], name, place.line, kind, place.excerpt[:_TEXT_LENGTH], 0, 0)
+        )
     return tuple(symbols), index
 
 
 def _calls(
-    model: Mapping[str, Json], index: dict[str, int], evidence: dict[str, tuple[int, str]]
+    model: Mapping[str, Json], index: dict[str, int], evidence: Mapping[str, Place]
 ) -> tuple[tuple[EdgeRow, ...], tuple[UnknownRow, ...], dict[int, int], dict[int, int]]:
     """Edges between known functions, a sample of unknown calls, and the true counts of both.
 
@@ -155,17 +132,19 @@ def _calls(
     unknown: dict[int, int] = {}
     outside: dict[int, int] = {}
     sites = 0
-    for row in _rows(model, "calls"):
-        data = _data(row)
-        source = index.get(_text(data.get("source_scope")))
+    for row in rows(model, "calls"):
+        data = data_of(row)
+        source = index.get(text_of(data.get("source_scope")))
         if source is None:
             continue
-        line, _ = _first(row.get("evidence_ids"), evidence)
+        line = first_place(row, evidence).line
         status = member(CallStatus, data.get("status"))
         if status is CallStatus.RESOLVED or status is CallStatus.PARTIALLY_RESOLVED:
             # Distinct before the cut: the targets [A, A, B] keep A and B.
             known = list(
-                dict.fromkeys(index[name] for name in _texts(data.get("targets")) if name in index)
+                dict.fromkeys(
+                    index[name] for name in texts_of(data.get("targets")) if name in index
+                )
             )
             if not known:
                 outside[source] = outside.get(source, 0) + 1
@@ -177,15 +156,14 @@ def _calls(
         else:
             unknown[source] = unknown.get(source, 0) + 1
             if unknown[source] <= _UNKNOWN_PER_SYMBOL:
-                expression = _text(data.get("expression"))[:_EXPRESSION_LENGTH]
-                reason = _text(data.get("reason"))[:_EXPRESSION_LENGTH]
+                expression = text_of(data.get("expression"))[:_EXPRESSION_LENGTH]
+                reason = text_of(data.get("reason"))[:_EXPRESSION_LENGTH]
                 sample.append(UnknownRow(source, expression, reason, line))
     return tuple(edges), tuple(sample), unknown, outside
 
 
 def _count(section: Json, name: str) -> int:
-    value = section.get(name) if isinstance(section, Mapping) else None
-    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+    return number_of(section.get(name)) if isinstance(section, Mapping) else 0
 
 
 def _totals(model: Mapping[str, Json]) -> Totals:
@@ -202,18 +180,17 @@ def _totals(model: Mapping[str, Json]) -> Totals:
 def _snapshot(model: Mapping[str, Json]) -> SnapshotInfo:
     source = model.get("source")
     found = source if isinstance(source, Mapping) else {}
-    head, digest, dirty = found.get("git_head"), found.get("source_digest"), found.get("dirty")
     return SnapshotInfo(
-        head if isinstance(head, str) else "",
-        digest if isinstance(digest, str) else "",
-        dirty is True,
+        text_of(found.get("git_head")),
+        text_of(found.get("source_digest")),
+        found.get("dirty") is True,
     )
 
 
 def build_graph(model: Mapping[str, Json], declare: Declare) -> Graph:
     """The components, modules, symbols, call edges and unknown calls of one snapshot."""
     source, components, modules, position = _modules(model, declare)
-    evidence = _evidence(model)
+    evidence = places(model)
     found, index = _symbols(model, position, evidence)
     edges, sample, unknown, outside = _calls(model, index, evidence)
     symbols = tuple(

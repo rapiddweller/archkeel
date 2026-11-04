@@ -8,6 +8,7 @@ import {
   Where,
   trail,
   fileName,
+  fileOf,
   fullName,
   moduleKey,
   moduleIndex,
@@ -31,7 +32,7 @@ function Modules(props: { model: Model; node: TreeNode; depth: number } & TreePr
           const functions = [...model.members[module]].sort(
             (a, b) => model.graph.symbols[a][2] - model.graph.symbols[b][2],
           );
-          const file = model.graph.modules[module][1].split("/").pop();
+          const file = fileOf(model, module);
           return (
             <div key={key}>
               <button
@@ -135,7 +136,7 @@ const LEVEL_VIEW: Record<Level, View> = {
   [Level.Function]: View.Explore,
 };
 
-export const whereHref = (where: Where): string =>
+const whereHref = (where: Where): string =>
   where.id === null ? viewHref(View.Map) : viewHref(LEVEL_VIEW[where.level], where.id, where.pkg ?? undefined);
 
 /** Architecture, component, packages, module file and function of a place, as links. */

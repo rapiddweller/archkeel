@@ -10,6 +10,7 @@ import {
   Model,
   counted,
   componentOf,
+  baseName,
   fileName,
   fullName,
   locate,
@@ -251,10 +252,10 @@ function Chosen(props: { model: Model; symbol: number; center: number }) {
       kind="Function"
       where={["Architecture", ...locate(model, symbol).map((part) => part.label), name].join(" › ")}
       facts={[
-        `${calls ? "called by" : "calls"} ${model.graph.symbols[props.center][1]}${link === undefined ? "" : link.partial ? " · claim" : " · proven"}`,
+        `${calls ? "called by" : "calls"} ${model.graph.symbols[props.center][1]}${link === undefined ? "" : ` · ${proofOf(link.partial)}`}`,
         `${counted(model.incoming[symbol].length, "caller")} · ${counted(model.outgoing[symbol].length, "callee")}`,
         `${unresolved} calls with no known target`,
-        `defined at ${fileName(model, symbol).split("/").pop()}:${line}`,
+        `defined at ${baseName(fileName(model, symbol))}:${line}`,
       ]}
       text={definition}
       open={{ href: viewHref(View.Explore, symbol), label: "Open in the lens →" }}
@@ -287,7 +288,7 @@ function LensPage(props: { model: Model; symbol: number; chat: ChatState }) {
     return () => removeEventListener("keydown", listener);
   }, [boxes, selected]);
   const module = moduleIndex(model, symbol);
-  const file = fileName(model, symbol).split("/").pop() ?? "";
+  const file = baseName(fileName(model, symbol));
   return (
     <Workbench
       model={model}

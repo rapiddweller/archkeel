@@ -11,7 +11,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum, StrEnum
-from typing import Final, Literal, TypeAlias
+from typing import Final, Literal, TypeAlias, TypeVar
 
 from .state_facts import StateFacts
 from .type_shapes import TypeShape
@@ -118,6 +118,19 @@ class SourceReferenceContext(StrEnum):
     VALUE = "value"
     ANNOTATION = "annotation"
     UNKNOWN = "unknown"
+
+
+_Member = TypeVar("_Member", bound=StrEnum)
+
+
+def member(kind: type[_Member], value: JsonValue | RawJson) -> _Member | None:
+    """Recognize a closed vocabulary at an owned port; other record data stays opaque."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return kind(value)
+    except ValueError:
+        return None
 
 
 def parse_source_resolution(value: JsonValue | RawJson) -> SourceResolution | None:

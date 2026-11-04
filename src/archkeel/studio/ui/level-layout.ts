@@ -1,11 +1,12 @@
 /** AD-290: the layouts of the levels below the Map: the modules of a component, the functions of a module. Pure. */
+import { better, proofOf } from "./evidence";
 import { Side } from "./lens-layout";
 import { cardHeight } from "./measure";
-import { Level, Model, Tally } from "./model";
+import { Level, Model, Tally, fileOf, tallyOf } from "./model";
 
 /** Sizes at scale 1. The default fit shows them at about 0.9, so no text is below 10 px. */
-export const LEVEL_CARD = { width: 200, height: 56, gap: 24 } as const;
-export const LEVEL_STUB = { width: 170, height: 92, gap: 14 } as const;
+const LEVEL_CARD = { width: 200, height: 56, gap: 24 } as const;
+const LEVEL_STUB = { width: 170, height: 92, gap: 14 } as const;
 
 /** What a card says, so that the layout can size it to the text. */
 export interface LevelText {
@@ -17,9 +18,9 @@ const SPREAD = 56;
 const COLUMNS = 2;
 const STUBS_SHOWN = 8;
 /** Room above the first plate and stub: the column labels have a row of their own. */
-export const TOP = 40;
+const TOP = 40;
 /** At most this many cards show at first; the rest of a package folds into one tile. */
-export const MODULES_SHOWN = 8;
+const MODULES_SHOWN = 8;
 export const FUNCTIONS_SHOWN = 16;
 const PAIRS_KEPT = 60;
 
@@ -29,16 +30,16 @@ export interface LevelBox {
   readonly width: number;
   readonly height: number;
 }
-export interface LevelCard extends LevelBox {
+interface LevelCard extends LevelBox {
   /** The module or the function. */
   readonly index: number;
 }
-export interface LevelPlate extends LevelBox {
+interface LevelPlate extends LevelBox {
   /** The package, or the module file on the level of the functions. */
   readonly label: string;
 }
 /** A folded package or the rest of a plate: one card that opens it. */
-export interface LevelTile extends LevelBox {
+interface LevelTile extends LevelBox {
   readonly label: string;
   readonly hidden: number;
 }
@@ -51,7 +52,7 @@ export interface LevelStub extends LevelBox, Tally {
   readonly ref: string;
 }
 /** One function pair behind a link; the line is the call site in the file of the source. */
-export interface LevelPair {
+interface LevelPair {
   readonly source: number;
   readonly target: number;
   readonly partial: boolean;
@@ -63,7 +64,7 @@ export interface LevelLink extends Tally {
   readonly pairs: readonly LevelPair[];
 }
 /** The faint line of a stub at rest: from the stub to a port on the edge of the nearest plate or tile. */
-export interface LevelAggregate {
+interface LevelAggregate {
   readonly key: string;
   readonly points: readonly (readonly [number, number])[];
 }
@@ -110,7 +111,7 @@ export const tileKey = (label: string): string => `tile:${label}`;
 /** What a key names. */
 export const KeyKind = { Stub: "stub", Tile: "tile", Card: "card" } as const;
 export type KeyKind = (typeof KeyKind)[keyof typeof KeyKind];
-export type KeyPart = { readonly kind: KeyKind; readonly stub: Side | null; readonly ref: string };
+type KeyPart = { readonly kind: KeyKind; readonly stub: Side | null; readonly ref: string };
 export function parseKey(key: string): KeyPart {
   const at = key.indexOf(":");
   const head = key.slice(0, at);
@@ -125,11 +126,9 @@ export function splitRef(ref: string): { readonly id: number; readonly pkg: stri
   return { id: Number(id), pkg: pkg.length > 0 ? pkg.join("/") : null };
 }
 
-const better = (known: LevelPair | undefined, now: LevelPair): boolean => known === undefined || (known.partial && !now.partial);
-
 const bump = (found: Map<string, Sites>, key: string, pair: LevelPair, site: number): void => {
   const sites = found.get(key) ?? { proven: new Set<number>(), claim: new Set<number>(), pairs: new Map<string, LevelPair>() };
-  sites[pair.partial ? "claim" : "proven"].add(site);
+  sites[proofOf(pair.partial)].add(site);
   const id = `${pair.source}:${pair.target}`;
   if (better(sites.pairs.get(id), pair)) sites.pairs.set(id, pair);
   found.set(key, sites);
@@ -323,7 +322,7 @@ export function layoutComponent(model: Model, component: number, pkg: string | n
     }
   }
   const modules = graph.modules.map((_, module) => module).filter(inside);
-  const name = (module: number): string => graph.modules[module][1].split("/").pop() ?? "";
+  const name = (module: number): string => fileOf(model, module);
   const packages = new Map<string, number[]>();
   for (const module of modules) {
     const key = packageOf(model, module) || graph.components[component][0];
@@ -360,7 +359,8 @@ export function layoutModule(model: Model, module: number, showAll: boolean, tex
   const links: RawLink[] = [];
   const count = (found: Map<string, Tally>, other: number, partial: boolean): void => {
     const now = found.get(`${other}`) ?? { proven: 0, claim: 0 };
-    found.set(`${other}`, { proven: now.proven + (partial ? 0 : 1), claim: now.claim + (partial ? 1 : 0) });
+    const one = tallyOf(partial);
+    found.set(`${other}`, { proven: now.proven + one.proven, claim: now.claim + one.claim });
   };
   const toStub = new Map<string, LevelPair[]>();
   const add = (key: string, pair: LevelPair): void => void toStub.set(key, [...(toStub.get(key) ?? []), pair]);
@@ -370,8 +370,7 @@ export function layoutModule(model: Model, module: number, showAll: boolean, tex
       const pair: LevelPair = { source: symbol, target: link.other, partial: link.partial, line: link.line };
       if (other === module) {
         links.push({
-          proven: link.partial ? 0 : 1,
-          claim: link.partial ? 1 : 0,
+          ...tallyOf(link.partial),
           a: cardKey(Level.Function, symbol),
           b: cardKey(Level.Function, link.other),
           pairs: [pair],
@@ -400,7 +399,7 @@ export function layoutModule(model: Model, module: number, showAll: boolean, tex
     });
   });
   const stubs = (found: Map<string, Tally>): RawStub[] => [...found.entries()].map(([ref, sites]) => ({ ref, ...sites }));
-  const label = graph.modules[module][1].split("/").pop() ?? graph.modules[module][0];
+  const label = fileOf(model, module);
   const groups: Group[] = [{ label, items: shownFunctions, rest: all.slice(shownFunctions.length) }];
   return arrange(Level.Function, groups, stubs(callers), stubs(callees), links, text);
 }

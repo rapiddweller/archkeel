@@ -21,7 +21,7 @@ from archkeel.ir.decisions import (
     open_decision_summary,
     open_decisions,
 )
-from archkeel.ir.facts import SourceNameVisibility, parse_source_name_visibility
+from archkeel.ir.facts import SourceNameVisibility, member, parse_source_name_visibility
 from archkeel.ir.identity import module_identity
 from archkeel.ir.model import (
     ArchitectureContract,
@@ -48,7 +48,6 @@ from archkeel.ir.model import (
     RunResult,
     in_scope,
     int_value,
-    parse_graph_topology_level,
     text_value,
 )
 from archkeel.ir.model import (
@@ -551,7 +550,7 @@ def first_look(
     cycles = [
         record
         for record in observation.records("cycles") or ()
-        if parse_graph_topology_level(record.data.get("level")) is GraphTopologyLevel.MODULE
+        if member(GraphTopologyLevel, record.data.get("level")) is GraphTopologyLevel.MODULE
     ]
     importers = sorted(
         (

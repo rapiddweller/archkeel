@@ -4,14 +4,12 @@ import type { ChatState } from "../chat";
 import { View, viewHref } from "../components";
 import { Side } from "../lens-layout";
 import { KeyKind, LevelText, layoutComponent, parseKey, splitRef } from "../level-layout";
-import { Level, Model, counted } from "../model";
+import { Level, Model, counted, fileOf } from "../model";
 import { FocusList, LevelCanvas, Selection, Workbench, focusRows, useFocus } from "../workbench";
 
 /** The package one step up: `a.b` to `a`, a first package to the component. */
 const parentOf = (component: number, pkg: string | null): string =>
   pkg === null || !pkg.includes(".") ? viewHref(View.Component, component) : viewHref(View.Component, component, pkg.slice(0, pkg.lastIndexOf(".")));
-
-const fileOf = (model: Model, module: number): string => model.graph.modules[module][1].split("/").pop() ?? "";
 
 export function ComponentLevel(props: { model: Model; component: number; pkg: string | null; chat: ChatState }) {
   const { model, component, pkg } = props;
