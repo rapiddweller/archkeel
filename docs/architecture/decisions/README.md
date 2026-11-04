@@ -298,3 +298,5 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-288 | [A component card shows its label and its first responsibility](ad-288-a-component-card-shows-its-first-responsibility.md) |
 | AD-289 | [A tour shows author stops beside measured facts](ad-289-a-tour-shows-author-stops-beside-measured-facts.md) |
 | AD-290 | [ArchKeel Studio is a local web application](ad-290-archkeel-studio-is-a-local-web-application.md) |
+| AD-291 | [A story is a checked view, and the trace proposes its path](ad-291-a-story-is-a-checked-view-and-the-trace-proposes-its-path.md) |
+| AD-292 | [The Studio chat lets the owner's agent answer read-only; Studio decides what is observed](ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md) |

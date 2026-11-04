@@ -197,7 +197,9 @@
         "archkeel.ir.amendment_codec",
         "archkeel.ir.collection_features",
         "archkeel.ir.findings",
-        "archkeel.ir.view_spec"
+        "archkeel.ir.view_spec",
+        "archkeel.ir.flow_graph",
+        "archkeel.ir.story"
       ],
       "responsibilities": [
         "Own contract/result values, strict wire conversion and pure graph, metric and projection derivation."
@@ -308,7 +310,8 @@
         "archkeel.ir.findings:findings_note",
         "archkeel.ir.findings:findings_state",
         "archkeel.ir.findings:evidence_locations",
-        "archkeel.ir.view_spec"
+        "archkeel.ir.view_spec",
+        "archkeel.ir.story"
       ]
     },
     {
@@ -11784,35 +11787,6 @@
           },
           "responsibilities": [
             "Own the module/package domain of Core-derived graph topology."
-          ]
-        },
-        {
-          "language": "python",
-          "presence": "planned",
-          "provenance": [
-            "docs/architecture/graph-topology-level-types.md"
-          ],
-          "id": "GRAPH-TOPOLOGY-reader",
-          "kind": "function",
-          "qualified_name": "archkeel.ir.model.parse_graph_topology_level",
-          "parent_id": "IR-DEPENDENCY-model",
-          "visibility": {
-            "kind": "public",
-            "basis": "declared"
-          },
-          "signature": {
-            "parameters": [
-              {
-                "name": "value",
-                "annotation": "JsonValue | RawJson",
-                "kind": "positional",
-                "default_known": true
-              }
-            ],
-            "returns": "GraphTopologyLevel | None"
-          },
-          "responsibilities": [
-            "Recognize known topology levels without closing or rewriting open record data."
           ]
         },
         {

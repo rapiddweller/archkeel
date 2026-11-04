@@ -18,7 +18,11 @@ from test_architecture_demo import _prepare_repo
 from test_uml_evaluation import _model
 
 from archkeel.analyzer.python import receiver_types
-from archkeel.analyzer.python.calls import _bind_receiver, _local_receiver_types, collect_calls
+from archkeel.analyzer.python.calls import (
+    _bind_receiver,
+    _local_receiver_types,
+    collect_calls_with_resolvers,
+)
 from archkeel.analyzer.python.imports import collect_imports
 from archkeel.analyzer.python.receiver_types import ReceiverType
 from archkeel.analyzer.python.resolve import _resolve_receiver_bound_call, build_symbol_index
@@ -175,7 +179,7 @@ def test_actual_receiver_merge_has_no_raw_origin_dispatch(tmp_path):
     ],
 )
 def test_ambiguous_and_shadowed_receivers_stay_unresolved(source):
-    rows = collect_calls([_parsed_module(source)], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([_parsed_module(source)], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == "items.append")
     assert call["status"] == "unresolved" and call["targets"] == []
 
@@ -229,7 +233,7 @@ def test_ambiguous_and_shadowed_receivers_stay_unresolved(source):
 def test_import_bound_external_receiver_calls_are_partial(source, expression, target):
     module = _parsed_module(source)
     collect_imports([module], set(), {}, namespace="sample")
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == expression)
     assert call["status"] == "partially_resolved" and call["targets"] == [target]
 
@@ -290,7 +294,7 @@ def test_import_bound_external_receiver_calls_are_partial(source, expression, ta
 def test_unproven_external_receiver_annotations_stay_unresolved(source, expression):
     module = _parsed_module(source)
     collect_imports([module], set(), {}, namespace="sample")
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == expression)
     assert call["status"] == "unresolved" and call["targets"] == []
 
@@ -304,7 +308,7 @@ def test_builtin_optional_receiver_keeps_guarded_generator_call_partial():
         "    )\n"
     )
     collect_imports([module], set(), {}, namespace="sample")
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == "roles.get")
     assert call["status"] == "partially_resolved"
     assert call["targets"] == ["builtins.dict.get"]
@@ -314,7 +318,7 @@ def test_builtin_optional_receiver_needs_certain_compiler_scope():
     module = _parsed_module("def use(roles: dict[str, str] | None): roles.get('key')\n")
     collect_imports([module], set(), {}, namespace="sample")
     module.source = "def incomplete("
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == "roles.get")
     assert call["status"] == "unresolved" and call["targets"] == []
 
@@ -322,7 +326,7 @@ def test_builtin_optional_receiver_needs_certain_compiler_scope():
 def test_unchecked_builtin_optional_receiver_stays_partial():
     module = _parsed_module("def use(roles: dict[str, str] | None): return roles.get('key')\n")
     collect_imports([module], set(), {}, namespace="sample")
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == "roles.get")
     assert call["status"] == "partially_resolved"
     assert call["targets"] == ["builtins.dict.get"]
@@ -335,7 +339,7 @@ def test_external_receiver_annotation_needs_its_compiler_scope():
     )
     collect_imports([module], set(), {}, namespace="sample")
     module.source = "def incomplete("
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == "process.poll")
     assert call["status"] == "unresolved" and call["targets"] == []
 
@@ -367,7 +371,7 @@ def test_external_receiver_annotation_needs_its_compiler_scope():
 def test_import_bound_stdlib_byte_results_keep_partial_method_evidence(source, expected_targets):
     module = _parsed_module(source)
     collect_imports([module], set(), {}, namespace="sample")
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     calls = [row["data"] for row in rows]
     for target in expected_targets:
         assert any(
@@ -389,7 +393,7 @@ def test_import_bound_stdlib_byte_results_keep_partial_method_evidence(source, e
 def test_import_bound_hmac_result_methods_keep_partial_evidence(source):
     module = _parsed_module(source)
     collect_imports([module], set(), {}, namespace="sample")
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     calls = [row["data"] for row in rows]
     for target in ("hmac.HMAC.digest", "builtins.bytes.hex"):
         assert any(
@@ -416,7 +420,7 @@ def test_import_bound_hmac_result_methods_keep_partial_evidence(source):
 def test_unproven_hmac_result_methods_stay_unknown(source):
     module = _parsed_module(source)
     collect_imports([module], set(), {}, namespace="sample")
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     hmac_targets = {"hmac.HMAC.digest", "builtins.bytes.hex", "hmac.HMAC.hexdigest"}
     assert not any(
         row["data"]["targets"] and row["data"]["targets"][0] in hmac_targets for row in rows
@@ -429,7 +433,7 @@ def test_hmac_result_methods_need_their_compiler_scope():
     )
     collect_imports([module], set(), {}, namespace="sample")
     module.source = "def incomplete("
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     assert not any(
         row["data"]["targets"]
         and row["data"]["targets"][0] in {"hmac.HMAC.digest", "builtins.bytes.hex"}
@@ -456,7 +460,7 @@ def test_hmac_result_methods_need_their_compiler_scope():
 def test_unproven_stdlib_byte_result_bindings_stay_unknown(source):
     module = _parsed_module(source)
     collect_imports([module], set(), {}, namespace="sample")
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     byte_method_targets = {
         "builtins.bytes.decode",
         "builtins.bytes.hex",
@@ -473,7 +477,7 @@ def test_stdlib_byte_result_needs_its_compiler_scope():
     )
     collect_imports([module], set(), {}, namespace="sample")
     module.source = "def incomplete("
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     assert not any(row["data"]["targets"] == ["builtins.bytes.decode"] for row in rows)
 
 
@@ -498,7 +502,7 @@ def test_stdlib_byte_result_needs_its_compiler_scope():
     ],
 )
 def test_string_return_methods_reuse_documented_receiver_evidence(source, expression, target):
-    rows = collect_calls([_parsed_module(source)], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([_parsed_module(source)], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == expression)
     assert call["status"] == "partially_resolved" and call["targets"] == [target]
 
@@ -520,7 +524,7 @@ def test_string_return_methods_reuse_documented_receiver_evidence(source, expres
     ],
 )
 def test_unproven_string_method_results_keep_unknown_receiver(source, expression):
-    rows = collect_calls([_parsed_module(source)], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([_parsed_module(source)], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == expression)
     assert call["status"] == "unresolved" and call["targets"] == []
 
@@ -528,7 +532,7 @@ def test_unproven_string_method_results_keep_unknown_receiver(source, expression
 def test_documented_string_result_needs_its_compiler_owner_for_named_receiver():
     module = _parsed_module("def use():\n value = ''.join(['x'])\n value.encode()\n")
     module.source = "def incomplete("
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == "value.encode")
     assert call["status"] == "unresolved" and call["targets"] == []
 
@@ -538,7 +542,7 @@ def test_string_method_return_does_not_claim_subclass_runtime_behavior():
         "class Special(str):\n def strip(self): return 42\n"
         "def use(value: str): return value.strip().casefold()\n"
     )
-    rows = collect_calls([_parsed_module(source)], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([_parsed_module(source)], build_symbol_index([]), {})[0]
     call = next(
         row["data"] for row in rows if row["data"]["expression"] == "value.strip().casefold"
     )
@@ -572,7 +576,7 @@ def test_string_method_return_does_not_claim_subclass_runtime_behavior():
     ],
 )
 def test_unique_local_helper_return_keeps_documented_receiver_origin(source, expression, target):
-    rows = collect_calls([_parsed_module(source)], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([_parsed_module(source)], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == expression)
     assert call["status"] == "partially_resolved" and call["targets"] == [target]
 
@@ -602,7 +606,7 @@ def test_unique_local_helper_return_keeps_documented_receiver_origin(source, exp
 def test_uncertain_helper_declarations_do_not_prove_returned_receiver(definition):
     module = _parsed_module(definition + "def use():\n values = make()\n values.append('x')\n")
     collect_imports([module], {module.module}, {}, namespace="sample")
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == "values.append")
     assert call["status"] == "unresolved" and call["targets"] == []
 
@@ -618,7 +622,7 @@ def test_uncertain_helper_declarations_do_not_prove_returned_receiver(definition
 )
 def test_helper_result_does_not_inherit_another_assignment_literal_origin(body):
     source = "def make() -> list[str]: return []\ndef use():\n" + body
-    rows = collect_calls([_parsed_module(source)], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([_parsed_module(source)], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == "values.append")
     assert call["status"] == "unresolved" and call["targets"] == []
 
@@ -628,7 +632,7 @@ def test_local_helper_return_needs_a_matching_compiler_scope():
         "def make() -> list[str]: return []\ndef use():\n values = make()\n values.append('x')\n"
     )
     module.source = "def incomplete("
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == "values.append")
     assert call["status"] == "unresolved" and call["targets"] == []
 
@@ -643,7 +647,7 @@ def test_local_helper_return_needs_a_matching_compiler_scope():
     ],
 )
 def test_set_syntax_proves_the_builtin_receiver_even_when_set_name_is_shadowed(source):
-    rows = collect_calls([_parsed_module(source)], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([_parsed_module(source)], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == "values.copy")
     assert call["status"] == "resolved"
     assert call["targets"] == ["builtins.set.copy"]
@@ -658,7 +662,7 @@ def test_set_syntax_proves_the_builtin_receiver_even_when_set_name_is_shadowed(s
     ],
 )
 def test_set_receiver_does_not_absolve_shadowed_constructors_or_conflicting_bindings(source):
-    rows = collect_calls([_parsed_module(source)], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([_parsed_module(source)], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == "values.copy")
     assert call["status"] == "unresolved" and call["targets"] == []
 
@@ -670,7 +674,7 @@ def test_later_set_literal_does_not_prove_an_earlier_annotated_receiver(literal)
         "def use(values: set):\n result = values.add(1)\n"
         f" values = {literal}\n return result\n"
     )
-    rows = collect_calls([_parsed_module(source)], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([_parsed_module(source)], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == "values.add")
     assert call["status"] == "partially_resolved"
     assert call["targets"] == ["builtins.set.add"]
@@ -693,7 +697,7 @@ def test_string_method_elements_keep_documented_receiver_proof(method, expressio
     module = _parsed_module(
         "def use(module: str):\n    return " + expression.replace("METHOD", method) + "\n"
     )
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == "part.isidentifier")
     # A PEP 709 inlined comprehension keeps the element proof of its own target.
     assert call["status"] == "partially_resolved"
@@ -720,7 +724,7 @@ def test_string_method_elements_keep_documented_receiver_proof(method, expressio
 )
 def test_unproven_or_shadowed_comprehension_elements_stay_unresolved(source):
     module = _parsed_module(source)
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == "part.isidentifier")
     assert call["status"] == "unresolved" and call["targets"] == []
 
@@ -733,7 +737,7 @@ def test_comprehension_receiver_proof_does_not_escape_its_owner():
         " part.append(result)\n"
         " part.isidentifier()\n"
     )
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     calls = [row["data"] for row in rows if row["data"]["expression"] == "part.isidentifier"]
     assert sorted(call["status"] for call in calls) == ["partially_resolved", "unresolved"]
     assert all(call["targets"] == [] for call in calls if call["status"] == "unresolved")
@@ -748,7 +752,7 @@ def test_nested_comprehensions_reuse_only_their_own_proven_elements(annotation, 
         " return [[part.isidentifier() for part in line.split()]\n"
         "         for line in module.splitlines()]\n"
     )
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == "part.isidentifier")
     assert call["status"] == status
     assert call["targets"] == ([] if status == "unresolved" else ["builtins.str.isidentifier"])
@@ -771,7 +775,7 @@ def test_nested_comprehensions_reuse_only_their_own_proven_elements(annotation, 
 def test_path_containment_retains_partial_evidence_and_shadowing(source, status):
     module = _parsed_module("from pathlib import Path\n" + source)
     collect_imports([module], set(), {}, namespace="sample")
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == "path.is_relative_to")
     assert call["status"] == status
     assert call["targets"] == ([] if status == "unresolved" else ["pathlib.Path.is_relative_to"])
@@ -781,7 +785,7 @@ def test_path_containment_retains_partial_evidence_and_shadowing(source, status)
     "source", ["dict.fromkeys(('x',))", "def use(): return dict.fromkeys(('x',))"]
 )
 def test_unshadowed_builtin_dict_classmethod_keeps_partial_evidence(source):
-    rows = collect_calls([_parsed_module(source)], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([_parsed_module(source)], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == "dict.fromkeys")
     assert call["status"] == "partially_resolved"
     assert call["targets"] == ["builtins.dict.fromkeys"]
@@ -789,7 +793,7 @@ def test_unshadowed_builtin_dict_classmethod_keeps_partial_evidence(source):
 
 @pytest.mark.parametrize("source", ["str.split('a,b', ',')", "def use(): return str.split('a')"])
 def test_unshadowed_builtin_str_method_keeps_partial_evidence(source):
-    rows = collect_calls([_parsed_module(source)], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([_parsed_module(source)], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == "str.split")
     assert call["status"] == "partially_resolved"
     assert call["targets"] == ["builtins.str.split"]
@@ -817,7 +821,7 @@ def test_unshadowed_builtin_str_method_keeps_partial_evidence(source):
 def test_builtin_dict_classmethod_does_not_escape_its_exact_binding(source, expression):
     module = _parsed_module(source)
     collect_imports([module], set(), {}, namespace="sample")
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     call = next(row["data"] for row in rows if row["data"]["expression"] == expression)
     assert "builtins.dict.fromkeys" not in call["targets"]
     if "from custom" not in source:
@@ -838,7 +842,7 @@ def test_builtin_dict_classmethod_does_not_escape_its_exact_binding(source, expr
 def test_builtin_class_method_resolution_keeps_shadowing_and_method_table_boundaries(source):
     module = _parsed_module(source)
     collect_imports([module], {module.module}, {}, namespace="sample")
-    rows = collect_calls([module], build_symbol_index([]), {})
+    rows = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
     call = next(
         row["data"] for row in rows if row["data"]["expression"] in {"str.split", "str.madeup"}
     )

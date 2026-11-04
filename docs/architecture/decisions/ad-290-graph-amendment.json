@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "3a691542da09f925930c26838acac093a20ae9e7ef5e15af5f029481e8106340",
+  "after_digest": "312247d0af1d3ba1985be70ec51b424cd452f6693c7e40d2f7635215f1b3c647",
+  "before_baseline_digest": "9d6f8832b794a54b5ae525b16ecbb7d6629f6c6e36b38ed07da8b0698e8e7c07",
+  "before_digest": "2cff2fb8b93076b32b8467bf936281a2e65a535f0dc25f2f0c2afbdee1592e00",
+  "decided_by": "Alexander Kell (architect), AD-290, AD-291 and AD-292; delegated to the manager 2026-11-04",
+  "rationale": "Studio slice 2 adds the components graph, stories, answer and agent, the Studio story and chat API, the ir story and flow_graph modules and the cli requires for them (AD-290, AD-291, AD-292). validate --against origin/main measures calls_unresolved 854 before and 936 after, net +82: stdlib receivers and dynamic calls in the new Studio, story and chat code. The budget value is the CI measurement of this branch.",
+  "schema_version": "2.0.0"
+}

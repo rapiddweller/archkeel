@@ -1938,8 +1938,22 @@ export let flow;
     if (!document.documentElement.hasAttribute("data-embed") || id === announcedComponent) return;
     announcedComponent = id;
     const label = id === null ? null : REPORT_SCENE.atlasComponent(id)?.label ?? null;
-    window.parent.postMessage({ kind: "component-selected", id, label }, location.origin);
+    // The embedded page can be sandboxed: its origin is "null", so no target origin names the parent.
+    window.parent.postMessage({ kind: "component-selected", id, label }, "*");
   }
+
+  // AD-290: the embedding Studio cannot reach this document when it is sandboxed, so it posts its
+  // colour tokens. Only the parent window is heard, and only `--ak-*` names with a colour value.
+  window.addEventListener("message", (event) => {
+    const data = event.data;
+    if (!document.documentElement.hasAttribute("data-embed") || event.source !== window.parent) return;
+    if (data?.kind !== "studio-tokens" || typeof data.tokens !== "object" || data.tokens === null) return;
+    for (const [name, value] of Object.entries(data.tokens)) {
+      if (/^--ak-[a-z-]+$/.test(name) && typeof value === "string" && /^[#a-z0-9(),.% -]{1,64}$/i.test(value)) {
+        document.documentElement.style.setProperty(name, value);
+      }
+    }
+  });
 
   function updateOpenSelected() {
     if (ATLAS) {

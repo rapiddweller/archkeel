@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:archkeel:view-spec:1.1.0",
+  "$id": "urn:archkeel:view-spec:1.2.0",
   "title": "Checked view spec",
-  "$comment": "Generated from archkeel.ir.view_spec (AD-284). The spec cannot state proof: `archkeel view check` assigns proven, declared, unknown or missing; claim is author text. Edge, step and stop nodes must be listed in nodes; the first step takes no kind or claim. A stop is author text beside measured facts; it needs schema_version 1.1.0 (AD-289).",
+  "$comment": "Generated from archkeel.ir.view_spec (AD-284). The spec cannot state proof: `archkeel view check` assigns proven, declared, unknown or missing; claim is author text. Edge, step and stop nodes must be listed in nodes; the first step takes no kind or claim. A stop is author text beside measured facts; it needs schema_version 1.1.0 (AD-289). A story, the step fields chapter, title, question and external, and the optional fields created, git_head, author_kind and agent, need 1.2.0 (AD-291); the step note is the story text.",
   "$ref": "#/$defs/ViewSpec",
   "$defs": {
     "ViewSpec": {
@@ -10,6 +10,7 @@
       "properties": {
         "schema_version": {
           "enum": [
+            "1.2.0",
             "1.1.0",
             "1.0.0"
           ]
@@ -49,6 +50,59 @@
           "items": {
             "$ref": "#/$defs/ViewStop"
           }
+        },
+        "story": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ViewStory"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "git_head": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "author_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "agent",
+                "human"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "agent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -72,6 +126,79 @@
               "required": [
                 "stops"
               ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "schema_version": {
+                "enum": [
+                  "1.0.0",
+                  "1.1.0"
+                ]
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "story"
+                  ]
+                },
+                {
+                  "required": [
+                    "created"
+                  ]
+                },
+                {
+                  "required": [
+                    "git_head"
+                  ]
+                },
+                {
+                  "required": [
+                    "author_kind"
+                  ]
+                },
+                {
+                  "required": [
+                    "agent"
+                  ]
+                }
+              ]
+            },
+            "properties": {
+              "steps": {
+                "items": {
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "chapter"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "title"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "question"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "external"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
             }
           }
         }
@@ -184,10 +311,74 @@
         },
         "claim": {
           "type": "boolean"
+        },
+        "chapter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "question": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "external": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViewExternal"
+          }
         }
       },
       "required": [
         "node"
+      ],
+      "additionalProperties": false
+    },
+    "ViewExternal": {
+      "type": "object",
+      "properties": {
+        "system": {
+          "enum": [
+            "redis",
+            "relational_database",
+            "mongodb",
+            "object_storage",
+            "kafka",
+            "rabbitmq"
+          ]
+        },
+        "direction": {
+          "enum": [
+            "reads",
+            "writes",
+            "reads_writes",
+            "touches"
+          ]
+        }
+      },
+      "required": [
+        "system",
+        "direction"
       ],
       "additionalProperties": false
     },
@@ -220,6 +411,44 @@
       },
       "required": [
         "node"
+      ],
+      "additionalProperties": false
+    },
+    "ViewStory": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "chapters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ViewChapter"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "additionalProperties": false
+    },
+    "ViewChapter": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title"
       ],
       "additionalProperties": false
     }

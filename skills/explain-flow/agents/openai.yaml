@@ -1,0 +1,4 @@
+interface:
+  display_name: "ArchKeel Explain Flow"
+  short_description: "Explain a flow of this repository as a story that ArchKeel checks"
+  default_prompt: "Use $explain-flow to trace and explain how this flow runs, and check every step."

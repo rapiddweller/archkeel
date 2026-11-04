@@ -1,26 +1,35 @@
-/** AD-290: the one store: the last API state, polled while the snapshot is not ready. */
+/** AD-290: the one store: the last API state, polled while the snapshot is not ready, and its model. */
 import { useEffect, useState } from "preact/hooks";
-import { readState, StudioState } from "./api";
+import { StudioState, readGraph, readState } from "./api";
+import { Model, buildModel } from "./model";
 import { ExploreState } from "./vocabulary";
 
-export interface Snapshot {
+interface Snapshot {
   readonly state: StudioState | null;
   readonly error: string | null;
+  /** The indexed call graph; null until the explore run is done. */
+  readonly model: Model | null;
 }
 
 const RUNNING_MS = 1000;
 const READY_MS = 5000;
-let current: Snapshot = { state: null, error: null };
+let current: Snapshot = { state: null, error: null, model: null };
 const listeners = new Set<() => void>();
 
 async function poll(): Promise<void> {
   try {
-    current = { state: await readState(), error: null };
+    const state = await readState();
+    current = { ...current, state, error: null };
+    if (state.explore === ExploreState.DONE && current.model === null) {
+      const graph = await readGraph();
+      current = { ...current, model: graph === null ? null : buildModel(graph) };
+    }
   } catch (error) {
-    current = { state: current.state, error: String(error) };
+    current = { ...current, error: String(error) };
   }
   listeners.forEach((listener) => listener());
-  const waiting = current.state?.explore !== ExploreState.DONE;
+  // A failed read is not asked again each second: the snapshot does not mend itself.
+  const waiting = (current.state?.explore !== ExploreState.DONE || current.model === null) && current.error === null;
   setTimeout(poll, waiting ? RUNNING_MS : READY_MS);
 }
 

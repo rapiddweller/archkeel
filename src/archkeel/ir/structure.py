@@ -20,7 +20,7 @@ from collections import Counter
 from dataclasses import dataclass
 from enum import StrEnum
 
-from .facts import SourceResolution, parse_source_resolution
+from .facts import SourceResolution, member, parse_source_resolution
 from .interfaces import component_owners, owner_of
 from .model import (
     ComparisonStatus,
@@ -28,7 +28,6 @@ from .model import (
     GraphTopologyLevel,
     Observation,
     int_value,
-    parse_graph_topology_level,
     text_value,
 )
 from .profiles import UnmeasurableScalar, profile_for
@@ -73,7 +72,7 @@ def module_edges(observation: Observation) -> tuple[tuple[str, str, int], ...]:
     """
     edges: list[tuple[str, str, int]] = []
     for record in observation.records("dependency_edges") or ():
-        if parse_graph_topology_level(record.data.get("level")) is not GraphTopologyLevel.MODULE:
+        if member(GraphTopologyLevel, record.data.get("level")) is not GraphTopologyLevel.MODULE:
             continue
         source = text_value(record.data.get("source"))
         target = text_value(record.data.get("target"))

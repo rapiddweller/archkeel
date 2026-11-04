@@ -39,6 +39,7 @@ from fixtures.demo_catalog_support import (
     HEADER,
     CheckExpectation,
     CheckScenario,
+    TraceExpectation,
     Variant,
     ViewExpectation,
     apply_overlay,
@@ -343,6 +344,27 @@ VARIANTS: tuple[Variant, ...] = (
             ("proven", "proven"),
             show=True,
             stops=("proven", "declared", "proven", "proven"),
+        ),
+    ),
+    Variant(
+        id="protocol-story-trace",
+        section="protocol",
+        item="story_trace",
+        summary="archkeel story trace proposes the path of a flow from the call graph, and "
+        "view check proves a story over it: a resolved call is proven, a partial call is a "
+        "claim, and a call the analysis cannot name is unknown, with its seam.",
+        files={},
+        expected_violations=(),
+        expected_codes=(),
+        view=ViewExpectation(
+            FIXTURE_DIR.parent / "F-architecture-view/order-story.json",
+            0,
+            (),
+            ("proven", "proven", "unknown", "proven", "claim"),
+            verdict=(3, 1, 1),
+            trace=TraceExpectation(
+                "shop.cli.main.main", "shop.model.entities.Order.total", ("proven", "claim")
+            ),
         ),
     ),
 )

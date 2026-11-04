@@ -11,7 +11,7 @@ from unittest.mock import patch
 import pytest
 from conftest import by_python
 
-from archkeel.analyzer.python.calls import collect_calls
+from archkeel.analyzer.python.calls import collect_calls_with_resolvers
 from archkeel.analyzer.python.constructs import collect_constructs
 from archkeel.analyzer.python.imports import all_is_one_literal, collect_imports
 from archkeel.analyzer.python.resolve import build_symbol_index
@@ -1430,7 +1430,7 @@ def test_receiver_typed_calls_resolve_or_name_why_not(
     or the last answer.
     """
     index = build_symbol_index([])
-    calls = collect_calls([_parsed_module(source)], index, {})
+    calls = collect_calls_with_resolvers([_parsed_module(source)], index, {})[0]
     match = next(item for item in calls if item["data"]["expression"] == expression)
     assert match["data"]["status"] == status
     assert match["data"]["targets"] == targets
@@ -1453,7 +1453,7 @@ def test_sorted_rebinding_preserves_list_only_for_the_builtin(
         f"{prefix}def f({parameter}):\n"
         "    items = []\n    items.append(1)\n    items = sorted(items)\n"
     )
-    calls = collect_calls([_parsed_module(source)], build_symbol_index([]), {})
+    calls = collect_calls_with_resolvers([_parsed_module(source)], build_symbol_index([]), {})[0]
     call = next(item["data"] for item in calls if item["data"]["expression"] == "items.append")
     assert call["status"] == status
     assert call["targets"] == targets
@@ -2774,7 +2774,7 @@ def test_call_results_of_documented_type_resolve_their_methods(
     symbols, _, _ = collect_symbols([module], {})
     index = build_symbol_index(symbols)
     collect_imports([module], set(), {}, namespace="sample")
-    calls = collect_calls([module], index, {})
+    calls = collect_calls_with_resolvers([module], index, {})[0]
     match = next(item for item in calls if item["data"]["expression"] == expression)
     assert match["data"]["status"] == status
     assert match["data"]["targets"] == targets
@@ -2820,7 +2820,7 @@ def test_nested_current_class_receivers_keep_only_uncertain_candidates(
     module = _parsed_module(source)
     symbols, _, _ = collect_symbols([module], {})
     index = build_symbol_index(symbols)
-    calls = collect_calls([module], index, {})
+    calls = collect_calls_with_resolvers([module], index, {})[0]
     call = next(item["data"] for item in calls if item["data"]["expression"] == expression)
     assert call["status"] == "partially_resolved"
     assert call["targets"] == targets
@@ -2834,7 +2834,7 @@ def test_indexed_nested_current_class_method_keeps_its_declaration() -> None:
         "        def handle(): pass\n    def run(self): self.client.handle()\n"
     )
     symbols, _, _ = collect_symbols([module], {})
-    calls = collect_calls([module], build_symbol_index(symbols), {})
+    calls = collect_calls_with_resolvers([module], build_symbol_index(symbols), {})[0]
     call = next(
         item["data"] for item in calls if item["data"]["expression"] == "self.client.handle"
     )

@@ -12,10 +12,15 @@
       ],
       "public": [
         "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Evidence",
-        "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:EVIDENCE"
+        "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:EVIDENCE",
+        "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Proof",
+        "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:PROOF",
+        "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofOf",
+        "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofKind",
+        "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:better"
       ],
       "responsibilities": [
-        "Own the evidence model: Observed, Claim and Target as typed values with their legend text."
+        "Own the evidence model and the call proof: Observed, Claim and Target, and proven, claim and unknown, as typed values with their legend text."
       ],
       "forbidden_responsibilities": [
         "Render, fetch or decide on label text."
@@ -41,10 +46,33 @@
         "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readState",
         "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:API_VERSION",
         "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ContractState",
-        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ExploreState"
+        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ExploreState",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:Graph",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:UnknownRow",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readGraph",
+        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:SymbolKind",
+        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ComponentSource",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:CheckStatus",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:CheckedStory",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StepLink",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StoryRow",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StoryStep",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readStories",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readStory",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readDraft",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:askChat",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:ChatFailed",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:ChatAnswer",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:ChatBlock",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:Fact",
+        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:AgentKind",
+        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ChatBlockKind",
+        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ChatError",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StoryAnswer",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StorySource"
       ],
       "responsibilities": [
-        "Read the Studio API of the own server, typed by the vocabulary that tools/browser_runtime.py generates from archkeel.studio.api."
+        "Read the state, the call graph, the stories and the checked story of the own server, ask the chat and send nothing else, typed by the vocabulary that tools/browser_runtime.py generates from archkeel.studio.api."
       ],
       "forbidden_responsibilities": [
         "Render, keep state or ask another origin."
@@ -54,6 +82,114 @@
       ],
       "decided_by": "agent",
       "requires": []
+    },
+    {
+      "id": "UI-MODEL",
+      "label": "model",
+      "role": "component",
+      "packages": [],
+      "exact_modules": [
+        "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+        "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+        "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+        "studio_ui.src.archkeel.studio.ui.measure_x2e_ts"
+      ],
+      "public": [
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Model",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Link",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:TreeNode",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:buildModel",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:compact",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:counted",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:links",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:componentOf",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fileName",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fullName",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:shortName",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:locate",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:search",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tailPath",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:moduleKey",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:moduleIndex",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:symbolKey",
+        "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts:MAP_CARD",
+        "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts:MapLine",
+        "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts:layoutMap",
+        "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:Side",
+        "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:LensItem",
+        "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:LensLayout",
+        "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:OpenGroup",
+        "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:Rect",
+        "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:layoutLens",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Tally",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:pairs",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:findSymbol",
+        "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:STORY",
+        "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:layoutStory",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Level",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Where",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelStub",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:cardKey",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelLayout",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:opened",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:stubKey",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:trail",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:layoutModule",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:layoutComponent",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelLink",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelBox",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:parseKey",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts:roundedPath",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts:makeRouter",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts:midOf",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:tileKey",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:neighbors",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:KeyKind",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:splitRef",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelText",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:cycles",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:seams",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:unknownByComponent",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:entry",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:hubs",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fileOf",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tallyOf",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:baseName",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:lensSymbol"
+      ],
+      "responsibilities": [
+        "Index the call graph and compute the layouts of the Map and the lens: pure functions with no DOM and no network."
+      ],
+      "forbidden_responsibilities": [
+        "Render, fetch or keep state."
+      ],
+      "provenance": [
+        "src/archkeel/studio/ui/AGENTS.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "client",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:CheckedStory",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:Graph",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:UnknownRow"
+          ],
+          "rationale": "Read the typed rows of the graph."
+        },
+        {
+          "component": "evidence",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Proof",
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:better",
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofOf"
+          ],
+          "rationale": "Tell a resolved call from a partly resolved one and let the resolved one win."
+        }
+      ]
     },
     {
       "id": "UI-STORE",
@@ -68,7 +204,7 @@
         "studio_ui.src.archkeel.studio.ui.store_x2e_ts:useStudio"
       ],
       "responsibilities": [
-        "Keep the one shared state: the last API answer, polled while the snapshot is not ready."
+        "Keep the one shared state: the last API answer, polled while the snapshot is not ready, and the indexed call graph."
       ],
       "forbidden_responsibilities": [
         "Render or decide what a view shows."
@@ -80,7 +216,21 @@
       "requires": [
         {
           "component": "client",
-          "rationale": "Poll the API state through the client."
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StudioState",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readGraph",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readState",
+            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ExploreState"
+          ],
+          "rationale": "Poll the API state and read the graph through the client."
+        },
+        {
+          "component": "model",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Model",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:buildModel"
+          ],
+          "rationale": "Index the graph once, when the snapshot is done."
         }
       ]
     },
@@ -90,18 +240,24 @@
       "role": "component",
       "packages": [],
       "exact_modules": [
-        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx"
+        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx",
+        "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx"
       ],
       "public": [
         "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:NavItem",
         "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Legend",
-        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Tabs",
-        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Card",
         "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Page",
-        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Panel"
+        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Panel",
+        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:View",
+        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:viewHref",
+        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ProofLegend",
+        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ProofMark",
+        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Box",
+        "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx:Viewport",
+        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Badge"
       ],
       "responsibilities": [
-        "Draw the shared parts of a page from their props only."
+        "Draw the shared parts of a page from their props only, and the pan and zoom surface."
       ],
       "forbidden_responsibilities": [
         "Call the API, read the store or know a view."
@@ -114,10 +270,68 @@
         {
           "component": "evidence",
           "through": [
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:EVIDENCE",
             "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Evidence",
-            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:EVIDENCE"
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:PROOF",
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Proof",
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofKind"
           ],
-          "rationale": "Show the evidence kind of a badge, a card and the legend."
+          "rationale": "Show the evidence kind of a badge, a card and the legend, and the proof of a call."
+        }
+      ]
+    },
+    {
+      "id": "UI-NAVIGATION",
+      "label": "navigation",
+      "role": "component",
+      "packages": [],
+      "exact_modules": [
+        "studio_ui.src.archkeel.studio.ui.navigation_x2e_tsx"
+      ],
+      "public": [
+        "studio_ui.src.archkeel.studio.ui.navigation_x2e_tsx:StructureTree",
+        "studio_ui.src.archkeel.studio.ui.navigation_x2e_tsx:LocationBar",
+        "studio_ui.src.archkeel.studio.ui.navigation_x2e_tsx:SearchBox",
+        "studio_ui.src.archkeel.studio.ui.navigation_x2e_tsx:Crumb",
+        "studio_ui.src.archkeel.studio.ui.navigation_x2e_tsx:crumbsOf"
+      ],
+      "responsibilities": [
+        "Draw where the user is: the structure tree, the location bar and the search field, from a model and callbacks."
+      ],
+      "forbidden_responsibilities": [
+        "Call the API, read the store or know a view."
+      ],
+      "provenance": [
+        "src/archkeel/studio/ui/AGENTS.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "components",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:View",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:viewHref"
+          ],
+          "rationale": "Link a function to the lens."
+        },
+        {
+          "component": "model",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Level",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Model",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:TreeNode",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Where",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fileName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fileOf",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fullName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:moduleIndex",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:moduleKey",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:search",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:symbolKey",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tailPath",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:trail"
+          ],
+          "rationale": "Read the tree, the places and the search results of the model."
         }
       ]
     },
@@ -151,17 +365,27 @@
       "role": "component",
       "packages": [],
       "exact_modules": [
-        "studio_ui.src.archkeel.studio.ui.views.overview_x2e_tsx",
+        "studio_ui.src.archkeel.studio.ui.views.component_x2e_tsx",
         "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx",
-        "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx"
+        "studio_ui.src.archkeel.studio.ui.views.map_x2e_tsx",
+        "studio_ui.src.archkeel.studio.ui.views.module_x2e_tsx",
+        "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx",
+        "studio_ui.src.archkeel.studio.ui.views.report_x2e_tsx",
+        "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx",
+        "studio_ui.src.archkeel.studio.ui.views.briefing_x2e_tsx"
       ],
       "public": [
-        "studio_ui.src.archkeel.studio.ui.views.overview_x2e_tsx:Overview",
+        "studio_ui.src.archkeel.studio.ui.views.report_x2e_tsx:Report",
         "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx:Explore",
-        "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx:NotBuilt"
+        "studio_ui.src.archkeel.studio.ui.views.map_x2e_tsx:ArchMap",
+        "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx:NotBuilt",
+        "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx:Stories",
+        "studio_ui.src.archkeel.studio.ui.views.component_x2e_tsx:ComponentLevel",
+        "studio_ui.src.archkeel.studio.ui.views.module_x2e_tsx:ModuleLevel",
+        "studio_ui.src.archkeel.studio.ui.views.briefing_x2e_tsx:Briefing"
       ],
       "responsibilities": [
-        "Draw one page each from the API state, with the shared components."
+        "Draw one page each from the API state or the model, with the shared components."
       ],
       "forbidden_responsibilities": [
         "Import another view, poll the API or keep shared state."
@@ -173,28 +397,132 @@
       "requires": [
         {
           "component": "client",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:CheckStatus",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:CheckedStory",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:EXPLORER_PAGE",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StepLink",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StoryAnswer",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StoryRow",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StorySource",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StoryStep",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StudioState",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readStories",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readStory",
+            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ComponentSource",
+            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ContractState",
+            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ExploreState"
+          ],
           "rationale": "Decide what a page shows from the typed API state."
         },
         {
           "component": "components",
           "through": [
-            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Card",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Badge",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Box",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Legend",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Page",
-            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Tabs",
-            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Panel"
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Panel",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ProofLegend",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ProofMark",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:View",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:viewHref",
+            "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx:Viewport"
           ],
           "rationale": "Draw pages with the shared components."
         },
         {
           "component": "evidence",
           "through": [
-            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Evidence"
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:EVIDENCE",
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Evidence",
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:PROOF",
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Proof",
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofKind",
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofOf"
           ],
-          "rationale": "Mark each card and tab with its evidence kind."
+          "rationale": "Mark each card, tab and call with its evidence kind or proof."
         },
         {
           "component": "canvas",
-          "rationale": "Explore mounts the Explorer island and shows its selection."
+          "rationale": "Report mounts the Explorer island and shows its selection.",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.canvas_x2e_tsx:ExplorerCanvas",
+            "studio_ui.src.archkeel.studio.ui.canvas_x2e_tsx:SelectedComponent"
+          ]
+        },
+        {
+          "component": "model",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:LensItem",
+            "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:LensLayout",
+            "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:OpenGroup",
+            "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:Rect",
+            "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:Side",
+            "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:layoutLens",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:KeyKind",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelStub",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelText",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:layoutComponent",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:layoutModule",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:parseKey",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:splitRef",
+            "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts:MAP_CARD",
+            "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts:MapLine",
+            "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts:layoutMap",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Level",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Link",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Model",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Tally",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:baseName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:buildModel",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:compact",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:componentOf",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:counted",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:cycles",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:entry",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fileName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fileOf",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fullName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:hubs",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:links",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:locate",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:moduleIndex",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:neighbors",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:pairs",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:seams",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:shortName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tailPath",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:unknownByComponent",
+            "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:STORY",
+            "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:layoutStory",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:lensSymbol"
+          ],
+          "rationale": "Draw the Map and the lens from the indexed graph and their layouts."
+        },
+        {
+          "component": "chat",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:ChatPanel",
+            "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:ChatState"
+          ],
+          "rationale": "Show the chat panel in the Map and the lens."
+        },
+        {
+          "component": "workbench",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:ARROWS",
+            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Counts",
+            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:FocusList",
+            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:LevelCanvas",
+            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Selection",
+            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Workbench",
+            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:focusRows",
+            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:functionRows",
+            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:nearest",
+            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:useFocus"
+          ],
+          "rationale": "Use workbench."
         }
       ]
     },
@@ -208,7 +536,7 @@
       ],
       "public": [],
       "responsibilities": [
-        "Start the store, route by the URL hash and frame the current view with navigation, legend and contract state."
+        "Start the store, route by the URL hash and frame the current view with navigation, legends and contract state."
       ],
       "forbidden_responsibilities": [
         "Fetch directly or draw page content itself."
@@ -220,15 +548,33 @@
       "requires": [
         {
           "component": "client",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StudioState",
+            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ContractState",
+            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ExploreState"
+          ],
           "rationale": "Show the contract state of the API."
         },
         {
           "component": "components",
           "through": [
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Legend",
-            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:NavItem"
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:NavItem",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ProofLegend",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:View",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:viewHref"
           ],
-          "rationale": "Draw the navigation and the legend."
+          "rationale": "Draw the navigation and the legends."
+        },
+        {
+          "component": "model",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Level",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Model",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Where",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:lensSymbol"
+          ],
+          "rationale": "Pass the indexed graph to the views."
         },
         {
           "component": "store",
@@ -241,11 +587,200 @@
         {
           "component": "views",
           "through": [
-            "studio_ui.src.archkeel.studio.ui.views.overview_x2e_tsx:Overview",
+            "studio_ui.src.archkeel.studio.ui.views.briefing_x2e_tsx:Briefing",
+            "studio_ui.src.archkeel.studio.ui.views.component_x2e_tsx:ComponentLevel",
             "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx:Explore",
-            "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx:NotBuilt"
+            "studio_ui.src.archkeel.studio.ui.views.map_x2e_tsx:ArchMap",
+            "studio_ui.src.archkeel.studio.ui.views.module_x2e_tsx:ModuleLevel",
+            "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx:NotBuilt",
+            "studio_ui.src.archkeel.studio.ui.views.report_x2e_tsx:Report",
+            "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx:Stories"
           ],
           "rationale": "Mount the view of the current route."
+        },
+        {
+          "component": "chat",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:ChatState",
+            "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:useChat"
+          ],
+          "rationale": "Keep the one conversation above the pages."
+        },
+        {
+          "component": "navigation",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.navigation_x2e_tsx:Crumb",
+            "studio_ui.src.archkeel.studio.ui.navigation_x2e_tsx:LocationBar",
+            "studio_ui.src.archkeel.studio.ui.navigation_x2e_tsx:crumbsOf"
+          ],
+          "rationale": "Use navigation."
+        }
+      ]
+    },
+    {
+      "id": "UI-CHAT",
+      "label": "chat",
+      "role": "component",
+      "packages": [],
+      "exact_modules": [
+        "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx"
+      ],
+      "public": [
+        "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:ChatPanel",
+        "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:ChatState",
+        "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:useChat"
+      ],
+      "responsibilities": [
+        "Draw the chat panel and keep the one conversation: agent text is a claim, a proposal is not applied, and only Studio facts read OBSERVED."
+      ],
+      "forbidden_responsibilities": [
+        "Apply a proposal, write a file or decide what is observed."
+      ],
+      "provenance": [
+        "src/archkeel/studio/ui/AGENTS.md",
+        "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "client",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:ChatAnswer",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:ChatBlock",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:ChatFailed",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:Fact",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:askChat",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readDraft",
+            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ChatBlockKind",
+            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ChatError"
+          ],
+          "rationale": "Ask the chat route and read its typed answer."
+        },
+        {
+          "component": "components",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Badge",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:View",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:viewHref"
+          ],
+          "rationale": "Mark the evidence kind and link a ref to the lens."
+        },
+        {
+          "component": "evidence",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Evidence"
+          ],
+          "rationale": "Mark agent text as a claim."
+        },
+        {
+          "component": "model",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Model",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:findSymbol",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fullName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:shortName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tailPath"
+          ],
+          "rationale": "Turn a qualified name of the agent into a symbol of the lens."
+        }
+      ]
+    },
+    {
+      "id": "UI-WORKBENCH",
+      "label": "workbench",
+      "role": "component",
+      "packages": [],
+      "exact_modules": [
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx"
+      ],
+      "public": [
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Workbench",
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:LevelCanvas",
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Counts",
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:useFocus",
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:FocusList",
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:focusRows",
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:functionRows",
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:ARROWS",
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:nearest",
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Selection"
+      ],
+      "responsibilities": [
+        "Draw the shared page of every level: toolbar, structure tree, canvas, the You are here box with Up, and the zoom between levels; draw the modules or functions of a level with their stubs."
+      ],
+      "forbidden_responsibilities": [
+        "Fetch, keep shared state or know a view."
+      ],
+      "provenance": [
+        "src/archkeel/studio/ui/AGENTS.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "chat",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:ChatPanel",
+            "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx:ChatState"
+          ],
+          "rationale": "Use chat."
+        },
+        {
+          "component": "components",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Box",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ProofLegend",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ProofMark",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:View",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:viewHref",
+            "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx:Viewport"
+          ],
+          "rationale": "Use components."
+        },
+        {
+          "component": "evidence",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Proof",
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofKind",
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofOf"
+          ],
+          "rationale": "Use evidence."
+        },
+        {
+          "component": "model",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:Side",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelBox",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelLayout",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelLink",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelStub",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:cardKey",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:stubKey",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:tileKey",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts:makeRouter",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts:midOf",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts:roundedPath",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Level",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Model",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Tally",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Where",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:baseName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:compact",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fileName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fileOf",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fullName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:opened",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:shortName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tallyOf"
+          ],
+          "rationale": "Use model."
+        },
+        {
+          "component": "navigation",
+          "through": [
+            "studio_ui.src.archkeel.studio.ui.navigation_x2e_tsx:SearchBox",
+            "studio_ui.src.archkeel.studio.ui.navigation_x2e_tsx:StructureTree"
+          ],
+          "rationale": "Use navigation."
         }
       ]
     }
@@ -273,7 +808,7 @@
     {
       "id": "UI-NO-CYCLES",
       "kind": "no_component_cycles",
-      "rationale": "The evidence model, the API client and the canvas stay leaves.",
+      "rationale": "The evidence model, the API client, the model and the canvas stay leaves.",
       "provenance": [
         "src/archkeel/studio/ui/AGENTS.md"
       ],
@@ -284,7 +819,9 @@
       "kind": "sibling_isolation",
       "members": [
         "studio_ui.src.archkeel.studio.ui.views.overview_x2e_tsx",
+        "studio_ui.src.archkeel.studio.ui.views.report_x2e_tsx",
         "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx",
+        "studio_ui.src.archkeel.studio.ui.views.map_x2e_tsx",
         "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx"
       ],
       "rationale": "A view never imports another view, so each view changes alone.",

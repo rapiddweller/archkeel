@@ -13,8 +13,12 @@ from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 
-from .api import ContractState, ExploreState, StudioState
+from .answer import Snapshot
+from .api import ContractState, Declare, Decode, ExploreState, Graph, StudioState
+from .graph import build_graph
+from .stories import Stories
 
+_SNAPSHOT = "architecture.json"
 _NOTE_LIMIT = 2000
 # Explore needs this long to stop its collector, which runs in a session of its own.
 _UNWIND_SECONDS = 10
@@ -44,12 +48,22 @@ class Workspace:
         folder: Path,
         explore: tuple[str, ...],
         contract: Callable[[], ContractState],
+        declare: Declare,
+        decode: Decode,
+        stories: Stories | None = None,
     ) -> None:
         self.root = root.resolve()
         self.folder = folder.resolve()
         self._explore = explore
         self._contract = contract
+        self._declare = declare
+        self._decode = decode
+        self.stories = stories
+        self._snapshot: Snapshot | None = None
         self._lock = threading.Lock()
+        # A build takes seconds on a large repository; it must not hold up the state polls.
+        self._graph_lock = threading.Lock()
+        self._graph: Graph | None = None
         # The root of the file system has no name of its own.
         name = self.root.name or str(self.root)
         self._run = StudioState(root_name=name, contract=ContractState.NOT_CONFIGURED)
@@ -65,13 +79,15 @@ class Workspace:
 
     def start(self) -> None:
         """Start the explore run unless one runs; a crash of the child cannot stop the server."""
-        with self._lock:
+        # The two locks in the order of `graph`: the graph of an earlier run must not outlive it.
+        with self._graph_lock, self._lock:
             if self._run.explore is ExploreState.RUNNING:
                 return
             self._run = replace(
                 self._run, explore=ExploreState.RUNNING, seconds=0, exit_code=None, notes=()
             )
             self._started = time.monotonic()
+            self._graph = None
             self._child = subprocess.Popen(
                 self._explore,
                 stdout=subprocess.PIPE,
@@ -92,12 +108,31 @@ class Workspace:
                 notes=_notes(stdout, stderr) if failed else (),
             )
 
+    def graph(self) -> Graph | None:
+        """The call graph of the finished snapshot, built once; None until the run is done."""
+        with self._graph_lock:
+            with self._lock:
+                done = self._run.explore is ExploreState.DONE
+            if self._graph is None and done:
+                snapshot = self.folder / _SNAPSHOT
+                self._graph = build_graph(self._decode(snapshot.read_bytes()), self._declare)
+            return self._graph
+
     def file(self, name: str) -> Path | None:
         """One file of the snapshot folder, by its exact name; never a path."""
         target = self.folder / name
         if not name or target.resolve().parent != self.folder or not target.is_file():
             return None
         return target
+
+    def snapshot(self) -> Snapshot | None:
+        """The index of the snapshot once explore is done, else None; built at the first call."""
+        with self._lock:
+            done = self._run.explore is ExploreState.DONE
+        if self._snapshot is None and (path := self.file(_SNAPSHOT)) is not None and done:
+            # `decode` is the canonical reader of the CLI: the format has one reader (AD-292).
+            self._snapshot = Snapshot(self._decode(path.read_bytes()))
+        return self._snapshot
 
     def close(self) -> None:
         """Stop the explore child within a bound and delete the folder of this run."""

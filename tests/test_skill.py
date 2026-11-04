@@ -22,6 +22,7 @@ from archkeel.cli.skill import install_skill
 ROOT = Path(__file__).parents[1]
 ASSET = ROOT / "src" / "archkeel" / "cli" / "assets" / "SKILL.md"
 EXPLORE_FILES = ("skills/explore/SKILL.md", "skills/explore/agents/openai.yaml")
+FLOW_FILES = ("skills/explain-flow/SKILL.md", "skills/explain-flow/agents/openai.yaml")
 
 
 def test_claude_writes_the_asset_unchanged(tmp_path: Path) -> None:
@@ -146,6 +147,32 @@ def test_explore_skill_starts_studio_for_an_agent() -> None:
     assert "`explore` skill" in (ROOT / "skills/archkeel/SKILL.md").read_text(encoding="utf-8")
 
 
+def test_explain_flow_skill_traces_chooses_writes_and_checks() -> None:
+    """AD-291: the skill names the trace, the 1.2.0 spec, the check and the claim rule."""
+    body = (ROOT / FLOW_FILES[0]).read_text(encoding="utf-8")
+    assert body.startswith("---\nname: explain-flow\ndescription: Use when the owner wants a flow")
+    assert len(body.splitlines()) < 60
+    for text in (
+        "archkeel story trace --from <function> --to <function>",
+        '"schema_version": "1.2.0"',
+        "archkeel view check story.json",
+        "archkeel view show story.json",
+        "Agent text is a claim, never a fact.",
+        "`claim: true`",
+        "the direction is your claim",
+        ".archkeel/stories/<id>.story.json",
+        "git rev-parse HEAD",
+        'author_kind: "agent"',
+        "author text, a claim",
+    ):
+        assert text.lower() in body.lower(), text
+    keys = [
+        line.split(":")[0].strip()
+        for line in (ROOT / FLOW_FILES[1]).read_text(encoding="utf-8").splitlines()
+    ]
+    assert keys == ["interface", "display_name", "short_description", "default_prompt"]
+
+
 def test_plugin_package_uses_the_canonical_skill_and_refuses_overwrite(tmp_path: Path) -> None:
     # Codex's plugin loader skips linked SKILL.md files.
     assert not (ROOT / "skills/archkeel/SKILL.md").is_symlink()
@@ -169,7 +196,7 @@ def test_plugin_package_uses_the_canonical_skill_and_refuses_overwrite(tmp_path:
     with zipfile.ZipFile(Path(str(target) + ".zip")) as bundle:
         assert bundle.read("skills/archkeel/SKILL.md") == ASSET.read_bytes()
         assert "docs/assets/archkeel-mark.svg" in bundle.namelist()
-        for name in EXPLORE_FILES:
+        for name in (*EXPLORE_FILES, *FLOW_FILES):
             assert bundle.read(name) == (ROOT / name).read_bytes()
     sentinel = target / "user-notes.txt"
     sentinel.write_text("Keep me")
@@ -220,6 +247,7 @@ def test_directory_plugin_stays_current_regular_and_within_submission_limits(
         ".claude-plugin/plugin.json",
         "skills/archkeel/SKILL.md",
         *EXPLORE_FILES,
+        *FLOW_FILES,
         "docs/assets/archkeel-mark.svg",
     }
     files = {path.relative_to(target).as_posix(): path for path in target.rglob("*")}
@@ -341,6 +369,7 @@ def test_plugin_release_stamps_only_exported_manifests(
         ".claude-plugin/plugin.json",
         "skills/archkeel/SKILL.md",
         *EXPLORE_FILES,
+        *FLOW_FILES,
         "LICENSE",
         "src/archkeel/render/assets/archkeel-mark.svg",
     )

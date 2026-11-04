@@ -1,0 +1,197 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""AD-290: derive the call graph of the Studio from the decoded explore snapshot. No I/O."""
+
+from collections.abc import Mapping, Sequence
+from os.path import commonprefix
+
+from .api import (
+    CallStatus,
+    ComponentRow,
+    ComponentSource,
+    DeclarationKind,
+    Declare,
+    EdgeRow,
+    Graph,
+    Json,
+    ModuleRow,
+    Place,
+    ScopeKind,
+    SnapshotInfo,
+    SymbolKind,
+    SymbolRow,
+    Totals,
+    UnknownRow,
+    data_of,
+    first_place,
+    member,
+    number_at,
+    places,
+    rows,
+    text_at,
+    texts_at,
+)
+
+UNOWNED = "(unowned)"
+_UNOWNED_TEXT = "Modules without a single owning component."
+_TEXT_LENGTH = 80
+_EXPRESSION_LENGTH = 60
+_UNKNOWN_PER_SYMBOL = 4
+_PARTIAL_TARGETS = 2
+
+_Component = tuple[str, str, Sequence[str]]
+
+
+def _layout(model: Mapping[str, Json]) -> list[_Component]:
+    """The top-level components that explore declared in its own layout, with their modules."""
+    owned = {
+        text_at(data_of(row), "component_id"): texts_at(data_of(row), "modules")
+        for row in rows(model, "scope_observations")
+        if member(ScopeKind, row.get("kind")) is ScopeKind.DECLARED
+    }
+    return [
+        (text_at(row, "title"), "", owned.get(text_at(row, "id"), []))
+        for row in rows(model, "declarations")
+        if member(DeclarationKind, row.get("kind")) is DeclarationKind.COMPONENT
+    ]
+
+
+def _components(
+    model: Mapping[str, Json], names: Sequence[str], declare: Declare
+) -> tuple[ComponentSource, list[_Component]]:
+    """Contract components, else the explore layout; a module without an owner joins UNOWNED."""
+    declared = [*declare(names)]
+    source = ComponentSource.CONTRACT if declared else ComponentSource.LAYOUT
+    components = [component for component in declared or _layout(model) if component[2]]
+    placed = {name for _, _, modules in components for name in modules}
+    rest = [name for name in names if name not in placed]
+    return source, [*components, (UNOWNED, _UNOWNED_TEXT, rest)] if rest else components
+
+
+def _relative(name: str, prefix: Sequence[str]) -> str:
+    """The dotted name below the shared prefix of its component; the last part if none is left."""
+    parts = name.split(".")
+    return ".".join(parts[len(prefix) :]) or parts[-1]
+
+
+def _modules(
+    model: Mapping[str, Json], declare: Declare
+) -> tuple[ComponentSource, tuple[ComponentRow, ...], tuple[ModuleRow, ...], dict[str, int]]:
+    files = {text_at(row, "title"): text_at(data_of(row), "file") for row in rows(model, "modules")}
+    names = sorted(files)
+    source, components = _components(model, names, declare)
+    modules: dict[str, ModuleRow] = {}
+    for index, (_, _, found) in enumerate(components):
+        owned = [name for name in found if name in files]
+        prefix: Sequence[str] = commonprefix([name.split(".") for name in owned])
+        for name in owned:
+            modules.setdefault(name, ModuleRow(name, files[name], index, _relative(name, prefix)))
+    ordered = [modules[name] for name in names]
+    return (
+        source,
+        tuple(ComponentRow(label, text) for label, text, _ in components),
+        tuple(ordered),
+        {row.name: index for index, row in enumerate(ordered)},
+    )
+
+
+def _symbols(
+    model: Mapping[str, Json], position: dict[str, int], evidence: Mapping[str, Place]
+) -> tuple[tuple[SymbolRow, ...], dict[str, int]]:
+    symbols: list[SymbolRow] = []
+    index: dict[str, int] = {}
+    for row in rows(model, "symbols"):
+        data = data_of(row)
+        kind = member(SymbolKind, row.get("kind"))
+        module, qualified = text_at(data, "module"), text_at(data, "qualified_name")
+        if kind is None or module not in position or not qualified or qualified in index:
+            continue
+        place = first_place(row, evidence)
+        name = qualified.removeprefix(f"{module}.")
+        index[qualified] = len(symbols)
+        symbols.append(
+            SymbolRow(position[module], name, place.line, kind, place.excerpt[:_TEXT_LENGTH], 0, 0)
+        )
+    return tuple(symbols), index
+
+
+def _calls(
+    model: Mapping[str, Json], index: dict[str, int], evidence: Mapping[str, Place]
+) -> tuple[tuple[EdgeRow, ...], tuple[UnknownRow, ...], dict[int, int], dict[int, int]]:
+    """Edges between known functions, a sample of unknown calls, and the true counts of both.
+
+    A call site gives one edge for a resolved call and up to two for a partly resolved one. A call
+    whose targets all lie outside the scan is neither an edge nor unknown: it is counted apart.
+    """
+    edges: list[EdgeRow] = []
+    sample: list[UnknownRow] = []
+    unknown: dict[int, int] = {}
+    outside: dict[int, int] = {}
+    sites = 0
+    for row in rows(model, "calls"):
+        data = data_of(row)
+        source = index.get(text_at(data, "source_scope"))
+        if source is None:
+            continue
+        line = first_place(row, evidence).line
+        status = member(CallStatus, data.get("status"))
+        if status is CallStatus.RESOLVED or status is CallStatus.PARTIALLY_RESOLVED:
+            # Distinct before the cut: the targets [A, A, B] keep A and B.
+            known = list(
+                dict.fromkeys(index[name] for name in texts_at(data, "targets") if name in index)
+            )
+            if not known:
+                outside[source] = outside.get(source, 0) + 1
+                continue
+            partial = status is CallStatus.PARTIALLY_RESOLVED
+            kept = known[:_PARTIAL_TARGETS] if partial else known[:1]
+            edges += [EdgeRow(source, target, partial, line, sites) for target in kept]
+            sites += 1
+        else:
+            unknown[source] = unknown.get(source, 0) + 1
+            if unknown[source] <= _UNKNOWN_PER_SYMBOL:
+                expression = text_at(data, "expression")[:_EXPRESSION_LENGTH]
+                reason = text_at(data, "reason")[:_EXPRESSION_LENGTH]
+                sample.append(UnknownRow(source, expression, reason, line))
+    return tuple(edges), tuple(sample), unknown, outside
+
+
+def _count(section: Json, name: str) -> int:
+    return number_at(section, name) if isinstance(section, Mapping) else 0
+
+
+def _totals(model: Mapping[str, Json]) -> Totals:
+    """The call counts that explore measured; a snapshot without them gives zeros."""
+    coverage = model.get("coverage")
+    return Totals(
+        _count(coverage, "calls_analyzed"),
+        _count(coverage, "calls_resolved"),
+        _count(coverage, "calls_partially_resolved"),
+        _count(coverage, "calls_unresolved"),
+    )
+
+
+def _snapshot(model: Mapping[str, Json]) -> SnapshotInfo:
+    source = model.get("source")
+    found = source if isinstance(source, Mapping) else {}
+    return SnapshotInfo(
+        text_at(found, "git_head"),
+        text_at(found, "source_digest"),
+        found.get("dirty") is True,
+    )
+
+
+def build_graph(model: Mapping[str, Json], declare: Declare) -> Graph:
+    """The components, modules, symbols, call edges and unknown calls of one snapshot."""
+    source, components, modules, position = _modules(model, declare)
+    evidence = places(model)
+    found, index = _symbols(model, position, evidence)
+    edges, sample, unknown, outside = _calls(model, index, evidence)
+    symbols = tuple(
+        row._replace(unknown=unknown.get(number, 0), outside=outside.get(number, 0))
+        for number, row in enumerate(found)
+    )
+    return Graph(
+        source, components, modules, symbols, edges, sample, _totals(model), _snapshot(model)
+    )

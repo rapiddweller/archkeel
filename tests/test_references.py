@@ -63,7 +63,7 @@ def test_the_claim_stays_small_enough_to_read(self_observation: Observation) -> 
     assert result.symbols > 400
     # These compatibility surfaces deliberately remain visible in the report:
     # _PropertyBinding preserves mapping/keyword construction; State and Role retain
-    # explicitly exported aliases. Existing resolver callers also retain both helpers.
+    # explicitly exported aliases.
     legacy = {
         candidate.name: (candidate.kind, candidate.visibility, candidate.module)
         for candidate in result.candidates
@@ -72,8 +72,6 @@ def test_the_claim_stays_small_enough_to_read(self_observation: Observation) -> 
             "archkeel.analyzer.python.source._PropertyBinding",
             "archkeel.render.summary.State",
             "archkeel.analyzer.typescript.config.Role",
-            "archkeel.analyzer.typescript.resolve.is_builtin",
-            "archkeel.analyzer.typescript.resolve.is_relative",
         }
     }
     assert legacy == {
@@ -92,24 +90,11 @@ def test_the_claim_stays_small_enough_to_read(self_observation: Observation) -> 
             "public_name",
             "archkeel.analyzer.typescript.config",
         ),
-        "archkeel.analyzer.typescript.resolve.is_builtin": (
-            "function",
-            "public_name",
-            "archkeel.analyzer.typescript.resolve",
-        ),
-        "archkeel.analyzer.typescript.resolve.is_relative": (
-            "function",
-            "public_name",
-            "archkeel.analyzer.typescript.resolve",
-        ),
     }
     from archkeel.analyzer.typescript.config import Role
-    from archkeel.analyzer.typescript.resolve import is_builtin, is_relative
     from archkeel.ir.facts import ResolutionRole
 
     assert Role is ResolutionRole
-    assert is_builtin("node:fs") is True
-    assert is_relative("../app") is True
     # Other review candidates keep the existing limit, including three used Dart
     # resolver methods whose injected receiver remains outside the reference proof.
     # COUNTER_LABELS is read only by tools/report_timing.py, outside the scanned package.

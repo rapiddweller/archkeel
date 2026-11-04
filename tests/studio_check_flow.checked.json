@@ -1,0 +1,424 @@
+{
+ "author_notes": [
+  "Author text is a claim. The statuses come from archkeel view check."
+ ],
+ "edges": [],
+ "exit_code": 0,
+ "limits": [
+  "A proven step is one direct edge of its kind: structure, not runtime order.",
+  "An unknown reference is a coverage gap, never a proven absence.",
+  "A claim is author text: the check does not look for it in the graph."
+ ],
+ "nodes": [
+  {
+   "entity_id": "SYM-179a3365ff9d91a3",
+   "file": "src/archkeel/cli/__init__.py",
+   "id": "archkeel.cli.main",
+   "kind": "function",
+   "reason": "an observed function",
+   "status": "proven"
+  },
+  {
+   "entity_id": "SYM-91f8acc496f7fede",
+   "file": "src/archkeel/check/run.py",
+   "id": "archkeel.check.run.run_check",
+   "kind": "function",
+   "reason": "an observed function",
+   "status": "proven"
+  },
+  {
+   "entity_id": "SYM-2b3c65b34155a3eb",
+   "file": "src/archkeel/check/run.py",
+   "id": "archkeel.check.run.observe_revision",
+   "kind": "function",
+   "reason": "an observed function",
+   "status": "proven"
+  },
+  {
+   "entity_id": "SYM-f0d92dd145e70d68",
+   "file": "src/archkeel/analyzer/process.py",
+   "id": "archkeel.analyzer.process.ProcessCollector.collect",
+   "kind": "method",
+   "reason": "an observed method",
+   "status": "proven"
+  },
+  {
+   "entity_id": "SYM-c59e34068f65b51a",
+   "file": "src/archkeel/analyzer/process.py",
+   "id": "archkeel.analyzer.process.ProcessCollector.collect_response",
+   "kind": "method",
+   "reason": "an observed method",
+   "status": "proven"
+  },
+  {
+   "entity_id": "SYM-6697fb4e65e2c10a",
+   "file": "src/archkeel/check/observation.py",
+   "id": "archkeel.check.observation.assemble_observation",
+   "kind": "function",
+   "reason": "an observed function",
+   "status": "proven"
+  },
+  {
+   "entity_id": "SYM-79829527dfdfb54f",
+   "file": "src/archkeel/check/evaluation/evaluate.py",
+   "id": "archkeel.check.evaluation.evaluate.evaluate_source",
+   "kind": "function",
+   "reason": "an observed function",
+   "status": "proven"
+  },
+  {
+   "entity_id": "SYM-1bc805242060a750",
+   "file": "src/archkeel/render/html.py",
+   "id": "archkeel.render.html.render_check_html",
+   "kind": "function",
+   "reason": "an observed function",
+   "status": "proven"
+  }
+ ],
+ "schema_version": "1.2.0",
+ "snapshot": {
+  "contract_digest": "4598fdcf002825e54c1c4d2ce00b47c305d265fff0764cde8988da9ab9112095",
+  "source_digest": "5ea77c42a58a11d51ef3270561850df9bbb50afb3bf89d87727f5ca4666e99fe"
+ },
+ "snapshot_current": true,
+ "steps": [
+  {
+   "evidence": [],
+   "kind": null,
+   "note": "main decodes the arguments and the configuration and decides which work to start.",
+   "path": [],
+   "reason": "an observed function",
+   "source": null,
+   "status": "proven",
+   "target": "archkeel.cli.main"
+  },
+  {
+   "evidence": [
+    {
+     "evidence_id": "EVD-e60ff70431e1b582",
+     "file": "src/archkeel/cli/__init__.py",
+     "kind": "calls",
+     "line": 1201,
+     "record_id": "CALL-e84221e041f3f05a",
+     "source": "archkeel.cli.main",
+     "target": "archkeel.check.run.run_check",
+     "type_only": false
+    }
+   ],
+   "kind": "calls",
+   "note": "main builds an observer for the language and calls run_check. The observer goes in as the analyzer argument. This is the first step across a component boundary.",
+   "path": [
+    "archkeel.cli.main",
+    "archkeel.check.run.run_check"
+   ],
+   "reason": "an observed resolved call",
+   "source": "archkeel.cli.main",
+   "status": "proven",
+   "target": "archkeel.check.run.run_check"
+  },
+  {
+   "evidence": [
+    {
+     "evidence_id": "EVD-e5e3c74f61563ec5",
+     "file": "src/archkeel/check/run.py",
+     "kind": "calls",
+     "line": 307,
+     "record_id": "CALL-68bb20f630970ac8",
+     "source": "archkeel.check.run.run_check",
+     "target": "archkeel.check.run.observe_revision",
+     "type_only": false
+    },
+    {
+     "evidence_id": "EVD-59f37ed3d54f1e4c",
+     "file": "src/archkeel/check/run.py",
+     "kind": "calls",
+     "line": 322,
+     "record_id": "CALL-d0fd8481da180b32",
+     "source": "archkeel.check.run.run_check",
+     "target": "archkeel.check.run.observe_revision",
+     "type_only": false
+    }
+   ],
+   "kind": "calls",
+   "note": "It observes the accepted revision and the candidate revision, one after the other, so it can compare them.",
+   "path": [
+    "archkeel.check.run.run_check",
+    "archkeel.check.run.observe_revision"
+   ],
+   "reason": "an observed resolved call",
+   "source": "archkeel.check.run.run_check",
+   "status": "proven",
+   "target": "archkeel.check.run.observe_revision"
+  },
+  {
+   "evidence": [],
+   "kind": "calls",
+   "note": "observe_revision calls the analyzer it received. The target is a parameter, so the code alone does not name it. We claim that it is the collector of the observer that main built.",
+   "path": [],
+   "reason": "1 calls of archkeel.check.run.observe_revision have no named target: lexical binding has no proven callable value",
+   "source": "archkeel.check.run.observe_revision",
+   "status": "unknown",
+   "target": "archkeel.analyzer.process.ProcessCollector.collect"
+  },
+  {
+   "evidence": [
+    {
+     "evidence_id": "EVD-2f3292b9943bf338",
+     "file": "src/archkeel/analyzer/process.py",
+     "kind": "calls",
+     "line": 94,
+     "record_id": "CALL-57e0fcaf24fb24df",
+     "source": "archkeel.analyzer.process.ProcessCollector.collect",
+     "target": "archkeel.analyzer.process.ProcessCollector.collect_response",
+     "type_only": false
+    }
+   ],
+   "kind": "calls",
+   "note": "The collector starts the language analyzer as a separate process, reads the answer from the pipe and decodes it into typed values of ir.",
+   "path": [
+    "archkeel.analyzer.process.ProcessCollector.collect",
+    "archkeel.analyzer.process.ProcessCollector.collect_response"
+   ],
+   "reason": "an observed resolved call",
+   "source": "archkeel.analyzer.process.ProcessCollector.collect",
+   "status": "proven",
+   "target": "archkeel.analyzer.process.ProcessCollector.collect_response"
+  },
+  {
+   "evidence": [],
+   "kind": "calls",
+   "note": "The facts reach the checker and become one observation: modules, imports, calls, symbols. How the facts travel from the collector to this function is the gap of step 4.",
+   "path": [],
+   "reason": "author claim: not checked against the graph",
+   "source": "archkeel.analyzer.process.ProcessCollector.collect_response",
+   "status": "claim",
+   "target": "archkeel.check.observation.assemble_observation"
+  },
+  {
+   "evidence": [
+    {
+     "evidence_id": "EVD-e5d241c713cc2e86",
+     "file": "src/archkeel/check/observation.py",
+     "kind": "calls",
+     "line": 1094,
+     "record_id": "CALL-4be67ac262568618",
+     "source": "archkeel.check.observation.assemble_observation",
+     "target": "archkeel.check.evaluation.evaluate.evaluate_source",
+     "type_only": false
+    }
+   ],
+   "kind": "calls",
+   "note": "Each rule reads the typed values of ir and returns a verdict. Without complete evidence it returns UNKNOWN, never a quiet PASS.",
+   "path": [
+    "archkeel.check.observation.assemble_observation",
+    "archkeel.check.evaluation.evaluate.evaluate_source"
+   ],
+   "reason": "an observed resolved call",
+   "source": "archkeel.check.observation.assemble_observation",
+   "status": "proven",
+   "target": "archkeel.check.evaluation.evaluate.evaluate_source"
+  },
+  {
+   "evidence": [],
+   "kind": "calls",
+   "note": "The render component draws the report from the same ir types, so the picture and the verdict cannot disagree.",
+   "path": [],
+   "reason": "12 calls of archkeel.check.evaluation.evaluate.evaluate_source have no named target: call through a re-export: the analysis does not follow it",
+   "source": "archkeel.check.evaluation.evaluate.evaluate_source",
+   "status": "unknown",
+   "target": "archkeel.render.html.render_check_html"
+  }
+ ],
+ "stops": [],
+ "story": {
+  "chapters": [
+   {
+    "id": "start",
+    "title": "Start"
+   },
+   {
+    "id": "check",
+    "title": "Check"
+   },
+   {
+    "id": "analyze",
+    "title": "Analyze"
+   },
+   {
+    "id": "verdict",
+    "title": "Verdict"
+   }
+  ],
+  "id": "check-flow",
+  "limits": [
+   "A proven step is one resolved call between two functions: structure, not runtime order.",
+   "A partial call is a claim: the analysis lists candidates and does not prove the target.",
+   "A process boundary is not detected. Title, note, question and each direction are claims.",
+   "A touched system is an import of a client library of the catalog, not a proven access."
+  ],
+  "steps": [
+   {
+    "chapter": "start",
+    "defined_at": {
+     "evidence_id": "EVD-bf7e4b0d14687ce3",
+     "file": "src/archkeel/cli/__init__.py",
+     "line": 933,
+     "record_id": "SYM-179a3365ff9d91a3"
+    },
+    "external": [],
+    "index": 0,
+    "lane": "cli",
+    "node": "archkeel.cli.main",
+    "question": null,
+    "seam": null,
+    "title": "You run the command"
+   },
+   {
+    "chapter": "check",
+    "defined_at": {
+     "evidence_id": "EVD-e6bc05fbf75f027d",
+     "file": "src/archkeel/check/run.py",
+     "line": 261,
+     "record_id": "SYM-91f8acc496f7fede"
+    },
+    "external": [],
+    "index": 1,
+    "lane": "check",
+    "node": "archkeel.check.run.run_check",
+    "question": null,
+    "seam": null,
+    "title": "main hands it to the checker"
+   },
+   {
+    "chapter": "check",
+    "defined_at": {
+     "evidence_id": "EVD-79494511c3fca287",
+     "file": "src/archkeel/check/run.py",
+     "line": 192,
+     "record_id": "SYM-2b3c65b34155a3eb"
+    },
+    "external": [],
+    "index": 2,
+    "lane": "check",
+    "node": "archkeel.check.run.observe_revision",
+    "question": null,
+    "seam": null,
+    "title": "The checker observes two revisions"
+   },
+   {
+    "chapter": "analyze",
+    "defined_at": {
+     "evidence_id": "EVD-037d434c8436fbe0",
+     "file": "src/archkeel/analyzer/process.py",
+     "line": 93,
+     "record_id": "SYM-f0d92dd145e70d68"
+    },
+    "external": [],
+    "index": 3,
+    "lane": "analyzer",
+    "node": "archkeel.analyzer.process.ProcessCollector.collect",
+    "question": "Every injected port is a gap like this one. Do you want to declare the targets of these calls in the contract, so that the flow proves instead of claims?",
+    "seam": {
+     "calls": 1,
+     "candidates": null,
+     "kind": "unresolved_call",
+     "node": "archkeel.check.run.observe_revision",
+     "reason": "lexical binding has no proven callable value"
+    },
+    "title": "The call that static analysis cannot follow"
+   },
+   {
+    "chapter": "analyze",
+    "defined_at": {
+     "evidence_id": "EVD-264c7a5c6a5d2128",
+     "file": "src/archkeel/analyzer/process.py",
+     "line": 97,
+     "record_id": "SYM-c59e34068f65b51a"
+    },
+    "external": [],
+    "index": 4,
+    "lane": "analyzer",
+    "node": "archkeel.analyzer.process.ProcessCollector.collect_response",
+    "question": null,
+    "seam": null,
+    "title": "The facts come back as typed values"
+   },
+   {
+    "chapter": "verdict",
+    "defined_at": {
+     "evidence_id": "EVD-75a1361e3f93a982",
+     "file": "src/archkeel/check/observation.py",
+     "line": 1076,
+     "record_id": "SYM-6697fb4e65e2c10a"
+    },
+    "external": [],
+    "index": 5,
+    "lane": "check",
+    "node": "archkeel.check.observation.assemble_observation",
+    "question": null,
+    "seam": {
+     "calls": 3,
+     "candidates": null,
+     "kind": "unresolved_call",
+     "node": "archkeel.analyzer.process.ProcessCollector.collect_response",
+     "reason": "expression is dynamic"
+    },
+    "title": "The checker assembles one observation"
+   },
+   {
+    "chapter": "verdict",
+    "defined_at": {
+     "evidence_id": "EVD-7c52e83259e277e7",
+     "file": "src/archkeel/check/evaluation/evaluate.py",
+     "line": 972,
+     "record_id": "SYM-79829527dfdfb54f"
+    },
+    "external": [],
+    "index": 6,
+    "lane": "check",
+    "node": "archkeel.check.evaluation.evaluate.evaluate_source",
+    "question": "check imports ir in many files. Is ir one shared kernel, or does it hold several responsibilities that should be split?",
+    "seam": null,
+    "title": "The rules decide: PASS, FAIL or UNKNOWN"
+   },
+   {
+    "chapter": "verdict",
+    "defined_at": {
+     "evidence_id": "EVD-6d3e8cb420423779",
+     "file": "src/archkeel/render/html.py",
+     "line": 1783,
+     "record_id": "SYM-1bc805242060a750"
+    },
+    "external": [],
+    "index": 7,
+    "lane": "render",
+    "node": "archkeel.render.html.render_check_html",
+    "question": null,
+    "seam": {
+     "calls": 12,
+     "candidates": null,
+     "kind": "unresolved_call",
+     "node": "archkeel.check.evaluation.evaluate.evaluate_source",
+     "reason": "call through a re-export: the analysis does not follow it"
+    },
+    "title": "The verdict becomes the report you open"
+   }
+  ],
+  "title": "What happens when you run archkeel check",
+  "verdict": {
+   "claim": 1,
+   "declared": 0,
+   "missing": 0,
+   "modules": 6,
+   "proven": 5,
+   "systems": [],
+   "unknown": 2
+  }
+ },
+ "strict": false,
+ "title": "What happens when you run archkeel check",
+ "view_snapshot": {
+  "contract_digest": "4598fdcf002825e54c1c4d2ce00b47c305d265fff0764cde8988da9ab9112095",
+  "source_digest": "5ea77c42a58a11d51ef3270561850df9bbb50afb3bf89d87727f5ca4666e99fe"
+ }
+}

@@ -7,28 +7,172 @@
       "label": "api",
       "role": "component",
       "public": [
+        "archkeel.studio.api:AgentKind",
         "archkeel.studio.api:ApiPath",
+        "archkeel.studio.api:CallStatus",
+        "archkeel.studio.api:ChatAnswer",
+        "archkeel.studio.api:ChatBlock",
+        "archkeel.studio.api:ChatBlockKind",
+        "archkeel.studio.api:ChatError",
+        "archkeel.studio.api:ChatFailure",
+        "archkeel.studio.api:ChatRequest",
+        "archkeel.studio.api:ComponentRow",
+        "archkeel.studio.api:ComponentSource",
         "archkeel.studio.api:ContractState",
+        "archkeel.studio.api:DeclarationKind",
+        "archkeel.studio.api:Declare",
+        "archkeel.studio.api:Decode",
+        "archkeel.studio.api:EdgeRow",
         "archkeel.studio.api:ExploreState",
+        "archkeel.studio.api:Fact",
+        "archkeel.studio.api:Graph",
+        "archkeel.studio.api:Json",
+        "archkeel.studio.api:MediaType",
+        "archkeel.studio.api:ModuleRow",
+        "archkeel.studio.api:Place",
         "archkeel.studio.api:Route",
+        "archkeel.studio.api:ScopeKind",
+        "archkeel.studio.api:SnapshotInfo",
+        "archkeel.studio.api:StoryRow",
+        "archkeel.studio.api:StorySource",
         "archkeel.studio.api:StudioState",
+        "archkeel.studio.api:SymbolKind",
+        "archkeel.studio.api:SymbolRow",
+        "archkeel.studio.api:Totals",
         "archkeel.studio.api:UiAsset",
-        "archkeel.studio.api:state_json"
+        "archkeel.studio.api:UnknownRow",
+        "archkeel.studio.api:chat_json",
+        "archkeel.studio.api:data_of",
+        "archkeel.studio.api:decoded",
+        "archkeel.studio.api:draft_json",
+        "archkeel.studio.api:failure_json",
+        "archkeel.studio.api:first_place",
+        "archkeel.studio.api:graph_json",
+        "archkeel.studio.api:member",
+        "archkeel.studio.api:number_at",
+        "archkeel.studio.api:parse_chat_request",
+        "archkeel.studio.api:places",
+        "archkeel.studio.api:rows",
+        "archkeel.studio.api:state_json",
+        "archkeel.studio.api:stories_json",
+        "archkeel.studio.api:story_json",
+        "archkeel.studio.api:text_at",
+        "archkeel.studio.api:texts_at"
       ],
       "responsibilities": [
-        "Declare the versioned HTTP API: its routes, the served UI files and the typed state with its JSON form."
+        "Declare the versioned HTTP API: its routes, the served UI files, the typed state, graph, story and chat bodies with their JSON forms, and the closed vocabularies that decode the snapshot."
       ],
       "forbidden_responsibilities": [
         "Network, process or file access.",
         "A route that writes: only a planned proposals component may take a write, after an explicit architect action."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md",
+        "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md"
       ],
       "decided_by": "agent",
       "requires": [],
       "exact_modules": [
         "archkeel.studio.api"
+      ],
+      "packages": []
+    },
+    {
+      "id": "STUDIO-GRAPH",
+      "label": "graph",
+      "role": "component",
+      "public": [
+        "archkeel.studio.graph:build_graph"
+      ],
+      "responsibilities": [
+        "Derive the call graph from the decoded explore snapshot: components, modules, symbols, call edges and unknown calls, as typed rows."
+      ],
+      "forbidden_responsibilities": [
+        "Network, process or file access.",
+        "Decoding the snapshot file: the composition root injects the decoder.",
+        "Reading the contract: the composition root injects the owner of each module."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "api",
+          "through": [
+            "archkeel.studio.api:CallStatus",
+            "archkeel.studio.api:ComponentRow",
+            "archkeel.studio.api:ComponentSource",
+            "archkeel.studio.api:DeclarationKind",
+            "archkeel.studio.api:Declare",
+            "archkeel.studio.api:EdgeRow",
+            "archkeel.studio.api:Graph",
+            "archkeel.studio.api:Json",
+            "archkeel.studio.api:ModuleRow",
+            "archkeel.studio.api:Place",
+            "archkeel.studio.api:ScopeKind",
+            "archkeel.studio.api:SnapshotInfo",
+            "archkeel.studio.api:SymbolKind",
+            "archkeel.studio.api:SymbolRow",
+            "archkeel.studio.api:Totals",
+            "archkeel.studio.api:UnknownRow",
+            "archkeel.studio.api:data_of",
+            "archkeel.studio.api:first_place",
+            "archkeel.studio.api:member",
+            "archkeel.studio.api:number_at",
+            "archkeel.studio.api:places",
+            "archkeel.studio.api:rows",
+            "archkeel.studio.api:text_at",
+            "archkeel.studio.api:texts_at"
+          ],
+          "rationale": "Read the snapshot by its closed vocabularies and return typed rows."
+        }
+      ],
+      "exact_modules": [
+        "archkeel.studio.graph"
+      ],
+      "packages": []
+    },
+    {
+      "id": "STUDIO-STORIES",
+      "label": "stories",
+      "role": "component",
+      "public": [
+        "archkeel.studio.stories:CheckResult",
+        "archkeel.studio.stories:CheckStory",
+        "archkeel.studio.stories:DraftStory",
+        "archkeel.studio.stories:Found",
+        "archkeel.studio.stories:HeadOf",
+        "archkeel.studio.stories:Stories",
+        "archkeel.studio.stories:provenance"
+      ],
+      "responsibilities": [
+        "Read the story specs of the stories folder of the root, by a strict id, and hold the injected checker and the injected draft; the checker and the draft come from the composition root."
+      ],
+      "forbidden_responsibilities": [
+        "Network or process access.",
+        "Writing a file: a draft is returned, never stored.",
+        "Importing the view check or the trace: the composition root injects them."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md",
+        "docs/architecture/decisions/ad-291-a-story-is-a-checked-view-and-the-trace-proposes-its-path.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "api",
+          "through": [
+            "archkeel.studio.api:Json",
+            "archkeel.studio.api:StoryRow",
+            "archkeel.studio.api:StorySource",
+            "archkeel.studio.api:decoded"
+          ],
+          "rationale": "Return the typed rows of the API and name the JSON shape of a checked result."
+        }
+      ],
+      "exact_modules": [
+        "archkeel.studio.stories"
       ],
       "packages": []
     },
@@ -40,14 +184,15 @@
         "archkeel.studio.workspace:Workspace"
       ],
       "responsibilities": [
-        "Make the explore snapshot of the root in a private folder of this run below the cache, read its files by exact name and delete the folder at the end."
+        "Make the explore snapshot of the root in a private folder of this run below the cache, read its files by exact name, build its call graph and index it once and delete the folder at the end."
       ],
       "forbidden_responsibilities": [
         "HTTP, tokens or browser pages.",
         "Writing into the repository or a contract."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md",
+        "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md"
       ],
       "decided_by": "agent",
       "requires": [
@@ -55,14 +200,124 @@
           "component": "api",
           "through": [
             "archkeel.studio.api:ContractState",
+            "archkeel.studio.api:Declare",
+            "archkeel.studio.api:Decode",
             "archkeel.studio.api:ExploreState",
+            "archkeel.studio.api:Graph",
             "archkeel.studio.api:StudioState"
           ],
-          "rationale": "Report the run and the contract as the typed state of the API."
+          "rationale": "Report the run, the contract and the injected decoders as the typed values of the API."
+        },
+        {
+          "component": "graph",
+          "through": [
+            "archkeel.studio.graph:build_graph"
+          ],
+          "rationale": "Build the call graph once from the finished snapshot."
+        },
+        {
+          "component": "answer",
+          "through": [
+            "archkeel.studio.answer:Snapshot"
+          ],
+          "rationale": "Index the snapshot that explore made, with the reader that the CLI injects."
+        },
+        {
+          "component": "stories",
+          "through": [
+            "archkeel.studio.stories:Stories"
+          ],
+          "rationale": "Keep the stories folder of the root beside the snapshot."
         }
       ],
       "exact_modules": [
         "archkeel.studio.workspace"
+      ],
+      "packages": []
+    },
+    {
+      "id": "STUDIO-AGENT",
+      "label": "agent",
+      "role": "component",
+      "public": [
+        "archkeel.studio.agent:Agent",
+        "archkeel.studio.agent:Reply"
+      ],
+      "responsibilities": [
+        "Run the coding agent of the owner (claude by default, codex on request) as one child process at a time, with a timeout, an output limit, a scrubbed environment and a kill of its process group, and discard the run if the repository changed."
+      ],
+      "forbidden_responsibilities": [
+        "HTTP, tokens or browser pages.",
+        "Reading the snapshot, judging an answer or writing a fact.",
+        "Passing an API key or reading an auth file."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "api",
+          "through": [
+            "archkeel.studio.api:AgentKind",
+            "archkeel.studio.api:ChatError",
+            "archkeel.studio.api:ChatFailure",
+            "archkeel.studio.api:ChatRequest"
+          ],
+          "rationale": "Name the agent, the request and each break with the typed vocabulary of the API."
+        }
+      ],
+      "exact_modules": [
+        "archkeel.studio.agent"
+      ],
+      "packages": []
+    },
+    {
+      "id": "STUDIO-ANSWER",
+      "label": "answer",
+      "role": "component",
+      "public": [
+        "archkeel.studio.answer:Snapshot"
+      ],
+      "responsibilities": [
+        "Index the symbols and calls of the snapshot, compute every OBSERVED fact from it and check the text of an agent strictly against it."
+      ],
+      "forbidden_responsibilities": [
+        "Network, process or file access.",
+        "Taking a fact from agent text."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "api",
+          "through": [
+            "archkeel.studio.api:AgentKind",
+            "archkeel.studio.api:CallStatus",
+            "archkeel.studio.api:ChatAnswer",
+            "archkeel.studio.api:ChatBlock",
+            "archkeel.studio.api:ChatBlockKind",
+            "archkeel.studio.api:ChatError",
+            "archkeel.studio.api:ChatFailure",
+            "archkeel.studio.api:Fact",
+            "archkeel.studio.api:Json",
+            "archkeel.studio.api:Place",
+            "archkeel.studio.api:data_of",
+            "archkeel.studio.api:decoded",
+            "archkeel.studio.api:first_place",
+            "archkeel.studio.api:member",
+            "archkeel.studio.api:places",
+            "archkeel.studio.api:rows",
+            "archkeel.studio.api:text_at",
+            "archkeel.studio.api:texts_at"
+          ],
+          "rationale": "Build the typed answer and name each break with the typed vocabulary of the API."
+        }
+      ],
+      "exact_modules": [
+        "archkeel.studio.answer"
       ],
       "packages": []
     },
@@ -75,25 +330,40 @@
         "archkeel.studio.server:run_studio"
       ],
       "responsibilities": [
-        "Serve the shell, the API and the snapshot files on 127.0.0.1 behind a per-run token, end after an idle time and tell whether a URL is a Studio."
+        "Serve the shell, the API and the snapshot files on 127.0.0.1 behind a per-run token, check and route each chat request, end after an idle time and tell whether a URL is a Studio."
       ],
       "forbidden_responsibilities": [
         "Starting processes, analyzing source or writing files."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md",
+        "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md"
       ],
       "decided_by": "agent",
       "requires": [
         {
           "component": "api",
           "through": [
+            "archkeel.studio.api:AgentKind",
             "archkeel.studio.api:ApiPath",
+            "archkeel.studio.api:ChatAnswer",
+            "archkeel.studio.api:ChatError",
+            "archkeel.studio.api:ChatFailure",
+            "archkeel.studio.api:ExploreState",
+            "archkeel.studio.api:MediaType",
             "archkeel.studio.api:Route",
             "archkeel.studio.api:UiAsset",
-            "archkeel.studio.api:state_json"
+            "archkeel.studio.api:chat_json",
+            "archkeel.studio.api:draft_json",
+            "archkeel.studio.api:failure_json",
+            "archkeel.studio.api:graph_json",
+            "archkeel.studio.api:member",
+            "archkeel.studio.api:parse_chat_request",
+            "archkeel.studio.api:state_json",
+            "archkeel.studio.api:stories_json",
+            "archkeel.studio.api:story_json"
           ],
-          "rationale": "Route requests by the typed API vocabulary and send its JSON form."
+          "rationale": "Route requests by the typed API vocabulary, read the chat body and send the JSON forms."
         },
         {
           "component": "workspace",
@@ -101,6 +371,20 @@
             "archkeel.studio.workspace:Workspace"
           ],
           "rationale": "Read the state and the snapshot files of the one workspace it serves."
+        },
+        {
+          "component": "agent",
+          "through": [
+            "archkeel.studio.agent:Agent"
+          ],
+          "rationale": "Let the one agent answer a question; the server starts no process."
+        },
+        {
+          "component": "stories",
+          "through": [
+            "archkeel.studio.stories:provenance"
+          ],
+          "rationale": "Read the optional fields of a stored story that say where it comes from."
         }
       ],
       "exact_modules": [
@@ -124,16 +408,17 @@
       "id": "STUDIO-ASSIGNMENT",
       "kind": "complete_assignment",
       "source": "archkeel.studio",
-      "rationale": "Every Studio module belongs to the API, the workspace or the server.",
+      "rationale": "Every Studio module belongs to the API, the agent, the answer, the graph, the stories, the workspace or the server.",
       "provenance": [
-        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md",
+        "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md"
       ],
       "decided_by": "agent"
     },
     {
       "id": "STUDIO-NO-CYCLES",
       "kind": "no_component_cycles",
-      "rationale": "The API stays a leaf below the workspace and the server.",
+      "rationale": "The API stays a leaf below the answer, the agent, the graph, the stories, the workspace and the server.",
       "provenance": [
         "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
       ],
@@ -166,11 +451,13 @@
       "kind": "external_dependency_scope",
       "dependency": "subprocess",
       "exact_sources": [
+        "archkeel.studio.agent",
         "archkeel.studio.workspace"
       ],
-      "rationale": "Only the workspace starts a child process, so only its explore child writes, and only into the cache folder.",
+      "rationale": "Only the workspace and the agent start a child process: the explore child writes only into the cache folder; the read-only agent writes nothing, and the repository stays unchanged.",
       "provenance": [
-        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md",
+        "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md"
       ],
       "decided_by": "agent"
     },
@@ -181,7 +468,7 @@
       "exact_sources": [
         "archkeel.studio.server"
       ],
-      "rationale": "Only the server speaks HTTP; the API and the workspace stay testable without a socket.",
+      "rationale": "Only the server speaks HTTP; the API, the agent, the answer and the workspace stay testable without a socket.",
       "provenance": [
         "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
       ],

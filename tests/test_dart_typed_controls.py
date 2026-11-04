@@ -343,7 +343,7 @@ def test_resolver_owns_builtin_classification_for_sdk_local_and_external_targets
 
 @pytest.mark.parametrize("value", ["mixin", "class", "protocol", "enum", None, "foreign", 1, []])
 def test_collector_decodes_only_its_owned_class_fact_vocabulary(value):
-    result = collect._class_kind(value)
+    result = collect.enum_member(collect._ClassKind, value)
     if isinstance(value, str) and value in {item.value for item in collect._ClassKind}:
         assert isinstance(result, collect._ClassKind)
         assert str(result) == value

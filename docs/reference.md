@@ -188,15 +188,102 @@ the contract is valid, and no rule was checked.
 
 ## Studio
 
-`archkeel studio [--root PATH] [--no-open] [--stop] [--idle-exit MINUTES]` serves ArchKeel Studio,
+`archkeel studio [--root PATH] [--no-open] [--stop] [--idle-exit MINUTES] [--agent claude|codex]` serves ArchKeel Studio,
 a local web app, on 127.0.0.1 and opens it in the browser. It takes the scope options of `explore`
 and passes them on
 ([AD-290](architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md)). The
 printed URL carries a token for this run; a request without it gets 403. At start, Studio runs
-`archkeel explore` on the root into a private folder of this run below the explore cache; Overview shows the progress and
-Explore shows the Explorer. The read-only API `GET /api/v1/state` follows
-[studio-api-1.0](../schema/studio-api-1.0.schema.json). Studio writes nothing into the
+`archkeel explore` on the root into a private folder of this run below the explore cache.
+The Briefing shows the progress. When the snapshot is done, Studio opens on the Map:
+
+- **Briefing** (`#/overview`, the first item): the numbers that explore measured (modules, functions,
+  calls resolved in percent, unknown calls), at most six measured sentences of what stands out, each
+  with a "Show" link, the five newest stories with their `✓ proven · ✎ claim · ? unknown` counts, a
+  "How does it start?" link (a heuristic: the function that nobody calls and that calls most) and a
+  question field. It says nothing that the call graph does not show.
+- **Four levels.** One navigation item, "Architecture", holds all four (Impact and Target / Diff
+  show as "Planned" and are not links). The URL names the level. Each level has the same page: a location bar,
+  a toolbar, a canvas, a structure tree and a side panel that starts with "You are here" (name,
+  counts, what a card means) and an Up link. The location bar shows the architecture, the
+  component, its packages, the module file and the function; each part is a link that goes up
+  to its level. Esc goes one level up, Enter opens the focused card. A drill zooms in from the
+  clicked card (250 ms; none with reduced motion), going up zooms out. A click selects a card and the
+  panel shows its facts (the declared responsibility of a component in full); a double click or Enter
+  opens it; the arrows move the selection; Esc clears it, then goes up. Cards have no tooltip and no cut text.
+  - **Map** (`#/map`): the components as a dependency graph of the measured calls. Three bands,
+    by net call flow: callers on the left, foundations on the right. A line is the sum of the call
+    sites between two components; its width grows with the logarithm of the count. A line is
+    `proven` only when it holds no claim; a line with a claim is dotted and shows both counts, for
+    example `3 ✓ proven · 2 ✎ claim`. A call site counts once, also when a partly resolved call
+    has two candidate targets. The header says where the components come from: `declared by the
+    contract` (the first `responsibilities` entry shows on the card) or `observed package layout`
+    (the top-level packages of the explore layout; also when the contract does not load). A click
+    on a line or a count lists the calls behind it; a click on a card opens the component.
+  - **Component** (`#/component/<n>`, also `/<package>`): the modules of the component as cards on
+    plates by package. The page is calm: no line at rest. Hover a card to draw the lines of that card
+    (its callers and callees, in the gutters between the cards, proven solid and claim dotted) and
+    to dim the other cards; a click pins the focus, Esc clears it. The side panel lists each
+    connected card with its module, file, line and proof. Stubs at the sides are the other
+    components that call into it (left) and that it calls (right), each with its count and, while a
+    card has the focus, the functions on the other side; a click on a stub opens that component. On a
+    package of the component, the other packages of the component are stubs too. A focused line ends on
+    its card with a port dot, and a dot runs along it from the caller to the callee (a chevron with
+    reduced motion). At rest each stub has one faint line to the nearest plate. A
+    double click or Enter on a module card opens the module. A package that does not fit the first
+    screen is one tile that opens it.
+  - **Module** (`#/module/<n>`): the functions of the module as cards and the other modules that call
+    in or are called as stubs, grouped by module. The focus works as on the component level. A double
+    click or Enter on a function opens the lens.
+  - **Explore** (`#/explore/<function>`): the lens around one function: callers on the left,
+    callees on the right, unknown calls below, one hop. Cards of one module share a plate. A
+    large neighborhood folds into package groups. The search (Cmd/Ctrl+K) opens the lens at any
+    function. Drag pans, the wheel zooms, Fit fits. Module-level calls are not shown, so "Called
+    by 0" is no proof of no caller. A call to a target outside the scan (for example the standard
+    library) is counted apart: it is neither an edge nor unknown. The unknown count of a function
+    is the true count; the lens lists the first 4.
+  A card never shows text across its border: a long name ends in "…" and the full text is in the
+  tooltip and the side panel.
+- **Stories**: the player of a checked story ([AD-291](architecture/decisions/ad-291-a-story-is-a-checked-view-and-the-trace-proposes-its-path.md)).
+  A spec is a `*.story.json` file in the `stories` folder below the explore cache folder of the
+  root. Studio runs `archkeel view check` on it against the snapshot of the run. Each step is a
+  card in the lane of its component; one route line joins the steps and a dot marks the order. A
+  step is `✓ proven`, `✎ claim` or `? unknown`; a partial call shows its candidate count. The
+  side panel has the author text (a claim), the evidence (file and line), the external systems
+  (the touchpoint is observed, the direction is a claim) and the question. Keys: arrows and space.
+  With reduced motion, Play shows the final state.
+- **Ask**: a chat panel in the Map and the lens. A reply has three kinds of block: `✎ CLAIM`
+  (agent text), `◌ PROPOSED - NOT APPLIED` and `✓ OBSERVED` (made by Studio from the snapshot).
+  A reference opens the lens. "Pin to story" shows a draft spec of the traced path; Studio
+  writes no file.
+- **Static report** (a link at the bottom of the navigation): the Explorer page of `archkeel explore`,
+  the artifact that CI and Pages publish. It keeps its own look, so it is not part of the workspace.
+
+A call has one of three statuses, each with a glyph and a word: `✓ proven` (resolved call),
+`✎ claim` (partly resolved call), `? unknown` (no target found). Studio shows no verdict and no
+agent text outside the chat. The API (`GET /api/v1/state`, `GET /api/v1/graph`, `GET /api/v1/stories`, `GET /api/v1/stories/<id>`, `GET /api/v1/draft` and `POST /api/v1/chat`) follows
+[studio-api-1.1](../schema/studio-api-1.1.schema.json); the graph answer is `graph: null` until
+the run is done. The 1.0 file stays. Studio writes nothing into the
 repository. It is parallel to the static report, which stays the CI and Pages artifact.
+
+The chat route ([AD-292](architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md))
+lets your own coding agent answer a question about a selected function. Studio starts it as one
+child process in the root, on your own sign-in, and passes no API key. The default is `claude -p`
+with the tools `Read`, `Grep` and `Glob`: no shell, no write tool. `--agent codex` is an opt-in:
+`codex exec --sandbox read-only` also runs shell commands of the model, can read the whole disk,
+and gets only a short allow list of environment variables. Studio never falls back to the other
+agent. The files an agent reads go to its provider.
+- The pages under `/files/` carry `Content-Security-Policy: sandbox allow-scripts`: an Explorer page
+  has an opaque origin and cannot call the chat route or read the parent page.
+- Request: `{"question": "...", "context": "<qualified name>"}` (JSON, at most 16 KiB; `context`
+  is optional). The header `X-Archkeel-Studio` must be present and `Origin` must be the server.
+- Answer: `blocks` of agent text (`claim` or `proposal`), `facts` that Studio computes from the
+  snapshot (file, line, resolved callers and callees, unknown calls) and `dropped_refs`. Show `text`
+  as plain text. Only
+  Studio makes a fact; agent text is never OBSERVED. A proposal reads `PROPOSED - NOT APPLIED`.
+  Nothing applies it.
+- Limits: one question at a time (409), 180 s, 128 KiB of output. Studio compares
+  `git status` of the root, with size and mtime of the listed files, before and after the run. If
+  they differ, it discards the answer (502 `repository_changed`); the edit may stay on disk. Errors are `{"api_version", "error", "detail"}`.
 
 A running server writes `studio.json` (pid, URL with token, port, root, start time) into the
 explore cache folder of the root, with mode 0600. It removes the file when it stops.
@@ -268,6 +355,43 @@ Next. `?tour=3` opens stop 3; `?flow=1` opens the flow. An incomplete scan is dr
 check does not run (exit 2), the command writes nothing. A snapshot without an Explorer prints
 the check result, writes nothing, says "not drawn" on stderr and exits 2.
 
+## Stories
+
+A story explains one flow through the code. ArchKeel proposes the path and proves each step. You
+write only the words ([AD-291](architecture/decisions/ad-291-a-story-is-a-checked-view-and-the-trace-proposes-its-path.md)).
+The `explain-flow` skill gives an agent the same steps.
+
+`archkeel story trace --from NAME [--to NAME] [--snapshot architecture.json] [--max-paths N] [--max-hops N] --json`
+reads a saved snapshot and prints candidate paths over its call graph. `NAME` is the qualified name of a
+function or method. [`schema/story-trace.schema.json`](../schema/story-trace.schema.json) defines the result.
+
+- With `--to`, it lists simple paths. Paths over resolved calls come first, then paths that cross a seam.
+  Shorter paths come first. Without `--to`, it follows resolved calls only and lists the farthest functions.
+- A hop is `proven` (a resolved call, with each call site) or `claim` (a partial call: the analysis lists
+  `candidates` and does not prove the target; its call sites carry `candidates`). An unresolved call,
+  a call through a re-export and a partial call with more candidates than listed are seams of their function.
+- Each function has its `lane` (the contract component, else the second name of its module), its
+  `defined_at` line and the external systems whose client library its module imports. The catalog is:
+  redis, sqlalchemy, pymongo, boto3, botocore, minio, azure.storage, kafka and pika.
+- `complete: false` means only that the path search stopped at its work limit (200,000 steps). It
+  says nothing about the call analysis. `--max-hops` is at most 100; a larger value is exit 2.
+- No path is `"paths": []` with exit 0. A name that is no function of the snapshot is exit 2.
+
+To tell the story, write a view spec with `"schema_version": "1.2.0"` and a `story`:
+`id`, `title` and `chapters` (`id`, `title`). Each step can add `chapter`, `title`, `question`
+and `external` (`system`, `direction`). The step `note` is the story text. These fields are author
+text. A node can be a function or a method. `archkeel view check` then adds, for each step, the
+status and call sites as for any step, and a `story` block with the `lane`, `defined_at`, `seam`
+and external `touched` systems of each step by `index`, and a `verdict` of counts. A partial call
+is `claim`; it does not fail `--strict`, and its call sites carry `candidates`. An unresolved call, a
+module call gap or the dynamic call limit makes a step without a call `unknown`. A process boundary is not detected: use
+`"claim": true`. A spec of version 1.0.0 or 1.1.0 cannot have a story, and its result is unchanged.
+A stored story lies in `<root>/.archkeel/stories/<id>.story.json`; commit it like documentation. Studio
+lists that folder (mark `repository`) and the local cache folder (mark `local`); the repository wins on
+an equal id. Studio checks the spec against the current snapshot by node name: the digests of the spec
+are replaced in memory, and a node that is gone is `missing`. The optional text fields `created`,
+`git_head`, `author_kind` (`agent` or `human`) and `agent` of a 1.2.0 spec say where it comes from.
+
 ## Results
 
 Read `observation_complete`, `declared_rules` and `expectation_fulfilled` separately.
@@ -288,6 +412,7 @@ expectations are n/a. Filtering and baseline display do not change canonical fac
 | `guide` | Guide written, or `--check` up to date | `--check`: missing or different | No contract, or it cannot be read |
 | `view check` | No reference is missing (`--strict`: or unknown) | A reference is missing (`--strict`: or unknown) | Invalid spec or snapshot, or another snapshot |
 | `view show` | As `view check`; pages written | As `view check`; pages written | As `view check`, or no Explorer for the snapshot; nothing written |
+| `story trace` | The trace ran; no path is an empty list | — | Invalid option, snapshot or name; the name is not a function of the snapshot |
 | `studio` | Stopped (Ctrl-C, SIGTERM, `--idle-exit`), reused, or `--stop` done | `--stop`: still running after 15 s | The server could not start |
 
 Exit 0 is not architecture approval. Exit 2 carries diagnostics with `kind`,

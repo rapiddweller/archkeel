@@ -55,6 +55,8 @@ def _plugin_files(
                 "skills/archkeel/SKILL.md",
                 "skills/explore/SKILL.md",
                 "skills/explore/agents/openai.yaml",
+                "skills/explain-flow/SKILL.md",
+                "skills/explain-flow/agents/openai.yaml",
             )
         },
         "LICENSE": (ROOT / "LICENSE").read_bytes(),

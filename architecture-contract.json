@@ -101,6 +101,7 @@
         "archkeel.ir.type_fanin",
         "archkeel.ir.widening",
         "archkeel.ir.view_spec",
+        "archkeel.ir.story",
         "archkeel.ir.facts",
         "archkeel.ir.facts_codec",
         "archkeel.ir.protocol",
@@ -219,21 +220,21 @@
       "inside": "docs/architecture/contracts/check.json",
       "public": [
         "archkeel.check.git:read_blob",
+        "archkeel.check.observation:analyze_source_snapshot",
+        "archkeel.check.observe:Observer",
         "archkeel.check.onboarding:run_init",
         "archkeel.check.ports:Analyzer",
         "archkeel.check.ports:FilesToWrite",
         "archkeel.check.ports:Host",
+        "archkeel.check.ports:Language",
+        "archkeel.check.ports:ObservationResult",
         "archkeel.check.ports:ScanConfig",
+        "archkeel.check.ports:SourceCollector",
         "archkeel.check.report",
         "archkeel.check.run:run_check",
         "archkeel.check.snapshot:resolve_commit",
         "archkeel.check.validation:invalid_result",
-        "archkeel.check.validation:run_validate",
-        "archkeel.check.ports:Language",
-        "archkeel.check.ports:ObservationResult",
-        "archkeel.check.ports:SourceCollector",
-        "archkeel.check.observe:Observer",
-        "archkeel.check.observation:analyze_source_snapshot"
+        "archkeel.check.validation:run_validate"
       ],
       "responsibilities": [
         "Authenticate inputs, assemble observations and apply declared architecture rules."
@@ -277,9 +278,10 @@
             "archkeel.ir.codec",
             "archkeel.ir.model:Command",
             "archkeel.ir.phases",
+            "archkeel.ir.story",
             "archkeel.ir.view_spec"
           ],
-          "rationale": "Serialize the typed observation to the legacy JSON payload at the CLI compatibility boundary, and check a view spec against a saved snapshot (AD-284)."
+          "rationale": "Serialize the typed observation to the legacy JSON payload at the CLI compatibility boundary, check a view spec against a saved snapshot (AD-284) and trace the candidate paths of a story (AD-291)."
         },
         {
           "component": "render",
@@ -288,12 +290,16 @@
         {
           "component": "studio",
           "through": [
+            "archkeel.studio.api:AgentKind",
             "archkeel.studio.api:ContractState",
+            "archkeel.studio.api:StorySource",
             "archkeel.studio.server:is_studio",
             "archkeel.studio.server:run_studio",
+            "archkeel.studio.stories:CheckResult",
+            "archkeel.studio.stories:Stories",
             "archkeel.studio.workspace:Workspace"
           ],
-          "rationale": "Wire the Studio workspace to the explore command, the cache folder and the contract state, then serve it (AD-290)."
+          "rationale": "Wire the Studio workspace to the explore command, the cache folder, the contract state and the canonical snapshot reader, then serve it with the chosen agent kind (AD-290, AD-292)."
         }
       ],
       "responsibilities": [
@@ -322,20 +328,25 @@
       "namespace": "archkeel.studio",
       "requires": [],
       "public": [
+        "archkeel.studio.api:AgentKind",
         "archkeel.studio.api:ContractState",
+        "archkeel.studio.api:StorySource",
         "archkeel.studio.server:is_studio",
         "archkeel.studio.server:run_studio",
+        "archkeel.studio.stories:CheckResult",
+        "archkeel.studio.stories:Stories",
         "archkeel.studio.workspace:Workspace"
       ],
       "responsibilities": [
-        "Serve the local Studio app: the shell, a read-only versioned API and the explore snapshot, on 127.0.0.1 behind a per-run token."
+        "Serve the local Studio app: the shell, a versioned API, the explore snapshot and a read-only chat with the agent of the owner, on 127.0.0.1 behind a per-run token."
       ],
       "forbidden_responsibilities": [
         "Importing the CLI, analyzers or checks: the composition root injects the explore command and the contract state.",
         "Writing into the repository or a contract outside the amendment path of the architect."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md",
+        "docs/architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md"
       ],
       "decided_by": "architect",
       "layer": "Edge",
@@ -978,9 +989,10 @@
         "archkeel.analyzer.process",
         "archkeel.ir.phases",
         "archkeel.ir.view_spec",
+        "archkeel.ir.flow_graph",
         "archkeel.studio.api"
       ],
-      "rationale": "Each closed vocabulary belongs to its domain or wire boundary: shared state and source facts own domain controls; codecs own private wire tags; TypeScript parser and collector own their private controls and share the published syntax port; consumers use published nominal types. Contract versions and feature availability belong to contract_version. The Python Source binding model owns import, lexical binding and compiler-scope control types. Amendment versions and verification outcomes belong to the coherent immutable amendment artifact owner. Measurement budgets, availability and metric comparisons stay with their existing measurement DTO owner. The Python construct owner holds its private written predicate syntax vocabulary. TypeScript source_input owns shared filename/specifier grammar and source/format metadata. The Core boundary evaluator owns its private undecidable-position reasons. Atlas deviation values, deterministic pair derivation and wire emission belong to render.atlas_deviations. The Python Source adapter owns the private AST field grammar that feeds definition contexts; shared context kinds remain facts-owned. Compact architecture projection values own component-pair permission states. Host replay evidence owns its closed expectation publication and candidate submission events. The existing snapshot owner owns the supported regular Git blob byte-pair grammar shared by immutable input readers; the Git consumer does not own that enum. Structure measurement levels belong to the existing pure ir.structure measurement owner. The existing collector process owner owns its recognized POSIX/Windows lifecycle controls; other OS names keep their existing open fallback. The phase clock module owns its closed phase and work counter names. The view spec owns its format version and reference statuses (AD-284). The Studio API owns its route, asset and state vocabulary (AD-290).",
+      "rationale": "Each closed vocabulary belongs to its domain or wire boundary: shared state and source facts own domain controls; codecs own private wire tags; TypeScript parser and collector own their private controls and share the published syntax port; consumers use published nominal types. Contract versions and feature availability belong to contract_version. The Python Source binding model owns import, lexical binding and compiler-scope control types. Amendment versions and verification outcomes belong to the coherent immutable amendment artifact owner. Measurement budgets, availability and metric comparisons stay with their existing measurement DTO owner. The Python construct owner holds its private written predicate syntax vocabulary. TypeScript source_input owns shared filename/specifier grammar and source/format metadata. The Core boundary evaluator owns its private undecidable-position reasons. Atlas deviation values, deterministic pair derivation and wire emission belong to render.atlas_deviations. The Python Source adapter owns the private AST field grammar that feeds definition contexts; shared context kinds remain facts-owned. Compact architecture projection values own component-pair permission states. Host replay evidence owns its closed expectation publication and candidate submission events. The existing snapshot owner owns the supported regular Git blob byte-pair grammar shared by immutable input readers; the Git consumer does not own that enum. Structure measurement levels belong to the existing pure ir.structure measurement owner. The existing collector process owner owns its recognized POSIX/Windows lifecycle controls; other OS names keep their existing open fallback. The phase clock module owns its closed phase and work counter names. The view spec owns its format version and reference statuses (AD-284). The flow graph owns its seam kinds, external systems and directions (AD-291). The Studio API owns its route, asset and state vocabulary (AD-290).",
       "provenance": [
         "docs/architecture/archkeel.md",
         "docs/architecture/typed-amendment-artifact.md",

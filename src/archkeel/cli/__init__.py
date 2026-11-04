@@ -39,20 +39,23 @@ from ..check.run import run_check
 from ..check.snapshot import resolve_commit
 from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
-from ..ir.codec import decode_json, parse_contract
+from ..ir.codec import RawJson, decode_canonical_model, decode_json, parse_contract
 from ..ir.phases import Phase, PhaseClock, WorkCounter, measured
+from ..ir.story import trace_flow, trace_json, trace_summary
 from ..ir.view_spec import (
     ViewCheck,
     check_view,
     parse_view_spec,
+    snapshot_identity,
     view_check_json,
     view_summary,
 )
 from ..render.html import render_architecture_pages, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
-from ..studio.api import ContractState
+from ..studio.api import AgentKind, ContractState, StorySource
 from ..studio.server import run_studio
+from ..studio.stories import CheckResult, Stories
 from ..studio.workspace import Workspace
 from .arguments import (
     CLIArguments,
@@ -88,6 +91,9 @@ from .skill import InstallationAgent, install_skill
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
 _ARCHITECTURE_JSON: Final = "architecture.json"
+_DRAFT_HOPS: Final = 12
+# Where the committed stories of a root lie; Studio reads them and never writes there (AD-291).
+_REPOSITORY_STORIES: Final = Path(".archkeel") / "stories"
 _SNAPSHOT_PATH: Final = Path("test-artifacts/architecture") / _ARCHITECTURE_JSON
 
 
@@ -149,6 +155,88 @@ def _contract_state(root: Path) -> ContractState:
     return ContractState.CONFIGURED
 
 
+def _declared_components(root: Path, modules: Sequence[str]) -> list[tuple[str, str, list[str]]]:
+    """AD-290: (label, first responsibility, owned modules) for each component of the contract.
+
+    The contract decides who owns a module, as `check` does. No contract gives no component.
+    """
+    try:
+        config = load_config(root)
+        contract = parse_contract(decode_json((root / config.contract).read_bytes()))
+    except (ConfigFileMissingError, OSError, ValueError):
+        return []
+    owned: dict[str, list[str]] = {component.id: [] for component in contract.components}
+    for module in modules:
+        if (owner := contract.component_for(module)) is not None:
+            owned[owner.id].append(module)
+    return [
+        (
+            component.label,
+            component.responsibilities[0] if component.responsibilities else "",
+            owned[component.id],
+        )
+        for component in contract.components
+    ]
+
+
+def _decode_snapshot(raw: bytes) -> dict[str, RawJson]:
+    """AD-290: the canonical model of a saved `architecture.json`, strings expanded."""
+    decoded = decode_json(raw)
+    if not isinstance(decoded, dict):
+        raise ValueError("architecture.json must be an object")
+    try:
+        return decode_canonical_model(decoded)
+    except (IndexError, KeyError, TypeError) as error:
+        # A damaged columnar file can fail outside the codec checks: one error for the caller.
+        raise ValueError(f"architecture.json is damaged: {error!r}") from error
+
+
+def _check_story(spec: bytes, snapshot: Path) -> CheckResult:
+    """AD-291: `archkeel view check SPEC --snapshot SNAPSHOT`, bound to this snapshot.
+
+    A stored spec names the digests of the snapshot it was written on. Studio checks it against
+    the current snapshot by node name: the digests are replaced in memory, never in the file.
+    """
+    observation = read_saved_snapshot(snapshot)
+    parsed = parse_view_spec(decode_json(spec))
+    identity = snapshot_identity(observation)
+    rebound = parsed.snapshot != identity
+    checked = check_view(
+        replace(parsed, snapshot=identity) if rebound else parsed, observation, strict=False
+    )
+    decoded = decode_json(view_check_json(checked).encode())
+    if not isinstance(decoded, dict):
+        raise ValueError("the view check must be an object")
+    return CheckResult(decoded, rebound)
+
+
+def _head_of(root: Path) -> str | None:
+    """The commit of the root now, or None without Git."""
+    try:
+        return resolve_commit(root, "HEAD")
+    except RuntimeError:  # SnapshotError: no Git, or no commit
+        return None
+
+
+def _draft_story(snapshot: Path, source: str) -> dict[str, RawJson]:
+    """AD-291: a spec 1.2 along the first traced path from `source`, with no text; not written."""
+    observation = read_saved_snapshot(snapshot)
+    trace = trace_flow(observation, source, None, max_paths=1, max_hops=_DRAFT_HOPS)
+    names = [source, *(hop.node.name for path in trace.paths[:1] for hop in path.hops)]
+    story_id = re.sub(r"[^a-z0-9]+", "-", source.rsplit(".", 1)[-1].lower()).strip("-") or "story"
+    return {
+        "schema_version": "1.2.0",
+        "title": f"Story from {source}",
+        "snapshot": {
+            "source_digest": trace.snapshot.source_digest,
+            "contract_digest": trace.snapshot.contract_digest,
+        },
+        "nodes": names,
+        "story": {"id": f"{story_id}-draft", "title": f"Story from {source}", "chapters": []},
+        "steps": [{"node": name} for name in names],
+    }
+
+
 def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:
     """AD-290: each run explores with the scope options into a private folder of `cache`."""
     root = args.root.resolve()
@@ -169,6 +257,18 @@ def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:
         folder,
         (*explore, *scope, "--output", str(folder), "--json"),
         lambda: _contract_state(root),
+        lambda modules: _declared_components(root, modules),
+        _decode_snapshot,
+        # Outside `folder`: the run deletes `folder` at its end, and the specs must stay.
+        Stories(
+            [
+                (StorySource.REPOSITORY, root / _REPOSITORY_STORIES),
+                (StorySource.LOCAL, cache / "stories"),
+            ],
+            _check_story,
+            _draft_story,
+            lambda: _head_of(root),
+        ),
     )
 
 
@@ -200,7 +300,10 @@ def _studio(args: CLIArguments) -> int:
     }
     try:
         return run_studio(
-            studio_workspace(args, cache), ready=ready, idle_seconds=args.idle_exit * 60
+            studio_workspace(args, cache),
+            ready=ready,
+            idle_seconds=args.idle_exit * 60,
+            agent=AgentKind(args.chat_agent.value),
         )
     finally:
         for number, handler in previous.items():
@@ -787,6 +890,51 @@ def build_parser() -> _Parser:
     )
     show.set_defaults(show=True)
 
+    story = commands.add_parser(
+        Command.STORY.value,
+        help="Propose the path of a story from a saved architecture.json.",
+        formatter_class=RawDescriptionRichHelpFormatter,
+        description=(
+            "trace lists candidate paths over the call graph of a saved snapshot, from one\n"
+            "function or method to another (--to), or to the farthest functions. A hop is\n"
+            "proven (a resolved call) or a claim (a partial call, marked as a seam). Unresolved\n"
+            "calls are listed as seams of their function. Each function has its lane and the\n"
+            "external systems whose client library its module imports. The result is one JSON\n"
+            "document. You choose a path and write the words; view check proves the story\n"
+            "(AD-291).\n\n"
+            "Examples:\n"
+            "  archkeel story trace --from shop.cli.main.main --to shop.render.text._indent\n"
+            "  archkeel story trace --from shop.cli.main.main --snapshot build/arch.json\n\n"
+            "Exit codes:\n"
+            "  0  the trace ran; no path is an empty list\n"
+            "  2  invalid input: a name not in the snapshot, a bad option, an invalid snapshot\n\n"
+            f"Reference: {_DOCS}/reference.md#stories"
+        ),
+    )
+    story_actions = story.add_subparsers(dest="story_action", required=True, metavar="action")
+    trace = story_actions.add_parser("trace", help="Print the candidate paths as JSON.")
+    trace.add_argument(
+        "--from",
+        dest="source",
+        required=True,
+        metavar="NAME",
+        help="Qualified name of the first function or method.",
+    )
+    trace.add_argument(
+        "--to", dest="target", metavar="NAME", help="Qualified name of the last function or method."
+    )
+    trace.add_argument(
+        "--snapshot",
+        type=Path,
+        default=_SNAPSHOT_PATH,
+        help=f"Saved architecture.json. Default: {_SNAPSHOT_PATH}.",
+    )
+    trace.add_argument("--max-paths", type=int, default=5, help="Paths to list. Default: 5.")
+    trace.add_argument("--max-hops", type=int, default=12, help="Longest path. Default: 12.")
+    trace.add_argument(
+        "--json", action="store_true", help="Print the JSON result even in an interactive terminal."
+    )
+
     studio = commands.add_parser(
         Command.STUDIO.value,
         parents=[scoped],
@@ -833,6 +981,16 @@ def build_parser() -> _Parser:
         metavar="MINUTES",
         help="Stop when no request came for MINUTES. Default: 0 (never).",
     )
+    studio.add_argument(
+        "--agent",
+        dest="chat_agent",
+        choices=list(InstallationAgent),
+        type=installation_agent,
+        default=InstallationAgent.CLAUDE,
+        help="Coding agent that answers the chat. Default: claude (read and search tools only). "
+        "codex also runs shell commands in its read-only sandbox, so it is an opt-in. The agent "
+        "runs on your own sign-in.",
+    )
 
     return parser
 
@@ -877,6 +1035,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.config = CONFIG_PATH
         if command is Command.GUIDE:
             return run_guide(args.root.resolve(), args.config, args.output, args.check)
+        if command is Command.STORY:
+            subject = str(args.snapshot)
+            trace_result = trace_flow(
+                read_saved_snapshot(args.snapshot),
+                args.source,
+                args.target,
+                max_paths=args.max_paths,
+                max_hops=args.max_hops,
+            )
+            sys.stdout.write(
+                trace_summary(trace_result) + "\n" if interactive else trace_json(trace_result)
+            )
+            return 0
         if command is Command.VIEW:
             spec_path: Path = args.spec
             subject = str(spec_path)
@@ -1186,10 +1357,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 Command.REPORT if command is Command.EXPLORE else command, subject, error
             )
         )
-    if interactive and command is Command.VIEW:
-        # A view check that did not run has no scan or rule verdicts to show.
+    if interactive and command in {Command.VIEW, Command.STORY}:
+        # A view check or trace that did not run has no scan or rule verdicts to show.
+        name = "view check" if command is Command.VIEW else "story trace"
         for item in result.diagnostics:
-            print(f"archkeel view check did not run on {item.subject}: {item.unknown_claim}")
+            print(f"archkeel {name} did not run on {item.subject}: {item.unknown_claim}")
             print(item.remedy)
         return result.exit_code
     if interactive:

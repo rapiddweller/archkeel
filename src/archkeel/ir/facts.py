@@ -11,7 +11,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum, StrEnum
-from typing import Final, Literal, TypeAlias
+from typing import Final, Literal, TypeAlias, TypeVar
 
 from .state_facts import StateFacts
 from .type_shapes import TypeShape
@@ -120,16 +120,22 @@ class SourceReferenceContext(StrEnum):
     UNKNOWN = "unknown"
 
 
-def parse_source_resolution(value: JsonValue | RawJson) -> SourceResolution | None:
-    """Recognize source resolution at an owned port; future record data remains opaque."""
-    if isinstance(value, SourceResolution):
-        return value
+_Member = TypeVar("_Member", bound=StrEnum)
+
+
+def member(kind: type[_Member], value: JsonValue | RawJson) -> _Member | None:
+    """Recognize a closed vocabulary at an owned port; other record data stays opaque."""
     if not isinstance(value, str):
         return None
     try:
-        return SourceResolution(value)
+        return kind(value)
     except ValueError:
         return None
+
+
+def parse_source_resolution(value: JsonValue | RawJson) -> SourceResolution | None:
+    """Recognize source resolution at an owned port; future record data remains opaque."""
+    return member(SourceResolution, value)
 
 
 def source_dirty(value: bool | str) -> bool | Literal["unknown"]:
@@ -893,12 +899,7 @@ def parse_method_kind(value: JsonValue | RawJson | MethodKind) -> MethodKind | N
 
 def parse_symbol_class_kind(value: JsonValue | RawJson | SymbolClassKind) -> SymbolClassKind | None:
     """Recognize source classifier tags without assigning meaning to foreign wire data."""
-    if not isinstance(value, str):
-        return None
-    try:
-        return SymbolClassKind(value)
-    except ValueError:
-        return None
+    return member(SymbolClassKind, value)
 
 
 def parse_source_name_visibility(

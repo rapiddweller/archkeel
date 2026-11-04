@@ -23,7 +23,7 @@ from archkeel.check.evaluation.topology import (
     transitive_path_records,
 )
 from archkeel.check.ports import ScanConfig
-from archkeel.ir import model
+from archkeel.ir import facts, model
 from archkeel.ir.codec import parse_contract
 from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.facts_codec import classified, parse_record, record_payload
@@ -35,7 +35,6 @@ ROOT = Path(__file__).parents[1]
 GUARDS = {"GRAPH-TOPOLOGY-AGGREGATE-CONTROL", "GRAPH-TOPOLOGY-READ-CONTROL"}
 PORTS = {
     "GRAPH-TOPOLOGY-level",
-    "GRAPH-TOPOLOGY-reader",
     "GRAPH-TOPOLOGY-aggregate",
     "GRAPH-TOPOLOGY-cycles",
 }
@@ -122,8 +121,6 @@ def test_actual_edge_cycle_and_transitive_producers_share_the_same_topology_doma
     "raw", ["module", "package", "component", "future", None, True, 3, {"level": "module"}]
 )
 def test_optional_topology_reader_preserves_original_open_record_data(raw):
-    reader = getattr(model, "parse_graph_topology_level", None)
-    assert callable(reader)
     record = classified(
         item_id="opaque",
         evidence_class=model.EvidenceClass.FACT,
@@ -133,7 +130,7 @@ def test_optional_topology_reader_preserves_original_open_record_data(raw):
         data={"level": raw, "metadata": {"level": "future-nested"}},
     )
     parsed = parse_record(record)
-    recognized = reader(parsed.data.get("level"))
+    recognized = facts.member(_level_type(), parsed.data.get("level"))
     if raw in ("module", "package"):
         assert recognized is _level_type()(raw)
     else:
@@ -237,13 +234,6 @@ def test_actual_topology_ports_and_native_controls_are_proven(tmp_path):
             "class GraphTopologyLevel:",
             "GRAPH-TOPOLOGY-level",
             "kind",
-        ),
-        (
-            "ir/model.py",
-            "-> GraphTopologyLevel | None:",
-            "-> str | None:",
-            "GRAPH-TOPOLOGY-reader",
-            "signature",
         ),
         (
             "check/evaluation/topology.py",
