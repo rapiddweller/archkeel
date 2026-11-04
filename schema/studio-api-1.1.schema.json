@@ -103,7 +103,9 @@
                 "modules",
                 "symbols",
                 "edges",
-                "unknown"
+                "unknown",
+                "totals",
+                "snapshot"
               ],
               "properties": {
                 "components_from": {
@@ -254,6 +256,56 @@
                     ],
                     "items": false,
                     "minItems": 4
+                  }
+                },
+                "totals": {
+                  "description": "The call counts of the whole snapshot as explore measured them: analyzed, resolved (proven), partially resolved (claim) and unresolved (unknown).",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "analyzed",
+                    "resolved",
+                    "partial",
+                    "unresolved"
+                  ],
+                  "properties": {
+                    "analyzed": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "resolved": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "partial": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "unresolved": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                },
+                "snapshot": {
+                  "description": "The revision of the snapshot: git_head is empty without Git.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "git_head",
+                    "source_digest",
+                    "dirty"
+                  ],
+                  "properties": {
+                    "git_head": {
+                      "type": "string"
+                    },
+                    "source_digest": {
+                      "type": "string"
+                    },
+                    "dirty": {
+                      "type": "boolean"
+                    }
                   }
                 }
               }
@@ -461,7 +513,8 @@
               "id",
               "title",
               "steps",
-              "source"
+              "source",
+              "created"
             ],
             "properties": {
               "id": {
@@ -480,6 +533,13 @@
                 "enum": [
                   "repository",
                   "local"
+                ]
+              },
+              "created": {
+                "description": "The `created` field of the spec, null when absent.",
+                "type": [
+                  "string",
+                  "null"
                 ]
               }
             }

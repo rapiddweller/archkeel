@@ -194,15 +194,22 @@ and passes them on
 ([AD-290](architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md)). The
 printed URL carries a token for this run; a request without it gets 403. At start, Studio runs
 `archkeel explore` on the root into a private folder of this run below the explore cache.
-Overview shows the progress. When the snapshot is done, Studio opens on the Map:
+The Briefing shows the progress. When the snapshot is done, Studio opens on the Map:
 
+- **Briefing** (`#/overview`, the first item): the numbers that explore measured (modules, functions,
+  calls resolved in percent, unknown calls), at most six measured sentences of what stands out, each
+  with a "Show" link, the five newest stories with their `✓ proven · ✎ claim · ? unknown` counts, a
+  "How does it start?" link (a heuristic: the function that nobody calls and that calls most) and a
+  question field. It says nothing that the call graph does not show.
 - **Four levels.** One navigation item, "Architecture", holds all four (Impact and Target / Diff
   show as "Planned" and are not links). The URL names the level. Each level has the same page: a location bar,
   a toolbar, a canvas, a structure tree and a side panel that starts with "You are here" (name,
   counts, what a card means) and an Up link. The location bar shows the architecture, the
   component, its packages, the module file and the function; each part is a link that goes up
   to its level. Esc goes one level up, Enter opens the focused card. A drill zooms in from the
-  clicked card (250 ms; none with reduced motion), going up zooms out.
+  clicked card (250 ms; none with reduced motion), going up zooms out. A click selects a card and the
+  panel shows its facts (the declared responsibility of a component in full); a double click or Enter
+  opens it; the arrows move the selection; Esc clears it, then goes up. Cards have no tooltip and no cut text.
   - **Map** (`#/map`): the components as a dependency graph of the measured calls. Three bands,
     by net call flow: callers on the left, foundations on the right. A line is the sum of the call
     sites between two components; its width grows with the logarithm of the count. A line is

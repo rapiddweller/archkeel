@@ -83,11 +83,13 @@ class Stories:
                 body = _read(path)
                 title = body.get("title") if body is not None else None
                 steps = body.get("steps") if body is not None else None
+                made = body.get("created") if body is not None else None
                 rows[story_id] = StoryRow(
                     story_id,
                     title if isinstance(title, str) else story_id,
                     len(steps) if isinstance(steps, list) else 0,
                     source,
+                    made if isinstance(made, str) else None,
                 )
         return sorted(rows.values(), key=lambda row: row.id)
 

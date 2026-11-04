@@ -9,7 +9,7 @@ Rules for the Studio frontend (AD-290). They add to the root [AGENTS.md](../../.
 | File | Owner | Job |
 |---|---|---|
 | `shell.tsx` | shell | Entry. Starts the store, routes by `#/<view>[/<function>]`, draws nav, legends, contract state. |
-| `views/*.tsx` | views | One page each: Overview, Map, Component, Module, Explore (the lens), Stories (list and player), Report, not built. Gets the state or the model as props. |
+| `views/*.tsx` | views | One page each: Briefing, Map, Component, Module, Explore (the lens), Stories (list and player), Report, not built. Gets the state or the model as props. |
 | `workbench.tsx` | workbench | The page of every level: toolbar, tree, canvas, the "You are here" box with Up, the zoom between levels, and the drawing of modules or functions with their stubs. |
 | `chat.tsx` | chat | The chat panel and the one conversation (the shell keeps it). Agent text is a claim; only Studio facts read OBSERVED. |
 | `components.tsx`, `viewport.tsx` | components | Nav item, legends, proof mark, badge, tabs, card, box, panel, page frame, pan and zoom surface. Props only. |

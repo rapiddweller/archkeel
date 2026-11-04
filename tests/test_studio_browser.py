@@ -77,9 +77,13 @@ def _check_the_map(page, width: int) -> None:
     count = page.get_by_role("button", name="1 call from app to store: 1 proven")
     assert count.inner_text().strip() == "1 ✓ proven"
     assert page.get_by_text("components: observed package layout", exact=True).is_visible()
-    assert page.get_by_text("✓ proven = resolved call", exact=True).first.is_visible()
-    assert page.get_by_text("✎ claim = partly resolved call", exact=True).first.is_visible()
-    assert page.get_by_text("? unknown = no target found", exact=True).first.is_visible()
+    # The legend of the marks is in the side panel; a narrow screen opens it on demand.
+    for mark in (
+        "✓ proven = resolved call",
+        "✎ claim = partly resolved call",
+        "? unknown = no target found",
+    ):
+        assert page.get_by_text(mark, exact=True).count() >= 1
     # A line shows the calls behind it in the side panel.
     count.click()
     details = page.get_by_role("complementary", name="Details")
@@ -273,16 +277,15 @@ def test_the_shell_navigates_and_stays_on_its_server(
             assert urlsplit(page.url).path == "/"
             # The snapshot is done before the page opens: the Map is the first view.
             _check_the_map(page, width)
-            page.get_by_role("link", name="Overview", exact=True).click()
-            page.get_by_role("heading", name="Understand the codebase").wait_for()
-            for text in (*_LEGEND, "Contract: NOT CONFIGURED", "As-Is / Observed"):
-                assert page.get_by_text(text, exact=True).is_visible(), text
-            assert page.get_by_text("Target unavailable", exact=True).is_visible()
+            page.get_by_role("link", name="Briefing", exact=True).click()
+            page.get_by_role("heading", name="Briefing", exact=True).wait_for()
+            for text in (*_LEGEND, "No contract: a policy verdict does not apply"):
+                assert page.get_by_text(text, exact=False).first.is_visible(), text
             background = "getComputedStyle(document.body).backgroundColor"
             assert page.evaluate(background) == "rgb(10, 18, 24)"
             contract = page.get_by_text("Contract: NOT CONFIGURED", exact=True)
             assert contract.bounding_box()["height"] < 24, "the contract state wraps"
-            page.get_by_role("link", name="Open the Map").click()
+            page.get_by_role("link", name="Architecture", exact=True).click()
             _check_the_map(page, width)
             _check_the_levels(page, width, height)
             _check_the_lens(page, width, height)
@@ -296,7 +299,7 @@ def test_the_shell_navigates_and_stays_on_its_server(
 
             # One nav item for the architecture; Impact and Target are planned, muted, no link.
             nav = page.get_by_role("navigation", name="Workspace")
-            assert nav.locator("a").all_inner_texts() == ["Overview", "Architecture", "Stories"]
+            assert nav.locator("a").all_inner_texts() == ["Briefing", "Architecture", "Stories"]
             planned = nav.locator(".planned")
             assert [" ".join(text.split()) for text in planned.all_text_contents()] == [
                 "Impact Planned",
@@ -314,8 +317,8 @@ def test_the_shell_navigates_and_stays_on_its_server(
             page.goto(studio.url + "#/explore/0")
             page.locator(".lens-card.center").wait_for()
             assert nav.locator('a[aria-current="page"]').inner_text() == "Architecture"
-            page.get_by_role("link", name="Overview", exact=True).click()
-            page.locator('nav a[aria-current="page"]', has_text="Overview").wait_for()
+            page.get_by_role("link", name="Briefing", exact=True).click()
+            page.locator('nav a[aria-current="page"]', has_text="Briefing").wait_for()
             assert page.evaluate("document.documentElement.scrollWidth") <= width
         finally:
             browser.close()
@@ -332,8 +335,12 @@ def test_the_shell_navigates_and_stays_on_its_server(
     assert any(urlsplit(url).path == "/files/architecture.report.html" for url in requests)
 
 
+_TOTALS = {"analyzed": 100, "resolved": 80, "partial": 15, "unresolved": 5}
+_REVISION = {"git_head": "1" * 40, "source_digest": "2" * 64, "dirty": False}
 _MIXED = {
     "components_from": "contract",
+    "totals": _TOTALS,
+    "snapshot": _REVISION,
     "components": [["alpha", "Calls beta."], ["beta", "Is called."]],
     "modules": [["m.a", "m/a.py", 0, "a"], ["m.b", "m/b.py", 1, "b"]],
     "symbols": [
@@ -503,8 +510,8 @@ def test_the_chat_marks_claim_proposal_and_observed_apart(studio: Studio) -> Non
             # A ref opens the lens at that function; the conversation stays.
             claim.get_by_role("link", name="save").click()
             page.locator(".lens-card.center", has_text="save").wait_for()
-            assert page.get_by_role("region", name="Ask the agent").is_visible() is False
-            page.get_by_role("button", name="Ask", exact=True).click()
+            # The chat panel stays open on the next page, and the conversation with it.
+            assert page.get_by_role("region", name="Ask the agent").is_visible()
             page.get_by_text("What does place do?").wait_for()
         finally:
             browser.close()
@@ -705,6 +712,8 @@ _WITH_FUNCTIONS = re.compile(r"[1-9]\d* function")
 _LONG = "a_component_with_a_very_long_name_that_keeps_going"
 _STRESS = {
     "components_from": "contract",
+    "totals": _TOTALS,
+    "snapshot": _REVISION,
     "components": [
         [_LONG, "Own a long sentence about what this component does, " * 4],
         ["second_component_with_a_long_label", "Calls the first one. " * 6],
@@ -839,6 +848,8 @@ def _grid_graph() -> dict:
     ]
     return {
         "components_from": "contract",
+        "totals": _TOTALS,
+        "snapshot": _REVISION,
         "components": [["alpha", "Alpha does the work."], ["beta", "Beta calls alpha."]],
         "modules": modules,
         "symbols": symbols,
@@ -1306,5 +1317,124 @@ def test_no_card_has_a_title_or_an_ellipsis(studio: Studio) -> None:
                 page.wait_for_timeout(500)
                 found = page.evaluate(check)
                 assert found == {"titled": 0, "cut": []}, (fragment, found)
+        finally:
+            browser.close()
+
+
+def _top_callers(graph_body: dict, count: int = 3) -> list[int]:
+    """The functions with the most distinct callers, as the Briefing ranks them (ties by index)."""
+    callers: dict[int, set[int]] = {}
+    for source, target, *_ in graph_body["edges"]:
+        if source != target:
+            callers.setdefault(target, set()).add(source)
+    return sorted(callers, key=lambda symbol: (-len(callers[symbol]), symbol))[:count]
+
+
+def _briefing_facts(page, graph_body: dict) -> None:
+    """The numbers of the Briefing are the values of the graph route; Show opens the right place."""
+    page.get_by_role("heading", name="Briefing", exact=True).wait_for()
+    figures = [" ".join(text.split()) for text in page.locator(".figure").all_inner_texts()]
+    totals = graph_body["totals"]
+    assert any(
+        text.startswith(str(len(graph_body["modules"]))) and "MODULES" in text.upper()
+        for text in figures
+    )
+    resolved = f"{100 * totals['resolved'] / totals['analyzed']:.1f} %"
+    assert any(text.startswith(resolved) for text in figures), figures
+    assert any(
+        text.upper().startswith(f"{totals['unresolved']:,}".replace(",", ""))
+        or "UNKNOWN CALLS" in text.upper()
+        for text in figures
+    )
+    hubs = _top_callers(graph_body)
+    shows = page.locator(".stand", has_text="Most called").locator("a")
+    assert [link.get_attribute("href") for link in shows.all()] == [
+        f"#/explore/{symbol}" for symbol in hubs
+    ]
+    # The marks, the text and the links have no title attribute and no cut text.
+    assert page.locator(".page [title]").count() == 0
+    assert (
+        page.evaluate(
+            "[...document.querySelectorAll('.page *')].filter((item) => item.children.length === 0"
+            " && /…$|[.][.][.]$/.test(item.textContent.trim())).length"
+        )
+        == 0
+    )
+
+
+@pytest.mark.browser
+def test_the_briefing_shows_the_numbers_of_the_graph_and_each_show_link_opens_its_place(
+    studio: Studio,
+) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    graph_body = _grid_graph()
+    answer = {"api_version": API_VERSION, "explore": "done", "graph": graph_body}
+    rows = [
+        {"id": "old", "title": "Old story", "steps": 3, "source": "local", "created": None},
+        {
+            "id": "new",
+            "title": "New story",
+            "steps": 8,
+            "source": "repository",
+            "created": "2026-11-04T10:00:00Z",
+        },
+    ]
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.route("**/api/v1/graph", lambda route: route.fulfill(json=answer))
+            page.route(
+                "**/api/v1/stories",
+                lambda route: route.fulfill(json={"api_version": API_VERSION, "stories": rows}),
+            )
+            page.route("**/api/v1/stories/*", lambda route: route.fulfill(json=_answer(_checked())))
+            page.goto(studio.url + "#/overview")
+            _briefing_facts(page, graph_body)
+            stories = page.locator(".box", has_text="Stories")
+            stories.get_by_text("New story").wait_for()
+            text = " ".join(stories.inner_text().split())
+            assert text.index("New story") < text.index("Old story")  # the newest first
+            assert "repository" in text and "created 2026-11-04" in text and "✓ 5" in text
+            # How does it start: a heuristic, the function that nobody calls and that calls most.
+            start = stories.get_by_role("link", name="How does it start?")
+            start.click()
+            page.locator(".lens-card.center").wait_for()
+            # Each Show link opens the lens or the component it names.
+            page.goto(studio.url + "#/overview")
+            first = page.locator(".stand", has_text="Most called").locator("a").first
+            href = first.get_attribute("href")
+            first.click()
+            page.wait_for_url(f"**/{href}")
+            page.locator(".lens-card.center").wait_for()
+            # A question asked on the Briefing opens the chat panel of the Architecture.
+            page.route("**/api/v1/chat", lambda route: route.fulfill(json=_ANSWER))
+            page.goto(studio.url + "#/overview")
+            page.get_by_role("textbox", name="Question").fill("Where does it start?")
+            page.get_by_role("button", name="Ask", exact=True).click()
+            page.wait_for_url("**/#/map")
+            page.get_by_role("region", name="Ask the agent").get_by_text(
+                "Where does it start?"
+            ).wait_for()
+        finally:
+            browser.close()
+
+
+@pytest.mark.browser
+def test_the_briefing_of_archkeel_itself_matches_the_graph_route(archkeel_studio: Studio) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    cookie = login(archkeel_studio)
+    response, body = request(archkeel_studio, "/api/v1/graph", cookie=cookie)
+    assert response.status == 200
+    graph_body = json.loads(body)["graph"]
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.set_default_timeout(60000)
+            page.goto(archkeel_studio.url + "#/overview")
+            _briefing_facts(page, graph_body)
+            if shot := os.environ.get("BRIEFING_SHOT"):
+                page.screenshot(path=shot)
         finally:
             browser.close()

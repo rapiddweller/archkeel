@@ -386,3 +386,16 @@ nav .planned small { font-size: 10px; text-transform: uppercase; letter-spacing:
 .route.hot { stroke-width: 3; opacity: 1; }
 .focus-rows { max-height: none; }
 .focus-rows .where { overflow-wrap: normal; word-break: normal; }
+
+/* Briefing: measured numbers, what stands out, stories, ask. */
+.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--gap); margin: 16px 0; }
+.figure { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 16px;
+  display: flex; flex-direction: column; gap: 2px; }
+.figure b { font-size: 28px; letter-spacing: -.5px; }
+.figure span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+.figure small { color: var(--muted); font: 11px ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
+.page > .box { margin-bottom: var(--gap); }
+.stands { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.stand { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.stand > span:first-child { flex: 1 1 320px; overflow-wrap: anywhere; }
+.stand .toggle { text-decoration: none; font-size: 12px; }

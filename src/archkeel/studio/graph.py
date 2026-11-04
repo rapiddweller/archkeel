@@ -17,8 +17,10 @@ from .api import (
     Json,
     ModuleRow,
     ScopeKind,
+    SnapshotInfo,
     SymbolKind,
     SymbolRow,
+    Totals,
     UnknownRow,
     member,
 )
@@ -181,6 +183,33 @@ def _calls(
     return tuple(edges), tuple(sample), unknown, outside
 
 
+def _count(section: Json, name: str) -> int:
+    value = section.get(name) if isinstance(section, Mapping) else None
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
+def _totals(model: Mapping[str, Json]) -> Totals:
+    """The call counts that explore measured; a snapshot without them gives zeros."""
+    coverage = model.get("coverage")
+    return Totals(
+        _count(coverage, "calls_analyzed"),
+        _count(coverage, "calls_resolved"),
+        _count(coverage, "calls_partially_resolved"),
+        _count(coverage, "calls_unresolved"),
+    )
+
+
+def _snapshot(model: Mapping[str, Json]) -> SnapshotInfo:
+    source = model.get("source")
+    found = source if isinstance(source, Mapping) else {}
+    head, digest, dirty = found.get("git_head"), found.get("source_digest"), found.get("dirty")
+    return SnapshotInfo(
+        head if isinstance(head, str) else "",
+        digest if isinstance(digest, str) else "",
+        dirty is True,
+    )
+
+
 def build_graph(model: Mapping[str, Json], declare: Declare) -> Graph:
     """The components, modules, symbols, call edges and unknown calls of one snapshot."""
     source, components, modules, position = _modules(model, declare)
@@ -191,4 +220,6 @@ def build_graph(model: Mapping[str, Json], declare: Declare) -> Graph:
         row._replace(unknown=unknown.get(number, 0), outside=outside.get(number, 0))
         for number, row in enumerate(found)
     )
-    return Graph(source, components, modules, symbols, edges, sample)
+    return Graph(
+        source, components, modules, symbols, edges, sample, _totals(model), _snapshot(model)
+    )

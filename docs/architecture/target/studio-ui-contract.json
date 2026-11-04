@@ -66,7 +66,9 @@
         "studio_ui.src.archkeel.studio.ui.api_x2e_ts:Fact",
         "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:AgentKind",
         "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ChatBlockKind",
-        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ChatError"
+        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ChatError",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StoryAnswer",
+        "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StorySource"
       ],
       "responsibilities": [
         "Read the state, the call graph, the stories and the checked story of the own server, ask the chat and send nothing else, typed by the vocabulary that tools/browser_runtime.py generates from archkeel.studio.api."
@@ -91,7 +93,8 @@
         "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
         "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts",
-        "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts"
+        "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+        "studio_ui.src.archkeel.studio.ui.measure_x2e_ts"
       ],
       "public": [
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Model",
@@ -150,7 +153,13 @@
         "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:tileKey",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:neighbors",
         "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:KeyKind",
-        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:splitRef"
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:splitRef",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelText",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:cycles",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:seams",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:unknownByComponent",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:entry",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:hubs"
       ],
       "responsibilities": [
         "Index the call graph and compute the layouts of the Map and the lens: pure functions with no DOM and no network."
@@ -355,19 +364,19 @@
         "studio_ui.src.archkeel.studio.ui.views.map_x2e_tsx",
         "studio_ui.src.archkeel.studio.ui.views.module_x2e_tsx",
         "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx",
-        "studio_ui.src.archkeel.studio.ui.views.overview_x2e_tsx",
         "studio_ui.src.archkeel.studio.ui.views.report_x2e_tsx",
-        "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx"
+        "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx",
+        "studio_ui.src.archkeel.studio.ui.views.briefing_x2e_tsx"
       ],
       "public": [
-        "studio_ui.src.archkeel.studio.ui.views.overview_x2e_tsx:Overview",
         "studio_ui.src.archkeel.studio.ui.views.report_x2e_tsx:Report",
         "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx:Explore",
         "studio_ui.src.archkeel.studio.ui.views.map_x2e_tsx:ArchMap",
         "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx:NotBuilt",
         "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx:Stories",
         "studio_ui.src.archkeel.studio.ui.views.component_x2e_tsx:ComponentLevel",
-        "studio_ui.src.archkeel.studio.ui.views.module_x2e_tsx:ModuleLevel"
+        "studio_ui.src.archkeel.studio.ui.views.module_x2e_tsx:ModuleLevel",
+        "studio_ui.src.archkeel.studio.ui.views.briefing_x2e_tsx:Briefing"
       ],
       "responsibilities": [
         "Draw one page each from the API state or the model, with the shared components."
@@ -387,7 +396,9 @@
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:CheckedStory",
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:EXPLORER_PAGE",
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StepLink",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StoryAnswer",
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StoryRow",
+            "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StorySource",
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StoryStep",
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StudioState",
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readStories",
@@ -404,6 +415,7 @@
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Badge",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Box",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Card",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Legend",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Page",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Panel",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ProofLegend",
@@ -446,6 +458,7 @@
             "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:layoutLens",
             "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:KeyKind",
             "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelStub",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelText",
             "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:layoutComponent",
             "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:layoutModule",
             "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:parseKey",
@@ -462,16 +475,21 @@
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:compact",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:componentOf",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:counted",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:cycles",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:entry",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fileName",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fullName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:hubs",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:links",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:locate",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:moduleIndex",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:neighbors",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:pairs",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:seams",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:shortName",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tailName",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tailPath",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:unknownByComponent",
             "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:STORY",
             "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:cardName",
             "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:layoutStory",
@@ -490,12 +508,16 @@
         {
           "component": "workbench",
           "through": [
+            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:ARROWS",
             "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Counts",
             "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:FocusList",
+            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Glyphs",
             "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:LevelCanvas",
+            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Selection",
             "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Workbench",
             "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:focusRows",
             "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:functionRows",
+            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:nearest",
             "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:useFocus"
           ],
           "rationale": "Use workbench."
@@ -562,12 +584,12 @@
         {
           "component": "views",
           "through": [
+            "studio_ui.src.archkeel.studio.ui.views.briefing_x2e_tsx:Briefing",
             "studio_ui.src.archkeel.studio.ui.views.component_x2e_tsx:ComponentLevel",
             "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx:Explore",
             "studio_ui.src.archkeel.studio.ui.views.map_x2e_tsx:ArchMap",
             "studio_ui.src.archkeel.studio.ui.views.module_x2e_tsx:ModuleLevel",
             "studio_ui.src.archkeel.studio.ui.views.not_x2d_built_x2e_tsx:NotBuilt",
-            "studio_ui.src.archkeel.studio.ui.views.overview_x2e_tsx:Overview",
             "studio_ui.src.archkeel.studio.ui.views.report_x2e_tsx:Report",
             "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx:Stories"
           ],
@@ -677,7 +699,11 @@
         "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:useFocus",
         "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:FocusList",
         "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:focusRows",
-        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:functionRows"
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:functionRows",
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Glyphs",
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:ARROWS",
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:nearest",
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Selection"
       ],
       "responsibilities": [
         "Draw the shared page of every level: toolbar, structure tree, canvas, the You are here box with Up, and the zoom between levels; draw the modules or functions of a level with their stubs."
@@ -702,6 +728,7 @@
           "component": "components",
           "through": [
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Box",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ProofLegend",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ProofMark",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:View",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:viewHref",

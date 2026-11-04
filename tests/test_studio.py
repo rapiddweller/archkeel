@@ -149,6 +149,8 @@ def test_the_schema_rejects_a_field_that_it_does_not_name(studio: Studio) -> Non
     assert not _validator("graph").is_valid({**waiting, "extra": 1})
     empty = {name: [] for name in ("components", "modules", "symbols", "edges", "unknown")}
     empty["components_from"] = "layout"
+    empty["totals"] = {"analyzed": 0, "resolved": 0, "partial": 0, "unresolved": 0}
+    empty["snapshot"] = {"git_head": "", "source_digest": "", "dirty": False}
     full = {**waiting, "graph": empty}
     assert _validator("graph").is_valid(full)
     assert not _validator("graph").is_valid({**full, "graph": {**empty, "extra": []}})
@@ -164,6 +166,7 @@ def test_the_schema_rejects_a_field_that_it_does_not_name(studio: Studio) -> Non
     assert not _validator("graph").is_valid(
         {**full, "graph": {**empty, "components_from": "guess"}}
     )
+    assert not _validator("graph").is_valid({**full, "graph": {**empty, "totals": {"analyzed": 0}}})
     del empty["components_from"]
     assert not _validator("graph").is_valid({**full, "graph": empty})
 
@@ -744,12 +747,13 @@ def test_a_draft_spec_comes_from_the_trace_and_the_check_proves_it(studio: Studi
     validate(json.loads(_get(studio, cookie, "/api/v1/stories")[1]), "stories")
     listing = json.loads(_get(studio, cookie, "/api/v1/stories")[1])["stories"]
     assert listing == [
-        {"id": "broken", "title": "broken", "steps": 0, "source": "local"},
+        {"id": "broken", "title": "broken", "steps": 0, "source": "local", "created": None},
         {
             "id": "place-draft",
             "title": f"Story from {_PLACE}",
             "steps": len(spec["steps"]),
             "source": "local",
+            "created": None,
         },
     ]
 
@@ -908,3 +912,20 @@ def test_a_root_without_a_stories_folder_lists_none_and_writes_none(studio: Stud
     cookie = login(studio)
     assert json.loads(_get(studio, cookie, "/api/v1/stories")[1])["stories"] == []
     assert not _repository_folder(studio).exists()
+
+
+def test_the_graph_carries_the_call_totals_and_the_revision_of_the_snapshot(studio: Studio) -> None:
+    """The Briefing shows these numbers: they come from the coverage and the source of explore."""
+    cookie = login(studio)
+    assert explore(studio, cookie)["explore"] == "done"
+    body = graph(studio, cookie)["graph"]
+    totals = body["totals"]
+    assert totals["analyzed"] == totals["resolved"] + totals["partial"] + totals["unresolved"]
+    assert totals["resolved"] >= 1  # `place` calls `save`
+    snapshot = body["snapshot"]
+    assert len(snapshot["git_head"]) == 40 and len(snapshot["source_digest"]) == 64
+    assert snapshot["dirty"] is False
+    saved = json.loads(
+        (studio.workspace.folder / "architecture.json").read_bytes()
+    )  # the columnar file, decoded below
+    assert saved["coverage"]["calls_analyzed"] == totals["analyzed"]

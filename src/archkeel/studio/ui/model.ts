@@ -392,3 +392,78 @@ export function search(model: Model, text: string): number[] {
   found.sort((a, b) => rank(a) - rank(b) || links(model, b) - links(model, a));
   return found.slice(0, SEARCH_SHOWN);
 }
+
+/** The functions with the most distinct callers, the busiest first. */
+export function hubs(model: Model, count: number): number[] {
+  return model.graph.symbols
+    .map((_, symbol) => symbol)
+    .filter((symbol) => model.incoming[symbol].length > 0)
+    .sort((a, b) => model.incoming[b].length - model.incoming[a].length || a - b)
+    .slice(0, count);
+}
+
+/** Functions whose calls are mostly unknown: at least as many unknown calls as known callees, the largest first. */
+export function seams(model: Model, count: number): number[] {
+  return model.graph.symbols
+    .map((_, symbol) => symbol)
+    .filter((symbol) => model.graph.symbols[symbol][5] > 0 && model.graph.symbols[symbol][5] >= model.outgoing[symbol].length)
+    .sort((a, b) => model.graph.symbols[b][5] - model.graph.symbols[a][5] || a - b)
+    .slice(0, count);
+}
+
+/** Unknown calls of the functions of each component, the largest first. */
+export function unknownByComponent(model: Model, count: number): { component: number; unknown: number }[] {
+  const sums = model.graph.components.map(() => 0);
+  model.graph.symbols.forEach((row, symbol) => (sums[componentOf(model, symbol)] += row[5]));
+  return sums
+    .map((unknown, component) => ({ component, unknown }))
+    .filter((entry) => entry.unknown > 0)
+    .sort((a, b) => b.unknown - a.unknown || a.component - b.component)
+    .slice(0, count);
+}
+
+/** Groups of components that call each other in a loop (strongly connected, more than one). */
+export function cycles(model: Model): number[][] {
+  const count = model.graph.components.length;
+  const next = model.graph.components.map((_, from) => model.flows.filter((flow) => flow.from === from).map((flow) => flow.to));
+  const index = new Array<number>(count).fill(-1);
+  const low = new Array<number>(count).fill(0);
+  const open = new Array<boolean>(count).fill(false);
+  const stack: number[] = [];
+  const found: number[][] = [];
+  let clock = 0;
+  const visit = (node: number): void => {
+    index[node] = low[node] = clock++;
+    stack.push(node);
+    open[node] = true;
+    for (const other of next[node]) {
+      if (index[other] < 0) {
+        visit(other);
+        low[node] = Math.min(low[node], low[other]);
+      } else if (open[other]) {
+        low[node] = Math.min(low[node], index[other]);
+      }
+    }
+    if (low[node] === index[node]) {
+      const group: number[] = [];
+      for (;;) {
+        const top = stack.pop() as number;
+        open[top] = false;
+        group.push(top);
+        if (top === node) break;
+      }
+      if (group.length > 1) found.push(group.sort((a, b) => a - b));
+    }
+  };
+  for (let node = 0; node < count; node += 1) if (index[node] < 0) visit(node);
+  return found;
+}
+
+/** The function that nobody calls and that calls the most: where a program most likely starts. A heuristic. */
+export function entry(model: Model): number | null {
+  let best: number | null = null;
+  model.graph.symbols.forEach((_, symbol) => {
+    if (model.incoming[symbol].length === 0 && (best === null || model.outgoing[symbol].length > model.outgoing[best].length)) best = symbol;
+  });
+  return best !== null && model.outgoing[best].length > 0 ? best : null;
+}

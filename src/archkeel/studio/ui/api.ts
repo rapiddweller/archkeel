@@ -35,8 +35,18 @@ export type SymbolRow = readonly [
 export type EdgeRow = readonly [source: number, target: number, partial: boolean, line: number, site: number];
 export type UnknownRow = readonly [owner: number, expression: string, reason: string, line: number];
 
+/** The call counts of the whole snapshot, as explore measured them. */
+export type Totals = {
+  readonly analyzed: number;
+  readonly resolved: number;
+  readonly partial: number;
+  readonly unresolved: number;
+};
+
 export type Graph = {
   readonly components_from: ComponentSource;
+  readonly totals: Totals;
+  readonly snapshot: { readonly git_head: string; readonly source_digest: string; readonly dirty: boolean };
   readonly components: readonly ComponentRow[];
   readonly modules: readonly ModuleRow[];
   readonly symbols: readonly SymbolRow[];
@@ -64,7 +74,7 @@ export type CheckStatus = (typeof CheckStatus)[keyof typeof CheckStatus];
 export const StorySource = { Repository: "repository", Local: "local" } as const;
 export type StorySource = (typeof StorySource)[keyof typeof StorySource];
 
-export type StoryRow = { readonly id: string; readonly title: string; readonly steps: number; readonly source: StorySource };
+export type StoryRow = { readonly id: string; readonly title: string; readonly steps: number; readonly source: StorySource; readonly created: string | null };
 export type Site = { readonly file: string | null; readonly line: number | null };
 export type Seam = {
   readonly kind: "partial_call" | "unresolved_call";

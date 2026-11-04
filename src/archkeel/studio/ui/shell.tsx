@@ -3,7 +3,7 @@ import { render } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { StudioState } from "./api";
 import { ChatState, useChat } from "./chat";
-import { Legend, NavItem, ProofLegend, View, viewHref } from "./components";
+import { NavItem, View, viewHref } from "./components";
 import { Level, Model, Where } from "./model";
 import { Crumb, LocationBar, crumbsOf } from "./navigation";
 import { startStore, useStudio } from "./store";
@@ -13,13 +13,13 @@ import { ArchMap } from "./views/map";
 import { ModuleLevel } from "./views/module";
 import { Explore } from "./views/explore";
 import { NotBuilt } from "./views/not-built";
-import { Overview } from "./views/overview";
+import { Briefing } from "./views/briefing";
 import { Report } from "./views/report";
 import { Stories } from "./views/story";
 
 /** `planned` pages show in the nav, muted and not clickable. */
 const NAV: readonly { view: View; name: string; planned?: boolean }[] = [
-  { view: View.Overview, name: "Overview" },
+  { view: View.Overview, name: "Briefing" },
   { view: View.Map, name: "Architecture" },
   { view: View.Stories, name: "Stories" },
   { view: View.Impact, name: "Impact", planned: true },
@@ -76,7 +76,7 @@ const isIndex = (value: number | null, size: number): value is number => value !
 function content(view: View, route: Route, state: StudioState, model: Model | null, chat: ChatState) {
   switch (view) {
     case View.Overview:
-      return <Overview state={state} />;
+      return <Briefing state={state} model={model} chat={chat} />;
     case View.Map:
       return <ArchMap model={model} contract={state.contract} chat={chat} />;
     case View.Component:
@@ -110,7 +110,7 @@ function content(view: View, route: Route, state: StudioState, model: Model | nu
 }
 
 const TITLES: Partial<Record<View, string>> = {
-  [View.Overview]: "Overview",
+  [View.Overview]: "Briefing",
   [View.Report]: "Static report",
   [View.Stories]: "Stories",
   [View.Impact]: "Change impact",
@@ -170,10 +170,6 @@ function Shell() {
             ),
           )}
         </nav>
-        <p class="label">Evidence model</p>
-        <Legend />
-        <p class="label">Calls</p>
-        <ProofLegend />
         <p class="label">Contract</p>
         <p class="contract">{state ? CONTRACT[state.contract] : "Contract: …"}</p>
         <p class="secondary">

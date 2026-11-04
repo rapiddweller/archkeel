@@ -1,7 +1,7 @@
 /** AD-290: Map: the components of the snapshot as a dependency graph of the measured calls. */
 import { useEffect, useMemo, useState } from "preact/hooks";
 import type { ChatState } from "../chat";
-import { Badge, Box, Page, ProofLegend, ProofMark, View, viewHref } from "../components";
+import { Badge, Box, Page, ProofMark, View, viewHref } from "../components";
 import { Evidence, Proof, proofKind, proofOf } from "../evidence";
 import { MAP_CARD, MapLine, layoutMap } from "../map-layout";
 import { Level, Model, Tally, counted, fileName, links, pairs, shortName, tailPath } from "../model";
@@ -250,9 +250,6 @@ function MapView(props: { model: Model; contract: ContractState; chat: ChatState
           ) : (
             <Pairs model={model} pair={pair} />
           )}
-          <Box title="Calls">
-            <ProofLegend />
-          </Box>
         </>
       }
     />

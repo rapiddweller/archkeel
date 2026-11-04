@@ -17,6 +17,9 @@ export type Turn =
 export interface ChatState {
   readonly turns: readonly Turn[];
   readonly busy: boolean;
+  /** The chat panel is open: the page that asks (the Briefing) opens it for the pages after it. */
+  readonly shown: boolean;
+  readonly show: (open: boolean) => void;
   readonly ask: (question: string, context: string | null) => void;
 }
 
@@ -48,6 +51,7 @@ function failure(error: unknown): string {
 export function useChat(): ChatState {
   const [turns, setTurns] = useState<readonly Turn[]>([]);
   const [busy, setBusy] = useState(false);
+  const [shown, show] = useState(false);
   const ask = (question: string, context: string | null): void => {
     if (busy) return;
     setTurns((before) => [...before, { kind: TurnKind.Ask, text: question }]);
@@ -57,7 +61,7 @@ export function useChat(): ChatState {
       (error) => setTurns((before) => [...before, { kind: TurnKind.Failed, text: failure(error) }]),
     ).finally(() => setBusy(false));
   };
-  return { turns, busy, ask };
+  return { turns, busy, shown, show, ask };
 }
 
 const QUICK: readonly string[] = [

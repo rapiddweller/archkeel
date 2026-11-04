@@ -208,6 +208,23 @@ class UnknownRow(NamedTuple):
     line: int
 
 
+class Totals(NamedTuple):
+    """The call counts of the whole snapshot, as `archkeel explore` measured them."""
+
+    analyzed: int
+    resolved: int
+    partial: int
+    unresolved: int
+
+
+class SnapshotInfo(NamedTuple):
+    """The revision the snapshot was made from."""
+
+    git_head: str  # empty without Git
+    source_digest: str
+    dirty: bool
+
+
 @dataclass(frozen=True)
 class Graph:
     """The measured call graph of the snapshot, as rows; every cross reference is an index."""
@@ -218,6 +235,8 @@ class Graph:
     symbols: tuple[SymbolRow, ...]
     edges: tuple[EdgeRow, ...]
     unknown: tuple[UnknownRow, ...]
+    totals: Totals
+    snapshot: SnapshotInfo
 
 
 def graph_json(explore: ExploreState, graph: Graph | None) -> bytes:
@@ -231,6 +250,8 @@ def graph_json(explore: ExploreState, graph: Graph | None) -> bytes:
             "symbols": graph.symbols,
             "edges": graph.edges,
             "unknown": graph.unknown,
+            "totals": graph.totals._asdict(),
+            "snapshot": graph.snapshot._asdict(),
         }
     return json.dumps(
         {"api_version": API_VERSION, "explore": explore, "graph": body}, sort_keys=True
@@ -252,6 +273,7 @@ class StoryRow:
     title: str
     steps: int
     source: StorySource
+    created: str | None
 
 
 def stories_json(rows: Sequence[StoryRow]) -> bytes:

@@ -2,7 +2,7 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { ChatPanel, ChatState } from "./chat";
-import { Box, ProofMark, View, viewHref } from "./components";
+import { Box, ProofLegend, ProofMark, View, viewHref } from "./components";
 import { Proof, proofKind, proofOf } from "./evidence";
 import { LevelBox, LevelLayout, LevelLink, LevelStub, cardKey, stubKey, tileKey } from "./level-layout";
 import { makeRouter, midOf, roundedPath } from "./level-route";
@@ -79,7 +79,8 @@ export function Workbench(props: {
   details: ComponentChildren;
 }) {
   const { model, where, here } = props;
-  const [asking, setAsking] = useState(false);
+  const asking = props.chat.shown;
+  const setAsking = props.chat.show;
   const [tree, setTree] = useState(treeOpen);
   const [side, setSide] = useState(detailsOpen);
   const [open, setOpen] = useState<ReadonlySet<string>>(() => opened(model, where));
@@ -188,6 +189,9 @@ export function Workbench(props: {
           )}
         </Box>
         {asking ? <ChatPanel model={model} symbol={props.symbol} chat={props.chat} /> : props.details}
+        <Box title="Marks">
+          <ProofLegend />
+        </Box>
       </aside>
     </div>
   );
