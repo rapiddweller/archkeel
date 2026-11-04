@@ -12,12 +12,8 @@
 [Install](#install) · [Quick start](#quick-start) · [Why](#why-archkeel) · [Compared](#archkeel-floorplan-or-understand-anything) · [Features](#features) · [Live demo](https://rapiddweller.github.io/archkeel/demos/) · [FAQ](#faq)
 
 <p>
-  <img src="docs/assets/archkeel-self-check.png" alt="ArchKeel's report of its own code: 126 rules PASS, 0 UNKNOWN, findings with source lines, and the Target view with component responsibilities" width="1000">
+  <img src="docs/assets/archkeel-hero.png" alt="ArchKeel: see what your code really does, check it against what you decided. Observe, decide, enforce. ArchKeel's report of its own code: PASS, 126 rules, 0 UNKNOWN." width="1000">
 </p>
-
-ArchKeel checks itself: 126 rules `PASS`, 0 `UNKNOWN`, every finding with its source line, and the
-declared Target with the responsibility of each component.
-[Open the live report](https://rapiddweller.github.io/archkeel/architecture.report.html?content=components&view=target&theme=dark).
 
 ArchKeel reads your code and shows how it is built: the parts, the imports between them and the
 evidence for each. You or your coding agent then declare the boundaries you want. ArchKeel checks
@@ -183,6 +179,14 @@ responsibilities on components marked `decided_by: "architect"`; substantive pro
 the stated responsibility is correct. See the [exact marker syntax and exit behavior](docs/reference.md#exit-codes).
 
 ## See it in action
+
+<p>
+  <img src="docs/assets/archkeel-self-check.png" alt="ArchKeel's report of its own code: 126 rules PASS, 0 UNKNOWN, findings with source lines, and the Target view with component responsibilities" width="1000">
+</p>
+
+ArchKeel checks itself: 126 rules `PASS`, 0 `UNKNOWN`, every finding with its source line, and the
+declared Target with the responsibility of each component.
+[Open the live report](https://rapiddweller.github.io/archkeel/architecture.report.html?content=components&view=target&theme=dark).
 
 <p>
   <img src="docs/assets/archkeel-compass-target.png" alt="ArchQ Explorer embedded in the report: Compass Flutter Target with components, responsibilities and declared dependencies" width="1000">
