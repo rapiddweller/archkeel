@@ -28,6 +28,7 @@ from archkeel.ir.report_graph import architecture_report
 from archkeel.render.summary import report_summary
 from archkeel.render.terminal import print_result
 from fixtures.architecture_demo import CATALOG, replay
+from fixtures.architecture_demo import main as demo_main
 from fixtures.demo_catalog_dart import DART_FIXTURE_DIR
 from fixtures.demo_catalog_explore import EXPLORE_FIXTURE_DIR, nested_engine_files
 from fixtures.demo_catalog_typescript import VARIANTS as TYPESCRIPT_VARIANTS
@@ -131,6 +132,19 @@ def test_explore_shows_a_repository_without_a_contract(
     assert "Whole-run rules" not in detail
     assert "<p>No dependency cycle or hub.</p>" in page
     assert '[data-flow-view="target"],[data-flow-view="diff"],.flow-violation-focus' in page
+
+
+def test_root_package_with_rust_only_src_demo_uses_root_scope(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    output = tmp_path / "architecture.json"
+
+    assert demo_main(
+        ["--replay", "explore-root-package-with-rust-src", "--output", str(output)]
+    ) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["scan_roots"] == ["shop"]
 
 
 def test_explore_never_writes_into_the_repository(

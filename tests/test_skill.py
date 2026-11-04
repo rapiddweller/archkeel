@@ -137,6 +137,9 @@ def test_explore_skill_starts_studio_for_an_agent() -> None:
         "studio --stop --root <root>",
         "outside the sandbox",
         "run_in_background",
+        "HttpOnly",
+        "SameSite=Strict",
+        "Do not share or log the URL",
     ):
         assert text in body, text
     keys = [
@@ -164,6 +167,9 @@ def test_explain_flow_skill_traces_chooses_writes_and_checks() -> None:
         "git rev-parse HEAD",
         'author_kind: "agent"',
         "author text, a claim",
+        "Without `--to`, trace resolved calls",
+        "With `--to`, the trace also searches paths with partial calls",
+        "stored story is reviewed repository documentation",
     ):
         assert text.lower() in body.lower(), text
     keys = [
@@ -631,6 +637,9 @@ def test_flow_section_states_the_proof_rules() -> None:
     assert "not an execution trace" in section
     assert "`target: unavailable`" in section
     assert "one direct edge" in section and "opens at the flow" in section
+    assert "function nodes support calls only" in section
+    assert "A partial call is `claim`, not `unknown`." in section
+    assert "archkeel/schema/" in ASSET.read_text(encoding="utf-8")
     # The same file serves Codex and Claude Code: name commands, not one agent's tools.
     assert not re.search(r"\b(Read|Bash|Edit|Write) tool\b", section)
 

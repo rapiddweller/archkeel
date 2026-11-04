@@ -69,8 +69,10 @@ A view spec is author text; the check in step 5 decides what the code proves (AD
 1. Confirm the start point and the goal. Ask one short question only when the request is ambiguous.
 2. Get a snapshot. With `archkeel.toml`, run `archkeel report --output <dir>/architecture.json --json`.
    Without it, run `archkeel explore --json`: no contract, no setup, output only in the user cache.
-   On `scope_empty`, or when `scan_roots` is not the code in question, run
+   On `scope_empty`, read the diagnostic and run
    `archkeel explore --source <dir> --namespace <package> --language <language> --json`.
+   Use the same options when `scan_roots` is not the code in question. Keep `--language` when
+   the language is not Python. If `src/` has no Python package, detection searches the root.
    `<language>` is `python`, `typescript` or `dart`. For TypeScript, also pass `--tsconfig <file>`.
    The snapshot path is `artifact` in the result.
 3. Query before you write. `archkeel report --input <snapshot> --only architecture --json` lists
@@ -78,22 +80,23 @@ A view spec is author text; the check in step 5 decides what the code proves (AD
    lists its `modules`. A key `''` or a key that starts with `.` gets a prefix: the
    `selector_prefix` of that component when present, else its own `namespace`. A component with an `inside` contract lists most modules under the child ids
    of the first command. Use module names as nodes: a child component is `unknown` as a node.
-   Source imports and calls name candidates, not proof. Check a direct edge to ask for it (step 5).
+   Use module nodes for import checks; function nodes support calls only. Source text names
+   candidates, not proof. Read the evidence lines from the check.
 4. Write the spec in a new temporary folder: never in the repository, never in an output folder
    (`explore` and `view show` clear theirs). Follow the [schema](https://github.com/rapiddweller/archkeel/blob/main/schema/view-spec.schema.json)
    and the [example](https://github.com/rapiddweller/archkeel/blob/main/fixtures/F-architecture-view/place-order.json).
    Copy `source.source_digest` and `contract.digest` of the snapshot into `snapshot`. Give each
    later step and each edge a `kind` (`imports` or `calls`); the first step takes none.
-   Keep no node or edge that the check makes `missing`, except as a claim: `"claim": true`
-   and a `note` that says why.
+   Keep no node or edge that the check makes `missing`, except as a claim when the owner needs
+   the unproved step: set `"claim": true` and give its reason in `note`.
    Never write `status` or `evidence`: the check decides, and such a spec is rejected (exit 2).
 5. Run `archkeel view check <spec> --snapshot <snapshot> --json` and read each status:
    - `proven`: observed, with `evidence` (`file`, `line`). Read those lines: a module edge can
      come from another function. Only one direct edge of its kind proves a step.
    - `missing`: not in the code. Fix the node or `kind`, remove it, or keep it as a claim. A step
      with no direct edge is `missing` too: add the modules between as steps.
-   - `unknown`: the snapshot cannot decide; a Python call is never `missing`. Keep it with your
-     note, without `claim`, so its reason stays visible. Check the same pair as `imports` too:
+   - `unknown`: the snapshot cannot decide. Keep it with your note, without `claim`, so its
+     reason stays visible. A partial call is `claim`, not `unknown`. Check module pairs as `imports` too:
      `missing` there means no static link (a parameter, a port or a child process). Say so.
    - `declared`: a contract component or `requires` entry. After `explore`, a layout group
      declares nothing and is `unknown`: use module nodes.
@@ -110,6 +113,7 @@ A view spec is author text; the check in step 5 decides what the code proves (AD
 A graph path is not an execution trace. An import proves only that one module imports the other.
 Without a contract the result has `target: unavailable` and `declared_rules: UNKNOWN`, never PASS.
 Your explanation is your own text, without authority. Never change source or contract for a view.
+The `explain-flow` skill stores reviewed story documentation under `.archkeel/stories/`.
 
 ## Onboarding (first time in this repository): a target, not a description
 
@@ -133,10 +137,11 @@ A read-only assessment uses existing contracts, reports and source; it does not 
 initialization, contract edits, file moves or commits.
 Preserve existing contracts and their `inside` references. If onboarding files already exist,
 continue from them; do not use `--force` without explicit approval to replace those files.
-`init` detects the Python package (the only top-level one, or the one `pyproject.toml`'s
-`[project] name` names when a test package sits beside it; otherwise it exits 2 and asks for
-`--source` and `--namespace`), requires an existing Git repository with at least one
-commit, and writes three files: `archkeel.toml`, `architecture-contract.json` (one component
+`init` checks `src/` for Python packages first. If it finds none, it checks the repository root.
+In the selected directory, it uses the only top-level package or the package named by
+`pyproject.toml`'s `[project] name` when test packages sit beside it. Otherwise it exits 2 and
+asks for `--source` and `--namespace`. It also requires an existing Git repository with at least
+one commit, and writes three files: `archkeel.toml`, `architecture-contract.json` (one component
 per top-level subpackage/module, plus `complete_assignment` and — only when no component
 cycle exists — `no_component_cycles`, and `interface_boundary` when it drafts public
 interfaces; no dependency rule), and
@@ -635,3 +640,5 @@ to observed crossings; `validate` defaults to the full list and offers
 an empty compact list with a positive total still needs decisions. `draft_sizes` records
 each component's measured size only for `init`. Unavailable summaries remain `null`.
 Use the CLI’s bundled schemas for offline validation; pin schema and CLI together.
+The installed files are under `archkeel/schema/`; run `archkeel view --help` for the current
+spec path and command options. Do not fetch a schema from the network for local validation.

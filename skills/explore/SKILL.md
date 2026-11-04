@@ -35,7 +35,9 @@ Run this command. `<root>` is the repository root. Add the scope options only wh
 - Scope options: `--language`, `--source`, `--namespace` and `--tsconfig`. TypeScript and Dart need
   them. Use the same values as for `archkeel explore`.
 
-The first output line is `ArchKeel Studio: <URL>`. A second call for the same root prints
+The first output line is `ArchKeel Studio: <URL>`. The URL token logs the browser in once.
+Studio then sets an `HttpOnly`, `SameSite=Strict` cookie; later requests need that cookie.
+Do not share or log the URL. A second call for the same root prints
 `ArchKeel Studio: <URL> (already running)` with the same URL and starts no second server.
 The server keeps the scope options of its first start. To change them, stop it and start again.
 

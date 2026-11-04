@@ -93,8 +93,12 @@ def _project_import_name(root: Path) -> str | None:
 def detect_source(root: Path) -> tuple[str, str]:
     """Return the scan root and namespace of the only top-level package, or of the one
     package named after the project when there are several (AD-47)."""
-    base = root / "src" if (root / "src").is_dir() else root
+    src = root / "src"
+    base = src if src.is_dir() else root
     packages = sorted(path for path in base.iterdir() if (path / "__init__.py").is_file())
+    if base == src and not packages:
+        base = root
+        packages = sorted(path for path in base.iterdir() if (path / "__init__.py").is_file())
     name = _project_import_name(root)
     chosen = packages if len(packages) == 1 else [p for p in packages if p.name.lower() == name]
     if len(chosen) != 1:
@@ -104,7 +108,8 @@ def detect_source(root: Path) -> tuple[str, str]:
                 _DiagnosticKind.SCOPE_EMPTY,
                 str(base),
                 "Expected one top-level Python package, or one matching pyproject.toml's "
-                f"[project] name ({name or 'missing'}); found {found}.",
+                f"[project] name ({name or 'missing'}); found {found}. Searched directory "
+                f"`{base.relative_to(root).as_posix()}`.",
                 "Pass --source <directory> and --namespace <package>.",
             )
         )

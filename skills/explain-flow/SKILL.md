@@ -20,10 +20,13 @@ or `uvx --from git+https://github.com/rapiddweller/archkeel archkeel` when the p
 archkeel story trace --from <function> --to <function> --snapshot <dir>/architecture.json --json
 ```
 
-1. Give qualified names, such as `shop.cli.main.main`. Without `--to` you get the farthest paths.
+1. Give qualified names, such as `shop.cli.main.main`. Without `--to`, trace resolved calls to
+   the farthest functions. With `--to`, the trace also searches paths with partial calls.
 2. Read `paths`. A hop is `proven` (a resolved call) or `claim` (a partial call, with its seam).
 3. Read `seams`: an unresolved call is a gap. Name it in the story. Do not hide it.
-4. Choose one path. Do not invent a hop that no path has. Use `claim: true` for a step you cannot trace.
+   Check each call-site file and line in the source before you write its words.
+4. Choose one path. Do not invent a hop that no path has. Keep a partial hop as `claim`; use
+   `claim: true` only for a needed step with no measured path.
 
 ## 3. Write the story spec
 
@@ -40,8 +43,9 @@ checks the story by node name and ignores them on a mismatch. For each step in `
 1. Run `archkeel view check story.json --snapshot <dir>/architecture.json --json`.
 2. Read the result, not your spec. Report each `unknown`, `claim` and `missing` step to the owner.
 3. If a step is `missing` or `unknown` for no good reason, change the spec. Do not argue with the result.
-4. Write the spec to `<root>/.archkeel/stories/<id>.story.json` with your own write tool. Add
-   `created` (UTC time), `git_head` (from `git rev-parse HEAD`), `author_kind: "agent"` and
+4. Write the spec to `<root>/.archkeel/stories/<id>.story.json` with your own write tool. This
+   stored story is reviewed repository documentation. Add `created` (UTC time), `git_head` (from
+   `git rev-parse HEAD`), `author_kind: "agent"` and
    `agent` (your name). Do not edit anything else in the repository.
 5. Tell the owner to open Studio (`explore` skill) and pick the story in the list. Studio reads
    the folder and checks the story again on the current snapshot. For a static page run
