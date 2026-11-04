@@ -1184,3 +1184,127 @@ def test_the_lens_shows_the_direction_of_the_line_under_the_pointer(studio: Stud
             assert page.locator(".focus-line .port").count() == 2
         finally:
             browser.close()
+
+
+def _fragment(page) -> str:
+    return page.evaluate("location.hash")
+
+
+@pytest.mark.browser
+def test_a_click_selects_a_double_click_opens_on_every_card_type(studio: Studio) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    answer = {"api_version": API_VERSION, "explore": "done", "graph": _grid_graph()}
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.route("**/api/v1/graph", lambda route: route.fulfill(json=answer))
+            panel = page.locator(".workbench .details")
+
+            def selected(kind: str, name: str) -> None:
+                assert f"Selected · {kind}" in panel.text_content()
+                assert name in panel.text_content()
+
+            # L1: a component card; the panel has the declared responsibility in full.
+            page.goto(studio.url + "#/map")
+            card = page.locator(".map-card", has_text="alpha")
+            card.wait_for()
+            card.click()
+            page.locator(".map-card.pinned").wait_for()
+            assert _fragment(page) == "#/map"
+            selected("Component", "alpha")
+            assert "Alpha does the work." in panel.inner_text()
+            page.keyboard.press("Escape")  # clears the selection first
+            page.locator(".map-card.pinned").wait_for(state="detached")
+            assert _fragment(page) == "#/map"
+            card.click()
+            # The arrows move the selection to the next card, in any direction that has one.
+            for arrow, back in (("ArrowLeft", "ArrowRight"), ("ArrowRight", "ArrowLeft")):
+                page.keyboard.press(arrow)
+                page.wait_for_timeout(150)
+                if page.locator(".map-card.pinned", has_text="beta").count() == 1:
+                    page.keyboard.press(back)
+                    break
+            page.locator(".map-card.pinned", has_text="alpha").wait_for()
+            page.keyboard.press("Enter")  # Enter opens
+            page.wait_for_url("**/#/component/0")
+            # L2: a module card and a stub.
+            module = page.locator(".level-card", has_text="m0.py").first
+            module.wait_for()
+            module.click()
+            page.locator(".level-card.pinned").wait_for()
+            assert _fragment(page) == "#/component/0"
+            selected("Module", "alpha.p0.m0")
+            stub = page.locator(".lens-card.stub").first
+            stub.click()
+            page.locator(".lens-card.stub.pinned").wait_for()
+            assert _fragment(page) == "#/component/0"
+            selected("Component", "beta")
+            stub.dblclick()
+            page.wait_for_url("**/#/component/1")
+            page.goto(studio.url + "#/component/0")
+            page.locator(".level-card", has_text="m0.py").first.dblclick()
+            page.wait_for_url("**/#/module/0")
+            # L3: a function card and a module stub.
+            fn = page.locator(".level-card", has_text="fn3").first
+            fn.click()
+            page.locator(".level-card.pinned").wait_for()
+            assert _fragment(page) == "#/module/0"
+            selected("Function", "fn3")
+            page.locator(".lens-card.stub").first.click()
+            page.locator(".lens-card.stub.pinned").wait_for()
+            assert _fragment(page) == "#/module/0"
+            assert "Selected · Module" in panel.text_content()
+            page.keyboard.press("Escape")
+            page.locator(".lens-card.pinned").wait_for(state="detached")
+            fn.dblclick()
+            page.wait_for_url("**/#/explore/*")
+            # L4: a neighbor of the lens.
+            page.locator(".lens-card.center").wait_for()
+            lens = _fragment(page)
+            neighbor = page.locator("a.lens-card").first
+            neighbor.click()
+            page.locator("a.lens-card.pinned").wait_for()
+            assert _fragment(page) == lens
+            selected("Function", "fn")
+            neighbor.dblclick()
+            page.wait_for_function("(old) => location.hash !== old", arg=lens)
+        finally:
+            browser.close()
+
+
+@pytest.mark.browser
+def test_no_card_has_a_title_or_an_ellipsis(studio: Studio) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    answer = {"api_version": API_VERSION, "explore": "done", "graph": _STRESS}
+    story = _answer(_checked())
+    check = """() => {
+        const titled = document.querySelectorAll('.stage [title], .stage .lens-card[title]').length;
+        const cut = [...document.querySelectorAll(
+          '.stage .lens-card, .stage .map-card, .stage .story-card, .stage .plate span, .details')]
+          .flatMap((card) => [card, ...card.querySelectorAll('*')])
+          .filter((item) => getComputedStyle(item).textOverflow === 'ellipsis'
+            || (item.children.length === 0 && /…$|\\.\\.\\.$/.test(item.textContent.trim())))
+          .map((item) => item.className + ': ' + item.textContent.slice(0, 30));
+        return { titled, cut };
+      }"""
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.route("**/api/v1/graph", lambda route: route.fulfill(json=answer))
+            page.route("**/api/v1/stories/check-flow", lambda route: route.fulfill(json=story))
+            for fragment, selector in (
+                ("#/map", ".map-card"),
+                ("#/component/0", ".level-card"),
+                ("#/module/0", ".level-card"),
+                ("#/explore/0", ".lens-card.center"),
+                ("#/stories/check-flow", ".story-card"),
+            ):
+                page.goto(studio.url + fragment)
+                page.locator(selector).first.wait_for()
+                page.wait_for_timeout(500)
+                found = page.evaluate(check)
+                assert found == {"titled": 0, "cut": []}, (fragment, found)
+        finally:
+            browser.close()
