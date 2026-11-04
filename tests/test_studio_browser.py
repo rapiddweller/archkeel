@@ -8,6 +8,7 @@ Run these tests with `-m browser`; they need the `playwright` package and Chromi
 
 import json
 import os
+import re
 from collections.abc import Iterator
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -669,6 +670,7 @@ def test_a_story_of_the_root_is_checked_by_the_server(studio: Studio) -> None:
             browser.close()
 
 
+_WITH_FUNCTIONS = re.compile(r"[1-9]\d* function")
 _LONG = "a_component_with_a_very_long_name_that_keeps_going"
 _STRESS = {
     "components_from": "contract",
@@ -912,5 +914,192 @@ def test_a_level_is_calm_until_a_card_has_the_focus(studio: Studio) -> None:
             page.locator(".level-card", has_text="fn1").first.click()
             page.locator(".focus-rows li").first.hover()
             assert page.locator(".focus-line.on").count() == 1
+        finally:
+            browser.close()
+
+
+def _boxes_overlap(page) -> list[str]:
+    """Pairs of cards, column labels and plate labels whose boxes overlap, as drawn."""
+    return page.evaluate(
+        """() => {
+        const items = [...document.querySelectorAll(
+          '.stage .lens-card, .stage .map-card, .stage .head, .stage .plate span, .stage .band')]
+          .filter((item) => item.getBoundingClientRect().width > 0)
+          .map((item) => ({ name: item.textContent.trim().slice(0, 24),
+            box: item.getBoundingClientRect() }));
+        const bad = [];
+        for (let i = 0; i < items.length; i += 1) {
+          for (let j = i + 1; j < items.length; j += 1) {
+            const a = items[i].box; const b = items[j].box;
+            const across = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+            const down = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+            if (across > 1 && down > 1) bad.push(items[i].name + ' | ' + items[j].name);
+          }
+        }
+        return bad;
+      }"""
+    )
+
+
+@pytest.mark.browser
+@pytest.mark.parametrize(("width", "height"), [(1440, 900), (1000, 700)])
+def test_no_card_header_or_label_overlaps_another_on_any_level(
+    studio: Studio, width: int, height: int
+) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    answer = {"api_version": API_VERSION, "explore": "done", "graph": _grid_graph()}
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": width, "height": height})
+            page.route("**/api/v1/graph", lambda route: route.fulfill(json=answer))
+            for fragment in (
+                "#/map",
+                "#/component/0",
+                "#/component/0/p1",
+                "#/module/0",
+                "#/explore/2",
+            ):
+                page.goto(studio.url + fragment)
+                page.locator(".stage .lens-card, .stage .map-card").first.wait_for()
+                page.wait_for_timeout(700)
+                assert _boxes_overlap(page) == [], fragment
+            # With a focus: the stubs name the functions on the other side and still do not overlap.
+            page.goto(studio.url + "#/module/0")
+            page.locator(".level-card").first.wait_for()
+            page.locator(".level-card", has_text="fn3").first.hover()
+            page.wait_for_timeout(300)
+            assert _boxes_overlap(page) == []
+        finally:
+            browser.close()
+
+
+@pytest.mark.browser
+def test_a_line_ends_on_the_card_it_belongs_to_and_the_dots_show_the_direction(
+    studio: Studio,
+) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    answer = {"api_version": API_VERSION, "explore": "done", "graph": _grid_graph()}
+    ends = """() => {
+        const boxes = [...document.querySelectorAll('.lens-card')].map((card) => ({
+          x: parseFloat(card.style.left), y: parseFloat(card.style.top),
+          w: parseFloat(card.style.width), h: parseFloat(card.style.height)}));
+        const onEdge = (px, py) => boxes.some((b) => {
+          const inX = px >= b.x - 0.6 && px <= b.x + b.w + 0.6;
+          const inY = py >= b.y - 0.6 && py <= b.y + b.h + 0.6;
+          const edgeX = Math.abs(px - b.x) <= 0.6 || Math.abs(px - b.x - b.w) <= 0.6;
+          const edgeY = Math.abs(py - b.y) <= 0.6 || Math.abs(py - b.y - b.h) <= 0.6;
+          return inX && inY && (edgeX || edgeY);
+        });
+        return [...document.querySelectorAll('.focus-line .stroke')].map((path) => {
+          const points = path.dataset.points.split(' ').map((pair) => pair.split(',').map(Number));
+          const first = points[0]; const last = points[points.length - 1];
+          return onEdge(first[0], first[1]) && onEdge(last[0], last[1]);
+        });
+      }"""
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.route("**/api/v1/graph", lambda route: route.fulfill(json=answer))
+            page.goto(studio.url + "#/module/0")
+            page.locator(".level-card").first.wait_for()
+            page.wait_for_timeout(500)
+            # At rest every stub has one faint line to a port; there is no exact line.
+            assert (
+                page.locator(".aggregate").count() == page.locator(".lens-card.stub").count() >= 1
+            )
+            assert page.locator(".focus-line").count() == 0
+            page.locator(".level-card", has_text="fn3").first.hover()
+            page.locator(".focus-line").first.wait_for(state="attached")
+            assert page.locator(".aggregate").count() == 0
+            results = page.evaluate(ends)
+            assert results and all(results)  # each end is on the edge of a card, stub or tile
+            # One dot for each line, in the direction of the call; the panel says so.
+            assert page.locator(".focus-line .flow").count() == page.locator(".focus-line").count()
+            assert "direction of the call" in page.locator(".workbench .details").inner_text()
+            quiet = browser.new_page(
+                viewport={"width": 1440, "height": 900}, reduced_motion="reduce"
+            )
+            quiet.route("**/api/v1/graph", lambda route: route.fulfill(json=answer))
+            quiet.goto(studio.url + "#/module/0")
+            quiet.locator(".level-card").first.wait_for()
+            quiet.locator(".level-card", has_text="fn3").first.hover()
+            quiet.locator(".focus-line").first.wait_for(state="attached")
+            assert quiet.locator(".focus-line .flow").count() == 0
+            assert quiet.locator(".focus-line .chevron").count() >= 1
+        finally:
+            browser.close()
+
+
+@pytest.mark.browser
+def test_the_links_of_a_function_card_are_the_neighbors_in_the_panel(studio: Studio) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    answer = {"api_version": API_VERSION, "explore": "done", "graph": _grid_graph()}
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.route("**/api/v1/graph", lambda route: route.fulfill(json=answer))
+            page.goto(studio.url + "#/module/0")
+            page.locator(".level-card").first.wait_for()
+            for name in ("fn0", "fn1", "fn3", "fn5", "fn9"):
+                card = page.locator(".level-card", has_text=name).first
+                shown = int(card.locator(".meta").inner_text().split()[0])
+                card.click()
+                page.locator(".level-card.pinned").wait_for()
+                assert page.locator(".focus-rows [data-neighbor]").count() == shown, name
+                page.keyboard.press("Escape")
+        finally:
+            browser.close()
+
+
+@pytest.fixture(scope="module")
+def archkeel_studio(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Studio]:
+    """A Studio on this repository: the real snapshot of ArchKeel itself."""
+    tmp_path = tmp_path_factory.mktemp("archkeel")
+    server = _start(Path(__file__).parents[1], tmp_path / "cache")
+    assert explore(server, login(server))["explore"] == "done"
+    yield server
+    _stop(server)
+
+
+@pytest.mark.browser
+def test_check_evaluation_has_callers_and_no_overlap_on_the_real_snapshot(
+    archkeel_studio: Studio,
+) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            for width, height in ((1440, 900), (1000, 700)):
+                page = browser.new_page(viewport={"width": width, "height": height})
+                page.set_default_timeout(60000)
+                page.goto(archkeel_studio.url)
+                page.locator(".map-card").first.wait_for()
+                page.wait_for_timeout(700)
+                assert _boxes_overlap(page) == []
+                page.locator(".map-card", has_text="Authenticate inputs").first.click()
+                page.locator(".stage .lens-card").first.wait_for()
+                page.wait_for_timeout(700)
+                assert _boxes_overlap(page) == []
+                # The package check.evaluation: its callers are other packages of check, as stubs.
+                page.goto(page.url + "/evaluation")
+                page.locator(".stage .level-card").first.wait_for()
+                page.wait_for_timeout(700)
+                assert page.locator(".level-card").count() >= 6  # never only a "+N more" tile
+                callers = page.locator(".lens-card.stub[data-side='in']")
+                assert callers.count() >= 1
+                assert "evaluation" not in " ".join(callers.all_inner_texts()).split("\\n")[0]
+                assert _boxes_overlap(page) == []
+                page.locator(".level-card", has_text=_WITH_FUNCTIONS).first.dblclick()
+                page.locator(".stage .level-card").first.wait_for()
+                page.wait_for_timeout(700)
+                assert _boxes_overlap(page) == []
+                page.locator(".level-card").first.dblclick()
+                page.locator(".lens-card.center").wait_for()
+                page.wait_for_timeout(700)
+                assert _boxes_overlap(page) == []
+                page.close()
         finally:
             browser.close()

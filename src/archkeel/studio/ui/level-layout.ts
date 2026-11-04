@@ -71,6 +71,8 @@ export interface LevelLayout {
   readonly aggregates: readonly LevelAggregate[];
   /** Stubs that did not fit the drawing, counted. */
   readonly moreStubs: number;
+  /** Where the columns of the stubs start. */
+  readonly columns: { readonly in: number; readonly out: number };
 }
 
 interface Group {
@@ -241,6 +243,7 @@ function arrange(
     links: merged.filter((link) => drawn.has(link.a) && drawn.has(link.b)),
     aggregates,
     moreStubs: Math.max(0, stubsIn.length - STUBS_SHOWN) + Math.max(0, stubsOut.length - STUBS_SHOWN),
+    columns: { in: 0, out: left + plateWidth + SPREAD },
   };
 }
 

@@ -90,10 +90,21 @@ export function makeRouter(layout: LevelLayout): (from: LevelBox, to: LevelBox) 
     const [c0, r0] = cellOf(box.x, box.y);
     const [c1, r1] = cellOf(box.x + box.width - 0.01, box.y + box.height - 0.01);
     const found: number[] = [];
+    // Only cells whose centre faces the box: the line then meets the border at a right angle.
+    const facesX = (column: number): boolean => {
+      const x = (column - shift) * CELL + CELL / 2;
+      return x >= box.x && x <= box.x + box.width;
+    };
+    const facesY = (row: number): boolean => {
+      const y = (row - shift) * CELL + CELL / 2;
+      return y >= box.y && y <= box.y + box.height;
+    };
     for (let column = c0; column <= c1; column += 1) {
+      if (!facesX(column)) continue;
       for (const row of [r0 - 1, r1 + 1]) found.push(row * columns + column);
     }
     for (let row = r0; row <= r1; row += 1) {
+      if (!facesY(row)) continue;
       for (const column of [c0 - 1, c1 + 1]) found.push(row * columns + column);
     }
     return found.filter((at) => at >= 0 && at < columns * rows && blocked[at] === 0);

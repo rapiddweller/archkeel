@@ -316,7 +316,6 @@ export function LevelCanvas(props: {
       }),
     [layout, focus.key],
   );
-  const headX = (side: Side): number => layout.stubs.find((stub) => stub.side === side)?.x ?? 0;
   const dim = (key: string): string => (focus.key === null || key === focus.key || near.has(key) ? "" : " dim");
   const names = (stub: LevelStub): string[] => {
     const other = connected.find((item) => item.other === stubKey(stub.side, stub.ref));
@@ -375,16 +374,13 @@ export function LevelCanvas(props: {
           );
         })}
       </svg>
-      {layout.stubs.length > 0 ? (
-        <>
-          <p class="head" style={{ left: `${headX(Side.In)}px`, top: "8px" }}>
-            {props.headIn}
+      {[Side.In, Side.Out]
+        .filter((side) => layout.stubs.some((stub) => stub.side === side))
+        .map((side) => (
+          <p key={side} class="head" style={{ left: `${side === Side.In ? layout.columns.in : layout.columns.out}px`, top: "8px" }}>
+            {side === Side.In ? props.headIn : props.headOut}
           </p>
-          <p class="head" style={{ left: `${headX(Side.Out)}px`, top: "8px" }}>
-            {props.headOut}
-          </p>
-        </>
-      ) : null}
+        ))}
       {layout.cards.map((card) => {
         const info = props.card(card.index);
         const key = cardKey(level, card.index);
@@ -432,7 +428,7 @@ export function LevelCanvas(props: {
         const key = stubKey(stub.side, stub.ref);
         const chips = names(stub);
         return (
-          <a key={key} class={`lens-card stub ${stub.claim > 0 ? "claim" : "proven"}${dim(key)}`} data-drill style={place(stub)} href={info.href} aria-label={info.title} {...tip(key, info.title)}>
+          <a key={key} class={`lens-card stub ${stub.claim > 0 ? "claim" : "proven"}${dim(key)}`} data-side={stub.side} data-drill style={place(stub)} href={info.href} aria-label={info.title} {...tip(key, info.title)}>
             <b>{info.name}</b>
             <span class="meta path">{info.path}</span>
             <span class="meta">

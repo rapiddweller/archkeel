@@ -32,6 +32,14 @@ export function ComponentLevel(props: { model: Model; component: number; pkg: st
   const stubInfo = (stub: { readonly ref: string; readonly proven: number; readonly claim: number }) => {
     const { id: other, pkg: inner } = splitRef(stub.ref);
     const label = model.graph.components[other][0];
+    if (other === component && inner === null) {
+      return {
+        href: viewHref(View.Component, other),
+        name: `${label} (root)`,
+        title: `${label}, outside this package: ${stub.proven + stub.claim} call sites`,
+        path: "modules outside this package",
+      };
+    }
     return {
       href: viewHref(View.Component, other, inner ?? undefined),
       name: inner === null ? label : tailName(inner, 20),
