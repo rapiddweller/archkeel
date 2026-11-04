@@ -23,7 +23,7 @@ nav a[aria-current="page"] { background: var(--raised); color: var(--text); font
 main { padding: 0; min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
 .titlebar { flex: none; padding: 10px 20px; border-bottom: 1px solid var(--line); min-height: 44px; display: flex;
   align-items: center; }
-.page { flex: 1; min-width: 0; min-height: 0; overflow: auto; padding: 24px 32px; display: flex; flex-direction: column; }
+.page { flex: 1; min-width: 0; min-height: 0; overflow: auto; padding: 20px 32px 12px; display: flex; flex-direction: column; }
 h1 { margin: 0 0 4px; font-size: 26px; }
 .lead { color: var(--muted); margin: 0; }
 .tabs { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
