@@ -3,10 +3,10 @@
 **Status.** Accepted. Issue #830; amends AD-291 item 4.
 
 **Decision.** A step marked `claim: true` may assert a transition between nodes that exist in the
-snapshot. The check reports that transition as `claim` without looking for a call. The claim does
+snapshot. The check reports that story-step transition as `claim` without looking for a call. The claim does
 not make either endpoint exist: an invented node remains `missing` (or `unknown` when source
-coverage is incomplete), and its transition cannot pass as `claim`. An external system remains an
-author claim only through the existing explicit `external` field.
+coverage is incomplete), and its transition cannot pass as `claim`. Claims on view edges retain their existing meaning. An external system remains an author claim only through the existing
+explicit `external` field.
 
 **Reason.** A claim can bridge an unobserved relationship, but cannot add source evidence.
 

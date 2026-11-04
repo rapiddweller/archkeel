@@ -17,8 +17,8 @@ from archkeel.ir.flow_graph import (
     Seam,
     Site,
     build_call_graph,
-    function_label,
     find_paths,
+    function_label,
     module_lanes,
     touchpoints,
 )

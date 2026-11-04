@@ -984,6 +984,9 @@ def _link(
     note: str | None,
     step: bool,
 ) -> LinkCheck:
+    if claim and not step:
+        reason = "author claim: not checked against the graph"
+        return LinkCheck(source, target, ViewStatus.CLAIM, reason, kind, note=note)
     ends = {nodes[source].status, nodes[target].status}
     for status in (ViewStatus.MISSING, ViewStatus.UNKNOWN):
         if status in ends:
@@ -1210,7 +1213,9 @@ def view_summary(check: ViewCheck) -> str:
     }
     lines = [f"View check {check.title!r}: exit {check.exit_code}, {verdicts[check.exit_code]}."]
     if check.snapshot_completeness == "incomplete":
-        lines.append("Warning: the source snapshot is incomplete; UNKNOWN means evidence is missing.")
+        lines.append(
+            "Warning: the source snapshot is incomplete; UNKNOWN means evidence is missing."
+        )
     for label, items in (("Nodes", check.nodes), ("Edges", check.edges), ("Steps", check.steps)):
         counts = Counter(item.status for item in items)
         found = ", ".join(f"{counts[status]} {status}" for status in ViewStatus if counts[status])

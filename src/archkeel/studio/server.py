@@ -239,9 +239,7 @@ class _Handler(BaseHTTPRequestHandler):
         elif path is ApiPath.STORIES and story_id is None:
             state = workspace.state()
             snapshot = (
-                workspace.file("architecture.json")
-                if state.explore is ExploreState.DONE
-                else None
+                workspace.file("architecture.json") if state.explore is ExploreState.DONE else None
             )
             self._send(HTTPStatus.OK, stories_json(stories.rows(snapshot)), "application/json")
         else:

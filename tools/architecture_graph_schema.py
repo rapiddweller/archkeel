@@ -391,8 +391,9 @@ def view_check_schema() -> dict[str, object]:
     # The result schema versions independently from the spec version it records.
     schema["$id"] = "urn:archkeel:view-check:1.3.0"
     schema["$comment"] = (
-        "Generated from archkeel.ir.view_spec (AD-284, result schema 1.3.0). The result is self-contained: each node, "
-        "edge and step carries its status, reason, kind, path and evidence. A proven step is "
+        "Generated from archkeel.ir.view_spec (AD-284, result schema 1.3.0). "
+        "The result is self-contained: each node, edge and step carries its status, reason, "
+        "kind, path and evidence. A proven step is "
         "static structure, not runtime order; title, notes and claims are author text. A stop "
         "carries its node status and facts measured from the snapshot; its title and note are "
         "author text (AD-289). A 1.2.0 spec with a story adds `story`: for each step, by index "

@@ -44,8 +44,8 @@ from archkeel.ir.model import EvidenceClass, Observation, Record, RecordData, Se
 from archkeel.ir.story import trace_flow, trace_json, trace_summary
 from archkeel.ir.view_spec import (
     CandidateEvidence,
-    ViewStatus,
     ViewCheckSession,
+    ViewStatus,
     call_evidence,
     check_view,
     parse_view_spec,
@@ -247,6 +247,22 @@ def test_a_claim_may_bridge_existing_nodes_but_cannot_invent_one(shop: Observati
     )
     assert invented.nodes[1].status is ViewStatus.MISSING
     assert invented.steps[1].status is ViewStatus.MISSING
+
+
+@pytest.mark.parametrize("version", ["1.0.0", "1.1.0"])
+def test_legacy_view_claim_edges_keep_their_original_semantics(
+    shop: Observation, version: str
+) -> None:
+    raw = _spec(shop, [{"node": MAIN}])
+    raw.pop("story")
+    raw["schema_version"] = version
+    invented = "shop.cli.main.made_up"
+    raw["nodes"] = [MAIN, invented]
+    raw["edges"] = [{"source": MAIN, "target": invented, "claim": True}]
+
+    result = check_view(parse_view_spec(raw), shop, strict=False)
+
+    assert result.edges[0].status is ViewStatus.CLAIM
 
 
 def test_an_incomplete_snapshot_does_not_claim_a_missing_node(shop: Observation) -> None:

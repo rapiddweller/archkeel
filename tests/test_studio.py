@@ -112,7 +112,9 @@ def _validator(answer: str) -> Draft202012Validator:
 def validate(payload: object, name: str) -> None:
     """Check a JSON body against one definition of the API schema."""
     schema = {"$schema": _SCHEMA["$schema"], "$defs": _SCHEMA["$defs"], "$ref": f"#/$defs/{name}"}
-    checked_schema = json.loads((Path(__file__).parents[1] / "schema/view-check-1.3.schema.json").read_bytes())
+    checked_schema = json.loads(
+        (Path(__file__).parents[1] / "schema/view-check-1.3.schema.json").read_bytes()
+    )
     registry = Registry().with_resource(
         checked_schema["$id"], Resource.from_contents(checked_schema)
     )

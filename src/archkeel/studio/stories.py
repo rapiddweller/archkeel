@@ -90,7 +90,9 @@ class Stories:
                 title = body.get("title") if body is not None else None
                 steps = body.get("steps") if body is not None else None
                 made = body.get("created") if body is not None else None
-                checked_counts = _checked_counts(self, path, snapshot) if snapshot is not None else None
+                checked_counts = (
+                    _checked_counts(self, path, snapshot) if snapshot is not None else None
+                )
                 rows[story_id] = StoryRow(
                     story_id,
                     title if isinstance(title, str) else story_id,
