@@ -3,10 +3,9 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { CheckStatus, CheckedStory, StepLink, StoryRow, StoryStep, readStories, readStory } from "../api";
 import { Badge, Box, Page, ProofMark, View, viewHref } from "../components";
 import { Evidence, Proof, proofKind } from "../evidence";
-import { STORY, layoutStory, midCut } from "../story-layout";
+import { STORY, cardName, layoutStory } from "../story-layout";
 
 const STEP_MS = 4000;
-const CARD_NAME = 30;
 
 /** The check has five statuses and the proof three. Only `proven` is proven: never round up. */
 const PROOF_OF: Record<CheckStatus, Proof> = {
@@ -118,6 +117,7 @@ function Player(props: { checked: CheckedStory }) {
   const [current, setCurrent] = useState(0);
   const [playing, setPlaying] = useState(false);
   const stage = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
   const count = story?.steps.length ?? 0;
   const last = Math.max(0, count - 1);
   const go = (index: number): void => setCurrent(Math.max(0, Math.min(last, index)));
@@ -154,14 +154,24 @@ function Player(props: { checked: CheckedStory }) {
     return () => removeEventListener("keydown", listener);
   });
   const layout = story === null ? null : layoutStory(checked);
+  // A story wider than the stage shrinks to fit: the cards keep their whole text.
+  useEffect(() => {
+    if (layout === null || stage.current === null) return;
+    const element = stage.current;
+    const fit = (): void => setScale(Math.min(1, Math.max(0.45, (element.clientWidth - 16) / layout.width)));
+    fit();
+    const watch = new ResizeObserver(fit);
+    watch.observe(element);
+    return () => watch.disconnect();
+  }, [layout?.width]);
   // The camera follows the step: the stage scrolls, the reader never pans.
   useEffect(() => {
     if (layout === null || stage.current === null) return;
     const card = layout.cards[current];
-    const top = card.y - stage.current.clientHeight / 2 + STORY.card.height / 2;
-    const left = card.x - stage.current.clientWidth / 2 + STORY.card.width / 2;
+    const top = card.y * scale - stage.current.clientHeight / 2 + (STORY.card.height * scale) / 2;
+    const left = card.x * scale - stage.current.clientWidth / 2 + (STORY.card.width * scale) / 2;
     stage.current.scrollTo({ top: Math.max(0, top), left: Math.max(0, left), behavior: reduced() ? "auto" : "smooth" });
-  }, [current, layout]);
+  }, [current, layout, scale]);
   if (story === null || layout === null || count === 0) {
     return <p class="more">This spec has no story: it has no steps to play.</p>;
   }
@@ -179,7 +189,8 @@ function Player(props: { checked: CheckedStory }) {
         </p>
       )}
       <div class="story-stage" ref={stage} data-reduced={reduced()}>
-        <div class="story-canvas" style={{ width: `${layout.width}px`, height: `${layout.height}px` }}>
+        <div class="story-fit" style={{ width: `${layout.width * scale}px`, height: `${layout.height * scale}px` }}>
+        <div class="story-canvas" style={{ width: `${layout.width}px`, height: `${layout.height}px`, transform: `scale(${scale})` }}>
           {layout.lanes.map((lane, index) => (
             <p
               key={lane}
@@ -218,7 +229,7 @@ function Player(props: { checked: CheckedStory }) {
                 aria-current={index === current ? "step" : undefined}
                 onClick={() => go(index)}
               >
-                <b>{midCut(step.node.split(".").slice(-2).join("."), CARD_NAME)}</b>
+                <b>{cardName(step.node)}</b>
                 <span class="meta">
                   <ProofMark proof={proof} /> ·{" "}
                   {candidatesOf(step, link(index)) === null
@@ -241,6 +252,7 @@ function Player(props: { checked: CheckedStory }) {
               ))}
             </div>
           )}
+        </div>
         </div>
       </div>
       <StepPanel step={story.steps[current]} link={link(current)} count={count} />

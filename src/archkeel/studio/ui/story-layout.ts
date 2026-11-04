@@ -2,9 +2,9 @@
 import type { CheckedStory } from "./api";
 
 export const STORY = {
-  lane: 224,
+  lane: 262,
   gap: 14,
-  card: { width: 210, height: 46 },
+  card: { width: 250, height: 48 },
   row: 64,
   top: 92,
   external: 200,
@@ -41,6 +41,23 @@ export interface StoryLayout {
 
 const UNLANED = "(no lane)";
 const CORNER = 14;
+
+/** The width of a character of the card font (11.5 px monospace) and the padding of a card. */
+const CHAR = 7;
+const PAD = 28;
+
+/** The dotted name that fits a card: the longest end of the name; cut in the middle only when its last part is too long. */
+export function cardName(name: string, width: number = STORY.card.width): string {
+  const limit = Math.floor((width - PAD) / CHAR);
+  const parts = name.split(".");
+  let fit = "";
+  for (let length = 1; length <= parts.length; length += 1) {
+    const text = parts.slice(-length).join(".");
+    if (text.length > limit) break;
+    fit = text;
+  }
+  return fit === "" ? midCut(parts[parts.length - 1], limit) : fit;
+}
 
 /** A long name is cut in the middle, so that its start and its end stay visible. */
 export function midCut(name: string, limit: number): string {

@@ -128,7 +128,8 @@ a.map-card:hover, .map-card.hl, a.map-card:focus-visible { border-color: var(--p
 .map-card h2 .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .map-card h2 small { flex: none; padding-left: 8px; }
 .chips { display: flex; flex-wrap: wrap; gap: 5px; }
-.chip { font: 9.5px ui-monospace, Menlo, monospace; padding: 2px 7px; border-radius: 999px;
+.chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 9.5px ui-monospace, Menlo, monospace; padding: 2px 7px; border-radius: 999px;
   background: var(--hover); color: var(--text); }
 .chip.unknown { color: var(--unknown); }
 .busiest { font: 10px ui-monospace, Menlo, monospace; color: var(--muted); white-space: nowrap;
@@ -277,7 +278,8 @@ pre.draft { max-height: 220px; overflow: auto; white-space: pre-wrap; margin: 6p
 .story-player > .more { grid-column: 1; margin: 0; }
 .story-stage { grid-column: 1; grid-row: 3; min-height: 0; overflow: auto; position: relative; border: 1px solid var(--line);
   border-radius: var(--radius); background: radial-gradient(var(--hair) 1px, transparent 1px) 0 0 / 26px 26px; }
-.story-canvas { position: relative; margin: 0 auto; }
+.story-fit { margin: 0 auto; }
+.story-canvas { position: relative; transform-origin: 0 0; }
 .story-canvas > * { position: absolute; margin: 0; }
 .lane { top: 14px; display: flex; align-items: center; font: 600 13px ui-monospace, Menlo, monospace; color: var(--muted);
   padding: 4px 10px; border-radius: 10px; transition: background .5s; }
@@ -298,8 +300,10 @@ pre.draft { max-height: 220px; overflow: auto; white-space: pre-wrap; margin: 6p
 .story-card.now { opacity: 1; transform: scale(1.035); border-color: var(--target); }
 .story-card.claim, .story-card.unknown { border-style: dashed; }
 .story-card.claim { border-color: var(--claim); } .story-card.unknown { border-color: var(--unknown); }
-.story-card b { font: 600 11.5px ui-monospace, Menlo, monospace; white-space: nowrap; }
-.story-card .meta { font: 10px ui-monospace, Menlo, monospace; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.story-card { overflow: hidden; min-width: 0; }
+.story-card b { display: block; font: 600 11.5px ui-monospace, Menlo, monospace; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; }
+.story-card .meta { display: block; font: 10px ui-monospace, Menlo, monospace; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .externals { top: 14px; display: flex; flex-direction: column; gap: 8px; }
 .externals .head { margin: 0 0 2px; position: static; }
 .system { margin: 0; padding: 8px 12px; border: 1px dashed var(--line); border-radius: 10px; font: 12px ui-monospace, Menlo, monospace;

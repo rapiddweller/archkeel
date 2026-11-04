@@ -53,7 +53,7 @@ export interface LensLayout {
 
 const CARD_WIDTH = 236;
 const CARD_HEIGHT = 54;
-const CENTER_HEIGHT = 140;
+const CENTER_HEIGHT = 172;
 const COLUMN_LEFT = 30;
 const COLUMN_RIGHT = 676;
 const CENTER_LEFT = 365;

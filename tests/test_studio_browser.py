@@ -609,7 +609,8 @@ def test_a_story_plays_and_a_claim_never_reads_as_proven(studio: Studio) -> None
             assert step.get_by_text("Question for the architect").is_visible()
             # The card cuts a long name in the middle; the panel has the full name.
             card = page.locator(".story-card").nth(4)
-            assert "…" in card.locator("b").inner_text()
+            # The end of the name that fits; the panel and the tooltip have the full name.
+            assert card.locator("b").inner_text() == "collect_response"
             assert card.get_attribute("title") == _CHECKED["story"]["steps"][4]["node"]
             assert page.evaluate("document.documentElement.scrollWidth") <= 1440
             # No arrow encodes a flow: the route has no marker.
@@ -664,5 +665,118 @@ def test_a_story_of_the_root_is_checked_by_the_server(studio: Studio) -> None:
             step = page.get_by_role("complementary", name="Step")
             step.get_by_text("place builds the order and saves it.").wait_for()
             assert "✓ proven" in step.locator(".step-no").inner_text()
+        finally:
+            browser.close()
+
+
+_LONG = "a_component_with_a_very_long_name_that_keeps_going"
+_STRESS = {
+    "components_from": "contract",
+    "components": [
+        [_LONG, "Own a long sentence about what this component does, " * 4],
+        ["second_component_with_a_long_label", "Calls the first one. " * 6],
+        ["c", "short"],
+    ],
+    "modules": [
+        [
+            "pkg.sub.module_with_a_very_long_name_here",
+            "pkg/sub/module_with_a_very_long_name_here.py",
+            0,
+            "sub.module_with_a_very_long_name_here",
+        ],
+        [
+            "pkg.other_long_module_name_number_two",
+            "pkg/other_long_module_name_number_two.py",
+            1,
+            "other_long_module_name_number_two",
+        ],
+        ["c.m", "c/m.py", 2, "m"],
+    ],
+    "symbols": [
+        [
+            0,
+            "VeryLongClassName.a_method_with_a_really_long_name_for_testing",
+            1,
+            "method",
+            "def a_method_with_a_really_long_name_for_testing(self, argument_one) -> Some:",
+            3,
+            2,
+        ],
+        [
+            1,
+            "another_function_with_a_long_name_for_the_test",
+            1,
+            "function",
+            "def another():",
+            0,
+            0,
+        ],
+        [2, "f", 1, "function", "def f():", 0, 0],
+    ],
+    "edges": [[0, 1, False, 3, 0], [0, 1, True, 4, 1], [1, 2, False, 5, 2], [2, 0, False, 6, 3]],
+    "unknown": [[0, "some.expression.that.is.long.enough.to.matter()", "dynamic attribute", 9]],
+}
+
+
+@pytest.mark.browser
+@pytest.mark.parametrize(("width", "height"), [(1440, 900), (1000, 700)])
+def test_no_text_crosses_the_border_of_a_card_on_any_level(
+    studio: Studio, width: int, height: int
+) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    answer = {"api_version": API_VERSION, "explore": "done", "graph": _STRESS}
+    Draft202012Validator({"$ref": "#/$defs/graph", "$defs": _SCHEMA["$defs"]}).validate(answer)
+    story = {"api_version": API_VERSION, "id": "check-flow", "checked": _checked()}
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": width, "height": height})
+            page.route("**/api/v1/graph", lambda route: route.fulfill(json=answer))
+            page.route("**/api/v1/stories/check-flow", lambda route: route.fulfill(json=story))
+            for fragment, selector in (
+                ("#/map", ".map-card"),
+                ("#/component/0", ".level-card"),
+                ("#/module/0", ".level-card"),
+                ("#/explore/0", ".lens-card.center"),
+                ("#/stories/check-flow", ".story-card"),
+            ):
+                page.goto(studio.url + fragment)
+                page.locator(selector).first.wait_for()
+                page.wait_for_timeout(700)  # the cards fade in
+                _no_overflow(page)
+                assert page.evaluate("document.documentElement.scrollWidth") <= width, fragment
+            # The story card shows the whole dotted end of a name that fits, and a cut only if it does not.
+            names = page.locator(".story-card b").all_inner_texts()
+            assert "check.run.observe_revision" in names  # more than the last part, as it fits
+            assert not any(
+                "…" in name for name in names
+            )  # a cut only when the last part is too long
+        finally:
+            browser.close()
+
+
+@pytest.mark.browser
+def test_enter_drills_in_reduced_motion_does_not_zoom_and_the_report_left_the_nav(
+    studio: Studio,
+) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(
+                viewport={"width": 1440, "height": 900}, reduced_motion="reduce"
+            )
+            page.goto(studio.url)
+            page.locator(".map-card").first.wait_for()
+            # The static report is a secondary link, not a page of the workspace.
+            nav = page.get_by_role("navigation", name="Workspace")
+            assert "Report" not in nav.inner_text()
+            note = page.locator(".secondary")
+            assert "Open the static report" in note.inner_text()
+            assert "CI and Pages" in note.inner_text()
+            page.locator(".map-card", has_text="app").focus()
+            page.keyboard.press("Enter")
+            page.locator(".level-card", has_text="orders.py").wait_for()
+            assert page.locator("section.canvas").get_attribute("data-transition") == "none"
         finally:
             browser.close()
