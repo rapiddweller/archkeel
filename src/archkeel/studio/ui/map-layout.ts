@@ -1,25 +1,22 @@
 /** AD-290: the layout of the component Map: role bands by net call flow, and the lines. */
-import type { Model } from "./model";
+import type { Model, Tally } from "./model";
 
 export const MAP_CARD = { width: 250, height: 172, gapX: 210, gapY: 30, left: 40, top: 70 } as const;
 
 const STRONG_SHARE = 0.06;
 const LABEL_SHARE = 0.12;
-const MOSTLY_PARTIAL = 0.5;
 
-export interface MapLine {
+export interface MapLine extends Tally {
   readonly from: number;
   readonly to: number;
+  /** Proven and claim call sites together; the width and the strength follow this number. */
   readonly calls: number;
-  readonly partial: number;
   readonly path: string;
   readonly width: number;
   /** Only strong lines are drawn at full weight. */
   readonly strong: boolean;
   /** Only strong lines carry their count. */
   readonly labeled: boolean;
-  /** At least half of the calls are partial: the line is a claim. */
-  readonly mostlyPartial: boolean;
   readonly middle: readonly [number, number];
 }
 
@@ -42,8 +39,9 @@ const BAND_NAMES: Record<number, readonly string[]> = {
 function bandsOf(model: Model): number[] {
   const count = model.graph.components.length;
   const score = model.stats.map((stat, index) => {
-    const total = stat.callsOut + stat.callsIn;
-    return { index, net: (stat.callsOut - stat.callsIn) / Math.max(1, total), total };
+    const out = stat.callsOut.proven + stat.callsOut.claim;
+    const into = stat.callsIn.proven + stat.callsIn.claim;
+    return { index, net: (out - into) / Math.max(1, out + into), total: out + into };
   });
   score.sort((a, b) => b.net - a.net || b.total - a.total);
   const bands = count <= 6 ? 2 : 3;
@@ -87,7 +85,7 @@ export function layoutMap(model: Model): MapLayout {
   const bands = Math.max(0, ...band) + 1;
   const columns: number[][] = Array.from({ length: bands }, () => []);
   model.stats.forEach((_, index) => columns[band[index]].push(index));
-  const calls = new Map(model.flows.map((flow) => [flow.from * count + flow.to, flow.calls]));
+  const shares = new Map(model.flows.map((flow) => [flow.from * count + flow.to, flow.proven + flow.claim]));
   const rank = new Map<number, number>();
   columns.forEach((column, level) => {
     if (level > 0) {
@@ -95,7 +93,7 @@ export function layoutMap(model: Model): MapLayout {
         let sum = 0;
         let weight = 0;
         for (let caller = 0; caller < count; caller += 1) {
-          const share = calls.get(caller * count + target) ?? 0;
+          const share = shares.get(caller * count + target) ?? 0;
           if (band[caller] < level && share > 0 && rank.has(caller)) {
             sum += (rank.get(caller) ?? 0) * share;
             weight += share;
@@ -116,21 +114,22 @@ export function layoutMap(model: Model): MapLayout {
       positions[component] = [left + level * (width + gapX), top + offset + row * (height + gapY)];
     });
   });
-  const strongest = Math.max(1, ...model.flows.map((flow) => flow.calls));
+  const strongest = Math.max(1, ...model.flows.map((flow) => flow.proven + flow.claim));
   const lines = [...model.flows]
-    .sort((a, b) => a.calls - b.calls)
+    .sort((a, b) => a.proven + a.claim - (b.proven + b.claim))
     .map<MapLine>((flow) => {
+      const calls = flow.proven + flow.claim;
       const { path, middle } = curve(positions[flow.from], positions[flow.to], band[flow.from], band[flow.to]);
       return {
         from: flow.from,
         to: flow.to,
-        calls: flow.calls,
-        partial: flow.partial,
+        proven: flow.proven,
+        claim: flow.claim,
+        calls,
         path,
-        width: 0.8 + Math.log10(flow.calls + 1) * 1.5,
-        strong: flow.calls >= strongest * STRONG_SHARE,
-        labeled: flow.calls >= strongest * LABEL_SHARE,
-        mostlyPartial: flow.partial / flow.calls >= MOSTLY_PARTIAL,
+        width: 0.8 + Math.log10(calls + 1) * 1.5,
+        strong: calls >= strongest * STRONG_SHARE,
+        labeled: calls >= strongest * LABEL_SHARE,
         middle,
       };
     });

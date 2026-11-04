@@ -12,8 +12,9 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import pytest
+from jsonschema import Draft202012Validator
 from test_explore import _repository
-from test_studio import _start, _stop, explore, login
+from test_studio import _SCHEMA, _start, _stop, explore, login
 
 from archkeel.cli import main
 from archkeel.cli.config import load_config
@@ -71,8 +72,9 @@ def _check_the_map(page, width: int) -> None:
     for name in ("app", "cli", "store", "(unowned)"):
         assert cards.filter(has_text=name).count() == 1, name
     # Status is a glyph and a word, never a colour alone.
-    count = page.get_by_role("button", name="1 call from app to store, proven")
+    count = page.get_by_role("button", name="1 call from app to store: 1 proven")
     assert count.inner_text().strip() == "1 ✓ proven"
+    assert page.get_by_text("components: observed package layout", exact=True).is_visible()
     assert page.get_by_text("✓ proven = resolved call", exact=True).first.is_visible()
     assert page.get_by_text("✎ claim = partly resolved call", exact=True).first.is_visible()
     assert page.get_by_text("? unknown = no target found", exact=True).first.is_visible()
@@ -236,6 +238,59 @@ def test_the_shell_navigates_and_stays_on_its_server(
     assert any(urlsplit(url).path == "/api/v1/state" for url in requests)
     assert any(urlsplit(url).path == "/api/v1/graph" for url in requests)
     assert any(urlsplit(url).path == "/files/architecture.report.html" for url in requests)
+
+
+_MIXED = {
+    "components_from": "contract",
+    "components": [["alpha", "Calls beta."], ["beta", "Is called."]],
+    "modules": [["m.a", "m/a.py", 0, "a"], ["m.b", "m/b.py", 1, "b"]],
+    "symbols": [
+        [0, "caller", 1, "function", "def caller():", 0, 0],
+        [1, "callee", 1, "function", "def callee():", 0, 0],
+    ],
+    # Three resolved call sites and two partial ones, one with two candidate edges.
+    "edges": [
+        [0, 1, False, 3, 0],
+        [0, 1, False, 4, 1],
+        [0, 1, False, 5, 2],
+        [0, 1, True, 6, 3],
+        [0, 0, True, 7, 4],
+        [0, 1, True, 7, 4],
+    ],
+    "unknown": [],
+}
+
+
+@pytest.mark.browser
+def test_a_line_with_claims_is_a_claim_and_shows_both_counts(studio: Studio) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    answer = {"api_version": API_VERSION, "explore": "done", "graph": _MIXED}
+    Draft202012Validator({"$ref": "#/$defs/graph", "$defs": _SCHEMA["$defs"]}).validate(answer)
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.route("**/api/v1/graph", lambda route: route.fulfill(json=answer))
+            page.goto(studio.url)
+            page.get_by_text("components: declared by the contract", exact=True).wait_for()
+            label = page.locator("button.count")
+            # 3 proven and 2 claim call sites: a line with a claim is never read as proven.
+            assert label.inner_text().strip() == "3 ✓ proven · 2 ✎ claim"
+            assert "claim" in label.get_attribute("class").split()
+            assert (
+                label.get_attribute("aria-label") == "5 calls from alpha to beta: 3 proven, 2 claim"
+            )
+            assert page.locator("path.link.claim").count() == 1
+            assert page.locator("path.link.proven").count() == 0
+            # The toolbar counts sites too: the claim with two edges is one claim.
+            assert "3 ✓ proven · 2 ✎ claim calls between components" in page.locator(
+                ".summary"
+            ).inner_text().replace("\n", " ")
+            label.click()
+            details = page.get_by_role("complementary", name="Details")
+            details.get_by_text("3 ✓ proven · 2 ✎ claim · 1 distinct pair").wait_for()
+        finally:
+            browser.close()
 
 
 @pytest.mark.browser

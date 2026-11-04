@@ -1,6 +1,6 @@
 /** AD-290: the shared components of slice 1; they take props and never call the API. */
 import type { ComponentChildren } from "preact";
-import { EVIDENCE, Evidence, PROOF, Proof } from "./evidence";
+import { EVIDENCE, Evidence, PROOF, Proof, proofKind } from "./evidence";
 
 /** The pages of the shell; the URL hash is `#/<view>`, and Explore takes `#/explore/<function>`. */
 export const View = {
@@ -52,10 +52,10 @@ export function ProofLegend() {
 
 /** Glyph and word of a call proof; the colour only repeats them. */
 export function ProofMark(props: { proof: Proof }) {
-  const kind = PROOF.find((item) => item.proof === props.proof);
+  const kind = proofKind(props.proof);
   return (
     <span class={`mark ${props.proof}`}>
-      <span aria-hidden="true">{kind?.glyph}</span> {kind?.word}
+      <span aria-hidden="true">{kind.glyph}</span> {kind.word}
     </span>
   );
 }

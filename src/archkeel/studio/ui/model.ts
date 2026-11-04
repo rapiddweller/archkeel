@@ -1,27 +1,32 @@
 /** AD-290: the indexed call graph of the snapshot. Pure functions; no DOM, no network. */
 import type { Graph, UnknownRow } from "./api";
 
-/** One distinct neighbor of a function; a resolved call wins over a partial one. */
+/** One distinct neighbor of a function. */
 export interface Link {
   readonly other: number;
   readonly partial: boolean;
   readonly line: number;
 }
 
-/** The calls between two components, counted for every call site. */
-export interface Flow {
+/** Proven calls (resolved) and claims (partly resolved), counted as call sites, never as edges. */
+export interface Tally {
+  readonly proven: number;
+  readonly claim: number;
+}
+
+/** The call sites from one component to another. */
+export interface Flow extends Tally {
   readonly from: number;
   readonly to: number;
-  readonly calls: number;
-  readonly partial: number;
+  /** The edges behind the line, as indexes into the edge list of the graph. */
   readonly edges: readonly number[];
 }
 
 export interface ComponentStats {
   readonly modules: number;
   readonly symbols: number;
-  readonly callsIn: number;
-  readonly callsOut: number;
+  readonly callsIn: Tally;
+  readonly callsOut: Tally;
   readonly withUnknown: number;
   /** The function with most links, or null for a component without functions. */
   readonly busiest: number | null;
@@ -44,6 +49,8 @@ export interface Model {
   readonly members: readonly (readonly number[])[];
   readonly stats: readonly ComponentStats[];
   readonly flows: readonly Flow[];
+  /** The call sites that cross a component border. */
+  readonly crossing: Tally;
   readonly tree: readonly TreeNode[];
   /** The packages of each module inside its component; a package module sits in its own package. */
   readonly folders: readonly (readonly string[])[];
@@ -65,18 +72,17 @@ export const componentKey = (component: number): string => `c${component}`;
 export const moduleKey = (module: number): string => `m${module}`;
 export const symbolKey = (symbol: number): string => `f${symbol}`;
 
-function distinct(links: Map<number, Link>[], owner: number, link: Link): void {
-  const known = links[owner].get(link.other);
-  if (known === undefined || (known.partial && !link.partial)) links[owner].set(link.other, link);
-}
+/** The one rule for two calls between the same functions: a resolved call wins over a partial one. */
+const better = (known: { readonly partial: boolean } | undefined, call: { readonly partial: boolean }): boolean =>
+  known === undefined || (known.partial && !call.partial);
 
 function indexLinks(graph: Graph): { outgoing: Link[][]; incoming: Link[][] } {
   const out = graph.symbols.map(() => new Map<number, Link>());
   const inn = graph.symbols.map(() => new Map<number, Link>());
   for (const [source, target, partial, line] of graph.edges) {
     if (source === target) continue;
-    distinct(out, source, { other: target, partial, line });
-    distinct(inn, target, { other: source, partial, line });
+    if (better(out[source].get(target), { partial })) out[source].set(target, { other: target, partial, line });
+    if (better(inn[target].get(source), { partial })) inn[target].set(source, { other: source, partial, line });
   }
   return {
     outgoing: out.map((links) => [...links.values()]),
@@ -84,21 +90,69 @@ function indexLinks(graph: Graph): { outgoing: Link[][]; incoming: Link[][] } {
   };
 }
 
-function groupFlows(graph: Graph): Flow[] {
-  const found = new Map<number, { from: number; to: number; calls: number; partial: number; edges: number[] }>();
+/** The distinct function pairs behind a line, a resolved call first. */
+export function pairs(model: Model, flow: Flow): { source: number; target: number; partial: boolean; line: number }[] {
+  const found = new Map<string, { source: number; target: number; partial: boolean; line: number }>();
+  for (const index of flow.edges) {
+    const [source, target, partial, line] = model.graph.edges[index];
+    const key = `${source}:${target}`;
+    if (better(found.get(key), { partial })) found.set(key, { source, target, partial, line });
+  }
+  return [...found.values()];
+}
+
+interface Counting {
+  readonly flows: Flow[];
+  readonly crossing: Tally;
+  readonly out: readonly Tally[];
+  readonly into: readonly Tally[];
+}
+
+/** Count call sites: a partly resolved call can give two edges but is one site. */
+function countSites(graph: Graph): Counting {
+  interface Draft {
+    from: number;
+    to: number;
+    proven: Set<number>;
+    claim: Set<number>;
+    edges: number[];
+  }
   const count = graph.components.length;
-  graph.edges.forEach(([source, target, partial], index) => {
+  const found = new Map<number, Draft>();
+  const out = graph.components.map(() => ({ proven: new Set<number>(), claim: new Set<number>() }));
+  const crossing = { proven: new Set<number>(), claim: new Set<number>() };
+  graph.edges.forEach(([source, target, partial, , site], index) => {
     const from = graph.modules[graph.symbols[source][0]][2];
     const to = graph.modules[graph.symbols[target][0]][2];
     if (from === to) return;
     const key = from * count + to;
-    const flow = found.get(key) ?? { from, to, calls: 0, partial: 0, edges: [] };
-    flow.calls += 1;
-    flow.partial += partial ? 1 : 0;
+    const flow = found.get(key) ?? { from, to, proven: new Set<number>(), claim: new Set<number>(), edges: [] };
+    const kind = partial ? "claim" : "proven";
+    flow[kind].add(site);
+    out[from][kind].add(site);
+    crossing[kind].add(site);
     flow.edges.push(index);
     found.set(key, flow);
   });
-  return [...found.values()];
+  const flows = [...found.values()].map<Flow>((flow) => ({
+    from: flow.from,
+    to: flow.to,
+    proven: flow.proven.size,
+    claim: flow.claim.size,
+    edges: flow.edges,
+  }));
+  // A claim with candidates in two components is one site for each of them.
+  const into = graph.components.map<{ proven: number; claim: number }>(() => ({ proven: 0, claim: 0 }));
+  for (const flow of flows) {
+    into[flow.to].proven += flow.proven;
+    into[flow.to].claim += flow.claim;
+  }
+  return {
+    flows,
+    crossing: { proven: crossing.proven.size, claim: crossing.claim.size },
+    out: out.map((sites) => ({ proven: sites.proven.size, claim: sites.claim.size })),
+    into,
+  };
 }
 
 function folderPaths(graph: Graph): string[][] {
@@ -152,27 +206,27 @@ export function buildModel(graph: Graph): Model {
   for (const row of graph.unknown) unknown[row[0]].push(row);
   const members = graph.modules.map<number[]>(() => []);
   graph.symbols.forEach(([module], symbol) => members[module].push(symbol));
-  const flows = groupFlows(graph);
+  const { flows, crossing, out, into } = countSites(graph);
   const links = (symbol: number): number => outgoing[symbol].length + incoming[symbol].length;
   const stats = graph.components.map<{ -readonly [K in keyof ComponentStats]: ComponentStats[K] }>(() => ({
     modules: 0,
     symbols: 0,
-    callsIn: 0,
-    callsOut: 0,
+    callsIn: { proven: 0, claim: 0 },
+    callsOut: { proven: 0, claim: 0 },
     withUnknown: 0,
     busiest: null,
   }));
+  stats.forEach((stat, component) => {
+    stat.callsIn = into[component];
+    stat.callsOut = out[component];
+  });
   graph.modules.forEach(([, , component]) => (stats[component].modules += 1));
   graph.symbols.forEach(([module], symbol) => {
     const own = stats[graph.modules[module][2]];
     own.symbols += 1;
-    if (unknown[symbol].length > 0) own.withUnknown += 1;
+    if (graph.symbols[symbol][5] > 0) own.withUnknown += 1;
     if (own.busiest === null || links(symbol) > links(own.busiest)) own.busiest = symbol;
   });
-  for (const flow of flows) {
-    stats[flow.from].callsOut += flow.calls;
-    stats[flow.to].callsIn += flow.calls;
-  }
   // A function in the middle of a flow (called and calling) is a better first view than a hub.
   const middle = (symbol: number): number =>
     Math.min(incoming[symbol].length, outgoing[symbol].length) * 1e6 + links(symbol);
@@ -182,7 +236,7 @@ export function buildModel(graph: Graph): Model {
   });
   const folders = folderPaths(graph);
   const tree = buildTree(graph, folders);
-  return { graph, outgoing, incoming, unknown, members, stats, flows, tree, folders, start };
+  return { graph, outgoing, incoming, unknown, members, stats, flows, crossing, tree, folders, start };
 }
 
 /** 1,234 reads 1.2k; counts of a large repository stay short on a card. */

@@ -17,10 +17,11 @@ import pytest
 from jsonschema import Draft202012Validator
 from test_explore import _repository, _tree_digest
 
+from archkeel.cli import _decode_snapshot as _decode
 from archkeel.cli import build_parser, main, studio_workspace
 from archkeel.cli.config import load_config
-from archkeel.ir.codec import decode_canonical_model, decode_json
-from archkeel.studio.api import API_VERSION, ContractState, ExploreState, Json, graph_json
+from archkeel.ir.facts import SourceResolution
+from archkeel.studio.api import API_VERSION, CallStatus, ContractState, ExploreState, graph_json
 from archkeel.studio.graph import build_graph
 from archkeel.studio.server import Studio
 from archkeel.studio.workspace import Workspace
@@ -33,10 +34,6 @@ _EXPLORE_SECONDS = 120
 
 def _no_contract(_modules: Sequence[str]) -> list[tuple[str, str, list[str]]]:
     return []
-
-
-def _decode(raw: bytes) -> dict[str, Json]:
-    return decode_canonical_model(decode_json(raw))
 
 
 def _workspace(root: Path, cache: Path, *options: str) -> Workspace:
@@ -141,16 +138,24 @@ def test_the_schema_rejects_a_field_that_it_does_not_name(studio: Studio) -> Non
     waiting = graph(studio, cookie)
     assert not _validator("graph").is_valid({**waiting, "extra": 1})
     empty = {name: [] for name in ("components", "modules", "symbols", "edges", "unknown")}
+    empty["components_from"] = "layout"
     full = {**waiting, "graph": empty}
     assert _validator("graph").is_valid(full)
     assert not _validator("graph").is_valid({**full, "graph": {**empty, "extra": []}})
-    assert not _validator("graph").is_valid({**full, "graph": {**empty, "edges": [[0, 1, False]]}})
     assert not _validator("graph").is_valid(
-        {**full, "graph": {**empty, "edges": [[0, 1, False, 3, "extra"]]}}
+        {**full, "graph": {**empty, "edges": [[0, 1, False, 3]]}}
     )
     assert not _validator("graph").is_valid(
-        {**full, "graph": {**empty, "symbols": [[0, "a", 1, "enum", ""]]}}
+        {**full, "graph": {**empty, "edges": [[0, 1, False, 3, 0, "extra"]]}}
     )
+    assert not _validator("graph").is_valid(
+        {**full, "graph": {**empty, "symbols": [[0, "a", 1, "enum", "", 0, 0]]}}
+    )
+    assert not _validator("graph").is_valid(
+        {**full, "graph": {**empty, "components_from": "guess"}}
+    )
+    del empty["components_from"]
+    assert not _validator("graph").is_valid({**full, "graph": empty})
 
 
 def test_the_server_listens_on_127_0_0_1_on_a_free_port(studio: Studio) -> None:
@@ -286,11 +291,12 @@ def test_the_graph_holds_the_calls_of_the_snapshot(studio: Studio) -> None:
     assert answer["explore"] == "done"
     body = answer["graph"]
     # No contract: the top-level packages of the explore layout; the root module has no owner.
+    assert body["components_from"] == "layout"
     assert body["components"] == [
         ["app", ""],
         ["cli", ""],
         ["store", ""],
-        ["(unowned)", "Modules that no component owns."],
+        ["(unowned)", "Modules without a single owning component."],
     ]
     modules = {row[0]: row for row in body["modules"]}
     assert modules["shop.app.orders"] == ["shop.app.orders", "shop/app/orders.py", 0, "orders"]
@@ -300,7 +306,9 @@ def test_the_graph_holds_the_calls_of_the_snapshot(studio: Studio) -> None:
     assert symbols[place][2:4] == [4, "function"]
     assert symbols[place][4] == "def place() -> int:"
     # `place` calls `save` on line 5: a resolved call, so not partial.
-    assert body["edges"] == [[place, save, False, 5]]
+    assert body["edges"] == [[place, save, False, 5, 0]]
+    # Nothing is unknown or outside the scan in this repository.
+    assert [row[5:] for row in symbols] == [[0, 0]] * len(symbols)
     assert body["unknown"] == []
     for module, *_ in symbols:
         assert 0 <= module < len(body["modules"])
@@ -327,10 +335,11 @@ def test_the_contract_names_the_components_and_their_responsibility(tmp_path: Pa
         body = graph(server, cookie)["graph"]
     finally:
         _stop(server)
+    assert body["components_from"] == "contract"
     assert body["components"] == [
         ["services", "Place orders and keep them."],
         ["cli", ""],
-        ["(unowned)", "Modules that no component owns."],
+        ["(unowned)", "Modules without a single owning component."],
     ]
     owner = {row[0]: body["components"][row[2]][0] for row in body["modules"]}
     assert owner["shop.store.repository"] == "services"
@@ -407,9 +416,162 @@ def test_the_graph_of_a_large_repository_is_small_and_fast() -> None:
     assert len(body) < 2_000_000, len(body)
     assert seconds < 2, seconds
     _validator("graph").validate(json.loads(body))
-    # An unresolved call is kept up to four times for each symbol, never more.
+    # An unresolved call is kept up to four times for each symbol; the symbol holds the true number.
     assert len(built.unknown) == 4
+    assert built.symbols[0].unknown == 6
     assert sum(edge.partial for edge in built.edges) == 2 * len(built.symbols)
+
+
+def test_a_damaged_columnar_snapshot_gives_500_too(studio: Studio) -> None:
+    cookie = login(studio)
+    assert explore(studio, cookie)["explore"] == "done"
+    path = studio.workspace.folder / "architecture.json"
+    damaged = json.loads(path.read_text())
+    # A string reference past the end of the table raises IndexError inside the codec.
+    damaged["string_table"] = damaged["string_table"][:2]
+    path.write_text(json.dumps(damaged))
+
+    response, body = request(studio, "/api/v1/graph", cookie=cookie)
+
+    assert response.status == 500
+    assert body == b"the snapshot cannot be read\n"
+    assert state(studio, cookie)["explore"] == "done"
+
+
+def test_call_status_has_the_values_of_the_source_resolution_of_the_ir() -> None:
+    # Studio may not import `ir`: its vocabulary is a copy, and this test ties it to the source.
+    assert {member.value for member in CallStatus} == {member.value for member in SourceResolution}
+
+
+def _tiny_snapshot(calls: list[dict]) -> dict:
+    """One module `pkg.m` with the functions A, B, C and D, and the given calls."""
+    names = ["A", "B", "C", "D"]
+    return {
+        "modules": [{"title": "pkg.m", "data": {"file": "pkg/m.py"}}],
+        "symbols": [
+            {
+                "kind": "function",
+                "evidence_ids": ["E"],
+                "data": {"module": "pkg.m", "qualified_name": f"pkg.m.{name}"},
+            }
+            for name in names
+        ],
+        "calls": [{"evidence_ids": ["E"], "data": data} for data in calls],
+        "evidence": [{"id": "E", "line": 3, "excerpt": "def f():"}],
+    }
+
+
+def _call(source: str, status: str, *targets: str) -> dict:
+    return {
+        "source_scope": f"pkg.m.{source}",
+        "status": status,
+        "targets": [t if "." in t else f"pkg.m.{t}" for t in targets],
+        "expression": "x",
+        "reason": "r",
+    }
+
+
+def test_the_graph_counts_call_sites_and_keeps_distinct_partial_targets() -> None:
+    built = build_graph(
+        _tiny_snapshot(
+            [
+                # One site, targets A, A, B: both A and B stay, as two edges of one site.
+                _call("C", "partially_resolved", "A", "A", "B"),
+                _call("C", "resolved", "A"),
+                # Outside the scan: neither an edge nor unknown, resolved or partial alike.
+                _call("C", "resolved", "os.getcwd"),
+                _call("C", "partially_resolved", "os.getcwd", "re.sub"),
+                _call("C", "resolved"),
+                _call("C", "unresolved"),
+                _call("D", "unresolved"),
+            ]
+        ),
+        _no_contract,
+    )
+
+    assert [(e.target, e.partial, e.site) for e in built.edges] == [
+        (0, True, 0),
+        (1, True, 0),
+        (0, False, 1),
+    ]
+    c, d = built.symbols[2], built.symbols[3]
+    assert (c.outside, c.unknown) == (3, 1)
+    assert (d.outside, d.unknown) == (0, 1)
+    assert [row.symbol for row in built.unknown] == [2, 3]
+
+
+def test_the_graph_of_real_code_has_partial_unknown_and_outside_calls(tmp_path: Path) -> None:
+    files = {
+        "shop/__init__.py": "",
+        "shop/table.py": (
+            "import os\n\n\nclass Table:\n    def add_column(self, name: str) -> None:\n"
+            "        pass\n\n\ndef build() -> int:\n    verdicts = Table()\n"
+            '    verdicts.add_column("check")\n    return len(os.getcwd())\n\n\n'
+            "def run(callback) -> None:\n    callback()\n"
+        ),
+        "pyproject.toml": '[project]\nname = "shop"\nrequires-python = ">=3.11"\n',
+    }
+    server = _start(_repository(tmp_path / "shop", files), tmp_path / "cache")
+    try:
+        cookie = login(server)
+        assert explore(server, cookie)["explore"] == "done"
+        body = graph(server, cookie)["graph"]
+    finally:
+        _stop(server)
+    by_name = {row[1]: index for index, row in enumerate(body["symbols"])}
+    build, run, column = by_name["build"], by_name["run"], by_name["Table.add_column"]
+    # A call on a receiver of a class of the scan is partly resolved: a claim, not a proof.
+    assert [edge for edge in body["edges"] if edge[0] == build and edge[2]] == [
+        [build, column, True, 11, 0]
+    ]
+    # `len` and `os.getcwd` lie outside the scan.
+    assert body["symbols"][build][6] == 2
+    assert body["symbols"][run][5:] == [1, 0]
+    assert [row[:2] for row in body["unknown"]] == [[run, "callback"]]
+
+
+def _large_repository(root: Path, modules: int = 1185, packages: int = 40) -> Path:
+    """A repository of `modules` modules, each with 7 functions that call other modules."""
+    files = {
+        "pyproject.toml": '[project]\nname = "big"\nrequires-python = ">=3.11"\n',
+        "big/__init__.py": "",
+    }
+    files |= {f"big/pkg{package}/__init__.py": "" for package in range(packages)}
+    for index in range(modules):
+        first, second = (index * 31 + 97) % modules, (index * 31 + 194) % modules
+        lines = [f"from big.pkg{n % packages} import mod{n}" for n in (first, second)] + [""]
+        for number in range(7):
+            lines.append(
+                f"def f{number}(x):\n    y = mod{first}.f{(number + 1) % 7}(x)\n"
+                f"    return mod{second}.f{(number + 2) % 7}(y)\n"
+            )
+        files[f"big/pkg{index % packages}/mod{index}.py"] = "\n".join(lines)
+    return _repository(root, files)
+
+
+def test_decode_and_graph_of_a_real_snapshot_of_1185_modules(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _large_repository(tmp_path / "big")
+    output = tmp_path / "out"
+    assert main(["explore", "--root", str(root), "--output", str(output), "--json"]) == 0
+    capsys.readouterr()
+    raw = (output / "architecture.json").read_bytes()
+
+    started = time.perf_counter()
+    model = _decode(raw)
+    decoded = time.perf_counter()
+    built = build_graph(model, _no_contract)
+    body = graph_json(ExploreState.DONE, built)
+    finished = time.perf_counter()
+
+    assert len(built.modules) >= 1185
+    assert len(built.edges) > 10000
+    assert len(body) < 2_000_000, len(body)
+    _validator("graph").validate(json.loads(body))
+    # The gate of issue #815 is 2 s for the route. Measured on 2026-11-04 (1185 modules, 17 MB):
+    # decode 0.7 s, build 0.04 s. The bound here is wide, so a slow runner does not fail it.
+    assert finished - started < 10, (decoded - started, finished - decoded)
 
 
 def test_a_failed_explore_shows_its_diagnostic(tmp_path: Path) -> None:

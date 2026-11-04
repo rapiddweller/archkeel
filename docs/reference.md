@@ -197,16 +197,23 @@ printed URL carries a token for this run; a request without it gets 403. At star
 Overview shows the progress. When the snapshot is done, Studio opens on the Map:
 
 - **Map**: the components as a dependency graph of the measured calls. Three bands, by net call
-  flow: callers on the left, foundations on the right. A line is the sum of the calls between two
-  components; its width grows with the logarithm of the count. A dotted line is mostly partial.
-  A card shows the responsibility from the contract (`responsibilities`, the first entry), else
-  the top-level packages of the explore layout. A click on a line or a count lists the calls
-  behind it; a click on a card opens the lens at its busiest function.
+  flow: callers on the left, foundations on the right. A line is the sum of the call sites between
+  two components; its width grows with the logarithm of the count. A line is `proven` only when
+  it holds no claim; a line with a claim is dotted and shows both counts, for example
+  `3 ✓ proven · 2 ✎ claim`. A call site counts once, also when a partly resolved call has two
+  candidate targets. The header says where the components come from: `declared by the contract`
+  (the first `responsibilities` entry shows on the card) or `observed package layout` (the
+  top-level packages of the explore layout; also when the contract does not load). A click on a
+  line or a count lists the calls behind it; a click on a card opens the lens at its busiest
+  function.
 - **Explore**: the lens around one function: callers on the left, callees on the right, unknown
   calls below, one hop. Cards of one module share a plate. A large neighborhood folds into
   package groups. The structure tree, the location bar (component, package, module file,
   function) and the search (Cmd/Ctrl+K) show where you are. Drag pans, the wheel zooms, Fit
-  fits.
+  fits. Module-level calls are not shown, so "Called by 0" is no proof of no caller. A call to a
+  target outside the scan (for example the standard library) is counted apart: it is neither
+  an edge nor unknown. The unknown count of a function is the true count; the lens lists the
+  first 4.
 - **Report**: the Explorer page of `archkeel explore`.
 
 A call has one of three statuses, each with a glyph and a word: `✓ proven` (resolved call),

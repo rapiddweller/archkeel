@@ -15,7 +15,8 @@
         "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:EVIDENCE",
         "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Proof",
         "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:PROOF",
-        "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofOf"
+        "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofOf",
+        "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofKind"
       ],
       "responsibilities": [
         "Own the evidence model and the call proof: Observed, Claim and Target, and proven, claim and unknown, as typed values with their legend text."
@@ -48,7 +49,8 @@
         "studio_ui.src.archkeel.studio.ui.api_x2e_ts:Graph",
         "studio_ui.src.archkeel.studio.ui.api_x2e_ts:UnknownRow",
         "studio_ui.src.archkeel.studio.ui.api_x2e_ts:readGraph",
-        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:SymbolKind"
+        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:SymbolKind",
+        "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ComponentSource"
       ],
       "responsibilities": [
         "Read the state and the call graph of the own server, typed by the vocabulary that tools/browser_runtime.py generates from archkeel.studio.api."
@@ -101,7 +103,9 @@
         "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:LensLayout",
         "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:OpenGroup",
         "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:Rect",
-        "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:layoutLens"
+        "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:layoutLens",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Tally",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:pairs"
       ],
       "responsibilities": [
         "Index the call graph and compute the layouts of the Map and the lens: pure functions with no DOM and no network."
@@ -188,7 +192,8 @@
         "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ProofLegend",
         "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ProofMark",
         "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Box",
-        "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx:Viewport"
+        "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx:Viewport",
+        "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Badge"
       ],
       "responsibilities": [
         "Draw the shared parts of a page from their props only, and the pan and zoom surface."
@@ -207,7 +212,8 @@
             "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Evidence",
             "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:EVIDENCE",
             "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Proof",
-            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:PROOF"
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:PROOF",
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofKind"
           ],
           "rationale": "Show the evidence kind of a badge, a card and the legend, and the proof of a call."
         }
@@ -323,7 +329,8 @@
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:StudioState",
             "studio_ui.src.archkeel.studio.ui.api_x2e_ts:EXPLORER_PAGE",
             "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ExploreState",
-            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ContractState"
+            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ContractState",
+            "studio_ui.src.archkeel.studio.ui.vocabulary_x2e_ts:ComponentSource"
           ],
           "rationale": "Decide what a page shows from the typed API state."
         },
@@ -339,7 +346,8 @@
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ProofMark",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:View",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:viewHref",
-            "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx:Viewport"
+            "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx:Viewport",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Badge"
           ],
           "rationale": "Draw pages with the shared components."
         },
@@ -350,7 +358,8 @@
             "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:EVIDENCE",
             "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Proof",
             "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:PROOF",
-            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofOf"
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofOf",
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofKind"
           ],
           "rationale": "Mark each card, tab and call with its evidence kind or proof."
         },
@@ -383,7 +392,9 @@
             "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:LensLayout",
             "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:OpenGroup",
             "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:Rect",
-            "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:layoutLens"
+            "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:layoutLens",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Tally",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:pairs"
           ],
           "rationale": "Draw the Map and the lens from the indexed graph and their layouts."
         },

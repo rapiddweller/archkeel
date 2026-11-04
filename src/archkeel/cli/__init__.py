@@ -178,7 +178,11 @@ def _decode_snapshot(raw: bytes) -> dict[str, RawJson]:
     decoded = decode_json(raw)
     if not isinstance(decoded, dict):
         raise ValueError("architecture.json must be an object")
-    return decode_canonical_model(decoded)
+    try:
+        return decode_canonical_model(decoded)
+    except (IndexError, KeyError, TypeError) as error:
+        # A damaged columnar file can fail outside the codec checks: one error for the caller.
+        raise ValueError(f"architecture.json is damaged: {error!r}") from error
 
 
 def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:

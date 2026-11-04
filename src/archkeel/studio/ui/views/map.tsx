@@ -1,47 +1,52 @@
 /** AD-290: Map: the components of the snapshot as a dependency graph of the measured calls. */
 import { useMemo, useState } from "preact/hooks";
-import { Box, Page, ProofLegend, ProofMark, View, viewHref } from "../components";
-import { Evidence, PROOF, Proof, proofOf } from "../evidence";
+import { Badge, Box, Page, ProofLegend, ProofMark, View, viewHref } from "../components";
+import { Evidence, Proof, proofKind, proofOf } from "../evidence";
 import { MAP_CARD, MapLine, layoutMap } from "../map-layout";
-import { Model, compact, counted, fileName, links, shortName, tailPath } from "../model";
+import { Model, Tally, compact, counted, fileName, links, pairs, shortName, tailPath } from "../model";
+import { ComponentSource, ContractState } from "../vocabulary";
 import { Viewport } from "../viewport";
 
 const PAIRS_SHOWN = 16;
 
-const calls = (count: number): string => `${compact(count)} ${count === 1 ? "call" : "calls"}`;
+/** Proven and claim call sites apart, each with its glyph and word. */
+function Counts(props: { tally: Tally }) {
+  const { proven, claim } = props.tally;
+  const mark = (proof: Proof, count: number) => (
+    <>
+      {compact(count)} <span aria-hidden="true">{proofKind(proof).glyph}</span> {proofKind(proof).word}
+    </>
+  );
+  return (
+    <>
+      {proven > 0 || claim === 0 ? mark(Proof.Proven, proven) : null}
+      {proven > 0 && claim > 0 ? " · " : null}
+      {claim > 0 ? mark(Proof.Claim, claim) : null}
+    </>
+  );
+}
+
+const spoken = ({ proven, claim }: Tally): string =>
+  [proven > 0 || claim === 0 ? `${proven} proven` : "", claim > 0 ? `${claim} claim` : ""].filter(Boolean).join(", ");
 
 interface Pair {
   readonly from: number;
   readonly to: number;
 }
 
-const proofWord = (partial: boolean): string => PROOF.find((kind) => kind.proof === proofOf(partial))?.word ?? "";
-
 function Pairs(props: { model: Model; pair: Pair }) {
   const { model, pair } = props;
   const flow = model.flows.find((item) => item.from === pair.from && item.to === pair.to);
   const names = model.graph.components;
-  const found = new Map<string, { source: number; target: number; partial: boolean; line: number }>();
-  for (const index of flow?.edges ?? []) {
-    const [source, target, partial, line] = model.graph.edges[index];
-    const key = `${source}:${target}`;
-    const known = found.get(key);
-    if (known === undefined || (known.partial && !partial)) found.set(key, { source, target, partial, line });
-  }
-  const shown = [...found.values()]
-    .sort((a, b) => links(model, b.target) - links(model, a.target))
-    .slice(0, PAIRS_SHOWN);
-  const partial = flow?.partial ?? 0;
-  const calls = flow?.calls ?? 0;
+  const found = flow === undefined ? [] : pairs(model, flow);
+  const shown = [...found].sort((a, b) => links(model, b.target) - links(model, a.target)).slice(0, PAIRS_SHOWN);
   return (
     <>
       <Box title={`Dependency · ${names[pair.from][0]} to ${names[pair.to][0]}`}>
         <p>
-          {calls} calls · {found.size} distinct pairs
+          <Counts tally={flow ?? { proven: 0, claim: 0 }} /> · {counted(found.length, "distinct pair")}
         </p>
-        <p>
-          <ProofMark proof={Proof.Proven} /> {calls - partial} · <ProofMark proof={Proof.Claim} /> {partial}
-        </p>
+        <p class="more">A partly resolved call with two candidates is one claim.</p>
       </Box>
       <Box title="Calls behind this line, most shared callees first" evidence={Evidence.Observed}>
         <ul class="pairs">
@@ -56,7 +61,7 @@ function Pairs(props: { model: Model; pair: Pair }) {
             </li>
           ))}
         </ul>
-        {found.size > PAIRS_SHOWN ? <p class="more">+{found.size - PAIRS_SHOWN} more pairs</p> : null}
+        {found.length > PAIRS_SHOWN ? <p class="more">+{found.length - PAIRS_SHOWN} more pairs</p> : null}
       </Box>
     </>
   );
@@ -65,7 +70,8 @@ function Pairs(props: { model: Model; pair: Pair }) {
 function Line(props: { line: MapLine; hot: number | null; selected: boolean; onHot: (component: number | null) => void; onPick: () => void }) {
   const { line, hot } = props;
   const touches = hot !== null && (line.from === hot || line.to === hot);
-  const kind = line.mostlyPartial ? Proof.Claim : Proof.Proven;
+  // A line is proven only when it holds no claim.
+  const kind = proofOf(line.claim > 0);
   const state = hot === null ? (line.strong ? "strong" : "faint") : touches ? "lit" : "dim";
   return (
     <g>
@@ -81,21 +87,22 @@ function Line(props: { line: MapLine; hot: number | null; selected: boolean; onH
   );
 }
 
-function MapView(props: { model: Model }) {
+function MapView(props: { model: Model; contract: ContractState }) {
   const { model } = props;
   const layout = useMemo(() => layoutMap(model), [model]);
   const [hot, setHot] = useState<number | null>(null);
   const [pair, setPair] = useState<Pair | null>(null);
   const [details, setDetails] = useState(() => matchMedia("(min-width: 1500px)").matches);
-  const total = model.flows.reduce((sum, flow) => sum + flow.calls, 0);
   const neighbors = (component: number): boolean =>
     hot !== null && (component === hot || model.flows.some((f) => (f.from === hot && f.to === component) || (f.to === hot && f.from === component)));
   return (
     <div class="workbench" data-details={details}>
       <header class="toolbar">
         <h1>Map</h1>
+        <Source source={model.graph.components_from} contract={props.contract} />
         <span class="summary">
-          {model.graph.components.length} components · {model.flows.length} dependencies · {compact(total)} calls between components
+          {model.graph.components.length} components · {model.flows.length} dependencies · <Counts tally={model.crossing} /> calls between
+          components
         </span>
         <ProofLegend />
         <button type="button" class="toggle" aria-pressed={details} onClick={() => setDetails(!details)}>
@@ -131,15 +138,14 @@ function MapView(props: { model: Model }) {
           {layout.lines
             .filter((line) => line.labeled)
             .map((line) => {
-              const proof = line.mostlyPartial ? Proof.Claim : Proof.Proven;
-              const kind = PROOF.find((item) => item.proof === proof);
+              const proof = proofOf(line.claim > 0);
               const [from, to] = [model.graph.components[line.from][0], model.graph.components[line.to][0]];
               return (
                 <button
                   key={`${line.from}:${line.to}`}
                   type="button"
                   class={`count ${proof}`}
-                  aria-label={`${counted(line.calls, "call")} from ${from} to ${to}, ${proofWord(line.mostlyPartial)}`}
+                  aria-label={`${counted(line.calls, "call")} from ${from} to ${to}: ${spoken(line)}`}
                   style={{ left: `${line.middle[0]}px`, top: `${line.middle[1]}px` }}
                   onClick={() => {
                     setPair({ from: line.from, to: line.to });
@@ -148,7 +154,7 @@ function MapView(props: { model: Model }) {
                   onMouseEnter={() => setHot(line.from)}
                   onMouseLeave={() => setHot(null)}
                 >
-                  {compact(line.calls)} <span aria-hidden="true">{kind?.glyph}</span> {kind?.word}
+                  <Counts tally={line} />
                 </button>
               );
             })}
@@ -167,8 +173,12 @@ function MapView(props: { model: Model }) {
                 <span class="chips">
                   <span class="chip">{counted(stat.modules, "module")}</span>
                   <span class="chip">{counted(stat.symbols, "function")}</span>
-                  <span class="chip">{calls(stat.callsIn)} in</span>
-                  <span class="chip">{calls(stat.callsOut)} out</span>
+                  <span class="chip">
+                    in <Counts tally={stat.callsIn} />
+                  </span>
+                  <span class="chip">
+                    out <Counts tally={stat.callsOut} />
+                  </span>
                   {stat.withUnknown > 0 ? (
                     <span class="chip unknown">
                       <span aria-hidden="true">?</span> {counted(stat.withUnknown, "function")} with unknown calls
@@ -218,7 +228,16 @@ function MapView(props: { model: Model }) {
   );
 }
 
-export function ArchMap(props: { model: Model | null }) {
+/** Where the components come from: the contract is an architect decision, the layout is observed. */
+function Source(props: { source: ComponentSource; contract: ContractState }) {
+  if (props.source === ComponentSource.CONTRACT) {
+    return <Badge evidence={Evidence.Target}>components: declared by the contract</Badge>;
+  }
+  const reason = props.contract === ContractState.INVALID ? " (the contract does not load)" : "";
+  return <Badge evidence={Evidence.Observed}>{`components: observed package layout${reason}`}</Badge>;
+}
+
+export function ArchMap(props: { model: Model | null; contract: ContractState }) {
   if (props.model === null) {
     return (
       <Page title="Map" lead="No map yet. Overview shows the progress.">
@@ -226,5 +245,5 @@ export function ArchMap(props: { model: Model | null }) {
       </Page>
     );
   }
-  return <MapView model={props.model} />;
+  return <MapView model={props.model} contract={props.contract} />;
 }

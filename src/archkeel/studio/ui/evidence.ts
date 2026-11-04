@@ -43,3 +43,5 @@ export const PROOF: readonly ProofKind[] = [
 
 /** A resolved call is proven; a partly resolved call is a claim. */
 export const proofOf = (partial: boolean): Proof => (partial ? Proof.Claim : Proof.Proven);
+
+export const proofKind = (proof: Proof): ProofKind => PROOF.find((kind) => kind.proof === proof) ?? PROOF[0];

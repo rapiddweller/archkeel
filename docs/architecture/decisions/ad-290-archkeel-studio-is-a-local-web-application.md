@@ -19,13 +19,12 @@ rejected lines of AD-284 and AD-285. The Explorer stays the only architecture re
    and the module owner of the contract. Planned: `agent` (a port for `claude -p` or `codex exec`,
    read-only, no key), `proposals` (the only writer). Outside edits: `Command.STUDIO` in
    `ir/model.py`; the embed lines of item 8.
-4. API: `GET /api/v1/state` and `GET /api/v1/graph` (call graph; components from the contract,
-   else the explore layout), pinned by `schema/studio-api-1.1.schema.json`; POST, PUT, PATCH
-   and DELETE get 405. Until the run is done, the graph answer says `graph: null`.
-   `/files/<name>` serves snapshot pages; `/ui/<name>` serves only the shell files.
+4. API: `GET /api/v1/state` and `GET /api/v1/graph` (call graph; `components_from`: contract or
+   explore layout), pinned by `schema/studio-api-1.1.schema.json`; POST, PUT, PATCH, DELETE get 405.
+   The graph says `graph: null` until the run is done. `/files/<name>` serves snapshot pages,
+   `/ui/<name>` the shell files.
 5. Versions: with `additionalProperties: false`, a new field or route is a new minor with a new
-   schema file (1.1 adds the graph; 1.0 stays), a removed or renamed field is a new major.
-   The client shows an error on an `api_version` mismatch.
+   schema file; a removed or renamed field is a new major. The client errors on a mismatch.
 6. Security: 127.0.0.1 on a free port. A `secrets.token_urlsafe(32)` token in the start URL,
    then an HttpOnly SameSite=Strict cookie for each port. Another `Host` header or no token
    gives 403. The shell CSP allows only `'self'`; the Explorer pages allow no other origin.
@@ -50,17 +49,18 @@ rejected lines of AD-284 and AD-285. The Explorer stays the only architecture re
     its stored URL answers with the Studio login redirect; `--stop` signals (SIGTERM) after the
     same check and waits for the URL to go. A live pid is no proof. `--idle-exit` counts requests.
 
-**Size** (esbuild 0.28.2, gzip). Preact 10.29.8 + hooks: 5,668 B. Studio bundle: 8,152 B (slice 1), 17,509 B (2a).
-**Rejected.** React 19.3.1 (69,148 B gzip, a second scheduler), web components (hand-made state
-for each view), React Flow, a state library, an MCP server, 0.0.0.0, a fixed port, a
+**Rejected.** React 19.3.1 (69,148 B gzip; Preact 10.29.8 + hooks: 5,668 B; a second scheduler), web
+components (hand-made state), React Flow, a state library, an MCP server, 0.0.0.0, a fixed port, a
 server-rendered embed page. No demo-catalog row: `studio` runs until stopped.
 
 **Limits.**
 - Explore runs at each start (95 to 124 s on 1185 files); cache reuse is issue #814.
   Progress is elapsed seconds: explore reports no phase while it runs.
 - Flows says "Not built"; slice 3 (#816) plays the AD-289 tour. Slice 2b: chat, Discussion panel.
-- The graph has no module-level call and keeps 4 unknown calls for each function; the lens shows
-  1 hop. A link to a detail page leaves the embed mode (Report).
+- The graph counts call sites (a partly resolved call with two candidates is one claim), has no
+  module-level call, counts a call to a target outside the scan apart (neither edge nor unknown),
+  and keeps the true count of unknown calls with the first 4. The lens shows 1 hop. A link to a
+  detail page leaves the embed mode (Report).
 - A reused server keeps its scope. Two starts between `running_studio` and `write_state` (tens of
   ms) both run explore; `--stop` finds the last file, the other runs until `--idle-exit`.
 - Windows `--stop` skips the cleanup: the explore child and the `studio-*` folder can stay behind.

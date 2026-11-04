@@ -10,6 +10,7 @@
         "archkeel.studio.api:ApiPath",
         "archkeel.studio.api:CallStatus",
         "archkeel.studio.api:ComponentRow",
+        "archkeel.studio.api:ComponentSource",
         "archkeel.studio.api:ContractState",
         "archkeel.studio.api:DeclarationKind",
         "archkeel.studio.api:Declare",
@@ -72,6 +73,7 @@
           "through": [
             "archkeel.studio.api:CallStatus",
             "archkeel.studio.api:ComponentRow",
+            "archkeel.studio.api:ComponentSource",
             "archkeel.studio.api:DeclarationKind",
             "archkeel.studio.api:Declare",
             "archkeel.studio.api:EdgeRow",

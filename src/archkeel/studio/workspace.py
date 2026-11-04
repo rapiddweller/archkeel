@@ -74,7 +74,8 @@ class Workspace:
 
     def start(self) -> None:
         """Start the explore run unless one runs; a crash of the child cannot stop the server."""
-        with self._lock:
+        # The two locks in the order of `graph`: the graph of an earlier run must not outlive it.
+        with self._graph_lock, self._lock:
             if self._run.explore is ExploreState.RUNNING:
                 return
             self._run = replace(

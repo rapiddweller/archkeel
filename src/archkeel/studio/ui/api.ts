@@ -1,5 +1,5 @@
 /** AD-290: the client of schema/studio-api-1.1; it asks only its own server. */
-import { API_VERSION, ContractState, ExploreState, SymbolKind } from "./vocabulary";
+import { API_VERSION, ComponentSource, ContractState, ExploreState, SymbolKind } from "./vocabulary";
 
 export type StudioState = {
   readonly api_version: typeof API_VERSION;
@@ -20,11 +20,14 @@ export type SymbolRow = readonly [
   line: number,
   kind: SymbolKind,
   text: string,
+  unresolved: number,
+  outside: number,
 ];
-export type EdgeRow = readonly [source: number, target: number, partial: boolean, line: number];
+export type EdgeRow = readonly [source: number, target: number, partial: boolean, line: number, site: number];
 export type UnknownRow = readonly [owner: number, expression: string, reason: string, line: number];
 
 export type Graph = {
+  readonly components_from: ComponentSource;
   readonly components: readonly ComponentRow[];
   readonly modules: readonly ModuleRow[];
   readonly symbols: readonly SymbolRow[];

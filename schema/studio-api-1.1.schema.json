@@ -46,8 +46,12 @@
             {
               "type": "object",
               "additionalProperties": false,
-              "required": ["components", "modules", "symbols", "edges", "unknown"],
+              "required": ["components_from", "components", "modules", "symbols", "edges", "unknown"],
               "properties": {
+                "components_from": {
+                  "description": "Where the components come from: the contract at the root, or the top-level packages of the explore layout. A contract that does not load gives the layout.",
+                  "enum": ["contract", "layout"]
+                },
                 "components": {
                   "description": "[id, responsibility]. The id is a label of the contract, else a top-level package of the explore layout, else \"(unowned)\". The responsibility is the first one of the contract; else empty.",
                   "type": "array",
@@ -74,7 +78,7 @@
                   }
                 },
                 "symbols": {
-                  "description": "[module, name, line, kind, text]. module indexes modules; name is the qualified name below the module; text is the first source line, 80 characters at most.",
+                  "description": "[module, name, line, kind, text, unknown, outside]. module indexes modules; name is the qualified name below the module; text is the first source line, 80 characters at most; unknown is the true number of unresolved calls of the function (the unknown list keeps the first 4); outside counts the resolved or partly resolved calls whose targets lie outside the scan.",
                   "type": "array",
                   "items": {
                     "type": "array",
@@ -83,14 +87,16 @@
                       {"type": "string", "minLength": 1},
                       {"type": "integer", "minimum": 0},
                       {"enum": ["function", "method", "class"]},
-                      {"type": "string", "maxLength": 80}
+                      {"type": "string", "maxLength": 80},
+                      {"type": "integer", "minimum": 0},
+                      {"type": "integer", "minimum": 0}
                     ],
                     "items": false,
-                    "minItems": 5
+                    "minItems": 7
                   }
                 },
                 "edges": {
-                  "description": "[source, target, partial, line]. source and target index symbols. false = resolved (proven); true = partially resolved (claim). line is the line of the call in the file of the source.",
+                  "description": "[source, target, partial, line, site]. source and target index symbols. false = resolved (proven); true = partially resolved (claim). line is the line of the call in the file of the source. site numbers the call sites: a partly resolved call can give two edges with one site, so count sites, not edges.",
                   "type": "array",
                   "items": {
                     "type": "array",
@@ -98,14 +104,15 @@
                       {"type": "integer", "minimum": 0},
                       {"type": "integer", "minimum": 0},
                       {"type": "boolean"},
+                      {"type": "integer", "minimum": 0},
                       {"type": "integer", "minimum": 0}
                     ],
                     "items": false,
-                    "minItems": 4
+                    "minItems": 5
                   }
                 },
                 "unknown": {
-                  "description": "[symbol, expression, reason, line]. A call that the analysis cannot resolve; at most 4 for each symbol.",
+                  "description": "[symbol, expression, reason, line]. A sample of the calls that the analysis cannot resolve: the first 4 for each symbol; the symbol row holds the true number.",
                   "type": "array",
                   "items": {
                     "type": "array",

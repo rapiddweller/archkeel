@@ -29,6 +29,13 @@ const place = (box: Rect): Record<string, string> => ({
   height: `${box.height}px`,
 });
 
+/** The true count of unknown calls; the sample holds the first few. */
+const unknownText = (model: Model, symbol: number): string => {
+  const total = model.graph.symbols[symbol][5];
+  const shown = model.unknown[symbol].length;
+  return shown < total ? `${total} unknown (first ${shown} shown)` : `${total} unknown`;
+};
+
 const colour = (component: number): string => `comp-${component % 10}`;
 
 function Item(props: { model: Model; placed: Rect & { item: LensItem; side: Side }; onOpen: (open: OpenGroup | null) => void }) {
@@ -78,7 +85,7 @@ function Item(props: { model: Model; placed: Rect & { item: LensItem; side: Side
 function Lens(props: { model: Model; layout: LensLayout; center: number; onOpen: (open: OpenGroup | null) => void }) {
   const { model, layout, center } = props;
   const names = model.graph.modules;
-  const unit = model.unknown[center];
+  const [, , , , , unknown, outside] = model.graph.symbols[center];
   return (
     <>
       {[...layout.plates, layout.centerPlate].map((plate, index) => (
@@ -113,7 +120,8 @@ function Lens(props: { model: Model; layout: LensLayout; center: number; onOpen:
           <span class="chip">
             {counted(model.incoming[center].length, "caller")} · {counted(model.outgoing[center].length, "callee")}
           </span>
-          {unit.length > 0 ? <span class="chip unknown">{unit.length} unknown</span> : null}
+          {unknown > 0 ? <span class="chip unknown">{unknownText(model, center)}</span> : null}
+          {outside > 0 ? <span class="chip">{outside} outside the scan</span> : null}
         </span>
       </div>
       <div class="siblings" style={place(layout.siblings)}>
@@ -177,8 +185,16 @@ function Details(props: { model: Model; symbol: number }) {
       </Box>
       <Neighbors model={model} title="Called by" list={model.incoming[symbol]} owner={symbol} fromOther={true} />
       <Neighbors model={model} title="Calls" list={model.outgoing[symbol]} owner={symbol} fromOther={false} />
+      {model.graph.symbols[symbol][6] > 0 ? (
+        <Box title="Outside the scan">
+          <p>
+            {counted(model.graph.symbols[symbol][6], "call")} of {name} resolve to code outside the scan, such as the
+            standard library. They are neither proven edges nor unknown.
+          </p>
+        </Box>
+      ) : null}
       {model.unknown[symbol].length > 0 ? (
-        <Box title={`Unknown calls · ${model.unknown[symbol].length}`}>
+        <Box title={`Unknown calls · ${unknownText(model, symbol)}`}>
           <ul class="pairs">
             {model.unknown[symbol].map((row) => (
               <li key={`${row[1]}:${row[3]}`}>
@@ -233,7 +249,7 @@ function LensPage(props: { model: Model; symbol: number }) {
           }}
         />
         <span class="summary">
-          lens · 1 hop · {model.incoming[symbol].length + model.outgoing[symbol].length} neighbors · {model.unknown[symbol].length} unknown
+          lens · 1 hop · {model.incoming[symbol].length + model.outgoing[symbol].length} neighbors · {unknownText(model, symbol)}
         </span>
         <button type="button" class="toggle" aria-pressed={details} onClick={() => setDetails(!details)}>
           Details
@@ -247,6 +263,7 @@ function LensPage(props: { model: Model; symbol: number }) {
         <Viewport width={layout.width} height={layout.height} label="Lens" fitKey={`${symbol}:${open?.group}:${open?.side}`}>
           <Lens model={model} layout={layout} center={symbol} onOpen={setOpen} />
         </Viewport>
+        <p class="note">Module-level calls are not shown.</p>
       </section>
       <aside class="details" aria-label="Details">
         <Details model={model} symbol={symbol} />

@@ -60,6 +60,7 @@ Planned Figma part: discussion message (PROPOSED - NOT APPLIED). Build it when a
   accepts it. A proposal reads "PROPOSED - NOT APPLIED".
 - Call proof (`Proof`): `✓ proven` = resolved call, `✎ claim` = partly resolved call, `? unknown`
   = no target found. Always draw the glyph and the word, never a colour alone. Never show PASS.
+  A line is `proven` only with no claim in it. Count call sites, never edges (`site` of an edge).
   No arrow encodes data flow: a line is a dependency, and the band says who calls whom.
 - The lens target is the URL hash (`#/explore/<function index>`); a card is a link, so the
   browser Back button works and no view imports another view. Colours come from `tokens.css`,
@@ -75,7 +76,7 @@ Planned Figma part: discussion message (PROPOSED - NOT APPLIED). Build it when a
 5. Run `make browser-runtime-generate browser-architecture-check`.
 6. Add the view to `tests/test_studio_browser.py`.
 7. A name that the TypeScript analyzer cannot read breaks `make browser-architecture-check`: do not
-   index a variable named `module`, and do not label a tuple element `symbol`.
+   index a variable named `module`, and do not label a tuple element `symbol` or `unknown`.
 
 ## Floors
 

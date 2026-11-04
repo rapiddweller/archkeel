@@ -59,7 +59,7 @@ function content(view: View, route: Route, state: StudioState, model: Model | nu
     case View.Overview:
       return <Overview state={state} />;
     case View.Map:
-      return <ArchMap model={model} />;
+      return <ArchMap model={model} contract={state.contract} />;
     case View.Explore:
       return <Explore model={model} symbol={route.symbol} />;
     case View.Report:

@@ -94,6 +94,13 @@ class CallStatus(StrEnum):
     UNRESOLVED = "unresolved"
 
 
+class ComponentSource(StrEnum):
+    """Where the components of the graph come from."""
+
+    CONTRACT = "contract"
+    LAYOUT = "layout"
+
+
 class DeclarationKind(StrEnum):
     """The declaration of a top-level component in the explore layout."""
 
@@ -140,6 +147,8 @@ class SymbolRow(NamedTuple):
     line: int
     kind: SymbolKind
     text: str  # the first source line, cut to a fixed length
+    unknown: int  # the true number of unresolved calls; `Graph.unknown` keeps the first few
+    outside: int  # resolved or partly resolved calls whose targets lie outside the scan
 
 
 class EdgeRow(NamedTuple):
@@ -147,6 +156,7 @@ class EdgeRow(NamedTuple):
     target: int
     partial: bool
     line: int
+    site: int  # one number for each call site: a partial call can give two edges
 
 
 class UnknownRow(NamedTuple):
@@ -160,6 +170,7 @@ class UnknownRow(NamedTuple):
 class Graph:
     """The measured call graph of the snapshot, as rows; every cross reference is an index."""
 
+    components_from: ComponentSource
     components: tuple[ComponentRow, ...]
     modules: tuple[ModuleRow, ...]
     symbols: tuple[SymbolRow, ...]
@@ -172,6 +183,7 @@ def graph_json(explore: ExploreState, graph: Graph | None) -> bytes:
     body = None
     if graph is not None:
         body = {
+            "components_from": graph.components_from,
             "components": graph.components,
             "modules": graph.modules,
             "symbols": graph.symbols,
