@@ -15,11 +15,11 @@ rejected lines of AD-284 and AD-285. The Explorer stays the only architecture re
    `api` (routes, typed state, no I/O), `workspace` (the explore child, into a private 0700
    folder of this run below the explore cache; deleted at the end), `server` (HTTP, token).
    The package imports no other component: the CLI injects the explore command and the
-   contract state (`archkeel.toml` loads and its contract parses). Planned: `agent` (a port for
-   `claude -p` or `codex exec`, read-only, no key) and `proposals` (the only writer). Edits
+   contract state (`archkeel.toml` loads and its contract parses). AD-292 adds `agent` (read-only,
+   no key). Planned: `proposals` (the only writer). Edits
    outside the package: `Command.STUDIO` in `ir/model.py`; the embed lines of item 8.
-4. API: `GET /api/v1/state`, pinned by `schema/studio-api-1.0.schema.json`; POST, PUT, PATCH
-   and DELETE get 405. Explore starts with the server, so slice 1 needs no write route.
+4. API: `GET /api/v1/state` and, since AD-292, `POST /api/v1/chat`, pinned by
+   `schema/studio-api-1.1.schema.json`; PUT, PATCH, DELETE and a POST elsewhere get 405. No route writes.
    `/files/<name>` serves the snapshot pages; `/ui/<name>` serves only the shell files.
 5. Versions: with `additionalProperties: false`, a new field is a new minor with a new schema file,
    and a removed or renamed field is a new major. The client shows an error on an `api_version`
