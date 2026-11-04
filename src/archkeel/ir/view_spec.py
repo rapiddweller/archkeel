@@ -983,8 +983,9 @@ def _link(
     claim: bool,
     note: str | None,
     step: bool,
+    story_context: bool,
 ) -> LinkCheck:
-    if claim and not step:
+    if claim and not (story_context and step):
         reason = "author claim: not checked against the graph"
         return LinkCheck(source, target, ViewStatus.CLAIM, reason, kind, note=note)
     ends = {nodes[source].status, nodes[target].status}
@@ -1137,6 +1138,7 @@ def _check_view(
                 claim=edge.claim,
                 note=edge.note,
                 step=False,
+                story_context=spec.story is not None,
             )
             for edge in spec.edges
         )
@@ -1158,6 +1160,7 @@ def _check_view(
                 claim=step.claim,
                 note=step.note,
                 step=True,
+                story_context=spec.story is not None,
             )
             for before, step in pairs
         )

@@ -248,6 +248,12 @@ def test_a_claim_may_bridge_existing_nodes_but_cannot_invent_one(shop: Observati
     assert invented.nodes[1].status is ViewStatus.MISSING
     assert invented.steps[1].status is ViewStatus.MISSING
 
+    edge_spec = _spec(shop, [{"node": MAIN}])
+    edge_spec["nodes"].append("shop.cli.main.made_up")
+    edge_spec["edges"] = [{"source": MAIN, "target": "shop.cli.main.made_up", "claim": True}]
+    invented_edge = check_view(parse_view_spec(edge_spec), shop, strict=False)
+    assert invented_edge.edges[0].status is ViewStatus.CLAIM
+
 
 @pytest.mark.parametrize("version", ["1.0.0", "1.1.0"])
 def test_legacy_view_claim_edges_keep_their_original_semantics(
@@ -263,6 +269,20 @@ def test_legacy_view_claim_edges_keep_their_original_semantics(
     result = check_view(parse_view_spec(raw), shop, strict=False)
 
     assert result.edges[0].status is ViewStatus.CLAIM
+
+
+@pytest.mark.parametrize("version", ["1.0.0", "1.1.0"])
+def test_legacy_view_claim_steps_keep_their_original_semantics(
+    shop: Observation, version: str
+) -> None:
+    invented = "shop.cli.main.made_up"
+    raw = _spec(shop, [{"node": MAIN}, {"node": invented, "claim": True}])
+    raw.pop("story")
+    raw["schema_version"] = version
+
+    result = check_view(parse_view_spec(raw), shop, strict=False)
+
+    assert result.steps[1].status is ViewStatus.CLAIM
 
 
 def test_an_incomplete_snapshot_does_not_claim_a_missing_node(shop: Observation) -> None:
