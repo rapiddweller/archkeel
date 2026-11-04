@@ -2,10 +2,10 @@
 import type { CheckedStory } from "./api";
 
 export const STORY = {
-  lane: 236,
+  lane: 224,
   gap: 14,
-  card: { width: 222, height: 46 },
-  row: 60,
+  card: { width: 210, height: 46 },
+  row: 64,
   top: 92,
   external: 200,
 } as const;
@@ -81,7 +81,7 @@ export function layoutStory(checked: CheckedStory): StoryLayout {
   const titles = new Map((checked.story?.chapters ?? []).map((chapter) => [chapter.id, chapter.title]));
   steps.forEach((step, index) => {
     if (step.chapter !== null && chapters.at(-1)?.id !== step.chapter) {
-      chapters.push({ id: step.chapter, title: titles.get(step.chapter) ?? step.chapter, y: cards[index].y - 26 });
+      chapters.push({ id: step.chapter, title: titles.get(step.chapter) ?? step.chapter, y: cards[index].y - 17 });
     }
   });
   const lanesWidth = Math.max(1, lanes.length) * (STORY.lane + STORY.gap) - STORY.gap;

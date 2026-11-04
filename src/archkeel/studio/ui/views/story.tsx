@@ -159,7 +159,8 @@ function Player(props: { checked: CheckedStory }) {
     if (layout === null || stage.current === null) return;
     const card = layout.cards[current];
     const top = card.y - stage.current.clientHeight / 2 + STORY.card.height / 2;
-    stage.current.scrollTo({ top: Math.max(0, top), behavior: reduced() ? "auto" : "smooth" });
+    const left = card.x - stage.current.clientWidth / 2 + STORY.card.width / 2;
+    stage.current.scrollTo({ top: Math.max(0, top), left: Math.max(0, left), behavior: reduced() ? "auto" : "smooth" });
   }, [current, layout]);
   if (story === null || layout === null || count === 0) {
     return <p class="more">This spec has no story: it has no steps to play.</p>;
