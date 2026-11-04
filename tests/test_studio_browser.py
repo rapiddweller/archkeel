@@ -6,6 +6,7 @@
 Run these tests with `-m browser`; they need the `playwright` package and Chromium.
 """
 
+import json
 import os
 from collections.abc import Iterator
 from pathlib import Path
@@ -14,7 +15,7 @@ from urllib.parse import urlsplit
 import pytest
 from jsonschema import Draft202012Validator
 from test_explore import _repository
-from test_studio import _SCHEMA, _start, _stop, explore, login
+from test_studio import _SCHEMA, _start, _stop, explore, login, request
 
 from archkeel.cli import main
 from archkeel.cli.config import load_config
@@ -214,7 +215,6 @@ def test_the_shell_navigates_and_stays_on_its_server(
             page.screenshot(path=tmp_path / f"report-{width}.png")
 
             for name, fragment, heading in (
-                ("Flows", "/flows", "Flows"),
                 ("Impact", "/impact", "Change impact"),
                 ("Target / Diff", "/target", "Target and diff"),
             ):
@@ -326,3 +326,245 @@ def test_the_shell_shows_an_invalid_contract_and_refuses_another_api_version(
 @pytest.mark.browser
 def test_the_fixture_leaves_the_environment_of_the_test_process_unchanged(studio: Studio) -> None:
     assert {name: os.environ.get(name) for name in _ENVIRONMENT} == _ENVIRONMENT
+
+
+_CHECKED = json.loads((Path(__file__).parent / "studio_check_flow.checked.json").read_bytes())
+_PLACE = "shop.app.orders.place"
+_SAVE = "shop.store.repository.save"
+_FACT = {
+    "qualified_name": _PLACE,
+    "file": "shop/app/orders.py",
+    "line": 4,
+    "resolved_callers": 0,
+    "resolved_callees": 1,
+    "unknown_calls": 0,
+}
+_ANSWER = {
+    "api_version": API_VERSION,
+    "agent": "claude",
+    "applied": False,
+    "blocks": [
+        {"kind": "claim", "text": "place saves the order.", "refs": [_PLACE, _SAVE], "label": None},
+        {
+            "kind": "proposal",
+            "text": "Name the use case in the story.",
+            "refs": [_PLACE],
+            "label": "PROPOSED - NOT APPLIED",
+        },
+    ],
+    "facts": [_FACT],
+    "dropped_refs": ["shop.nothing"],
+}
+
+
+def _lens(page, studio: Studio) -> None:
+    page.goto(studio.url)
+    page.locator(".map-card", has_text="app").click()
+    page.locator(".lens-card.center").wait_for()
+
+
+@pytest.mark.browser
+def test_the_chat_marks_claim_proposal_and_observed_apart(studio: Studio) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    seen: list[dict] = []
+    requests: list[str] = []
+
+    def answer(route) -> None:
+        seen.append({"headers": route.request.headers, "body": route.request.post_data_json})
+        route.fulfill(json=_ANSWER)
+
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.on("request", lambda item: requests.append(item.url))
+            page.route("**/api/v1/chat", answer)
+            _lens(page, studio)
+            page.get_by_role("button", name="Ask", exact=True).click()
+            chat = page.get_by_role("region", name="Ask the agent")
+            assert chat.get_by_text("Context: place").is_visible()
+            assert chat.get_by_role("button").filter(has_text="?").count() == 4  # quick questions
+            chat.get_by_role("textbox", name="Question").fill("What does place do?")
+            chat.get_by_role("button", name="Ask", exact=True).click()
+            chat.get_by_text("CLAIM", exact=False).first.wait_for()
+            assert seen[0]["body"] == {"question": "What does place do?", "context": _PLACE}
+            assert seen[0]["headers"]["x-archkeel-studio"]
+            assert seen[0]["headers"]["content-type"] == "application/json"
+            # Three kinds, three marks: agent text never reads OBSERVED.
+            claim = chat.get_by_role("region", name="Claim")
+            proposal = chat.get_by_role("region", name="Proposed")
+            observed = chat.get_by_role("region", name="Observed")
+            flat = lambda item: " ".join(item.inner_text().split())  # noqa: E731
+            assert "✎ CLAIM" in flat(claim)
+            assert "◌ PROPOSED - NOT APPLIED" in flat(proposal)
+            assert "✓ OBSERVED" in flat(observed)
+            assert "OBSERVED" not in flat(claim) + flat(proposal)
+            assert "orders.py:4" in flat(observed)
+            assert "1 reference of the agent dropped" in flat(chat)
+            assert chat.get_by_text("Agent: claude").is_visible()
+            # "Pin to story" shows the draft of the trace and writes nothing.
+            proposal.get_by_role("button", name="Pin to story").click()
+            proposal.locator("pre.draft").wait_for()
+            assert '"schema_version": "1.2.0"' in proposal.locator("pre.draft").inner_text()
+            # A ref opens the lens at that function; the conversation stays.
+            claim.get_by_role("link", name="save").click()
+            page.locator(".lens-card.center", has_text="save").wait_for()
+            assert page.get_by_role("region", name="Ask the agent").is_visible() is False
+            page.get_by_role("button", name="Ask", exact=True).click()
+            page.get_by_text("What does place do?").wait_for()
+        finally:
+            browser.close()
+    assert [url for url in requests if urlsplit(url).netloc != f"127.0.0.1:{studio.port}"] == [
+        url for url in requests if urlsplit(url).scheme in _LOCAL_SCHEMES
+    ]
+
+
+@pytest.mark.browser
+@pytest.mark.parametrize(
+    ("status", "body", "shown"),
+    [
+        (409, {"api_version": API_VERSION, "error": "busy", "detail": "busy"}, "still answers"),
+        (503, {"api_version": API_VERSION, "error": "agent_not_installed", "detail": "x"}, "No agent found"),
+        (502, {"api_version": API_VERSION, "error": "repository_changed", "detail": "x"}, "discarded the answer"),
+        (405, "method not allowed", "chat is not available"),
+    ],
+)
+def test_the_chat_says_why_it_has_no_answer(studio: Studio, status: int, body, shown: str) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            reply = {"json": body} if isinstance(body, dict) else {"body": body}
+            page.route("**/api/v1/chat", lambda route: route.fulfill(status=status, **reply))
+            _lens(page, studio)
+            page.get_by_role("button", name="Ask", exact=True).click()
+            page.get_by_role("button", name="What does this function do?").click()
+            page.get_by_role("alert").filter(has_text=shown).wait_for()
+            # The panel works again after an error.
+            assert page.get_by_role("textbox", name="Question").is_enabled()
+        finally:
+            browser.close()
+
+
+def _checked(**changes) -> dict:
+    """The checked story of ArchKeel's own `check` flow, with a claim that lists 58 candidates and Redis."""
+    checked = json.loads(json.dumps(_CHECKED))
+    story = checked["story"]
+    story["steps"][2]["external"] = [{"system": "redis", "touched": True, "direction": "reads", "evidence": []}]
+    story["verdict"]["systems"] = ["redis"]
+    checked["steps"][5]["evidence"] = [{"file": "src/archkeel/x.py", "line": 7, "candidates": 58}]
+    return checked | changes
+
+
+@pytest.mark.browser
+def test_a_story_plays_and_a_claim_never_reads_as_proven(studio: Studio) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    requests: list[str] = []
+    row = {"id": "check-flow", "title": _CHECKED["story"]["title"], "steps": len(_CHECKED["steps"])}
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.on("request", lambda item: requests.append(item.url))
+            page.route(
+                "**/api/v1/stories",
+                lambda route: route.fulfill(json={"api_version": API_VERSION, "stories": [row]}),
+            )
+            page.route(
+                "**/api/v1/stories/check-flow",
+                lambda route: route.fulfill(
+                    json={"api_version": API_VERSION, "id": "check-flow", "checked": _checked()}
+                ),
+            )
+            page.goto(studio.url)
+            page.get_by_role("link", name="Stories", exact=True).click()
+            page.get_by_role("link", name=_CHECKED["story"]["title"]).click()
+            page.get_by_role("heading", name=row["title"]).wait_for()
+            verdict = page.get_by_label("Verdict").inner_text().replace("\n", " ")
+            assert "5 ✓ proven · 1 ✎ claim · 2 ? unknown" in verdict
+            assert "systems: redis" in verdict
+            step = page.get_by_role("complementary", name="Step")
+            assert "STEP 1 / 8" in step.inner_text()
+            assert step.get_by_text("Author text is a claim").is_visible()
+            # Play moves to the next step by itself; the keys and the dots move too.
+            page.get_by_role("button", name="Play story").click()
+            page.get_by_text("STEP 2 / 8").wait_for(timeout=8000)
+            page.get_by_role("button", name="Pause").click()
+            page.keyboard.press("ArrowRight")
+            assert "STEP 3 / 8" in step.inner_text()
+            assert step.get_by_text("redis").is_visible()  # the touchpoint of step 3
+            assert step.get_by_text("reads · claim").is_visible()
+            # Every dot names its status; walk the whole story.
+            statuses = [("proven", "✓ proven"), ("proven", "✓ proven"), ("proven", "✓ proven"),
+                        ("unknown", "? unknown"), ("proven", "✓ proven"), ("claim", "✎ claim"),
+                        ("proven", "✓ proven"), ("unknown", "? unknown")]
+            for index, (word, mark) in enumerate(statuses):
+                page.get_by_role("button", name=f"Step {index + 1}: {word}").click()
+                head = step.locator(".step-no").inner_text()
+                assert mark in head, (index, head)
+                if word != "proven":
+                    assert "proven" not in head
+            page.get_by_role("button", name="Step 6: claim").click()
+            assert page.get_by_text("58 candidates").count() >= 1
+            page.get_by_role("button", name="Step 4: unknown").click()
+            assert step.get_by_text("Question for the architect").is_visible()
+            # The card cuts a long name in the middle; the panel has the full name.
+            card = page.locator(".story-card").nth(4)
+            assert "…" in card.locator("b").inner_text()
+            assert card.get_attribute("title") == _CHECKED["story"]["steps"][4]["node"]
+            assert page.evaluate("document.documentElement.scrollWidth") <= 1440
+            # No arrow encodes a flow: the route has no marker.
+            assert page.locator("svg.routes [marker-end], svg.routes marker").count() == 0
+        finally:
+            browser.close()
+    assert [url for url in requests if urlsplit(url).netloc not in {f"127.0.0.1:{studio.port}", ""}] == [
+        url for url in requests if urlsplit(url).scheme in _LOCAL_SCHEMES
+    ]
+
+
+@pytest.mark.browser
+def test_reduced_motion_plays_to_the_final_state(studio: Studio) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 800, "height": 600}, reduced_motion="reduce")
+            page.route(
+                "**/api/v1/stories/check-flow",
+                lambda route: route.fulfill(
+                    json={"api_version": API_VERSION, "id": "check-flow", "checked": _checked()}
+                ),
+            )
+            page.goto(studio.url + "#/stories/check-flow")
+            page.get_by_role("button", name="Play story").click()
+            page.get_by_text("STEP 8 / 8").wait_for(timeout=2000)
+            assert page.evaluate("document.documentElement.scrollWidth") <= 800
+        finally:
+            browser.close()
+
+
+@pytest.mark.browser
+def test_a_story_of_the_root_is_checked_by_the_server(studio: Studio) -> None:
+    """The real route: a draft spec of the trace is listed, checked and played."""
+    api = pytest.importorskip("playwright.sync_api")
+
+    cookie = login(studio)
+    response, body = request(studio, f"/api/v1/draft?from={_PLACE}", cookie=cookie)
+    assert response.status == 200
+    spec = json.loads(body)["spec"]
+    folder = studio.workspace.stories.folder  # type: ignore[union-attr]
+    folder.mkdir(parents=True, exist_ok=True)
+    spec["steps"][0] |= {"title": "The use case", "note": "place builds the order and saves it."}
+    (folder / "place-draft.story.json").write_text(json.dumps(spec))
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.goto(studio.url + "#/stories")
+            page.get_by_role("link", name=f"Story from {_PLACE}").click()
+            step = page.get_by_role("complementary", name="Step")
+            step.get_by_text("place builds the order and saves it.").wait_for()
+            assert "✓ proven" in step.locator(".step-no").inner_text()
+        finally:
+            browser.close()
