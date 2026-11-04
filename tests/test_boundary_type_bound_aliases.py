@@ -33,6 +33,9 @@ _BODY = (
 _SHAPE = _BODY.replace("Metadata", "sample.app.types.Metadata")
 _BINDING = {"origin": "sample.app.impl:Packet", "shape": _SHAPE}
 _SELECTIONS = [(), (0,), (1,), (2,), (3,), (0, 1, 2, 3)]
+# All four selectors reject together, and the depth-3 selector alone: container_depth is the
+# only selector field that changes a branch in the permission match.
+_MUTATION_SELECTIONS = [(0, 1, 2, 3), (1,)]
 
 
 def _selectors(facade: bool) -> list[dict[str, object]]:
@@ -244,7 +247,7 @@ _MUTATIONS = [
 ]
 
 
-@pytest.mark.parametrize("selected", [(0,), (1,), (2,), (3,), (0, 1, 2, 3)])
+@pytest.mark.parametrize("selected", _MUTATION_SELECTIONS)
 @pytest.mark.parametrize("mutation", _MUTATIONS)
 def test_unchanged_binding_fails_closed_after_source_mutation(
     tmp_path: Path, selected: tuple[int, ...], mutation
@@ -541,7 +544,7 @@ def test_applied_proof_links_source_imports_declarations_and_signature(tmp_path:
         assert fact.data.get("module") == "sample.app.impl"
 
 
-@pytest.mark.parametrize("selected", [(0,), (1,), (2,), (3,), (0, 1, 2, 3)])
+@pytest.mark.parametrize("selected", _MUTATION_SELECTIONS)
 @pytest.mark.parametrize("mutation", _MUTATIONS)
 def test_ordinary_validate_cli_source_mutation_matches_no_permission_control(
     tmp_path: Path, selected: tuple[int, ...], mutation
