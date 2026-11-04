@@ -160,6 +160,10 @@ def test_explain_flow_skill_traces_chooses_writes_and_checks() -> None:
         "Agent text is a claim, never a fact.",
         "`claim: true`",
         "the direction is your claim",
+        ".archkeel/stories/<id>.story.json",
+        "git rev-parse HEAD",
+        'author_kind: "agent"',
+        "author text, a claim",
     ):
         assert text.lower() in body.lower(), text
     keys = [

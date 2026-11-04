@@ -27,19 +27,25 @@ archkeel story trace --from <function> --to <function> --snapshot <dir>/architec
 
 ## 3. Write the story spec
 
-Write a view spec with `"schema_version": "1.2.0"`. Copy `snapshot.source_digest` and
-`snapshot.contract_digest` from the trace. Add a `story` with `id`, `title` and `chapters`.
-List every step node in `nodes`. For each step in `steps`:
+Write a view spec with `"schema_version": "1.2.0"`. Add a `story` with `id`, `title` and `chapters`.
+List every step node in `nodes`. The `snapshot` digests may stay as the trace gives them: Studio
+checks the story by node name and ignores them on a mismatch. For each step in `steps`:
 
 - `node`: a function from the trace.
 - `chapter`, `title`, `note` (the story text) and `question` (for the architect): your words.
 - `external`: `{"system", "direction"}` only when the owner needs it. The direction is your claim.
 
-## 4. Check and show it
+## 4. Check it, store it, show it
 
 1. Run `archkeel view check story.json --snapshot <dir>/architecture.json --json`.
 2. Read the result, not your spec. Report each `unknown`, `claim` and `missing` step to the owner.
 3. If a step is `missing` or `unknown` for no good reason, change the spec. Do not argue with the result.
-4. Run `archkeel view show story.json --snapshot <dir>/architecture.json`, or open Studio (`explore` skill).
+4. Write the spec to `<root>/.archkeel/stories/<id>.story.json` with your own write tool. Add
+   `created` (UTC time), `git_head` (from `git rev-parse HEAD`), `author_kind: "agent"` and
+   `agent` (your name). Do not edit anything else in the repository.
+5. Tell the owner to open Studio (`explore` skill) and pick the story in the list. Studio reads
+   the folder and checks the story again on the current snapshot. For a static page run
+   `archkeel view show story.json --snapshot <dir>/architecture.json`.
 
+The spec file is author text, a claim. The owner reviews it like documentation, in a pull request.
 Say only what `view check` measured. The `verdict` counts steps; it is not approval.
