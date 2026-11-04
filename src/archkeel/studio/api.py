@@ -54,13 +54,13 @@ class ApiPath(StrEnum):
 
 
 class MediaType(StrEnum):
-    """The one body type that the chat route accepts."""
+    """The one body type that the chat route accepts; a rule forbids a string compare."""
 
     JSON = "application/json"
 
 
 class AgentKind(StrEnum):
-    """The coding agents that can answer, in the default order of trial."""
+    """The coding agents that can answer. Claude is the default; codex is an opt-in."""
 
     CLAUDE = "claude"
     CODEX = "codex"
@@ -316,8 +316,8 @@ def parse_chat_request(raw: bytes) -> ChatRequest:
     """The request body, or a 400 that names the first break."""
     try:
         body = json.loads(raw)
-    except ValueError as error:
-        raise ChatFailure(ChatError.INVALID_REQUEST, f"The body is not JSON: {error}") from error
+    except (ValueError, RecursionError) as error:
+        raise ChatFailure(ChatError.INVALID_REQUEST, "The body is not JSON.") from error
     if not isinstance(body, dict) or not body.keys() <= {"question", "context"}:
         raise ChatFailure(
             ChatError.INVALID_REQUEST, 'The body must be {"question": text, "context": name}.'

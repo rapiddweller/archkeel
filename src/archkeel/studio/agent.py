@@ -24,11 +24,10 @@ _OUTPUT_LIMIT: Final = 128 * 1024
 _GRACE_SECONDS = 3.0
 _TICK_SECONDS = 0.05
 _GIT_SECONDS = 60
-_ERROR_TAIL = 500
 _PROMPT = Template(
     """\
 You answer one question about the code in the current folder.
-You can read files and search them. You cannot run commands. You cannot change files.
+$tools
 
 Reply with one JSON object and no other text. Use this shape:
 {"blocks": [{"kind": "claim", "text": "...", "refs": ["module.qualified_name"]}]}
@@ -49,6 +48,17 @@ Facts that ArchKeel measured for the selected node:
 $facts
 """
 )
+# What each agent can do, in the words of its prompt. Codex runs shell commands of the model in
+# its read-only sandbox and can read the whole disk: its prompt must not say "no commands".
+_TOOLS: Final = {
+    AgentKind.CLAUDE: (
+        "You can read files and search them. You cannot run commands. You cannot change files."
+    ),
+    AgentKind.CODEX: (
+        "You can read files and run read-only commands. Do not change any file. "
+        "Do not read outside the current folder."
+    ),
+}
 # Read-only by the tools of the agent: no shell and no write tool for claude, a read-only
 # sandbox for codex. The prompt goes on stdin and the answer comes on stdout.
 _COMMANDS: Final = {
@@ -74,12 +84,21 @@ _COMMANDS: Final = {
         "-",
     ),
 }
-# The child uses the sign-in of the owner. It gets no API key, and no variable of a parent agent
-# session: an inherited CLAUDE_CODE_SIMPLE makes `claude -p` accept API-key sign-in only.
-_NOT_FOR_THE_CHILD = re.compile(
-    r"CLAUDECODE|CLAUDE_CODE_.*|CLAUDE_AGENT_SDK_.*|CODEX_(THREAD|SESSION|TOOL|SANDBOX|CI).*"
+# The child uses the sign-in of the owner. Claude has no shell, so it gets the environment of the
+# server without the variables of a parent agent session (an inherited CLAUDE_CODE_SIMPLE makes
+# `claude -p` accept API-key sign-in only) and without the four API key names. It keeps
+# CLAUDE_CODE_OAUTH_TOKEN and the Bedrock and Vertex selectors: an owner may sign in with them.
+_CLAUDE_WITHOUT = re.compile(
+    r"CLAUDECODE|CLAUDE_CODE_(?!OAUTH_TOKEN$|USE_|SKIP_).*|CLAUDE_AGENT_SDK_.*"
     r"|ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN|OPENAI_API_KEY|CODEX_API_KEY"
 )
+# Codex runs shell commands of the model, which could read or send each variable. It gets only
+# these: the basics, the folder of its own sign-in and the proxy and certificate settings.
+_CODEX_WITH = re.compile(
+    r"PATH|HOME|USER|LOGNAME|LANG|LC_.*|TERM|TMPDIR|XDG_.*|CODEX_HOME"
+    r"|SSL_CERT_FILE|SSL_CERT_DIR|(?i:https?_proxy|all_proxy|no_proxy)"
+)
+_SIGN_IN_HINT = "Check that the agent is installed and signed in: run it once in a terminal."
 
 
 @dataclass(frozen=True)
@@ -88,16 +107,27 @@ class Reply:
     text: str
 
 
-def build_prompt(request: ChatRequest, neighborhood: str) -> str:
+def _prompt(kind: AgentKind, request: ChatRequest, neighborhood: str) -> str:
     return _PROMPT.substitute(
-        question=request.question, node=request.context or "none", facts=neighborhood or "none"
+        tools=_TOOLS[kind],
+        question=request.question,
+        node=request.context or "none",
+        facts=neighborhood or "none",
     )
 
 
-def _tree_state(root: Path) -> bytes:
-    """What git reports for the root, every untracked file listed; fail closed."""
-    command = ["git", "--no-optional-locks", "-C", str(root)]
-    command += ["status", "--porcelain", "-z", "--untracked-files=all"]
+def _child_env(kind: AgentKind) -> dict[str, str]:
+    if kind is AgentKind.CODEX:
+        return {name: value for name, value in os.environ.items() if _CODEX_WITH.fullmatch(name)}
+    return {
+        name: value for name, value in os.environ.items() if not _CLAUDE_WITHOUT.fullmatch(name)
+    }
+
+
+def _tree_state(root: Path) -> tuple[bytes, tuple[tuple[int, int] | None, ...]]:
+    """What git reports for the root, and size and mtime of each file listed; fail closed."""
+    command = ["git", "--no-optional-locks", "-C", str(root), "status", "--porcelain", "-z"]
+    command += ["--untracked-files=all", "--no-renames"]
     try:
         done = subprocess.run(
             command, capture_output=True, stdin=subprocess.DEVNULL, timeout=_GIT_SECONDS
@@ -105,8 +135,18 @@ def _tree_state(root: Path) -> bytes:
     except (OSError, subprocess.TimeoutExpired) as error:
         raise ChatFailure(ChatError.AGENT_FAILED, f"git status did not run: {error}") from error
     if done.returncode != 0:
-        raise ChatFailure(ChatError.AGENT_FAILED, "git status failed: Studio cannot check the run.")
-    return done.stdout
+        raise ChatFailure(
+            ChatError.AGENT_FAILED,
+            "Studio cannot check the run: git status failed. The root must be a git repository.",
+        )
+    places: list[tuple[int, int] | None] = []
+    for entry in filter(None, done.stdout.split(b"\0")):
+        try:
+            seen = (root / os.fsdecode(entry[3:])).lstat()
+            places.append((seen.st_size, seen.st_mtime_ns))
+        except OSError:
+            places.append(None)
+    return done.stdout, tuple(places)
 
 
 def _end(child: "subprocess.Popen[bytes]") -> None:
@@ -139,7 +179,7 @@ class Agent:
     def __init__(
         self,
         root: Path,
-        prefer: AgentKind | None = None,
+        kind: AgentKind = AgentKind.CLAUDE,
         *,
         timeout: float = _TIMEOUT_SECONDS,
         limit: int = _OUTPUT_LIMIT,
@@ -147,7 +187,7 @@ class Agent:
         self.root = root
         self._timeout = timeout
         self._limit = limit
-        self._order = (*([prefer] if prefer else []), *(k for k in AgentKind if k is not prefer))
+        self.kind = kind
         self._run = threading.Lock()
         self._guard = threading.Lock()
         self._child: subprocess.Popen[bytes] | None = None
@@ -157,27 +197,28 @@ class Agent:
     def busy(self) -> bool:
         return self._run.locked()
 
-    def ask(self, prompt: str) -> Reply:
-        """Run one agent. Raise a `ChatFailure` for each break, also when the run changed a file."""
+    def ask(self, request: ChatRequest, neighborhood: str) -> Reply:
+        """Run the agent. Raise a `ChatFailure` for each break, also when the run changed a file."""
         if not self._run.acquire(blocking=False):
             raise ChatFailure(ChatError.BUSY, "Another question runs. Wait until it ends.")
         try:
-            kind, program = self._find()
+            program = self._find()
             before = _tree_state(self.root)
             failure: ChatFailure | None = None
             text = ""
             try:
-                text = self._execute(kind, program, prompt)
+                text = self._execute(program, _prompt(self.kind, request, neighborhood))
             except ChatFailure as error:
                 failure = error
             if _tree_state(self.root) != before:
                 raise ChatFailure(
                     ChatError.REPOSITORY_CHANGED,
-                    "The run changed a file in the repository. Studio discarded the answer.",
+                    "The run changed a file in the repository. Studio discarded the answer. "
+                    "The edit may stay on disk: review it with git status.",
                 ) from failure
             if failure is not None:
                 raise failure
-            return Reply(kind, text)
+            return Reply(self.kind, text)
         finally:
             self._run.release()
 
@@ -189,28 +230,19 @@ class Agent:
         if child is not None:
             _end(child)
 
-    def _find(self) -> tuple[AgentKind, str]:
-        for kind in self._order:
-            if (program := shutil.which(kind.value)) is not None:
-                return kind, program
-        raise ChatFailure(
-            ChatError.AGENT_NOT_INSTALLED,
-            "Studio found neither claude (Claude Code) nor codex (Codex) on the PATH. "
-            "Install one of them and sign in.",
-        )
+    def _find(self) -> str:
+        if (program := shutil.which(self.kind.value)) is None:
+            raise ChatFailure(
+                ChatError.AGENT_NOT_INSTALLED,
+                f"Studio found no {self.kind.value} on the PATH. Install it and sign in, "
+                "or start Studio with --agent for the other agent.",
+            )
+        return program
 
-    def _execute(self, kind: AgentKind, program: str, prompt: str) -> str:
-        env = {
-            name: value
-            for name, value in os.environ.items()
-            if not _NOT_FOR_THE_CHILD.fullmatch(name)
-        }
+    def _execute(self, program: str, prompt: str) -> str:
+        env = _child_env(self.kind)
         # Files, not pipes: a child that never reads its input cannot block the server.
-        with (
-            tempfile.TemporaryFile() as stdin,
-            tempfile.TemporaryFile() as out,
-            tempfile.TemporaryFile() as err,
-        ):
+        with tempfile.TemporaryFile() as stdin, tempfile.TemporaryFile() as out:
             stdin.write(prompt.encode())
             stdin.seek(0)
             with self._guard:
@@ -218,12 +250,13 @@ class Agent:
                     raise ChatFailure(ChatError.AGENT_FAILED, "Studio is stopping.")
                 try:
                     self._child = subprocess.Popen(
-                        [program, *_COMMANDS[kind]],
+                        [program, *_COMMANDS[self.kind]],
                         cwd=self.root,
                         env=env,
                         stdin=stdin,
                         stdout=out,
-                        stderr=err,
+                        # Never kept: a log can hold secrets, and Studio shows no log.
+                        stderr=subprocess.DEVNULL,
                         start_new_session=True,
                     )
                 except OSError as error:
@@ -232,31 +265,30 @@ class Agent:
                     ) from error
                 child = self._child
             try:
-                self._wait(child, out, err)
+                self._wait(child, out)
             finally:
                 _end(child)
                 with self._guard:
                     self._child = None
-            if max(_size(out), _size(err)) > self._limit:
+            if _size(out) > self._limit:
                 raise ChatFailure(
                     ChatError.OUTPUT_TOO_LARGE, f"The agent wrote more than {self._limit} bytes."
                 )
             if child.returncode != 0:
-                err.seek(max(0, _size(err) - _ERROR_TAIL))
-                tail = err.read().decode("utf-8", "replace").strip()
                 raise ChatFailure(
-                    ChatError.AGENT_FAILED, f"{kind.value} exited with {child.returncode}: {tail}"
+                    ChatError.AGENT_FAILED,
+                    f"{self.kind.value} exited with {child.returncode}. {_SIGN_IN_HINT}",
                 )
             out.seek(0)
             return out.read().decode("utf-8", "replace")
 
-    def _wait(self, child: "subprocess.Popen[bytes]", *streams: IO[bytes]) -> None:
+    def _wait(self, child: "subprocess.Popen[bytes]", stdout: IO[bytes]) -> None:
         deadline = time.monotonic() + self._timeout
         while child.poll() is None:
             if time.monotonic() > deadline:
                 raise ChatFailure(
                     ChatError.AGENT_TIMEOUT, f"The agent did not answer in {self._timeout:g} s."
                 )
-            if max(_size(stream) for stream in streams) > self._limit:
+            if _size(stdout) > self._limit:
                 return
             time.sleep(_TICK_SECONDS)

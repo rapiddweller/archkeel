@@ -213,11 +213,10 @@
       "role": "component",
       "public": [
         "archkeel.studio.agent:Agent",
-        "archkeel.studio.agent:Reply",
-        "archkeel.studio.agent:build_prompt"
+        "archkeel.studio.agent:Reply"
       ],
       "responsibilities": [
-        "Run the coding agent of the owner (claude or codex) with read-only tools as one child process at a time, with a timeout, an output limit and a kill of its process group, and discard the run if the repository changed."
+        "Run the coding agent of the owner (claude by default, codex on request) as one child process at a time, with a timeout, an output limit, a scrubbed environment and a kill of its process group, and discard the run if the repository changed."
       ],
       "forbidden_responsibilities": [
         "HTTP, tokens or browser pages.",
@@ -307,6 +306,7 @@
         {
           "component": "api",
           "through": [
+            "archkeel.studio.api:AgentKind",
             "archkeel.studio.api:ApiPath",
             "archkeel.studio.api:ChatAnswer",
             "archkeel.studio.api:ChatError",
@@ -337,10 +337,9 @@
         {
           "component": "agent",
           "through": [
-            "archkeel.studio.agent:Agent",
-            "archkeel.studio.agent:build_prompt"
+            "archkeel.studio.agent:Agent"
           ],
-          "rationale": "Build the prompt and let the one agent answer; the server starts no process."
+          "rationale": "Let the one agent answer a question; the server starts no process."
         }
       ],
       "exact_modules": [

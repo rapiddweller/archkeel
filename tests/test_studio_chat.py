@@ -19,7 +19,7 @@ from test_explore import _repository, _tree_digest
 from test_studio import _start, _stop, explore, login, validate
 
 from archkeel.cli import build_parser
-from archkeel.studio.agent import Agent, build_prompt
+from archkeel.studio.agent import Agent
 from archkeel.studio.answer import Snapshot
 from archkeel.studio.api import AgentKind, ChatError, ChatFailure, ChatRequest
 from archkeel.studio.server import Studio
@@ -70,8 +70,13 @@ elif question == "forged":
     print(json.dumps({"blocks": [{"kind": "claim", "text": "t", "refs": [], "observed": True}]}))
 elif question == "big":
     sys.stdout.write("x" * 400000)
+elif question == "nested":
+    print("[" * 5000)
+elif question == "noisy":
+    sys.stderr.write("x" * 1000000)
+    print(json.dumps(answer))
 elif question == "fails":
-    sys.stderr.write("boom")
+    sys.stderr.write("boom sk-secret-in-a-log")
     sys.exit(3)
 elif question == "writes":
     pathlib.Path(os.getcwd(), "agent-wrote.txt").write_text("x")
@@ -235,7 +240,9 @@ def test_the_question_works_without_a_selected_node(chat: Studio, fakes: Fakes) 
 
 
 @pytest.mark.parametrize(
-    "question", ["badjson", "badkind", "forged"], ids=["not-json", "wrong-kind", "forged-field"]
+    "question",
+    ["badjson", "badkind", "forged", "nested"],
+    ids=["not-json", "wrong-kind", "forged-field", "nested-json"],
 )
 def test_a_broken_or_forged_answer_is_refused(chat: Studio, question: str) -> None:
     status, payload = ask(chat, question)
@@ -250,19 +257,32 @@ def test_an_answer_that_is_too_large_stops_the_agent(chat: Studio) -> None:
 def test_an_agent_that_fails_gives_its_error(chat: Studio) -> None:
     status, payload = ask(chat, "fails")
     assert (status, payload["error"]) == (502, "agent_failed")
-    assert "boom" in payload["detail"]
+    # The log of the agent can hold secrets: Studio shows a fixed hint, never the log.
+    assert "boom" not in payload["detail"] and "secret" not in payload["detail"]
+    assert "signed in" in payload["detail"]
 
 
-@pytest.mark.parametrize("question", ["writes", "edits"])
-def test_a_run_that_changes_the_repository_is_discarded(chat: Studio, question: str) -> None:
+def test_a_noisy_log_does_not_count_against_the_answer(chat: Studio) -> None:
+    assert ask(chat, "noisy")[0] == 200
+
+
+@pytest.mark.parametrize(
+    ("question", "dirty_before"), [("writes", False), ("edits", False), ("edits", True)]
+)
+def test_a_run_that_changes_the_repository_is_discarded(
+    chat: Studio, question: str, dirty_before: bool
+) -> None:
     root = chat.workspace.root
+    orders = root / "shop/app/orders.py"
+    if dirty_before:  # git reports the file before and after: only its size and time differ
+        orders.write_text(orders.read_text() + "# dirty\n")
     try:
         status, payload = ask(chat, question)
     finally:
         (root / "agent-wrote.txt").unlink(missing_ok=True)
-        orders = root / "shop/app/orders.py"
-        orders.write_text(orders.read_text().replace("# edited\n", ""))
+        orders.write_text(orders.read_text().replace("# edited\n", "").replace("# dirty\n", ""))
     assert (status, payload["error"]) == (502, "repository_changed")
+    assert "may stay on disk" in payload["detail"]
     assert "blocks" not in payload
     # Negative control: the same agent with no write gives an answer.
     assert ask(chat, "ok")[0] == 200
@@ -289,7 +309,7 @@ def test_stopping_the_agent_kills_a_running_child(
 
     def run() -> None:
         try:
-            chat.agent.ask(build_prompt(ChatRequest("hang", None), ""))
+            chat.agent.ask(ChatRequest("hang", None), "")
         except ChatFailure as failure:
             outcome.append(failure)
 
@@ -326,28 +346,32 @@ def test_no_installed_agent_gives_a_clear_error(chat: Studio, fakes: Fakes) -> N
     (fakes.bin / "claude").unlink()
     status, payload = ask(chat, "ok")
     assert (status, payload["error"]) == (503, "agent_not_installed")
-    assert "claude" in payload["detail"] and "codex" in payload["detail"]
+    assert "claude" in payload["detail"]
 
 
-def test_the_order_of_the_agents_follows_the_option_and_the_installation(
-    chat: Studio, fakes: Fakes
-) -> None:
+def test_claude_is_the_default_and_codex_is_an_explicit_opt_in(chat: Studio, fakes: Fakes) -> None:
     fakes.install("codex")
-    args = build_parser().parse_cli_args(["studio", "--agent", "codex"])
-    assert args.chat_agent is not None
     root = chat.workspace.root
-    chat.agent = Agent(root, AgentKind(args.chat_agent.value))
+    assert ask(chat, "ok")[1]["agent"] == "claude"
+    claude_prompt = fakes.call()["prompt"]
 
+    args = build_parser().parse_cli_args(["studio", "--agent", "codex"])
+    chat.agent = Agent(root, AgentKind(args.chat_agent.value))
     status, answer = ask(chat, "ok")
 
     assert (status, answer["agent"]) == (200, "codex")
-    argv = fakes.call()["argv"]
-    assert argv[0] == "exec"
-    assert argv[argv.index("--sandbox") + 1] == "read-only"
-    # Only claude is installed: the other order still finds it.
+    call = fakes.call()
+    assert call["argv"][0] == "exec"
+    assert call["argv"][call["argv"].index("--sandbox") + 1] == "read-only"
+    # Codex runs shell commands: its prompt must not claim that it cannot.
+    assert "cannot run commands" in claude_prompt
+    assert "cannot run commands" not in call["prompt"]
+    assert "read-only commands" in call["prompt"]
+    # An explicit choice has no fallback: with no codex, claude does not answer instead.
     (fakes.bin / "codex").unlink()
-    chat.agent = Agent(root, AgentKind.CODEX)
-    assert ask(chat, "ok")[1]["agent"] == "claude"
+    status, payload = ask(chat, "ok")
+    assert (status, payload["error"]) == (503, "agent_not_installed")
+    assert "codex" in payload["detail"]
 
 
 def test_the_agent_gets_no_key_no_parent_session_and_no_secret_in_the_prompt(
@@ -368,12 +392,51 @@ def test_the_agent_gets_no_key_no_parent_session_and_no_secret_in_the_prompt(
     assert "sentinel" not in call["prompt"] and "sentinel" not in " ".join(call["argv"])
 
 
+def test_claude_keeps_the_sign_in_variables_of_the_owner(
+    chat: Studio, fakes: Fakes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "own-sign-in")
+    monkeypatch.setenv("CLAUDE_CODE_USE_BEDROCK", "1")
+    monkeypatch.setenv("CLAUDE_CODE_SIMPLE", "1")
+    assert ask(chat, "ok")[0] == 200
+    env = fakes.call()["env"]
+    assert (env["CLAUDE_CODE_OAUTH_TOKEN"], env["CLAUDE_CODE_USE_BEDROCK"]) == ("own-sign-in", "1")
+    assert "CLAUDE_CODE_SIMPLE" not in env
+
+
+def test_codex_gets_only_an_allow_list_of_the_environment(
+    chat: Studio, fakes: Fakes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Codex runs shell commands of the model: each variable could be read or sent.
+    fakes.install("codex")
+    chat.agent = Agent(chat.workspace.root, AgentKind.CODEX)
+    secrets = {
+        "GITHUB_TOKEN": "ghp-sentinel",
+        "SSH_AUTH_SOCK": "sentinel-agent-socket",
+        "AWS_SECRET_ACCESS_KEY": "sentinel-aws",
+        "ANTHROPIC_API_KEY": "sk-sentinel",
+        "DEPLOY_PASSWORD": "sentinel-password",
+    }
+    for name, value in secrets.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("LC_ALL", "C")
+    monkeypatch.setenv("CODEX_HOME", str(fakes.work / "codex-home"))
+
+    assert ask(chat, "ok")[0] == 200
+
+    env = fakes.call()["env"]
+    assert not set(secrets) & set(env)
+    assert not any("sentinel" in value for value in env.values())
+    assert {"PATH", "HOME", "LC_ALL", "CODEX_HOME"} <= set(env)
+
+
 @pytest.mark.parametrize(
     ("headers", "status"),
     [
         ({"Cookie": None}, 403),
         ({"Cookie": "archkeel_studio_1=wrong"}, 403),
         ({"Origin": "http://evil.test"}, 403),
+        ({"Origin": "null"}, 403),
         ({"Origin": None}, 403),
         ({"X-Archkeel-Studio": None}, 403),
         ({"Host": "evil.test"}, 403),
@@ -410,10 +473,48 @@ def test_a_request_without_a_length_gets_411(chat: Studio) -> None:
     assert connection.getresponse().status == 411
 
 
+def test_a_length_that_is_no_ascii_number_gets_411(chat: Studio) -> None:
+    status, _, raw = post(
+        chat, login(chat), {"question": "ok"}, headers={"Content-Length": "\u00b2"}
+    )
+    assert status == 411
+    validate(json.loads(raw), "chat_error")
+
+
+def test_the_explorer_pages_are_sandboxed_to_an_opaque_origin(chat: Studio) -> None:
+    connection = http.client.HTTPConnection("127.0.0.1", chat.port, timeout=10)
+    connection.request(
+        "GET",
+        "/files/architecture.report.html",
+        headers={"Host": f"127.0.0.1:{chat.port}", "Cookie": login(chat)},
+    )
+    response = connection.getresponse()
+    response.read()
+    csp = response.getheader("Content-Security-Policy", "")
+    assert response.status == 200
+    assert "sandbox allow-scripts;" in csp
+    assert "allow-same-origin" not in csp
+    assert "form-action 'none'" in csp
+
+
+def test_a_root_that_is_not_a_git_repository_gives_a_clear_error(
+    tmp_path: Path, fakes: Fakes
+) -> None:
+    fakes.install("claude")
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    with pytest.raises(ChatFailure) as raised:
+        Agent(plain).ask(ChatRequest("ok", None), "")
+    assert raised.value.error is ChatError.AGENT_FAILED
+    assert "git repository" in raised.value.detail
+    assert not (fakes.work / "call.json").exists()
+
+
 @pytest.mark.parametrize(
     "body",
     [
         b"not json",
+        b"[" * 5000,
         b"[]",
         {},
         {"question": ""},
@@ -458,7 +559,8 @@ def test_another_post_and_the_other_methods_stay_405(chat: Studio, path: str) ->
 
 def test_the_cli_option_accepts_only_known_agents() -> None:
     parser = build_parser()
-    assert parser.parse_cli_args(["studio"]).chat_agent is None
+    assert parser.parse_cli_args(["studio"]).chat_agent.value == "claude"
+    assert parser.parse_cli_args(["studio", "--agent", "codex"]).chat_agent.value == "codex"
     with pytest.raises(ValueError, match="invalid choice"):
         parser.parse_cli_args(["studio", "--agent", "gpt"])
 
@@ -551,3 +653,37 @@ def test_a_malformed_answer_is_refused(answer: str) -> None:
 def test_a_model_without_the_sections_has_no_symbols() -> None:
     snapshot = Snapshot({})
     assert not snapshot.has("a.f")
+
+
+@pytest.mark.parametrize(
+    "ref",
+    ["a.", "a.f ", "A.F", "a.\u0066", "\u0430.f", "a.f\u200b", "a.f.extra", "a"],
+    ids=["prefix", "space", "case", "escape-of-f", "cyrillic-a", "zero-width", "longer", "package"],
+)
+def test_only_an_exact_qualified_name_is_a_ref(ref: str) -> None:
+    # "a.\u0066" is the text "a.f" after the JSON decode, so it must stay valid.
+    answer = json.dumps({"blocks": [{"kind": "claim", "text": "t", "refs": [ref]}]})
+    checked = Snapshot(_model()).check(answer, AgentKind.CLAUDE)
+    valid = ref == "a.\u0066"
+    assert [fact.qualified_name for fact in checked.facts] == (["a.f"] if valid else [])
+    assert checked.dropped_refs == (() if valid else (ref,))
+
+
+def test_the_dropped_refs_are_capped_in_count_and_length() -> None:
+    refs = [f"{n}" + "x" * 400 for n in range(20)]
+    block = {"kind": "claim", "text": "t", "refs": refs}
+    answer = json.dumps({"blocks": [block] * 10})
+    checked = Snapshot(_model()).check(answer, AgentKind.CLAUDE)
+    assert 0 < len(checked.dropped_refs) <= 50
+    assert all(len(ref) <= 300 for ref in checked.dropped_refs)
+    validate(
+        {
+            "api_version": "1.1.0",
+            "agent": "claude",
+            "blocks": [],
+            "facts": [],
+            "dropped_refs": list(checked.dropped_refs),
+            "applied": False,
+        },
+        "chat_response",
+    )

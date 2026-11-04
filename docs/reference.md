@@ -236,19 +236,24 @@ the run is done. The 1.0 file stays. Studio writes nothing into the
 repository. It is parallel to the static report, which stays the CI and Pages artifact.
 
 The chat route ([AD-292](architecture/decisions/ad-292-the-studio-chat-lets-the-owners-agent-answer-read-only.md))
-lets your own `claude` or `codex` answer a question about a selected function. Studio starts it as
-one child process in the root, on your own sign-in, with read-only tools: `claude -p` with `Read`,
-`Grep` and `Glob`, or `codex exec --sandbox read-only`. `--agent` names the one to try first;
-the default order is claude, then codex. Studio passes no API key.
+lets your own coding agent answer a question about a selected function. Studio starts it as one
+child process in the root, on your own sign-in, and passes no API key. The default is `claude -p`
+with the tools `Read`, `Grep` and `Glob`: no shell, no write tool. `--agent codex` is an opt-in:
+`codex exec --sandbox read-only` also runs shell commands of the model, can read the whole disk,
+and gets only a short allow list of environment variables. Studio never falls back to the other
+agent. The files an agent reads go to its provider.
+- The pages under `/files/` carry `Content-Security-Policy: sandbox allow-scripts`: an Explorer page
+  has an opaque origin and cannot call the chat route or read the parent page.
 - Request: `{"question": "...", "context": "<qualified name>"}` (JSON, at most 16 KiB; `context`
   is optional). The header `X-Archkeel-Studio` must be present and `Origin` must be the server.
 - Answer: `blocks` of agent text (`claim` or `proposal`), `facts` that Studio computes from the
-  snapshot (file, line, resolved callers and callees, unknown calls) and `dropped_refs`. Only
+  snapshot (file, line, resolved callers and callees, unknown calls) and `dropped_refs`. Show `text`
+  as plain text. Only
   Studio makes a fact; agent text is never OBSERVED. A proposal reads `PROPOSED - NOT APPLIED`.
   Nothing applies it.
 - Limits: one question at a time (409), 180 s, 128 KiB of output. Studio compares
-  `git status` of the root before and after the run. If a file changed, it discards the answer
-  (502 `repository_changed`). Errors are `{"api_version", "error", "detail"}`.
+  `git status` of the root, with size and mtime of the listed files, before and after the run. If
+  they differ, it discards the answer (502 `repository_changed`); the edit may stay on disk. Errors are `{"api_version", "error", "detail"}`.
 
 A running server writes `studio.json` (pid, URL with token, port, root, start time) into the
 explore cache folder of the root, with mode 0600. It removes the file when it stops.
