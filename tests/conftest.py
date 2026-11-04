@@ -99,7 +99,10 @@ def _warm_self_run(directory: Path) -> None:
 @pytest.fixture(scope="session", autouse=True)
 def _start_self_run(request: pytest.FixtureRequest, _self_report_directory: Path) -> Iterator[None]:
     """Start the self-run before the first test, so no worker idles in its first consumer."""
-    consumers = any("self_run" in item.fixturenames for item in request.session.items)
+    consumers = any(
+        isinstance(item, pytest.Function) and "self_run" in item.fixturenames
+        for item in request.session.items
+    )
     warm = threading.Thread(target=_warm_self_run, args=(_self_report_directory,), daemon=True)
     if consumers:
         warm.start()
