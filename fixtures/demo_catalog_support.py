@@ -93,6 +93,15 @@ class AgainstExpectation:
 
 
 @dataclass(frozen=True, slots=True)
+class TraceExpectation:
+    """AD-291: `archkeel story trace --from source --to target`; the status of each hop."""
+
+    source: str
+    target: str
+    hops: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class ViewExpectation:
     """AD-284: `archkeel view check` of `spec` against the clean sample's own report.
 
@@ -106,6 +115,9 @@ class ViewExpectation:
     show: bool = False
     # AD-289: the node status of each tour stop.
     stops: tuple[str, ...] = ()
+    # AD-291: the proven, claim and unknown step counts of the story verdict, and a story trace.
+    verdict: tuple[int, int, int] | None = None
+    trace: TraceExpectation | None = None
 
 
 @dataclass(frozen=True, slots=True)
