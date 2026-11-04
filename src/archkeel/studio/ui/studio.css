@@ -331,18 +331,40 @@ pre.draft { max-height: 220px; overflow: auto; white-space: pre-wrap; margin: 6p
   .verdict { text-align: left; }
 }
 
-/* Levels: the stubs, the here box and the zoom. */
+/* Levels: calm cards, lines only for the focused card, stubs and the here box. */
 .here-name { margin: 0 0 4px; overflow-wrap: anywhere; font-size: 15px; }
 .toggle.up { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; margin-top: 4px; }
 .toggle kbd { border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; font: 10px ui-monospace, Menlo, monospace;
   color: var(--muted); }
-.lens-card.stub { border-style: dashed; }
-.lens-card.stub.proven { border-color: color-mix(in srgb, var(--proven) 45%, var(--line)); }
-.lens-card.level-card { border-left: 3px solid var(--c, var(--line)); }
 .lens-card .meta { display: block; }
+.level-card, .stub, .tile { gap: 3px; padding: 6px 12px; transition: opacity .2s, border-color .2s, box-shadow .2s; }
+.level-card b, .stub b, .tile b { display: block; font: 600 13px/1.35 ui-monospace, Menlo, monospace; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; word-break: normal; -webkit-line-clamp: unset; }
+.level-card .meta, .stub .meta, .tile .meta { font-size: 11.5px; line-height: 1.35; }
+.stub .meta.path, .stub .meta.names { color: var(--muted); }
+.level-card { border-left: 3px solid color-mix(in srgb, var(--c, var(--line)) 50%, var(--line)); }
+.level-card.dim, .stub.dim { opacity: .25; }
+.level-card.pinned { border-color: var(--target); box-shadow: 0 0 0 1px var(--target); }
+.lens-card.stub { border-style: dashed; }
+.lens-card.stub.proven { border-color: color-mix(in srgb, var(--proven) 35%, var(--line)); }
+.lens-card.tile { border-style: dashed; justify-content: center; color: var(--muted); text-align: left; cursor: pointer;
+  background: transparent; }
+.lens-card.tile:hover { border-color: var(--target); color: var(--text); }
+.plate span { font-size: 11px; }
+.plate.module { border-color: color-mix(in srgb, var(--observed) 28%, transparent);
+  background: color-mix(in srgb, var(--observed) 5%, transparent); }
+.head { font-size: 11px; }
+.focus-line .halo { fill: none; stroke: var(--bg); stroke-width: 7; stroke-linecap: round; opacity: .9; }
+.focus-line .stroke { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .8;
+  stroke: var(--proven); }
+.focus-line.claim .stroke { stroke: var(--claim); stroke-dasharray: 1 6; }
+.focus-line.on .stroke { stroke-width: 3; opacity: 1; }
+.focus-line.off { opacity: .2; }
+.focus-rows .item { display: block; margin-top: 2px; }
 .canvas[data-transition="in"], .canvas[data-transition="out"] { will-change: transform; }
 .workbench .details > .box { flex: none; }
 .chat { flex: 1; }
 @media (prefers-reduced-motion: reduce) {
   .canvas { animation: none; }
+  .level-card, .stub { transition: none; }
 }

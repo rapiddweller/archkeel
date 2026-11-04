@@ -1,95 +1,92 @@
 /** AD-290: Level 2: the modules of one component, on plates by package, with the other components as stubs. */
-import { useMemo } from "preact/hooks";
+import { useMemo, useState } from "preact/hooks";
 import type { ChatState } from "../chat";
-import { Box, View, viewHref } from "../components";
-import { LevelStub, layoutComponent } from "../level-layout";
-import { Side } from "../lens-layout";
-import { Level, Model, counted } from "../model";
-import { Counts, LevelCanvas, Workbench } from "../workbench";
+import { View, viewHref } from "../components";
+import { layoutComponent, parseKey } from "../level-layout";
+import { Level, Model, counted, shortName } from "../model";
+import { FocusList, LevelCanvas, Workbench, focusRows, useFocus } from "../workbench";
 
 /** The package one step up: `a.b` to `a`, a first package to the component. */
 const parentOf = (component: number, pkg: string | null): string =>
   pkg === null || !pkg.includes(".") ? viewHref(View.Component, component) : viewHref(View.Component, component, pkg.slice(0, pkg.lastIndexOf(".")));
 
-function StubList(props: { model: Model; title: string; stubs: readonly LevelStub[] }) {
-  const { model } = props;
-  return (
-    <Box title={`${props.title} · ${props.stubs.length}`}>
-      {props.stubs.length === 0 ? (
-        <p class="more">none</p>
-      ) : (
-        <ul class="pairs">
-          {props.stubs.map((stub) => (
-            <li key={stub.id}>
-              <a href={viewHref(View.Component, stub.id)}>{model.graph.components[stub.id][0]}</a>{" "}
-              <span class="where">
-                <Counts tally={stub} />
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Box>
-  );
-}
+const fileOf = (model: Model, module: number): string => model.graph.modules[module][1].split("/").pop() ?? "";
 
 export function ComponentLevel(props: { model: Model; component: number; pkg: string | null; chat: ChatState }) {
   const { model, component, pkg } = props;
-  const layout = useMemo(() => layoutComponent(model, component, pkg), [model, component, pkg]);
+  const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
+  const focus = useFocus();
+  const layout = useMemo(() => layoutComponent(model, component, pkg, opened), [model, component, pkg, opened]);
   const [id] = model.graph.components[component];
-  const modules = layout.cards.length;
-  const functions = layout.cards.reduce((sum, card) => sum + model.members[card.index].length, 0);
-  const inside = layout.lines.filter((line) => !line.a.startsWith("in:") && !line.b.startsWith("out:"));
+  const modules = layout.cards.length + layout.tiles.reduce((sum, tile) => sum + tile.hidden, 0);
+  const functions = model.graph.modules.reduce((sum, row, module) => sum + (row[2] === component ? model.members[module].length : 0), 0);
+  const cardInfo = (module: number) => {
+    const unknown = model.members[module].reduce((sum, symbol) => sum + model.graph.symbols[symbol][5], 0);
+    return {
+      href: viewHref(View.Module, module),
+      name: fileOf(model, module),
+      title: `${model.graph.modules[module][0]} (${model.graph.modules[module][1]})`,
+      meta: `${counted(model.members[module].length, "function")}${unknown > 0 ? ` · ${unknown} unknown` : ""}`,
+    };
+  };
+  const stubInfo = (other: number) => ({
+    href: viewHref(View.Component, other),
+    name: model.graph.components[other][0],
+    title: `${model.graph.components[other][0]}: ${model.graph.components[other][1]}`,
+    path: model.graph.components[other][1] || "component",
+  });
+  const part = focus.key === null ? null : parseKey(focus.key);
+  const focusName = part === null ? "" : part.stub === null ? fileOf(model, part.id) : model.graph.components[part.id][0];
   return (
     <Workbench
       model={model}
       where={{ level: Level.Component, id: component, pkg }}
       chat={props.chat}
       symbol={null}
+      focus={focus}
       name="Component"
       here={{
         name: pkg === null ? id : `${id} › ${pkg.split(".").join(" › ")}`,
         counts: `${counted(modules, "module")} · ${counted(functions, "function")}`,
         meaning:
-          "A card is a module. A line is the sum of the call sites between two modules. Stubs on the left call into this component; stubs on the right are called by it. Click a card to open its functions, a stub to open that component.",
+          "A card is a module. Hover a card to see who calls it and whom it calls; click to pin, Esc clears, double click or Enter opens it. Stubs on the left call into this component; stubs on the right are called by it.",
         up: pkg === null ? viewHref(View.Map) : parentOf(component, pkg),
         upName: pkg === null ? "Architecture" : pkg.includes(".") ? pkg.slice(0, pkg.lastIndexOf(".")) : id,
       }}
-      summary={`${counted(modules, "module")} · ${inside.length} dependenc${inside.length === 1 ? "y" : "ies"} between modules · ${counted(layout.stubs.length, "stub")}`}
+      summary={`${counted(modules, "module")} · ${counted(layout.stubs.length, "stub")}`}
       canvas={{
         width: layout.width,
         height: layout.height,
         label: "Modules",
-        fitKey: `${component}:${pkg}`,
+        fitKey: `${component}:${pkg}:${opened.size}`,
         children: (
           <LevelCanvas
             layout={layout}
             level={Level.Module}
+            focus={focus}
             colour={() => component}
+            plate="package"
             headIn="Called from"
             headOut="Calls into"
-            card={(module) => {
-              const unknown = model.members[module].reduce((sum, symbol) => sum + model.graph.symbols[symbol][5], 0);
-              return {
-                href: viewHref(View.Module, module),
-                name: model.graph.modules[module][1].split("/").pop() ?? "",
-                title: `${model.graph.modules[module][0]} (${model.graph.modules[module][1]})`,
-                meta: `${counted(model.members[module].length, "function")}${unknown > 0 ? ` · ${unknown} unknown` : ""}`,
-              };
-            }}
-            stub={(stub) => ({
-              href: viewHref(View.Component, stub.id),
-              name: model.graph.components[stub.id][0],
-              title: `${model.graph.components[stub.id][0]}: ${model.graph.components[stub.id][1]}`,
-            })}
+            onOpen={(label) => setOpened(new Set([...opened, label]))}
+            fnName={(symbol) => shortName(model, symbol)}
+            card={cardInfo}
+            stub={(stub) => stubInfo(stub.id)}
           />
         ),
       }}
       details={
-        <>
-          <StubList model={model} title="Called from" stubs={layout.stubs.filter((stub) => stub.side === Side.In)} />
-          <StubList model={model} title="Calls into" stubs={layout.stubs.filter((stub) => stub.side === Side.Out)} />
-        </>
+        <FocusList
+          focus={focus}
+          title={focusName}
+          open={part !== null && part.stub === null ? { href: viewHref(View.Module, part.id), label: `Open ${focusName} →` } : null}
+          rows={focusRows(model, layout, focus.key, (far) => {
+            const other = parseKey(far);
+            return other.stub === null
+              ? { name: fileOf(model, other.id), href: viewHref(View.Module, other.id), where: model.graph.modules[other.id][0] }
+              : { name: model.graph.components[other.id][0], href: viewHref(View.Component, other.id), where: "component" };
+          })}
+        />
       }
     />
   );

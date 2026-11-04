@@ -134,13 +134,13 @@ def _check_the_levels(page, width: int, height: int) -> None:
     assert _where(page) == ([], "Architecture")
     assert transition() == "out"
     page.locator(".map-card", has_text="app").click()
-    page.locator(".level-card", has_text="orders.py").click()
+    page.locator(".level-card", has_text="orders.py").dblclick()
     page.wait_for_url("**/#/module/*")
     page.get_by_role("heading", name="Module", exact=True).wait_for()
     assert _where(page) == (["Architecture", "app"], "orders.py")
     _no_overflow(page)
     assert "Up to app" in page.locator("a.up").text_content()
-    page.locator(".level-card", has_text="place").click()
+    page.locator(".level-card", has_text="place").dblclick()
     page.wait_for_url("**/#/explore/*")
     page.get_by_role("heading", name="Explore", exact=True).wait_for()
     assert _where(page) == (["Architecture", "app", "orders.py"], "place")
@@ -153,12 +153,12 @@ def _check_the_levels(page, width: int, height: int) -> None:
     page.get_by_role("navigation", name="Location").get_by_role("link", name="Architecture").click()
     page.wait_for_url("**/#/map")
     page.locator(".map-card", has_text="app").click()
-    page.locator(".level-card", has_text="orders.py").click()
-    page.locator(".level-card", has_text="place").click()
+    page.locator(".level-card", has_text="orders.py").dblclick()
+    page.locator(".level-card", has_text="place").dblclick()
     page.locator(".lens-card.center").wait_for()
     page.get_by_role("navigation", name="Location").get_by_role("link", name="orders.py").click()
     page.wait_for_url("**/#/module/*")
-    page.locator(".level-card", has_text="place").click()
+    page.locator(".level-card", has_text="place").dblclick()
     page.locator(".lens-card.center").wait_for()
 
 
@@ -439,8 +439,8 @@ _ANSWER = {
 def _lens(page, studio: Studio) -> None:
     page.goto(studio.url)
     page.locator(".map-card", has_text="app").click()
-    page.locator(".level-card", has_text="orders.py").click()
-    page.locator(".level-card", has_text="place").click()
+    page.locator(".level-card", has_text="orders.py").dblclick()
+    page.locator(".level-card", has_text="place").dblclick()
     page.locator(".lens-card.center").wait_for()
 
 
