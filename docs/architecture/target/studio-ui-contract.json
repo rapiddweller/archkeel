@@ -157,7 +157,8 @@
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:hubs",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fileOf",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tallyOf",
-        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:baseName"
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:baseName",
+        "studio_ui.src.archkeel.studio.ui.model_x2e_ts:lensSymbol"
       ],
       "responsibilities": [
         "Index the call graph and compute the layouts of the Map and the lens: pure functions with no DOM and no network."
@@ -494,7 +495,8 @@
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tailPath",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:unknownByComponent",
             "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:STORY",
-            "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:layoutStory"
+            "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:layoutStory",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:lensSymbol"
           ],
           "rationale": "Draw the Map and the lens from the indexed graph and their layouts."
         },
@@ -570,7 +572,8 @@
           "through": [
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Level",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Model",
-            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Where"
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Where",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:lensSymbol"
           ],
           "rationale": "Pass the indexed graph to the views."
         },

@@ -2,7 +2,7 @@
 import { better, proofOf } from "./evidence";
 import { Side } from "./lens-layout";
 import { cardHeight } from "./measure";
-import { Level, Model, Tally, fileOf, tallyOf } from "./model";
+import { Level, Model, Tally, fileOf } from "./model";
 
 /** Sizes at scale 1. The default fit shows them at about 0.9, so no text is below 10 px. */
 const LEVEL_CARD = { width: 200, height: 56, gap: 24 } as const;
@@ -93,9 +93,12 @@ interface Group {
 interface RawStub extends Tally {
   readonly ref: string;
 }
-interface RawLink extends Tally {
+/** The call sites stay sets until the end: two links that merge must not count one site twice. */
+interface RawLink {
   readonly a: string;
   readonly b: string;
+  readonly proven: ReadonlySet<number>;
+  readonly claim: ReadonlySet<number>;
   readonly pairs: readonly LevelPair[];
 }
 interface Sites {
@@ -136,12 +139,15 @@ const bump = (found: Map<string, Sites>, key: string, pair: LevelPair, site: num
 const raw = (key: [string, string], sites: Sites): RawLink => ({
   a: key[0],
   b: key[1],
-  proven: sites.proven.size,
-  claim: sites.claim.size,
+  proven: sites.proven,
+  claim: sites.claim,
   pairs: [...sites.pairs.values()].slice(0, PAIRS_KEPT),
 });
+const toLink = (link: RawLink): LevelLink => ({ a: link.a, b: link.b, proven: link.proven.size, claim: link.claim.size, pairs: link.pairs });
+const stubsOf = (found: ReadonlyMap<string, Sites>): RawStub[] =>
+  [...found.entries()].map(([ref, sites]) => ({ ref, proven: sites.proven.size, claim: sites.claim.size }));
 
-/** A link to a card that a tile holds ends on the tile; two links with the same ends become one. */
+/** A link to a card that a tile holds ends on the tile; two links with the same ends become one and share their sites. */
 function remap(links: readonly RawLink[], tileOf: ReadonlyMap<string, string>): RawLink[] {
   const merged = new Map<string, RawLink>();
   for (const link of links) {
@@ -153,8 +159,8 @@ function remap(links: readonly RawLink[], tileOf: ReadonlyMap<string, string>): 
     merged.set(key, {
       a,
       b,
-      proven: (known?.proven ?? 0) + link.proven,
-      claim: (known?.claim ?? 0) + link.claim,
+      proven: new Set([...(known?.proven ?? []), ...link.proven]),
+      claim: new Set([...(known?.claim ?? []), ...link.claim]),
       pairs: [...(known?.pairs ?? []), ...link.pairs].slice(0, PAIRS_KEPT),
     });
   }
@@ -262,7 +268,7 @@ function arrange(
     cards,
     tiles,
     stubs,
-    links: merged.filter((link) => drawn.has(link.a) && drawn.has(link.b)),
+    links: merged.filter((link) => drawn.has(link.a) && drawn.has(link.b)).map(toLink),
     aggregates,
     moreStubs: Math.max(0, stubsIn.length - STUBS_SHOWN) + Math.max(0, stubsOut.length - STUBS_SHOWN),
     columns: { in: 0, out: left + plateWidth + SPREAD },
@@ -344,62 +350,39 @@ export function layoutComponent(model: Model, component: number, pkg: string | n
     const [from, ref] = key.split(">");
     links.push(raw([cardKey(Level.Module, Number(from)), stubKey(Side.Out, ref)], sites));
   });
-  const stubs = (found: Map<string, Sites>): RawStub[] =>
-    [...found.entries()].map(([ref, sites]) => ({ ref, proven: sites.proven.size, claim: sites.claim.size }));
-  return arrange(Level.Module, fold(groups, opened, MODULES_SHOWN), stubs(callers), stubs(callees), links, text);
+  return arrange(Level.Module, fold(groups, opened, MODULES_SHOWN), stubsOf(callers), stubsOf(callees), links, text);
 }
 
-/** The functions of one module, their calls, and the modules that call in or are called as stubs. */
+/** The functions of one module, their calls, and the modules that call in or are called as stubs. Counts call sites, not function pairs. */
 export function layoutModule(model: Model, module: number, showAll: boolean, text: LevelText): LevelLayout {
   const { graph } = model;
   const all = [...model.members[module]].sort((a, b) => graph.symbols[a][2] - graph.symbols[b][2]);
   const shownFunctions = showAll ? all : all.slice(0, FUNCTIONS_SHOWN);
-  const callers = new Map<string, Tally>();
-  const callees = new Map<string, Tally>();
-  const links: RawLink[] = [];
-  const count = (found: Map<string, Tally>, other: number, partial: boolean): void => {
-    const now = found.get(`${other}`) ?? { proven: 0, claim: 0 };
-    const one = tallyOf(partial);
-    found.set(`${other}`, { proven: now.proven + one.proven, claim: now.claim + one.claim });
-  };
-  const toStub = new Map<string, LevelPair[]>();
-  const add = (key: string, pair: LevelPair): void => void toStub.set(key, [...(toStub.get(key) ?? []), pair]);
-  for (const symbol of all) {
-    for (const link of model.outgoing[symbol]) {
-      const other = graph.symbols[link.other][0];
-      const pair: LevelPair = { source: symbol, target: link.other, partial: link.partial, line: link.line };
-      if (other === module) {
-        links.push({
-          ...tallyOf(link.partial),
-          a: cardKey(Level.Function, symbol),
-          b: cardKey(Level.Function, link.other),
-          pairs: [pair],
-        });
-      } else {
-        count(callees, other, link.partial);
-        add(`${cardKey(Level.Function, symbol)}|${stubKey(Side.Out, `${other}`)}`, pair);
-      }
-    }
-    for (const link of model.incoming[symbol]) {
-      const other = graph.symbols[link.other][0];
-      if (other !== module) {
-        count(callers, other, link.partial);
-        add(`${stubKey(Side.In, `${other}`)}|${cardKey(Level.Function, symbol)}`, { source: link.other, target: symbol, partial: link.partial, line: link.line });
-      }
+  const callers = new Map<string, Sites>();
+  const callees = new Map<string, Sites>();
+  /** Keyed `a|b` by the two ends of the link. */
+  const joined = new Map<string, Sites>();
+  for (const [source, target, partial, line, site] of graph.edges) {
+    if (source === target) continue;
+    const from = graph.symbols[source][0];
+    const to = graph.symbols[target][0];
+    const pair: LevelPair = { source, target, partial, line };
+    if (from === module && to === module) {
+      bump(joined, `${cardKey(Level.Function, source)}|${cardKey(Level.Function, target)}`, pair, site);
+    } else if (from === module) {
+      bump(callees, `${to}`, pair, site);
+      bump(joined, `${cardKey(Level.Function, source)}|${stubKey(Side.Out, `${to}`)}`, pair, site);
+    } else if (to === module) {
+      bump(callers, `${from}`, pair, site);
+      bump(joined, `${stubKey(Side.In, `${from}`)}|${cardKey(Level.Function, target)}`, pair, site);
     }
   }
-  toStub.forEach((pairs, key) => {
+  const links: RawLink[] = [];
+  joined.forEach((sites, key) => {
     const [a, b] = key.split("|");
-    links.push({
-      a,
-      b,
-      proven: pairs.filter((pair) => !pair.partial).length,
-      claim: pairs.filter((pair) => pair.partial).length,
-      pairs: pairs.slice(0, PAIRS_KEPT),
-    });
+    links.push(raw([a, b], sites));
   });
-  const stubs = (found: Map<string, Tally>): RawStub[] => [...found.entries()].map(([ref, sites]) => ({ ref, ...sites }));
   const label = fileOf(model, module);
   const groups: Group[] = [{ label, items: shownFunctions, rest: all.slice(shownFunctions.length) }];
-  return arrange(Level.Function, groups, stubs(callers), stubs(callees), links, text);
+  return arrange(Level.Function, groups, stubsOf(callers), stubsOf(callees), links, text);
 }

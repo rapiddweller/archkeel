@@ -10,6 +10,7 @@ import json
 import os
 import re
 from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -1434,3 +1435,133 @@ def test_the_briefing_of_archkeel_itself_matches_the_graph_route(archkeel_studio
                 page.screenshot(path=shot)
         finally:
             browser.close()
+
+
+def _small_graph(modules, symbols, edges) -> dict:
+    """A valid graph body with components alpha and beta."""
+    body = {
+        "components_from": "contract",
+        "totals": _TOTALS,
+        "snapshot": _REVISION,
+        "components": [["alpha", "Alpha."], ["beta", "Beta."]],
+        "modules": modules,
+        "symbols": symbols,
+        "edges": edges,
+        "unknown": [],
+    }
+    answer = {"api_version": API_VERSION, "explore": "done", "graph": body}
+    Draft202012Validator({"$ref": "#/$defs/graph", "$defs": _SCHEMA["$defs"]}).validate(answer)
+    return answer
+
+
+def _function(module: int, name: str, line: int = 1) -> list:
+    return [module, name, line, "function", f"def {name}():", 0, 0]
+
+
+def _words(element) -> str:
+    return " ".join(element.inner_text().split())
+
+
+@contextmanager
+def _page_on(studio: Studio, answer: dict, fragment: str) -> Iterator:
+    """A page that shows a given graph; a crash of the page fails the test when it closes."""
+    api = pytest.importorskip("playwright.sync_api")
+    errors: list[str] = []
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.set_default_timeout(10000)
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.route("**/api/v1/graph", lambda route: route.fulfill(json=answer))
+            page.goto(studio.url + fragment)
+            yield page
+        finally:
+            browser.close()
+    assert errors == []
+
+
+_TWO_MODULES = [["m.a", "m/a.py", 0, "a"], ["m.b", "m/b.py", 1, "b"]]
+
+
+@pytest.mark.browser
+def test_the_module_level_counts_every_call_site_and_keeps_the_claim(studio: Studio) -> None:
+    # f calls g at two resolved sites and one partial site, and f calls its sibling h the same way.
+    modules = [["m.a", "m/a.py", 0, "a"], ["m.b", "m/b.py", 1, "b"]]
+    symbols = [_function(0, "f"), _function(0, "h"), _function(1, "g")]
+    edges = [
+        [0, target, partial, 5 + site, 3 * order + site]
+        for order, target in enumerate((2, 1))
+        for site, partial in enumerate((False, False, True))
+    ]
+    answer = _small_graph(modules, symbols, edges)
+    with _page_on(studio, answer, "#/module/0") as page:
+        stub = page.locator("a.lens-card.stub")
+        stub.wait_for()
+        assert _words(stub.locator(".meta").first) == "✓ 2 · ✎ 1"
+        page.locator(".level-card", has_text="f").first.click()
+        page.locator(".level-card.pinned").wait_for()
+        # A line with a claim is a claim, to the sibling and to the stub alike.
+        assert page.locator("g.focus-line.claim").count() == 2
+        assert page.locator("g.focus-line.proven").count() == 0
+
+
+@pytest.mark.browser
+def test_a_call_with_candidates_in_two_folded_modules_is_one_claim(studio: Studio) -> None:
+    # 12 modules in one package: 8 show, 4 fold into a tile. One partial call names two folded ones.
+    modules = [[f"alpha.p.m{k:02}", f"alpha/p/m{k:02}.py", 0, f"p.m{k:02}"] for k in range(12)]
+    symbols = [_function(k, f"fn{k}") for k in range(12)]
+    edges = [[0, 8, True, 3, 0], [0, 9, True, 3, 0]]
+    answer = _small_graph(modules, symbols, edges)
+    with _page_on(studio, answer, "#/component/0") as page:
+        page.locator(".lens-card.tile").wait_for()
+        page.locator(".level-card", has_text="m00").click()
+        page.locator(".level-card.pinned").wait_for()
+        rows = _words(page.locator(".focus-rows"))
+        assert "1 ✎ claim" in rows and "2 ✎ claim" not in rows
+
+
+@pytest.mark.browser
+@pytest.mark.parametrize(("closing_partial", "cycle"), [(True, False), (False, True)])
+def test_only_proven_calls_make_an_observed_cycle(
+    studio: Studio, closing_partial: bool, cycle: bool
+) -> None:
+    symbols = [_function(0, "a"), _function(1, "b")]
+    edges = [[0, 1, False, 3, 0], [1, 0, closing_partial, 4, 1]]
+    answer = _small_graph(_TWO_MODULES, symbols, edges)
+    with _page_on(studio, answer, "#/overview") as page:
+        page.get_by_role("heading", name="Briefing").wait_for()
+        page.locator(".stand").first.wait_for()
+        text = _words(page.locator(".page"))
+        assert ("Components call each other in a cycle" in text) is cycle
+
+
+@pytest.mark.browser
+def test_a_lens_neighbor_names_its_proof_in_words(studio: Studio) -> None:
+    symbols = [_function(0, "f"), _function(1, "g", 2), _function(1, "h", 3)]
+    edges = [[0, 1, False, 5, 0], [0, 2, True, 6, 1]]
+    answer = _small_graph(_TWO_MODULES, symbols, edges)
+    with _page_on(studio, answer, "#/explore/0") as page:
+        page.locator(".lens-card.center").wait_for()
+        assert _words(page.locator("a.lens-card", has_text="g")) == "g ✓ proven line 5"
+        assert _words(page.locator("a.lens-card", has_text="h")) == "h ✎ claim line 6"
+
+
+@pytest.mark.browser
+def test_a_snapshot_without_functions_opens_a_module(studio: Studio) -> None:
+    answer = _small_graph([["m.a", "m/a.py", 0, "a"]], [], [])
+    with _page_on(studio, answer, "#/module/0") as page:
+        page.get_by_role("heading", name="m.a").or_(page.locator(".titlebar")).first.wait_for()
+        page.get_by_text("0 functions").first.wait_for()
+
+
+@pytest.mark.browser
+def test_a_function_that_the_snapshot_lacks_falls_back_to_the_start_in_title_and_page(
+    studio: Studio,
+) -> None:
+    symbols = [_function(0, "f"), _function(1, "g")]
+    answer = _small_graph(_TWO_MODULES, symbols, [[0, 1, False, 5, 0]])
+    with _page_on(studio, answer, "#/explore/999") as page:
+        center = page.locator(".lens-card.center b")
+        center.wait_for()
+        assert _words(page.locator(".titlebar")).endswith(_words(center))

@@ -50,7 +50,7 @@ export function ModuleLevel(props: { model: Model; module: number; chat: ChatSta
         name={model.graph.modules[other][0]}
         kind="Module"
         where={["Architecture", model.graph.components[model.graph.modules[other][2]][0], ...model.folders[other], fileOf(model, other)].join(" › ")}
-        facts={stub === undefined ? [] : [`${stub.proven} proven function links · ${stub.claim} claim`, part.stub === Side.In ? "calls into this module" : "is called from this module"]}
+        facts={stub === undefined ? [] : [`${stub.proven} proven call sites · ${stub.claim} claim`, part.stub === Side.In ? "calls into this module" : "is called from this module"]}
         open={{ href: viewHref(View.Module, other), label: "Open the module →" }}
       />
     );

@@ -4,7 +4,7 @@ import { useEffect, useState } from "preact/hooks";
 import { StudioState } from "./api";
 import { ChatState, useChat } from "./chat";
 import { NavItem, View, viewHref } from "./components";
-import { Level, Model, Where } from "./model";
+import { Level, Model, Where, lensSymbol } from "./model";
 import { Crumb, LocationBar, crumbsOf } from "./navigation";
 import { startStore, useStudio } from "./store";
 import { ContractState, ExploreState } from "./vocabulary";
@@ -128,7 +128,7 @@ function placeOf(view: View, route: Route, model: Model | null): { crumbs: reado
         : view === View.Module && isIndex(route.symbol, model.graph.modules.length)
           ? { level: Level.Module, id: route.symbol, pkg: null }
           : view === View.Explore
-            ? { level: Level.Function, id: route.symbol ?? model.start, pkg: null }
+            ? { level: Level.Function, id: lensSymbol(model, route.symbol), pkg: null }
             : view === View.Map
               ? { level: Level.Map, id: null, pkg: null }
               : null;

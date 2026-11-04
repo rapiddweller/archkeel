@@ -371,9 +371,15 @@ export function opened(model: Model, where: Where): ReadonlySet<string> {
 }
 
 const trailKeys = (model: Model, module: number): readonly string[] => {
-  const parts = locate(model, model.members[module][0] ?? 0);
-  return model.members[module].length > 0 ? parts[parts.length - 1].keys : [componentKey(model.graph.modules[module][2])];
+  const [first] = model.members[module];
+  if (first === undefined) return [componentKey(model.graph.modules[module][2])];
+  const parts = locate(model, first);
+  return parts[parts.length - 1].keys;
 };
+
+/** The function that the lens shows: the one asked for if the snapshot has it, else the start (null for a snapshot without functions). */
+export const lensSymbol = (model: Model, asked: number | null): number | null =>
+  asked !== null && asked < model.graph.symbols.length ? asked : model.start;
 
 /** The tree keys that show a function: all its ancestors, so only this branch is open. */
 function branch(model: Model, symbol: number): ReadonlySet<string> {
@@ -423,10 +429,10 @@ export function unknownByComponent(model: Model, count: number): { component: nu
     .slice(0, count);
 }
 
-/** Groups of components that call each other in a loop (strongly connected, more than one). */
+/** Groups of components that call each other in a loop (strongly connected, more than one). Only proven calls close a loop: a claim is a candidate. */
 export function cycles(model: Model): number[][] {
   const count = model.graph.components.length;
-  const next = model.graph.components.map((_, from) => model.flows.filter((flow) => flow.from === from).map((flow) => flow.to));
+  const next = model.graph.components.map((_, from) => model.flows.filter((flow) => flow.from === from && flow.proven > 0).map((flow) => flow.to));
   const index = new Array<number>(count).fill(-1);
   const low = new Array<number>(count).fill(0);
   const open = new Array<boolean>(count).fill(false);

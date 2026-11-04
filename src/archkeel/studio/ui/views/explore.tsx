@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import type { ChatState } from "../chat";
 import { Box, Page, ProofMark, View, viewHref } from "../components";
-import { Evidence, Proof, proofKind, proofOf } from "../evidence";
+import { Evidence, Proof, proofOf } from "../evidence";
 import { LensItem, LensLayout, OpenGroup, Rect, Side, layoutLens } from "../lens-layout";
 import {
   Level,
@@ -14,6 +14,7 @@ import {
   fileName,
   fullName,
   locate,
+  lensSymbol,
   moduleIndex,
   shortName,
   tailPath,
@@ -72,7 +73,7 @@ function Item(props: { model: Model; placed: Rect & { item: LensItem; side: Side
         >
           <b>{model.graph.symbols[item.symbol][1]}</b>
           <span class="meta">
-            <span aria-hidden="true">{proofKind(proof).glyph}</span> line {item.line}
+            <ProofMark proof={proof} /> line {item.line}
           </span>
         </a>
       );
@@ -164,7 +165,7 @@ function Lens(props: { model: Model; layout: LensLayout; center: number; onOpen:
         <div key={`${card.row[1]}:${card.row[3]}`} class="lens-card unknown" style={place(card)}>
           <b>{card.row[1]}</b>
           <span class="meta">
-            <span aria-hidden="true">{proofKind(Proof.Unknown).glyph}</span> {card.row[2]}
+            <ProofMark proof={Proof.Unknown} /> {card.row[2]}
           </span>
         </div>
       ))}
@@ -331,7 +332,7 @@ export function Explore(props: { model: Model | null; symbol: number | null; cha
       </Page>
     );
   }
-  const symbol = props.symbol !== null && props.symbol < model.graph.symbols.length ? props.symbol : model.start;
+  const symbol = lensSymbol(model, props.symbol);
   if (symbol === null) {
     return (
       <Page title="Explore" lead="The snapshot holds no function.">
