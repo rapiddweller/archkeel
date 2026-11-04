@@ -40,7 +40,7 @@ rejected lines of AD-284 and AD-285. The Explorer stays the only architecture re
    report chrome and fixes the canvas to the frame. A selection posts `{kind: "component-selected",
    id, label}` to the parent. Since AD-292 the page is sandboxed (opaque origin): it posts to
    target `*` and the shell accepts a message only when `event.source` is the frame window. The
-   shell cannot reach the frame document, so the theme comes from `?theme=dark`. Without `?embed`
+   shell cannot reach the frame document, so it posts its colour tokens, and the page applies them (`studio-tokens`, accepted only from the parent). A navigation that starts inside the frame is cross-site for the SameSite cookie and gets 403 (checked in Chromium); the embed shows no link to another page. Without `?embed`
    the page does not change.
 9. Enforced: `studio` requires nothing, so an import of `cli`, an analyzer or `check` fails
    `REQUIRES-COMPLETE`; only `workspace` imports `subprocess` and only `server` imports

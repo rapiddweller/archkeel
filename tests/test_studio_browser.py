@@ -158,6 +158,11 @@ def _check_the_embedded_explorer(page, width: int, height: int) -> None:
         " .theme-toggle')].every((item) => !item.checkVisibility())"
     )
     assert inner.get_by_role("button", name="Search").is_visible()
+    # The frame is sandboxed (opaque origin): the shell cannot write into its document, so the
+    # tokens arrive by postMessage and the page applies them.
+    assert inner.evaluate("document.documentElement.style.getPropertyValue('--ak-canvas')") == (
+        "#0a1218"
+    )
     assert inner.evaluate("getComputedStyle(flow).backgroundColor") == "rgb(10, 18, 24)"
     assert inner.evaluate("document.documentElement.scrollHeight <= innerHeight")
     box = element.bounding_box()
