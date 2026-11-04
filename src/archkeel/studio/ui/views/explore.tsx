@@ -39,7 +39,7 @@ const unknownText = (model: Model, symbol: number): string => {
 
 const colour = (component: number): string => `comp-${component % 10}`;
 
-function Item(props: { model: Model; placed: Rect & { item: LensItem; side: Side }; onOpen: (open: OpenGroup | null) => void }) {
+function Item(props: { model: Model; placed: Rect & { item: LensItem; side: Side }; onOpen: (open: OpenGroup | null) => void; onHot: (hot: boolean) => void }) {
   const { model, placed } = props;
   const { item } = placed;
   switch (item.kind) {
@@ -51,6 +51,10 @@ function Item(props: { model: Model; placed: Rect & { item: LensItem; side: Side
           style={place(placed)}
           href={viewHref(View.Explore, item.symbol)}
           title={fullName(model, item.symbol)}
+          onMouseEnter={() => props.onHot(true)}
+          onMouseLeave={() => props.onHot(false)}
+          onFocus={() => props.onHot(true)}
+          onBlur={() => props.onHot(false)}
         >
           <b>{model.graph.symbols[item.symbol][1]}</b>
           <span class="meta">
@@ -87,6 +91,9 @@ function Lens(props: { model: Model; layout: LensLayout; center: number; onOpen:
   const { model, layout, center } = props;
   const names = model.graph.modules;
   const [, , , , , unknown, outside] = model.graph.symbols[center];
+  // The line of the card under the pointer shows its direction: a dot from the caller to the callee.
+  const [hot, setHot] = useState<number | null>(null);
+  const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
   return (
     <>
       {[...layout.plates, layout.centerPlate].map((plate, index) => (
@@ -99,8 +106,17 @@ function Lens(props: { model: Model; layout: LensLayout; center: number; onOpen:
       ))}
       <svg class="lines" width={layout.width} height={layout.height} aria-hidden="true">
         {layout.lines.map((line, index) => (
-          <path key={index} class={`route ${line.kind}`} d={line.path} />
+          <path key={index} class={`route ${line.kind}${hot !== null && line.item === hot ? " hot" : ""}`} d={line.path} />
         ))}
+        {layout.lines
+          .filter((line) => hot !== null && line.item === hot)
+          .map((line) => (
+            <g key={`dot:${line.item}`} class={`focus-line ${line.kind === "claim" ? "claim" : "proven"}`}>
+              <circle class="port" cx={line.from[0]} cy={line.from[1]} r="2.5" />
+              <circle class="port" cx={line.to[0]} cy={line.to[1]} r="2.5" />
+              {calm ? null : <circle class="flow" r="3" style={{ offsetPath: `path("${line.path}")` }} />}
+            </g>
+          ))}
       </svg>
       {layout.heads.map((head) => (
         <p key={head.text} class="head" style={{ left: `${head.x}px`, top: `${head.y}px` }}>
@@ -108,7 +124,7 @@ function Lens(props: { model: Model; layout: LensLayout; center: number; onOpen:
         </p>
       ))}
       {layout.items.map((placed, index) => (
-        <Item key={index} model={model} placed={placed} onOpen={props.onOpen} />
+        <Item key={index} model={model} placed={placed} onOpen={props.onOpen} onHot={(on) => setHot(on ? index : null)} />
       ))}
       <div class="lens-card center" style={place(layout.center)} title={fullName(model, center)}>
         <b>{model.graph.symbols[center][1]}</b>

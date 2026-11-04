@@ -196,7 +196,8 @@ printed URL carries a token for this run; a request without it gets 403. At star
 `archkeel explore` on the root into a private folder of this run below the explore cache.
 Overview shows the progress. When the snapshot is done, Studio opens on the Map:
 
-- **Four levels.** The URL names the level. Each level has the same page: a location bar,
+- **Four levels.** One navigation item, "Architecture", holds all four (Impact and Target / Diff
+  show as "Planned" and are not links). The URL names the level. Each level has the same page: a location bar,
   a toolbar, a canvas, a structure tree and a side panel that starts with "You are here" (name,
   counts, what a card means) and an Up link. The location bar shows the architecture, the
   component, its packages, the module file and the function; each part is a link that goes up

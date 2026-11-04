@@ -294,14 +294,26 @@ def test_the_shell_navigates_and_stays_on_its_server(
             _check_the_embedded_explorer(page, width, height)
             page.screenshot(path=tmp_path / f"report-{width}.png")
 
-            for name, fragment, heading in (
-                ("Impact", "/impact", "Change impact"),
-                ("Target / Diff", "/target", "Target and diff"),
+            # One nav item for the architecture; Impact and Target are planned, muted, no link.
+            nav = page.get_by_role("navigation", name="Workspace")
+            assert nav.locator("a").all_inner_texts() == ["Overview", "Architecture", "Stories"]
+            planned = nav.locator(".planned")
+            assert [" ".join(text.split()) for text in planned.all_text_contents()] == [
+                "Impact Planned",
+                "Target / Diff Planned",
+            ]
+            assert planned.first.get_attribute("title") == "not built yet"
+            # The old links keep working: the pages of the planned items and the lens of a function.
+            for fragment, heading in (
+                ("#/impact", "Change impact"),
+                ("#/target", "Target and diff"),
             ):
-                page.get_by_role("link", name=name, exact=True).click()
-                assert urlsplit(page.url).fragment == fragment
+                page.goto(studio.url + fragment)
                 page.get_by_role("heading", name=heading).wait_for()
-                assert page.get_by_text("Not built in Studio yet.").is_visible(), name
+                assert page.get_by_text("Not built in Studio yet.").is_visible(), fragment
+            page.goto(studio.url + "#/explore/0")
+            page.locator(".lens-card.center").wait_for()
+            assert nav.locator('a[aria-current="page"]').inner_text() == "Architecture"
             page.get_by_role("link", name="Overview", exact=True).click()
             page.locator('nav a[aria-current="page"]', has_text="Overview").wait_for()
             assert page.evaluate("document.documentElement.scrollWidth") <= width
@@ -1101,5 +1113,62 @@ def test_check_evaluation_has_callers_and_no_overlap_on_the_real_snapshot(
                 page.wait_for_timeout(700)
                 assert _boxes_overlap(page) == []
                 page.close()
+        finally:
+            browser.close()
+
+
+@pytest.mark.browser
+def test_a_dimmed_stub_keeps_its_name_and_the_tooltip_is_small_and_below_the_card(
+    studio: Studio,
+) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    answer = {"api_version": API_VERSION, "explore": "done", "graph": _grid_graph()}
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.route("**/api/v1/graph", lambda route: route.fulfill(json=answer))
+            page.goto(studio.url + "#/module/0")
+            page.locator(".level-card").first.wait_for()
+            # fn1 has no call to the module of the stub: the stub dims, name and count stay.
+            card = page.locator(".level-card", has_text="fn1").first
+            card.hover()
+            page.locator(".lens-card.stub.dim").first.wait_for()
+            stub = page.locator(".lens-card.stub.dim").first
+            assert stub.locator("b").is_visible()
+            assert stub.locator("b").inner_text().strip() != ""
+            assert stub.locator("b").evaluate("(b) => getComputedStyle(b).visibility") == "visible"
+            # The tooltip: two lines at most, after a delay, below the card.
+            page.wait_for_timeout(600)
+            tip = page.locator(".tip")
+            tip.wait_for(state="visible")
+            assert len(tip.inner_text().splitlines()) <= 2
+            box, tip_box = card.bounding_box(), tip.bounding_box()
+            assert tip_box["y"] >= box["y"] + box["height"], (box, tip_box)
+            assert tip_box["height"] <= 48
+            # The side panel keeps a function name first and wraps at the separators.
+            card.click()
+            row = page.locator(".focus-rows li").first
+            assert row.locator("a").first.inner_text().startswith("fn")
+        finally:
+            browser.close()
+
+
+@pytest.mark.browser
+def test_the_lens_shows_the_direction_of_the_line_under_the_pointer(studio: Studio) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.goto(studio.url)
+            page.locator(".map-card", has_text="app").click()
+            page.locator(".level-card", has_text="orders.py").dblclick()
+            page.locator(".level-card", has_text="place").dblclick()
+            page.locator(".lens-card.center").wait_for()
+            assert page.locator(".focus-line").count() == 0
+            page.locator("a.lens-card.proven", has_text="save").hover()
+            page.locator(".focus-line .flow").wait_for(state="attached")
+            assert page.locator(".focus-line .port").count() == 2
         finally:
             browser.close()

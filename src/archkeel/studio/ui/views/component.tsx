@@ -25,6 +25,7 @@ export function ComponentLevel(props: { model: Model; component: number; pkg: st
     return {
       href: viewHref(View.Module, module),
       name: fileOf(model, module),
+      path: model.graph.modules[module][0],
       title: `${model.graph.modules[module][0]} (${model.graph.modules[module][1]})`,
       meta: `${counted(model.members[module].length, "function")}${unknown > 0 ? ` · ${unknown} unknown` : ""}`,
     };

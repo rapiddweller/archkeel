@@ -185,6 +185,8 @@ export function Workbench(props: {
 export interface CardInfo {
   readonly href: string;
   readonly name: string;
+  /** The module path of a function, or the file path of a module. */
+  readonly path: string;
   readonly title: string;
   readonly meta: ComponentChildren;
 }
@@ -253,8 +255,8 @@ const TIP_MS = 400;
 let tipTimer: number | undefined;
 let tipBox: HTMLDivElement | null = null;
 
-/** One tooltip for all cards: it comes after 400 ms, below the card, so it never covers the text it explains. */
-function showTip(card: Element, text: string): void {
+/** One compact tooltip for all cards (a name and a path): after 400 ms, below the card, so it never covers its own text. */
+function showTip(card: Element, text: string, x: number): void {
   window.clearTimeout(tipTimer);
   tipTimer = window.setTimeout(() => {
     if (tipBox === null) {
@@ -266,10 +268,12 @@ function showTip(card: Element, text: string): void {
     tipBox.textContent = text;
     tipBox.hidden = false;
     const box = card.getBoundingClientRect();
-    const below = box.bottom + 8;
+    const below = box.bottom + 4;
     const fits = below + tipBox.offsetHeight < innerHeight;
-    tipBox.style.left = `${Math.min(Math.max(8, box.left), innerWidth - tipBox.offsetWidth - 8)}px`;
-    tipBox.style.top = `${fits ? below : Math.max(8, box.top - tipBox.offsetHeight - 8)}px`;
+    // Right of the pointer, below the card: the text of the card stays free.
+    const left = Math.min(Math.max(8, x), innerWidth - tipBox.offsetWidth - 8);
+    tipBox.style.left = `${left}px`;
+    tipBox.style.top = `${fits ? below : Math.max(8, box.top - tipBox.offsetHeight - 4)}px`;
   }, TIP_MS);
 }
 
@@ -326,7 +330,7 @@ export function LevelCanvas(props: {
   const tip = (key: string, text: string) => ({
     onMouseEnter: (event: MouseEvent) => {
       focus.over(key);
-      if (event.currentTarget instanceof Element) showTip(event.currentTarget, text);
+      if (event.currentTarget instanceof Element) showTip(event.currentTarget, text, event.clientX + 12);
     },
     onMouseLeave: () => {
       focus.over(null);
@@ -400,7 +404,7 @@ export function LevelCanvas(props: {
               if (event.detail === 1) focus.pin(focus.pinned === key ? null : key);
               else location.hash = info.href;
             }}
-            {...tip(key, info.title)}
+            {...tip(key, `${info.name}\n${info.path}`)}
           >
             <b>{info.name}</b>
             <span class="meta">{info.meta}</span>
@@ -416,7 +420,7 @@ export function LevelCanvas(props: {
             class={`lens-card tile${dim(key)}`}
             style={place(tile)}
             onClick={() => props.onOpen(tile.label)}
-            {...tip(key, `${tile.label}: ${tile.hidden} more, click to open`)}
+            {...tip(key, `${tile.label}\n+${tile.hidden} more, click to open`)}
           >
             <b>{tailName(tile.label, 24)}</b>
             <span class="meta">+{tile.hidden} more · open</span>
@@ -428,7 +432,7 @@ export function LevelCanvas(props: {
         const key = stubKey(stub.side, stub.ref);
         const chips = names(stub);
         return (
-          <a key={key} class={`lens-card stub ${stub.claim > 0 ? "claim" : "proven"}${dim(key)}`} data-side={stub.side} data-drill style={place(stub)} href={info.href} aria-label={info.title} {...tip(key, info.title)}>
+          <a key={key} class={`lens-card stub ${stub.claim > 0 ? "claim" : "proven"}${dim(key)}`} data-side={stub.side} data-drill style={place(stub)} href={info.href} aria-label={info.title} {...tip(key, `${info.name}\n${info.path}`)}>
             <b>{info.name}</b>
             <span class="meta path">{info.path}</span>
             <span class="meta">
@@ -471,9 +475,26 @@ export interface FocusRow {
   readonly items: readonly FocusItem[];
 }
 
+/** A path that wraps at its separators, so a name never breaks in the middle of a word. */
+export function Breakable(props: { text: string }) {
+  return (
+    <>
+      {props.text.split(/(?<=[./:·])/).map((part, index) => (
+        <span key={index}>
+          {part}
+          <wbr />
+        </span>
+      ))}
+    </>
+  );
+}
+
+const ROWS_SHOWN = 10;
+
 /** The side panel of a focus: each connected card with its module, file, line and proof; a row lights its line. */
 export function FocusList(props: { focus: Focus; rows: readonly FocusRow[]; title: string; open: { href: string; label: string } | null }) {
   const { focus } = props;
+  const [all, setAll] = useState(false);
   if (focus.key === null) {
     return (
       <Box title="Focus">
@@ -493,17 +514,20 @@ export function FocusList(props: { focus: Focus; rows: readonly FocusRow[]; titl
       <p class="more">Dots show the direction of the call: from the caller to the callee.</p>
       {props.rows.length === 0 ? <p class="more">No call to or from a card of this page.</p> : null}
       <ul class="pairs focus-rows">
-        {props.rows.map((row) => {
+        {(all ? props.rows : props.rows.slice(0, ROWS_SHOWN)).map((row) => {
           const items = row.items.filter((item) => item.name !== row.name || !row.neighbor);
           return (
             <li key={row.key + row.name} data-neighbor={row.neighbor ? "" : undefined} onMouseEnter={() => focus.light(row.key)} onMouseLeave={() => focus.light(null)}>
-              <a href={row.href}>{row.name}</a> <span class="where">{row.where}</span>
+              <a href={row.href}>{row.name}</a>{" "}
+              <span class="where">
+                <Breakable text={row.where} />
+              </span>
               <br />
               <Counts tally={row.tally} />
               {items.slice(0, 6).map((item) => (
                 <span key={item.href + item.name} class="where item" data-neighbor="">
                   <br />
-                  <ProofMark proof={proofOf(item.partial)} /> <a href={item.href}>{item.name}</a> {item.direction} {item.where}
+                  <ProofMark proof={proofOf(item.partial)} /> <a href={item.href}>{item.name}</a> {item.direction} <Breakable text={item.where} />
                 </span>
               ))}
               {items.length > 6 ? <span class="where"> +{items.length - 6} more</span> : null}
@@ -511,6 +535,11 @@ export function FocusList(props: { focus: Focus; rows: readonly FocusRow[]; titl
           );
         })}
       </ul>
+      {props.rows.length > ROWS_SHOWN ? (
+        <button type="button" class="toggle" aria-expanded={all} onClick={() => setAll(!all)}>
+          {all ? "Show fewer" : `Show all ${props.rows.length}`}
+        </button>
+      ) : null}
     </Box>
   );
 }

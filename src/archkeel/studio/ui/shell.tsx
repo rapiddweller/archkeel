@@ -17,17 +17,22 @@ import { Overview } from "./views/overview";
 import { Report } from "./views/report";
 import { Stories } from "./views/story";
 
-const NAV: readonly { view: View; name: string }[] = [
+/** `planned` pages show in the nav, muted and not clickable. */
+const NAV: readonly { view: View; name: string; planned?: boolean }[] = [
   { view: View.Overview, name: "Overview" },
-  { view: View.Map, name: "Map" },
-  { view: View.Explore, name: "Explore" },
+  { view: View.Map, name: "Architecture" },
   { view: View.Stories, name: "Stories" },
-  { view: View.Impact, name: "Impact" },
-  { view: View.Target, name: "Target / Diff" },
+  { view: View.Impact, name: "Impact", planned: true },
+  { view: View.Target, name: "Target / Diff", planned: true },
 ];
 const VIEWS = new Map<string, View>([...Object.values(View), View.Report].map((view) => [view, view]));
-/** The levels below the Map keep the Map highlighted in the nav. */
-const NAV_OF: Partial<Record<View, View>> = { [View.Component]: View.Map, [View.Module]: View.Map, [View.Report]: View.Overview };
+/** The levels of the architecture, down to the lens, keep the Architecture item highlighted. */
+const NAV_OF: Partial<Record<View, View>> = {
+  [View.Component]: View.Map,
+  [View.Module]: View.Map,
+  [View.Explore]: View.Map,
+  [View.Report]: View.Overview,
+};
 
 const CONTRACT: Record<ContractState, string> = {
   [ContractState.NOT_CONFIGURED]: "Contract: NOT CONFIGURED",
@@ -153,11 +158,17 @@ function Shell() {
         </div>
         <p class="label">Workspace</p>
         <nav aria-label="Workspace">
-          {NAV.map((item) => (
-            <NavItem key={item.view} href={viewHref(item.view)} current={item.view === (NAV_OF[view] ?? view)}>
-              {item.name}
-            </NavItem>
-          ))}
+          {NAV.map((item) =>
+            item.planned ? (
+              <span key={item.view} class="planned" title="not built yet" aria-disabled="true">
+                {item.name} <small>Planned</small>
+              </span>
+            ) : (
+              <NavItem key={item.view} href={viewHref(item.view)} current={item.view === (NAV_OF[view] ?? view)}>
+                {item.name}
+              </NavItem>
+            ),
+          )}
         </nav>
         <p class="label">Evidence model</p>
         <Legend />

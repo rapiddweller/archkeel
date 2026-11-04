@@ -36,6 +36,10 @@ export interface Plate extends Rect {
 export interface LensLine {
   readonly path: string;
   readonly kind: "proven" | "claim" | "neutral" | "unknown";
+  /** The neighbor card of this line (index into `items`); null for an unknown call. The path runs caller to callee. */
+  readonly item: number | null;
+  readonly from: readonly [number, number];
+  readonly to: readonly [number, number];
 }
 
 export interface LensLayout {
@@ -178,13 +182,16 @@ export function layoutLens(model: Model, center: number, open: OpenGroup | null)
       }
       items.push({ item: row.item, side, x, y, width: CARD_WIDTH, height: CARD_HEIGHT });
       if (row.item.kind === "node" || row.item.kind === "group") {
+        const own = items.length - 1;
         const kind = row.item.kind === "group" ? "neutral" : row.item.partial ? "claim" : "proven";
         const mid = y + CARD_HEIGHT / 2;
         const path =
           side === Side.In
             ? elbow(x + CARD_WIDTH, mid, CENTER_LEFT, hub, CENTER_LEFT - 34)
             : elbow(CENTER_LEFT + CENTER_WIDTH, hub, x, mid, x - 34);
-        lines.push({ path, kind });
+        const edge: readonly [number, number] = side === Side.In ? [x + CARD_WIDTH, mid] : [x, mid];
+        const hubEdge: readonly [number, number] = side === Side.In ? [CENTER_LEFT, hub] : [CENTER_LEFT + CENTER_WIDTH, hub];
+        lines.push({ path, kind, item: own, from: side === Side.In ? edge : hubEdge, to: side === Side.In ? hubEdge : edge });
       }
     }
     for (const draft of drafts) {
@@ -207,7 +214,7 @@ export function layoutLens(model: Model, center: number, open: OpenGroup | null)
       Math.abs(target - centerX) < 2
         ? `M${centerX} ${from} V${unknownTop}`
         : `M${centerX} ${from} V${turn - RADIUS} Q${centerX} ${turn} ${centerX + dir * RADIUS} ${turn} H${target - dir * RADIUS} Q${target} ${turn} ${target} ${turn + RADIUS} V${unknownTop}`;
-    lines.push({ path, kind: "unknown" });
+    lines.push({ path, kind: "unknown", item: null, from: [centerX, from], to: [target, unknownTop] });
     return { row, x, y: unknownTop, width: UNKNOWN_WIDTH, height: UNKNOWN_HEIGHT };
   });
 

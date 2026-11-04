@@ -343,7 +343,7 @@ pre.draft { max-height: 220px; overflow: auto; white-space: pre-wrap; margin: 6p
 .level-card .meta, .stub .meta, .tile .meta { font-size: 11.5px; line-height: 1.35; }
 .stub .meta.path, .stub .meta.names { color: var(--muted); }
 .level-card { border-left: 3px solid color-mix(in srgb, var(--c, var(--line)) 50%, var(--line)); }
-.level-card.dim, .stub.dim { opacity: .25; }
+.level-card.dim { opacity: .25; }
 .level-card.pinned { border-color: var(--target); box-shadow: 0 0 0 1px var(--target); }
 .lens-card.stub { border-style: dashed; }
 .lens-card.stub.proven { border-color: color-mix(in srgb, var(--proven) 35%, var(--line)); }
@@ -368,10 +368,12 @@ pre.draft { max-height: 220px; overflow: auto; white-space: pre-wrap; margin: 6p
 .focus-line .chevron { fill: none; stroke: var(--proven); stroke-width: 1.5; }
 .focus-line.claim .chevron { stroke: var(--claim); }
 @keyframes flow { from { offset-distance: 0%; } to { offset-distance: 100%; } }
-.tip { position: fixed; z-index: 50; max-width: 420px; padding: 6px 10px; border-radius: 8px; pointer-events: none;
+.tip { position: fixed; z-index: 50; max-width: 360px; padding: 4px 10px; border-radius: 8px; pointer-events: none;
   background: var(--raised); border: 1px solid var(--line); color: var(--text); font: 12px/1.4 ui-monospace, Menlo, monospace;
-  overflow-wrap: anywhere; }
-.stub.dim b, .stub.dim .meta.path, .stub.dim .meta.names { visibility: hidden; }
+  white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.stub.dim .meta.path, .stub.dim .meta.names { visibility: hidden; }
+.stub.dim { opacity: .5; }
+.stub.dim b { color: var(--muted); }
 .focus-line.off { opacity: .2; }
 .focus-rows .item { display: block; margin-top: 2px; }
 .canvas[data-transition="in"], .canvas[data-transition="out"] { will-change: transform; }
@@ -381,3 +383,10 @@ pre.draft { max-height: 220px; overflow: auto; white-space: pre-wrap; margin: 6p
   .canvas { animation: none; }
   .level-card, .stub { transition: none; }
 }
+
+nav .planned { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; color: var(--muted);
+  opacity: .55; cursor: default; }
+nav .planned small { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+.route.hot { stroke-width: 3; opacity: 1; }
+.focus-rows { max-height: none; }
+.focus-rows .where { overflow-wrap: normal; word-break: normal; }

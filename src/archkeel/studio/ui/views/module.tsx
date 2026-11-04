@@ -55,6 +55,7 @@ export function ModuleLevel(props: { model: Model; module: number; chat: ChatSta
             card={(symbol) => ({
               href: viewHref(View.Explore, symbol),
               name: model.graph.symbols[symbol][1],
+              path: model.graph.modules[module][0],
               title: `${model.graph.modules[module][0]}.${model.graph.symbols[symbol][1]}`,
               meta: `${counted(neighbors(model, symbol), "link")}${model.graph.symbols[symbol][5] > 0 ? ` · ${model.graph.symbols[symbol][5]} unknown` : ""}`,
             })}
