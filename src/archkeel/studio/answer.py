@@ -41,11 +41,13 @@ def _data(record: Mapping[str, object]) -> Mapping[str, object]:
     return data if isinstance(data, Mapping) else {}
 
 
-def _text(value: object) -> str:
+def _text(record: Mapping[str, object], key: str) -> str:
+    value = record.get(key)
     return value if isinstance(value, str) else ""
 
 
-def _names(value: object) -> list[str]:
+def _names(record: Mapping[str, object], key: str) -> list[str]:
+    value = record.get(key)
     return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
 
 
@@ -79,17 +81,17 @@ class Snapshot:
 
     def __init__(self, model: Mapping[str, object]) -> None:
         places = {
-            _text(item.get("id")): (_text(item.get("file")), item.get("line"))
+            _text(item, "id"): (_text(item, "file"), item.get("line"))
             for item in _records(model, "evidence")
         }
         self._symbols: dict[str, tuple[str, str, int]] = {}
         for record in _records(model, "symbols"):
-            name = _text(_data(record).get("qualified_name"))
-            ids = _names(record.get("evidence_ids"))
+            name = _text(_data(record), "qualified_name")
+            ids = _names(record, "evidence_ids")
             file, line = places.get(ids[0], ("", 0)) if ids else ("", 0)
             if name:
                 self._symbols[name] = (
-                    _text(record.get("kind")),
+                    _text(record, "kind"),
                     file,
                     line if isinstance(line, int) else 0,
                 )
@@ -98,13 +100,13 @@ class Snapshot:
         self._unknown: dict[str, list[str]] = defaultdict(list)
         for record in _records(model, "calls"):
             data = _data(record)
-            scope = _text(data.get("source_scope"))
-            if _text(data.get("status")) == CallStatus.RESOLVED:
-                for target in _names(data.get("targets")):
+            scope = _text(data, "source_scope")
+            if _text(data, "status") == CallStatus.RESOLVED:
+                for target in _names(data, "targets"):
                     self._callers[target].add(scope)
                     self._callees[scope].add(target)
             else:
-                self._unknown[scope].append(_text(data.get("expression"))[:_EXPRESSION_LIMIT])
+                self._unknown[scope].append(_text(data, "expression")[:_EXPRESSION_LIMIT])
 
     def has(self, name: str) -> bool:
         return name in self._symbols
@@ -148,7 +150,11 @@ class Snapshot:
             words, refs = item["text"], item["refs"]
             if not isinstance(words, str) or len(words) > _TEXT_LIMIT:
                 raise _invalid(f"a text must be a string of at most {_TEXT_LIMIT} characters")
-            if not isinstance(refs, list) or len(refs) > _REF_LIMIT or _names(refs) != refs:
+            if (
+                not isinstance(refs, list)
+                or len(refs) > _REF_LIMIT
+                or not all(isinstance(ref, str) for ref in refs)
+            ):
                 raise _invalid(f"refs must be at most {_REF_LIMIT} strings")
             try:
                 kind = ChatBlockKind(item["kind"])
