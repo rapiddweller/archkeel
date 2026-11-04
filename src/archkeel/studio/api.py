@@ -29,21 +29,23 @@ def member(kind: type[_Member], value: Json) -> _Member | None:
     return next((item for item in kind if item.value == value), None)
 
 
-def text_of(value: Json) -> str:
-    """The text, or the empty string. Studio requires no component (AD-290): no `text_value`."""
-    match value:
-        case str():
-            return value
+def text_at(row: Mapping[str, Json], key: str) -> str:
+    """The text under a key, or the empty string. Studio requires no component (AD-290)."""
+    match row.get(key):
+        case str() as found:
+            return found
         case _:
             return ""
 
 
-def texts_of(value: Json) -> list[str]:
-    return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
+def texts_at(row: Mapping[str, Json], key: str) -> list[str]:
+    found = row.get(key)
+    return [item for item in found if isinstance(item, str)] if isinstance(found, list) else []
 
 
-def number_of(value: Json) -> int:
-    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+def number_at(row: Mapping[str, Json], key: str) -> int:
+    found = row.get(key)
+    return found if isinstance(found, int) and not isinstance(found, bool) else 0
 
 
 def rows(model: Mapping[str, Json], section: str) -> list[Mapping[str, Json]]:
@@ -76,10 +78,10 @@ class Place(NamedTuple):
 def places(model: Mapping[str, Json]) -> dict[str, Place]:
     """The evidence of the snapshot by id; explore keeps the file and line of every fact."""
     return {
-        text_of(row.get("id")): Place(
-            text_of(row.get("file")),
-            number_of(row.get("line")),
-            text_of(row.get("excerpt")).strip(),
+        text_at(row, "id"): Place(
+            text_at(row, "file"),
+            number_at(row, "line"),
+            text_at(row, "excerpt").strip(),
         )
         for row in rows(model, "evidence")
     }
@@ -87,7 +89,7 @@ def places(model: Mapping[str, Json]) -> dict[str, Place]:
 
 def first_place(row: Mapping[str, Json], found: Mapping[str, Place]) -> Place:
     """The place of the first evidence id of a record, or an empty place."""
-    ids = texts_of(row.get("evidence_ids"))
+    ids = texts_at(row, "evidence_ids")
     return found.get(ids[0], Place("", 0, "")) if ids else Place("", 0, "")
 
 

@@ -25,8 +25,8 @@ from .api import (
     member,
     places,
     rows,
-    text_of,
-    texts_of,
+    text_at,
+    texts_at,
 )
 
 PROPOSAL_LABEL: Final = "PROPOSED - NOT APPLIED"
@@ -71,21 +71,21 @@ class Snapshot:
         found = places(model)
         self._symbols: dict[str, tuple[str, Place]] = {}
         for record in rows(model, "symbols"):
-            name = text_of(data_of(record).get("qualified_name"))
+            name = text_at(data_of(record), "qualified_name")
             if name:
-                self._symbols[name] = (text_of(record.get("kind")), first_place(record, found))
+                self._symbols[name] = (text_at(record, "kind"), first_place(record, found))
         self._callers: dict[str, set[str]] = defaultdict(set)
         self._callees: dict[str, set[str]] = defaultdict(set)
         self._unknown: dict[str, list[str]] = defaultdict(list)
         for record in rows(model, "calls"):
             data = data_of(record)
-            scope = text_of(data.get("source_scope"))
+            scope = text_at(data, "source_scope")
             if member(CallStatus, data.get("status")) is CallStatus.RESOLVED:
-                for target in texts_of(data.get("targets")):
+                for target in texts_at(data, "targets"):
                     self._callers[target].add(scope)
                     self._callees[scope].add(target)
             else:
-                self._unknown[scope].append(text_of(data.get("expression"))[:_EXPRESSION_LIMIT])
+                self._unknown[scope].append(text_at(data, "expression")[:_EXPRESSION_LIMIT])
 
     def has(self, name: str) -> bool:
         return name in self._symbols

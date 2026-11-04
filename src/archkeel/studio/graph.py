@@ -26,11 +26,11 @@ from .api import (
     data_of,
     first_place,
     member,
-    number_of,
+    number_at,
     places,
     rows,
-    text_of,
-    texts_of,
+    text_at,
+    texts_at,
 )
 
 UNOWNED = "(unowned)"
@@ -46,12 +46,12 @@ _Component = tuple[str, str, Sequence[str]]
 def _layout(model: Mapping[str, Json]) -> list[_Component]:
     """The top-level components that explore declared in its own layout, with their modules."""
     owned = {
-        text_of(data_of(row).get("component_id")): texts_of(data_of(row).get("modules"))
+        text_at(data_of(row), "component_id"): texts_at(data_of(row), "modules")
         for row in rows(model, "scope_observations")
         if member(ScopeKind, row.get("kind")) is ScopeKind.DECLARED
     }
     return [
-        (text_of(row.get("title")), "", owned.get(text_of(row.get("id")), []))
+        (text_at(row, "title"), "", owned.get(text_at(row, "id"), []))
         for row in rows(model, "declarations")
         if member(DeclarationKind, row.get("kind")) is DeclarationKind.COMPONENT
     ]
@@ -78,10 +78,7 @@ def _relative(name: str, prefix: Sequence[str]) -> str:
 def _modules(
     model: Mapping[str, Json], declare: Declare
 ) -> tuple[ComponentSource, tuple[ComponentRow, ...], tuple[ModuleRow, ...], dict[str, int]]:
-    files = {
-        text_of(row.get("title")): text_of(data_of(row).get("file"))
-        for row in rows(model, "modules")
-    }
+    files = {text_at(row, "title"): text_at(data_of(row), "file") for row in rows(model, "modules")}
     names = sorted(files)
     source, components = _components(model, names, declare)
     modules: dict[str, ModuleRow] = {}
@@ -107,7 +104,7 @@ def _symbols(
     for row in rows(model, "symbols"):
         data = data_of(row)
         kind = member(SymbolKind, row.get("kind"))
-        module, qualified = text_of(data.get("module")), text_of(data.get("qualified_name"))
+        module, qualified = text_at(data, "module"), text_at(data, "qualified_name")
         if kind is None or module not in position or not qualified or qualified in index:
             continue
         place = first_place(row, evidence)
@@ -134,7 +131,7 @@ def _calls(
     sites = 0
     for row in rows(model, "calls"):
         data = data_of(row)
-        source = index.get(text_of(data.get("source_scope")))
+        source = index.get(text_at(data, "source_scope"))
         if source is None:
             continue
         line = first_place(row, evidence).line
@@ -142,9 +139,7 @@ def _calls(
         if status is CallStatus.RESOLVED or status is CallStatus.PARTIALLY_RESOLVED:
             # Distinct before the cut: the targets [A, A, B] keep A and B.
             known = list(
-                dict.fromkeys(
-                    index[name] for name in texts_of(data.get("targets")) if name in index
-                )
+                dict.fromkeys(index[name] for name in texts_at(data, "targets") if name in index)
             )
             if not known:
                 outside[source] = outside.get(source, 0) + 1
@@ -156,14 +151,14 @@ def _calls(
         else:
             unknown[source] = unknown.get(source, 0) + 1
             if unknown[source] <= _UNKNOWN_PER_SYMBOL:
-                expression = text_of(data.get("expression"))[:_EXPRESSION_LENGTH]
-                reason = text_of(data.get("reason"))[:_EXPRESSION_LENGTH]
+                expression = text_at(data, "expression")[:_EXPRESSION_LENGTH]
+                reason = text_at(data, "reason")[:_EXPRESSION_LENGTH]
                 sample.append(UnknownRow(source, expression, reason, line))
     return tuple(edges), tuple(sample), unknown, outside
 
 
 def _count(section: Json, name: str) -> int:
-    return number_of(section.get(name)) if isinstance(section, Mapping) else 0
+    return number_at(section, name) if isinstance(section, Mapping) else 0
 
 
 def _totals(model: Mapping[str, Json]) -> Totals:
@@ -181,8 +176,8 @@ def _snapshot(model: Mapping[str, Json]) -> SnapshotInfo:
     source = model.get("source")
     found = source if isinstance(source, Mapping) else {}
     return SnapshotInfo(
-        text_of(found.get("git_head")),
-        text_of(found.get("source_digest")),
+        text_at(found, "git_head"),
+        text_at(found, "source_digest"),
         found.get("dirty") is True,
     )
 
