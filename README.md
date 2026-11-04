@@ -181,6 +181,33 @@ contract; `check` also compares a submitted change with its published expectatio
 responsibilities on components marked `decided_by: "architect"`; substantive prose is not proof that
 the stated responsibility is correct. See the [exact marker syntax and exit behavior](docs/reference.md#exit-codes).
 
+## Where Studio is going
+
+> **Target picture.** These images are design targets for ArchKeel Studio, not shipped features.
+> Studio today serves the map and the Explorer ([AD-290](docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md)).
+> The work is tracked in [#822](https://github.com/rapiddweller/archkeel/issues/822).
+
+The goal: an architect opens Studio and understands what the agent built. Every fact is measured.
+The agent writes only the words, and ArchKeel checks each claim.
+
+<p>
+  <img src="docs/assets/studio-target/explore-chat-map.jpg" alt="Target: the component map as a dependency graph with call counts on the lines" width="1000">
+</p>
+
+**Map.** Components as a graph. A line is the number of calls between two components; dotted means mostly partial (a claim).
+
+<p>
+  <img src="docs/assets/studio-target/explore-chat-lens.jpg" alt="Target: the explore lens with a structure tree, module plates and an agent chat" width="1000">
+</p>
+
+**Explore with the agent.** A lens around one function, a structure tree and a location bar so you always know where you are, and a chat that separates what ArchKeel observed, what the agent claims and what is only proposed.
+
+<p>
+  <img src="docs/assets/studio-target/story-lanes-status-step9.jpg" alt="Target: a story of archkeel check with lanes, a route line and a status on every step" width="1000">
+</p>
+
+**Stories.** A flow plays through the real architecture. Each step is proven, a claim or unknown. The same grammar scales to a large system: [a story of 27 steps over a 1,185-module codebase](docs/assets/studio-target/ee-story-process-boundary.jpg), with the process boundary and the external systems it touches.
+
 ## See it in action
 
 <p>
