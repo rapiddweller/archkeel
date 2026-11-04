@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """AD-292: the Studio chat, on a real server, with a fake agent in place of claude and codex."""
 
+import contextlib
 import http.client
 import json
 import os
@@ -454,20 +455,23 @@ def test_a_request_that_fails_a_check_is_refused_before_the_agent_runs(
 
 def test_a_request_without_a_length_gets_411(chat: Studio) -> None:
     connection = http.client.HTTPConnection("127.0.0.1", chat.port, timeout=10)
-    connection.request(
-        "POST",
-        "/api/v1/chat",
-        body=iter([b"{}"]),
-        encode_chunked=True,
-        headers={
-            "Host": f"127.0.0.1:{chat.port}",
-            "Origin": f"http://127.0.0.1:{chat.port}",
-            "X-Archkeel-Studio": "1",
-            "Content-Type": "application/json",
-            "Cookie": login(chat),
-            "Transfer-Encoding": "chunked",
-        },
-    )
+    # The server answers 411 without reading the body, so the client can see the pipe close
+    # while it still sends the chunks; the answer is already waiting on the socket.
+    with contextlib.suppress(BrokenPipeError, ConnectionResetError):
+        connection.request(
+            "POST",
+            "/api/v1/chat",
+            body=iter([b"{}"]),
+            encode_chunked=True,
+            headers={
+                "Host": f"127.0.0.1:{chat.port}",
+                "Origin": f"http://127.0.0.1:{chat.port}",
+                "X-Archkeel-Studio": "1",
+                "Content-Type": "application/json",
+                "Cookie": login(chat),
+                "Transfer-Encoding": "chunked",
+            },
+        )
     assert connection.getresponse().status == 411
 
 

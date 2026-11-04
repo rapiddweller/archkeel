@@ -30,7 +30,8 @@ from fixtures.demo_catalog_typescript import VARIANTS as TYPESCRIPT_VARIANTS
 from fixtures.reproduce_typescript import repository as typescript_repository
 
 _SCHEMA = json.loads((Path(__file__).parents[1] / "schema/studio-api-1.1.schema.json").read_bytes())
-_EXPLORE_SECONDS = 120
+# The real ArchKeel snapshot takes 95 to 124 s on a laptop and more on a loaded 4 vCPU runner.
+_EXPLORE_SECONDS = 300
 
 
 def _no_contract(_modules: Sequence[str]) -> list[tuple[str, str, list[str]]]:
