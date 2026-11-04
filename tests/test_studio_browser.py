@@ -549,6 +549,24 @@ def test_the_chat_says_why_it_has_no_answer(studio: Studio, status: int, body, s
             browser.close()
 
 
+def _answer(checked: dict, **changes: object) -> dict:
+    """The body of `GET /api/v1/stories/<id>` for a checked story from the repository."""
+    return {
+        "api_version": API_VERSION,
+        "id": "check-flow",
+        "source": "repository",
+        "checked": checked,
+        "rebound": True,
+        "created": {
+            "created": "2026-11-04T10:00:00Z",
+            "git_head": "a" * 40,
+            "author_kind": "agent",
+            "agent": "claude",
+        },
+        "head": "b" * 40,
+    } | changes
+
+
 def _checked(**changes) -> dict:
     """The checked `check` flow, plus a claim with 58 candidates and a Redis touchpoint."""
     checked = json.loads(json.dumps(_CHECKED))
@@ -565,7 +583,12 @@ def _checked(**changes) -> dict:
 def test_a_story_plays_and_a_claim_never_reads_as_proven(studio: Studio) -> None:
     api = pytest.importorskip("playwright.sync_api")
     requests: list[str] = []
-    row = {"id": "check-flow", "title": _CHECKED["story"]["title"], "steps": len(_CHECKED["steps"])}
+    row = {
+        "id": "check-flow",
+        "title": _CHECKED["story"]["title"],
+        "steps": len(_CHECKED["steps"]),
+        "source": "repository",
+    }
     with api.sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         try:
@@ -578,7 +601,7 @@ def test_a_story_plays_and_a_claim_never_reads_as_proven(studio: Studio) -> None
             page.route(
                 "**/api/v1/stories/check-flow",
                 lambda route: route.fulfill(
-                    json={"api_version": API_VERSION, "id": "check-flow", "checked": _checked()}
+                    json=_answer(_checked())
                 ),
             )
             page.goto(studio.url)
@@ -645,7 +668,7 @@ def test_reduced_motion_plays_to_the_final_state(studio: Studio) -> None:
             page.route(
                 "**/api/v1/stories/check-flow",
                 lambda route: route.fulfill(
-                    json={"api_version": API_VERSION, "id": "check-flow", "checked": _checked()}
+                    json=_answer(_checked())
                 ),
             )
             page.goto(studio.url + "#/stories/check-flow")
@@ -665,7 +688,7 @@ def test_a_story_of_the_root_is_checked_by_the_server(studio: Studio) -> None:
     response, body = request(studio, f"/api/v1/draft?from={_PLACE}", cookie=cookie)
     assert response.status == 200
     spec = json.loads(body)["spec"]
-    folder = studio.workspace.stories.folder  # type: ignore[union-attr]
+    folder = studio.workspace.stories.folders[-1][1]  # type: ignore[union-attr]
     folder.mkdir(parents=True, exist_ok=True)
     spec["steps"][0] |= {"title": "The use case", "note": "place builds the order and saves it."}
     (folder / "place-draft.story.json").write_text(json.dumps(spec))
@@ -740,7 +763,7 @@ def test_no_text_crosses_the_border_of_a_card_on_any_level(
     api = pytest.importorskip("playwright.sync_api")
     answer = {"api_version": API_VERSION, "explore": "done", "graph": _STRESS}
     Draft202012Validator({"$ref": "#/$defs/graph", "$defs": _SCHEMA["$defs"]}).validate(answer)
-    story = {"api_version": API_VERSION, "id": "check-flow", "checked": _checked()}
+    story = _answer(_checked())
     with api.sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         try:

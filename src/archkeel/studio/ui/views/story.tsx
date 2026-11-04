@@ -1,6 +1,6 @@
 /** AD-290, AD-291: Stories: the list of the story specs and the player of one checked story. */
 import { useEffect, useRef, useState } from "preact/hooks";
-import { CheckStatus, CheckedStory, StepLink, StoryRow, StoryStep, readStories, readStory } from "../api";
+import { CheckStatus, CheckedStory, StepLink, StoryAnswer, StoryRow, StorySource, StoryStep, readStories, readStory } from "../api";
 import { Badge, Box, Page, ProofMark, View, viewHref } from "../components";
 import { Evidence, Proof, proofKind } from "../evidence";
 import { STORY, cardName, layoutStory } from "../story-layout";
@@ -111,8 +111,26 @@ function StepPanel(props: { step: StoryStep; link: StepLink; count: number }) {
   );
 }
 
-function Player(props: { checked: CheckedStory }) {
-  const { checked } = props;
+const short = (head: string | null): string => (head === null ? "unknown" : head.slice(0, 8));
+
+/** Where the story comes from, and how far the code moved since: the spec is checked by node name. */
+function Origin(props: { answer: StoryAnswer }) {
+  const { answer } = props;
+  const made = answer.created;
+  return (
+    <p class="more origin">
+      <Badge evidence={Evidence.Observed}>{answer.source}</Badge>{" "}
+      {made.created === null && made.git_head === null
+        ? "No creation data in the spec."
+        : `Created ${made.created ?? "at an unknown time"} at ${short(made.git_head)}${made.author_kind === null ? "" : ` by ${made.author_kind}${made.agent === null ? "" : ` ${made.agent}`}`}.`}{" "}
+      Checked at {short(answer.head)}.
+      {answer.rebound ? " The spec names another snapshot: each step is checked by node name against this one." : ""}
+    </p>
+  );
+}
+
+function Player(props: { answer: StoryAnswer }) {
+  const { checked } = props.answer;
   const story = checked.story;
   const [current, setCurrent] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -183,11 +201,7 @@ function Player(props: { checked: CheckedStory }) {
         <h1>{story.title}</h1>
         <Verdict checked={checked} />
       </div>
-      {checked.snapshot_current ? null : (
-        <p class="more" role="note">
-          The spec names an older snapshot. The statuses are checked against the current one.
-        </p>
-      )}
+      <Origin answer={props.answer} />
       <div class="story-stage" ref={stage} data-reduced={reduced()}>
         <div class="story-fit" style={{ width: `${layout.width * scale}px`, height: `${layout.height * scale}px` }}>
         <div class="story-canvas" style={{ width: `${layout.width}px`, height: `${layout.height}px`, transform: `scale(${scale})` }}>
@@ -289,8 +303,8 @@ function List(props: { rows: readonly StoryRow[] }) {
     <Page title="Stories" lead="A story explains one flow of the real code. ArchKeel checks each step; the author writes the words.">
       {props.rows.length === 0 ? (
         <p class="more">
-          No story yet. Ask your agent to explain a flow (skill explain-flow), or pin a path from the chat. A spec is a
-          <code>.story.json</code> file in the stories folder of this root.
+          No story yet. Ask your agent to explain a flow (skill explain-flow). It writes the spec to{" "}
+          <code>.archkeel/stories/&lt;id&gt;.story.json</code> in the root; commit it like documentation.
         </p>
       ) : (
         <div class="cards">
@@ -301,7 +315,7 @@ function List(props: { rows: readonly StoryRow[] }) {
                 {row.id} · {row.steps} steps
               </p>
               <span class="chips">
-                <span class="chip">Open the player</span>
+                <span class="chip">{row.source === StorySource.Repository ? "repository" : "local"}</span>
               </span>
             </a>
           ))}
@@ -315,7 +329,7 @@ function List(props: { rows: readonly StoryRow[] }) {
 export function Stories(props: { id: string | null; ready: boolean }) {
   const { id } = props;
   const [rows, setRows] = useState<readonly StoryRow[] | null>(null);
-  const [checked, setChecked] = useState<CheckedStory | null>(null);
+  const [checked, setChecked] = useState<StoryAnswer | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     setError(null);
@@ -340,5 +354,5 @@ export function Stories(props: { id: string | null; ready: boolean }) {
     );
   }
   if (id === null) return rows === null ? <p>Reading the stories…</p> : <List rows={rows} />;
-  return checked === null ? <p>Checking the story…</p> : <Player checked={checked} />;
+  return checked === null ? <p>Checking the story…</p> : <Player answer={checked} />;
 }

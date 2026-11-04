@@ -60,7 +60,11 @@ export const CheckStatus = {
 } as const;
 export type CheckStatus = (typeof CheckStatus)[keyof typeof CheckStatus];
 
-export type StoryRow = { readonly id: string; readonly title: string; readonly steps: number };
+/** Where a story spec lies: committed in the repository, or in the local cache folder. */
+export const StorySource = { Repository: "repository", Local: "local" } as const;
+export type StorySource = (typeof StorySource)[keyof typeof StorySource];
+
+export type StoryRow = { readonly id: string; readonly title: string; readonly steps: number; readonly source: StorySource };
 export type Site = { readonly file: string | null; readonly line: number | null };
 export type Seam = {
   readonly kind: "partial_call" | "unresolved_call";
@@ -209,14 +213,30 @@ export async function askChat(question: string, context: string | null): Promise
 export const readStories = async (): Promise<readonly StoryRow[]> =>
   (await get<{ api_version: string; stories: readonly StoryRow[] }>("/api/v1/stories")).stories;
 
-/** The checked result of one story; a spec that does not check gives an error with the message. */
-export async function readStory(id: string): Promise<CheckedStory> {
+/** One story: the check against the current snapshot, where the spec lies and where it comes from. */
+export type StoryAnswer = {
+  readonly checked: CheckedStory;
+  readonly source: StorySource;
+  /** The spec named another snapshot and was checked by node name against the current one. */
+  readonly rebound: boolean;
+  readonly created: {
+    readonly created: string | null;
+    readonly git_head: string | null;
+    readonly author_kind: string | null;
+    readonly agent: string | null;
+  };
+  /** The commit of the root now. */
+  readonly head: string | null;
+};
+
+/** The checked story; a spec that does not check gives an error with the message. */
+export async function readStory(id: string): Promise<StoryAnswer> {
   const path = `/api/v1/stories/${encodeURIComponent(id)}`;
   const response = await fetch(path, { credentials: "same-origin" });
   if (!response.ok) {
     throw new Error((await response.text()).trim() || `GET ${path}: ${response.status}`);
   }
-  return (await response.json()).checked;
+  return response.json();
 }
 
 /** A draft spec along the traced path from one function; the server writes nothing. */
