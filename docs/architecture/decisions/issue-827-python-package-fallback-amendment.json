@@ -1,0 +1,9 @@
+{
+  "after_baseline_digest": "20b5faaa8a288832765716327d987934a4a3a5d56a2b7a4fe9e7b77ddfbe2162",
+  "after_digest": "312247d0af1d3ba1985be70ec51b424cd452f6693c7e40d2f7635215f1b3c647",
+  "before_baseline_digest": "3a691542da09f925930c26838acac093a20ae9e7ef5e15af5f029481e8106340",
+  "before_digest": "312247d0af1d3ba1985be70ec51b424cd452f6693c7e40d2f7635215f1b3c647",
+  "decided_by": "Alexander Kell (architect; approval for PR #833, 2026-11-04)",
+  "rationale": "CI run 41885231843, job 126767792841, at head 7e467eba reports complete coverage (172/172), no failures, Rules PASS, and calls_unresolved 936 to 941. The five-call increase comes from Path operations in detect_source for the src and repository-root package searches. Keep the ceiling at the CI-measured value 941 for this change. No other measurement budget changes.",
+  "schema_version": "2.0.0"
+}
