@@ -57,7 +57,7 @@ from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
 from ..studio.api import AgentKind, ContractState, StorySource
 from ..studio.server import run_studio
-from ..studio.stories import CheckResult, CheckStory, Stories
+from ..studio.stories import CheckResult, Stories
 from ..studio.workspace import Workspace
 from .arguments import (
     CLIArguments,
@@ -246,7 +246,7 @@ def _draft_story(snapshot: Path, source: str) -> dict[str, RawJson]:
     }
 
 
-def _story_checker() -> tuple[CheckStory, Callable[[], None]]:
+def _story_checker() -> tuple[Callable[[bytes, Path], CheckResult], Callable[[], None]]:
     """Reuse a Workspace snapshot session; Workspace clears it before every new run."""
     cached_snapshot: Path | None = None
     cached_session: ViewCheckSession | None = None
