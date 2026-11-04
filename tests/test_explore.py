@@ -139,9 +139,9 @@ def test_root_package_with_rust_only_src_demo_uses_root_scope(
 ) -> None:
     output = tmp_path / "architecture.json"
 
-    assert demo_main(
-        ["--replay", "explore-root-package-with-rust-src", "--output", str(output)]
-    ) == 0
+    assert (
+        demo_main(["--replay", "explore-root-package-with-rust-src", "--output", str(output)]) == 0
+    )
 
     payload = json.loads(capsys.readouterr().out)
     assert payload["scan_roots"] == ["shop"]
