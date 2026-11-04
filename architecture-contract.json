@@ -288,14 +288,13 @@
         {
           "component": "studio",
           "through": [
-            "archkeel.studio.agent:Agent",
             "archkeel.studio.api:AgentKind",
             "archkeel.studio.api:ContractState",
             "archkeel.studio.server:is_studio",
             "archkeel.studio.server:run_studio",
             "archkeel.studio.workspace:Workspace"
           ],
-          "rationale": "Wire the Studio workspace to the explore command, the cache folder, the contract state and the canonical snapshot reader, then serve it with the agent of the owner (AD-290, AD-292)."
+          "rationale": "Wire the Studio workspace to the explore command, the cache folder, the contract state and the canonical snapshot reader, then serve it with the chosen agent kind (AD-290, AD-292)."
         }
       ],
       "responsibilities": [
@@ -324,7 +323,6 @@
       "namespace": "archkeel.studio",
       "requires": [],
       "public": [
-        "archkeel.studio.agent:Agent",
         "archkeel.studio.api:AgentKind",
         "archkeel.studio.api:ContractState",
         "archkeel.studio.server:is_studio",

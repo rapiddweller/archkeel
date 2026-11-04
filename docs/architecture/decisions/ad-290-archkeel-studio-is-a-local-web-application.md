@@ -37,8 +37,8 @@ rejected lines of AD-284 and AD-285. The Explorer stays the only architecture re
 8. Embed: the shell loads the unchanged Explorer page with `?embed`. The present parameter
    sets `data-embed` (`report-canvas.js`, kept by `flow.js`); `report-canvas.css` then hides the
    report chrome and fixes the canvas to the frame. A selection posts `{kind:
-   "component-selected", id, label}` to the parent, same origin only. The shell copies its tokens
-   into the `--ak-*` variables of the frame. Without `?embed` the page does not change.
+   "component-selected", id, label}` to the parent; since AD-292 the page is sandboxed (target `*`, the parent
+   checks `event.source`). The shell copies its tokens into the `--ak-*` variables, not yet adapted. Without `?embed` the page does not change.
 9. Enforced: `studio` requires nothing, so an import of `cli`, an analyzer or `check` fails
    `REQUIRES-COMPLETE`; only `workspace` imports `subprocess` and only `server` imports
    `http`. `docs/architecture/studio-ui.toml` checks the UI: only `api.ts` calls `fetch`, views

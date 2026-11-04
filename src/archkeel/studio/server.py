@@ -19,8 +19,9 @@ from pathlib import Path
 from typing import TypeVar
 from urllib.parse import parse_qs, urlsplit
 
-from .agent import Agent, build_prompt
+from .agent import Agent
 from .api import (
+    AgentKind,
     ApiPath,
     ChatAnswer,
     ChatError,
@@ -63,10 +64,13 @@ _SHELL_CSP = (
     "connect-src 'self'; frame-src 'self'; form-action 'none'; frame-ancestors 'none'; "
     "base-uri 'none'"
 )
-# The Explorer pages bring inline scripts and styles; still no other origin may load.
+# The Explorer pages bring inline scripts and styles; still no other origin may load. The sandbox
+# gives the page an opaque origin (Origin: null), so a script in it cannot reach the parent page,
+# the cookie or the chat route (the AD-290 hard gate, server side).
 _FILES_CSP = (
-    "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
-    "img-src 'self' data:; frame-ancestors 'self'; base-uri 'none'"
+    "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; "
+    "style-src 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'self'; base-uri 'none'; "
+    "form-action 'none'"
 )
 
 
@@ -100,10 +104,13 @@ class Studio(ThreadingHTTPServer):
     daemon_threads = True
 
     def __init__(
-        self, workspace: Workspace, idle_seconds: float = 0.0, agent: Agent | None = None
+        self,
+        workspace: Workspace,
+        idle_seconds: float = 0.0,
+        agent: AgentKind = AgentKind.CLAUDE,
     ) -> None:
         self.workspace = workspace
-        self.agent = agent or Agent(workspace.root)
+        self.agent = Agent(workspace.root, agent)
         self.token = secrets.token_urlsafe(32)
         self.idle_seconds = idle_seconds
         self.last_request = time.monotonic()
@@ -252,7 +259,7 @@ class _Handler(BaseHTTPRequestHandler):
                 ChatError.UNSUPPORTED_MEDIA_TYPE, "Content-Type must be application/json."
             )
         length = self.headers.get("Content-Length", "")
-        if not length.isdigit():
+        if not (length.isascii() and length.isdigit()):
             raise ChatFailure(ChatError.LENGTH_REQUIRED, "Content-Length is required.")
         if int(length) > _BODY_LIMIT:
             raise ChatFailure(
@@ -269,7 +276,7 @@ class _Handler(BaseHTTPRequestHandler):
         if context is not None and not snapshot.has(context):
             raise ChatFailure(ChatError.INVALID_REQUEST, "context is no symbol of the snapshot.")
         neighborhood = snapshot.neighborhood(context) if context is not None else ""
-        reply = self.studio.agent.ask(build_prompt(request, neighborhood))
+        reply = self.studio.agent.ask(request, neighborhood)
         return snapshot.check(reply.text, reply.kind)
 
 
@@ -299,7 +306,7 @@ def run_studio(
     *,
     ready: Callable[[str], object],
     idle_seconds: float = 0.0,
-    agent: Agent | None = None,
+    agent: AgentKind = AgentKind.CLAUDE,
 ) -> int:
     """Make the snapshot and serve until Ctrl-C or `idle_seconds` without a request (0 = never).
 

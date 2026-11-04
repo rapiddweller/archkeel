@@ -44,7 +44,7 @@
       }
     },
     "chat_response": {
-      "description": "200. Blocks are agent text, so claims. Facts are computed by Studio from the snapshot.",
+      "description": "200. Block text is agent text: show it as plain text. Facts are computed by Studio from the snapshot.",
       "type": "object",
       "additionalProperties": false,
       "required": ["api_version", "agent", "blocks", "facts", "dropped_refs", "applied"],
@@ -68,8 +68,8 @@
                 "items": {"type": "string"}
               },
               "label": {
-                "description": "PROPOSED - NOT APPLIED for a proposal; else null.",
-                "type": ["string", "null"]
+                "description": "Set by Studio: PROPOSED - NOT APPLIED for a proposal; else null.",
+                "enum": ["PROPOSED - NOT APPLIED", null]
               }
             }
           }
@@ -94,9 +94,10 @@
           }
         },
         "dropped_refs": {
-          "description": "Refs of the agent that the snapshot does not hold.",
+          "description": "Refs of the agent that the snapshot does not hold; each cut to 300 characters.",
           "type": "array",
-          "items": {"type": "string"}
+          "maxItems": 50,
+          "items": {"type": "string", "maxLength": 300}
         },
         "applied": {"description": "A proposal is never applied.", "const": false}
       }

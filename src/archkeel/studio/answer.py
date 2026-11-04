@@ -27,6 +27,8 @@ _REF_LIMIT = 20
 _LISTED = 30
 _UNKNOWN_LISTED = 10
 _EXPRESSION_LIMIT = 80
+_DROPPED_LIMIT = 50
+_DROPPED_LENGTH = 300
 _FENCE = re.compile(r"\A```(?:json)?[ \t]*\n(.*)\n```\s*\Z", re.DOTALL)
 _BLOCK_KEYS = {"kind", "text", "refs"}
 
@@ -69,7 +71,7 @@ def _object(text: str) -> dict[str, object]:
         stripped = fenced.group(1)
     try:
         body = json.loads(stripped)
-    except ValueError as error:
+    except (ValueError, RecursionError) as error:
         raise _invalid("it is not one JSON object") from error
     if not isinstance(body, dict):
         raise _invalid("it is not one JSON object")
@@ -166,7 +168,9 @@ class Snapshot:
                     valid.append(ref)
                     facts.setdefault(ref, self.fact(ref))
                 else:
-                    dropped[ref] = None
+                    dropped[ref[:_DROPPED_LENGTH]] = None
             label = PROPOSAL_LABEL if kind is ChatBlockKind.PROPOSAL else None
             kept.append(ChatBlock(kind, words, tuple(valid), label))
-        return ChatAnswer(agent, tuple(kept), tuple(facts.values()), tuple(dropped))
+        return ChatAnswer(
+            agent, tuple(kept), tuple(facts.values()), tuple(dropped)[:_DROPPED_LIMIT]
+        )

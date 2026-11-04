@@ -51,7 +51,6 @@ from ..ir.view_spec import (
 from ..render.html import render_architecture_pages, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
-from ..studio.agent import Agent
 from ..studio.api import AgentKind, ContractState
 from ..studio.server import run_studio
 from ..studio.workspace import Workspace
@@ -201,12 +200,11 @@ def _studio(args: CLIArguments) -> int:
         for number in (signal.SIGTERM, signal.SIGINT)
     }
     try:
-        prefer = AgentKind(args.chat_agent.value) if args.chat_agent is not None else None
         return run_studio(
             studio_workspace(args, cache),
             ready=ready,
             idle_seconds=args.idle_exit * 60,
-            agent=Agent(root, prefer),
+            agent=AgentKind(args.chat_agent.value),
         )
     finally:
         for number, handler in previous.items():
@@ -844,9 +842,10 @@ def build_parser() -> _Parser:
         dest="chat_agent",
         choices=list(InstallationAgent),
         type=installation_agent,
-        default=None,
-        help="Coding agent that answers the chat first. Default: claude, then codex. The chat "
-        "runs it read-only on your own sign-in.",
+        default=InstallationAgent.CLAUDE,
+        help="Coding agent that answers the chat. Default: claude (read and search tools only). "
+        "codex also runs shell commands in its read-only sandbox, so it is an opt-in. The agent "
+        "runs on your own sign-in.",
     )
 
     return parser
