@@ -17,7 +17,18 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from .api import ApiPath, Route, UiAsset, graph_json, member, state_json
+from .api import (
+    ApiPath,
+    ExploreState,
+    Route,
+    UiAsset,
+    draft_json,
+    graph_json,
+    member,
+    state_json,
+    stories_json,
+    story_json,
+)
 from .workspace import Workspace
 
 _UI = Path(__file__).parent / "ui"
@@ -142,8 +153,8 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if route is Route.SHELL and not name:
             self._asset(UiAsset.INDEX)
-        elif route is Route.API and (path := member(ApiPath, name)) is not None:
-            self._api(path)
+        elif route is Route.API:
+            self._api(name, url.query)
         elif route is Route.UI and (asset := member(UiAsset, name)) is not None:
             self._asset(asset)
         elif route is Route.FILES and (target := self.studio.workspace.file(name)) is not None:
@@ -152,17 +163,52 @@ class _Handler(BaseHTTPRequestHandler):
         else:
             self._send(HTTPStatus.NOT_FOUND, b"not found\n")
 
-    def _api(self, path: ApiPath) -> None:
+    def _api(self, name: str, query: str) -> None:
+        prefix = f"{ApiPath.STORIES}/"
+        story_id = name.removeprefix(prefix) if name.startswith(prefix) else None
+        path = ApiPath.STORIES if story_id is not None else member(ApiPath, name)
         workspace = self.studio.workspace
-        if path is ApiPath.STATE:
-            body = state_json(workspace.state())
-        else:
+        if path is None:
+            self._send(HTTPStatus.NOT_FOUND, b"not found\n")
+        elif path is ApiPath.STATE:
+            self._send(HTTPStatus.OK, state_json(workspace.state()), "application/json")
+        elif path is ApiPath.GRAPH:
             try:
                 body = graph_json(workspace.state().explore, workspace.graph())
             except (OSError, ValueError):
                 self._send(HTTPStatus.INTERNAL_SERVER_ERROR, b"the snapshot cannot be read\n")
                 return
-        self._send(HTTPStatus.OK, body, "application/json")
+            self._send(HTTPStatus.OK, body, "application/json")
+        else:
+            self._stories(path, story_id, query)
+
+    def _stories(self, path: ApiPath, story_id: str | None, query: str) -> None:
+        """The story routes; a story is checked against the snapshot of this run."""
+        workspace = self.studio.workspace
+        stories = workspace.stories
+        if stories is None:
+            self._send(HTTPStatus.NOT_FOUND, b"not found\n")
+        elif path is ApiPath.STORIES and story_id is None:
+            self._send(HTTPStatus.OK, stories_json(stories.rows()), "application/json")
+        else:
+            snapshot = workspace.file("architecture.json")
+            if workspace.state().explore is not ExploreState.DONE or snapshot is None:
+                self._send(HTTPStatus.SERVICE_UNAVAILABLE, b"explore has not finished\n")
+                return
+            try:
+                if story_id is not None:
+                    spec = stories.spec(story_id)
+                    if spec is None:
+                        self._send(HTTPStatus.NOT_FOUND, b"not found\n")
+                        return
+                    body = story_json(story_id, stories.check(spec, snapshot))
+                else:
+                    source = parse_qs(query).get("from", [""])[0]
+                    body = draft_json(stories.draft(snapshot, source))
+            except ValueError as error:
+                self._send(HTTPStatus.UNPROCESSABLE_ENTITY, f"{error}\n".encode())
+                return
+            self._send(HTTPStatus.OK, body, "application/json")
 
     def _asset(self, asset: UiAsset) -> None:
         kind = mimetypes.guess_type(asset.value)[0] or "application/octet-stream"

@@ -54,6 +54,7 @@ from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
 from ..studio.api import ContractState
 from ..studio.server import run_studio
+from ..studio.stories import Stories
 from ..studio.workspace import Workspace
 from .arguments import (
     CLIArguments,
@@ -89,6 +90,7 @@ from .skill import InstallationAgent, install_skill
 
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
 _ARCHITECTURE_JSON: Final = "architecture.json"
+_DRAFT_HOPS: Final = 12
 _SNAPSHOT_PATH: Final = Path("test-artifacts/architecture") / _ARCHITECTURE_JSON
 
 
@@ -186,6 +188,36 @@ def _decode_snapshot(raw: bytes) -> dict[str, RawJson]:
         raise ValueError(f"architecture.json is damaged: {error!r}") from error
 
 
+def _check_story(spec: bytes, snapshot: Path) -> dict[str, RawJson]:
+    """AD-291: the result of `archkeel view check SPEC --snapshot SNAPSHOT`, as JSON values."""
+    checked = check_view(
+        parse_view_spec(decode_json(spec)), read_saved_snapshot(snapshot), strict=False
+    )
+    decoded = decode_json(view_check_json(checked).encode())
+    if not isinstance(decoded, dict):
+        raise ValueError("the view check must be an object")
+    return decoded
+
+
+def _draft_story(snapshot: Path, source: str) -> dict[str, RawJson]:
+    """AD-291: a spec 1.2 along the first traced path from `source`, with no text; not written."""
+    observation = read_saved_snapshot(snapshot)
+    trace = trace_flow(observation, source, None, max_paths=1, max_hops=_DRAFT_HOPS)
+    names = [source, *(hop.node.name for path in trace.paths[:1] for hop in path.hops)]
+    story_id = re.sub(r"[^a-z0-9]+", "-", source.rsplit(".", 1)[-1].lower()).strip("-") or "story"
+    return {
+        "schema_version": "1.2.0",
+        "title": f"Story from {source}",
+        "snapshot": {
+            "source_digest": trace.snapshot.source_digest,
+            "contract_digest": trace.snapshot.contract_digest,
+        },
+        "nodes": names,
+        "story": {"id": f"{story_id}-draft", "title": f"Story from {source}", "chapters": []},
+        "steps": [{"node": name} for name in names],
+    }
+
+
 def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:
     """AD-290: each run explores with the scope options into a private folder of `cache`."""
     root = args.root.resolve()
@@ -208,6 +240,8 @@ def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:
         lambda: _contract_state(root),
         lambda modules: _declared_components(root, modules),
         _decode_snapshot,
+        # Outside `folder`: the run deletes `folder` at its end, and the specs must stay.
+        Stories(cache / "stories", _check_story, _draft_story),
     )
 
 

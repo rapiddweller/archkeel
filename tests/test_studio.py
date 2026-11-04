@@ -696,3 +696,88 @@ def test_close_kills_an_explore_that_ignores_the_interrupt(
     assert child is not None
     workspace.close()
     assert child.poll() is not None
+
+
+_VIEW_CHECK = json.loads((Path(__file__).parents[1] / "schema/view-check.schema.json").read_bytes())
+_PLACE = "shop.app.orders.place"
+
+
+def _get(server: Studio, cookie: str, path: str) -> tuple[http.client.HTTPResponse, bytes]:
+    return request(server, path, cookie=cookie)
+
+
+def test_there_is_no_story_before_the_folder_has_one(studio: Studio) -> None:
+    cookie = login(studio)
+    response, body = _get(studio, cookie, "/api/v1/stories")
+    assert response.status == 200
+    assert json.loads(body) == {"api_version": API_VERSION, "stories": []}
+    assert _get(studio, cookie, "/api/v1/stories/none")[0].status == 503  # snapshot not ready
+
+
+def test_a_draft_spec_comes_from_the_trace_and_the_check_proves_it(studio: Studio) -> None:
+    cookie = login(studio)
+    assert explore(studio, cookie)["explore"] == "done"
+
+    response, body = _get(studio, cookie, f"/api/v1/draft?from={_PLACE}")
+    assert response.status == 200
+    spec = json.loads(body)["spec"]
+    assert spec["schema_version"] == "1.2.0"
+    assert spec["nodes"][0] == _PLACE
+    assert [step["node"] for step in spec["steps"]] == spec["nodes"]
+    assert all(set(step) == {"node"} for step in spec["steps"])  # no text: the agent adds it
+
+    folder = studio.workspace.stories.folder  # type: ignore[union-attr]
+    folder.mkdir(parents=True)
+    (folder / "place-draft.story.json").write_text(json.dumps(spec))
+    (folder / "broken.story.json").write_text("{")
+    listing = json.loads(_get(studio, cookie, "/api/v1/stories")[1])["stories"]
+    assert listing == [
+        {"id": "broken", "title": "broken", "steps": 0},
+        {"id": "place-draft", "title": f"Story from {_PLACE}", "steps": len(spec["steps"])},
+    ]
+
+    response, body = _get(studio, cookie, "/api/v1/stories/place-draft")
+    assert response.status == 200
+    answer = json.loads(body)
+    assert answer["id"] == "place-draft"
+    Draft202012Validator(_VIEW_CHECK).validate(answer["checked"])
+    statuses = [step["status"] for step in answer["checked"]["steps"]]
+    assert set(statuses) <= {"proven", "claim", "unknown"}
+    assert "proven" in statuses  # `place` calls `save`: a resolved call
+    assert [row["index"] for row in answer["checked"]["story"]["steps"]] == list(
+        range(len(spec["steps"]))
+    )
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/v1/stories/..%2Fstate",
+        "/api/v1/stories/a.b",
+        "/api/v1/stories/Upper",
+        "/api/v1/stories/x/y",
+    ],
+)
+def test_a_story_id_cannot_leave_the_folder(studio: Studio, path: str) -> None:
+    cookie = login(studio)
+    assert explore(studio, cookie)["explore"] == "done"
+    assert _get(studio, cookie, path)[0].status == 404
+
+
+def test_a_bad_draft_or_spec_gets_a_message_not_a_stack_trace(studio: Studio) -> None:
+    cookie = login(studio)
+    assert explore(studio, cookie)["explore"] == "done"
+    response, body = _get(studio, cookie, "/api/v1/draft?from=no.such.function")
+    assert response.status == 422
+    assert b"no.such.function" in body
+    folder = studio.workspace.stories.folder  # type: ignore[union-attr]
+    folder.mkdir(parents=True)
+    (folder / "bad.story.json").write_text('{"schema_version": "9"}')
+    assert _get(studio, cookie, "/api/v1/stories/bad")[0].status == 422
+    assert _get(studio, cookie, "/api/v1/draft")[0].status == 422
+
+
+def test_the_stories_folder_lies_outside_the_run_folder(studio: Studio) -> None:
+    stories = studio.workspace.stories
+    assert stories is not None
+    assert stories.folder == studio.workspace.folder.parent / "stories"

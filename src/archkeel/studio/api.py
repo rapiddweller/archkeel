@@ -46,6 +46,8 @@ class ApiPath(StrEnum):
 
     STATE = "v1/state"
     GRAPH = "v1/graph"
+    STORIES = "v1/stories"  # also `v1/stories/<id>`: the checked result of one story
+    DRAFT = "v1/draft"  # `?from=<qualified name>`: a draft spec; nothing is written
 
 
 class UiAsset(StrEnum):
@@ -193,3 +195,29 @@ def graph_json(explore: ExploreState, graph: Graph | None) -> bytes:
     return json.dumps(
         {"api_version": API_VERSION, "explore": explore, "graph": body}, sort_keys=True
     ).encode()
+
+
+@dataclass(frozen=True)
+class StoryRow:
+    """One spec file of the stories folder."""
+
+    id: str
+    title: str
+    steps: int
+
+
+def stories_json(rows: Sequence[StoryRow]) -> bytes:
+    """`GET /api/v1/stories`: the specs in the stories folder."""
+    body = {"api_version": API_VERSION, "stories": [asdict(row) for row in rows]}
+    return json.dumps(body, sort_keys=True).encode()
+
+
+def story_json(story_id: str, checked: Mapping[str, Json]) -> bytes:
+    """`GET /api/v1/stories/<id>`: the result of `archkeel view check`, as the CLI prints it."""
+    body = {"api_version": API_VERSION, "id": story_id, "checked": checked}
+    return json.dumps(body, sort_keys=True).encode()
+
+
+def draft_json(spec: Mapping[str, Json]) -> bytes:
+    """`GET /api/v1/draft?from=NAME`: a spec 1.2 with the traced path and no text; not written."""
+    return json.dumps({"api_version": API_VERSION, "spec": spec}, sort_keys=True).encode()

@@ -15,6 +15,7 @@ from pathlib import Path
 
 from .api import ContractState, Declare, Decode, ExploreState, Graph, StudioState
 from .graph import build_graph
+from .stories import Stories
 
 _SNAPSHOT = "architecture.json"
 _NOTE_LIMIT = 2000
@@ -48,6 +49,7 @@ class Workspace:
         contract: Callable[[], ContractState],
         declare: Declare,
         decode: Decode,
+        stories: Stories | None = None,
     ) -> None:
         self.root = root.resolve()
         self.folder = folder.resolve()
@@ -55,6 +57,7 @@ class Workspace:
         self._contract = contract
         self._declare = declare
         self._decode = decode
+        self.stories = stories
         self._lock = threading.Lock()
         # A build takes seconds on a large repository; it must not hold up the state polls.
         self._graph_lock = threading.Lock()
