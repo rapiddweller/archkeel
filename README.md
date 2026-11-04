@@ -24,28 +24,29 @@ The checks run on your machine and use no LLM. The agent explains and proposes; 
 
 ## Why ArchKeel?
 
-An agent can change a hundred files in an hour. Tests tell you the behavior still works. They do
-not tell you that the `render` package now imports the `store`, or that a call became harder to
-resolve. Asking the agent "is the architecture still fine?" gets you an opinion.
+You, or your coding agent, built a lot of code. Do you know the architecture it really has?
+Tests tell you the behavior still works. They do not tell you that `render` now imports `store`,
+or that a call became harder to resolve. Asking the agent "is the architecture still fine?" gets
+you an opinion.
 
-ArchKeel goes from understanding to a decided architecture, and keeps it:
+ArchKeel was built to understand the architecture that was really implemented, and to turn it
+into one you choose:
 
 ```text
- Observe              Decide                  Enforce
- how the code         the boundaries you      the code is checked
- really works    ->   want, from that    ->   against them: PASS,
- (measured)           evidence (you decide)   FAIL or UNKNOWN
+ Understand   Show     Measure    Challenge       Define          Enforce
+ what was     it as a  it with    weak spots and  the target      every change
+ built        map      evidence   violations      architecture    in CI
 ```
 
-1. **Observe.** Static analysis resolves imports and calls. Each fact keeps its evidence: the
-   record and the source line. What the analysis cannot resolve is counted, not hidden.
-2. **Decide.** Your agent explains the map and proposes components, responsibilities and a target.
-   You decide. Existing imports are evidence, not permission.
-3. **Enforce.** The contract becomes rules. A rule passes only with complete evidence. Missing
+1. **Understand and show.** Static analysis resolves imports and calls. Studio and the Explorer
+   draw the as-built architecture: components, hubs, cycles, with a guided tour.
+2. **Measure.** Each fact keeps its evidence: the record and the source line. What the analysis
+   cannot resolve is counted, not hidden.
+3. **Challenge.** You and your agent discuss the weak spots: violations, cycles, components that
+   hold too much. The agent proposes. Its text stays a claim until the code proves it.
+4. **Define and enforce.** You decide the target architecture. Existing imports are evidence, not
+   permission. The contract becomes rules. A rule passes only with complete evidence; missing
    evidence is `UNKNOWN`, never a quiet `PASS`. CI rejects the change that crosses a boundary.
-
-The agent explains and proposes. It never decides a verdict, and its text stays a claim until the
-code proves it.
 
 ## ArchKeel, Floorplan or Understand Anything?
 
@@ -60,6 +61,8 @@ their facts in different ways.
 | **Role of the LLM** | Explains and proposes. No part of a check or verdict uses it | Writes the architecture description and the names | Summarizes, finds relationships, writes tours |
 | **What you end with** | A declared contract with rules, verdicts, Target and Diff views, a baseline, a CI gate | A map, a health check, recent work | A knowledge graph, layers, guided tours |
 | **Runs in** | Claude Code, Codex, any shell, CI | Claude Code, Codex | Claude Code, Codex and more |
+
+Understand Anything teaches the story behind a codebase. ArchKeel measures the architecture you actually have and holds it to the one you choose.
 
 Pick **ArchKeel** to turn what the code does into an architecture you can enforce. Pick **Floorplan**
 or **Understand Anything** to learn a codebase quickly and in plain words. They combine well: learn
