@@ -5,10 +5,13 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import io
 import json
 import re
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -114,8 +117,27 @@ def test_compass_forbidden_edge_is_inside_the_data_component_contract() -> None:
     assert "ApiClient().getDestinations();" in changed
 
 
+@pytest.fixture(scope="module")
+def replayed(tmp_path_factory: pytest.TempPathFactory) -> Callable[[str], tuple[Path, str]]:
+    """Each replay takes over a minute: the tests of this file share one replay for a variant."""
+    cache: dict[str, tuple[Path, str]] = {}
+
+    def replay_once(variant_id: str) -> tuple[Path, str]:
+        if variant_id not in cache:
+            output = tmp_path_factory.mktemp(variant_id) / f"{variant_id}.json"
+            summary = io.StringIO()
+            with contextlib.redirect_stdout(summary):
+                registered_case = REPORT_CASES[f"uml-{variant_id}"]
+                assert registered_case == (variant_id, 2)
+                assert replay(variant_id, output) == registered_case[1]
+            cache[variant_id] = (output, summary.getvalue())
+        return cache[variant_id]
+
+    return replay_once
+
+
 def test_compass_reports_keep_target_comparison_and_partial_coverage_distinct(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    replayed: Callable[[str], tuple[Path, str]],
 ) -> None:
     expected_comparison = {
         "compass-project": "UNKNOWN",
@@ -123,18 +145,14 @@ def test_compass_reports_keep_target_comparison_and_partial_coverage_distinct(
         "compass-signature-fail": "FAIL",
         "compass-dynamic-unknown": "FAIL",
     }
-    expected_exit = {variant_id: 2 for variant_id in expected_comparison}
     reports = {}
     module_sets = set()
     contract_digests = set()
     for variant_id, comparison_status in expected_comparison.items():
-        output = tmp_path / f"{variant_id}.json"
-        registered_case = REPORT_CASES[f"uml-{variant_id}"]
-        assert registered_case == (variant_id, expected_exit[variant_id])
-        assert replay(variant_id, output) == registered_case[1]
+        output, stdout = replayed(variant_id)
         summaries = [
             json.loads(line)
-            for line in capsys.readouterr().out.splitlines()
+            for line in stdout.splitlines()
             if line.startswith("{") and line.endswith("}")
         ]
         report_summary = next(item for item in summaries if item.get("command") == "report")
@@ -197,7 +215,7 @@ def test_compass_reports_keep_target_comparison_and_partial_coverage_distinct(
     assert len(contract_digests) == 1
     assert len(module_sets) == 1
 
-    forbidden = json.loads((tmp_path / "compass-forbidden-edge.json").read_text(encoding="utf-8"))[
+    forbidden = json.loads(replayed("compass-forbidden-edge")[0].read_text(encoding="utf-8"))[
         "violations"
     ]
     assert len(forbidden) == 1
@@ -253,3 +271,35 @@ def test_compass_reports_keep_target_comparison_and_partial_coverage_distinct(
     )
     assert dynamic_annotation.status == "FAIL"
     assert dynamic_annotation.evidence_ids == ("EVD-6ed26bccb52971b6",)
+
+
+PACKAGE_CYCLE = "Package cycle with 23 members, roll-up only: no module cycle crosses them"
+
+
+@pytest.mark.parametrize(
+    ("variant", "titles"),
+    [
+        ("compass-project", ["Module cycle with 2 members", PACKAGE_CYCLE]),
+        (
+            "compass-forbidden-edge",
+            [
+                "Bundled local data imports HTTP API clients without requiring it",
+                "Module cycle with 2 members",
+                PACKAGE_CYCLE,
+            ],
+        ),
+    ],
+)
+def test_the_compass_report_ranks_what_the_partial_observation_proves(
+    variant: str, titles: list[str], replayed: Callable[[str], tuple[Path, str]]
+) -> None:
+    page = replayed(variant)[0].with_suffix(".report.html").read_text(encoding="utf-8")
+    markup = re.sub(r"<(style|script)\b.*?</\1>", "", page, flags=re.S)
+    listed = re.findall(r'<strong class="finding-title">(?:<a [^>]*>)?([^<]*)', markup)
+    assert [item.strip() for item in listed] == titles
+    assert (
+        '<p class="findings-note">Hubs are not ranked: the observation is incomplete '
+        "(30 coverage failures).</p>"
+    ) in markup
+    assert "No ranked findings are recorded" not in markup
+    assert f"Findings · {len(titles)}" in markup
