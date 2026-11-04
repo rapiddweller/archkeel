@@ -730,6 +730,7 @@ def test_a_draft_spec_comes_from_the_trace_and_the_check_proves_it(studio: Studi
 
     response, body = _get(studio, cookie, f"/api/v1/draft?from={_PLACE}")
     assert response.status == 200
+    validate(json.loads(body), "draft")
     spec = json.loads(body)["spec"]
     assert spec["schema_version"] == "1.2.0"
     assert spec["nodes"][0] == _PLACE
@@ -740,6 +741,7 @@ def test_a_draft_spec_comes_from_the_trace_and_the_check_proves_it(studio: Studi
     folder.mkdir(parents=True)
     (folder / "place-draft.story.json").write_text(json.dumps(spec))
     (folder / "broken.story.json").write_text("{")
+    validate(json.loads(_get(studio, cookie, "/api/v1/stories")[1]), "stories")
     listing = json.loads(_get(studio, cookie, "/api/v1/stories")[1])["stories"]
     assert listing == [
         {"id": "broken", "title": "broken", "steps": 0},
@@ -749,6 +751,7 @@ def test_a_draft_spec_comes_from_the_trace_and_the_check_proves_it(studio: Studi
     response, body = _get(studio, cookie, "/api/v1/stories/place-draft")
     assert response.status == 200
     answer = json.loads(body)
+    validate(answer, "story")
     assert answer["id"] == "place-draft"
     Draft202012Validator(_VIEW_CHECK).validate(answer["checked"])
     statuses = [step["status"] for step in answer["checked"]["steps"]]

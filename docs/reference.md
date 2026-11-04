@@ -214,11 +214,23 @@ Overview shows the progress. When the snapshot is done, Studio opens on the Map:
   target outside the scan (for example the standard library) is counted apart: it is neither
   an edge nor unknown. The unknown count of a function is the true count; the lens lists the
   first 4.
+- **Stories**: the player of a checked story ([AD-291](architecture/decisions/ad-291-a-story-is-a-checked-view-and-the-trace-proposes-its-path.md)).
+  A spec is a `*.story.json` file in the `stories` folder below the explore cache folder of the
+  root. Studio runs `archkeel view check` on it against the snapshot of the run. Each step is a
+  card in the lane of its component; one route line joins the steps and a dot marks the order. A
+  step is `✓ proven`, `✎ claim` or `? unknown`; a partial call shows its candidate count. The
+  side panel has the author text (a claim), the evidence (file and line), the external systems
+  (the touchpoint is observed, the direction is a claim) and the question. Keys: arrows and space.
+  With reduced motion, Play shows the final state.
+- **Ask**: a chat panel in the Map and the lens. A reply has three kinds of block: `✎ CLAIM`
+  (agent text), `◌ PROPOSED - NOT APPLIED` and `✓ OBSERVED` (made by Studio from the snapshot).
+  A reference opens the lens. "Pin to story" shows a draft spec of the traced path; Studio
+  writes no file.
 - **Report**: the Explorer page of `archkeel explore`.
 
 A call has one of three statuses, each with a glyph and a word: `✓ proven` (resolved call),
 `✎ claim` (partly resolved call), `? unknown` (no target found). Studio shows no verdict and no
-agent text. The API (`GET /api/v1/state`, `GET /api/v1/graph`, the stories routes and `POST /api/v1/chat`) follows
+agent text outside the chat. The API (`GET /api/v1/state`, `GET /api/v1/graph`, `GET /api/v1/stories`, `GET /api/v1/stories/<id>`, `GET /api/v1/draft` and `POST /api/v1/chat`) follows
 [studio-api-1.1](../schema/studio-api-1.1.schema.json); the graph answer is `graph: null` until
 the run is done. The 1.0 file stays. Studio writes nothing into the
 repository. It is parallel to the static report, which stays the CI and Pages artifact.

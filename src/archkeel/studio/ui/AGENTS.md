@@ -9,10 +9,11 @@ Rules for the Studio frontend (AD-290). They add to the root [AGENTS.md](../../.
 | File | Owner | Job |
 |---|---|---|
 | `shell.tsx` | shell | Entry. Starts the store, routes by `#/<view>[/<function>]`, draws nav, legends, contract state. |
-| `views/*.tsx` | views | One page each: Overview, Map, Explore (the lens), Report, not built. Gets the state or the model as props. |
+| `views/*.tsx` | views | One page each: Overview, Map, Explore (the lens), Stories (list and player), Report, not built. Gets the state or the model as props. |
+| `chat.tsx` | chat | The chat panel and the one conversation (the shell keeps it). Agent text is a claim; only Studio facts read OBSERVED. |
 | `components.tsx`, `viewport.tsx` | components | Nav item, legends, proof mark, badge, tabs, card, box, panel, page frame, pan and zoom surface. Props only. |
 | `navigation.tsx` | navigation | The structure tree, the location bar and the search field. Props only. |
-| `model.ts`, `map-layout.ts`, `lens-layout.ts` | model | The indexed call graph, the search and the layouts of the Map and the lens. Pure: no DOM, no network. |
+| `model.ts`, `map-layout.ts`, `lens-layout.ts`, `story-layout.ts` | model | The indexed call graph, the search and the layouts of the Map, the lens and a story. Pure: no DOM, no network. |
 | `canvas.tsx` | canvas | The Explorer island: the Explorer page with `?embed`; passes on its selection. |
 | `store.ts` | store | The one store: polls `GET /api/v1/state`, then reads `GET /api/v1/graph` once and builds the model. |
 | `api.ts` | client | The only `fetch`. Types of `schema/studio-api-1.1.schema.json`. |
@@ -89,7 +90,7 @@ Planned Figma part: discussion message (PROPOSED - NOT APPLIED). Build it when a
 - Accessibility: each action is a link or a button, usable by keyboard, with a visible focus
   ring. The layout works at 800x600 and 1440x900 without horizontal scroll.
 - Network: none, except the own server. The CSP header blocks other origins.
-- Markdown: none in slice 1. A chat message is plain text and fenced code blocks.
+- Markdown: none. A chat message is plain text.
 - Packages: Preact only, pinned in `tools/browser-runtime/package.json`.
 
 ## Tests
@@ -103,3 +104,10 @@ the shell in Chromium at both sizes. Write the failing test first.
 - Add a package, a network call, a second store or a colour outside `tokens.css`.
 - Write a contract or a repository file from the UI. Only the planned proposals endpoint
   writes, and only after an explicit architect action.
+
+## Stories and chat
+
+- The check has five statuses; the proof has three. `proven` is the only status that shows as proven. `declared` shows as claim, `missing` as unknown.
+- A claim step shows its candidate count. The verdict line is always visible.
+- Chat tests mock `POST /api/v1/chat` in the browser (`page.route`); the product code has no mock path.
+- "Pin to story" only shows a draft. A route that writes needs the AD-290 hard gate first.

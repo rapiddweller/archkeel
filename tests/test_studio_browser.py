@@ -424,8 +424,16 @@ def test_the_chat_marks_claim_proposal_and_observed_apart(studio: Studio) -> Non
     ("status", "body", "shown"),
     [
         (409, {"api_version": API_VERSION, "error": "busy", "detail": "busy"}, "still answers"),
-        (503, {"api_version": API_VERSION, "error": "agent_not_installed", "detail": "x"}, "No agent found"),
-        (502, {"api_version": API_VERSION, "error": "repository_changed", "detail": "x"}, "discarded the answer"),
+        (
+            503,
+            {"api_version": API_VERSION, "error": "agent_not_installed", "detail": "x"},
+            "No agent found",
+        ),
+        (
+            502,
+            {"api_version": API_VERSION, "error": "repository_changed", "detail": "x"},
+            "discarded the answer",
+        ),
         (405, "method not allowed", "chat is not available"),
     ],
 )
@@ -448,10 +456,12 @@ def test_the_chat_says_why_it_has_no_answer(studio: Studio, status: int, body, s
 
 
 def _checked(**changes) -> dict:
-    """The checked story of ArchKeel's own `check` flow, with a claim that lists 58 candidates and Redis."""
+    """The checked `check` flow, plus a claim with 58 candidates and a Redis touchpoint."""
     checked = json.loads(json.dumps(_CHECKED))
     story = checked["story"]
-    story["steps"][2]["external"] = [{"system": "redis", "touched": True, "direction": "reads", "evidence": []}]
+    story["steps"][2]["external"] = [
+        {"system": "redis", "touched": True, "direction": "reads", "evidence": []}
+    ]
     story["verdict"]["systems"] = ["redis"]
     checked["steps"][5]["evidence"] = [{"file": "src/archkeel/x.py", "line": 7, "candidates": 58}]
     return checked | changes
@@ -496,9 +506,16 @@ def test_a_story_plays_and_a_claim_never_reads_as_proven(studio: Studio) -> None
             assert step.get_by_text("redis").is_visible()  # the touchpoint of step 3
             assert step.get_by_text("reads · claim").is_visible()
             # Every dot names its status; walk the whole story.
-            statuses = [("proven", "✓ proven"), ("proven", "✓ proven"), ("proven", "✓ proven"),
-                        ("unknown", "? unknown"), ("proven", "✓ proven"), ("claim", "✎ claim"),
-                        ("proven", "✓ proven"), ("unknown", "? unknown")]
+            statuses = [
+                ("proven", "✓ proven"),
+                ("proven", "✓ proven"),
+                ("proven", "✓ proven"),
+                ("unknown", "? unknown"),
+                ("proven", "✓ proven"),
+                ("claim", "✎ claim"),
+                ("proven", "✓ proven"),
+                ("unknown", "? unknown"),
+            ]
             for index, (word, mark) in enumerate(statuses):
                 page.get_by_role("button", name=f"Step {index + 1}: {word}").click()
                 head = step.locator(".step-no").inner_text()
@@ -518,9 +535,9 @@ def test_a_story_plays_and_a_claim_never_reads_as_proven(studio: Studio) -> None
             assert page.locator("svg.routes [marker-end], svg.routes marker").count() == 0
         finally:
             browser.close()
-    assert [url for url in requests if urlsplit(url).netloc not in {f"127.0.0.1:{studio.port}", ""}] == [
-        url for url in requests if urlsplit(url).scheme in _LOCAL_SCHEMES
-    ]
+    assert [
+        url for url in requests if urlsplit(url).netloc not in {f"127.0.0.1:{studio.port}", ""}
+    ] == [url for url in requests if urlsplit(url).scheme in _LOCAL_SCHEMES]
 
 
 @pytest.mark.browser

@@ -10,7 +10,7 @@ rejected lines of AD-284 and AD-285. The Explorer stays the only architecture re
 2. Three jobs, simple mode first: explain the as-is code with the agent; start a target with
    the agent (proposals read "PROPOSED - NOT APPLIED"); adopt the code through `init` and
    `init --adopt` (AD-266), with no second path. A marked area gets `label` and
-   `responsibilities` as an agent decision. Slices 1 and 2a build Overview, Map, Explore and Report.
+   `responsibilities` as an agent decision. Slices 1 and 2a build Overview, Map, Explore and Report. Slice 2b adds the Stories view (the player) and the chat panel in the Map and the lens.
 3. Backend `archkeel.studio`, four components in `docs/architecture/contracts/studio.json`: `api`
    (routes, typed answers, no I/O), `graph` (pure call graph; only `workspace` requires it, so
    `server` cannot build one), `workspace` (the explore child, into a private 0700 folder of this
@@ -20,6 +20,7 @@ rejected lines of AD-284 and AD-285. The Explorer stays the only architecture re
    `ir/model.py`; the embed lines of item 8.
 4. API: `GET /api/v1/state` and `GET /api/v1/graph` (call graph; `components_from`: contract or
    explore layout), pinned by `schema/studio-api-1.1.schema.json`; `POST /api/v1/chat` (AD-292) is the only POST; PUT, PATCH, DELETE and any other POST get 405.
+   Slice 2b adds read-only `GET /api/v1/stories`, `GET /api/v1/stories/<id>` (the result of `archkeel view check`, AD-291, run on the snapshot of this run) and `GET /api/v1/draft?from=<function>` (a draft spec from `story trace`; nothing is written). The specs are the `*.story.json` files in `stories/` below the explore cache folder of the root, outside the folder of the run. The CLI injects the checker and the draft. No route writes: "Pin to story" shows the draft, because the hard gate of item 6 comes first.
    The graph says `graph: null` until the run is done. `/files/<name>` serves snapshot pages,
    `/ui/<name>` the shell files.
 5. Versions: with `additionalProperties: false`, a new field or route is a new minor with a new
