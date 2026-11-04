@@ -7,7 +7,6 @@
       "label": "api",
       "role": "component",
       "public": [
-        "archkeel.studio.api:API_VERSION",
         "archkeel.studio.api:ApiPath",
         "archkeel.studio.api:CallStatus",
         "archkeel.studio.api:ComponentRow",
