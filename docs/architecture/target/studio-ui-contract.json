@@ -138,7 +138,8 @@
         "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:stubKey",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:trail",
         "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:layoutModule",
-        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:layoutComponent"
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:layoutComponent",
+        "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:cardName"
       ],
       "responsibilities": [
         "Index the call graph and compute the layouts of the Map and the lens: pure functions with no DOM and no network."
@@ -457,6 +458,7 @@
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tailName",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tailPath",
             "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:STORY",
+            "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:cardName",
             "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:layoutStory",
             "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:midCut"
           ],

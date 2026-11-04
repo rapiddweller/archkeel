@@ -745,7 +745,7 @@ def test_no_text_crosses_the_border_of_a_card_on_any_level(
                 page.wait_for_timeout(700)  # the cards fade in
                 _no_overflow(page)
                 assert page.evaluate("document.documentElement.scrollWidth") <= width, fragment
-            # The story card shows the whole dotted end of a name that fits, and a cut only if it does not.
+            # A story card shows the longest end of a name that fits.
             names = page.locator(".story-card b").all_inner_texts()
             assert "check.run.observe_revision" in names  # more than the last part, as it fits
             assert not any(
