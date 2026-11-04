@@ -69,6 +69,13 @@ class ViewSpecVersion(StrEnum):
     V1_0_0 = "1.0.0"
 
 
+class AuthorKind(StrEnum):
+    """AD-291: who wrote the text of a stored spec; the check does not read it."""
+
+    AGENT = "agent"
+    HUMAN = "human"
+
+
 class ViewStatus(StrEnum):
     PROVEN = "proven"
     DECLARED = "declared"
@@ -148,6 +155,11 @@ class ViewSpec:
     notes: tuple[str, ...] = ()
     stops: tuple[ViewStop, ...] = ()
     story: ViewStory | None = None
+    # AD-291: where a stored spec comes from; optional, author text, they need schema_version 1.2.0.
+    created: str | None = None
+    git_head: str | None = None
+    author_kind: AuthorKind | None = None
+    agent: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -348,6 +360,7 @@ def _note(raw: RawJson, label: str) -> str | None:
 
 _E = TypeVar("_E", bound=StrEnum)
 _STORY_KEYS: Final = frozenset({"chapter", "title", "question", "external"})
+_PROVENANCE_KEYS: Final = ("created", "git_head", "author_kind", "agent")
 
 
 def _member(kind: type[_E], raw: RawJson, label: str) -> _E:
@@ -434,7 +447,7 @@ def parse_view_spec(raw: RawJson) -> ViewSpec:
         raw,
         "view spec",
         {"schema_version", "title", "snapshot", "nodes"},
-        {"edges", "steps", "notes", "stops", "story"},
+        {"edges", "steps", "notes", "stops", "story", *_PROVENANCE_KEYS},
     )
     snapshot = _fields(
         item["snapshot"],
@@ -459,6 +472,8 @@ def parse_view_spec(raw: RawJson) -> ViewSpec:
     if "stops" in item and version is ViewSpecVersion.V1_0_0:
         raise ValueError("stops need schema_version 1.1.0")
     story = _story(item["story"]) if "story" in item else None
+    if version is not ViewSpecVersion.V1_2_0 and not set(_PROVENANCE_KEYS).isdisjoint(item):
+        raise ValueError("created, git_head, author_kind and agent need schema_version 1.2.0")
     keyed = any(
         isinstance(entry, Mapping) and not _STORY_KEYS.isdisjoint(entry)
         for entry in _items(item.get("steps", ()), "steps")
@@ -487,6 +502,12 @@ def parse_view_spec(raw: RawJson) -> ViewSpec:
         _texts(item.get("notes", ()), "notes"),
         stops,
         story,
+        _optional(item.get("created"), "created"),
+        _optional(item.get("git_head"), "git_head"),
+        None
+        if item.get("author_kind") is None
+        else _member(AuthorKind, item["author_kind"], "author_kind"),
+        _optional(item.get("agent"), "agent"),
     )
 
 

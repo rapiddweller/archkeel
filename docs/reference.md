@@ -379,6 +379,11 @@ and external `touched` systems of each step by `index`, and a `verdict` of count
 is `claim`; it does not fail `--strict`, and its call sites carry `candidates`. An unresolved call, a
 module call gap or the dynamic call limit makes a step without a call `unknown`. A process boundary is not detected: use
 `"claim": true`. A spec of version 1.0.0 or 1.1.0 cannot have a story, and its result is unchanged.
+A stored story lies in `<root>/.archkeel/stories/<id>.story.json`; commit it like documentation. Studio
+lists that folder (mark `repository`) and the local cache folder (mark `local`); the repository wins on
+an equal id. Studio checks the spec against the current snapshot by node name: the digests of the spec
+are replaced in memory, and a node that is gone is `missing`. The optional text fields `created`,
+`git_head`, `author_kind` (`agent` or `human`) and `agent` of a 1.2.0 spec say where it comes from.
 
 ## Results
 

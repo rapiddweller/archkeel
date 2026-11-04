@@ -46,15 +46,16 @@ from ..ir.view_spec import (
     ViewCheck,
     check_view,
     parse_view_spec,
+    snapshot_identity,
     view_check_json,
     view_summary,
 )
 from ..render.html import render_architecture_pages, render_check_html
 from ..render.summary import check_summary, init_summary, report_summary
 from ..render.terminal import print_result, progress
-from ..studio.api import AgentKind, ContractState
+from ..studio.api import AgentKind, ContractState, StorySource
 from ..studio.server import run_studio
-from ..studio.stories import Stories
+from ..studio.stories import CheckResult, Stories
 from ..studio.workspace import Workspace
 from .arguments import (
     CLIArguments,
@@ -91,6 +92,8 @@ from .skill import InstallationAgent, install_skill
 _DOCS: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs"
 _ARCHITECTURE_JSON: Final = "architecture.json"
 _DRAFT_HOPS: Final = 12
+# Where the committed stories of a root lie; Studio reads them and never writes there (AD-291).
+_REPOSITORY_STORIES: Final = Path(".archkeel") / "stories"
 _SNAPSHOT_PATH: Final = Path("test-artifacts/architecture") / _ARCHITECTURE_JSON
 
 
@@ -188,15 +191,31 @@ def _decode_snapshot(raw: bytes) -> dict[str, RawJson]:
         raise ValueError(f"architecture.json is damaged: {error!r}") from error
 
 
-def _check_story(spec: bytes, snapshot: Path) -> dict[str, RawJson]:
-    """AD-291: the result of `archkeel view check SPEC --snapshot SNAPSHOT`, as JSON values."""
+def _check_story(spec: bytes, snapshot: Path) -> CheckResult:
+    """AD-291: `archkeel view check SPEC --snapshot SNAPSHOT`, bound to this snapshot.
+
+    A stored spec names the digests of the snapshot it was written on. Studio checks it against
+    the current snapshot by node name: the digests are replaced in memory, never in the file.
+    """
+    observation = read_saved_snapshot(snapshot)
+    parsed = parse_view_spec(decode_json(spec))
+    identity = snapshot_identity(observation)
+    rebound = parsed.snapshot != identity
     checked = check_view(
-        parse_view_spec(decode_json(spec)), read_saved_snapshot(snapshot), strict=False
+        replace(parsed, snapshot=identity) if rebound else parsed, observation, strict=False
     )
     decoded = decode_json(view_check_json(checked).encode())
     if not isinstance(decoded, dict):
         raise ValueError("the view check must be an object")
-    return decoded
+    return CheckResult(decoded, rebound)
+
+
+def _head_of(root: Path) -> str | None:
+    """The commit of the root now, or None without Git."""
+    try:
+        return resolve_commit(root, "HEAD")
+    except RuntimeError:  # SnapshotError: no Git, or no commit
+        return None
 
 
 def _draft_story(snapshot: Path, source: str) -> dict[str, RawJson]:
@@ -241,7 +260,15 @@ def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:
         lambda modules: _declared_components(root, modules),
         _decode_snapshot,
         # Outside `folder`: the run deletes `folder` at its end, and the specs must stay.
-        Stories(cache / "stories", _check_story, _draft_story),
+        Stories(
+            [
+                (StorySource.REPOSITORY, root / _REPOSITORY_STORIES),
+                (StorySource.LOCAL, cache / "stories"),
+            ],
+            _check_story,
+            _draft_story,
+            lambda: _head_of(root),
+        ),
     )
 
 

@@ -38,6 +38,7 @@ from .api import (
     stories_json,
     story_json,
 )
+from .stories import provenance
 from .workspace import Workspace
 
 _UI = Path(__file__).parent / "ui"
@@ -244,11 +245,19 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             try:
                 if story_id is not None:
-                    spec = stories.spec(story_id)
-                    if spec is None:
+                    found = stories.find(story_id)
+                    if found is None:
                         self._send(HTTPStatus.NOT_FOUND, b"not found\n")
                         return
-                    body = story_json(story_id, stories.check(spec, snapshot))
+                    checked = stories.check(found.spec, snapshot)
+                    body = story_json(
+                        story_id,
+                        found.source,
+                        checked.result,
+                        rebound=checked.rebound,
+                        created=provenance(found.spec),
+                        head=stories.head(),
+                    )
                 else:
                     source = parse_qs(query).get("from", [""])[0]
                     body = draft_json(stories.draft(snapshot, source))

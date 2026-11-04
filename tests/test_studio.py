@@ -737,15 +737,20 @@ def test_a_draft_spec_comes_from_the_trace_and_the_check_proves_it(studio: Studi
     assert [step["node"] for step in spec["steps"]] == spec["nodes"]
     assert all(set(step) == {"node"} for step in spec["steps"])  # no text: the agent adds it
 
-    folder = studio.workspace.stories.folder  # type: ignore[union-attr]
+    folder = _local(studio)
     folder.mkdir(parents=True)
     (folder / "place-draft.story.json").write_text(json.dumps(spec))
     (folder / "broken.story.json").write_text("{")
     validate(json.loads(_get(studio, cookie, "/api/v1/stories")[1]), "stories")
     listing = json.loads(_get(studio, cookie, "/api/v1/stories")[1])["stories"]
     assert listing == [
-        {"id": "broken", "title": "broken", "steps": 0},
-        {"id": "place-draft", "title": f"Story from {_PLACE}", "steps": len(spec["steps"])},
+        {"id": "broken", "title": "broken", "steps": 0, "source": "local"},
+        {
+            "id": "place-draft",
+            "title": f"Story from {_PLACE}",
+            "steps": len(spec["steps"]),
+            "source": "local",
+        },
     ]
 
     response, body = _get(studio, cookie, "/api/v1/stories/place-draft")
@@ -783,14 +788,123 @@ def test_a_bad_draft_or_spec_gets_a_message_not_a_stack_trace(studio: Studio) ->
     response, body = _get(studio, cookie, "/api/v1/draft?from=no.such.function")
     assert response.status == 422
     assert b"no.such.function" in body
-    folder = studio.workspace.stories.folder  # type: ignore[union-attr]
+    folder = _local(studio)
     folder.mkdir(parents=True)
     (folder / "bad.story.json").write_text('{"schema_version": "9"}')
     assert _get(studio, cookie, "/api/v1/stories/bad")[0].status == 422
     assert _get(studio, cookie, "/api/v1/draft")[0].status == 422
 
 
+def _local(studio: Studio) -> Path:
+    """The local stories folder of the server: below the cache, outside the run folder."""
+    assert studio.workspace.stories is not None
+    return studio.workspace.stories.folders[-1][1]
+
+
 def test_the_stories_folder_lies_outside_the_run_folder(studio: Studio) -> None:
-    stories = studio.workspace.stories
-    assert stories is not None
-    assert stories.folder == studio.workspace.folder.parent / "stories"
+    assert _local(studio) == studio.workspace.folder.parent / "stories"
+
+
+def _repository_folder(studio: Studio) -> Path:
+    return studio.workspace.root / ".archkeel" / "stories"
+
+
+def _story_spec(spec: dict, **changes: object) -> bytes:
+    return json.dumps({**spec, **changes}).encode()
+
+
+def test_a_committed_story_is_checked_on_the_current_snapshot_whatever_its_digests(
+    studio: Studio,
+) -> None:
+    """AD-291: a stored spec does not depend on one snapshot: the digests are rebound in memory."""
+    cookie = login(studio)
+    assert explore(studio, cookie)["explore"] == "done"
+    spec = json.loads(_get(studio, cookie, f"/api/v1/draft?from={_PLACE}")[1])["spec"]
+    other = {"source_digest": "a" * 64, "contract_digest": "b" * 64}
+    folder = _repository_folder(studio)
+    folder.mkdir(parents=True)
+    path = folder / "place.story.json"
+    stored = _story_spec(
+        spec,
+        snapshot=other,
+        created="2026-11-04T10:00:00Z",
+        git_head="c" * 40,
+        author_kind="agent",
+        agent="claude",
+    )
+    path.write_bytes(stored)
+
+    answer = json.loads(_get(studio, cookie, "/api/v1/stories/place")[1])
+
+    validate(answer, "story")
+    assert answer["source"] == "repository"
+    assert answer["rebound"] is True
+    assert answer["checked"]["snapshot_current"] is True
+    assert "proven" in [step["status"] for step in answer["checked"]["steps"]]
+    assert answer["created"] == {
+        "created": "2026-11-04T10:00:00Z",
+        "git_head": "c" * 40,
+        "author_kind": "agent",
+        "agent": "claude",
+    }
+    assert len(answer["head"]) == 40  # the commit of the repository now
+    assert path.read_bytes() == stored  # Studio rewrote nothing
+
+
+def test_a_story_on_the_current_snapshot_is_not_rebound(studio: Studio) -> None:
+    cookie = login(studio)
+    assert explore(studio, cookie)["explore"] == "done"
+    spec = json.loads(_get(studio, cookie, f"/api/v1/draft?from={_PLACE}")[1])["spec"]
+    folder = _repository_folder(studio)
+    folder.mkdir(parents=True)
+    (folder / "now.story.json").write_bytes(_story_spec(spec))
+    answer = json.loads(_get(studio, cookie, "/api/v1/stories/now")[1])
+    assert answer["rebound"] is False
+    assert answer["created"] == dict.fromkeys(("created", "git_head", "author_kind", "agent"))
+
+
+def test_a_node_that_is_gone_is_missing_and_not_dropped(studio: Studio) -> None:
+    cookie = login(studio)
+    assert explore(studio, cookie)["explore"] == "done"
+    spec = json.loads(_get(studio, cookie, f"/api/v1/draft?from={_PLACE}")[1])["spec"]
+    gone = "shop.app.orders.vanished"
+    spec["nodes"] = [*spec["nodes"], gone]
+    spec["steps"] = [*spec["steps"], {"node": gone}]
+    folder = _repository_folder(studio)
+    folder.mkdir(parents=True)
+    (folder / "gone.story.json").write_bytes(
+        _story_spec(spec, snapshot={"source_digest": "a" * 64, "contract_digest": "b" * 64})
+    )
+    answer = json.loads(_get(studio, cookie, "/api/v1/stories/gone")[1])
+    steps = answer["checked"]["steps"]
+    assert len(steps) == len(spec["steps"])  # no step is dropped
+    assert steps[-1]["status"] == "missing"
+    assert answer["checked"]["exit_code"] == 1
+    assert answer["rebound"] is True
+
+
+def test_the_repository_story_wins_over_the_local_one_of_the_same_id(studio: Studio) -> None:
+    cookie = login(studio)
+    assert explore(studio, cookie)["explore"] == "done"
+    spec = json.loads(_get(studio, cookie, f"/api/v1/draft?from={_PLACE}")[1])["spec"]
+    repository = _repository_folder(studio)
+    repository.mkdir(parents=True)
+    local = _local(studio)
+    local.mkdir(parents=True)
+    (repository / "same.story.json").write_bytes(_story_spec(spec, title="From the repository"))
+    (local / "same.story.json").write_bytes(_story_spec(spec, title="From the cache"))
+    (local / "only-local.story.json").write_bytes(_story_spec(spec, title="Only here"))
+    rows = json.loads(_get(studio, cookie, "/api/v1/stories")[1])["stories"]
+    assert [(row["id"], row["title"], row["source"]) for row in rows] == [
+        ("only-local", "Only here", "local"),
+        ("same", "From the repository", "repository"),
+    ]
+    answer = json.loads(_get(studio, cookie, "/api/v1/stories/same")[1])
+    assert answer["source"] == "repository"
+    assert answer["checked"]["title"] == "From the repository"
+
+
+def test_a_root_without_a_stories_folder_lists_none_and_writes_none(studio: Studio) -> None:
+    cookie = login(studio)
+    assert json.loads(_get(studio, cookie, "/api/v1/stories")[1])["stories"] == []
+    assert not _repository_folder(studio).exists()

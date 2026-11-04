@@ -819,6 +819,37 @@ def test_view_spec_schema_matches_its_dataclasses() -> None:
         parse_view_spec(old)
 
 
+def test_a_view_spec_may_say_where_it_comes_from_and_must_not_need_to() -> None:
+    """AD-291: created, git_head, author_kind and agent are optional text of a 1.2.0 spec."""
+    validator = Draft202012Validator(_schema("view-spec.schema.json"))
+    story = json.loads((ROOT / "fixtures/F-architecture-view/order-story.json").read_bytes())
+    assert validator.is_valid(story)
+    assert parse_view_spec(story).created is None  # a story without the fields stays valid
+    stored = {
+        **story,
+        "created": "2026-11-04T10:00:00Z",
+        "git_head": "a" * 40,
+        "author_kind": "agent",
+        "agent": "claude",
+    }
+    assert validator.is_valid(stored)
+    spec = parse_view_spec(stored)
+    assert (spec.created, spec.git_head, spec.agent) == ("2026-11-04T10:00:00Z", "a" * 40, "claude")
+    assert spec.author_kind is not None and spec.author_kind.value == "agent"
+    for field, value in (("author_kind", "robot"), ("created", 5), ("agent", ["claude"])):
+        bad = {**story, field: value}
+        assert not validator.is_valid(bad)
+        with pytest.raises(ValueError):
+            parse_view_spec(bad)
+    # Only a 1.2.0 spec knows the fields.
+    old = {**stored, "schema_version": "1.1.0"}
+    old.pop("story")
+    old["steps"] = [{"node": step["node"]} for step in story["steps"]]
+    assert not validator.is_valid(old)
+    with pytest.raises(ValueError, match="1.2.0"):
+        parse_view_spec(old)
+
+
 def test_story_trace_schema_matches_its_dataclasses() -> None:
     """AD-291: the dataclasses are the one source of the trace result schema."""
     from tools.architecture_graph_schema import story_trace_schema

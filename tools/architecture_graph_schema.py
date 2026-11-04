@@ -121,6 +121,7 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                 if annotation is ViewSpec:
                     # AD-289: a 1.0.0 spec has no stops. AD-291: only a 1.2.0 spec has a story.
                     story_fields = ("chapter", "title", "question", "external")
+                    provenance = ("created", "git_head", "author_kind", "agent")
                     definition["allOf"] = [
                         {
                             "if": {"properties": {"schema_version": {"const": "1.0.0"}}},
@@ -129,7 +130,11 @@ def _schema(root: type, name: str, title: str) -> dict[str, object]:
                         {
                             "if": {"properties": {"schema_version": {"enum": ["1.0.0", "1.1.0"]}}},
                             "then": {
-                                "not": {"required": ["story"]},
+                                "not": {
+                                    "anyOf": [
+                                        {"required": [name]} for name in ("story", *provenance)
+                                    ]
+                                },
                                 "properties": {
                                     "steps": {
                                         "items": {
@@ -374,7 +379,8 @@ def view_spec_schema() -> dict[str, object]:
         "`archkeel view check` assigns proven, declared, unknown or missing; claim is author text. "
         "Edge, step and stop nodes must be listed in nodes; the first step takes no kind or claim. "
         "A stop is author text beside measured facts; it needs schema_version 1.1.0 (AD-289). "
-        "A story, and the step fields chapter, title, question and external, need 1.2.0 (AD-291); "
+        "A story, the step fields chapter, title, question and external, and the optional fields "
+        "created, git_head, author_kind and agent, need 1.2.0 (AD-291); "
         "the step note is the story text."
     )
     return schema

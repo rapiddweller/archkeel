@@ -220,21 +220,21 @@
       "inside": "docs/architecture/contracts/check.json",
       "public": [
         "archkeel.check.git:read_blob",
+        "archkeel.check.observation:analyze_source_snapshot",
+        "archkeel.check.observe:Observer",
         "archkeel.check.onboarding:run_init",
         "archkeel.check.ports:Analyzer",
         "archkeel.check.ports:FilesToWrite",
         "archkeel.check.ports:Host",
+        "archkeel.check.ports:Language",
+        "archkeel.check.ports:ObservationResult",
         "archkeel.check.ports:ScanConfig",
+        "archkeel.check.ports:SourceCollector",
         "archkeel.check.report",
         "archkeel.check.run:run_check",
         "archkeel.check.snapshot:resolve_commit",
         "archkeel.check.validation:invalid_result",
-        "archkeel.check.validation:run_validate",
-        "archkeel.check.ports:Language",
-        "archkeel.check.ports:ObservationResult",
-        "archkeel.check.ports:SourceCollector",
-        "archkeel.check.observe:Observer",
-        "archkeel.check.observation:analyze_source_snapshot"
+        "archkeel.check.validation:run_validate"
       ],
       "responsibilities": [
         "Authenticate inputs, assemble observations and apply declared architecture rules."
@@ -292,8 +292,10 @@
           "through": [
             "archkeel.studio.api:AgentKind",
             "archkeel.studio.api:ContractState",
+            "archkeel.studio.api:StorySource",
             "archkeel.studio.server:is_studio",
             "archkeel.studio.server:run_studio",
+            "archkeel.studio.stories:CheckResult",
             "archkeel.studio.stories:Stories",
             "archkeel.studio.workspace:Workspace"
           ],
@@ -328,8 +330,10 @@
       "public": [
         "archkeel.studio.api:AgentKind",
         "archkeel.studio.api:ContractState",
+        "archkeel.studio.api:StorySource",
         "archkeel.studio.server:is_studio",
         "archkeel.studio.server:run_studio",
+        "archkeel.studio.stories:CheckResult",
         "archkeel.studio.stories:Stories",
         "archkeel.studio.workspace:Workspace"
       ],

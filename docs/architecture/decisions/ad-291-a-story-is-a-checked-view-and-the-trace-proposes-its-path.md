@@ -9,6 +9,12 @@ Amends AD-284 items 2 and 6: a function can be a node, and a spec can name a sto
    step `note` is the story text: it already is author text, so there is no `text` field. These
    fields in a `1.0.0` or `1.1.0` spec are invalid; those specs and their results stay as they
    are. There is no `story check` command: `view check` and `view show` check a story.
+   A 1.2.0 spec can also say where it comes from, in optional text fields: `created` (UTC),
+   `git_head`, `author_kind` (`agent` or `human`) and `agent`. The check does not read them.
+   A stored story lies in `<root>/.archkeel/stories/<id>.story.json`. Studio reads that folder
+   (amends AD-290: it writes nothing) and checks a story against the current snapshot by node
+   name: when the digests differ it replaces them in memory (a rebind), and a gone node is
+   `missing`.
 2. A chapter id is unique. When the story has chapters, each step must name one. `direction` is
    `reads`, `writes`, `reads_writes` or `touches`. `system` must be in the catalog of item 6.
 3. With a `story`, a node can be a function or a method: its qualified name. Without a `story`

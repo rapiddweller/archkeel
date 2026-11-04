@@ -237,13 +237,21 @@ def graph_json(explore: ExploreState, graph: Graph | None) -> bytes:
     ).encode()
 
 
+class StorySource(StrEnum):
+    """Where a story spec lies: in the repository (committed) or in the local cache folder."""
+
+    REPOSITORY = "repository"
+    LOCAL = "local"
+
+
 @dataclass(frozen=True)
 class StoryRow:
-    """One spec file of the stories folder."""
+    """One spec file of a stories folder."""
 
     id: str
     title: str
     steps: int
+    source: StorySource
 
 
 def stories_json(rows: Sequence[StoryRow]) -> bytes:
@@ -252,9 +260,28 @@ def stories_json(rows: Sequence[StoryRow]) -> bytes:
     return json.dumps(body, sort_keys=True).encode()
 
 
-def story_json(story_id: str, checked: Mapping[str, Json]) -> bytes:
-    """`GET /api/v1/stories/<id>`: the result of `archkeel view check`, as the CLI prints it."""
-    body = {"api_version": API_VERSION, "id": story_id, "checked": checked}
+def story_json(
+    story_id: str,
+    source: StorySource,
+    checked: Mapping[str, Json],
+    *,
+    rebound: bool,
+    created: Mapping[str, str | None],
+    head: str | None,
+) -> bytes:
+    """`GET /api/v1/stories/<id>`: the result of `archkeel view check`, as the CLI prints it.
+
+    `rebound` is true when the spec named another snapshot and was checked against the current one.
+    """
+    body = {
+        "api_version": API_VERSION,
+        "id": story_id,
+        "source": source,
+        "checked": checked,
+        "rebound": rebound,
+        "created": created,
+        "head": head,
+    }
     return json.dumps(body, sort_keys=True).encode()
 
 

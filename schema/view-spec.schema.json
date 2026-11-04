@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:archkeel:view-spec:1.2.0",
   "title": "Checked view spec",
-  "$comment": "Generated from archkeel.ir.view_spec (AD-284). The spec cannot state proof: `archkeel view check` assigns proven, declared, unknown or missing; claim is author text. Edge, step and stop nodes must be listed in nodes; the first step takes no kind or claim. A stop is author text beside measured facts; it needs schema_version 1.1.0 (AD-289). A story, and the step fields chapter, title, question and external, need 1.2.0 (AD-291); the step note is the story text.",
+  "$comment": "Generated from archkeel.ir.view_spec (AD-284). The spec cannot state proof: `archkeel view check` assigns proven, declared, unknown or missing; claim is author text. Edge, step and stop nodes must be listed in nodes; the first step takes no kind or claim. A stop is author text beside measured facts; it needs schema_version 1.1.0 (AD-289). A story, the step fields chapter, title, question and external, and the optional fields created, git_head, author_kind and agent, need 1.2.0 (AD-291); the step note is the story text.",
   "$ref": "#/$defs/ViewSpec",
   "$defs": {
     "ViewSpec": {
@@ -60,6 +60,49 @@
               "type": "null"
             }
           ]
+        },
+        "created": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "git_head": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "author_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "agent",
+                "human"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "agent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -99,8 +142,32 @@
           },
           "then": {
             "not": {
-              "required": [
-                "story"
+              "anyOf": [
+                {
+                  "required": [
+                    "story"
+                  ]
+                },
+                {
+                  "required": [
+                    "created"
+                  ]
+                },
+                {
+                  "required": [
+                    "git_head"
+                  ]
+                },
+                {
+                  "required": [
+                    "author_kind"
+                  ]
+                },
+                {
+                  "required": [
+                    "agent"
+                  ]
+                }
               ]
             },
             "properties": {

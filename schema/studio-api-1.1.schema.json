@@ -341,7 +341,10 @@
               },
               "label": {
                 "description": "Set by Studio: PROPOSED - NOT APPLIED for a proposal; else null.",
-                "enum": ["PROPOSED - NOT APPLIED", null]
+                "enum": [
+                  "PROPOSED - NOT APPLIED",
+                  null
+                ]
               }
             }
           }
@@ -392,7 +395,10 @@
           "description": "Refs of the agent that the snapshot does not hold; each cut to 300 characters.",
           "type": "array",
           "maxItems": 50,
-          "items": {"type": "string", "maxLength": 300}
+          "items": {
+            "type": "string",
+            "maxLength": 300
+          }
         },
         "applied": {
           "description": "A proposal is never applied.",
@@ -454,7 +460,8 @@
             "required": [
               "id",
               "title",
-              "steps"
+              "steps",
+              "source"
             ],
             "properties": {
               "id": {
@@ -467,6 +474,13 @@
               "steps": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "source": {
+                "description": "repository: committed in <root>/.archkeel/stories; local: the cache folder of the root. The repository wins on an equal id.",
+                "enum": [
+                  "repository",
+                  "local"
+                ]
               }
             }
           }
@@ -474,13 +488,17 @@
       }
     },
     "story": {
-      "description": "GET /api/v1/stories/<id>: the result of archkeel view check; its shape is schema/view-check.schema.json.",
+      "description": "GET /api/v1/stories/<id>: the result of archkeel view check, against the snapshot of this run; its shape is schema/view-check.schema.json. A spec that names another snapshot is checked by node name (rebound).",
       "type": "object",
       "additionalProperties": false,
       "required": [
         "api_version",
         "id",
-        "checked"
+        "source",
+        "checked",
+        "rebound",
+        "created",
+        "head"
       ],
       "properties": {
         "api_version": {
@@ -491,6 +509,60 @@
         },
         "checked": {
           "type": "object"
+        },
+        "source": {
+          "enum": [
+            "repository",
+            "local"
+          ]
+        },
+        "rebound": {
+          "description": "True when the digests of the spec differ from the snapshot of this run; they are replaced in memory, never in the file.",
+          "type": "boolean"
+        },
+        "created": {
+          "description": "The optional fields of the spec that say where it comes from; author text, null when absent.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "created",
+            "git_head",
+            "author_kind",
+            "agent"
+          ],
+          "properties": {
+            "created": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "git_head": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "author_kind": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "agent": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "head": {
+          "description": "The commit of the root now, null without Git.",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     },

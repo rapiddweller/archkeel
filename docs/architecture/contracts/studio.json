@@ -32,6 +32,7 @@
         "archkeel.studio.api:Route",
         "archkeel.studio.api:ScopeKind",
         "archkeel.studio.api:StoryRow",
+        "archkeel.studio.api:StorySource",
         "archkeel.studio.api:StudioState",
         "archkeel.studio.api:SymbolKind",
         "archkeel.studio.api:SymbolRow",
@@ -116,9 +117,13 @@
       "label": "stories",
       "role": "component",
       "public": [
-        "archkeel.studio.stories:Stories",
+        "archkeel.studio.stories:CheckResult",
         "archkeel.studio.stories:CheckStory",
-        "archkeel.studio.stories:DraftStory"
+        "archkeel.studio.stories:DraftStory",
+        "archkeel.studio.stories:Found",
+        "archkeel.studio.stories:HeadOf",
+        "archkeel.studio.stories:Stories",
+        "archkeel.studio.stories:provenance"
       ],
       "responsibilities": [
         "Read the story specs of the stories folder of the root, by a strict id, and hold the injected checker and the injected draft; the checker and the draft come from the composition root."
@@ -138,7 +143,8 @@
           "component": "api",
           "through": [
             "archkeel.studio.api:Json",
-            "archkeel.studio.api:StoryRow"
+            "archkeel.studio.api:StoryRow",
+            "archkeel.studio.api:StorySource"
           ],
           "rationale": "Return the typed rows of the API and name the JSON shape of a checked result."
         }
@@ -340,6 +346,13 @@
             "archkeel.studio.agent:Agent"
           ],
           "rationale": "Let the one agent answer a question; the server starts no process."
+        },
+        {
+          "component": "stories",
+          "through": [
+            "archkeel.studio.stories:provenance"
+          ],
+          "rationale": "Read the optional fields of a stored story that say where it comes from."
         }
       ],
       "exact_modules": [
