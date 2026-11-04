@@ -142,7 +142,7 @@ export function makeRouter(layout: LevelLayout): (from: LevelBox, to: LevelBox) 
     for (let state = end; state >= 0; state = before[state]) cells.push(state >> 2);
     cells.reverse();
     const points: Point[] = cells.map((at) => [((at % columns) - shift) * CELL + CELL / 2, (Math.floor(at / columns) - shift) * CELL + CELL / 2]);
-    return [edge(from, points[0]), ...simplify(points), edge(to, points[points.length - 1])].filter(unique);
+    return simplify([edge(from, points[0]), ...points, edge(to, points[points.length - 1])].filter(unique));
   };
 }
 

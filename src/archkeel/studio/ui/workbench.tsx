@@ -352,8 +352,8 @@ export function LevelCanvas(props: {
       })}
       {layout.tiles.map((tile) => (
         <button key={tile.label} type="button" class="lens-card tile" style={place(tile)} onClick={() => props.onOpen(tile.label)}>
-          <b>+{tile.hidden} more</b>
-          <span class="meta">open</span>
+          <b title={tile.label}>{tailName(tile.label, 24)}</b>
+          <span class="meta">+{tile.hidden} more · open</span>
         </button>
       ))}
       {layout.stubs.map((stub) => {

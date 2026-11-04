@@ -90,7 +90,8 @@
         "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
         "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
-        "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts"
+        "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts"
       ],
       "public": [
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Model",
@@ -139,7 +140,12 @@
         "studio_ui.src.archkeel.studio.ui.model_x2e_ts:trail",
         "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:layoutModule",
         "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:layoutComponent",
-        "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:cardName"
+        "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts:cardName",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelLink",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelBox",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:parseKey",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts:roundedPath",
+        "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts:makeRouter"
       ],
       "responsibilities": [
         "Index the call graph and compute the layouts of the Map and the lens: pure functions with no DOM and no network."
@@ -436,6 +442,7 @@
             "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelStub",
             "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:layoutComponent",
             "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:layoutModule",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:parseKey",
             "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts:MAP_CARD",
             "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts:MapLine",
             "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts:layoutMap",
@@ -476,8 +483,11 @@
           "component": "workbench",
           "through": [
             "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Counts",
+            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:FocusList",
             "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:LevelCanvas",
-            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Workbench"
+            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Workbench",
+            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:focusRows",
+            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:useFocus"
           ],
           "rationale": "Use workbench."
         }
@@ -654,7 +664,10 @@
       "public": [
         "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Workbench",
         "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:LevelCanvas",
-        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Counts"
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Counts",
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:useFocus",
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:FocusList",
+        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:focusRows"
       ],
       "responsibilities": [
         "Draw the shared page of every level: toolbar, structure tree, canvas, the You are here box with Up, and the zoom between levels; draw the modules or functions of a level with their stubs."
@@ -679,6 +692,7 @@
           "component": "components",
           "through": [
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:Box",
+            "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:ProofMark",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:View",
             "studio_ui.src.archkeel.studio.ui.components_x2e_tsx:viewHref",
             "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx:Viewport"
@@ -689,7 +703,8 @@
           "component": "evidence",
           "through": [
             "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:Proof",
-            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofKind"
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofKind",
+            "studio_ui.src.archkeel.studio.ui.evidence_x2e_ts:proofOf"
           ],
           "rationale": "Use evidence."
         },
@@ -697,16 +712,24 @@
           "component": "model",
           "through": [
             "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts:Side",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelBox",
             "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelLayout",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelLink",
             "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:LevelStub",
             "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:cardKey",
             "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts:stubKey",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts:makeRouter",
+            "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts:roundedPath",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Level",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Model",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Tally",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:Where",
             "studio_ui.src.archkeel.studio.ui.model_x2e_ts:compact",
-            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:opened"
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fileName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:fullName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:opened",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:shortName",
+            "studio_ui.src.archkeel.studio.ui.model_x2e_ts:tailName"
           ],
           "rationale": "Use model."
         },

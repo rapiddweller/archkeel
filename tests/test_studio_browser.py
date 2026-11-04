@@ -780,3 +780,137 @@ def test_enter_drills_in_reduced_motion_does_not_zoom_and_the_report_left_the_na
             assert page.locator("section.canvas").get_attribute("data-transition") == "none"
         finally:
             browser.close()
+
+
+def _grid_graph() -> dict:
+    """Component alpha: 30 modules in 5 packages (module 0 has 20 functions); beta calls in."""
+    modules = [
+        [f"alpha.p{p}.m{j}", f"alpha/p{p}/m{j}.py", 0, f"p{p}.m{j}"]
+        for p in range(5)
+        for j in range(6)
+    ] + [["beta.b", "beta/b.py", 1, "b"]]
+    symbols = []
+    first = []
+    for module in range(31):
+        first.append(len(symbols))
+        for k in range(20 if module == 0 else 3):
+            symbols.append([module, f"fn{k}", k + 1, "function", f"def fn{k}():", 0, 0])
+    edges = []
+    for module in range(30):
+        target = (module * 7 + 3) % 30
+        edges.append([first[module], first[target] + 1, False, 2, len(edges)])
+        edges.append([first[module] + 2, first[(module + 1) % 30], True, 3, len(edges)])
+    # Inside module 0: a chain of calls; and beta calls into it and into module 9.
+    edges += [[first[0] + k, first[0] + k + 1, False, 5, len(edges)] for k in range(10)]
+    edges += [
+        [first[30], first[0] + 3, False, 4, len(edges)],
+        [first[30], first[9], False, 4, len(edges)],
+    ]
+    return {
+        "components_from": "contract",
+        "components": [["alpha", "Alpha does the work."], ["beta", "Beta calls alpha."]],
+        "modules": modules,
+        "symbols": symbols,
+        "edges": edges,
+        "unknown": [],
+    }
+
+
+def _crossings(page) -> list[str]:
+    """The segments of every drawn line that cross the inside of a card, a stub or a tile."""
+    return page.evaluate(
+        """() => {
+        const boxes = [...document.querySelectorAll('.lens-card')].map((card) => ({
+          name: card.textContent.slice(0, 30),
+          x: parseFloat(card.style.left), y: parseFloat(card.style.top),
+          w: parseFloat(card.style.width), h: parseFloat(card.style.height)}));
+        const bad = [];
+        for (const path of document.querySelectorAll('.focus-line .stroke')) {
+          const points = path.dataset.points.split(' ').map((pair) => pair.split(',').map(Number));
+          for (let i = 1; i < points.length; i += 1) {
+            const [x1, y1] = points[i - 1]; const [x2, y2] = points[i];
+            const [x0, x3] = [Math.min(x1, x2), Math.max(x1, x2)];
+            const [y0, y3] = [Math.min(y1, y2), Math.max(y1, y2)];
+            for (const b of boxes) {
+              const across = x3 > b.x + 0.5 && x0 < b.x + b.w - 0.5;
+              if (across && y3 > b.y + 0.5 && y0 < b.y + b.h - 0.5) {
+                bad.push(b.name);
+              }
+            }
+          }
+        }
+        return bad;
+      }"""
+    )
+
+
+def _smallest_text(page) -> float:
+    """The smallest font size of the canvas as drawn: the font size times the scale of the fit."""
+    return page.evaluate(
+        """() => {
+        const k = parseFloat(document.querySelector('.stage').dataset.camera.split(',')[2]);
+        const sizes = [...document.querySelectorAll(
+          '.stage .lens-card b, .stage .lens-card .meta, .stage .head, .stage .plate span')]
+          .filter((item) => item.textContent.trim() !== '')
+          .map((item) => parseFloat(getComputedStyle(item).fontSize) * k);
+        return Math.min(...sizes);
+      }"""
+    )
+
+
+@pytest.mark.browser
+def test_a_level_is_calm_until_a_card_has_the_focus(studio: Studio) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    answer = {"api_version": API_VERSION, "explore": "done", "graph": _grid_graph()}
+    Draft202012Validator({"$ref": "#/$defs/graph", "$defs": _SCHEMA["$defs"]}).validate(answer)
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.route("**/api/v1/graph", lambda route: route.fulfill(json=answer))
+            page.goto(studio.url + "#/component/0")
+            page.locator(".level-card").first.wait_for()
+            page.wait_for_timeout(700)
+            # Calm at rest: no line, a tile for the folded packages, no text under 10 px.
+            assert page.locator(".focus-line").count() == 0
+            assert page.locator(".lens-card.tile").count() >= 1
+            assert page.locator(".level-card").count() <= 12
+            assert _smallest_text(page) >= 9.95
+            # Hover lights the lines of one card and dims the cards that are not connected.
+            card = page.locator(".level-card", has_text="m0.py").first
+            card.hover()
+            page.locator(".focus-line").first.wait_for(state="attached")
+            assert page.locator(".level-card.dim").count() >= 1
+            assert page.locator(".level-card:not(.dim)").count() >= 2
+            assert _crossings(page) == []
+            # A click pins the focus: the lines stay when the pointer leaves; Esc clears them.
+            card.click()
+            page.locator(".level-card.pinned").wait_for()
+            page.mouse.move(5, 5)
+            assert page.locator(".focus-line").count() >= 1
+            focus = page.get_by_text("Focus ·").first
+            assert focus.is_visible()
+            page.keyboard.press("Escape")
+            page.locator(".level-card.pinned").wait_for(state="detached")
+            assert page.locator(".focus-line").count() == 0
+            assert "#/component/0" in page.url  # the first Esc cleared the focus, it did not go up
+            # A stub names the functions on the other side while a card has the focus.
+            page.locator(".level-card", has_text="m0.py").first.hover()
+            assert "fn0" in page.locator(".lens-card.stub").first.inner_text()
+            # The module level: 16 functions and a tile; the lines stay in the gutters.
+            page.goto(studio.url + "#/module/0")
+            page.locator(".level-card").first.wait_for()
+            page.wait_for_timeout(700)
+            assert page.locator(".level-card").count() == 16
+            assert page.locator(".lens-card.tile").count() == 1
+            assert _smallest_text(page) >= 9.95
+            for name in ("fn1", "fn3", "fn9"):
+                page.locator(".level-card", has_text=name).first.hover()
+                page.locator(".focus-line").first.wait_for(state="attached")
+                assert _crossings(page) == []
+            # A pinned card keeps its list; a row of the side panel lights one line.
+            page.locator(".level-card", has_text="fn1").first.click()
+            page.locator(".focus-rows li").first.hover()
+            assert page.locator(".focus-line.on").count() == 1
+        finally:
+            browser.close()

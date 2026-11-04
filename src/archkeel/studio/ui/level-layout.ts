@@ -10,7 +10,7 @@ const SPREAD = 56;
 const COLUMNS = 2;
 const STUBS_SHOWN = 8;
 /** At most this many cards show at first; the rest of a package folds into one tile. */
-export const MODULES_SHOWN = 12;
+export const MODULES_SHOWN = 8;
 export const FUNCTIONS_SHOWN = 16;
 const PAIRS_KEPT = 60;
 
@@ -126,12 +126,16 @@ function arrange(
   const tiles: LevelTile[] = [];
   let y = 0;
   for (const group of groups) {
-    const rows = group.folded ? 1 : Math.ceil(group.items.length / columns);
-    const height = HEAD + rows * cardHeight + (rows + 1) * gap;
-    plates.push({ label: group.label, x: left, y, width: plateWidth, height, folded: group.folded });
     if (group.folded) {
-      tiles.push({ label: group.label, hidden: group.items.length, x: left + gap, y: y + HEAD + gap, width: plateWidth - 2 * gap, height: cardHeight });
-    } else {
+      // A folded package has no plate: one tile in its place.
+      tiles.push({ label: group.label, hidden: group.items.length, x: left, y, width: plateWidth, height: cardHeight });
+      y += cardHeight + gap;
+      continue;
+    }
+    const rows = Math.ceil(group.items.length / columns);
+    const height = HEAD + rows * cardHeight + (rows + 1) * gap;
+    plates.push({ label: group.label, x: left, y, width: plateWidth, height, folded: false });
+    {
       group.items.forEach((index, order) => {
         cards.push({
           index,
