@@ -1,8 +1,11 @@
 # Studio target picture: reference images
 
-Reference images for the Studio storytelling part (issue #822). They are design targets, not features that exist today. All data is ArchKeel's own code at `0144478c`.
+Reference images for the Studio storytelling part (issue #822). They are design targets, not features that exist today. The `story-*` and `explore-*` images use ArchKeel's own code at `0144478c`. The `ee-story-*` images use DATAMIMIC EE `development` at `1dcf962aa`; the owner approved their publication on 2026-11-04.
 
 - `story-lanes-status-step5.jpg`, `step9`, `step11`: a story of `archkeel check`. Lanes for each component, one route line, a status on each step (proven, claim, unknown), a measured evidence panel and a question for the architect.
 - `explore-chat-lens.jpg`: the lens around one function, with callers on the left, callees on the right and the unknown calls below. The chat panel separates what ArchKeel observed, what the agent claims and what is only proposed.
 - `explore-chat-draft-story.jpg`: "Draft a story from here" proposes a checked path. Nothing is applied until the owner pins it.
 - `explore-chat-map.jpg`: the map of components, one measured sentence for each.
+
+- `ee-story-cli-start-externals.jpg`, `ee-story-process-boundary.jpg`, `ee-story-lease-redis.jpg`, `ee-story-write-targets.jpg`: a story of 27 steps in 6 chapters (one `run` with several workers reading a database). They add chapters, the process-boundary line, the external-systems column (icons, vendors, a counter) and unknown calls with 58 candidates.
+- `ee-story-anti-patterns.jpg`: three ways to get it wrong: show everything, show every step at once, show no proof marks.
