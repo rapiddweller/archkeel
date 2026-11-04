@@ -13,8 +13,10 @@ from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 
-from .api import ContractState, ExploreState, StudioState
+from .api import ContractState, Declare, Decode, ExploreState, Graph, StudioState
+from .graph import build_graph
 
+_SNAPSHOT = "architecture.json"
 _NOTE_LIMIT = 2000
 # Explore needs this long to stop its collector, which runs in a session of its own.
 _UNWIND_SECONDS = 10
@@ -44,12 +46,19 @@ class Workspace:
         folder: Path,
         explore: tuple[str, ...],
         contract: Callable[[], ContractState],
+        declare: Declare,
+        decode: Decode,
     ) -> None:
         self.root = root.resolve()
         self.folder = folder.resolve()
         self._explore = explore
         self._contract = contract
+        self._declare = declare
+        self._decode = decode
         self._lock = threading.Lock()
+        # A build takes seconds on a large repository; it must not hold up the state polls.
+        self._graph_lock = threading.Lock()
+        self._graph: Graph | None = None
         # The root of the file system has no name of its own.
         name = self.root.name or str(self.root)
         self._run = StudioState(root_name=name, contract=ContractState.NOT_CONFIGURED)
@@ -72,6 +81,7 @@ class Workspace:
                 self._run, explore=ExploreState.RUNNING, seconds=0, exit_code=None, notes=()
             )
             self._started = time.monotonic()
+            self._graph = None
             self._child = subprocess.Popen(
                 self._explore,
                 stdout=subprocess.PIPE,
@@ -91,6 +101,16 @@ class Workspace:
                 exit_code=child.returncode,
                 notes=_notes(stdout, stderr) if failed else (),
             )
+
+    def graph(self) -> Graph | None:
+        """The call graph of the finished snapshot, built once; None until the run is done."""
+        with self._graph_lock:
+            with self._lock:
+                done = self._run.explore is ExploreState.DONE
+            if self._graph is None and done:
+                snapshot = self.folder / _SNAPSHOT
+                self._graph = build_graph(self._decode(snapshot.read_bytes()), self._declare)
+            return self._graph
 
     def file(self, name: str) -> Path | None:
         """One file of the snapshot folder, by its exact name; never a path."""

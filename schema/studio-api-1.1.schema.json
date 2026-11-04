@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:archkeel:studio-api:1.1.0",
+  "title": "ArchKeel Studio API 1.1: GET /api/v1/state and GET /api/v1/graph",
+  "description": "AD-290. The two answers of one Studio server. The API is read-only. Version 1.1 adds the graph; the state is the one of 1.0 with the new version.",
+  "oneOf": [{"$ref": "#/$defs/state"}, {"$ref": "#/$defs/graph"}],
+  "$defs": {
+    "explore": {
+      "description": "The explore run that makes the snapshot in the cache folder.",
+      "enum": ["idle", "running", "done", "failed"]
+    },
+    "state": {
+      "title": "GET /api/v1/state",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["api_version", "root_name", "contract", "explore", "seconds", "exit_code", "notes"],
+      "properties": {
+        "api_version": {"const": "1.1.0"},
+        "root_name": {"type": "string", "minLength": 1},
+        "contract": {
+          "description": "What archkeel.toml at the root gives: no file, a file that does not load, or a loaded file.",
+          "enum": ["not_configured", "invalid", "configured"]
+        },
+        "explore": {"$ref": "#/$defs/explore"},
+        "seconds": {"type": "integer", "minimum": 0},
+        "exit_code": {"type": ["integer", "null"]},
+        "notes": {
+          "description": "The diagnostics of a failed run; else empty.",
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "graph": {
+      "title": "GET /api/v1/graph",
+      "description": "The measured call graph of the snapshot. `graph` is null until `explore` is done. Every row is an array; a number that names a row of another list is its index.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["api_version", "explore", "graph"],
+      "properties": {
+        "api_version": {"const": "1.1.0"},
+        "explore": {"$ref": "#/$defs/explore"},
+        "graph": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["components", "modules", "symbols", "edges", "unknown"],
+              "properties": {
+                "components": {
+                  "description": "[id, responsibility]. The id is a label of the contract, else a top-level package of the explore layout, else \"(unowned)\". The responsibility is the first one of the contract; else empty.",
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [{"type": "string", "minLength": 1}, {"type": "string"}],
+                    "items": false,
+                    "minItems": 2
+                  }
+                },
+                "modules": {
+                  "description": "[name, file, component, relative]. component indexes components; relative is the name below the shared prefix of the component.",
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {"type": "string", "minLength": 1},
+                      {"type": "string"},
+                      {"type": "integer", "minimum": 0},
+                      {"type": "string", "minLength": 1}
+                    ],
+                    "items": false,
+                    "minItems": 4
+                  }
+                },
+                "symbols": {
+                  "description": "[module, name, line, kind, text]. module indexes modules; name is the qualified name below the module; text is the first source line, 80 characters at most.",
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {"type": "integer", "minimum": 0},
+                      {"type": "string", "minLength": 1},
+                      {"type": "integer", "minimum": 0},
+                      {"enum": ["function", "method", "class"]},
+                      {"type": "string", "maxLength": 80}
+                    ],
+                    "items": false,
+                    "minItems": 5
+                  }
+                },
+                "edges": {
+                  "description": "[source, target, partial, line]. source and target index symbols. false = resolved (proven); true = partially resolved (claim). line is the line of the call in the file of the source.",
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {"type": "integer", "minimum": 0},
+                      {"type": "integer", "minimum": 0},
+                      {"type": "boolean"},
+                      {"type": "integer", "minimum": 0}
+                    ],
+                    "items": false,
+                    "minItems": 4
+                  }
+                },
+                "unknown": {
+                  "description": "[symbol, expression, reason, line]. A call that the analysis cannot resolve; at most 4 for each symbol.",
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {"type": "integer", "minimum": 0},
+                      {"type": "string", "maxLength": 60},
+                      {"type": "string", "maxLength": 60},
+                      {"type": "integer", "minimum": 0}
+                    ],
+                    "items": false,
+                    "minItems": 4
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

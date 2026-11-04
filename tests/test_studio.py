@@ -9,7 +9,7 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -19,14 +19,24 @@ from test_explore import _repository, _tree_digest
 
 from archkeel.cli import build_parser, main, studio_workspace
 from archkeel.cli.config import load_config
-from archkeel.studio.api import API_VERSION, ContractState
+from archkeel.ir.codec import decode_canonical_model, decode_json
+from archkeel.studio.api import API_VERSION, ContractState, ExploreState, Json, graph_json
+from archkeel.studio.graph import build_graph
 from archkeel.studio.server import Studio
 from archkeel.studio.workspace import Workspace
 from fixtures.demo_catalog_typescript import VARIANTS as TYPESCRIPT_VARIANTS
 from fixtures.reproduce_typescript import repository as typescript_repository
 
-_SCHEMA = json.loads((Path(__file__).parents[1] / "schema/studio-api-1.0.schema.json").read_bytes())
+_SCHEMA = json.loads((Path(__file__).parents[1] / "schema/studio-api-1.1.schema.json").read_bytes())
 _EXPLORE_SECONDS = 120
+
+
+def _no_contract(_modules: Sequence[str]) -> list[tuple[str, str, list[str]]]:
+    return []
+
+
+def _decode(raw: bytes) -> dict[str, Json]:
+    return decode_canonical_model(decode_json(raw))
 
 
 def _workspace(root: Path, cache: Path, *options: str) -> Workspace:
@@ -83,12 +93,26 @@ def login(server: Studio) -> str:
     return cookie.split(";", 1)[0]
 
 
+def _validator(answer: str) -> Draft202012Validator:
+    """The validator for one answer of the API: `state` or `graph`."""
+    return Draft202012Validator({"$ref": f"#/$defs/{answer}", "$defs": _SCHEMA["$defs"]})
+
+
 def state(server: Studio, cookie: str) -> dict:
     response, body = request(server, "/api/v1/state", cookie=cookie)
     assert response.status == 200
     assert response.getheader("Content-Type") == "application/json"
     payload = json.loads(body)
-    Draft202012Validator(_SCHEMA).validate(payload)
+    _validator("state").validate(payload)
+    return payload
+
+
+def graph(server: Studio, cookie: str) -> dict:
+    response, body = request(server, "/api/v1/graph", cookie=cookie)
+    assert response.status == 200
+    assert response.getheader("Content-Type") == "application/json"
+    payload = json.loads(body)
+    _validator("graph").validate(payload)
     return payload
 
 
@@ -107,6 +131,28 @@ def test_the_schema_has_the_version_of_the_server() -> None:
     assert _SCHEMA["$id"] == f"urn:archkeel:studio-api:{API_VERSION}"
 
 
+def test_the_schema_rejects_a_field_that_it_does_not_name(studio: Studio) -> None:
+    """Negative control: `additionalProperties: false` and fixed rows hold at every level."""
+    cookie = login(studio)
+    answer = state(studio, cookie)
+    assert not _validator("state").is_valid({**answer, "extra": 1})
+    assert not _validator("state").is_valid({**answer, "api_version": "1.0.0"})
+    assert not _validator("graph").is_valid({"api_version": API_VERSION, "explore": "idle"})
+    waiting = graph(studio, cookie)
+    assert not _validator("graph").is_valid({**waiting, "extra": 1})
+    empty = {name: [] for name in ("components", "modules", "symbols", "edges", "unknown")}
+    full = {**waiting, "graph": empty}
+    assert _validator("graph").is_valid(full)
+    assert not _validator("graph").is_valid({**full, "graph": {**empty, "extra": []}})
+    assert not _validator("graph").is_valid({**full, "graph": {**empty, "edges": [[0, 1, False]]}})
+    assert not _validator("graph").is_valid(
+        {**full, "graph": {**empty, "edges": [[0, 1, False, 3, "extra"]]}}
+    )
+    assert not _validator("graph").is_valid(
+        {**full, "graph": {**empty, "symbols": [[0, "a", 1, "enum", ""]]}}
+    )
+
+
 def test_the_server_listens_on_127_0_0_1_on_a_free_port(studio: Studio) -> None:
     host, port = studio.server_address[:2]
     assert (host, port) == ("127.0.0.1", studio.port)
@@ -115,7 +161,7 @@ def test_the_server_listens_on_127_0_0_1_on_a_free_port(studio: Studio) -> None:
 
 
 @pytest.mark.parametrize(
-    "path", ["/", "/api/v1/state", "/ui/studio.js", "/files/architecture.json"]
+    "path", ["/", "/api/v1/state", "/api/v1/graph", "/ui/studio.js", "/files/architecture.json"]
 )
 def test_a_request_without_the_token_gets_403(studio: Studio, path: str) -> None:
     assert request(studio, path)[0].status == 403
@@ -134,10 +180,11 @@ def test_another_host_header_gets_403_also_with_the_cookie(studio: Studio) -> No
         assert request(studio, "/", cookie=cookie, host=host)[0].status == 403
 
 
+@pytest.mark.parametrize("path", ["/api/v1/state", "/api/v1/graph"])
 @pytest.mark.parametrize("method", ["POST", "PUT", "DELETE"])
-def test_the_api_is_read_only(studio: Studio, method: str) -> None:
+def test_the_api_is_read_only(studio: Studio, method: str, path: str) -> None:
     cookie = login(studio)
-    assert request(studio, "/api/v1/state", method=method, cookie=cookie)[0].status == 405
+    assert request(studio, path, method=method, cookie=cookie)[0].status == 405
 
 
 def test_the_start_url_opens_the_shell_and_its_assets(studio: Studio) -> None:
@@ -208,6 +255,150 @@ def test_explore_writes_only_the_cache_and_the_repository_stays_unchanged(
     assert b"ArchKeel" in body
 
 
+def test_the_graph_answers_like_the_state_until_the_snapshot_is_done(studio: Studio) -> None:
+    cookie = login(studio)
+    assert graph(studio, cookie) == {"api_version": API_VERSION, "explore": "idle", "graph": None}
+
+
+def _names(rows: list, column: int = 0) -> list:
+    return [row[column] for row in rows]
+
+
+def test_the_graph_holds_the_calls_of_the_snapshot(studio: Studio) -> None:
+    cookie = login(studio)
+    assert explore(studio, cookie)["explore"] == "done"
+
+    answer = graph(studio, cookie)
+
+    assert answer["explore"] == "done"
+    body = answer["graph"]
+    # No contract: the top-level packages of the explore layout; the root module has no owner.
+    assert body["components"] == [
+        ["app", ""],
+        ["cli", ""],
+        ["store", ""],
+        ["(unowned)", "Modules that no component owns."],
+    ]
+    modules = {row[0]: row for row in body["modules"]}
+    assert modules["shop.app.orders"] == ["shop.app.orders", "shop/app/orders.py", 0, "orders"]
+    assert modules["shop"][2:] == [3, "shop"]
+    symbols = body["symbols"]
+    place, save = (_names(symbols, 1).index(name) for name in ("place", "save"))
+    assert symbols[place][2:4] == [4, "function"]
+    assert symbols[place][4] == "def place() -> int:"
+    # `place` calls `save` on line 5: a resolved call, so not partial.
+    assert body["edges"] == [[place, save, False, 5]]
+    assert body["unknown"] == []
+    for module, *_ in symbols:
+        assert 0 <= module < len(body["modules"])
+    for _name, _file, component, _relative in body["modules"]:
+        assert 0 <= component < len(body["components"])
+
+
+def test_the_contract_names_the_components_and_their_responsibility(tmp_path: Path) -> None:
+    root = _repository(tmp_path / "shop")
+    assert main(["init", "--root", str(root), "--json"]) == 0
+    path = root / load_config(root).contract
+    contract = json.loads(path.read_text())
+    app, cli, store = contract["components"]
+    # One component owns two packages, which the explore layout keeps apart; one owns nothing.
+    ghost = {**cli, "id": "COMP-GHOST", "label": "ghost", "packages": ["shop.ghost"]}
+    app.update(label="services", packages=["shop.app", "shop.store"], public=[])
+    app["responsibilities"] = ["Place orders and keep them."]
+    store["packages"] = ["shop.store.unused"]
+    path.write_text(json.dumps({**contract, "components": [app, cli, store, ghost]}))
+    server = _start(root, tmp_path / "cache")
+    try:
+        cookie = login(server)
+        assert explore(server, cookie)["explore"] == "done"
+        body = graph(server, cookie)["graph"]
+    finally:
+        _stop(server)
+    assert body["components"] == [
+        ["services", "Place orders and keep them."],
+        ["cli", ""],
+        ["(unowned)", "Modules that no component owns."],
+    ]
+    owner = {row[0]: body["components"][row[2]][0] for row in body["modules"]}
+    assert owner["shop.store.repository"] == "services"
+    assert owner["shop.cli.__main__"] == "cli"
+    assert owner["shop"] == "(unowned)"
+    relative = {row[0]: row[3] for row in body["modules"]}
+    # `services` shares the prefix `shop`; the unowned root module keeps its own name.
+    assert relative["shop.store.repository"] == "store.repository"
+    assert relative["shop"] == "shop"
+
+
+def _synthetic_snapshot(modules: int, symbols_per_module: int, calls_per_symbol: int) -> dict:
+    """A decoded snapshot with the size of a large repository: 1185 modules, 8000+ symbols."""
+    names = [f"big.pkg{index % 40}.mod{index}" for index in range(modules)]
+    symbols = [
+        (f"{name}.f{number}", name, index * symbols_per_module + number)
+        for index, name in enumerate(names)
+        for number in range(symbols_per_module)
+    ]
+    evidence = [
+        {"id": "EVD-1", "file": "big/x.py", "line": 7, "excerpt": "    def f(a, b):" + "x" * 90}
+    ]
+    calls = []
+    for number, (qualified, _module, _) in enumerate(symbols):
+        for step in range(calls_per_symbol):
+            target = symbols[(number * 7 + step * 131 + 1) % len(symbols)][0]
+            resolved = step == 0
+            calls.append(
+                {
+                    "evidence_ids": ["EVD-1"],
+                    "data": {
+                        "source_scope": qualified,
+                        "status": "resolved" if resolved else "partially_resolved",
+                        "targets": [target] if resolved else [target, symbols[0][0], target],
+                        "expression": "x" * 80,
+                        "reason": "r" * 80,
+                    },
+                }
+            )
+    return {
+        "modules": [
+            {"title": name, "data": {"file": name.replace(".", "/") + ".py"}} for name in names
+        ],
+        "symbols": [
+            {
+                "kind": "method",
+                "evidence_ids": ["EVD-1"],
+                "data": {"module": module, "qualified_name": qualified},
+            }
+            for qualified, module, _ in symbols
+        ],
+        "calls": calls
+        + [
+            {
+                "evidence_ids": ["EVD-1"],
+                "data": {"source_scope": symbols[0][0], "status": "unresolved", "targets": []},
+            }
+        ]
+        * 6,
+        "evidence": evidence,
+    }
+
+
+def test_the_graph_of_a_large_repository_is_small_and_fast() -> None:
+    # EE: 1185 modules, 8179 symbols, 14089 edges. Gate (issue #815): under 2 MB and 2 s.
+    snapshot = _synthetic_snapshot(1185, 7, 2)
+    started = time.perf_counter()
+    built = build_graph(snapshot, _no_contract)
+    body = graph_json(ExploreState.DONE, built)
+    seconds = time.perf_counter() - started
+    assert (len(built.modules), len(built.symbols)) == (1185, 8295)
+    # One resolved edge and two partial edges for each symbol: 1.8 times the edges of EE.
+    assert len(built.edges) == 3 * len(built.symbols)
+    assert len(body) < 2_000_000, len(body)
+    assert seconds < 2, seconds
+    _validator("graph").validate(json.loads(body))
+    # An unresolved call is kept up to four times for each symbol, never more.
+    assert len(built.unknown) == 4
+    assert sum(edge.partial for edge in built.edges) == 2 * len(built.symbols)
+
+
 def test_a_failed_explore_shows_its_diagnostic(tmp_path: Path) -> None:
     # No commit: explore exits 2 and names the reason.
     server = _start(_repository(tmp_path / "shop", commit=False), tmp_path / "cache")
@@ -247,7 +438,9 @@ def test_the_studio_package_does_not_import_the_cli() -> None:
 
 
 def test_the_root_of_the_file_system_has_a_name() -> None:
-    workspace = Workspace(Path("/"), Path("/nothing"), (), lambda: ContractState.NOT_CONFIGURED)
+    workspace = Workspace(
+        Path("/"), Path("/nothing"), (), lambda: ContractState.NOT_CONFIGURED, _no_contract, _decode
+    )
     assert workspace.state().root_name == "/"
 
 
@@ -281,7 +474,12 @@ def test_studio_forwards_the_scope_options_to_explore(tmp_path: Path) -> None:
 def _running_child(tmp_path: Path, script: str) -> Workspace:
     """A workspace whose explore child runs `script` and touches `ready` when it is set up."""
     workspace = Workspace(
-        tmp_path, tmp_path / "run", (sys.executable, "-c", script), lambda: ContractState.CONFIGURED
+        tmp_path,
+        tmp_path / "run",
+        (sys.executable, "-c", script),
+        lambda: ContractState.CONFIGURED,
+        _no_contract,
+        _decode,
     )
     workspace.start()
     deadline = time.monotonic() + 30

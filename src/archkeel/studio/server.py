@@ -10,22 +10,19 @@ import socket
 import socketserver
 import time
 from collections.abc import Callable
-from enum import StrEnum
 from functools import partial
 from http import HTTPStatus
 from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import TypeVar
 from urllib.parse import parse_qs, urlsplit
 
-from .api import ApiPath, Route, UiAsset, state_json
+from .api import ApiPath, Route, UiAsset, graph_json, member, state_json
 from .workspace import Workspace
 
 _UI = Path(__file__).parent / "ui"
 _LOOPBACK = "127.0.0.1"
 _PROBE_SECONDS = 2
-_Member = TypeVar("_Member", bound=StrEnum)
 # The shell loads only its own files and asks only its own server.
 _SHELL_CSP = (
     "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
@@ -46,14 +43,6 @@ def _cookie_name(port: int) -> str:
 
 class _Idle(Exception):
     """No request arrived within the idle time."""
-
-
-def _decode(kind: type[_Member], value: str) -> _Member | None:
-    """The member for a URL segment, or None; `in` on an enum needs Python 3.12."""
-    try:
-        return kind(value)
-    except ValueError:
-        return None
 
 
 class Studio(ThreadingHTTPServer):
@@ -148,20 +137,28 @@ class _Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         url = urlsplit(self.path)
         head, _, name = url.path[1:].partition("/")
-        route = _decode(Route, head)
+        route = member(Route, head)
         if self._refused(route, url.query):
             return
         if route is Route.SHELL and not name:
             self._asset(UiAsset.INDEX)
-        elif route is Route.API and _decode(ApiPath, name) is ApiPath.STATE:
-            self._send(HTTPStatus.OK, state_json(self.studio.workspace.state()), "application/json")
-        elif route is Route.UI and (asset := _decode(UiAsset, name)) is not None:
+        elif route is Route.API and (path := member(ApiPath, name)) is not None:
+            self._api(path)
+        elif route is Route.UI and (asset := member(UiAsset, name)) is not None:
             self._asset(asset)
         elif route is Route.FILES and (target := self.studio.workspace.file(name)) is not None:
             kind = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
             self._send(HTTPStatus.OK, target.read_bytes(), kind, csp=_FILES_CSP)
         else:
             self._send(HTTPStatus.NOT_FOUND, b"not found\n")
+
+    def _api(self, path: ApiPath) -> None:
+        workspace = self.studio.workspace
+        if path is ApiPath.STATE:
+            body = state_json(workspace.state())
+        else:
+            body = graph_json(workspace.state().explore, workspace.graph())
+        self._send(HTTPStatus.OK, body, "application/json")
 
     def _asset(self, asset: UiAsset) -> None:
         kind = mimetypes.guess_type(asset.value)[0] or "application/octet-stream"

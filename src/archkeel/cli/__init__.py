@@ -39,7 +39,7 @@ from ..check.run import run_check
 from ..check.snapshot import resolve_commit
 from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
-from ..ir.codec import decode_json, parse_contract
+from ..ir.codec import RawJson, decode_canonical_model, decode_json, parse_contract
 from ..ir.phases import Phase, PhaseClock, WorkCounter, measured
 from ..ir.view_spec import (
     ViewCheck,
@@ -149,6 +149,38 @@ def _contract_state(root: Path) -> ContractState:
     return ContractState.CONFIGURED
 
 
+def _declared_components(root: Path, modules: Sequence[str]) -> list[tuple[str, str, list[str]]]:
+    """AD-290: (label, first responsibility, owned modules) for each component of the contract.
+
+    The contract decides who owns a module, as `check` does. No contract gives no component.
+    """
+    try:
+        config = load_config(root)
+        contract = parse_contract(decode_json((root / config.contract).read_bytes()))
+    except (ConfigFileMissingError, OSError, ValueError):
+        return []
+    owned: dict[str, list[str]] = {component.id: [] for component in contract.components}
+    for module in modules:
+        if (owner := contract.component_for(module)) is not None:
+            owned[owner.id].append(module)
+    return [
+        (
+            component.label,
+            component.responsibilities[0] if component.responsibilities else "",
+            owned[component.id],
+        )
+        for component in contract.components
+    ]
+
+
+def _decode_snapshot(raw: bytes) -> dict[str, RawJson]:
+    """AD-290: the canonical model of a saved `architecture.json`, strings expanded."""
+    decoded = decode_json(raw)
+    if not isinstance(decoded, dict):
+        raise ValueError("architecture.json must be an object")
+    return decode_canonical_model(decoded)
+
+
 def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:
     """AD-290: each run explores with the scope options into a private folder of `cache`."""
     root = args.root.resolve()
@@ -169,6 +201,8 @@ def studio_workspace(args: CLIArguments, cache: Path) -> Workspace:
         folder,
         (*explore, *scope, "--output", str(folder), "--json"),
         lambda: _contract_state(root),
+        lambda modules: _declared_components(root, modules),
+        _decode_snapshot,
     )
 
 

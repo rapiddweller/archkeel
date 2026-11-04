@@ -7,16 +7,32 @@
       "label": "api",
       "role": "component",
       "public": [
+        "archkeel.studio.api:API_VERSION",
         "archkeel.studio.api:ApiPath",
+        "archkeel.studio.api:CallStatus",
+        "archkeel.studio.api:ComponentRow",
         "archkeel.studio.api:ContractState",
+        "archkeel.studio.api:DeclarationKind",
+        "archkeel.studio.api:Declare",
+        "archkeel.studio.api:Decode",
+        "archkeel.studio.api:EdgeRow",
         "archkeel.studio.api:ExploreState",
+        "archkeel.studio.api:Graph",
+        "archkeel.studio.api:Json",
+        "archkeel.studio.api:ModuleRow",
         "archkeel.studio.api:Route",
+        "archkeel.studio.api:ScopeKind",
         "archkeel.studio.api:StudioState",
+        "archkeel.studio.api:SymbolKind",
+        "archkeel.studio.api:SymbolRow",
         "archkeel.studio.api:UiAsset",
+        "archkeel.studio.api:UnknownRow",
+        "archkeel.studio.api:graph_json",
+        "archkeel.studio.api:member",
         "archkeel.studio.api:state_json"
       ],
       "responsibilities": [
-        "Declare the versioned HTTP API: its routes, the served UI files and the typed state with its JSON form."
+        "Declare the versioned HTTP API: its routes, the served UI files, the typed state and graph rows with their JSON form, and the closed vocabularies that decode the snapshot."
       ],
       "forbidden_responsibilities": [
         "Network, process or file access.",
@@ -33,6 +49,51 @@
       "packages": []
     },
     {
+      "id": "STUDIO-GRAPH",
+      "label": "graph",
+      "role": "component",
+      "public": [
+        "archkeel.studio.graph:build_graph"
+      ],
+      "responsibilities": [
+        "Derive the call graph from the decoded explore snapshot: components, modules, symbols, call edges and unknown calls, as typed rows."
+      ],
+      "forbidden_responsibilities": [
+        "Network, process or file access.",
+        "Decoding the snapshot file: the composition root injects the decoder.",
+        "Reading the contract: the composition root injects the owner of each module."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "api",
+          "through": [
+            "archkeel.studio.api:CallStatus",
+            "archkeel.studio.api:ComponentRow",
+            "archkeel.studio.api:DeclarationKind",
+            "archkeel.studio.api:Declare",
+            "archkeel.studio.api:EdgeRow",
+            "archkeel.studio.api:Graph",
+            "archkeel.studio.api:Json",
+            "archkeel.studio.api:ModuleRow",
+            "archkeel.studio.api:ScopeKind",
+            "archkeel.studio.api:SymbolKind",
+            "archkeel.studio.api:SymbolRow",
+            "archkeel.studio.api:UnknownRow",
+            "archkeel.studio.api:member"
+          ],
+          "rationale": "Read the snapshot by its closed vocabularies and return typed rows."
+        }
+      ],
+      "exact_modules": [
+        "archkeel.studio.graph"
+      ],
+      "packages": []
+    },
+    {
       "id": "STUDIO-WORKSPACE",
       "label": "workspace",
       "role": "component",
@@ -40,7 +101,7 @@
         "archkeel.studio.workspace:Workspace"
       ],
       "responsibilities": [
-        "Make the explore snapshot of the root in a private folder of this run below the cache, read its files by exact name and delete the folder at the end."
+        "Make the explore snapshot of the root in a private folder of this run below the cache, read its files by exact name, build its call graph once and delete the folder at the end."
       ],
       "forbidden_responsibilities": [
         "HTTP, tokens or browser pages.",
@@ -55,10 +116,20 @@
           "component": "api",
           "through": [
             "archkeel.studio.api:ContractState",
+            "archkeel.studio.api:Declare",
+            "archkeel.studio.api:Decode",
             "archkeel.studio.api:ExploreState",
+            "archkeel.studio.api:Graph",
             "archkeel.studio.api:StudioState"
           ],
-          "rationale": "Report the run and the contract as the typed state of the API."
+          "rationale": "Report the run, the contract and the injected decoders as the typed values of the API."
+        },
+        {
+          "component": "graph",
+          "through": [
+            "archkeel.studio.graph:build_graph"
+          ],
+          "rationale": "Build the call graph once from the finished snapshot."
         }
       ],
       "exact_modules": [
@@ -91,6 +162,8 @@
             "archkeel.studio.api:ApiPath",
             "archkeel.studio.api:Route",
             "archkeel.studio.api:UiAsset",
+            "archkeel.studio.api:graph_json",
+            "archkeel.studio.api:member",
             "archkeel.studio.api:state_json"
           ],
           "rationale": "Route requests by the typed API vocabulary and send its JSON form."
@@ -124,7 +197,7 @@
       "id": "STUDIO-ASSIGNMENT",
       "kind": "complete_assignment",
       "source": "archkeel.studio",
-      "rationale": "Every Studio module belongs to the API, the workspace or the server.",
+      "rationale": "Every Studio module belongs to the API, the graph, the workspace or the server.",
       "provenance": [
         "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
       ],
@@ -133,7 +206,7 @@
     {
       "id": "STUDIO-NO-CYCLES",
       "kind": "no_component_cycles",
-      "rationale": "The API stays a leaf below the workspace and the server.",
+      "rationale": "The API stays a leaf below the graph, the workspace and the server.",
       "provenance": [
         "docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md"
       ],
