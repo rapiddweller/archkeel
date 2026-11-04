@@ -1498,7 +1498,7 @@ def test_the_module_level_counts_every_call_site_and_keeps_the_claim(studio: Stu
     with _page_on(studio, answer, "#/module/0") as page:
         stub = page.locator("a.lens-card.stub")
         stub.wait_for()
-        assert _words(stub.locator(".meta").first) == "✓ 2 · ✎ 1"
+        assert _words(stub.locator(".meta").first) == "2 ✓ proven · 1 ✎ claim"
         page.locator(".level-card", has_text="f").first.click()
         page.locator(".level-card.pinned").wait_for()
         # A line with a claim is a claim, to the sibling and to the stub alike.
@@ -1568,6 +1568,47 @@ def test_a_function_that_the_snapshot_lacks_falls_back_to_the_start_in_title_and
 
 
 @pytest.mark.browser
+def test_the_map_cards_and_their_call_lists_name_the_proof_in_words(studio: Studio) -> None:
+    # f calls g at one resolved and one partial site: alpha calls beta, one proven and one claim.
+    symbols = [_function(0, "f"), _function(1, "g")]
+    answer = _small_graph(_TWO_MODULES, symbols, [[0, 1, False, 5, 0], [0, 1, True, 6, 1]])
+    with _page_on(studio, answer, "#/map") as page:
+        card = page.locator("a.map-card", has_text="alpha")
+        card.wait_for()
+        assert "out 1 ✓ proven · 1 ✎ claim" in _words(card)
+        assert "in 0 ✓ proven" in _words(card)
+        card.click()
+        details = page.get_by_role("complementary", name="Details")
+        calls = details.locator(".box", has=page.get_by_role("heading", name="Calls", exact=True))
+        assert "beta 1 ✓ proven · 1 ✎ claim" in _words(calls)
+        page.locator("a.map-card", has_text="beta").click()
+        called_by = details.locator(".box", has=page.get_by_role("heading", name="Called by"))
+        assert "alpha 1 ✓ proven · 1 ✎ claim" in _words(called_by)
+
+
+@pytest.mark.browser
+def test_a_question_from_the_briefing_shows_its_answer_on_a_narrow_screen(studio: Studio) -> None:
+    api = pytest.importorskip("playwright.sync_api")
+    reply = {**_ANSWER, "blocks": [_ANSWER["blocks"][0] | {"refs": []}], "facts": []}
+    with api.sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 1000, "height": 700})
+            page.set_default_timeout(10000)
+            page.route("**/api/v1/chat", lambda route: route.fulfill(json=reply))
+            page.goto(studio.url + "#/overview")
+            page.get_by_role("textbox", name="Question").fill("What does place do?")
+            page.get_by_role("button", name="Ask", exact=True).click()
+            page.get_by_role("heading", name="Map", exact=True).wait_for()
+            # Below 1300 px the side panel starts closed; the chat the question opened must be seen.
+            chat = page.get_by_role("complementary", name="Ask the agent")
+            chat.get_by_text("place saves the order.").wait_for()
+            assert chat.get_by_text("place saves the order.").is_visible()
+        finally:
+            browser.close()
+
+
+@pytest.mark.browser
 @pytest.mark.parametrize("late", ["story", "failure", "list-failure"])
 def test_a_late_answer_of_another_route_never_replaces_the_story_on_screen(
     studio: Studio, late: str
@@ -1604,27 +1645,5 @@ def test_a_late_answer_of_another_route_never_replaces_the_story_on_screen(
             assert page.get_by_role("heading", name="Story B").is_visible()
             assert page.get_by_role("heading", name="Story A").count() == 0
             assert page.get_by_role("alert").count() == 0
-        finally:
-            browser.close()
-
-
-@pytest.mark.browser
-def test_a_question_from_the_briefing_shows_its_answer_on_a_narrow_screen(studio: Studio) -> None:
-    api = pytest.importorskip("playwright.sync_api")
-    reply = {**_ANSWER, "blocks": [_ANSWER["blocks"][0] | {"refs": []}], "facts": []}
-    with api.sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
-        try:
-            page = browser.new_page(viewport={"width": 1000, "height": 700})
-            page.set_default_timeout(10000)
-            page.route("**/api/v1/chat", lambda route: route.fulfill(json=reply))
-            page.goto(studio.url + "#/overview")
-            page.get_by_role("textbox", name="Question").fill("What does place do?")
-            page.get_by_role("button", name="Ask", exact=True).click()
-            page.get_by_role("heading", name="Map", exact=True).wait_for()
-            # Below 1300 px the side panel starts closed; the chat the question opened must be seen.
-            chat = page.get_by_role("complementary", name="Ask the agent")
-            chat.get_by_text("place saves the order.").wait_for()
-            assert chat.get_by_text("place saves the order.").is_visible()
         finally:
             browser.close()

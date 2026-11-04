@@ -514,7 +514,6 @@
             "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:ARROWS",
             "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Counts",
             "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:FocusList",
-            "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Glyphs",
             "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:LevelCanvas",
             "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Selection",
             "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Workbench",
@@ -702,7 +701,6 @@
         "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:FocusList",
         "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:focusRows",
         "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:functionRows",
-        "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Glyphs",
         "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:ARROWS",
         "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:nearest",
         "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx:Selection"

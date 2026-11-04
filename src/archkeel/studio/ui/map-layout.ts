@@ -111,8 +111,8 @@ export function layoutMap(model: Model): MapLayout {
   });
   const tallest = Math.max(...columns.map((column) => column.length));
   const { width, gapX, gapY, left, top } = MAP_CARD;
-  // A card is as tall as its longest component name needs; the two facts are one line each.
-  const height = Math.max(MAP_CARD.height, ...model.graph.components.map(([id]) => cardHeight(width, id, ["x".repeat(30), "x".repeat(34), ""])));
+  // A card is as tall as its longest component name needs; the three facts are one line each.
+  const height = Math.max(MAP_CARD.height, ...model.graph.components.map(([id]) => cardHeight(width, id, ["x".repeat(30), "x".repeat(34), "x".repeat(34), ""])));
   const positions: (readonly [number, number])[] = new Array(count);
   columns.forEach((column, level) => {
     const offset = ((tallest - column.length) * (height + gapY)) / 2;

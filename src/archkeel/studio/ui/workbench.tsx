@@ -28,18 +28,6 @@ export function Counts(props: { tally: Tally }) {
   );
 }
 
-/** Proven and claim call sites as glyph and number: the legend says what the glyphs mean. */
-export function Glyphs(props: { tally: Tally }) {
-  const { proven, claim } = props.tally;
-  return (
-    <>
-      {proven > 0 || claim === 0 ? `✓ ${compact(proven)}` : ""}
-      {proven > 0 && claim > 0 ? " · " : ""}
-      {claim > 0 ? `✎ ${compact(claim)}` : ""}
-    </>
-  );
-}
-
 /** What the reader needs to place a level: its name, its numbers, what a card means, and the way up. */
 interface Here {
   readonly name: string;
@@ -467,7 +455,7 @@ export function LevelCanvas(props: {
           >
             <b>{info.name}</b>
             <span class="meta">
-              <Glyphs tally={stub} />
+              <Counts tally={stub} />
             </span>
             <span class="meta names">
               {chips.slice(0, CHIPS).join(" · ")}

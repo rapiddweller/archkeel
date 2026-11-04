@@ -6,7 +6,7 @@ import { Evidence, Proof, proofKind, proofOf } from "../evidence";
 import { MAP_CARD, MapLine, layoutMap } from "../map-layout";
 import { Level, Model, Tally, counted, fileName, links, pairs, shortName, tailPath } from "../model";
 import { ComponentSource, ContractState } from "../vocabulary";
-import { ARROWS, Counts, Glyphs, Selection, Workbench, nearest } from "../workbench";
+import { ARROWS, Counts, Selection, Workbench, nearest } from "../workbench";
 
 const PAIRS_SHOWN = 16;
 
@@ -199,7 +199,10 @@ function MapView(props: { model: Model; contract: ContractState; chat: ChatState
                   {counted(own.modules, "module")} · {counted(own.symbols, "function")}
                 </span>
                 <span class="stat">
-                  in <Glyphs tally={own.callsIn} /> · out <Glyphs tally={own.callsOut} />
+                  in <Counts tally={own.callsIn} />
+                </span>
+                <span class="stat">
+                  out <Counts tally={own.callsOut} />
                 </span>
               </a>
             );
@@ -231,7 +234,7 @@ function MapView(props: { model: Model; contract: ContractState; chat: ChatState
                       const other = index === 1 ? flow.to : flow.from;
                       return (
                         <li key={other}>
-                          <a href={viewHref(View.Component, other)}>{model.graph.components[other][0]}</a> <Glyphs tally={flow} />
+                          <a href={viewHref(View.Component, other)}>{model.graph.components[other][0]}</a> <Counts tally={flow} />
                         </li>
                       );
                     })}

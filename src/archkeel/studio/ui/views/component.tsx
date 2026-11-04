@@ -26,7 +26,7 @@ export function ComponentLevel(props: { model: Model; component: number; pkg: st
   };
   const text: LevelText = {
     card: (module) => ({ name: fileOf(model, module), facts: [meta(module)] }),
-    stub: (ref) => ({ name: stubName(ref), facts: ["✓ 9999 · ✎ 9999"] }),
+    stub: (ref) => ({ name: stubName(ref), facts: ["9999 ✓ proven · 9999 ✎ claim"] }),
   };
   const layout = useMemo(() => layoutComponent(model, component, pkg, opened, text), [model, component, pkg, opened]);
   const [id] = model.graph.components[component];

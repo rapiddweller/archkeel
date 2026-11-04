@@ -14,7 +14,7 @@ export function ModuleLevel(props: { model: Model; module: number; chat: ChatSta
   const meta = (symbol: number): string => `${counted(neighbors(model, symbol), "link")}${model.graph.symbols[symbol][5] > 0 ? ` · ? ${model.graph.symbols[symbol][5]}` : ""}`;
   const text: LevelText = {
     card: (symbol) => ({ name: model.graph.symbols[symbol][1], facts: [meta(symbol)] }),
-    stub: (ref) => ({ name: fileOf(model, Number(ref)), facts: ["✓ 9999 · ✎ 9999"] }),
+    stub: (ref) => ({ name: fileOf(model, Number(ref)), facts: ["9999 ✓ proven · 9999 ✎ claim"] }),
   };
   const layout = useMemo(() => layoutModule(model, module, all, text), [model, module, all]);
   const [, , component] = model.graph.modules[module];
