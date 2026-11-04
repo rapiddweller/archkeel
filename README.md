@@ -12,12 +12,8 @@
 [Install](#install) · [Quick start](#quick-start) · [Why](#why-archkeel) · [Compared](#archkeel-floorplan-or-understand-anything) · [Features](#features) · [Live demo](https://rapiddweller.github.io/archkeel/demos/) · [FAQ](#faq)
 
 <p>
-  <img src="docs/assets/archkeel-self-check.png" alt="ArchKeel's report of its own code: 126 rules PASS, 0 UNKNOWN, findings with source lines, and the Target view with component responsibilities" width="1000">
+  <img src="docs/assets/archkeel-hero.png" alt="ArchKeel: see what your code really does, check it against what you decided. ArchKeel's own architecture, simplified: cli requires studio, render, analyzer and check, which share the ir component. PASS, 126 rules, 0 UNKNOWN." width="1000">
 </p>
-
-ArchKeel checks itself: 126 rules `PASS`, 0 `UNKNOWN`, every finding with its source line, and the
-declared Target with the responsibility of each component.
-[Open the live report](https://rapiddweller.github.io/archkeel/architecture.report.html?content=components&view=target&theme=dark).
 
 ArchKeel reads your code and shows how it is built: the parts, the imports between them and the
 evidence for each. You or your coding agent then declare the boundaries you want. ArchKeel checks
@@ -28,28 +24,29 @@ The checks run on your machine and use no LLM. The agent explains and proposes; 
 
 ## Why ArchKeel?
 
-An agent can change a hundred files in an hour. Tests tell you the behavior still works. They do
-not tell you that the `render` package now imports the `store`, or that a call became harder to
-resolve. Asking the agent "is the architecture still fine?" gets you an opinion.
+You, or your coding agent, built a lot of code. Do you know the architecture it really has?
+Tests tell you the behavior still works. They do not tell you that `render` now imports `store`,
+or that a call became harder to resolve. Asking the agent "is the architecture still fine?" gets
+you an opinion.
 
-ArchKeel goes from understanding to a decided architecture, and keeps it:
+ArchKeel was built to understand the architecture that was really implemented, and to turn it
+into one you choose:
 
 ```text
- Observe              Decide                  Enforce
- how the code         the boundaries you      the code is checked
- really works    ->   want, from that    ->   against them: PASS,
- (measured)           evidence (you decide)   FAIL or UNKNOWN
+ Understand   Show     Measure    Challenge       Define          Enforce
+ what was     it as a  it with    weak spots and  the target      every change
+ built        map      evidence   violations      architecture    in CI
 ```
 
-1. **Observe.** Static analysis resolves imports and calls. Each fact keeps its evidence: the
-   record and the source line. What the analysis cannot resolve is counted, not hidden.
-2. **Decide.** Your agent explains the map and proposes components, responsibilities and a target.
-   You decide. Existing imports are evidence, not permission.
-3. **Enforce.** The contract becomes rules. A rule passes only with complete evidence. Missing
+1. **Understand and show.** Static analysis resolves imports and calls. Studio and the Explorer
+   draw the as-built architecture: components, hubs, cycles, with a guided tour.
+2. **Measure.** Each fact keeps its evidence: the record and the source line. What the analysis
+   cannot resolve is counted, not hidden.
+3. **Challenge.** You and your agent discuss the weak spots: violations, cycles, components that
+   hold too much. The agent proposes. Its text stays a claim until the code proves it.
+4. **Define and enforce.** You decide the target architecture. Existing imports are evidence, not
+   permission. The contract becomes rules. A rule passes only with complete evidence; missing
    evidence is `UNKNOWN`, never a quiet `PASS`. CI rejects the change that crosses a boundary.
-
-The agent explains and proposes. It never decides a verdict, and its text stays a claim until the
-code proves it.
 
 ## ArchKeel, Floorplan or Understand Anything?
 
@@ -64,6 +61,8 @@ their facts in different ways.
 | **Role of the LLM** | Explains and proposes. No part of a check or verdict uses it | Writes the architecture description and the names | Summarizes, finds relationships, writes tours |
 | **What you end with** | A declared contract with rules, verdicts, Target and Diff views, a baseline, a CI gate | A map, a health check, recent work | A knowledge graph, layers, guided tours |
 | **Runs in** | Claude Code, Codex, any shell, CI | Claude Code, Codex | Claude Code, Codex and more |
+
+Understand Anything teaches the story behind a codebase. ArchKeel measures the architecture you actually have and holds it to the one you choose.
 
 Pick **ArchKeel** to turn what the code does into an architecture you can enforce. Pick **Floorplan**
 or **Understand Anything** to learn a codebase quickly and in plain words. They combine well: learn
@@ -183,6 +182,14 @@ responsibilities on components marked `decided_by: "architect"`; substantive pro
 the stated responsibility is correct. See the [exact marker syntax and exit behavior](docs/reference.md#exit-codes).
 
 ## See it in action
+
+<p>
+  <img src="docs/assets/archkeel-self-check.png" alt="ArchKeel's report of its own code: 126 rules PASS, 0 UNKNOWN, findings with source lines, and the Target view with component responsibilities" width="1000">
+</p>
+
+ArchKeel checks itself: 126 rules `PASS`, 0 `UNKNOWN`, every finding with its source line, and the
+declared Target with the responsibility of each component.
+[Open the live report](https://rapiddweller.github.io/archkeel/architecture.report.html?content=components&view=target&theme=dark).
 
 <p>
   <img src="docs/assets/archkeel-compass-target.png" alt="ArchQ Explorer embedded in the report: Compass Flutter Target with components, responsibilities and declared dependencies" width="1000">
