@@ -212,12 +212,17 @@ Overview shows the progress. When the snapshot is done, Studio opens on the Map:
     (the top-level packages of the explore layout; also when the contract does not load). A click
     on a line or a count lists the calls behind it; a click on a card opens the component.
   - **Component** (`#/component/<n>`, also `/<package>`): the modules of the component as cards on
-    plates by package, with the call lines between modules (proven and claim counts). Stubs at the
-    sides are the other components that call into it (left) and that it calls (right), each with
-    its count; a click on a stub opens that component. A click on a module card opens the module.
-  - **Module** (`#/module/<n>`): the functions of the module as cards, the calls between them, and
-    the other modules that call in or are called as stubs, grouped by module. A click on a function
-    opens the lens.
+    plates by package. The page is calm: no line at rest. Hover a card to draw the lines of that card
+    (its callers and callees, in the gutters between the cards, proven solid and claim dotted) and
+    to dim the other cards; a click pins the focus, Esc clears it. The side panel lists each
+    connected card with its module, file, line and proof. Stubs at the sides are the other
+    components that call into it (left) and that it calls (right), each with its count and, while a
+    card has the focus, the functions on the other side; a click on a stub opens that component. A
+    double click or Enter on a module card opens the module. A package that does not fit the first
+    screen is one tile that opens it.
+  - **Module** (`#/module/<n>`): the functions of the module as cards and the other modules that call
+    in or are called as stubs, grouped by module. The focus works as on the component level. A double
+    click or Enter on a function opens the lens.
   - **Explore** (`#/explore/<function>`): the lens around one function: callers on the left,
     callees on the right, unknown calls below, one hop. Cards of one module share a plate. A
     large neighborhood folds into package groups. The search (Cmd/Ctrl+K) opens the lens at any

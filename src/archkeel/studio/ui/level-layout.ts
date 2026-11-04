@@ -6,6 +6,8 @@ import { Level, Model, Tally } from "./model";
 export const LEVEL_CARD = { width: 200, height: 56, gap: 24 } as const;
 export const LEVEL_STUB = { width: 170, height: 92, gap: 14 } as const;
 const HEAD = 30;
+/** Room above the first plate and stub for the labels of the columns. */
+const TOP = 28;
 const SPREAD = 56;
 const COLUMNS = 2;
 const STUBS_SHOWN = 8;
@@ -66,7 +68,10 @@ export interface LevelLayout {
 interface Group {
   readonly label: string;
   readonly items: readonly number[];
+  /** The whole group is one tile. */
   readonly folded: boolean;
+  /** Items of the group that a tile at the end of the plate holds. */
+  readonly hidden: number;
 }
 interface RawStub extends Tally {
   readonly id: number;
@@ -124,7 +129,7 @@ function arrange(
   const plates: LevelPlate[] = [];
   const cards: LevelCard[] = [];
   const tiles: LevelTile[] = [];
-  let y = 0;
+  let y = TOP;
   for (const group of groups) {
     if (group.folded) {
       // A folded package has no plate: one tile in its place.
@@ -133,8 +138,12 @@ function arrange(
       continue;
     }
     const rows = Math.ceil(group.items.length / columns);
-    const height = HEAD + rows * cardHeight + (rows + 1) * gap;
+    // The tile of the rest sits in a row of its own at the bottom of the plate.
+    const height = HEAD + rows * cardHeight + (rows + 1) * gap + (group.hidden > 0 ? cardHeight + gap : 0);
     plates.push({ label: group.label, x: left, y, width: plateWidth, height, folded: false });
+    if (group.hidden > 0) {
+      tiles.push({ label: group.label, hidden: group.hidden, x: left + gap, y: y + height - gap - cardHeight, width: plateWidth - 2 * gap, height: cardHeight });
+    }
     {
       group.items.forEach((index, order) => {
         cards.push({
@@ -150,11 +159,11 @@ function arrange(
   }
   const centerHeight = Math.max(0, y - gap);
   const stubHeight = (count: number): number => Math.min(count, STUBS_SHOWN) * (LEVEL_STUB.height + LEVEL_STUB.gap);
-  const height = Math.max(centerHeight, stubHeight(stubsIn.length), stubHeight(stubsOut.length)) + 24;
+  const height = Math.max(centerHeight, TOP + stubHeight(stubsIn.length), TOP + stubHeight(stubsOut.length)) + 24;
   const place = (side: Side, stubs: readonly RawStub[]): LevelStub[] => {
     const rows = [...stubs].sort((a, b) => b.proven + b.claim - (a.proven + a.claim)).slice(0, STUBS_SHOWN);
     const x = side === Side.In ? 0 : left + plateWidth + SPREAD;
-    const top = Math.max(0, (height - rows.length * (LEVEL_STUB.height + LEVEL_STUB.gap)) / 2);
+    const top = Math.max(TOP, (height - rows.length * (LEVEL_STUB.height + LEVEL_STUB.gap)) / 2);
     return rows.map((stub, order) => ({
       ...stub,
       side,
@@ -178,14 +187,19 @@ function arrange(
   };
 }
 
-/** Packages in order; one that does not fit the budget folds unless the user opened it. */
+/** Packages in order. One that does not fit the budget folds, unless the user opened it; the first one shows its first modules. */
 function fold(groups: readonly { label: string; items: readonly number[] }[], opened: ReadonlySet<string>, budget: number): Group[] {
   let used = 0;
   return groups.map((group) => {
-    const fits = used + group.items.length <= budget;
-    const folded = !fits && !opened.has(group.label);
-    if (!folded) used += group.items.length;
-    return { ...group, folded };
+    if (opened.has(group.label) || used + group.items.length <= budget) {
+      used += group.items.length;
+      return { ...group, folded: false, hidden: 0 };
+    }
+    if (used === 0) {
+      used = budget;
+      return { label: group.label, items: group.items.slice(0, budget), folded: false, hidden: group.items.length - budget };
+    }
+    return { ...group, folded: true, hidden: 0 };
   });
 }
 
@@ -309,25 +323,6 @@ export function layoutModule(model: Model, module: number, showAll: boolean): Le
   });
   const stubs = (found: Map<number, Tally>): RawStub[] => [...found.entries()].map(([id, sites]) => ({ id, ...sites }));
   const label = graph.modules[module][1].split("/").pop() ?? graph.modules[module][0];
-  const rest = all.length - shownFunctions.length;
-  // The rest of the module is one tile that opens it.
-  const groups: Group[] = [{ label, items: shownFunctions, folded: false }];
-  const layout = arrange(Level.Function, groups, stubs(callers), stubs(callees), links);
-  if (rest <= 0) return layout;
-  const plate = layout.plates[0];
-  const extra = LEVEL_CARD.height + LEVEL_CARD.gap;
-  const tile: LevelTile = {
-    label,
-    hidden: rest,
-    x: plate.x + LEVEL_CARD.gap,
-    y: plate.y + plate.height - LEVEL_CARD.gap,
-    width: plate.width - 2 * LEVEL_CARD.gap,
-    height: LEVEL_CARD.height,
-  };
-  return {
-    ...layout,
-    height: layout.height + extra,
-    plates: [{ ...plate, height: plate.height + extra }],
-    tiles: [tile],
-  };
+  const groups: Group[] = [{ label, items: shownFunctions, folded: false, hidden: all.length - shownFunctions.length }];
+  return arrange(Level.Function, groups, stubs(callers), stubs(callees), links);
 }
