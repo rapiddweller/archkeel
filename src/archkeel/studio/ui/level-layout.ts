@@ -6,11 +6,11 @@ import { Level, Model, Tally } from "./model";
 export const LEVEL_CARD = { width: 200, height: 56, gap: 24 } as const;
 export const LEVEL_STUB = { width: 170, height: 92, gap: 14 } as const;
 const HEAD = 30;
-/** Room above the first plate and stub for the labels of the columns. */
-const TOP = 28;
 const SPREAD = 56;
 const COLUMNS = 2;
 const STUBS_SHOWN = 8;
+/** Room above the first plate and stub: the column labels have a row of their own. */
+export const TOP = 40;
 /** At most this many cards show at first; the rest of a package folds into one tile. */
 export const MODULES_SHOWN = 8;
 export const FUNCTIONS_SHOWN = 16;
@@ -29,17 +29,19 @@ export interface LevelCard extends LevelBox {
 export interface LevelPlate extends LevelBox {
   /** The package, or the module file on the level of the functions. */
   readonly label: string;
-  readonly folded: boolean;
 }
-/** A folded package or the rest of a module: one card that opens it. */
+/** A folded package or the rest of a plate: one card that opens it. */
 export interface LevelTile extends LevelBox {
   readonly label: string;
   readonly hidden: number;
 }
-/** Another component (above the modules) or another module (above the functions) that calls in or is called. */
+/**
+ * Another component, another package of the component, or another module that calls in or is called.
+ * `ref` is the component, `component/package` or the module.
+ */
 export interface LevelStub extends LevelBox, Tally {
   readonly side: Side;
-  readonly id: number;
+  readonly ref: string;
 }
 /** One function pair behind a link; the line is the call site in the file of the source. */
 export interface LevelPair {
@@ -53,6 +55,11 @@ export interface LevelLink extends Tally {
   readonly b: string;
   readonly pairs: readonly LevelPair[];
 }
+/** The faint line of a stub at rest: from the stub to a port on the edge of the nearest plate or tile. */
+export interface LevelAggregate {
+  readonly key: string;
+  readonly points: readonly (readonly [number, number])[];
+}
 export interface LevelLayout {
   readonly width: number;
   readonly height: number;
@@ -61,20 +68,20 @@ export interface LevelLayout {
   readonly tiles: readonly LevelTile[];
   readonly stubs: readonly LevelStub[];
   readonly links: readonly LevelLink[];
+  readonly aggregates: readonly LevelAggregate[];
   /** Stubs that did not fit the drawing, counted. */
   readonly moreStubs: number;
 }
 
 interface Group {
   readonly label: string;
+  /** Drawn as cards. */
   readonly items: readonly number[];
-  /** The whole group is one tile. */
-  readonly folded: boolean;
-  /** Items of the group that a tile at the end of the plate holds. */
-  readonly hidden: number;
+  /** Held by the tile of the group; with no `items` the group has no plate, only the tile. */
+  readonly rest: readonly number[];
 }
 interface RawStub extends Tally {
-  readonly id: number;
+  readonly ref: string;
 }
 interface RawLink extends Tally {
   readonly a: string;
@@ -88,13 +95,25 @@ interface Sites {
 }
 
 export const cardKey = (level: Level, index: number): string => `${level}:${index}`;
-export const stubKey = (side: Side, id: number): string => `${side}:${id}`;
+export const stubKey = (side: Side, ref: string): string => `${side}:${ref}`;
+export const tileKey = (label: string): string => `tile:${label}`;
 
-/** The box that a key names: a card (module or function) or a stub. */
-export type KeyPart = { readonly stub: Side | null; readonly id: number };
+/** What a key names. */
+export const KeyKind = { Stub: "stub", Tile: "tile", Card: "card" } as const;
+export type KeyKind = (typeof KeyKind)[keyof typeof KeyKind];
+export type KeyPart = { readonly kind: KeyKind; readonly stub: Side | null; readonly ref: string };
 export function parseKey(key: string): KeyPart {
-  const [head, id] = key.split(":");
-  return { stub: head === Side.In ? Side.In : head === Side.Out ? Side.Out : null, id: Number(id) };
+  const at = key.indexOf(":");
+  const head = key.slice(0, at);
+  const ref = key.slice(at + 1);
+  if (head === Side.In || head === Side.Out) return { kind: KeyKind.Stub, stub: head, ref };
+  return { kind: key.startsWith(tileKey("")) ? KeyKind.Tile : KeyKind.Card, stub: null, ref };
+}
+
+/** The component and the package of a stub of the component level. */
+export function splitRef(ref: string): { readonly id: number; readonly pkg: string | null } {
+  const [id, ...pkg] = ref.split("/");
+  return { id: Number(id), pkg: pkg.length > 0 ? pkg.join("/") : null };
 }
 
 const better = (known: LevelPair | undefined, now: LevelPair): boolean => known === undefined || (known.partial && !now.partial);
@@ -114,6 +133,26 @@ const raw = (key: [string, string], sites: Sites): RawLink => ({
   pairs: [...sites.pairs.values()].slice(0, PAIRS_KEPT),
 });
 
+/** A link to a card that a tile holds ends on the tile; two links with the same ends become one. */
+function remap(links: readonly RawLink[], tileOf: ReadonlyMap<string, string>): RawLink[] {
+  const merged = new Map<string, RawLink>();
+  for (const link of links) {
+    const a = tileOf.get(link.a) ?? link.a;
+    const b = tileOf.get(link.b) ?? link.b;
+    if (a === b) continue;
+    const key = `${a}|${b}`;
+    const known = merged.get(key);
+    merged.set(key, {
+      a,
+      b,
+      proven: (known?.proven ?? 0) + link.proven,
+      claim: (known?.claim ?? 0) + link.claim,
+      pairs: [...(known?.pairs ?? []), ...link.pairs].slice(0, PAIRS_KEPT),
+    });
+  }
+  return [...merged.values()];
+}
+
 function arrange(
   level: Level,
   groups: readonly Group[],
@@ -122,39 +161,39 @@ function arrange(
   links: readonly RawLink[],
 ): LevelLayout {
   const { width: cardWidth, height: cardHeight, gap } = LEVEL_CARD;
-  const total = groups.reduce((sum, group) => sum + group.items.length, 0);
+  const total = groups.reduce((sum, group) => sum + group.items.length + group.rest.length, 0);
   const columns = total <= 1 ? 1 : COLUMNS;
   const plateWidth = columns * cardWidth + (columns + 1) * gap;
   const left = LEVEL_STUB.width + SPREAD;
   const plates: LevelPlate[] = [];
   const cards: LevelCard[] = [];
   const tiles: LevelTile[] = [];
+  const tileOf = new Map<string, string>();
   let y = TOP;
   for (const group of groups) {
-    if (group.folded) {
+    group.rest.forEach((index) => tileOf.set(cardKey(level, index), tileKey(group.label)));
+    if (group.items.length === 0) {
       // A folded package has no plate: one tile in its place.
-      tiles.push({ label: group.label, hidden: group.items.length, x: left, y, width: plateWidth, height: cardHeight });
+      tiles.push({ label: group.label, hidden: group.rest.length, x: left, y, width: plateWidth, height: cardHeight });
       y += cardHeight + gap;
       continue;
     }
     const rows = Math.ceil(group.items.length / columns);
     // The tile of the rest sits in a row of its own at the bottom of the plate.
-    const height = HEAD + rows * cardHeight + (rows + 1) * gap + (group.hidden > 0 ? cardHeight + gap : 0);
-    plates.push({ label: group.label, x: left, y, width: plateWidth, height, folded: false });
-    if (group.hidden > 0) {
-      tiles.push({ label: group.label, hidden: group.hidden, x: left + gap, y: y + height - gap - cardHeight, width: plateWidth - 2 * gap, height: cardHeight });
+    const height = HEAD + rows * cardHeight + (rows + 1) * gap + (group.rest.length > 0 ? cardHeight + gap : 0);
+    plates.push({ label: group.label, x: left, y, width: plateWidth, height });
+    if (group.rest.length > 0) {
+      tiles.push({ label: group.label, hidden: group.rest.length, x: left + gap, y: y + height - gap - cardHeight, width: plateWidth - 2 * gap, height: cardHeight });
     }
-    {
-      group.items.forEach((index, order) => {
-        cards.push({
-          index,
-          x: left + gap + (order % columns) * (cardWidth + gap),
-          y: y + HEAD + gap + Math.floor(order / columns) * (cardHeight + gap),
-          width: cardWidth,
-          height: cardHeight,
-        });
+    group.items.forEach((index, order) => {
+      cards.push({
+        index,
+        x: left + gap + (order % columns) * (cardWidth + gap),
+        y: y + HEAD + gap + Math.floor(order / columns) * (cardHeight + gap),
+        width: cardWidth,
+        height: cardHeight,
       });
-    }
+    });
     y += height + gap;
   }
   const centerHeight = Math.max(0, y - gap);
@@ -174,7 +213,24 @@ function arrange(
     }));
   };
   const stubs = [...place(Side.In, stubsIn), ...place(Side.Out, stubsOut)];
-  const drawn = new Set<string>([...cards.map((card) => cardKey(level, card.index)), ...stubs.map((stub) => stubKey(stub.side, stub.id))]);
+  const merged = remap(links, tileOf);
+  const drawn = new Set<string>([
+    ...cards.map((card) => cardKey(level, card.index)),
+    ...tiles.map((tile) => tileKey(tile.label)),
+    ...stubs.map((stub) => stubKey(stub.side, stub.ref)),
+  ]);
+  // At rest a stub has a faint line to a port on the edge of the plate or tile that is nearest to it.
+  const targets: LevelBox[] = [...plates, ...tiles];
+  const aggregates = stubs.flatMap<LevelAggregate>((stub) => {
+    const centre = stub.y + stub.height / 2;
+    const nearest = [...targets].sort((p, q) => Math.abs(centre - (p.y + p.height / 2)) - Math.abs(centre - (q.y + q.height / 2)))[0];
+    if (nearest === undefined) return [];
+    const inbound = stub.side === Side.In;
+    const from: readonly [number, number] = [inbound ? stub.x + stub.width : stub.x, centre];
+    const port: readonly [number, number] = [inbound ? nearest.x : nearest.x + nearest.width, Math.min(Math.max(centre, nearest.y + 12), nearest.y + nearest.height - 12)];
+    const middle = (from[0] + port[0]) / 2;
+    return [{ key: stubKey(stub.side, stub.ref), points: [from, [middle, from[1]], [middle, port[1]], port] }];
+  });
   return {
     width: left + plateWidth + SPREAD + LEVEL_STUB.width,
     height,
@@ -182,7 +238,8 @@ function arrange(
     cards,
     tiles,
     stubs,
-    links: links.filter((link) => drawn.has(link.a) && drawn.has(link.b)),
+    links: merged.filter((link) => drawn.has(link.a) && drawn.has(link.b)),
+    aggregates,
     moreStubs: Math.max(0, stubsIn.length - STUBS_SHOWN) + Math.max(0, stubsOut.length - STUBS_SHOWN),
   };
 }
@@ -193,26 +250,32 @@ function fold(groups: readonly { label: string; items: readonly number[] }[], op
   return groups.map((group) => {
     if (opened.has(group.label) || used + group.items.length <= budget) {
       used += group.items.length;
-      return { ...group, folded: false, hidden: 0 };
+      return { ...group, rest: [] };
     }
     if (used === 0) {
       used = budget;
-      return { label: group.label, items: group.items.slice(0, budget), folded: false, hidden: group.items.length - budget };
+      return { label: group.label, items: group.items.slice(0, budget), rest: group.items.slice(budget) };
     }
-    return { ...group, folded: true, hidden: 0 };
+    return { label: group.label, items: [], rest: group.items };
   });
 }
 
-const packageOf = (model: Model, module: number, fallback: string): string => model.folders[module].join(".") || fallback;
+const packageOf = (model: Model, module: number): string => model.folders[module].join(".");
 
-/** The modules of one component (or of one package of it), the links between them and the other components as stubs. */
+/** The modules of one component (or of one package of it), the links between them and the other components and packages as stubs. */
 export function layoutComponent(model: Model, component: number, pkg: string | null, opened: ReadonlySet<string>): LevelLayout {
   const { graph } = model;
   const inside = (module: number): boolean => {
     if (graph.modules[module][2] !== component) return false;
     if (pkg === null) return true;
-    const own = model.folders[module].join(".");
+    const own = packageOf(model, module);
     return own === pkg || own.startsWith(`${pkg}.`);
+  };
+  /** The stub of a module outside the page: its component, or its package when it is in this component. */
+  const outside = (module: number): string => {
+    const other = graph.modules[module][2];
+    const own = packageOf(model, module);
+    return other === component && own !== "" ? `${other}/${own}` : `${other}`;
   };
   const internal = new Map<string, Sites>();
   const callers = new Map<string, Sites>();
@@ -222,23 +285,22 @@ export function layoutComponent(model: Model, component: number, pkg: string | n
   for (const [source, target, partial, line, site] of graph.edges) {
     const from = graph.symbols[source][0];
     const to = graph.symbols[target][0];
-    const fromComponent = graph.modules[from][2];
-    const toComponent = graph.modules[to][2];
     const pair: LevelPair = { source, target, partial, line };
-    if (inside(from) && inside(to) && from !== to) bump(internal, `${from}>${to}`, pair, site);
-    else if (inside(from) && toComponent !== component) {
-      bump(callees, `${toComponent}`, pair, site);
-      bump(linkOut, `${from}>${toComponent}`, pair, site);
-    } else if (inside(to) && fromComponent !== component) {
-      bump(callers, `${fromComponent}`, pair, site);
-      bump(linkIn, `${fromComponent}>${to}`, pair, site);
+    if (inside(from) && inside(to)) {
+      if (from !== to) bump(internal, `${from}>${to}`, pair, site);
+    } else if (inside(from)) {
+      bump(callees, outside(to), pair, site);
+      bump(linkOut, `${from}>${outside(to)}`, pair, site);
+    } else if (inside(to)) {
+      bump(callers, outside(from), pair, site);
+      bump(linkIn, `${outside(from)}>${to}`, pair, site);
     }
   }
   const modules = graph.modules.map((_, module) => module).filter(inside);
   const name = (module: number): string => graph.modules[module][1].split("/").pop() ?? "";
   const packages = new Map<string, number[]>();
   for (const module of modules) {
-    const key = packageOf(model, module, graph.components[component][0]);
+    const key = packageOf(model, module) || graph.components[component][0];
     packages.set(key, [...(packages.get(key) ?? []), module]);
   }
   const groups = [...packages.entries()]
@@ -250,15 +312,15 @@ export function layoutComponent(model: Model, component: number, pkg: string | n
     links.push(raw([cardKey(Level.Module, Number(a)), cardKey(Level.Module, Number(b))], sites));
   });
   linkIn.forEach((sites, key) => {
-    const [id, to] = key.split(">");
-    links.push(raw([stubKey(Side.In, Number(id)), cardKey(Level.Module, Number(to))], sites));
+    const [ref, to] = key.split(">");
+    links.push(raw([stubKey(Side.In, ref), cardKey(Level.Module, Number(to))], sites));
   });
   linkOut.forEach((sites, key) => {
-    const [from, id] = key.split(">");
-    links.push(raw([cardKey(Level.Module, Number(from)), stubKey(Side.Out, Number(id))], sites));
+    const [from, ref] = key.split(">");
+    links.push(raw([cardKey(Level.Module, Number(from)), stubKey(Side.Out, ref)], sites));
   });
   const stubs = (found: Map<string, Sites>): RawStub[] =>
-    [...found.entries()].map(([id, sites]) => ({ id: Number(id), proven: sites.proven.size, claim: sites.claim.size }));
+    [...found.entries()].map(([ref, sites]) => ({ ref, proven: sites.proven.size, claim: sites.claim.size }));
   return arrange(Level.Module, fold(groups, opened, MODULES_SHOWN), stubs(callers), stubs(callees), links);
 }
 
@@ -267,13 +329,12 @@ export function layoutModule(model: Model, module: number, showAll: boolean): Le
   const { graph } = model;
   const all = [...model.members[module]].sort((a, b) => graph.symbols[a][2] - graph.symbols[b][2]);
   const shownFunctions = showAll ? all : all.slice(0, FUNCTIONS_SHOWN);
-  const shown = new Set(shownFunctions);
-  const callers = new Map<number, Tally>();
-  const callees = new Map<number, Tally>();
+  const callers = new Map<string, Tally>();
+  const callees = new Map<string, Tally>();
   const links: RawLink[] = [];
-  const count = (found: Map<number, Tally>, other: number, partial: boolean): void => {
-    const now = found.get(other) ?? { proven: 0, claim: 0 };
-    found.set(other, { proven: now.proven + (partial ? 0 : 1), claim: now.claim + (partial ? 1 : 0) });
+  const count = (found: Map<string, Tally>, other: number, partial: boolean): void => {
+    const now = found.get(`${other}`) ?? { proven: 0, claim: 0 };
+    found.set(`${other}`, { proven: now.proven + (partial ? 0 : 1), claim: now.claim + (partial ? 1 : 0) });
   };
   const toStub = new Map<string, LevelPair[]>();
   const add = (key: string, pair: LevelPair): void => void toStub.set(key, [...(toStub.get(key) ?? []), pair]);
@@ -282,32 +343,23 @@ export function layoutModule(model: Model, module: number, showAll: boolean): Le
       const other = graph.symbols[link.other][0];
       const pair: LevelPair = { source: symbol, target: link.other, partial: link.partial, line: link.line };
       if (other === module) {
-        if (shown.has(symbol) && shown.has(link.other)) {
-          links.push({
-            proven: link.partial ? 0 : 1,
-            claim: link.partial ? 1 : 0,
-            a: cardKey(Level.Function, symbol),
-            b: cardKey(Level.Function, link.other),
-            pairs: [pair],
-          });
-        }
+        links.push({
+          proven: link.partial ? 0 : 1,
+          claim: link.partial ? 1 : 0,
+          a: cardKey(Level.Function, symbol),
+          b: cardKey(Level.Function, link.other),
+          pairs: [pair],
+        });
       } else {
         count(callees, other, link.partial);
-        if (shown.has(symbol)) add(`${cardKey(Level.Function, symbol)}|${stubKey(Side.Out, other)}`, pair);
+        add(`${cardKey(Level.Function, symbol)}|${stubKey(Side.Out, `${other}`)}`, pair);
       }
     }
     for (const link of model.incoming[symbol]) {
       const other = graph.symbols[link.other][0];
       if (other !== module) {
         count(callers, other, link.partial);
-        if (shown.has(symbol)) {
-          add(`${stubKey(Side.In, other)}|${cardKey(Level.Function, symbol)}`, {
-            source: link.other,
-            target: symbol,
-            partial: link.partial,
-            line: link.line,
-          });
-        }
+        add(`${stubKey(Side.In, `${other}`)}|${cardKey(Level.Function, symbol)}`, { source: link.other, target: symbol, partial: link.partial, line: link.line });
       }
     }
   }
@@ -321,8 +373,8 @@ export function layoutModule(model: Model, module: number, showAll: boolean): Le
       pairs: pairs.slice(0, PAIRS_KEPT),
     });
   });
-  const stubs = (found: Map<number, Tally>): RawStub[] => [...found.entries()].map(([id, sites]) => ({ id, ...sites }));
+  const stubs = (found: Map<string, Tally>): RawStub[] => [...found.entries()].map(([ref, sites]) => ({ ref, ...sites }));
   const label = graph.modules[module][1].split("/").pop() ?? graph.modules[module][0];
-  const groups: Group[] = [{ label, items: shownFunctions, folded: false, hidden: all.length - shownFunctions.length }];
+  const groups: Group[] = [{ label, items: shownFunctions, rest: all.slice(shownFunctions.length) }];
   return arrange(Level.Function, groups, stubs(callers), stubs(callees), links);
 }

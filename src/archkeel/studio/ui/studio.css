@@ -354,11 +354,24 @@ pre.draft { max-height: 220px; overflow: auto; white-space: pre-wrap; margin: 6p
 .plate.module { border-color: color-mix(in srgb, var(--observed) 28%, transparent);
   background: color-mix(in srgb, var(--observed) 5%, transparent); }
 .head { font-size: 11px; }
-.focus-line .halo { fill: none; stroke: var(--bg); stroke-width: 7; stroke-linecap: round; opacity: .9; }
-.focus-line .stroke { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .8;
+.aggregate path { fill: none; stroke: var(--muted); stroke-width: 1.25; opacity: .35; stroke-linecap: round; }
+.aggregate circle { fill: var(--muted); opacity: .5; }
+.focus-line .halo { fill: none; stroke: var(--bg); stroke-width: 5; stroke-linecap: round; opacity: .9; }
+.focus-line .stroke { fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; opacity: .85;
   stroke: var(--proven); }
 .focus-line.claim .stroke { stroke: var(--claim); stroke-dasharray: 1 6; }
-.focus-line.on .stroke { stroke-width: 3; opacity: 1; }
+.focus-line.on .stroke { stroke-width: 2.25; opacity: 1; }
+.focus-line .port { fill: var(--proven); }
+.focus-line.claim .port, .focus-line.claim .flow { fill: var(--claim); }
+.focus-line .flow { fill: var(--proven); offset-rotate: 0deg; animation: flow 2s linear infinite; }
+.focus-line.off .flow { animation-play-state: paused; }
+.focus-line .chevron { fill: none; stroke: var(--proven); stroke-width: 1.5; }
+.focus-line.claim .chevron { stroke: var(--claim); }
+@keyframes flow { from { offset-distance: 0%; } to { offset-distance: 100%; } }
+.tip { position: fixed; z-index: 50; max-width: 420px; padding: 6px 10px; border-radius: 8px; pointer-events: none;
+  background: var(--raised); border: 1px solid var(--line); color: var(--text); font: 12px/1.4 ui-monospace, Menlo, monospace;
+  overflow-wrap: anywhere; }
+.stub.dim b, .stub.dim .meta.path, .stub.dim .meta.names { visibility: hidden; }
 .focus-line.off { opacity: .2; }
 .focus-rows .item { display: block; margin-top: 2px; }
 .canvas[data-transition="in"], .canvas[data-transition="out"] { will-change: transform; }

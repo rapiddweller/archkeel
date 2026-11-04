@@ -261,6 +261,10 @@ export const counted = (count: number, noun: string): string => `${count} ${noun
 export const links = (model: Model, symbol: number): number =>
   model.outgoing[symbol].length + model.incoming[symbol].length;
 
+/** The distinct functions that call a function or are called by it; one that does both counts once. */
+export const neighbors = (model: Model, symbol: number): number =>
+  new Set([...model.outgoing[symbol], ...model.incoming[symbol]].map((link) => link.other)).size;
+
 export const moduleIndex = (model: Model, symbol: number): number => model.graph.symbols[symbol][0];
 
 export const componentOf = (model: Model, symbol: number): number =>

@@ -186,3 +186,19 @@ export function roundedPath(points: readonly Point[]): string {
   const [lx, ly] = points[points.length - 1];
   return `${path} L${lx} ${ly}`;
 }
+
+/** The middle of a polyline and the angle of the segment there, in degrees; where an arrowhead of reduced motion sits. */
+export function midOf(points: readonly Point[]): { x: number; y: number; angle: number } {
+  const lengths = points.slice(1).map((point, index) => Math.hypot(point[0] - points[index][0], point[1] - points[index][1]));
+  let left = lengths.reduce((sum, length) => sum + length, 0) / 2;
+  for (let index = 0; index < lengths.length; index += 1) {
+    if (left <= lengths[index] || index === lengths.length - 1) {
+      const [x0, y0] = points[index];
+      const [x1, y1] = points[index + 1];
+      const share = lengths[index] === 0 ? 0 : left / lengths[index];
+      return { x: x0 + (x1 - x0) * share, y: y0 + (y1 - y0) * share, angle: (Math.atan2(y1 - y0, x1 - x0) * 180) / Math.PI };
+    }
+    left -= lengths[index];
+  }
+  return { x: points[0][0], y: points[0][1], angle: 0 };
+}

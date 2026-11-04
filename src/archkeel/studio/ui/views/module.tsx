@@ -2,9 +2,9 @@
 import { useMemo, useState } from "preact/hooks";
 import type { ChatState } from "../chat";
 import { View, viewHref } from "../components";
-import { layoutModule, parseKey } from "../level-layout";
-import { Level, Model, counted, links, shortName, tailName } from "../model";
-import { FocusList, LevelCanvas, Workbench, focusRows, useFocus } from "../workbench";
+import { KeyKind, layoutModule, parseKey } from "../level-layout";
+import { Level, Model, counted, neighbors, shortName, tailName } from "../model";
+import { FocusList, LevelCanvas, Workbench, focusRows, functionRows, useFocus } from "../workbench";
 
 const fileOf = (model: Model, module: number): string => model.graph.modules[module][1].split("/").pop() ?? "";
 
@@ -18,7 +18,7 @@ export function ModuleLevel(props: { model: Model; module: number; chat: ChatSta
   const functions = model.members[module];
   const unknown = functions.reduce((sum, symbol) => sum + model.graph.symbols[symbol][5], 0);
   const part = focus.key === null ? null : parseKey(focus.key);
-  const focusName = part === null ? "" : part.stub === null ? shortName(model, part.id) : fileOf(model, part.id);
+  const focusName = part === null ? "" : part.kind === KeyKind.Card ? shortName(model, Number(part.ref)) : part.kind === KeyKind.Stub ? fileOf(model, Number(part.ref)) : part.ref;
   return (
     <Workbench
       model={model}
@@ -56,13 +56,13 @@ export function ModuleLevel(props: { model: Model; module: number; chat: ChatSta
               href: viewHref(View.Explore, symbol),
               name: model.graph.symbols[symbol][1],
               title: `${model.graph.modules[module][0]}.${model.graph.symbols[symbol][1]}`,
-              meta: `${counted(links(model, symbol), "link")}${model.graph.symbols[symbol][5] > 0 ? ` · ${model.graph.symbols[symbol][5]} unknown` : ""}`,
+              meta: `${counted(neighbors(model, symbol), "link")}${model.graph.symbols[symbol][5] > 0 ? ` · ${model.graph.symbols[symbol][5]} unknown` : ""}`,
             })}
             stub={(stub) => ({
-              href: viewHref(View.Module, stub.id),
-              name: fileOf(model, stub.id),
-              title: model.graph.modules[stub.id][0],
-              path: tailName(model.graph.modules[stub.id][0], 26),
+              href: viewHref(View.Module, Number(stub.ref)),
+              name: fileOf(model, Number(stub.ref)),
+              title: `${model.graph.modules[Number(stub.ref)][0]}: ${stub.proven + stub.claim} function links`,
+              path: tailName(model.graph.modules[Number(stub.ref)][0], 26),
             })}
           />
         ),
@@ -71,13 +71,15 @@ export function ModuleLevel(props: { model: Model; module: number; chat: ChatSta
         <FocusList
           focus={focus}
           title={focusName}
-          open={part !== null && part.stub === null ? { href: viewHref(View.Explore, part.id), label: `Open ${focusName} in the lens →` } : null}
-          rows={focusRows(model, layout, focus.key, (far) => {
-            const other = parseKey(far);
-            return other.stub === null
-              ? { name: shortName(model, other.id), href: viewHref(View.Explore, other.id), where: `${fileOf(model, module)}:${model.graph.symbols[other.id][2]}` }
-              : { name: fileOf(model, other.id), href: viewHref(View.Module, other.id), where: model.graph.modules[other.id][0] };
-          })}
+          open={part !== null && part.kind === KeyKind.Card ? { href: viewHref(View.Explore, Number(part.ref)), label: `Open ${focusName} in the lens →` } : null}
+          rows={
+            part !== null && part.kind === KeyKind.Card
+              ? functionRows(model, Number(part.ref), module)
+              : focusRows(model, layout, focus.key, (far) => {
+                  const other = parseKey(far);
+                  return { name: other.kind === KeyKind.Stub ? fileOf(model, Number(other.ref)) : `${other.ref}`, href: viewHref(View.Module, Number(other.ref)), where: model.graph.modules[Number(other.ref)]?.[0] ?? "" };
+                })
+          }
         />
       }
     />

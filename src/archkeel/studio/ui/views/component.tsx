@@ -2,8 +2,8 @@
 import { useMemo, useState } from "preact/hooks";
 import type { ChatState } from "../chat";
 import { View, viewHref } from "../components";
-import { layoutComponent, parseKey } from "../level-layout";
-import { Level, Model, counted, shortName } from "../model";
+import { KeyKind, layoutComponent, parseKey, splitRef } from "../level-layout";
+import { Level, Model, counted, shortName, tailName } from "../model";
 import { FocusList, LevelCanvas, Workbench, focusRows, useFocus } from "../workbench";
 
 /** The package one step up: `a.b` to `a`, a first package to the component. */
@@ -29,14 +29,27 @@ export function ComponentLevel(props: { model: Model; component: number; pkg: st
       meta: `${counted(model.members[module].length, "function")}${unknown > 0 ? ` · ${unknown} unknown` : ""}`,
     };
   };
-  const stubInfo = (other: number) => ({
-    href: viewHref(View.Component, other),
-    name: model.graph.components[other][0],
-    title: `${model.graph.components[other][0]}: ${model.graph.components[other][1]}`,
-    path: model.graph.components[other][1] || "component",
-  });
+  const stubInfo = (stub: { readonly ref: string; readonly proven: number; readonly claim: number }) => {
+    const { id: other, pkg: inner } = splitRef(stub.ref);
+    const label = model.graph.components[other][0];
+    return {
+      href: viewHref(View.Component, other, inner ?? undefined),
+      name: inner === null ? label : tailName(inner, 20),
+      title: `${inner === null ? label : `${label} › ${inner}`}: ${stub.proven + stub.claim} call sites`,
+      path: inner === null ? model.graph.components[other][1] || "component" : label,
+    };
+  };
   const part = focus.key === null ? null : parseKey(focus.key);
-  const focusName = part === null ? "" : part.stub === null ? fileOf(model, part.id) : model.graph.components[part.id][0];
+  const named = (key: string): { name: string; href: string; where: string } => {
+    const far = parseKey(key);
+    if (far.kind === KeyKind.Tile) return { name: `${far.ref}: more modules`, href: "#", where: "folded" };
+    if (far.kind === KeyKind.Card) {
+      return { name: fileOf(model, Number(far.ref)), href: viewHref(View.Module, Number(far.ref)), where: model.graph.modules[Number(far.ref)][0] };
+    }
+    const info = stubInfo({ ref: far.ref, proven: 0, claim: 0 });
+    return { name: info.name, href: info.href, where: info.path };
+  };
+  const focusName = part === null ? "" : part.kind === KeyKind.Card ? fileOf(model, Number(part.ref)) : part.kind === KeyKind.Stub ? named(focus.key as string).name : part.ref;
   return (
     <Workbench
       model={model}
@@ -71,7 +84,7 @@ export function ComponentLevel(props: { model: Model; component: number; pkg: st
             onOpen={(label) => setOpened(new Set([...opened, label]))}
             fnName={(symbol) => shortName(model, symbol)}
             card={cardInfo}
-            stub={(stub) => stubInfo(stub.id)}
+            stub={stubInfo}
           />
         ),
       }}
@@ -79,13 +92,8 @@ export function ComponentLevel(props: { model: Model; component: number; pkg: st
         <FocusList
           focus={focus}
           title={focusName}
-          open={part !== null && part.stub === null ? { href: viewHref(View.Module, part.id), label: `Open ${focusName} →` } : null}
-          rows={focusRows(model, layout, focus.key, (far) => {
-            const other = parseKey(far);
-            return other.stub === null
-              ? { name: fileOf(model, other.id), href: viewHref(View.Module, other.id), where: model.graph.modules[other.id][0] }
-              : { name: model.graph.components[other.id][0], href: viewHref(View.Component, other.id), where: "component" };
-          })}
+          open={part !== null && part.kind === KeyKind.Card ? { href: viewHref(View.Module, Number(part.ref)), label: `Open ${focusName} →` } : null}
+          rows={focusRows(model, layout, focus.key, named)}
         />
       }
     />

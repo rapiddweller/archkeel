@@ -4,8 +4,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/ho
 import { ChatPanel, ChatState } from "./chat";
 import { Box, ProofMark, View, viewHref } from "./components";
 import { Proof, proofKind, proofOf } from "./evidence";
-import { LevelBox, LevelLayout, LevelLink, LevelStub, cardKey, stubKey } from "./level-layout";
-import { makeRouter, roundedPath } from "./level-route";
+import { LevelBox, LevelLayout, LevelLink, LevelStub, cardKey, stubKey, tileKey } from "./level-layout";
+import { makeRouter, midOf, roundedPath } from "./level-route";
 import { Side } from "./lens-layout";
 import { Level, Model, Tally, Where, compact, fileName, fullName, opened, shortName, tailName } from "./model";
 import { SearchBox, StructureTree } from "./navigation";
@@ -249,6 +249,37 @@ export function linksOf(layout: LevelLayout, key: string | null): readonly { lin
     .map((link) => ({ link, other: link.a === key ? link.b : link.a, outgoing: link.a === key }));
 }
 
+const TIP_MS = 400;
+let tipTimer: number | undefined;
+let tipBox: HTMLDivElement | null = null;
+
+/** One tooltip for all cards: it comes after 400 ms, below the card, so it never covers the text it explains. */
+function showTip(card: Element, text: string): void {
+  window.clearTimeout(tipTimer);
+  tipTimer = window.setTimeout(() => {
+    if (tipBox === null) {
+      tipBox = document.createElement("div");
+      tipBox.className = "tip";
+      tipBox.setAttribute("role", "tooltip");
+      document.body.append(tipBox);
+    }
+    tipBox.textContent = text;
+    tipBox.hidden = false;
+    const box = card.getBoundingClientRect();
+    const below = box.bottom + 8;
+    const fits = below + tipBox.offsetHeight < innerHeight;
+    tipBox.style.left = `${Math.min(Math.max(8, box.left), innerWidth - tipBox.offsetWidth - 8)}px`;
+    tipBox.style.top = `${fits ? below : Math.max(8, box.top - tipBox.offsetHeight - 8)}px`;
+  }, TIP_MS);
+}
+
+function hideTip(): void {
+  window.clearTimeout(tipTimer);
+  if (tipBox !== null) tipBox.hidden = true;
+}
+
+const quiet = (): boolean => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 /** The drawing of the modules of a component or the functions of a module, with the stubs at its sides. Calm at rest. */
 export function LevelCanvas(props: {
   layout: LevelLayout;
@@ -269,7 +300,8 @@ export function LevelCanvas(props: {
   const boxes = useMemo(() => {
     const found = new Map<string, LevelBox>();
     layout.cards.forEach((card) => found.set(cardKey(level, card.index), card));
-    layout.stubs.forEach((stub) => found.set(stubKey(stub.side, stub.id), stub));
+    layout.tiles.forEach((tile) => found.set(tileKey(tile.label), tile));
+    layout.stubs.forEach((stub) => found.set(stubKey(stub.side, stub.ref), stub));
     return found;
   }, [layout, level]);
   const connected = linksOf(layout, focus.key);
@@ -287,36 +319,68 @@ export function LevelCanvas(props: {
   const headX = (side: Side): number => layout.stubs.find((stub) => stub.side === side)?.x ?? 0;
   const dim = (key: string): string => (focus.key === null || key === focus.key || near.has(key) ? "" : " dim");
   const names = (stub: LevelStub): string[] => {
-    const other = connected.find((item) => item.other === stubKey(stub.side, stub.id));
+    const other = connected.find((item) => item.other === stubKey(stub.side, stub.ref));
     if (other === undefined) return [];
     return [...new Set(other.link.pairs.map((pair) => props.fnName(stub.side === Side.In ? pair.source : pair.target)))];
   };
+  const calm = quiet();
+  const tip = (key: string, text: string) => ({
+    onMouseEnter: (event: MouseEvent) => {
+      focus.over(key);
+      if (event.currentTarget instanceof Element) showTip(event.currentTarget, text);
+    },
+    onMouseLeave: () => {
+      focus.over(null);
+      hideTip();
+    },
+    onFocus: () => focus.over(key),
+    onBlur: () => focus.over(null),
+  });
   return (
     <>
       {layout.plates.map((plate) => (
         <div key={plate.label} class={`plate ${props.plate} comp-${props.colour(0) % 10}`} style={place(plate)}>
-          <span title={plate.label}>{tailName(plate.label, 38)}</span>
+          <span>{tailName(plate.label, 38)}</span>
         </div>
       ))}
       <svg class="lines" width={layout.width} height={layout.height} aria-hidden="true">
+        {focus.key === null
+          ? layout.aggregates.map((line) => (
+              <g key={line.key} class="aggregate">
+                <path d={roundedPath(line.points)} />
+                <circle cx={line.points[line.points.length - 1][0]} cy={line.points[line.points.length - 1][1]} r="2.5" />
+              </g>
+            ))
+          : null}
         {lines.map(({ link, points }) => {
           const kind = link.claim > 0 ? "claim" : "proven";
-          const state = focus.line === null ? "" : focus.line === lineKey(link) ? " on" : " off";
+          const far = link.a === focus.key ? link.b : link.a;
+          const state = focus.line === null ? "" : focus.line === far ? " on" : " off";
           const d = roundedPath(points);
+          const first = points[0];
+          const last = points[points.length - 1];
+          const mid = midOf(points);
           return (
             <g key={lineKey(link)} class={`focus-line ${kind}${state}`}>
               <path class="halo" d={d} />
               <path class="stroke" d={d} data-points={points.map((point) => point.join(",")).join(" ")} />
+              <circle class="port" cx={first[0]} cy={first[1]} r="2.5" />
+              <circle class="port" cx={last[0]} cy={last[1]} r="2.5" />
+              {state === " off" ? null : calm ? (
+                <path class="chevron" d="M-3.5 -3.5 L2.5 0 L-3.5 3.5" transform={`translate(${mid.x} ${mid.y}) rotate(${mid.angle})`} />
+              ) : (
+                <circle class="flow" r="3" style={{ offsetPath: `path("${d}")` }} />
+              )}
             </g>
           );
         })}
       </svg>
       {layout.stubs.length > 0 ? (
         <>
-          <p class="head" style={{ left: `${headX(Side.In)}px`, top: "4px" }}>
+          <p class="head" style={{ left: `${headX(Side.In)}px`, top: "8px" }}>
             {props.headIn}
           </p>
-          <p class="head" style={{ left: `${headX(Side.Out)}px`, top: "4px" }}>
+          <p class="head" style={{ left: `${headX(Side.Out)}px`, top: "8px" }}>
             {props.headOut}
           </p>
         </>
@@ -331,8 +395,8 @@ export function LevelCanvas(props: {
             data-drill
             style={place(card)}
             href={info.href}
-            title={info.title}
             aria-pressed={focus.pinned === key}
+            aria-label={info.title}
             onClick={(event) => {
               // A click pins the focus; Enter (no pointer) and a double click open the card.
               if (event.detail === 0 || event.metaKey || event.ctrlKey) return;
@@ -340,39 +404,35 @@ export function LevelCanvas(props: {
               if (event.detail === 1) focus.pin(focus.pinned === key ? null : key);
               else location.hash = info.href;
             }}
-            onMouseEnter={() => focus.over(key)}
-            onMouseLeave={() => focus.over(null)}
-            onFocus={() => focus.over(key)}
-            onBlur={() => focus.over(null)}
+            {...tip(key, info.title)}
           >
             <b>{info.name}</b>
             <span class="meta">{info.meta}</span>
           </a>
         );
       })}
-      {layout.tiles.map((tile) => (
-        <button key={tile.label} type="button" class="lens-card tile" style={place(tile)} onClick={() => props.onOpen(tile.label)}>
-          <b title={tile.label}>{tailName(tile.label, 24)}</b>
-          <span class="meta">+{tile.hidden} more · open</span>
-        </button>
-      ))}
+      {layout.tiles.map((tile) => {
+        const key = tileKey(tile.label);
+        return (
+          <button
+            key={key}
+            type="button"
+            class={`lens-card tile${dim(key)}`}
+            style={place(tile)}
+            onClick={() => props.onOpen(tile.label)}
+            {...tip(key, `${tile.label}: ${tile.hidden} more, click to open`)}
+          >
+            <b>{tailName(tile.label, 24)}</b>
+            <span class="meta">+{tile.hidden} more · open</span>
+          </button>
+        );
+      })}
       {layout.stubs.map((stub) => {
         const info = props.stub(stub);
-        const key = stubKey(stub.side, stub.id);
+        const key = stubKey(stub.side, stub.ref);
         const chips = names(stub);
         return (
-          <a
-            key={key}
-            class={`lens-card stub ${stub.claim > 0 ? "claim" : "proven"}${dim(key)}`}
-            data-drill
-            style={place(stub)}
-            href={info.href}
-            title={info.title}
-            onMouseEnter={() => focus.over(key)}
-            onMouseLeave={() => focus.over(null)}
-            onFocus={() => focus.over(key)}
-            onBlur={() => focus.over(null)}
-          >
+          <a key={key} class={`lens-card stub ${stub.claim > 0 ? "claim" : "proven"}${dim(key)}`} data-drill style={place(stub)} href={info.href} aria-label={info.title} {...tip(key, info.title)}>
             <b>{info.name}</b>
             <span class="meta path">{info.path}</span>
             <span class="meta">
@@ -394,15 +454,25 @@ export function LevelCanvas(props: {
   );
 }
 
+export interface FocusItem {
+  readonly name: string;
+  readonly href: string;
+  readonly where: string;
+  readonly partial: boolean;
+  /** `calls`, `called by` or `both`: the caller is the one that the dots start from. */
+  readonly direction: string;
+}
 export interface FocusRow {
+  /** The key of the far end; a row lights its line by it. */
   readonly key: string;
   readonly name: string;
   readonly href: string;
   readonly where: string;
   readonly tally: Tally;
-  /** The functions on the other side: name, link to the lens, file and line. */
-  readonly items: readonly { readonly name: string; readonly href: string; readonly where: string; readonly partial: boolean }[];
-  readonly line: string;
+  /** The row is itself one neighbor function. */
+  readonly neighbor: boolean;
+  /** The functions on the other side. */
+  readonly items: readonly FocusItem[];
 }
 
 /** The side panel of a focus: each connected card with its module, file, line and proof; a row lights its line. */
@@ -411,7 +481,7 @@ export function FocusList(props: { focus: Focus; rows: readonly FocusRow[]; titl
   if (focus.key === null) {
     return (
       <Box title="Focus">
-        <p class="more">Hover a card to see its lines. Click it to pin them; Esc clears.</p>
+        <p class="more">Hover a card to see its lines. Click it to pin them; Esc clears. Dots show the direction of the call.</p>
       </Box>
     );
   }
@@ -424,33 +494,32 @@ export function FocusList(props: { focus: Focus; rows: readonly FocusRow[]; titl
           </a>
         </p>
       )}
+      <p class="more">Dots show the direction of the call: from the caller to the callee.</p>
       {props.rows.length === 0 ? <p class="more">No call to or from a card of this page.</p> : null}
       <ul class="pairs focus-rows">
-        {props.rows.map((row) => (
-          <li key={row.key} onMouseEnter={() => focus.light(row.line)} onMouseLeave={() => focus.light(null)}>
-            <a href={row.href}>{row.name}</a> <span class="where">{row.where}</span>
-            <br />
-            <Counts tally={row.tally} />
-            {row.items
-              .filter((item) => item.name !== row.name)
-              .slice(0, 6)
-              .map((item) => (
-              <span key={item.href + item.name} class="where item">
-                <br />
-                <ProofMark proof={proofOf(item.partial)} /> <a href={item.href}>{item.name}</a> {item.where}
-              </span>
-            ))}
-            {row.items.filter((item) => item.name !== row.name).length > 6 ? (
-              <span class="where"> +{row.items.filter((item) => item.name !== row.name).length - 6} more</span>
-            ) : null}
-          </li>
-        ))}
+        {props.rows.map((row) => {
+          const items = row.items.filter((item) => item.name !== row.name || !row.neighbor);
+          return (
+            <li key={row.key + row.name} data-neighbor={row.neighbor ? "" : undefined} onMouseEnter={() => focus.light(row.key)} onMouseLeave={() => focus.light(null)}>
+              <a href={row.href}>{row.name}</a> <span class="where">{row.where}</span>
+              <br />
+              <Counts tally={row.tally} />
+              {items.slice(0, 6).map((item) => (
+                <span key={item.href + item.name} class="where item" data-neighbor="">
+                  <br />
+                  <ProofMark proof={proofOf(item.partial)} /> <a href={item.href}>{item.name}</a> {item.direction} {item.where}
+                </span>
+              ))}
+              {items.length > 6 ? <span class="where"> +{items.length - 6} more</span> : null}
+            </li>
+          );
+        })}
       </ul>
     </Box>
   );
 }
 
-/** The rows of the side panel for a focused card: each connected card with the functions on the other side. */
+/** The rows of the side panel for a focused card or stub: each connected box with the functions on the other side. */
 export function focusRows(
   model: Model,
   layout: LevelLayout,
@@ -461,7 +530,7 @@ export function focusRows(
     key: far,
     ...other(far),
     tally: link,
-    line: lineKey(link),
+    neighbor: false,
     items: link.pairs.map((pair) => {
       const symbol = outgoing ? pair.target : pair.source;
       return {
@@ -469,7 +538,47 @@ export function focusRows(
         href: viewHref(View.Explore, symbol),
         where: `${fileName(model, symbol).split("/").pop()}:${model.graph.symbols[symbol][2]} · ${fullName(model, symbol)}`,
         partial: pair.partial,
+        direction: outgoing ? "called" : "calls it",
       };
     }),
   }));
+}
+
+/** The rows for a focused function: every distinct neighbor, those of this module one each, the others grouped by module. */
+export function functionRows(model: Model, symbol: number, module: number): FocusRow[] {
+  const found = new Map<number, { out: boolean; into: boolean; partial: boolean; line: number }>();
+  for (const link of model.outgoing[symbol]) found.set(link.other, { out: true, into: false, partial: link.partial, line: link.line });
+  for (const link of model.incoming[symbol]) {
+    const known = found.get(link.other);
+    found.set(link.other, { out: known?.out ?? false, into: true, partial: (known?.partial ?? false) || link.partial, line: known?.line ?? link.line });
+  }
+  const direction = (entry: { out: boolean; into: boolean }): string => (entry.out && entry.into ? "calls and is called by" : entry.out ? "is called by this" : "calls this");
+  const rows: FocusRow[] = [];
+  const groups = new Map<number, FocusItem[]>();
+  const tallies = new Map<number, { proven: number; claim: number }>();
+  for (const [other, entry] of found) {
+    const where = `${fileName(model, other).split("/").pop()}:${model.graph.symbols[other][2]}`;
+    const home = model.graph.symbols[other][0];
+    const item: FocusItem = { name: shortName(model, other), href: viewHref(View.Explore, other), where, partial: entry.partial, direction: direction(entry) };
+    if (home === module) {
+      rows.push({ key: cardKey(Level.Function, other), name: item.name, href: item.href, where: `${item.direction} · ${where}`, tally: entry.partial ? { proven: 0, claim: 1 } : { proven: 1, claim: 0 }, neighbor: true, items: [] });
+    } else {
+      groups.set(home, [...(groups.get(home) ?? []), item]);
+      const now = tallies.get(home) ?? { proven: 0, claim: 0 };
+      tallies.set(home, { proven: now.proven + (entry.partial ? 0 : 1), claim: now.claim + (entry.partial ? 1 : 0) });
+    }
+  }
+  groups.forEach((items, home) => {
+    const side = items.some((item) => item.direction !== "is called by this") ? Side.In : Side.Out;
+    rows.push({
+      key: stubKey(side, `${home}`),
+      name: model.graph.modules[home][1].split("/").pop() ?? "",
+      href: viewHref(View.Module, home),
+      where: model.graph.modules[home][0],
+      tally: tallies.get(home) as Tally,
+      neighbor: false,
+      items,
+    });
+  });
+  return rows;
 }
