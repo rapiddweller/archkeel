@@ -196,24 +196,37 @@ printed URL carries a token for this run; a request without it gets 403. At star
 `archkeel explore` on the root into a private folder of this run below the explore cache.
 Overview shows the progress. When the snapshot is done, Studio opens on the Map:
 
-- **Map**: the components as a dependency graph of the measured calls. Three bands, by net call
-  flow: callers on the left, foundations on the right. A line is the sum of the call sites between
-  two components; its width grows with the logarithm of the count. A line is `proven` only when
-  it holds no claim; a line with a claim is dotted and shows both counts, for example
-  `3 ✓ proven · 2 ✎ claim`. A call site counts once, also when a partly resolved call has two
-  candidate targets. The header says where the components come from: `declared by the contract`
-  (the first `responsibilities` entry shows on the card) or `observed package layout` (the
-  top-level packages of the explore layout; also when the contract does not load). A click on a
-  line or a count lists the calls behind it; a click on a card opens the lens at its busiest
-  function.
-- **Explore**: the lens around one function: callers on the left, callees on the right, unknown
-  calls below, one hop. Cards of one module share a plate. A large neighborhood folds into
-  package groups. The structure tree, the location bar (component, package, module file,
-  function) and the search (Cmd/Ctrl+K) show where you are. Drag pans, the wheel zooms, Fit
-  fits. Module-level calls are not shown, so "Called by 0" is no proof of no caller. A call to a
-  target outside the scan (for example the standard library) is counted apart: it is neither
-  an edge nor unknown. The unknown count of a function is the true count; the lens lists the
-  first 4.
+- **Four levels.** The URL names the level. Each level has the same page: a location bar,
+  a toolbar, a canvas, a structure tree and a side panel that starts with "You are here" (name,
+  counts, what a card means) and an Up link. The location bar shows the architecture, the
+  component, its packages, the module file and the function; each part is a link that goes up
+  to its level. Esc goes one level up, Enter opens the focused card. A drill zooms in from the
+  clicked card (250 ms; none with reduced motion), going up zooms out.
+  - **Map** (`#/map`): the components as a dependency graph of the measured calls. Three bands,
+    by net call flow: callers on the left, foundations on the right. A line is the sum of the call
+    sites between two components; its width grows with the logarithm of the count. A line is
+    `proven` only when it holds no claim; a line with a claim is dotted and shows both counts, for
+    example `3 ✓ proven · 2 ✎ claim`. A call site counts once, also when a partly resolved call
+    has two candidate targets. The header says where the components come from: `declared by the
+    contract` (the first `responsibilities` entry shows on the card) or `observed package layout`
+    (the top-level packages of the explore layout; also when the contract does not load). A click
+    on a line or a count lists the calls behind it; a click on a card opens the component.
+  - **Component** (`#/component/<n>`, also `/<package>`): the modules of the component as cards on
+    plates by package, with the call lines between modules (proven and claim counts). Stubs at the
+    sides are the other components that call into it (left) and that it calls (right), each with
+    its count; a click on a stub opens that component. A click on a module card opens the module.
+  - **Module** (`#/module/<n>`): the functions of the module as cards, the calls between them, and
+    the other modules that call in or are called as stubs, grouped by module. A click on a function
+    opens the lens.
+  - **Explore** (`#/explore/<function>`): the lens around one function: callers on the left,
+    callees on the right, unknown calls below, one hop. Cards of one module share a plate. A
+    large neighborhood folds into package groups. The search (Cmd/Ctrl+K) opens the lens at any
+    function. Drag pans, the wheel zooms, Fit fits. Module-level calls are not shown, so "Called
+    by 0" is no proof of no caller. A call to a target outside the scan (for example the standard
+    library) is counted apart: it is neither an edge nor unknown. The unknown count of a function
+    is the true count; the lens lists the first 4.
+  A card never shows text across its border: a long name ends in "…" and the full text is in the
+  tooltip and the side panel.
 - **Stories**: the player of a checked story ([AD-291](architecture/decisions/ad-291-a-story-is-a-checked-view-and-the-trace-proposes-its-path.md)).
   A spec is a `*.story.json` file in the `stories` folder below the explore cache folder of the
   root. Studio runs `archkeel view check` on it against the snapshot of the run. Each step is a
@@ -226,7 +239,8 @@ Overview shows the progress. When the snapshot is done, Studio opens on the Map:
   (agent text), `◌ PROPOSED - NOT APPLIED` and `✓ OBSERVED` (made by Studio from the snapshot).
   A reference opens the lens. "Pin to story" shows a draft spec of the traced path; Studio
   writes no file.
-- **Report**: the Explorer page of `archkeel explore`.
+- **Static report** (a link at the bottom of the navigation): the Explorer page of `archkeel explore`,
+  the artifact that CI and Pages publish. It keeps its own look, so it is not part of the workspace.
 
 A call has one of three statuses, each with a glyph and a word: `✓ proven` (resolved call),
 `✎ claim` (partly resolved call), `? unknown` (no target found). Studio shows no verdict and no

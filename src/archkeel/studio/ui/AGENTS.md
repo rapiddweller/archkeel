@@ -9,11 +9,12 @@ Rules for the Studio frontend (AD-290). They add to the root [AGENTS.md](../../.
 | File | Owner | Job |
 |---|---|---|
 | `shell.tsx` | shell | Entry. Starts the store, routes by `#/<view>[/<function>]`, draws nav, legends, contract state. |
-| `views/*.tsx` | views | One page each: Overview, Map, Explore (the lens), Stories (list and player), Report, not built. Gets the state or the model as props. |
+| `views/*.tsx` | views | One page each: Overview, Map, Component, Module, Explore (the lens), Stories (list and player), Report, not built. Gets the state or the model as props. |
+| `workbench.tsx` | workbench | The page of every level: toolbar, tree, canvas, the "You are here" box with Up, the zoom between levels, and the drawing of modules or functions with their stubs. |
 | `chat.tsx` | chat | The chat panel and the one conversation (the shell keeps it). Agent text is a claim; only Studio facts read OBSERVED. |
 | `components.tsx`, `viewport.tsx` | components | Nav item, legends, proof mark, badge, tabs, card, box, panel, page frame, pan and zoom surface. Props only. |
-| `navigation.tsx` | navigation | The structure tree, the location bar and the search field. Props only. |
-| `model.ts`, `map-layout.ts`, `lens-layout.ts`, `story-layout.ts` | model | The indexed call graph, the search and the layouts of the Map, the lens and a story. Pure: no DOM, no network. |
+| `navigation.tsx` | navigation | The structure tree, the one location bar (links that go up) and the search field. Props only. |
+| `model.ts`, `map-layout.ts`, `lens-layout.ts`, `story-layout.ts`, `level-layout.ts` | model | The indexed call graph, the search and the layouts of the Map, the component, the module, the lens and a story. Pure: no DOM, no network. |
 | `canvas.tsx` | canvas | The Explorer island: the Explorer page with `?embed`; passes on its selection. |
 | `store.ts` | store | The one store: polls `GET /api/v1/state`, then reads `GET /api/v1/graph` once and builds the model. |
 | `api.ts` | client | The only `fetch`. Types of `schema/studio-api-1.1.schema.json`. |
@@ -75,7 +76,7 @@ Planned Figma part: discussion message (PROPOSED - NOT APPLIED). Build it when a
   = no target found. Always draw the glyph and the word, never a colour alone. Never show PASS.
   A line is `proven` only with no claim in it. Count call sites, never edges (`site` of an edge).
   No arrow encodes data flow: a line is a dependency, and the band says who calls whom.
-- The lens target is the URL hash (`#/explore/<function index>`); a card is a link, so the
+- The levels are the URL hash: `#/map`, `#/component/<n>[/<package>]`, `#/module/<n>`, `#/explore/<function index>`. Esc goes one level up; a card is a link, so the
   browser Back button works and no view imports another view. Colours come from `tokens.css`,
   also for the components (`--comp-0` to `--comp-9`). The CSP blocks inline style attributes:
   set styles through Preact `style` objects and CSS classes.

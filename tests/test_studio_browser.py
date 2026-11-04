@@ -130,7 +130,7 @@ def _check_the_levels(page, width: int, height: int) -> None:
     page.get_by_role("navigation", name="Location").locator("b", has_text="store").wait_for()
     assert _where(page) == (["Architecture"], "store")
     page.keyboard.press("Escape")
-    page.wait_for_url("**/#/map")
+    page.get_by_role("navigation", name="Location").locator("b", has_text="Architecture").wait_for()
     assert _where(page) == ([], "Architecture")
     assert transition() == "out"
     page.locator(".map-card", has_text="app").click()
